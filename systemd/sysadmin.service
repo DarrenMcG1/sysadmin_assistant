@@ -1,0 +1,24 @@
+[Unit]
+Description=SysAdmin Infrastructure Monitoring Service
+After=network.target postgresql.service ollama.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=gaddi
+Group=gaddi
+WorkingDirectory=/home/gaddi/projects/sysadmin_assistant
+Environment=PATH=/home/gaddi/projects/sysadmin_assistant/.venv/bin:/usr/local/bin:/usr/bin
+ExecStart=/home/gaddi/projects/sysadmin_assistant/.venv/bin/uvicorn sysadmin.main:app --host 127.0.0.1 --port 8500 --workers 1
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sysadmin-service
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=25%
+
+[Install]
+WantedBy=multi-user.target
