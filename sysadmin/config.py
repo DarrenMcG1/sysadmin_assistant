@@ -1,10 +1,13 @@
 """Configuration loader — YAML file validated through Pydantic models."""
 
+import logging
 from pathlib import Path
 from typing import Optional
 
 import yaml
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 # --- Nested config sections ---
@@ -110,6 +113,76 @@ class LogAggregatorConfig(BaseModel):
     summarise_with_llm: bool = True
 
 
+# --- Managed projects (projects.yaml) ---
+
+
+class ProjectEndpointLog(BaseModel):
+    """Log source config for a project endpoint."""
+
+    type: str = "journalctl"
+    unit: str | None = None
+    path: str | None = None
+    severity_filter: str = "warning"
+
+
+class ProjectEndpoint(BaseModel):
+    """A backend or frontend endpoint within a managed project."""
+
+    url: str | None = None
+    port: int | None = None
+    systemd_unit: str | None = None
+    log: ProjectEndpointLog | None = None
+
+
+class ManagedProject(BaseModel):
+    """A project with associated endpoints and metadata."""
+
+    name: str
+    path: str | None = None
+    backend: ProjectEndpoint | None = None
+    frontend: ProjectEndpoint | None = None
+
+    def to_monitored_services(self) -> list[MonitoredService]:
+        """Generate MonitoredService entries for health checking."""
+        services = []
+        if self.backend and self.backend.url:
+            services.append(MonitoredService(
+                name=self.name,
+                type="http",
+                url=self.backend.url,
+                systemd_unit=self.backend.systemd_unit,
+            ))
+        if self.frontend and self.frontend.url:
+            services.append(MonitoredService(
+                name=f"{self.name}-frontend",
+                type="http",
+                url=self.frontend.url,
+                systemd_unit=self.frontend.systemd_unit,
+            ))
+        return services
+
+    def to_log_sources(self) -> list[LogSource]:
+        """Generate LogSource entries for log aggregation."""
+        sources = []
+        for label, endpoint in [("backend", self.backend), ("frontend", self.frontend)]:
+            if endpoint and endpoint.log:
+                log = endpoint.log
+                sources.append(LogSource(
+                    name=self.name if label == "backend" else f"{self.name}-{label}",
+                    type=log.type,
+                    unit=log.unit,
+                    path=log.path,
+                    severity_filter=log.severity_filter,
+                ))
+        return sources
+
+
+class ProjectsConfig(BaseModel):
+    """Root model for projects.yaml."""
+
+    projects: list[ManagedProject] = Field(default_factory=list)
+
+
 class AgentsConfig(BaseModel):
     sysadmin: SysAdminAgentConfig = Field(default_factory=SysAdminAgentConfig)
     project_organiser: ProjectOrganiserConfig = Field(default_factory=ProjectOrganiserConfig)
@@ -126,6 +199,39 @@ class AppConfig(BaseModel):
     personal_assistant: PersonalAssistantConfig = Field(default_factory=PersonalAssistantConfig)
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
+    projects: ProjectsConfig = Field(default_factory=ProjectsConfig, exclude=True)
+
+
+# --- Merge logic ---
+
+
+def _merge_projects_config(config: AppConfig, projects_path: Path) -> None:
+    """Load projects.yaml and inject entries into agent configs."""
+    if not projects_path.exists():
+        return  # Backward-compatible: no projects.yaml is fine
+
+    try:
+        with open(projects_path) as f:
+            raw = yaml.safe_load(f) or {}
+
+        config.projects = ProjectsConfig.model_validate(raw)
+    except Exception:
+        logger.warning("failed to load %s, skipping", projects_path, exc_info=True)
+        return
+
+    existing_svc_names = {s.name for s in config.agents.sysadmin.services}
+    existing_src_names = {s.name for s in config.agents.log_aggregator.sources}
+
+    for project in config.projects.projects:
+        for svc in project.to_monitored_services():
+            if svc.name not in existing_svc_names:
+                config.agents.sysadmin.services.append(svc)
+                existing_svc_names.add(svc.name)
+
+        for src in project.to_log_sources():
+            if src.name not in existing_src_names:
+                config.agents.log_aggregator.sources.append(src)
+                existing_src_names.add(src.name)
 
 
 # --- Singleton loader ---
@@ -147,6 +253,11 @@ def load_config(config_path: Optional[Path] = None) -> AppConfig:
         raw = yaml.safe_load(f)
 
     _config = AppConfig.model_validate(raw or {})
+
+    # Merge projects.yaml (sibling of config.yaml)
+    projects_path = config_path.parent / "projects.yaml"
+    _merge_projects_config(_config, projects_path)
+
     return _config
 
 

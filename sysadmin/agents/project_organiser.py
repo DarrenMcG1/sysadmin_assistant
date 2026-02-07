@@ -49,6 +49,16 @@ class ProjectOrganiserAgent(BaseAgent):
 
         # Discover projects
         projects = await asyncio.to_thread(self._discover_projects, projects_root)
+
+        # Include explicit project paths from projects.yaml
+        if config.projects and config.projects.projects:
+            discovered_set = set(projects)
+            for mp in config.projects.projects:
+                if mp.path:
+                    p = Path(mp.path)
+                    if p.exists() and p not in discovered_set:
+                        projects.append(p)
+
         alerts_raised = 0
 
         for project_path in projects:

@@ -25,14 +25,6 @@ agents:
     enabled: true
     health_check_interval_seconds: 300
     services:
-      - name: personal-assistant
-        type: http
-        url: http://localhost:8000/health
-        systemd_unit: personal-assistant.service
-      - name: nuxt-frontend
-        type: http
-        url: http://localhost:3000
-        systemd_unit: null
       - name: postgresql
         type: systemd
         systemd_unit: postgresql.service
@@ -90,10 +82,6 @@ agents:
     enabled: true
     poll_interval_seconds: 60
     sources:
-      - name: personal-assistant
-        type: journalctl
-        unit: personal-assistant.service
-        severity_filter: warning
       - name: postgresql
         type: journalctl
         unit: postgresql.service
@@ -102,9 +90,13 @@ agents:
         type: journalctl
         unit: ollama.service
         severity_filter: warning
-      - name: fastapi-app
-        type: file
-        path: /home/gaddi/projects/MCP/logs/app.log
-        severity_filter: warning
     retention_days: 30
     summarise_with_llm: true
+
+tray:
+  status_poll_seconds: 10
+  resource_poll_seconds: 30
+  alert_poll_seconds: 65
+  show_notifications: true
+  notify_min_severity: critical
+  dashboard_url: null

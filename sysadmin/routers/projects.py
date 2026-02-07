@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sysadmin.config import get_config
 from sysadmin.database import get_db_session
 from sysadmin.models.project_snapshot import ProjectSnapshot
+from sysadmin.models.service_health import ServiceHealth
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -152,6 +154,85 @@ async def get_projects_report(session: AsyncSession = Depends(get_db_session)):
         lines.append("")
 
     return {"report": "\n".join(lines)}
+
+
+@router.get("/managed")
+async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
+    """List projects from projects.yaml with live service health status."""
+    config = get_config()
+    managed = config.projects.projects
+
+    # Fetch latest health check per service
+    latest_health_subq = (
+        select(
+            ServiceHealth.service_name,
+            func.max(ServiceHealth.checked_at).label("max_checked"),
+        )
+        .group_by(ServiceHealth.service_name)
+        .subquery()
+    )
+    health_query = (
+        select(ServiceHealth)
+        .join(
+            latest_health_subq,
+            (ServiceHealth.service_name == latest_health_subq.c.service_name)
+            & (ServiceHealth.checked_at == latest_health_subq.c.max_checked),
+        )
+    )
+    result = await session.execute(health_query)
+    health_map = {r.service_name: r for r in result.scalars().all()}
+
+    # Fetch latest project snapshot per project
+    latest_snap_subq = (
+        select(
+            ProjectSnapshot.project_name,
+            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
+        )
+        .group_by(ProjectSnapshot.project_name)
+        .subquery()
+    )
+    snap_query = (
+        select(ProjectSnapshot)
+        .join(
+            latest_snap_subq,
+            (ProjectSnapshot.project_name == latest_snap_subq.c.project_name)
+            & (ProjectSnapshot.scanned_at == latest_snap_subq.c.max_scanned),
+        )
+    )
+    snap_result = await session.execute(snap_query)
+    snap_map = {r.project_name: r for r in snap_result.scalars().all()}
+
+    projects_out = []
+    for mp in managed:
+        svc_entries = mp.to_monitored_services()
+        services = []
+        all_healthy = True
+        for svc in svc_entries:
+            h = health_map.get(svc.name)
+            entry = {"name": svc.name, "status": h.status if h else "unknown"}
+            if h and h.response_time_ms is not None:
+                entry["response_time_ms"] = h.response_time_ms
+            services.append(entry)
+            if not h or h.status != "ok":
+                all_healthy = False
+
+        snap = snap_map.get(mp.name)
+        project_health = None
+        if snap:
+            project_health = {
+                "health_score": snap.health_score,
+                "scanned_at": snap.scanned_at.isoformat() if snap.scanned_at else None,
+            }
+
+        projects_out.append({
+            "name": mp.name,
+            "path": mp.path,
+            "services": services,
+            "project_health": project_health,
+            "all_services_healthy": all_healthy if services else None,
+        })
+
+    return {"projects": projects_out, "count": len(projects_out)}
 
 
 @router.get("/{name}")
