@@ -14,7 +14,7 @@ _Capture ideas here as they come up. Promote to tasks.md when ready to implement
 
 ### High Priority
 
-- **KDE System Tray App** — Desktop tray icon with popup stats window. Shows service health at a glance (green/amber/red), CPU/RAM/disk gauges, active alert count. Includes a dev instance manager to start/stop/restart monitored services without opening a terminal. Uses KDE desktop notifications (D-Bus) for critical alerts. Could be PyQt6/PySide6 polling the sysadmin API, packaged as `sysadmin-tray` or an optional `[tray]` extra. The API is already there — this is purely a frontend/UX layer.
+- ~~**KDE System Tray App**~~ — **Phase 2 implemented** (Session 9). Phase 3 remaining: dev instance manager (start/stop/restart services from tray).
 
 ### Nice to Have
 

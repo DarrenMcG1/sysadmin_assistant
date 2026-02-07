@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Name=SysAdmin Tray
+Comment=System tray monitor for sysadmin-service
+Exec=/home/gaddi/projects/sysadmin_assistant/.venv/bin/sysadmin-tray
+Terminal=false
+Type=Application
+Icon=utilities-system-monitor
+Categories=System;Monitor;
+X-KDE-autostart-phase=2
+X-KDE-StartupNotify=false

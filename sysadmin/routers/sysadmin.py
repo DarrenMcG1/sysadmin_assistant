@@ -1,17 +1,20 @@
 """SysAdmin API endpoints — service status, resources, alerts, ports."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func, desc
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.agents.sysadmin_agent import SysAdminAgent
+from sysadmin.config import get_config
 from sysadmin.database import get_db_session
 from sysadmin.models.alert import Alert
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
 from sysadmin.services.briefing import generate_briefing_data
+from sysadmin.utils.systemd import restart_unit, start_unit, stop_unit
 
 router = APIRouter(prefix="/api/sysadmin", tags=["sysadmin"])
 
@@ -42,6 +45,13 @@ async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
     result = await session.execute(query)
     rows = result.scalars().all()
 
+    # Map service name → systemd_unit from config
+    config = get_config()
+    unit_map = {
+        s.name: s.systemd_unit
+        for s in config.agents.sysadmin.services
+    }
+
     return {
         "services": [
             {
@@ -50,6 +60,7 @@ async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
                 "response_time_ms": r.response_time_ms,
                 "details": r.details,
                 "checked_at": r.checked_at.isoformat() if r.checked_at else None,
+                "systemd_unit": unit_map.get(r.service_name),
             }
             for r in rows
         ],
@@ -85,6 +96,37 @@ async def get_service_status(
             for r in rows
         ],
     }
+
+
+_ACTION_FNS = {
+    "restart": restart_unit,
+    "start": start_unit,
+    "stop": stop_unit,
+}
+
+
+@router.post("/services/{service_name}/{action}")
+async def service_action(
+    service_name: str,
+    action: Literal["restart", "start", "stop"],
+):
+    """Restart, start, or stop a monitored service via systemd."""
+    config = get_config()
+    svc_map = {s.name: s for s in config.agents.sysadmin.services}
+
+    if service_name not in svc_map:
+        raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found")
+
+    unit = svc_map[service_name].systemd_unit
+    if not unit:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Service '{service_name}' has no systemd_unit configured",
+        )
+
+    fn = _ACTION_FNS[action]
+    success, message = await fn(unit)
+    return {"success": success, "message": message}
 
 
 @router.get("/resources")
@@ -129,7 +171,7 @@ async def get_resource_history(
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get resource snapshot history for the given time window."""
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
 
     query = (
         select(ResourceSnapshot)
@@ -201,7 +243,7 @@ async def acknowledge_alert(
         return {"error": "Alert not found"}, 404
 
     alert.acknowledged = True
-    alert.acknowledged_at = datetime.now(timezone.utc)
+    alert.acknowledged_at = datetime.now(UTC)
     return {"status": "acknowledged", "id": str(alert.id)}
 
 

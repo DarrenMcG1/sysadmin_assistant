@@ -40,3 +40,33 @@ async def get_unit_status(unit: str) -> dict:
 
     result["is_active"] = result.get("ActiveState") == "active"
     return result
+
+
+async def _control_unit(action: str, unit: str) -> tuple[bool, str]:
+    """Run ``systemctl <action> <unit>`` and return (success, message)."""
+    proc = await asyncio.create_subprocess_exec(
+        "systemctl", action, unit,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode == 0:
+        return True, "ok"
+    msg = stderr.decode().strip() or f"systemctl {action} exited with code {proc.returncode}"
+    logger.warning("systemctl %s %s failed: %s", action, unit, msg)
+    return False, msg
+
+
+async def restart_unit(unit: str) -> tuple[bool, str]:
+    """Restart a systemd unit.  Returns (success, message)."""
+    return await _control_unit("restart", unit)
+
+
+async def start_unit(unit: str) -> tuple[bool, str]:
+    """Start a systemd unit.  Returns (success, message)."""
+    return await _control_unit("start", unit)
+
+
+async def stop_unit(unit: str) -> tuple[bool, str]:
+    """Stop a systemd unit.  Returns (success, message)."""
+    return await _control_unit("stop", unit)

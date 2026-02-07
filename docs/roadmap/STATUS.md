@@ -1,7 +1,7 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-02-06
-**Current Phase:** Core service fully implemented — all 4 agents, API, scheduler, DB
+**Last Updated**: 2026-02-07
+**Current Phase:** Core service + KDE tray app Phase 1 complete
 
 ---
 
@@ -15,7 +15,8 @@
 | Agents | 🟢 Complete | SysAdmin, Project Organiser, File Organiser, Log Aggregator |
 | Scheduler | 🟢 Complete | APScheduler with interval + cron jobs |
 | systemd | 🟢 Complete | Unit file + install scripts |
-| Testing | 🟡 Planned | Test suite needed |
+| KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + notifications, 70 tests |
+| Testing | 🟡 Planned | Backend test suite needed |
 | Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
 
 ---
@@ -62,6 +63,22 @@
   - Full integration of all agents into main.py
   - scan-all trigger endpoint
   - CORS + error handling middleware
+
+- **Session 8**: KDE System Tray App — Phase 1
+  - `sysadmin_tray/` sub-package (11 source files)
+  - Tray icon with green/amber/red/grey state (programmatic QPainter)
+  - Threaded API client (QThread + httpx, no async)
+  - Frameless popup: CPU/RAM/disk gauges, alert badges, action bar
+  - Config layering: reads shared config.yaml + CLI overrides
+  - 39 unit tests (config, models, client mocking, icon state)
+  - `pip install -e ".[tray]"` + `python -m sysadmin_tray` entry point
+
+- **Session 9**: KDE System Tray App — Phase 2
+  - Service status grid in popup (coloured dots, name, status, response time)
+  - Dynamic row add/remove as services appear/disappear
+  - KDE desktop notifications via `QSystemTrayIcon.showMessage()`
+  - Dedup by alert ID, severity threshold filtering, configurable via `notify_min_severity`
+  - 31 new tests (13 grid + 16 notifications + 2 config) → 70 total tray tests
 
 ---
 

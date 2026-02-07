@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-02-06
+> **Last Updated**: 2026-02-07
 
 ---
 
@@ -15,6 +15,23 @@ _No active sessions._
 ---
 
 ## Completed Sessions
+
+### Session 8: KDE System Tray App — Phase 1
+
+**Status**: 🟢 Complete
+**Branch**: `main`
+
+- [x] pyproject.toml: `[tray]` optional extra, console script, packages list
+- [x] `sysadmin_tray/__init__.py`, `__main__.py` — package skeleton
+- [x] `sysadmin_tray/config.py` — TrayConfig (Pydantic), YAML + CLI layering
+- [x] `sysadmin_tray/models.py` — Dataclasses for API responses + `compute_icon_state()`
+- [x] `sysadmin_tray/client.py` — ApiClient + ApiWorker (QThread + httpx polling)
+- [x] `sysadmin_tray/tray_icon.py` — QSystemTrayIcon, programmatic icons, context menu
+- [x] `sysadmin_tray/widgets/` — ResourceGauge, AlertBadge, ActionBar
+- [x] `sysadmin_tray/popup.py` — Frameless stats popup with click-outside dismissal
+- [x] `sysadmin_tray/app.py` — Orchestrator (timers, signal wiring, entry point)
+- [x] `tests/test_tray/` — 39 unit tests (config, models, client, icon state)
+- [x] `config.yaml` — Added `tray:` section with poll intervals
 
 ### Session 1-7: Full Service Implementation
 
@@ -61,12 +78,12 @@ _No active sessions._
 - [ ] `tests/test_retention.py` — Verify purge logic respects retention days, keeps latest per entity
 - [ ] `tests/test_routers.py` — Integration tests for key endpoints (status, resources, projects/overview)
 
-### KDE System Tray App (Feature)
-- [ ] Desktop tray icon for KDE Plasma — persistent indicator showing service health at a glance
-- [ ] Popup stats window — CPU/RAM/disk gauges, service status grid, active alerts count
-- [ ] Dev instance manager — start/stop/restart monitored services (PA, Ollama, etc.) from the tray popup
-- [ ] Alert notifications — KDE desktop notifications on critical alerts (via D-Bus `org.freedesktop.Notifications`)
-- [ ] Tech: Python + PyQt6 or PySide6 for the tray/popup, polling the sysadmin API (`localhost:8500`). Separate package (`sysadmin-tray`) or optional `[tray]` extra dependency
+### KDE System Tray App — Phase 2+ (Feature)
+- [x] Desktop tray icon for KDE Plasma — persistent indicator showing service health at a glance
+- [x] Popup stats window — CPU/RAM/disk gauges, active alerts count, scan trigger
+- [x] Service status grid in popup (Phase 2)
+- [x] KDE desktop notifications on critical alerts (Phase 2)
+- [ ] Dev instance manager — start/stop/restart monitored services from tray popup (Phase 3)
 
 ### Polish
 - [ ] Structured JSON logging (for systemd journal)
