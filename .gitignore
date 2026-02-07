@@ -9,3 +9,5 @@ build/
 .pytest_cache/
 *.log
 .env
+.claude/
+docs/insights/.session-log
