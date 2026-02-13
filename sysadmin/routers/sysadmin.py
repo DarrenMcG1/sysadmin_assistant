@@ -14,7 +14,7 @@ from sysadmin.models.alert import Alert
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
 from sysadmin.services.briefing import generate_briefing_data
-from sysadmin.utils.systemd import restart_unit, start_unit, stop_unit
+from sysadmin.utils.systemd import get_unit_status, restart_unit, start_unit, stop_unit
 
 router = APIRouter(prefix="/api/sysadmin", tags=["sysadmin"])
 
@@ -96,6 +96,25 @@ async def get_service_status(
             for r in rows
         ],
     }
+
+
+@router.get("/services/{service_name}/details")
+async def get_service_details(service_name: str):
+    """Get detailed systemd unit status for a monitored service."""
+    config = get_config()
+    svc_map = {s.name: s for s in config.agents.sysadmin.services}
+
+    if service_name not in svc_map:
+        raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found")
+
+    unit = svc_map[service_name].systemd_unit
+    if not unit:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Service '{service_name}' has no systemd_unit configured",
+        )
+
+    return await get_unit_status(unit)
 
 
 _ACTION_FNS = {

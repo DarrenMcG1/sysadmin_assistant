@@ -1,8 +1,9 @@
-"""Tests for desktop notification logic in TrayIcon.
+"""Tests for desktop notification logic in TrayIcon and DbusNotifier.
 
-Critical alerts are routed to the persistent dialog via
-``critical_alerts_changed`` signal — they no longer call ``showMessage()``.
-Warning/info alerts still use ``showMessage()`` toasts.
+All alert severities above threshold are sent via ``DbusNotifier`` when
+available, falling back to ``showMessage()`` toasts.  Deduplication is
+by content fingerprint (severity:title) so repeated backend rows for the
+same logical alert only fire one notification.
 """
 
 from unittest.mock import MagicMock, patch
@@ -11,6 +12,7 @@ import pytest
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
 from sysadmin_tray.models import AlertInfo, AlertsResponse
+from sysadmin_tray.notifications import DbusNotifier
 from sysadmin_tray.tray_icon import TrayIcon
 
 
@@ -30,84 +32,64 @@ def _make_alerts(*items: tuple[str, str, str]) -> AlertsResponse:
     return AlertsResponse(alerts=alerts, count=len(alerts))
 
 
-# ── Critical alerts → signal (not toast) ──────────────────────────
+def _make_service_alert(
+    aid: str, severity: str, title: str, service_name: str,
+) -> AlertInfo:
+    """Build an AlertInfo with service_name in details."""
+    return AlertInfo(
+        id=aid, severity=severity, title=title,
+        details={"service_name": service_name},
+    )
 
 
-class TestCriticalAlertSignal:
-    """Critical alerts emit critical_alerts_changed instead of showMessage."""
+# ── Critical alerts → D-Bus notification ─────────────────────────
 
-    def test_critical_alert_emits_signal_not_toast(self, qapp):
+
+class TestCriticalAlertNotification:
+    """Critical alerts fire D-Bus / showMessage notifications."""
+
+    def test_critical_alert_fires_notification(self, qapp):
         tray = TrayIcon()
         tray.set_notification_config(enabled=True, min_severity="critical")
-
-        handler = MagicMock()
-        tray.critical_alerts_changed.connect(handler)
 
         with patch.object(tray, "showMessage") as mock_show:
             alerts = _make_alerts(("a1", "critical", "Disk full"))
             tray.update_from_alerts(alerts)
+            mock_show.assert_called_once()
+            assert "CRITICAL" in mock_show.call_args[0][0]
 
-            # showMessage NOT called for criticals
-            mock_show.assert_not_called()
-            # Signal emitted with list of unacked criticals
-            handler.assert_called_once()
-            emitted = handler.call_args[0][0]
-            assert len(emitted) == 1
-            assert emitted[0].id == "a1"
-
-    def test_critical_signal_carries_all_unacked_criticals(self, qapp):
+    def test_critical_with_service_name_passes_to_notifier(self, qapp):
         tray = TrayIcon()
         tray.set_notification_config(enabled=True, min_severity="critical")
 
-        handler = MagicMock()
-        tray.critical_alerts_changed.connect(handler)
+        notifier = MagicMock(spec=DbusNotifier)
+        tray.set_notifier(notifier)
 
-        alerts = _make_alerts(
-            ("a1", "critical", "Disk full"),
-            ("a2", "critical", "CPU spike"),
-        )
-        tray.update_from_alerts(alerts)
-
-        emitted = handler.call_args[0][0]
-        assert len(emitted) == 2
-
-    def test_critical_dedup_still_emits_signal(self, qapp):
-        """Same critical seen twice: signal still emitted (dialog needs full list)."""
-        tray = TrayIcon()
-        tray.set_notification_config(enabled=True, min_severity="critical")
-
-        handler = MagicMock()
-        tray.critical_alerts_changed.connect(handler)
-
-        alerts = _make_alerts(("a1", "critical", "Disk full"))
-        tray.update_from_alerts(alerts)
-        tray.update_from_alerts(alerts)
-
-        # Signal emitted both times (dialog reconciles internally)
-        assert handler.call_count == 2
-
-    def test_acknowledged_critical_not_in_signal(self, qapp):
-        tray = TrayIcon()
-        tray.set_notification_config(enabled=True, min_severity="critical")
-
-        handler = MagicMock()
-        tray.critical_alerts_changed.connect(handler)
-
-        alert = AlertInfo(
-            id="a1", severity="critical", title="Disk full", acknowledged=True
-        )
+        alert = _make_service_alert("a1", "critical", "redis unreachable", "redis")
         alerts = AlertsResponse(alerts=[alert], count=1)
         tray.update_from_alerts(alerts)
 
-        # No unacked criticals → signal not emitted
-        handler.assert_not_called()
+        notifier.notify.assert_called_once()
+        assert notifier.notify.call_args.kwargs["service_name"] == "redis"
+
+    def test_critical_without_service_name_still_notifies(self, qapp):
+        tray = TrayIcon()
+        tray.set_notification_config(enabled=True, min_severity="critical")
+
+        notifier = MagicMock(spec=DbusNotifier)
+        tray.set_notifier(notifier)
+
+        alerts = _make_alerts(("a1", "critical", "High RAM usage"))
+        tray.update_from_alerts(alerts)
+
+        notifier.notify.assert_called_once()
 
 
-# ── Warning / info alerts → still use showMessage ────────────────
+# ── Warning / info alerts → showMessage fallback (no notifier) ───
 
 
 class TestNonCriticalToasts:
-    """Warning and info alerts still fire showMessage() toasts."""
+    """Warning and info alerts still fire showMessage() toasts when no notifier set."""
 
     def test_warning_below_critical_threshold_does_not_notify(self, qapp):
         tray = TrayIcon()
@@ -140,9 +122,9 @@ class TestNonCriticalToasts:
 
 
 class TestNotificationDedup:
-    """Same alert ID should not trigger duplicate notifications."""
+    """Same alert fingerprint should not trigger duplicate notifications."""
 
-    def test_same_warning_not_notified_twice(self, qapp):
+    def test_same_alert_not_notified_twice(self, qapp):
         tray = TrayIcon()
         tray.set_notification_config(enabled=True, min_severity="warning")
 
@@ -153,7 +135,20 @@ class TestNotificationDedup:
             tray.update_from_alerts(alerts)
             assert mock_show.call_count == 1
 
-    def test_different_warnings_both_notify(self, qapp):
+    def test_different_db_ids_same_content_deduped(self, qapp):
+        """Multiple DB rows for the same logical alert fire only once."""
+        tray = TrayIcon()
+        tray.set_notification_config(enabled=True, min_severity="warning")
+
+        with patch.object(tray, "showMessage") as mock_show:
+            alerts = _make_alerts(
+                ("a1", "warning", "RAM high"),
+                ("a2", "warning", "RAM high"),  # different ID, same content
+            )
+            tray.update_from_alerts(alerts)
+            assert mock_show.call_count == 1
+
+    def test_different_alerts_both_notify(self, qapp):
         tray = TrayIcon()
         tray.set_notification_config(enabled=True, min_severity="warning")
 
@@ -168,6 +163,23 @@ class TestNotificationDedup:
             tray.update_from_alerts(alerts2)
             assert mock_show.call_count == 2
 
+    def test_resolved_alert_re_notifies_on_recurrence(self, qapp):
+        """When an alert resolves then comes back, it fires again."""
+        tray = TrayIcon()
+        tray.set_notification_config(enabled=True, min_severity="warning")
+
+        with patch.object(tray, "showMessage") as mock_show:
+            # Alert appears
+            tray.update_from_alerts(_make_alerts(("a1", "warning", "RAM high")))
+            assert mock_show.call_count == 1
+
+            # Alert resolves (empty list clears fingerprints)
+            tray.update_from_alerts(AlertsResponse(alerts=[], count=0))
+
+            # Alert recurs
+            tray.update_from_alerts(_make_alerts(("a3", "warning", "RAM high")))
+            assert mock_show.call_count == 2
+
 
 class TestNotificationDisabled:
     """Notifications can be disabled entirely."""
@@ -176,14 +188,10 @@ class TestNotificationDisabled:
         tray = TrayIcon()
         tray.set_notification_config(enabled=False, min_severity="info")
 
-        handler = MagicMock()
-        tray.critical_alerts_changed.connect(handler)
-
         with patch.object(tray, "showMessage") as mock_show:
             alerts = _make_alerts(("a1", "critical", "Disk full"))
             tray.update_from_alerts(alerts)
             mock_show.assert_not_called()
-            handler.assert_not_called()
 
 
 class TestAcknowledgedAlerts:
@@ -198,13 +206,9 @@ class TestAcknowledgedAlerts:
         )
         alerts = AlertsResponse(alerts=[alert], count=1)
 
-        handler = MagicMock()
-        tray.critical_alerts_changed.connect(handler)
-
         with patch.object(tray, "showMessage") as mock_show:
             tray.update_from_alerts(alerts)
             mock_show.assert_not_called()
-            handler.assert_not_called()
 
 
 class TestNotificationMessageFormat:
@@ -256,7 +260,7 @@ class TestSeverityThresholdConfig:
 
     def test_default_is_critical(self, qapp):
         tray = TrayIcon()
-        # Default — only critical should produce signal, no showMessage
+        # Default — only critical should produce notification
         with patch.object(tray, "showMessage") as mock_show:
             alerts = _make_alerts(("a1", "warning", "RAM high"))
             tray.update_from_alerts(alerts)
@@ -271,12 +275,9 @@ class TestSeverityThresholdConfig:
             mock_show.assert_not_called()
 
     def test_mixed_severity_warning_threshold(self, qapp):
-        """With warning threshold: warning → toast, critical → signal, info → skip."""
+        """With warning threshold: all severities >= warning get notified."""
         tray = TrayIcon()
         tray.set_notification_config(enabled=True, min_severity="warning")
-
-        handler = MagicMock()
-        tray.critical_alerts_changed.connect(handler)
 
         alerts = AlertsResponse(
             alerts=[
@@ -289,15 +290,8 @@ class TestSeverityThresholdConfig:
 
         with patch.object(tray, "showMessage") as mock_show:
             tray.update_from_alerts(alerts)
-            # Only warning goes to showMessage (info below threshold, critical to signal)
-            assert mock_show.call_count == 1
-            assert "WARNING" in mock_show.call_args[0][0]
-
-        # Critical went to signal
-        handler.assert_called_once()
-        emitted = handler.call_args[0][0]
-        assert len(emitted) == 1
-        assert emitted[0].severity == "critical"
+            # warning + critical notified, info below threshold
+            assert mock_show.call_count == 2
 
 
 class TestServiceActionToasts:
@@ -321,3 +315,246 @@ class TestServiceActionToasts:
             title, body = mock_show.call_args[0][0], mock_show.call_args[0][1]
             assert "Failed" in title
             assert "access denied" in body
+
+
+# ── DbusNotifier delegation tests ─────────────────────────────────
+
+
+class TestNotifierDelegation:
+    """When a DbusNotifier is set, TrayIcon delegates notifications to it."""
+
+    def test_warning_delegates_to_notifier(self, qapp):
+        tray = TrayIcon()
+        tray.set_notification_config(enabled=True, min_severity="warning")
+
+        notifier = MagicMock(spec=DbusNotifier)
+        tray.set_notifier(notifier)
+
+        alerts = _make_alerts(("a1", "warning", "RAM high"))
+        tray.update_from_alerts(alerts)
+
+        notifier.notify.assert_called_once()
+        args = notifier.notify.call_args
+        assert "WARNING" in args[0][0]
+        assert args.kwargs.get("service_name") is None
+
+    def test_notifier_receives_service_name(self, qapp):
+        """Warning alert with service_name passes it to notifier."""
+        tray = TrayIcon()
+        tray.set_notification_config(enabled=True, min_severity="warning")
+
+        notifier = MagicMock(spec=DbusNotifier)
+        tray.set_notifier(notifier)
+
+        alert = _make_service_alert("a1", "warning", "redis degraded", "redis")
+        alerts = AlertsResponse(alerts=[alert], count=1)
+        tray.update_from_alerts(alerts)
+
+        notifier.notify.assert_called_once()
+        assert notifier.notify.call_args.kwargs["service_name"] == "redis"
+
+    def test_service_action_delegates_to_notifier(self, qapp):
+        """on_service_action_complete delegates to notifier when set."""
+        tray = TrayIcon()
+        notifier = MagicMock(spec=DbusNotifier)
+        tray.set_notifier(notifier)
+
+        tray.on_service_action_complete("redis", "restart", True, "ok")
+
+        notifier.notify.assert_called_once()
+        title_arg = notifier.notify.call_args[0][0]
+        assert title_arg == "Service Action"
+
+    def test_service_action_failure_severity(self, qapp):
+        """Failed service action uses warning severity via notifier."""
+        tray = TrayIcon()
+        notifier = MagicMock(spec=DbusNotifier)
+        tray.set_notifier(notifier)
+
+        tray.on_service_action_complete("redis", "start", False, "access denied")
+
+        notifier.notify.assert_called_once()
+        severity_arg = notifier.notify.call_args[0][2]
+        assert severity_arg == "warning"
+
+    def test_no_notifier_falls_back_to_show_message(self, qapp):
+        """Without notifier, showMessage is used directly."""
+        tray = TrayIcon()
+        tray.set_notification_config(enabled=True, min_severity="warning")
+        # No set_notifier() call
+
+        with patch.object(tray, "showMessage") as mock_show:
+            alerts = _make_alerts(("a1", "warning", "RAM high"))
+            tray.update_from_alerts(alerts)
+            mock_show.assert_called_once()
+
+
+# ── DbusNotifier unit tests ──────────────────────────────────────
+
+
+class TestDbusNotifier:
+    """Unit tests for DbusNotifier with mocked D-Bus."""
+
+    def test_fallback_when_dbus_unavailable(self, qapp):
+        """When D-Bus init fails, notify() falls back to showMessage()."""
+        fallback = MagicMock(spec=QSystemTrayIcon)
+
+        with patch(
+            "sysadmin_tray.notifications.QDBusConnection"
+        ) as mock_conn_cls:
+            mock_bus = MagicMock()
+            mock_bus.isConnected.return_value = False
+            mock_conn_cls.sessionBus.return_value = mock_bus
+
+            notifier = DbusNotifier(fallback_tray=fallback)
+
+        assert not notifier.available
+
+        result = notifier.notify("Test", "body", "warning")
+        assert result is False
+        fallback.showMessage.assert_called_once()
+
+    def test_fallback_when_interface_invalid(self, qapp):
+        """When D-Bus interface is invalid, falls back to showMessage()."""
+        fallback = MagicMock(spec=QSystemTrayIcon)
+
+        with patch(
+            "sysadmin_tray.notifications.QDBusConnection"
+        ) as mock_conn_cls, patch(
+            "sysadmin_tray.notifications.QDBusInterface"
+        ) as mock_iface_cls:
+            mock_bus = MagicMock()
+            mock_bus.isConnected.return_value = True
+            mock_conn_cls.sessionBus.return_value = mock_bus
+
+            mock_iface = MagicMock()
+            mock_iface.isValid.return_value = False
+            mock_iface_cls.return_value = mock_iface
+
+            notifier = DbusNotifier(fallback_tray=fallback)
+
+        assert not notifier.available
+
+        result = notifier.notify("Test", "body", "info")
+        assert result is False
+        fallback.showMessage.assert_called_once()
+
+    def test_action_invoked_emits_restart(self, qapp):
+        """ActionInvoked with matching notification_id emits restart_requested."""
+        fallback = MagicMock(spec=QSystemTrayIcon)
+
+        with patch(
+            "sysadmin_tray.notifications.QDBusConnection"
+        ) as mock_conn_cls:
+            mock_bus = MagicMock()
+            mock_bus.isConnected.return_value = False
+            mock_conn_cls.sessionBus.return_value = mock_bus
+
+            notifier = DbusNotifier(fallback_tray=fallback)
+
+        handler = MagicMock()
+        notifier.restart_requested.connect(handler)
+
+        # Simulate pending action
+        notifier._pending_actions[42] = "redis"
+        notifier._on_action_invoked(42, "restart")
+
+        handler.assert_called_once_with("redis")
+        assert 42 not in notifier._pending_actions
+
+    def test_action_invoked_wrong_key_ignored(self, qapp):
+        """ActionInvoked with non-restart action key is ignored."""
+        fallback = MagicMock(spec=QSystemTrayIcon)
+
+        with patch(
+            "sysadmin_tray.notifications.QDBusConnection"
+        ) as mock_conn_cls:
+            mock_bus = MagicMock()
+            mock_bus.isConnected.return_value = False
+            mock_conn_cls.sessionBus.return_value = mock_bus
+
+            notifier = DbusNotifier(fallback_tray=fallback)
+
+        handler = MagicMock()
+        notifier.restart_requested.connect(handler)
+
+        notifier._pending_actions[42] = "redis"
+        notifier._on_action_invoked(42, "dismiss")
+
+        handler.assert_not_called()
+
+    def test_notification_closed_cleans_up(self, qapp):
+        """NotificationClosed removes from pending_actions."""
+        fallback = MagicMock(spec=QSystemTrayIcon)
+
+        with patch(
+            "sysadmin_tray.notifications.QDBusConnection"
+        ) as mock_conn_cls:
+            mock_bus = MagicMock()
+            mock_bus.isConnected.return_value = False
+            mock_conn_cls.sessionBus.return_value = mock_bus
+
+            notifier = DbusNotifier(fallback_tray=fallback)
+
+        notifier._pending_actions[42] = "redis"
+        notifier._on_notification_closed(42, 2)  # reason 2 = dismissed
+
+        assert 42 not in notifier._pending_actions
+
+    def test_cleanup_resets_state(self, qapp):
+        """cleanup() clears pending actions and marks unavailable."""
+        fallback = MagicMock(spec=QSystemTrayIcon)
+
+        with patch(
+            "sysadmin_tray.notifications.QDBusConnection"
+        ) as mock_conn_cls:
+            mock_bus = MagicMock()
+            mock_bus.isConnected.return_value = False
+            mock_conn_cls.sessionBus.return_value = mock_bus
+
+            notifier = DbusNotifier(fallback_tray=fallback)
+
+        notifier._pending_actions[42] = "redis"
+        notifier.cleanup()
+
+        assert len(notifier._pending_actions) == 0
+        assert not notifier.available
+
+    def test_no_fallback_tray_drops_notification(self, qapp):
+        """When no fallback_tray and D-Bus unavailable, notification is dropped."""
+        with patch(
+            "sysadmin_tray.notifications.QDBusConnection"
+        ) as mock_conn_cls:
+            mock_bus = MagicMock()
+            mock_bus.isConnected.return_value = False
+            mock_conn_cls.sessionBus.return_value = mock_bus
+
+            notifier = DbusNotifier(fallback_tray=None)
+
+        # Should not raise
+        result = notifier.notify("Test", "body", "info")
+        assert result is False
+
+
+# ── AlertInfo.service_name property ───────────────────────────────
+
+
+class TestAlertInfoServiceName:
+    """AlertInfo.service_name property extracts from details dict."""
+
+    def test_service_name_from_details(self):
+        alert = AlertInfo(
+            id="a1", severity="critical", title="redis down",
+            details={"service_name": "redis"},
+        )
+        assert alert.service_name == "redis"
+
+    def test_service_name_none_when_missing(self):
+        alert = AlertInfo(id="a1", severity="warning", title="RAM high")
+        assert alert.service_name is None
+
+    def test_service_name_none_when_empty_details(self):
+        alert = AlertInfo(
+            id="a1", severity="warning", title="RAM high", details={},
+        )
+        assert alert.service_name is None

@@ -127,9 +127,15 @@ class AlertInfo:
     severity: str = "info"       # "info" | "warning" | "critical"
     title: str = ""
     message: str | None = None
+    details: dict = field(default_factory=dict)
     acknowledged: bool = False
     resolved: bool = False
     created_at: str | None = None
+
+    @property
+    def service_name(self) -> str | None:
+        """Extract service_name from details, if present."""
+        return self.details.get("service_name")
 
 
 @dataclass
@@ -147,6 +153,7 @@ class AlertsResponse:
                 severity=a.get("severity", "info"),
                 title=a.get("title", ""),
                 message=a.get("message"),
+                details=a.get("details") or {},
                 acknowledged=a.get("acknowledged", False),
                 resolved=a.get("resolved", False),
                 created_at=a.get("created_at"),
@@ -207,3 +214,200 @@ def compute_icon_state(
             return IconState.WARNING
 
     return IconState.HEALTHY
+
+
+# ── Resource history ────────────────────────────────────────────────
+
+
+@dataclass
+class ResourceHistorySnapshot:
+    cpu_percent: float | None = None
+    ram_percent: float | None = None
+    load_avg_1m: float | None = None
+    recorded_at: str | None = None
+
+
+@dataclass
+class ResourceHistoryResponse:
+    period_hours: int = 24
+    count: int = 0
+    snapshots: list[ResourceHistorySnapshot] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ResourceHistoryResponse:
+        snapshots = [
+            ResourceHistorySnapshot(**s) for s in data.get("snapshots", [])
+        ]
+        return cls(
+            period_hours=data.get("period_hours", 24),
+            count=data.get("count", 0),
+            snapshots=snapshots,
+        )
+
+
+# ── Log entries ─────────────────────────────────────────────────────
+
+
+@dataclass
+class LogEntryInfo:
+    id: str = ""
+    source: str = ""
+    severity: str = "info"
+    message: str = ""
+    logged_at: str | None = None
+
+
+@dataclass
+class LogsResponse:
+    entries: list[LogEntryInfo] = field(default_factory=list)
+    count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict) -> LogsResponse:
+        entries = [
+            LogEntryInfo(
+                id=e.get("id", ""),
+                source=e.get("source", ""),
+                severity=e.get("severity", "info"),
+                message=e.get("message", ""),
+                logged_at=e.get("logged_at"),
+            )
+            for e in data.get("entries", [])
+        ]
+        return cls(entries=entries, count=data.get("count", len(entries)))
+
+
+@dataclass
+class LogStatsResponse:
+    period_hours: int = 24
+    sources: dict[str, dict[str, int]] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> LogStatsResponse:
+        return cls(
+            period_hours=data.get("period_hours", 24),
+            sources=data.get("sources", {}),
+        )
+
+
+# ── Project data ────────────────────────────────────────────────────
+
+
+@dataclass
+class ProjectOverviewEntry:
+    name: str = ""
+    health_score: int = 0
+    grade: str = ""
+    last_commit_at: str | None = None
+    branch_count: int = 0
+    stale_branch_count: int = 0
+    todo_count: int = 0
+    has_readme: bool = False
+    has_claude_md: bool = False
+    total_size_mb: float = 0.0
+    scanned_at: str | None = None
+
+
+@dataclass
+class ProjectOverviewResponse:
+    projects: list[ProjectOverviewEntry] = field(default_factory=list)
+    count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ProjectOverviewResponse:
+        projects = [
+            ProjectOverviewEntry(**p) for p in data.get("projects", [])
+        ]
+        return cls(projects=projects, count=data.get("count", len(projects)))
+
+
+@dataclass
+class ManagedServiceInfo:
+    name: str = ""
+    status: str = "unknown"
+    response_time_ms: float | None = None
+
+
+@dataclass
+class ProjectHealthInfo:
+    health_score: int = 0
+    scanned_at: str | None = None
+
+
+@dataclass
+class ManagedProjectInfo:
+    name: str = ""
+    path: str = ""
+    services: list[ManagedServiceInfo] = field(default_factory=list)
+    project_health: ProjectHealthInfo | None = None
+    all_services_healthy: bool | None = None
+
+
+@dataclass
+class ManagedProjectsResponse:
+    projects: list[ManagedProjectInfo] = field(default_factory=list)
+    count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ManagedProjectsResponse:
+        projects = []
+        for p in data.get("projects", []):
+            services = [
+                ManagedServiceInfo(**s) for s in p.get("services", [])
+            ]
+            health_raw = p.get("project_health")
+            health = ProjectHealthInfo(**health_raw) if health_raw else None
+            projects.append(ManagedProjectInfo(
+                name=p.get("name", ""),
+                path=p.get("path", ""),
+                services=services,
+                project_health=health,
+                all_services_healthy=p.get("all_services_healthy"),
+            ))
+        return cls(projects=projects, count=data.get("count", len(projects)))
+
+
+# ── Service detail (systemd unit info) ──────────────────────────────
+
+
+@dataclass
+class ServiceDetailInfo:
+    unit: str = ""
+    active_state: str = ""
+    sub_state: str = ""
+    main_pid: int = 0
+    memory_current: int = 0
+    cpu_usage_nsec: int = 0
+    load_state: str = ""
+    is_active: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ServiceDetailInfo:
+        pid_raw = data.get("MainPID", "0")
+        try:
+            pid = int(pid_raw)
+        except (ValueError, TypeError):
+            pid = 0
+
+        mem_raw = data.get("MemoryCurrent", "0")
+        try:
+            mem = int(mem_raw) if mem_raw != "[not set]" else 0
+        except (ValueError, TypeError):
+            mem = 0
+
+        cpu_raw = data.get("CPUUsageNSec", "0")
+        try:
+            cpu = int(cpu_raw) if cpu_raw != "[not set]" else 0
+        except (ValueError, TypeError):
+            cpu = 0
+
+        return cls(
+            unit=data.get("unit", ""),
+            active_state=data.get("ActiveState", ""),
+            sub_state=data.get("SubState", ""),
+            main_pid=pid,
+            memory_current=mem,
+            cpu_usage_nsec=cpu,
+            load_state=data.get("LoadState", ""),
+            is_active=data.get("is_active", False),
+        )

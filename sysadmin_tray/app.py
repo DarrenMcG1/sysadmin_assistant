@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-import webbrowser
 from pathlib import Path
 
 from PyQt6.QtCore import QTimer
@@ -16,15 +15,19 @@ from PyQt6.QtWidgets import QApplication
 
 from sysadmin_tray.client import ApiClient
 from sysadmin_tray.config import TrayConfig, load_tray_config
+from sysadmin_tray.dashboard.logs_tab import LogsTab
+from sysadmin_tray.dashboard.overview_tab import OverviewTab
+from sysadmin_tray.dashboard.projects_tab import ProjectsTab
+from sysadmin_tray.dashboard.services_tab import ServicesTab
+from sysadmin_tray.dashboard.window import DashboardWindow
 from sysadmin_tray.models import (
-    AlertInfo,
     AlertsResponse,
     StatusResponse,
     compute_icon_state,
 )
+from sysadmin_tray.notifications import DbusNotifier
 from sysadmin_tray.popup import StatsPopup
 from sysadmin_tray.tray_icon import TrayIcon
-from sysadmin_tray.widgets.alert_dialog import CriticalAlertDialog
 
 logger = logging.getLogger(__name__)
 
@@ -60,12 +63,19 @@ class TrayApp:
         # UI components
         self._tray = TrayIcon()
         self._popup = StatsPopup()
-        self._alert_dialog = CriticalAlertDialog()
+        self._dashboard = DashboardWindow(self._client)
+        self._dashboard.add_tab(OverviewTab(self._client), "Overview")
+        self._dashboard.add_tab(ServicesTab(self._client), "Services")
+        self._dashboard.add_tab(LogsTab(self._client), "Logs")
+        self._dashboard.add_tab(ProjectsTab(self._client), "Projects")
+
+        # D-Bus notifier with fallback to tray showMessage()
+        self._notifier = DbusNotifier(fallback_tray=self._tray)
+        self._tray.set_notifier(self._notifier)
 
         # Track current state for popup status dot
         self._last_status: StatusResponse | None = None
         self._last_alerts: AlertsResponse | None = None
-        self._previous_critical_ids: set[str] = set()
         self._backend_reachable = False
 
         self._wire_signals()
@@ -127,11 +137,8 @@ class TrayApp:
             tray.on_service_action_complete
         )
 
-        # Critical alert dialog
-        alert_dialog = self._alert_dialog
-        tray.critical_alerts_changed.connect(self._on_critical_alerts_changed)
-        alert_dialog.alert_ack_requested.connect(client.acknowledge_alert)
-        client.alert_acknowledged.connect(alert_dialog.on_alert_acknowledged)
+        # D-Bus notification restart action → API restart
+        self._notifier.restart_requested.connect(self._on_notification_restart)
 
     def _setup_timers(self) -> None:
         """Create polling timers with configured intervals."""
@@ -175,6 +182,7 @@ class TrayApp:
         self._status_timer.stop()
         self._resource_timer.stop()
         self._alert_timer.stop()
+        self._notifier.cleanup()
         self._client.shutdown()
 
     # ── State tracking for popup status dot ──────────────────────────
@@ -202,20 +210,12 @@ class TrayApp:
         )
         self._popup.update_status_dot(state)
 
-    # ── Critical alert dialog ────────────────────────────────────────
+    # ── Notification actions ────────────────────────────────────────
 
-    def _on_critical_alerts_changed(self, alerts: list[AlertInfo]) -> None:
-        """Update the persistent critical alert dialog."""
-        self._alert_dialog.update_alerts(alerts)
-
-        # Show the dialog if new criticals appeared
-        current_ids = {a.id for a in alerts}
-        new_ids = current_ids - self._previous_critical_ids
-        self._previous_critical_ids = current_ids
-
-        if new_ids and alerts:
-            self._alert_dialog.show()
-            self._alert_dialog.raise_()
+    def _on_notification_restart(self, service_name: str) -> None:
+        """Handle restart request from D-Bus notification action button."""
+        logger.info("restart via notification: %s", service_name)
+        self._client.trigger_service_action(service_name, "restart")
 
     # ── Actions ──────────────────────────────────────────────────────
 
@@ -236,13 +236,8 @@ class TrayApp:
         self._popup.toggle_visibility(anchor)
 
     def _open_dashboard(self) -> None:
-        """Open the dashboard URL in the default browser."""
-        url = self._config.dashboard_url
-        if url:
-            webbrowser.open(url)
-        else:
-            # Default to the API docs
-            webbrowser.open(f"{self._config.api_url}/docs")
+        """Toggle the native dashboard window."""
+        self._dashboard.toggle_visibility()
 
     def _quit(self) -> None:
         """Clean shutdown."""

@@ -9,7 +9,7 @@ database:
   sync_url: postgresql+psycopg2://gaddi@localhost:5432/projects
   schema: sysadmin
 
-personal_assistant:
+personal_assistant_backend1:
   url: http://localhost:8000
   api_prefix: /api
   notify_endpoint: /api/notifications

@@ -197,7 +197,7 @@ class SysAdminAgent(BaseAgent):
                     severity="warning",
                     title=f"{service_name} degraded",
                     message=f"{service_name} has been degraded for 3 consecutive checks",
-                    details=details,
+                    details={**details, "service_name": service_name},
                 )
                 return 1
             return 0
@@ -209,7 +209,7 @@ class SysAdminAgent(BaseAgent):
                 severity="warning",
                 title=f"{service_name} warning",
                 message=f"{service_name} is in warning state",
-                details=details,
+                details={**details, "service_name": service_name},
             )
             return 1
 
@@ -220,7 +220,7 @@ class SysAdminAgent(BaseAgent):
                 severity="critical",
                 title=f"{service_name} {'critical' if status == 'critical' else 'unreachable'}",
                 message=f"{service_name} is {status}",
-                details=details,
+                details={**details, "service_name": service_name},
             )
             return 1
 

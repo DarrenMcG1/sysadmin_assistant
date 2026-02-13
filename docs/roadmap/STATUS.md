@@ -1,7 +1,7 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-02-07
-**Current Phase:** Core service + KDE tray app Phase 1 complete
+**Last Updated**: 2026-02-13
+**Current Phase:** Core service + KDE tray app Phase 2 complete
 
 ---
 
@@ -15,13 +15,21 @@
 | Agents | 🟢 Complete | SysAdmin, Project Organiser, File Organiser, Log Aggregator |
 | Scheduler | 🟢 Complete | APScheduler with interval + cron jobs |
 | systemd | 🟢 Complete | Unit file + install scripts |
-| KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + notifications, 70 tests |
+| KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard, 104 tests |
 | Testing | 🟡 Planned | Backend test suite needed |
 | Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
 
 ---
 
 ## Recently Completed
+
+- **2026-02-13**: D-Bus notifications + native dashboard + bug fixes
+  - Fixed tray startup crash (missing @pyqtSlot decorators for D-Bus handlers)
+  - Fixed D-Bus Notify signature mismatch (UINT32 + array-of-string marshalling)
+  - Fixed notification spam (fingerprint-based dedup instead of DB row ID)
+  - Removed CriticalAlertDialog in favour of native D-Bus notifications
+  - Added native dashboard window (Overview, Services, Logs, Projects tabs)
+  - Extended API client/models for dashboard endpoints
 
 - **Session 1**: Project skeleton & bootable service
   - pyproject.toml, config.yaml, Pydantic config validation

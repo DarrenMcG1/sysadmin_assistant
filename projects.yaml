@@ -4,7 +4,7 @@ projects:
     backend:
       url: http://localhost:8000/health
       port: 8000
-      systemd_unit: personal-assistant.service
+      systemd_unit: personal-assistant-backend.service
       log:
         type: journalctl
         unit: personal-assistant.service
@@ -12,6 +12,11 @@ projects:
     frontend:
       url: http://localhost:3000
       port: 3000
+      systemd_unit: personal-assistant-frontend.service
+      log:
+        type: journalctl
+        unit: personal-assistant.service
+        severity_filter: warning
 
   - name: sysadmin-service
     path: /home/gaddi/projects/sysadmin_assistant
@@ -23,3 +28,16 @@ projects:
         type: journalctl
         unit: sysadmin.service
         severity_filter: warning
+
+  - name: sports_analyser
+    path: /home/gaddi/projects/sports_analyser
+    backend:
+      url: http://localhost:8200/health
+      port: 8200
+      #systemd_unit
+      #log:
+        #type:
+        #unit:
+        #severity_filter
+
+  - name: D(A)iY

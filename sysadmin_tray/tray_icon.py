@@ -75,7 +75,6 @@ class TrayIcon(QSystemTrayIcon):
     popup_requested = pyqtSignal()
     quit_requested = pyqtSignal()
     dashboard_requested = pyqtSignal()
-    critical_alerts_changed = pyqtSignal(list)  # list[AlertInfo]
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -85,10 +84,11 @@ class TrayIcon(QSystemTrayIcon):
         self._last_alerts: AlertsResponse | None = None
         self._backend_reachable = False
 
-        # Notification state
-        self._seen_alert_ids: set[str] = set()
+        # Notification state — dedup by content fingerprint, not DB ID
+        self._seen_fps: set[str] = set()
         self._show_notifications = True
         self._min_severity_level = _SEVERITY_LEVELS["critical"]
+        self._notifier = None  # Optional DbusNotifier, set via set_notifier()
 
         # Initial icon
         self.setIcon(render_icon(self._current_state))
@@ -179,57 +179,61 @@ class TrayIcon(QSystemTrayIcon):
             min_severity, _SEVERITY_LEVELS["critical"]
         )
 
+    def set_notifier(self, notifier) -> None:
+        """Inject a DbusNotifier for rich desktop notifications."""
+        self._notifier = notifier
+
     def _check_new_alerts(self, alerts: AlertsResponse) -> None:
         """Fire desktop notifications for unseen alerts above threshold.
 
-        Critical alerts are routed to the persistent dialog via signal;
-        warning/info alerts still use transient ``showMessage()`` toasts.
+        Deduplicates by content fingerprint (severity:title) rather than
+        DB row ID, since the backend may create multiple rows for the
+        same logical alert across scan cycles.  Fingerprints are cleared
+        when an alert is no longer active so we re-notify on recurrence.
         """
         if not self._show_notifications:
             return
 
-        # Collect unacked criticals for the dialog
-        unacked_criticals = [
-            a for a in alerts.alerts
-            if a.severity == "critical" and not a.acknowledged
-        ]
-
-        has_new_critical = False
+        active_fps: set[str] = set()
         for alert in alerts.alerts:
             if alert.acknowledged:
                 continue
-            if alert.id in self._seen_alert_ids:
-                continue
+
+            fp = f"{alert.severity}:{alert.title}"
+            active_fps.add(fp)
+
             alert_level = _SEVERITY_LEVELS.get(alert.severity, 0)
             if alert_level < self._min_severity_level:
                 continue
+            if fp in self._seen_fps:
+                continue
 
-            self._seen_alert_ids.add(alert.id)
+            self._seen_fps.add(fp)
+            self._show_desktop_notification(alert)
 
-            if alert.severity == "critical":
-                has_new_critical = True
-            else:
-                self._show_desktop_notification(alert)
-
-        # Emit the critical alerts signal whenever we have unacked criticals
-        # (the dialog will diff and add/remove cards as needed)
-        if unacked_criticals or has_new_critical:
-            self.critical_alerts_changed.emit(unacked_criticals)
+        # Clear fingerprints for resolved alerts so we re-notify on recurrence
+        self._seen_fps &= active_fps
 
     def _show_desktop_notification(self, alert: AlertInfo) -> None:
-        """Show a native desktop notification via QSystemTrayIcon."""
+        """Show a native desktop notification, preferring D-Bus when available."""
         severity_upper = alert.severity.upper()
         title = f"{severity_upper}: sysadmin"
         body = alert.title
         if alert.message:
             body = f"{alert.title}\n{alert.message}"
 
-        icon = _SEVERITY_ICONS.get(
-            alert.severity, QSystemTrayIcon.MessageIcon.Information
-        )
-        timeout = _SEVERITY_TIMEOUT_MS.get(alert.severity, 5000)
+        if self._notifier is not None:
+            self._notifier.notify(
+                title, body, alert.severity,
+                service_name=alert.service_name,
+            )
+        else:
+            icon = _SEVERITY_ICONS.get(
+                alert.severity, QSystemTrayIcon.MessageIcon.Information
+            )
+            timeout = _SEVERITY_TIMEOUT_MS.get(alert.severity, 5000)
+            self.showMessage(title, body, icon, timeout)
 
-        self.showMessage(title, body, icon, timeout)
         logger.debug("notification: [%s] %s", alert.severity, alert.title)
 
     def on_service_action_complete(
@@ -239,14 +243,20 @@ class TrayIcon(QSystemTrayIcon):
         if success:
             title = "Service Action"
             body = f"{service_name} {action}ed successfully"
-            icon = QSystemTrayIcon.MessageIcon.Information
-            timeout = 5000
+            severity = "info"
         else:
             title = "Service Action Failed"
             body = f"{service_name} {action} failed: {message}"
-            icon = QSystemTrayIcon.MessageIcon.Warning
-            timeout = 10000
-        self.showMessage(title, body, icon, timeout)
+            severity = "warning"
+
+        if self._notifier is not None:
+            self._notifier.notify(title, body, severity)
+        else:
+            icon = _SEVERITY_ICONS.get(
+                severity, QSystemTrayIcon.MessageIcon.Information
+            )
+            timeout = _SEVERITY_TIMEOUT_MS.get(severity, 5000)
+            self.showMessage(title, body, icon, timeout)
 
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         """Handle tray icon clicks."""
