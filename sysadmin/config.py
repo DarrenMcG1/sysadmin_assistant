@@ -183,6 +183,41 @@ class ProjectsConfig(BaseModel):
     projects: list[ManagedProject] = Field(default_factory=list)
 
 
+class DndScheduleWindow(BaseModel):
+    """A time window during which DND is automatically active."""
+
+    start: str = "23:00"  # HH:MM (24h)
+    end: str = "07:00"
+
+
+class DndConfig(BaseModel):
+    """Do Not Disturb configuration."""
+
+    enabled: bool = False  # manual toggle default (runtime-overridable)
+    schedule: list[DndScheduleWindow] = Field(default_factory=list)
+    allow_critical: bool = True  # critical alerts break through DND
+
+
+class DesktopNotificationsConfig(BaseModel):
+    enabled: bool = True
+    min_severity: str = "warning"  # info | warning | critical
+
+
+class PaNotificationsConfig(BaseModel):
+    enabled: bool = True
+    min_severity: str = "critical"
+
+
+class NotificationsConfig(BaseModel):
+    desktop: DesktopNotificationsConfig = Field(
+        default_factory=DesktopNotificationsConfig
+    )
+    pa_notify: PaNotificationsConfig = Field(
+        default_factory=PaNotificationsConfig
+    )
+    dnd: DndConfig = Field(default_factory=DndConfig)
+
+
 class AgentsConfig(BaseModel):
     sysadmin: SysAdminAgentConfig = Field(default_factory=SysAdminAgentConfig)
     project_organiser: ProjectOrganiserConfig = Field(default_factory=ProjectOrganiserConfig)
@@ -198,6 +233,7 @@ class AppConfig(BaseModel):
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     personal_assistant: PersonalAssistantConfig = Field(default_factory=PersonalAssistantConfig)
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
+    notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
     projects: ProjectsConfig = Field(default_factory=ProjectsConfig, exclude=True)
 

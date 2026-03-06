@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-02-07
+> **Last Updated**: 2026-03-06
 
 ---
 
@@ -68,6 +68,22 @@ _No active sessions._
 ---
 
 ## Backlog
+
+### DND Mode & Notification Control
+- [x] Add `notifications` section to config.yaml with desktop/PA severity thresholds and DND schedule
+- [x] Add `notifications` Pydantic models to `config.py` (DndConfig, NotificationsConfig)
+- [x] Add `POST /api/sysadmin/dnd` endpoint to toggle DND at runtime (in-memory state, config as default)
+- [x] Add DND schedule enforcement — auto-enable/disable based on `dnd.schedule` time windows
+- [x] Gate notification dispatch in Notifier + tray on DND state (allow critical to break through when `allow_critical: true`)
+- [x] Add DND toggle to tray context menu
+
+### Service Controllable Flag
+- [ ] Add `controllable: bool = True` field to `MonitoredService` in config.py
+- [ ] Gate `POST /services/{name}/{action}` endpoint — return 403 if `controllable` is false
+- [ ] Mark postgresql and any infrastructure services as `controllable: false` in config.yaml
+- [ ] Add `auto_restart` + `auto_restart_after_checks` fields to MonitoredService
+- [ ] Implement auto-restart logic in SysAdminAgent._handle_status() after N consecutive failures
+- [ ] Wire controllable flag into tray popup ActionBar (disable buttons for non-controllable services)
 
 ### Testing (Priority)
 - [ ] `tests/conftest.py` — Fixtures: test DB (transactional rollback), mock config, FastAPI test client

@@ -137,6 +137,10 @@ class TrayApp:
             tray.on_service_action_complete
         )
 
+        # DND: backend → tray, tray → backend
+        client.dnd_status_updated.connect(tray.update_dnd_status)
+        tray.dnd_toggled.connect(client.toggle_dnd)
+
         # D-Bus notification restart action → API restart
         self._notifier.restart_requested.connect(self._on_notification_restart)
 
@@ -155,6 +159,7 @@ class TrayApp:
         self._alert_timer = QTimer()
         self._alert_timer.setInterval(cfg.alert_poll_seconds * 1000)
         self._alert_timer.timeout.connect(self._client.request_alerts)
+        self._alert_timer.timeout.connect(self._client.request_dnd_status)
 
     def start(self) -> None:
         """Show the tray icon and start polling."""
@@ -164,6 +169,7 @@ class TrayApp:
         self._client.request_status()
         self._client.request_resources()
         self._client.request_alerts()
+        self._client.request_dnd_status()
 
         self._status_timer.start()
         self._resource_timer.start()

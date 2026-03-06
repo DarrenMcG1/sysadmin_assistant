@@ -20,6 +20,20 @@ ollama:
   model: qwen2.5:14b
   night_model: qwen3:72b
 
+notifications:
+  desktop:
+    enabled: true
+    min_severity: warning
+  pa_notify:
+    enabled: true
+    min_severity: critical
+  dnd:
+    enabled: false
+    schedule:
+      - start: "23:00"
+        end: "07:00"
+    allow_critical: true
+
 agents:
   sysadmin:
     enabled: true
@@ -32,11 +46,6 @@ agents:
         type: http
         url: http://localhost:11434/api/tags
         systemd_unit: ollama.service
-      - name: redis
-        type: tcp
-        host: localhost
-        port: 6379
-        systemd_unit: redis.service
     thresholds:
       disk_warning_percent: 80
       disk_critical_percent: 90
@@ -94,9 +103,9 @@ agents:
     summarise_with_llm: true
 
 tray:
-  status_poll_seconds: 10
+  status_poll_seconds: 30
   resource_poll_seconds: 30
-  alert_poll_seconds: 65
+  alert_poll_seconds: 180
   show_notifications: true
   notify_min_severity: critical
   dashboard_url: null

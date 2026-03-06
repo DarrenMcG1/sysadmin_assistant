@@ -75,6 +75,7 @@ class TrayIcon(QSystemTrayIcon):
     popup_requested = pyqtSignal()
     quit_requested = pyqtSignal()
     dashboard_requested = pyqtSignal()
+    dnd_toggled = pyqtSignal(object)  # bool | None — emitted when user toggles DND from menu
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -90,6 +91,10 @@ class TrayIcon(QSystemTrayIcon):
         self._min_severity_level = _SEVERITY_LEVELS["critical"]
         self._notifier = None  # Optional DbusNotifier, set via set_notifier()
 
+        # DND state (synced from backend)
+        self._dnd_active = False
+        self._dnd_allow_critical = True
+
         # Initial icon
         self.setIcon(render_icon(self._current_state))
         self.setToolTip("SysAdmin Monitor — connecting…")
@@ -104,6 +109,14 @@ class TrayIcon(QSystemTrayIcon):
         dashboard_action = QAction("Open Dashboard", self._menu)
         dashboard_action.triggered.connect(self.dashboard_requested.emit)
         self._menu.addAction(dashboard_action)
+
+        self._menu.addSeparator()
+
+        self._dnd_action = QAction("Do Not Disturb", self._menu)
+        self._dnd_action.setCheckable(True)
+        self._dnd_action.setChecked(False)
+        self._dnd_action.triggered.connect(self._on_dnd_toggled)
+        self._menu.addAction(self._dnd_action)
 
         self._menu.addSeparator()
 
@@ -140,6 +153,19 @@ class TrayIcon(QSystemTrayIcon):
         self._backend_reachable = True
         self._recompute_state()
 
+    def update_dnd_status(self, dnd_status: dict) -> None:
+        """Called when DND status data arrives from the backend."""
+        self._dnd_active = dnd_status.get("active", False)
+        self._dnd_allow_critical = dnd_status.get("allow_critical", True)
+        self._dnd_action.setChecked(self._dnd_active)
+        # Update tooltip suffix
+        self._recompute_state()
+
+    def _on_dnd_toggled(self, checked: bool) -> None:
+        """User toggled DND from context menu."""
+        # Emit True to enable, None to revert to schedule
+        self.dnd_toggled.emit(True if checked else None)
+
     # ── Internal ─────────────────────────────────────────────────────
 
     def _recompute_state(self) -> None:
@@ -157,6 +183,8 @@ class TrayIcon(QSystemTrayIcon):
 
         # Update tooltip
         tooltip_parts = [f"SysAdmin Monitor — {new_state.value}"]
+        if self._dnd_active:
+            tooltip_parts.append("DND active")
         if self._last_alerts and self._last_alerts.count > 0:
             tooltip_parts.append(
                 f"{self._last_alerts.critical_count} critical, "
@@ -207,6 +235,11 @@ class TrayIcon(QSystemTrayIcon):
                 continue
             if fp in self._seen_fps:
                 continue
+
+            # DND gate — suppress unless critical breaks through
+            if self._dnd_active:
+                if not (alert.severity == "critical" and self._dnd_allow_critical):
+                    continue
 
             self._seen_fps.add(fp)
             self._show_desktop_notification(alert)

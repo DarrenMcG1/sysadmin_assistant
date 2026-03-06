@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from sysadmin.config import get_config
+from sysadmin.services.dnd import dnd_manager
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +46,26 @@ class Notifier:
     ) -> bool:
         """POST a notification to PersonalAssistant.
 
-        Returns True if delivered, False if PA is unreachable.
+        Returns True if delivered, False if PA is unreachable or suppressed by DND.
         """
+        # Check DND — suppressed notifications are silently dropped
+        if dnd_manager.should_suppress(urgency):
+            logger.debug("notification suppressed by DND: [%s] %s", urgency, title)
+            return False
+
         config = get_config()
+
+        # Check PA notification severity threshold
+        pa_config = config.notifications.pa_notify
+        if not pa_config.enabled:
+            logger.debug("PA notifications disabled")
+            return False
+
+        severity_levels = {"info": 0, "warning": 1, "critical": 2}
+        if severity_levels.get(urgency, 0) < severity_levels.get(pa_config.min_severity, 0):
+            logger.debug("notification below PA severity threshold: [%s] %s", urgency, title)
+            return False
+
         url = f"{config.personal_assistant.url}{config.personal_assistant.notify_endpoint}"
         payload = {
             "source": "sysadmin",

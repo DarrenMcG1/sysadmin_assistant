@@ -47,6 +47,7 @@ class ApiWorker(QObject):
     managed_projects_ready = pyqtSignal(object)   # ManagedProjectsResponse
     project_overview_ready = pyqtSignal(object)   # ProjectOverviewResponse
     service_detail_ready = pyqtSignal(str, object)  # service_name, ServiceDetailInfo
+    dnd_status_ready = pyqtSignal(object)            # dict (DND status)
 
     def __init__(self, api_url: str, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -220,6 +221,29 @@ class ApiWorker(QObject):
         except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
             logger.debug("service detail fetch failed for %s: %s", service_name, exc)
 
+    @pyqtSlot()
+    def fetch_dnd_status(self) -> None:
+        """GET /api/sysadmin/dnd."""
+        try:
+            resp = self._client.get(f"{self._api_url}/api/sysadmin/dnd")
+            resp.raise_for_status()
+            self.dnd_status_ready.emit(resp.json())
+        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+            logger.debug("dnd status fetch failed: %s", exc)
+
+    @pyqtSlot(object)
+    def toggle_dnd(self, enabled: object) -> None:
+        """POST /api/sysadmin/dnd with {enabled: bool|null}."""
+        try:
+            resp = self._client.post(
+                f"{self._api_url}/api/sysadmin/dnd",
+                json={"enabled": enabled},
+            )
+            resp.raise_for_status()
+            self.dnd_status_ready.emit(resp.json())
+        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+            logger.debug("dnd toggle failed: %s", exc)
+
     # ── Connection state tracking ────────────────────────────────────
 
     def _on_connected(self) -> None:
@@ -274,6 +298,7 @@ class ApiClient(QObject):
     managed_projects_updated = pyqtSignal(object)
     project_overview_updated = pyqtSignal(object)
     service_detail_updated = pyqtSignal(str, object)  # service_name, ServiceDetailInfo
+    dnd_status_updated = pyqtSignal(object)              # dict
 
     # Trigger signals (main→worker, queued connection)
     _request_status = pyqtSignal()
@@ -288,6 +313,8 @@ class ApiClient(QObject):
     _request_managed_projects = pyqtSignal()
     _request_project_overview = pyqtSignal()
     _request_service_details = pyqtSignal(str)
+    _request_dnd_status = pyqtSignal()
+    _request_dnd_toggle = pyqtSignal(object)  # bool | None
 
     def __init__(self, api_url: str, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -309,6 +336,8 @@ class ApiClient(QObject):
         self._request_managed_projects.connect(self._worker.fetch_managed_projects)
         self._request_project_overview.connect(self._worker.fetch_project_overview)
         self._request_service_details.connect(self._worker.fetch_service_details)
+        self._request_dnd_status.connect(self._worker.fetch_dnd_status)
+        self._request_dnd_toggle.connect(self._worker.toggle_dnd)
 
         # Forward worker results → our public signals
         self._worker.status_ready.connect(self.status_updated)
@@ -325,6 +354,7 @@ class ApiClient(QObject):
         self._worker.managed_projects_ready.connect(self.managed_projects_updated)
         self._worker.project_overview_ready.connect(self.project_overview_updated)
         self._worker.service_detail_ready.connect(self.service_detail_updated)
+        self._worker.dnd_status_ready.connect(self.dnd_status_updated)
 
         self._thread.start()
 
@@ -377,6 +407,14 @@ class ApiClient(QObject):
     def request_service_details(self, service_name: str) -> None:
         """Ask the worker to fetch details for a specific service (non-blocking)."""
         self._request_service_details.emit(service_name)
+
+    def request_dnd_status(self) -> None:
+        """Ask the worker to fetch DND status (non-blocking)."""
+        self._request_dnd_status.emit()
+
+    def toggle_dnd(self, enabled: bool | None) -> None:
+        """Ask the worker to toggle DND (non-blocking)."""
+        self._request_dnd_toggle.emit(enabled)
 
     def shutdown(self) -> None:
         """Stop the worker thread cleanly."""

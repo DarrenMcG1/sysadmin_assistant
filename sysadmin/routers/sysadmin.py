@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pydantic import BaseModel
+
 from sysadmin.agents.sysadmin_agent import SysAdminAgent
 from sysadmin.config import get_config
 from sysadmin.database import get_db_session
@@ -14,6 +16,7 @@ from sysadmin.models.alert import Alert
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
 from sysadmin.services.briefing import generate_briefing_data
+from sysadmin.services.dnd import dnd_manager
 from sysadmin.utils.systemd import get_unit_status, restart_unit, start_unit, stop_unit
 
 router = APIRouter(prefix="/api/sysadmin", tags=["sysadmin"])
@@ -270,6 +273,28 @@ async def acknowledge_alert(
 async def preview_briefing(session: AsyncSession = Depends(get_db_session)):
     """Preview the morning briefing data without sending it."""
     return await generate_briefing_data(session)
+
+
+@router.get("/dnd")
+async def get_dnd_status():
+    """Get current Do Not Disturb status."""
+    return dnd_manager.get_status()
+
+
+class DndToggleRequest(BaseModel):
+    enabled: bool | None = None  # True=on, False=off, None=revert to schedule
+
+
+@router.post("/dnd")
+async def toggle_dnd(body: DndToggleRequest):
+    """Toggle Do Not Disturb mode.
+
+    - ``enabled: true`` — force DND on
+    - ``enabled: false`` — force DND off
+    - ``enabled: null`` — revert to schedule-only
+    """
+    dnd_manager.set_manual_override(body.enabled)
+    return dnd_manager.get_status()
 
 
 @router.get("/ports")

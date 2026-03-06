@@ -26,6 +26,7 @@ from sysadmin.services.scheduler import Scheduler
 from sysadmin.services.event_bus import EventBus
 from sysadmin.services.notifier import Notifier
 from sysadmin.services.briefing import send_morning_briefing
+from sysadmin.services.dnd import dnd_manager
 from sysadmin.services.retention import run_retention
 
 # Routers
@@ -133,6 +134,7 @@ async def lifespan(app: FastAPI):
     app.state.scheduler = scheduler
     app.state.event_bus = event_bus
     app.state.notifier = notifier
+    app.state.dnd_manager = dnd_manager
     app.state.sysadmin_agent = sysadmin_agent
     app.state.project_organiser_agent = project_organiser_agent
     app.state.file_organiser_agent = file_organiser_agent

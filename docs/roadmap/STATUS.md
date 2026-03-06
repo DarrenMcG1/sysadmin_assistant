@@ -1,7 +1,7 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-02-13
-**Current Phase:** Core service + KDE tray app Phase 2 complete
+**Last Updated**: 2026-03-06
+**Current Phase:** Core service + KDE tray app Phase 2 + DND mode complete
 
 ---
 
@@ -15,13 +15,22 @@
 | Agents | 🟢 Complete | SysAdmin, Project Organiser, File Organiser, Log Aggregator |
 | Scheduler | 🟢 Complete | APScheduler with interval + cron jobs |
 | systemd | 🟢 Complete | Unit file + install scripts |
-| KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard, 104 tests |
+| KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard + DND mode, 104 tests |
+| DND Mode | 🟢 Complete | Schedule-based + manual toggle, critical breakthrough, backend + tray gating |
 | Testing | 🟡 Planned | Backend test suite needed |
 | Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
 
 ---
 
 ## Recently Completed
+
+- **2026-03-06**: DND mode & notification control
+  - Added `notifications` config section (desktop/PA severity thresholds, DND schedule)
+  - DndManager service: schedule evaluation, manual override (tri-state), critical breakthrough
+  - GET/POST `/api/sysadmin/dnd` endpoints for status and toggle
+  - Notifier gated on DND + PA severity threshold
+  - Tray: checkable DND menu item, DND in tooltip, desktop notifications suppressed during DND
+  - Polls DND status alongside alerts, syncs menu checkbox from backend
 
 - **2026-02-13**: D-Bus notifications + native dashboard + bug fixes
   - Fixed tray startup crash (missing @pyqtSlot decorators for D-Bus handlers)
