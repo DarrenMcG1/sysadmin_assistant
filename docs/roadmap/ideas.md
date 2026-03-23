@@ -12,10 +12,6 @@
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
 
-### High Priority
-
-- **Tray Phase 3: Dev instance manager** — start/stop/restart monitored services from tray popup (already in backlog)
-
 ### Nice to Have
 
 - **More monitored services** — Add redis (tcp :6379), sshd (systemd), NetworkManager (systemd), and an internet connectivity check (HTTP to cloudflare) to `config.yaml` services list. Also add sysadmin-service itself and kernel to log aggregator sources.

@@ -34,10 +34,6 @@ projects:
     backend:
       url: http://localhost:8200/health
       port: 8200
-      #systemd_unit
-      #log:
-        #type:
-        #unit:
-        #severity_filter
 
-  - name: D(A)iY
+  - name: daiy
+    path: /home/gaddi/projects/daiy

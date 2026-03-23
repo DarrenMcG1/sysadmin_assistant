@@ -16,9 +16,13 @@ _No active sessions._
 
 ## Backlog
 
-### KDE Tray App — Phase 3
+### KDE Tray App — Phase 3 Polish
 
-- [ ] Dev instance manager — start/stop/restart monitored services from tray popup
+Core service actions already work end-to-end (right-click menu in popup, buttons in dashboard, controllable flag gating, desktop notifications). Two UX polish items remain:
+
+- [ ] Refresh service status after popup actions (dashboard already does this, popup doesn't)
+- [ ] Show "working..." label on popup service row during in-flight actions
+- [ ] Add router tests for `POST /services/{name}/{action}` (404, 403, 400, 200 paths)
 
 ### Future
 
