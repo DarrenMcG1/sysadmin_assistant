@@ -40,12 +40,17 @@ async def read_journal(
     """
     cmd = [
         "journalctl",
-        "-u", unit,
         "--since", since,
         "-o", "json",
         "--no-pager",
         "-n", "500",
     ]
+
+    # Kernel messages use -k/--dmesg rather than -u
+    if unit == "kernel":
+        cmd.insert(1, "-k")
+    else:
+        cmd[1:1] = ["-u", unit]
 
     try:
         proc = await asyncio.create_subprocess_exec(

@@ -16,12 +16,6 @@ _No active sessions._
 
 ## Backlog
 
-### KDE Tray App — Phase 3 Polish — DONE
-
-- [x] Refresh service status after popup actions
-- [x] Show "working…" label on popup service row during in-flight actions
-- [x] Router tests for `POST /services/{name}/{action}` (8 tests)
-
 ### Future
 
 - [ ] Nuxt frontend pages in PA (/infrastructure, /infrastructure/projects, /infrastructure/storage, /infrastructure/logs)

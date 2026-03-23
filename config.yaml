@@ -48,6 +48,13 @@ agents:
         type: http
         url: http://localhost:11434/api/tags
         systemd_unit: ollama.service
+      - name: networkmanager
+        type: systemd
+        systemd_unit: NetworkManager.service
+        controllable: false
+      - name: internet
+        type: http
+        url: https://1.1.1.1/cdn-cgi/trace
     thresholds:
       disk_warning_percent: 80
       disk_critical_percent: 90
@@ -103,13 +110,21 @@ agents:
         type: journalctl
         unit: ollama.service
         severity_filter: warning
+      - name: sysadmin
+        type: journalctl
+        unit: sysadmin.service
+        severity_filter: warning
+      - name: kernel
+        type: journalctl
+        unit: kernel
+        severity_filter: error
     retention_days: 30
     summarise_with_llm: true
 
 tray:
   status_poll_seconds: 30
   resource_poll_seconds: 30
-  alert_poll_seconds: 180
+  alert_poll_seconds: 60
   show_notifications: true
-  notify_min_severity: critical
-  dashboard_url: null
+  notify_min_severity: warning
+  dashboard_url: http://127.0.0.1:8500/docs
