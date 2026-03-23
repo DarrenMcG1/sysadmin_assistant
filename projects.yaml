@@ -2,7 +2,7 @@ projects:
   - name: personal-assistant
     path: /home/gaddi/projects/personal-assistant
     backend:
-      url: http://localhost:8000/health
+      url: http://localhost:8000/api/health
       port: 8000
       systemd_unit: personal-assistant-backend.service
       log:
@@ -32,7 +32,7 @@ projects:
   - name: sports_analyser
     path: /home/gaddi/projects/sports_analyser
     backend:
-      url: http://localhost:8200/health
+      url: http://localhost:8200/api/v1/health
       port: 8200
 
   - name: daiy
