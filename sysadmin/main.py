@@ -14,6 +14,8 @@ from fastapi.responses import JSONResponse
 from sysadmin import __version__
 from sysadmin.config import load_config
 from sysadmin.database import create_engine_and_session, dispose_engine, verify_connection
+from sysadmin.logging_setup import configure_logging
+from sysadmin.middleware import RequestLoggingMiddleware
 
 # Agents
 from sysadmin.agents.sysadmin_agent import SysAdminAgent
@@ -54,10 +56,7 @@ async def lifespan(app: FastAPI):
     # --- Startup ---
     config = load_config()
 
-    logging.basicConfig(
-        level=getattr(logging, config.service.log_level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-    )
+    configure_logging(config.service)
 
     logger.info(
         "starting sysadmin-service v%s on %s:%d",
@@ -165,6 +164,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestLoggingMiddleware)
 
 
 @app.exception_handler(Exception)

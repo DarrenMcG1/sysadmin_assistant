@@ -3,6 +3,7 @@ service:
   port: 8500
   host: 127.0.0.1
   log_level: info
+  log_format: json  # json | text
 
 database:
   url: postgresql+asyncpg://gaddi@localhost:5432/projects

@@ -102,8 +102,8 @@ _No active sessions._
 - [ ] Dev instance manager — start/stop/restart monitored services from tray popup (Phase 3)
 
 ### Polish
-- [ ] Structured JSON logging (for systemd journal)
-- [ ] Request logging middleware (method, path, status, duration)
+- [x] Structured JSON logging (for systemd journal)
+- [x] Request logging middleware (method, path, status, duration)
 - [ ] Night Worker integration endpoints
 - [ ] GPU monitoring (nvidia-smi parsing) **AMD NOT nvidia**
 - [ ] SSL cert expiry checks

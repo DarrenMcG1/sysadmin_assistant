@@ -18,6 +18,7 @@ class ServiceConfig(BaseModel):
     port: int = 8500
     host: str = "127.0.0.1"
     log_level: str = "info"
+    log_format: str = "json"  # json | text
 
 
 class DatabaseConfig(BaseModel):

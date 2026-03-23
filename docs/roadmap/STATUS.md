@@ -1,7 +1,7 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-03-06
-**Current Phase:** Core service + KDE tray app Phase 2 + DND mode + backend tests complete
+**Last Updated**: 2026-03-23
+**Current Phase:** Core service + KDE tray app Phase 2 + DND mode + observability polish
 
 ---
 
@@ -17,12 +17,24 @@
 | systemd | 🟢 Complete | Unit file + install scripts |
 | KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard + DND mode, 104 tests |
 | DND Mode | 🟢 Complete | Schedule-based + manual toggle, critical breakthrough, backend + tray gating |
-| Testing | 🟢 Complete | 94 backend tests (agents, routers, retention, health) + 124 tray tests = 218 total |
+| Testing | 🟢 Complete | 104 backend tests + 124 tray tests = 228 total |
+| Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
 
 ---
 
 ## Recently Completed
+
+- **2026-03-23**: Structured JSON logging & request middleware
+  - `sysadmin/logging_setup.py` — JSON (production/systemd) and text (dev) formatters
+  - `sysadmin/middleware.py` — access log: method, path, status, duration_ms (excludes /api/health)
+  - `config.yaml` — `log_format: json | text` option in service section
+  - `tests/test_logging.py` — 10 tests covering formatter output, extra fields, middleware behaviour
+
+- **2026-03-23**: Service controllable flag & auto-restart
+  - `controllable` field on MonitoredService, 403 gating on service actions
+  - Auto-restart after N consecutive failures for controllable systemd services
+  - Tray UI hides action buttons for non-controllable services
 
 - **2026-03-06**: Backend test suite (94 tests)
   - `tests/conftest.py` — mock config, mock async session, FastAPI test client fixtures
