@@ -18,7 +18,7 @@
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard + DND mode + service actions |
 | PA Integration | 🟢 Complete | Summary digest endpoint + v2 notification targeting |
 | Testing | 🟢 Complete | 146 backend + 124 tray = 270 total |
-| Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
+| Frontend | 🟢 Complete | Built in PA using sysadmin API endpoints |
 
 ---
 

@@ -16,9 +16,7 @@ _No active sessions._
 
 ## Backlog
 
-### Future
-
-- [ ] Nuxt frontend pages in PA (/infrastructure, /infrastructure/projects, /infrastructure/storage, /infrastructure/logs)
+_No open tasks — frontend pages built in PA using sysadmin API._
 
 ---
 
