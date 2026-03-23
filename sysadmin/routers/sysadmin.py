@@ -35,6 +35,10 @@ async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
         .subquery()
     )
 
+    # Filter to currently-configured services only (excludes stale DB records)
+    config = get_config()
+    configured_names = {s.name for s in config.agents.sysadmin.services}
+
     query = (
         select(ServiceHealth)
         .join(
@@ -42,14 +46,12 @@ async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
             (ServiceHealth.service_name == latest_subq.c.service_name)
             & (ServiceHealth.checked_at == latest_subq.c.max_checked),
         )
+        .where(ServiceHealth.service_name.in_(configured_names))
         .order_by(ServiceHealth.service_name)
     )
 
     result = await session.execute(query)
     rows = result.scalars().all()
-
-    # Map service name → systemd_unit from config
-    config = get_config()
     unit_map = {
         s.name: s.systemd_unit
         for s in config.agents.sysadmin.services

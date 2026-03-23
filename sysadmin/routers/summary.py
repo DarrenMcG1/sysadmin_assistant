@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sysadmin.config import get_config
 from sysadmin.database import get_db_session
 from sysadmin.models.alert import Alert
 from sysadmin.models.project_snapshot import ProjectSnapshot
@@ -28,7 +29,10 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
     Returns service health, active alerts, latest resource snapshot
     (including GPU and disk), DND status, and project health scores.
     """
-    # --- Services: latest status per service ---
+    # --- Services: latest status per configured service ---
+    config = get_config()
+    configured_names = {s.name for s in config.agents.sysadmin.services}
+
     svc_subq = (
         select(
             ServiceHealth.service_name,
@@ -37,10 +41,14 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
         .group_by(ServiceHealth.service_name)
         .subquery()
     )
-    svc_query = select(ServiceHealth).join(
-        svc_subq,
-        (ServiceHealth.service_name == svc_subq.c.service_name)
-        & (ServiceHealth.checked_at == svc_subq.c.max_checked),
+    svc_query = (
+        select(ServiceHealth)
+        .join(
+            svc_subq,
+            (ServiceHealth.service_name == svc_subq.c.service_name)
+            & (ServiceHealth.checked_at == svc_subq.c.max_checked),
+        )
+        .where(ServiceHealth.service_name.in_(configured_names))
     )
     svc_result = await session.execute(svc_query)
     svc_rows = svc_result.scalars().all()
