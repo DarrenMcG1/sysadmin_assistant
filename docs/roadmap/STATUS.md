@@ -1,7 +1,7 @@
 # Project Status Dashboard
 
 **Last Updated**: 2026-03-06
-**Current Phase:** Core service + KDE tray app Phase 2 + DND mode complete
+**Current Phase:** Core service + KDE tray app Phase 2 + DND mode + backend tests complete
 
 ---
 
@@ -17,12 +17,21 @@
 | systemd | 🟢 Complete | Unit file + install scripts |
 | KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard + DND mode, 104 tests |
 | DND Mode | 🟢 Complete | Schedule-based + manual toggle, critical breakthrough, backend + tray gating |
-| Testing | 🟡 Planned | Backend test suite needed |
+| Testing | 🟢 Complete | 94 backend tests (agents, routers, retention, health) + 124 tray tests = 218 total |
 | Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
 
 ---
 
 ## Recently Completed
+
+- **2026-03-06**: Backend test suite (94 tests)
+  - `tests/conftest.py` — mock config, mock async session, FastAPI test client fixtures
+  - `tests/test_health.py` — health endpoint shape and status (3 tests)
+  - `tests/test_sysadmin_agent.py` — HTTP/TCP/systemd checks, alerting logic, thresholds, auto-restart (28 tests)
+  - `tests/test_project_organiser.py` — discovery, health scoring, edge cases, TODO counting (22 tests)
+  - `tests/test_file_organiser.py` — all 8 finding types with tmpdir fixtures (20 tests)
+  - `tests/test_retention.py` — purge logic, downsampling, table map completeness (9 tests)
+  - `tests/test_routers.py` — status, resources, alerts, DND, ports endpoints (12 tests)
 
 - **2026-03-06**: DND mode & notification control
   - Added `notifications` config section (desktop/PA severity thresholds, DND schedule)

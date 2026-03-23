@@ -85,14 +85,14 @@ _No active sessions._
 - [ ] Implement auto-restart logic in SysAdminAgent._handle_status() after N consecutive failures
 - [ ] Wire controllable flag into tray popup ActionBar (disable buttons for non-controllable services)
 
-### Testing (Priority)
-- [ ] `tests/conftest.py` — Fixtures: test DB (transactional rollback), mock config, FastAPI test client
-- [ ] `tests/test_health.py` — Health endpoint returns 200 with correct shape
-- [ ] `tests/test_sysadmin_agent.py` — Mock HTTP/TCP checks, verify status determination and threshold alerting
-- [ ] `tests/test_project_organiser.py` — Mock git repo, verify health score calculation and edge cases
-- [ ] `tests/test_file_organiser.py` — Mock filesystem (tmpdir), verify all 8 finding types detected
-- [ ] `tests/test_retention.py` — Verify purge logic respects retention days, keeps latest per entity
-- [ ] `tests/test_routers.py` — Integration tests for key endpoints (status, resources, projects/overview)
+### Testing (Priority) — DONE
+- [x] `tests/conftest.py` — Fixtures: mock config, mock async session, FastAPI test client
+- [x] `tests/test_health.py` — Health endpoint returns 200 with correct shape (3 tests)
+- [x] `tests/test_sysadmin_agent.py` — HTTP/TCP/systemd checks, alerting, thresholds, auto-restart (28 tests)
+- [x] `tests/test_project_organiser.py` — Project discovery, health scoring, edge cases, TODO counting (22 tests)
+- [x] `tests/test_file_organiser.py` — All 8 finding types with tmpdir fixtures (20 tests)
+- [x] `tests/test_retention.py` — Purge logic, downsampling, table map completeness (9 tests)
+- [x] `tests/test_routers.py` — Status, resources, alerts, DND, ports endpoints (12 tests)
 
 ### KDE System Tray App — Phase 2+ (Feature)
 - [x] Desktop tray icon for KDE Plasma — persistent indicator showing service health at a glance
@@ -105,5 +105,5 @@ _No active sessions._
 - [ ] Structured JSON logging (for systemd journal)
 - [ ] Request logging middleware (method, path, status, duration)
 - [ ] Night Worker integration endpoints
-- [ ] GPU monitoring (nvidia-smi parsing)
+- [ ] GPU monitoring (nvidia-smi parsing) **AMD NOT nvidia**
 - [ ] SSL cert expiry checks
