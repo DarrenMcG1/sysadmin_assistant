@@ -17,13 +17,19 @@
 | systemd | 🟢 Complete | Unit file + install scripts |
 | KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard + DND mode, 104 tests |
 | DND Mode | 🟢 Complete | Schedule-based + manual toggle, critical breakthrough, backend + tray gating |
-| Testing | 🟢 Complete | 104 backend tests + 124 tray tests = 228 total |
+| Testing | 🟢 Complete | 118 backend tests + 124 tray tests = 242 total |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
 
 ---
 
 ## Recently Completed
+
+- **2026-03-23**: Night Worker integration endpoints
+  - `/api/logs/recent` — raised limits (hours≤168, limit≤2000), `severity=all`, offset pagination
+  - `/api/sysadmin/resources/history` — added `days` param, included `disk_usage` in response
+  - `/api/files/trends` — added forecast section: linear growth rate, milestone projections (1/5/10GB)
+  - `tests/test_night_worker.py` — 14 tests covering all enhancements
 
 - **2026-03-23**: Structured JSON logging & request middleware
   - `sysadmin/logging_setup.py` — JSON (production/systemd) and text (dev) formatters

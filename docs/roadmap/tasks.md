@@ -104,6 +104,6 @@ _No active sessions._
 ### Polish
 - [x] Structured JSON logging (for systemd journal)
 - [x] Request logging middleware (method, path, status, duration)
-- [ ] Night Worker integration endpoints
+- [x] Night Worker integration endpoints
 - [ ] GPU monitoring (nvidia-smi parsing) **AMD NOT nvidia**
 - [ ] SSL cert expiry checks

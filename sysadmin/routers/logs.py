@@ -15,25 +15,31 @@ router = APIRouter(prefix="/api/logs", tags=["logs"])
 
 @router.get("/recent")
 async def get_recent_logs(
-    hours: int = Query(default=1, le=48),
+    hours: int = Query(default=1, le=168),
     source: str | None = Query(default=None),
     severity: str | None = Query(default=None),
-    limit: int = Query(default=100, le=500),
+    limit: int = Query(default=100, le=2000),
+    offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get recent log entries with optional filters."""
+    """Get recent log entries with optional filters.
+
+    Night Worker uses ``hours=24&severity=all&limit=2000`` for deep analysis.
+    Pass ``severity=all`` to explicitly include all severity levels.
+    """
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     query = (
         select(LogEntry)
         .where(LogEntry.logged_at >= since)
         .order_by(desc(LogEntry.logged_at))
+        .offset(offset)
         .limit(limit)
     )
 
     if source:
         query = query.where(LogEntry.source == source)
-    if severity:
+    if severity and severity != "all":
         query = query.where(LogEntry.severity == severity)
 
     result = await session.execute(query)

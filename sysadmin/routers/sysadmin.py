@@ -203,11 +203,23 @@ async def get_resources(session: AsyncSession = Depends(get_db_session)):
 
 @router.get("/resources/history")
 async def get_resource_history(
-    hours: int = Query(default=24, le=168),
+    hours: int | None = Query(default=None, le=720),
+    days: int | None = Query(default=None, le=30),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get resource snapshot history for the given time window."""
-    since = datetime.now(UTC) - timedelta(hours=hours)
+    """Get resource snapshot history for the given time window.
+
+    Night Worker uses ``days=7`` for capacity forecasting.
+    Specify either ``hours`` or ``days``; defaults to 24 hours.
+    """
+    if days is not None:
+        total_hours = days * 24
+    elif hours is not None:
+        total_hours = hours
+    else:
+        total_hours = 24
+
+    since = datetime.now(UTC) - timedelta(hours=total_hours)
 
     query = (
         select(ResourceSnapshot)
@@ -218,12 +230,13 @@ async def get_resource_history(
     rows = result.scalars().all()
 
     return {
-        "period_hours": hours,
+        "period_hours": total_hours,
         "count": len(rows),
         "snapshots": [
             {
                 "cpu_percent": float(r.cpu_percent) if r.cpu_percent else None,
                 "ram_percent": float(r.ram_percent) if r.ram_percent else None,
+                "disk_usage": r.disk_usage,
                 "load_avg_1m": float(r.load_avg_1m) if r.load_avg_1m else None,
                 "recorded_at": r.recorded_at.isoformat() if r.recorded_at else None,
             }

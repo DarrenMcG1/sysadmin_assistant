@@ -125,6 +125,7 @@ async def test_client(mock_config, mock_session):
     from sysadmin.database import get_db_session
     from sysadmin.routers.files import router as files_router
     from sysadmin.routers.health import router as health_router
+    from sysadmin.routers.logs import router as logs_router
     from sysadmin.routers.projects import router as projects_router
     from sysadmin.routers.sysadmin import router as sysadmin_router
 
@@ -142,6 +143,7 @@ async def test_client(mock_config, mock_session):
     test_app.include_router(sysadmin_router)
     test_app.include_router(projects_router)
     test_app.include_router(files_router)
+    test_app.include_router(logs_router)
 
     # Override DB dependency
     async def override_get_db_session():

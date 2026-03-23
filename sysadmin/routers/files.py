@@ -2,6 +2,7 @@
 
 import asyncio
 import shutil
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -165,7 +166,12 @@ async def get_trends(
     limit: int = Query(default=10, le=50),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get historical finding counts for trend analysis."""
+    """Get historical finding counts with growth rate and threshold projection.
+
+    Night Worker uses this to predict when disk thresholds will be hit.
+    Returns per-scan data plus a ``forecast`` section with linear growth
+    rate and projected dates for warning/critical thresholds.
+    """
     query = (
         select(FilesystemAudit)
         .order_by(desc(FilesystemAudit.scanned_at))
@@ -174,23 +180,97 @@ async def get_trends(
     result = await session.execute(query)
     audits = result.scalars().all()
 
+    scans = [
+        {
+            "scanned_at": a.scanned_at.isoformat() if a.scanned_at else None,
+            "similar_folders": a.similar_folders_count,
+            "misplaced_files": a.misplaced_files_count,
+            "old_downloads": a.old_downloads_count,
+            "large_files": a.large_files_count,
+            "duplicate_groups": a.duplicate_groups_count,
+            "empty_dirs": a.empty_dirs_count,
+            "stale_project_dirs": a.stale_project_dirs_count,
+            "reclaimable_mb": a.total_reclaimable_mb,
+        }
+        for a in audits
+    ]
+
+    forecast = _compute_reclaimable_forecast(audits)
+
     return {
-        "scans": [
-            {
-                "scanned_at": a.scanned_at.isoformat() if a.scanned_at else None,
-                "similar_folders": a.similar_folders_count,
-                "misplaced_files": a.misplaced_files_count,
-                "old_downloads": a.old_downloads_count,
-                "large_files": a.large_files_count,
-                "duplicate_groups": a.duplicate_groups_count,
-                "empty_dirs": a.empty_dirs_count,
-                "stale_project_dirs": a.stale_project_dirs_count,
-                "reclaimable_mb": a.total_reclaimable_mb,
-            }
-            for a in audits
-        ],
+        "scans": scans,
         "count": len(audits),
+        "forecast": forecast,
     }
+
+
+def _compute_reclaimable_forecast(
+    audits: list[FilesystemAudit],
+) -> dict:
+    """Compute linear growth rate of reclaimable_mb and project threshold dates.
+
+    Uses simple linear regression on (timestamp, reclaimable_mb) pairs.
+    Returns growth_rate_mb_per_day and projected dates when reclaimable
+    space reaches notable milestones (1GB, 5GB, 10GB).
+    """
+    if len(audits) < 2:
+        return {"insufficient_data": True}
+
+    # Build (days_since_first, reclaimable_mb) pairs — oldest first
+    ordered = sorted(
+        [(a.scanned_at, a.total_reclaimable_mb) for a in audits if a.scanned_at],
+        key=lambda x: x[0],
+    )
+    if len(ordered) < 2:
+        return {"insufficient_data": True}
+
+    t0 = ordered[0][0]
+    points = [
+        ((ts - t0).total_seconds() / 86400, mb) for ts, mb in ordered
+    ]
+
+    # Simple linear regression: y = slope * x + intercept
+    n = len(points)
+    sum_x = sum(p[0] for p in points)
+    sum_y = sum(p[1] for p in points)
+    sum_xy = sum(p[0] * p[1] for p in points)
+    sum_xx = sum(p[0] ** 2 for p in points)
+
+    denom = n * sum_xx - sum_x ** 2
+    if denom == 0:
+        return {"growth_rate_mb_per_day": 0.0}
+
+    slope = (n * sum_xy - sum_x * sum_y) / denom
+    intercept = (sum_y - slope * sum_x) / n
+
+    current_mb = ordered[-1][1]
+    latest_ts = ordered[-1][0]
+
+    result: dict = {
+        "growth_rate_mb_per_day": round(slope, 2),
+        "current_reclaimable_mb": current_mb,
+        "data_points": n,
+    }
+
+    # Project when milestones will be reached (only if growing)
+    if slope > 0:
+        milestones = {"1gb": 1024, "5gb": 5120, "10gb": 10240}
+        projections = {}
+        days_since_first = (latest_ts - t0).total_seconds() / 86400
+
+        for label, target_mb in milestones.items():
+            if current_mb >= target_mb:
+                continue
+            days_to_target = (target_mb - intercept) / slope
+            days_from_now = days_to_target - days_since_first
+            if days_from_now > 0:
+                projected_date = latest_ts + timedelta(days=days_from_now)
+                projections[label] = projected_date.strftime("%Y-%m-%d")
+
+        if projections:
+            result["projected_milestones"] = projections
+
+    return result
 
 
 @router.post("/scan")
