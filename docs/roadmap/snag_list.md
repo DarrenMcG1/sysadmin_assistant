@@ -4,16 +4,7 @@
 >
 > **Related**: [tasks.md](tasks.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-02-13
-
----
-
-## Summary
-
-| Status | Count | Description |
-|--------|-------|-------------|
-| Open | 0 | — |
-| Fixed | 3 | SNAG-TRAY-001, SNAG-TRAY-002, SNAG-TRAY-003 |
+> **Last Updated**: 2026-03-23
 
 ---
 
@@ -25,14 +16,7 @@ _None — all clear._
 
 ## Fixed Issues
 
-### SNAG-TRAY-001 — Tray app crashes on startup (P0) — Fixed 2026-02-13
-`DbusNotifier._on_action_invoked` and `_on_notification_closed` missing `@pyqtSlot` decorators. PyQt6 requires decorated methods for `QDBusConnection.connect()`.
-
-### SNAG-TRAY-002 — D-Bus Notify call fails with signature mismatch (P1) — Fixed 2026-02-13
-`QDBusInterface.call()` inferred INT32 for `replaces_id` (needs UINT32) and array-of-variant for `actions` (needs array-of-string). Fixed with `QDBusMessage.createMethodCall()` + explicit `QDBusArgument` types.
-
-### SNAG-TRAY-003 — Notification spam on startup (P1) — Fixed 2026-02-13
-Backend creates new DB rows per scan cycle for the same alert. Dedup by `alert.id` caused N notifications per logical alert. Fixed with content fingerprint dedup (`severity:title`).
+_Archived — see [archive/completed_2026-03-23.md](archive/completed_2026-03-23.md) for fixed bugs (SNAG-TRAY-001/002/003)._
 
 ---
 
@@ -52,7 +36,3 @@ Backend creates new DB rows per scan cycle for the same alert. Dedup by `alert.i
   - **Cause**: Root cause (if known)
   - **Fix**: What was done to fix it (when resolved)
 ```
-
-**Create for**: User-facing bugs, 500 errors, security issues, performance regressions
-
-**Don't create for**: Feature requests (use ideas.md) | Transient errors
