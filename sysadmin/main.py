@@ -37,6 +37,7 @@ from sysadmin.routers.sysadmin import router as sysadmin_router
 from sysadmin.routers.projects import router as projects_router
 from sysadmin.routers.files import router as files_router
 from sysadmin.routers.logs import router as logs_router
+from sysadmin.routers.summary import router as summary_router
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +184,7 @@ app.include_router(sysadmin_router)
 app.include_router(projects_router)
 app.include_router(files_router)
 app.include_router(logs_router)
+app.include_router(summary_router)
 
 
 # --- Trigger-all endpoint ---

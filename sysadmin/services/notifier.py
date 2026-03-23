@@ -69,7 +69,8 @@ class Notifier:
         url = f"{config.personal_assistant.url}{config.personal_assistant.notify_endpoint}"
         payload = {
             "source": "sysadmin",
-            "urgency": urgency,
+            "category": "system",
+            "priority": urgency,
             "title": title,
             "message": message,
             "details": details or {},

@@ -32,8 +32,8 @@ class DatabaseConfig(BaseModel):
 class PersonalAssistantConfig(BaseModel):
     url: str = "http://localhost:8000"
     api_prefix: str = "/api"
-    notify_endpoint: str = "/api/notifications"
-    briefing_endpoint: str = "/api/briefing/data"
+    notify_endpoint: str = "/api/v2/notifications/send"
+    briefing_endpoint: str = "/api/v2/intelligence/briefing/data"
 
 
 class OllamaConfig(BaseModel):

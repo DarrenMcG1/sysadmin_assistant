@@ -13,8 +13,8 @@ database:
 personal_assistant:
   url: http://localhost:8000
   api_prefix: /api
-  notify_endpoint: /api/notifications
-  briefing_endpoint: /api/briefing/data
+  notify_endpoint: /api/v2/notifications/send
+  briefing_endpoint: /api/v2/intelligence/briefing/data
 
 ollama:
   url: http://localhost:11434

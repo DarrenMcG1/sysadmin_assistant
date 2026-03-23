@@ -16,7 +16,8 @@
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard + DND mode + service actions |
-| Testing | 🟢 Complete | 142 backend + 124 tray = 266 total |
+| PA Integration | 🟢 Complete | Summary digest endpoint + v2 notification targeting |
+| Testing | 🟢 Complete | 146 backend + 124 tray = 270 total |
 | Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
 
 ---
