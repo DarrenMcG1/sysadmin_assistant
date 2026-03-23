@@ -77,13 +77,13 @@ _No active sessions._
 - [x] Gate notification dispatch in Notifier + tray on DND state (allow critical to break through when `allow_critical: true`)
 - [x] Add DND toggle to tray context menu
 
-### Service Controllable Flag
-- [ ] Add `controllable: bool = True` field to `MonitoredService` in config.py
-- [ ] Gate `POST /services/{name}/{action}` endpoint — return 403 if `controllable` is false
-- [ ] Mark postgresql and any infrastructure services as `controllable: false` in config.yaml
-- [ ] Add `auto_restart` + `auto_restart_after_checks` fields to MonitoredService
-- [ ] Implement auto-restart logic in SysAdminAgent._handle_status() after N consecutive failures
-- [ ] Wire controllable flag into tray popup ActionBar (disable buttons for non-controllable services)
+### Service Controllable Flag — DONE
+- [x] Add `controllable: bool = True` field to `MonitoredService` in config.py
+- [x] Gate `POST /services/{name}/{action}` endpoint — return 403 if `controllable` is false
+- [x] Mark postgresql and any infrastructure services as `controllable: false` in config.yaml
+- [x] Add `auto_restart` + `auto_restart_after_checks` fields to MonitoredService
+- [x] Implement auto-restart logic in SysAdminAgent._handle_status() after N consecutive failures
+- [x] Wire controllable flag into tray popup ActionBar (disable buttons for non-controllable services)
 
 ### Testing (Priority) — DONE
 - [x] `tests/conftest.py` — Fixtures: mock config, mock async session, FastAPI test client

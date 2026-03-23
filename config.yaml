@@ -42,6 +42,7 @@ agents:
       - name: postgresql
         type: systemd
         systemd_unit: postgresql.service
+        controllable: false
       - name: ollama
         type: http
         url: http://localhost:11434/api/tags

@@ -41,6 +41,7 @@ class ServiceStatus:
     details: str | None = None
     checked_at: str | None = None
     systemd_unit: str | None = None
+    controllable: bool = True
 
 
 @dataclass

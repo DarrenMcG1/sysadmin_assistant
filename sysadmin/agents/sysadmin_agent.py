@@ -25,7 +25,7 @@ from sysadmin.agents.base import AgentResult, BaseAgent
 from sysadmin.config import AppConfig, MonitoredService, get_config
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
-from sysadmin.utils.systemd import get_unit_status, is_active
+from sysadmin.utils.systemd import get_unit_status, is_active, restart_unit
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ class SysAdminAgent(BaseAgent):
 
     def __init__(self) -> None:
         self._degraded_counts: dict[str, int] = {}
+        self._failure_counts: dict[str, int] = {}
         self._http_client: httpx.AsyncClient | None = None
 
     async def startup(self) -> None:
@@ -68,9 +69,9 @@ class SysAdminAgent(BaseAgent):
             )
             session.add(health)
 
-            # Alerting logic
+            # Alerting logic (+ auto-restart)
             alerts_raised += await self._handle_status(
-                session, svc.name, status, details
+                session, svc, status, details
             )
 
         # --- Resource snapshot ---
@@ -178,16 +179,23 @@ class SysAdminAgent(BaseAgent):
     # --- Alerting logic ---
 
     async def _handle_status(
-        self, session, service_name: str, status: str, details: dict
+        self, session, svc: MonitoredService, status: str, details: dict
     ) -> int:
-        """Handle status transitions and alerting. Returns count of alerts raised."""
+        """Handle status transitions, alerting, and auto-restart.
+
+        Returns count of alerts raised.
+        """
+        service_name = svc.name
+
         if status == "ok":
             self._degraded_counts[service_name] = 0
+            self._failure_counts[service_name] = 0
             # Resolve any existing alerts for this service
             await self.resolve_alerts(session, service_name)
             return 0
 
         if status == "degraded":
+            self._failure_counts[service_name] = 0
             self._degraded_counts[service_name] = (
                 self._degraded_counts.get(service_name, 0) + 1
             )
@@ -204,6 +212,7 @@ class SysAdminAgent(BaseAgent):
 
         if status == "warning":
             self._degraded_counts[service_name] = 0
+            self._failure_counts[service_name] = 0
             await self.raise_alert(
                 session,
                 severity="warning",
@@ -215,6 +224,41 @@ class SysAdminAgent(BaseAgent):
 
         if status in ("critical", "unreachable"):
             self._degraded_counts[service_name] = 0
+
+            # Track consecutive failures for auto-restart
+            self._failure_counts[service_name] = (
+                self._failure_counts.get(service_name, 0) + 1
+            )
+
+            # Auto-restart if enabled and threshold met
+            if (
+                svc.auto_restart
+                and svc.controllable
+                and svc.systemd_unit
+                and self._failure_counts[service_name] >= svc.auto_restart_after_checks
+            ):
+                logger.info(
+                    "auto_restart triggered for %s after %d consecutive failures",
+                    service_name,
+                    self._failure_counts[service_name],
+                )
+                success, msg = await restart_unit(svc.systemd_unit)
+                # Reset counter to avoid restart loop
+                self._failure_counts[service_name] = 0
+
+                await self.raise_alert(
+                    session,
+                    severity="warning",
+                    title=f"{service_name} auto-restarted",
+                    message=(
+                        f"{service_name} was automatically restarted after "
+                        f"{svc.auto_restart_after_checks} consecutive failures"
+                        f" — {'succeeded' if success else f'failed: {msg}'}"
+                    ),
+                    details={**details, "service_name": service_name, "auto_restart": True},
+                )
+                return 1
+
             await self.raise_alert(
                 session,
                 severity="critical",

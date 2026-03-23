@@ -37,6 +37,7 @@ class ServiceStatusRow(QWidget):
         super().__init__(parent)
         self._name = name
         self._systemd_unit: str | None = None
+        self._controllable: bool = True
         self._current_status: str = ""
         self._action_in_progress = False
 
@@ -70,6 +71,7 @@ class ServiceStatusRow(QWidget):
     def update_status(self, svc: ServiceStatus) -> None:
         """Refresh this row from a ServiceStatus object."""
         self._systemd_unit = svc.systemd_unit
+        self._controllable = svc.controllable
         self._current_status = svc.status
 
         colour = _STATUS_COLOURS.get(svc.status, _DEFAULT_COLOUR)
@@ -88,7 +90,7 @@ class ServiceStatusRow(QWidget):
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802 — Qt override
         """Show restart/start/stop context menu for systemd-managed services."""
-        if not self._systemd_unit or self._action_in_progress:
+        if not self._systemd_unit or not self._controllable or self._action_in_progress:
             return
 
         menu = QMenu(self)

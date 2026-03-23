@@ -51,6 +51,9 @@ class MonitoredService(BaseModel):
     host: Optional[str] = None
     port: Optional[int] = None
     systemd_unit: Optional[str] = None
+    controllable: bool = True
+    auto_restart: bool = False
+    auto_restart_after_checks: int = 3
 
 
 class Thresholds(BaseModel):

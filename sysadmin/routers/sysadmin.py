@@ -55,6 +55,12 @@ async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
         for s in config.agents.sysadmin.services
     }
 
+    # Map service name → controllable flag from config
+    controllable_map = {
+        s.name: s.controllable
+        for s in config.agents.sysadmin.services
+    }
+
     return {
         "services": [
             {
@@ -64,6 +70,7 @@ async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
                 "details": r.details,
                 "checked_at": r.checked_at.isoformat() if r.checked_at else None,
                 "systemd_unit": unit_map.get(r.service_name),
+                "controllable": controllable_map.get(r.service_name, True),
             }
             for r in rows
         ],
@@ -139,15 +146,22 @@ async def service_action(
     if service_name not in svc_map:
         raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found")
 
-    unit = svc_map[service_name].systemd_unit
-    if not unit:
+    svc = svc_map[service_name]
+
+    if not svc.controllable:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Service '{service_name}' is not controllable",
+        )
+
+    if not svc.systemd_unit:
         raise HTTPException(
             status_code=400,
             detail=f"Service '{service_name}' has no systemd_unit configured",
         )
 
     fn = _ACTION_FNS[action]
-    success, message = await fn(unit)
+    success, message = await fn(svc.systemd_unit)
     return {"success": success, "message": message}
 
 

@@ -147,9 +147,10 @@ class ServiceCard(QFrame):
         self._dot.setStyleSheet(f"font-size: 12px; color: {colour};")
 
         has_unit = bool(service.systemd_unit)
-        self._restart_btn.setVisible(has_unit)
-        self._stop_btn.setVisible(has_unit and service.status == "ok")
-        self._start_btn.setVisible(has_unit and service.status != "ok")
+        can_control = has_unit and service.controllable
+        self._restart_btn.setVisible(can_control)
+        self._stop_btn.setVisible(can_control and service.status == "ok")
+        self._start_btn.setVisible(can_control and service.status != "ok")
 
     def update_details(self, detail: ServiceDetailInfo) -> None:
         """Update from a ServiceDetailInfo (systemd unit details)."""
