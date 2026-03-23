@@ -105,5 +105,5 @@ _No active sessions._
 - [x] Structured JSON logging (for systemd journal)
 - [x] Request logging middleware (method, path, status, duration)
 - [x] Night Worker integration endpoints
-- [ ] GPU monitoring (nvidia-smi parsing) **AMD NOT nvidia**
-- [ ] SSL cert expiry checks
+- [x] GPU monitoring (AMD via rocm-smi / sysfs)
+- [ ] ~~SSL cert expiry checks~~ — not needed for localhost-only services

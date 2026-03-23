@@ -3,6 +3,7 @@
 Checks:
 - Service health via HTTP, TCP, or systemd
 - CPU, RAM, disk, swap, load averages via psutil
+- AMD GPU utilisation, temperature, VRAM via rocm-smi / sysfs
 - Port conflict detection
 
 Alerting:
@@ -25,6 +26,7 @@ from sysadmin.agents.base import AgentResult, BaseAgent
 from sysadmin.config import AppConfig, MonitoredService, get_config
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
+from sysadmin.utils.gpu import get_gpu_usage
 from sysadmin.utils.systemd import get_unit_status, is_active, restart_unit
 
 logger = logging.getLogger(__name__)
@@ -75,7 +77,7 @@ class SysAdminAgent(BaseAgent):
             )
 
         # --- Resource snapshot ---
-        snapshot = self._take_resource_snapshot(config)
+        snapshot = await self._take_resource_snapshot(config)
         session.add(snapshot)
 
         # Check resource thresholds
@@ -272,8 +274,8 @@ class SysAdminAgent(BaseAgent):
 
     # --- Resource monitoring ---
 
-    def _take_resource_snapshot(self, config: AppConfig) -> ResourceSnapshot:
-        """Collect current system resource metrics."""
+    async def _take_resource_snapshot(self, config: AppConfig) -> ResourceSnapshot:
+        """Collect current system resource metrics including GPU."""
         cpu = psutil.cpu_percent(interval=1)
         mem = psutil.virtual_memory()
         swap = psutil.swap_memory()
@@ -293,6 +295,13 @@ class SysAdminAgent(BaseAgent):
             except (PermissionError, OSError):
                 continue
 
+        # GPU usage (AMD via rocm-smi / sysfs)
+        try:
+            gpu_usage = await get_gpu_usage()
+        except Exception:
+            logger.debug("gpu monitoring failed", exc_info=True)
+            gpu_usage = {}
+
         return ResourceSnapshot(
             cpu_percent=cpu,
             ram_used_mb=int(mem.used / (1024**2)),
@@ -301,7 +310,7 @@ class SysAdminAgent(BaseAgent):
             swap_used_mb=int(swap.used / (1024**2)),
             swap_total_mb=int(swap.total / (1024**2)),
             disk_usage=disk_usage,
-            gpu_usage={},
+            gpu_usage=gpu_usage,
             load_avg_1m=load[0],
             load_avg_5m=load[1],
             load_avg_15m=load[2],
@@ -323,6 +332,31 @@ class SysAdminAgent(BaseAgent):
                 details={"ram_percent": float(snapshot.ram_percent)},
             )
             alerts += 1
+
+        # GPU checks
+        for card_id, gpu in (snapshot.gpu_usage or {}).items():
+            gpu_name = gpu.get("name", card_id)
+            temp = gpu.get("temp_c")
+            if temp is not None and temp >= thresholds.gpu_temp_warning_c:
+                await self.raise_alert(
+                    session,
+                    severity="warning",
+                    title=f"High GPU temperature on {gpu_name}",
+                    message=f"GPU temp at {temp}°C (threshold: {thresholds.gpu_temp_warning_c}°C)",
+                    details={"card": card_id, "temp_c": temp},
+                )
+                alerts += 1
+
+            vram_pct = gpu.get("vram_percent")
+            if vram_pct is not None and vram_pct >= thresholds.gpu_vram_warning_percent:
+                await self.raise_alert(
+                    session,
+                    severity="warning",
+                    title=f"High VRAM usage on {gpu_name}",
+                    message=f"VRAM at {vram_pct}% (threshold: {thresholds.gpu_vram_warning_percent}%)",
+                    details={"card": card_id, "vram_percent": vram_pct},
+                )
+                alerts += 1
 
         # Disk check
         for mount, usage in (snapshot.disk_usage or {}).items():

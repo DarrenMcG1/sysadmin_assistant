@@ -63,6 +63,8 @@ class Thresholds(BaseModel):
     ram_warning_percent: int = 85
     cpu_sustained_percent: int = 90
     cpu_sustained_minutes: int = 10
+    gpu_temp_warning_c: int = 90
+    gpu_vram_warning_percent: int = 90
 
 
 class SysAdminAgentConfig(BaseModel):

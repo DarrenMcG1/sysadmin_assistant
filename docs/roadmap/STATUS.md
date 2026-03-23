@@ -17,13 +17,20 @@
 | systemd | 🟢 Complete | Unit file + install scripts |
 | KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard + DND mode, 104 tests |
 | DND Mode | 🟢 Complete | Schedule-based + manual toggle, critical breakthrough, backend + tray gating |
-| Testing | 🟢 Complete | 118 backend tests + 124 tray tests = 242 total |
+| Testing | 🟢 Complete | 134 backend tests + 124 tray tests = 258 total |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
+| GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
 | Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
 
 ---
 
 ## Recently Completed
+
+- **2026-03-23**: AMD GPU monitoring
+  - `sysadmin/utils/gpu.py` — rocm-smi JSON parsing with sysfs fallback
+  - GPU util, temperature, VRAM, power per card (RX 7900 XTX + iGPU)
+  - Threshold alerts: `gpu_temp_warning_c`, `gpu_vram_warning_percent`
+  - `tests/test_gpu.py` — 16 tests (parsing, fallback, thresholds)
 
 - **2026-03-23**: Night Worker integration endpoints
   - `/api/logs/recent` — raised limits (hours≤168, limit≤2000), `severity=all`, offset pagination

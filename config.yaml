@@ -54,6 +54,8 @@ agents:
       ram_warning_percent: 85
       cpu_sustained_percent: 90
       cpu_sustained_minutes: 10
+      gpu_temp_warning_c: 90
+      gpu_vram_warning_percent: 90
 
   project_organiser:
     enabled: true

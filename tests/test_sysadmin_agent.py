@@ -328,9 +328,11 @@ Partition = namedtuple("Partition", ["device", "mountpoint", "fstype", "opts"])
 
 
 class TestResourceSnapshot:
-    def test_snapshot_fields(self, agent, mock_config):
+    @pytest.mark.asyncio
+    async def test_snapshot_fields(self, agent, mock_config):
         with (
             patch("sysadmin.agents.sysadmin_agent.psutil") as mock_psutil,
+            patch("sysadmin.agents.sysadmin_agent.get_gpu_usage", new_callable=AsyncMock) as mock_gpu,
         ):
             mock_psutil.cpu_percent.return_value = 42.5
             mock_psutil.virtual_memory.return_value = VMemory(
@@ -349,14 +351,27 @@ class TestResourceSnapshot:
                 free=100 * 1024**3,
                 percent=80.0,
             )
+            mock_gpu.return_value = {
+                "card0": {
+                    "name": "Test GPU",
+                    "gpu_percent": 30,
+                    "temp_c": 65.0,
+                    "vram_used_mb": 3000,
+                    "vram_total_mb": 24000,
+                    "vram_percent": 12.5,
+                    "power_w": 80.0,
+                }
+            }
 
-            snapshot = agent._take_resource_snapshot(mock_config)
+            snapshot = await agent._take_resource_snapshot(mock_config)
 
         assert isinstance(snapshot, ResourceSnapshot)
         assert snapshot.cpu_percent == 42.5
         assert snapshot.ram_percent == 50.0
         assert snapshot.load_avg_1m == 1.5
         assert "/" in snapshot.disk_usage
+        assert "card0" in snapshot.gpu_usage
+        assert snapshot.gpu_usage["card0"]["gpu_percent"] == 30
 
 
 # ---------------------------------------------------------------------------
