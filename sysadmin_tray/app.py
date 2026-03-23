@@ -137,6 +137,9 @@ class TrayApp:
             tray.on_service_action_complete
         )
 
+        # Refresh status after any service action (popup path)
+        client.service_action_complete.connect(self._on_service_action_done)
+
         # DND: backend → tray, tray → backend
         client.dnd_status_updated.connect(tray.update_dnd_status)
         tray.dnd_toggled.connect(client.toggle_dnd)
@@ -215,6 +218,15 @@ class TrayApp:
             self._last_status, self._last_alerts, self._backend_reachable
         )
         self._popup.update_status_dot(state)
+
+    # ── Service action feedback ───────────────────────────────────
+
+    def _on_service_action_done(
+        self, service_name: str, action: str, success: bool, message: str
+    ) -> None:
+        """Refresh service status after a popup action completes."""
+        if success:
+            self._client.request_status()
 
     # ── Notification actions ────────────────────────────────────────
 

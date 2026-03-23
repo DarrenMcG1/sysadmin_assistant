@@ -84,9 +84,15 @@ class ServiceStatusRow(QWidget):
             self._time_label.setText("—")
 
     def set_action_in_progress(self, in_progress: bool) -> None:
-        """Toggle the disabled appearance during a pending action."""
+        """Toggle the disabled appearance and status text during a pending action."""
         self._action_in_progress = in_progress
         self.setEnabled(not in_progress)
+        if in_progress:
+            self._status_label.setText("working\u2026")
+            self._status_label.setStyleSheet("color: #95a5a6; font-style: italic;")
+        else:
+            self._status_label.setText(self._current_status or "—")
+            self._status_label.setStyleSheet("")
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802 — Qt override
         """Show restart/start/stop context menu for systemd-managed services."""

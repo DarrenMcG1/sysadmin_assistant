@@ -15,8 +15,8 @@
 | Agents | 🟢 Complete | SysAdmin, Project Organiser, File Organiser, Log Aggregator |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
-| KDE Tray App | 🟢 Phase 2 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard + DND mode |
-| Testing | 🟢 Complete | 134 backend + 124 tray = 258 total |
+| KDE Tray App | 🟢 Phase 3 Complete | Tray icon + popup + service grid + D-Bus notifications + native dashboard + DND mode + service actions |
+| Testing | 🟢 Complete | 142 backend + 124 tray = 266 total |
 | Frontend | ⬜ Not Started | Nuxt pages in PA (future) |
 
 ---

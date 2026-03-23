@@ -58,6 +58,12 @@ def mock_config():
                         type="systemd",
                         systemd_unit="test.service",
                     ),
+                    MonitoredService(
+                        name="test-infra",
+                        type="systemd",
+                        systemd_unit="infra.service",
+                        controllable=False,
+                    ),
                 ],
                 thresholds=Thresholds(
                     disk_warning_percent=80,
