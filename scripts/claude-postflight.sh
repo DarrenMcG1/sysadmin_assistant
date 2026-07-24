@@ -58,16 +58,16 @@ echo -e "${BLUE}═════════════════════�
 RECENT_CODE_CHANGES=$(git log --oneline --name-only -20 2>/dev/null | grep -E "\.(py|vue|ts|js|tsx|jsx|dart|go|rs)$" | sort -u | wc -l)
 
 # Check if tracking docs were modified in recent commits
-STATUS_MODIFIED=$(git log --oneline --name-only -10 2>/dev/null | grep -c "STATUS.md" || echo "0")
-TASKS_MODIFIED=$(git log --oneline --name-only -10 2>/dev/null | grep -c "tasks.md" || echo "0")
-SNAG_MODIFIED=$(git log --oneline --name-only -10 2>/dev/null | grep -c "snag_list.md" || echo "0")
-IDEAS_MODIFIED=$(git log --oneline --name-only -10 2>/dev/null | grep -c "ideas.md" || echo "0")
+STATUS_MODIFIED=$(git log --oneline --name-only -10 2>/dev/null | grep -c "STATUS.md" || true)
+TASKS_MODIFIED=$(git log --oneline --name-only -10 2>/dev/null | grep -c "tasks.md" || true)
+SNAG_MODIFIED=$(git log --oneline --name-only -10 2>/dev/null | grep -c "snag_list.md" || true)
+IDEAS_MODIFIED=$(git log --oneline --name-only -10 2>/dev/null | grep -c "ideas.md" || true)
 
 # Also check uncommitted changes
-UNCOMMITTED_STATUS=$(git diff --name-only 2>/dev/null | grep -c "STATUS.md" || echo "0")
-UNCOMMITTED_TASKS=$(git diff --name-only 2>/dev/null | grep -c "tasks.md" || echo "0")
-UNCOMMITTED_SNAG=$(git diff --name-only 2>/dev/null | grep -c "snag_list.md" || echo "0")
-UNCOMMITTED_IDEAS=$(git diff --name-only 2>/dev/null | grep -c "ideas.md" || echo "0")
+UNCOMMITTED_STATUS=$(git diff --name-only 2>/dev/null | grep -c "STATUS.md" || true)
+UNCOMMITTED_TASKS=$(git diff --name-only 2>/dev/null | grep -c "tasks.md" || true)
+UNCOMMITTED_SNAG=$(git diff --name-only 2>/dev/null | grep -c "snag_list.md" || true)
+UNCOMMITTED_IDEAS=$(git diff --name-only 2>/dev/null | grep -c "ideas.md" || true)
 
 # Combine committed and uncommitted changes
 TOTAL_STATUS=$((STATUS_MODIFIED + UNCOMMITTED_STATUS))
@@ -164,7 +164,7 @@ if [ -d "docs/refactors" ]; then
         echo -e "  ${YELLOW}⚠️  $ACTIVE_REFACTORS active refactor(s) in progress${NC}"
         for file in $(find docs/refactors -name "*.md" -exec grep -l "🔴 Planning\|🟡 In Progress" {} \; 2>/dev/null); do
             NAME=$(basename "$file" .md | sed 's/refactor-//')
-            TODO=$(grep -c "⬜ TODO" "$file" 2>/dev/null || echo "0")
+            TODO=$(grep -c "⬜ TODO" "$file" 2>/dev/null || true)
             echo -e "    • $NAME ($TODO files remaining)"
         done
     else
