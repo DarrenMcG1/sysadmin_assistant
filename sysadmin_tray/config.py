@@ -9,11 +9,16 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel
 
+# Canonical host/port defaults shared with the backend's ServiceConfig
+# (sysadmin.defaults is stdlib-only, like sysadmin.contracts — safe to
+# import from the tray without pulling in backend dependencies)
+from sysadmin.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
+
 
 class TrayConfig(BaseModel):
     """Tray-specific configuration with sensible defaults."""
 
-    api_url: str = "http://127.0.0.1:8500"
+    api_url: str = default_api_url()
     auth_token: str | None = None
     status_poll_seconds: int = 10
     resource_poll_seconds: int = 30
@@ -72,9 +77,9 @@ def load_tray_config(
     # Derive api_url from service section if not in tray section
     if "api_url" not in kwargs:
         svc = raw.get("service", {})
-        host = svc.get("host", "127.0.0.1")
-        port = svc.get("port", 8500)
-        kwargs["api_url"] = f"http://{host}:{port}"
+        host = svc.get("host", DEFAULT_API_HOST)
+        port = svc.get("port", DEFAULT_API_PORT)
+        kwargs["api_url"] = default_api_url(host, port)
 
     # CLI override wins
     if api_url_override:

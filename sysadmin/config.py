@@ -6,6 +6,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field
 
+from sysadmin.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,10 +27,13 @@ class ApiConfig(BaseModel):
 
 class ServiceConfig(BaseModel):
     name: str = "sysadmin-service"
-    port: int = 8500
-    host: str = "127.0.0.1"
+    port: int = DEFAULT_API_PORT
+    host: str = DEFAULT_API_HOST
     log_level: str = "info"
     log_format: str = "json"  # json | text
+    cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
+    )
 
 
 class DatabaseConfig(BaseModel):
@@ -91,6 +96,20 @@ class SysAdminAgentConfig(BaseModel):
     thresholds: Thresholds = Field(default_factory=Thresholds)
 
 
+class HealthGradeBands(BaseModel):
+    """Score thresholds mapping ``health_score`` (0-100) to a grade.
+
+    score >= healthy_min          → "healthy"
+    score >= needs_attention_min  → "needs_attention"
+    score >= neglected_min        → "neglected"
+    otherwise                     → "abandoned"
+    """
+
+    healthy_min: int = 80
+    needs_attention_min: int = 60
+    neglected_min: int = 40
+
+
 class ProjectOrganiserConfig(BaseModel):
     enabled: bool = True
     scan_interval_hours: int = 6
@@ -100,6 +119,7 @@ class ProjectOrganiserConfig(BaseModel):
     todo_patterns: list[str] = Field(
         default_factory=lambda: ["TODO", "FIXME", "HACK", "XXX"]
     )
+    grade_bands: HealthGradeBands = Field(default_factory=HealthGradeBands)
 
 
 class FileOrganiserConfig(BaseModel):
@@ -111,6 +131,11 @@ class FileOrganiserConfig(BaseModel):
     downloads_stale_days: int = 30
     large_file_mb: int = 100
     similarity_threshold: float = 0.75
+    # Reclaimable-space milestones (MB) for the /api/files/trends forecast —
+    # the endpoint projects the date each one will be reached
+    reclaimable_milestones_mb: list[int] = Field(
+        default_factory=lambda: [1024, 5120, 10240]
+    )
     skip_dirs: list[str] = Field(
         default_factory=lambda: [
             ".git", ".cache", ".local", ".config", ".var",
@@ -241,6 +266,15 @@ class NotificationsConfig(BaseModel):
     dnd: DndConfig = Field(default_factory=DndConfig)
 
 
+class SchedulesConfig(BaseModel):
+    """Local times (server timezone) for the daily cron jobs in main.py."""
+
+    briefing_hour: int = 6
+    briefing_minute: int = 0
+    retention_hour: int = 3
+    retention_minute: int = 0
+
+
 class AgentsConfig(BaseModel):
     sysadmin: SysAdminAgentConfig = Field(default_factory=SysAdminAgentConfig)
     project_organiser: ProjectOrganiserConfig = Field(default_factory=ProjectOrganiserConfig)
@@ -258,6 +292,7 @@ class AppConfig(BaseModel):
     personal_assistant: PersonalAssistantConfig = Field(default_factory=PersonalAssistantConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
+    schedules: SchedulesConfig = Field(default_factory=SchedulesConfig)
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
     projects: ProjectsConfig = Field(default_factory=ProjectsConfig, exclude=True)
 

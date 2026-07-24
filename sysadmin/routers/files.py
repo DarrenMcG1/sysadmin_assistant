@@ -11,6 +11,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.auth import require_auth
+from sysadmin.config import get_config
 from sysadmin.database import get_db_session
 from sysadmin.models.filesystem_audit import FilesystemAudit
 
@@ -219,7 +220,8 @@ def _compute_reclaimable_forecast(
 
     Uses simple linear regression on (timestamp, reclaimable_mb) pairs.
     Returns growth_rate_mb_per_day and projected dates when reclaimable
-    space reaches notable milestones (1GB, 5GB, 10GB).
+    space reaches the milestones configured under
+    ``agents.file_organiser.reclaimable_milestones_mb`` (default 1/5/10 GB).
     """
     if len(audits) < 2:
         return {"insufficient_data": True}
@@ -262,7 +264,8 @@ def _compute_reclaimable_forecast(
 
     # Project when milestones will be reached (only if growing)
     if slope > 0:
-        milestones = {"1gb": 1024, "5gb": 5120, "10gb": 10240}
+        milestones_mb = get_config().agents.file_organiser.reclaimable_milestones_mb
+        milestones = {f"{mb / 1024:g}gb": mb for mb in milestones_mb}
         projections = {}
         days_since_first = (latest_ts - t0).total_seconds() / 86400
 

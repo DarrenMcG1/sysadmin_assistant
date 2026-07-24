@@ -40,12 +40,14 @@ async def get_projects_overview(session: AsyncSession = Depends(get_db_session))
     result = await session.execute(query)
     rows = result.scalars().all()
 
+    bands = get_config().agents.project_organiser.grade_bands
+
     def _grade(score: int) -> str:
-        if score >= 80:
+        if score >= bands.healthy_min:
             return "healthy"
-        if score >= 60:
+        if score >= bands.needs_attention_min:
             return "needs_attention"
-        if score >= 40:
+        if score >= bands.neglected_min:
             return "neglected"
         return "abandoned"
 
@@ -76,6 +78,7 @@ async def get_stale_projects(
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get projects with no activity in N days."""
+    bands = get_config().agents.project_organiser.grade_bands
     # Latest snapshot per project
     latest_subq = (
         select(
@@ -93,7 +96,7 @@ async def get_stale_projects(
             (ProjectSnapshot.project_name == latest_subq.c.project_name)
             & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
         )
-        .where(ProjectSnapshot.health_score < 60)
+        .where(ProjectSnapshot.health_score < bands.needs_attention_min)
         .order_by(ProjectSnapshot.health_score)
     )
 
@@ -140,9 +143,14 @@ async def get_projects_report(session: AsyncSession = Depends(get_db_session)):
     result = await session.execute(query)
     rows = result.scalars().all()
 
+    bands = get_config().agents.project_organiser.grade_bands
     lines = ["# Project Health Report\n"]
     for r in rows:
-        score_emoji = "🟢" if r.health_score >= 80 else "🟡" if r.health_score >= 60 else "🔴"
+        score_emoji = (
+            "🟢" if r.health_score >= bands.healthy_min
+            else "🟡" if r.health_score >= bands.needs_attention_min
+            else "🔴"
+        )
         lines.append(f"## {score_emoji} {r.project_name} — {r.health_score}/100\n")
         lines.append(f"- **Path:** `{r.project_path}`")
         if r.last_commit_at:

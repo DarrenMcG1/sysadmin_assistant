@@ -98,13 +98,22 @@ else
     echo -e "  ${YELLOW}Frontend: Not running${NC}"
 fi
 
-# 8. Snag list summary
+# 8. Snag list summary — only the "Open Issues" section counts
+#    (the old grep counted the whole file, so Fixed Issues inflated the totals)
 echo -e "\n${BLUE}🐛 Open snags:${NC}"
-if [ -f "docs/roadmap/snag_list.md" ]; then
-    P0=$(grep -c "^\- \[P0\]" docs/roadmap/snag_list.md 2>/dev/null || echo "0")
-    P1=$(grep -c "^\- \[P1\]" docs/roadmap/snag_list.md 2>/dev/null || echo "0")
-    P2=$(grep -c "^\- \[P2\]" docs/roadmap/snag_list.md 2>/dev/null || echo "0")
-    echo -e "  P0: $P0 | P1: $P1 | P2: $P2"
+SNAG_FILE="docs/roadmap/snag_list.md"
+if [ -f "$SNAG_FILE" ]; then
+    # Slice out the Open Issues section (up to the next ## heading),
+    # then keep only top-level snag bullets like "- [P1] SNAG-XXX: title"
+    OPEN_SNAGS=$(awk '/^## Open Issues/{flag=1; next} /^## /{flag=0} flag' "$SNAG_FILE" \
+        | grep -E '^- \[P[0-9]\]' || true)
+    if [ -z "$OPEN_SNAGS" ]; then
+        echo -e "  ${GREEN}None — all clear${NC}"
+    else
+        SNAG_COUNT=$(echo "$OPEN_SNAGS" | wc -l)
+        echo -e "  ${YELLOW}${SNAG_COUNT} open:${NC}"
+        echo "$OPEN_SNAGS" | sed 's/^- /  /'
+    fi
 else
     echo -e "  ${YELLOW}snag_list.md not found${NC}"
 fi

@@ -4,6 +4,9 @@ service:
   host: 127.0.0.1
   log_level: info
   log_format: json  # json | text
+  cors_origins:  # browser origins allowed to call the API (PA frontend dev server)
+    - http://localhost:3000
+    - http://127.0.0.1:3000
 
 # API authentication — bearer token checked on state-changing endpoints
 # (service actions, scans, stale-cache clean, DND toggle, alert ack).
@@ -47,6 +50,13 @@ notifications:
         end: "07:00"
     allow_critical: true
 
+# Daily cron jobs (local server time)
+schedules:
+  briefing_hour: 6      # morning briefing POSTed to PA
+  briefing_minute: 0
+  retention_hour: 3     # data retention purge
+  retention_minute: 0
+
 agents:
   sysadmin:
     enabled: true
@@ -88,6 +98,10 @@ agents:
       - "FIXME"
       - "HACK"
       - "XXX"
+    grade_bands:  # health_score thresholds → healthy / needs_attention / neglected / abandoned
+      healthy_min: 80
+      needs_attention_min: 60
+      neglected_min: 40
 
   file_organiser:
     enabled: true
@@ -98,6 +112,10 @@ agents:
     downloads_stale_days: 30
     large_file_mb: 100
     similarity_threshold: 0.75
+    reclaimable_milestones_mb:  # /api/files/trends projects dates these are reached
+      - 1024    # 1 GB
+      - 5120    # 5 GB
+      - 10240   # 10 GB
     skip_dirs:
       - .git
       - .cache

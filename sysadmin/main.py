@@ -25,7 +25,7 @@ from sysadmin.agents.project_organiser import ProjectOrganiserAgent
 # Agents
 from sysadmin.agents.sysadmin_agent import SysAdminAgent
 from sysadmin.auth import require_auth
-from sysadmin.config import load_config
+from sysadmin.config import get_config, load_config
 from sysadmin.contracts import ScanAllResponse
 from sysadmin.database import create_engine_and_session, dispose_engine, verify_connection
 from sysadmin.logging_setup import configure_logging
@@ -128,20 +128,19 @@ async def lifespan(app: FastAPI):
             seconds=agents_config.log_aggregator.poll_interval_seconds,
         )
 
-    # Morning briefing: daily at 06:00
+    # Daily cron jobs — times from config.schedules (defaults 06:00 / 03:00)
+    schedules = config.schedules
     scheduler.schedule_cron(
         job_id="morning_briefing",
         func=send_morning_briefing,
-        hour=6,
-        minute=0,
+        hour=schedules.briefing_hour,
+        minute=schedules.briefing_minute,
     )
-
-    # Retention: daily at 03:00
     scheduler.schedule_cron(
         job_id="retention_purge",
         func=run_retention,
-        hour=3,
-        minute=0,
+        hour=schedules.retention_hour,
+        minute=schedules.retention_minute,
     )
 
     scheduler.start()
@@ -188,7 +187,7 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
     # --- Middleware ---
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_origins=get_config().service.cors_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )

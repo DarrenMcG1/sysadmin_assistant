@@ -100,7 +100,9 @@ These directories waste tokens - never read or search them:
 
 ### Step 4: Test
 ```bash
-# Add your test command here
+uv run pytest             # Full suite (backend + tray, ~360 tests) — must stay green
+uv run ruff check .       # Lint — CI runs this, must stay clean
+uv run mypy sysadmin      # Type check (backend only) — CI expects clean
 ```
 
 ### Step 5: Commit & Document
@@ -159,15 +161,7 @@ Run `./scripts/claude-postflight.sh` to verify docs are updated.
 
 **Backend Port:** `8500`
 
-**Environment variables** (see `.env.example`):
-```bash
-DATABASE_TYPE=postgresql
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_USER=gaddi
-POSTGRES_DB=projects
-POSTGRES_SCHEMA=sysadmin
-```
+**Configuration source:** all settings live in `config.yaml` (validated by Pydantic models in `sysadmin/config.py`) plus optional `projects.yaml` for managed projects. **No environment variables are read** — there is no `.env` file. Database URLs are set under the `database:` section of `config.yaml`.
 
 ---
 

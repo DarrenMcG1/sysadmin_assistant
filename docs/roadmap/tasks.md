@@ -51,13 +51,14 @@ Shared bearer token on state-changing endpoints; rationale: localhost binding do
 - ✅ mypy: adopted (count was modest). `uv run mypy sysadmin` found 8 real errors (None-unsafe `svc.url`/`svc.systemd_unit` in health checks, untyped dicts, Sequence/list mismatch, JsonFormatter assignment, Result.rowcount) — all fixed; mypy added to dev deps with a lenient `[tool.mypy]` baseline (ignore_missing_imports, check_untyped_defs; alembic/tests/tray excluded), now clean over 45 files
 - Suite: 327 → 355 (236 backend + 119 tray); ruff, mypy, lint_check.sh all clean
 
-### Session 14: Config consolidation + docs
-- Deduplicate API host/port defaults (backend config.py:18, tray config.py:16 + fallback at 69-70)
-- Move magic numbers to config: health-grade bands 80/60/40 (routers/projects.py ×3), reclaimable-space milestones (routers/files.py:257), briefing/retention cron hours + CORS origins (main.py)
-- Rewrite docs/ARCHITECTURE.md (currently an untouched template describing nonexistent backend/frontend dirs)
-- Drop unused deps: python-dotenv, pydantic-settings; add .env.example or remove the CLAUDE.md reference to it
-- Fill in CLAUDE.md Step 4 test command (`uv run pytest`)
-- claude-preflight.sh: print open SNAG count/titles from snag_list.md alongside STATUS.md priorities
+### Session 14: Config consolidation + docs — ✅ Complete 2026-07-24
+- ✅ Host/port defaults deduplicated into new `sysadmin/defaults.py` (stdlib-only, like contracts.py): `DEFAULT_API_HOST`/`DEFAULT_API_PORT`/`default_api_url()` — imported by backend `ServiceConfig` and tray `TrayConfig` (both the field default and the config-missing fallback)
+- ✅ Magic numbers → config (defaults preserved, all in config.yaml): health-grade bands → `agents.project_organiser.grade_bands` (`healthy_min: 80` / `needs_attention_min: 60` / `neglected_min: 40`, used by /overview `_grade`, /stale threshold, /report emoji); reclaimable milestones → `agents.file_organiser.reclaimable_milestones_mb: [1024, 5120, 10240]` (labels derived, e.g. "1gb"); briefing/retention cron → new root `schedules:` section (`briefing_hour: 6`, `retention_hour: 3` + minutes); CORS origins → `service.cors_origins` (create_app reads via get_config)
+- ✅ docs/ARCHITECTURE.md rewritten from the real code: app factory, 6 routers, BaseAgent template method + APScheduler asyncio.run() bridge, services, sysadmin schema + Alembic, shared contracts/defaults modules, tray structure, PA integration, auth, JSON logging, ASCII component diagram
+- ✅ Deps: pydantic-settings dropped from pyproject (no imports anywhere; python-dotenv was never a direct dep and left with it via `uv sync`); grep confirmed NO env vars read anywhere (`os.environ`/`getenv`/dotenv) → CLAUDE.md's `.env.example` reference replaced with a "config.yaml only, no env vars" note instead of adding the file
+- ✅ CLAUDE.md Step 4 filled in: `uv run pytest` + `uv run ruff check .` + `uv run mypy sysadmin` (all CI-enforced)
+- ✅ claude-preflight.sh: snag section now parses only the "Open Issues" section (awk slice + `- [Pn]` grep — the old grep counted Fixed Issues too) and prints count + full titles, or "None — all clear" when empty; both states verified
+- ✅ 9 new tests (tests/test_config_defaults.py) pin the shared defaults + lifted values — suite 355 → 364
 
 ### Session 15: Migrate LLM client from Ollama to llama.cpp — ✅ Complete 2026-07-24
 Runtime has switched to llama.cpp (llama-server); code still spoke the Ollama API, so LLM features silently degraded to None and the monitored "ollama" service alerted as down.
