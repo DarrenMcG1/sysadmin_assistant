@@ -2,7 +2,7 @@
 
 from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -242,3 +242,170 @@ class TestCountTodos:
         proj.mkdir()
         counts = agent._count_todos(proj, ["TODO"])
         assert counts["TODO"] == 0
+
+
+# ---------------------------------------------------------------------------
+# TODO penalty cap (Session 20)
+#
+# Uncapped, 5 points per 10 markers pinned the real 300-TODO projects at
+# 0 permanently — the score stopped saying anything about the rest of
+# their health, so nothing they fixed ever showed up.
+# ---------------------------------------------------------------------------
+
+
+class TestTodoPenaltyCap:
+    @pytest.mark.parametrize(
+        ("markers", "expected"),
+        [
+            (0, 0),
+            (9, 0),
+            (10, 5),
+            (59, 25),
+            (60, 30),  # exactly at the cap
+            (61, 30),  # first marker past it
+            (370, 30),  # PersonalAssistant's real order of magnitude
+        ],
+    )
+    def test_penalty_boundaries(self, agent, markers, expected):
+        findings: dict = {}
+        assert agent._todo_penalty(markers, 30, findings) == expected
+
+    def test_cap_records_the_raw_penalty(self, agent):
+        findings: dict = {}
+        agent._todo_penalty(370, 30, findings)
+
+        assert findings["todo_penalty_capped"] == {
+            "raw_penalty": 185,
+            "applied_penalty": 30,
+            "total_markers": 370,
+        }
+
+    def test_under_the_cap_records_nothing(self, agent):
+        findings: dict = {}
+        agent._todo_penalty(40, 30, findings)
+        assert findings == {}
+
+    def test_none_disables_the_cap(self, agent):
+        assert agent._todo_penalty(370, None, findings={}) == 185
+
+    def test_zero_cap_removes_the_penalty(self, agent):
+        assert agent._todo_penalty(370, 0, findings={}) == 0
+
+    def test_high_todo_project_no_longer_pins_at_zero(
+        self, agent, agent_config, project_dir
+    ):
+        """A 370-marker project keeps a score that can still move."""
+        with (
+            TestAnalyseProject()._patch_git(last_commit_days_ago=1),
+            patch.object(
+                agent, "_count_todos", return_value={"TODO": 330, "FIXME": 40}
+            ),
+        ):
+            snapshot = agent._analyse_project(project_dir, agent_config)
+
+        assert snapshot.health_score == 70  # 100 - 30, nothing else wrong
+        assert snapshot.findings["todo_penalty_capped"]["raw_penalty"] == 185
+
+    def test_uncapped_config_restores_old_behaviour(
+        self, agent, agent_config, project_dir
+    ):
+        agent_config.max_todo_penalty = None
+        with (
+            TestAnalyseProject()._patch_git(last_commit_days_ago=1),
+            patch.object(
+                agent, "_count_todos", return_value={"TODO": 330, "FIXME": 40}
+            ),
+        ):
+            snapshot = agent._analyse_project(project_dir, agent_config)
+
+        assert snapshot.health_score == 0
+
+
+# ---------------------------------------------------------------------------
+# Per-project alert thresholds (Session 20)
+# ---------------------------------------------------------------------------
+
+
+class TestAlertThreshold:
+    async def _run(self, agent, tmp_path, score, managed=None, global_threshold=40):
+        from sysadmin.config import (
+            AgentsConfig,
+            AppConfig,
+            ProjectOrganiserConfig,
+            ProjectsConfig,
+        )
+
+        project = tmp_path / "demo"
+        project.mkdir(exist_ok=True)
+        (project / ".git").mkdir(exist_ok=True)
+
+        config = AppConfig(
+            agents=AgentsConfig(
+                project_organiser=ProjectOrganiserConfig(
+                    projects_root=str(tmp_path),
+                    alert_threshold=global_threshold,
+                )
+            ),
+            projects=ProjectsConfig(projects=managed or []),
+        )
+        snapshot = MagicMock(
+            project_name="demo",
+            project_path=str(project),
+            health_score=score,
+            findings={},
+        )
+        session = MagicMock()
+        session.add = MagicMock()
+
+        mod = "sysadmin.agents.project_organiser"
+        with (
+            patch(f"{mod}.get_config", return_value=config),
+            patch.object(agent, "_analyse_project", return_value=snapshot),
+            patch.object(agent, "raise_alert", new=AsyncMock()) as alert,
+        ):
+            await agent._execute(session)
+        return alert
+
+    async def test_global_threshold_applies_without_an_override(self, agent, tmp_path):
+        alert = await self._run(agent, tmp_path, score=35)
+        assert alert.await_count == 1
+
+        alert = await self._run(agent, tmp_path, score=45)
+        assert alert.await_count == 0
+
+    async def test_per_project_override_raises_the_bar(self, agent, tmp_path):
+        from sysadmin.config import ManagedProject
+
+        managed = [
+            ManagedProject(
+                name="demo", path=str(tmp_path / "demo"), alert_threshold=70
+            )
+        ]
+        alert = await self._run(agent, tmp_path, score=65, managed=managed)
+
+        assert alert.await_count == 1
+        assert "alert threshold 70" in alert.await_args.kwargs["message"]
+
+    async def test_per_project_override_silences_a_project(self, agent, tmp_path):
+        from sysadmin.config import ManagedProject
+
+        managed = [
+            ManagedProject(name="demo", path=str(tmp_path / "demo"), alert_threshold=0)
+        ]
+        alert = await self._run(agent, tmp_path, score=0, managed=managed)
+
+        assert alert.await_count == 0
+
+    async def test_other_projects_keep_the_global_default(self, agent, tmp_path):
+        from sysadmin.config import ManagedProject
+
+        managed = [
+            ManagedProject(
+                name="somewhere-else",
+                path=str(tmp_path / "other"),
+                alert_threshold=90,
+            )
+        ]
+        alert = await self._run(agent, tmp_path, score=45, managed=managed)
+
+        assert alert.await_count == 0

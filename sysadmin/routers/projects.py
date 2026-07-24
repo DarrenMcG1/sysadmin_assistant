@@ -1,15 +1,24 @@
 """Project Organiser API endpoints."""
 
+import asyncio
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.auth import require_auth
 from sysadmin.config import get_config
-from sysadmin.contracts import ManagedProjectsResponse, ProjectOverviewResponse
+from sysadmin.contracts import (
+    BranchCleanupResponse,
+    ManagedProjectsResponse,
+    ProjectOverviewResponse,
+)
 from sysadmin.database import get_db_session
 from sysadmin.models.project_snapshot import ProjectSnapshot
 from sysadmin.models.service_health import ServiceHealth
+from sysadmin.services import branch_actions
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -352,6 +361,125 @@ async def trigger_scan(request: Request):
         raise HTTPException(status_code=503, detail="Project organiser agent not available")
 
     # Run in background to avoid request timeout
-    import asyncio
     asyncio.create_task(agent.run(run_type="manual"))
     return {"status": "scan_triggered"}
+
+
+# ---------------------------------------------------------------------------
+# Branch hygiene — the one mutating, destructive project action.
+#
+# Same contract as Session 18's file actions:
+#   * POST only, behind ``require_auth``
+#   * **dry run unless the body sets ``confirm: true``** — the default
+#     response is a manifest of exactly which branches would go, and the
+#     repository is not touched
+#   * the same manifest shape comes back either way
+#     (``BranchCleanupResponse``), one row per local branch with its last
+#     commit, merge state and the reason it is (in)eligible
+#   * merged-into-the-default-branch only; unmerged deletion needs
+#     ``include_unmerged`` on the request **and**
+#     ``branch_actions.allow_unmerged_delete`` in config
+# The rules themselves live in ``sysadmin.services.branch_actions``.
+# ---------------------------------------------------------------------------
+
+
+class BranchPruneRequest(BaseModel):
+    """Nothing is deleted without ``confirm``."""
+
+    confirm: bool = Field(
+        default=False,
+        description="Set true to actually delete. Default is a dry run.",
+    )
+    stale_days: int | None = Field(
+        default=None,
+        description=(
+            "Only consider branches untouched for this many days. Defaults "
+            "to agents.project_organiser.stale_branch_days; may not go below "
+            "branch_actions.min_stale_days."
+        ),
+    )
+    include_unmerged: bool = Field(
+        default=False,
+        description=(
+            "Permit deleting branches not merged into the default branch. "
+            "Also requires branch_actions.allow_unmerged_delete in config."
+        ),
+    )
+    max_deletions: int | None = Field(
+        default=None,
+        description=(
+            "Lower the per-call deletion cap. Cannot raise it above "
+            "branch_actions.max_deletions."
+        ),
+    )
+
+
+@router.post(
+    "/{name}/branches/prune",
+    dependencies=[Depends(require_auth)],
+    response_model=BranchCleanupResponse,
+)
+async def prune_project_branches(
+    name: str,
+    body: BranchPruneRequest | None = None,
+) -> BranchCleanupResponse:
+    """Preview (or, with ``confirm``, perform) deletion of stale branches.
+
+    Dry run by default.  Only branches fully merged into the repository's
+    *detected* default branch are eligible; the default branch itself,
+    protected patterns, the checked-out branch, branches live in a
+    worktree, and branches holding unpushed commits are never deleted.
+    """
+    body = body or BranchPruneRequest()
+    config = get_config()
+    organiser = config.agents.project_organiser
+    settings = organiser.branch_actions
+    if not settings.enabled:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Branch actions are disabled "
+                "(agents.project_organiser.branch_actions.enabled)"
+            ),
+        )
+
+    stale_days = (
+        organiser.stale_branch_days if body.stale_days is None else body.stale_days
+    )
+    managed_paths = {
+        project.name: project.path
+        for project in config.projects.projects
+        if project.path
+    }
+
+    try:
+        repo_path = await asyncio.to_thread(
+            branch_actions.resolve_project_repo,
+            name,
+            Path(organiser.projects_root),
+            managed_paths,
+        )
+        plan = await asyncio.to_thread(
+            branch_actions.plan_branch_cleanup,
+            repo_path,
+            settings,
+            stale_days,
+            body.include_unmerged,
+            body.max_deletions,
+            name,
+        )
+        if not body.confirm:
+            plan.message = (
+                f"{plan.message + ' — ' if plan.message else ''}"
+                "dry run: nothing was deleted. Send confirm=true to apply."
+            ).strip()
+            return plan
+        return await asyncio.to_thread(
+            branch_actions.execute_branch_cleanup,
+            plan,
+            repo_path,
+            settings,
+            body.include_unmerged,
+        )
+    except branch_actions.BranchActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

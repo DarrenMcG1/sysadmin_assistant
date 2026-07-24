@@ -152,6 +152,18 @@ agents:
       healthy_min: 80
       needs_attention_min: 60
       neglected_min: 40
+    alert_threshold: 40  # global health floor; override per project in projects.yaml
+    max_todo_penalty: 30  # ceiling on the TODO/FIXME deduction (null = uncapped)
+    branch_actions:  # POST /api/projects/{name}/branches/prune — dry run unless confirm=true
+      enabled: true
+      protected_branches:  # globs never deleted (the default branch is protected regardless)
+        - "main"
+        - "master"
+        - "develop"
+        - "release/*"
+      allow_unmerged_delete: false  # + include_unmerged on the request; both needed
+      max_deletions: 20  # hard cap per call
+      min_stale_days: 7  # floor on the staleness window a request may ask for
 
   file_organiser:
     enabled: true

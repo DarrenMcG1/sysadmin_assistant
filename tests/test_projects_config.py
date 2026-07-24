@@ -290,3 +290,94 @@ class TestLoadConfigIntegration:
         assert config.agents.sysadmin.services == []
 
         cfg._config = None
+
+
+# ── Per-project alert thresholds (Session 20) ────────────────────
+
+
+class TestAlertThresholdFor:
+    def test_no_entries_returns_the_global_default(self):
+        config = ProjectsConfig()
+        assert config.alert_threshold_for("anything", None, 40) == 40
+
+    def test_entry_without_a_threshold_is_ignored(self):
+        """Backwards compatibility: a pre-Session-20 projects.yaml."""
+        config = ProjectsConfig(
+            projects=[ManagedProject(name="demo", path="/srv/demo")]
+        )
+        assert config.alert_threshold_for("demo", "/srv/demo", 40) == 40
+
+    def test_match_by_managed_name(self):
+        config = ProjectsConfig(
+            projects=[ManagedProject(name="demo", alert_threshold=70)]
+        )
+        assert config.alert_threshold_for("demo", None, 40) == 70
+
+    def test_match_by_path(self, tmp_path):
+        project = tmp_path / "SomeProject"
+        project.mkdir()
+        config = ProjectsConfig(
+            projects=[
+                ManagedProject(
+                    name="friendly-name", path=str(project), alert_threshold=65
+                )
+            ]
+        )
+        # The scanner names the project after its directory, not the
+        # projects.yaml name — the path still matches.
+        assert config.alert_threshold_for("SomeProject", str(project), 40) == 65
+
+    def test_match_by_path_basename(self):
+        config = ProjectsConfig(
+            projects=[
+                ManagedProject(
+                    name="personal-assistant",
+                    path="/home/someone/projects/PersonalAssistant",
+                    alert_threshold=25,
+                )
+            ]
+        )
+        assert config.alert_threshold_for("PersonalAssistant", None, 40) == 25
+
+    def test_path_match_beats_name_match(self, tmp_path):
+        project = tmp_path / "demo"
+        project.mkdir()
+        config = ProjectsConfig(
+            projects=[
+                ManagedProject(name="demo", alert_threshold=10),
+                ManagedProject(name="other", path=str(project), alert_threshold=90),
+            ]
+        )
+        assert config.alert_threshold_for("demo", str(project), 40) == 90
+
+    def test_unmatched_project_falls_back(self):
+        config = ProjectsConfig(
+            projects=[ManagedProject(name="demo", alert_threshold=70)]
+        )
+        assert config.alert_threshold_for("elsewhere", "/srv/elsewhere", 40) == 40
+
+    def test_zero_threshold_is_honoured_not_treated_as_absent(self):
+        config = ProjectsConfig(
+            projects=[ManagedProject(name="dormant", alert_threshold=0)]
+        )
+        assert config.alert_threshold_for("dormant", None, 40) == 0
+
+    def test_loaded_from_yaml(self, tmp_path):
+        raw = textwrap.dedent("""\
+            projects:
+              - name: demo
+                path: /srv/demo
+                alert_threshold: 55
+              - name: legacy
+                path: /srv/legacy
+        """)
+        config = ProjectsConfig.model_validate(_yaml_load(raw))
+
+        assert config.alert_threshold_for("demo", None, 40) == 55
+        assert config.alert_threshold_for("legacy", None, 40) == 40
+
+
+def _yaml_load(raw: str):
+    import yaml
+
+    return yaml.safe_load(raw)

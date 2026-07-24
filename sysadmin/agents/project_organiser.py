@@ -66,13 +66,23 @@ class ProjectOrganiserAgent(BaseAgent):
             )
             session.add(snapshot)
 
-            # Alert on low health scores
-            if snapshot.health_score < 40:
+            # Alert on low health scores.  The floor is the global
+            # agents.project_organiser.alert_threshold unless the project
+            # overrides it in projects.yaml.
+            threshold = config.projects.alert_threshold_for(
+                snapshot.project_name,
+                snapshot.project_path,
+                agent_config.alert_threshold,
+            )
+            if snapshot.health_score < threshold:
                 await self.raise_alert(
                     session,
                     severity="warning",
                     title=f"Project {snapshot.project_name} health critical",
-                    message=f"Health score: {snapshot.health_score}/100",
+                    message=(
+                        f"Health score: {snapshot.health_score}/100 "
+                        f"(alert threshold {threshold})"
+                    ),
                     details=snapshot.findings,
                 )
                 alerts_raised += 1
@@ -161,7 +171,9 @@ class ProjectOrganiserAgent(BaseAgent):
             total_todos = sum(todos.values())
             if total_todos > 0:
                 findings["todos"] = todos
-                score -= 5 * (total_todos // 10)
+                score -= self._todo_penalty(
+                    total_todos, agent_config.max_todo_penalty, findings
+                )
 
         # Missing .env check
         env_example = (project_path / ".env.example").exists()
@@ -209,6 +221,35 @@ class ProjectOrganiserAgent(BaseAgent):
             total_size_mb=total_size_mb,
             findings=findings,
         )
+
+    TODO_PENALTY_PER_BLOCK = 5
+    TODO_BLOCK_SIZE = 10
+
+    def _todo_penalty(
+        self,
+        total_todos: int,
+        cap: int | None,
+        findings: dict[str, Any],
+    ) -> int:
+        """Points to deduct for TODO/FIXME markers, bounded by ``cap``.
+
+        Five points per ten markers, as before — but uncapped this pinned
+        a 300-marker project at 0 forever, so the score said nothing about
+        whether anything else had improved. The cap (default 30) keeps the
+        signal alive; when it bites, the raw figure is recorded in
+        ``findings`` so the deduction stays explainable. ``cap=None``
+        restores the old unbounded behaviour.
+        """
+        raw = self.TODO_PENALTY_PER_BLOCK * (total_todos // self.TODO_BLOCK_SIZE)
+        if cap is None or raw <= cap:
+            return raw
+        applied = max(cap, 0)
+        findings["todo_penalty_capped"] = {
+            "raw_penalty": raw,
+            "applied_penalty": applied,
+            "total_markers": total_todos,
+        }
+        return applied
 
     # Directories that contain third-party or generated code
     _EXCLUDE_DIRS = [

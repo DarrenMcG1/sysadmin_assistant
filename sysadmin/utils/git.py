@@ -89,6 +89,120 @@ def get_stale_branches(repo: Repo, stale_days: int = 30) -> list[dict[str, Any]]
     return stale
 
 
+# Names conventionally used for a repository's default branch, in the
+# order they are tried when the remote does not advertise one.
+DEFAULT_BRANCH_CANDIDATES = ("main", "master", "trunk", "default")
+
+
+def detect_default_branch(repo: Repo) -> str | None:
+    """Work out the repo's default branch, or None when it is ambiguous.
+
+    Never assumes "main".  Tried in order:
+
+    1. the remote's advertised HEAD (``refs/remotes/<remote>/HEAD``),
+    2. ``init.defaultBranch`` from git config,
+    3. the conventional names in :data:`DEFAULT_BRANCH_CANDIDATES`,
+    4. the sole local branch, if there is exactly one.
+
+    Returning None is a meaningful answer: callers that delete branches
+    must refuse to act rather than guess, since "merged" is defined
+    entirely by this branch.
+    """
+    try:
+        local = {branch.name for branch in repo.branches}
+    except Exception:
+        return None
+    if not local:
+        return None
+
+    for remote in getattr(repo, "remotes", []):
+        prefix = f"refs/remotes/{remote.name}/"
+        try:
+            ref = repo.git.symbolic_ref(f"{prefix}HEAD").strip()
+        except Exception:
+            continue
+        if ref.startswith(prefix):
+            candidate = ref[len(prefix):]
+            if candidate in local:
+                return candidate
+
+    try:
+        configured = repo.git.config("--get", "init.defaultBranch").strip()
+    except Exception:
+        configured = ""
+    if configured in local:
+        return configured
+
+    for candidate in DEFAULT_BRANCH_CANDIDATES:
+        if candidate in local:
+            return candidate
+
+    if len(local) == 1:
+        return next(iter(local))
+    return None
+
+
+def worktree_branches(repo: Repo) -> set[str]:
+    """Branch names checked out in *any* worktree, main one included.
+
+    ``git worktree list --porcelain`` prints a ``branch refs/heads/x``
+    line per worktree with an attached branch.  Deleting one of these is
+    refused by git anyway, but they are filtered out up front so the
+    manifest never promises a deletion that cannot happen.
+    """
+    names: set[str] = set()
+    try:
+        output = repo.git.worktree("list", "--porcelain")
+    except Exception:
+        return names
+    for line in output.splitlines():
+        if line.startswith("branch "):
+            ref = line[len("branch "):].strip()
+            if ref.startswith("refs/heads/"):
+                names.add(ref[len("refs/heads/"):])
+    return names
+
+
+def is_merged_into(repo: Repo, branch: Any, target: Any) -> bool:
+    """Is every commit on ``branch`` reachable from ``target``?
+
+    Asks git (``merge-base --is-ancestor`` under the hood) rather than
+    inferring anything from dates.  Any error answers False — the caller
+    treats "unknown" as "not merged", which is the safe direction.
+    """
+    try:
+        return bool(repo.is_ancestor(branch.commit, target.commit))
+    except Exception:
+        return False
+
+
+def upstream_state(repo: Repo, branch: Any) -> tuple[str | None, int | None]:
+    """Return ``(upstream_ref_name, commits_ahead)`` for a local branch.
+
+    ``(None, 0)`` — the branch tracks nothing.
+    ``(name, n)`` — it tracks ``name`` and has ``n`` commits the upstream
+    does not.
+    ``(name, None)`` — it claims an upstream whose state cannot be read
+    (e.g. the remote-tracking ref is gone).  Ambiguous: callers must not
+    delete it.
+    """
+    try:
+        tracking = branch.tracking_branch()
+    except Exception:
+        return None, None
+    if tracking is None:
+        return None, 0
+    name = getattr(tracking, "name", str(tracking))
+    try:
+        counts = repo.git.rev_list(
+            "--left-right", "--count", f"{tracking.path}...{branch.path}"
+        )
+        _behind, ahead = counts.split()
+        return name, int(ahead)
+    except Exception:
+        return name, None
+
+
 def has_remote(repo: Repo) -> bool:
     """Check if the repo has at least one remote configured."""
     try:

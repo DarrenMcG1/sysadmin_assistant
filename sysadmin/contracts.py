@@ -730,3 +730,60 @@ class ProjectDetailResponse(Contract):
     @classmethod
     def _none_to_empty(cls, v: Any) -> Any:
         return {} if v is None else v
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Session 20 additions — branch hygiene
+#
+# POST /api/projects/{name}/branches/prune returns the same manifest
+# whether it ran as a dry run or for real, so a client can preview and
+# then confirm against an identical shape.  Enforced server-side with
+# ``response_model=``.
+#
+# Keep this whole block together — it is appended, never interleaved.
+# ─────────────────────────────────────────────────────────────────────
+
+
+class BranchInfo(Contract):
+    """One local branch considered by a prune, acted on or not.
+
+    ``status`` is ``planned`` (would be / was eligible), ``deleted``,
+    ``skipped`` (ineligible — ``reason`` says why) or ``failed``.
+    ``last_commit_sha`` is recorded so a deletion stays recoverable with
+    ``git branch <name> <sha>`` while the commit is still in the reflog.
+    """
+
+    name: str = ""
+    last_commit_at: str | None = None
+    last_commit_sha: str = ""
+    days_stale: int = 0
+    merged: bool = False
+    upstream: str | None = None
+    ahead: int | None = 0
+    status: str = "skipped"
+    reason: str = ""
+
+
+class BranchCleanupResponse(Contract):
+    """POST /api/projects/{name}/branches/prune.
+
+    ``default_branch`` empty means it could not be determined; in that
+    case nothing is ever planned, because "merged" has no meaning
+    without it.
+    """
+
+    project: str = ""
+    repo_path: str = ""
+    default_branch: str = ""
+    dry_run: bool = True
+    stale_days: int = 0
+    max_deletions: int = 0
+    include_unmerged: bool = False
+    branches: list[BranchInfo] = Field(default_factory=list)
+    total_branches: int = 0
+    planned_count: int = 0
+    deleted_count: int = 0
+    skipped_count: int = 0
+    failed_count: int = 0
+    truncated: bool = False  # the max_deletions cap bit
+    message: str = ""

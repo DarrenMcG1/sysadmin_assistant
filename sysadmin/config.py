@@ -134,6 +134,35 @@ class HealthGradeBands(BaseModel):
     neglected_min: int = 40
 
 
+class BranchActionsConfig(BaseModel):
+    """Stale-branch pruning (``POST /api/projects/{name}/branches/prune``).
+
+    Deleting a branch can destroy unmerged work, so this mirrors the file
+    actions' safety model: dry run unless the request says ``confirm``,
+    and the genuinely dangerous case needs *two* flags.
+
+    - ``enabled`` — master kill switch; false → the endpoint 409s
+    - ``protected_branches`` — glob patterns never deleted, whatever their
+      age or merge state (the detected default branch is protected too,
+      even when it is not listed here)
+    - ``allow_unmerged_delete`` — defence in depth.  A branch that is not
+      an ancestor of the default branch is *reported only* unless the
+      request sets ``include_unmerged: true`` **and** this flag is true
+    - ``max_deletions`` — hard cap per call.  A request may ask for fewer,
+      never for more
+    - ``min_stale_days`` — floor on the staleness window a request may
+      ask for, so ``stale_days: 0`` cannot sweep up today's work
+    """
+
+    enabled: bool = True
+    protected_branches: list[str] = Field(
+        default_factory=lambda: ["main", "master", "develop", "release/*"]
+    )
+    allow_unmerged_delete: bool = False
+    max_deletions: int = 20
+    min_stale_days: int = 7
+
+
 class ProjectOrganiserConfig(BaseModel):
     enabled: bool = True
     scan_interval_hours: int = 6
@@ -144,6 +173,14 @@ class ProjectOrganiserConfig(BaseModel):
         default_factory=lambda: ["TODO", "FIXME", "HACK", "XXX"]
     )
     grade_bands: HealthGradeBands = Field(default_factory=HealthGradeBands)
+    # Global health-score floor below which a project raises an alert.
+    # A project may override this in projects.yaml (``alert_threshold``).
+    alert_threshold: int = 40
+    # Ceiling on the TODO/FIXME deduction (5 points per 10 markers).
+    # Uncapped, a 300-TODO project pins at 0 forever and the score stops
+    # reporting anything about the rest of its health.  ``None`` = no cap.
+    max_todo_penalty: int | None = 30
+    branch_actions: BranchActionsConfig = Field(default_factory=BranchActionsConfig)
 
 
 class FileActionsConfig(BaseModel):
@@ -262,6 +299,10 @@ class ManagedProject(BaseModel):
     path: str | None = None
     backend: ProjectEndpoint | None = None
     frontend: ProjectEndpoint | None = None
+    # Health-score floor for *this* project. Absent → the global
+    # ``agents.project_organiser.alert_threshold``.  A long-lived archive
+    # can be given 0 (never alert) and a flagship project 70.
+    alert_threshold: int | None = None
 
     def to_monitored_services(self) -> list[MonitoredService]:
         """Generate MonitoredService entries for health checking."""
@@ -302,6 +343,58 @@ class ProjectsConfig(BaseModel):
     """Root model for projects.yaml."""
 
     projects: list[ManagedProject] = Field(default_factory=list)
+
+    def alert_threshold_for(
+        self,
+        name: str,
+        path: str | None = None,
+        default: int = 40,
+    ) -> int:
+        """The health-score alert floor for one scanned project.
+
+        The scanner names a project after its *directory* while
+        projects.yaml names it however the user likes
+        (``personal-assistant`` vs ``PersonalAssistant``), so matching
+        tries three keys, most specific first:
+
+        1. the resolved filesystem path,
+        2. the managed project's ``name``,
+        3. the basename of the managed project's ``path``.
+
+        Entries without an ``alert_threshold`` are ignored entirely, so a
+        projects.yaml written before this option existed keeps the global
+        default for every project.
+        """
+        resolved: str | None = None
+        if path:
+            try:
+                resolved = str(Path(path).expanduser().resolve())
+            except OSError:  # pragma: no cover - resolve() is non-strict
+                resolved = None
+
+        by_name: int | None = None
+        by_basename: int | None = None
+
+        for project in self.projects:
+            threshold = project.alert_threshold
+            if threshold is None:
+                continue
+            if resolved and project.path:
+                try:
+                    if str(Path(project.path).expanduser().resolve()) == resolved:
+                        return threshold
+                except OSError:  # pragma: no cover
+                    pass
+            if by_name is None and project.name == name:
+                by_name = threshold
+            if by_basename is None and project.path and Path(project.path).name == name:
+                by_basename = threshold
+
+        if by_name is not None:
+            return by_name
+        if by_basename is not None:
+            return by_basename
+        return default
 
 
 class DndScheduleWindow(BaseModel):

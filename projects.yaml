@@ -1,3 +1,17 @@
+# Managed projects: endpoints to health-check, logs to aggregate, and
+# optional per-project overrides.
+#
+# alert_threshold: health-score floor below which the project organiser
+#   raises a warning alert. Omit it to use the global
+#   agents.project_organiser.alert_threshold (40). Matched against the
+#   scanned project by path first, then by this name, then by the
+#   basename of `path` — so an entry named `personal-assistant` pointing
+#   at a `PersonalAssistant` directory still applies. Example:
+#
+#   - name: some-archive
+#     path: /home/gaddi/projects/some-archive
+#     alert_threshold: 0     # never alert — deliberately dormant
+#
 projects:
   - name: personal-assistant
     path: /home/gaddi/projects/personal-assistant

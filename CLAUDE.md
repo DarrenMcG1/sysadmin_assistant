@@ -195,11 +195,20 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `POST /api/files/organise` | `FileActionResponse` (+`FileOperation`, `FileFlag`) | response_model |
 | `POST /api/files/clean/duplicates` | `FileActionResponse` (+`FileOperation`) | response_model |
 | `POST /api/files/clean/downloads` | `FileActionResponse` (+`FileOperation`) | response_model |
+| `POST /api/projects/{name}/branches/prune` | `BranchCleanupResponse` (+`BranchInfo`) | response_model |
 
 The three `/api/files/*` action endpoints share one manifest shape and are
 **dry runs unless the request body sets `confirm: true`** — see
 `sysadmin/services/file_actions.py` for the safety rules (root confinement,
 no symlink following, no overwriting, trash instead of delete).
+
+`POST /api/projects/{name}/branches/prune` follows the same contract for git
+branches — see `sysadmin/services/branch_actions.py`. Dry run by default;
+only branches **merged into the detected default branch** are eligible, and
+deleting an unmerged one needs `include_unmerged: true` on the request **and**
+`agents.project_organiser.branch_actions.allow_unmerged_delete` in config. The
+default/protected/checked-out/worktree branches and anything ahead of its
+upstream are never deleted, whatever the flags say.
 
 Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 `sysadmin_tray/models.py`.
