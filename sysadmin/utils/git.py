@@ -1,12 +1,13 @@
 """Git repository inspection helpers using GitPython."""
 
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from git import InvalidGitRepositoryError, Repo
-from git.exc import GitCommandError
+from git.exc import NoSuchPathError
 
 logger = logging.getLogger(__name__)
 
@@ -15,21 +16,33 @@ def get_repo(path: Path) -> Repo | None:
     """Open a git repo at the given path, or None if not a git repo."""
     try:
         return Repo(path)
-    except (InvalidGitRepositoryError, Exception):
+    except (InvalidGitRepositoryError, NoSuchPathError):
+        # Expected: path isn't a git repo (or doesn't exist) — stay silent.
+        return None
+    except Exception:
+        logger.warning("unexpected error opening repo at %s", path, exc_info=True)
         return None
 
 
 def get_last_commit_date(repo: Repo) -> datetime | None:
-    """Get the date of the most recent commit on any branch."""
+    """Get the date of the most recent commit across all local branches.
+
+    Falls back to the HEAD commit for detached-HEAD or branchless repos.
+    Returns None if the repo has no commits at all.
+    """
+    dates: list[datetime] = []
     try:
-        if repo.head.is_detached:
-            return repo.head.commit.committed_datetime
-        commits = list(repo.iter_commits(max_count=1))
-        if commits:
-            return commits[0].committed_datetime
+        for branch in repo.branches:
+            try:
+                dates.append(branch.commit.committed_datetime)
+            except Exception:
+                continue
+        if dates:
+            return max(dates)
+        # No usable branches — detached HEAD or unborn branch.
+        return repo.head.commit.committed_datetime
     except Exception:
-        pass
-    return None
+        return None
 
 
 def get_branches(repo: Repo) -> list[dict[str, Any]]:
@@ -84,21 +97,23 @@ def has_remote(repo: Repo) -> bool:
         return False
 
 
-def count_stale_branches(repo: Repo, stale_days: int = 30) -> int:
-    """Count branches that haven't had commits in N days."""
-    return len(get_stale_branches(repo, stale_days))
+_SKIP_DIRS = {
+    ".git", "node_modules", "__pycache__", ".venv", "venv",
+    "dist", "build", ".next", ".nuxt", "coverage",
+    ".tox", ".mypy_cache", ".pytest_cache", "site-packages",
+    ".eggs", "vendor", "bower_components",
+}
 
 
 def get_repo_size_mb(path: Path) -> int:
-    """Estimate total size of a project directory in MB (excluding .git)."""
+    """Estimate total size of a project's own source files in MB."""
     total = 0
     try:
-        for f in path.rglob("*"):
-            if ".git" in f.parts:
-                continue
-            if f.is_file():
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+            for name in files:
                 try:
-                    total += f.stat().st_size
+                    total += (Path(root) / name).stat().st_size
                 except (PermissionError, OSError):
                     continue
     except (PermissionError, OSError):

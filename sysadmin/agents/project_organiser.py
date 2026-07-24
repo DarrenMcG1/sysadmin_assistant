@@ -19,7 +19,6 @@ from sysadmin.agents.base import AgentResult, BaseAgent
 from sysadmin.config import get_config
 from sysadmin.models.project_snapshot import ProjectSnapshot
 from sysadmin.utils.git import (
-    count_stale_branches,
     get_branches,
     get_last_commit_date,
     get_repo,
@@ -211,18 +210,32 @@ class ProjectOrganiserAgent(BaseAgent):
             findings=findings,
         )
 
+    # Directories that contain third-party or generated code
+    _EXCLUDE_DIRS = [
+        "node_modules", "__pycache__", ".venv", "venv", ".git",
+        "dist", "build", ".next", ".nuxt", "coverage",
+        ".tox", ".mypy_cache", ".pytest_cache", "site-packages",
+        ".eggs", "egg-info", "vendor", "bower_components",
+    ]
+
     def _count_todos(
         self, project_path: Path, patterns: list[str]
     ) -> dict[str, int]:
         """Count TODO/FIXME/etc. occurrences using grep. Capped at 1000 matches."""
+        exclude_args = []
+        for d in self._EXCLUDE_DIRS:
+            exclude_args.extend(["--exclude-dir", d])
+
         counts: dict[str, int] = {}
         for pattern in patterns:
             try:
                 result = subprocess.run(
                     [
-                        "grep", "-rn", "--include=*.py", "--include=*.js",
+                        "grep", "-rn",
+                        "--include=*.py", "--include=*.js",
                         "--include=*.ts", "--include=*.tsx", "--include=*.vue",
                         "--include=*.md", "--include=*.yaml", "--include=*.yml",
+                        *exclude_args,
                         "-m", "1000",
                         pattern,
                         str(project_path),

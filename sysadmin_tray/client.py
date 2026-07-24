@@ -3,7 +3,7 @@
 Architecture:
     - ``ApiWorker`` lives on a ``QThread`` and makes blocking ``httpx`` calls.
     - ``ApiClient`` lives on the main thread, owns the worker, and exposes
-      Qt signals that the tray icon and popup connect to.
+      Qt signals that the tray icon and dashboard connect to.
     - ``QTimer`` instances on the main thread trigger polls at configured
       intervals; the actual HTTP work runs off-thread so the UI never blocks.
 """

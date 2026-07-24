@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class DashboardWindow(QMainWindow):
     """Native dashboard window with tabbed interface.
 
-    Hides on close (same pattern as StatsPopup) so the tray app stays
+    Hides on close (rather than destroying) so the tray app stays
     alive.  Tabs call ``refresh()`` when the window is shown or when
     the user switches to them — no background polling when hidden.
     """

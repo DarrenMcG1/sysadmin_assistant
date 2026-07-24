@@ -1,4 +1,4 @@
-"""Per-service status rows displayed in the popup.
+"""Per-service status rows displayed in the dashboard overview tab.
 
 Each row shows a coloured status dot, service name, status text,
 and response time (if available).

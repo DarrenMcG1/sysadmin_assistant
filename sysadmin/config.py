@@ -79,7 +79,6 @@ class ProjectOrganiserConfig(BaseModel):
     scan_interval_hours: int = 6
     projects_root: str = "/home/gaddi/projects"
     stale_branch_days: int = 30
-    orphan_detection: bool = True
     track_todos: bool = True
     todo_patterns: list[str] = Field(
         default_factory=lambda: ["TODO", "FIXME", "HACK", "XXX"]

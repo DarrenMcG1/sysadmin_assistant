@@ -1,4 +1,4 @@
-"""Application orchestrator — wires QTimers, ApiClient, TrayIcon, and Popup.
+"""Application orchestrator — wires QTimers, ApiClient, TrayIcon, and Dashboard.
 
 This is the entry point: ``sysadmin-tray`` console script calls ``main()``.
 """
@@ -20,13 +20,7 @@ from sysadmin_tray.dashboard.overview_tab import OverviewTab
 from sysadmin_tray.dashboard.projects_tab import ProjectsTab
 from sysadmin_tray.dashboard.services_tab import ServicesTab
 from sysadmin_tray.dashboard.window import DashboardWindow
-from sysadmin_tray.models import (
-    AlertsResponse,
-    StatusResponse,
-    compute_icon_state,
-)
 from sysadmin_tray.notifications import DbusNotifier
-from sysadmin_tray.popup import StatsPopup
 from sysadmin_tray.tray_icon import TrayIcon
 
 logger = logging.getLogger(__name__)
@@ -52,7 +46,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 class TrayApp:
-    """Orchestrates the tray icon, popup, API client, and timers."""
+    """Orchestrates the tray icon, dashboard, API client, and timers."""
 
     def __init__(self, config: TrayConfig) -> None:
         self._config = config
@@ -62,7 +56,6 @@ class TrayApp:
 
         # UI components
         self._tray = TrayIcon()
-        self._popup = StatsPopup()
         self._dashboard = DashboardWindow(self._client)
         self._dashboard.add_tab(OverviewTab(self._client), "Overview")
         self._dashboard.add_tab(ServicesTab(self._client), "Services")
@@ -72,11 +65,6 @@ class TrayApp:
         # D-Bus notifier with fallback to tray showMessage()
         self._notifier = DbusNotifier(fallback_tray=self._tray)
         self._tray.set_notifier(self._notifier)
-
-        # Track current state for popup status dot
-        self._last_status: StatusResponse | None = None
-        self._last_alerts: AlertsResponse | None = None
-        self._backend_reachable = False
 
         self._wire_signals()
         self._setup_timers()
@@ -91,7 +79,6 @@ class TrayApp:
         """Connect all signals between components."""
         client = self._client
         tray = self._tray
-        popup = self._popup
 
         # ApiClient → TrayIcon
         client.status_updated.connect(tray.update_from_status)
@@ -99,45 +86,21 @@ class TrayApp:
         client.connection_lost.connect(tray.on_connection_lost)
         client.connection_restored.connect(tray.on_connection_restored)
 
-        # ApiClient → Popup
-        client.status_updated.connect(popup.update_services)
-        client.resources_updated.connect(popup.update_resources)
-        client.alerts_updated.connect(popup.update_alerts)
-
-        # ApiClient → self (track state for popup dot)
-        client.status_updated.connect(self._on_status_updated)
-        client.alerts_updated.connect(self._on_alerts_updated)
-        client.connection_lost.connect(self._on_connection_lost)
-        client.connection_restored.connect(self._on_connection_restored)
-
-        # ApiClient → ActionBar (scan feedback)
-        client.scan_complete.connect(popup.action_bar.on_scan_complete)
-
-        # TrayIcon → Popup toggle
-        tray.popup_requested.connect(self._toggle_popup)
+        # TrayIcon → Dashboard (left click opens main dashboard)
+        tray.popup_requested.connect(self._open_dashboard)
 
         # TrayIcon → Quit
         tray.quit_requested.connect(self._quit)
 
-        # TrayIcon / Popup → Dashboard
+        # TrayIcon menu → Dashboard
         tray.dashboard_requested.connect(self._open_dashboard)
-        popup.action_bar.dashboard_requested.connect(self._open_dashboard)
 
-        # ActionBar → ApiClient (scan trigger)
-        popup.action_bar.scan_requested.connect(client.trigger_scan)
-
-        # Service management: grid → client → grid + tray
-        popup.service_grid.service_action_requested.connect(
-            client.trigger_service_action
-        )
-        client.service_action_complete.connect(
-            popup.service_grid.on_action_complete
-        )
+        # Service action feedback → tray notification
         client.service_action_complete.connect(
             tray.on_service_action_complete
         )
 
-        # Refresh status after any service action (popup path)
+        # Refresh status after any service action
         client.service_action_complete.connect(self._on_service_action_done)
 
         # DND: backend → tray, tray → backend
@@ -194,37 +157,12 @@ class TrayApp:
         self._notifier.cleanup()
         self._client.shutdown()
 
-    # ── State tracking for popup status dot ──────────────────────────
-
-    def _on_status_updated(self, status: StatusResponse) -> None:
-        self._last_status = status
-        self._backend_reachable = True
-        self._update_popup_dot()
-
-    def _on_alerts_updated(self, alerts: AlertsResponse) -> None:
-        self._last_alerts = alerts
-        self._update_popup_dot()
-
-    def _on_connection_lost(self) -> None:
-        self._backend_reachable = False
-        self._update_popup_dot()
-
-    def _on_connection_restored(self) -> None:
-        self._backend_reachable = True
-        self._update_popup_dot()
-
-    def _update_popup_dot(self) -> None:
-        state = compute_icon_state(
-            self._last_status, self._last_alerts, self._backend_reachable
-        )
-        self._popup.update_status_dot(state)
-
     # ── Service action feedback ───────────────────────────────────
 
     def _on_service_action_done(
         self, service_name: str, action: str, success: bool, message: str
     ) -> None:
-        """Refresh service status after a popup action completes."""
+        """Refresh service status after a service action completes."""
         if success:
             self._client.request_status()
 
@@ -236,22 +174,6 @@ class TrayApp:
         self._client.trigger_service_action(service_name, "restart")
 
     # ── Actions ──────────────────────────────────────────────────────
-
-    def _toggle_popup(self) -> None:
-        """Position the popup near the tray icon and toggle visibility."""
-        geo = self._tray.geometry()
-        if geo.isValid():
-            anchor = geo.center()
-        else:
-            # Fallback: bottom-right of primary screen
-            screen = QApplication.primaryScreen()
-            if screen:
-                sg = screen.availableGeometry()
-                anchor = sg.bottomRight()
-            else:
-                anchor = None
-
-        self._popup.toggle_visibility(anchor)
 
     def _open_dashboard(self) -> None:
         """Toggle the native dashboard window."""

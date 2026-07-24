@@ -1,1 +1,1 @@
-"""Reusable widgets for the stats popup."""
+"""Reusable widgets shared by the dashboard tabs."""

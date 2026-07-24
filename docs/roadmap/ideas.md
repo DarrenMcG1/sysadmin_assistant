@@ -4,7 +4,7 @@
 >
 > **Related**: [tasks.md](tasks.md) | [snag_list.md](snag_list.md)
 >
-> **Last Updated**: 2026-03-23
+> **Last Updated**: 2026-07-24
 
 ---
 
@@ -12,9 +12,14 @@
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
 
-### Nice to Have
+_Inbox clear — all pending ideas promoted to sessions on 2026-07-24:_
 
-_No pending ideas._
+- File organisation & cleanup → **Session 18**
+- Dashboard enhancements → **Session 19**
+- Project management (branch cleanup, per-project thresholds, TODO cap) → **Session 20**
+- Developer experience (shared models, drift guard, smoke test) → folded into **Sessions 13–14**
+- Self-monitoring (self endpoint, SSE, anomaly detection) → **Session 17**
+- Notifications — less obtrusive → **Session 16**
 
 ### Explored & Rejected
 

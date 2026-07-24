@@ -1,7 +1,7 @@
-"""Overview tab — expanded version of the popup with resource history chart.
+"""Overview tab — at-a-glance system state with resource history chart.
 
-Reuses the existing ResourceGauge, ServiceStatusGrid, and AlertBadgeRow
-widgets, and adds a QPainter-based mini line chart for CPU/RAM history.
+Combines the ResourceGauge, ServiceStatusGrid, and AlertBadgeRow
+widgets with a QPainter-based mini line chart for CPU/RAM history.
 """
 
 from __future__ import annotations

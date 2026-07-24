@@ -225,6 +225,7 @@ class ResourceHistorySnapshot:
     cpu_percent: float | None = None
     ram_percent: float | None = None
     load_avg_1m: float | None = None
+    disk_usage: dict | None = None
     recorded_at: str | None = None
 
 

@@ -67,7 +67,8 @@ class TrayIcon(QSystemTrayIcon):
     """KDE system tray icon that reflects backend health state.
 
     Signals:
-        ``popup_requested``: emitted when the user clicks the tray icon.
+        ``popup_requested``: emitted when the user left-clicks the tray
+            icon (the app opens the dashboard in response).
         ``quit_requested``: emitted when the user selects Quit from the menu.
         ``dashboard_requested``: emitted when Dashboard is chosen from menu.
     """
@@ -126,7 +127,7 @@ class TrayIcon(QSystemTrayIcon):
 
         self.setContextMenu(self._menu)
 
-        # Left click → toggle popup
+        # Left click → open dashboard
         self.activated.connect(self._on_activated)
 
     # ── Slots for ApiClient signals ──────────────────────────────────

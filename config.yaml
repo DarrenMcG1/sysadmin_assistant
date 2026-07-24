@@ -69,7 +69,6 @@ agents:
     scan_interval_hours: 6
     projects_root: /home/gaddi/projects
     stale_branch_days: 30
-    orphan_detection: true
     track_todos: true
     todo_patterns:
       - "TODO"

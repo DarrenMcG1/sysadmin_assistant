@@ -1,6 +1,6 @@
 """Shared colour palette and stylesheet fragments for the tray UI.
 
-Centralises the dark-theme colours used across the popup, dashboard, and
+Centralises the dark-theme colours used across the dashboard and
 widgets so they're defined in exactly one place.
 """
 
