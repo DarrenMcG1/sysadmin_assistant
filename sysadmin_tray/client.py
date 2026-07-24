@@ -23,9 +23,16 @@ from PyQt6.QtCore import QMutex, QObject, QThread, pyqtSignal, pyqtSlot
 
 from sysadmin_tray.models import (
     AlertsResponse,
+    CleanResultResponse,
+    DuplicatesResponse,
+    FileStatusResponse,
+    FileTrendsResponse,
+    LargeFilesResponse,
     LogsResponse,
     LogStatsResponse,
     ManagedProjectsResponse,
+    MisplacedFilesResponse,
+    ProjectDetailResponse,
     ProjectOverviewResponse,
     ResourceHistoryResponse,
     ResourceResponse,
@@ -54,6 +61,15 @@ class ApiWorker(QObject):
     project_overview_ready = pyqtSignal(object)   # ProjectOverviewResponse
     service_detail_ready = pyqtSignal(str, object)  # service_name, ServiceDetailInfo
     dnd_status_ready = pyqtSignal(object)            # dict (DND status)
+    project_detail_ready = pyqtSignal(str, object)   # project_name, ProjectDetailResponse
+    file_status_ready = pyqtSignal(object)           # FileStatusResponse
+    file_duplicates_ready = pyqtSignal(object)       # DuplicatesResponse
+    file_large_ready = pyqtSignal(object)            # LargeFilesResponse
+    file_misplaced_ready = pyqtSignal(object)        # MisplacedFilesResponse
+    file_trends_ready = pyqtSignal(object)           # FileTrendsResponse
+    file_fetch_failed = pyqtSignal(str, str)         # what, message
+    file_scan_triggered = pyqtSignal(bool, str)      # success, message
+    stale_caches_cleaned = pyqtSignal(bool, str)     # success, message
 
     def __init__(
         self,
@@ -222,6 +238,120 @@ class ApiWorker(QObject):
         except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("project overview fetch failed: %s", exc)
 
+    @pyqtSlot(str, int)
+    def fetch_project_detail(self, project_name: str, limit: int = 30) -> None:
+        """GET /api/projects/{name}?limit=N — current snapshot + score history."""
+        try:
+            resp = self._client.get(
+                f"{self._api_url}/api/projects/{project_name}",
+                params={"limit": limit},
+            )
+            resp.raise_for_status()
+            detail = ProjectDetailResponse.from_dict(resp.json())
+            self.project_detail_ready.emit(project_name, detail)
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
+            logger.debug("project detail fetch failed for %s: %s", project_name, exc)
+            self.project_detail_ready.emit(project_name, None)
+
+    # ── File organiser (read-only) ───────────────────────────────────
+
+    def _fetch_file_endpoint(self, what: str, path: str, model, signal) -> None:
+        """Shared GET path for the /api/files/* read endpoints.
+
+        A 404 means "no audit data yet" (the scan has never run), which
+        is a legitimate empty state rather than a failure — emit a
+        default-constructed model so the tab can say so.  Everything
+        else is reported through ``file_fetch_failed``.
+        """
+        try:
+            resp = self._client.get(f"{self._api_url}{path}")
+            if resp.status_code == 404:
+                signal.emit(model.from_dict({}))
+                return
+            resp.raise_for_status()
+            signal.emit(model.from_dict(resp.json()))
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
+            logger.debug("%s fetch failed: %s", what, exc)
+            self.file_fetch_failed.emit(what, str(exc))
+
+    @pyqtSlot()
+    def fetch_file_status(self) -> None:
+        """GET /api/files/status."""
+        self._fetch_file_endpoint(
+            "status", "/api/files/status", FileStatusResponse, self.file_status_ready
+        )
+
+    @pyqtSlot()
+    def fetch_file_duplicates(self) -> None:
+        """GET /api/files/duplicates."""
+        self._fetch_file_endpoint(
+            "duplicates",
+            "/api/files/duplicates",
+            DuplicatesResponse,
+            self.file_duplicates_ready,
+        )
+
+    @pyqtSlot()
+    def fetch_file_large(self) -> None:
+        """GET /api/files/large."""
+        self._fetch_file_endpoint(
+            "large files", "/api/files/large", LargeFilesResponse, self.file_large_ready
+        )
+
+    @pyqtSlot()
+    def fetch_file_misplaced(self) -> None:
+        """GET /api/files/misplaced."""
+        self._fetch_file_endpoint(
+            "misplaced files",
+            "/api/files/misplaced",
+            MisplacedFilesResponse,
+            self.file_misplaced_ready,
+        )
+
+    @pyqtSlot()
+    def fetch_file_trends(self) -> None:
+        """GET /api/files/trends."""
+        self._fetch_file_endpoint(
+            "trends", "/api/files/trends", FileTrendsResponse, self.file_trends_ready
+        )
+
+    @pyqtSlot()
+    def trigger_file_scan(self) -> None:
+        """POST /api/files/scan — non-destructive re-audit of the filesystem."""
+        try:
+            resp = self._client.post(f"{self._api_url}/api/files/scan")
+            resp.raise_for_status()
+            self.file_scan_triggered.emit(True, "Filesystem scan triggered")
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
+            self.file_scan_triggered.emit(False, str(exc))
+
+    @pyqtSlot()
+    def clean_stale_caches(self) -> None:
+        """POST /api/files/clean/stale-caches?confirm=true.
+
+        Only ever called after the UI has shown the user exactly what
+        will be removed and they have confirmed.
+        """
+        try:
+            resp = self._client.post(
+                f"{self._api_url}/api/files/clean/stale-caches",
+                params={"confirm": "true"},
+            )
+            resp.raise_for_status()
+            result = CleanResultResponse.from_dict(resp.json())
+            if result.status == "cleaned":
+                self.stale_caches_cleaned.emit(
+                    True,
+                    f"Removed {result.removed_caches} caches, "
+                    f"{result.removed_empty_dirs} empty dirs",
+                )
+            else:
+                self.stale_caches_cleaned.emit(
+                    False, result.message or result.status or "Nothing was cleaned"
+                )
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
+            self.stale_caches_cleaned.emit(False, str(exc))
+
     @pyqtSlot(str)
     def fetch_service_details(self, service_name: str) -> None:
         """GET /api/sysadmin/services/{service_name}/details."""
@@ -313,6 +443,15 @@ class ApiClient(QObject):
     project_overview_updated = pyqtSignal(object)
     service_detail_updated = pyqtSignal(str, object)  # service_name, ServiceDetailInfo
     dnd_status_updated = pyqtSignal(object)              # dict
+    project_detail_updated = pyqtSignal(str, object)  # project_name, ProjectDetailResponse
+    file_status_updated = pyqtSignal(object)          # FileStatusResponse
+    file_duplicates_updated = pyqtSignal(object)      # DuplicatesResponse
+    file_large_updated = pyqtSignal(object)           # LargeFilesResponse
+    file_misplaced_updated = pyqtSignal(object)       # MisplacedFilesResponse
+    file_trends_updated = pyqtSignal(object)          # FileTrendsResponse
+    file_fetch_failed = pyqtSignal(str, str)          # what, message
+    file_scan_triggered = pyqtSignal(bool, str)       # success, message
+    stale_caches_cleaned = pyqtSignal(bool, str)      # success, message
 
     # Trigger signals (main→worker, queued connection)
     _request_status = pyqtSignal()
@@ -329,6 +468,14 @@ class ApiClient(QObject):
     _request_service_details = pyqtSignal(str)
     _request_dnd_status = pyqtSignal()
     _request_dnd_toggle = pyqtSignal(object)  # bool | None
+    _request_project_detail = pyqtSignal(str, int)
+    _request_file_status = pyqtSignal()
+    _request_file_duplicates = pyqtSignal()
+    _request_file_large = pyqtSignal()
+    _request_file_misplaced = pyqtSignal()
+    _request_file_trends = pyqtSignal()
+    _request_file_scan = pyqtSignal()
+    _request_stale_cache_clean = pyqtSignal()
 
     def __init__(
         self,
@@ -357,6 +504,14 @@ class ApiClient(QObject):
         self._request_service_details.connect(self._worker.fetch_service_details)
         self._request_dnd_status.connect(self._worker.fetch_dnd_status)
         self._request_dnd_toggle.connect(self._worker.toggle_dnd)
+        self._request_project_detail.connect(self._worker.fetch_project_detail)
+        self._request_file_status.connect(self._worker.fetch_file_status)
+        self._request_file_duplicates.connect(self._worker.fetch_file_duplicates)
+        self._request_file_large.connect(self._worker.fetch_file_large)
+        self._request_file_misplaced.connect(self._worker.fetch_file_misplaced)
+        self._request_file_trends.connect(self._worker.fetch_file_trends)
+        self._request_file_scan.connect(self._worker.trigger_file_scan)
+        self._request_stale_cache_clean.connect(self._worker.clean_stale_caches)
 
         # Forward worker results → our public signals
         self._worker.status_ready.connect(self.status_updated)
@@ -374,6 +529,15 @@ class ApiClient(QObject):
         self._worker.project_overview_ready.connect(self.project_overview_updated)
         self._worker.service_detail_ready.connect(self.service_detail_updated)
         self._worker.dnd_status_ready.connect(self.dnd_status_updated)
+        self._worker.project_detail_ready.connect(self.project_detail_updated)
+        self._worker.file_status_ready.connect(self.file_status_updated)
+        self._worker.file_duplicates_ready.connect(self.file_duplicates_updated)
+        self._worker.file_large_ready.connect(self.file_large_updated)
+        self._worker.file_misplaced_ready.connect(self.file_misplaced_updated)
+        self._worker.file_trends_ready.connect(self.file_trends_updated)
+        self._worker.file_fetch_failed.connect(self.file_fetch_failed)
+        self._worker.file_scan_triggered.connect(self.file_scan_triggered)
+        self._worker.stale_caches_cleaned.connect(self.stale_caches_cleaned)
 
         self._thread.start()
 
@@ -434,6 +598,42 @@ class ApiClient(QObject):
     def toggle_dnd(self, enabled: bool | None) -> None:
         """Ask the worker to toggle DND (non-blocking)."""
         self._request_dnd_toggle.emit(enabled)
+
+    def request_project_detail(self, project_name: str, limit: int = 30) -> None:
+        """Ask the worker to fetch one project's snapshot history (non-blocking)."""
+        self._request_project_detail.emit(project_name, limit)
+
+    def request_file_status(self) -> None:
+        """Ask the worker to fetch the filesystem audit summary (non-blocking)."""
+        self._request_file_status.emit()
+
+    def request_file_duplicates(self) -> None:
+        """Ask the worker to fetch duplicate file groups (non-blocking)."""
+        self._request_file_duplicates.emit()
+
+    def request_file_large(self) -> None:
+        """Ask the worker to fetch large files (non-blocking)."""
+        self._request_file_large.emit()
+
+    def request_file_misplaced(self) -> None:
+        """Ask the worker to fetch misplaced files (non-blocking)."""
+        self._request_file_misplaced.emit()
+
+    def request_file_trends(self) -> None:
+        """Ask the worker to fetch audit trends + forecast (non-blocking)."""
+        self._request_file_trends.emit()
+
+    def trigger_file_scan(self) -> None:
+        """Ask the worker to POST a filesystem re-scan (non-blocking)."""
+        self._request_file_scan.emit()
+
+    def clean_stale_caches(self) -> None:
+        """Ask the worker to POST the stale-cache clean (non-blocking).
+
+        Callers MUST have confirmed with the user first — this deletes
+        ``__pycache__``/``.pytest_cache`` directories and empty dirs.
+        """
+        self._request_stale_cache_clean.emit()
 
     def shutdown(self) -> None:
         """Stop the worker thread cleanly."""

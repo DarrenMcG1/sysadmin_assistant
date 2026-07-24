@@ -1,7 +1,9 @@
 """Projects tab — project health cards with managed/all toggle.
 
 Displays project health scores, grades, branch/TODO counts, and metadata
-from the project organiser agent scans.
+from the project organiser agent scans.  Clicking a card loads that
+project's stored score history from ``GET /api/projects/{name}`` and
+plots it in the trend chart beneath the list.
 """
 
 from __future__ import annotations
@@ -9,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -25,6 +27,7 @@ from PyQt6.QtWidgets import (
 from sysadmin_tray.models import (
     ManagedProjectInfo,
     ManagedProjectsResponse,
+    ProjectDetailResponse,
     ProjectOverviewEntry,
     ProjectOverviewResponse,
 )
@@ -32,6 +35,7 @@ from sysadmin_tray.styles import (
     AMBER,
     BG_CARD,
     BG_PRIMARY,
+    BLUE,
     BORDER,
     BUTTON_STYLE,
     COMBOBOX_STYLE,
@@ -43,6 +47,7 @@ from sysadmin_tray.styles import (
     TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
+from sysadmin_tray.widgets.trend_chart import TrendChart
 
 if TYPE_CHECKING:
     from sysadmin_tray.client import ApiClient
@@ -60,11 +65,19 @@ def _score_colour(score: int) -> str:
 
 
 class ProjectCard(QFrame):
-    """A card showing a project's health score, grade, and metadata."""
+    """A card showing a project's health score, grade, and metadata.
+
+    Clicking the card emits :attr:`clicked` with the project name so the
+    tab can load its score history.
+    """
+
+    clicked = pyqtSignal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.project_name = ""
         self.setObjectName("card")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(f"""
             QFrame#card {{
                 background-color: {BG_CARD};
@@ -123,11 +136,29 @@ class ProjectCard(QFrame):
         self._services_label.setVisible(False)
         layout.addWidget(self._services_label)
 
+    def mousePressEvent(self, event) -> None:  # noqa: N802 — Qt override
+        """Select this project for the trend chart."""
+        if self.project_name:
+            self.clicked.emit(self.project_name)
+        super().mousePressEvent(event)
+
+    def set_selected(self, selected: bool) -> None:
+        """Highlight the card that the trend chart is currently showing."""
+        edge = BLUE if selected else BORDER
+        self.setStyleSheet(f"""
+            QFrame#card {{
+                background-color: {BG_CARD};
+                border: 1px solid {edge};
+                border-radius: 6px;
+            }}
+        """)
+
     def update_from_overview(self, proj: ProjectOverviewEntry) -> None:
         """Populate from a project overview entry (all projects view)."""
         score = proj.health_score
         colour = _score_colour(score)
 
+        self.project_name = proj.name
         self._name_label.setText(proj.name)
         self._score_label.setText(f"Score: {score}/100")
         self._score_label.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {colour};")
@@ -175,6 +206,7 @@ class ProjectCard(QFrame):
 
     def update_from_managed(self, proj: ManagedProjectInfo) -> None:
         """Populate from a managed project entry."""
+        self.project_name = proj.name
         self._name_label.setText(proj.name)
 
         # Score from project_health if available
@@ -248,6 +280,7 @@ class ProjectsTab(QWidget):
         self._cards: list[ProjectCard] = []
         self._overview_data: ProjectOverviewResponse | None = None
         self._managed_data: ManagedProjectsResponse | None = None
+        self._selected_project: str = ""
         self._build_ui()
         self._connect_signals()
 
@@ -289,7 +322,22 @@ class ProjectsTab(QWidget):
         self._cards_layout.addStretch()
 
         scroll.setWidget(self._cards_container)
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, stretch=1)
+
+        # ── Health trend chart ───────────────────────────────
+        self._trend_title = QLabel("Health Trend")
+        self._trend_title.setStyleSheet(
+            f"font-size: 13px; font-weight: bold; color: {TEXT_PRIMARY};"
+        )
+        layout.addWidget(self._trend_title)
+
+        self._trend_chart = TrendChart(
+            y_min=0.0,
+            y_max=100.0,
+            y_suffix="",
+            placeholder="Select a project to see its health trend",
+        )
+        layout.addWidget(self._trend_chart)
 
         # ── Status bar ───────────────────────────────────────
         self._status_label = QLabel("")
@@ -300,6 +348,7 @@ class ProjectsTab(QWidget):
         self._client.project_overview_updated.connect(self._on_overview)
         self._client.managed_projects_updated.connect(self._on_managed)
         self._client.scan_complete.connect(self._on_scan_complete)
+        self._client.project_detail_updated.connect(self._on_project_detail)
 
     def _on_overview(self, data: ProjectOverviewResponse) -> None:
         self._overview_data = data
@@ -332,6 +381,13 @@ class ProjectsTab(QWidget):
             card.deleteLater()
         self._cards.clear()
 
+    def _add_card(self, card: ProjectCard) -> None:
+        """Track, wire and insert a freshly-built card."""
+        card.clicked.connect(self._on_card_clicked)
+        card.set_selected(card.project_name == self._selected_project)
+        self._cards.append(card)
+        self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
+
     def _render_overview(self) -> None:
         """Render project cards from overview data."""
         if not self._overview_data:
@@ -340,8 +396,7 @@ class ProjectsTab(QWidget):
         for proj in self._overview_data.projects:
             card = ProjectCard()
             card.update_from_overview(proj)
-            self._cards.append(card)
-            self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
+            self._add_card(card)
         self._status_label.setText(f"{self._overview_data.count} projects")
 
     def _render_managed(self) -> None:
@@ -352,9 +407,46 @@ class ProjectsTab(QWidget):
         for proj in self._managed_data.projects:
             card = ProjectCard()
             card.update_from_managed(proj)
-            self._cards.append(card)
-            self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
+            self._add_card(card)
         self._status_label.setText(f"{self._managed_data.count} managed projects")
+
+    # ── Health trend ─────────────────────────────────────────────────
+
+    def _on_card_clicked(self, name: str) -> None:
+        """Load and plot the clicked project's score history."""
+        self._selected_project = name
+        for card in self._cards:
+            card.set_selected(card.project_name == name)
+        self._trend_title.setText(f"Health Trend — {name}")
+        self._trend_chart.clear()
+        self._trend_chart.set_placeholder("Loading history…")
+        self._client.request_project_detail(name)
+
+    def _on_project_detail(self, name: str, detail: ProjectDetailResponse | None) -> None:
+        """Plot ``/api/projects/{name}`` history (arrives newest-first)."""
+        if name != self._selected_project:
+            return
+
+        if detail is None:
+            self._trend_chart.clear()
+            self._trend_chart.set_placeholder(f"History unavailable for {name}")
+            return
+
+        points = [p for p in reversed(detail.history) if p.scanned_at]
+        if not points:
+            self._trend_chart.clear()
+            self._trend_chart.set_placeholder(f"No snapshots recorded for {name}")
+            return
+
+        self._trend_chart.set_values(
+            [float(p.health_score) for p in points],
+            labels=[p.scanned_at or "" for p in points],
+            label="Health score",
+            colour=BLUE,
+        )
+        self._status_label.setText(
+            f"{name}: {len(points)} snapshot(s), latest {points[-1].health_score}/100"
+        )
 
     def _on_scan(self) -> None:
         self._scan_btn.setEnabled(False)
@@ -374,3 +466,5 @@ class ProjectsTab(QWidget):
             self._client.request_managed_projects()
         else:
             self._client.request_project_overview()
+        if self._selected_project:
+            self._client.request_project_detail(self._selected_project)

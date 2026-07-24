@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QApplication
 
 from sysadmin_tray.client import ApiClient
 from sysadmin_tray.config import TrayConfig, load_tray_config
+from sysadmin_tray.dashboard.files_tab import FilesTab
 from sysadmin_tray.dashboard.logs_tab import LogsTab
 from sysadmin_tray.dashboard.overview_tab import OverviewTab
 from sysadmin_tray.dashboard.projects_tab import ProjectsTab
@@ -61,6 +62,7 @@ class TrayApp:
         self._dashboard.add_tab(ServicesTab(self._client), "Services")
         self._dashboard.add_tab(LogsTab(self._client), "Logs")
         self._dashboard.add_tab(ProjectsTab(self._client), "Projects")
+        self._dashboard.add_tab(FilesTab(self._client), "Files")
 
         # D-Bus notifier with fallback to tray showMessage()
         self._notifier = DbusNotifier(
