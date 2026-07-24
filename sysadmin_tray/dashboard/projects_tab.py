@@ -88,7 +88,7 @@ class ProjectCard(QFrame):
         top.addWidget(self._name_label)
         top.addStretch()
         self._score_label = QLabel()
-        self._score_label.setStyleSheet(f"font-size: 13px; font-weight: bold;")
+        self._score_label.setStyleSheet("font-size: 13px; font-weight: bold;")
         top.addWidget(self._score_label)
         layout.addLayout(top)
 
@@ -158,7 +158,11 @@ class ProjectCard(QFrame):
         meta_parts = []
         if proj.last_commit_at:
             # Extract date portion
-            date = proj.last_commit_at.split("T")[0] if "T" in proj.last_commit_at else proj.last_commit_at
+            date = (
+                proj.last_commit_at.split("T")[0]
+                if "T" in proj.last_commit_at
+                else proj.last_commit_at
+            )
             meta_parts.append(f"Last commit: {date}")
         if proj.total_size_mb:
             meta_parts.append(f"Size: {proj.total_size_mb:.0f} MB")

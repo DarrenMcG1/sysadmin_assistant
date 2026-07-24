@@ -5,15 +5,14 @@ and /api/files/trends endpoints.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from sysadmin.models.filesystem_audit import FilesystemAudit
 from sysadmin.models.log_entry import LogEntry
 from sysadmin.models.resource_snapshot import ResourceSnapshot
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -28,7 +27,7 @@ def _make_log_entry(
 ) -> LogEntry:
     row = LogEntry(source=source, severity=severity, message=message)
     row.id = uuid.uuid4()
-    row.logged_at = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
+    row.logged_at = datetime.now(UTC) - timedelta(hours=hours_ago)
     return row
 
 
@@ -49,7 +48,7 @@ def _make_resource_snapshot(hours_ago: float = 0, **overrides) -> ResourceSnapsh
     defaults.update(overrides)
     row = ResourceSnapshot(**defaults)
     row.id = uuid.uuid4()
-    row.recorded_at = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
+    row.recorded_at = datetime.now(UTC) - timedelta(hours=hours_ago)
     return row
 
 
@@ -71,7 +70,7 @@ def _make_audit(
     row.stale_project_dirs_count = 2
     row.stale_files_count = 0
     row.findings = {}
-    row.scanned_at = datetime.now(timezone.utc) - timedelta(days=days_ago)
+    row.scanned_at = datetime.now(UTC) - timedelta(days=days_ago)
     return row
 
 

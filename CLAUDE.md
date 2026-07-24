@@ -173,11 +173,32 @@ POSTGRES_SCHEMA=sysadmin
 
 ## Contract Registry
 
-_Add your backend→frontend type/enum contracts here as the project grows._
+Backend↔tray response shapes live in **`sysadmin/contracts.py`** — pydantic-only
+(no FastAPI/SQLAlchemy), imported by both the backend (as `response_model=`)
+and the tray (`sysadmin_tray/models.py` re-exports them). Parsing is defensive:
+unknown fields ignored, missing fields defaulted, failures raise
+`ValidationError` (a `ValueError`) → tray treats as connection lost.
+Round-trip guarded by `tests/test_contracts.py`.
 
-| Domain | Source | Location |
-|--------|--------|----------|
-| _Example_ | _Python Enum_ | _path/to/source.py_ |
+| Endpoint | Contract model | Enforcement |
+|----------|----------------|-------------|
+| `GET /health` | `HealthResponse` | response_model |
+| `GET /api/sysadmin/status` | `StatusResponse` / `ServiceStatus` | response_model |
+| `GET /api/sysadmin/resources` | `ResourceResponse` (+`RamInfo`, `DiskInfo`) | parse-side only (union "no data yet" shape; disk dict→sorted list) |
+| `GET /api/sysadmin/resources/history` | `ResourceHistoryResponse` | response_model |
+| `GET /api/sysadmin/alerts` | `AlertsResponse` / `AlertInfo` | response_model |
+| `POST /api/sysadmin/alerts/{id}/ack` | `AlertAckResponse` | response_model |
+| `POST /api/sysadmin/services/{name}/{action}` | `ServiceActionResponse` | response_model |
+| `GET /api/sysadmin/services/{name}/details` | `ServiceDetailInfo` | parse-side only (raw `systemctl show` props, `[not set]` coercion) |
+| `GET`/`POST /api/sysadmin/dnd` | `DndStatusResponse` | response_model |
+| `POST /api/sysadmin/scan-all` | `ScanAllResponse` | response_model |
+| `GET /api/logs/recent` | `LogsResponse` / `LogEntryInfo` | response_model |
+| `GET /api/logs/stats` | `LogStatsResponse` | response_model |
+| `GET /api/projects/overview` | `ProjectOverviewResponse` | response_model |
+| `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model |
+
+Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
+`sysadmin_tray/models.py`.
 
 ---
 

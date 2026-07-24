@@ -5,7 +5,7 @@ that gets POSTed to PersonalAssistant at 06:00 daily.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import psutil
@@ -13,11 +13,9 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.database import get_scheduler_session
-from sysadmin.models.alert import Alert
 from sysadmin.models.filesystem_audit import FilesystemAudit
 from sysadmin.models.log_summary import LogSummary
 from sysadmin.models.project_snapshot import ProjectSnapshot
-from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
 
 logger = logging.getLogger(__name__)
@@ -25,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 async def generate_briefing_data(session: AsyncSession) -> dict[str, Any]:
     """Generate the full morning briefing payload."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     sections = []
 

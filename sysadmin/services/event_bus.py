@@ -40,6 +40,8 @@ class EventBus:
                     extra={"event_type": event_type, "callback": callback.__name__},
                 )
 
-    async def publish_fire_and_forget(self, event_type: str, data: dict[str, Any] | None = None) -> None:
+    async def publish_fire_and_forget(
+        self, event_type: str, data: dict[str, Any] | None = None
+    ) -> None:
         """Publish without waiting for callbacks to complete."""
         asyncio.create_task(self.publish(event_type, data))

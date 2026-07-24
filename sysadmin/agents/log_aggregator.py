@@ -9,11 +9,11 @@ Pipeline: parse → filter → store → alert → periodic LLM summarise
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import select
 
 from sysadmin.agents.base import AgentResult, BaseAgent
 from sysadmin.config import get_config
@@ -111,7 +111,7 @@ class LogAggregatorAgent(BaseAgent):
             return None
 
         # Get recent warning/error/critical entries
-        since = datetime.now(timezone.utc) - timedelta(minutes=30)
+        since = datetime.now(UTC) - timedelta(minutes=30)
         query = (
             select(LogEntry)
             .where(
@@ -129,7 +129,8 @@ class LogAggregatorAgent(BaseAgent):
 
         # Build prompt
         log_text = "\n".join(
-            f"[{e.logged_at.strftime('%H:%M:%S')}] [{e.severity.upper()}] [{e.source}] {e.message[:200]}"
+            f"[{e.logged_at.strftime('%H:%M:%S')}] [{e.severity.upper()}] "
+            f"[{e.source}] {e.message[:200]}"
             for e in entries
         )
         prompt = f"Here are the recent log entries:\n\n{log_text}\n\nProvide a concise summary."
@@ -222,7 +223,7 @@ class LogAggregatorAgent(BaseAgent):
             "source": source,
             "severity": severity,
             "message": line[:5000],
-            "logged_at": datetime.now(timezone.utc),
+            "logged_at": datetime.now(UTC),
             "raw_line": line[:2000],
             "metadata": {},
         }

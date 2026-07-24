@@ -8,7 +8,6 @@ import logging
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from git import Repo
 
 from sysadmin.utils.git import get_last_commit_date, get_repo

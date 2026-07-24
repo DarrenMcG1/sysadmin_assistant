@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import hashlib
-from pathlib import Path
-from datetime import datetime, timedelta
-from collections import defaultdict
-from difflib import SequenceMatcher
+import os
 import re
+from collections import defaultdict
+from datetime import datetime, timedelta
+from difflib import SequenceMatcher
+from pathlib import Path
 
 CONFIG = {
     "scan_root": Path.home(),
@@ -214,20 +214,20 @@ class HomeAuditor:
 
     def generate_report(self) -> str:
         lines = [
-            f"# Home Directory Audit",
-            f"",
+            "# Home Directory Audit",
+            "",
             f"**Generated:** {self.now.strftime('%Y-%m-%d %H:%M')}",
             f"**Scanned:** `{self.scan_root}`",
-            f"",
-            f"---",
-            f"",
+            "",
+            "---",
+            "",
         ]
 
         if self.similar_folders:
             lines.append("## Similar Folder Names")
             lines.append("")
             for group in self.similar_folders:
-                lines.append(f"- Potential duplicates:")
+                lines.append("- Potential duplicates:")
                 for d in group:
                     lines.append(f"  - {self.format_path(d)}")
             lines.append("")
@@ -317,8 +317,8 @@ class HomeAuditor:
         lines.append("")
         lines.append("## Summary")
         lines.append("")
-        lines.append(f"| Issue | Count |")
-        lines.append(f"|-------|-------|")
+        lines.append("| Issue | Count |")
+        lines.append("|-------|-------|")
         lines.append(f"| Similar folders | {len(self.similar_folders)} |")
         lines.append(f"| Misplaced files | {sum(len(v) for v in self.misplaced_files.values())} |")
         lines.append(f"| Old downloads | {len(self.old_downloads)} |")

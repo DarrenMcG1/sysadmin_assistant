@@ -74,14 +74,18 @@ async def create_engine_and_session() -> tuple[AsyncEngine, async_sessionmaker[A
 def get_engine() -> AsyncEngine:
     """Get the current async engine. Raises if not initialised."""
     if _async_engine is None:
-        raise RuntimeError("Database engine not initialised. Call create_engine_and_session() first.")
+        raise RuntimeError(
+            "Database engine not initialised. Call create_engine_and_session() first."
+        )
     return _async_engine
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
     """Get the current session factory. Raises if not initialised."""
     if _async_session_factory is None:
-        raise RuntimeError("Session factory not initialised. Call create_engine_and_session() first.")
+        raise RuntimeError(
+            "Session factory not initialised. Call create_engine_and_session() first."
+        )
     return _async_session_factory
 
 

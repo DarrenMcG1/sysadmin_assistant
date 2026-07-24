@@ -11,7 +11,7 @@ Detects:
 import asyncio
 import logging
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -128,8 +128,8 @@ class ProjectOrganiserAgent(BaseAgent):
             # Staleness check
             if last_commit_at:
                 if last_commit_at.tzinfo is None:
-                    last_commit_at = last_commit_at.replace(tzinfo=timezone.utc)
-                days_since = (datetime.now(timezone.utc) - last_commit_at).days
+                    last_commit_at = last_commit_at.replace(tzinfo=UTC)
+                days_since = (datetime.now(UTC) - last_commit_at).days
                 if days_since > 60:
                     score -= 15
                     findings["stale"] = f"No commits in {days_since} days"
@@ -180,9 +180,9 @@ class ProjectOrganiserAgent(BaseAgent):
         if node_modules.exists():
             try:
                 nm_mtime = datetime.fromtimestamp(
-                    node_modules.stat().st_mtime, tz=timezone.utc
+                    node_modules.stat().st_mtime, tz=UTC
                 )
-                nm_days = (datetime.now(timezone.utc) - nm_mtime).days
+                nm_days = (datetime.now(UTC) - nm_mtime).days
                 if nm_days > 90:
                     score -= 5
                     findings["stale_node_modules"] = f"{nm_days} days old"

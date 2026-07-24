@@ -24,6 +24,7 @@ def configure_logging(service_config: ServiceConfig) -> None:
     handler = logging.StreamHandler(sys.stderr)
     handler.setLevel(level)
 
+    formatter: logging.Formatter
     if service_config.log_format == "json":
         formatter = JsonFormatter(
             fmt="%(asctime)s %(levelname)s %(name)s %(message)s",

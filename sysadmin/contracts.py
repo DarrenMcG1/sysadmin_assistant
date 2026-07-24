@@ -1,0 +1,375 @@
+"""Shared API contracts between the backend and the tray app.
+
+Single source of truth for the response shapes of every endpoint the
+tray consumes (root cause fix for SNAG-TRAY-005 — the tray previously
+hand-copied these shapes as dataclasses which silently drifted).
+
+Usage:
+    - Backend routers set these as ``response_model=`` so the wire format
+      is enforced server-side.
+    - The tray imports them (via ``sysadmin_tray.models``) and parses
+      responses with ``Model.from_dict(payload)``.
+
+IMPORTANT — keep this module dependency-light: pydantic and stdlib ONLY.
+The tray imports it at runtime and must not pull in FastAPI, SQLAlchemy,
+or any other heavy backend dependency.
+
+Parsing is deliberately defensive (Session 11 behaviour preserved):
+    - unknown fields are ignored (``extra="ignore"``)
+    - missing fields fall back to defaults
+    - a payload that cannot be parsed raises ``pydantic.ValidationError``,
+      which is a ``ValueError`` — the tray's fetch paths already catch
+      that and mark the connection lost.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+# ── Base ─────────────────────────────────────────────────────────────
+
+
+class Contract(BaseModel):
+    """Base for all shared response models — tolerant of unknown fields."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Contract:
+        """Parse a decoded JSON payload. Raises ValidationError (a ValueError)."""
+        return cls.model_validate(data)
+
+
+def _fill_count(data: Any, key: str) -> Any:
+    """Default a missing ``count`` field to ``len(data[key])``."""
+    if isinstance(data, dict) and "count" not in data:
+        items = data.get(key)
+        if isinstance(items, list):
+            data = {**data, "count": len(items)}
+    return data
+
+
+# ── /health ──────────────────────────────────────────────────────────
+
+
+class HealthResponse(Contract):
+    status: str = ""
+    service: str = ""
+    version: str = ""
+
+
+# ── /api/sysadmin/status ─────────────────────────────────────────────
+
+
+class ServiceStatus(Contract):
+    name: str = ""
+    status: str = "unknown"  # "ok" | "degraded" | "unreachable" | "error"
+    response_time_ms: float | None = None
+    details: dict[str, Any] | str | None = None
+    checked_at: str | None = None
+    systemd_unit: str | None = None
+    controllable: bool = True
+
+
+class StatusResponse(Contract):
+    services: list[ServiceStatus] = Field(default_factory=list)
+    all_healthy: bool = True
+
+
+# ── /api/sysadmin/resources ──────────────────────────────────────────
+#
+# Parse-side contract only (no response_model): the endpoint returns
+# ``{"message": "No resource data yet"}`` when no snapshot exists, and
+# serialises disk usage as a dict keyed by mount point. The tray wants
+# a sorted list, so a before-validator reshapes it.
+
+
+class RamInfo(Contract):
+    used_mb: int = 0
+    total_mb: int = 0
+    percent: float = 0.0
+
+    @field_validator("used_mb", "total_mb", "percent", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+
+class DiskInfo(Contract):
+    mount: str = "/"
+    total_gb: float = 0.0
+    used_gb: float = 0.0
+    free_gb: float = 0.0
+    percent: float = 0.0
+
+    @field_validator("total_gb", "used_gb", "free_gb", "percent", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+
+class ResourceResponse(Contract):
+    cpu_percent: float = 0.0
+    ram: RamInfo = Field(default_factory=RamInfo)
+    disk: list[DiskInfo] = Field(default_factory=list)
+    recorded_at: str | None = None
+
+    @field_validator("cpu_percent", mode="before")
+    @classmethod
+    def _none_cpu_to_zero(cls, v: Any) -> Any:
+        return 0.0 if v is None else v
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reshape(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "message" in data and "cpu_percent" not in data:
+            # "No resource data yet" response
+            return {}
+        disk_raw = data.get("disk")
+        if isinstance(disk_raw, dict):
+            disks = [
+                {**(info if isinstance(info, dict) else {}), "mount": mount}
+                for mount, info in disk_raw.items()
+            ]
+            # Sort by mount point for consistent display — root first
+            disks.sort(key=lambda d: d["mount"])
+            data = {**data, "disk": disks}
+        elif disk_raw is None:
+            data = {**data, "disk": []}
+        return data
+
+
+# ── /api/sysadmin/resources/history ──────────────────────────────────
+
+
+class ResourceHistorySnapshot(Contract):
+    cpu_percent: float | None = None
+    ram_percent: float | None = None
+    load_avg_1m: float | None = None
+    disk_usage: dict[str, Any] | None = None
+    recorded_at: str | None = None
+
+
+class ResourceHistoryResponse(Contract):
+    period_hours: int = 24
+    count: int = 0
+    snapshots: list[ResourceHistorySnapshot] = Field(default_factory=list)
+
+
+# ── /api/sysadmin/alerts ─────────────────────────────────────────────
+
+
+class AlertInfo(Contract):
+    id: str = ""
+    agent: str = ""
+    severity: str = "info"  # "info" | "warning" | "critical"
+    title: str = ""
+    message: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
+    acknowledged: bool = False
+    resolved: bool = False
+    created_at: str | None = None
+
+    @field_validator("details", mode="before")
+    @classmethod
+    def _none_details_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+    @property
+    def service_name(self) -> str | None:
+        """Extract service_name from details, if present."""
+        return self.details.get("service_name")
+
+
+class AlertsResponse(Contract):
+    alerts: list[AlertInfo] = Field(default_factory=list)
+    count: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "alerts")
+
+    @property
+    def critical_count(self) -> int:
+        return sum(1 for a in self.alerts if a.severity == "critical")
+
+    @property
+    def warning_count(self) -> int:
+        return sum(1 for a in self.alerts if a.severity == "warning")
+
+    @property
+    def info_count(self) -> int:
+        return sum(1 for a in self.alerts if a.severity == "info")
+
+
+# ── /api/logs/recent + /api/logs/stats ───────────────────────────────
+
+
+class LogEntryInfo(Contract):
+    id: str = ""
+    source: str = ""
+    severity: str = "info"
+    message: str = ""
+    logged_at: str | None = None
+
+
+class LogsResponse(Contract):
+    entries: list[LogEntryInfo] = Field(default_factory=list)
+    count: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "entries")
+
+
+class LogStatsResponse(Contract):
+    period_hours: int = 24
+    sources: dict[str, dict[str, int]] = Field(default_factory=dict)
+
+
+# ── /api/projects/overview ───────────────────────────────────────────
+
+
+class ProjectOverviewEntry(Contract):
+    name: str = ""
+    health_score: int = 0
+    grade: str = ""
+    last_commit_at: str | None = None
+    branch_count: int = 0
+    stale_branch_count: int = 0
+    todo_count: int = 0
+    has_readme: bool = False
+    has_claude_md: bool = False
+    total_size_mb: float = 0.0
+    scanned_at: str | None = None
+
+    @field_validator(
+        "health_score",
+        "branch_count",
+        "stale_branch_count",
+        "todo_count",
+        "total_size_mb",
+        mode="before",
+    )
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+
+class ProjectOverviewResponse(Contract):
+    projects: list[ProjectOverviewEntry] = Field(default_factory=list)
+    count: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "projects")
+
+
+# ── /api/projects/managed ────────────────────────────────────────────
+
+
+class ManagedServiceInfo(Contract):
+    name: str = ""
+    status: str = "unknown"
+    response_time_ms: float | None = None
+
+
+class ProjectHealthInfo(Contract):
+    health_score: int = 0
+    scanned_at: str | None = None
+
+
+class ManagedProjectInfo(Contract):
+    name: str = ""
+    path: str = ""
+    services: list[ManagedServiceInfo] = Field(default_factory=list)
+    project_health: ProjectHealthInfo | None = None
+    all_services_healthy: bool | None = None
+
+
+class ManagedProjectsResponse(Contract):
+    projects: list[ManagedProjectInfo] = Field(default_factory=list)
+    count: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "projects")
+
+
+# ── /api/sysadmin/services/{name}/details ────────────────────────────
+#
+# Parse-side contract only: the endpoint returns raw ``systemctl show``
+# properties (string values, ``"[not set]"`` sentinels), plus ``unit``
+# and ``is_active`` keys. Aliased fields + validators normalise them.
+
+
+def _int_or_zero(v: Any) -> int:
+    try:
+        return int(v)
+    except (ValueError, TypeError):
+        return 0
+
+
+class ServiceDetailInfo(Contract):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    unit: str = ""
+    active_state: str = Field(default="", alias="ActiveState")
+    sub_state: str = Field(default="", alias="SubState")
+    main_pid: int = Field(default=0, alias="MainPID")
+    memory_current: int = Field(default=0, alias="MemoryCurrent")
+    cpu_usage_nsec: int = Field(default=0, alias="CPUUsageNSec")
+    load_state: str = Field(default="", alias="LoadState")
+    is_active: bool = False
+
+    @field_validator("main_pid", "memory_current", "cpu_usage_nsec", mode="before")
+    @classmethod
+    def _coerce_int(cls, v: Any) -> int:
+        return _int_or_zero(v)
+
+
+# ── /api/sysadmin/dnd ────────────────────────────────────────────────
+
+
+class DndWindow(Contract):
+    start: str = ""
+    end: str = ""
+
+
+class DndStatusResponse(Contract):
+    active: bool = False
+    manual_override: bool | None = None
+    config_enabled: bool = False
+    allow_critical: bool = True
+    schedule: list[DndWindow] = Field(default_factory=list)
+
+
+# ── Action responses ─────────────────────────────────────────────────
+
+
+class ServiceActionResponse(Contract):
+    """POST /api/sysadmin/services/{name}/{action}."""
+
+    success: bool = False
+    message: str = ""
+
+
+class AlertAckResponse(Contract):
+    """POST /api/sysadmin/alerts/{id}/ack."""
+
+    status: str = ""
+    id: str = ""
+
+
+class ScanAllResponse(Contract):
+    """POST /api/sysadmin/scan-all."""
+
+    status: str = ""

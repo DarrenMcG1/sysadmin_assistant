@@ -23,8 +23,8 @@ from PyQt6.QtCore import QMutex, QObject, QThread, pyqtSignal, pyqtSlot
 
 from sysadmin_tray.models import (
     AlertsResponse,
-    LogStatsResponse,
     LogsResponse,
+    LogStatsResponse,
     ManagedProjectsResponse,
     ProjectOverviewResponse,
     ResourceHistoryResponse,

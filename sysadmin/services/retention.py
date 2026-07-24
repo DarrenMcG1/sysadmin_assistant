@@ -5,9 +5,9 @@ determine how long to keep data in each table.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import select, text, update
 
 from sysadmin.database import get_scheduler_session
 from sysadmin.models.retention_config import RetentionConfig
@@ -42,7 +42,7 @@ async def run_retention() -> None:
             if not ts_col:
                 continue
 
-            cutoff = datetime.now(timezone.utc) - timedelta(days=config.retention_days)
+            cutoff = datetime.now(UTC) - timedelta(days=config.retention_days)
 
             # Special handling for alerts — only purge resolved ones
             if table_name == "alerts":
@@ -74,7 +74,8 @@ async def run_retention() -> None:
                 )
 
             result = await session.execute(stmt, {"cutoff": cutoff})
-            deleted = result.rowcount
+            # DML executes return a CursorResult at runtime, which has rowcount
+            deleted = result.rowcount  # type: ignore[attr-defined]
             total_deleted += deleted
 
             if deleted > 0:
@@ -91,7 +92,7 @@ async def run_retention() -> None:
             await session.execute(
                 update(RetentionConfig)
                 .where(RetentionConfig.table_name == table_name)
-                .values(last_purged_at=datetime.now(timezone.utc))
+                .values(last_purged_at=datetime.now(UTC))
             )
 
         # Downsample resource_snapshots (hourly after 7 days)
@@ -106,7 +107,7 @@ async def _downsample_resources(session) -> None:
     Strategy: for each hour block, keep only the row closest to the hour mark,
     delete the rest.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff = datetime.now(UTC) - timedelta(days=7)
     # This is a simplification — delete duplicates within the same hour
     # keeping the one with the smallest minute value (closest to hour boundary)
     stmt = text("""

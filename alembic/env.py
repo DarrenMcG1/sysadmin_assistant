@@ -18,12 +18,13 @@ from sqlalchemy import create_engine, pool, text
 from sqlalchemy.engine import Connection
 
 from alembic import context
+from sysadmin.config import get_config
 
 # Import all models so Alembic can detect them for autogenerate
-from sysadmin.models import Base  # noqa: F401
 from sysadmin.models import (  # noqa: F401
     AgentRun,
     Alert,
+    Base,  # noqa: F401
     FilesystemAudit,
     LogEntry,
     LogSummary,
@@ -32,7 +33,6 @@ from sysadmin.models import (  # noqa: F401
     RetentionConfig,
     ServiceHealth,
 )
-from sysadmin.config import get_config
 
 # Alembic Config object
 config = context.config
@@ -54,11 +54,25 @@ def include_object(object, name, type_, reflected, compare_to):
     if type_ == "table":
         # Skip tables not in our schema
         schema = getattr(object, "schema", None)
-        if schema and schema != "sysadmin":
+        if schema != "sysadmin":
             return False
         # Skip alembic's own version table
         if name == "alembic_version":
             return False
+    return True
+
+
+def include_name(name, type_, parent_names):
+    """Restrict schema reflection to the sysadmin schema.
+
+    The models' metadata carries an explicit ``schema="sysadmin"``, so
+    autogenerate must reflect sysadmin tables under that explicit name.
+    Without this (and with search_path pointed at sysadmin), the same
+    tables were reflected twice — once as ``sysadmin.x`` and once as
+    default-schema ``x`` — producing phantom add/remove diffs.
+    """
+    if type_ == "schema":
+        return name == "sysadmin"
     return True
 
 
@@ -73,6 +87,7 @@ def run_migrations_offline() -> None:
         version_table_schema="sysadmin",
         include_schemas=True,
         include_object=include_object,
+        include_name=include_name,
         compare_type=True,
     )
 
@@ -82,9 +97,11 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with a connection."""
-    # Ensure sysadmin schema exists before running migrations
+    # Ensure sysadmin schema exists before running migrations.
+    # search_path stays on public so sysadmin tables reflect under their
+    # explicit schema name during autogenerate (see include_name).
     connection.execute(text("CREATE SCHEMA IF NOT EXISTS sysadmin"))
-    connection.execute(text("SET search_path TO sysadmin, public"))
+    connection.execute(text("SET search_path TO public"))
     connection.commit()
 
     context.configure(
@@ -93,6 +110,7 @@ def do_run_migrations(connection: Connection) -> None:
         version_table_schema="sysadmin",
         include_schemas=True,
         include_object=include_object,
+        include_name=include_name,
         compare_type=True,
     )
 

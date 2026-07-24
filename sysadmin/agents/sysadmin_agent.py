@@ -16,7 +16,6 @@ Alerting:
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -27,7 +26,7 @@ from sysadmin.config import AppConfig, MonitoredService, get_config
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
 from sysadmin.utils.gpu import get_gpu_usage
-from sysadmin.utils.systemd import get_unit_status, is_active, restart_unit
+from sysadmin.utils.systemd import get_unit_status, restart_unit
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +116,9 @@ class SysAdminAgent(BaseAgent):
         self, svc: MonitoredService
     ) -> tuple[str, int | None, dict]:
         """HTTP health check."""
+        if not svc.url:
+            return "error", None, {"error": "no url configured for http check"}
+
         if not self._http_client:
             self._http_client = httpx.AsyncClient(timeout=10.0)
 
@@ -154,7 +156,7 @@ class SysAdminAgent(BaseAgent):
             writer.close()
             await writer.wait_closed()
             return "ok", elapsed_ms, {}
-        except asyncio.TimeoutError:
+        except TimeoutError:
             elapsed_ms = int((time.monotonic() - start) * 1000)
             return "unreachable", elapsed_ms, {"error": "timeout"}
         except (ConnectionRefusedError, OSError) as e:
@@ -164,6 +166,9 @@ class SysAdminAgent(BaseAgent):
         self, svc: MonitoredService
     ) -> tuple[str, int | None, dict]:
         """Systemd unit status check."""
+        if not svc.systemd_unit:
+            return "error", None, {"error": "no systemd_unit configured for systemd check"}
+
         start = time.monotonic()
         try:
             status_info = await get_unit_status(svc.systemd_unit, user=svc.user)
@@ -341,7 +346,10 @@ class SysAdminAgent(BaseAgent):
                 session,
                 severity="warning",
                 title="High RAM usage",
-                message=f"RAM at {snapshot.ram_percent}% (threshold: {thresholds.ram_warning_percent}%)",
+                message=(
+                    f"RAM at {snapshot.ram_percent}% "
+                    f"(threshold: {thresholds.ram_warning_percent}%)"
+                ),
                 details={"ram_percent": float(snapshot.ram_percent)},
             )
             alerts += 1
@@ -366,7 +374,10 @@ class SysAdminAgent(BaseAgent):
                     session,
                     severity="warning",
                     title=f"High VRAM usage on {gpu_name}",
-                    message=f"VRAM at {vram_pct}% (threshold: {thresholds.gpu_vram_warning_percent}%)",
+                    message=(
+                        f"VRAM at {vram_pct}% "
+                        f"(threshold: {thresholds.gpu_vram_warning_percent}%)"
+                    ),
                     details={"card": card_id, "vram_percent": vram_pct},
                 )
                 alerts += 1
@@ -379,7 +390,10 @@ class SysAdminAgent(BaseAgent):
                     session,
                     severity="critical",
                     title=f"Critical disk usage on {mount}",
-                    message=f"Disk at {pct}% on {mount} (threshold: {thresholds.disk_critical_percent}%)",
+                    message=(
+                        f"Disk at {pct}% on {mount} "
+                        f"(threshold: {thresholds.disk_critical_percent}%)"
+                    ),
                     details={"mount": mount, "percent": pct},
                 )
                 alerts += 1
@@ -388,7 +402,10 @@ class SysAdminAgent(BaseAgent):
                     session,
                     severity="warning",
                     title=f"High disk usage on {mount}",
-                    message=f"Disk at {pct}% on {mount} (threshold: {thresholds.disk_warning_percent}%)",
+                    message=(
+                        f"Disk at {pct}% on {mount} "
+                        f"(threshold: {thresholds.disk_warning_percent}%)"
+                    ),
                     details={"mount": mount, "percent": pct},
                 )
                 alerts += 1

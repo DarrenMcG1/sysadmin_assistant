@@ -3,14 +3,13 @@
 import json
 import logging
 from io import StringIO
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from sysadmin.config import ServiceConfig
 from sysadmin.logging_setup import configure_logging
-
 
 # --- JSON formatter tests ---
 

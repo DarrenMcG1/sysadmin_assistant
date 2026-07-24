@@ -10,7 +10,6 @@ from sysadmin.agents.sysadmin_agent import SysAdminAgent
 from sysadmin.config import MonitoredService, Thresholds
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -332,7 +331,9 @@ class TestResourceSnapshot:
     async def test_snapshot_fields(self, agent, mock_config):
         with (
             patch("sysadmin.agents.sysadmin_agent.psutil") as mock_psutil,
-            patch("sysadmin.agents.sysadmin_agent.get_gpu_usage", new_callable=AsyncMock) as mock_gpu,
+            patch(
+                "sysadmin.agents.sysadmin_agent.get_gpu_usage", new_callable=AsyncMock
+            ) as mock_gpu,
         ):
             mock_psutil.cpu_percent.return_value = 42.5
             mock_psutil.virtual_memory.return_value = VMemory(

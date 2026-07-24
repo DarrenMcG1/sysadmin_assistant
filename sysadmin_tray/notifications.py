@@ -151,16 +151,16 @@ class DbusNotifier(QObject):
         )
 
         # PyQt6 strict enums: .value converts Type enum → int for add()/beginArray()
-        _UINT = QMetaType.Type.UInt.value
-        _QSTRING = QMetaType.Type.QString.value
+        uint_type = QMetaType.Type.UInt.value
+        qstring_type = QMetaType.Type.QString.value
 
         # replaces_id must be UINT32 (not INT32)
         replaces_arg = QDBusArgument()
-        replaces_arg.add(0, _UINT)
+        replaces_arg.add(0, uint_type)
 
         # actions must be array-of-string (not array-of-variant)
         actions_arg = QDBusArgument()
-        actions_arg.beginArray(_QSTRING)
+        actions_arg.beginArray(qstring_type)
         for action in actions:
             actions_arg.add(action)
         actions_arg.endArray()

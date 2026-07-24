@@ -10,12 +10,10 @@ import logging
 import os
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
-
-from sqlalchemy import desc, select
 
 from sysadmin.agents.base import AgentResult, BaseAgent
 from sysadmin.config import get_config
@@ -25,7 +23,10 @@ logger = logging.getLogger(__name__)
 
 FILE_CATEGORIES = {
     "images": {
-        "extensions": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".svg", ".ico", ".heic", ".raw"},
+        "extensions": {
+            ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff",
+            ".svg", ".ico", ".heic", ".raw",
+        },
         "expected_dirs": {"Pictures", "Images", "photos", "screenshots"},
     },
     "videos": {
@@ -33,7 +34,10 @@ FILE_CATEGORIES = {
         "expected_dirs": {"Videos", "Movies"},
     },
     "documents": {
-        "extensions": {".pdf", ".docx", ".doc", ".odt", ".xlsx", ".xls", ".pptx", ".ppt", ".txt", ".rtf", ".epub"},
+        "extensions": {
+            ".pdf", ".docx", ".doc", ".odt", ".xlsx", ".xls", ".pptx",
+            ".ppt", ".txt", ".rtf", ".epub",
+        },
         "expected_dirs": {"Documents", "Docs"},
     },
     "audio": {
@@ -42,7 +46,10 @@ FILE_CATEGORIES = {
     },
 }
 
-STALE_PROJECT_DIRS = {"node_modules", "__pycache__", ".venv", "venv", "target", "build", "dist", ".tox", ".pytest_cache"}
+STALE_PROJECT_DIRS = {
+    "node_modules", "__pycache__", ".venv", "venv", "target", "build",
+    "dist", ".tox", ".pytest_cache",
+}
 
 
 class FileOrganiserAgent(BaseAgent):
@@ -58,15 +65,6 @@ class FileOrganiserAgent(BaseAgent):
         findings = await asyncio.to_thread(
             self._scan, agent_config
         )
-
-        # Get previous scan for delta
-        prev_query = (
-            select(FilesystemAudit)
-            .order_by(desc(FilesystemAudit.scanned_at))
-            .limit(1)
-        )
-        prev_result = await session.execute(prev_query)
-        previous = prev_result.scalar_one_or_none()
 
         # Calculate totals
         total_reclaimable = findings.get("stale_project_dirs_total_bytes", 0) // (1024 * 1024)
@@ -295,7 +293,8 @@ class FileOrganiserAgent(BaseAgent):
                     continue
                 ratio = SequenceMatcher(None, norm1, norm2).ratio()
                 if ratio >= threshold:
-                    pair = tuple(sorted([str(dir1), str(dir2)]))
+                    first, second = sorted([str(dir1), str(dir2)])
+                    pair = (first, second)
                     if pair not in seen_pairs:
                         seen_pairs.add(pair)
                         similar.append([str(dir1), str(dir2)])

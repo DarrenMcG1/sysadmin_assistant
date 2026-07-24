@@ -5,7 +5,7 @@ resource snapshot, GPU status, and project scores into one response.
 Designed so PA agents can get a full picture without multiple API calls.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import desc, func, select
@@ -137,7 +137,7 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
     ]
 
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "services": {
             "all_healthy": all_healthy,
             "items": services,

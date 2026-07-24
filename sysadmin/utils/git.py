@@ -2,7 +2,7 @@
 
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -67,7 +67,7 @@ def get_branches(repo: Repo) -> list[dict[str, Any]]:
 
 def get_stale_branches(repo: Repo, stale_days: int = 30) -> list[dict[str, Any]]:
     """Get branches with no commits in the last N days."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=stale_days)
+    cutoff = datetime.now(UTC) - timedelta(days=stale_days)
     stale = []
 
     for branch in repo.branches:
@@ -75,9 +75,9 @@ def get_stale_branches(repo: Repo, stale_days: int = 30) -> list[dict[str, Any]]
             if repo.head.is_detached or branch != repo.active_branch:
                 last_commit = branch.commit.committed_datetime
                 if last_commit.tzinfo is None:
-                    last_commit = last_commit.replace(tzinfo=timezone.utc)
+                    last_commit = last_commit.replace(tzinfo=UTC)
                 if last_commit < cutoff:
-                    days_stale = (datetime.now(timezone.utc) - last_commit).days
+                    days_stale = (datetime.now(UTC) - last_commit).days
                     stale.append({
                         "name": branch.name,
                         "last_commit": last_commit.isoformat(),

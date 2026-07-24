@@ -26,6 +26,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "ruff>=0.5.0",
+    "mypy>=1.10.0",
 ]
 tray = [
     "PyQt6>=6.6.0",
@@ -51,6 +52,21 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# Historical migrations and the legacy standalone audit script keep their
+# original formatting
+"alembic/versions/*" = ["E501"]
+"home_audit.py" = ["E501"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.mypy]
+# Lenient baseline — run with: uv run mypy sysadmin
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_optional = true
+exclude = ["alembic/", "tests/", "sysadmin_tray/"]

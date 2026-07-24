@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.auth import require_auth
 from sysadmin.config import get_config
+from sysadmin.contracts import ManagedProjectsResponse, ProjectOverviewResponse
 from sysadmin.database import get_db_session
 from sysadmin.models.project_snapshot import ProjectSnapshot
 from sysadmin.models.service_health import ServiceHealth
@@ -13,7 +14,7 @@ from sysadmin.models.service_health import ServiceHealth
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
-@router.get("/overview")
+@router.get("/overview", response_model=ProjectOverviewResponse)
 async def get_projects_overview(session: AsyncSession = Depends(get_db_session)):
     """Get all projects with their latest health scores."""
     # Latest snapshot per project
@@ -148,7 +149,9 @@ async def get_projects_report(session: AsyncSession = Depends(get_db_session)):
             lines.append(f"- **Last commit:** {r.last_commit_at.strftime('%Y-%m-%d')}")
         lines.append(f"- **Branches:** {r.branch_count} ({r.stale_branch_count} stale)")
         lines.append(f"- **TODOs:** {r.todo_count or 0}  |  **FIXMEs:** {r.fixme_count or 0}")
-        lines.append(f"- **README:** {'✓' if r.has_readme else '✗'}  |  **CLAUDE.md:** {'✓' if r.has_claude_md else '✗'}")
+        readme_mark = "✓" if r.has_readme else "✗"
+        claude_mark = "✓" if r.has_claude_md else "✗"
+        lines.append(f"- **README:** {readme_mark}  |  **CLAUDE.md:** {claude_mark}")
         lines.append(f"- **Size:** {r.total_size_mb} MB")
         if r.findings:
             lines.append(f"- **Findings:** {r.findings}")
@@ -157,7 +160,7 @@ async def get_projects_report(session: AsyncSession = Depends(get_db_session)):
     return {"report": "\n".join(lines)}
 
 
-@router.get("/managed")
+@router.get("/managed", response_model=ManagedProjectsResponse)
 async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
     """List projects from projects.yaml with live service health status."""
     config = get_config()
@@ -210,7 +213,7 @@ async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
         all_healthy = True
         for svc in svc_entries:
             h = health_map.get(svc.name)
-            entry = {"name": svc.name, "status": h.status if h else "unknown"}
+            entry: dict = {"name": svc.name, "status": h.status if h else "unknown"}
             if h and h.response_time_ms is not None:
                 entry["response_time_ms"] = h.response_time_ms
             services.append(entry)

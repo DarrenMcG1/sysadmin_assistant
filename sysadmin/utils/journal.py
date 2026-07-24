@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ async def read_journal(
             stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("journalctl_timeout", extra={"unit": unit})
         return []
     except FileNotFoundError:
@@ -95,9 +95,9 @@ async def read_journal(
             # Parse timestamp
             usec = data.get("__REALTIME_TIMESTAMP")
             if usec:
-                ts = datetime.fromtimestamp(int(usec) / 1_000_000, tz=timezone.utc)
+                ts = datetime.fromtimestamp(int(usec) / 1_000_000, tz=UTC)
             else:
-                ts = datetime.now(timezone.utc)
+                ts = datetime.now(UTC)
 
             entries.append({
                 "source": unit,

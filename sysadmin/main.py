@@ -1,44 +1,51 @@
 """FastAPI application entry point with lifespan management.
 
 Wires together all agents, routers, scheduled jobs, and middleware.
+
+The app is built by :func:`create_app` so tests can construct the REAL
+application (same routers, middleware, and exception handlers) with the
+production lifespan swapped for a stub — no synthetic test app that can
+drift from reality.
 """
 
 import asyncio
 import logging
-from contextlib import asynccontextmanager
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from sysadmin import __version__
-from sysadmin.auth import require_auth
-from sysadmin.config import load_config
-from sysadmin.database import create_engine_and_session, dispose_engine, verify_connection
-from sysadmin.logging_setup import configure_logging
-from sysadmin.middleware import RequestLoggingMiddleware
+from sysadmin.agents.file_organiser import FileOrganiserAgent
+from sysadmin.agents.log_aggregator import LogAggregatorAgent
+from sysadmin.agents.project_organiser import ProjectOrganiserAgent
 
 # Agents
 from sysadmin.agents.sysadmin_agent import SysAdminAgent
-from sysadmin.agents.project_organiser import ProjectOrganiserAgent
-from sysadmin.agents.file_organiser import FileOrganiserAgent
-from sysadmin.agents.log_aggregator import LogAggregatorAgent
-
-# Services
-from sysadmin.services.scheduler import Scheduler
-from sysadmin.services.event_bus import EventBus
-from sysadmin.services.notifier import Notifier
-from sysadmin.services.briefing import send_morning_briefing
-from sysadmin.services.dnd import dnd_manager
-from sysadmin.services.retention import run_retention
+from sysadmin.auth import require_auth
+from sysadmin.config import load_config
+from sysadmin.contracts import ScanAllResponse
+from sysadmin.database import create_engine_and_session, dispose_engine, verify_connection
+from sysadmin.logging_setup import configure_logging
+from sysadmin.middleware import RequestLoggingMiddleware
+from sysadmin.routers.files import router as files_router
 
 # Routers
 from sysadmin.routers.health import router as health_router
-from sysadmin.routers.sysadmin import router as sysadmin_router
-from sysadmin.routers.projects import router as projects_router
-from sysadmin.routers.files import router as files_router
 from sysadmin.routers.logs import router as logs_router
+from sysadmin.routers.projects import router as projects_router
 from sysadmin.routers.summary import router as summary_router
+from sysadmin.routers.sysadmin import router as sysadmin_router
+from sysadmin.services.briefing import send_morning_briefing
+from sysadmin.services.dnd import dnd_manager
+from sysadmin.services.event_bus import EventBus
+from sysadmin.services.notifier import Notifier
+from sysadmin.services.retention import run_retention
+
+# Services
+from sysadmin.services.scheduler import Scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -161,52 +168,66 @@ async def lifespan(app: FastAPI):
     logger.info("sysadmin-service shut down")
 
 
-app = FastAPI(
-    title="SysAdmin Service",
-    description="Infrastructure monitoring and housekeeping service",
-    version=__version__,
-    lifespan=lifespan,
-)
-
-# --- Middleware ---
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.add_middleware(RequestLoggingMiddleware)
+LifespanFactory = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
 
-@app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exc: Exception):
-    """Catch unhandled exceptions and return a JSON 500 response."""
-    logger.exception("unhandled_exception", extra={"path": request.url.path})
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"},
+def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
+    """Build the FastAPI application — real routers, middleware, and handlers.
+
+    ``lifespan_ctx`` lets tests substitute a stub lifespan (no DB engine,
+    scheduler, or agent startup) while keeping everything else identical
+    to production.
+    """
+    app = FastAPI(
+        title="SysAdmin Service",
+        description="Infrastructure monitoring and housekeeping service",
+        version=__version__,
+        lifespan=lifespan_ctx if lifespan_ctx is not None else lifespan,
     )
 
+    # --- Middleware ---
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.add_middleware(RequestLoggingMiddleware)
 
-# --- Routers ---
-app.include_router(health_router)
-app.include_router(sysadmin_router)
-app.include_router(projects_router)
-app.include_router(files_router)
-app.include_router(logs_router)
-app.include_router(summary_router)
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        """Catch unhandled exceptions and return a JSON 500 response."""
+        logger.exception("unhandled_exception", extra={"path": request.url.path})
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"},
+        )
+
+    # --- Routers ---
+    app.include_router(health_router)
+    app.include_router(sysadmin_router)
+    app.include_router(projects_router)
+    app.include_router(files_router)
+    app.include_router(logs_router)
+    app.include_router(summary_router)
+
+    # --- Trigger-all endpoint ---
+    @app.post(
+        "/api/sysadmin/scan-all",
+        tags=["sysadmin"],
+        dependencies=[Depends(require_auth)],
+        response_model=ScanAllResponse,
+    )
+    async def scan_all(request: Request):
+        """Trigger all agents to run immediately."""
+        state = request.app.state
+        asyncio.create_task(state.sysadmin_agent.run(run_type="manual"))
+        asyncio.create_task(state.project_organiser_agent.run(run_type="manual"))
+        asyncio.create_task(state.file_organiser_agent.run(run_type="manual"))
+        asyncio.create_task(state.log_aggregator_agent.run(run_type="manual"))
+        return {"status": "all_scans_triggered"}
+
+    return app
 
 
-# --- Trigger-all endpoint ---
-@app.post(
-    "/api/sysadmin/scan-all",
-    tags=["sysadmin"],
-    dependencies=[Depends(require_auth)],
-)
-async def scan_all():
-    """Trigger all agents to run immediately."""
-    asyncio.create_task(sysadmin_agent.run(run_type="manual"))
-    asyncio.create_task(project_organiser_agent.run(run_type="manual"))
-    asyncio.create_task(file_organiser_agent.run(run_type="manual"))
-    asyncio.create_task(log_aggregator_agent.run(run_type="manual"))
-    return {"status": "all_scans_triggered"}
+app = create_app()

@@ -1,6 +1,7 @@
 """File Organiser API endpoints — filesystem audit, cleanup, trends."""
 
 import asyncio
+import logging
 import shutil
 from datetime import timedelta
 from pathlib import Path
@@ -12,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sysadmin.auth import require_auth
 from sysadmin.database import get_db_session
 from sysadmin.models.filesystem_audit import FilesystemAudit
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
@@ -93,9 +96,13 @@ async def get_delta_report(session: AsyncSession = Depends(get_db_session)):
             "misplaced_files": current.misplaced_files_count - previous.misplaced_files_count,
             "old_downloads": current.old_downloads_count - previous.old_downloads_count,
             "large_files": current.large_files_count - previous.large_files_count,
-            "duplicate_groups": current.duplicate_groups_count - previous.duplicate_groups_count,
+            "duplicate_groups": (
+                current.duplicate_groups_count - previous.duplicate_groups_count
+            ),
             "empty_dirs": current.empty_dirs_count - previous.empty_dirs_count,
-            "stale_project_dirs": current.stale_project_dirs_count - previous.stale_project_dirs_count,
+            "stale_project_dirs": (
+                current.stale_project_dirs_count - previous.stale_project_dirs_count
+            ),
             "stale_files": current.stale_files_count - previous.stale_files_count,
             "reclaimable_mb": current.total_reclaimable_mb - previous.total_reclaimable_mb,
         },
@@ -196,7 +203,7 @@ async def get_trends(
         for a in audits
     ]
 
-    forecast = _compute_reclaimable_forecast(audits)
+    forecast = _compute_reclaimable_forecast(list(audits))
 
     return {
         "scans": scans,
@@ -294,7 +301,10 @@ async def clean_stale_caches(
     if not confirm:
         return {
             "status": "confirmation_required",
-            "message": "Set confirm=true to proceed. This will remove __pycache__, .pytest_cache, and empty directories.",
+            "message": (
+                "Set confirm=true to proceed. This will remove __pycache__, "
+                ".pytest_cache, and empty directories."
+            ),
         }
 
     # Get latest audit for targets
@@ -309,7 +319,7 @@ async def clean_stale_caches(
     if not audit:
         raise HTTPException(status_code=404, detail="No audit data. Run a scan first.")
 
-    removed = {"caches": [], "empty_dirs": []}
+    removed: dict[str, list[str]] = {"caches": [], "empty_dirs": []}
 
     # Remove stale caches
     for d in audit.findings.get("stale_project_dirs", []):
@@ -320,7 +330,9 @@ async def clean_stale_caches(
                     await asyncio.to_thread(shutil.rmtree, path)
                     removed["caches"].append(str(path))
                 except (PermissionError, OSError) as e:
-                    logger.warning("clean_failed", extra={"path": str(path), "error": str(e)})
+                    logger.warning(
+                        "clean_failed", extra={"path": str(path), "error": str(e)}
+                    )
 
     # Remove empty dirs
     for d_str in audit.findings.get("empty_dirs", [])[:50]:
@@ -338,8 +350,3 @@ async def clean_stale_caches(
         "removed_empty_dirs": len(removed["empty_dirs"]),
         "details": removed,
     }
-
-
-# Needed for the clean endpoint logging
-import logging
-logger = logging.getLogger(__name__)

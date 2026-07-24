@@ -1,9 +1,7 @@
 """Tests for the Project Organiser agent — discovery, health scoring, edge cases."""
 
-import os
 from contextlib import ExitStack
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -109,7 +107,7 @@ class TestAnalyseProject:
     ):
         """Context manager that patches all git utility functions."""
         repo = MagicMock()
-        last_commit = datetime.now(timezone.utc) - timedelta(days=last_commit_days_ago)
+        last_commit = datetime.now(UTC) - timedelta(days=last_commit_days_ago)
         mod = "sysadmin.agents.project_organiser"
 
         stack = ExitStack()

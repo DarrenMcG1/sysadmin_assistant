@@ -1,6 +1,5 @@
 """Tests for the retention service — purge logic and downsampling."""
 
-from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -68,7 +67,8 @@ class TestRunRetention:
 
         async def fake_execute(stmt, params=None):
             execute_results.append(stmt)
-            if hasattr(stmt, 'text') or str(stmt).startswith('DELETE') or str(stmt).startswith('SELECT'):
+            stmt_str = str(stmt)
+            if hasattr(stmt, "text") or stmt_str.startswith(("DELETE", "SELECT")):
                 return delete_result
             return config_result
 

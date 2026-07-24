@@ -3,11 +3,12 @@
 from fastapi import APIRouter
 
 from sysadmin import __version__
+from sysadmin.contracts import HealthResponse
 
 router = APIRouter()
 
 
-@router.get("/health")
+@router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Basic health check — confirms the service is running."""
     return {

@@ -5,14 +5,21 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from pydantic import BaseModel
 
 from sysadmin.agents.sysadmin_agent import SysAdminAgent
 from sysadmin.auth import require_auth
 from sysadmin.config import get_config
+from sysadmin.contracts import (
+    AlertAckResponse,
+    AlertsResponse,
+    DndStatusResponse,
+    ResourceHistoryResponse,
+    ServiceActionResponse,
+    StatusResponse,
+)
 from sysadmin.database import get_db_session
 from sysadmin.models.alert import Alert
 from sysadmin.models.resource_snapshot import ResourceSnapshot
@@ -24,7 +31,7 @@ from sysadmin.utils.systemd import get_unit_status, restart_unit, start_unit, st
 router = APIRouter(prefix="/api/sysadmin", tags=["sysadmin"])
 
 
-@router.get("/status")
+@router.get("/status", response_model=StatusResponse)
 async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
     """Get the latest health status for all monitored services."""
     # Subquery: latest checked_at per service
@@ -139,7 +146,11 @@ _ACTION_FNS = {
 }
 
 
-@router.post("/services/{service_name}/{action}", dependencies=[Depends(require_auth)])
+@router.post(
+    "/services/{service_name}/{action}",
+    dependencies=[Depends(require_auth)],
+    response_model=ServiceActionResponse,
+)
 async def service_action(
     service_name: str,
     action: Literal["restart", "start", "stop"],
@@ -206,7 +217,7 @@ async def get_resources(session: AsyncSession = Depends(get_db_session)):
     }
 
 
-@router.get("/resources/history")
+@router.get("/resources/history", response_model=ResourceHistoryResponse)
 async def get_resource_history(
     hours: int | None = Query(default=None, le=720),
     days: int | None = Query(default=None, le=30),
@@ -250,7 +261,7 @@ async def get_resource_history(
     }
 
 
-@router.get("/alerts")
+@router.get("/alerts", response_model=AlertsResponse)
 async def get_alerts(
     active_only: bool = Query(default=True),
     limit: int = Query(default=50, le=200),
@@ -283,7 +294,11 @@ async def get_alerts(
     }
 
 
-@router.post("/alerts/{alert_id}/ack", dependencies=[Depends(require_auth)])
+@router.post(
+    "/alerts/{alert_id}/ack",
+    dependencies=[Depends(require_auth)],
+    response_model=AlertAckResponse,
+)
 async def acknowledge_alert(
     alert_id: str,
     session: AsyncSession = Depends(get_db_session),
@@ -307,7 +322,7 @@ async def preview_briefing(session: AsyncSession = Depends(get_db_session)):
     return await generate_briefing_data(session)
 
 
-@router.get("/dnd")
+@router.get("/dnd", response_model=DndStatusResponse)
 async def get_dnd_status():
     """Get current Do Not Disturb status."""
     return dnd_manager.get_status()
@@ -317,7 +332,7 @@ class DndToggleRequest(BaseModel):
     enabled: bool | None = None  # True=on, False=off, None=revert to schedule
 
 
-@router.post("/dnd", dependencies=[Depends(require_auth)])
+@router.post("/dnd", dependencies=[Depends(require_auth)], response_model=DndStatusResponse)
 async def toggle_dnd(body: DndToggleRequest):
     """Toggle Do Not Disturb mode.
 

@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -11,7 +11,6 @@ from sysadmin.agents.sysadmin_agent import SysAdminAgent
 from sysadmin.config import Thresholds
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.utils.gpu import (
-    _from_sysfs,
     _parse_float,
     _parse_int,
     get_gpu_usage,
@@ -155,7 +154,10 @@ class TestRocmSmiParsing:
             mock_path.return_value.exists.return_value = True
 
             with patch("sysadmin.utils.gpu._from_rocm_smi", side_effect=Exception("boom")):
-                with patch("sysadmin.utils.gpu._from_sysfs", return_value={"card0": {"name": "sysfs"}}) as mock_sysfs:
+                with patch(
+                    "sysadmin.utils.gpu._from_sysfs",
+                    return_value={"card0": {"name": "sysfs"}},
+                ) as mock_sysfs:
                     result = await get_gpu_usage()
 
         assert result == {"card0": {"name": "sysfs"}}
@@ -192,7 +194,7 @@ def _make_snapshot_with_gpu(gpu_usage: dict) -> ResourceSnapshot:
         load_avg_15m=1.2,
     )
     row.id = uuid.uuid4()
-    row.recorded_at = datetime.now(timezone.utc)
+    row.recorded_at = datetime.now(UTC)
     return row
 
 

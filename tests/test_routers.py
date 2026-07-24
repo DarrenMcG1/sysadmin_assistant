@@ -4,7 +4,7 @@ Tests use mocked DB sessions — no real database needed.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,7 +12,6 @@ import pytest
 from sysadmin.models.alert import Alert
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -29,7 +28,7 @@ def _make_service_health(
         details={},
     )
     row.id = uuid.uuid4()
-    row.checked_at = datetime.now(timezone.utc)
+    row.checked_at = datetime.now(UTC)
     return row
 
 
@@ -50,7 +49,7 @@ def _make_resource_snapshot(**overrides) -> ResourceSnapshot:
     defaults.update(overrides)
     row = ResourceSnapshot(**defaults)
     row.id = uuid.uuid4()
-    row.recorded_at = datetime.now(timezone.utc)
+    row.recorded_at = datetime.now(UTC)
     return row
 
 
@@ -69,7 +68,7 @@ def _make_alert(
     row.id = uuid.uuid4()
     row.acknowledged = False
     row.resolved = resolved
-    row.created_at = datetime.now(timezone.utc)
+    row.created_at = datetime.now(UTC)
     return row
 
 

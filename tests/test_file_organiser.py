@@ -13,7 +13,6 @@ Verifies all 8 finding types:
 
 import os
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest

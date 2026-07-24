@@ -9,10 +9,8 @@ Provides:
 import logging
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-
-from sqlalchemy import select
 
 from sysadmin.database import get_scheduler_session
 from sysadmin.models.agent_run import AgentRun
@@ -57,7 +55,7 @@ class BaseAgent(ABC):
     async def run(self, run_type: str = "scheduled") -> None:
         """Template method: record run, execute, handle errors."""
         start = time.monotonic()
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
 
         async with get_scheduler_session() as session:
             # Record the run as started
@@ -69,7 +67,6 @@ class BaseAgent(ABC):
             )
             session.add(agent_run)
             await session.flush()
-            run_id = agent_run.id
 
             try:
                 result = await self._execute(session)
@@ -77,7 +74,7 @@ class BaseAgent(ABC):
 
                 # Update run record with results
                 agent_run.status = "completed"
-                agent_run.completed_at = datetime.now(timezone.utc)
+                agent_run.completed_at = datetime.now(UTC)
                 agent_run.duration_seconds = round(duration, 2)
                 agent_run.findings_count = result.findings_count
                 agent_run.alerts_raised = result.alerts_raised
@@ -97,7 +94,7 @@ class BaseAgent(ABC):
             except Exception as e:
                 duration = time.monotonic() - start
                 agent_run.status = "failed"
-                agent_run.completed_at = datetime.now(timezone.utc)
+                agent_run.completed_at = datetime.now(UTC)
                 agent_run.duration_seconds = round(duration, 2)
                 agent_run.details = {"error": str(e)}
 
@@ -150,6 +147,6 @@ class BaseAgent(ABC):
                 Alert.title.ilike(f"%{title_pattern}%"),
                 Alert.resolved.is_(False),
             )
-            .values(resolved=True, resolved_at=datetime.now(timezone.utc))
+            .values(resolved=True, resolved_at=datetime.now(UTC))
         )
         return result.rowcount

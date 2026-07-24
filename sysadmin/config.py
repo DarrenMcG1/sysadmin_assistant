@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from pydantic import BaseModel, Field
@@ -21,7 +20,7 @@ class ApiConfig(BaseModel):
     require ``Authorization: Bearer <token>``.
     """
 
-    auth_token: Optional[str] = None
+    auth_token: str | None = None
 
 
 class ServiceConfig(BaseModel):
@@ -65,10 +64,10 @@ class LLMConfig(BaseModel):
 class MonitoredService(BaseModel):
     name: str
     type: str  # http | tcp | systemd
-    url: Optional[str] = None
-    host: Optional[str] = None
-    port: Optional[int] = None
-    systemd_unit: Optional[str] = None
+    url: str | None = None
+    host: str | None = None
+    port: int | None = None
+    systemd_unit: str | None = None
     user: bool = False  # systemd unit is a *user* unit (systemctl --user)
     controllable: bool = True
     auto_restart: bool = False
@@ -123,9 +122,9 @@ class FileOrganiserConfig(BaseModel):
 class LogSource(BaseModel):
     name: str
     type: str  # journalctl | file
-    unit: Optional[str] = None
+    unit: str | None = None
     user: bool = False  # journal of a *user* unit (journalctl --user)
-    path: Optional[str] = None
+    path: str | None = None
     severity_filter: str = "warning"
 
 
@@ -297,10 +296,10 @@ def _merge_projects_config(config: AppConfig, projects_path: Path) -> None:
 
 # --- Singleton loader ---
 
-_config: Optional[AppConfig] = None
+_config: AppConfig | None = None
 
 
-def load_config(config_path: Optional[Path] = None) -> AppConfig:
+def load_config(config_path: Path | None = None) -> AppConfig:
     """Load and validate config from YAML file."""
     global _config
 

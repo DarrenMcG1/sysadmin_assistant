@@ -1,11 +1,12 @@
 """Log Aggregator API endpoints — log viewing, filtering, summaries."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sysadmin.contracts import LogsResponse, LogStatsResponse
 from sysadmin.database import get_db_session
 from sysadmin.models.log_entry import LogEntry
 from sysadmin.models.log_summary import LogSummary
@@ -13,7 +14,7 @@ from sysadmin.models.log_summary import LogSummary
 router = APIRouter(prefix="/api/logs", tags=["logs"])
 
 
-@router.get("/recent")
+@router.get("/recent", response_model=LogsResponse)
 async def get_recent_logs(
     hours: int = Query(default=1, le=168),
     source: str | None = Query(default=None),
@@ -27,7 +28,7 @@ async def get_recent_logs(
     Night Worker uses ``hours=24&severity=all&limit=2000`` for deep analysis.
     Pass ``severity=all`` to explicitly include all severity levels.
     """
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
 
     query = (
         select(LogEntry)
@@ -67,7 +68,7 @@ async def get_errors(
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get error and critical log entries."""
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
 
     query = (
         select(LogEntry)
@@ -154,13 +155,13 @@ async def get_summary_history(
     }
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=LogStatsResponse)
 async def get_log_stats(
     hours: int = Query(default=24, le=168),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get log statistics — volume and error rates by source."""
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
 
     # Count by source and severity
     query = (
@@ -199,7 +200,7 @@ async def get_logs_by_source(
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get log entries for a specific source."""
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
 
     query = (
         select(LogEntry)

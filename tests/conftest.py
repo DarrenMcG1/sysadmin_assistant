@@ -3,11 +3,11 @@
 Provides:
 - Mock AppConfig with sensible test defaults
 - Mock async DB session (no real database needed for unit tests)
-- FastAPI test client with dependency overrides
+- The REAL FastAPI app (via ``sysadmin.main.create_app``) with the
+  production lifespan stubbed and the DB dependency overridden — same
+  routers, middleware stack, and exception handlers as production.
 """
 
-import uuid
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -19,7 +19,6 @@ from sysadmin.config import (
     DatabaseConfig,
     FileOrganiserConfig,
     MonitoredService,
-    NotificationsConfig,
     ProjectOrganiserConfig,
     ServiceConfig,
     SysAdminAgentConfig,
@@ -114,51 +113,58 @@ def patched_config(mock_config):
             yield mock_config
 
 
-@pytest.fixture
-async def test_client(mock_config, mock_session):
-    """Async httpx client against the FastAPI app with mocked dependencies.
+def _stub_app_state(app) -> None:
+    """Install the shared-state objects the real lifespan would set.
 
-    Overrides:
-    - get_db_session → yields mock_session
-    - lifespan → no-op (no DB, scheduler, or agents started)
+    The httpx ASGITransport never runs the lifespan, so the agents,
+    scheduler, and notifier the routers reach via ``app.state`` are
+    stubbed here with mocks (agents get an AsyncMock ``run``).
+    """
+    app.state.scheduler = MagicMock()
+    app.state.event_bus = MagicMock()
+    app.state.notifier = MagicMock()
+    app.state.dnd_manager = MagicMock()
+    for name in (
+        "sysadmin_agent",
+        "project_organiser_agent",
+        "file_organiser_agent",
+        "log_aggregator_agent",
+    ):
+        agent = MagicMock()
+        agent.run = AsyncMock(return_value=None)
+        setattr(app.state, name, agent)
+
+
+@pytest.fixture
+def test_app(mock_config, mock_session):
+    """The REAL application — built by the same factory as production.
+
+    Only the lifespan (DB engine, scheduler, agent startup) is stubbed;
+    routers, middleware, exception handlers, and route dependencies are
+    exactly what ``sysadmin.main.create_app`` wires in production.
     """
     from contextlib import asynccontextmanager
 
-    from fastapi import FastAPI
-    from fastapi.middleware.cors import CORSMiddleware
-
-    from sysadmin import __version__
     from sysadmin.database import get_db_session
-    from sysadmin.routers.files import router as files_router
-    from sysadmin.routers.health import router as health_router
-    from sysadmin.routers.logs import router as logs_router
-    from sysadmin.routers.projects import router as projects_router
-    from sysadmin.routers.summary import router as summary_router
-    from sysadmin.routers.sysadmin import router as sysadmin_router
+    from sysadmin.main import create_app
 
     @asynccontextmanager
-    async def noop_lifespan(app):
+    async def stub_lifespan(app):
         yield
 
-    # Build a test app with noop lifespan
-    test_app = FastAPI(
-        title="SysAdmin Service (test)",
-        version=__version__,
-        lifespan=noop_lifespan,
-    )
-    test_app.include_router(health_router)
-    test_app.include_router(sysadmin_router)
-    test_app.include_router(projects_router)
-    test_app.include_router(files_router)
-    test_app.include_router(logs_router)
-    test_app.include_router(summary_router)
+    app = create_app(lifespan_ctx=stub_lifespan)
+    _stub_app_state(app)
 
-    # Override DB dependency
     async def override_get_db_session():
         yield mock_session
 
-    test_app.dependency_overrides[get_db_session] = override_get_db_session
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    return app
 
+
+@pytest.fixture
+async def test_client(test_app, mock_config):
+    """Async httpx client against the real app with mocked dependencies."""
     # Patch config for routers that call get_config() directly
     with patch("sysadmin.config.get_config", return_value=mock_config):
         with patch("sysadmin.config._config", mock_config):

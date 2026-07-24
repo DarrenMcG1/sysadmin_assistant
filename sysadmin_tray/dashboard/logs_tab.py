@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from sysadmin_tray.models import LogStatsResponse, LogsResponse
+from sysadmin_tray.models import LogsResponse, LogStatsResponse
 from sysadmin_tray.styles import (
     AMBER,
     COMBOBOX_STYLE,

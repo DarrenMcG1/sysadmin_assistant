@@ -1,7 +1,7 @@
 """Tests for GET /api/summary digest endpoint."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,7 +15,7 @@ from sysadmin.models.service_health import ServiceHealth
 def _make_health(name: str, status: str = "ok") -> ServiceHealth:
     row = ServiceHealth(service_name=name, status=status, response_time_ms=42, details={})
     row.id = uuid.uuid4()
-    row.checked_at = datetime.now(timezone.utc)
+    row.checked_at = datetime.now(UTC)
     return row
 
 
@@ -24,7 +24,7 @@ def _make_alert(title: str, severity: str = "warning") -> Alert:
     row.id = uuid.uuid4()
     row.acknowledged = False
     row.resolved = False
-    row.created_at = datetime.now(timezone.utc)
+    row.created_at = datetime.now(UTC)
     return row
 
 
@@ -37,7 +37,7 @@ def _make_snapshot() -> ResourceSnapshot:
         load_avg_1m=1.0, load_avg_5m=1.5, load_avg_15m=1.2,
     )
     row.id = uuid.uuid4()
-    row.recorded_at = datetime.now(timezone.utc)
+    row.recorded_at = datetime.now(UTC)
     return row
 
 
@@ -49,8 +49,8 @@ def _make_project(name: str, score: int) -> ProjectSnapshot:
         total_size_mb=100, findings={},
     )
     row.id = uuid.uuid4()
-    row.scanned_at = datetime.now(timezone.utc)
-    row.last_commit_at = datetime.now(timezone.utc)
+    row.scanned_at = datetime.now(UTC)
+    row.last_commit_at = datetime.now(UTC)
     return row
 
 
