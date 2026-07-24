@@ -89,11 +89,32 @@ class Thresholds(BaseModel):
     gpu_vram_warning_percent: int = 90
 
 
+class AnomalyConfig(BaseModel):
+    """Z-score anomaly detection over ``resource_snapshots`` history.
+
+    Complements the fixed :class:`Thresholds` — flags values that are
+    unusual *for this machine* even when they sit below a hard limit.
+
+    - ``window_days``   — how much history the rolling mean/stdev uses
+    - ``min_samples``   — cold-start guard; fewer snapshots → no flagging
+    - ``min_stdev``     — near-constant series would produce huge/infinite
+      z-scores, so a series flatter than this is skipped entirely
+    """
+
+    enabled: bool = True
+    window_days: int = 7
+    z_threshold: float = 3.0
+    min_samples: int = 30
+    min_stdev: float = 1.0
+    severity: str = "warning"
+
+
 class SysAdminAgentConfig(BaseModel):
     enabled: bool = True
     health_check_interval_seconds: int = 300
     services: list[MonitoredService] = Field(default_factory=list)
     thresholds: Thresholds = Field(default_factory=Thresholds)
+    anomaly: AnomalyConfig = Field(default_factory=AnomalyConfig)
 
 
 class HealthGradeBands(BaseModel):
@@ -275,6 +296,36 @@ class SchedulesConfig(BaseModel):
     retention_minute: int = 0
 
 
+class SelfMonitorConfig(BaseModel):
+    """Self-monitoring of the agents themselves (``/api/sysadmin/self``).
+
+    An agent is considered *stalled* when the time since its last recorded
+    run exceeds ``interval × stall_grace_multiplier`` (floored at
+    ``min_stall_grace_seconds`` so short-interval agents are not flagged
+    by a single restart). The interval comes from each agent's own config
+    section — the same values ``main.py`` registers with the scheduler.
+    """
+
+    enabled: bool = True
+    stall_grace_multiplier: float = 3.0
+    min_stall_grace_seconds: int = 300
+    recent_runs: int = 10
+
+
+class EventsConfig(BaseModel):
+    """Server-Sent Events stream (``GET /api/sysadmin/events``).
+
+    ``heartbeat_seconds`` sets how often an SSE comment is written to an
+    idle stream so proxies and clients do not drop it. ``max_queued_events``
+    bounds each connected client's buffer — a client that cannot keep up
+    loses its oldest events rather than stalling the publisher.
+    """
+
+    heartbeat_seconds: float = 20.0
+    max_queued_events: int = 100
+    retry_ms: int = 5000
+
+
 class AgentsConfig(BaseModel):
     sysadmin: SysAdminAgentConfig = Field(default_factory=SysAdminAgentConfig)
     project_organiser: ProjectOrganiserConfig = Field(default_factory=ProjectOrganiserConfig)
@@ -293,6 +344,8 @@ class AppConfig(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
     schedules: SchedulesConfig = Field(default_factory=SchedulesConfig)
+    self_monitor: SelfMonitorConfig = Field(default_factory=SelfMonitorConfig)
+    events: EventsConfig = Field(default_factory=EventsConfig)
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
     projects: ProjectsConfig = Field(default_factory=ProjectsConfig, exclude=True)
 

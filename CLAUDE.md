@@ -186,6 +186,8 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/sysadmin/services/{name}/details` | `ServiceDetailInfo` | parse-side only (raw `systemctl show` props, `[not set]` coercion) |
 | `GET`/`POST /api/sysadmin/dnd` | `DndStatusResponse` | response_model |
 | `POST /api/sysadmin/scan-all` | `ScanAllResponse` | response_model |
+| `GET /api/sysadmin/self` | `SelfMonitorResponse` / `AgentSelfHealth` | response_model |
+| `GET /api/sysadmin/events` | `EventMessage` | serialise-side only (SSE stream — each `data:` line, not a JSON body) |
 | `GET /api/logs/recent` | `LogsResponse` / `LogEntryInfo` | response_model |
 | `GET /api/logs/stats` | `LogStatsResponse` | response_model |
 | `GET /api/projects/overview` | `ProjectOverviewResponse` | response_model |

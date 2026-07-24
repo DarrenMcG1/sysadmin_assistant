@@ -352,6 +352,67 @@ class DndStatusResponse(Contract):
     schedule: list[DndWindow] = Field(default_factory=list)
 
 
+# ── /api/sysadmin/self ───────────────────────────────────────────────
+
+
+class AgentSelfHealth(Contract):
+    """One agent's run health, derived from the ``agent_runs`` table."""
+
+    name: str = ""
+    enabled: bool = True
+    job_id: str = ""
+    interval_seconds: int = 0
+    stall_window_seconds: float = 0.0
+    last_run_at: str | None = None
+    last_status: str = "never"  # "completed" | "failed" | "running" | "never"
+    last_run_type: str | None = None
+    last_duration_seconds: float | None = None
+    seconds_since_last_run: float | None = None
+    expected_next_run_at: str | None = None
+    runs_considered: int = 0
+    consecutive_failures: int = 0
+    recent_durations: list[float] = Field(default_factory=list)
+    mean_duration_seconds: float | None = None
+    duration_trend: str = "unknown"  # "rising" | "falling" | "steady" | "unknown"
+    stalled: bool = False
+    stall_reason: str | None = None
+
+
+class SelfMonitorResponse(Contract):
+    """GET /api/sysadmin/self — is the service still doing its job?"""
+
+    agents: list[AgentSelfHealth] = Field(default_factory=list)
+    count: int = 0
+    stalled_count: int = 0
+    failing_count: int = 0
+    healthy: bool = True
+    generated_at: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "agents")
+
+
+# ── /api/sysadmin/events (SSE) ───────────────────────────────────────
+#
+# Serialise-side contract: not a JSON body but the payload of each
+# ``data:`` line on the event stream.
+
+
+class EventMessage(Contract):
+    """One Server-Sent Event payload pushed to clients."""
+
+    event: str = ""  # "connected" | "alert.raised" | "alert.resolved" | "agent.run" | …
+    data: dict[str, Any] = Field(default_factory=dict)
+    ts: str | None = None
+
+    @field_validator("data", mode="before")
+    @classmethod
+    def _none_data_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+
 # ── Action responses ─────────────────────────────────────────────────
 
 

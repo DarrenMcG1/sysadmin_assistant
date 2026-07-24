@@ -1,7 +1,8 @@
 """Request logging middleware for FastAPI.
 
 Logs method, path, status code, and duration for every request.
-Health endpoint is excluded to avoid noise from polling.
+The health endpoint (high-frequency polling) and the SSE stream
+(long-lived connections) are excluded to avoid noise.
 """
 
 import logging
@@ -13,8 +14,12 @@ from starlette.responses import Response
 
 logger = logging.getLogger("sysadmin.access")
 
-# Paths excluded from access logging (high-frequency polling endpoints)
-_EXCLUDED_PATHS = frozenset({"/health"})
+# Paths excluded from access logging:
+#   /health               — high-frequency polling (SNAG-API-002)
+#   /api/sysadmin/events  — long-lived SSE streams; logging them at open
+#                           time is noise, and the whole point of the
+#                           stream is to remove polling log spam
+_EXCLUDED_PATHS = frozenset({"/health", "/api/sysadmin/events"})
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
