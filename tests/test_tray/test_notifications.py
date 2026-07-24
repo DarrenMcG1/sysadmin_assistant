@@ -164,9 +164,15 @@ class TestNotificationDedup:
             assert mock_show.call_count == 2
 
     def test_resolved_alert_re_notifies_on_recurrence(self, qapp):
-        """When an alert resolves then comes back, it fires again."""
+        """When an alert resolves then comes back, it fires again.
+
+        Session 16: only once the flap cooldown has expired — this test
+        disables the cooldown, and TestFlapCooldown covers the window.
+        """
         tray = TrayIcon()
-        tray.set_notification_config(enabled=True, min_severity="warning")
+        tray.set_notification_config(
+            enabled=True, min_severity="warning", flap_cooldown_minutes=0,
+        )
 
         with patch.object(tray, "showMessage") as mock_show:
             # Alert appears
@@ -275,7 +281,11 @@ class TestSeverityThresholdConfig:
             mock_show.assert_not_called()
 
     def test_mixed_severity_warning_threshold(self, qapp):
-        """With warning threshold: all severities >= warning get notified."""
+        """With warning threshold: all severities >= warning get notified.
+
+        Session 16: two qualifying alerts in one poll are coalesced into a
+        single summary toast (the info alert stays below threshold).
+        """
         tray = TrayIcon()
         tray.set_notification_config(enabled=True, min_severity="warning")
 
@@ -290,8 +300,12 @@ class TestSeverityThresholdConfig:
 
         with patch.object(tray, "showMessage") as mock_show:
             tray.update_from_alerts(alerts)
-            # warning + critical notified, info below threshold
-            assert mock_show.call_count == 2
+            assert mock_show.call_count == 1
+            summary, body = mock_show.call_args[0][0], mock_show.call_args[0][1]
+            assert summary == "2 new alerts"
+            assert "RAM high" in body
+            assert "Disk full" in body
+            assert "Scan done" not in body
 
 
 class TestServiceActionToasts:

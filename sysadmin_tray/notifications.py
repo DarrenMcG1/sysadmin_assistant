@@ -1,17 +1,36 @@
-"""D-Bus desktop notifications with action button support.
+"""D-Bus desktop notifications plus the "notification calm" policy engine.
 
-Uses ``org.freedesktop.Notifications`` for native KDE integration:
-  - Action buttons (e.g. "Restart" on service-failure alerts)
-  - Urgency hints (low / normal / critical)
-  - Proper notification history in KDE's notification centre
+Two co-operating pieces live here:
 
-Falls back to ``QSystemTrayIcon.showMessage()`` when D-Bus is unavailable.
+``DbusNotifier``
+    The transport.  Uses ``org.freedesktop.Notifications`` for native KDE
+    integration: action buttons ("Restart", "Snooze 1h"), urgency hints,
+    the ``transient`` hint (skip the notification history), update-in-place
+    via ``replaces_id``, and the desktop-level ``Inhibited`` property
+    (KDE Do Not Disturb / screen sharing).  Falls back to
+    ``QSystemTrayIcon.showMessage()`` when D-Bus is unavailable.
+
+``NotificationPolicy``
+    The state machine that decides *whether* and *how loudly* to speak.
+    Pure Python (no Qt, no D-Bus) so it is cheap to test: fed the alert
+    payload from each poll, it returns a list of ``NotificationRequest``
+    objects for the tray to dispatch.  It owns the shared fingerprint
+    state used by dedup, flap cooldown, escalation, snooze, mute,
+    coalescing and the warning digest.
+
+Fingerprints are ``"{severity}:{title}"`` — the same content fingerprint
+the tray has always used for dedup, now also the key for update-in-place
+(``replaces_id``) and every suppression rule.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+import re
+import time
+from collections import Counter
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
 
 from PyQt6.QtCore import QMetaType, QObject, QVariant, pyqtSignal, pyqtSlot
 from PyQt6.QtDBus import (
@@ -23,14 +42,19 @@ from PyQt6.QtDBus import (
 )
 from PyQt6.QtWidgets import QSystemTrayIcon
 
-if TYPE_CHECKING:
-    pass
+from sysadmin_tray.models import AlertInfo, AlertsResponse
 
 logger = logging.getLogger(__name__)
 
 _DBUS_SERVICE = "org.freedesktop.Notifications"
 _DBUS_PATH = "/org/freedesktop/Notifications"
 _DBUS_IFACE = "org.freedesktop.Notifications"
+
+_APP_NAME = "SysAdmin Monitor"
+_APP_ICON = "dialog-warning"
+
+# Severity ordering shared by the tray and the policy
+SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "critical": 2}
 
 # Map severity → D-Bus urgency hint (0 = low, 1 = normal, 2 = critical)
 _URGENCY_MAP: dict[str, int] = {
@@ -53,27 +77,561 @@ _FALLBACK_ICONS: dict[str, QSystemTrayIcon.MessageIcon] = {
     "critical": QSystemTrayIcon.MessageIcon.Critical,
 }
 
+# How long a cached answer to the desktop "Inhibited" query stays fresh
+_INHIBIT_CACHE_SECONDS = 5.0
+
+# Stable fingerprints for the synthetic (non-alert) notifications
+FP_COALESCED = "sysadmin:new-alert-summary"
+FP_DIGEST = "sysadmin:warning-digest"
+
+_MAX_LISTED_TITLES = 5
+
+
+# ── Payload / request value objects ──────────────────────────────────
+
+
+@dataclass(frozen=True)
+class NotifyPayload:
+    """The exact arguments handed to ``org.freedesktop.Notifications.Notify``.
+
+    Kept as plain Python (no Qt types) so tests can assert on it without a
+    live session bus; :meth:`DbusNotifier._send` does the Qt marshalling.
+    """
+
+    summary: str
+    body: str
+    replaces_id: int = 0
+    actions: tuple[str, ...] = ()
+    hints: dict[str, object] = field(default_factory=dict)
+    timeout: int = 5000
+
+
+@dataclass(frozen=True)
+class NotificationRequest:
+    """One notification the policy has decided to send."""
+
+    summary: str
+    body: str
+    #: severity driving urgency / timeout / fallback icon.  A brand-new
+    #: critical opens quiet ("info") and escalates later — see
+    #: :attr:`alert_severity` for what the alert actually is.
+    severity: str = "info"
+    #: the alert's true severity, used for labels and summary counts
+    alert_severity: str | None = None
+    service_name: str | None = None
+    fingerprint: str | None = None
+    transient: bool = False
+    snooze_key: str | None = None
+    #: this replaces an existing popup in place — never fold into a summary
+    escalation: bool = False
+
+
+# ── Policy configuration ─────────────────────────────────────────────
+
+
+@dataclass
+class NotificationSettings:
+    """Tunables for :class:`NotificationPolicy` (mirrors config.yaml)."""
+
+    enabled: bool = True
+    min_severity: str = "critical"
+    flap_cooldown_minutes: int = 30
+    escalation_polls: int = 3
+    coalesce_threshold: int = 2
+    snooze_minutes: int = 60
+    digest_mode: bool = False
+    digest_interval_minutes: int = 60
+    respect_desktop_dnd: bool = True
+    muted_services: tuple[str, ...] = ()
+
+    @property
+    def min_severity_level(self) -> int:
+        """Numeric threshold; unknown names fall back to ``critical``."""
+        return SEVERITY_LEVELS.get(self.min_severity, SEVERITY_LEVELS["critical"])
+
+
+@dataclass
+class _FingerprintState:
+    """Per-fingerprint bookkeeping shared by every suppression rule."""
+
+    fingerprint: str
+    severity: str
+    #: alert is present in the most recent poll and we've started an "episode"
+    episode_open: bool = False
+    #: consecutive polls the current episode has been active (escalation)
+    polls_active: int = 0
+    #: we already spoke about the current episode
+    notified_this_episode: bool = False
+    #: the escalation (loud) notification has been sent for this episode
+    escalated: bool = False
+    #: monotonic timestamp of the last notification actually sent
+    last_notified_at: float | None = None
+    #: episodes swallowed by the flap cooldown since the last notification
+    suppressed_episodes: int = 0
+
+
+def _humanise_minutes(minutes: float) -> str:
+    """Render a window length for notification copy ("hour", "45 min")."""
+    mins = round(minutes)
+    if mins >= 60 and mins % 60 == 0:
+        hours = mins // 60
+        return "hour" if hours == 1 else f"{hours} hours"
+    if mins <= 0:
+        mins = 1
+    return f"{mins} min"
+
+
+def _count_line(severities: Iterable[str]) -> str:
+    """"1 critical, 2 warning" — highest severity first, zeroes omitted."""
+    counts = Counter(severities)
+    parts = [
+        f"{counts[sev]} {sev}"
+        for sev in ("critical", "warning", "info")
+        if counts.get(sev)
+    ]
+    return ", ".join(parts)
+
+
+def _highest(severities: Iterable[str]) -> str:
+    """The loudest severity in the batch (defaults to ``info``)."""
+    return max(
+        severities,
+        key=lambda s: SEVERITY_LEVELS.get(s, 0),
+        default="info",
+    )
+
+
+class NotificationPolicy:
+    """Decides which alerts become desktop notifications, and how loudly.
+
+    The whole point is *calm*: the same underlying problem should produce
+    at most one interruption per cooldown window, several new problems in
+    one poll produce one summary, and a brand-new critical starts quiet
+    and only escalates if it is still failing several polls later.
+
+    ``clock`` is injectable (defaults to :func:`time.monotonic`) purely so
+    the cooldown / digest windows are testable without sleeping.
+    """
+
+    def __init__(
+        self,
+        settings: NotificationSettings | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.settings = settings or NotificationSettings()
+        self.clock = clock
+        self._states: dict[str, _FingerprintState] = {}
+        self._snoozes: dict[str, float] = {}       # key → monotonic expiry
+        self._digest: list[tuple[str, str]] = []   # (severity, title)
+        self._digest_started_at: float | None = None
+
+    # ── Public API ───────────────────────────────────────────────────
+
+    def evaluate(
+        self,
+        alerts: AlertsResponse,
+        *,
+        dnd_active: bool = False,
+        dnd_allow_critical: bool = True,
+        desktop_inhibited: bool = False,
+    ) -> list[NotificationRequest]:
+        """Fold one poll's alerts into the notifications that should fire.
+
+        Returns an empty list when everything is suppressed — the caller
+        simply dispatches whatever comes back, in order.
+        """
+        now = self.clock()
+        if not self.settings.enabled:
+            return []
+
+        requests: list[NotificationRequest] = []
+        fresh: list[NotificationRequest] = []
+        active: set[str] = set()
+
+        for alert in alerts.alerts:
+            if alert.acknowledged:
+                continue
+
+            fingerprint = self.fingerprint(alert)
+            if fingerprint in active:
+                continue  # several DB rows for one logical alert
+            active.add(fingerprint)
+
+            state = self._states.get(fingerprint)
+            if state is None:
+                state = _FingerprintState(
+                    fingerprint=fingerprint, severity=alert.severity,
+                )
+                self._states[fingerprint] = state
+
+            first_poll = not state.episode_open
+            state.episode_open = True
+            state.polls_active += 1
+
+            request = self._consider(
+                alert,
+                state,
+                now,
+                first_poll=first_poll,
+                dnd_active=dnd_active,
+                dnd_allow_critical=dnd_allow_critical,
+                desktop_inhibited=desktop_inhibited,
+            )
+            if request is None:
+                continue
+            if request.escalation:
+                requests.append(request)
+            else:
+                fresh.append(request)
+
+        requests = self._coalesce(fresh) + requests
+
+        digest = self._maybe_flush_digest(now)
+        if digest is not None:
+            requests.append(digest)
+
+        self._close_inactive(active, now)
+        return requests
+
+    def snooze(self, key: str, minutes: int | None = None) -> None:
+        """Silence a fingerprint or service until the snooze expires.
+
+        ``key`` is one of the keys handed out via
+        :attr:`NotificationRequest.snooze_key` — ``"service:redis"`` or
+        ``"fp:critical:Disk full"``.
+        """
+        window = self.settings.snooze_minutes if minutes is None else minutes
+        self._snoozes[key] = self.clock() + window * 60
+        logger.info("notifications snoozed for %s (%d min)", key, window)
+
+    def is_snoozed(self, key: str) -> bool:
+        """Whether *key* is currently snoozed (expired entries are dropped)."""
+        expiry = self._snoozes.get(key)
+        if expiry is None:
+            return False
+        if expiry <= self.clock():
+            del self._snoozes[key]
+            return False
+        return True
+
+    def flush_digest(self, now: float | None = None) -> NotificationRequest | None:
+        """Emit the accumulated warning digest, if there is anything to say."""
+        if not self._digest:
+            return None
+        now = self.clock() if now is None else now
+        started = self._digest_started_at or now
+        items = self._digest
+        self._digest = []
+        self._digest_started_at = None
+
+        # Report the digest window, not the odd extra minutes a poll
+        # interval adds on top of it ("in the last hour", not "65 min")
+        elapsed = max((now - started) / 60, 1)
+        window = _humanise_minutes(
+            min(elapsed, self.settings.digest_interval_minutes or elapsed)
+        )
+        titles = [title for _, title in items]
+        lines = [_count_line(sev for sev, _ in items)]
+        lines.extend(f"• {t}" for t in titles[:_MAX_LISTED_TITLES])
+        if len(titles) > _MAX_LISTED_TITLES:
+            lines.append(f"…and {len(titles) - _MAX_LISTED_TITLES} more")
+
+        return NotificationRequest(
+            summary=f"SysAdmin digest — {len(items)} alerts in the last {window}",
+            body="\n".join(lines),
+            severity="info",
+            alert_severity=_highest(sev for sev, _ in items),
+            fingerprint=FP_DIGEST,
+            transient=False,  # a digest is exactly what history is for
+        )
+
+    @property
+    def pending_digest_count(self) -> int:
+        """How many warnings are waiting in the digest buffer."""
+        return len(self._digest)
+
+    def reset(self) -> None:
+        """Forget all state (used on shutdown / reconfiguration)."""
+        self._states.clear()
+        self._snoozes.clear()
+        self._digest.clear()
+        self._digest_started_at = None
+
+    @staticmethod
+    def fingerprint(alert: AlertInfo) -> str:
+        """Content fingerprint — stable across DB rows for one problem."""
+        return f"{alert.severity}:{alert.title}"
+
+    # ── Decision helpers ─────────────────────────────────────────────
+
+    def _consider(
+        self,
+        alert: AlertInfo,
+        state: _FingerprintState,
+        now: float,
+        *,
+        first_poll: bool,
+        dnd_active: bool,
+        dnd_allow_critical: bool,
+        desktop_inhibited: bool,
+    ) -> NotificationRequest | None:
+        """Decide what (if anything) this alert should produce this poll."""
+        settings = self.settings
+        severity = alert.severity
+        is_critical = severity == "critical"
+
+        if SEVERITY_LEVELS.get(severity, 0) < settings.min_severity_level:
+            return None
+        if self._is_muted(alert):
+            logger.debug("notification muted by config: %s", alert.title)
+            return None
+        if self._is_snoozed(state.fingerprint, alert.service_name):
+            return None
+        if self._suppressed_by_dnd(
+            severity,
+            dnd_active=dnd_active,
+            dnd_allow_critical=dnd_allow_critical,
+            desktop_inhibited=desktop_inhibited,
+        ):
+            return None
+
+        # Digest mode: warnings never interrupt, they queue up instead.
+        if settings.digest_mode and not is_critical:
+            if first_poll:
+                self._digest.append((severity, alert.title))
+                if self._digest_started_at is None:
+                    self._digest_started_at = now
+            return None
+
+        if state.notified_this_episode:
+            return self._maybe_escalate(alert, state, now)
+
+        # Still waiting out the flap cooldown from the previous episode?
+        cooldown = settings.flap_cooldown_minutes * 60
+        if (
+            cooldown > 0
+            and state.last_notified_at is not None
+            and now - state.last_notified_at < cooldown
+        ):
+            if first_poll:
+                state.suppressed_episodes += 1
+                logger.debug(
+                    "flap suppressed (%d× since last alert): %s",
+                    state.suppressed_episodes, alert.title,
+                )
+            return None
+
+        return self._first_notification(alert, state, now)
+
+    def _first_notification(
+        self, alert: AlertInfo, state: _FingerprintState, now: float,
+    ) -> NotificationRequest:
+        """Build the opening notification for an episode."""
+        severity = alert.severity
+        is_critical = severity == "critical"
+        quiet_first = is_critical and self.settings.escalation_polls > 1
+        effective = "info" if quiet_first else severity
+
+        lines = [alert.title]
+        if state.suppressed_episodes and state.last_notified_at is not None:
+            flaps = state.suppressed_episodes + 1
+            window = _humanise_minutes((now - state.last_notified_at) / 60)
+            lines.append(f"{alert.title} flapped {flaps}× in the last {window}")
+        if alert.message:
+            lines.append(alert.message)
+
+        state.suppressed_episodes = 0
+        state.notified_this_episode = True
+        state.escalated = False
+        state.last_notified_at = now
+
+        return NotificationRequest(
+            summary=f"{severity.upper()}: sysadmin",
+            body="\n".join(lines),
+            severity=effective,
+            alert_severity=severity,
+            service_name=alert.service_name,
+            fingerprint=state.fingerprint,
+            transient=effective == "info",
+            snooze_key=self.snooze_key_for(alert, state.fingerprint),
+        )
+
+    def _maybe_escalate(
+        self, alert: AlertInfo, state: _FingerprintState, now: float,
+    ) -> NotificationRequest | None:
+        """Promote a still-failing critical from quiet to persistent."""
+        if alert.severity != "critical" or state.escalated:
+            return None
+        if self.settings.escalation_polls <= 1:
+            return None
+        if state.polls_active < self.settings.escalation_polls:
+            return None
+
+        state.escalated = True
+        state.last_notified_at = now
+
+        lines = [
+            alert.title,
+            f"Still failing after {state.polls_active} checks",
+        ]
+        if alert.message:
+            lines.append(alert.message)
+
+        return NotificationRequest(
+            summary="CRITICAL: sysadmin",
+            body="\n".join(lines),
+            severity="critical",
+            alert_severity="critical",
+            service_name=alert.service_name,
+            fingerprint=state.fingerprint,
+            transient=False,
+            snooze_key=self.snooze_key_for(alert, state.fingerprint),
+            escalation=True,
+        )
+
+    def _coalesce(
+        self, fresh: list[NotificationRequest],
+    ) -> list[NotificationRequest]:
+        """Fold several new alerts from one poll into a single summary."""
+        threshold = max(self.settings.coalesce_threshold, 2)
+        if len(fresh) < threshold or len(fresh) < 2:
+            return fresh
+
+        # Counts name the *real* severities; urgency follows the effective
+        # ones, so a batch of brand-new criticals is still a quiet opener
+        # that each alert's own escalation can follow up loudly.
+        reported = [r.alert_severity or r.severity for r in fresh]
+        urgency = _highest(r.severity for r in fresh)
+        lines = [_count_line(reported)]
+        lines.extend(f"• {r.body.splitlines()[0]}" for r in fresh[:_MAX_LISTED_TITLES])
+        if len(fresh) > _MAX_LISTED_TITLES:
+            lines.append(f"…and {len(fresh) - _MAX_LISTED_TITLES} more")
+
+        return [
+            NotificationRequest(
+                summary=f"{len(fresh)} new alerts",
+                body="\n".join(lines),
+                severity=urgency,
+                alert_severity=_highest(reported),
+                fingerprint=FP_COALESCED,
+                transient=urgency != "critical",
+            )
+        ]
+
+    def _maybe_flush_digest(self, now: float) -> NotificationRequest | None:
+        if not self._digest:
+            return None
+        started = self._digest_started_at or now
+        if now - started < self.settings.digest_interval_minutes * 60:
+            return None
+        return self.flush_digest(now)
+
+    def _close_inactive(self, active: set[str], now: float) -> None:
+        """Reset episodes for resolved alerts, and prune cold state."""
+        cooldown = self.settings.flap_cooldown_minutes * 60
+        for fingerprint, state in list(self._states.items()):
+            if fingerprint in active:
+                continue
+            state.episode_open = False
+            state.polls_active = 0
+            state.notified_this_episode = False
+            state.escalated = False
+
+            if state.last_notified_at is None:
+                del self._states[fingerprint]
+            elif now - state.last_notified_at > cooldown:
+                # Cooldown fully expired — nothing left to remember
+                del self._states[fingerprint]
+
+    # ── Suppression rules ────────────────────────────────────────────
+
+    def _is_muted(self, alert: AlertInfo) -> bool:
+        """Whether the alert belongs to a service muted in config.yaml."""
+        muted = {m.lower() for m in self.settings.muted_services if m}
+        if not muted:
+            return False
+        service = (alert.service_name or "").lower()
+        if service:
+            return service in muted
+        # Alerts without an explicit service still name it in the title
+        title = alert.title.lower()
+        return any(re.search(rf"\b{re.escape(name)}\b", title) for name in muted)
+
+    def _is_snoozed(self, fingerprint: str, service_name: str | None) -> bool:
+        if self.is_snoozed(f"fp:{fingerprint}"):
+            return True
+        return bool(service_name) and self.is_snoozed(
+            f"service:{(service_name or '').lower()}"
+        )
+
+    def _suppressed_by_dnd(
+        self,
+        severity: str,
+        *,
+        dnd_active: bool,
+        dnd_allow_critical: bool,
+        desktop_inhibited: bool,
+    ) -> bool:
+        """Combine the app's own DND with the desktop's inhibition state.
+
+        The two are complementary and the *more restrictive* answer wins:
+
+        * The app's DND (``/api/sysadmin/dnd``, scheduled or toggled from
+          the tray menu) is authoritative for criticals — with
+          ``allow_critical`` set they break through, without it nothing
+          gets out.
+        * The desktop's inhibition (KDE Do Not Disturb, screen sharing,
+          full-screen presentation) suppresses everything *except*
+          criticals, which the notification server itself will queue into
+          history anyway.
+        """
+        is_critical = severity == "critical"
+        if dnd_active and not (is_critical and dnd_allow_critical):
+            return True
+        return (
+            self.settings.respect_desktop_dnd
+            and desktop_inhibited
+            and not is_critical
+        )
+
+    @staticmethod
+    def snooze_key_for(alert: AlertInfo, fingerprint: str) -> str:
+        """Snoozing a service silences all of its alerts, not just this one."""
+        if alert.service_name:
+            return f"service:{alert.service_name.lower()}"
+        return f"fp:{fingerprint}"
+
 
 class DbusNotifier(QObject):
-    """D-Bus notification helper with action button support.
+    """D-Bus notification transport with action buttons and replace-in-place.
 
-    Emits ``restart_requested(service_name)`` when the user clicks
-    a "Restart" action button on a notification.
+    Signals:
+        ``restart_requested(service_name)`` — the user clicked "Restart".
+        ``snooze_requested(snooze_key)`` — the user clicked "Snooze 1h".
     """
 
     restart_requested = pyqtSignal(str)  # service_name
+    snooze_requested = pyqtSignal(str)   # snooze key (service:… / fp:…)
 
     def __init__(
         self,
         fallback_tray: QSystemTrayIcon | None = None,
         parent: QObject | None = None,
+        snooze_minutes: int = 60,
     ) -> None:
         super().__init__(parent)
         self._fallback_tray = fallback_tray
         self._pending_actions: dict[int, str] = {}  # notification_id → service_name
+        self._pending_snoozes: dict[int, str] = {}  # notification_id → snooze key
+        self._fp_ids: dict[str, int] = {}           # fingerprint → notification_id
+        self.snooze_minutes = snooze_minutes
         self._available = False
         self._bus: QDBusConnection | None = None
         self._iface: QDBusInterface | None = None
+        self._props: QDBusInterface | None = None
+        self._inhibit_supported = True
+        self._inhibit_cached = False
+        self._inhibit_checked_at: float | None = None
 
         self._init_dbus()
 
@@ -94,6 +652,11 @@ class DbusNotifier(QObject):
             )
             self._iface = None
             return
+
+        # Separate proxy for the property reads (desktop DND)
+        self._props = QDBusInterface(
+            _DBUS_SERVICE, _DBUS_PATH, "org.freedesktop.DBus.Properties", bus,
+        )
 
         # Subscribe to ActionInvoked and NotificationClosed signals
         bus.connect(
@@ -119,29 +682,104 @@ class DbusNotifier(QObject):
         """Whether D-Bus notifications are available."""
         return self._available
 
+    # ── Sending ──────────────────────────────────────────────────────
+
     def notify(
         self,
         summary: str,
         body: str,
         severity: str = "info",
         service_name: str | None = None,
+        *,
+        fingerprint: str | None = None,
+        transient: bool = False,
+        snooze_key: str | None = None,
     ) -> bool:
         """Send a desktop notification.
 
-        Returns True if sent via D-Bus, False if fell back to showMessage().
-        When *service_name* is provided, adds a "Restart" action button.
+        Returns True if sent via D-Bus, False if it fell back to
+        ``showMessage()``.  When *service_name* is given the notification
+        carries a "Restart" button; when *snooze_key* is given it also
+        carries "Snooze <n>".  When *fingerprint* matches a notification
+        we sent earlier, the popup is *replaced* rather than stacked.
         """
-        if not self._available or self._iface is None:
+        payload = self.build_payload(
+            summary, body, severity,
+            service_name=service_name,
+            fingerprint=fingerprint,
+            transient=transient,
+            snooze_key=snooze_key,
+        )
+
+        if not self._available or self._iface is None or self._bus is None:
             self._fallback_notify(summary, body, severity)
             return False
 
-        # Build actions list: pairs of (action_key, display_label)
+        notification_id = self._send(payload)
+        if notification_id is None:
+            self._fallback_notify(summary, body, severity)
+            return False
+
+        logger.debug(
+            "D-Bus notification %d (replaces %d): [%s] %s",
+            notification_id, payload.replaces_id, severity, summary,
+        )
+
+        if notification_id:
+            if fingerprint:
+                self._fp_ids[fingerprint] = notification_id
+            if service_name:
+                self._pending_actions[notification_id] = service_name
+            if snooze_key:
+                self._pending_snoozes[notification_id] = snooze_key
+        return True
+
+    def build_payload(
+        self,
+        summary: str,
+        body: str,
+        severity: str = "info",
+        *,
+        service_name: str | None = None,
+        fingerprint: str | None = None,
+        transient: bool = False,
+        snooze_key: str | None = None,
+    ) -> NotifyPayload:
+        """Assemble the Notify arguments (pure — no D-Bus traffic)."""
         actions: list[str] = []
         if service_name:
-            actions = ["restart", "Restart"]
+            actions += ["restart", "Restart"]
+        if snooze_key:
+            actions += ["snooze", self.snooze_label()]
 
-        urgency = _URGENCY_MAP.get(severity, 1)
-        timeout = _TIMEOUT_MAP.get(severity, 5000)
+        hints: dict[str, object] = {"urgency": _URGENCY_MAP.get(severity, 1)}
+        if transient:
+            hints["transient"] = True
+
+        return NotifyPayload(
+            summary=summary,
+            body=body,
+            replaces_id=self._fp_ids.get(fingerprint, 0) if fingerprint else 0,
+            actions=tuple(actions),
+            hints=hints,
+            timeout=_TIMEOUT_MAP.get(severity, 5000),
+        )
+
+    def snooze_label(self) -> str:
+        """Button label for the snooze action ("Snooze 1h" by default)."""
+        minutes = self.snooze_minutes
+        if minutes >= 60 and minutes % 60 == 0:
+            return f"Snooze {minutes // 60}h"
+        return f"Snooze {minutes}m"
+
+    def _send(self, payload: NotifyPayload) -> int | None:
+        """Marshal *payload* onto the bus; returns the notification id.
+
+        Kept separate from :meth:`notify` so the (untestable without a
+        live session bus) Qt marshalling is isolated behind a seam.
+        """
+        if self._bus is None:
+            return None
 
         # Build a typed D-Bus message matching signature: susssasa{sv}i
         # QDBusInterface.call() infers INT32 from Python int and
@@ -156,50 +794,39 @@ class DbusNotifier(QObject):
 
         # replaces_id must be UINT32 (not INT32)
         replaces_arg = QDBusArgument()
-        replaces_arg.add(0, uint_type)
+        replaces_arg.add(payload.replaces_id, uint_type)
 
         # actions must be array-of-string (not array-of-variant)
         actions_arg = QDBusArgument()
         actions_arg.beginArray(qstring_type)
-        for action in actions:
+        for action in payload.actions:
             actions_arg.add(action)
         actions_arg.endArray()
 
         # hints as plain dict — Qt auto-marshals dict[str, QVariant] → a{sv}
-        hints: dict[str, QVariant] = {"urgency": QVariant(urgency)}
+        hints: dict[str, QVariant] = {
+            key: QVariant(value) for key, value in payload.hints.items()
+        }
 
         msg.setArguments([
-            "SysAdmin Monitor",           # app_name:       s
+            _APP_NAME,                     # app_name:       s
             QVariant(replaces_arg),        # replaces_id:    u
-            "dialog-warning",              # app_icon:       s
-            summary,                       # summary:        s
-            body,                          # body:           s
+            _APP_ICON,                     # app_icon:       s
+            payload.summary,               # summary:        s
+            payload.body,                  # body:           s
             QVariant(actions_arg),         # actions:        as
             QVariant(hints),               # hints:          a{sv}
-            timeout,                       # expire_timeout: i
+            payload.timeout,               # expire_timeout: i
         ])
 
-        reply_msg = self._bus.call(msg)
-
-        reply = QDBusReply(reply_msg)
+        reply = QDBusReply(self._bus.call(msg))
         if not reply.isValid():
             logger.warning(
                 "D-Bus Notify call failed: %s — using fallback",
                 reply.error().message(),
             )
-            self._fallback_notify(summary, body, severity)
-            return False
-
-        notification_id = reply.value()
-        logger.debug(
-            "D-Bus notification %d: [%s] %s", notification_id, severity, summary,
-        )
-
-        # Track pending action if we offered a restart button
-        if service_name and notification_id:
-            self._pending_actions[notification_id] = service_name
-
-        return True
+            return None
+        return int(reply.value())
 
     def _fallback_notify(
         self, summary: str, body: str, severity: str,
@@ -213,23 +840,102 @@ class DbusNotifier(QObject):
         timeout = _TIMEOUT_MAP.get(severity, 5000)
         self._fallback_tray.showMessage(summary, body, icon, timeout)
 
+    # ── Desktop-level Do Not Disturb ─────────────────────────────────
+
+    def desktop_inhibited(self) -> bool:
+        """Whether the desktop is suppressing notifications right now.
+
+        Reads the ``Inhibited`` property of
+        ``org.freedesktop.Notifications`` — true during KDE's Do Not
+        Disturb, screen sharing, or a full-screen presentation.  The
+        answer is cached briefly so a poll with many alerts makes one
+        blocking D-Bus call, not one per alert.
+
+        Degrades gracefully: implementations that do not expose the
+        property (older notification daemons, the fallback path) simply
+        report False and are never queried again.
+        """
+        if not self._available or not self._inhibit_supported:
+            return False
+
+        now = time.monotonic()
+        if (
+            self._inhibit_checked_at is not None
+            and now - self._inhibit_checked_at < _INHIBIT_CACHE_SECONDS
+        ):
+            return self._inhibit_cached
+
+        value = self._read_inhibited()
+        if value is None:
+            self._inhibit_supported = False
+            self._inhibit_cached = False
+            logger.debug(
+                "notification daemon does not expose Inhibited — "
+                "desktop DND detection disabled"
+            )
+            return False
+
+        self._inhibit_cached = value
+        self._inhibit_checked_at = now
+        return value
+
+    def _read_inhibited(self) -> bool | None:
+        """One D-Bus read of the ``Inhibited`` property; None if unreadable.
+
+        Goes through ``org.freedesktop.DBus.Properties.Get`` rather than
+        ``QDBusInterface.property()``: PyQt6's property accessor returns
+        None for this property even on daemons that plainly expose it
+        (verified against Plasma's notification daemon).
+        """
+        if self._props is None:
+            return None
+        try:
+            reply = QDBusReply(
+                self._props.call("Get", _DBUS_IFACE, "Inhibited")
+            )
+            if not reply.isValid():
+                logger.debug(
+                    "Inhibited property unavailable: %s", reply.error().message(),
+                )
+                return None
+            value = reply.value()
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("Inhibited property unreadable: %s", exc)
+            return None
+        return value if isinstance(value, bool) else None
+
+    # ── Signal handlers ──────────────────────────────────────────────
+
     @pyqtSlot(int, str)
     def _on_action_invoked(self, notification_id: int, action_key: str) -> None:
         """Handle D-Bus ActionInvoked signal."""
         service_name = self._pending_actions.pop(notification_id, None)
-        if service_name and action_key == "restart":
+        snooze_key = self._pending_snoozes.pop(notification_id, None)
+
+        if action_key == "restart" and service_name:
             logger.info(
                 "restart requested via notification for %s", service_name,
             )
             self.restart_requested.emit(service_name)
+        elif action_key == "snooze" and snooze_key:
+            logger.info("snooze requested via notification for %s", snooze_key)
+            self.snooze_requested.emit(snooze_key)
 
     @pyqtSlot(int, int)
     def _on_notification_closed(self, notification_id: int, reason: int) -> None:
         """Handle D-Bus NotificationClosed signal — clean up pending actions."""
         self._pending_actions.pop(notification_id, None)
+        self._pending_snoozes.pop(notification_id, None)
+        # The fingerprint → id mapping deliberately survives: a stale
+        # replaces_id is harmless (the daemon treats unknown ids as new),
+        # and keeping it means a state change still replaces a popup the
+        # user has not dismissed yet.
 
     def cleanup(self) -> None:
         """Release D-Bus resources."""
         self._pending_actions.clear()
+        self._pending_snoozes.clear()
+        self._fp_ids.clear()
         self._iface = None
+        self._props = None
         self._available = False

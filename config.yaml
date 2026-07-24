@@ -49,6 +49,24 @@ notifications:
       - start: "23:00"
         end: "07:00"
     allow_critical: true
+  # Tray "notification calm" tunables (sysadmin_tray/notifications.py).
+  # The backend's own DND above and the desktop's DND (KDE Do Not Disturb /
+  # screen sharing, read from org.freedesktop.Notifications Inhibited) are
+  # complementary — the more restrictive of the two wins, and only the
+  # backend DND's allow_critical decides whether criticals break through.
+  tray:
+    flap_cooldown_minutes: 30      # quiet window per alert fingerprint; repeats roll into "flapped N×"
+    escalation_polls: 3            # failing polls before a critical goes from quiet to persistent
+    coalesce_threshold: 2          # new alerts in one poll at/above this become a single summary
+    snooze_minutes: 60             # "Snooze 1h" notification button
+    digest_mode: false             # true → warnings only badge the icon, delivered as a digest
+    digest_interval_minutes: 60
+    respect_desktop_dnd: true
+    # Services that are expected to be down — never worth a toast. Use the
+    # monitored-service name, including the ones projects.yaml contributes
+    # (e.g. personal-assistant, personal-assistant-frontend). A service
+    # declared below with `mute: true` is added to this list automatically.
+    mute_services: []
 
 # Daily cron jobs (local server time)
 schedules:
@@ -61,6 +79,8 @@ agents:
   sysadmin:
     enabled: true
     health_check_interval_seconds: 300
+    # Add `mute: true` to a service that is expected to be down (it still
+    # colours the tray icon and shows in the dashboard, but never toasts)
     services:
       - name: postgresql
         type: systemd
