@@ -5,6 +5,16 @@ service:
   log_level: info
   log_format: json  # json | text
 
+# API authentication — bearer token checked on state-changing endpoints
+# (service actions, scans, stale-cache clean, DND toggle, alert ack).
+# Read-only GET endpoints stay open (tray + PA dashboards keep working).
+# Generate a token with:  python -c "import secrets; print(secrets.token_hex(32))"
+# Leave empty to disable auth (a warning is logged at startup).
+# Clients (tray app, PA backend) send:  Authorization: Bearer <token>
+# NOTE: this file is committed to git — set a real token locally, do not commit it.
+api:
+  auth_token: ""
+
 database:
   url: postgresql+asyncpg://gaddi@localhost:5432/projects
   sync_url: postgresql+psycopg2://gaddi@localhost:5432/projects

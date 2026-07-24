@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sysadmin.auth import require_auth
 from sysadmin.database import get_db_session
 from sysadmin.models.filesystem_audit import FilesystemAudit
 
@@ -273,7 +274,7 @@ def _compute_reclaimable_forecast(
     return result
 
 
-@router.post("/scan")
+@router.post("/scan", dependencies=[Depends(require_auth)])
 async def trigger_scan(request: Request):
     """Trigger an immediate filesystem scan."""
     agent = request.app.state.file_organiser_agent
@@ -284,7 +285,7 @@ async def trigger_scan(request: Request):
     return {"status": "scan_triggered"}
 
 
-@router.post("/clean/stale-caches")
+@router.post("/clean/stale-caches", dependencies=[Depends(require_auth)])
 async def clean_stale_caches(
     confirm: bool = Query(default=False),
     session: AsyncSession = Depends(get_db_session),

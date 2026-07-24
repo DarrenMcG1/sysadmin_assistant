@@ -14,6 +14,7 @@ class TrayConfig(BaseModel):
     """Tray-specific configuration with sensible defaults."""
 
     api_url: str = "http://127.0.0.1:8500"
+    auth_token: str | None = None
     status_poll_seconds: int = 10
     resource_poll_seconds: int = 30
     alert_poll_seconds: int = 15
@@ -62,6 +63,11 @@ def load_tray_config(
                 "notify_min_severity", "dashboard_url"):
         if key in tray_section:
             kwargs[key] = tray_section[key]
+
+    # Shared API auth token from the backend's api: section
+    api_section = raw.get("api", {}) or {}
+    if api_section.get("auth_token"):
+        kwargs["auth_token"] = api_section["auth_token"]
 
     # Derive api_url from service section if not in tray section
     if "api_url" not in kwargs:

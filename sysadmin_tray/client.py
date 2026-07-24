@@ -55,10 +55,18 @@ class ApiWorker(QObject):
     service_detail_ready = pyqtSignal(str, object)  # service_name, ServiceDetailInfo
     dnd_status_ready = pyqtSignal(object)            # dict (DND status)
 
-    def __init__(self, api_url: str, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        api_url: str,
+        auth_token: str | None = None,
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
         self._api_url = api_url.rstrip("/")
-        self._client = httpx.Client(timeout=10.0)
+        # Send the bearer token on every request (only mutating endpoints
+        # require it, but sending it everywhere is harmless and simpler).
+        headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
+        self._client = httpx.Client(timeout=10.0, headers=headers)
         self._was_connected = False
         self._mutex = QMutex()
 
@@ -322,11 +330,16 @@ class ApiClient(QObject):
     _request_dnd_status = pyqtSignal()
     _request_dnd_toggle = pyqtSignal(object)  # bool | None
 
-    def __init__(self, api_url: str, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        api_url: str,
+        auth_token: str | None = None,
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
 
         self._thread = QThread(self)
-        self._worker = ApiWorker(api_url)
+        self._worker = ApiWorker(api_url, auth_token=auth_token)
         self._worker.moveToThread(self._thread)
 
         # Wire trigger signals → worker slots

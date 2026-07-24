@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sysadmin.auth import require_auth
 from sysadmin.config import get_config
 from sysadmin.database import get_db_session
 from sysadmin.models.project_snapshot import ProjectSnapshot
@@ -332,7 +333,7 @@ async def get_project_branches(
     }
 
 
-@router.post("/scan")
+@router.post("/scan", dependencies=[Depends(require_auth)])
 async def trigger_scan(request: Request):
     """Trigger an immediate project scan."""
     agent = request.app.state.project_organiser_agent

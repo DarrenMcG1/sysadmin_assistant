@@ -102,6 +102,29 @@ class TestLoadTrayConfig:
         cfg = load_tray_config(config_path=cfg_file)
         assert cfg.notify_min_severity == "critical"
 
+    def test_auth_token_from_api_section(self, tmp_path: Path):
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(dedent("""\
+            api:
+              auth_token: abc123def456
+        """))
+        cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.auth_token == "abc123def456"
+
+    def test_auth_token_defaults_to_none(self, tmp_config: Path):
+        cfg = load_tray_config(config_path=tmp_config)
+        assert cfg.auth_token is None
+
+    def test_empty_auth_token_stays_none(self, tmp_path: Path):
+        """The committed placeholder (empty string) means auth disabled."""
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(dedent("""\
+            api:
+              auth_token: ""
+        """))
+        cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.auth_token is None
+
     def test_empty_yaml(self, tmp_path: Path):
         cfg_file = tmp_path / "config.yaml"
         cfg_file.write_text("")

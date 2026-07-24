@@ -13,6 +13,17 @@ logger = logging.getLogger(__name__)
 # --- Nested config sections ---
 
 
+class ApiConfig(BaseModel):
+    """API authentication settings.
+
+    ``auth_token`` unset/empty → auth disabled (backwards compatible);
+    a warning is logged at startup.  When set, state-changing endpoints
+    require ``Authorization: Bearer <token>``.
+    """
+
+    auth_token: Optional[str] = None
+
+
 class ServiceConfig(BaseModel):
     name: str = "sysadmin-service"
     port: int = 8500
@@ -235,6 +246,7 @@ class AgentsConfig(BaseModel):
 
 class AppConfig(BaseModel):
     service: ServiceConfig = Field(default_factory=ServiceConfig)
+    api: ApiConfig = Field(default_factory=ApiConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     personal_assistant: PersonalAssistantConfig = Field(default_factory=PersonalAssistantConfig)
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)

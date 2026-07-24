@@ -53,6 +53,25 @@ def _mock_response(json_data, status_code=200):
     return resp
 
 
+class TestApiWorkerAuth:
+    """Bearer token wiring on the underlying httpx client."""
+
+    def test_auth_token_sets_authorization_header(self):
+        worker = ApiWorker("http://test:8500", auth_token="secret-token")
+        assert worker._client.headers["Authorization"] == "Bearer secret-token"
+        worker.cleanup()
+
+    def test_no_token_sends_no_authorization_header(self):
+        worker = ApiWorker("http://test:8500")
+        assert "Authorization" not in worker._client.headers
+        worker.cleanup()
+
+    def test_empty_token_sends_no_authorization_header(self):
+        worker = ApiWorker("http://test:8500", auth_token="")
+        assert "Authorization" not in worker._client.headers
+        worker.cleanup()
+
+
 class TestApiWorkerFetchStatus:
     """ApiWorker.fetch_status() with mocked HTTP."""
 

@@ -7,11 +7,12 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from sysadmin import __version__
+from sysadmin.auth import require_auth
 from sysadmin.config import load_config
 from sysadmin.database import create_engine_and_session, dispose_engine, verify_connection
 from sysadmin.logging_setup import configure_logging
@@ -65,6 +66,15 @@ async def lifespan(app: FastAPI):
         config.service.host,
         config.service.port,
     )
+
+    # API authentication status
+    if config.api.auth_token:
+        logger.info("API auth enabled — state-changing endpoints require a bearer token")
+    else:
+        logger.warning(
+            "api.auth_token is not set — state-changing endpoints are UNAUTHENTICATED. "
+            "Set api.auth_token in config.yaml to enable bearer-token auth."
+        )
 
     # Initialise database
     await create_engine_and_session()
@@ -188,7 +198,11 @@ app.include_router(summary_router)
 
 
 # --- Trigger-all endpoint ---
-@app.post("/api/sysadmin/scan-all", tags=["sysadmin"])
+@app.post(
+    "/api/sysadmin/scan-all",
+    tags=["sysadmin"],
+    dependencies=[Depends(require_auth)],
+)
 async def scan_all():
     """Trigger all agents to run immediately."""
     asyncio.create_task(sysadmin_agent.run(run_type="manual"))

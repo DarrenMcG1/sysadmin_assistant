@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from sysadmin.agents.sysadmin_agent import SysAdminAgent
+from sysadmin.auth import require_auth
 from sysadmin.config import get_config
 from sysadmin.database import get_db_session
 from sysadmin.models.alert import Alert
@@ -137,7 +138,7 @@ _ACTION_FNS = {
 }
 
 
-@router.post("/services/{service_name}/{action}")
+@router.post("/services/{service_name}/{action}", dependencies=[Depends(require_auth)])
 async def service_action(
     service_name: str,
     action: Literal["restart", "start", "stop"],
@@ -281,7 +282,7 @@ async def get_alerts(
     }
 
 
-@router.post("/alerts/{alert_id}/ack")
+@router.post("/alerts/{alert_id}/ack", dependencies=[Depends(require_auth)])
 async def acknowledge_alert(
     alert_id: str,
     session: AsyncSession = Depends(get_db_session),
@@ -315,7 +316,7 @@ class DndToggleRequest(BaseModel):
     enabled: bool | None = None  # True=on, False=off, None=revert to schedule
 
 
-@router.post("/dnd")
+@router.post("/dnd", dependencies=[Depends(require_auth)])
 async def toggle_dnd(body: DndToggleRequest):
     """Toggle Do Not Disturb mode.
 
