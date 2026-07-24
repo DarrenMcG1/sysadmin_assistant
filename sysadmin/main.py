@@ -40,7 +40,7 @@ from sysadmin.routers.summary import router as summary_router
 from sysadmin.routers.sysadmin import router as sysadmin_router
 from sysadmin.services.briefing import send_morning_briefing
 from sysadmin.services.dnd import dnd_manager
-from sysadmin.services.event_bus import EventBus
+from sysadmin.services.event_bus import event_bus
 from sysadmin.services.notifier import Notifier
 from sysadmin.services.retention import run_retention
 
@@ -51,7 +51,6 @@ logger = logging.getLogger(__name__)
 
 # --- Shared instances ---
 scheduler = Scheduler()
-event_bus = EventBus()
 notifier = Notifier()
 sysadmin_agent = SysAdminAgent()
 project_organiser_agent = ProjectOrganiserAgent()
@@ -82,6 +81,10 @@ async def lifespan(app: FastAPI):
             "api.auth_token is not set — state-changing endpoints are UNAUTHENTICATED. "
             "Set api.auth_token in config.yaml to enable bearer-token auth."
         )
+
+    # Agents publish change events from scheduler threads (each with its own
+    # event loop) — bind the API loop so SSE clients are woken on it.
+    event_bus.bind_loop(asyncio.get_running_loop())
 
     # Initialise database
     await create_engine_and_session()

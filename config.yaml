@@ -75,6 +75,22 @@ schedules:
   retention_hour: 3     # data retention purge
   retention_minute: 0
 
+# Self-monitoring — /api/sysadmin/self reads agent_runs and the SysAdmin agent
+# alerts when an agent silently stops running.
+# stall window = agent interval × stall_grace_multiplier, floored at
+# min_stall_grace_seconds (so a restart doesn't flag the 60s log aggregator).
+self_monitor:
+  enabled: true
+  stall_grace_multiplier: 3.0
+  min_stall_grace_seconds: 300
+  recent_runs: 10          # runs per agent used for the duration trend
+
+# Server-Sent Events stream — GET /api/sysadmin/events (push instead of polling)
+events:
+  heartbeat_seconds: 20    # keepalive comment interval on an idle stream
+  max_queued_events: 100   # per-client buffer; oldest dropped when full
+  retry_ms: 5000           # client reconnect hint
+
 agents:
   sysadmin:
     enabled: true
@@ -106,6 +122,15 @@ agents:
       cpu_sustained_minutes: 10
       gpu_temp_warning_c: 90
       gpu_vram_warning_percent: 90
+    # Z-score anomaly detection against resource_snapshots history —
+    # catches unusual-for-this-machine values below the fixed thresholds.
+    anomaly:
+      enabled: true
+      window_days: 7        # rolling window for mean/stdev
+      z_threshold: 3.0      # flag when |z| >= this
+      min_samples: 30       # cold-start guard — fewer snapshots, no flagging
+      min_stdev: 1.0        # skip near-constant series (no infinite z-scores)
+      severity: warning
 
   project_organiser:
     enabled: true

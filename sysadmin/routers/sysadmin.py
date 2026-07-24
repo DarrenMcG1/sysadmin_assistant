@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from sysadmin.contracts import (
     AlertsResponse,
     DndStatusResponse,
     ResourceHistoryResponse,
+    SelfMonitorResponse,
     ServiceActionResponse,
     StatusResponse,
 )
@@ -26,6 +28,8 @@ from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
 from sysadmin.services.briefing import generate_briefing_data
 from sysadmin.services.dnd import dnd_manager
+from sysadmin.services.self_monitor import build_self_report
+from sysadmin.services.sse import event_broadcaster, event_stream
 from sysadmin.utils.systemd import get_unit_status, restart_unit, start_unit, stop_unit
 
 router = APIRouter(prefix="/api/sysadmin", tags=["sysadmin"])
@@ -342,6 +346,45 @@ async def toggle_dnd(body: DndToggleRequest):
     """
     dnd_manager.set_manual_override(body.enabled)
     return dnd_manager.get_status()
+
+
+@router.get("/self", response_model=SelfMonitorResponse)
+async def get_self_status(session: AsyncSession = Depends(get_db_session)):
+    """Self-monitoring — per-agent run health from the ``agent_runs`` table.
+
+    Reports each agent's last run and status, recent durations plus their
+    trend, consecutive failures, and whether it looks *stalled* (no run
+    within a multiple of its configured schedule interval).
+    """
+    return await build_self_report(session, get_config())
+
+
+@router.get("/events")
+async def stream_events():
+    """Server-Sent Events stream of status/alert changes.
+
+    Lets clients (the tray) stop polling: agents publish to the internal
+    event bus and every connected stream gets the change pushed. An SSE
+    comment is written every ``events.heartbeat_seconds`` so idle streams
+    survive proxies and NAT timeouts, and the path is excluded from the
+    access log (as ``/health`` is) so long-lived streams add no log noise.
+    """
+    config = get_config().events
+
+    return StreamingResponse(
+        event_stream(
+            event_broadcaster,
+            heartbeat_seconds=config.heartbeat_seconds,
+            retry_ms=config.retry_ms,
+            max_queue=config.max_queued_events,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # disable proxy buffering (nginx)
+        },
+    )
 
 
 @router.get("/ports")

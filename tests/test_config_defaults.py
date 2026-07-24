@@ -74,3 +74,44 @@ class TestMonitoredServiceMute:
     def test_mute_can_be_set(self):
         svc = MonitoredService(name="redis", type="tcp", mute=True)
         assert svc.mute is True
+
+
+class TestSession17Defaults:
+    """Self-monitoring, SSE, and anomaly-detection tunables."""
+
+    def test_self_monitor_defaults(self):
+        cfg = AppConfig().self_monitor
+        assert cfg.enabled is True
+        assert cfg.stall_grace_multiplier == 3.0
+        assert cfg.min_stall_grace_seconds == 300
+        assert cfg.recent_runs == 10
+
+    def test_events_defaults(self):
+        cfg = AppConfig().events
+        assert cfg.heartbeat_seconds == 20.0
+        assert cfg.max_queued_events == 100
+        assert cfg.retry_ms == 5000
+
+    def test_anomaly_defaults(self):
+        cfg = AppConfig().agents.sysadmin.anomaly
+        assert cfg.enabled is True
+        assert cfg.window_days == 7
+        assert cfg.z_threshold == 3.0
+        assert cfg.min_samples == 30
+        assert cfg.min_stdev == 1.0
+        assert cfg.severity == "warning"
+
+    def test_repo_config_yaml_declares_the_new_sections(self):
+        """The committed config.yaml must still validate with the new blocks."""
+        from pathlib import Path
+
+        import yaml
+
+        raw = yaml.safe_load(
+            (Path(__file__).parent.parent / "config.yaml").read_text()
+        )
+        cfg = AppConfig.model_validate(raw)
+
+        assert cfg.self_monitor.stall_grace_multiplier == 3.0
+        assert cfg.events.heartbeat_seconds == 20
+        assert cfg.agents.sysadmin.anomaly.z_threshold == 3.0

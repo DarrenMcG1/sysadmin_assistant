@@ -6,6 +6,9 @@ Checks:
 - AMD GPU utilisation, temperature, VRAM via rocm-smi / sysfs
 - Port conflict detection
 
+- Resource anomalies (z-score against recent history, not just thresholds)
+- Agent liveness — alerts when another agent silently stops running
+
 Alerting:
 - OK → update DB, no notification
 - DEGRADED → 3 consecutive = escalate to WARNING
@@ -16,19 +19,31 @@ Alerting:
 import asyncio
 import logging
 import time
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
 import psutil
+from sqlalchemy import select, update
 
 from sysadmin.agents.base import AgentResult, BaseAgent
-from sysadmin.config import AppConfig, MonitoredService, get_config
+from sysadmin.config import AnomalyConfig, AppConfig, MonitoredService, get_config
+from sysadmin.models.alert import Alert
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
+from sysadmin.services.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
+from sysadmin.services.self_monitor import build_self_report
 from sysadmin.utils.gpu import get_gpu_usage
 from sysadmin.utils.systemd import get_unit_status, restart_unit
 
 logger = logging.getLogger(__name__)
+
+#: Title prefix for stalled-agent alerts — also used to resolve them.
+STALL_TITLE_SUFFIX = "agent stalled"
+
+
+def _stall_title(agent_name: str) -> str:
+    return f"{agent_name} {STALL_TITLE_SUFFIX}"
 
 
 class SysAdminAgent(BaseAgent):
@@ -40,6 +55,11 @@ class SysAdminAgent(BaseAgent):
         self._degraded_counts: dict[str, int] = {}
         self._failure_counts: dict[str, int] = {}
         self._http_client: httpx.AsyncClient | None = None
+        # Resource keys that fired a fixed-threshold alert this run — an
+        # anomaly for the same resource would just be a duplicate.
+        self._threshold_keys: set[str] = set()
+        # Last known status per service, for service.status change events.
+        self._last_status: dict[str, str] = {}
 
     async def startup(self) -> None:
         """Create shared HTTP client."""
@@ -70,6 +90,14 @@ class SysAdminAgent(BaseAgent):
             )
             session.add(health)
 
+            # Push a change event when a service flips state
+            if self._last_status.get(svc.name) != status:
+                self._last_status[svc.name] = status
+                self._queue_event(
+                    "service.status",
+                    {"service": svc.name, "status": status},
+                )
+
             # Alerting logic (+ auto-restart)
             alerts_raised += await self._handle_status(
                 session, svc, status, details
@@ -77,12 +105,25 @@ class SysAdminAgent(BaseAgent):
 
         # --- Resource snapshot ---
         snapshot = await self._take_resource_snapshot(config)
+
+        # History is read BEFORE the new snapshot joins the session, so the
+        # current reading is not part of its own baseline.
+        history = await self._load_metric_history(session, agent_config.anomaly)
+
         session.add(snapshot)
 
         # Check resource thresholds
         alerts_raised += await self._check_thresholds(
             session, snapshot, agent_config.thresholds
         )
+
+        # Statistical anomalies (skips resources that already alerted above)
+        alerts_raised += await self._check_anomalies(
+            session, snapshot, history, agent_config.anomaly
+        )
+
+        # Self-monitoring — has another agent silently stopped running?
+        alerts_raised += await self._check_agent_liveness(session, config)
 
         return AgentResult(
             findings_count=len(agent_config.services),
@@ -337,8 +378,13 @@ class SysAdminAgent(BaseAgent):
     async def _check_thresholds(
         self, session, snapshot: ResourceSnapshot, thresholds
     ) -> int:
-        """Check resource thresholds and raise alerts. Returns alert count."""
+        """Check resource thresholds and raise alerts. Returns alert count.
+
+        Also records the resource keys that alerted in ``_threshold_keys``
+        so :meth:`_check_anomalies` can suppress duplicates.
+        """
         alerts = 0
+        self._threshold_keys = set()
 
         # RAM check
         if snapshot.ram_percent and float(snapshot.ram_percent) >= thresholds.ram_warning_percent:
@@ -350,8 +396,13 @@ class SysAdminAgent(BaseAgent):
                     f"RAM at {snapshot.ram_percent}% "
                     f"(threshold: {thresholds.ram_warning_percent}%)"
                 ),
-                details={"ram_percent": float(snapshot.ram_percent)},
+                details={
+                    "ram_percent": float(snapshot.ram_percent),
+                    "resource": "ram",
+                    "threshold": True,
+                },
             )
+            self._threshold_keys.add("ram")
             alerts += 1
 
         # GPU checks
@@ -385,6 +436,7 @@ class SysAdminAgent(BaseAgent):
         # Disk check
         for mount, usage in (snapshot.disk_usage or {}).items():
             pct = usage.get("percent", 0)
+            disk_key = f"{DISK_KEY_PREFIX}{mount}"
             if pct >= thresholds.disk_critical_percent:
                 await self.raise_alert(
                     session,
@@ -394,8 +446,14 @@ class SysAdminAgent(BaseAgent):
                         f"Disk at {pct}% on {mount} "
                         f"(threshold: {thresholds.disk_critical_percent}%)"
                     ),
-                    details={"mount": mount, "percent": pct},
+                    details={
+                        "mount": mount,
+                        "percent": pct,
+                        "resource": disk_key,
+                        "threshold": True,
+                    },
                 )
+                self._threshold_keys.add(disk_key)
                 alerts += 1
             elif pct >= thresholds.disk_warning_percent:
                 await self.raise_alert(
@@ -406,11 +464,203 @@ class SysAdminAgent(BaseAgent):
                         f"Disk at {pct}% on {mount} "
                         f"(threshold: {thresholds.disk_warning_percent}%)"
                     ),
-                    details={"mount": mount, "percent": pct},
+                    details={
+                        "mount": mount,
+                        "percent": pct,
+                        "resource": disk_key,
+                        "threshold": True,
+                    },
                 )
+                self._threshold_keys.add(disk_key)
                 alerts += 1
 
         return alerts
+
+    # --- Anomaly detection ---
+
+    @staticmethod
+    def _snapshot_metrics(snapshot: ResourceSnapshot) -> dict[str, float]:
+        """Current values keyed the same way as the history series."""
+        metrics: dict[str, float] = {}
+        if snapshot.cpu_percent is not None:
+            metrics["cpu"] = float(snapshot.cpu_percent)
+        if snapshot.ram_percent is not None:
+            metrics["ram"] = float(snapshot.ram_percent)
+        for mount, usage in (snapshot.disk_usage or {}).items():
+            percent = usage.get("percent")
+            if percent is not None:
+                metrics[f"{DISK_KEY_PREFIX}{mount}"] = float(percent)
+        return metrics
+
+    async def _load_metric_history(
+        self, session, config: AnomalyConfig
+    ) -> dict[str, list[float]]:
+        """Read the recent snapshot window as per-metric series."""
+        if not config.enabled:
+            return {}
+
+        since = datetime.now(UTC) - timedelta(days=config.window_days)
+        result = await session.execute(
+            select(ResourceSnapshot).where(ResourceSnapshot.recorded_at >= since)
+        )
+
+        history: dict[str, list[float]] = {}
+        for row in result.scalars().all():
+            for key, value in self._snapshot_metrics(row).items():
+                history.setdefault(key, []).append(value)
+        return history
+
+    async def _active_alerts(self, session) -> list[Alert]:
+        """This agent's unresolved alerts (used for dedup/suppression)."""
+        result = await session.execute(
+            select(Alert).where(
+                Alert.agent == self.name,
+                Alert.resolved.is_(False),
+            )
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def _resolve_alert_ids(session, alert_ids: list[Any]) -> None:
+        """Mark specific alerts resolved (used when a condition clears)."""
+        if not alert_ids:
+            return
+        await session.execute(
+            update(Alert)
+            .where(Alert.id.in_(alert_ids))
+            .values(resolved=True, resolved_at=datetime.now(UTC))
+        )
+
+    async def _check_anomalies(
+        self,
+        session,
+        snapshot: ResourceSnapshot,
+        history: dict[str, list[float]],
+        config: AnomalyConfig,
+    ) -> int:
+        """Raise alerts for statistically unusual resource readings.
+
+        Suppression rules:
+        - a resource that already fired a fixed-threshold alert (this run
+          or still unresolved from an earlier one) is skipped — the
+          threshold alert says the same thing more plainly
+        - an unresolved anomaly alert for the same resource is not repeated
+        - anomaly alerts are resolved once the resource is normal again
+        """
+        if not config.enabled:
+            return 0
+
+        anomalies = detect_anomalies(
+            self._snapshot_metrics(snapshot), history, config
+        )
+        active = await self._active_alerts(session)
+
+        threshold_keys = set(self._threshold_keys)
+        anomaly_alerts: dict[str, Any] = {}
+        for alert in active:
+            details = alert.details or {}
+            resource = details.get("resource")
+            if not resource:
+                continue
+            if details.get("threshold"):
+                threshold_keys.add(resource)
+            elif details.get("anomaly"):
+                anomaly_alerts[resource] = alert.id
+
+        raised = 0
+        flagged: set[str] = set()
+        for anomaly in anomalies:
+            flagged.add(anomaly.key)
+            if anomaly.key in threshold_keys:
+                logger.debug(
+                    "anomaly_suppressed_by_threshold_alert",
+                    extra={"resource": anomaly.key},
+                )
+                continue
+            if anomaly.key in anomaly_alerts:
+                continue  # already open — do not re-raise every run
+            await self.raise_alert(
+                session,
+                severity=config.severity,
+                title=self._anomaly_title(anomaly),
+                message=(
+                    f"{anomaly.label} at {anomaly.value:.1f}% is "
+                    f"{abs(anomaly.z):.1f}σ {anomaly.direction} the "
+                    f"{config.window_days}-day mean of {anomaly.mean:.1f}% "
+                    f"(σ={anomaly.stdev:.1f}, n={anomaly.samples})"
+                ),
+                details=anomaly.as_details(),
+            )
+            raised += 1
+
+        # Resolve anomaly alerts whose resource is back within normal range
+        await self._resolve_alert_ids(
+            session,
+            [alert_id for key, alert_id in anomaly_alerts.items() if key not in flagged],
+        )
+
+        return raised
+
+    @staticmethod
+    def _anomaly_title(anomaly: Anomaly) -> str:
+        return f"Unusual {anomaly.label} usage"
+
+    # --- Self-monitoring ---
+
+    async def _check_agent_liveness(self, session, config: AppConfig) -> int:
+        """Alert when an agent has silently stopped running.
+
+        Reuses the same report the ``/api/sysadmin/self`` endpoint serves,
+        so the alert and the endpoint can never disagree. Alerts are
+        deduplicated by title and resolved automatically once the agent
+        runs again.
+        """
+        if not config.self_monitor.enabled:
+            return 0
+
+        report = await build_self_report(session, config)
+        stalled = {a["name"]: a for a in report["agents"] if a["stalled"]}
+
+        active = await self._active_alerts(session)
+        open_stall_alerts = {
+            alert.title: alert.id
+            for alert in active
+            if (alert.details or {}).get("stalled_agent")
+        }
+
+        raised = 0
+        for name, entry in stalled.items():
+            title = _stall_title(name)
+            if title in open_stall_alerts:
+                continue
+            await self.raise_alert(
+                session,
+                severity="warning",
+                title=title,
+                message=(
+                    f"The {name} agent has not run since "
+                    f"{entry['last_run_at']} — {entry['stall_reason']}"
+                ),
+                details={
+                    "stalled_agent": name,
+                    "last_run_at": entry["last_run_at"],
+                    "seconds_since_last_run": entry["seconds_since_last_run"],
+                    "interval_seconds": entry["interval_seconds"],
+                },
+            )
+            raised += 1
+
+        # Agent came back — clear its stall alert
+        await self._resolve_alert_ids(
+            session,
+            [
+                alert_id
+                for title, alert_id in open_stall_alerts.items()
+                if title not in {_stall_title(name) for name in stalled}
+            ],
+        )
+
+        return raised
 
     # --- Port detection ---
 
