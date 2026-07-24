@@ -9,6 +9,7 @@ import pytest
 from sysadmin.agents.sysadmin_agent import SysAdminAgent
 from sysadmin.config import MonitoredService, Thresholds
 from sysadmin.models.resource_snapshot import ResourceSnapshot
+from sysadmin.utils.systemd import SystemdQueryError, UserBusUnavailableError
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -18,8 +19,16 @@ from sysadmin.models.resource_snapshot import ResourceSnapshot
 @pytest.fixture
 def agent():
     a = SysAdminAgent()
-    a._http_client = AsyncMock(spec=httpx.AsyncClient)
+    # attach() with no loop affinity — the stub is lent out whichever loop
+    # the test happens to run on.
+    a._http.attach(AsyncMock(spec=httpx.AsyncClient))
     return a
+
+
+@pytest.fixture
+def http_client(agent):
+    """The stub client the ``agent`` fixture lends out."""
+    return agent._http.client
 
 
 @pytest.fixture
@@ -50,9 +59,9 @@ def systemd_service():
 
 class TestCheckHttp:
     @pytest.mark.asyncio
-    async def test_http_ok(self, agent, http_service):
+    async def test_http_ok(self, agent, http_client, http_service):
         resp = MagicMock(status_code=200)
-        agent._http_client.get = AsyncMock(return_value=resp)
+        http_client.get = AsyncMock(return_value=resp)
 
         status, ms, details = await agent._check_http(http_service)
         assert status == "ok"
@@ -60,34 +69,34 @@ class TestCheckHttp:
         assert details == {}
 
     @pytest.mark.asyncio
-    async def test_http_4xx_is_degraded(self, agent, http_service):
+    async def test_http_4xx_is_degraded(self, agent, http_client, http_service):
         resp = MagicMock(status_code=404)
-        agent._http_client.get = AsyncMock(return_value=resp)
+        http_client.get = AsyncMock(return_value=resp)
 
         status, _, details = await agent._check_http(http_service)
         assert status == "degraded"
         assert details["status_code"] == 404
 
     @pytest.mark.asyncio
-    async def test_http_5xx_is_critical(self, agent, http_service):
+    async def test_http_5xx_is_critical(self, agent, http_client, http_service):
         resp = MagicMock(status_code=500)
-        agent._http_client.get = AsyncMock(return_value=resp)
+        http_client.get = AsyncMock(return_value=resp)
 
         status, _, details = await agent._check_http(http_service)
         assert status == "critical"
         assert details["status_code"] == 500
 
     @pytest.mark.asyncio
-    async def test_http_timeout_is_unreachable(self, agent, http_service):
-        agent._http_client.get = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
+    async def test_http_timeout_is_unreachable(self, agent, http_client, http_service):
+        http_client.get = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
 
         status, _, details = await agent._check_http(http_service)
         assert status == "unreachable"
         assert "timeout" in details["error"]
 
     @pytest.mark.asyncio
-    async def test_http_connect_error_is_unreachable(self, agent, http_service):
-        agent._http_client.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
+    async def test_http_connect_error_is_unreachable(self, agent, http_client, http_service):
+        http_client.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
 
         status, ms, details = await agent._check_http(http_service)
         assert status == "unreachable"
@@ -185,6 +194,38 @@ class TestCheckSystemd:
         assert status == "unreachable"
         assert ms is None
 
+    @pytest.mark.asyncio
+    async def test_unreachable_user_bus_is_error_not_critical(
+        self, agent, systemd_service
+    ):
+        """SNAG-SYSD-001: a unit we could not query is not a unit that is down.
+
+        Reporting "critical" here is what flagged a live alfred-evaluate
+        timer as failed.
+        """
+        with patch(
+            "sysadmin.agents.sysadmin_agent.get_unit_status",
+            new_callable=AsyncMock,
+            side_effect=UserBusUnavailableError("systemd user bus unreachable"),
+        ):
+            status, ms, details = await agent._check_systemd(systemd_service)
+
+        assert status == "error"
+        assert details["query_failed"] is True
+        assert "user bus unreachable" in details["error"]
+
+    @pytest.mark.asyncio
+    async def test_failed_query_is_error(self, agent, systemd_service):
+        with patch(
+            "sysadmin.agents.sysadmin_agent.get_unit_status",
+            new_callable=AsyncMock,
+            side_effect=SystemdQueryError("no ActiveState"),
+        ):
+            status, _, details = await agent._check_systemd(systemd_service)
+
+        assert status == "error"
+        assert details["unit"] == "redis.service"
+
 
 # ---------------------------------------------------------------------------
 # Unknown check type
@@ -216,6 +257,24 @@ class TestHandleStatus:
             name="svc", type="systemd", systemd_unit="svc.service",
             auto_restart=True, auto_restart_after_checks=3,
         )
+
+    @pytest.mark.asyncio
+    async def test_error_raises_no_alert_and_leaves_streaks_alone(
+        self, agent, mock_session, svc
+    ):
+        """A check we could not perform is neither a success nor a failure."""
+        agent._degraded_counts["svc"] = 2
+        agent._failure_counts["svc"] = 1
+
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            alerts = await agent._handle_status(
+                mock_session, svc, "error", {"query_failed": True}
+            )
+
+        assert alerts == 0
+        ra.assert_not_called()
+        assert agent._degraded_counts["svc"] == 2
+        assert agent._failure_counts["svc"] == 1
 
     @pytest.mark.asyncio
     async def test_ok_resets_degraded_count(self, agent, mock_session, svc):

@@ -30,7 +30,13 @@ from sysadmin.services.briefing import generate_briefing_data
 from sysadmin.services.dnd import dnd_manager
 from sysadmin.services.self_monitor import build_self_report
 from sysadmin.services.sse import event_broadcaster, event_stream
-from sysadmin.utils.systemd import get_unit_status, restart_unit, start_unit, stop_unit
+from sysadmin.utils.systemd import (
+    SystemdQueryError,
+    get_unit_status,
+    restart_unit,
+    start_unit,
+    stop_unit,
+)
 
 router = APIRouter(prefix="/api/sysadmin", tags=["sysadmin"])
 
@@ -140,7 +146,13 @@ async def get_service_details(service_name: str):
             detail=f"Service '{service_name}' has no systemd_unit configured",
         )
 
-    return await get_unit_status(unit, user=svc.user)
+    try:
+        return await get_unit_status(unit, user=svc.user)
+    except SystemdQueryError as e:
+        # systemctl could not be queried (typically the user session bus is
+        # out of reach) — a 503 says "ask again later", where the old bare
+        # 500 said "the server is broken".
+        raise HTTPException(status_code=503, detail=str(e)) from e
 
 
 _ACTION_FNS = {

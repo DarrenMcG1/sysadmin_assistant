@@ -45,7 +45,7 @@ def notifier_with_client():
     notifier = Notifier()
     client = MagicMock(spec=httpx.AsyncClient)
     client.post = AsyncMock(return_value=MagicMock(status_code=200))
-    notifier._client = client
+    notifier._http.attach(client)
     return notifier, client
 
 

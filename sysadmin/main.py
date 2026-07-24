@@ -91,10 +91,10 @@ async def lifespan(app: FastAPI):
     await verify_connection()
     logger.info("database connection verified")
 
-    # Start services
+    # Start services.  Agents deliberately have no startup hook: they run
+    # on scheduler threads, each with its own event loop, so anything
+    # loop-bound must be created per run rather than here (SNAG-AGENT-003).
     await notifier.startup()
-    await sysadmin_agent.startup()
-    await log_aggregator_agent.startup()
 
     # --- Schedule jobs ---
     agents_config = config.agents
@@ -170,8 +170,6 @@ async def lifespan(app: FastAPI):
 
     # --- Shutdown ---
     scheduler.shutdown(wait=False)
-    await sysadmin_agent.shutdown()
-    await log_aggregator_agent.shutdown()
     await notifier.shutdown()
     await dispose_engine()
     logger.info("sysadmin-service shut down")

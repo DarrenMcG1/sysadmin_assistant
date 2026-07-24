@@ -16,6 +16,7 @@ import httpx
 
 from sysadmin.config import AppConfig, get_config
 from sysadmin.services.dnd import dnd_manager
+from sysadmin.utils.async_http import LoopBoundClient
 
 logger = logging.getLogger(__name__)
 
@@ -50,23 +51,23 @@ def _integration_disabled(config: AppConfig) -> bool:
 
 
 class Notifier:
-    """HTTP client for communicating with PersonalAssistant."""
+    """HTTP client for communicating with PersonalAssistant.
+
+    The shared instance is opened on the API event loop during the
+    lifespan but may be driven from APScheduler threads, so the client is
+    held by a :class:`~sysadmin.utils.async_http.LoopBoundClient` — one
+    reused across event loops raises "Event loop is closed"
+    (SNAG-AGENT-003).
+    """
 
     def __init__(self) -> None:
-        self._client: httpx.AsyncClient | None = None
+        self._http = LoopBoundClient(lambda: httpx.AsyncClient(timeout=15.0))
 
     async def startup(self) -> None:
-        self._client = httpx.AsyncClient(timeout=15.0)
+        await self._http.open()
 
     async def shutdown(self) -> None:
-        if self._client:
-            await self._client.aclose()
-            self._client = None
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=15.0)
-        return self._client
+        await self._http.close()
 
     async def send_notification(
         self,
@@ -136,34 +137,34 @@ class Notifier:
         """POST with exponential backoff retries."""
         import asyncio
 
-        client = await self._get_client()
         backoff = INITIAL_BACKOFF_S
 
-        for attempt in range(MAX_RETRIES):
-            try:
-                resp = await client.post(url, json=payload)
-                if resp.status_code < 400:
-                    logger.info("notification_sent", extra={"url": url})
-                    return True
-                logger.warning(
-                    "notification_failed",
-                    extra={"url": url, "status": resp.status_code, "attempt": attempt + 1},
-                )
-            except (httpx.ConnectError, httpx.TimeoutException) as e:
-                logger.warning(
-                    "notification_unreachable",
-                    extra={"url": url, "error": str(e), "attempt": attempt + 1},
-                )
-            except Exception as e:
-                logger.error(
-                    "notification_error",
-                    extra={"url": url, "error": str(e), "attempt": attempt + 1},
-                )
-                return False
+        async with self._http.borrow() as client:
+            for attempt in range(MAX_RETRIES):
+                try:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code < 400:
+                        logger.info("notification_sent", extra={"url": url})
+                        return True
+                    logger.warning(
+                        "notification_failed",
+                        extra={"url": url, "status": resp.status_code, "attempt": attempt + 1},
+                    )
+                except (httpx.ConnectError, httpx.TimeoutException) as e:
+                    logger.warning(
+                        "notification_unreachable",
+                        extra={"url": url, "error": str(e), "attempt": attempt + 1},
+                    )
+                except Exception as e:
+                    logger.error(
+                        "notification_error",
+                        extra={"url": url, "error": str(e), "attempt": attempt + 1},
+                    )
+                    return False
 
-            if attempt < MAX_RETRIES - 1:
-                await asyncio.sleep(backoff)
-                backoff *= 2
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(backoff)
+                    backoff *= 2
 
         logger.warning(
             "notification_all_retries_exhausted",

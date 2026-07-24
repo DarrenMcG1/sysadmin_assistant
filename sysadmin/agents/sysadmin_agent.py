@@ -33,13 +33,17 @@ from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
 from sysadmin.services.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.services.self_monitor import build_self_report
+from sysadmin.utils.async_http import LoopBoundClient
 from sysadmin.utils.gpu import get_gpu_usage
-from sysadmin.utils.systemd import get_unit_status, restart_unit
+from sysadmin.utils.systemd import SystemdQueryError, get_unit_status, restart_unit
 
 logger = logging.getLogger(__name__)
 
 #: Title prefix for stalled-agent alerts — also used to resolve them.
 STALL_TITLE_SUFFIX = "agent stalled"
+
+#: Timeout for HTTP health probes.
+HTTP_CHECK_TIMEOUT_S = 10.0
 
 
 def _stall_title(agent_name: str) -> str:
@@ -54,22 +58,17 @@ class SysAdminAgent(BaseAgent):
     def __init__(self) -> None:
         self._degraded_counts: dict[str, int] = {}
         self._failure_counts: dict[str, int] = {}
-        self._http_client: httpx.AsyncClient | None = None
+        # The HTTP client is owned by each run, never by the application —
+        # runs happen on APScheduler threads under asyncio.run(), so a
+        # client created once at startup would outlive its loop.
+        self._http = LoopBoundClient(
+            lambda: httpx.AsyncClient(timeout=HTTP_CHECK_TIMEOUT_S)
+        )
         # Resource keys that fired a fixed-threshold alert this run — an
         # anomaly for the same resource would just be a duplicate.
         self._threshold_keys: set[str] = set()
         # Last known status per service, for service.status change events.
         self._last_status: dict[str, str] = {}
-
-    async def startup(self) -> None:
-        """Create shared HTTP client."""
-        self._http_client = httpx.AsyncClient(timeout=10.0)
-
-    async def shutdown(self) -> None:
-        """Close shared HTTP client."""
-        if self._http_client:
-            await self._http_client.aclose()
-            self._http_client = None
 
     async def _execute(self, session) -> AgentResult:
         """Run all health checks and record resource snapshot."""
@@ -78,30 +77,33 @@ class SysAdminAgent(BaseAgent):
         alerts_raised = 0
 
         # --- Service health checks ---
-        for svc in agent_config.services:
-            status, response_time_ms, details = await self._check_service(svc)
+        # One connection pool per run, bound to this run's event loop and
+        # closed when the block exits (SNAG-AGENT-003).
+        async with self._http.scoped():
+            for svc in agent_config.services:
+                status, response_time_ms, details = await self._check_service(svc)
 
-            # Record to DB
-            health = ServiceHealth(
-                service_name=svc.name,
-                status=status,
-                response_time_ms=response_time_ms,
-                details=details,
-            )
-            session.add(health)
-
-            # Push a change event when a service flips state
-            if self._last_status.get(svc.name) != status:
-                self._last_status[svc.name] = status
-                self._queue_event(
-                    "service.status",
-                    {"service": svc.name, "status": status},
+                # Record to DB
+                health = ServiceHealth(
+                    service_name=svc.name,
+                    status=status,
+                    response_time_ms=response_time_ms,
+                    details=details,
                 )
+                session.add(health)
 
-            # Alerting logic (+ auto-restart)
-            alerts_raised += await self._handle_status(
-                session, svc, status, details
-            )
+                # Push a change event when a service flips state
+                if self._last_status.get(svc.name) != status:
+                    self._last_status[svc.name] = status
+                    self._queue_event(
+                        "service.status",
+                        {"service": svc.name, "status": status},
+                    )
+
+                # Alerting logic (+ auto-restart)
+                alerts_raised += await self._handle_status(
+                    session, svc, status, details
+                )
 
         # --- Resource snapshot ---
         snapshot = await self._take_resource_snapshot(config)
@@ -160,12 +162,10 @@ class SysAdminAgent(BaseAgent):
         if not svc.url:
             return "error", None, {"error": "no url configured for http check"}
 
-        if not self._http_client:
-            self._http_client = httpx.AsyncClient(timeout=10.0)
-
         start = time.monotonic()
         try:
-            resp = await self._http_client.get(svc.url)
+            async with self._http.borrow() as client:
+                resp = await client.get(svc.url)
             elapsed_ms = int((time.monotonic() - start) * 1000)
 
             if resp.status_code == 200:
@@ -221,6 +221,25 @@ class SysAdminAgent(BaseAgent):
                 return "degraded", elapsed_ms, status_info
             else:
                 return "critical", elapsed_ms, status_info
+        except SystemdQueryError as e:
+            # systemctl could not be queried, so the unit's state is
+            # *unknown* — reporting "critical" here is how a live user
+            # timer got flagged as down (SNAG-SYSD-001). "error" says the
+            # check failed and, unlike critical/unreachable, raises no
+            # alert against the service itself.
+            logger.warning(
+                "systemd_check_unavailable",
+                extra={
+                    "service": svc.name,
+                    "unit": svc.systemd_unit,
+                    "error": str(e),
+                },
+            )
+            return "error", None, {
+                "unit": svc.systemd_unit,
+                "error": str(e),
+                "query_failed": True,
+            }
         except Exception as e:
             return "unreachable", None, {"error": str(e)}
 
@@ -234,6 +253,13 @@ class SysAdminAgent(BaseAgent):
         Returns count of alerts raised.
         """
         service_name = svc.name
+
+        if status == "error":
+            # The *check* failed (misconfigured, or systemctl could not be
+            # queried), so nothing is known about the service.  Raise no
+            # alert against it and leave the streak counters untouched —
+            # an unmeasurable check is neither a success nor a failure.
+            return 0
 
         if status == "ok":
             self._degraded_counts[service_name] = 0

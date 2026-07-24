@@ -39,6 +39,38 @@ be added as Session 21+, or captured in [ideas.md](ideas.md) first._
 
 _Not numbered sessions — config/upkeep work that doesn't warrant one._
 
+### Daemon runtime-environment fixes (SNAG-SYSD-001, SNAG-AGENT-003) — ✅ Complete 2026-07-24
+Two bugs the live `sysadmin.service` exposed once it picked up the Alfred config
+above. Both had been verified interactively, where neither failure condition exists.
+- ✅ **SNAG-SYSD-001** — `systemctl --user` needs `XDG_RUNTIME_DIR`; a system unit's
+  environment has only `PATH`, so every `user: true` check failed and a live
+  `alfred-evaluate.timer` was reported `critical`. `sysadmin/utils/systemd.py` now
+  builds the subprocess env centrally and injects it (default `/run/user/<uid>`),
+  fixing the status check, the details endpoint and start/stop/restart at once
+- ✅ `DBUS_SESSION_BUS_ADDRESS` deliberately **not** derived — proved against the live
+  bus that `XDG_RUNTIME_DIR` alone suffices; systemctl composes `$XDG_RUNTIME_DIR/bus`
+- ✅ A failed *query* is no longer a verdict about the *unit*: `SystemdQueryError` /
+  `UserBusUnavailableError` → status `"error"` (no alert, streak counters untouched),
+  while a genuinely inactive unit is still `critical`. Details endpoint → 503, not 500
+- ✅ Migration 003 widens `chk_health_status` to allow `'error'` — `_check_service`
+  could always return it, but the DB constraint would have rejected the row
+- ✅ **SNAG-AGENT-003** — one `httpx.AsyncClient` built on the API loop, then used from
+  APScheduler threads under `asyncio.run()` (fresh loop per run, closed afterwards):
+  pooled connections outlived their loop, so `llama-server` read `unreachable` with
+  `"Event loop is closed"` while curl answered in 1 ms
+- ✅ New `sysadmin/utils/async_http.py` (`LoopBoundClient`) — lends a long-lived client
+  out only on the loop that built it, hands anywhere else a short-lived one closed on
+  exit. `SysAdminAgent` opens a run-scoped pool in `_execute` and has no startup hook
+- ✅ Audited the codebase for the same pattern: `LLMClient` (identical live exposure via
+  the log aggregator) and `Notifier` (latent — `briefing.py` builds its own per call)
+  both converted; `journalctl --user` confirmed unaffected (reads journal files, no bus)
+- ✅ Regression test drives a **real** loopback server across two successive
+  `asyncio.run()` calls (a mock transport holds no sockets and cannot reproduce this),
+  plus a guard test asserting a naively shared client still raises
+- ✅ Verified live with the daemon's environment simulated; 33 new tests — suite 990 → 1023
+- ⚠️ The running `sysadmin.service` still serves the old code — it is a **system** unit,
+  so a `sudo systemctl restart sysadmin.service` is needed to see the fix live
+
 ### PersonalAssistant → Alfred migration — ✅ Complete 2026-07-24
 PA was retired and replaced by Alfred; the service's config still pointed at PA
 everywhere. Config migration plus one dormant feature flag.

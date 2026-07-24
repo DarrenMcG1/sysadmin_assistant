@@ -208,9 +208,9 @@ class TestLifecycle:
         ))
         with _patch_config(llm_config):
             await client.startup()
-            assert client._client is not None
+            assert client._http.client is not None
             await client.shutdown()
-            assert client._client is None
+            assert client._http.client is None
 
     @pytest.mark.asyncio
     async def test_lazy_client_creation_without_startup(self, llm_config):

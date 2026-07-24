@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from sysadmin.utils.systemd import UserBusUnavailableError
+
 # Patch target: the shared helper all actions delegate to
 _CONTROL = "sysadmin.utils.systemd._control_unit"
 
@@ -75,3 +77,35 @@ class TestServiceAction:
     async def test_invalid_action_returns_422(self, test_client):
         resp = await test_client.post("/api/sysadmin/services/test-systemd/destroy")
         assert resp.status_code == 422
+
+
+class TestServiceDetails:
+    """GET /api/sysadmin/services/{name}/details."""
+
+    _STATUS = "sysadmin.routers.sysadmin.get_unit_status"
+
+    @pytest.mark.asyncio
+    async def test_details_returns_unit_properties(self, test_client):
+        with patch(
+            self._STATUS,
+            new_callable=AsyncMock,
+            return_value={"unit": "test.service", "ActiveState": "active", "is_active": True},
+        ):
+            resp = await test_client.get("/api/sysadmin/services/test-systemd/details")
+
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is True
+
+    @pytest.mark.asyncio
+    async def test_unqueryable_unit_returns_503_not_500(self, test_client):
+        """SNAG-SYSD-001: an unreachable user bus is "ask again later",
+        not "this server is broken"."""
+        with patch(
+            self._STATUS,
+            new_callable=AsyncMock,
+            side_effect=UserBusUnavailableError("systemd user bus unreachable"),
+        ):
+            resp = await test_client.get("/api/sysadmin/services/test-systemd/details")
+
+        assert resp.status_code == 503
+        assert "user bus unreachable" in resp.json()["detail"]

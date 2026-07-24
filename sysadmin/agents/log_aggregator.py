@@ -39,15 +39,12 @@ class LogAggregatorAgent(BaseAgent):
 
     def __init__(self) -> None:
         self._file_offsets: dict[str, int] = {}
-        self._llm: LLMClient | None = None
-
-    async def startup(self) -> None:
+        # Constructing an LLMClient opens no connections, and it manages
+        # its own per-event-loop HTTP client — so there is deliberately no
+        # startup()/shutdown() here.  Opening one on the API loop would
+        # only hand this agent, which runs on scheduler threads, a client
+        # belonging to somebody else's loop (SNAG-AGENT-003).
         self._llm = LLMClient()
-        await self._llm.startup()
-
-    async def shutdown(self) -> None:
-        if self._llm:
-            await self._llm.shutdown()
 
     async def _execute(self, session) -> AgentResult:
         config = get_config()
@@ -134,9 +131,6 @@ class LogAggregatorAgent(BaseAgent):
             for e in entries
         )
         prompt = f"Here are the recent log entries:\n\n{log_text}\n\nProvide a concise summary."
-
-        if not self._llm:
-            return None
 
         summary_text = await self._llm.generate(
             prompt=prompt,
