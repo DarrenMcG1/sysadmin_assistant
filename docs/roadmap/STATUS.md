@@ -3,7 +3,7 @@
 **Last Updated**: 2026-07-24
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **Next up**: Session 20 (project scoring & branch hygiene) in [tasks.md](tasks.md) — the last of the 2026-07-24 backlog. Sessions 10–19 complete. Follow-ups worth picking up after: wiring Session 18's file-action endpoints into Session 19's read-only Files tab, and the tray consuming Session 17's SSE stream instead of polling.
+> **Next up**: Backlog clear — Sessions 10–20 all complete (2026-07-24). Open follow-ups, in rough priority order: (1) wire Session 18's file-action endpoints into Session 19's currently read-only Files tab; (2) have the tray consume Session 17's SSE stream instead of polling `/health`; (3) SNAG-AGENT-002 — log aggregator raises one alert per error line; (4) set a real `api.auth_token` locally (auth ships disabled) and wire it into PA's calls. See [snag_list.md](snag_list.md) and the Session 17–19 follow-up notes in [tasks.md](tasks.md).
 
 ---
 

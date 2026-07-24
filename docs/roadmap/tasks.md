@@ -16,6 +16,26 @@ _No active sessions._
 
 ## Backlog
 
+_Empty — Sessions 10–20 below are all complete as of 2026-07-24. New work should
+be added as Session 21+, or captured in [ideas.md](ideas.md) first._
+
+**Carried-forward follow-ups** (small, noted by the sessions that deferred them):
+- Wire Session 18's file-action endpoints (`/api/files/organise`, `clean/duplicates`,
+  `clean/downloads`) into Session 19's Files tab — the tab is deliberately read-only
+  because the endpoints landed in a parallel session
+- Tray consumes Session 17's SSE stream (`GET /api/sysadmin/events`) instead of
+  polling `/health` every few seconds
+- `response_model=` on the `/api/files/*` GET routes (contracts exist and are
+  parse-side enforced; the routes aren't annotated yet)
+- Set a real `api.auth_token` in the local config.yaml and wire it into PA's
+  API calls — auth ships disabled because config.yaml is committed
+- Visual sanity-check of the new Files tab and trend charts on a real Plasma
+  session (built and screenshotted headless only)
+
+---
+
+## Completed Sessions (2026-07-24)
+
 _From codebase review 2026-07-24 — see snag_list.md for the individual bugs._
 
 ### Session 10: Resolve uncommitted loose ends — ✅ Complete 2026-07-24

@@ -192,6 +192,13 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/logs/stats` | `LogStatsResponse` | response_model |
 | `GET /api/projects/overview` | `ProjectOverviewResponse` | response_model |
 | `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model |
+| `GET /api/projects/{name}` | `ProjectDetailResponse` (+`ProjectHistoryPoint`) | parse-side only (history newest-first; tray reverses for plotting) |
+| `GET /api/files/status` | `FileStatusResponse` (+`FileAuditSummary`, `FileQuickWins`) | parse-side only (404 = "no scan yet" → empty state) |
+| `GET /api/files/duplicates` | `DuplicatesResponse` | parse-side only (404 = "no scan yet") |
+| `GET /api/files/misplaced` | `MisplacedFilesResponse` | parse-side only (404 = "no scan yet") |
+| `GET /api/files/large` | `LargeFilesResponse` | parse-side only (404 = "no scan yet") |
+| `GET /api/files/trends` | `FileTrendsResponse` (+`FileTrendScan`, `FileTrendForecast`) | parse-side only |
+| `POST /api/files/clean/stale-caches` | `CleanResultResponse` | parse-side only |
 | `POST /api/files/organise` | `FileActionResponse` (+`FileOperation`, `FileFlag`) | response_model |
 | `POST /api/files/clean/duplicates` | `FileActionResponse` (+`FileOperation`) | response_model |
 | `POST /api/files/clean/downloads` | `FileActionResponse` (+`FileOperation`) | response_model |
