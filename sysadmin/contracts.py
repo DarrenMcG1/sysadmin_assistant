@@ -434,3 +434,250 @@ class ScanAllResponse(Contract):
     """POST /api/sysadmin/scan-all."""
 
     status: str = ""
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Session 19 additions — /api/files/* and /api/projects/{name} GET
+# shapes consumed by the dashboard's Files tab and trend charts.
+#
+# These are PARSE-SIDE ONLY: the routers are not annotated with
+# ``response_model=`` (the endpoints were owned by another session), so
+# the tray parses defensively and the models tolerate both the populated
+# payload and the "no data yet" / 404 shapes.
+#
+# Keep this whole block together — it is appended, never interleaved.
+# ─────────────────────────────────────────────────────────────────────
+
+
+class FileQuickWins(Contract):
+    """``findings.quick_wins`` — one-click-fixable counts."""
+
+    empty_dirs: int = 0
+    stale_caches: int = 0
+    stale_cache_mb: float = 0.0
+
+    @field_validator("empty_dirs", "stale_caches", "stale_cache_mb", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+    @property
+    def total(self) -> int:
+        """Number of individually actionable items."""
+        return self.empty_dirs + self.stale_caches
+
+
+class FileAuditSummary(Contract):
+    """The ``summary`` block of GET /api/files/status."""
+
+    similar_folders: int = 0
+    misplaced_files: int = 0
+    old_downloads: int = 0
+    large_files: int = 0
+    duplicate_groups: int = 0
+    empty_dirs: int = 0
+    stale_project_dirs: int = 0
+    stale_files: int = 0
+
+
+class FileStatusResponse(Contract):
+    """GET /api/files/status — latest filesystem audit summary.
+
+    Returns ``{"message": "No audit data yet…"}`` before the first scan;
+    that shape parses to ``has_data is False`` with zeroed counts.
+    """
+
+    scan_root: str = ""
+    scanned_at: str | None = None
+    summary: FileAuditSummary = Field(default_factory=FileAuditSummary)
+    reclaimable_mb: float = 0.0
+    quick_wins: FileQuickWins = Field(default_factory=FileQuickWins)
+    message: str = ""
+
+    @field_validator("reclaimable_mb", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0.0 if v is None else v
+
+    @field_validator("summary", "quick_wins", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+    @property
+    def has_data(self) -> bool:
+        """True once at least one scan has been recorded."""
+        return bool(self.scanned_at or self.scan_root)
+
+
+class LargeFileInfo(Contract):
+    """One entry of ``findings.large_files``."""
+
+    path: str = ""
+    size_mb: float = 0.0
+
+    @field_validator("size_mb", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0.0 if v is None else v
+
+
+class LargeFilesResponse(Contract):
+    """GET /api/files/large."""
+
+    large_files: list[LargeFileInfo] = Field(default_factory=list)
+    count: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "large_files")
+
+
+class DuplicateGroupInfo(Contract):
+    """One group of byte-identical files."""
+
+    hash: str = ""
+    files: list[str] = Field(default_factory=list)
+    count: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "files")
+
+
+class DuplicatesResponse(Contract):
+    """GET /api/files/duplicates."""
+
+    duplicate_groups: list[DuplicateGroupInfo] = Field(default_factory=list)
+    count: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "duplicate_groups")
+
+
+class MisplacedFilesResponse(Contract):
+    """GET /api/files/misplaced — category → list of paths."""
+
+    misplaced_files: dict[str, list[str]] = Field(default_factory=dict)
+    count: int = 0
+
+    @field_validator("misplaced_files", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "count" not in data:
+            groups = data.get("misplaced_files")
+            if isinstance(groups, dict):
+                total = sum(
+                    len(v) for v in groups.values() if isinstance(v, list)
+                )
+                data = {**data, "count": total}
+        return data
+
+
+class FileTrendScan(Contract):
+    """One historical scan row from GET /api/files/trends."""
+
+    scanned_at: str | None = None
+    similar_folders: int = 0
+    misplaced_files: int = 0
+    old_downloads: int = 0
+    large_files: int = 0
+    duplicate_groups: int = 0
+    empty_dirs: int = 0
+    stale_project_dirs: int = 0
+    reclaimable_mb: float = 0.0
+
+    @field_validator("reclaimable_mb", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0.0 if v is None else v
+
+
+class FileTrendForecast(Contract):
+    """The ``forecast`` block of GET /api/files/trends.
+
+    With fewer than two scans the backend returns
+    ``{"insufficient_data": true}`` and nothing else.
+    """
+
+    insufficient_data: bool = False
+    growth_rate_mb_per_day: float = 0.0
+    current_reclaimable_mb: float = 0.0
+    data_points: int = 0
+    projected_milestones: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("projected_milestones", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+
+class FileTrendsResponse(Contract):
+    """GET /api/files/trends."""
+
+    scans: list[FileTrendScan] = Field(default_factory=list)
+    count: int = 0
+    forecast: FileTrendForecast = Field(default_factory=FileTrendForecast)
+
+    @field_validator("forecast", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "scans")
+
+
+class CleanResultResponse(Contract):
+    """POST /api/files/clean/stale-caches."""
+
+    status: str = ""
+    message: str = ""
+    removed_caches: int = 0
+    removed_empty_dirs: int = 0
+    details: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("details", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+
+class ProjectHistoryPoint(Contract):
+    """One point of the ``history`` list from GET /api/projects/{name}."""
+
+    health_score: int = 0
+    scanned_at: str | None = None
+
+    @field_validator("health_score", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+
+class ProjectDetailResponse(Contract):
+    """GET /api/projects/{name} — latest snapshot plus score history.
+
+    ``history`` arrives newest-first (the router orders by
+    ``scanned_at DESC``); consumers that plot it must reverse.
+    """
+
+    name: str = ""
+    current: dict[str, Any] = Field(default_factory=dict)
+    history: list[ProjectHistoryPoint] = Field(default_factory=list)
+
+    @field_validator("current", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
