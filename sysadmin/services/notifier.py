@@ -2,6 +2,11 @@
 
 Gracefully handles PA being unreachable (logs warning, does not crash).
 Retries with exponential backoff for transient failures.
+
+PA was retired on 2026-07-24 and ``personal_assistant.enabled`` is now
+``false``, so in practice every send short-circuits before any HTTP call.
+The transport is kept intact so the integration can be repointed at a
+replacement inbox by flipping one flag.
 """
 
 import logging
@@ -9,13 +14,39 @@ from typing import Any
 
 import httpx
 
-from sysadmin.config import get_config
+from sysadmin.config import AppConfig, get_config
 from sysadmin.services.dnd import dnd_manager
 
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
 INITIAL_BACKOFF_S = 1.0
+
+# The "integration is disabled" notice is worth seeing once per process, not
+# once per suppressed send — a retired integration is a steady state, not a
+# fault, so it must never produce a warning (or an alert) on every attempt.
+_disabled_notice_logged = False
+
+
+def _integration_disabled(config: AppConfig) -> bool:
+    """True when the PersonalAssistant integration is switched off.
+
+    Logs a single INFO line the first time it suppresses something in this
+    process, then drops to DEBUG for the rest of the process's life.
+    """
+    if config.personal_assistant.enabled:
+        return False
+
+    global _disabled_notice_logged
+    if not _disabled_notice_logged:
+        _disabled_notice_logged = True
+        logger.info(
+            "pa_integration_disabled",
+            extra={"detail": "personal_assistant.enabled is false — outbound sends skipped"},
+        )
+    else:
+        logger.debug("PA integration disabled; send skipped")
+    return True
 
 
 class Notifier:
@@ -55,6 +86,10 @@ class Notifier:
 
         config = get_config()
 
+        # Integration retired → skip before any HTTP work
+        if _integration_disabled(config):
+            return False
+
         # Check PA notification severity threshold
         pa_config = config.notifications.pa_notify
         if not pa_config.enabled:
@@ -84,6 +119,11 @@ class Notifier:
         Returns True if delivered, False if PA is unreachable.
         """
         config = get_config()
+
+        # Integration retired → skip before any HTTP work
+        if _integration_disabled(config):
+            return False
+
         url = f"{config.personal_assistant.url}{config.personal_assistant.briefing_endpoint}"
         payload = {
             "source": "sysadmin-service",

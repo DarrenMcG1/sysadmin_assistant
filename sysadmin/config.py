@@ -45,6 +45,21 @@ class DatabaseConfig(BaseModel):
 
 
 class PersonalAssistantConfig(BaseModel):
+    """Outbound integration with the PersonalAssistant app (retired 2026-07-24).
+
+    PA is gone and Alfred, its replacement, exposes no inbox — no
+    notification, briefing or digest endpoint.  Setting ``enabled: false``
+    (as config.yaml now does) makes :class:`~sysadmin.services.notifier.Notifier`
+    skip both the morning-briefing POST and the v2 notification sends
+    without emitting a warning or an alert per attempt.
+
+    The default stays ``True`` so a config predating this flag behaves
+    exactly as before.  The code and its tests are kept deliberately: this
+    is a dormant feature flag, not a deletion, so it can be repointed at
+    Alfred if Alfred ever grows an inbox.
+    """
+
+    enabled: bool = True
     url: str = "http://localhost:8000"
     api_prefix: str = "/api"
     notify_endpoint: str = "/api/v2/notifications/send"
@@ -275,20 +290,34 @@ class LogAggregatorConfig(BaseModel):
 
 
 class ProjectEndpointLog(BaseModel):
-    """Log source config for a project endpoint."""
+    """Log source config for a project endpoint.
+
+    ``user`` selects ``journalctl --user`` for a *user* unit's journal.
+    Left unset it inherits the owning :class:`ProjectEndpoint`'s ``user``,
+    since an endpoint's unit and that unit's journal live in the same
+    systemd scope in every realistic case.
+    """
 
     type: str = "journalctl"
     unit: str | None = None
+    user: bool | None = None
     path: str | None = None
     severity_filter: str = "warning"
 
 
 class ProjectEndpoint(BaseModel):
-    """A backend or frontend endpoint within a managed project."""
+    """A backend or frontend endpoint within a managed project.
+
+    ``user`` marks ``systemd_unit`` as a *user* unit, so health checks,
+    service actions and log reads use ``systemctl --user`` /
+    ``journalctl --user``.  Without it a user unit looks permanently
+    unknown to the system-scope ``systemctl``, which fails silently.
+    """
 
     url: str | None = None
     port: int | None = None
     systemd_unit: str | None = None
+    user: bool = False
     log: ProjectEndpointLog | None = None
 
 
@@ -313,6 +342,7 @@ class ManagedProject(BaseModel):
                 type="http",
                 url=self.backend.url,
                 systemd_unit=self.backend.systemd_unit,
+                user=self.backend.user,
             ))
         if self.frontend and self.frontend.url:
             services.append(MonitoredService(
@@ -320,6 +350,7 @@ class ManagedProject(BaseModel):
                 type="http",
                 url=self.frontend.url,
                 systemd_unit=self.frontend.systemd_unit,
+                user=self.frontend.user,
             ))
         return services
 
@@ -333,6 +364,8 @@ class ManagedProject(BaseModel):
                     name=self.name if label == "backend" else f"{self.name}-{label}",
                     type=log.type,
                     unit=log.unit,
+                    # Unset on the log → inherit the endpoint's systemd scope
+                    user=log.user if log.user is not None else endpoint.user,
                     path=log.path,
                     severity_filter=log.severity_filter,
                 ))

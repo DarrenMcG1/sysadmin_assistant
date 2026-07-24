@@ -27,10 +27,49 @@ be added as Session 21+, or captured in [ideas.md](ideas.md) first._
   polling `/health` every few seconds
 - `response_model=` on the `/api/files/*` GET routes (contracts exist and are
   parse-side enforced; the routes aren't annotated yet)
-- Set a real `api.auth_token` in the local config.yaml and wire it into PA's
-  API calls — auth ships disabled because config.yaml is committed
+- Set a real `api.auth_token` in the local config.yaml — auth ships disabled
+  because config.yaml is committed (the PA-side wiring this once referred to
+  is moot; PA was retired 2026-07-24)
 - Visual sanity-check of the new Files tab and trend charts on a real Plasma
   session (built and screenshotted headless only)
+
+---
+
+## Maintenance
+
+_Not numbered sessions — config/upkeep work that doesn't warrant one._
+
+### PersonalAssistant → Alfred migration — ✅ Complete 2026-07-24
+PA was retired and replaced by Alfred; the service's config still pointed at PA
+everywhere. Config migration plus one dormant feature flag.
+- ✅ projects.yaml: `personal-assistant` → `alfred` (backend `/api/health` on :8100,
+  frontend :3100, both `user: true` systemd user units, journals via `journalctl --user`).
+  The old entry's `path` (`/home/gaddi/projects/personal-assistant`) had never existed —
+  the real directory is `PersonalAssistant` — so its health check was long since broken
+- ✅ **Plumbed `user:` through the projects.yaml path** — Session 15 added the flag to
+  `MonitoredService`/`LogSource` but `ProjectEndpoint`/`ProjectEndpointLog` never carried
+  it, so `to_monitored_services()`/`to_log_sources()` silently dropped it. Log blocks
+  inherit their endpoint's scope unless they set `user:` themselves. Proved live:
+  `read_journal("alfred-backend.service", user=True)` → 500 entries, `user=False` → 0
+- ✅ `alfred-evaluate` monitored via **`alfred-evaluate.timer`**, not the service — the
+  service is `Type=oneshot` (inactive by design between daily 08:00 runs) while the timer
+  stays `active`/`waiting` while armed, so the existing systemd check handles it as-is
+- ✅ `alfred-glance` added scan-only (Android/Gradle, no service or port), like `daiy`
+- ✅ Dead PA repos retired-but-retained with `alert_threshold: 0` — `PersonalAssistant`,
+  `PersonalAssistant-auto`, `PA-worktrees`. Still dashboard-visible and branch-pruning
+  targets; scores clamp at 0 and the test is `score < threshold`, so 0 never alerts
+  (they score 15/10/80 against the global floor of 40)
+- ✅ PA integration disabled: new `personal_assistant.enabled` (model default `True`,
+  config.yaml `false`). Both `Notifier` send paths short-circuit before any HTTP call,
+  logging once per process at INFO; the briefing's daily delivery-failed warning drops
+  to DEBUG when off. Code and tests kept — dormant flag, not a deletion
+- ✅ Docs: STATUS.md Frontend row → 🔴 Retired, PA Integration row → ⚪ Dormant;
+  ideas.md gained a web-UI-in-Alfred item; CORS and `mute_services` comments re-examined
+- ✅ 12 new tests (`tests/test_notifier.py`, `TestUserScopePropagation`) — suite 978 → 990
+
+**Follow-up:** the running `sysadmin.service` loads config at startup, so it needs a
+restart to pick any of this up (it was still reporting `ollama` and the PA services when
+this landed — i.e. it predates even Session 15's config).
 
 ---
 

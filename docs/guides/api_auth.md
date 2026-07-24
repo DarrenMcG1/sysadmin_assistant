@@ -49,11 +49,15 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 
 Missing/wrong token → `401` with `WWW-Authenticate: Bearer`.
 
-## PA integration (follow-up in the PA repo)
+## Web UI clients (was PA; now a future Alfred UI)
 
-The PA frontend calls into this API. Its read-only dashboard views use GET
-endpoints only, so they keep working with no changes. Any PA feature that
-POSTs (triggering scans, acking alerts, service actions, DND) must add the
-`Authorization: Bearer <token>` header, with the token stored in PA's own
-config. That wiring lives in `/home/gaddi/projects/PersonalAssistant` and is
-outside this repo.
+PersonalAssistant was retired on 2026-07-24, so nothing outside the tray
+currently calls this API. The constraint it faced still applies to whatever
+replaces it: read-only dashboard views use GET endpoints only and work with no
+token, but anything that POSTs (triggering scans, acking alerts, service
+actions, DND) must send `Authorization: Bearer <token>`.
+
+A browser cannot hold that shared secret safely, so if the UI is rebuilt in
+Alfred's Nuxt frontend (:3100 — already in `service.cors_origins`), the sane
+shape is for Alfred's **backend** to proxy the mutating calls and keep the token
+server-side, leaving the browser on the open GETs. See ideas.md.

@@ -4,16 +4,18 @@ service:
   host: 127.0.0.1
   log_level: info
   log_format: json  # json | text
-  cors_origins:  # browser origins allowed to call the API (PA frontend dev server)
+  cors_origins:  # browser origins allowed to call the API from a web UI
     - http://localhost:3000
     - http://127.0.0.1:3000
+    - http://localhost:3100   # Alfred frontend (Nuxt) — see ideas.md web-UI item
+    - http://127.0.0.1:3100
 
 # API authentication — bearer token checked on state-changing endpoints
 # (service actions, scans, stale-cache clean, DND toggle, alert ack).
-# Read-only GET endpoints stay open (tray + PA dashboards keep working).
+# Read-only GET endpoints stay open (the tray and any dashboard keep working).
 # Generate a token with:  python -c "import secrets; print(secrets.token_hex(32))"
 # Leave empty to disable auth (a warning is logged at startup).
-# Clients (tray app, PA backend) send:  Authorization: Bearer <token>
+# Clients (the tray app, and any future web UI) send:  Authorization: Bearer <token>
 # NOTE: this file is committed to git — set a real token locally, do not commit it.
 api:
   auth_token: ""
@@ -23,7 +25,15 @@ database:
   sync_url: postgresql+psycopg2://gaddi@localhost:5432/projects
   schema: sysadmin
 
+# PersonalAssistant integration — DORMANT since 2026-07-24.
+# PA was retired and its replacement, Alfred, exposes no inbox: nothing in
+# its API accepts notifications, briefings or digests. `enabled: false`
+# makes the notifier skip the 06:00 briefing POST and the v2 notification
+# sends before any HTTP call, logging once at INFO rather than warning per
+# attempt. The endpoints below are kept so the integration can be repointed
+# by editing the url/paths and flipping `enabled` back to true.
 personal_assistant:
+  enabled: false
   url: http://localhost:8000
   api_prefix: /api
   notify_endpoint: /api/v2/notifications/send
@@ -64,13 +74,13 @@ notifications:
     respect_desktop_dnd: true
     # Services that are expected to be down — never worth a toast. Use the
     # monitored-service name, including the ones projects.yaml contributes
-    # (e.g. personal-assistant, personal-assistant-frontend). A service
-    # declared below with `mute: true` is added to this list automatically.
+    # (e.g. alfred, alfred-frontend). A service declared below with
+    # `mute: true` is added to this list automatically.
     mute_services: []
 
 # Daily cron jobs (local server time)
 schedules:
-  briefing_hour: 6      # morning briefing POSTed to PA
+  briefing_hour: 6      # morning briefing (generated; send dormant — see personal_assistant)
   briefing_minute: 0
   retention_hour: 3     # data retention purge
   retention_minute: 0
@@ -112,6 +122,17 @@ agents:
         url: http://localhost:8081/health
         systemd_unit: alfred-inference.service
         user: true  # systemd *user* unit
+      # Alfred's nightly evaluation. Monitor the TIMER, not the service:
+      # alfred-evaluate.service is Type=oneshot and therefore inactive/dead
+      # between runs, so checking it would alert continuously by design.
+      # A .timer stays ActiveState=active (SubState=waiting) whenever it is
+      # armed, so the ordinary systemd check reports it correctly — an
+      # inactive timer genuinely means the schedule has stopped.
+      - name: alfred-evaluate-timer
+        type: systemd
+        systemd_unit: alfred-evaluate.timer
+        user: true  # systemd *user* unit
+        controllable: false
       - name: networkmanager
         type: systemd
         systemd_unit: NetworkManager.service

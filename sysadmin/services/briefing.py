@@ -1,7 +1,13 @@
 """Morning briefing data generator.
 
 Collects data from all agents and builds the structured briefing payload
-that gets POSTed to PersonalAssistant at 06:00 daily.
+that was POSTed to PersonalAssistant at 06:00 daily.
+
+PA was retired on 2026-07-24 (``personal_assistant.enabled: false``), so
+the payload is still generated on schedule but the send short-circuits in
+:class:`~sysadmin.services.notifier.Notifier`.  Generation is deliberately
+left running: it is the part worth reusing if the integration is ever
+repointed at a replacement inbox.
 """
 
 import logging
@@ -12,6 +18,7 @@ import psutil
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sysadmin.config import get_config
 from sysadmin.database import get_scheduler_session
 from sysadmin.models.filesystem_audit import FilesystemAudit
 from sysadmin.models.log_summary import LogSummary
@@ -212,6 +219,10 @@ async def send_morning_briefing() -> None:
         success = await notifier.send_briefing_data(briefing["sections"])
         if success:
             logger.info("morning_briefing_sent")
+        elif not get_config().personal_assistant.enabled:
+            # PA retired — a suppressed send is the expected steady state,
+            # so it must not look like a daily delivery failure.
+            logger.debug("morning_briefing_skipped: PA integration disabled")
         else:
             logger.warning("morning_briefing_delivery_failed")
     finally:

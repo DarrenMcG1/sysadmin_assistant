@@ -5,32 +5,43 @@
 #   raises a warning alert. Omit it to use the global
 #   agents.project_organiser.alert_threshold (40). Matched against the
 #   scanned project by path first, then by this name, then by the
-#   basename of `path` — so an entry named `personal-assistant` pointing
-#   at a `PersonalAssistant` directory still applies. Example:
+#   basename of `path` — so an entry named `alfred` pointing at an
+#   `Alfred` directory still applies. Example:
 #
 #   - name: some-archive
 #     path: /home/gaddi/projects/some-archive
 #     alert_threshold: 0     # never alert — deliberately dormant
 #
 projects:
-  - name: personal-assistant
-    path: /home/gaddi/projects/personal-assistant
+  # Alfred — replaced PersonalAssistant on 2026-07-24. Both halves are
+  # systemd *user* units, so `user: true` is required: without it the
+  # health check and log read run against the system scope, which never
+  # knows about the unit and fails silently (exactly how the old PA
+  # entries broke). The log source inherits `user` from its endpoint.
+  - name: alfred
+    path: /home/gaddi/projects/Alfred
     backend:
-      url: http://localhost:8000/api/health
-      port: 8000
-      systemd_unit: personal-assistant-backend.service
+      url: http://localhost:8100/api/health   # /health and /api/v1/health both 404
+      port: 8100
+      systemd_unit: alfred-backend.service
+      user: true
       log:
         type: journalctl
-        unit: personal-assistant.service
+        unit: alfred-backend.service
         severity_filter: warning
     frontend:
-      url: http://localhost:3000
-      port: 3000
-      systemd_unit: personal-assistant-frontend.service
+      url: http://localhost:3100              # Nuxt/Nitro
+      port: 3100
+      systemd_unit: alfred-frontend.service
+      user: true
       log:
         type: journalctl
-        unit: personal-assistant.service
+        unit: alfred-frontend.service
         severity_filter: warning
+
+  # Scan-only: an Android/Gradle project, no service and no port.
+  - name: alfred-glance
+    path: /home/gaddi/projects/alfred-glance
 
   - name: sysadmin-service
     path: /home/gaddi/projects/sysadmin_assistant
@@ -51,3 +62,22 @@ projects:
 
   - name: daiy
     path: /home/gaddi/projects/daiy
+
+  # --- Retired but retained -------------------------------------------
+  # PersonalAssistant is dead (superseded by Alfred) but the repos are
+  # kept on disk. They stay listed so they remain visible in the
+  # dashboard and eligible for stale-branch pruning; `alert_threshold: 0`
+  # is a real floor, not an absent one, so their health score can decay
+  # freely without ever raising an alert. Do not add endpoints here —
+  # nothing is meant to be listening.
+  - name: PersonalAssistant
+    path: /home/gaddi/projects/PersonalAssistant
+    alert_threshold: 0
+
+  - name: PersonalAssistant-auto
+    path: /home/gaddi/projects/PersonalAssistant-auto
+    alert_threshold: 0
+
+  - name: PA-worktrees
+    path: /home/gaddi/projects/PA-worktrees
+    alert_threshold: 0

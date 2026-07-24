@@ -6,8 +6,9 @@ Infrastructure monitoring and housekeeping service for a single Linux workstatio
 A FastAPI backend (port **8500**) runs four scheduled agents that watch services,
 projects, files, and logs, persisting everything to PostgreSQL. A PyQt6 KDE tray
 app polls the API and surfaces state via a tray icon, native dashboard, and D-Bus
-notifications. PersonalAssistant (PA) consumes a digest endpoint and receives
-briefings/notifications.
+notifications. The tray is the only UI: PersonalAssistant (PA), which consumed a
+digest endpoint and received briefings/notifications, was retired on 2026-07-24
+and its outbound integration is now dormant (see "PA integration" below).
 
 ---
 
@@ -112,7 +113,7 @@ defaults 06:00/03:00) → exposes shared instances on `app.state` → clean shut
 | projects | `/api/projects` | Health overview/grades, stale, report, managed (projects.yaml + live health), per-project detail/todos/branches, scan |
 | files | `/api/files` | Filesystem audit status, quick-wins, duplicates, trends (+reclaimable forecast with configurable milestones), stale-cache clean, scan |
 | logs | `/api/logs` | Recent entries, stats, summaries |
-| summary | `/api/summary` | Single-call digest for PA (services, alerts, resources, GPU, DND, project scores) |
+| summary | `/api/summary` | Single-call digest (services, alerts, resources, GPU, DND, project scores) — built for PA, now unconsumed |
 
 ### Agents — template-method pattern
 
@@ -141,9 +142,11 @@ for agents, cron triggers for briefing/retention; job defaults: coalesce,
 
 - **notifier** — httpx client POSTing alerts/briefings to PA's v2 notification
   endpoint, with retry/backoff and DND-aware suppression; PA unreachable is
-  non-fatal.
+  non-fatal. **Dormant** — `personal_assistant.enabled: false` short-circuits
+  both send paths before any HTTP call.
 - **briefing** — builds the structured morning-briefing payload (infrastructure,
-  overnight logs, filesystem, projects) and sends it to PA daily.
+  overnight logs, filesystem, projects). Still generated daily; the send is
+  suppressed by the flag above.
 - **retention** — daily purge of old rows per the `retention_config` table.
 - **event_bus** — in-process async pub/sub (callback list; failures logged, not raised).
 - **dnd** — Do Not Disturb manager: config schedule + runtime manual override;
@@ -212,14 +215,23 @@ PyQt6 KDE system-tray monitor, installed as the `sysadmin-tray` console script.
 
 ---
 
-## PA integration
+## PA integration (dormant since 2026-07-24)
 
-- **`GET /api/summary`** — single-call digest PA agents use instead of many calls.
-- **Morning briefing** — POSTed daily to PA's `briefing_endpoint` (config).
-- **Notifications** — critical alerts forwarded to PA's v2 notification endpoint
+PersonalAssistant was retired and replaced by **Alfred**, which exposes no inbox —
+nothing in its API accepts notifications, briefings or digests. `personal_assistant.enabled`
+is therefore `false` and the outbound paths below make no HTTP call. The code and
+its tests are kept deliberately so the integration can be repointed by editing the
+url/endpoints and flipping one flag.
+
+- **`GET /api/summary`** — single-call digest, still served; nothing consumes it today.
+- **Morning briefing** — was POSTed daily to PA's `briefing_endpoint` (config).
+  The payload is still generated on schedule; only the send is suppressed.
+- **Notifications** — critical alerts were forwarded to PA's v2 notification endpoint
   (`notify_endpoint`), severity-filtered and DND-aware.
-- PA's frontend renders the sysadmin dashboard from the read-only GET endpoints
-  (hence the open GETs + CORS origins for localhost:3000).
+- PA's frontend rendered the sysadmin web dashboard from the read-only GET endpoints
+  (hence the open GETs + CORS origins). That UI died with PA; the PyQt6 tray is now
+  the only one. Alfred's Nuxt frontend on :3100 is the candidate host for a rebuild —
+  its origin is already in `service.cors_origins`. See ideas.md.
 
 ---
 

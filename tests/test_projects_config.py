@@ -128,6 +128,105 @@ class TestManagedProject:
         assert proj.to_log_sources() == []
 
 
+class TestUserScopePropagation:
+    """`user: true` must survive the projects.yaml → agent-config hop.
+
+    A user unit checked in the system scope is not an error, it is an
+    unknown unit — so a dropped flag fails silently and forever (this is
+    how the retired PersonalAssistant entries broke unnoticed).
+    """
+
+    def test_defaults_to_system_scope(self):
+        proj = ManagedProject(
+            name="my-app",
+            backend=ProjectEndpoint(
+                url="http://localhost:8000/health",
+                systemd_unit="my-app.service",
+                log=ProjectEndpointLog(unit="my-app.service"),
+            ),
+        )
+        assert proj.to_monitored_services()[0].user is False
+        assert proj.to_log_sources()[0].user is False
+
+    def test_backend_user_flag_reaches_monitored_service(self):
+        proj = ManagedProject(
+            name="my-app",
+            backend=ProjectEndpoint(
+                url="http://localhost:8000/health",
+                systemd_unit="my-app.service",
+                user=True,
+            ),
+        )
+        assert proj.to_monitored_services()[0].user is True
+
+    def test_frontend_user_flag_reaches_monitored_service(self):
+        proj = ManagedProject(
+            name="my-app",
+            backend=ProjectEndpoint(url="http://localhost:8000/health"),
+            frontend=ProjectEndpoint(url="http://localhost:3000", user=True),
+        )
+        services = proj.to_monitored_services()
+        assert services[0].user is False
+        assert services[1].user is True
+
+    def test_log_source_inherits_endpoint_scope(self):
+        """A log block that says nothing about scope follows its endpoint."""
+        proj = ManagedProject(
+            name="my-app",
+            backend=ProjectEndpoint(
+                systemd_unit="my-app.service",
+                user=True,
+                log=ProjectEndpointLog(unit="my-app.service"),
+            ),
+        )
+        assert proj.to_log_sources()[0].user is True
+
+    def test_log_source_can_override_endpoint_scope(self):
+        """An explicit `user` on the log wins over the endpoint's."""
+        proj = ManagedProject(
+            name="my-app",
+            backend=ProjectEndpoint(
+                systemd_unit="my-app.service",
+                user=True,
+                log=ProjectEndpointLog(unit="my-app.service", user=False),
+            ),
+        )
+        assert proj.to_log_sources()[0].user is False
+
+    def test_survives_yaml_load_and_merge(self, tmp_path):
+        """End to end: YAML text → merged agent config, scope intact."""
+        projects_file = tmp_path / "projects.yaml"
+        projects_file.write_text(textwrap.dedent("""\
+            projects:
+              - name: alfred
+                path: /home/gaddi/projects/Alfred
+                backend:
+                  url: http://localhost:8100/api/health
+                  systemd_unit: alfred-backend.service
+                  user: true
+                  log:
+                    type: journalctl
+                    unit: alfred-backend.service
+                frontend:
+                  url: http://localhost:3100
+                  systemd_unit: alfred-frontend.service
+                  user: true
+                  log:
+                    type: journalctl
+                    unit: alfred-frontend.service
+        """))
+        config = AppConfig()
+        _merge_projects_config(config, projects_file)
+
+        services = {s.name: s for s in config.agents.sysadmin.services}
+        assert services["alfred"].user is True
+        assert services["alfred-frontend"].user is True
+
+        sources = {s.name: s for s in config.agents.log_aggregator.sources}
+        assert sources["alfred"].user is True
+        assert sources["alfred-frontend"].user is True
+
+
 class TestProjectsConfig:
     def test_empty(self):
         pc = ProjectsConfig()
