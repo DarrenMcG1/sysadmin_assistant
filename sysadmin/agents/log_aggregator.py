@@ -19,7 +19,7 @@ from sysadmin.agents.base import AgentResult, BaseAgent
 from sysadmin.config import get_config
 from sysadmin.models.log_entry import LogEntry
 from sysadmin.models.log_summary import LogSummary
-from sysadmin.services.ollama_client import OllamaClient
+from sysadmin.services.llm_client import LLMClient
 from sysadmin.utils.journal import SEVERITY_ORDER, read_journal
 
 logger = logging.getLogger(__name__)
@@ -39,15 +39,15 @@ class LogAggregatorAgent(BaseAgent):
 
     def __init__(self) -> None:
         self._file_offsets: dict[str, int] = {}
-        self._ollama: OllamaClient | None = None
+        self._llm: LLMClient | None = None
 
     async def startup(self) -> None:
-        self._ollama = OllamaClient()
-        await self._ollama.startup()
+        self._llm = LLMClient()
+        await self._llm.startup()
 
     async def shutdown(self) -> None:
-        if self._ollama:
-            await self._ollama.shutdown()
+        if self._llm:
+            await self._llm.shutdown()
 
     async def _execute(self, session) -> AgentResult:
         config = get_config()
@@ -61,6 +61,7 @@ class LogAggregatorAgent(BaseAgent):
                     unit=source.unit,
                     since="2m ago",
                     severity_filter=source.severity_filter,
+                    user=source.user,
                 )
             elif source.type == "file" and source.path:
                 entries = await asyncio.to_thread(
@@ -133,10 +134,10 @@ class LogAggregatorAgent(BaseAgent):
         )
         prompt = f"Here are the recent log entries:\n\n{log_text}\n\nProvide a concise summary."
 
-        if not self._ollama:
+        if not self._llm:
             return None
 
-        summary_text = await self._ollama.generate(
+        summary_text = await self._llm.generate(
             prompt=prompt,
             system=SUMMARISE_PROMPT_SYSTEM,
         )
@@ -149,7 +150,7 @@ class LogAggregatorAgent(BaseAgent):
             log_summary = LogSummary(
                 period_start=entries[0].logged_at,
                 period_end=entries[-1].logged_at,
-                model_used=config.ollama.model,
+                model_used=config.llm.model,
                 summary=summary_text,
                 entry_count=len(entries),
                 error_count=error_count,
@@ -159,7 +160,7 @@ class LogAggregatorAgent(BaseAgent):
 
             logger.info(
                 "log_summary_generated",
-                extra={"entries": len(entries), "model": config.ollama.model},
+                extra={"entries": len(entries), "model": config.llm.model},
             )
 
         return summary_text

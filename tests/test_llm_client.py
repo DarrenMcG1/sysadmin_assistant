@@ -1,0 +1,224 @@
+"""Tests for the llama.cpp (llama-server) LLM client.
+
+Mocks httpx at the transport layer via httpx.MockTransport — no real
+network calls. Covers: health check up/down/loading, completion parsing,
+system-prompt placement, and graceful None degradation on errors.
+"""
+
+import json
+from unittest.mock import patch
+
+import httpx
+import pytest
+
+from sysadmin.config import AppConfig, LLMConfig
+from sysadmin.services.llm_client import LLMClient
+
+
+@pytest.fixture
+def llm_config():
+    """AppConfig with a deterministic llm block."""
+    return AppConfig(
+        llm=LLMConfig(
+            url="http://testserver:8081",
+            model="test-model.gguf",
+            timeout_seconds=5.0,
+        )
+    )
+
+
+def _make_client(handler, llm_config) -> LLMClient:
+    """Build an LLMClient wired to a MockTransport handler."""
+    return LLMClient(transport=httpx.MockTransport(handler))
+
+
+def _chat_response(content: str) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": content},
+                    "finish_reason": "stop",
+                }
+            ],
+            "model": "test-model.gguf",
+            "object": "chat.completion",
+        },
+    )
+
+
+def _patch_config(config):
+    return patch(
+        "sysadmin.services.llm_client.get_config", return_value=config
+    )
+
+
+class TestIsAvailable:
+    @pytest.mark.asyncio
+    async def test_available_when_health_ok(self, llm_config):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/health"
+            return httpx.Response(200, json={"status": "ok"})
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            assert await client.is_available() is True
+        await client.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_unavailable_while_model_loading_503(self, llm_config):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                503, json={"error": {"message": "Loading model"}}
+            )
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            assert await client.is_available() is False
+        await client.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_unavailable_when_connection_refused(self, llm_config):
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("connection refused")
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            assert await client.is_available() is False
+        await client.shutdown()
+
+
+class TestGenerate:
+    @pytest.mark.asyncio
+    async def test_successful_completion_parsing(self, llm_config):
+        captured: dict = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["path"] = request.url.path
+            captured["payload"] = json.loads(request.content)
+            return _chat_response("The logs look healthy.")
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            result = await client.generate(prompt="Summarise these logs")
+        await client.shutdown()
+
+        assert result == "The logs look healthy."
+        assert captured["path"] == "/v1/chat/completions"
+        payload = captured["payload"]
+        assert payload["model"] == "test-model.gguf"
+        assert payload["stream"] is False
+        assert payload["messages"] == [
+            {"role": "user", "content": "Summarise these logs"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_system_prompt_becomes_system_role_message(self, llm_config):
+        captured: dict = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["payload"] = json.loads(request.content)
+            return _chat_response("ok")
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            result = await client.generate(
+                prompt="user text", system="You are a sysadmin."
+            )
+        await client.shutdown()
+
+        assert result == "ok"
+        messages = captured["payload"]["messages"]
+        assert messages[0] == {"role": "system", "content": "You are a sysadmin."}
+        assert messages[1] == {"role": "user", "content": "user text"}
+
+    @pytest.mark.asyncio
+    async def test_explicit_model_overrides_config(self, llm_config):
+        captured: dict = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["payload"] = json.loads(request.content)
+            return _chat_response("ok")
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            await client.generate(prompt="hi", model="other-model")
+        await client.shutdown()
+
+        assert captured["payload"]["model"] == "other-model"
+
+    @pytest.mark.asyncio
+    async def test_http_error_returns_none(self, llm_config):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, json={"error": "boom"})
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_connect_error_returns_none(self, llm_config):
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("connection refused")
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_timeout_returns_none(self, llm_config):
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ReadTimeout("timed out")
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_malformed_response_returns_none(self, llm_config):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"choices": []})
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_non_json_response_returns_none(self, llm_config):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text="not json")
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+
+class TestLifecycle:
+    @pytest.mark.asyncio
+    async def test_startup_and_shutdown(self, llm_config):
+        client = LLMClient(transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, json={"status": "ok"})
+        ))
+        with _patch_config(llm_config):
+            await client.startup()
+            assert client._client is not None
+            await client.shutdown()
+            assert client._client is None
+
+    @pytest.mark.asyncio
+    async def test_lazy_client_creation_without_startup(self, llm_config):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"status": "ok"})
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config):
+            # No startup() call — client is created lazily
+            assert await client.is_available() is True
+        await client.shutdown()

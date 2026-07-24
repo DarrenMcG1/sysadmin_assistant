@@ -1,4 +1,8 @@
-"""Systemd unit status helpers via subprocess."""
+"""Systemd unit status helpers via subprocess.
+
+All helpers accept ``user=True`` to target *user* units
+(``systemctl --user ...``) instead of system units.
+"""
 
 import asyncio
 import logging
@@ -6,10 +10,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def is_active(unit: str) -> bool:
+def _base_cmd(user: bool) -> list[str]:
+    """Build the systemctl command prefix for system or user scope."""
+    return ["systemctl", "--user"] if user else ["systemctl"]
+
+
+async def is_active(unit: str, user: bool = False) -> bool:
     """Check if a systemd unit is active."""
     proc = await asyncio.create_subprocess_exec(
-        "systemctl", "is-active", unit,
+        *_base_cmd(user), "is-active", unit,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -17,7 +26,7 @@ async def is_active(unit: str) -> bool:
     return stdout.decode().strip() == "active"
 
 
-async def get_unit_status(unit: str) -> dict:
+async def get_unit_status(unit: str, user: bool = False) -> dict:
     """Get detailed status of a systemd unit."""
     props = [
         "ActiveState", "SubState", "MainPID",
@@ -26,7 +35,7 @@ async def get_unit_status(unit: str) -> dict:
     prop_args = ",".join(props)
 
     proc = await asyncio.create_subprocess_exec(
-        "systemctl", "show", unit, f"--property={prop_args}",
+        *_base_cmd(user), "show", unit, f"--property={prop_args}",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -42,10 +51,10 @@ async def get_unit_status(unit: str) -> dict:
     return result
 
 
-async def _control_unit(action: str, unit: str) -> tuple[bool, str]:
-    """Run ``systemctl <action> <unit>`` and return (success, message)."""
+async def _control_unit(action: str, unit: str, user: bool = False) -> tuple[bool, str]:
+    """Run ``systemctl [--user] <action> <unit>`` and return (success, message)."""
     proc = await asyncio.create_subprocess_exec(
-        "systemctl", action, unit,
+        *_base_cmd(user), action, unit,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -57,16 +66,16 @@ async def _control_unit(action: str, unit: str) -> tuple[bool, str]:
     return False, msg
 
 
-async def restart_unit(unit: str) -> tuple[bool, str]:
+async def restart_unit(unit: str, user: bool = False) -> tuple[bool, str]:
     """Restart a systemd unit.  Returns (success, message)."""
-    return await _control_unit("restart", unit)
+    return await _control_unit("restart", unit, user)
 
 
-async def start_unit(unit: str) -> tuple[bool, str]:
+async def start_unit(unit: str, user: bool = False) -> tuple[bool, str]:
     """Start a systemd unit.  Returns (success, message)."""
-    return await _control_unit("start", unit)
+    return await _control_unit("start", unit, user)
 
 
-async def stop_unit(unit: str) -> tuple[bool, str]:
+async def stop_unit(unit: str, user: bool = False) -> tuple[bool, str]:
     """Stop a systemd unit.  Returns (success, message)."""
-    return await _control_unit("stop", unit)
+    return await _control_unit("stop", unit, user)

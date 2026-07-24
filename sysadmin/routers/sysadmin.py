@@ -121,14 +121,15 @@ async def get_service_details(service_name: str):
     if service_name not in svc_map:
         raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found")
 
-    unit = svc_map[service_name].systemd_unit
+    svc = svc_map[service_name]
+    unit = svc.systemd_unit
     if not unit:
         raise HTTPException(
             status_code=400,
             detail=f"Service '{service_name}' has no systemd_unit configured",
         )
 
-    return await get_unit_status(unit)
+    return await get_unit_status(unit, user=svc.user)
 
 
 _ACTION_FNS = {
@@ -165,7 +166,7 @@ async def service_action(
         )
 
     fn = _ACTION_FNS[action]
-    success, message = await fn(svc.systemd_unit)
+    success, message = await fn(svc.systemd_unit, user=svc.user)
     return {"success": success, "message": message}
 
 

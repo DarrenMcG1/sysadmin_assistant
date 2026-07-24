@@ -276,7 +276,7 @@ class TestHandleStatus:
                 mock_session, auto_restart_svc, "critical", {}
             )
         assert alerts == 1
-        restart_mock.assert_called_once_with("svc.service")
+        restart_mock.assert_called_once_with("svc.service", user=False)
         assert agent._failure_counts["svc"] == 0  # Reset after restart
         assert "auto-restarted" in ra.call_args.kwargs["title"]
 

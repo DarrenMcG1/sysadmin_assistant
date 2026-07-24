@@ -47,10 +47,16 @@ class PersonalAssistantConfig(BaseModel):
     briefing_endpoint: str = "/api/v2/intelligence/briefing/data"
 
 
-class OllamaConfig(BaseModel):
-    url: str = "http://localhost:11434"
-    model: str = "qwen2.5:14b"
-    night_model: str = "qwen3:72b"
+class LLMConfig(BaseModel):
+    """llama.cpp (llama-server) settings — OpenAI-compatible API.
+
+    llama-server serves a single loaded model, so ``model`` is largely
+    informational (recorded with summaries, passed through in requests).
+    """
+
+    url: str = "http://localhost:8081"
+    model: str = "dria-agent-a-3b.Q4_K_M.gguf"
+    timeout_seconds: float = 120.0
 
 
 # --- Agent sub-configs ---
@@ -63,6 +69,7 @@ class MonitoredService(BaseModel):
     host: Optional[str] = None
     port: Optional[int] = None
     systemd_unit: Optional[str] = None
+    user: bool = False  # systemd unit is a *user* unit (systemctl --user)
     controllable: bool = True
     auto_restart: bool = False
     auto_restart_after_checks: int = 3
@@ -117,6 +124,7 @@ class LogSource(BaseModel):
     name: str
     type: str  # journalctl | file
     unit: Optional[str] = None
+    user: bool = False  # journal of a *user* unit (journalctl --user)
     path: Optional[str] = None
     severity_filter: str = "warning"
 
@@ -249,7 +257,7 @@ class AppConfig(BaseModel):
     api: ApiConfig = Field(default_factory=ApiConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     personal_assistant: PersonalAssistantConfig = Field(default_factory=PersonalAssistantConfig)
-    ollama: OllamaConfig = Field(default_factory=OllamaConfig)
+    llm: LLMConfig = Field(default_factory=LLMConfig)
     notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
     projects: ProjectsConfig = Field(default_factory=ProjectsConfig, exclude=True)

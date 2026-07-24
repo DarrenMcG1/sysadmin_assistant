@@ -26,10 +26,12 @@ personal_assistant:
   notify_endpoint: /api/v2/notifications/send
   briefing_endpoint: /api/v2/intelligence/briefing/data
 
-ollama:
-  url: http://localhost:11434
-  model: qwen2.5:14b
-  night_model: qwen3:72b
+# llama.cpp (llama-server) — OpenAI-compatible API.
+# Serves one loaded model; `model` is informational (recorded with summaries).
+llm:
+  url: http://localhost:8081
+  model: dria-agent-a-3b.Q4_K_M.gguf
+  timeout_seconds: 120
 
 notifications:
   desktop:
@@ -54,10 +56,11 @@ agents:
         type: systemd
         systemd_unit: postgresql.service
         controllable: false
-      - name: ollama
+      - name: llama-server
         type: http
-        url: http://localhost:11434/api/tags
-        systemd_unit: ollama.service
+        url: http://localhost:8081/health
+        systemd_unit: alfred-inference.service
+        user: true  # systemd *user* unit
       - name: networkmanager
         type: systemd
         systemd_unit: NetworkManager.service
@@ -115,9 +118,10 @@ agents:
         type: journalctl
         unit: postgresql.service
         severity_filter: error
-      - name: ollama
+      - name: llama-server
         type: journalctl
-        unit: ollama.service
+        unit: alfred-inference.service
+        user: true  # journalctl --user
         severity_filter: warning
       - name: sysadmin
         type: journalctl

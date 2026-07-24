@@ -58,12 +58,13 @@ Shared bearer token on state-changing endpoints; rationale: localhost binding do
 - Fill in CLAUDE.md Step 4 test command (`uv run pytest`)
 - claude-preflight.sh: print open SNAG count/titles from snag_list.md alongside STATUS.md priorities
 
-### Session 15: Migrate LLM client from Ollama to llama.cpp
-Runtime has switched to llama.cpp (llama-server); code still speaks the Ollama API, so LLM features silently degrade to None and the monitored "ollama" service alerts as down.
-- Rewrite services/ollama_client.py for the OpenAI-compatible API (`POST /v1/chat/completions`; system prompt becomes a `system` role message; availability check via `GET /health` instead of `/api/tags`) — rename to llm_client.py
-- Update config: `ollama:` block → `llm:` (url/port for llama-server, model names), monitored service entry (config.yaml:47-50: url + systemd_unit), log aggregator source unit (config.yaml:109-111)
-- Verify `summarise_with_llm` path end-to-end and briefing LLM sections actually produce text again
-- Add tests (folds into Session 13's untested-services work — ollama_client.py had zero coverage anyway)
+### Session 15: Migrate LLM client from Ollama to llama.cpp — ✅ Complete 2026-07-24
+Runtime has switched to llama.cpp (llama-server); code still spoke the Ollama API, so LLM features silently degraded to None and the monitored "ollama" service alerted as down.
+- ✅ services/ollama_client.py → services/llm_client.py (`OllamaClient` → `LLMClient`): `POST /v1/chat/completions` with system prompt as a `{"role": "system"}` message, response parsed from `choices[0].message.content`; availability via `GET /health` (200 ready, 503 loading); same graceful-None interface (`generate`/`is_available`/`startup`/`shutdown`) so the only caller (log_aggregator.py) needed just the rename; optional `transport` constructor param for test injection
+- ✅ Config: `ollama:` → `llm:` block (`OllamaConfig` → `LLMConfig`) — url http://localhost:8081 (real llama-server port, confirmed via `ss`/unit file), model dria-agent-a-3b.Q4_K_M.gguf (informational — llama-server serves one loaded model, no switching logic), `timeout_seconds` now configurable; unused `night_model` dropped. Monitored service renamed ollama → llama-server (health url `:8081/health`, unit `alfred-inference.service`); log source renamed likewise
+- ✅ llama-server runs as a systemd *user* unit, which the existing system-scope `systemctl`/`journalctl` helpers couldn't see — added `user: true` flag on MonitoredService/LogSource, threaded through utils/systemd.py, utils/journal.py, sysadmin_agent, and the service details/action endpoints (`systemctl --user`, `journalctl --user`)
+- ✅ Verified live end-to-end against the running server: `/health` ok, real completion, `summarise_with_llm` produced and stored a genuine summary via the real DB, and the briefing's Overnight Log Summary section carried it; user-scope unit status + journal reads confirmed working
+- ✅ tests/test_llm_client.py — 13 tests via httpx.MockTransport: health up/down/503-loading, completion + system-prompt placement, model override, HTTP error/connect error/timeout/malformed/non-JSON → None, lifecycle + lazy client (suite 314 → 327)
 
 ### Session 16: Notification calm
 Make notifications less obtrusive — all changes in sysadmin_tray/tray_icon.py + notifications.py, sharing the fingerprint-tracking state.

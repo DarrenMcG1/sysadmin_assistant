@@ -166,7 +166,7 @@ class SysAdminAgent(BaseAgent):
         """Systemd unit status check."""
         start = time.monotonic()
         try:
-            status_info = await get_unit_status(svc.systemd_unit)
+            status_info = await get_unit_status(svc.systemd_unit, user=svc.user)
             elapsed_ms = int((time.monotonic() - start) * 1000)
 
             if status_info.get("is_active"):
@@ -244,7 +244,7 @@ class SysAdminAgent(BaseAgent):
                     service_name,
                     self._failure_counts[service_name],
                 )
-                success, msg = await restart_unit(svc.systemd_unit)
+                success, msg = await restart_unit(svc.systemd_unit, user=svc.user)
                 # Reset counter to avoid restart loop
                 self._failure_counts[service_name] = 0
 

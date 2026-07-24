@@ -27,6 +27,7 @@ async def read_journal(
     unit: str,
     since: str = "5m ago",
     severity_filter: str = "warning",
+    user: bool = False,
 ) -> list[dict[str, Any]]:
     """Read journal entries for a systemd unit.
 
@@ -34,6 +35,7 @@ async def read_journal(
         unit: systemd unit name (e.g. 'postgresql.service')
         since: time specification for --since (e.g. '5m ago', '1h ago')
         severity_filter: minimum severity to include
+        user: read a *user* unit's journal (journalctl --user)
 
     Returns:
         List of parsed log entries.
@@ -51,6 +53,8 @@ async def read_journal(
         cmd.insert(1, "-k")
     else:
         cmd[1:1] = ["-u", unit]
+        if user:
+            cmd.insert(1, "--user")
 
     try:
         proc = await asyncio.create_subprocess_exec(
