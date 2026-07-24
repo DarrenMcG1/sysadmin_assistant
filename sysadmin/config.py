@@ -77,6 +77,9 @@ class MonitoredService(BaseModel):
     controllable: bool = True
     auto_restart: bool = False
     auto_restart_after_checks: int = 3
+    # Expected-down service: alerts still recorded and shown, but the tray
+    # never raises a desktop notification for them (see notifications.tray)
+    mute: bool = False
 
 
 class Thresholds(BaseModel):

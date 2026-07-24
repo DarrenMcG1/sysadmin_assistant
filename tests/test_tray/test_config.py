@@ -39,6 +39,17 @@ class TestTrayConfig:
         assert cfg.notify_min_severity == "critical"
         assert cfg.dashboard_url is None
 
+    def test_notification_calm_defaults(self):
+        cfg = TrayConfig()
+        assert cfg.flap_cooldown_minutes == 30
+        assert cfg.escalation_polls == 3
+        assert cfg.coalesce_threshold == 2
+        assert cfg.snooze_minutes == 60
+        assert cfg.digest_mode is False
+        assert cfg.digest_interval_minutes == 60
+        assert cfg.respect_desktop_dnd is True
+        assert cfg.muted_services == []
+
     def test_custom_values(self):
         cfg = TrayConfig(
             api_url="http://10.0.0.5:9000",
@@ -130,3 +141,99 @@ class TestLoadTrayConfig:
         cfg_file.write_text("")
         cfg = load_tray_config(config_path=cfg_file)
         assert cfg.api_url == "http://127.0.0.1:8500"
+
+
+class TestNotificationCalmConfig:
+    """The ``notifications.tray:`` section and per-service muting."""
+
+    def test_tunables_loaded(self, tmp_path: Path):
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(dedent("""\
+            notifications:
+              tray:
+                flap_cooldown_minutes: 45
+                escalation_polls: 5
+                coalesce_threshold: 3
+                snooze_minutes: 15
+                digest_mode: true
+                digest_interval_minutes: 120
+                respect_desktop_dnd: false
+        """))
+        cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.flap_cooldown_minutes == 45
+        assert cfg.escalation_polls == 5
+        assert cfg.coalesce_threshold == 3
+        assert cfg.snooze_minutes == 15
+        assert cfg.digest_mode is True
+        assert cfg.digest_interval_minutes == 120
+        assert cfg.respect_desktop_dnd is False
+
+    def test_partial_section_keeps_defaults(self, tmp_path: Path):
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(dedent("""\
+            notifications:
+              tray:
+                digest_mode: true
+        """))
+        cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.digest_mode is True
+        assert cfg.flap_cooldown_minutes == 30
+        assert cfg.escalation_polls == 3
+
+    def test_explicit_mute_services(self, tmp_path: Path):
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(dedent("""\
+            notifications:
+              tray:
+                mute_services:
+                  - redis
+                  - personal-assistant
+        """))
+        cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.muted_services == ["redis", "personal-assistant"]
+
+    def test_monitored_service_mute_flag(self, tmp_path: Path):
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(dedent("""\
+            agents:
+              sysadmin:
+                services:
+                  - name: postgresql
+                    type: systemd
+                  - name: redis
+                    type: tcp
+                    mute: true
+        """))
+        cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.muted_services == ["redis"]
+
+    def test_mute_sources_are_unioned_without_duplicates(self, tmp_path: Path):
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(dedent("""\
+            notifications:
+              tray:
+                mute_services:
+                  - redis
+            agents:
+              sysadmin:
+                services:
+                  - name: redis
+                    type: tcp
+                    mute: true
+                  - name: personal-assistant
+                    type: http
+                    mute: true
+        """))
+        cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.muted_services == ["redis", "personal-assistant"]
+
+    def test_no_mutes_by_default(self, tmp_config: Path):
+        assert load_tray_config(config_path=tmp_config).muted_services == []
+
+    def test_real_config_yaml_parses(self):
+        """The committed config.yaml must load through the tray model."""
+        repo_root = Path(__file__).resolve().parents[2]
+        cfg = load_tray_config(config_path=repo_root / "config.yaml")
+        assert cfg.flap_cooldown_minutes == 30
+        assert cfg.digest_mode is False
+        assert cfg.muted_services == []

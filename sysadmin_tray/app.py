@@ -63,7 +63,9 @@ class TrayApp:
         self._dashboard.add_tab(ProjectsTab(self._client), "Projects")
 
         # D-Bus notifier with fallback to tray showMessage()
-        self._notifier = DbusNotifier(fallback_tray=self._tray)
+        self._notifier = DbusNotifier(
+            fallback_tray=self._tray, snooze_minutes=config.snooze_minutes,
+        )
         self._tray.set_notifier(self._notifier)
 
         self._wire_signals()
@@ -73,6 +75,14 @@ class TrayApp:
         self._tray.set_notification_config(
             enabled=config.show_notifications,
             min_severity=config.notify_min_severity,
+            flap_cooldown_minutes=config.flap_cooldown_minutes,
+            escalation_polls=config.escalation_polls,
+            coalesce_threshold=config.coalesce_threshold,
+            snooze_minutes=config.snooze_minutes,
+            digest_mode=config.digest_mode,
+            digest_interval_minutes=config.digest_interval_minutes,
+            respect_desktop_dnd=config.respect_desktop_dnd,
+            muted_services=config.muted_services,
         )
 
     def _wire_signals(self) -> None:

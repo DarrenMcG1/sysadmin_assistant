@@ -8,6 +8,7 @@ from sysadmin.config import (
     AppConfig,
     FileOrganiserConfig,
     HealthGradeBands,
+    MonitoredService,
     SchedulesConfig,
     ServiceConfig,
 )
@@ -61,3 +62,15 @@ class TestLiftedMagicNumbers:
         assert cfg.schedules.briefing_hour == 6
         assert cfg.agents.project_organiser.grade_bands.healthy_min == 80
         assert cfg.agents.file_organiser.reclaimable_milestones_mb[0] == 1024
+
+
+class TestMonitoredServiceMute:
+    """Session 16 — per-service mute flag for expected-down services."""
+
+    def test_mute_defaults_to_false(self):
+        svc = MonitoredService(name="redis", type="tcp")
+        assert svc.mute is False
+
+    def test_mute_can_be_set(self):
+        svc = MonitoredService(name="redis", type="tcp", mute=True)
+        assert svc.mute is True

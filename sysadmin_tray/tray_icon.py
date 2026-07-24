@@ -10,18 +10,23 @@ from PyQt6.QtWidgets import QMenu, QSystemTrayIcon, QWidget
 
 from sysadmin_tray.models import (
     ICON_COLOURS,
-    AlertInfo,
     AlertsResponse,
     IconState,
     StatusResponse,
     compute_icon_state,
+)
+from sysadmin_tray.notifications import (
+    SEVERITY_LEVELS,
+    NotificationPolicy,
+    NotificationRequest,
+    NotificationSettings,
 )
 
 logger = logging.getLogger(__name__)
 
 _ICON_SIZE = QSize(22, 22)
 
-_SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "critical": 2}
+_SEVERITY_LEVELS: dict[str, int] = SEVERITY_LEVELS
 
 _SEVERITY_ICONS: dict[str, QSystemTrayIcon.MessageIcon] = {
     "info": QSystemTrayIcon.MessageIcon.Information,
@@ -86,10 +91,9 @@ class TrayIcon(QSystemTrayIcon):
         self._last_alerts: AlertsResponse | None = None
         self._backend_reachable = False
 
-        # Notification state — dedup by content fingerprint, not DB ID
-        self._seen_fps: set[str] = set()
-        self._show_notifications = True
-        self._min_severity_level = _SEVERITY_LEVELS["critical"]
+        # Notification state — the policy owns the shared per-fingerprint
+        # bookkeeping (dedup, flap cooldown, escalation, snooze, digest)
+        self._policy = NotificationPolicy()
         self._notifier = None  # Optional DbusNotifier, set via set_notifier()
 
         # DND state (synced from backend)
@@ -199,81 +203,124 @@ class TrayIcon(QSystemTrayIcon):
 
     # ── Notification logic ──────────────────────────────────────────
 
+    @property
+    def notification_policy(self) -> NotificationPolicy:
+        """The shared notification state machine (see notifications.py)."""
+        return self._policy
+
     def set_notification_config(
-        self, *, enabled: bool = True, min_severity: str = "critical"
+        self,
+        *,
+        enabled: bool = True,
+        min_severity: str = "critical",
+        flap_cooldown_minutes: int | None = None,
+        escalation_polls: int | None = None,
+        coalesce_threshold: int | None = None,
+        snooze_minutes: int | None = None,
+        digest_mode: bool | None = None,
+        digest_interval_minutes: int | None = None,
+        respect_desktop_dnd: bool | None = None,
+        muted_services: list[str] | None = None,
     ) -> None:
-        """Configure desktop notification behaviour."""
-        self._show_notifications = enabled
-        self._min_severity_level = _SEVERITY_LEVELS.get(
-            min_severity, _SEVERITY_LEVELS["critical"]
-        )
+        """Configure desktop notification behaviour.
+
+        ``enabled`` / ``min_severity`` keep their original meaning; the
+        remaining keyword arguments are the Session 16 "calm" tunables and
+        leave the current value alone when omitted.
+        """
+        settings = self._policy.settings
+        settings.enabled = enabled
+        settings.min_severity = min_severity
+
+        overrides: dict[str, object | None] = {
+            "flap_cooldown_minutes": flap_cooldown_minutes,
+            "escalation_polls": escalation_polls,
+            "coalesce_threshold": coalesce_threshold,
+            "snooze_minutes": snooze_minutes,
+            "digest_mode": digest_mode,
+            "digest_interval_minutes": digest_interval_minutes,
+            "respect_desktop_dnd": respect_desktop_dnd,
+        }
+        for name, value in overrides.items():
+            if value is not None:
+                setattr(settings, name, value)
+        if muted_services is not None:
+            settings.muted_services = tuple(muted_services)
+
+    def apply_notification_settings(self, settings: NotificationSettings) -> None:
+        """Replace the policy settings wholesale (used by the app wiring)."""
+        self._policy.settings = settings
 
     def set_notifier(self, notifier) -> None:
         """Inject a DbusNotifier for rich desktop notifications."""
         self._notifier = notifier
 
+        snooze_signal = getattr(notifier, "snooze_requested", None)
+        if snooze_signal is not None and hasattr(snooze_signal, "connect"):
+            snooze_signal.connect(self._on_snooze_requested)
+
+    def _on_snooze_requested(self, snooze_key: str) -> None:
+        """User clicked "Snooze" on a notification."""
+        self._policy.snooze(snooze_key)
+
     def _check_new_alerts(self, alerts: AlertsResponse) -> None:
-        """Fire desktop notifications for unseen alerts above threshold.
+        """Hand the poll to the notification policy and dispatch its verdict.
 
-        Deduplicates by content fingerprint (severity:title) rather than
-        DB row ID, since the backend may create multiple rows for the
-        same logical alert across scan cycles.  Fingerprints are cleared
-        when an alert is no longer active so we re-notify on recurrence.
+        Every suppression rule (fingerprint dedup, flap cooldown, snooze,
+        mute, DND, digest mode) lives in :class:`NotificationPolicy`; the
+        tray only supplies the current DND context and sends whatever the
+        policy hands back.
         """
-        if not self._show_notifications:
-            return
+        for request in self._policy.evaluate(
+            alerts,
+            dnd_active=self._dnd_active,
+            dnd_allow_critical=self._dnd_allow_critical,
+            desktop_inhibited=self._desktop_inhibited(),
+        ):
+            self._dispatch(request)
 
-        active_fps: set[str] = set()
-        for alert in alerts.alerts:
-            if alert.acknowledged:
-                continue
+    def _desktop_inhibited(self) -> bool:
+        """Ask the notification daemon whether the desktop is in DND.
 
-            fp = f"{alert.severity}:{alert.title}"
-            active_fps.add(fp)
+        Complementary to the app's own DND: this is KDE's Do Not Disturb
+        (or an active screen share).  Anything other than a literal
+        ``True`` — no notifier, no D-Bus, property unsupported — counts as
+        "not inhibited" so notifications keep working.
+        """
+        if self._notifier is None:
+            return False
+        query = getattr(self._notifier, "desktop_inhibited", None)
+        if query is None:
+            return False
+        return query() is True
 
-            alert_level = _SEVERITY_LEVELS.get(alert.severity, 0)
-            if alert_level < self._min_severity_level:
-                continue
-            if fp in self._seen_fps:
-                continue
-
-            # DND gate — suppress unless critical breaks through
-            if self._dnd_active:
-                if not (alert.severity == "critical" and self._dnd_allow_critical):
-                    continue
-
-            self._seen_fps.add(fp)
-            self._show_desktop_notification(alert)
-
-        # Clear fingerprints for resolved alerts so we re-notify on recurrence
-        self._seen_fps &= active_fps
-
-    def _show_desktop_notification(self, alert: AlertInfo) -> None:
-        """Show a native desktop notification, preferring D-Bus when available."""
-        severity_upper = alert.severity.upper()
-        title = f"{severity_upper}: sysadmin"
-        body = alert.title
-        if alert.message:
-            body = f"{alert.title}\n{alert.message}"
-
+    def _dispatch(self, request: NotificationRequest) -> None:
+        """Send one notification, preferring D-Bus when available."""
         if self._notifier is not None:
             self._notifier.notify(
-                title, body, alert.severity,
-                service_name=alert.service_name,
+                request.summary, request.body, request.severity,
+                service_name=request.service_name,
+                fingerprint=request.fingerprint,
+                transient=request.transient,
+                snooze_key=request.snooze_key,
             )
         else:
             icon = _SEVERITY_ICONS.get(
-                alert.severity, QSystemTrayIcon.MessageIcon.Information
+                request.severity, QSystemTrayIcon.MessageIcon.Information
             )
-            timeout = _SEVERITY_TIMEOUT_MS.get(alert.severity, 5000)
-            self.showMessage(title, body, icon, timeout)
+            timeout = _SEVERITY_TIMEOUT_MS.get(request.severity, 5000)
+            self.showMessage(request.summary, request.body, icon, timeout)
 
-        logger.debug("notification: [%s] %s", alert.severity, alert.title)
+        logger.debug("notification: [%s] %s", request.severity, request.summary)
 
     def on_service_action_complete(
         self, service_name: str, action: str, success: bool, message: str
     ) -> None:
-        """Show a toast notification for a completed service action."""
+        """Show a toast notification for a completed service action.
+
+        These are pure feedback — marked ``transient`` so they never land
+        in KDE's notification history.
+        """
         if success:
             title = "Service Action"
             body = f"{service_name} {action}ed successfully"
@@ -284,7 +331,11 @@ class TrayIcon(QSystemTrayIcon):
             severity = "warning"
 
         if self._notifier is not None:
-            self._notifier.notify(title, body, severity)
+            self._notifier.notify(
+                title, body, severity,
+                fingerprint=f"service-action:{service_name}",
+                transient=True,
+            )
         else:
             icon = _SEVERITY_ICONS.get(
                 severity, QSystemTrayIcon.MessageIcon.Information
