@@ -115,3 +115,58 @@ class TestSession17Defaults:
         assert cfg.self_monitor.stall_grace_multiplier == 3.0
         assert cfg.events.heartbeat_seconds == 20
         assert cfg.agents.sysadmin.anomaly.z_threshold == 3.0
+
+
+class TestSession18Defaults:
+    """File-action settings and the interval-job first-run delay."""
+
+    def test_file_actions_defaults(self):
+        cfg = AppConfig().agents.file_organiser.actions
+        assert cfg.enabled is True
+        assert cfg.downloads_dir == "Downloads"
+        assert cfg.archive_dir == "Archives/Downloads"
+        assert cfg.duplicate_strategy == "newest"
+        assert cfg.pdf_book_min_pages == 50
+        assert cfg.max_operations == 200
+        # Permanent deletion is opt-in — trashing is the default
+        assert cfg.allow_permanent_delete is False
+        assert cfg.trash_dir is None
+
+    def test_default_category_folders(self):
+        folders = AppConfig().agents.file_organiser.actions.category_folders
+        assert folders == {
+            "images": "Pictures",
+            "videos": "Videos",
+            "documents": "Documents",
+            "audio": "Music",
+            "books": "Books",
+            "archives": "Archives",
+        }
+
+    def test_category_mapping_is_config_driven(self):
+        """Retargeting a category needs no code change."""
+        cfg = FileOrganiserConfig.model_validate(
+            {"actions": {"category_folders": {"images": "Media/Photos"}}}
+        )
+        assert cfg.actions.category_folders["images"] == "Media/Photos"
+
+    def test_agent_first_run_delay_default(self):
+        assert SchedulesConfig().agent_first_run_delay_seconds == 60
+
+    def test_repo_config_yaml_declares_the_action_settings(self):
+        from pathlib import Path
+
+        import yaml
+
+        raw = yaml.safe_load(
+            (Path(__file__).parent.parent / "config.yaml").read_text()
+        )
+        cfg = AppConfig.model_validate(raw)
+
+        actions = cfg.agents.file_organiser.actions
+        assert actions.enabled is True
+        assert actions.allow_permanent_delete is False
+        assert actions.category_folders["books"] == "Books"
+        assert actions.category_folders["archives"] == "Archives"
+        assert ".py" in actions.code_extensions
+        assert cfg.schedules.agent_first_run_delay_seconds == 60

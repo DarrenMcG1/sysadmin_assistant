@@ -7,6 +7,7 @@ for executing async agent code from scheduler threads.
 import asyncio
 import logging
 from collections.abc import Callable, Coroutine
+from datetime import datetime, timedelta
 from typing import Any
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
@@ -44,9 +45,17 @@ class Scheduler:
         seconds: int | None = None,
         minutes: int | None = None,
         hours: int | None = None,
+        first_run_delay_seconds: int | None = None,
         **kwargs: Any,
     ) -> None:
-        """Schedule an async function to run at a fixed interval."""
+        """Schedule an async function to run at a fixed interval.
+
+        ``first_run_delay_seconds`` brings the *first* execution forward to
+        ``now + delay``.  Without it APScheduler schedules the first fire at
+        ``now + interval``, so a job whose interval is longer than the
+        service's uptime between restarts never runs — pass it for any
+        hours-scale job.
+        """
         trigger_kwargs: dict[str, Any] = {}
         if seconds is not None:
             trigger_kwargs["seconds"] = seconds
@@ -54,6 +63,11 @@ class Scheduler:
             trigger_kwargs["minutes"] = minutes
         if hours is not None:
             trigger_kwargs["hours"] = hours
+
+        if first_run_delay_seconds is not None:
+            kwargs["next_run_time"] = datetime.now() + timedelta(
+                seconds=first_run_delay_seconds
+            )
 
         self._scheduler.add_job(
             _run_async,
@@ -101,15 +115,20 @@ class Scheduler:
             logger.info("scheduler_shutdown")
 
     def get_jobs(self) -> list[dict[str, Any]]:
-        """Return info about all scheduled jobs."""
-        return [
-            {
+        """Return info about all scheduled jobs.
+
+        ``next_run_time`` is absent on jobs added before the scheduler
+        starts (APScheduler leaves them pending), hence the ``getattr``.
+        """
+        jobs = []
+        for job in self._scheduler.get_jobs():
+            next_run = getattr(job, "next_run_time", None)
+            jobs.append({
                 "id": job.id,
-                "next_run": str(job.next_run_time) if job.next_run_time else None,
+                "next_run": str(next_run) if next_run else None,
                 "trigger": str(job.trigger),
-            }
-            for job in self._scheduler.get_jobs()
-        ]
+            })
+        return jobs
 
     @staticmethod
     def _on_job_error(event) -> None:

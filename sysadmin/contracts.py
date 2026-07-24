@@ -434,3 +434,52 @@ class ScanAllResponse(Contract):
     """POST /api/sysadmin/scan-all."""
 
     status: str = ""
+
+
+# ── /api/files/* mutating actions ────────────────────────────────────
+#
+# Shared manifest shape for organise / duplicate cleanup / downloads
+# cleanup.  Every one of those endpoints is a dry run unless the request
+# body sets ``confirm: true``, and the response is the same either way:
+# ``dry_run`` says whether the manifest was carried out, and each
+# operation's ``status`` says what happened to it.
+
+
+class FileOperation(Contract):
+    """One file the action would touch (or did touch)."""
+
+    action: str = ""  # "move" | "trash" | "delete"
+    source: str = ""
+    destination: str | None = None
+    category: str | None = None
+    size_bytes: int = 0
+    status: str = "planned"  # "planned" | "done" | "skipped" | "failed"
+    reason: str | None = None
+    # Duplicate cleanup only — the copy deliberately retained
+    keep_path: str | None = None
+
+
+class FileFlag(Contract):
+    """A file surfaced for human review but never acted on automatically."""
+
+    path: str = ""
+    kind: str = ""  # "loose_code"
+    reason: str = ""
+    size_bytes: int = 0
+
+
+class FileActionResponse(Contract):
+    """POST /api/files/organise and /api/files/clean/{duplicates,downloads}."""
+
+    operation: str = ""  # "organise" | "clean_duplicates" | "clean_downloads"
+    dry_run: bool = True
+    scan_root: str = ""
+    operations: list[FileOperation] = Field(default_factory=list)
+    flagged: list[FileFlag] = Field(default_factory=list)
+    planned_count: int = 0
+    done_count: int = 0
+    skipped_count: int = 0
+    failed_count: int = 0
+    total_bytes: int = 0
+    truncated: bool = False  # manifest hit actions.max_operations
+    message: str = ""
