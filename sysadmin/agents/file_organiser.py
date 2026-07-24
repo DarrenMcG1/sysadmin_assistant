@@ -36,7 +36,7 @@ FILE_CATEGORIES = {
     "documents": {
         "extensions": {
             ".pdf", ".docx", ".doc", ".odt", ".xlsx", ".xls", ".pptx",
-            ".ppt", ".txt", ".rtf", ".epub",
+            ".ppt", ".txt", ".rtf",
         },
         "expected_dirs": {"Documents", "Docs"},
     },
@@ -44,12 +44,43 @@ FILE_CATEGORIES = {
         "extensions": {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".aac", ".wma"},
         "expected_dirs": {"Music", "Audio"},
     },
+    # ``.pdf`` stays under "documents" for scanning; the organise action
+    # re-routes individual PDFs to "books" via a filename/page-count
+    # heuristic (see sysadmin/services/file_actions.classify_pdf).
+    "books": {
+        "extensions": {".epub", ".mobi", ".azw", ".azw3", ".cbz", ".cbr", ".fb2"},
+        "expected_dirs": {"Books", "Library", "ebooks", "Calibre Library"},
+    },
+    "archives": {
+        # ``.tar.gz`` and friends match on their final suffix
+        "extensions": {
+            ".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".zst",
+        },
+        "expected_dirs": {"Archives", "Backups"},
+    },
 }
 
 STALE_PROJECT_DIRS = {
     "node_modules", "__pycache__", ".venv", "venv", "target", "build",
     "dist", ".tox", ".pytest_cache",
 }
+
+
+def file_hash(filepath: Path, size: int) -> str | None:
+    """MD5 of the first 1MB plus the file size — fast duplicate fingerprint.
+
+    Shared with the duplicate-cleanup action
+    (``sysadmin.services.file_actions``) so both group files identically.
+    """
+    try:
+        hasher = hashlib.md5()
+        hasher.update(str(size).encode())
+        with open(filepath, "rb") as f:
+            chunk = f.read(1024 * 1024)
+            hasher.update(chunk)
+        return hasher.hexdigest()
+    except (PermissionError, OSError):
+        return None
 
 
 class FileOrganiserAgent(BaseAgent):
@@ -251,15 +282,7 @@ class FileOrganiserAgent(BaseAgent):
 
     def _get_file_hash(self, filepath: Path, size: int) -> str | None:
         """MD5 of first 1MB + file size for fast duplicate detection."""
-        try:
-            hasher = hashlib.md5()
-            hasher.update(str(size).encode())
-            with open(filepath, "rb") as f:
-                chunk = f.read(1024 * 1024)
-                hasher.update(chunk)
-            return hasher.hexdigest()
-        except (PermissionError, OSError):
-            return None
+        return file_hash(filepath, size)
 
     def _find_similar_folders(
         self,

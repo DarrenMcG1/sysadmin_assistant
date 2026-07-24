@@ -7,13 +7,16 @@ from datetime import timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.auth import require_auth
-from sysadmin.config import get_config
+from sysadmin.config import AppConfig, FileOrganiserConfig, get_config
+from sysadmin.contracts import FileActionResponse
 from sysadmin.database import get_db_session
 from sysadmin.models.filesystem_audit import FilesystemAudit
+from sysadmin.services import file_actions
 
 logger = logging.getLogger(__name__)
 
@@ -353,3 +356,184 @@ async def clean_stale_caches(
         "removed_empty_dirs": len(removed["empty_dirs"]),
         "details": removed,
     }
+
+
+# ---------------------------------------------------------------------------
+# Mutating file actions — organise, de-duplicate, clean downloads
+#
+# All three follow the same contract:
+#   * POST only, behind ``require_auth``
+#   * **dry run unless the body sets ``confirm: true``** — the default
+#     response is a manifest of what *would* happen and nothing is touched
+#   * the same manifest shape comes back either way (``FileActionResponse``),
+#     with per-operation source → destination, byte counts and a status
+#   * every path is confined to the agent's ``scan_root`` and "delete"
+#     means "move to the XDG trash"
+# The safety rules themselves live in ``sysadmin.services.file_actions``.
+# ---------------------------------------------------------------------------
+
+
+class ActionRequest(BaseModel):
+    """Base body — nothing happens on the filesystem without ``confirm``."""
+
+    confirm: bool = Field(
+        default=False,
+        description="Set true to actually perform the operation. Default is a dry run.",
+    )
+
+
+class OrganiseRequest(ActionRequest):
+    categories: list[str] | None = Field(
+        default=None,
+        description=(
+            "Limit to these categories: images, videos, documents, audio, "
+            "books, archives."
+        ),
+    )
+
+
+class DuplicateCleanupRequest(ActionRequest):
+    strategy: str | None = Field(
+        default=None,
+        description="Which copy to retain: 'newest' or 'largest'. Defaults to config.",
+    )
+    force_delete: bool = Field(
+        default=False,
+        description=(
+            "Permit an unrecoverable delete when the trash is unusable. Also "
+            "requires actions.allow_permanent_delete in config."
+        ),
+    )
+
+
+class DownloadsCleanupRequest(ActionRequest):
+    mode: str = Field(
+        default="archive", description="'archive' (move) or 'trash' (send to XDG trash)."
+    )
+    older_than_days: int | None = Field(
+        default=None,
+        description=(
+            "Age threshold in days. Defaults to "
+            "agents.file_organiser.downloads_stale_days."
+        ),
+    )
+    force_delete: bool = Field(default=False)
+
+
+def _action_config() -> tuple[AppConfig, FileOrganiserConfig]:
+    """Fetch config, refusing every action when the kill switch is off."""
+    config = get_config()
+    organiser = config.agents.file_organiser
+    if not organiser.actions.enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="File actions are disabled (agents.file_organiser.actions.enabled)",
+        )
+    return config, organiser
+
+
+def _excluded_roots(config: AppConfig) -> list[Path]:
+    """Trees the actions must never descend into.
+
+    The user's project directories are off limits: files there belong to
+    work in progress, not to a tidy-up.
+    """
+    roots: list[Path] = []
+    projects_root = config.agents.project_organiser.projects_root
+    if projects_root:
+        roots.append(Path(projects_root).expanduser().resolve())
+    return roots
+
+
+async def _run_action(planner, organiser, confirm: bool, force_delete: bool = False):
+    """Plan in a worker thread, then execute only when confirmed."""
+    try:
+        plan = await asyncio.to_thread(planner)
+        if not confirm:
+            plan.message = (
+                f"{plan.message + ' — ' if plan.message else ''}"
+                "dry run: nothing was changed. Send confirm=true to apply."
+            ).strip()
+            return plan
+        return await asyncio.to_thread(
+            file_actions.execute_plan,
+            plan,
+            organiser,
+            force_delete,
+            Path(organiser.scan_root).expanduser(),
+        )
+    except file_actions.FileActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post(
+    "/organise",
+    dependencies=[Depends(require_auth)],
+    response_model=FileActionResponse,
+)
+async def organise_files(body: OrganiseRequest | None = None) -> FileActionResponse:
+    """Relocate misplaced files into their configured category folders.
+
+    Dry run by default. Loose code files in the scan root are reported
+    under ``flagged`` and never moved; destination collisions are skipped
+    rather than overwritten.
+    """
+    body = body or OrganiseRequest()
+    config, organiser = _action_config()
+    excluded = _excluded_roots(config)
+    return await _run_action(
+        lambda: file_actions.plan_organise(organiser, excluded, body.categories),
+        organiser,
+        body.confirm,
+    )
+
+
+@router.post(
+    "/clean/duplicates",
+    dependencies=[Depends(require_auth)],
+    response_model=FileActionResponse,
+)
+async def clean_duplicates(
+    body: DuplicateCleanupRequest | None = None,
+) -> FileActionResponse:
+    """Remove duplicate copies, always retaining exactly one per group.
+
+    Dry run by default. Removals go to the XDG trash so they stay
+    recoverable.
+    """
+    body = body or DuplicateCleanupRequest()
+    config, organiser = _action_config()
+    excluded = _excluded_roots(config)
+    return await _run_action(
+        lambda: file_actions.plan_duplicate_cleanup(organiser, excluded, body.strategy),
+        organiser,
+        body.confirm,
+        body.force_delete,
+    )
+
+
+@router.post(
+    "/clean/downloads",
+    dependencies=[Depends(require_auth)],
+    response_model=FileActionResponse,
+)
+async def clean_downloads(
+    body: DownloadsCleanupRequest | None = None,
+) -> FileActionResponse:
+    """Archive or trash downloads older than a configurable age.
+
+    Dry run by default. ``mode=archive`` moves files into the configured
+    archive folder preserving their relative path; ``mode=trash`` sends
+    them to the XDG trash.
+    """
+    body = body or DownloadsCleanupRequest()
+    config, organiser = _action_config()
+    excluded = _excluded_roots(config)
+    return await _run_action(
+        lambda: file_actions.plan_downloads_cleanup(
+            organiser, excluded, body.mode, body.older_than_days
+        ),
+        organiser,
+        body.confirm,
+        body.force_delete,
+    )

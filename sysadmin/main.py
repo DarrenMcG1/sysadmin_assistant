@@ -107,12 +107,18 @@ async def lifespan(app: FastAPI):
             seconds=agents_config.sysadmin.health_check_interval_seconds,
         )
 
+    # Hours-scale agents also get an explicit first run shortly after
+    # startup. IntervalTrigger alone puts the first fire at now + interval,
+    # so the 24h file organiser never ran on a box that restarts daily.
+    first_run_delay = config.schedules.agent_first_run_delay_seconds
+
     # Project Organiser: project scanning
     if agents_config.project_organiser.enabled:
         scheduler.schedule_interval(
             job_id="project_organiser_scan",
             func=project_organiser_agent.run,
             hours=agents_config.project_organiser.scan_interval_hours,
+            first_run_delay_seconds=first_run_delay,
         )
 
     # File Organiser: filesystem audit
@@ -121,6 +127,7 @@ async def lifespan(app: FastAPI):
             job_id="file_organiser_scan",
             func=file_organiser_agent.run,
             hours=agents_config.file_organiser.scan_interval_hours,
+            first_run_delay_seconds=first_run_delay,
         )
 
     # Log Aggregator: log polling

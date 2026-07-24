@@ -20,6 +20,9 @@ PROTECTED_ROUTES = [
     "/api/projects/scan",
     "/api/files/scan",
     "/api/files/clean/stale-caches",
+    "/api/files/organise",
+    "/api/files/clean/duplicates",
+    "/api/files/clean/downloads",
 ]
 
 

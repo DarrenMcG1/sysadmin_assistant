@@ -146,6 +146,54 @@ class ProjectOrganiserConfig(BaseModel):
     grade_bands: HealthGradeBands = Field(default_factory=HealthGradeBands)
 
 
+class FileActionsConfig(BaseModel):
+    """Mutating filesystem actions (``POST /api/files/organise``, ``/clean/*``).
+
+    Every action defaults to a dry run; the caller must send ``confirm: true``
+    to touch the filesystem.  These settings bound *what* an action may do:
+
+    - ``enabled`` — master kill switch; false → every action endpoint 409s
+    - ``category_folders`` — category → destination folder, relative to the
+      agent's ``scan_root`` (absolute paths are also accepted).  Retarget a
+      category here rather than in code.
+    - ``allow_permanent_delete`` — defence in depth.  Deletion normally means
+      "move to the XDG trash".  When the trash is unusable (e.g. the file is
+      on another filesystem) the operation is *skipped* unless the request
+      sets ``force_delete: true`` **and** this flag is true.
+    - ``max_operations`` — hard cap on the size of a single action's manifest.
+    """
+
+    enabled: bool = True
+    category_folders: dict[str, str] = Field(
+        default_factory=lambda: {
+            "images": "Pictures",
+            "videos": "Videos",
+            "documents": "Documents",
+            "audio": "Music",
+            "books": "Books",
+            "archives": "Archives",
+        }
+    )
+    downloads_dir: str = "Downloads"
+    archive_dir: str = "Archives/Downloads"
+    duplicate_strategy: str = "newest"  # newest | largest
+    # PDF routing heuristic — see sysadmin/services/file_actions.py
+    pdf_book_min_pages: int = 50
+    pdf_book_min_mb: float = 5.0
+    max_operations: int = 200
+    allow_permanent_delete: bool = False
+    # Freedesktop trash location. Empty → <scan_root>/.local/share/Trash,
+    # the spec default for $XDG_DATA_HOME/Trash (no env vars are read).
+    trash_dir: str | None = None
+    # Code files sitting loose in the scan root are *flagged only*, never moved
+    code_extensions: list[str] = Field(
+        default_factory=lambda: [
+            ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".c", ".cpp",
+            ".h", ".hpp", ".java", ".rb", ".sh", ".php", ".lua", ".sql",
+        ]
+    )
+
+
 class FileOrganiserConfig(BaseModel):
     enabled: bool = True
     scan_interval_hours: int = 24
@@ -166,6 +214,7 @@ class FileOrganiserConfig(BaseModel):
             ".mozilla", ".steam", "node_modules", "__pycache__", ".venv",
         ]
     )
+    actions: FileActionsConfig = Field(default_factory=FileActionsConfig)
 
 
 class LogSource(BaseModel):
@@ -297,6 +346,12 @@ class SchedulesConfig(BaseModel):
     briefing_minute: int = 0
     retention_hour: int = 3
     retention_minute: int = 0
+    # APScheduler's IntervalTrigger puts the *first* fire at now + interval,
+    # so an agent whose interval exceeds the service's uptime between
+    # restarts never runs at all (this is why file_organiser, at 24h, had
+    # zero recorded runs). Hours-scale agents therefore get an explicit
+    # first run shortly after startup.
+    agent_first_run_delay_seconds: int = 60
 
 
 class SelfMonitorConfig(BaseModel):

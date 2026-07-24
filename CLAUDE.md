@@ -192,6 +192,14 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/logs/stats` | `LogStatsResponse` | response_model |
 | `GET /api/projects/overview` | `ProjectOverviewResponse` | response_model |
 | `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model |
+| `POST /api/files/organise` | `FileActionResponse` (+`FileOperation`, `FileFlag`) | response_model |
+| `POST /api/files/clean/duplicates` | `FileActionResponse` (+`FileOperation`) | response_model |
+| `POST /api/files/clean/downloads` | `FileActionResponse` (+`FileOperation`) | response_model |
+
+The three `/api/files/*` action endpoints share one manifest shape and are
+**dry runs unless the request body sets `confirm: true`** — see
+`sysadmin/services/file_actions.py` for the safety rules (root confinement,
+no symlink following, no overwriting, trash instead of delete).
 
 Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 `sysadmin_tray/models.py`.

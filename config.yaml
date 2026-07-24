@@ -74,6 +74,11 @@ schedules:
   briefing_minute: 0
   retention_hour: 3     # data retention purge
   retention_minute: 0
+  # APScheduler schedules an interval job's FIRST run at now + interval, so
+  # an agent whose interval is longer than the uptime between restarts never
+  # fires (this is why file_organiser, at 24h, had zero recorded runs).
+  # Hours-scale agents get an explicit first run this many seconds after start.
+  agent_first_run_delay_seconds: 60
 
 # Self-monitoring — /api/sysadmin/self reads agent_runs and the SysAdmin agent
 # alerts when an agent silently stops running.
@@ -172,6 +177,56 @@ agents:
       - node_modules
       - __pycache__
       - .venv
+
+    # Mutating file actions — POST /api/files/organise and /api/files/clean/*.
+    # These MOVE and DELETE real files, so every endpoint is a dry run unless
+    # the request body sets `confirm: true`, is bearer-token protected, is
+    # confined to scan_root, never follows symlinks, never enters .git /
+    # node_modules / dotdirs / the projects root, never overwrites an
+    # existing destination, and "delete" means "move to the XDG trash".
+    actions:
+      enabled: true
+      # category → destination folder (relative to scan_root, or absolute).
+      # Retarget a category here rather than in code.
+      category_folders:
+        images: Pictures
+        videos: Videos
+        documents: Documents
+        audio: Music
+        books: Books
+        archives: Archives
+      downloads_dir: Downloads
+      archive_dir: Archives/Downloads   # where `mode: archive` files land
+      duplicate_strategy: newest        # newest | largest — which copy survives
+      # PDFs route to Books/ only on positive evidence (filename markers or a
+      # cheaply-read page count); otherwise they go to Documents/.
+      pdf_book_min_pages: 50
+      pdf_book_min_mb: 5.0
+      max_operations: 200               # hard cap per action manifest
+      # Last-resort permanent deletion when the trash is unusable (e.g. the
+      # file is on another filesystem). Requires force_delete in the request
+      # AS WELL as this flag. Leave false — trashing is reversible.
+      allow_permanent_delete: false
+      # trash_dir:                      # default <scan_root>/.local/share/Trash
+      # Loose code files in the scan root are FLAGGED for review, never moved
+      code_extensions:
+        - .py
+        - .js
+        - .ts
+        - .tsx
+        - .jsx
+        - .go
+        - .rs
+        - .c
+        - .cpp
+        - .h
+        - .hpp
+        - .java
+        - .rb
+        - .sh
+        - .php
+        - .lua
+        - .sql
 
   log_aggregator:
     enabled: true
