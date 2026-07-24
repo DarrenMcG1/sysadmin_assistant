@@ -14,7 +14,7 @@ from starlette.responses import Response
 logger = logging.getLogger("sysadmin.access")
 
 # Paths excluded from access logging (high-frequency polling endpoints)
-_EXCLUDED_PATHS = frozenset({"/api/health"})
+_EXCLUDED_PATHS = frozenset({"/health"})
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):

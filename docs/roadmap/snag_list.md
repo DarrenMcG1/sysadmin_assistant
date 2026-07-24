@@ -10,31 +10,33 @@
 
 ## Open Issues
 
-_From codebase review 2026-07-24. Fix session: 11 (bugs) in tasks.md; Session 10 items resolved 2026-07-24._
+_From codebase review 2026-07-24. Session 10 and Session 11 items resolved 2026-07-24._
 
-- [P1] SNAG-API-001: Alert ack returns HTTP 200 with malformed body for missing alerts (2026-07-24)
-  - **Symptom**: `POST /api/sysadmin/alerts/{id}/ack` on a nonexistent alert returns 200 with body `[{"error": "Alert not found"}, 404]`; callers checking for 404 never see it
-  - **Cause**: Flask-style tuple return at sysadmin/routers/sysadmin.py:294 — FastAPI serialises the tuple as JSON
-  - **Fix**: `raise HTTPException(status_code=404, ...)`; add a missing-alert test case
-
-- [P1] SNAG-API-002: Access-log middleware never excludes the real health endpoint (2026-07-24)
-  - **Symptom**: Every tray `/health` poll (every few seconds) logged at INFO — the exact noise the exclusion was built to prevent
-  - **Cause**: `_EXCLUDED_PATHS` has `/api/health` (middleware.py:17) but health router mounts at `/health`; test_logging.py uses a throwaway route so the mismatch is invisible
-  - **Fix**: Exclude `/health` (or mount health under `/api`); test against the real router
-
-- [P1] SNAG-API-003: Two endpoints block the event loop with sync psutil calls (2026-07-24)
-  - **Symptom**: All concurrent requests stall — ≥1s freeze on `POST /api/sysadmin/scan-all` (`cpu_percent(interval=1)` via `asyncio.create_task` on the main loop), variable stall on `GET /api/sysadmin/ports`
-  - **Cause**: Missing `asyncio.to_thread` — exceptions to the convention followed elsewhere
-  - **Fix**: Wrap `get_port_usage()` and `_take_resource_snapshot` in `asyncio.to_thread`
-
-- [P1] SNAG-TRAY-005: Malformed API responses silently freeze tray on stale data (2026-07-24)
-  - **Symptom**: Non-JSON body (proxy error page, truncated response) or payload shape change → tray shows stale data indefinitely with no disconnected indication
-  - **Cause**: client.py catches only `httpx.HTTPError`/`TimeoutException`/`OSError`; `resp.json()` raises `JSONDecodeError` and `**kwargs` dataclass construction in models.py raises `TypeError`, both uncaught
-  - **Fix**: Catch `ValueError`/`TypeError` (emit `connection_lost`); convert fragile `from_dict`s to defensive `.get()` style
+_No open issues._
 
 ---
 
 ## Fixed Issues
+
+- [P1] SNAG-API-001: Alert ack returns HTTP 200 with malformed body for missing alerts — **Fixed 2026-07-24**
+  - **Symptom**: `POST /api/sysadmin/alerts/{id}/ack` on a nonexistent alert returned 200 with body `[{"error": "Alert not found"}, 404]`; callers checking for 404 never saw it
+  - **Cause**: Flask-style tuple return in sysadmin/routers/sysadmin.py — FastAPI serialises the tuple as JSON
+  - **Fix**: `raise HTTPException(status_code=404, detail="Alert not found")`; grep found no other tuple-return patterns; missing-alert 404 test added in tests/test_routers.py (Session 11)
+
+- [P1] SNAG-API-002: Access-log middleware never excludes the real health endpoint — **Fixed 2026-07-24**
+  - **Symptom**: Every tray `/health` poll (every few seconds) logged at INFO — the exact noise the exclusion was built to prevent
+  - **Cause**: `_EXCLUDED_PATHS` had `/api/health` (middleware.py) but health router mounts at `/health`; test_logging.py used a throwaway route so the mismatch was invisible
+  - **Fix**: Exclusion changed to `/health`; test_logging.py now mounts the real health router and asserts a 200 from it (Session 11)
+
+- [P1] SNAG-API-003: Two endpoints block the event loop with sync psutil calls — **Fixed 2026-07-24**
+  - **Symptom**: All concurrent requests stalled — ≥1s freeze on `POST /api/sysadmin/scan-all` (`cpu_percent(interval=1)` via `asyncio.create_task` on the main loop), variable stall on `GET /api/sysadmin/ports`
+  - **Cause**: Missing `asyncio.to_thread` — exceptions to the convention followed elsewhere
+  - **Fix**: `/ports` handler wraps `get_port_usage()` in `asyncio.to_thread`; `_take_resource_snapshot` moves blocking collection into `_collect_resource_metrics` run via `to_thread` (correct on both scheduler and manual scan-all paths); off-loop assertion tests added (Session 11)
+
+- [P1] SNAG-TRAY-005: Malformed API responses silently freeze tray on stale data — **Fixed 2026-07-24**
+  - **Symptom**: Non-JSON body (proxy error page, truncated response) or payload shape change → tray showed stale data indefinitely with no disconnected indication
+  - **Cause**: client.py caught only `httpx.HTTPError`/`TimeoutException`/`OSError`; `resp.json()` raises `JSONDecodeError` and `**kwargs` dataclass construction in models.py raises `TypeError`, both uncaught
+  - **Fix**: Fetch paths also catch `ValueError`/`TypeError` and mark connection lost; all `**kwargs` `from_dict`s converted to defensive `.get()` style with defaults; malformed-JSON and field-skew tests added (Session 11 — shared Pydantic contracts follow in Session 13)
 
 - [P1] SNAG-TRAY-004: StatsPopup unreachable after dashboard cutover but still live — **Fixed 2026-07-24**
   - **Symptom**: Tray click opens dashboard; compact popup could never be shown, yet processed every poll update and kept a global Qt event filter installed for the app's lifetime

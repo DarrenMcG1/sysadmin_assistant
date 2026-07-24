@@ -90,12 +90,17 @@ class TestRequestLoggingMiddleware:
 
     @pytest.fixture
     async def app_with_middleware(self):
-        """Minimal FastAPI app with the request logging middleware."""
+        """Minimal FastAPI app with the request logging middleware.
+
+        Mounts the REAL health router so the excluded path in the
+        middleware is tested against the actual mount point (SNAG-API-002).
+        """
         from contextlib import asynccontextmanager
 
         from fastapi import FastAPI
 
         from sysadmin.middleware import RequestLoggingMiddleware
+        from sysadmin.routers.health import router as health_router
 
         @asynccontextmanager
         async def noop_lifespan(app):
@@ -103,10 +108,7 @@ class TestRequestLoggingMiddleware:
 
         app = FastAPI(lifespan=noop_lifespan)
         app.add_middleware(RequestLoggingMiddleware)
-
-        @app.get("/api/health")
-        async def health():
-            return {"status": "ok"}
+        app.include_router(health_router)
 
         @app.get("/api/sysadmin/status")
         async def status():
@@ -137,7 +139,10 @@ class TestRequestLoggingMiddleware:
 
     async def test_excludes_health_endpoint(self, client):
         with patch("sysadmin.middleware.logger") as mock_logger:
-            await client.get("/api/health")
+            resp = await client.get("/health")
+            # The real router must answer here — a 404 would mean we are
+            # testing an exclusion for a path that doesn't exist
+            assert resp.status_code == 200
             mock_logger.info.assert_not_called()
 
     async def test_logs_post_requests(self, client):

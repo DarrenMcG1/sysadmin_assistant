@@ -6,6 +6,12 @@ Architecture:
       Qt signals that the tray icon and dashboard connect to.
     - ``QTimer`` instances on the main thread trigger polls at configured
       intervals; the actual HTTP work runs off-thread so the UI never blocks.
+
+Error handling:
+    Fetch paths catch ``ValueError``/``TypeError`` alongside the transport
+    errors so a non-JSON body or an unexpected payload shape marks the
+    connection lost instead of silently freezing on stale data
+    (SNAG-TRAY-005).
 """
 
 from __future__ import annotations
@@ -71,7 +77,7 @@ class ApiWorker(QObject):
             status = StatusResponse.from_dict(resp.json())
             self._on_connected()
             self.status_ready.emit(status)
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("status fetch failed: %s", exc)
             self._on_disconnected()
 
@@ -85,7 +91,7 @@ class ApiWorker(QObject):
             resources = ResourceResponse.from_dict(resp.json())
             self._on_connected()
             self.resources_ready.emit(resources)
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("resource fetch failed: %s", exc)
             self._on_disconnected()
 
@@ -102,7 +108,7 @@ class ApiWorker(QObject):
             alerts = AlertsResponse.from_dict(resp.json())
             self._on_connected()
             self.alerts_ready.emit(alerts)
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("alerts fetch failed: %s", exc)
             self._on_disconnected()
 
@@ -113,7 +119,7 @@ class ApiWorker(QObject):
             resp = self._client.post(f"{self._api_url}/api/sysadmin/scan-all")
             resp.raise_for_status()
             self.scan_complete.emit(True, "All scans triggered")
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             self.scan_complete.emit(False, str(exc))
 
     @pyqtSlot(str, str)
@@ -128,7 +134,7 @@ class ApiWorker(QObject):
             self.service_action_complete.emit(
                 service_name, action, data.get("success", False), data.get("message", "")
             )
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             self.service_action_complete.emit(service_name, action, False, str(exc))
 
     @pyqtSlot(str)
@@ -140,7 +146,7 @@ class ApiWorker(QObject):
             )
             resp.raise_for_status()
             self.alert_acknowledged.emit(alert_id, True, "acknowledged")
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             self.alert_acknowledged.emit(alert_id, False, str(exc))
 
     @pyqtSlot(int)
@@ -154,7 +160,7 @@ class ApiWorker(QObject):
             resp.raise_for_status()
             history = ResourceHistoryResponse.from_dict(resp.json())
             self.resource_history_ready.emit(history)
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("resource history fetch failed: %s", exc)
 
     @pyqtSlot(int, str, str)
@@ -172,7 +178,7 @@ class ApiWorker(QObject):
             resp.raise_for_status()
             logs = LogsResponse.from_dict(resp.json())
             self.logs_ready.emit(logs)
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("logs fetch failed: %s", exc)
 
     @pyqtSlot()
@@ -183,7 +189,7 @@ class ApiWorker(QObject):
             resp.raise_for_status()
             stats = LogStatsResponse.from_dict(resp.json())
             self.log_stats_ready.emit(stats)
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("log stats fetch failed: %s", exc)
 
     @pyqtSlot()
@@ -194,7 +200,7 @@ class ApiWorker(QObject):
             resp.raise_for_status()
             projects = ManagedProjectsResponse.from_dict(resp.json())
             self.managed_projects_ready.emit(projects)
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("managed projects fetch failed: %s", exc)
 
     @pyqtSlot()
@@ -205,7 +211,7 @@ class ApiWorker(QObject):
             resp.raise_for_status()
             overview = ProjectOverviewResponse.from_dict(resp.json())
             self.project_overview_ready.emit(overview)
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("project overview fetch failed: %s", exc)
 
     @pyqtSlot(str)
@@ -218,7 +224,7 @@ class ApiWorker(QObject):
             resp.raise_for_status()
             detail = ServiceDetailInfo.from_dict(resp.json())
             self.service_detail_ready.emit(service_name, detail)
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("service detail fetch failed for %s: %s", service_name, exc)
 
     @pyqtSlot()
@@ -228,7 +234,7 @@ class ApiWorker(QObject):
             resp = self._client.get(f"{self._api_url}/api/sysadmin/dnd")
             resp.raise_for_status()
             self.dnd_status_ready.emit(resp.json())
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("dnd status fetch failed: %s", exc)
 
     @pyqtSlot(object)
@@ -241,7 +247,7 @@ class ApiWorker(QObject):
             )
             resp.raise_for_status()
             self.dnd_status_ready.emit(resp.json())
-        except (httpx.HTTPError, httpx.TimeoutException, OSError) as exc:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("dnd toggle failed: %s", exc)
 
     # ── Connection state tracking ────────────────────────────────────

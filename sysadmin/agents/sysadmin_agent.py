@@ -274,8 +274,13 @@ class SysAdminAgent(BaseAgent):
 
     # --- Resource monitoring ---
 
-    async def _take_resource_snapshot(self, config: AppConfig) -> ResourceSnapshot:
-        """Collect current system resource metrics including GPU."""
+    @staticmethod
+    def _collect_resource_metrics() -> tuple[float, Any, Any, tuple, dict]:
+        """Blocking psutil metric collection — run via asyncio.to_thread.
+
+        ``cpu_percent(interval=1)`` sleeps for a full second, so this must
+        never run directly on an event loop (SNAG-API-003).
+        """
         cpu = psutil.cpu_percent(interval=1)
         mem = psutil.virtual_memory()
         swap = psutil.swap_memory()
@@ -294,6 +299,14 @@ class SysAdminAgent(BaseAgent):
                 }
             except (PermissionError, OSError):
                 continue
+
+        return cpu, mem, swap, load, disk_usage
+
+    async def _take_resource_snapshot(self, config: AppConfig) -> ResourceSnapshot:
+        """Collect current system resource metrics including GPU."""
+        cpu, mem, swap, load, disk_usage = await asyncio.to_thread(
+            self._collect_resource_metrics
+        )
 
         # GPU usage (AMD via rocm-smi / sysfs)
         try:

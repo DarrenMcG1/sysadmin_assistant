@@ -52,7 +52,16 @@ class StatusResponse:
     @classmethod
     def from_dict(cls, data: dict) -> StatusResponse:
         services = [
-            ServiceStatus(**svc) for svc in data.get("services", [])
+            ServiceStatus(
+                name=svc.get("name", ""),
+                status=svc.get("status", "unknown"),
+                response_time_ms=svc.get("response_time_ms"),
+                details=svc.get("details"),
+                checked_at=svc.get("checked_at"),
+                systemd_unit=svc.get("systemd_unit"),
+                controllable=svc.get("controllable", True),
+            )
+            for svc in data.get("services", [])
         ]
         return cls(services=services, all_healthy=data.get("all_healthy", True))
 
@@ -238,7 +247,14 @@ class ResourceHistoryResponse:
     @classmethod
     def from_dict(cls, data: dict) -> ResourceHistoryResponse:
         snapshots = [
-            ResourceHistorySnapshot(**s) for s in data.get("snapshots", [])
+            ResourceHistorySnapshot(
+                cpu_percent=s.get("cpu_percent"),
+                ram_percent=s.get("ram_percent"),
+                load_avg_1m=s.get("load_avg_1m"),
+                disk_usage=s.get("disk_usage"),
+                recorded_at=s.get("recorded_at"),
+            )
+            for s in data.get("snapshots", [])
         ]
         return cls(
             period_hours=data.get("period_hours", 24),
@@ -318,7 +334,20 @@ class ProjectOverviewResponse:
     @classmethod
     def from_dict(cls, data: dict) -> ProjectOverviewResponse:
         projects = [
-            ProjectOverviewEntry(**p) for p in data.get("projects", [])
+            ProjectOverviewEntry(
+                name=p.get("name", ""),
+                health_score=p.get("health_score", 0),
+                grade=p.get("grade", ""),
+                last_commit_at=p.get("last_commit_at"),
+                branch_count=p.get("branch_count", 0),
+                stale_branch_count=p.get("stale_branch_count", 0),
+                todo_count=p.get("todo_count", 0),
+                has_readme=p.get("has_readme", False),
+                has_claude_md=p.get("has_claude_md", False),
+                total_size_mb=p.get("total_size_mb", 0.0),
+                scanned_at=p.get("scanned_at"),
+            )
+            for p in data.get("projects", [])
         ]
         return cls(projects=projects, count=data.get("count", len(projects)))
 
@@ -355,10 +384,22 @@ class ManagedProjectsResponse:
         projects = []
         for p in data.get("projects", []):
             services = [
-                ManagedServiceInfo(**s) for s in p.get("services", [])
+                ManagedServiceInfo(
+                    name=s.get("name", ""),
+                    status=s.get("status", "unknown"),
+                    response_time_ms=s.get("response_time_ms"),
+                )
+                for s in p.get("services", [])
             ]
             health_raw = p.get("project_health")
-            health = ProjectHealthInfo(**health_raw) if health_raw else None
+            health = (
+                ProjectHealthInfo(
+                    health_score=health_raw.get("health_score", 0),
+                    scanned_at=health_raw.get("scanned_at"),
+                )
+                if health_raw
+                else None
+            )
             projects.append(ManagedProjectInfo(
                 name=p.get("name", ""),
                 path=p.get("path", ""),

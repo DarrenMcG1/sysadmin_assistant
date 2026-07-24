@@ -166,3 +166,82 @@ class TestAlertsResponse:
         alerts = AlertsResponse.from_dict({"alerts": [], "count": 0})
         assert alerts.count == 0
         assert alerts.critical_count == 0
+
+
+class TestDefensiveParsing:
+    """from_dict must tolerate extra and missing fields (SNAG-TRAY-005).
+
+    The backend may add fields before the tray is updated (or vice versa);
+    parsing must not crash on either direction of skew.
+    """
+
+    def test_status_extra_fields_ignored(self):
+        data = {
+            "services": [
+                {"name": "pg", "status": "ok", "brand_new_field": 42},
+            ],
+            "all_healthy": True,
+            "api_version": "2.0",
+        }
+        status = StatusResponse.from_dict(data)
+        assert status.services[0].name == "pg"
+        assert status.services[0].status == "ok"
+
+    def test_status_missing_fields_defaulted(self):
+        status = StatusResponse.from_dict({"services": [{}]})
+        svc = status.services[0]
+        assert svc.name == ""
+        assert svc.status == "unknown"
+        assert svc.response_time_ms is None
+        assert svc.controllable is True
+
+    def test_resource_history_extra_and_missing_fields(self):
+        from sysadmin_tray.models import ResourceHistoryResponse
+
+        data = {
+            "period_hours": 6,
+            "count": 2,
+            "snapshots": [
+                {"cpu_percent": 10.0, "surprise_field": True},
+                {},
+            ],
+        }
+        history = ResourceHistoryResponse.from_dict(data)
+        assert history.snapshots[0].cpu_percent == 10.0
+        assert history.snapshots[1].cpu_percent is None
+
+    def test_project_overview_extra_and_missing_fields(self):
+        from sysadmin_tray.models import ProjectOverviewResponse
+
+        data = {
+            "projects": [
+                {"name": "pa", "health_score": 90, "new_metric": 1.5},
+                {},
+            ],
+        }
+        overview = ProjectOverviewResponse.from_dict(data)
+        assert overview.projects[0].name == "pa"
+        assert overview.projects[0].health_score == 90
+        assert overview.projects[1].name == ""
+        assert overview.count == 2
+
+    def test_managed_projects_extra_and_missing_fields(self):
+        from sysadmin_tray.models import ManagedProjectsResponse
+
+        data = {
+            "projects": [
+                {
+                    "name": "pa",
+                    "path": "/home/x/pa",
+                    "services": [{"name": "api", "status": "ok", "extra": 1}],
+                    "project_health": {"health_score": 80, "extra": "y"},
+                },
+                {"services": [{}]},
+            ],
+        }
+        managed = ManagedProjectsResponse.from_dict(data)
+        assert managed.projects[0].services[0].name == "api"
+        assert managed.projects[0].project_health.health_score == 80
+        assert managed.projects[1].name == ""
+        assert managed.projects[1].services[0].status == "unknown"
+        assert managed.projects[1].project_health is None

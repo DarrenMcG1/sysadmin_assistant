@@ -1,5 +1,6 @@
 """SysAdmin API endpoints — service status, resources, alerts, ports."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
@@ -291,7 +292,7 @@ async def acknowledge_alert(
     alert = result.scalar_one_or_none()
 
     if not alert:
-        return {"error": "Alert not found"}, 404
+        raise HTTPException(status_code=404, detail="Alert not found")
 
     alert.acknowledged = True
     alert.acknowledged_at = datetime.now(UTC)
@@ -329,5 +330,5 @@ async def toggle_dnd(body: DndToggleRequest):
 @router.get("/ports")
 async def get_ports():
     """Get current listening port usage map."""
-    ports = SysAdminAgent.get_port_usage()
+    ports = await asyncio.to_thread(SysAdminAgent.get_port_usage)
     return {"ports": ports, "count": len(ports)}

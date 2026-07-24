@@ -373,6 +373,40 @@ class TestResourceSnapshot:
         assert "card0" in snapshot.gpu_usage
         assert snapshot.gpu_usage["card0"]["gpu_percent"] == 30
 
+    @pytest.mark.asyncio
+    async def test_psutil_calls_run_off_event_loop(self, agent, mock_config):
+        """cpu_percent(interval=1) blocks for 1s — it must not run on the loop (SNAG-API-003)."""
+        import asyncio
+
+        def _cpu_percent_off_loop(interval=None):
+            # asyncio.to_thread runs the collection in a worker thread,
+            # where there is no running event loop.
+            with pytest.raises(RuntimeError):
+                asyncio.get_running_loop()
+            return 10.0
+
+        gpu_patch = patch(
+            "sysadmin.agents.sysadmin_agent.get_gpu_usage", new_callable=AsyncMock
+        )
+        with (
+            patch("sysadmin.agents.sysadmin_agent.psutil") as mock_psutil,
+            gpu_patch as mock_gpu,
+        ):
+            mock_psutil.cpu_percent.side_effect = _cpu_percent_off_loop
+            mock_psutil.virtual_memory.return_value = VMemory(
+                used=8 * 1024**3, total=16 * 1024**3, percent=50.0
+            )
+            mock_psutil.swap_memory.return_value = SwapInfo(
+                used=1024**3, total=4 * 1024**3, percent=25.0
+            )
+            mock_psutil.getloadavg.return_value = (1.0, 1.0, 1.0)
+            mock_psutil.disk_partitions.return_value = []
+            mock_gpu.return_value = {}
+
+            snapshot = await agent._take_resource_snapshot(mock_config)
+
+        assert snapshot.cpu_percent == 10.0
+
 
 # ---------------------------------------------------------------------------
 # Threshold alerting

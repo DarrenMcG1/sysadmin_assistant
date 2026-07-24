@@ -145,6 +145,82 @@ class TestApiWorkerTriggerScan:
         assert args[0] is False
 
 
+class TestMalformedResponses:
+    """Malformed API responses must mark the connection lost (SNAG-TRAY-005)."""
+
+    def test_non_json_body_emits_connection_lost(self):
+        """A proxy error page / truncated body raises JSONDecodeError."""
+        import json
+
+        worker = ApiWorker("http://test:8500")
+        worker._was_connected = True
+        worker.connection_lost = MagicMock()
+        worker.status_ready = MagicMock()
+
+        bad_resp = _mock_response(None)
+        bad_resp.json.side_effect = json.JSONDecodeError(
+            "Expecting value", "<html>502 Bad Gateway</html>", 0
+        )
+
+        with patch.object(worker, "_client") as mock_client:
+            mock_client.get.return_value = bad_resp
+            worker.fetch_status()
+
+        worker.connection_lost.emit.assert_called_once()
+        worker.status_ready.emit.assert_not_called()
+
+    def test_payload_shape_change_emits_connection_lost(self):
+        """A TypeError from parsing an unexpected payload shape is caught."""
+        worker = ApiWorker("http://test:8500")
+        worker._was_connected = True
+        worker.connection_lost = MagicMock()
+        worker.status_ready = MagicMock()
+
+        # "services" as a scalar → iterating raises TypeError
+        with patch.object(worker, "_client") as mock_client:
+            mock_client.get.side_effect = [
+                _mock_response(MOCK_HEALTH),                # /health
+                _mock_response({"services": 123}),          # bad shape
+            ]
+            worker.fetch_status()
+
+        worker.connection_lost.emit.assert_called_once()
+        worker.status_ready.emit.assert_not_called()
+
+    def test_non_numeric_value_emits_connection_lost(self):
+        """A ValueError from a payload value of the wrong type is caught."""
+        worker = ApiWorker("http://test:8500")
+        worker._was_connected = True
+        worker.connection_lost = MagicMock()
+        worker.resources_ready = MagicMock()
+
+        # cpu_percent as a non-numeric string → float() raises ValueError
+        with patch.object(worker, "_client") as mock_client:
+            mock_client.get.return_value = _mock_response(
+                {"cpu_percent": "not-a-number", "ram": {}, "disk": {}}
+            )
+            worker.fetch_resources()
+
+        worker.connection_lost.emit.assert_called_once()
+        worker.resources_ready.emit.assert_not_called()
+
+    def test_non_json_alerts_body_emits_connection_lost(self):
+        worker = ApiWorker("http://test:8500")
+        worker._was_connected = True
+        worker.connection_lost = MagicMock()
+        worker.alerts_ready = MagicMock()
+
+        bad_resp = _mock_response(None)
+        bad_resp.json.side_effect = ValueError("invalid json")
+
+        with patch.object(worker, "_client") as mock_client:
+            mock_client.get.return_value = bad_resp
+            worker.fetch_alerts()
+
+        worker.connection_lost.emit.assert_called_once()
+        worker.alerts_ready.emit.assert_not_called()
+
+
 class TestConnectionStateTracking:
     """Verify connection_lost/restored only fire on transitions."""
 

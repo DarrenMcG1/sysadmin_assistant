@@ -26,12 +26,12 @@ Pre-commit cleanup of the working-tree changes previously in flight.
 - ✅ Removed the unused `orphan_detection` config flag from config.py and config.yaml
 - ✅ Narrowed `get_repo` to catch `InvalidGitRepositoryError`/`NoSuchPathError` silently; unexpected errors now logged via `logger.warning`
 
-### Session 11: Verified bug fixes
+### Session 11: Verified bug fixes — ✅ Complete 2026-07-24
 Small mechanical fixes — SNAG-API-001/002/003, SNAG-TRAY-005.
-- Replace Flask-style tuple return with `HTTPException(404)` in alert ack (sysadmin/routers/sysadmin.py:294); grep for other `return {...}, <status>` patterns
-- Fix middleware health-check exclusion path `/api/health` → `/health` (sysadmin/middleware.py:17); make test_logging.py mount the real health router
-- Wrap blocking psutil calls in `asyncio.to_thread`: `/api/sysadmin/ports` handler and `_take_resource_snapshot`'s `cpu_percent(interval=1)` on the manual scan-all path
-- Tray: catch `ValueError`/`TypeError` around `resp.json()` + dataclass construction in client.py; convert fragile `**kwargs` `from_dict`s in models.py to defensive `.get()` style
+- ✅ Alert ack now raises `HTTPException(404)` instead of the Flask-style tuple return (sysadmin/routers/sysadmin.py); codebase grep found no other `return {...}, <status>` patterns; missing-alert 404 test added — SNAG-API-001
+- ✅ Middleware exclusion fixed `/api/health` → `/health` (health router mounts at `/health` in main.py); test_logging.py now mounts the REAL health router and asserts it answers 200 — SNAG-API-002
+- ✅ Blocking psutil calls wrapped in `asyncio.to_thread`: `/api/sysadmin/ports` handler, and `_take_resource_snapshot` split so blocking collection runs in `_collect_resource_metrics` via `to_thread` (safe on both scheduler-thread and manual scan-all paths); off-loop tests added — SNAG-API-003
+- ✅ Tray: fetch paths catch `ValueError`/`TypeError` (non-JSON body, payload shape drift) and mark connection lost; all `**kwargs` `from_dict`s in models.py converted to defensive `.get()` style; malformed-JSON and extra/missing-field tests added — SNAG-TRAY-005 (Session 13 replaces these dataclasses with shared contracts)
 
 ### Session 12: API authentication
 - Shared bearer token in config.yaml, checked via FastAPI dependency on state-changing endpoints (service actions, stale-cache clean, scans, dnd, alert ack)

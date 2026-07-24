@@ -227,6 +227,16 @@ class TestAlertAcknowledge:
         data = resp.json()
         assert data["status"] == "acknowledged"
 
+    @pytest.mark.asyncio
+    async def test_ack_missing_alert_returns_404(self, test_client, mock_session):
+        """Acking a nonexistent alert must be a real 404, not a 200 tuple (SNAG-API-001)."""
+        _mock_scalar_one_or_none(mock_session, None)
+
+        resp = await test_client.post(f"/api/sysadmin/alerts/{uuid.uuid4()}/ack")
+        assert resp.status_code == 404
+        data = resp.json()
+        assert data["detail"] == "Alert not found"
+
 
 # ---------------------------------------------------------------------------
 # /api/sysadmin/dnd
@@ -280,3 +290,24 @@ class TestPortsEndpoint:
         data = resp.json()
         assert data["count"] == 1
         assert data["ports"][0]["port"] == 5432
+
+    @pytest.mark.asyncio
+    async def test_get_ports_runs_off_event_loop(self, test_client):
+        """The blocking psutil scan must not run on the event loop (SNAG-API-003)."""
+        import asyncio
+
+        def _assert_no_loop():
+            # asyncio.to_thread runs this in a worker thread, where there
+            # is no running event loop; on the loop this would succeed.
+            with pytest.raises(RuntimeError):
+                asyncio.get_running_loop()
+            return []
+
+        with patch(
+            "sysadmin.routers.sysadmin.SysAdminAgent.get_port_usage",
+            side_effect=_assert_no_loop,
+        ):
+            resp = await test_client.get("/api/sysadmin/ports")
+
+        assert resp.status_code == 200
+        assert resp.json()["count"] == 0
