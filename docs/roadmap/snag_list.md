@@ -4,7 +4,7 @@
 >
 > **Related**: [tasks.md](tasks.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-07-24
+> **Last Updated**: 2026-08-04
 
 ---
 
@@ -21,6 +21,11 @@ _From codebase review 2026-07-24. Session 10 and Session 11 items resolved 2026-
 ---
 
 ## Fixed Issues
+
+- [P2] SNAG-CONF-001: `sports_analyser` projects.yaml entry silently dead — **Fixed 2026-08-04**
+  - **Symptom**: The managed entry never matched a scanned project, so its health endpoint and per-project settings were never applied — with no error anywhere
+  - **Cause**: `path` said `~/projects/sports_analyser` but the directory on disk is `SportsAnalyser`; on a case-sensitive filesystem the path matched nothing, and a managed entry whose path doesn't exist fails silently (same failure shape as the old PA `user:` scope bug)
+  - **Fix**: Corrected the path during the 2026-08-04 ~/projects reorganisation (Phase 2). Also removed the orphaned `PA-worktrees` entry (its empty directory was deleted). Follow-up idea: the config loader could warn when a managed project's `path` doesn't exist — that would have surfaced this immediately
 
 - [P1] SNAG-SYSD-001: `systemctl --user` checks always fail from the daemon — **Fixed 2026-07-24**
   - **Symptom**: `/api/sysadmin/status` reported `alfred-evaluate-timer` as **critical** with `details: {'unit': 'alfred-evaluate.timer', 'is_active': False}` while the timer was genuinely `active`/`waiting`. Every `user: true` systemd check was affected, so the Alfred backend/frontend units were equally suspect

@@ -1,4 +1,4 @@
- # Managed projects: endpoints to health-check, logs to aggregate, and
+# Managed projects: endpoints to health-check, logs to aggregate, and
 # optional per-project overrides.
 #
 # alert_threshold: health-score floor below which the project organiser
@@ -54,8 +54,11 @@ projects:
         unit: sysadmin.service
         severity_filter: warning
 
+  # Directory is CamelCase on disk; the old lowercase path matched nothing
+  # on a case-sensitive filesystem, so this entry was silently dead until
+  # 2026-08-04.
   - name: sports_analyser
-    path: /home/gaddi/projects/sports_analyser
+    path: /home/gaddi/projects/SportsAnalyser
     backend:
       url: http://localhost:8200/api/v1/health
       port: 8200
@@ -76,8 +79,4 @@ projects:
 
   - name: PersonalAssistant-auto
     path: /home/gaddi/projects/PersonalAssistant-auto
-    alert_threshold: 0
-
-  - name: PA-worktrees
-    path: /home/gaddi/projects/PA-worktrees
     alert_threshold: 0
