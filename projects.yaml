@@ -1,4 +1,4 @@
-# Managed projects: endpoints to health-check, logs to aggregate, and
+ # Managed projects: endpoints to health-check, logs to aggregate, and
 # optional per-project overrides.
 #
 # alert_threshold: health-score floor below which the project organiser
