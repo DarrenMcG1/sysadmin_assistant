@@ -28,9 +28,19 @@
       request: GPU busy); live fallback-path run against the real DB
       stored review #1. Real data exposed a `stale_branches` dict-shape
       bug in Session 22's recommendations detail — fixed + regression test
-- [ ] **Deferred: live inference test** — once the GPU is free, run
-      `POST /api/projects/review/generate` (or wait for Monday's cron)
-      and sanity-check the narrative quality / 250-word bound
+- [x] **Live inference test — done 2026-08-04 once the GPU freed up.**
+      Found and fixed two real issues the mocks could not see:
+      (1) the DB connection died mid-generation — this host sets
+      `idle_in_transaction_session_timeout=1min` and inference takes
+      longer, so `generate_review` now commits the read transaction
+      before calling the LLM; (2) the 3B model fabricated the numeric
+      "what moved" section two prompts running (unchanged scores narrated
+      as increases; recommendation points presented as movement), so the
+      narrative is now **hybrid**: `build_movers_section` computes the
+      numbers deterministically and the model only writes the qualitative
+      sections (decay / archive candidates / focus), where its output
+      verified accurate against the input data. Residual quirks are
+      cosmetic (markdown despite "plain text", ~250 words vs 150 asked)
 
 ### Session 22: Project-manager Tier 2 — recommendations engine — ✅ Complete 2026-08-04
 

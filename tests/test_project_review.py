@@ -19,6 +19,7 @@ from sysadmin.models.project_snapshot import ProjectSnapshot
 from sysadmin.services.project_review import (
     REVIEW_INSTRUCTIONS,
     build_fallback_narrative,
+    build_movers_section,
     build_review_prompt,
     gather_review_data,
     generate_review,
@@ -146,6 +147,17 @@ class TestPromptAndFallback:
         assert "old [archived] score 100 (delta n/a)" in prompt
         assert REVIEW_INSTRUCTIONS in prompt
 
+    def test_movers_section_lists_changed_projects_only(self):
+        assert build_movers_section(DATA) == "What moved: beta +5, alpha -15."
+
+    def test_movers_section_when_nothing_moved(self):
+        still = {**DATA, "projects": [
+            {**p, "delta": None} for p in DATA["projects"]
+        ]}
+        assert build_movers_section(still) == (
+            "What moved: no score changes this week."
+        )
+
     def test_fallback_is_deterministic_and_complete(self):
         narrative = build_fallback_narrative(DATA)
 
@@ -169,7 +181,9 @@ class TestGenerateReview:
         with patch(f"{MOD}.get_config", return_value=_config()):
             review = await generate_review(session, llm_client=_llm("A good week."))
 
-        assert review.narrative == "A good week."
+        # Hybrid assembly: deterministic movers line, then the LLM prose
+        assert review.narrative.startswith("What moved:")
+        assert review.narrative.endswith("A good week.")
         assert review.llm_used is True
         assert review.model_used  # from config.llm.model
         assert review.stats["totals"]["project_count"] == 1

@@ -37,13 +37,20 @@ REVIEW_SYSTEM_PROMPT = (
     "projects by name. Do not invent facts not present in the data."
 )
 
-# Keep the narrative request bounded — a 3B model rambles if unconstrained
+# The numeric "what moved" section is deliberately NOT the model's job.
+# Verified live 2026-08-04 (dria-agent-a-3b): asked for score changes it
+# enumerated every unchanged project as "increased from 95 to 95", and a
+# stricter prompt had it presenting recommendation points as movement.
+# Numbers are computed in build_movers_section; the model only gets the
+# qualitative sections, where being a language model actually helps.
 REVIEW_INSTRUCTIONS = (
-    "Write a short weekly review of this project portfolio in four brief "
-    "sections: 1) What moved this week (score changes); 2) What is "
-    "decaying and why; 3) Archive candidates, if any; 4) Suggested focus "
-    "for next week — at most three concrete actions, taken from the "
-    "recommendations listed. Keep it under 250 words. Plain text only."
+    "Score changes are reported separately — do NOT list, restate or "
+    "summarise scores or deltas. Write three brief plain-text sections: "
+    "1) Decaying: which active projects most need attention and why, "
+    "judging from their listed actions; 2) Archive candidates: projects "
+    "that look abandoned, if any; 3) Focus for next week: at most three "
+    "concrete actions, quoted from the listed actions. Hard limit 150 "
+    "words. No markdown, no headings, no lists of every project."
 )
 
 
@@ -161,6 +168,18 @@ def build_review_prompt(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def build_movers_section(data: dict[str, Any]) -> str:
+    """Deterministic 'what moved' line — numbers never come from the LLM."""
+    movers = [p for p in data["projects"] if p["delta"]]
+    if not movers:
+        return "What moved: no score changes this week."
+    moved = ", ".join(
+        f"{p['name']} {p['delta']:+d}"
+        for p in sorted(movers, key=lambda p: p["delta"], reverse=True)
+    )
+    return f"What moved: {moved}."
+
+
 def build_fallback_narrative(data: dict[str, Any]) -> str:
     """Deterministic digest used when llama-server is unavailable."""
     totals = data["totals"]
@@ -210,6 +229,12 @@ async def generate_review(
         logger.info("project_review_skipped_no_data")
         return None
 
+    # Inference can take minutes and Postgres may enforce
+    # idle_in_transaction_session_timeout (1min on this host, which
+    # killed the connection mid-generation when found live) — end the
+    # read transaction now; the INSERT below begins a fresh one.
+    await session.commit()
+
     config = get_config()
     narrative: str | None = None
 
@@ -226,7 +251,10 @@ async def generate_review(
             await client.shutdown()
 
     llm_used = narrative is not None
-    if not llm_used:
+    if llm_used:
+        # Numbers first, deterministically; the model's prose follows
+        narrative = f"{build_movers_section(data)}\n\n{narrative}"
+    else:
         narrative = build_fallback_narrative(data)
         logger.warning("project_review_llm_unavailable_used_fallback")
 
