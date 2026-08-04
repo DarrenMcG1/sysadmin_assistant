@@ -47,7 +47,9 @@ class ProjectOrganiserAgent(BaseAgent):
             return AgentResult()
 
         # Discover projects
-        projects = await asyncio.to_thread(self._discover_projects, projects_root)
+        projects = await asyncio.to_thread(
+            self._discover_projects, projects_root, agent_config.discovery_depth
+        )
 
         # Include explicit project paths from projects.yaml
         if config.projects and config.projects.projects:
@@ -61,18 +63,23 @@ class ProjectOrganiserAgent(BaseAgent):
         alerts_raised = 0
 
         for project_path in projects:
+            # Declared status wins; otherwise location decides: anything
+            # under <projects_root>/archive/ is archived, all else active.
+            status = config.projects.status_for(
+                project_path.name, str(project_path)
+            ) or self._infer_status(project_path, projects_root)
+
             snapshot = await asyncio.to_thread(
-                self._analyse_project, project_path, agent_config
+                self._analyse_project, project_path, agent_config, status
             )
             session.add(snapshot)
 
-            # Alert on low health scores.  The floor is the global
-            # agents.project_organiser.alert_threshold unless the project
-            # overrides it in projects.yaml.
-            threshold = config.projects.alert_threshold_for(
+            threshold = self._effective_threshold(
+                config.projects,
+                agent_config,
                 snapshot.project_name,
                 snapshot.project_path,
-                agent_config.alert_threshold,
+                status,
             )
             if snapshot.health_score < threshold:
                 await self.raise_alert(
@@ -93,26 +100,76 @@ class ProjectOrganiserAgent(BaseAgent):
             details={"projects_scanned": len(projects)},
         )
 
-    def _discover_projects(self, root: Path) -> list[Path]:
-        """Find directories that look like projects."""
-        projects = []
-        try:
-            for entry in sorted(root.iterdir()):
+    def _discover_projects(self, root: Path, max_depth: int = 2) -> list[Path]:
+        """Find directories that look like projects.
+
+        A directory with a project marker IS a project and is never
+        descended into (a repo's vendored sub-repos are its own business).
+        A directory without markers is a *category* (``apps/``, ``ml/``)
+        and is searched one level further, down to ``max_depth`` levels
+        below ``root``.
+        """
+        projects: list[Path] = []
+
+        def scan(directory: Path, remaining: int) -> None:
+            try:
+                entries = sorted(directory.iterdir())
+            except PermissionError:
+                logger.warning(
+                    "permission_denied_scanning_projects",
+                    extra={"path": str(directory)},
+                )
+                return
+            for entry in entries:
                 if not entry.is_dir() or entry.name.startswith("."):
                     continue
-                # Check for project markers
                 if any((entry / marker).exists() for marker in PROJECT_MARKERS):
                     projects.append(entry)
-        except PermissionError:
-            logger.warning("permission_denied_scanning_projects", extra={"path": str(root)})
+                elif remaining > 1:
+                    scan(entry, remaining - 1)
+
+        scan(root, max(max_depth, 1))
         return projects
 
+    @staticmethod
+    def _effective_threshold(
+        projects_config, agent_config, name: str, path: str, status: str
+    ) -> int:
+        """The health-score floor below which this project alerts.
+
+        Explicit projects.yaml ``alert_threshold`` > everything.  Failing
+        that, ``archived`` projects get 0 (retirement is not a defect) and
+        everyone else the global ``agents.project_organiser`` default.
+        """
+        if projects_config.has_explicit_alert_threshold(name, path):
+            return projects_config.alert_threshold_for(
+                name, path, agent_config.alert_threshold
+            )
+        return 0 if status == "archived" else agent_config.alert_threshold
+
+    @staticmethod
+    def _infer_status(project_path: Path, projects_root: Path) -> str:
+        """Status when projects.yaml doesn't declare one."""
+        try:
+            relative = project_path.resolve().relative_to(projects_root.resolve())
+        except ValueError:
+            return "active"
+        return "archived" if relative.parts and relative.parts[0] == "archive" else "active"
+
     def _analyse_project(
-        self, project_path: Path, agent_config
+        self, project_path: Path, agent_config, status: str = "active"
     ) -> ProjectSnapshot:
-        """Analyse a single project and build a snapshot."""
+        """Analyse a single project and build a snapshot.
+
+        ``status`` shapes the rubric: a ``dormant`` project is resting on
+        purpose, so commit staleness is recorded but not penalised; an
+        ``archived`` one additionally keeps its stale branches penalty-free
+        — git hygiene stops mattering at retirement.  Everything else
+        (docs, TODOs, locks) still counts, so the score keeps meaning
+        "how tidy is this directory" whatever the intent.
+        """
         name = project_path.name
-        findings: dict[str, Any] = {}
+        findings: dict[str, Any] = {"status": status}
         score = 100
 
         # Git analysis
@@ -132,19 +189,23 @@ class ProjectOrganiserAgent(BaseAgent):
 
             if stale_branches:
                 findings["stale_branches"] = stale_branches
-                # Cap deduction at 5 branches
-                score -= 5 * min(stale_branch_count, 5)
+                if status != "archived":
+                    # Cap deduction at 5 branches
+                    score -= 5 * min(stale_branch_count, 5)
 
-            # Staleness check
+            # Staleness check — recorded for every project, but only an
+            # *active* one is penalised for it
             if last_commit_at:
                 if last_commit_at.tzinfo is None:
                     last_commit_at = last_commit_at.replace(tzinfo=UTC)
                 days_since = (datetime.now(UTC) - last_commit_at).days
                 if days_since > 60:
-                    score -= 15
+                    if status == "active":
+                        score -= 15
                     findings["stale"] = f"No commits in {days_since} days"
                 elif days_since > 30:
-                    score -= 10
+                    if status == "active":
+                        score -= 10
                     findings["aging"] = f"No commits in {days_since} days"
 
             if not has_remote_flag:

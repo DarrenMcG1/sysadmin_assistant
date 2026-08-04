@@ -4,13 +4,34 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-07-24
+> **Last Updated**: 2026-08-04
 
 ---
 
 ## Active Sessions
 
-_No active sessions._
+### Session 21: Project-manager Tier 1 — deep discovery + project status — ✅ Complete 2026-08-04
+
+Follows the 2026-08-04 ~/projects reorganisation (category folders:
+`apps/`, `web/`, `ml/`, `games/`, `learning/`, `archive/`). The organiser's
+top-level-only discovery saw 3 projects where 24 exist, so:
+
+- [x] Depth-aware discovery: descend into category dirs (no project markers)
+      up to `discovery_depth` (default 2); never descend into a project
+- [x] `status: active | dormant | archived` on projects.yaml entries, with
+      `ProjectsConfig.status_for()` (same 3-key matching as alert_threshold)
+- [x] Infer `archived` for anything under `archive/`; explicit yaml wins
+- [x] Status-aware scoring: dormant/archived skip staleness penalties;
+      archived also skips branch penalties and never alerts unless an
+      explicit `alert_threshold` is set
+- [x] Record status in snapshot `findings` (DB column deferred — no migration)
+- [x] Tests alongside (28 new — suite 1023 → 1051); verified live: 24
+      projects discovered, all 8 archive/ residents inferred archived
+
+**Later tiers** (promote from ideas.md when ready): Tier 2 recommendations
+engine (per-project action list ranked by score recovery — should absorb
+the manual housekeeping follow-ups now parked in ideas.md), Tier 3 LLM
+weekly narrative review via the briefing service.
 
 ---
 

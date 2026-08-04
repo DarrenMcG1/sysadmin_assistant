@@ -409,3 +409,200 @@ class TestAlertThreshold:
         alert = await self._run(agent, tmp_path, score=45, managed=managed)
 
         assert alert.await_count == 0
+
+
+# ---------------------------------------------------------------------------
+# Depth-aware discovery + project status (Session 21)
+# ---------------------------------------------------------------------------
+
+
+class TestDepthDiscovery:
+    def test_finds_projects_inside_category_dirs(self, agent, tmp_path):
+        (tmp_path / "apps" / "my_app" / ".git").mkdir(parents=True)
+
+        result = agent._discover_projects(tmp_path)
+        assert result == [tmp_path / "apps" / "my_app"]
+
+    def test_top_level_and_nested_projects_found_together(self, agent, tmp_path):
+        (tmp_path / "solo" / ".git").mkdir(parents=True)
+        (tmp_path / "ml" / "model" / ".git").mkdir(parents=True)
+
+        result = agent._discover_projects(tmp_path)
+        assert set(result) == {tmp_path / "solo", tmp_path / "ml" / "model"}
+
+    def test_never_descends_into_a_project(self, agent, tmp_path):
+        """A repo's vendored sub-repos are its own business."""
+        outer = tmp_path / "outer"
+        (outer / ".git").mkdir(parents=True)
+        (outer / "vendored" / ".git").mkdir(parents=True)
+
+        result = agent._discover_projects(tmp_path)
+        assert result == [outer]
+
+    def test_depth_one_restores_old_behaviour(self, agent, tmp_path):
+        (tmp_path / "apps" / "my_app" / ".git").mkdir(parents=True)
+
+        assert agent._discover_projects(tmp_path, max_depth=1) == []
+
+    def test_depth_is_bounded(self, agent, tmp_path):
+        (tmp_path / "a" / "b" / "deep_proj" / ".git").mkdir(parents=True)
+
+        assert agent._discover_projects(tmp_path) == []
+        assert agent._discover_projects(tmp_path, max_depth=3) == [
+            tmp_path / "a" / "b" / "deep_proj"
+        ]
+
+    def test_hidden_dirs_not_descended(self, agent, tmp_path):
+        (tmp_path / ".backups" / "mirror" / ".git").mkdir(parents=True)
+
+        assert agent._discover_projects(tmp_path) == []
+
+
+class TestInferStatus:
+    def test_archive_children_are_archived(self, agent, tmp_path):
+        path = tmp_path / "archive" / "old_thing"
+        path.mkdir(parents=True)
+        assert agent._infer_status(path, tmp_path) == "archived"
+
+    def test_deeper_archive_paths_are_archived(self, agent, tmp_path):
+        path = tmp_path / "archive" / "coding-scraps" / "task-1"
+        path.mkdir(parents=True)
+        assert agent._infer_status(path, tmp_path) == "archived"
+
+    def test_everything_else_is_active(self, agent, tmp_path):
+        path = tmp_path / "apps" / "my_app"
+        path.mkdir(parents=True)
+        assert agent._infer_status(path, tmp_path) == "active"
+
+    def test_paths_outside_root_are_active(self, agent, tmp_path):
+        outside = tmp_path.parent / "elsewhere"
+        assert agent._infer_status(outside, tmp_path) == "active"
+
+
+class TestStatusScoring:
+    """dormant skips staleness; archived also skips branch hygiene."""
+
+    def test_dormant_skips_staleness_penalty(self, agent, agent_config, project_dir):
+        with TestAnalyseProject()._patch_git(last_commit_days_ago=90):
+            active = agent._analyse_project(project_dir, agent_config)
+            dormant = agent._analyse_project(project_dir, agent_config, "dormant")
+
+        assert active.health_score == dormant.health_score - 15
+        # The fact is still recorded — only the deduction is waived
+        assert "stale" in dormant.findings
+
+    def test_dormant_still_penalised_for_stale_branches(
+        self, agent, agent_config, project_dir
+    ):
+        with TestAnalyseProject()._patch_git(
+            last_commit_days_ago=1, stale_branches=["old-branch"]
+        ):
+            snapshot = agent._analyse_project(project_dir, agent_config, "dormant")
+
+        assert snapshot.health_score == 95
+        assert "stale_branches" in snapshot.findings
+
+    def test_archived_skips_staleness_and_branch_penalties(
+        self, agent, agent_config, project_dir
+    ):
+        with TestAnalyseProject()._patch_git(
+            last_commit_days_ago=90, stale_branches=["a", "b"]
+        ):
+            snapshot = agent._analyse_project(project_dir, agent_config, "archived")
+
+        assert snapshot.health_score == 100
+        assert "stale" in snapshot.findings
+        assert "stale_branches" in snapshot.findings
+
+    def test_archived_still_penalised_for_untidiness(
+        self, agent, agent_config, project_dir
+    ):
+        (project_dir / ".git" / "index.lock").write_text("")
+        with TestAnalyseProject()._patch_git(last_commit_days_ago=90):
+            snapshot = agent._analyse_project(project_dir, agent_config, "archived")
+
+        assert snapshot.health_score == 95
+        assert "stale_git_lock" in snapshot.findings
+
+    def test_status_recorded_in_findings(self, agent, agent_config, project_dir):
+        with TestAnalyseProject()._patch_git(last_commit_days_ago=1):
+            snapshot = agent._analyse_project(project_dir, agent_config)
+
+        assert snapshot.findings["status"] == "active"
+
+
+class TestEffectiveThreshold:
+    def _configs(self, managed=None, global_threshold=40):
+        from sysadmin.config import ProjectsConfig
+
+        return (
+            ProjectsConfig(projects=managed or []),
+            ProjectOrganiserConfig(alert_threshold=global_threshold),
+        )
+
+    def test_active_gets_the_global_default(self, agent):
+        projects, organiser = self._configs()
+        assert agent._effective_threshold(
+            projects, organiser, "demo", "/p/demo", "active"
+        ) == 40
+
+    def test_dormant_gets_the_global_default(self, agent):
+        projects, organiser = self._configs()
+        assert agent._effective_threshold(
+            projects, organiser, "demo", "/p/demo", "dormant"
+        ) == 40
+
+    def test_archived_suppresses_the_default(self, agent):
+        projects, organiser = self._configs()
+        assert agent._effective_threshold(
+            projects, organiser, "demo", "/p/demo", "archived"
+        ) == 0
+
+    def test_explicit_floor_beats_archived(self, agent, tmp_path):
+        from sysadmin.config import ManagedProject
+
+        managed = [
+            ManagedProject(name="demo", path=str(tmp_path), alert_threshold=50)
+        ]
+        projects, organiser = self._configs(managed)
+        assert agent._effective_threshold(
+            projects, organiser, "demo", str(tmp_path), "archived"
+        ) == 50
+
+
+class TestArchivedAlerts:
+    async def test_archived_location_never_alerts_by_default(self, agent, tmp_path):
+        """End-to-end: a rotten project under archive/ raises nothing."""
+        from sysadmin.config import (
+            AgentsConfig,
+            AppConfig,
+            ProjectsConfig,
+        )
+
+        project = tmp_path / "archive" / "old"
+        (project / ".git").mkdir(parents=True)
+
+        config = AppConfig(
+            agents=AgentsConfig(
+                project_organiser=ProjectOrganiserConfig(
+                    projects_root=str(tmp_path)
+                )
+            ),
+            projects=ProjectsConfig(projects=[]),
+        )
+        snapshot = MagicMock(
+            project_name="old", project_path=str(project), health_score=0, findings={}
+        )
+        session = MagicMock()
+
+        mod = "sysadmin.agents.project_organiser"
+        with (
+            patch(f"{mod}.get_config", return_value=config),
+            patch.object(agent, "_analyse_project", return_value=snapshot) as analyse,
+            patch.object(agent, "raise_alert", new=AsyncMock()) as alert,
+        ):
+            await agent._execute(session)
+
+        assert alert.await_count == 0
+        # And the inferred status reached the analyser
+        assert analyse.call_args[0][2] == "archived"

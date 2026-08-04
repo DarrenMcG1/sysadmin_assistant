@@ -12,6 +12,24 @@
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
 
+### Housekeeping follow-ups from the 2026-08-04 ~/projects reorganisation
+
+Parked here deliberately: the Tier 2 recommendations engine (see Session 21
+notes in tasks.md) should track exactly this kind of per-project action
+natively — when it lands, migrate these into it and delete this section.
+
+- **apps/oanIt vs apps/habitTracker** — habitTracker contains
+  `oanIt_Frontend`/`oanIt_backend` dirs; both trees have real content.
+  Needs a manual look to pick a canonical layout.
+- **apps/BudgetApp venv clutter** — carries both `.venv` and `.venv1`
+  (~290M, recreatable). Delete one/both and rebuild from requirements.
+- **Off-disk backups** — six repos have no remote (mirrors in
+  `~/projects/.backups/` are same-disk only): bsl-translator (archived),
+  BudgetApp, InvestingAssistant, Portfolio (archived), portfolionew,
+  sysadmin_assistant. Decide which get GitHub remotes.
+- **Config loader could warn on nonexistent managed paths** — would have
+  caught SNAG-CONF-001 immediately (also noted in snag_list.md).
+
 ### Rebuild the sysadmin web UI inside Alfred's frontend
 
 The web dashboard was built in PersonalAssistant and died with it (2026-07-24);

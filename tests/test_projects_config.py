@@ -480,3 +480,63 @@ def _yaml_load(raw: str):
     import yaml
 
     return yaml.safe_load(raw)
+
+
+# ── status field + status_for (Session 21) ───────────────────────
+
+
+class TestStatusFor:
+    def test_none_when_no_entry_matches(self):
+        config = ProjectsConfig(projects=[ManagedProject(name="other")])
+        assert config.status_for("demo", "/p/demo") is None
+
+    def test_none_when_entry_has_no_status(self):
+        config = ProjectsConfig(projects=[ManagedProject(name="demo")])
+        assert config.status_for("demo") is None
+
+    def test_matches_by_name(self):
+        config = ProjectsConfig(
+            projects=[ManagedProject(name="demo", status="dormant")]
+        )
+        assert config.status_for("demo") == "dormant"
+
+    def test_matches_by_path(self, tmp_path):
+        config = ProjectsConfig(
+            projects=[
+                ManagedProject(
+                    name="pretty-name", path=str(tmp_path), status="archived"
+                )
+            ]
+        )
+        assert config.status_for("ugly-dir-name", str(tmp_path)) == "archived"
+
+    def test_matches_by_path_basename(self):
+        config = ProjectsConfig(
+            projects=[
+                ManagedProject(
+                    name="pretty-name", path="/p/UglyDirName", status="dormant"
+                )
+            ]
+        )
+        assert config.status_for("UglyDirName") == "dormant"
+
+    def test_invalid_status_rejected(self):
+        import pytest
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            ManagedProject(name="demo", status="retired")
+
+    def test_has_explicit_alert_threshold(self):
+        with_floor = ProjectsConfig(
+            projects=[ManagedProject(name="demo", alert_threshold=0)]
+        )
+        without = ProjectsConfig(projects=[ManagedProject(name="demo")])
+
+        assert with_floor.has_explicit_alert_threshold("demo") is True
+        assert without.has_explicit_alert_threshold("demo") is False
+
+    def test_alert_threshold_for_default_unchanged(self):
+        """Regression: the Session 20 lookup still falls back to default."""
+        config = ProjectsConfig(projects=[ManagedProject(name="other")])
+        assert config.alert_threshold_for("demo", None, 40) == 40

@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -182,6 +183,13 @@ class ProjectOrganiserConfig(BaseModel):
     enabled: bool = True
     scan_interval_hours: int = 6
     projects_root: str = "/home/gaddi/projects"
+    # How deep discovery may look for project markers. 1 = the old
+    # behaviour (immediate children of projects_root only); 2 lets a
+    # *category* directory (one with no markers of its own, e.g. apps/)
+    # hold projects.  Directories that ARE projects are never descended
+    # into, whatever the depth — a repo's vendored sub-repos are its own
+    # business.
+    discovery_depth: int = 2
     stale_branch_days: int = 30
     track_todos: bool = True
     todo_patterns: list[str] = Field(
@@ -332,6 +340,13 @@ class ManagedProject(BaseModel):
     # ``agents.project_organiser.alert_threshold``.  A long-lived archive
     # can be given 0 (never alert) and a flagship project 70.
     alert_threshold: int | None = None
+    # Declared intent, which the organiser folds into scoring:
+    # ``dormant`` — deliberately resting, staleness is not a defect;
+    # ``archived`` — retired, git hygiene no longer matters and no alert
+    # is raised unless an explicit ``alert_threshold`` says otherwise.
+    # Absent → inferred: paths under <projects_root>/archive/ are
+    # ``archived``, everything else is ``active``.
+    status: Literal["active", "dormant", "archived"] | None = None
 
     def to_monitored_services(self) -> list[MonitoredService]:
         """Generate MonitoredService entries for health checking."""
@@ -377,13 +392,8 @@ class ProjectsConfig(BaseModel):
 
     projects: list[ManagedProject] = Field(default_factory=list)
 
-    def alert_threshold_for(
-        self,
-        name: str,
-        path: str | None = None,
-        default: int = 40,
-    ) -> int:
-        """The health-score alert floor for one scanned project.
+    def _setting_for(self, name: str, path: str | None, field: str):
+        """The value of ``field`` for one scanned project, or None.
 
         The scanner names a project after its *directory* while
         projects.yaml names it however the user likes
@@ -394,8 +404,8 @@ class ProjectsConfig(BaseModel):
         2. the managed project's ``name``,
         3. the basename of the managed project's ``path``.
 
-        Entries without an ``alert_threshold`` are ignored entirely, so a
-        projects.yaml written before this option existed keeps the global
+        Entries where ``field`` is unset are ignored entirely, so a
+        projects.yaml written before an option existed keeps the global
         default for every project.
         """
         resolved: str | None = None
@@ -405,29 +415,54 @@ class ProjectsConfig(BaseModel):
             except OSError:  # pragma: no cover - resolve() is non-strict
                 resolved = None
 
-        by_name: int | None = None
-        by_basename: int | None = None
+        by_name = None
+        by_basename = None
 
         for project in self.projects:
-            threshold = project.alert_threshold
-            if threshold is None:
+            value = getattr(project, field)
+            if value is None:
                 continue
             if resolved and project.path:
                 try:
                     if str(Path(project.path).expanduser().resolve()) == resolved:
-                        return threshold
+                        return value
                 except OSError:  # pragma: no cover
                     pass
             if by_name is None and project.name == name:
-                by_name = threshold
+                by_name = value
             if by_basename is None and project.path and Path(project.path).name == name:
-                by_basename = threshold
+                by_basename = value
 
-        if by_name is not None:
-            return by_name
-        if by_basename is not None:
-            return by_basename
-        return default
+        return by_name if by_name is not None else by_basename
+
+    def alert_threshold_for(
+        self,
+        name: str,
+        path: str | None = None,
+        default: int = 40,
+    ) -> int:
+        """The health-score alert floor for one scanned project."""
+        value = self._setting_for(name, path, "alert_threshold")
+        return default if value is None else value
+
+    def status_for(self, name: str, path: str | None = None) -> str | None:
+        """The declared status for one scanned project, or None.
+
+        None means projects.yaml says nothing — the caller decides how to
+        infer a status (the organiser treats paths under
+        ``<projects_root>/archive/`` as ``archived``, all else ``active``).
+        """
+        return self._setting_for(name, path, "status")
+
+    def has_explicit_alert_threshold(
+        self, name: str, path: str | None = None
+    ) -> bool:
+        """Whether projects.yaml pins an alert floor for this project.
+
+        Needed because ``archived`` suppresses the *default* floor but
+        must not override a floor the user set deliberately.
+        """
+        return self._setting_for(name, path, "alert_threshold") is not None
 
 
 class DndScheduleWindow(BaseModel):

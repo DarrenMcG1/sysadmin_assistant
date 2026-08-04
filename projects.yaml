@@ -68,15 +68,19 @@ projects:
 
   # --- Retired but retained -------------------------------------------
   # PersonalAssistant is dead (superseded by Alfred) but the repos are
-  # kept on disk. They stay listed so they remain visible in the
-  # dashboard and eligible for stale-branch pruning; `alert_threshold: 0`
-  # is a real floor, not an absent one, so their health score can decay
-  # freely without ever raising an alert. Do not add endpoints here —
-  # nothing is meant to be listening.
+  # kept on disk under archive/. They stay listed so they remain visible
+  # in the dashboard and eligible for stale-branch pruning.
+  #
+  # `status: archived` (Session 21) means git hygiene is no longer scored
+  # and no health alert fires unless an explicit alert_threshold is set.
+  # Anything under archive/ is inferred archived anyway — these are
+  # explicit as the worked example. `status: dormant` is the lighter
+  # touch: staleness unpenalised, everything else still scored.
+  # Do not add endpoints here — nothing is meant to be listening.
   - name: PersonalAssistant
     path: /home/gaddi/projects/archive/PersonalAssistant
-    alert_threshold: 0
+    status: archived
 
   - name: PersonalAssistant-auto
     path: /home/gaddi/projects/archive/PersonalAssistant-auto
-    alert_threshold: 0
+    status: archived
