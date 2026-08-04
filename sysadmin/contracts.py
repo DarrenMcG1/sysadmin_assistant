@@ -787,3 +787,63 @@ class BranchCleanupResponse(Contract):
     failed_count: int = 0
     truncated: bool = False  # the max_deletions cap bit
     message: str = ""
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Session 22 additions — recommendations engine
+#
+# Advice is *data*: each item mirrors one deduction in the organiser's
+# scorer, so ``points`` is the score recovered by acting on it, and
+# ``action`` names how (an endpoint to call or a config change to make).
+# Execution stays with the existing dry-run action endpoints.
+#
+# Keep this whole block together — it is appended, never interleaved.
+# ─────────────────────────────────────────────────────────────────────
+
+
+class RecommendationInfo(Contract):
+    """One actionable finding for a project.
+
+    ``severity`` is ``advice`` (points behind it) or ``risk`` (no score
+    impact but ranked first — e.g. no remote means no off-disk copy).
+    """
+
+    kind: str = ""  # risk | docs | config | hygiene | git | activity | todos
+    severity: str = "advice"
+    title: str = ""
+    detail: str = ""
+    points: int = 0
+    action: str = ""
+
+
+class ProjectRecommendationsResponse(Contract):
+    """GET /api/projects/{name}/recommendations."""
+
+    project: str = ""
+    status: str = "active"
+    health_score: int = 0
+    # Score if every recommendation were acted on (clamped to 100)
+    potential_score: int = 0
+    recommendations: list[RecommendationInfo] = Field(default_factory=list)
+    count: int = 0
+    scanned_at: str | None = None
+
+
+class PortfolioAction(RecommendationInfo):
+    """A recommendation tagged with the project it belongs to."""
+
+    project: str = ""
+    health_score: int = 0
+
+
+class PortfolioActionsResponse(Contract):
+    """GET /api/projects/actions — top housekeeping wins across projects.
+
+    Ranked risk-first then by recoverable points; ``count`` is what was
+    returned after ``limit``, ``total_available`` what existed before it.
+    """
+
+    actions: list[PortfolioAction] = Field(default_factory=list)
+    count: int = 0
+    total_available: int = 0
+    projects_with_actions: int = 0

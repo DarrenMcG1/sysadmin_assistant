@@ -310,3 +310,115 @@ class TestPortsEndpoint:
 
         assert resp.status_code == 200
         assert resp.json()["count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# /api/projects recommendations (Session 22)
+# ---------------------------------------------------------------------------
+
+
+def _make_project_snapshot(name, score, findings):
+    from sysadmin.models.project_snapshot import ProjectSnapshot
+
+    row = ProjectSnapshot(
+        project_name=name,
+        project_path=f"/projects/{name}",
+        health_score=score,
+        findings=findings,
+    )
+    row.id = uuid.uuid4()
+    row.scanned_at = datetime.now(UTC)
+    return row
+
+
+def _mock_scalars_first(mock_session, row):
+    result = MagicMock()
+    result.scalars.return_value.first.return_value = row
+    mock_session.execute = AsyncMock(return_value=result)
+
+
+class TestProjectRecommendations:
+    @pytest.mark.asyncio
+    async def test_recommendations_for_a_project(self, test_client, mock_session):
+        row = _make_project_snapshot(
+            "demo", 75, {"missing_readme": True, "stale": "No commits in 90 days"}
+        )
+        _mock_scalars_first(mock_session, row)
+
+        resp = await test_client.get("/api/projects/demo/recommendations")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert data["project"] == "demo"
+        assert data["health_score"] == 75
+        assert data["potential_score"] == 100
+        assert data["count"] == 2
+        assert data["recommendations"][0]["points"] == 15
+
+    @pytest.mark.asyncio
+    async def test_unknown_project_404s(self, test_client, mock_session):
+        _mock_scalars_first(mock_session, None)
+
+        resp = await test_client.get("/api/projects/nope/recommendations")
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_status_echoed_from_findings(self, test_client, mock_session):
+        row = _make_project_snapshot("old", 100, {"status": "archived"})
+        _mock_scalars_first(mock_session, row)
+
+        resp = await test_client.get("/api/projects/old/recommendations")
+        assert resp.json()["status"] == "archived"
+
+
+class TestPortfolioActions:
+    @pytest.mark.asyncio
+    async def test_ranked_across_projects(self, test_client, mock_session):
+        rows = [
+            _make_project_snapshot("tidy", 100, {}),
+            _make_project_snapshot("risky", 100, {"no_remote": True}),
+            _make_project_snapshot(
+                "messy", 70, {"missing_readme": True, "stale": "No commits in 90 days"}
+            ),
+        ]
+        _mock_scalars_all(mock_session, rows)
+
+        resp = await test_client.get("/api/projects/actions")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # Risk first, then points descending; tidy contributes nothing
+        assert data["actions"][0]["project"] == "risky"
+        assert data["actions"][0]["severity"] == "risk"
+        assert data["actions"][1]["points"] == 15
+        assert data["projects_with_actions"] == 2
+        assert data["count"] == data["total_available"] == 3
+
+    @pytest.mark.asyncio
+    async def test_limit_truncates_but_reports_total(self, test_client, mock_session):
+        rows = [
+            _make_project_snapshot(
+                "messy", 60,
+                {"missing_readme": True, "missing_claude_md": True,
+                 "stale_git_lock": True},
+            ),
+        ]
+        _mock_scalars_all(mock_session, rows)
+
+        resp = await test_client.get("/api/projects/actions?limit=2")
+        data = resp.json()
+
+        assert data["count"] == 2
+        assert data["total_available"] == 3
+        assert len(data["actions"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_actions_route_not_shadowed_by_name_route(
+        self, test_client, mock_session
+    ):
+        """Regression: /actions must not be captured as project 'actions'."""
+        _mock_scalars_all(mock_session, [])
+
+        resp = await test_client.get("/api/projects/actions")
+        assert resp.status_code == 200
+        assert resp.json()["actions"] == []

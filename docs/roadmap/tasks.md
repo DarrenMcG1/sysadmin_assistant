@@ -10,6 +10,25 @@
 
 ## Active Sessions
 
+### Session 22: Project-manager Tier 2 — recommendations engine — ✅ Complete 2026-08-04
+
+Advice as data, execution left to the existing dry-run endpoints:
+
+- [x] `sysadmin/services/recommendations.py` — pure findings → ranked
+      advice; every item mirrors one scorer deduction so `points` is the
+      exact score recovered; status-aware (waived deductions produce no
+      advice); `no_remote` surfaces as a 0-point `risk` ranked first
+- [x] `GET /api/projects/{name}/recommendations` — latest snapshot →
+      advice + `potential_score` (declared before `/{name}` capture-all)
+- [x] `GET /api/projects/actions` — portfolio-wide top wins, risk-first
+      then points, `limit` with `total_available` honesty
+- [x] Contracts `RecommendationInfo` / `ProjectRecommendationsResponse` /
+      `PortfolioAction(s)`, response_model-enforced, tray re-exports added
+- [x] 25 new tests incl. round-trips and the /actions-not-shadowed
+      regression — suite 1051 → 1076
+- [x] ideas.md housekeeping section migrated: missing-remote follow-up now
+      served natively by /actions; remaining items reframed as detector ideas
+
 ### Session 21: Project-manager Tier 1 — deep discovery + project status — ✅ Complete 2026-08-04
 
 Follows the 2026-08-04 ~/projects reorganisation (category folders:

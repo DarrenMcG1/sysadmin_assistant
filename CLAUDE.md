@@ -203,6 +203,8 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `POST /api/files/clean/duplicates` | `FileActionResponse` (+`FileOperation`) | response_model |
 | `POST /api/files/clean/downloads` | `FileActionResponse` (+`FileOperation`) | response_model |
 | `POST /api/projects/{name}/branches/prune` | `BranchCleanupResponse` (+`BranchInfo`) | response_model |
+| `GET /api/projects/{name}/recommendations` | `ProjectRecommendationsResponse` (+`RecommendationInfo`) | response_model |
+| `GET /api/projects/actions` | `PortfolioActionsResponse` (+`PortfolioAction`) | response_model |
 
 The three `/api/files/*` action endpoints share one manifest shape and are
 **dry runs unless the request body sets `confirm: true`** — see

@@ -153,3 +153,59 @@ class TestHistoryRoundTrip:
         assert parsed.period_hours == 6
         assert parsed.count == 1
         assert parsed.snapshots[0].cpu_percent == pytest.approx(10.0)
+
+
+class TestRecommendationsRoundTrip:
+    @pytest.mark.asyncio
+    async def test_recommendations_parse_through_tray_contract(
+        self, test_client, mock_session
+    ):
+        from sysadmin.contracts import ProjectRecommendationsResponse
+        from sysadmin.models.project_snapshot import ProjectSnapshot
+
+        row = ProjectSnapshot(
+            project_name="demo",
+            project_path="/projects/demo",
+            health_score=75,
+            findings={"missing_readme": True, "no_remote": True},
+        )
+        row.id = uuid.uuid4()
+        row.scanned_at = datetime.now(UTC)
+
+        result = MagicMock()
+        result.scalars.return_value.first.return_value = row
+        mock_session.execute = AsyncMock(return_value=result)
+
+        resp = await test_client.get("/api/projects/demo/recommendations")
+        assert resp.status_code == 200
+
+        parsed = ProjectRecommendationsResponse.from_dict(resp.json())
+        assert parsed.project == "demo"
+        assert parsed.count == 2
+        assert parsed.recommendations[0].severity == "risk"
+        assert parsed.potential_score == 85
+
+    @pytest.mark.asyncio
+    async def test_portfolio_actions_parse_through_tray_contract(
+        self, test_client, mock_session
+    ):
+        from sysadmin.contracts import PortfolioActionsResponse
+        from sysadmin.models.project_snapshot import ProjectSnapshot
+
+        row = ProjectSnapshot(
+            project_name="demo",
+            project_path="/projects/demo",
+            health_score=90,
+            findings={"stale_git_lock": True},
+        )
+        row.id = uuid.uuid4()
+        row.scanned_at = datetime.now(UTC)
+        _mock_scalars_all(mock_session, [row])
+
+        resp = await test_client.get("/api/projects/actions")
+        assert resp.status_code == 200
+
+        parsed = PortfolioActionsResponse.from_dict(resp.json())
+        assert parsed.count == 1
+        assert parsed.actions[0].project == "demo"
+        assert parsed.actions[0].points == 5

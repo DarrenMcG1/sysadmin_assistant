@@ -14,19 +14,19 @@ _Capture ideas here as they come up. Promote to tasks.md when ready to implement
 
 ### Housekeeping follow-ups from the 2026-08-04 ~/projects reorganisation
 
-Parked here deliberately: the Tier 2 recommendations engine (see Session 21
-notes in tasks.md) should track exactly this kind of per-project action
-natively — when it lands, migrate these into it and delete this section.
+The Tier 2 recommendations engine landed 2026-08-04 (Session 22:
+`GET /api/projects/{name}/recommendations` + `GET /api/projects/actions`)
+and now surfaces **missing remotes natively** — the six unbacked repos
+appear as `risk` items in `/api/projects/actions` after every scan, so
+that follow-up no longer needs a doc entry. The rest stay parked because
+the scanner has no finding for them yet; each is really a *detector idea*:
 
 - **apps/oanIt vs apps/habitTracker** — habitTracker contains
   `oanIt_Frontend`/`oanIt_backend` dirs; both trees have real content.
-  Needs a manual look to pick a canonical layout.
+  Needs a manual look. (Detector idea: name-similarity duplicate flag.)
 - **apps/BudgetApp venv clutter** — carries both `.venv` and `.venv1`
-  (~290M, recreatable). Delete one/both and rebuild from requirements.
-- **Off-disk backups** — six repos have no remote (mirrors in
-  `~/projects/.backups/` are same-disk only): bsl-translator (archived),
-  BudgetApp, InvestingAssistant, Portfolio (archived), portfolionew,
-  sysadmin_assistant. Decide which get GitHub remotes.
+  (~290M, recreatable). (Detector idea: multiple/oversized venvs as a
+  `hygiene` finding — the file organiser already hunts stale caches.)
 - **Config loader could warn on nonexistent managed paths** — would have
   caught SNAG-CONF-001 immediately (also noted in snag_list.md).
 

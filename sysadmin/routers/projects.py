@@ -13,12 +13,14 @@ from sysadmin.config import get_config
 from sysadmin.contracts import (
     BranchCleanupResponse,
     ManagedProjectsResponse,
+    PortfolioActionsResponse,
     ProjectOverviewResponse,
+    ProjectRecommendationsResponse,
 )
 from sysadmin.database import get_db_session
 from sysadmin.models.project_snapshot import ProjectSnapshot
 from sysadmin.models.service_health import ServiceHealth
-from sysadmin.services import branch_actions
+from sysadmin.services import branch_actions, recommendations
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -256,6 +258,57 @@ async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
     return {"projects": projects_out, "count": len(projects_out)}
 
 
+def _latest_snapshot_query():
+    """Select the newest snapshot per project (shared subquery pattern)."""
+    latest_subq = (
+        select(
+            ProjectSnapshot.project_name,
+            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
+        )
+        .group_by(ProjectSnapshot.project_name)
+        .subquery()
+    )
+    return select(ProjectSnapshot).join(
+        latest_subq,
+        (ProjectSnapshot.project_name == latest_subq.c.project_name)
+        & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
+    )
+
+
+# NOTE: must stay declared before ``/{name}`` or it would be captured as
+# a project called "actions".
+@router.get("/actions", response_model=PortfolioActionsResponse)
+async def get_portfolio_actions(
+    limit: int = Query(default=10, le=50),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Top housekeeping wins across every project, ranked by impact."""
+    result = await session.execute(_latest_snapshot_query())
+    rows = result.scalars().all()
+
+    agent_config = get_config().agents.project_organiser
+    actions = []
+    projects_with_actions = 0
+    for row in rows:
+        recs = recommendations.recommendations_for(row, agent_config)
+        if recs:
+            projects_with_actions += 1
+        for rec in recs:
+            actions.append({
+                **rec.model_dump(),
+                "project": row.project_name,
+                "health_score": row.health_score,
+            })
+
+    actions.sort(key=lambda a: (a["severity"] != "risk", -a["points"], a["project"]))
+    return {
+        "actions": actions[:limit],
+        "count": min(len(actions), limit),
+        "total_available": len(actions),
+        "projects_with_actions": projects_with_actions,
+    }
+
+
 @router.get("/{name}")
 async def get_project_detail(
     name: str,
@@ -298,6 +351,38 @@ async def get_project_detail(
             }
             for r in rows
         ],
+    }
+
+
+@router.get("/{name}/recommendations", response_model=ProjectRecommendationsResponse)
+async def get_project_recommendations(
+    name: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Ranked housekeeping advice from the project's latest snapshot."""
+    query = (
+        select(ProjectSnapshot)
+        .where(ProjectSnapshot.project_name == name)
+        .order_by(desc(ProjectSnapshot.scanned_at))
+        .limit(1)
+    )
+    result = await session.execute(query)
+    snapshot = result.scalars().first()
+
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail=f"Project '{name}' not found")
+
+    agent_config = get_config().agents.project_organiser
+    recs = recommendations.recommendations_for(snapshot, agent_config)
+    findings = snapshot.findings or {}
+    return {
+        "project": name,
+        "status": findings.get("status", "active"),
+        "health_score": snapshot.health_score,
+        "potential_score": recommendations.potential_score(snapshot, recs),
+        "recommendations": [r.model_dump() for r in recs],
+        "count": len(recs),
+        "scanned_at": snapshot.scanned_at.isoformat() if snapshot.scanned_at else None,
     }
 
 
