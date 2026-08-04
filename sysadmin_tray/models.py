@@ -52,6 +52,7 @@ from sysadmin.contracts import (  # noqa: F401
     ProjectOverviewEntry,
     ProjectOverviewResponse,
     ProjectRecommendationsResponse,
+    ProjectReviewResponse,
     RamInfo,
     RecommendationInfo,
     ResourceHistoryResponse,

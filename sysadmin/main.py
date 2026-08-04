@@ -42,6 +42,7 @@ from sysadmin.services.briefing import send_morning_briefing
 from sysadmin.services.dnd import dnd_manager
 from sysadmin.services.event_bus import event_bus
 from sysadmin.services.notifier import Notifier
+from sysadmin.services.project_review import run_weekly_review
 from sysadmin.services.retention import run_retention
 
 # Services
@@ -152,6 +153,16 @@ async def lifespan(app: FastAPI):
         hour=schedules.retention_hour,
         minute=schedules.retention_minute,
     )
+    # Weekly portfolio review — scheduled before the briefing on the same
+    # morning so the briefing can carry the fresh narrative
+    if agents_config.project_organiser.weekly_review:
+        scheduler.schedule_cron(
+            job_id="weekly_project_review",
+            func=run_weekly_review,
+            hour=schedules.review_hour,
+            minute=schedules.review_minute,
+            day_of_week=schedules.review_day_of_week,
+        )
 
     scheduler.start()
     logger.info("scheduler started with %d jobs", len(scheduler.get_jobs()))

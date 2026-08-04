@@ -199,6 +199,10 @@ class ProjectOrganiserConfig(BaseModel):
     # Global health-score floor below which a project raises an alert.
     # A project may override this in projects.yaml (``alert_threshold``).
     alert_threshold: int = 40
+    # Weekly LLM-narrated portfolio review (Session 23).  Generation
+    # falls back to a deterministic digest when llama-server is down, so
+    # disabling this stops the *schedule*, not just the inference.
+    weekly_review: bool = True
     # Ceiling on the TODO/FIXME deduction (5 points per 10 markers).
     # Uncapped, a 300-TODO project pins at 0 forever and the score stops
     # reporting anything about the rest of its health.  ``None`` = no cap.
@@ -507,6 +511,11 @@ class SchedulesConfig(BaseModel):
     briefing_minute: int = 0
     retention_hour: int = 3
     retention_minute: int = 0
+    # Weekly project review — before the Monday briefing so the briefing
+    # can carry the fresh narrative.
+    review_day_of_week: str = "mon"
+    review_hour: int = 5
+    review_minute: int = 30
     # APScheduler's IntervalTrigger puts the *first* fire at now + interval,
     # so an agent whose interval exceeds the service's uptime between
     # restarts never runs at all (this is why file_organiser, at 24h, had

@@ -63,7 +63,11 @@ class TestIndividualRules:
         assert "120 days old" in recs[0].detail
 
     def test_stale_branches_points_capped_at_five_branches(self):
-        branches = [f"b{i}" for i in range(8)]
+        # Real shape: get_stale_branches records dicts, not names
+        branches = [
+            {"name": f"b{i}", "last_commit": "2026-01-01T00:00:00", "days_stale": 90}
+            for i in range(8)
+        ]
         recs = recommendations_for(
             make_snapshot(75, {"stale_branches": branches}), agent_config()
         )
@@ -71,7 +75,15 @@ class TestIndividualRules:
         assert recs[0].kind == "git"
         assert recs[0].points == 25  # 5 × min(8, 5)
         assert "prune" in recs[0].action.lower()
+        assert "b0" in recs[0].detail
         assert "…" in recs[0].detail  # only 5 names listed
+
+    def test_stale_branches_tolerates_plain_strings(self):
+        recs = recommendations_for(
+            make_snapshot(95, {"stale_branches": ["old-branch"]}), agent_config()
+        )
+        assert recs[0].points == 5
+        assert "old-branch" in recs[0].detail
 
     def test_staleness_active_project(self):
         recs = recommendations_for(

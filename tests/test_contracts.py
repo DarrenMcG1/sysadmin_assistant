@@ -209,3 +209,30 @@ class TestRecommendationsRoundTrip:
         assert parsed.count == 1
         assert parsed.actions[0].project == "demo"
         assert parsed.actions[0].points == 5
+
+
+class TestReviewRoundTrip:
+    @pytest.mark.asyncio
+    async def test_review_parses_through_tray_contract(
+        self, test_client, mock_session
+    ):
+        from sysadmin.contracts import ProjectReviewResponse
+        from sysadmin.models.project_review import ProjectReview
+
+        row = ProjectReview(period_days=7, narrative="Weekly text.", llm_used=False)
+        row.id = uuid.uuid4()
+        row.generated_at = datetime.now(UTC)
+        row.stats = {"totals": {"project_count": 2}}
+
+        result = MagicMock()
+        result.scalars.return_value.first.return_value = row
+        mock_session.execute = AsyncMock(return_value=result)
+
+        resp = await test_client.get("/api/projects/review")
+        assert resp.status_code == 200
+
+        parsed = ProjectReviewResponse.from_dict(resp.json())
+        assert parsed.narrative == "Weekly text."
+        assert parsed.llm_used is False
+        assert parsed.model_used is None
+        assert parsed.stats["totals"]["project_count"] == 2

@@ -8,7 +8,7 @@ to feed each query its result.
 """
 
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -71,7 +71,21 @@ def _project(
     return row
 
 
-def _session_returning(infra, log, filesystem, projects):
+def _result_first(row):
+    result = MagicMock()
+    result.scalars.return_value.first.return_value = row
+    return result
+
+
+def _review(narrative: str = "A fine week.", days_old: int = 0):
+    from sysadmin.models.project_review import ProjectReview
+
+    row = ProjectReview(period_days=7, narrative=narrative, llm_used=True)
+    row.generated_at = datetime.now(UTC) - timedelta(days=days_old)
+    return row
+
+
+def _session_returning(infra, log, filesystem, projects, review=None):
     """Mock session whose execute() feeds each section builder in order."""
     session = AsyncMock()
     session.execute = AsyncMock(
@@ -80,6 +94,7 @@ def _session_returning(infra, log, filesystem, projects):
             _result_one(log),
             _result_one(filesystem),
             _result_all(projects),
+            _result_first(review),
         ]
     )
     return session
@@ -246,3 +261,53 @@ class TestSendMorningBriefing:
                 await send_morning_briefing()
 
         notifier.shutdown.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# Weekly review section (Session 23)
+# ---------------------------------------------------------------------------
+
+
+class TestReviewSection:
+    @pytest.mark.asyncio
+    async def test_fresh_review_included(self):
+        session = _session_returning(
+            infra=[_service("postgres")],
+            log=None,
+            filesystem=None,
+            projects=[],
+            review=_review("Portfolio held steady this week."),
+        )
+        briefing = await generate_briefing_data(session)
+
+        titles = [s["title"] for s in briefing["sections"]]
+        assert "Weekly Project Review" in titles
+        review_section = next(
+            s for s in briefing["sections"] if s["title"] == "Weekly Project Review"
+        )
+        assert review_section["type"] == "text"
+        assert review_section["data"] == "Portfolio held steady this week."
+
+    @pytest.mark.asyncio
+    async def test_stale_review_excluded(self):
+        session = _session_returning(
+            infra=[_service("postgres")],
+            log=None,
+            filesystem=None,
+            projects=[],
+            review=_review(days_old=9),
+        )
+        briefing = await generate_briefing_data(session)
+
+        titles = [s["title"] for s in briefing["sections"]]
+        assert "Weekly Project Review" not in titles
+
+    @pytest.mark.asyncio
+    async def test_no_review_no_section(self):
+        session = _session_returning(
+            infra=[_service("postgres")], log=None, filesystem=None, projects=[]
+        )
+        briefing = await generate_briefing_data(session)
+
+        titles = [s["title"] for s in briefing["sections"]]
+        assert "Weekly Project Review" not in titles

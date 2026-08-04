@@ -109,11 +109,17 @@ def recommendations_for(
     stale_branches = findings.get("stale_branches") or []
     if stale_branches and status != "archived":
         count = len(stale_branches)
+        # get_stale_branches records dicts ({name, last_commit, days_stale});
+        # tolerate plain strings so hand-written findings still render
+        names = [
+            b["name"] if isinstance(b, dict) else str(b)
+            for b in stale_branches[:5]
+        ]
         recs.append(RecommendationInfo(
             kind="git",
             title=f"Prune {count} stale branch{'es' if count != 1 else ''}",
             detail=(
-                "Stale: " + ", ".join(stale_branches[:5])
+                "Stale: " + ", ".join(names)
                 + ("…" if count > 5 else "")
             ),
             points=STALE_BRANCH_POINTS * min(count, STALE_BRANCH_CAP),

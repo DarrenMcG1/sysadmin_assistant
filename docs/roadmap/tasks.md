@@ -10,6 +10,28 @@
 
 ## Active Sessions
 
+### Session 23: Project-manager Tier 3 — weekly LLM portfolio review — ✅ Complete 2026-08-04
+
+- [x] `ProjectReview` model + migration 004 (`project_reviews` table;
+      drift guard caught and fixed a nullability/index mismatch)
+- [x] `sysadmin/services/project_review.py` — gather (scores, week deltas,
+      top recommendations) → bounded prompt → llama-server narrative →
+      stored row + `info` alert. **Deterministic digest fallback when the
+      LLM is unavailable** (`llm_used: false`) — GPU-busy is a normal
+      state, not an error; `stats` JSONB keeps the inputs auditable
+- [x] `GET /api/projects/review` + `POST /api/projects/review/generate`
+      (auth), both before `/{name}`; contract + tray re-export
+- [x] Weekly cron (`schedules.review_*`, default Mon 05:30 before the
+      briefing) gated by `agents.project_organiser.weekly_review`
+- [x] Briefing gains a "Weekly Project Review" section while < 8 days old
+- [x] 21 new tests, **all inference mocked — GPU never touched** (user
+      request: GPU busy); live fallback-path run against the real DB
+      stored review #1. Real data exposed a `stale_branches` dict-shape
+      bug in Session 22's recommendations detail — fixed + regression test
+- [ ] **Deferred: live inference test** — once the GPU is free, run
+      `POST /api/projects/review/generate` (or wait for Monday's cron)
+      and sanity-check the narrative quality / 250-word bound
+
 ### Session 22: Project-manager Tier 2 — recommendations engine — ✅ Complete 2026-08-04
 
 Advice as data, execution left to the existing dry-run endpoints:

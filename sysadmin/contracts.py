@@ -847,3 +847,19 @@ class PortfolioActionsResponse(Contract):
     count: int = 0
     total_available: int = 0
     projects_with_actions: int = 0
+
+
+class ProjectReviewResponse(Contract):
+    """GET /api/projects/review — the latest stored portfolio review.
+
+    ``llm_used`` False means llama-server was unavailable and
+    ``narrative`` is the deterministic digest, not prose.  ``stats`` is
+    the structured input the narrative was written from.
+    """
+
+    generated_at: str | None = None
+    period_days: int = 7
+    narrative: str = ""
+    llm_used: bool = False
+    model_used: str | None = None
+    stats: dict[str, Any] = Field(default_factory=dict)

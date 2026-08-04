@@ -205,6 +205,8 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `POST /api/projects/{name}/branches/prune` | `BranchCleanupResponse` (+`BranchInfo`) | response_model |
 | `GET /api/projects/{name}/recommendations` | `ProjectRecommendationsResponse` (+`RecommendationInfo`) | response_model |
 | `GET /api/projects/actions` | `PortfolioActionsResponse` (+`PortfolioAction`) | response_model |
+| `GET /api/projects/review` | `ProjectReviewResponse` | response_model |
+| `POST /api/projects/review/generate` | `ProjectReviewResponse` | response_model (auth; LLM optional — digest fallback) |
 
 The three `/api/files/*` action endpoints share one manifest shape and are
 **dry runs unless the request body sets `confirm: true`** — see

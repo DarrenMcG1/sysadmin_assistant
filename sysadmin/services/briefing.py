@@ -54,6 +54,11 @@ async def generate_briefing_data(session: AsyncSession) -> dict[str, Any]:
     if project_section:
         sections.append(project_section)
 
+    # 5. Weekly portfolio review, while it is fresh
+    review_section = await _build_review_section(session, now)
+    if review_section:
+        sections.append(review_section)
+
     return {
         "source": "sysadmin-service",
         "generated_at": now.isoformat(),
@@ -203,6 +208,39 @@ async def _build_project_section(session: AsyncSession) -> dict | None:
         "title": "Project Health",
         "type": "table",
         "data": projects,
+    }
+
+
+async def _build_review_section(
+    session: AsyncSession, now: datetime
+) -> dict | None:
+    """Latest weekly portfolio review, if it is under 8 days old.
+
+    8 rather than 7 so a briefing generated an hour after the weekly
+    review still counts it as fresh across DST shifts and slow starts.
+    """
+    from sysadmin.models.project_review import ProjectReview
+
+    query = (
+        select(ProjectReview)
+        .order_by(desc(ProjectReview.generated_at))
+        .limit(1)
+    )
+    result = await session.execute(query)
+    review = result.scalars().first()
+
+    if review is None:
+        return None
+    generated_at = review.generated_at
+    if generated_at.tzinfo is None:
+        generated_at = generated_at.replace(tzinfo=UTC)
+    if now - generated_at > timedelta(days=8):
+        return None
+
+    return {
+        "title": "Weekly Project Review",
+        "type": "text",
+        "data": review.narrative,
     }
 
 

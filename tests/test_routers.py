@@ -422,3 +422,75 @@ class TestPortfolioActions:
         resp = await test_client.get("/api/projects/actions")
         assert resp.status_code == 200
         assert resp.json()["actions"] == []
+
+
+# ---------------------------------------------------------------------------
+# /api/projects/review (Session 23)
+# ---------------------------------------------------------------------------
+
+
+def _make_review(narrative="Fine week.", llm_used=True):
+    from sysadmin.models.project_review import ProjectReview
+
+    row = ProjectReview(period_days=7, narrative=narrative, llm_used=llm_used)
+    row.id = uuid.uuid4()
+    row.generated_at = datetime.now(UTC)
+    row.stats = {"totals": {"project_count": 1}}
+    return row
+
+
+class TestProjectReviewEndpoints:
+    @pytest.mark.asyncio
+    async def test_latest_review_returned(self, test_client, mock_session):
+        _mock_scalars_first(mock_session, _make_review("Steady progress."))
+
+        resp = await test_client.get("/api/projects/review")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert data["narrative"] == "Steady progress."
+        assert data["llm_used"] is True
+        assert data["stats"]["totals"]["project_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_404_before_first_review(self, test_client, mock_session):
+        _mock_scalars_first(mock_session, None)
+
+        resp = await test_client.get("/api/projects/review")
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_generate_on_demand(self, test_client, mock_session):
+        review = _make_review("Fresh review.", llm_used=False)
+
+        with patch(
+            "sysadmin.routers.projects.project_review.generate_review",
+            new=AsyncMock(return_value=review),
+        ):
+            resp = await test_client.post("/api/projects/review/generate")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["narrative"] == "Fresh review."
+        assert data["llm_used"] is False
+
+    @pytest.mark.asyncio
+    async def test_generate_409_without_snapshots(self, test_client, mock_session):
+        with patch(
+            "sysadmin.routers.projects.project_review.generate_review",
+            new=AsyncMock(return_value=None),
+        ):
+            resp = await test_client.post("/api/projects/review/generate")
+
+        assert resp.status_code == 409
+
+    @pytest.mark.asyncio
+    async def test_review_route_not_shadowed_by_name_route(
+        self, test_client, mock_session
+    ):
+        """Regression: /review must not be captured as project 'review'."""
+        _mock_scalars_first(mock_session, None)
+
+        resp = await test_client.get("/api/projects/review")
+        # 404 from "no review yet", NOT from "project not found"
+        assert resp.json()["detail"] == "No review generated yet"

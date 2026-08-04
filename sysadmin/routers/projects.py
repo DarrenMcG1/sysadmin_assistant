@@ -16,11 +16,13 @@ from sysadmin.contracts import (
     PortfolioActionsResponse,
     ProjectOverviewResponse,
     ProjectRecommendationsResponse,
+    ProjectReviewResponse,
 )
 from sysadmin.database import get_db_session
+from sysadmin.models.project_review import ProjectReview
 from sysadmin.models.project_snapshot import ProjectSnapshot
 from sysadmin.models.service_health import ServiceHealth
-from sysadmin.services import branch_actions, recommendations
+from sysadmin.services import branch_actions, project_review, recommendations
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -273,6 +275,49 @@ def _latest_snapshot_query():
         (ProjectSnapshot.project_name == latest_subq.c.project_name)
         & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
     )
+
+
+# NOTE: /review and /review/generate must stay declared before ``/{name}``
+# or they would be captured as a project called "review".
+@router.get("/review", response_model=ProjectReviewResponse)
+async def get_project_review(session: AsyncSession = Depends(get_db_session)):
+    """The latest stored weekly portfolio review."""
+    result = await session.execute(
+        select(ProjectReview).order_by(desc(ProjectReview.generated_at)).limit(1)
+    )
+    review = result.scalars().first()
+    if review is None:
+        raise HTTPException(status_code=404, detail="No review generated yet")
+
+    return {
+        "generated_at": review.generated_at.isoformat() if review.generated_at else None,
+        "period_days": review.period_days,
+        "narrative": review.narrative,
+        "llm_used": review.llm_used,
+        "model_used": review.model_used,
+        "stats": review.stats,
+    }
+
+
+@router.post(
+    "/review/generate",
+    response_model=ProjectReviewResponse,
+    dependencies=[Depends(require_auth)],
+)
+async def generate_project_review(session: AsyncSession = Depends(get_db_session)):
+    """Generate a review on demand (falls back to a digest if the LLM is down)."""
+    review = await project_review.generate_review(session)
+    if review is None:
+        raise HTTPException(status_code=409, detail="No project snapshots to review")
+
+    return {
+        "generated_at": review.generated_at.isoformat() if review.generated_at else None,
+        "period_days": review.period_days,
+        "narrative": review.narrative,
+        "llm_used": review.llm_used,
+        "model_used": review.model_used,
+        "stats": review.stats,
+    }
 
 
 # NOTE: must stay declared before ``/{name}`` or it would be captured as
