@@ -41,7 +41,7 @@ projects:
 
   # Scan-only: an Android/Gradle project, no service and no port.
   - name: alfred-glance
-    path: /home/gaddi/projects/alfred-glance
+    path: /home/gaddi/projects/apps/alfred-glance
 
   - name: sysadmin-service
     path: /home/gaddi/projects/sysadmin_assistant
@@ -58,13 +58,13 @@ projects:
   # on a case-sensitive filesystem, so this entry was silently dead until
   # 2026-08-04.
   - name: sports_analyser
-    path: /home/gaddi/projects/SportsAnalyser
+    path: /home/gaddi/projects/apps/SportsAnalyser
     backend:
       url: http://localhost:8200/api/v1/health
       port: 8200
 
   - name: daiy
-    path: /home/gaddi/projects/daiy
+    path: /home/gaddi/projects/apps/daiy
 
   # --- Retired but retained -------------------------------------------
   # PersonalAssistant is dead (superseded by Alfred) but the repos are
@@ -74,9 +74,9 @@ projects:
   # freely without ever raising an alert. Do not add endpoints here —
   # nothing is meant to be listening.
   - name: PersonalAssistant
-    path: /home/gaddi/projects/PersonalAssistant
+    path: /home/gaddi/projects/archive/PersonalAssistant
     alert_threshold: 0
 
   - name: PersonalAssistant-auto
-    path: /home/gaddi/projects/PersonalAssistant-auto
+    path: /home/gaddi/projects/archive/PersonalAssistant-auto
     alert_threshold: 0
