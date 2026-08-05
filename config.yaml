@@ -133,6 +133,14 @@ agents:
         systemd_unit: alfred-evaluate.timer
         user: true  # systemd *user* unit
         controllable: false
+      # SportsAnalyser's daily 06:00 pipeline — same oneshot rule as above:
+      # monitor the timer, not the service. (Its backend/frontend services
+      # are wired through projects.yaml, which can't model a third unit.)
+      - name: sportsanalyser-pipeline-timer
+        type: systemd
+        systemd_unit: sportsanalyser-pipeline.timer
+        user: true  # systemd *user* unit
+        controllable: false
       - name: networkmanager
         type: systemd
         systemd_unit: NetworkManager.service

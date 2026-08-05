@@ -56,12 +56,32 @@ projects:
 
   # Directory is CamelCase on disk; the old lowercase path matched nothing
   # on a case-sensitive filesystem, so this entry was silently dead until
-  # 2026-08-04.
+  # 2026-08-04. Systemd units + logs wired 2026-08-05 — the units existed
+  # since before then but were unmonitored (URL-only checks). All three
+  # sportsanalyser units are *user* units. The daily pipeline is
+  # Type=oneshot, so its TIMER is monitored instead — but that lives in
+  # config.yaml's agents.sysadmin.services (this file only models
+  # backend/frontend endpoints).
   - name: sports_analyser
     path: /home/gaddi/projects/apps/SportsAnalyser
     backend:
       url: http://localhost:8200/api/v1/health
       port: 8200
+      systemd_unit: sportsanalyser-backend.service
+      user: true
+      log:
+        type: journalctl
+        unit: sportsanalyser-backend.service
+        severity_filter: warning
+    frontend:
+      url: http://localhost:3200              # Next.js
+      port: 3200
+      systemd_unit: sportsanalyser-frontend.service
+      user: true
+      log:
+        type: journalctl
+        unit: sportsanalyser-frontend.service
+        severity_filter: warning
 
   - name: daiy
     path: /home/gaddi/projects/apps/daiy
