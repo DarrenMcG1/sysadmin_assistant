@@ -39,6 +39,7 @@ from sysadmin.routers.projects import router as projects_router
 from sysadmin.routers.summary import router as summary_router
 from sysadmin.routers.sysadmin import router as sysadmin_router
 from sysadmin.services.briefing import send_morning_briefing
+from sysadmin.services.disk_review import run_weekly_review as run_weekly_disk_review
 from sysadmin.services.dnd import dnd_manager
 from sysadmin.services.event_bus import event_bus
 from sysadmin.services.notifier import Notifier
@@ -161,6 +162,16 @@ async def lifespan(app: FastAPI):
             func=run_weekly_review,
             hour=schedules.review_hour,
             minute=schedules.review_minute,
+            day_of_week=schedules.review_day_of_week,
+        )
+    # Weekly disk review — same morning, staggered after the portfolio
+    # review so only one llama-server generation is in flight at a time
+    if agents_config.file_organiser.weekly_review:
+        scheduler.schedule_cron(
+            job_id="weekly_disk_review",
+            func=run_weekly_disk_review,
+            hour=schedules.disk_review_hour,
+            minute=schedules.disk_review_minute,
             day_of_week=schedules.review_day_of_week,
         )
 

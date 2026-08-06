@@ -248,6 +248,35 @@ class TestRecommendationsRoundTrip:
         assert parsed.disk_forecast is None
         assert not hasattr(parsed.actions[0], "points")
 
+    @pytest.mark.asyncio
+    async def test_disk_review_parses_through_tray_contract(
+        self, test_client, mock_session
+    ):
+        from sysadmin.contracts import DiskReviewResponse
+        from sysadmin.models.disk_review import DiskReview
+
+        review = DiskReview(
+            period_days=7,
+            narrative="Disk /: 67.4% used.\n\nMess is in ~/Downloads.",
+            llm_used=True,
+            model_used="dria-agent-a-3b",
+            stats={"disk": {"current_percent": 67.4, "delta_pp": 0.1}},
+        )
+        review.id = uuid.uuid4()
+        review.generated_at = datetime.now(UTC)
+
+        result = MagicMock()
+        result.scalars.return_value.first.return_value = review
+        mock_session.execute = AsyncMock(return_value=result)
+
+        resp = await test_client.get("/api/files/review")
+        assert resp.status_code == 200
+
+        parsed = DiskReviewResponse.from_dict(resp.json())
+        assert parsed.llm_used is True
+        assert parsed.narrative.startswith("Disk /: 67.4% used.")
+        assert parsed.stats["disk"]["delta_pp"] == 0.1
+
 
 class TestReviewRoundTrip:
     @pytest.mark.asyncio

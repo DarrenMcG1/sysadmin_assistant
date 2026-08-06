@@ -38,8 +38,8 @@ fabricated the numeric section under two different prompts.
 
 ### Session 24: File organiser tiers — disk instead of portfolio
 
-**Tier 2 complete 2026-08-06; Tier 3 deferred.** Tier 1 already existed, so
-this was Tier 2 plus the module move. The currency is **reclaimable
+**Complete 2026-08-06 (all three tiers).** Tier 1 already existed, so
+this was Tiers 2 and 3 plus the module move. The currency is **reclaimable
 megabytes** — MB, not bytes, because every source field is `size_mb` and
 bytes would be fake precision on a value rounded to 1 dp at scan time.
 
@@ -74,8 +74,8 @@ bytes would be fake precision on a value rounded to 1 dp at scan time.
       call site
 - [x] Contracts + tray re-exports; 48 new tests (1099 → 1147)
 
-**Two bugs only the live run caught** — both invisible to the mocked tests,
-which is the Session 23 lesson repeating:
+**Two Tier 2 bugs only the live run caught** — both invisible to the mocked
+tests, which is the Session 23 lesson repeating:
 
 1. **`findings` is truncated before storage** (50–100 entries per
    category). The real audit row lists 200 misplaced files against an
@@ -92,17 +92,45 @@ which is the Session 23 lesson repeating:
    tolerant: pre-existing rows say "sizes were not recorded — rescan to
    price it" rather than claiming 0 MB.
 
-Deferred to a second sitting:
+- [x] **Tier 3 complete 2026-08-06** — `sysadmin/services/disk_review.py`
+      plus a `disk_reviews` table (migration 005, kept separate from
+      `project_reviews` so neither migration can disturb the other's
+      rows). Facts come from **two tables**: occupancy delta from
+      `resource_snapshots`, junk deltas and per-kind reclaim from
+      `filesystem_audits` via Tier 2. Four surfaces, mirroring the
+      project review: `GET /api/files/review`,
+      `POST /api/files/review/generate`, a Monday 05:45 cron (staggered
+      after the 05:30 portfolio review so only one generation is in
+      flight) and a "Weekly Disk Review" briefing section —
+      `_build_review_section` is now parameterised by model, so the
+      8-day freshness rule exists once. 55 new tests (1147 → 1202)
+- [x] **Rescan happened 2026-08-06 12:05** as a side effect of live
+      testing (the test server's file_organiser first-run fired). The
+      new audit records sizes, so reclaim now prices at 43.6 GB instead
+      of "unrecorded"
 
-- [ ] **Tier 3** — weekly disk review from `file_trends` week-on-week
-      deltas plus the threshold-crossing forecast. Same shape as
-      `project_review.py`: deterministic "what grew / what shrank",
-      LLM writes only "where the mess is coming from", digest fallback.
-      Note the two Session 23 rules still apply (commit the read
-      transaction before inference; never let the model produce numbers)
-- [ ] **Rescan needed before the endpoint is fully useful** — the stored
-      audit is from 2026-03-26 and predates size recording, so duplicates
-      and downloads currently price at "unrecorded"
+**The Session 23 numbers rule needed strengthening, not just obeying.**
+First live generation reproduced the failure in a worse form: given a
+prompt listing "25.0 GB across 50 directories" *and* an explicit "do not
+restate any figure", dria-agent-a-3b restated them and then invented
+**"each consuming 5GB"** — a quotient it derived from data the prompt had
+supplied. Instructing a model not to use a number it can see is a
+request; not showing it one is a constraint. `build_review_prompt` is now
+figure-free by construction — sizes become bands ("very large"),
+categories become named phrases (`KIND_PHRASES`, because Tier 2 titles
+like "Clear 11400 stale downloads" carry counts), occupancy becomes a
+direction and a horizon — guarded by a test asserting no digit reaches
+the model outside API paths. Re-verified live: zero figures in the
+model's prose. It also ignored "no markdown, no headings, no lists" on
+both attempts, so `strip_markdown` removes those deterministically.
+
+Still open:
+
+- [ ] The model ignores the 150-word limit (final live narrative ran
+      ~350 words). Harmless — it is honest prose with no invented
+      figures — but the briefing section is longer than intended.
+      Truncating mid-sentence would be worse; a summarise-again pass or
+      a smaller `n_predict` would be the fix
 - [ ] A single large cleanup flattens the 30-day disk fit for a month
       (usage fell 92.8 % → 67.3 % in late July, so every threshold reads
       `not_growing` and no risk can fire). Inherent to a least-squares

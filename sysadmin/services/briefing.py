@@ -54,10 +54,21 @@ async def generate_briefing_data(session: AsyncSession) -> dict[str, Any]:
     if project_section:
         sections.append(project_section)
 
-    # 5. Weekly portfolio review, while it is fresh
-    review_section = await _build_review_section(session, now)
+    # 5. Weekly reviews, while they are fresh
+    from sysadmin.models.disk_review import DiskReview
+    from sysadmin.models.project_review import ProjectReview
+
+    review_section = await _build_review_section(
+        session, now, ProjectReview, "Weekly Project Review"
+    )
     if review_section:
         sections.append(review_section)
+
+    disk_review_section = await _build_review_section(
+        session, now, DiskReview, "Weekly Disk Review"
+    )
+    if disk_review_section:
+        sections.append(disk_review_section)
 
     return {
         "source": "sysadmin-service",
@@ -212,20 +223,19 @@ async def _build_project_section(session: AsyncSession) -> dict | None:
 
 
 async def _build_review_section(
-    session: AsyncSession, now: datetime
+    session: AsyncSession, now: datetime, model, title: str
 ) -> dict | None:
-    """Latest weekly portfolio review, if it is under 8 days old.
+    """Latest weekly review of one kind, if it is under 8 days old.
 
     8 rather than 7 so a briefing generated an hour after the weekly
     review still counts it as fresh across DST shifts and slow starts.
-    """
-    from sysadmin.models.project_review import ProjectReview
 
-    query = (
-        select(ProjectReview)
-        .order_by(desc(ProjectReview.generated_at))
-        .limit(1)
-    )
+    ``model`` is the review table to read — ``ProjectReview`` or
+    ``DiskReview``.  They are separate tables with identical shapes, so
+    the freshness rule lives here once rather than being copied per
+    review kind.
+    """
+    query = select(model).order_by(desc(model.generated_at)).limit(1)
     result = await session.execute(query)
     review = result.scalars().first()
 
@@ -238,7 +248,7 @@ async def _build_review_section(
         return None
 
     return {
-        "title": "Weekly Project Review",
+        "title": title,
         "type": "text",
         "data": review.narrative,
     }

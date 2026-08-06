@@ -85,8 +85,23 @@ def _review(narrative: str = "A fine week.", days_old: int = 0):
     return row
 
 
-def _session_returning(infra, log, filesystem, projects, review=None):
-    """Mock session whose execute() feeds each section builder in order."""
+def _disk_review(narrative: str = "Disk held steady.", days_old: int = 0):
+    from sysadmin.models.disk_review import DiskReview
+
+    row = DiskReview(period_days=7, narrative=narrative, llm_used=True)
+    row.generated_at = datetime.now(UTC) - timedelta(days=days_old)
+    return row
+
+
+def _session_returning(
+    infra, log, filesystem, projects, review=None, disk_review=None
+):
+    """Mock session whose execute() feeds each section builder in order.
+
+    Order matters and is positional: adding a section to
+    ``generate_briefing_data`` without adding a result here exhausts the
+    iterator and every test in this file fails at once.
+    """
     session = AsyncMock()
     session.execute = AsyncMock(
         side_effect=[
@@ -95,6 +110,7 @@ def _session_returning(infra, log, filesystem, projects, review=None):
             _result_one(filesystem),
             _result_all(projects),
             _result_first(review),
+            _result_first(disk_review),
         ]
     )
     return session
@@ -311,3 +327,77 @@ class TestReviewSection:
 
         titles = [s["title"] for s in briefing["sections"]]
         assert "Weekly Project Review" not in titles
+
+
+# ---------------------------------------------------------------------------
+# Weekly disk review section (Session 24 Tier 3)
+# ---------------------------------------------------------------------------
+
+
+class TestDiskReviewSection:
+    """The disk review reuses the project review's freshness rule.
+
+    ``_build_review_section`` is parameterised by model, so these tests
+    guard that the second caller is wired up — not that the 8-day rule
+    works, which TestReviewSection already covers.
+    """
+
+    @pytest.mark.asyncio
+    async def test_fresh_disk_review_included(self):
+        session = _session_returning(
+            infra=[_service("postgres")],
+            log=None,
+            filesystem=None,
+            projects=[],
+            disk_review=_disk_review("Junk is coming from Downloads."),
+        )
+        briefing = await generate_briefing_data(session)
+
+        section = next(
+            s for s in briefing["sections"] if s["title"] == "Weekly Disk Review"
+        )
+        assert section["type"] == "text"
+        assert section["data"] == "Junk is coming from Downloads."
+
+    @pytest.mark.asyncio
+    async def test_stale_disk_review_excluded(self):
+        session = _session_returning(
+            infra=[_service("postgres")],
+            log=None,
+            filesystem=None,
+            projects=[],
+            disk_review=_disk_review(days_old=9),
+        )
+        briefing = await generate_briefing_data(session)
+
+        assert "Weekly Disk Review" not in [
+            s["title"] for s in briefing["sections"]
+        ]
+
+    @pytest.mark.asyncio
+    async def test_both_reviews_appear_project_first(self):
+        session = _session_returning(
+            infra=[_service("postgres")],
+            log=None,
+            filesystem=None,
+            projects=[],
+            review=_review("Portfolio steady."),
+            disk_review=_disk_review("Disk steady."),
+        )
+        briefing = await generate_briefing_data(session)
+
+        titles = [s["title"] for s in briefing["sections"]]
+        assert titles.index("Weekly Project Review") < titles.index(
+            "Weekly Disk Review"
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_disk_review_no_section(self):
+        session = _session_returning(
+            infra=[_service("postgres")], log=None, filesystem=None, projects=[]
+        )
+        briefing = await generate_briefing_data(session)
+
+        assert "Weekly Disk Review" not in [
+            s["title"] for s in briefing["sections"]
+        ]

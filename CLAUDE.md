@@ -199,6 +199,8 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/files/large` | `LargeFilesResponse` | parse-side only (404 = "no scan yet") |
 | `GET /api/files/trends` | `FileTrendsResponse` (+`FileTrendScan`, `FileTrendForecast`) | parse-side only |
 | `GET /api/files/actions` | `FileActionsResponse` (+`FileRecommendationInfo`, `DiskThresholdInfo`) | response_model (404 = "no scan yet") |
+| `GET /api/files/review` | `DiskReviewResponse` | response_model (404 = "no review yet") |
+| `POST /api/files/review/generate` | `DiskReviewResponse` | response_model (auth; LLM optional — digest fallback) |
 | `POST /api/files/clean/stale-caches` | `CleanResultResponse` | parse-side only |
 | `POST /api/files/organise` | `FileActionResponse` (+`FileOperation`, `FileFlag`) | response_model |
 | `POST /api/files/clean/duplicates` | `FileActionResponse` (+`FileOperation`) | response_model |
@@ -222,6 +224,22 @@ what answers "when does the disk fill up", and a projected 80 %/90 % crossing
 inside 30 days outranks every byte total. Counts come from the audit row's
 columns, never from `findings` — the findings lists are truncated to 50–100
 entries before storage, so sizes summed from them are a lower bound and say so.
+
+`GET /api/files/review` is the disk equivalent of `GET /api/projects/review`,
+stored in its own `disk_reviews` table. Two rules govern any LLM-narrated
+review here, both learned from live runs:
+
+1. **Commit the read transaction before calling the LLM.** This host sets
+   `idle_in_transaction_session_timeout=1min` and inference takes longer.
+2. **Give the model no numbers — do not merely instruct it not to use them.**
+   Verified 2026-08-06: handed "25.0 GB across 50 directories" plus an
+   explicit "do not restate figures", dria-agent-a-3b restated them *and*
+   published the quotient as "each consuming 5GB". `build_review_prompt` is
+   now figure-free by construction (sizes → bands, categories → phrases,
+   occupancy → a direction), guarded by a test asserting no digit reaches
+   the model. Every real figure lives in `build_facts_section`, which is
+   prepended to the narrative deterministically. `strip_markdown` removes
+   the headings and lists the model emits despite being told not to.
 
 The three `/api/files/*` action endpoints share one manifest shape and are
 **dry runs unless the request body sets `confirm: true`** — see

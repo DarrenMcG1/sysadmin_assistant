@@ -3,6 +3,7 @@
 from sysadmin.models.agent_run import AgentRun
 from sysadmin.models.alert import Alert
 from sysadmin.models.base import Base
+from sysadmin.models.disk_review import DiskReview
 from sysadmin.models.filesystem_audit import FilesystemAudit
 from sysadmin.models.log_entry import LogEntry
 from sysadmin.models.log_summary import LogSummary
@@ -17,6 +18,7 @@ __all__ = [
     "ServiceHealth",
     "ResourceSnapshot",
     "Alert",
+    "DiskReview",
     "ProjectReview",
     "ProjectSnapshot",
     "FilesystemAudit",

@@ -27,6 +27,7 @@ from sysadmin.contracts import (  # noqa: F401
     AlertsResponse,
     CleanResultResponse,
     DiskInfo,
+    DiskReviewResponse,
     DiskThresholdInfo,
     DuplicateGroupInfo,
     DuplicatesResponse,

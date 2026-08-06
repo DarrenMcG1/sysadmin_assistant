@@ -13,11 +13,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.auth import require_auth
 from sysadmin.config import AppConfig, FileOrganiserConfig, get_config
-from sysadmin.contracts import FileActionResponse, FileActionsResponse
+from sysadmin.contracts import (
+    DiskReviewResponse,
+    FileActionResponse,
+    FileActionsResponse,
+)
 from sysadmin.database import get_db_session
+from sysadmin.models.disk_review import DiskReview
 from sysadmin.models.filesystem_audit import FilesystemAudit
 from sysadmin.models.resource_snapshot import ResourceSnapshot
-from sysadmin.services import file_actions, file_recommendations, forecast
+from sysadmin.services import (
+    disk_review,
+    file_actions,
+    file_recommendations,
+    forecast,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +225,44 @@ async def get_trends(
         "count": len(audits),
         "forecast": forecast,
     }
+
+
+def _review_payload(review: DiskReview) -> dict:
+    return {
+        "generated_at": (
+            review.generated_at.isoformat() if review.generated_at else None
+        ),
+        "period_days": review.period_days,
+        "narrative": review.narrative,
+        "llm_used": review.llm_used,
+        "model_used": review.model_used,
+        "stats": review.stats,
+    }
+
+
+@router.get("/review", response_model=DiskReviewResponse)
+async def get_disk_review(session: AsyncSession = Depends(get_db_session)):
+    """The latest stored weekly disk review."""
+    result = await session.execute(
+        select(DiskReview).order_by(desc(DiskReview.generated_at)).limit(1)
+    )
+    review = result.scalars().first()
+    if review is None:
+        raise HTTPException(status_code=404, detail="No review generated yet")
+    return _review_payload(review)
+
+
+@router.post(
+    "/review/generate",
+    response_model=DiskReviewResponse,
+    dependencies=[Depends(require_auth)],
+)
+async def generate_disk_review(session: AsyncSession = Depends(get_db_session)):
+    """Generate a review on demand (falls back to a digest if the LLM is down)."""
+    review = await disk_review.generate_review(session)
+    if review is None:
+        raise HTTPException(status_code=409, detail="No filesystem audits to review")
+    return _review_payload(review)
 
 
 @router.get("/actions", response_model=FileActionsResponse)

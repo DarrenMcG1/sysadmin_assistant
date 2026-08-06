@@ -645,3 +645,80 @@ class TestFileActions:
         assert data["total_available"] == 0
         assert data["total_reclaimable_mb"] == 0.0
         assert data["scanned_at"] is not None
+
+
+# ---------------------------------------------------------------------------
+# /api/files/review  (Session 24 Tier 3)
+# ---------------------------------------------------------------------------
+
+
+class TestDiskReviewEndpoints:
+    def _review(self, narrative="Disk /: 67.4% used.", llm_used=True):
+        from sysadmin.models.disk_review import DiskReview
+
+        review = DiskReview(
+            period_days=7,
+            narrative=narrative,
+            llm_used=llm_used,
+            model_used="dria-agent-a-3b" if llm_used else None,
+            stats={"disk": {"current_percent": 67.4}},
+        )
+        review.id = uuid.uuid4()
+        review.generated_at = datetime.now(UTC)
+        return review
+
+    @pytest.mark.asyncio
+    async def test_get_latest_review(self, test_client, mock_session):
+        _mock_scalars_first(mock_session, self._review())
+
+        resp = await test_client.get("/api/files/review")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert data["narrative"] == "Disk /: 67.4% used."
+        assert data["llm_used"] is True
+        assert data["stats"]["disk"]["current_percent"] == 67.4
+
+    @pytest.mark.asyncio
+    async def test_404_before_any_review(self, test_client, mock_session):
+        _mock_scalars_first(mock_session, None)
+
+        resp = await test_client.get("/api/files/review")
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "No review generated yet"
+
+    @pytest.mark.asyncio
+    async def test_generate_returns_the_new_review(self, test_client, mock_session):
+        review = self._review("Fresh disk review.", llm_used=False)
+
+        with patch(
+            "sysadmin.routers.files.disk_review.generate_review",
+            new=AsyncMock(return_value=review),
+        ):
+            resp = await test_client.post("/api/files/review/generate")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["narrative"] == "Fresh disk review."
+        assert data["llm_used"] is False
+        assert data["model_used"] is None
+
+    @pytest.mark.asyncio
+    async def test_generate_409_without_audits(self, test_client, mock_session):
+        with patch(
+            "sysadmin.routers.files.disk_review.generate_review",
+            new=AsyncMock(return_value=None),
+        ):
+            resp = await test_client.post("/api/files/review/generate")
+
+        assert resp.status_code == 409
+
+    @pytest.mark.asyncio
+    async def test_review_route_not_shadowed_by_actions(
+        self, test_client, mock_session
+    ):
+        """Regression guard: /review and /actions are sibling literals."""
+        _mock_scalars_first(mock_session, None)
+
+        resp = await test_client.get("/api/files/review")
+        assert resp.json()["detail"] == "No review generated yet"

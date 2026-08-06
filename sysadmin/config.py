@@ -267,6 +267,10 @@ class FileOrganiserConfig(BaseModel):
     downloads_stale_days: int = 30
     large_file_mb: int = 100
     similarity_threshold: float = 0.75
+    # Weekly LLM-narrated disk review (Session 24 Tier 3).  Generation
+    # falls back to a deterministic digest when llama-server is down, so
+    # disabling this stops the *schedule*, not just the inference.
+    weekly_review: bool = True
     # Reclaimable-space milestones (MB) for the /api/files/trends forecast —
     # the endpoint projects the date each one will be reached
     reclaimable_milestones_mb: list[int] = Field(
@@ -516,6 +520,11 @@ class SchedulesConfig(BaseModel):
     review_day_of_week: str = "mon"
     review_hour: int = 5
     review_minute: int = 30
+    # Weekly disk review — after the project review rather than beside
+    # it, so the 3B model does one generation at a time; still ahead of
+    # the 06:00 briefing, which carries both narratives.
+    disk_review_hour: int = 5
+    disk_review_minute: int = 45
     # APScheduler's IntervalTrigger puts the *first* fire at now + interval,
     # so an agent whose interval exceeds the service's uptime between
     # restarts never runs at all (this is why file_organiser, at 24h, had

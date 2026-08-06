@@ -786,6 +786,32 @@ class FileActionsResponse(Contract):
         return _fill_count(data, "actions")
 
 
+class DiskReviewResponse(Contract):
+    """GET /api/files/review — the latest stored weekly disk review.
+
+    Same shape as :class:`ProjectReviewResponse` but a distinct model,
+    matching the distinct table: the two reviews answer different
+    questions and their ``stats`` blobs share no keys.
+
+    ``llm_used`` False means llama-server was unavailable and
+    ``narrative`` is the deterministic digest, not prose.  ``stats`` is
+    the structured input the narrative was written from — occupancy
+    delta, audit deltas and per-kind reclaim.
+    """
+
+    generated_at: str | None = None
+    period_days: int = 7
+    narrative: str = ""
+    llm_used: bool = False
+    model_used: str | None = None
+    stats: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("stats", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+
 class ProjectHistoryPoint(Contract):
     """One point of the ``history`` list from GET /api/projects/{name}."""
 
