@@ -172,7 +172,35 @@ Empty and unreachable must look different. An empty list rendered as "no
 projects" when the service is actually down is the same silent-degradation
 failure this repo keeps finding.
 
-## 7. CORS
+## 7. What is coming, and what to leave room for
+
+Planned as Sessions 29–32 (see [tasks.md](../roadmap/tasks.md)). None of it
+is built; the point of listing it here is that **one of these changes what
+the primary surface should be**, and building the wrong thing first is
+avoidable:
+
+- **`GET /api/projects/next`** — *one* project, one action, plus a `reason`
+  string, instead of a list. For **alfred-glance** this is the right
+  endpoint, not the board: glance-then-act wants one thing, and a six-row
+  list on a phone reintroduces the choosing problem the feature exists to
+  remove. The board stays correct for a desktop page.
+
+  Its ranking policy is an open decision and is the whole feature — longest
+  idle optimises for guilt, smallest-next-step optimises for momentum. Do
+  not assume an order; render the `reason` the endpoint gives you.
+- **Alfred creating `work_item`s** from that endpoint, one per active
+  project, refreshed daily, linked by the nullable `sysadmin_name` on
+  `trackables.Project`. The write happens **in Alfred, pulling** — which is
+  what keeps §3's boundary intact and sysadmin read-only.
+- **Idle nudges** — a project with a stated next action and no commits for
+  N days. Delivered over the existing notification path, not a new one.
+
+Design so additions are free: **render what arrives, ignore what you do not
+recognise, never hard-code the set of fields or sections.** The briefing
+grew from five sections to seven without any consumer change, which is the
+standard to hold to.
+
+## 8. CORS
 
 `http://localhost:3100` and `http://127.0.0.1:3100` are already in
 `service.cors_origins`, added during the PA→Alfred migration. A browser
