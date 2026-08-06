@@ -210,6 +210,44 @@ class TestRecommendationsRoundTrip:
         assert parsed.actions[0].project == "demo"
         assert parsed.actions[0].points == 5
 
+    @pytest.mark.asyncio
+    async def test_file_actions_parse_through_tray_contract(
+        self, test_client, mock_session
+    ):
+        """The file currency is megabytes, not points — a separate model."""
+        from sysadmin.contracts import FileActionsResponse
+        from sysadmin.models.filesystem_audit import FilesystemAudit
+
+        audit = FilesystemAudit(
+            scan_root="/home/gaddi",
+            findings={
+                "old_downloads": [
+                    {"path": "/d/big.iso", "days_old": 90, "size_mb": 900.0}
+                ]
+            },
+        )
+        audit.id = uuid.uuid4()
+        audit.scanned_at = datetime.now(UTC)
+
+        audit_result = MagicMock()
+        audit_result.scalar_one_or_none.return_value = audit
+        snapshot_result = MagicMock()
+        snapshot_result.__iter__ = lambda self: iter([])
+        mock_session.execute = AsyncMock(
+            side_effect=[audit_result, snapshot_result]
+        )
+
+        resp = await test_client.get("/api/files/actions")
+        assert resp.status_code == 200
+
+        parsed = FileActionsResponse.from_dict(resp.json())
+        assert parsed.count == 1
+        assert parsed.actions[0].kind == "downloads"
+        assert parsed.actions[0].reclaimable_mb == pytest.approx(900.0)
+        assert parsed.total_reclaimable_mb == pytest.approx(900.0)
+        assert parsed.disk_forecast is None
+        assert not hasattr(parsed.actions[0], "points")
+
 
 class TestReviewRoundTrip:
     @pytest.mark.asyncio

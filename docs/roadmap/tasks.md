@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-05
+> **Last Updated**: 2026-08-06
 
 ---
 
@@ -38,30 +38,76 @@ fabricated the numeric section under two different prompts.
 
 ### Session 24: File organiser tiers — disk instead of portfolio
 
-The closest analogue to the project-manager work: Tier 1 already exists, so
-this is mostly Tiers 2 and 3. The currency is **reclaimable bytes**, which
-is more honest than project points because it is directly measurable.
+**Tier 2 complete 2026-08-06; Tier 3 deferred.** Tier 1 already existed, so
+this was Tier 2 plus the module move. The currency is **reclaimable
+megabytes** — MB, not bytes, because every source field is `size_mb` and
+bytes would be fake precision on a value rounded to 1 dp at scan time.
 
-- [ ] **Tier 2** — new pure `sysadmin/services/file_recommendations.py`:
-      audit findings (duplicates, misplaced, large files, stale caches,
-      empty dirs) → ranked advice where `points` is bytes reclaimed.
-      Each item's `action` points at the existing Session 18 dry-run
-      executor: `/api/files/organise`, `/clean/duplicates`,
-      `/clean/downloads`, `/clean/stale-caches`
-- [ ] `GET /api/files/actions` mirroring `GET /api/projects/actions` —
-      portfolio-wide top wins, **risk-first**: a disk-threshold crossing
-      inside 30 days outranks raw megabytes, the way `no_remote` outranks
-      score arithmetic in Session 22
-- [ ] **Promote the forecast maths out of the tray** — the least-squares
-      fit currently lives in `sysadmin_tray/forecast.py` (Qt-free already,
-      so this is a move plus an import swap). The review, the briefing and
-      any future web UI all need it; today only the tray has it
+- [x] **Promote the forecast maths out of the tray** →
+      `sysadmin/services/forecast.py`. Not a pure move: `disk_series()`
+      took a `ResourceHistoryResponse`, which the backend never has, so
+      the primitive is now `disk_series_from(entries, mount)` over
+      `(timestamp, disk_usage)` pairs — an ORM row and a parsed contract
+      both produce that shape — with the contract version a one-line
+      adapter. Tray imports it the way `models.py` already imports
+      `contracts`; verified no FastAPI/SQLAlchemy leaks in. Added
+      `most_urgent_projection()` (imminent crossing beats an exceeded
+      lower threshold; exceeded beats a distant crossing) and deduped
+      `_compute_reclaimable_forecast`'s hand-rolled least-squares against
+      `linear_fit`
+- [x] **Tier 2** — pure `sysadmin/services/file_recommendations.py`.
+      **The currency only applies to three finding types.** Duplicates,
+      old downloads and stale caches free space; misplaced files, empty
+      dirs and similar folders free *nothing* — they price at 0.0 MB and
+      rank by `item_count` beneath anything with real megabytes. Large
+      files are a fourth case: measurable but not reclaimable, since only
+      the user knows which are junk. Split stale project dirs into
+      caches (executor exists) and rebuildable dirs (`node_modules`,
+      `.venv` — 25 GB here, no executor, advice names the manual step)
+- [x] `GET /api/files/actions`, risk-first. The risk needs a **second
+      table**: `filesystem_audits` tracks junk accumulation, only
+      `resource_snapshots` knows disk occupancy, and occupancy is what
+      answers "when does the disk fill up"
+- [x] Separate `FileRecommendationInfo`, **not** a reuse of
+      `RecommendationInfo` — one `points` field meaning "score recovered"
+      or "megabytes" depending on the producer would be unreadable at the
+      call site
+- [x] Contracts + tray re-exports; 48 new tests (1099 → 1147)
+
+**Two bugs only the live run caught** — both invisible to the mocked tests,
+which is the Session 23 lesson repeating:
+
+1. **`findings` is truncated before storage** (50–100 entries per
+   category). The real audit row lists 200 misplaced files against an
+   actual **11,877**, and 100 downloads against **11,400** — up to 60×
+   understated. Fixed by passing the audit row's own count columns as
+   `true_counts`; sizes summed from a truncated list are now labelled a
+   lower bound ("at least 25 GB"), and the note says "largest N" only for
+   the lists the agent actually sorts by size before truncating.
+2. **Duplicates and old downloads recorded no sizes at all**, so the
+   currency was uncomputable. `FileOrganiserAgent._scan` now stores
+   `size_mb` per download and `size_mb`/`reclaimable_mb` per duplicate
+   group (priced at "delete all but one copy"), and sorts both lists
+   before truncating so the cap keeps the biggest wins. Reading is
+   tolerant: pre-existing rows say "sizes were not recorded — rescan to
+   price it" rather than claiming 0 MB.
+
+Deferred to a second sitting:
+
 - [ ] **Tier 3** — weekly disk review from `file_trends` week-on-week
       deltas plus the threshold-crossing forecast. Same shape as
       `project_review.py`: deterministic "what grew / what shrank",
-      LLM writes only "where the mess is coming from", digest fallback
-- [ ] Contracts + tray re-exports; tests alongside (`tmp_path` trees only,
-      never the real home directory — the Session 18 rule)
+      LLM writes only "where the mess is coming from", digest fallback.
+      Note the two Session 23 rules still apply (commit the read
+      transaction before inference; never let the model produce numbers)
+- [ ] **Rescan needed before the endpoint is fully useful** — the stored
+      audit is from 2026-03-26 and predates size recording, so duplicates
+      and downloads currently price at "unrecorded"
+- [ ] A single large cleanup flattens the 30-day disk fit for a month
+      (usage fell 92.8 % → 67.3 % in late July, so every threshold reads
+      `not_growing` and no risk can fire). Inherent to a least-squares
+      fit over a fixed window; a shorter secondary window, or fitting
+      only since the last sharp drop, would catch a resumption sooner
 
 ### Session 25: Service reliability scoring
 

@@ -10,7 +10,7 @@ different questions and come from different endpoints:
   ``GET /api/files/trends``; how fast junk accumulates and when it
   passes the configured milestones.
 
-All maths lives in :mod:`sysadmin_tray.forecast` so it is testable
+All maths lives in :mod:`sysadmin.services.forecast` so it is testable
 without Qt; this widget only formats and colours the results.
 """
 
@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from sysadmin_tray.forecast import (
+from sysadmin.services.forecast import (
     ThresholdProjection,
     describe_reclaimable_forecast,
     disk_series,

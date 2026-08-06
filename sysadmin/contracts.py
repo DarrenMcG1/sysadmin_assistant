@@ -703,6 +703,89 @@ class CleanResultResponse(Contract):
         return {} if v is None else v
 
 
+class FileRecommendationInfo(Contract):
+    """One actionable filesystem finding.
+
+    Deliberately *not* a :class:`RecommendationInfo`.  That model's
+    ``points`` means "health score recovered"; the file organiser has no
+    score, and its currency is disk space.  Overloading one field with
+    two units decided by the producer would make ``points`` unreadable
+    at the call site, so this is a separate model with an honest name.
+
+    ``reclaimable_mb`` is 0.0 for tidiness items — moving a misplaced
+    file or removing an empty directory frees no space — so those rank
+    below anything with real megabytes behind it.  ``item_count`` is
+    what tidiness items are judged on instead.
+
+    ``severity`` is ``advice`` or ``risk``.  The one risk is a projected
+    disk-threshold crossing: it reclaims nothing by itself but ranks
+    above every byte total, mirroring how ``no_remote`` outranks score
+    arithmetic in the project recommendations.
+    """
+
+    # risk | duplicates | downloads | stale_caches | large_files
+    # | misplaced | empty_dirs | similar_folders
+    kind: str = ""
+    severity: str = "advice"
+    title: str = ""
+    detail: str = ""
+    reclaimable_mb: float = 0.0
+    item_count: int = 0
+    action: str = ""
+
+    @field_validator("reclaimable_mb", mode="before")
+    @classmethod
+    def _none_to_zero_float(cls, v: Any) -> Any:
+        return 0.0 if v is None else v
+
+    @field_validator("item_count", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+
+class DiskThresholdInfo(Contract):
+    """A projected disk-usage threshold crossing.
+
+    ``state`` is ``projected`` (a date was computed), ``exceeded`` (the
+    latest reading is already past it) or ``not_growing`` (flat or
+    shrinking).  ``days_from_now``/``date`` are set only when
+    ``projected``.
+    """
+
+    percent: float = 0.0
+    state: str = ""
+    days_from_now: float | None = None
+    date: str | None = None
+
+
+class FileActionsResponse(Contract):
+    """GET /api/files/actions — top disk wins across the scan root.
+
+    Ranked risk-first, then by reclaimable megabytes, then by item
+    count.  ``count`` is what was returned after ``limit``,
+    ``total_available`` what existed before it.
+
+    ``disk_forecast`` is the soonest projected threshold crossing from
+    ``resource_snapshots`` — a different table from the audit, because
+    junk accumulation and disk occupancy are different series and only
+    the latter answers "when does the disk fill up".  ``None`` when
+    there is too little history to fit a line.
+    """
+
+    actions: list[FileRecommendationInfo] = Field(default_factory=list)
+    count: int = 0
+    total_available: int = 0
+    total_reclaimable_mb: float = 0.0
+    scanned_at: str | None = None
+    disk_forecast: DiskThresholdInfo | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "actions")
+
+
 class ProjectHistoryPoint(Contract):
     """One point of the ``history`` list from GET /api/projects/{name}."""
 

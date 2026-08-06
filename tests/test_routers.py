@@ -4,12 +4,13 @@ Tests use mocked DB sessions — no real database needed.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from sysadmin.models.alert import Alert
+from sysadmin.models.filesystem_audit import FilesystemAudit
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.service_health import ServiceHealth
 
@@ -494,3 +495,153 @@ class TestProjectReviewEndpoints:
         resp = await test_client.get("/api/projects/review")
         # 404 from "no review yet", NOT from "project not found"
         assert resp.json()["detail"] == "No review generated yet"
+
+
+# ---------------------------------------------------------------------------
+# /api/files/actions  (Session 24 Tier 2)
+# ---------------------------------------------------------------------------
+
+
+def _make_filesystem_audit(findings: dict) -> FilesystemAudit:
+    audit = FilesystemAudit(scan_root="/home/gaddi", findings=findings)
+    audit.id = uuid.uuid4()
+    audit.scanned_at = datetime.now(UTC)
+    return audit
+
+
+def _mock_actions_session(mock_session, audit, disk_rows):
+    """Two executes: the latest audit, then the disk-usage series.
+
+    ``/api/files/actions`` is the only files route that reads a second
+    table — ``resource_snapshots`` is what knows disk *occupancy*, which
+    is what the risk ranking is built on.
+    """
+    audit_result = MagicMock()
+    audit_result.scalar_one_or_none.return_value = audit
+
+    snapshot_result = MagicMock()
+    snapshot_result.__iter__ = lambda self: iter(disk_rows)
+
+    mock_session.execute = AsyncMock(side_effect=[audit_result, snapshot_result])
+
+
+def _climbing_disk(start: float, per_day: float, days: int) -> list:
+    """``(recorded_at, disk_usage)`` rows climbing at a fixed rate."""
+    base = datetime.now(UTC) - timedelta(days=days)
+    return [
+        MagicMock(
+            recorded_at=base + timedelta(days=i),
+            disk_usage={"/": {"total_gb": 500.0, "percent": start + per_day * i}},
+        )
+        for i in range(days)
+    ]
+
+
+class TestFileActions:
+    @pytest.mark.asyncio
+    async def test_ranked_by_reclaimable_megabytes(self, test_client, mock_session):
+        findings = {
+            "duplicates": [
+                {"hash": "h", "files": ["/a", "/b"], "count": 2,
+                 "size_mb": 100.0, "reclaimable_mb": 100.0},
+            ],
+            "old_downloads": [
+                {"path": "/d/big.iso", "days_old": 90, "size_mb": 900.0},
+            ],
+            "empty_dirs": ["/home/gaddi/x"],
+        }
+        _mock_actions_session(mock_session, _make_filesystem_audit(findings), [])
+
+        resp = await test_client.get("/api/files/actions")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert [a["kind"] for a in data["actions"]] == [
+            "downloads", "duplicates", "empty_dirs"
+        ]
+        assert data["total_reclaimable_mb"] == pytest.approx(1000.0)
+        assert data["count"] == data["total_available"] == 3
+        assert data["disk_forecast"] is None  # no resource history supplied
+
+    @pytest.mark.asyncio
+    async def test_imminent_disk_crossing_ranks_first(self, test_client, mock_session):
+        findings = {
+            "old_downloads": [
+                {"path": "/d/big.iso", "days_old": 90, "size_mb": 5000.0},
+            ],
+        }
+        # 75 % climbing 1 pp/day → crosses 80 % in about 5 days
+        _mock_actions_session(
+            mock_session,
+            _make_filesystem_audit(findings),
+            _climbing_disk(70.0, 1.0, 6),
+        )
+
+        resp = await test_client.get("/api/files/actions")
+        data = resp.json()
+
+        assert data["actions"][0]["kind"] == "risk"
+        assert data["actions"][0]["severity"] == "risk"
+        assert data["actions"][1]["kind"] == "downloads"  # 5 GB ranks second
+        assert data["disk_forecast"]["percent"] == 80.0
+        assert data["disk_forecast"]["state"] == "projected"
+
+    @pytest.mark.asyncio
+    async def test_flat_disk_raises_no_risk(self, test_client, mock_session):
+        findings = {"empty_dirs": ["/home/gaddi/x"]}
+        _mock_actions_session(
+            mock_session,
+            _make_filesystem_audit(findings),
+            _climbing_disk(50.0, 0.0, 6),
+        )
+
+        resp = await test_client.get("/api/files/actions")
+        data = resp.json()
+
+        assert all(a["severity"] != "risk" for a in data["actions"])
+        assert data["disk_forecast"] is None
+
+    @pytest.mark.asyncio
+    async def test_limit_truncates_but_totals_stay_whole(
+        self, test_client, mock_session
+    ):
+        """The headline reclaim must not shrink because limit did."""
+        findings = {
+            "duplicates": [
+                {"hash": "h", "files": ["/a", "/b"], "count": 2,
+                 "size_mb": 100.0, "reclaimable_mb": 100.0},
+            ],
+            "old_downloads": [{"path": "/d/a", "days_old": 90, "size_mb": 900.0}],
+            "empty_dirs": ["/home/gaddi/x"],
+        }
+        _mock_actions_session(mock_session, _make_filesystem_audit(findings), [])
+
+        resp = await test_client.get("/api/files/actions?limit=1")
+        data = resp.json()
+
+        assert len(data["actions"]) == 1
+        assert data["count"] == 1
+        assert data["total_available"] == 3
+        assert data["total_reclaimable_mb"] == pytest.approx(1000.0)
+
+    @pytest.mark.asyncio
+    async def test_404_before_the_first_scan(self, test_client, mock_session):
+        _mock_actions_session(mock_session, None, [])
+
+        resp = await test_client.get("/api/files/actions")
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "No audit data yet"
+
+    @pytest.mark.asyncio
+    async def test_clean_audit_returns_an_empty_ranking(
+        self, test_client, mock_session
+    ):
+        _mock_actions_session(mock_session, _make_filesystem_audit({}), [])
+
+        resp = await test_client.get("/api/files/actions")
+        data = resp.json()
+
+        assert data["actions"] == []
+        assert data["total_available"] == 0
+        assert data["total_reclaimable_mb"] == 0.0
+        assert data["scanned_at"] is not None

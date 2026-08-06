@@ -198,6 +198,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/files/misplaced` | `MisplacedFilesResponse` | parse-side only (404 = "no scan yet") |
 | `GET /api/files/large` | `LargeFilesResponse` | parse-side only (404 = "no scan yet") |
 | `GET /api/files/trends` | `FileTrendsResponse` (+`FileTrendScan`, `FileTrendForecast`) | parse-side only |
+| `GET /api/files/actions` | `FileActionsResponse` (+`FileRecommendationInfo`, `DiskThresholdInfo`) | response_model (404 = "no scan yet") |
 | `POST /api/files/clean/stale-caches` | `CleanResultResponse` | parse-side only |
 | `POST /api/files/organise` | `FileActionResponse` (+`FileOperation`, `FileFlag`) | response_model |
 | `POST /api/files/clean/duplicates` | `FileActionResponse` (+`FileOperation`) | response_model |
@@ -207,6 +208,20 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/projects/actions` | `PortfolioActionsResponse` (+`PortfolioAction`) | response_model |
 | `GET /api/projects/review` | `ProjectReviewResponse` | response_model |
 | `POST /api/projects/review/generate` | `ProjectReviewResponse` | response_model (auth; LLM optional — digest fallback) |
+
+`GET /api/files/actions` is the file-organiser mirror of
+`GET /api/projects/actions`, with one deliberate difference: its currency is
+**reclaimable megabytes**, not health-score points, so it uses its own
+`FileRecommendationInfo` rather than reusing `RecommendationInfo` — one
+`points` field meaning two units decided by the producer would be unreadable
+at the call site. Only duplicates, old downloads, stale caches and rebuildable
+dependency directories price above 0.0 MB; tidiness items (misplaced files,
+empty dirs, similar folders) rank by `item_count` beneath them. It is the only
+`/api/files/*` route that reads `resource_snapshots`: disk **occupancy** is
+what answers "when does the disk fill up", and a projected 80 %/90 % crossing
+inside 30 days outranks every byte total. Counts come from the audit row's
+columns, never from `findings` — the findings lists are truncated to 50–100
+entries before storage, so sizes summed from them are a lower bound and say so.
 
 The three `/api/files/*` action endpoints share one manifest shape and are
 **dry runs unless the request body sets `confirm: true`** — see

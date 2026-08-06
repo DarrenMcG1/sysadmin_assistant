@@ -1,8 +1,16 @@
-"""Pure forecasting helpers for the dashboard's growth widgets.
+"""Pure forecasting helpers — least-squares growth fits and projections.
 
-Qt-free and side-effect-free on purpose — every function here takes
+Qt-free, DB-free and side-effect-free on purpose.  Every function takes
 already-parsed contract objects (or plain numbers) and returns plain
-data, so the maths can be tested without a QApplication or a backend.
+data, so the maths can be tested without a QApplication, a backend or a
+database.
+
+Lives under ``sysadmin.services`` rather than the tray because three
+consumers need it: the tray's Disk Growth widget, the file-organiser
+recommendations (a threshold crossing inside 30 days outranks raw
+megabytes) and the weekly disk review.  Like :mod:`sysadmin.contracts`
+it is dependency-light — pydantic + stdlib only — so importing it from
+the tray does not pull FastAPI or SQLAlchemy in.
 
 Two separate forecasts feed the Disk Growth widget:
 
@@ -22,10 +30,11 @@ Two separate forecasts feed the Disk Growth widget:
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
-from sysadmin_tray.models import (
+from sysadmin.contracts import (
     FileTrendForecast,
     ResourceHistoryResponse,
 )
@@ -60,7 +69,7 @@ class ThresholdProjection(NamedTuple):
     date: str | None = None
 
 
-def linear_fit(points: list[tuple[float, float]]) -> LinearFit | None:
+def linear_fit(points: Sequence[tuple[float, float]]) -> LinearFit | None:
     """Least-squares fit through ``(x, y)`` pairs.
 
     Returns ``None`` for fewer than two points or a degenerate x-range
@@ -84,14 +93,54 @@ def linear_fit(points: list[tuple[float, float]]) -> LinearFit | None:
     return LinearFit(slope=slope, intercept=intercept, points=n)
 
 
-def _parse_ts(value: str | None) -> datetime | None:
-    """Parse an ISO timestamp, tolerating a trailing ``Z`` and junk."""
-    if not value:
+def _parse_ts(value: Any) -> datetime | None:
+    """Coerce a timestamp to ``datetime``, tolerating ISO strings and junk.
+
+    Accepts ``datetime`` unchanged so ORM rows can be fed in directly;
+    accepts ISO text (with a trailing ``Z``) for contract objects, which
+    carry timestamps as strings.
+    """
+    if isinstance(value, datetime):
+        return value
+    if not value or not isinstance(value, str):
         return None
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def disk_series_from(
+    entries: Iterable[tuple[Any, Any]],
+    mount: str = "/",
+) -> list[tuple[datetime, float]]:
+    """``(timestamp, used percent)`` pairs from raw snapshot data.
+
+    ``entries`` yields ``(recorded_at, disk_usage)`` pairs — the shape
+    both a :class:`ResourceSnapshot` ORM row and a parsed contract
+    object can produce, which is why this takes tuples rather than
+    either type.  ``recorded_at`` may be a ``datetime`` or an ISO
+    string.
+
+    Snapshots missing the mount (or the whole ``disk_usage`` block) are
+    skipped rather than treated as 0 % — a gap must not look like an
+    empty disk.  Mixed naive/aware timestamps are left alone; callers
+    within one source are consistent, and comparing across sources is
+    not a supported use.
+    """
+    series: list[tuple[datetime, float]] = []
+    for recorded_at, disk_usage in entries:
+        ts = _parse_ts(recorded_at)
+        if ts is None or not isinstance(disk_usage, dict):
+            continue
+        info = disk_usage.get(mount)
+        if not isinstance(info, dict):
+            continue
+        pct = info.get("percent")
+        if isinstance(pct, int | float) and not isinstance(pct, bool):
+            series.append((ts, float(pct)))
+    series.sort(key=lambda p: p[0])
+    return series
 
 
 def disk_series(
@@ -100,23 +149,13 @@ def disk_series(
 ) -> list[tuple[datetime, float]]:
     """Extract ``(timestamp, used percent)`` pairs for one mount point.
 
-    ``disk_usage`` is stored as a raw ``{mount: {...}}`` mapping, so
-    snapshots missing the mount (or the whole block) are skipped rather
-    than treated as 0 % — a gap must not look like an empty disk.
+    Contract-shaped adapter over :func:`disk_series_from`, used by the
+    tray, which only ever sees parsed HTTP responses.
     """
-    series: list[tuple[datetime, float]] = []
-    for snap in history.snapshots:
-        ts = _parse_ts(snap.recorded_at)
-        if ts is None or not isinstance(snap.disk_usage, dict):
-            continue
-        info = snap.disk_usage.get(mount)
-        if not isinstance(info, dict):
-            continue
-        pct = info.get("percent")
-        if isinstance(pct, int | float):
-            series.append((ts, float(pct)))
-    series.sort(key=lambda p: p[0])
-    return series
+    return disk_series_from(
+        ((snap.recorded_at, snap.disk_usage) for snap in history.snapshots),
+        mount,
+    )
 
 
 def growth_rate_per_day(series: list[tuple[datetime, float]]) -> float | None:
@@ -181,6 +220,43 @@ def project_disk_thresholds(
             )
         )
     return projections
+
+
+def most_urgent_projection(
+    projections: list[ThresholdProjection],
+    horizon_days: float = 30.0,
+) -> ThresholdProjection | None:
+    """The single crossing worth warning about, or ``None``.
+
+    Preference order, chosen so the *most specific true statement* wins:
+
+    1. A crossing projected within ``horizon_days`` — soonest first.
+       "90 % in 10 days" beats "already past 80 %" because it is both
+       more urgent and more actionable.
+    2. Otherwise the highest threshold already exceeded.  Being past
+       80 % is worth saying even when the 90 % crossing is a year out.
+    3. Otherwise the soonest projection of any horizon, so a caller that
+       wants to display a distant trend still gets one.
+
+    ``not_growing`` entries are never chosen — a disk that is not
+    filling has no crossing to report.
+    """
+    projected = sorted(
+        (
+            p for p in projections
+            if p.state == "projected" and p.days_from_now is not None
+        ),
+        key=lambda p: p.days_from_now,  # type: ignore[arg-type,return-value]
+    )
+    imminent = [p for p in projected if p.days_from_now <= horizon_days]  # type: ignore[operator]
+    if imminent:
+        return imminent[0]
+
+    exceeded = [p for p in projections if p.state == "exceeded"]
+    if exceeded:
+        return max(exceeded, key=lambda p: p.percent)
+
+    return projected[0] if projected else None
 
 
 def format_days(days: float) -> str:

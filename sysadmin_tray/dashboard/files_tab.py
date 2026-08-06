@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from sysadmin_tray.forecast import format_mb
+from sysadmin.services.forecast import format_mb
 from sysadmin_tray.models import (
     DuplicatesResponse,
     FileStatusResponse,

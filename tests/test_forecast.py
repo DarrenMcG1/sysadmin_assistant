@@ -1,6 +1,9 @@
-"""Tests for the pure forecasting maths behind the disk growth widget.
+"""Tests for the pure forecasting maths in ``sysadmin.services.forecast``.
 
-No Qt, no backend — every input is a plain contract object.
+No Qt, no database — every input is a plain contract object or a raw
+``(timestamp, disk_usage)`` pair.  Contracts are imported from
+:mod:`sysadmin.contracts` rather than the tray's re-export: the maths
+lives on the backend now and must not depend on the tray to be tested.
 """
 
 from __future__ import annotations
@@ -9,16 +12,19 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from sysadmin_tray.forecast import (
+from sysadmin.contracts import FileTrendForecast, ResourceHistoryResponse
+from sysadmin.services.forecast import (
+    ThresholdProjection,
     describe_reclaimable_forecast,
     disk_series,
+    disk_series_from,
     format_days,
     format_mb,
     growth_rate_per_day,
     linear_fit,
+    most_urgent_projection,
     project_disk_thresholds,
 )
-from sysadmin_tray.models import FileTrendForecast, ResourceHistoryResponse
 
 BASE = datetime(2026, 7, 1, 12, 0, 0)
 
@@ -110,6 +116,53 @@ class TestDiskSeries:
         assert disk_series(history) == []
 
 
+class TestDiskSeriesFrom:
+    """The ORM-shaped entry point the backend uses.
+
+    ``ResourceSnapshot.recorded_at`` is a real ``datetime`` and
+    ``disk_usage`` a JSONB dict, so no ISO parsing happens on that path.
+    """
+
+    def _rows(self, percents: list[float], mount: str = "/") -> list[tuple]:
+        return [
+            (
+                BASE + timedelta(hours=24 * i),
+                {mount: {"total_gb": 500.0, "percent": pct}},
+            )
+            for i, pct in enumerate(percents)
+        ]
+
+    def test_datetime_timestamps_pass_through_unparsed(self):
+        series = disk_series_from(self._rows([60.0, 61.0, 62.0]))
+        assert [pct for _, pct in series] == [60.0, 61.0, 62.0]
+        assert series[0][0] == BASE
+
+    def test_matches_the_contract_adapter_for_equivalent_data(self):
+        from_rows = disk_series_from(self._rows([50.0, 51.0, 52.0]))
+        from_contract = disk_series(
+            ResourceHistoryResponse.from_dict(_history([50.0, 51.0, 52.0])), "/"
+        )
+        assert from_rows == from_contract
+
+    def test_rows_missing_the_mount_are_skipped(self):
+        rows = self._rows([50.0, 51.0]) + [(BASE + timedelta(hours=48), {})]
+        assert len(disk_series_from(rows, "/")) == 2
+
+    def test_none_disk_usage_is_skipped_not_zeroed(self):
+        rows = self._rows([50.0, 51.0])
+        rows.insert(1, (BASE + timedelta(hours=6), None))
+        assert [pct for _, pct in disk_series_from(rows, "/")] == [50.0, 51.0]
+
+    def test_boolean_percent_is_rejected(self):
+        """``True`` is an ``int`` in Python — 1 % free disk is not a reading."""
+        rows = [(BASE, {"/": {"percent": True}}), *self._rows([50.0, 51.0])]
+        assert [pct for _, pct in disk_series_from(rows, "/")] == [50.0, 51.0]
+
+    def test_rows_are_sorted_oldest_first(self):
+        rows = list(reversed(self._rows([50.0, 60.0, 70.0])))
+        assert [pct for _, pct in disk_series_from(rows, "/")] == [50.0, 60.0, 70.0]
+
+
 class TestGrowthRate:
     def test_one_point_per_day_gives_daily_rate(self):
         history = ResourceHistoryResponse.from_dict(_history([50.0, 51.0, 52.0, 53.0]))
@@ -179,6 +232,74 @@ class TestProjectDiskThresholds:
         assert projections[0].state == "projected"
         assert projections[0].days_from_now is not None
         assert projections[0].days_from_now > 0
+
+
+class TestMostUrgentProjection:
+    """Which of several crossings is the one worth warning about."""
+
+    def test_imminent_crossing_beats_an_already_exceeded_lower_threshold(self):
+        projections = [
+            ThresholdProjection(80.0, "exceeded"),
+            ThresholdProjection(90.0, "projected", 10.0, "2026-07-11"),
+        ]
+        chosen = most_urgent_projection(projections, horizon_days=30.0)
+        assert chosen is not None
+        assert chosen.percent == 90.0
+
+    def test_exceeded_wins_when_the_next_crossing_is_far_out(self):
+        """Being past 80 % is worth saying even if 90 % is a year away."""
+        projections = [
+            ThresholdProjection(80.0, "exceeded"),
+            ThresholdProjection(90.0, "projected", 400.0, "2027-08-05"),
+        ]
+        chosen = most_urgent_projection(projections, horizon_days=30.0)
+        assert chosen is not None
+        assert chosen.state == "exceeded"
+        assert chosen.percent == 80.0
+
+    def test_soonest_wins_among_several_imminent_crossings(self):
+        projections = [
+            ThresholdProjection(80.0, "projected", 20.0, "2026-07-21"),
+            ThresholdProjection(90.0, "projected", 5.0, "2026-07-06"),
+        ]
+        chosen = most_urgent_projection(projections, horizon_days=30.0)
+        assert chosen is not None
+        assert chosen.days_from_now == 5.0
+
+    def test_highest_exceeded_is_chosen(self):
+        projections = [
+            ThresholdProjection(80.0, "exceeded"),
+            ThresholdProjection(90.0, "exceeded"),
+        ]
+        chosen = most_urgent_projection(projections)
+        assert chosen is not None
+        assert chosen.percent == 90.0
+
+    def test_distant_projection_is_still_returned_for_display(self):
+        projections = [ThresholdProjection(80.0, "projected", 400.0, "2027-08-05")]
+        chosen = most_urgent_projection(projections, horizon_days=30.0)
+        assert chosen is not None
+        assert chosen.days_from_now == 400.0
+
+    def test_not_growing_is_never_chosen(self):
+        projections = [
+            ThresholdProjection(80.0, "not_growing"),
+            ThresholdProjection(90.0, "not_growing"),
+        ]
+        assert most_urgent_projection(projections) is None
+
+    def test_empty_input_yields_none(self):
+        assert most_urgent_projection([]) is None
+
+    def test_end_to_end_from_a_real_series(self):
+        # 70 % climbing 1 pp/day: 80 % in 10 days, 90 % in 20 days.
+        history = ResourceHistoryResponse.from_dict(_history([67.0, 68.0, 69.0, 70.0]))
+        chosen = most_urgent_projection(
+            project_disk_thresholds(disk_series(history, "/")), horizon_days=30.0
+        )
+        assert chosen is not None
+        assert chosen.percent == 80.0
+        assert chosen.days_from_now == pytest.approx(10.0, abs=0.05)
 
 
 class TestFormatting:

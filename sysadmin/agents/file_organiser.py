@@ -18,6 +18,7 @@ from typing import Any
 from sysadmin.agents.base import AgentResult, BaseAgent
 from sysadmin.config import get_config
 from sysadmin.models.filesystem_audit import FilesystemAudit
+from sysadmin.services.file_recommendations import CACHE_DIR_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,10 @@ class FileOrganiserAgent(BaseAgent):
         empty_dirs: list[str] = []
         stale_project_dirs: list[dict] = []
         file_hashes: dict[str, list[str]] = defaultdict(list)
+        # Every file in a hash group has the same size — the size is part
+        # of the fingerprint (see ``file_hash``) — so one entry per group
+        # is enough to price the reclaim.
+        hash_sizes: dict[str, int] = {}
         stale_total_bytes = 0
 
         for root, dirs, files in os.walk(scan_root):
@@ -239,6 +244,7 @@ class FileOrganiserAgent(BaseAgent):
                             old_downloads.append({
                                 "path": str(filepath),
                                 "days_old": (datetime.now() - mtime).days,
+                                "size_mb": round(stat.st_size / (1024 * 1024), 1),
                             })
                 except ValueError:
                     pass
@@ -255,15 +261,27 @@ class FileOrganiserAgent(BaseAgent):
                     file_hash = self._get_file_hash(filepath, stat.st_size)
                     if file_hash:
                         file_hashes[file_hash].append(str(filepath))
+                        hash_sizes[file_hash] = stat.st_size
 
         # Similar folders
         similar_folders = self._find_similar_folders(
             all_dirs, scan_root, similarity_threshold
         )
 
-        # Duplicates
-        duplicates = [
-            {"hash": h, "files": paths, "count": len(paths)}
+        # Duplicates.  ``reclaimable_mb`` prices the group at "delete all
+        # but one copy" — the same rule ``/api/files/clean/duplicates``
+        # applies — so the recommendations can rank on real megabytes
+        # rather than on a group count.
+        duplicates: list[dict[str, Any]] = [
+            {
+                "hash": h,
+                "files": paths,
+                "count": len(paths),
+                "size_mb": round(hash_sizes.get(h, 0) / (1024 * 1024), 1),
+                "reclaimable_mb": round(
+                    hash_sizes.get(h, 0) * (len(paths) - 1) / (1024 * 1024), 1
+                ),
+            }
             for h, paths in file_hashes.items()
             if len(paths) > 1
         ]
@@ -272,9 +290,14 @@ class FileOrganiserAgent(BaseAgent):
             "similar_folders": similar_folders,
             "misplaced_files": dict(misplaced_files),
             "stale_files": stale_files[:500],
-            "old_downloads": old_downloads,
+            # Both lists are truncated before storage, so sort by size
+            # first: an arbitrary 50 of 400 duplicate groups would hide
+            # exactly the ones worth acting on.
+            "old_downloads": sorted(old_downloads, key=lambda x: -x["size_mb"]),
             "large_files": sorted(large_files, key=lambda x: -x["size_mb"]),
-            "duplicates": duplicates[:200],
+            "duplicates": sorted(
+                duplicates, key=lambda x: -float(x["reclaimable_mb"])
+            )[:200],
             "empty_dirs": empty_dirs[:200],
             "stale_project_dirs": sorted(stale_project_dirs, key=lambda x: -x["size_mb"]),
             "stale_project_dirs_total_bytes": stale_total_bytes,
@@ -341,16 +364,22 @@ class FileOrganiserAgent(BaseAgent):
         }
 
     def _identify_quick_wins(self, findings: dict) -> dict:
-        """Group findings into quick wins vs needs-review categories."""
+        """Group findings into quick wins vs needs-review categories.
+
+        ``CACHE_DIR_TYPES`` is shared with
+        :mod:`sysadmin.services.file_recommendations` so the quick-wins
+        count and the "delete stale caches" advice can never disagree
+        about what counts as a cache.
+        """
         quick_wins = {
             "empty_dirs": len(findings.get("empty_dirs", [])),
             "stale_caches": sum(
                 1 for d in findings.get("stale_project_dirs", [])
-                if d.get("type") in ("__pycache__", ".pytest_cache", ".tox")
+                if d.get("type") in CACHE_DIR_TYPES
             ),
             "stale_cache_mb": sum(
                 d.get("size_mb", 0) for d in findings.get("stale_project_dirs", [])
-                if d.get("type") in ("__pycache__", ".pytest_cache", ".tox")
+                if d.get("type") in CACHE_DIR_TYPES
             ),
         }
         return quick_wins

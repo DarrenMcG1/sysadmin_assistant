@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import shutil
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -13,10 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.auth import require_auth
 from sysadmin.config import AppConfig, FileOrganiserConfig, get_config
-from sysadmin.contracts import FileActionResponse
+from sysadmin.contracts import FileActionResponse, FileActionsResponse
 from sysadmin.database import get_db_session
 from sysadmin.models.filesystem_audit import FilesystemAudit
-from sysadmin.services import file_actions
+from sysadmin.models.resource_snapshot import ResourceSnapshot
+from sysadmin.services import file_actions, file_recommendations, forecast
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +217,83 @@ async def get_trends(
     }
 
 
+@router.get("/actions", response_model=FileActionsResponse)
+async def get_file_actions(
+    limit: int = Query(default=10, le=50),
+    history_days: int = Query(default=30, ge=2, le=365),
+    mount: str = Query(default="/"),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Top disk wins from the latest audit, ranked risk-first.
+
+    The mirror of ``GET /api/projects/actions``, with reclaimable
+    megabytes in place of health-score points.
+
+    "Risk-first" needs a second table.  ``filesystem_audits`` tracks
+    *junk accumulation*; only ``resource_snapshots`` knows disk
+    *occupancy*, and it is occupancy that answers "when does this disk
+    fill up".  So the projected 80 %/90 % crossing is fitted over the
+    last ``history_days`` of resource history and, when it lands inside
+    the risk horizon, outranks every byte total below it.  With too
+    little history to fit a line the endpoint degrades to a plain
+    megabytes-descending ranking rather than failing.
+    """
+    audit_result = await session.execute(
+        select(FilesystemAudit)
+        .order_by(desc(FilesystemAudit.scanned_at))
+        .limit(1)
+    )
+    audit = audit_result.scalar_one_or_none()
+    if not audit:
+        raise HTTPException(status_code=404, detail="No audit data yet")
+
+    cutoff = datetime.now(UTC) - timedelta(days=history_days)
+    snapshot_result = await session.execute(
+        select(ResourceSnapshot.recorded_at, ResourceSnapshot.disk_usage)
+        .where(ResourceSnapshot.recorded_at >= cutoff)
+        .order_by(ResourceSnapshot.recorded_at)
+    )
+    series = forecast.disk_series_from(
+        ((row.recorded_at, row.disk_usage) for row in snapshot_result), mount
+    )
+    projection = forecast.most_urgent_projection(
+        forecast.project_disk_thresholds(series),
+        horizon_days=file_recommendations.RISK_HORIZON_DAYS,
+    )
+
+    agent_config = get_config().agents.file_organiser
+    recs = file_recommendations.recommendations_for_audit(
+        audit.findings or {},
+        agent_config,
+        projection,
+        # The findings blob is truncated to 50–100 entries per category
+        # before storage; these columns hold the real totals.  Without
+        # them a live scan reports "200 misplaced files" against an
+        # actual 11,877.
+        true_counts={
+            "duplicates": audit.duplicate_groups_count,
+            "old_downloads": audit.old_downloads_count,
+            "misplaced_files": audit.misplaced_files_count,
+            "large_files": audit.large_files_count,
+            "empty_dirs": audit.empty_dirs_count,
+            "similar_folders": audit.similar_folders_count,
+            "stale_project_dirs": audit.stale_project_dirs_count,
+        },
+    )
+
+    return {
+        "actions": [r.model_dump() for r in recs[:limit]],
+        "count": min(len(recs), limit),
+        "total_available": len(recs),
+        # Sums every recommendation, not just the returned page — the
+        # headline "this much is on the table" must not shrink because
+        # the caller asked for a smaller limit.
+        "total_reclaimable_mb": file_recommendations.total_reclaimable_mb(recs),
+        "scanned_at": audit.scanned_at.isoformat() if audit.scanned_at else None,
+        "disk_forecast": projection._asdict() if projection else None,
+    }
+
+
 def _compute_reclaimable_forecast(
     audits: list[FilesystemAudit],
 ) -> dict:
@@ -242,19 +320,15 @@ def _compute_reclaimable_forecast(
         ((ts - t0).total_seconds() / 86400, mb) for ts, mb in ordered
     ]
 
-    # Simple linear regression: y = slope * x + intercept
-    n = len(points)
-    sum_x = sum(p[0] for p in points)
-    sum_y = sum(p[1] for p in points)
-    sum_xy = sum(p[0] * p[1] for p in points)
-    sum_xx = sum(p[0] ** 2 for p in points)
-
-    denom = n * sum_xx - sum_x ** 2
-    if denom == 0:
+    # One least-squares implementation for the whole codebase — this
+    # used to hand-roll the same arithmetic as
+    # ``sysadmin.services.forecast.linear_fit``.  A degenerate x-range
+    # (every scan at the same instant) returns None there and keeps the
+    # "flat growth" answer it has always given here.
+    fit = forecast.linear_fit(points)
+    if fit is None:
         return {"growth_rate_mb_per_day": 0.0}
-
-    slope = (n * sum_xy - sum_x * sum_y) / denom
-    intercept = (sum_y - slope * sum_x) / n
+    n, slope, intercept = fit.points, fit.slope, fit.intercept
 
     current_mb = ordered[-1][1]
     latest_ts = ordered[-1][0]
