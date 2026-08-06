@@ -377,6 +377,36 @@ project at a time is the unit.
       from different evidence (elapsed time vs. attempts made). Worth
       taking together if 31 lands first
 
+### Session 33: Seam drift detection
+
+Requested 2026-08-06. Found by checking rather than assuming: Alfred's
+consumer fixture was **two sections behind** the same day it was captured,
+with its contract test green the whole time.
+
+- [ ] **Producer publishes the sample.** A test here regenerates
+      `docs/contracts/briefing_preview.sample.json` from
+      `generate_briefing_data` and fails when it differs from the committed
+      copy — so the sample cannot silently go stale, the same trick the
+      schema-drift guard already uses for migrations
+- [ ] **Detect a stale consumer.** sysadmin can read Alfred's fixture
+      (`backend/tests/fixtures/briefing_producers/sysadmin_preview.json` —
+      same disk) and raise a finding when its section set is a subset of
+      what this service now serves. This catches drift *without waiting for
+      anyone to commit*, which is the case that actually bites
+- [ ] Consumer registry in config: which repo, which fixture path, which
+      producer endpoint. Two entries today; the point is that adding a
+      third consumer is a config line, not code
+- [ ] **Do not** build a shared contract package or a monorepo. Three repos
+      in three languages, two seams — a shared library would couple three
+      release cycles to solve what two files and a test already cover.
+      Considered and rejected 2026-08-06
+- [ ] Write the additive-only rule into
+      [guides/monitorable-project.md](../guides/monitorable-project.md):
+      sections and fields are added, never renumbered or removed; consumers
+      render what arrives and ignore what they do not recognise. That
+      tolerance is why the briefing went 5 → 7 sections with no breakage,
+      and it does more work than any schema tooling
+
 ---
 
 ## Backlog
