@@ -12,85 +12,22 @@
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
 
-### Repeat the project-manager tier pattern in other domains (2026-08-05)
+### ✅ Promoted 2026-08-05 — the project-manager tier pattern in other domains
 
-Sessions 21–23 established a three-tier ladder that generalises: **Tier 1**
-measure deeply (structured findings, a score whose deductions are individually
-attributable), **Tier 2** advice as data (pure module, each recommendation
-mirrors exactly one finding with an exact payoff, points at safe dry-run
-executors), **Tier 3** periodic LLM narrative (deterministic facts and deltas
-computed in code, bounded prompt, model writes qualitative sections only,
-digest fallback when inference is unavailable, persisted with inputs in
-`stats`, endpoint + cron + briefing section). Session 23's runtime lessons
-carry over: commit the read transaction before calling the LLM, and never let
-the 3B model produce numbers.
+Sessions 21–23's three-tier ladder (measure → advice as data → periodic LLM
+narrative) generalises, and all four candidates captured here are now
+**Sessions 24–27 in [tasks.md](tasks.md)**, where the full detail lives:
 
-Four candidates, in rough priority order:
+| Session | Domain | Note |
+|---|---|---|
+| 24 | File organiser tiers | Currency is reclaimable bytes; also promotes the forecast maths out of the tray |
+| 25 | Service reliability scoring | Scores services from `health_checks`/`alerts` history, which nothing reads today |
+| 26 | Service discovery — unmonitored-unit detector | Directly requested; the mechanical backstop for [guides/monitorable-project.md](../guides/monitorable-project.md) |
+| 27 | Log aggregator tiers | Coupled to SNAG-AGENT-002 — signature fingerprinting fixes both |
 
-1. **File organiser tiers — disk instead of portfolio.** Strongest analogue;
-   most machinery exists. Tier 1 is done (duplicates/misplaced/large/stale
-   caches + `file_trends`). Tier 2: a pure `file_recommendations.py` where
-   `points` = **reclaimable bytes**, each item pointing at the Session 18
-   dry-run executors (`/api/files/organise`, `/clean/duplicates`,
-   `/clean/downloads`, `/clean/stale-caches`), plus a portfolio-style
-   `GET /api/files/actions` — risk-first (disk-threshold forecast crossing
-   outranks raw MB, like `no_remote`). Tier 3: weekly disk review from
-   `file_trends` deltas + the threshold-crossing forecast — which means
-   promoting the least-squares fit from `sysadmin_tray/forecast.py` into a
-   backend service so review, briefing and any web UI share it. The detector
-   ideas below (multi-venv clutter, name-similarity duplicates) become new
-   Tier 1 findings that automatically surface as recommendations.
-
-2. **Service reliability scoring — the SysAdmin agent's world.** Nothing
-   scores *services*, yet the history is in the DB (`health_checks` streaks,
-   `alerts`, `resource_snapshots`, `agent_runs`). Tier 1: per-service
-   reliability score (uptime %, flap count, MTBA, restart frequency) with the
-   status-awareness trick — muted/expected-down services waive deductions
-   rather than being excluded. Tier 2: recommendations tied to alert-history
-   facts ("llama-server flapped 6× this week", "alfred-evaluate.timer
-   inactive 3 days — schedule has stopped"); few safe executors exist beyond
-   service restart, so most items name config changes (Session 22's fallback
-   convention). Tier 3: weekly system health review — flappiest services,
-   alert volume delta, anomaly summary, resource trend direction — beside the
-   project review in Monday's briefing, reusing the `project_reviews` design.
-
-3. **Service discovery — unmonitored-unit detector (project manager).**
-   Adding each new project's systemd units to projects.yaml by hand is
-   tedious and rots silently (the broken-path PA entries proved it). The
-   organiser should cross-reference discovered projects against installed
-   units — `~/.config/systemd/user/*.{service,timer}` plus
-   `/etc/systemd/system/*.service` — and raise findings both ways:
-
-   - **Unmonitored unit**: a unit maps to a live project but projects.yaml
-     doesn't wire it. Matching signal in preference order: the unit file's
-     `WorkingDirectory`/`ExecStart` path under the project dir (robust),
-     then normalised name-prefix match (strip `-_`, case-fold:
-     `sportsanalyser-*` → `SportsAnalyser`/`sports_analyser`). Tier 2
-     recommendation carries a **ready-to-paste projects.yaml snippet**
-     (with `user: true` for user units, and the alfred-evaluate lesson
-     baked in: a `Type=oneshot` service means monitor its *timer*).
-     Grounded 2026-08-05: `sportsanalyser-{backend,frontend,pipeline}`
-     units exist but the yaml entry has URL-only checks — unmonitored
-     today; `garmin-sync`, `deadlock-api-ingest`, `ticktick-sync`,
-     `offline-agents-dashboard` have no entry at all. Future projects
-     (e.g. venture-assistant) get caught automatically on first
-     `systemctl enable`.
-   - **Orphaned unit**: a unit whose project is archived or gone — six
-     dead `personal-assistant-*` user units and two `personalassistant-*`
-     system units are still installed now.
-
-   Advice-only, no auto-editing: projects.yaml is hand-curated with
-   comments, so the recommendation surfaces the snippet rather than an
-   executor writing the file. Distro/template units (`@.service`,
-   `dbus-org.*`) filtered by the path-match requirement.
-
-4. **Log aggregator tiers — thinnest, take with SNAG-AGENT-002.** Tier 3 is
-   half-done (overnight LLM log summary in the briefing). Missing substance:
-   per-source error-rate trends week-on-week, "new error signatures this week
-   vs last", recommendations like "this warning appeared 400× — add to
-   known-noise or fix". Error-signature fingerprinting is also the fix for
-   SNAG-AGENT-002 (one alert per error line), so this is best done as part of
-   that snag rather than standalone.
+The detector ideas parked below feed **Session 24** as new Tier 1 findings:
+once a finding exists, the advice for it follows automatically, which is the
+payoff of the advice-mirrors-findings design.
 
 ### Housekeeping follow-ups from the 2026-08-04 ~/projects reorganisation
 
@@ -141,7 +78,12 @@ follow, not lead.
 
 ---
 
-_Remaining inbox clear — all other pending ideas promoted to sessions on 2026-07-24:_
+_Promoted 2026-08-05:_
+
+- Tier pattern in other domains (file organiser, service reliability,
+  service discovery, log aggregator) → **Sessions 24–27**
+
+_Promoted 2026-07-24:_
 
 - File organisation & cleanup → **Session 18**
 - Dashboard enhancements → **Session 19**
