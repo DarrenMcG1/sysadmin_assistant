@@ -304,6 +304,81 @@ Thinnest of the four, and deliberately coupled to the open snag: error
 
 ---
 
+## Momentum sessions (29–32) — moving projects along, not monitoring them
+
+Requested 2026-08-06. Sessions 24–27 make the service a more complete
+*monitor*; these four are the other axis — changing what happens on a given
+morning. Everything built so far reports; nothing acts.
+
+**The design constraint they share:** each one must make the output
+*shorter*. The obvious way to add features here is more surfaces and longer
+lists, and that is the failure mode — 400 TODOs and 51 routes have not moved
+a project yet. Success is measured in what stops being shown.
+
+Take 29 first: 30 consumes its ranking, and 31/32 are more useful once one
+project at a time is the unit.
+
+### Session 29: The one-thing endpoint
+
+- [ ] `GET /api/projects/next` — **one** project, one action, one sentence
+      of why it is that one. Not a filtered board: a different object, with
+      a `reason` field the consumer must render
+- [ ] **The open design question, and it is the whole feature: what decides
+      when two projects both have a live next action?** Longest-idle is the
+      obvious rule and probably the wrong one — it optimises for guilt.
+      "Smallest next step" or "nearest to finishing" optimise for momentum,
+      which is the stated goal. Needs a decision before code
+- [ ] Honour `?exclude=` so a deferred suggestion can be skipped without
+      re-rolling the same answer
+- [ ] Contract-pinned; feeds alfred-glance, whose whole premise is glance
+      then act
+- [ ] Deliberately **not** in scope: a resume/deep-link command. Considered
+      and dropped 2026-08-06
+
+### Session 30: Next action → an Alfred work item
+
+- [ ] Alfred creates one `work_item` per active project from
+      `/api/projects/next` (or the board), refreshed daily, linked by the
+      nullable `sysadmin_name` on `trackables.Project`
+- [ ] **The write happens in Alfred, pulling** — exactly as it already does
+      for `/api/sysadmin/briefing/preview`. sysadmin stays read-only, so the
+      "report only" restriction survives intact rather than being revisited
+- [ ] Do **not** insert sysadmin's projects into `trackables.projects` —
+      that table is curated life projects (warhammer, birdfeeder). See
+      [guides/alfred-projects-page.md](../guides/alfred-projects-page.md) §3
+- [ ] Work in Alfred's repo; nothing here blocks it beyond Session 29
+
+### Session 31: Idle nudges — a commitment, not hygiene
+
+- [ ] Distinct from the staleness score, which asks "is this repo tidy".
+      This asks "**you have a stated next action and have not touched it in
+      N days**" — a broken commitment, not a dirty directory
+- [ ] Rides plumbing that already exists: severity thresholds, DND windows,
+      desktop notifications, the tray. No new delivery path
+- [ ] Only for `active` projects with a non-null `next_action`. A dormant
+      project has made its decision; a project with no next action has
+      nothing to be reminded of
+- [ ] Threshold per project, defaulting globally. Getting this wrong makes
+      the tray a nag, which trains the user to ignore it — start long
+
+### Session 32: Start-versus-finish accounting
+
+- [ ] The one signal nothing else here can produce: **sessions that start
+      and land nothing**. The SessionEnd hook records that a session
+      happened; git records whether anything shipped. A project
+      accumulating sessions with no commits between them is the
+      start-and-drop pattern made measurable
+- [ ] **Blocker to solve first:** the hook *overwrites*
+      `docs/sessions/handoff.md`, so session history does not survive. Needs
+      either an append-only `docs/sessions/log.jsonl` written by the hook,
+      or sysadmin recording handoff-date transitions per scan. The former is
+      cheaper and keeps the record with the repo
+- [ ] Couples to Session 31 — both answer "you said you would and didn't"
+      from different evidence (elapsed time vs. attempts made). Worth
+      taking together if 31 lands first
+
+---
+
 ## Backlog
 
 **Carried-forward follow-ups** — small items noted by the sessions that
