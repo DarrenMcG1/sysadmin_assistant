@@ -230,4 +230,9 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 
 For comprehensive guides on specific topics, see `docs/guides/`:
 
-_Create guides as needed for testing, Docker, CI/CD, etc._
+- **monitorable-project.md** — the contract new `~/projects` services must
+  follow (port registry, `/api/health`, unit naming, oneshot→timer,
+  projects.yaml wiring). Pointed at from `~/.claude/CLAUDE.md` so every
+  new-project session reads it.
+- **api_auth.md** — bearer-token auth setup
+- **alfred-briefing-integration.md** — consuming the briefing from Alfred
