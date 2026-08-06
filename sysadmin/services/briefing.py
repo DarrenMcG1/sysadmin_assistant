@@ -54,6 +54,12 @@ async def generate_briefing_data(session: AsyncSession) -> dict[str, Any]:
     if project_section:
         sections.append(project_section)
 
+    # 4b. One next action per active project — the nudge, as opposed to
+    # the scoreboard above.
+    next_actions_section = await _build_next_actions_section(session)
+    if next_actions_section:
+        sections.append(next_actions_section)
+
     # 5. Weekly reviews, while they are fresh
     from sysadmin.models.disk_review import DiskReview
     from sysadmin.models.project_review import ProjectReview
@@ -219,6 +225,77 @@ async def _build_project_section(session: AsyncSession) -> dict | None:
         "title": "Project Health",
         "type": "table",
         "data": projects,
+    }
+
+
+# Kept in step with services/recommendations.STALLED_HANDOFF_DAYS.
+_BOARD_LIMIT = 5
+
+
+async def _build_next_actions_section(session: AsyncSession) -> dict | None:
+    """The "pick this up" section — one next action per active project.
+
+    Deliberately **not** a list of everything outstanding.  The health
+    table above already reports 400 TODOs across the portfolio, and a
+    longer list is more to avoid rather than less: the useful output is
+    one concrete step per project, capped, ranked by how long the project
+    has been sitting.
+
+    Projects with no next action are omitted entirely — a row saying
+    "nothing recorded" is noise in a briefing whose whole job is to be
+    short.  Stalled entries are marked rather than dropped, because
+    "decide whether to park this" is itself the action.
+    """
+    from sysadmin.services.recommendations import STALLED_HANDOFF_DAYS
+
+    latest_subq = (
+        select(
+            ProjectSnapshot.project_name,
+            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
+        )
+        .group_by(ProjectSnapshot.project_name)
+        .subquery()
+    )
+    query = select(ProjectSnapshot).join(
+        latest_subq,
+        (ProjectSnapshot.project_name == latest_subq.c.project_name)
+        & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
+    )
+    result = await session.execute(query)
+    rows = result.scalars().all()
+
+    entries = []
+    for r in rows:
+        findings = r.findings or {}
+        if findings.get("status", "active") != "active":
+            continue
+
+        roadmap = findings.get("roadmap") or {}
+        action = roadmap.get("next_action")
+        source = roadmap.get("next_action_source")
+        if not action and findings.get("last_commit_subject"):
+            action, source = str(findings["last_commit_subject"]), "git"
+        if not action:
+            continue
+
+        age = roadmap.get("handoff_age_days")
+        entry = {
+            "project": r.project_name,
+            "next": action[:180],
+            "source": source,
+        }
+        if isinstance(age, int) and age > STALLED_HANDOFF_DAYS:
+            entry["note"] = f"stalled {age} days — resume or park"
+        entries.append((age if isinstance(age, int) else -1, entry))
+
+    if not entries:
+        return None
+
+    entries.sort(key=lambda pair: -pair[0])
+    return {
+        "title": "Pick This Up",
+        "type": "table",
+        "data": [entry for _, entry in entries[:_BOARD_LIMIT]],
     }
 
 

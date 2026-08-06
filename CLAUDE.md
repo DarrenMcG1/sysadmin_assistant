@@ -208,6 +208,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `POST /api/projects/{name}/branches/prune` | `BranchCleanupResponse` (+`BranchInfo`) | response_model |
 | `GET /api/projects/{name}/recommendations` | `ProjectRecommendationsResponse` (+`RecommendationInfo`) | response_model |
 | `GET /api/projects/actions` | `PortfolioActionsResponse` (+`PortfolioAction`) | response_model |
+| `GET /api/projects/board` | `ProjectBoardResponse` (+`ProjectBoardEntry`) | response_model |
 | `GET /api/projects/review` | `ProjectReviewResponse` | response_model |
 | `POST /api/projects/review/generate` | `ProjectReviewResponse` | response_model (auth; LLM optional — digest fallback) |
 
@@ -263,6 +264,16 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 
 For comprehensive guides on specific topics, see `docs/guides/`:
 
+- **alfred-projects-page.md** — the spec for Alfred's projects page:
+  `GET /api/projects/board`, what `next_action_source` obliges a consumer
+  to render differently, and why the board must not be written into
+  Alfred's own `trackables.projects` table.
+- **estate-map.md** — what runs on this box and how it connects: the app
+  inventory, the one app-to-app data flow (briefing → Alfred → glance),
+  shared resources (GPU/VRAM, `~/models/`, PostgreSQL, Alfred's private
+  MQTT), and which apps are grandfathered against which convention. Read
+  it for anything spanning two projects; also pointed at from
+  `~/.claude/CLAUDE.md`.
 - **monitorable-project.md** — the contract new `~/projects` services must
   follow (port registry, `/api/health`, unit naming, oneshot→timer,
   projects.yaml wiring). Pointed at from `~/.claude/CLAUDE.md` so every

@@ -94,13 +94,28 @@ def _disk_review(narrative: str = "Disk held steady.", days_old: int = 0):
 
 
 def _session_returning(
-    infra, log, filesystem, projects, review=None, disk_review=None
+    infra,
+    log,
+    filesystem,
+    projects,
+    review=None,
+    disk_review=None,
+    next_actions=None,
 ):
     """Mock session whose execute() feeds each section builder in order.
 
     Order matters and is positional: adding a section to
     ``generate_briefing_data`` without adding a result here exhausts the
-    iterator and every test in this file fails at once.
+    iterator and every test in this file fails at once.  (It did, when
+    "Pick This Up" was added — the docstring was right.)
+
+    ``next_actions`` is last in the signature but **fifth** in the list,
+    because it feeds the section that runs between project health and the
+    weekly reviews.  Keyword position and execution order are not the
+    same thing here; the list below is the one that matters.  It defaults
+    to the ``projects`` rows, since both builders read the same latest-
+    snapshot-per-project query and a test that sets up project health
+    almost always means the same fixtures for both.
     """
     session = AsyncMock()
     session.execute = AsyncMock(
@@ -109,6 +124,7 @@ def _session_returning(
             _result_one(log),
             _result_one(filesystem),
             _result_all(projects),
+            _result_all(projects if next_actions is None else next_actions),
             _result_first(review),
             _result_first(disk_review),
         ]
@@ -247,6 +263,117 @@ def _patch_scheduler_session(session):
         yield session
 
     return patch("sysadmin.services.briefing.get_scheduler_session", fake_session)
+
+
+def _project_with_roadmap(name, *, status="active", **roadmap_overrides):
+    """A snapshot carrying roadmap findings, for the "Pick This Up" section."""
+    roadmap = {
+        "next_action": f"Do the {name} thing",
+        "next_action_source": "handoff",
+        "handoff_age_days": 2,
+    }
+    roadmap.update(roadmap_overrides)
+    row = _project(name)
+    row.findings = {"status": status, "roadmap": roadmap}
+    return row
+
+
+class TestNextActionsSection:
+    """The "Pick This Up" section — one action per project, not a backlog."""
+
+    @pytest.mark.asyncio
+    async def test_section_lists_next_actions(self):
+        session = _session_returning(
+            infra=[],
+            log=None,
+            filesystem=None,
+            projects=[],
+            next_actions=[_project_with_roadmap("alfred")],
+        )
+        data = await generate_briefing_data(session)
+        section = next(s for s in data["sections"] if s["title"] == "Pick This Up")
+
+        assert section["type"] == "table"
+        assert section["data"] == [
+            {"project": "alfred", "next": "Do the alfred thing", "source": "handoff"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_stalled_projects_are_marked_and_sorted_first(self):
+        session = _session_returning(
+            infra=[],
+            log=None,
+            filesystem=None,
+            projects=[],
+            next_actions=[
+                _project_with_roadmap("fresh", handoff_age_days=1),
+                _project_with_roadmap("stalled", handoff_age_days=150),
+            ],
+        )
+        data = await generate_briefing_data(session)
+        rows = next(
+            s for s in data["sections"] if s["title"] == "Pick This Up"
+        )["data"]
+
+        assert rows[0]["project"] == "stalled"
+        assert "stalled 150 days" in rows[0]["note"]
+        assert "note" not in rows[1]
+
+    @pytest.mark.asyncio
+    async def test_capped_so_the_briefing_stays_short(self):
+        session = _session_returning(
+            infra=[],
+            log=None,
+            filesystem=None,
+            projects=[],
+            next_actions=[
+                _project_with_roadmap(f"p{i}", handoff_age_days=i) for i in range(12)
+            ],
+        )
+        data = await generate_briefing_data(session)
+        rows = next(
+            s for s in data["sections"] if s["title"] == "Pick This Up"
+        )["data"]
+        assert len(rows) == 5
+
+    @pytest.mark.asyncio
+    async def test_projects_without_an_action_are_omitted_not_blank(self):
+        session = _session_returning(
+            infra=[],
+            log=None,
+            filesystem=None,
+            projects=[],
+            next_actions=[
+                _project_with_roadmap("has-one"),
+                _project_with_roadmap("has-none", next_action=None),
+            ],
+        )
+        data = await generate_briefing_data(session)
+        rows = next(
+            s for s in data["sections"] if s["title"] == "Pick This Up"
+        )["data"]
+        assert [r["project"] for r in rows] == ["has-one"]
+
+    @pytest.mark.asyncio
+    async def test_dormant_projects_excluded(self):
+        session = _session_returning(
+            infra=[],
+            log=None,
+            filesystem=None,
+            projects=[],
+            next_actions=[_project_with_roadmap("parked", status="dormant")],
+        )
+        data = await generate_briefing_data(session)
+        assert not any(s["title"] == "Pick This Up" for s in data["sections"])
+
+    @pytest.mark.asyncio
+    async def test_section_omitted_entirely_when_nothing_to_show(self):
+        """Sections are omitted, not empty — the consumer contract."""
+        session = _session_returning(
+            infra=[], log=None, filesystem=None, projects=[], next_actions=[]
+        )
+        data = await generate_briefing_data(session)
+        assert not any(s["title"] == "Pick This Up" for s in data["sections"])
 
 
 class TestSendMorningBriefing:

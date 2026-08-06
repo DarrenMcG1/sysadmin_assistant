@@ -917,7 +917,7 @@ class RecommendationInfo(Contract):
     impact but ranked first — e.g. no remote means no off-disk copy).
     """
 
-    kind: str = ""  # risk | docs | config | hygiene | git | activity | todos
+    kind: str = ""  # risk | docs | config | hygiene | git | activity | todos | roadmap
     severity: str = "advice"
     title: str = ""
     detail: str = ""
@@ -950,12 +950,75 @@ class PortfolioActionsResponse(Contract):
 
     Ranked risk-first then by recoverable points; ``count`` is what was
     returned after ``limit``, ``total_available`` what existed before it.
+
+    ``dropped_by_kind`` names what the limit cut, because this list
+    saturates.  Its currency is recoverable score points, so anything
+    worth 0 sorts last by construction — and 11 projects sharing one
+    ``no_remote`` risk filled the entire default view, hiding every
+    ``roadmap`` item behind a single systemic finding.  A total that says
+    "68 available, 10 returned" does not tell you *what kind* of advice
+    you stopped seeing; this does.
     """
 
     actions: list[PortfolioAction] = Field(default_factory=list)
     count: int = 0
     total_available: int = 0
     projects_with_actions: int = 0
+    dropped_by_kind: dict[str, int] = Field(default_factory=dict)
+
+
+class ProjectBoardEntry(Contract):
+    """One project as the estate board shows it.
+
+    Built for a consumer that renders a list and needs no second call —
+    Alfred's projects page.  The existing project endpoints answer
+    "how tidy is it"; this answers "**what do I do next, and is that
+    still current**", which needs the roadmap documents and the health
+    score joined together.
+
+    ``next_action_source`` is the honesty field.  ``handoff`` means a
+    session recorded where it stopped; ``tasks`` means nobody wrote a
+    handoff and this is the plan instead; ``git`` means neither existed
+    and the last commit subject is standing in.  A consumer that renders
+    all three identically is lying about how much it knows.
+
+    ``stalled`` is the presentation rule made explicit rather than left
+    to each client: a next action from a handoff older than 30 days is a
+    resume-or-park decision, not today's work.
+    """
+
+    name: str = ""
+    path: str = ""
+    status: str = "active"          # active | dormant | archived
+    health_score: int = 0
+    grade: str = ""
+    last_commit_at: str | None = None
+    days_since_commit: int | None = None
+    next_action: str | None = None
+    next_action_source: str | None = None   # handoff | tasks | git | None
+    handoff_age_days: int | None = None
+    stalled: bool = False
+    # None means the project's task list is not measurable in checkboxes
+    # (Alfred tracks sessions in a status table); 0 means measured and
+    # empty. A consumer that renders both as "0" is inventing a fact.
+    open_tasks: int | None = None
+    open_snags: int = 0
+    top_action: str | None = None
+    scanned_at: str | None = None
+
+
+class ProjectBoardResponse(Contract):
+    """GET /api/projects/board — the whole estate in one call.
+
+    Ordered so the answer to "what should I pick up" is the first row:
+    active projects before dormant/archived, then stalled ones (a
+    decision is overdue), then oldest activity first.
+    """
+
+    projects: list[ProjectBoardEntry] = Field(default_factory=list)
+    count: int = 0
+    stalled_count: int = 0
+    generated_at: str | None = None
 
 
 class ProjectReviewResponse(Contract):

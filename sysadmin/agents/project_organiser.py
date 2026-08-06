@@ -5,6 +5,7 @@ Detects:
 - Stale/merged branches
 - TODO/FIXME counts
 - Missing documentation (README, CLAUDE.md)
+- Roadmap state (handoff, tasks, snags) — see services/roadmap.py
 - Project size
 """
 
@@ -18,6 +19,7 @@ from typing import Any
 from sysadmin.agents.base import AgentResult, BaseAgent
 from sysadmin.config import get_config
 from sysadmin.models.project_snapshot import ProjectSnapshot
+from sysadmin.services.roadmap import scan_roadmap
 from sysadmin.utils.git import (
     get_branches,
     get_last_commit_date,
@@ -210,6 +212,23 @@ class ProjectOrganiserAgent(BaseAgent):
 
             if not has_remote_flag:
                 findings["no_remote"] = True
+
+            # Subject of the last commit — the estate board's last-resort
+            # "next action" when a project keeps no roadmap documents at
+            # all.  "Where you actually stopped" is still recoverable from
+            # git even when nobody wrote it down.
+            try:
+                findings["last_commit_subject"] = str(repo.head.commit.summary)[:200]
+            except Exception:  # noqa: BLE001 - unborn HEAD, corrupt ref, etc.
+                pass
+
+        # Roadmap documents — recorded, never scored.  A deduction here
+        # would move every active project's health score at once and could
+        # trip alert thresholds as a side effect of adding a feature; that
+        # is a decision to take deliberately, not to slip in.  Advice is
+        # still produced (see services/recommendations.py) at 0 points, the
+        # same shape `no_remote` already uses.
+        findings["roadmap"] = scan_roadmap(project_path)
 
         # Documentation checks
         has_readme = (project_path / "README.md").exists()

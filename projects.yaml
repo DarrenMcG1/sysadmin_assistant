@@ -62,8 +62,14 @@ projects:
   # Type=oneshot, so its TIMER is monitored instead — but that lives in
   # config.yaml's agents.sysadmin.services (this file only models
   # backend/frontend endpoints).
+  # Dormant 2026-08-06: last code change 2026-03-23 (Phase 12A retrain).
+  # Its handoff is a faithful record of where work stopped, so the board
+  # flagged it stalled at 152 days — declaring it dormant *is* the
+  # resume-or-park decision that flag was asking for. Endpoints stay
+  # monitored: the services are still running and still worth alerting on.
   - name: sports_analyser
     path: /home/gaddi/projects/apps/SportsAnalyser
+    status: dormant
     backend:
       url: http://localhost:8200/api/v1/health
       port: 8200
@@ -83,8 +89,81 @@ projects:
         unit: sportsanalyser-frontend.service
         severity_filter: warning
 
+  # --- Dormant: wanted eventually, not being worked on --------------------
+  # Declared 2026-08-06. `dormant` is the lighter touch than `archived`:
+  # commit staleness stops being penalised and roadmap advice is waived,
+  # but everything else is still scored and they stay on the board when
+  # asked for. Dates below are the last commit that changed *code* — the
+  # 2026-08-04/05 "WIP snapshot before ~/projects reorganisation" commit
+  # touched every repo on the box and is not work.
+  #
+  # Undeclared projects default to `active`, which is why the board showed
+  # 18 rows for a five-project estate. Declaring intent is the fix; it is
+  # cheaper than any document these repos could be given.
   - name: daiy
     path: /home/gaddi/projects/apps/daiy
+    status: dormant          # last code 2026-02-06 (finger calibration)
+
+  - name: BSL-Translator
+    path: /home/gaddi/projects/apps/BSL-Translator
+    status: dormant          # last code 2026-01-10 (phase 2 merge)
+
+  - name: BudgetApp
+    path: /home/gaddi/projects/apps/BudgetApp
+    status: dormant          # last code 2025-05-14; transaction blueprint never written
+
+  - name: InvestingAssistant
+    path: /home/gaddi/projects/apps/InvestingAssistant
+    status: dormant          # last code 2026-02-13 (initial scaffold only)
+
+  - name: terrible
+    path: /home/gaddi/projects/games/terrible
+    status: dormant          # last code 2026-03-25 (get_component API fix)
+
+  - name: portfolionew
+    path: /home/gaddi/projects/web/portfolionew
+    status: dormant          # no commits at all — git init, never committed
+
+  # SportsAnalyser's entry is above with its endpoints; it is dormant too
+  # (last code 2026-03-23). Declared there rather than duplicated here.
+  #
+  # Athenaeum: 2.9 MB of real source with ZERO commits and no remote, plus
+  # 15 GB of rebuildable .venv/node_modules. Deliberately left `active` —
+  # marking it dormant would waive the advice while the only copy of the
+  # work still exists nowhere but this disk. Commit it first.
+  - name: Athenaeum
+    path: /home/gaddi/projects/ml/Athenaeum
+
+  # venture-assistant — wired 2026-08-06, having run unmonitored since its
+  # units were installed. It has no backend of its own yet (port 8300 is
+  # reserved for one in the registry); what it *does* run is a pair of
+  # resident llama.cpp servers plus a nightly oneshot drain.
+  #
+  # `backend:` below is therefore the chat inference server, not an app
+  # API — it is the long-running HTTP process this project owns. Two
+  # other units are deliberately NOT here:
+  #   - venture-embed.service     → config.yaml (this file models only one
+  #                                 backend + one frontend per project)
+  #   - venture-chat-large.service → not monitored at all. It is `static`
+  #     and pulled up only by venture-enrich-nightly.service for the 02:00
+  #     drain, then stopped by its ExecStopPost. Inactive between runs by
+  #     design — the same reasoning that makes us monitor timers rather
+  #     than oneshot services.
+  #
+  # Port 8080 is llama.cpp's default and the most contended port on the
+  # box; it is recorded in the registry but should move to 83xx when the
+  # project is next touched (app/config.py:10 is the only consumer).
+  - name: venture-assistant
+    path: /home/gaddi/projects/apps/venture-assistant
+    backend:
+      url: http://localhost:8080/health      # llama.cpp's own health route
+      port: 8080
+      systemd_unit: venture-chat.service
+      user: true
+      log:
+        type: journalctl
+        unit: venture-chat.service
+        severity_filter: warning
 
   # --- Retired but retained -------------------------------------------
   # PersonalAssistant is dead (superseded by Alfred) but the repos are
@@ -104,3 +183,25 @@ projects:
   - name: PersonalAssistant-auto
     path: /home/gaddi/projects/archive/PersonalAssistant-auto
     status: archived
+
+  # --- Empty shells, archived 2026-08-06 -------------------------------
+  # Each of these is a directory containing a .git and nothing else: zero
+  # tracked files, zero commits, 56–76K on disk. They were discovered as
+  # "active" only because an undeclared project defaults to active, and
+  # they were about to be issued roadmap documents for code that does not
+  # exist. Declared rather than deleted so the decision is recorded and
+  # reversible — `git init` was run here once, intent unknown.
+  - name: DotaImprover
+    path: /home/gaddi/projects/ml/DotaImprover
+    status: archived
+
+  - name: TeacherPlanner
+    path: /home/gaddi/projects/apps/TeacherPlanner
+    status: archived
+
+  # (PA-worktrees was listed here briefly on 2026-08-06 before checking:
+  # the directory does not exist — it was deleted during the ~/projects
+  # reorganisation. Its board row was a stale snapshot from 2026-08-04
+  # that never expired, which is now filtered in the board endpoint. An
+  # entry pointing at a nonexistent path is SNAG-CONF-001 all over again,
+  # so it was removed rather than left as a tidy-looking lie.)

@@ -167,8 +167,77 @@ def recommendations_for(
             action=f"GET /api/projects/{snapshot.project_name}/todos for the list",
         ))
 
+    recs.extend(_roadmap_recommendations(findings, status))
+
     recs.sort(key=lambda r: (r.severity != "risk", -r.points, r.title))
     return recs
+
+
+# A handoff older than this stops being "the next action" and becomes
+# evidence the project stalled — a resume-or-park decision, not a task.
+STALLED_HANDOFF_DAYS = 30
+
+
+def _roadmap_recommendations(
+    findings: dict, status: str
+) -> list[RecommendationInfo]:
+    """Advice from the roadmap documents — all worth 0 points.
+
+    Nothing here costs health-score points (the scanner records roadmap
+    state without deducting for it), so these follow the ``no_remote``
+    precedent: real advice, priced honestly at zero, ranked by ordinary
+    severity rather than by arithmetic it does not have.
+
+    Everything is waived for non-active projects.  Nagging a deliberately
+    dormant repo to write a session handoff is busywork dressed as
+    progress, and generating it for fourteen parked scratch projects is
+    how a useful signal becomes noise.
+    """
+    roadmap = findings.get("roadmap")
+    if not isinstance(roadmap, dict) or status != "active":
+        return []
+
+    out: list[RecommendationInfo] = []
+    age = roadmap.get("handoff_age_days")
+
+    if isinstance(age, int) and age > STALLED_HANDOFF_DAYS:
+        out.append(RecommendationInfo(
+            kind="roadmap",
+            severity="risk",
+            title=f"Stalled {age} days — resume or park it",
+            detail=(
+                f"The handoff is {age} days old. Its next action is a record "
+                "of where work stopped, not today's task."
+            ),
+            points=0,
+            action="Pick the work back up, or set status: dormant in projects.yaml",
+        ))
+
+    missing = roadmap.get("missing_docs") or []
+    if "handoff" in missing:
+        out.append(RecommendationInfo(
+            kind="roadmap",
+            title="No session handoff",
+            detail=(
+                "docs/sessions/handoff.md is absent, so there is no record of "
+                "where work stopped. The SessionEnd hook writes one after any "
+                "session that changes something."
+            ),
+            points=0,
+            action="Finish a session in this repo — the hook creates the file",
+        ))
+
+    open_snags = roadmap.get("open_snags") or 0
+    if open_snags:
+        out.append(RecommendationInfo(
+            kind="roadmap",
+            title=f"{open_snags} open snag{'s' if open_snags != 1 else ''}",
+            detail="Recorded in the project's snag list and still open.",
+            points=0,
+            action="See docs/roadmap/snag_list.md",
+        ))
+
+    return out
 
 
 def potential_score(snapshot: ProjectSnapshot, recs: list[RecommendationInfo]) -> int:

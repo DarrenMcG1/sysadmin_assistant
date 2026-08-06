@@ -1,6 +1,7 @@
 """Project Organiser API endpoints."""
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -14,6 +15,7 @@ from sysadmin.contracts import (
     BranchCleanupResponse,
     ManagedProjectsResponse,
     PortfolioActionsResponse,
+    ProjectBoardResponse,
     ProjectOverviewResponse,
     ProjectRecommendationsResponse,
     ProjectReviewResponse,
@@ -346,11 +348,164 @@ async def get_portfolio_actions(
             })
 
     actions.sort(key=lambda a: (a["severity"] != "risk", -a["points"], a["project"]))
+
+    shown = actions[:limit]
+    dropped: dict[str, int] = {}
+    for action in actions[limit:]:
+        kind = action.get("kind") or "other"
+        dropped[kind] = dropped.get(kind, 0) + 1
+
     return {
-        "actions": actions[:limit],
-        "count": min(len(actions), limit),
+        "actions": shown,
+        "count": len(shown),
         "total_available": len(actions),
         "projects_with_actions": projects_with_actions,
+        "dropped_by_kind": dict(sorted(dropped.items())),
+    }
+
+
+# NOTE: must stay declared before ``/{name}`` — same capture hazard as
+# /actions and /review above.
+@router.get("/board", response_model=ProjectBoardResponse)
+async def get_project_board(
+    include_inactive: bool = Query(default=False),
+    sort: str = Query(default="activity", pattern="^(activity|neglect)$"),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """The whole estate in one call — health joined to "what do I do next".
+
+    Built for Alfred's projects page, which would otherwise need four
+    calls and a client-side join.  Everything here is a re-projection of
+    the latest snapshot; nothing is computed that the scanner has not
+    already stored.
+
+    Two orderings, because "what am I working on" and "what have I
+    abandoned" are different questions and one list cannot lead with both:
+
+    - ``activity`` (default) — most recently touched first.  This is the
+      working view.  The first draft defaulted to the other order and
+      buried an actively-developed project at row 12 of 18, which is
+      exactly backwards for a page you open to see current work.
+    - ``neglect`` — stalled first, then longest-idle.  The weekly
+      triage view: what needs a resume-or-park decision.
+
+    Dormant and archived projects are excluded by default.  They have no
+    next action by definition — that is what declaring them dormant
+    *meant* — and listing them turns a short actionable board into an
+    inventory.
+    """
+    result = await session.execute(_latest_snapshot_query())
+    rows = result.scalars().all()
+
+    # Drop projects the most recent scan did not see.  ``_latest_snapshot_query``
+    # returns the newest row *per project name* with no freshness test, so a
+    # project deleted from disk keeps its final snapshot forever and goes on
+    # being reported as live: PA-worktrees was removed during the ~/projects
+    # reorganisation and still occupied a board row two days later, with a
+    # health score and a next action.
+    #
+    # A scan stamps every project it finds within the same few seconds, so
+    # "materially behind the newest stamp" means "not found last time round".
+    # The hour of slack is against a scan that straddles the boundary, and is
+    # far inside the 6-hour scan interval.
+    if rows:
+        newest = max(
+            (r.scanned_at for r in rows if r.scanned_at), default=None
+        )
+        if newest is not None:
+            cutoff = newest - timedelta(hours=1)
+            rows = [r for r in rows if r.scanned_at and r.scanned_at >= cutoff]
+
+    config = get_config()
+    bands = config.agents.project_organiser.grade_bands
+    agent_config = config.agents.project_organiser
+    now = datetime.now(UTC)
+
+    def _grade(score: int) -> str:
+        if score >= bands.healthy_min:
+            return "healthy"
+        if score >= bands.needs_attention_min:
+            return "needs_attention"
+        if score >= bands.neglected_min:
+            return "neglected"
+        return "abandoned"
+
+    entries = []
+    for row in rows:
+        findings = row.findings or {}
+        status = findings.get("status", "active")
+        if not include_inactive and status != "active":
+            continue
+
+        roadmap = findings.get("roadmap") or {}
+        next_action = roadmap.get("next_action")
+        source = roadmap.get("next_action_source")
+
+        # Last resort: neither a handoff nor a task list exists, so stand
+        # the last commit subject in and label it honestly. A project with
+        # no roadmap documents at all still deserves a row — it is exactly
+        # the one most likely to have been forgotten.
+        if not next_action and findings.get("last_commit_subject"):
+            next_action = str(findings["last_commit_subject"])
+            source = "git"
+
+        days_since = None
+        if row.last_commit_at:
+            last = row.last_commit_at
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=UTC)
+            days_since = (now - last).days
+
+        age = roadmap.get("handoff_age_days")
+        stalled = isinstance(age, int) and age > recommendations.STALLED_HANDOFF_DAYS
+
+        recs = recommendations.recommendations_for(row, agent_config)
+
+        entries.append({
+            "name": row.project_name,
+            "path": row.project_path,
+            "status": status,
+            "health_score": row.health_score,
+            "grade": _grade(row.health_score),
+            "last_commit_at": (
+                row.last_commit_at.isoformat() if row.last_commit_at else None
+            ),
+            "days_since_commit": days_since,
+            "next_action": next_action,
+            "next_action_source": source,
+            "handoff_age_days": age,
+            "stalled": stalled,
+            "open_tasks": roadmap.get("open_tasks"),
+            "open_snags": roadmap.get("open_snags", 0),
+            "top_action": recs[0].title if recs else None,
+            "scanned_at": row.scanned_at.isoformat() if row.scanned_at else None,
+        })
+
+    # A project that has never been committed sorts last in both modes:
+    # unknown is not the same as urgent, and it is not recent work either.
+    def _days(entry: dict) -> int:
+        days = entry["days_since_commit"]
+        return days if days is not None else 10**6
+
+    if sort == "neglect":
+        entries.sort(
+            key=lambda e: (
+                e["status"] != "active",
+                not e["stalled"],
+                -_days(e) if e["days_since_commit"] is not None else 1,
+                e["name"],
+            )
+        )
+    else:
+        entries.sort(
+            key=lambda e: (e["status"] != "active", _days(e), e["name"])
+        )
+
+    return {
+        "projects": entries,
+        "count": len(entries),
+        "stalled_count": sum(1 for e in entries if e["stalled"]),
+        "generated_at": now.isoformat(),
     }
 
 

@@ -194,6 +194,99 @@ this session is its mechanical backstop.
       `sportsanalyser-*` was the motivating case and was wired by hand
       2026-08-05, so it should now come back **clean** — a good negative test
 
+**Port-registry reconciliation** (added 2026-08-06, same session, same
+scan): the unit sweep already parses every `ExecStart`, so the ports are
+free to extract. Three findings, cheapest first:
+
+- [ ] **Unregistered listener** — a port held by a project's process that
+      has no row in the registry table in
+      [guides/monitorable-project.md](../guides/monitorable-project.md).
+      Source of truth is `ss -ltnp` joined to the unit by PID/cgroup, not
+      the `ExecStart` string alone: a port can be set in a config file, an
+      `Environment=` line or a default the flag never mentions
+- [ ] **Contended default** — a project listening on a well-known default
+      (8080, 3000, 5000, 8888, 9000). Advisory, not an error: it did not
+      collide *yet*. venture-assistant on 8080 is the live example and the
+      thing that prompted this
+- [ ] **Collision / near-miss** — two registry rows claiming one port, or
+      a unit whose configured port is already held by a different cgroup.
+      This is the only one worth a warning alert; the failure is
+      asymmetric (the loser fails, the winner looks fine)
+- [ ] Parsing the registry table out of a markdown doc is the fragile part.
+      Decide on the day whether to (a) parse it, (b) move the allocation
+      into `config.yaml` with the doc rendered from it, or (c) infer
+      "registered" from projects.yaml `port:` fields and treat the table as
+      documentation only. (c) is cheapest and covers backends; it misses
+      sidecars like the three llama-servers, which is exactly the gap
+
+### ✅ Session 28: Roadmap findings + the estate board (done 2026-08-06)
+
+Directly requested: surface "what needs doing / where is this project at"
+in Alfred, without Alfred ever reading a directory. Delivered:
+
+- [x] Global **SessionEnd hook** (`~/.claude/hooks/generate-handoff.sh`,
+      wired in `~/.claude/settings.json`) writes `docs/sessions/handoff.md`
+      in whatever repo the session ran in. Replaces the instruction in
+      CLAUDE.md that postflight "generates handoff" — it never did, which
+      is why `docs/sessions/` sat empty for months
+- [x] `sysadmin/services/roadmap.py` — pure parser for handoff / tasks /
+      snag documents, resolving a **next action** (handoff → tasks → git)
+- [x] `findings["roadmap"]` recorded by the organiser; **no score
+      deduction** — that would move every active project at once and could
+      trip alert thresholds as a side effect
+- [x] `kind: "roadmap"` recommendations at 0 points (the `no_remote`
+      precedent), waived for dormant/archived
+- [x] `GET /api/projects/board` + `"Pick This Up"` briefing section
+- [x] [guides/alfred-projects-page.md](../guides/alfred-projects-page.md)
+      specs the consumer side
+
+48 new tests (1202 → 1250). Two live-only findings, both fixed: Alfred
+keeps its handoff at `docs/roadmap/handoff.md` not `docs/sessions/`, and
+its tasks file uses a status **table** rather than checkboxes — so
+`open_tasks` now reports `None` ("not measurable") rather than `0` for
+the busiest project on the box.
+
+**Same-day follow-up (2026-08-06), from the first real use.** The user
+looked for ImbaBots — an ongoing project — and concluded it had not been
+flagged. It had: `top_action: "Write a README.md"` plus a roadmap item.
+Two presentation faults hid it, both fixed:
+
+- [x] **The board defaulted to neglect order**, so an actively-developed
+      project sat at row 12 of 18 while abandoned ones led. `?sort=` now
+      takes `activity` (default — the working view, recently touched
+      first) or `neglect` (the weekly triage view). ImbaBots is now row 2
+- [x] **`/api/projects/actions` is saturated**: 11 projects share one
+      `no_remote` risk, risk sorts first, and roadmap advice is worth 0
+      points, so the default limit of 10 showed nothing but "Add a git
+      remote" — 68 available, 10 returned, no indication of *what kind*
+      was hidden. Response now carries `dropped_by_kind`
+- [x] Roadmap + hygiene written into Contract 1 of
+      [guides/monitorable-project.md](../guides/monitorable-project.md),
+      waived for dormant/archived
+
+**Open decision — should missing roadmap docs cost health-score points?**
+Currently no (findings recorded, advice at 0 points). Deducting would
+move every active project's score at once and could fire alerts as a side
+effect. Worth taking deliberately once the status triage below has run.
+
+**Estate triage, ranked (not started).** 26 repos, 4 genuinely active;
+the dozen showing `days=1` are the `~/projects` reorganisation commit,
+not work. In order of value: (1) declare `status:` for ~16 repos in
+projects.yaml — one file, ~20 min, and the board drops from 18 rows to 4;
+(2) the **11 repos with no git remote**, `sysadmin_assistant` among them;
+(3) give this repo a README and a remote — the monitor is currently the
+worst-scoring live project it monitors; (4) roadmap docs for whatever
+survives (1) as active. An agent fan-out was considered and rejected:
+after triage there are ~4 repos left, and the work that remains is
+judgement, not volume.
+
+**Follow-up worth taking:** the git fallback is weak where the
+`~/projects` reorganisation touched every repo — a dozen projects report
+`days_since_commit=1` and a next action of "WIP snapshot before
+~/projects reorganisation", which is bulk housekeeping, not work. Either
+ignore known bulk-commit subjects, or weight staleness by commits that
+touched source rather than by the last commit date.
+
 ### Session 27: Log aggregator tiers — take with SNAG-AGENT-002
 
 Thinnest of the four, and deliberately coupled to the open snag: error

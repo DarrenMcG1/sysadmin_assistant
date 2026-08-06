@@ -4,7 +4,7 @@
 >
 > **Related**: [tasks.md](tasks.md) | [snag_list.md](snag_list.md)
 >
-> **Last Updated**: 2026-08-05
+> **Last Updated**: 2026-08-06
 
 ---
 
@@ -29,6 +29,42 @@ The detector ideas parked below feed **Session 24** as new Tier 1 findings:
 once a finding exists, the advice for it follows automatically, which is the
 payoff of the advice-mirrors-findings design.
 
+### Silent-degradation detection — a service that is up but not doing its job
+
+Captured 2026-08-06, from a real case: `alfred-inference`, `venture-chat`
+and `venture-embed` had every model loaded into system RAM instead of VRAM
+since installation. Every signal this repo collects said healthy — the unit
+was `active (running)`, `/health` returned 200, the GPU sat idle so both
+apps' busy-% guards were satisfied. The fault is now fixed at source
+(`~/.local/bin/wait-for-dgpu`), but **nothing here would have caught it**,
+and it will not be the last of its kind.
+
+The general shape: a service can be *up*, *responsive* and *wrong*. Health
+checks answer "is it listening"; they never answer "is it doing what it was
+configured to do". Candidate detectors, cheapest first:
+
+- **GPU residency assertion** — cross-reference `rocm-smi` VRAM occupancy
+  against the inference services that are supposed to be resident. Three
+  llama-servers up and ~3 GB of VRAM in use is arithmetically impossible;
+  that is a finding with no per-app cooperation needed. Complements the
+  existing `gpu_vram_warning_percent` threshold, which only fires when VRAM
+  is *too full* — the opposite failure
+- **Startup-log assertions** — a per-service optional `expect_log:` /
+  `forbid_log:` pattern checked once after start. `CPU_Mapped model buffer
+  size` in a unit meant to be GPU-resident is a one-line rule. The log
+  aggregator already reads these journals for errors; this reads them for
+  *absence of an expected line*, which no current agent does
+- **VRAM budget vs declared residency** — sum what the units claim they
+  hold against card capacity and warn when a scheduled job cannot fit. The
+  02:00 collision found on 2026-08-06 (24B needing ~14.8 GB against ~12.4 GB
+  free with granite resident) was arithmetic anyone could have done, and
+  nobody did, because no one place knew all three numbers
+
+Overlaps Session 25 (service reliability scoring) — reliability history and
+"up but wrong" are the same question asked over different windows — and
+wants the same unit-parsing sweep as Session 26, so it is probably cheapest
+taken alongside one of them rather than as its own session.
+
 ### Housekeeping follow-ups from the 2026-08-04 ~/projects reorganisation
 
 The Tier 2 recommendations engine landed 2026-08-04 (Session 22:
@@ -46,6 +82,16 @@ the scanner has no finding for them yet; each is really a *detector idea*:
   `hygiene` finding — the file organiser already hunts stale caches.)
 - **Config loader could warn on nonexistent managed paths** — would have
   caught SNAG-CONF-001 immediately (also noted in snag_list.md).
+- **Database occupancy is invisible to the file organiser** (found
+  2026-08-06). The `projects` database is 16 GB, of which the **retired**
+  `personal_assistant` schema is 15 GB across 821 tables — PA was retired
+  2026-07-24. That is larger than the entire filesystem reclaim estimate,
+  and the file organiser cannot see it: from the filesystem it is opaque
+  bytes inside PostgreSQL's data directory, attributable to no project.
+  A `pg_namespace`/`pg_database` size query joined to the archived-project
+  list would surface it as a `reclaimable` finding in the Session 24
+  currency. Dropping the schema itself stays a manual, confirmed action —
+  irreversible, and the repos are archived on purpose.
 
 ### Rebuild the sysadmin web UI inside Alfred's frontend
 

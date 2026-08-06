@@ -133,12 +133,38 @@ agents:
         systemd_unit: alfred-evaluate.timer
         user: true  # systemd *user* unit
         controllable: false
+      # Alfred's daily 08:20 career-mail ingest — oneshot, so monitor the
+      # TIMER (same rule as alfred-evaluate). Offset from alfred-evaluate's
+      # 08:00 because both touch the dGPU. The service is `static` by design:
+      # it has no [Install] and is driven solely by its timer, so an enabled
+      # timer is the only honest signal that the schedule is alive.
+      - name: alfred-career-mail-timer
+        type: systemd
+        systemd_unit: alfred-career-mail.timer
+        user: true  # systemd *user* unit
+        controllable: false
       # SportsAnalyser's daily 06:00 pipeline — same oneshot rule as above:
       # monitor the timer, not the service. (Its backend/frontend services
       # are wired through projects.yaml, which can't model a third unit.)
       - name: sportsanalyser-pipeline-timer
         type: systemd
         systemd_unit: sportsanalyser-pipeline.timer
+        user: true  # systemd *user* unit
+        controllable: false
+      # venture-assistant's second resident inference server (embeddings).
+      # Its chat server is wired via projects.yaml, which models only one
+      # backend per project; this is the overflow unit. See the comment
+      # there for why venture-chat-large.service is deliberately absent.
+      - name: venture-embed
+        type: http
+        url: http://localhost:8082/health
+        systemd_unit: venture-embed.service
+        user: true  # systemd *user* unit
+      # venture-assistant's 02:00 enrichment drain — oneshot, so monitor
+      # the TIMER (same rule as alfred-evaluate and sportsanalyser-pipeline).
+      - name: venture-enrich-nightly-timer
+        type: systemd
+        systemd_unit: venture-enrich-nightly.timer
         user: true  # systemd *user* unit
         controllable: false
       - name: networkmanager
