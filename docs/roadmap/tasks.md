@@ -554,6 +554,14 @@ Twelve defects, none fixed during the audit, written up in full in
 
 ### Session 35: The inspection library and the `.project.yaml` manifest
 
+**Groundwork landed unwired 2026-08-07** — `sysadmin/registry/` (discovery, id
+derivation, manifest reader + validator, and the duplicate/unknown-id errors
+that make an unrecognised id a load-time failure). 68 tests, ruff and mypy
+clean, suite 1441 → 1509. **Nothing imports it yet**, so every checkbox below
+stays open: the package is only worth its weight once `discover_projects` and
+the three readers of `projects_root` are pointed at it, and until then it is a
+second implementation of the thing it exists to deduplicate.
+
 - [ ] **Extract the pure inspection layer** into a top-level package in this
       repository, installed as a path dependency: `utils/git.py`,
       `discover_projects`, `services/roadmap.py`, and the manifest reader
