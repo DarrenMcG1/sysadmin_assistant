@@ -512,6 +512,159 @@ with its contract test green the whole time.
 
 ---
 
+## Project-side consolidation (34–36) — from the 2026-08-07 capability audit
+
+Consolidated from one pass over the project side and the design decisions taken
+alongside it. **The ordering is not negotiable**: every defect in Session 34
+corrupts output Alfred already consumes, and building the briefing envelope
+(36) on top of wrong data just makes the wrong data better formatted. 35 is the
+structural work 36 needs; 34 blocks both.
+
+### Session 34: Defect clearance — the project side (blocking)
+
+Twelve defects, none fixed during the audit, written up in full in
+[snag_list.md](snag_list.md). Three are P1. Two pairs must be taken together.
+
+- [ ] [SNAG-PROJ-001](snag_list.md) + [SNAG-PROJ-002](snag_list.md) — apply the
+      board's `newest_scan − 1h` freshness filter everywhere. Seven surfaces
+      plus `project_review.gather_review_data` report a deleted directory
+      today. **Fix by moving the cutoff into `_latest_snapshot_query`**, and
+      route through it the four call sites that open-code the latest-per-name
+      query — not by repeating the filter eight times
+- [ ] [SNAG-PROJ-003](snag_list.md) + [SNAG-PROJ-004](snag_list.md) — the
+      organiser never calls `BaseAgent.resolve_alerts`, so 1,664 rows are live
+      and unresolvable, and retention purges resolved rows only. **Settle what
+      happens to the existing 1,664 before shipping the fix**, or the table's
+      size becomes permanent
+- [ ] [SNAG-PROJ-005](snag_list.md) — make the project review's prompt
+      figure-free by construction, the way the disk review was on 2026-08-06,
+      and port the guard test asserting no digit reaches the model. CLAUDE.md
+      already records this exact approach failing live
+- [ ] [SNAG-PROJ-007](snag_list.md), [008](snag_list.md), [009](snag_list.md) —
+      the TODO scan, taken as one job: `HACK`/`XXX` cost points and appear in
+      no column; `*.md` means a repo's own snag list penalises it; the patterns
+      have no word boundary; and `-m 1000` is grep's *per-file* limit while the
+      docstring claims a global cap
+- [ ] [SNAG-PROJ-006](snag_list.md), [010](snag_list.md), [011](snag_list.md),
+      [012](snag_list.md) — the small ones: implement or delete
+      `/api/projects/stale`'s unused `days` parameter; add `project_reviews`
+      (and check `disk_reviews`) to the retention map; correct the
+      archived-status description in three places; document that archived alert
+      suppression is absolute, not conditional
+
+### Session 35: The inspection library and the `.project.yaml` manifest
+
+- [ ] **Extract the pure inspection layer** into a top-level package in this
+      repository, installed as a path dependency: `utils/git.py`,
+      `discover_projects`, `services/roadmap.py`, and the manifest reader
+      below. No database, no config, no FastAPI, no scoring. Dependency is
+      `gitpython` plus the grep binary
+- [ ] Replace `from sysadmin.agents.project_organiser import discover_projects`
+      in `agents/service_discovery.py` with the library import — resolving the
+      drift the existing comment warns about, rather than relying on convention
+- [ ] Promote `agents.project_organiser.projects_root` to a **top-level config
+      key**. Three consumers read it (`service_discovery`, `routers/files` as a
+      safety confinement rule, `branch_actions`) and only one is the organiser
+- [ ] Define and implement the `.project.yaml` manifest — `schema`, `id`,
+      `name`, `category`, `status`, `summary`, `supersedes`, `alert_threshold`,
+      `decisions[]`. Reader **and** validator live in the library
+- [ ] **Normalise project ids first**, or the current inconsistency is baked
+      into twenty files: `sysadmin-service` points at `sysadmin_assistant`,
+      `sports_analyser` at `SportsAnalyser`, `terrible` at what the docs call
+      `TERRRIBLE`
+- [ ] Write the migration generating `.project.yaml` from `projects.yaml` and
+      emitting `services.yaml`. **Dry run by default**, and it must report both
+      registry entries whose path does not exist and repos under the root the
+      registry has never known about
+- [ ] Transfer `projects.yaml`'s comments into `decisions:` blocks **by hand,
+      one project at a time**. Do not automate it and do not delete the file —
+      move it to `docs/projects-registry-legacy.yaml`
+- [ ] Replace the runtime half of `projects.yaml` with `services.yaml`, keyed
+      by project id and containing no paths: N services per project rather than
+      one backend and one frontend, `kind` (`http`/`timer`/`oneshot`/`static`),
+      and `monitor: false` with a **required reason**. Fold in the units
+      currently exiled to `agents.sysadmin.services` in config.yaml
+- [ ] Once ids are the join key, replace `ProjectsConfig._setting_for`'s
+      three-way name matching with an id lookup, and make an unknown id a
+      **load-time error**
+- [ ] Add a CLI. There is no way to run a project scan without starting the web
+      service, and the only console script is `sysadmin-tray`. With the library
+      separated, `estate scan`, `estate check <path>` and `estate brief` are
+      thin wrappers
+
+**Two things considered and rejected 2026-08-07**, both worth re-reading before
+anyone re-proposes them:
+
+1. **Extracting the project side into its own repository or service.** Only one
+   project endpoint needs anything from monitoring (`/managed`, joining
+   `service_health`), while monitoring depends on the project side in three
+   places — including a file-action safety rule. Migration 001 creates both
+   sides' tables in one function, so this is a data migration wearing a
+   directory move's clothes.
+2. **The module split as originally briefed**, which asserted that monitoring
+   must not import the project side. Backwards: the dependency runs that way
+   deliberately, and enforcing the rule would mean duplicating
+   `discover_projects` — the exact drift the existing comment warns against.
+   The library replaces the rule.
+
+Also rejected: **pre-commit hooks for document standards**. Most of the estate
+is dormant, so blocking commits in repos nobody is working is pure friction,
+and installing hooks across forty repos is its own maintenance problem.
+
+### Session 36: The briefing publisher
+
+Less work than expected — `_build_project_section`,
+`_build_next_actions_section` and `_build_review_section` already exist, and
+Alfred already pulls `GET /api/sysadmin/briefing/preview`.
+
+- [ ] Emit `estate.json` from the library's survey. This is the survey function
+      serialised, not a separate feature
+- [ ] **Separate `last_commit` from `last_code_commit`**, with a configurable
+      ignore rule (SHA list or commit-message pattern) seeded with the
+      2026-08-04/05 "WIP snapshot before ~/projects reorganisation" commits.
+      Every staleness figure downstream computes from `last_code_commit`.
+      Supersedes the Session 28 follow-up describing the same weakness
+- [ ] Adopt the briefing envelope — `schema`, `source`, `generated`, `period`,
+      `summary`, `alerts[]`, `facts{}`. Prose is what Alfred surfaces; `facts`
+      is the deterministic input the prose was written from, **so briefings can
+      be diffed and a drifting summary is detectable**
+- [ ] Generate the prose from the `facts` block rather than from raw code output
+- [ ] Write `estate.json` and any briefing artefact **atomically** — temporary
+      path, then rename
+- [ ] Confirm Alfred enforces staleness on `generated`. A publisher that has
+      not run in three days still reads as current, which is worse than no
+      briefing at all
+
+### Deferred (34–36)
+
+Not scheduled; recorded so they are not rediscovered as new.
+
+- The **compliance checker** for required documents (CLAUDE.md, handoff, tasks,
+  snags) and the relational checks carrying the real signal: handoff date
+  against last code commit, unchecked task count against commit activity, snags
+  opened versus closed. Held until the write discipline has produced data worth
+  checking. Whatever ships must generalise `roadmap.is_placeholder` so an empty
+  template counts as missing, tie requirements to declared `status`, and report
+  as a **separate compliance result** rather than as score inputs
+- `estate init`, scaffolding the template set into a repo without overwriting
+
+### Open decisions (34–36)
+
+- **Where project state ultimately lives** — an Alfred domain, or a standalone
+  service Alfred reads from. The forcing function is the first requirement for
+  *history* rather than a snapshot, since that needs a database. Until then the
+  organiser stays stateless and file-based, and no project tables go into
+  alembic
+- **Whether the health score earns its place.** Roadmap state is the richest
+  thing the scanner reads and is deliberately worth zero points, so the score is
+  a directory-tidiness metric. Nothing has breached a threshold since
+  2026-07-24, while the roadmap and next-action layer is what Alfred actually
+  consumes. Worth settling before building anything further on top of the score
+  — and it subsumes the Session 28 open decision on whether missing roadmap docs
+  should cost points
+
+---
+
 ## Backlog
 
 **Carried-forward follow-ups** — small items noted by the sessions that
