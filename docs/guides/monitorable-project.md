@@ -106,7 +106,7 @@ your row when you claim one.**
 | 8083 | venture-assistant | llama-server nightly chat, mistral-small-24b (`venture-chat-large.service`) |
 | 8100 | Alfred | backend (FastAPI) |
 | 8200 | SportsAnalyser | backend (FastAPI) |
-| 8300 | _reserved — venture-assistant backend, when it grows one_ | |
+| 8300 | venture-assistant | backend (FastAPI, `venture-assistant-backend.service`) — claimed 2026-08-07 |
 | 8400 | _free — next backend allocation_ | |
 | 8500 | sysadmin-service | backend (FastAPI) |
 | 3100 | Alfred | frontend (Nuxt) |

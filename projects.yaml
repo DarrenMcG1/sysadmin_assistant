@@ -134,16 +134,16 @@ projects:
   - name: Athenaeum
     path: /home/gaddi/projects/ml/Athenaeum
 
-  # venture-assistant — wired 2026-08-06, having run unmonitored since its
-  # units were installed. It has no backend of its own yet (port 8300 is
-  # reserved for one in the registry); what it *does* run is a pair of
-  # resident llama.cpp servers plus a nightly oneshot drain.
+  # venture-assistant — wired 2026-08-06; real FastAPI backend claimed
+  # port 8300 on 2026-08-07 (venture-assistant-backend.service, /api/health
+  # answers 200 even when the llama servers are down — "degraded" in the
+  # body, so a failing check means the API itself is dead).
   #
-  # `backend:` below is therefore the chat inference server, not an app
-  # API — it is the long-running HTTP process this project owns. Two
-  # other units are deliberately NOT here:
-  #   - venture-embed.service     → config.yaml (this file models only one
-  #                                 backend + one frontend per project)
+  # The project's three other units are deliberately NOT here (this file
+  # models only one backend + one frontend per project):
+  #   - venture-chat.service      → config.yaml (was the stand-in backend
+  #                                 here until the real one existed)
+  #   - venture-embed.service     → config.yaml
   #   - venture-chat-large.service → not monitored at all. It is `static`
   #     and pulled up only by venture-enrich-nightly.service for the 02:00
   #     drain, then stopped by its ExecStopPost. Inactive between runs by
@@ -152,17 +152,17 @@ projects:
   #
   # Port 8080 is llama.cpp's default and the most contended port on the
   # box; it is recorded in the registry but should move to 83xx when the
-  # project is next touched (app/config.py:10 is the only consumer).
+  # llama units are next touched (app/config.py:10 is the only consumer).
   - name: venture-assistant
     path: /home/gaddi/projects/apps/venture-assistant
     backend:
-      url: http://localhost:8080/health      # llama.cpp's own health route
-      port: 8080
-      systemd_unit: venture-chat.service
+      url: http://localhost:8300/api/health
+      port: 8300
+      systemd_unit: venture-assistant-backend.service
       user: true
       log:
         type: journalctl
-        unit: venture-chat.service
+        unit: venture-assistant-backend.service
         severity_filter: warning
 
   # --- Retired but retained -------------------------------------------
