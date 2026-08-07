@@ -34,6 +34,42 @@ logger = logging.getLogger(__name__)
 PROJECT_MARKERS = {".git", "pyproject.toml", "package.json", "Cargo.toml", "go.mod"}
 
 
+def discover_projects(root: Path, max_depth: int = 2) -> list[Path]:
+    """Find directories that look like projects.
+
+    A directory with a project marker IS a project and is never descended
+    into (a repo's vendored sub-repos are its own business).  A directory
+    without markers is a *category* (``apps/``, ``ml/``) and is searched
+    one level further, down to ``max_depth`` levels below ``root``.
+
+    Module-level rather than a method so the service-discovery agent can
+    share it (Session 26).  Two agents with two ideas of what counts as a
+    project would drift, and the symptom would be units reported as
+    orphans because the sweep could not see the project they belong to.
+    """
+    projects: list[Path] = []
+
+    def scan(directory: Path, remaining: int) -> None:
+        try:
+            entries = sorted(directory.iterdir())
+        except PermissionError:
+            logger.warning(
+                "permission_denied_scanning_projects",
+                extra={"path": str(directory)},
+            )
+            return
+        for entry in entries:
+            if not entry.is_dir() or entry.name.startswith("."):
+                continue
+            if any((entry / marker).exists() for marker in PROJECT_MARKERS):
+                projects.append(entry)
+            elif remaining > 1:
+                scan(entry, remaining - 1)
+
+    scan(root, max(max_depth, 1))
+    return projects
+
+
 class ProjectOrganiserAgent(BaseAgent):
     """Scans projects directory and assesses project health."""
 
@@ -103,35 +139,8 @@ class ProjectOrganiserAgent(BaseAgent):
         )
 
     def _discover_projects(self, root: Path, max_depth: int = 2) -> list[Path]:
-        """Find directories that look like projects.
-
-        A directory with a project marker IS a project and is never
-        descended into (a repo's vendored sub-repos are its own business).
-        A directory without markers is a *category* (``apps/``, ``ml/``)
-        and is searched one level further, down to ``max_depth`` levels
-        below ``root``.
-        """
-        projects: list[Path] = []
-
-        def scan(directory: Path, remaining: int) -> None:
-            try:
-                entries = sorted(directory.iterdir())
-            except PermissionError:
-                logger.warning(
-                    "permission_denied_scanning_projects",
-                    extra={"path": str(directory)},
-                )
-                return
-            for entry in entries:
-                if not entry.is_dir() or entry.name.startswith("."):
-                    continue
-                if any((entry / marker).exists() for marker in PROJECT_MARKERS):
-                    projects.append(entry)
-                elif remaining > 1:
-                    scan(entry, remaining - 1)
-
-        scan(root, max(max_depth, 1))
-        return projects
+        """Kept as a method so existing callers and tests are unaffected."""
+        return discover_projects(root, max_depth)
 
     @staticmethod
     def _effective_threshold(

@@ -211,6 +211,8 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/projects/board` | `ProjectBoardResponse` (+`ProjectBoardEntry`) | response_model |
 | `GET /api/projects/review` | `ProjectReviewResponse` | response_model |
 | `POST /api/projects/review/generate` | `ProjectReviewResponse` | response_model (auth; LLM optional — digest fallback) |
+| `GET /api/units/status` | `UnitScanResponse` (+`UnitScanSummary`, `UnitFindingInfo`) | response_model (404 = "no sweep yet") |
+| `GET /api/units/actions` | `UnitActionsResponse` (+`UnitRecommendationInfo`) | response_model (404 = "no sweep yet") |
 
 `GET /api/files/actions` is the file-organiser mirror of
 `GET /api/projects/actions`, with one deliberate difference: its currency is
@@ -255,6 +257,45 @@ deleting an unmerged one needs `include_unmerged: true` on the request **and**
 default/protected/checked-out/worktree branches and anything ahead of its
 upstream are never deleted, whatever the flags say.
 
+`GET /api/units/*` is the service-discovery pair (Session 26): the sweep as
+measured, and the sweep as ranked advice. Both are **GET-only and always
+will be** — the fix for an unmonitored unit is an edit to a hand-curated
+YAML file whose comments carry the reasoning, and the fix for an orphan is
+`systemctl disable && rm`, neither of which a scheduled agent should do on
+its own. A test asserts no non-GET route exists under `/api/units`.
+
+`UnitRecommendationInfo` carries **no score or size field**, unlike its two
+siblings. `RecommendationInfo` ranks by health-score points and
+`FileRecommendationInfo` by reclaimable megabytes — both directly
+measurable. Nothing makes two host units meaningfully "twice" one orphan,
+so ranking is by `kind` alone (`orphan` → `unmonitored` → `host`) and no
+number is invented to sort on.
+
+Three rules the detector encodes, each learned from the live estate:
+
+1. **Distro units are filtered by `is_symlink()`, not a package query.**
+   `systemctl enable` installs a symlink into `/usr/lib/systemd/system`, so
+   every packaged unit under `/etc` is a link and every hand-written one is
+   a real file. No subprocess, and it works off Arch.
+2. **A `Type=oneshot` service is reported under its timer.** A oneshot is
+   `inactive (dead)` between runs by design, so monitoring the service
+   alerts continuously — the rule config.yaml already records by hand for
+   `alfred-evaluate`. The finding is keyed on the *service* (which holds
+   `WorkingDirectory` and `ExecStart`) with `monitor_unit` naming the
+   timer, and the timer suppressed, so one schedule yields one finding.
+3. **Scope is part of a unit's identity.** `deadlock-api-ingest.service` is
+   installed as both a user unit and a system unit here, running two
+   different binaries; wiring one says nothing about the other, and the
+   generated config.yaml `name:` gains a `-user`/`-system` suffix so two
+   tray tiles cannot share one label.
+
+Adding a **new agent** touches four places, not one: the Python wiring in
+`main.py`, a config class in `config.py`, the `chk_alert_agent` CHECK
+constraint on `sysadmin.alerts` (a migration — the database rejects an
+unknown agent name), and `self_monitor.AGENT_NAMES` (without which the
+agent runs unwatched). `tests/test_units_api.py` pins the last two together.
+
+
 Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 `sysadmin_tray/models.py`.
 
@@ -264,6 +305,8 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 
 For comprehensive guides on specific topics, see `docs/guides/`:
 
+- **monitorable-project.md** is enforced mechanically by the Session 26
+  service-discovery agent — see `GET /api/units/actions`.
 - **alfred-projects-page.md** — the spec for Alfred's projects page:
   `GET /api/projects/board`, what `next_action_source` obliges a consumer
   to render differently, and why the board must not be written into

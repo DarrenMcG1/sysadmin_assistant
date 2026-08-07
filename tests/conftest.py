@@ -129,6 +129,7 @@ def _stub_app_state(app) -> None:
         "project_organiser_agent",
         "file_organiser_agent",
         "log_aggregator_agent",
+        "service_discovery_agent",
     ):
         agent = MagicMock()
         agent.run = AsyncMock(return_value=None)

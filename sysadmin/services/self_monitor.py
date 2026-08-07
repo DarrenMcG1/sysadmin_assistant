@@ -28,7 +28,13 @@ from sysadmin.config import AppConfig, SelfMonitorConfig
 from sysadmin.models.agent_run import AgentRun
 
 #: Agent identifiers, matching the ``chk_alert_agent`` DB constraint.
-AGENT_NAMES = ("sysadmin", "project_organiser", "file_organiser", "log_aggregator")
+AGENT_NAMES = (
+    "sysadmin",
+    "project_organiser",
+    "file_organiser",
+    "log_aggregator",
+    "service_discovery",
+)
 
 #: Minimum recent runs needed before a duration trend is meaningful.
 MIN_TREND_SAMPLES = 4
@@ -82,6 +88,12 @@ def agent_schedules(config: AppConfig) -> dict[str, AgentSchedule]:
             enabled=agents.log_aggregator.enabled,
             interval_seconds=agents.log_aggregator.poll_interval_seconds,
             job_id="log_aggregator_poll",
+        ),
+        "service_discovery": AgentSchedule(
+            name="service_discovery",
+            enabled=agents.service_discovery.enabled,
+            interval_seconds=agents.service_discovery.scan_interval_hours * 3600,
+            job_id="service_discovery_scan",
         ),
     }
 

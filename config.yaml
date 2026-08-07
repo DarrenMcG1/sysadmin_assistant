@@ -295,6 +295,26 @@ agents:
         - .lua
         - .sql
 
+  # Service discovery (Session 26) — cross-references the units installed
+  # on this box against the projects on disk and the units already wired
+  # above.  Advice only: it never edits this file or projects.yaml, both
+  # of which are hand-curated and carry their reasoning in comments.
+  #
+  # Distro units are skipped by a symlink test, not a package query:
+  # `systemctl enable` installs a symlink into /usr/lib/systemd/system,
+  # so every packaged unit under /etc is a link and every hand-written
+  # one is a real file.
+  service_discovery:
+    enabled: true
+    scan_interval_hours: 6
+    user_unit_dir: ~/.config/systemd/user
+    system_unit_dir: /etc/systemd/system
+    # Count of actionable findings above which ONE rolled-up alert is
+    # raised — re-raised only when the count changes, and auto-resolved
+    # when it drops back under.  Per-unit alerts would repeat
+    # SNAG-AGENT-002.  Set to 0 to record findings and never alert.
+    alert_threshold: 5
+
   log_aggregator:
     enabled: true
     poll_interval_seconds: 60

@@ -298,9 +298,44 @@ three llama-servers were found running their models in system RAM.
 
 ## Why a doc is not enough
 
-Docs drift; the backstop is mechanical: `docs/roadmap/ideas.md` holds the
-**unmonitored-unit detector** idea — the project organiser cross-referencing
-installed units against projects.yaml and raising findings (with ready-to-
-paste snippets) for anything unwired or orphaned. Until that lands, this
-guide plus the pointer in `~/.claude/CLAUDE.md` (which makes every future
-Claude session building a service read this contract) are the enforcement.
+Docs drift, so the backstop is mechanical. **Since 2026-08-07 this contract
+is enforced by the service-discovery agent** (Session 26), which sweeps
+every installed unit every six hours and reports the gaps:
+
+    curl -s localhost:8500/api/units/status  | jq .summary
+    curl -s localhost:8500/api/units/actions | jq '.recommendations[] | {kind, title, action}'
+
+`/api/units/actions` hands back **ready-to-paste YAML**, correctly targeted:
+a `config.yaml` `services:` entry for timers and for units with no project,
+a `projects.yaml` fragment for a long-running unit whose project already has
+an entry. It never edits either file — both are hand-curated and their
+comments carry the reasoning, which a rewriter would destroy.
+
+Three categories, worst first:
+
+| Category | Meaning | Fix |
+|----------|---------|-----|
+| `orphaned` | Dead `WorkingDirectory`, or the project is declared `archived` | Remove it — the exact `systemctl disable && rm` is in `action` |
+| `unmonitored` | Maps to a live project, nothing in projects.yaml or config.yaml watches it | Paste the snippet |
+| `host` | Hand-written, maps to no project (`pgbackrest-backup`, `ethernet-optimise`) | Paste the config.yaml snippet |
+
+An orphan is ranked `risk`, above everything else, because it is not merely
+unwatched: a `WorkingDirectory` that no longer exists makes systemd fail the
+start job outright, so the unit has been failing on every start — silently,
+precisely because nothing monitored it.
+
+**Two contract rules the detector will catch you breaking**, both because
+they cost a live debugging session first:
+
+- A `projects.yaml` endpoint with a `systemd_unit` but **no `url` is
+  inert** — `ManagedProject.to_monitored_services` skips it, so the entry
+  looks wired and checks nothing. This is why generated snippets leave
+  `url:` commented rather than omitting it.
+- A `Type=oneshot` service must be monitored **via its `.timer`**. A oneshot
+  is `inactive (dead)` between runs by design, so checking the service
+  alerts continuously; a timer stays `active (waiting)` whenever it is
+  armed, which makes an inactive one a genuine fault.
+
+The pointer in `~/.claude/CLAUDE.md` (which makes every future Claude
+session building a service read this contract) remains the *creation-time*
+enforcement; the agent is the ongoing one.

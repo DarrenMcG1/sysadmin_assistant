@@ -33,7 +33,7 @@ class TestTableTimestampMap:
         expected_tables = {
             "service_health", "resource_snapshots", "log_entries",
             "log_summaries", "alerts", "project_snapshots",
-            "filesystem_audits", "agent_runs",
+            "filesystem_audits", "unit_audits", "agent_runs",
         }
         assert set(TABLE_TIMESTAMP_MAP.keys()) == expected_tables
 

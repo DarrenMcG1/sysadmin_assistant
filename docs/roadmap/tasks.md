@@ -4,17 +4,16 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-06
+> **Last Updated**: 2026-08-07
 
 ---
 
 ## Active Sessions
 
 _Sessions 24–27 promoted from [ideas.md](ideas.md) on 2026-08-05. They are
-**independent of each other** — take them in any order. The order below is
-the priority agreed when they were captured, but **Session 26 is the one
-directly asked for** (the tedium of hand-registering every new service) and
-is the smallest, so it is a reasonable one to pull forward._
+**independent of each other** — take them in any order. 24 and 26 are done;
+**25 (service reliability scoring) and 27 (log aggregator tiers) remain**,
+plus 26b (port-registry reconciliation), split out of 26 on 2026-08-07._
 
 All four repeat the **tier pattern** proven by Sessions 21–23:
 
@@ -158,66 +157,116 @@ Nothing scores *services*, yet the history is already in the DB:
       the project review in Monday's briefing and reuses the
       `project_reviews` table design (facts in `stats`, hybrid narrative)
 
-### Session 26: Service discovery — the unmonitored-unit detector
+### ✅ Session 26: Service discovery — the unmonitored-unit detector (done 2026-08-07)
 
 **Directly requested 2026-08-05**: hand-registering each new project's
 systemd units is tedious and rots silently. The contract this enforces is
 written up in [guides/monitorable-project.md](../guides/monitorable-project.md);
-this session is its mechanical backstop.
+this session is its mechanical backstop. Delivered Tiers 1 and 2; there is
+deliberately **no Tier 3** (see below).
 
-- [ ] Cross-reference discovered projects against installed units —
+- [x] `sysadmin/services/units.py` — pure sweep of
       `~/.config/systemd/user/*.{service,timer}` and
-      `/etc/systemd/system/*.service` — and raise findings **both ways**
-- [ ] **Unmonitored unit**: a unit maps to a live project but projects.yaml
-      doesn't wire it. Match in preference order: the unit's
-      `WorkingDirectory`/`ExecStart` path under the project dir (robust),
-      then normalised name-prefix (strip `-_`, case-fold, so
-      `sportsanalyser-*` → `SportsAnalyser`/`sports_analyser`). Path-first
-      matters because the naming is inconsistent in exactly the way that
-      breaks heuristics
-- [ ] **Orphaned unit**: a unit whose project is archived or gone — eight
-      dead `personal-assistant-*` / `personalassistant-*` units are
-      installed right now
-- [ ] Tier 2 recommendation carries a **ready-to-paste projects.yaml
-      snippet**, with `user: true` for user units and the oneshot→timer
-      rule applied (a `Type=oneshot` service means monitor its `.timer`,
-      and the timer goes in config.yaml since projects.yaml only models
-      backend/frontend)
-- [ ] **Advice-only — never auto-edit projects.yaml.** It is hand-curated
-      with comments that carry the reasoning; an executor rewriting it
-      would destroy them
-- [ ] Distro/template units (`@.service`, `dbus-org.*`) filtered out by the
-      path-match requirement
-- [ ] Known targets to validate against on the day: `garmin-sync`,
-      `deadlock-api-ingest`, `ticktick-sync`, `offline-agents-dashboard`
-      (all uncovered), plus the eight orphaned PA units.
-      `sportsanalyser-*` was the motivating case and was wired by hand
-      2026-08-05, so it should now come back **clean** — a good negative test
+      `/etc/systemd/system/*.{service,timer}`, findings **both ways**
+- [x] **Unmonitored unit**: maps to a live project, nothing wires it.
+      Path first (`WorkingDirectory`/`ExecStart` under the project dir),
+      then normalised name-prefix, longest project wins
+- [x] **Orphaned unit**: dead `WorkingDirectory`, or a project declared
+      `archived`. Ranked `risk`, above everything else — this is not an
+      unwatched unit, it is a broken one
+- [x] **Host unit** — a *third* category the original plan did not have.
+      `pgbackrest-backup` (the estate's only DB backup) and
+      `ethernet-optimise` are hand-written, real, unmonitored, and map to
+      no project, so the path-match filter would have dropped them
+      alongside genuine distro units. They get a **config.yaml
+      `services:` snippet**, not a projects.yaml one, because
+      projects.yaml models only backend/frontend
+- [x] Tier 2 `sysadmin/services/unit_recommendations.py` with
+      ready-to-paste snippets, `user: true` for user units, oneshot→timer
+      applied
+- [x] **Advice-only.** No executor, and both endpoints are GET-only —
+      asserted by a test
+- [x] `sysadmin/agents/service_discovery.py`, `unit_audits` (migration
+      006), `GET /api/units/status` + `GET /api/units/actions`
+- [x] 109 new tests — suite 1276 → 1385
 
-**Port-registry reconciliation** (added 2026-08-06, same session, same
-scan): the unit sweep already parses every `ExecStart`, so the ports are
-free to extract. Three findings, cheapest first:
+**Four things the plan got wrong, all found by running it:**
 
-- [ ] **Unregistered listener** — a port held by a project's process that
-      has no row in the registry table in
-      [guides/monitorable-project.md](../guides/monitorable-project.md).
-      Source of truth is `ss -ltnp` joined to the unit by PID/cgroup, not
-      the `ExecStart` string alone: a port can be set in a config file, an
-      `Environment=` line or a default the flag never mentions
-- [ ] **Contended default** — a project listening on a well-known default
-      (8080, 3000, 5000, 8888, 9000). Advisory, not an error: it did not
-      collide *yet*. venture-assistant on 8080 is the live example and the
-      thing that prompted this
+1. **The `pacman -Qo` ownership query is unnecessary.** Every distro unit
+   in `/etc/systemd/system` is a *symlink* into `/usr/lib/systemd/system`
+   (that is what `systemctl enable` installs) and every hand-written one
+   is a real file. `is_symlink()` is the same test with no subprocess,
+   and it works off Arch.
+2. **Three of the four named validation targets are orphans, not
+   uncovered units.** `~/projects/MCP` and
+   `~/Documents/Programming/MCP` no longer exist, so `ticktick-sync`,
+   `ticktick-sync-db` and `offline-agents-dashboard` point at dead
+   directories — as does `garmin-sync` (`projects/PersonalAssistant`
+   moved to `archive/`). They have been failing every start, silently,
+   for as long as nothing watched them.
+3. **`sportsanalyser-pipeline` was already wired** — in config.yaml, not
+   projects.yaml. SportsAnalyser comes back completely clean, which was
+   the predicted negative test.
+4. **Adding an agent touches four places, not one.** `sysadmin.alerts`
+   has a `chk_alert_agent` CHECK constraint enumerating the four known
+   agents, so the first live run was rejected by the database *after* the
+   scan succeeded (migration 007 widens it, and a test now pins the
+   constraint list to `self_monitor.AGENT_NAMES`). The self-monitor's
+   own hardcoded `AGENT_NAMES` is the fourth — without it the new agent
+   would run entirely unwatched.
+
+**Live result on this box (2026-08-07)**: 44 units seen, 6 distro/template
+excluded, 38 scanned → **12 monitored, 8 timers folded into their oneshot
+service, 11 orphaned, 0 unmonitored, 7 host**. The counts are exhaustive
+by construction (`scanned = monitored + folded + findings`) after the
+first draft inferred "monitored" and reported 20 where the truth was 12.
+
+**Zero `unmonitored` findings is the real headline**: every live project's
+units are already wired. The estate's actual debt is 11 dead units and 7
+unwatched host services — including `pgbackrest-backup`, which nothing
+would have noticed going quiet.
+
+**No Tier 3.** Sessions 22 and 24 rank by health-score points and
+reclaimable megabytes — both directly measurable. There is no equivalent
+currency here, nothing makes two host units meaningfully "twice" one
+orphan, and a weekly LLM narrative over 18 findings that change maybe
+monthly would be prose about nothing. `UnitRecommendationInfo` carries no
+score field at all.
+
+**Pending ops action** (advice, not automation — decide before acting):
+11 orphaned units are removable with the exact commands in
+`GET /api/units/actions?kind=orphan`, and the 7 host units have
+ready-to-paste config.yaml snippets.
+
+### Session 26b: Port-registry reconciliation
+
+**Split out 2026-08-07.** Was folded into Session 26 on 2026-08-06 on the
+grounds that "the unit sweep already parses every `ExecStart`, so the
+ports are free to extract". Half true: the sweep does parse ExecStart, but
+`ss -ltnp` joining, collision detection and the registry migration are a
+sitting of their own.
+
+**Decided 2026-08-07 — option (b).** The port allocation moves into
+`config.yaml` as structured data, with the table in
+[guides/monitorable-project.md](../guides/monitorable-project.md) rendered
+from it. (c) was cheaper but misses sidecars — the three llama-servers,
+`venture-embed` — which is exactly the gap the reconciliation exists to
+close. (a) would have left a markdown table as a load-bearing parser.
+
+- [ ] Move the registry into `config.yaml`; render the guide's table from it
+- [ ] **Unregistered listener** — a port held by a project's process with
+      no registry row. Source of truth is `ss -ltnp` joined to the unit by
+      PID/cgroup, not `ExecStart` alone: a port can come from a config
+      file, an `Environment=` line, or a default the flag never mentions
+- [ ] **Contended default** — a project on a well-known default (8080,
+      3000, 5000, 8888, 9000). Advisory: it has not collided *yet*.
+      venture-assistant on 8080 is the live example
 - [ ] **Collision / near-miss** — two registry rows claiming one port, or
-      a unit whose configured port is already held by a different cgroup.
-      This is the only one worth a warning alert; the failure is
-      asymmetric (the loser fails, the winner looks fine)
-- [ ] Parsing the registry table out of a markdown doc is the fragile part.
-      Decide on the day whether to (a) parse it, (b) move the allocation
-      into `config.yaml` with the doc rendered from it, or (c) infer
-      "registered" from projects.yaml `port:` fields and treat the table as
-      documentation only. (c) is cheapest and covers backends; it misses
-      sidecars like the three llama-servers, which is exactly the gap
+      a configured port already held by a different cgroup. The only one
+      worth a warning alert; the failure is asymmetric (the loser fails,
+      the winner looks fine)
+- [ ] Reuse `sysadmin/services/units.py` — the parsed `exec_start` lines
+      and the scope-aware unit identity are already there
 
 ### ✅ Session 28: Roadmap findings + the estate board (done 2026-08-06)
 

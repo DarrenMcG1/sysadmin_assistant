@@ -285,6 +285,28 @@ class FileOrganiserConfig(BaseModel):
     actions: FileActionsConfig = Field(default_factory=FileActionsConfig)
 
 
+class ServiceDiscoveryConfig(BaseModel):
+    """Session 26 — cross-reference installed units against the estate.
+
+    ``alert_threshold`` is a count of *actionable* findings (orphaned +
+    unmonitored + host), and the alert it governs is a single rolled-up
+    one, re-raised only when the count changes.  Per-unit alerts would
+    repeat SNAG-AGENT-002.  Set to 0 to record findings and never alert
+    — the Session 28 posture for a new detector whose first run lands
+    twenty findings at once.
+    """
+
+    enabled: bool = True
+    scan_interval_hours: int = 6
+    user_unit_dir: str = "~/.config/systemd/user"
+    # /etc/systemd/system only.  /usr/lib/systemd/system is the package
+    # manager's territory and nothing there is ours to wire up; the
+    # sweep additionally skips symlinks, which is how an *enabled* distro
+    # unit appears in /etc.
+    system_unit_dir: str = "/etc/systemd/system"
+    alert_threshold: int = 5
+
+
 class LogSource(BaseModel):
     name: str
     type: str  # journalctl | file
@@ -568,6 +590,9 @@ class AgentsConfig(BaseModel):
     project_organiser: ProjectOrganiserConfig = Field(default_factory=ProjectOrganiserConfig)
     file_organiser: FileOrganiserConfig = Field(default_factory=FileOrganiserConfig)
     log_aggregator: LogAggregatorConfig = Field(default_factory=LogAggregatorConfig)
+    service_discovery: ServiceDiscoveryConfig = Field(
+        default_factory=ServiceDiscoveryConfig
+    )
 
 
 # --- Root config ---

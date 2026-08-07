@@ -65,6 +65,11 @@ from sysadmin.contracts import (  # noqa: F401
     ServiceDetailInfo,
     ServiceStatus,
     StatusResponse,
+    UnitActionsResponse,
+    UnitFindingInfo,
+    UnitRecommendationInfo,
+    UnitScanResponse,
+    UnitScanSummary,
 )
 
 # ── Icon states ──────────────────────────────────────────────────────

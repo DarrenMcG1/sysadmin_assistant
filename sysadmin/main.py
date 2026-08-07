@@ -21,6 +21,7 @@ from sysadmin import __version__
 from sysadmin.agents.file_organiser import FileOrganiserAgent
 from sysadmin.agents.log_aggregator import LogAggregatorAgent
 from sysadmin.agents.project_organiser import ProjectOrganiserAgent
+from sysadmin.agents.service_discovery import ServiceDiscoveryAgent
 
 # Agents
 from sysadmin.agents.sysadmin_agent import SysAdminAgent
@@ -38,6 +39,7 @@ from sysadmin.routers.logs import router as logs_router
 from sysadmin.routers.projects import router as projects_router
 from sysadmin.routers.summary import router as summary_router
 from sysadmin.routers.sysadmin import router as sysadmin_router
+from sysadmin.routers.units import router as units_router
 from sysadmin.services.briefing import send_morning_briefing
 from sysadmin.services.disk_review import run_weekly_review as run_weekly_disk_review
 from sysadmin.services.dnd import dnd_manager
@@ -58,6 +60,7 @@ sysadmin_agent = SysAdminAgent()
 project_organiser_agent = ProjectOrganiserAgent()
 file_organiser_agent = FileOrganiserAgent()
 log_aggregator_agent = LogAggregatorAgent()
+service_discovery_agent = ServiceDiscoveryAgent()
 
 
 @asynccontextmanager
@@ -132,6 +135,17 @@ async def lifespan(app: FastAPI):
             first_run_delay_seconds=first_run_delay,
         )
 
+    # Service Discovery: installed units vs the wired estate (Session 26).
+    # Hours-scale like the other sweeps — unit files change when a project
+    # is installed or retired, which is a weekly event at most.
+    if agents_config.service_discovery.enabled:
+        scheduler.schedule_interval(
+            job_id="service_discovery_scan",
+            func=service_discovery_agent.run,
+            hours=agents_config.service_discovery.scan_interval_hours,
+            first_run_delay_seconds=first_run_delay,
+        )
+
     # Log Aggregator: log polling
     if agents_config.log_aggregator.enabled:
         scheduler.schedule_interval(
@@ -187,6 +201,7 @@ async def lifespan(app: FastAPI):
     app.state.project_organiser_agent = project_organiser_agent
     app.state.file_organiser_agent = file_organiser_agent
     app.state.log_aggregator_agent = log_aggregator_agent
+    app.state.service_discovery_agent = service_discovery_agent
 
     yield
 
@@ -238,6 +253,7 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
     app.include_router(projects_router)
     app.include_router(files_router)
     app.include_router(logs_router)
+    app.include_router(units_router)
     app.include_router(summary_router)
 
     # --- Trigger-all endpoint ---
@@ -254,6 +270,7 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
         asyncio.create_task(state.project_organiser_agent.run(run_type="manual"))
         asyncio.create_task(state.file_organiser_agent.run(run_type="manual"))
         asyncio.create_task(state.log_aggregator_agent.run(run_type="manual"))
+        asyncio.create_task(state.service_discovery_agent.run(run_type="manual"))
         return {"status": "all_scans_triggered"}
 
     return app

@@ -1035,3 +1035,125 @@ class ProjectReviewResponse(Contract):
     llm_used: bool = False
     model_used: str | None = None
     stats: dict[str, Any] = Field(default_factory=dict)
+
+
+# ── Service discovery (Session 26) ───────────────────────────────────
+
+
+class UnitFindingInfo(Contract):
+    """One installed systemd unit that is broken, unwired or undocumented.
+
+    ``category`` is ``orphaned`` (the unit's own declared path is gone,
+    so systemd fails its start job), ``unmonitored`` (maps to a live
+    project, nothing in projects.yaml or config.yaml watches it) or
+    ``host`` (hand-written, maps to no project — real infrastructure with
+    nothing watching it).  Units that are already monitored are counted,
+    never listed: a list of things that are fine is noise every reader
+    has to filter.
+
+    ``scope`` is part of a unit's identity, not decoration.
+    ``deadlock-api-ingest.service`` is installed as *both* a user unit and
+    a system unit here, running two different binaries; wiring one says
+    nothing about the other.
+
+    ``monitor_unit`` differs from ``unit`` for a ``Type=oneshot`` service
+    that has a timer.  A oneshot is ``inactive (dead)`` between runs by
+    design, so monitoring the service alerts continuously — the timer is
+    what stays active while armed.  The finding is reported under the
+    service (which holds the paths and description) with the timer named
+    here.
+    """
+
+    unit: str = ""
+    scope: str = "system"  # user | system
+    category: str = "host"  # orphaned | unmonitored | host
+    path: str = ""
+    description: str | None = None
+    project: str | None = None
+    project_path: str | None = None
+    matched_by: str | None = None  # path | name | None
+    monitor_unit: str = ""
+    dead_path: str | None = None
+    manual: bool = False
+    reason: str = ""
+
+
+class UnitRecommendationInfo(Contract):
+    """One actionable service-discovery finding.
+
+    Deliberately carries **no score or size field**, unlike
+    :class:`RecommendationInfo` (health-score points) and
+    :class:`FileRecommendationInfo` (reclaimable megabytes).  Both of
+    those rank by something directly measurable; there is no equivalent
+    here, and nothing makes two host units meaningfully "twice" one
+    orphan.  Ranking is by ``kind`` alone — ``orphan``, then
+    ``unmonitored``, then ``host``.
+
+    ``snippet`` is ready-to-paste YAML and ``snippet_target`` names the
+    file it belongs in.  It is text for a human: both YAML files are
+    hand-curated and their comments carry the reasoning, so nothing here
+    ever writes to them.  An empty ``snippet`` with a null
+    ``snippet_target`` means there is nothing to wire — an orphan (remove
+    it instead) or a hand-started oneshot with no steady state to check.
+    """
+
+    kind: str = ""  # orphan | unmonitored | host
+    severity: str = "advice"  # risk (orphan) | advice
+    unit: str = ""
+    scope: str = "system"
+    project: str | None = None
+    monitor_unit: str = ""
+    title: str = ""
+    detail: str = ""
+    action: str = ""
+    snippet: str = ""
+    snippet_target: str | None = None  # projects.yaml | config.yaml | None
+
+
+class UnitScanSummary(Contract):
+    """The arithmetic of one sweep.
+
+    ``units_scanned`` equals ``monitored + timers_folded + orphaned +
+    unmonitored + host``.  The buckets are exhaustive on purpose: a count
+    that sums is one a reader can audit, and the first version of this
+    scan reported 20 monitored where the truth was 12 precisely because
+    it inferred the number instead of adding it up.
+
+    ``units_excluded`` counts distro-owned and template units filtered
+    out before classification.  Reported rather than dropped silently, so
+    "we looked at 44 and skipped 6" stays checkable.
+    """
+
+    units_scanned: int = 0
+    units_excluded: int = 0
+    monitored: int = 0
+    timers_folded: int = 0
+    orphaned: int = 0
+    unmonitored: int = 0
+    host: int = 0
+
+
+class UnitScanResponse(Contract):
+    """GET /api/units/status — the latest stored unit sweep."""
+
+    scanned_at: str | None = None
+    summary: UnitScanSummary = Field(default_factory=UnitScanSummary)
+    findings: list[UnitFindingInfo] = Field(default_factory=list)
+    count: int = 0
+    #: Unit names installed in both scopes — two units, one name, two
+    #: different binaries.  Named explicitly so the pair does not read as
+    #: one item reported twice.
+    duplicate_units: list[str] = Field(default_factory=list)
+
+
+class UnitActionsResponse(Contract):
+    """GET /api/units/actions — ranked service-discovery advice."""
+
+    scanned_at: str | None = None
+    recommendations: list[UnitRecommendationInfo] = Field(default_factory=list)
+    count: int = 0
+    total_available: int = 0
+    #: How many were dropped by ``limit``, keyed by ``kind``.  Without it
+    #: a saturated list looks like "that is all there is" — the failure
+    #: /api/projects/actions hit in Session 28.
+    dropped_by_kind: dict[str, int] = Field(default_factory=dict)

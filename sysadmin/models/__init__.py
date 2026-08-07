@@ -12,6 +12,7 @@ from sysadmin.models.project_snapshot import ProjectSnapshot
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.retention_config import RetentionConfig
 from sysadmin.models.service_health import ServiceHealth
+from sysadmin.models.unit_audit import UnitAudit
 
 __all__ = [
     "Base",
@@ -26,4 +27,5 @@ __all__ = [
     "LogSummary",
     "AgentRun",
     "RetentionConfig",
+    "UnitAudit",
 ]

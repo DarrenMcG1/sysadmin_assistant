@@ -23,6 +23,7 @@ TABLE_TIMESTAMP_MAP = {
     "alerts": "created_at",
     "project_snapshots": "scanned_at",
     "filesystem_audits": "scanned_at",
+    "unit_audits": "scanned_at",
     "agent_runs": "started_at",
 }
 
@@ -51,10 +52,15 @@ async def run_retention() -> None:
                     f"WHERE {ts_col} < :cutoff AND resolved = TRUE"
                 )
             # Keep latest per entity for snapshot tables
-            elif table_name in ("project_snapshots", "filesystem_audits"):
+            elif table_name in ("project_snapshots", "filesystem_audits", "unit_audits"):
                 # Delete old rows but keep the most recent per entity
                 if table_name == "project_snapshots":
                     entity_col = "project_name"
+                elif table_name == "unit_audits":
+                    # No per-entity dimension worth keeping history for —
+                    # a sweep covers the whole estate — so the "entity" is
+                    # the directory pair, which keeps the latest sweep.
+                    entity_col = "system_unit_dir"
                 else:
                     entity_col = "scan_root"
 
