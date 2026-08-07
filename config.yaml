@@ -84,6 +84,11 @@ schedules:
   briefing_minute: 0
   retention_hour: 3     # data retention purge
   retention_minute: 0
+  # Daily reliability snapshot — deliberately an hour AHEAD of the retention
+  # purge, so the day's score is written before the health checks it was
+  # computed from can be deleted out from under it.
+  reliability_hour: 2
+  reliability_minute: 0
   # APScheduler schedules an interval job's FIRST run at now + interval, so
   # an agent whose interval is longer than the uptime between restarts never
   # fires (this is why file_organiser, at 24h, had zero recorded runs).
@@ -151,10 +156,16 @@ agents:
         systemd_unit: sportsanalyser-pipeline.timer
         user: true  # systemd *user* unit
         controllable: false
-      # venture-assistant's second resident inference server (embeddings).
-      # Its chat server is wired via projects.yaml, which models only one
-      # backend per project; this is the overflow unit. See the comment
-      # there for why venture-chat-large.service is deliberately absent.
+      # venture-assistant's resident inference servers. The chat server
+      # lived in projects.yaml as the stand-in backend until the real
+      # FastAPI backend claimed that slot (2026-08-07); both llama units
+      # are overflow here now. See the projects.yaml comment for why
+      # venture-chat-large.service is deliberately absent.
+      - name: venture-chat
+        type: http
+        url: http://localhost:8080/health
+        systemd_unit: venture-chat.service
+        user: true  # systemd *user* unit
       - name: venture-embed
         type: http
         url: http://localhost:8082/health
@@ -174,6 +185,10 @@ agents:
       - name: internet
         type: http
         url: https://1.1.1.1/cdn-cgi/trace
+      - name: pgbackrest-backup-timer
+        type: systemd
+        systemd_unit: pgbackrest-backup.timer
+        controllable: false  # start/stop would arm/disarm the schedule
     thresholds:
       disk_warning_percent: 80
       disk_critical_percent: 90
@@ -191,6 +206,25 @@ agents:
       min_samples: 30       # cold-start guard — fewer snapshots, no flagging
       min_stdev: 1.0        # skip near-constant series (no infinite z-scores)
       severity: warning
+    # Per-service reliability scoring — GET /api/services/reliability.
+    # Score = 100 - downtime (100 - uptime%, cap 60) - instability
+    # (5 per outage episode, cap 25). A gap in the check series means the
+    # MONITOR was down, so it never deducts; it lowers `confidence`.
+    # A service marked `mute: true` above (or listed in
+    # notifications.tray.mute_services) has its deductions computed and
+    # reported but not applied.
+    reliability:
+      enabled: true
+      # Capped in practice by service_health retention (30 days) —
+      # widening this without widening retention silently narrows the
+      # window to whatever survives the nightly purge.
+      window_days: 7
+      grade_bands:  # higher than the project bands: a service down a
+                    # fifth of the week is not "healthy" by any reading
+        reliable_min: 95
+        degraded_min: 85
+        unreliable_min: 60
+
 
   project_organiser:
     enabled: true

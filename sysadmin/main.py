@@ -37,6 +37,7 @@ from sysadmin.routers.files import router as files_router
 from sysadmin.routers.health import router as health_router
 from sysadmin.routers.logs import router as logs_router
 from sysadmin.routers.projects import router as projects_router
+from sysadmin.routers.services import router as services_router
 from sysadmin.routers.summary import router as summary_router
 from sysadmin.routers.sysadmin import router as sysadmin_router
 from sysadmin.routers.units import router as units_router
@@ -46,6 +47,7 @@ from sysadmin.services.dnd import dnd_manager
 from sysadmin.services.event_bus import event_bus
 from sysadmin.services.notifier import Notifier
 from sysadmin.services.project_review import run_weekly_review
+from sysadmin.services.reliability_history import record_reliability_snapshot
 from sysadmin.services.retention import run_retention
 
 # Services
@@ -188,6 +190,17 @@ async def lifespan(app: FastAPI):
             minute=schedules.disk_review_minute,
             day_of_week=schedules.review_day_of_week,
         )
+    # Daily reliability snapshot — an hour ahead of the 03:00 retention
+    # purge, so the day's score is written before the checks behind it can
+    # be deleted. Nothing serves these rows (the endpoint recomputes
+    # live); they exist so the score becomes trendable.
+    if agents_config.sysadmin.reliability.enabled:
+        scheduler.schedule_cron(
+            job_id="reliability_snapshot",
+            func=record_reliability_snapshot,
+            hour=schedules.reliability_hour,
+            minute=schedules.reliability_minute,
+        )
 
     scheduler.start()
     logger.info("scheduler started with %d jobs", len(scheduler.get_jobs()))
@@ -254,6 +267,7 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
     app.include_router(files_router)
     app.include_router(logs_router)
     app.include_router(units_router)
+    app.include_router(services_router)
     app.include_router(summary_router)
 
     # --- Trigger-all endpoint ---

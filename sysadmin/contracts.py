@@ -1157,3 +1157,105 @@ class UnitActionsResponse(Contract):
     #: a saturated list looks like "that is all there is" — the failure
     #: /api/projects/actions hit in Session 28.
     dropped_by_kind: dict[str, int] = Field(default_factory=dict)
+
+
+# ── Service reliability (Session 25) ──────────────────────────────────
+
+
+class ReliabilityDeduction(Contract):
+    """One attributable subtraction from a service's reliability score.
+
+    ``kind`` is ``downtime`` ("it was not there") or ``instability``
+    ("it keeps bouncing").  They are separate because they are separate
+    failures: retry logic survives one long outage and dies on three
+    short ones, so a service that dropped out repeatedly must not outrank
+    one that dropped out once for longer merely because it was up more of
+    the time.
+
+    ``waived`` deductions were computed and are reported, but were not
+    applied — an expected-down service (``mute: true``) is scored rather
+    than skipped, so the reader can still see what it would have cost.
+    """
+
+    kind: str = ""  # downtime | instability
+    points: int = 0
+    detail: str = ""
+    waived: bool = False
+
+
+class ServiceReliabilityInfo(Contract):
+    """One service's reliability over the scoring window.
+
+    ``coverage_percent`` and ``confidence`` are the honesty fields.  A
+    gap in the check series means the *monitor* was down, not the
+    service, so it never costs ``score`` — it lowers ``confidence``
+    instead.  A consumer ranking by ``score`` alone will therefore put a
+    thinly-observed service alongside a well-observed one; anything that
+    recommends action off the back of this must read ``confidence`` too.
+    """
+
+    service: str = ""
+    score: int = 100
+    grade: str = "reliable"  # reliable | degraded | unreliable | failing
+
+    uptime_percent: float = 100.0
+    checks_recorded: int = 0
+    #: Recorded checks minus unmeasurable ones — the denominator of every
+    #: rate here.  An ``error`` check means the check itself failed, so
+    #: the service's state is unknown rather than bad.
+    checks_measured: int = 0
+    failed_checks: int = 0
+    error_checks: int = 0
+    #: Runs of consecutive failing checks, not failing checks.  One
+    #: outage is one episode however long it lasts.
+    outage_episodes: int = 0
+    longest_outage_minutes: float = 0.0
+    #: ``None`` below two episodes — one incident establishes no interval.
+    mean_hours_between_incidents: float | None = None
+
+    checks_expected: int = 0
+    coverage_percent: float = 0.0
+    observed_days: float = 0.0
+    confidence: str = "high"  # high | low
+    confidence_reason: str | None = None
+
+    window_days: int = 7
+    window_start: str | None = None
+    first_check_at: str | None = None
+    last_check_at: str | None = None
+    muted: bool = False
+    waived_points: int = 0
+    deductions: list[ReliabilityDeduction] = Field(default_factory=list)
+
+
+class ReliabilitySummary(Contract):
+    """Estate-level totals for one reliability computation.
+
+    ``services_scored`` counts every configured service, including those
+    with no checks at all — a configured service the monitor has never
+    reached is the most important row on the page, not an absence.
+    """
+
+    services_scored: int = 0
+    reliable: int = 0
+    degraded: int = 0
+    unreliable: int = 0
+    failing: int = 0
+    #: Scores built on a thin or gappy window.  Reported separately
+    #: because "nothing is wrong" and "we cannot yet tell" are different
+    #: answers and must not average into one number.
+    low_confidence: int = 0
+    #: Mean score across services, low-confidence ones included.  A blunt
+    #: instrument, kept because a single trendable figure is what a
+    #: weekly review needs; per-service scores are where the meaning is.
+    mean_score: float = 100.0
+
+
+class ReliabilityResponse(Contract):
+    """GET /api/services/reliability — computed live, worst service first."""
+
+    computed_at: str | None = None
+    window_days: int = 7
+    summary: ReliabilitySummary = Field(default_factory=ReliabilitySummary)
+    services: list[ServiceReliabilityInfo] = Field(default_factory=list)
+    count: int = 0

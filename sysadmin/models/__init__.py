@@ -9,6 +9,7 @@ from sysadmin.models.log_entry import LogEntry
 from sysadmin.models.log_summary import LogSummary
 from sysadmin.models.project_review import ProjectReview
 from sysadmin.models.project_snapshot import ProjectSnapshot
+from sysadmin.models.reliability_score import ReliabilityScore
 from sysadmin.models.resource_snapshot import ResourceSnapshot
 from sysadmin.models.retention_config import RetentionConfig
 from sysadmin.models.service_health import ServiceHealth
@@ -28,4 +29,5 @@ __all__ = [
     "AgentRun",
     "RetentionConfig",
     "UnitAudit",
+    "ReliabilityScore",
 ]

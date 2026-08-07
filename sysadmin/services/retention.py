@@ -24,6 +24,7 @@ TABLE_TIMESTAMP_MAP = {
     "project_snapshots": "scanned_at",
     "filesystem_audits": "scanned_at",
     "unit_audits": "scanned_at",
+    "reliability_scores": "computed_at",
     "agent_runs": "started_at",
 }
 
@@ -52,10 +53,20 @@ async def run_retention() -> None:
                     f"WHERE {ts_col} < :cutoff AND resolved = TRUE"
                 )
             # Keep latest per entity for snapshot tables
-            elif table_name in ("project_snapshots", "filesystem_audits", "unit_audits"):
+            elif table_name in (
+                "project_snapshots",
+                "filesystem_audits",
+                "unit_audits",
+                "reliability_scores",
+            ):
                 # Delete old rows but keep the most recent per entity
                 if table_name == "project_snapshots":
                     entity_col = "project_name"
+                elif table_name == "reliability_scores":
+                    # Keep the newest score per service, so a service that
+                    # stopped being checked still shows its last verdict
+                    # rather than silently vanishing from the history.
+                    entity_col = "service_name"
                 elif table_name == "unit_audits":
                     # No per-entity dimension worth keeping history for —
                     # a sweep covers the whole estate — so the "entity" is

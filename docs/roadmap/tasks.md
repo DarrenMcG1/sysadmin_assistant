@@ -11,9 +11,10 @@
 ## Active Sessions
 
 _Sessions 24–27 promoted from [ideas.md](ideas.md) on 2026-08-05. They are
-**independent of each other** — take them in any order. 24 and 26 are done;
-**25 (service reliability scoring) and 27 (log aggregator tiers) remain**,
-plus 26b (port-registry reconciliation), split out of 26 on 2026-08-07._
+**independent of each other** — take them in any order. 24 and 26 are done,
+and 25's Tier 1 landed 2026-08-07; **25b/25c (reliability Tiers 2–3) and
+27 (log aggregator tiers) remain**, plus 26b (port-registry
+reconciliation), split out of 26 on 2026-08-07._
 
 All four repeat the **tier pattern** proven by Sessions 21–23:
 
@@ -141,11 +142,64 @@ Still open:
 Nothing scores *services*, yet the history is already in the DB:
 `health_checks` streaks, `alerts`, `resource_snapshots`, `agent_runs`.
 
-- [ ] **Tier 1** — per-service reliability score: uptime %, flap count,
-      mean time between alerts, restart frequency. Use the Session 21
-      status-awareness trick: a `mute: true` or expected-down service
-      **waives** deductions rather than being excluded, so the number
-      still means "how reliable is this service"
+**Tier 1 complete 2026-08-07.** Tiers 2 and 3 remain — take them as
+Sessions 25b and 25c.
+
+- [x] **Tier 1** — `sysadmin/services/reliability.py` (pure, scores a list
+      of `HealthPoint`) + `reliability_history.py` (the DB adapter) +
+      `GET /api/services/reliability` + `reliability_scores` table
+      (migration 008) + a 02:00 daily snapshot cron. 82 new tests
+      (1359 → 1441). Live: `venture-assistant` 68, `internet` 77,
+      `alfred-frontend` 95, 14 others 100
+- [x] Score is `100 − downtime − instability`, both attributable:
+      downtime = `round(100 − uptime%)` capped 60, instability = 5 per
+      outage **episode** from the first, capped 25. Separate terms
+      because they are separate failures — `internet` lost 7.5 % of its
+      checks across *three* incidents (−15 instability, −8 downtime)
+      while `venture-assistant` lost 27 % in *one* (−27, −5), and retry
+      logic survives the second shape but not the first
+- [x] The mute waiver landed as specified: `mute: true` **or** a name in
+      `notifications.tray.mute_services` (the only way to mark a
+      projects.yaml service, which has no `mute` field) → deductions
+      computed and reported with `waived: true`, not applied. Required
+      modelling `notifications.tray` backend-side for the first time;
+      the tray still parses it independently
+
+**Three departures from the plan, each forced by the live data:**
+
+1. **"Mean time between alerts" was uncomputable as specified.** The
+   `alerts` table records one row *per failed check*, not per incident:
+   one internet outage wrote **123 rows in 7 days**, one
+   `venture-assistant` outage wrote **81**. The mean of those measures
+   `health_check_interval_seconds`. Incidents now come from consecutive
+   non-ok runs in `service_health`, which collapse into episodes by
+   construction — and it avoids a join on `details->>'service_name'`,
+   the only (unindexed) link `alerts` has to a service.
+2. **Restart frequency was dropped.** Nothing on this host records
+   restarts: `NRestarts` is a live cumulative counter never sampled into
+   the DB, and `agent_runs` records agent executions. Three measured
+   metrics beat four where one is invented. Sampling `NRestarts` into
+   the systemd check's `details` would make it computable in ~30 days if
+   it is ever wanted.
+3. **Coverage became a confidence flag, not a deduction.** The estate
+   records ~81 % of expected checks (the monitor's own downtime), and
+   services added on 2026-08-06 have 1 day of history against a 7-day
+   window. Deducting for a gap would charge the service for *this
+   application's* downtime, so it lowers `confidence` instead — and
+   ordering deliberately ignores confidence, because a thinly-observed
+   failing service is still the most interesting row on the page.
+
+**One design call worth re-reading before Tier 3:** the endpoint
+recomputes live (~28 ms) rather than serving the stored row, unlike
+`/api/units/status`. The table exists for trending only, written at
+02:00 — an hour *ahead* of the 03:00 retention purge, so the day's score
+is written before the checks behind it can be deleted.
+
+Also surfaced: `venture-chat` and `pgbackrest-backup-timer` are in
+config.yaml with **zero health checks ever** (both added 2026-08-07,
+backend not yet restarted). They score 100 at low confidence rather than
+vanishing — "configured but never checked" is a finding, not an absence.
+
 - [ ] **Tier 2** — recommendations tied to alert-history facts
       ("llama-server flapped 6× this week — likely GPU contention,
       consider raising its check interval"; "alfred-evaluate.timer

@@ -213,6 +213,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `POST /api/projects/review/generate` | `ProjectReviewResponse` | response_model (auth; LLM optional — digest fallback) |
 | `GET /api/units/status` | `UnitScanResponse` (+`UnitScanSummary`, `UnitFindingInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/units/actions` | `UnitActionsResponse` (+`UnitRecommendationInfo`) | response_model (404 = "no sweep yet") |
+| `GET /api/services/reliability` | `ReliabilityResponse` (+`ReliabilitySummary`, `ServiceReliabilityInfo`, `ReliabilityDeduction`) | response_model (computed live — never 404s) |
 
 `GET /api/files/actions` is the file-organiser mirror of
 `GET /api/projects/actions`, with one deliberate difference: its currency is
@@ -288,6 +289,61 @@ Three rules the detector encodes, each learned from the live estate:
    different binaries; wiring one says nothing about the other, and the
    generated config.yaml `name:` gains a `-user`/`-system` suffix so two
    tray tiles cannot share one label.
+
+`GET /api/services/reliability` (Session 25, Tier 1) scores the *services*
+— the third scorer, after the project organiser's repositories and the
+file organiser's disk. Score is `100 − downtime − instability`, both
+individually attributable:
+
+- **downtime** = `round(100 − uptime_percent)`, capped at 60
+- **instability** = 5 per outage *episode* from the first, capped at 25
+
+They are separate terms because they are separate failures. Live proof
+on this estate: `internet` lost only 7.5 % of its checks but across three
+incidents (−15 instability, −8 downtime), while `venture-assistant` lost
+27 % in one sustained outage (−27, −5). Retry logic survives one long
+outage and dies on three short ones, so a repeated failure must not
+outrank a longer single one merely because it was up more of the time.
+
+Four things this endpoint does differently from its siblings, each
+learned from the live data rather than assumed:
+
+1. **Computed live, never read back.** `/api/units/status` serves the
+   latest stored sweep; this recomputes on every request (~28 ms for the
+   whole estate). A stored score would be up to 24 h stale and would 404
+   before the first nightly job. The `reliability_scores` table is
+   history for trending, written by the 02:00 cron —
+   deliberately an hour *ahead* of the 03:00 retention purge so the day's
+   score is written before the checks behind it can be deleted.
+2. **Incidents come from `service_health` transitions, not `alerts`.**
+   The session plan named `alerts`; that table records one row *per
+   failed check* — 123 rows for one internet outage, 81 for one
+   `venture-assistant` outage — so mean time between alerts would measure
+   `health_check_interval_seconds`. Consecutive non-ok checks collapse
+   into one episode by construction, and it avoids a join on the
+   unindexed `details->>'service_name'`, the only link `alerts` has to a
+   service.
+3. **Restart frequency is absent, though the plan named it.** Nothing
+   records restarts: `systemctl show -p NRestarts` is a live cumulative
+   counter never sampled into the DB, and `agent_runs` records agent
+   executions. Three measured metrics beat four where one is invented.
+4. **A gap in the series never costs points.** It means the *monitor* was
+   down — deducting would charge the service for this application's
+   downtime — so it lowers `confidence` instead. `confidence: low` means
+   under 2 days of history or under 50 % of expected checks; anything
+   recommending action off this endpoint must read it. Ordering ignores
+   it on purpose: a thinly-observed failing service is still the most
+   interesting row on the page.
+
+The population is **the configured services**, not the distinct names in
+`service_health`. Both differences matter: retired services (`ollama`,
+`personal-assistant`) keep rows for 30 days and must not be scored, and a
+service just added to config.yaml has no rows at all — which is a
+finding, not an absence, so it is scored 100 at low confidence rather
+than omitted. An expected-down service (`mute: true`, **or** listed in
+`notifications.tray.mute_services` — the only way to mark one contributed
+by projects.yaml, since those entries have no `mute` field) has its
+deductions computed and reported with `waived: true` but not applied.
 
 Adding a **new agent** touches four places, not one: the Python wiring in
 `main.py`, a config class in `config.py`, the `chk_alert_agent` CHECK

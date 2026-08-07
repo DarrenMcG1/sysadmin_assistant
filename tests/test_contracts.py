@@ -6,7 +6,7 @@ tray uses — the seam where SNAG-TRAY-005 lived.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -303,3 +303,62 @@ class TestReviewRoundTrip:
         assert parsed.llm_used is False
         assert parsed.model_used is None
         assert parsed.stats["totals"]["project_count"] == 2
+
+
+class TestReliabilityRoundTrip:
+    """GET /api/services/reliability — Session 25.
+
+    Parsed through ``sysadmin_tray.models`` rather than
+    ``sysadmin.contracts`` so the tray's re-export is exercised too: a
+    contract the tray cannot import is a contract the tray does not have.
+    """
+
+    @pytest.mark.asyncio
+    async def test_reliability_parses_through_tray_contract(
+        self, test_client, mock_session
+    ):
+        from sysadmin_tray.models import ReliabilityResponse
+
+        now = datetime.now(UTC)
+        rows = [
+            ("test-api", "ok", now - timedelta(seconds=60 * (100 - i)))
+            for i in range(50)
+        ] + [
+            ("test-api", "critical", now - timedelta(seconds=60 * (50 - i)))
+            for i in range(50)
+        ]
+        result = MagicMock()
+        result.all.return_value = rows
+        mock_session.execute = AsyncMock(return_value=result)
+
+        resp = await test_client.get("/api/services/reliability")
+        assert resp.status_code == 200
+
+        parsed = ReliabilityResponse.from_dict(resp.json())
+        worst = parsed.services[0]
+
+        assert worst.service == "test-api"
+        # The arithmetic survives the wire: score plus its deductions is 100
+        assert worst.score == 100 - sum(d.points for d in worst.deductions)
+        assert {d.kind for d in worst.deductions} == {"downtime", "instability"}
+        assert parsed.summary.services_scored == len(parsed.services)
+
+    @pytest.mark.asyncio
+    async def test_unmeasured_service_parses_to_a_full_score(
+        self, test_client, mock_session
+    ):
+        """A configured service with no checks must not arrive as an
+        error or an omission — it is a low-confidence 100."""
+        from sysadmin_tray.models import ReliabilityResponse
+
+        result = MagicMock()
+        result.all.return_value = []
+        mock_session.execute = AsyncMock(return_value=result)
+
+        resp = await test_client.get("/api/services/reliability")
+        parsed = ReliabilityResponse.from_dict(resp.json())
+
+        assert parsed.count == len(parsed.services)
+        assert all(s.score == 100 for s in parsed.services)
+        assert all(s.confidence == "low" for s in parsed.services)
+        assert parsed.summary.low_confidence == parsed.summary.services_scored
