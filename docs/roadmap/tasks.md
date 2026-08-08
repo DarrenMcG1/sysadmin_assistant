@@ -569,12 +569,12 @@ Routes unchanged (55 → 55), suite 1509 → 1512. The registry is still unwired
 `units/agent.py` continues to import `discover_projects` from
 `projects/agent.py`, which is one of the two edges Phase 1 exists to remove.
 
-> **Note on the STATUS.md "Next up" paragraph**: it records the module split as
-> *considered and rejected on 2026-08-06*, on the grounds that it would
-> duplicate `discover_projects`. The split was subsequently directed as Session
-> 35 Phase 2 and has landed; the duplication objection does not apply, because
-> `units/` imports that function rather than copying it. The rejection note is
-> now stale and should be rewritten or removed.
+> **On the 2026-08-06 rejection**: the module split was refused that day on the
+> grounds that it would duplicate `discover_projects`. It was re-briefed and
+> landed as Phase 2, where the objection did not hold — `units/` imports the
+> function from `projects/` rather than copying it. STATUS.md now records this
+> as reversed rather than rejected; the remaining work is to remove that import
+> in favour of the registry, which is Phase 3.
 
 - [ ] **Extract the pure inspection layer** into a top-level package in this
       repository, installed as a path dependency: `utils/git.py`,
