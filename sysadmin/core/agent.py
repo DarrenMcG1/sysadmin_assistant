@@ -76,11 +76,19 @@ class BaseAgent(ABC):
         for event_type, data in pending:
             event_bus.publish_threadsafe(event_type, data)
 
-    async def run(self, run_type: str = "scheduled") -> None:
-        """Template method: record run, execute, handle errors."""
+    async def run(self, run_type: str = "scheduled") -> AgentResult | None:
+        """Template method: record run, execute, handle errors.
+
+        Returns the result, or ``None`` if the run failed. The scheduler
+        ignores it — the ``agent_runs`` row is the durable record — but a
+        one-shot invocation needs something to turn into an exit code,
+        and re-reading the row it just wrote to find out how it went
+        would be a strange way to ask.
+        """
         start = time.monotonic()
         started_at = datetime.now(UTC)
         self._pending_events = []
+        outcome_result: AgentResult | None = None
 
         async with get_scheduler_session() as session:
             # Record the run as started
@@ -98,6 +106,7 @@ class BaseAgent(ABC):
 
             try:
                 result = await self._execute(session)
+                outcome_result = result
                 duration = time.monotonic() - start
                 outcome = "completed"
 
@@ -144,6 +153,7 @@ class BaseAgent(ABC):
             },
         )
         self._flush_events()
+        return outcome_result
 
     async def raise_alert(
         self,

@@ -12,10 +12,12 @@ Session 24: File organiser tiers — disk instead of portfolio → The model ign
 
 ## Uncommitted at session end
 
-    (clean)
+     M docs/sessions/handoff.md
 
 ## Commits today
 
+    93cb648 feat(projects): emit estate.json on every scan (Session 35 Phase 5)
+    e4165f6 refactor(registry): retire projects.yaml (Session 35 Phase 4)
     1960a11 feat(monitor): wire services.yaml into the live monitor (Session 35 Phase 3b)
     81af41a feat(registry): project manifests and services.yaml (Session 35 Phase 3a)
     9421088 docs(status): the module split is reversed, not rejected

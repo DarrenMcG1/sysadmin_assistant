@@ -13,7 +13,9 @@ Version 0.1.0. UK English throughout the codebase and docs.
 ## What it does
 
 Five agents run on an APScheduler timetable inside the FastAPI process,
-one per domain package:
+one per domain package. The project organiser also has its own oneshot
+unit and daily timer (`sysadmin-organiser`), so a scan and the monitor no
+longer share a fate — stop either and the other carries on:
 
 | Agent | Responsibility |
 |-------|----------------|

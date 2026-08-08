@@ -36,6 +36,7 @@ tray = [
 
 [project.scripts]
 sysadmin-tray = "sysadmin_tray.app:main"
+sysadmin-organiser = "sysadmin.projects.cli:main"
 
 [build-system]
 requires = ["hatchling"]

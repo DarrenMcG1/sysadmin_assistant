@@ -1,0 +1,19 @@
+[Unit]
+Description=Daily project organiser scan
+Documentation=file:///home/gaddi/projects/sysadmin_assistant/docs/adr/0001-project-registry.md
+
+[Timer]
+# Daily is enough: the figures it produces are commit dates and document
+# presence, neither of which moves usefully faster than that.
+OnCalendar=*-*-* 04:30:00
+# 04:30 sits between the 03:00 retention purge and the 05:30 weekly
+# review, so the review reads snapshots written a few hours earlier
+# rather than a day earlier.
+RandomizedDelaySec=5min
+# The scan must still happen on a box that was asleep at 04:30 — the
+# whole point of moving it out of the always-on daemon is that it no
+# longer depends on the daemon having been up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -562,6 +562,16 @@ stays open: the package is only worth its weight once `discover_projects` and
 the three readers of `projects_root` are pointed at it, and until then it is a
 second implementation of the thing it exists to deduplicate.
 
+**Phase 6 complete 2026-08-08 — Session 35 is done.** The organiser has its
+own oneshot unit and daily timer, ADR-0001 records the reasoning, and the spec
+is marked superseded-in-part rather than rewritten. Two things deliberately
+left for the operator: installing the timer (`systemctl --user enable --now
+sysadmin-organiser.timer`), and the follow-on edit that stops the daemon
+scanning as well — add the timer to services.yaml as `kind: timer` and set
+`agents.project_organiser.enabled: false`. Neither is done here, because
+declaring a unit in services.yaml before it is installed would have the monitor
+correctly report it down.
+
 **Phase 5 complete 2026-08-08.** `estate.json` is emitted on every organiser
 run, versioned and written atomically, with `last_code_commit` separated from
 `last_commit` and every downstream staleness figure derived from the former.

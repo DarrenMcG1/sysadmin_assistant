@@ -359,6 +359,15 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 
 ## Detailed Documentation
 
+**Decision records** live in `docs/adr/`:
+
+- **[0001-project-registry.md](docs/adr/0001-project-registry.md)** — why
+  project identity moved into the repositories as `.project.yaml`, why
+  `services.yaml` holds no paths, why persistence was deliberately
+  deferred, and the still-open question of who owns project state. Read it
+  before adding a table for project data or changing how projects are
+  identified.
+
 For comprehensive guides on specific topics, see `docs/guides/`:
 
 - **monitorable-project.md** is enforced mechanically by the Session 26

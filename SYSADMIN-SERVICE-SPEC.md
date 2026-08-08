@@ -1,9 +1,26 @@
 # SysAdmin Service — Specification
 
 **Date:** 06-02-2026
-**Status:** Planning
+**Status:** Planning — **superseded in part**; kept as the original design record
 **Type:** Standalone FastAPI service with systemd integration
 **Database:** `projects` database, `sysadmin` schema + `dev_meta` schema
+
+> **What has changed since this was written (last checked 2026-08-08).**
+> The body below is the February plan and is left as written — it is the
+> record of what was intended, and rewriting it would lose that. Where it
+> disagrees with the code, the code is right. The differences that matter:
+>
+> | This spec says | Where it actually is now |
+> |---|---|
+> | One flat `sysadmin/` package (`config.py`, `models/`, `routers/`, `services/`) | Six domain packages — `core/`, `registry/`, `monitor/`, `projects/`, `files/`, `units/`, plus `briefing/`. `monitor` may not import `projects`, enforced by `tests/test_import_boundary.py` |
+> | Four agents | Five — service discovery was added in Session 26 |
+> | Managed projects and their endpoints in `config.yaml`/`projects.yaml` | Project identity in a `.project.yaml` manifest per repository; services in `services.yaml`, keyed by project id with no paths. `projects.yaml` is retired to [docs/projects-registry-legacy.yaml](docs/projects-registry-legacy.yaml) |
+> | Project scanning runs inside the daemon | Also available as its own oneshot unit and timer (`sysadmin-organiser`), so the scan and the monitor no longer share a fate |
+> | 9 tables | 13, with `estate.json` as a derived, unpersisted projection alongside them |
+>
+> The reasoning behind the registry work is in
+> [ADR-0001](docs/adr/0001-project-registry.md); the current shape of the
+> code is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
