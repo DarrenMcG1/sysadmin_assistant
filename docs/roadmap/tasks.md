@@ -562,6 +562,13 @@ stays open: the package is only worth its weight once `discover_projects` and
 the three readers of `projects_root` are pointed at it, and until then it is a
 second implementation of the thing it exists to deduplicate.
 
+**Phase 4 complete 2026-08-08.** projects.yaml is retired to
+`docs/projects-registry-legacy.yaml` and nothing reads it. The registry removed
+the last `units -> projects` import. Remaining: **delete the legacy file** once
+its comments are all accounted for — the PA-worktrees note has no manifest to
+move into, since the project was deleted, and that is the one piece of reasoning
+the transfer cannot rehome.
+
 **Phase 3 complete 2026-08-08.** services.yaml is wired: config.yaml holds no
 per-service topology, startup validates project ids against the registry, and
 `kind` decides every check. Behaviour deltas are recorded in STATUS.md. Still

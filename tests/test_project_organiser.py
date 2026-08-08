@@ -2,9 +2,11 @@
 
 from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import yaml
 
 from sysadmin.core.config import ProjectOrganiserConfig
 from sysadmin.projects.agent import ProjectOrganiserAgent
@@ -41,59 +43,6 @@ def project_dir(tmp_path):
 # Project discovery
 # ---------------------------------------------------------------------------
 
-
-class TestDiscoverProjects:
-    def test_finds_git_project(self, agent, tmp_path):
-        proj = tmp_path / "my_app"
-        proj.mkdir()
-        (proj / ".git").mkdir()
-
-        result = agent._discover_projects(tmp_path)
-        assert len(result) == 1
-        assert result[0] == proj
-
-    def test_finds_pyproject_toml_project(self, agent, tmp_path):
-        proj = tmp_path / "py_app"
-        proj.mkdir()
-        (proj / "pyproject.toml").write_text("[project]\nname = 'test'")
-
-        result = agent._discover_projects(tmp_path)
-        assert len(result) == 1
-
-    def test_finds_package_json_project(self, agent, tmp_path):
-        proj = tmp_path / "js_app"
-        proj.mkdir()
-        (proj / "package.json").write_text("{}")
-
-        result = agent._discover_projects(tmp_path)
-        assert len(result) == 1
-
-    def test_ignores_hidden_dirs(self, agent, tmp_path):
-        hidden = tmp_path / ".hidden_project"
-        hidden.mkdir()
-        (hidden / ".git").mkdir()
-
-        result = agent._discover_projects(tmp_path)
-        assert len(result) == 0
-
-    def test_ignores_files(self, agent, tmp_path):
-        (tmp_path / "readme.txt").write_text("not a project")
-        result = agent._discover_projects(tmp_path)
-        assert len(result) == 0
-
-    def test_ignores_dir_without_markers(self, agent, tmp_path):
-        (tmp_path / "random_dir").mkdir()
-        result = agent._discover_projects(tmp_path)
-        assert len(result) == 0
-
-    def test_empty_root(self, agent, tmp_path):
-        result = agent._discover_projects(tmp_path)
-        assert result == []
-
-
-# ---------------------------------------------------------------------------
-# Health score calculation
-# ---------------------------------------------------------------------------
 
 
 class TestAnalyseProject:
@@ -327,17 +276,23 @@ class TestTodoPenaltyCap:
 
 
 class TestAlertThreshold:
-    async def _run(self, agent, tmp_path, score, managed=None, global_threshold=40):
+    """The floor now comes from the manifest, not from projects.yaml."""
+
+    async def _run(self, agent, tmp_path, score, manifest=None, global_threshold=40):
         from sysadmin.core.config import (
             AgentsConfig,
             AppConfig,
             ProjectOrganiserConfig,
-            ProjectsConfig,
         )
 
         project = tmp_path / "demo"
         project.mkdir(exist_ok=True)
         (project / ".git").mkdir(exist_ok=True)
+        if manifest is not None:
+            (project / ".project.yaml").write_text(
+                yaml.safe_dump({"schema": 1, "id": "demo", "name": "demo"} | manifest),
+                encoding="utf-8",
+            )
 
         config = AppConfig(
             agents=AgentsConfig(
@@ -346,7 +301,6 @@ class TestAlertThreshold:
                     alert_threshold=global_threshold,
                 )
             ),
-            projects=ProjectsConfig(projects=managed or []),
         )
         snapshot = MagicMock(
             project_name="demo",
@@ -367,116 +321,35 @@ class TestAlertThreshold:
         return alert
 
     async def test_global_threshold_applies_without_an_override(self, agent, tmp_path):
-        alert = await self._run(agent, tmp_path, score=35)
-        assert alert.await_count == 1
+        alert = await self._run(agent, tmp_path, score=30)
+        alert.assert_awaited_once()
 
-        alert = await self._run(agent, tmp_path, score=45)
-        assert alert.await_count == 0
+    async def test_a_healthy_project_raises_nothing(self, agent, tmp_path):
+        alert = await self._run(agent, tmp_path, score=90)
+        alert.assert_not_awaited()
 
     async def test_per_project_override_raises_the_bar(self, agent, tmp_path):
-        from sysadmin.core.config import ManagedProject
-
-        managed = [
-            ManagedProject(
-                name="demo", path=str(tmp_path / "demo"), alert_threshold=70
-            )
-        ]
-        alert = await self._run(agent, tmp_path, score=65, managed=managed)
-
-        assert alert.await_count == 1
-        assert "alert threshold 70" in alert.await_args.kwargs["message"]
+        alert = await self._run(
+            agent, tmp_path, score=60, manifest={"alert_threshold": 70}
+        )
+        alert.assert_awaited_once()
 
     async def test_per_project_override_silences_a_project(self, agent, tmp_path):
-        from sysadmin.core.config import ManagedProject
+        alert = await self._run(
+            agent, tmp_path, score=10, manifest={"alert_threshold": 0}
+        )
+        alert.assert_not_awaited()
 
-        managed = [
-            ManagedProject(name="demo", path=str(tmp_path / "demo"), alert_threshold=0)
-        ]
-        alert = await self._run(agent, tmp_path, score=0, managed=managed)
+    async def test_an_archived_project_never_alerts_by_default(self, agent, tmp_path):
+        alert = await self._run(
+            agent, tmp_path, score=5, manifest={"status": "archived"}
+        )
+        alert.assert_not_awaited()
 
-        assert alert.await_count == 0
-
-    async def test_other_projects_keep_the_global_default(self, agent, tmp_path):
-        from sysadmin.core.config import ManagedProject
-
-        managed = [
-            ManagedProject(
-                name="somewhere-else",
-                path=str(tmp_path / "other"),
-                alert_threshold=90,
-            )
-        ]
-        alert = await self._run(agent, tmp_path, score=45, managed=managed)
-
-        assert alert.await_count == 0
-
-
-# ---------------------------------------------------------------------------
-# Depth-aware discovery + project status (Session 21)
-# ---------------------------------------------------------------------------
-
-
-class TestDepthDiscovery:
-    def test_finds_projects_inside_category_dirs(self, agent, tmp_path):
-        (tmp_path / "apps" / "my_app" / ".git").mkdir(parents=True)
-
-        result = agent._discover_projects(tmp_path)
-        assert result == [tmp_path / "apps" / "my_app"]
-
-    def test_top_level_and_nested_projects_found_together(self, agent, tmp_path):
-        (tmp_path / "solo" / ".git").mkdir(parents=True)
-        (tmp_path / "ml" / "model" / ".git").mkdir(parents=True)
-
-        result = agent._discover_projects(tmp_path)
-        assert set(result) == {tmp_path / "solo", tmp_path / "ml" / "model"}
-
-    def test_never_descends_into_a_project(self, agent, tmp_path):
-        """A repo's vendored sub-repos are its own business."""
-        outer = tmp_path / "outer"
-        (outer / ".git").mkdir(parents=True)
-        (outer / "vendored" / ".git").mkdir(parents=True)
-
-        result = agent._discover_projects(tmp_path)
-        assert result == [outer]
-
-    def test_depth_one_restores_old_behaviour(self, agent, tmp_path):
-        (tmp_path / "apps" / "my_app" / ".git").mkdir(parents=True)
-
-        assert agent._discover_projects(tmp_path, max_depth=1) == []
-
-    def test_depth_is_bounded(self, agent, tmp_path):
-        (tmp_path / "a" / "b" / "deep_proj" / ".git").mkdir(parents=True)
-
-        assert agent._discover_projects(tmp_path) == []
-        assert agent._discover_projects(tmp_path, max_depth=3) == [
-            tmp_path / "a" / "b" / "deep_proj"
-        ]
-
-    def test_hidden_dirs_not_descended(self, agent, tmp_path):
-        (tmp_path / ".backups" / "mirror" / ".git").mkdir(parents=True)
-
-        assert agent._discover_projects(tmp_path) == []
-
-
-class TestInferStatus:
-    def test_archive_children_are_archived(self, agent, tmp_path):
-        path = tmp_path / "archive" / "old_thing"
-        path.mkdir(parents=True)
-        assert agent._infer_status(path, tmp_path) == "archived"
-
-    def test_deeper_archive_paths_are_archived(self, agent, tmp_path):
-        path = tmp_path / "archive" / "coding-scraps" / "task-1"
-        path.mkdir(parents=True)
-        assert agent._infer_status(path, tmp_path) == "archived"
-
-    def test_everything_else_is_active(self, agent, tmp_path):
-        path = tmp_path / "apps" / "my_app"
-        path.mkdir(parents=True)
-        assert agent._infer_status(path, tmp_path) == "active"
-
-    def test_paths_outside_root_are_active(self, agent, tmp_path):
-        outside = tmp_path.parent / "elsewhere"
-        assert agent._infer_status(outside, tmp_path) == "active"
+    async def test_an_undeclared_project_still_alerts(self, agent, tmp_path):
+        """Undeclared is undecided, not exempt."""
+        alert = await self._run(agent, tmp_path, score=10, manifest=None)
+        alert.assert_awaited_once()
 
 
 class TestStatusScoring:
@@ -532,77 +405,76 @@ class TestStatusScoring:
 
 
 class TestEffectiveThreshold:
-    def _configs(self, managed=None, global_threshold=40):
-        from sysadmin.core.config import ProjectsConfig
+    """The floor is a property of the manifest entry, not of a lookup."""
 
-        return (
-            ProjectsConfig(projects=managed or []),
-            ProjectOrganiserConfig(alert_threshold=global_threshold),
-        )
+    def _entry(self, status="active", alert_threshold=None):
+        return SimpleNamespace(status=status, alert_threshold=alert_threshold)
 
-    def test_active_gets_the_global_default(self, agent):
-        projects, organiser = self._configs()
+    def _organiser(self, global_threshold=40):
+        return ProjectOrganiserConfig(alert_threshold=global_threshold)
+
+    @pytest.mark.parametrize("status", ["active", "dormant", "undeclared"])
+    def test_scored_statuses_get_the_global_default(self, agent, status):
         assert agent._effective_threshold(
-            projects, organiser, "demo", "/p/demo", "active"
-        ) == 40
-
-    def test_dormant_gets_the_global_default(self, agent):
-        projects, organiser = self._configs()
-        assert agent._effective_threshold(
-            projects, organiser, "demo", "/p/demo", "dormant"
+            self._entry(status), self._organiser()
         ) == 40
 
     def test_archived_suppresses_the_default(self, agent):
-        projects, organiser = self._configs()
         assert agent._effective_threshold(
-            projects, organiser, "demo", "/p/demo", "archived"
+            self._entry("archived"), self._organiser()
         ) == 0
 
-    def test_explicit_floor_beats_archived(self, agent, tmp_path):
-        from sysadmin.core.config import ManagedProject
-
-        managed = [
-            ManagedProject(name="demo", path=str(tmp_path), alert_threshold=50)
-        ]
-        projects, organiser = self._configs(managed)
+    def test_explicit_floor_beats_archived(self, agent):
         assert agent._effective_threshold(
-            projects, organiser, "demo", str(tmp_path), "archived"
+            self._entry("archived", alert_threshold=50), self._organiser()
         ) == 50
+
+    def test_explicit_zero_is_honoured_not_treated_as_absent(self, agent):
+        assert agent._effective_threshold(
+            self._entry("active", alert_threshold=0), self._organiser()
+        ) == 0
 
 
 class TestArchivedAlerts:
     async def test_archived_location_never_alerts_by_default(self, agent, tmp_path):
-        """End-to-end: a rotten project under archive/ raises nothing."""
+        """End-to-end: a rotten project under archive/ raises nothing.
+
+        Nothing declares it — the inference that anything under
+        ``archive/`` is archived is the registry's, and it survived the
+        move off projects.yaml.
+        """
         from sysadmin.core.config import (
             AgentsConfig,
             AppConfig,
-            ProjectsConfig,
+            ProjectOrganiserConfig,
         )
 
-        project = tmp_path / "archive" / "old"
-        (project / ".git").mkdir(parents=True)
+        project = tmp_path / "archive" / "rotten"
+        project.mkdir(parents=True)
+        (project / ".git").mkdir()
 
         config = AppConfig(
             agents=AgentsConfig(
                 project_organiser=ProjectOrganiserConfig(
-                    projects_root=str(tmp_path)
+                    projects_root=str(tmp_path), alert_threshold=40
                 )
             ),
-            projects=ProjectsConfig(projects=[]),
         )
         snapshot = MagicMock(
-            project_name="old", project_path=str(project), health_score=0, findings={}
+            project_name="rotten",
+            project_path=str(project),
+            health_score=0,
+            findings={},
         )
         session = MagicMock()
 
         mod = "sysadmin.projects.agent"
         with (
             patch(f"{mod}.get_config", return_value=config),
-            patch.object(agent, "_analyse_project", return_value=snapshot) as analyse,
+            patch.object(agent, "_analyse_project", return_value=snapshot),
             patch.object(agent, "raise_alert", new=AsyncMock()) as alert,
         ):
             await agent._execute(session)
 
-        assert alert.await_count == 0
-        # And the inferred status reached the analyser
-        assert analyse.call_args[0][2] == "archived"
+        alert.assert_not_awaited()
+

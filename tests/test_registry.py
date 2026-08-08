@@ -391,3 +391,43 @@ class TestReferenceChecking:
 
     def test_assert_known_accepts_nothing(self, registry):
         registry.assert_known([], "services.yaml")
+
+
+class TestLiveEstate:
+    """Guards on the manifests this box actually carries.
+
+    Skipped off this machine — they assert about ~/projects, not about the
+    repository, and a fixture estate would only re-test the parser.
+    """
+
+    @pytest.fixture(scope="class")
+    def registry(self):
+        try:
+            return load_registry("~/projects")
+        except Exception as exc:  # noqa: BLE001
+            pytest.skip(f"estate unavailable: {exc}")
+
+    def test_every_manifest_parses(self, registry):
+        if not registry.ids:
+            pytest.skip("estate not migrated on this machine")
+        assert len(registry.declared) >= 14
+
+    def test_the_reasoning_transfer_is_not_silently_lost(self, registry):
+        """projects.yaml's comments were the only record of several
+        decisions. If a manifest loses its decisions block, the record is
+        gone and nothing else would notice."""
+        if not registry.ids:
+            pytest.skip("estate not migrated on this machine")
+        without = [
+            e.id for e in registry.declared
+            if e.manifest and not e.manifest.decisions
+        ]
+        assert without == ["sysadmin-assistant"], (
+            "a manifest lost its decisions; the legacy file at "
+            "docs/projects-registry-legacy.yaml is the only other copy"
+        )
+
+    def test_no_declared_project_is_left_undeclared(self, registry):
+        if not registry.ids:
+            pytest.skip("estate not migrated on this machine")
+        assert all(e.status != "undeclared" for e in registry.declared)

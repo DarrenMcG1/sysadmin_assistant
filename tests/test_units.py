@@ -602,18 +602,16 @@ class _Service:
         self.user = user
 
 
-def test_wired_units_reads_both_config_files():
-    wired = wired_units(
-        _ProjectsConfig(
-            [
-                _Project(
-                    backend=_Endpoint("alfred-backend.service", user=True),
-                    frontend=_Endpoint("alfred-frontend.service", user=True),
-                )
-            ]
-        ),
-        [_Service("postgresql.service"), _Service("alfred-evaluate.timer", user=True)],
-    )
+def test_wired_units_reads_every_declared_service():
+    """One source. This used to read projects.yaml as well, and a sweep
+    that consulted only one of the two reported the other half of the
+    estate as unmonitored."""
+    wired = wired_units([
+        _Service("alfred-backend.service", user=True),
+        _Service("alfred-frontend.service", user=True),
+        _Service("postgresql.service"),
+        _Service("alfred-evaluate.timer", user=True),
+    ])
     assert wired == {
         "user:alfred-backend.service",
         "user:alfred-frontend.service",
@@ -625,7 +623,7 @@ def test_wired_units_reads_both_config_files():
 def test_wired_units_keys_include_scope():
     """Without scope in the key, wiring the user unit would silently
     cover the system unit of the same name."""
-    wired = wired_units(None, [_Service("x.service", user=True)])
+    wired = wired_units([_Service("x.service", user=True)])
     assert wired == {"user:x.service"}
     assert "system:x.service" not in wired
 

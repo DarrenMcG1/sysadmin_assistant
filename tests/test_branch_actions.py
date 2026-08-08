@@ -813,25 +813,26 @@ class TestPruneApi:
         )
         assert response.status_code == 400
 
-    async def test_managed_project_name_resolves(
+    async def test_manifest_id_resolves_to_the_directory(
         self, mock_config, prune_client, tmp_path
     ):
-        from sysadmin.core.config import ManagedProject
-
+        """A caller may use the manifest id or the directory name; both
+        resolve, because the board reports one and services.yaml the
+        other."""
         path = tmp_path / "projects" / "RealDir"
         repo = init_repo(path)
         make_merged_branch(repo, "merged-old", days_ago(200))
-        mock_config.projects.projects = [
-            ManagedProject(name="friendly", path=str(path))
-        ]
-        try:
-            payload = (
-                await prune_client.post(
-                    "/api/projects/friendly/branches/prune", json={}
-                )
-            ).json()
-        finally:
-            mock_config.projects.projects = []
+        (path / ".project.yaml").write_text(
+            "schema: 1\nid: friendly\nname: RealDir\nstatus: active\n",
+            encoding="utf-8",
+        )
+        mock_config.agents.project_organiser.projects_root = str(tmp_path / "projects")
+
+        payload = (
+            await prune_client.post(
+                "/api/projects/friendly/branches/prune", json={}
+            )
+        ).json()
 
         assert payload["repo_path"] == str(path)
         assert payload["planned_count"] == 1

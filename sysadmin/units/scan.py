@@ -511,11 +511,13 @@ def _wired_key(unit: str, scope: str) -> str:
     return f"{scope}:{unit}"
 
 
-def wired_units(
-    projects_config: Any = None,
-    sysadmin_services: Iterable[Any] = (),
-) -> set[str]:
+def wired_units(services: Iterable[Any] = ()) -> set[str]:
     """The set of units already registered, as ``"<scope>:<unit>"`` keys.
+
+    One source now. This used to read projects.yaml as well, because half
+    the estate's units were declared there and half in config.yaml, and a
+    sweep that consulted only one would have reported the other half as
+    unmonitored.
 
     Scope is part of the key on purpose.  ``deadlock-api-ingest.service``
     is installed in *both* scopes on this box, running two different
@@ -523,30 +525,12 @@ def wired_units(
     a scope-blind key would report the pair as covered.
     """
     wired: set[str] = set()
-
-    for endpoint in _managed_endpoints(projects_config):
-        if endpoint.systemd_unit:
-            scope = "user" if endpoint.user else "system"
-            wired.add(_wired_key(endpoint.systemd_unit, scope))
-
-    for service in sysadmin_services or ():
+    for service in services or ():
         unit = getattr(service, "systemd_unit", None)
         if unit:
             scope = "user" if getattr(service, "user", False) else "system"
             wired.add(_wired_key(unit, scope))
-
     return wired
-
-
-def _managed_endpoints(projects_config: Any) -> list[Any]:
-    projects = getattr(projects_config, "projects", None) or []
-    endpoints = []
-    for project in projects:
-        for attr in ("backend", "frontend"):
-            endpoint = getattr(project, attr, None)
-            if endpoint is not None:
-                endpoints.append(endpoint)
-    return endpoints
 
 
 def fold_timers(units: Sequence[UnitFile]) -> tuple[set[str], dict[str, str]]:

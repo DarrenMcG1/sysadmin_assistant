@@ -28,7 +28,7 @@ from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.services import get_services
-from sysadmin.projects.agent import discover_projects
+from sysadmin.registry import load_registry
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.scan import (
     HOST,
@@ -55,7 +55,7 @@ class ServiceDiscoveryAgent(BaseAgent):
         agent_config = config.agents.service_discovery
 
         projects = await asyncio.to_thread(self._project_refs, config)
-        wired = wired_units(config.projects, get_services().services)
+        wired = wired_units(get_services().services)
 
         user_dir = Path(agent_config.user_unit_dir).expanduser()
         system_dir = Path(agent_config.system_unit_dir)
@@ -114,48 +114,29 @@ class ServiceDiscoveryAgent(BaseAgent):
 
     @staticmethod
     def _project_refs(config) -> list[ProjectRef]:
-        """The projects to match units against.
+        """The projects to match units against, from the registry.
 
-        Discovered from disk rather than read from ``project_snapshots``.
-        Reading the table would make this agent silently useless until the
-        project organiser had run at least once — and worse than useless,
-        because with no projects to match, *every* unit classifies as an
-        orphan or a host unit.  Sharing
-        :func:`sysadmin.projects.agent.discover_projects` keeps
-        the two agents' idea of "a project" from drifting.
+        Read from disk rather than from ``project_snapshots``. Reading the
+        table would make this agent silently useless until the organiser
+        had run once — and worse than useless, because with no projects to
+        match, *every* unit classifies as an orphan or a host unit.
+
+        Both agents now go through :func:`sysadmin.registry.load_registry`,
+        so there is one definition of "a project" rather than two that can
+        drift. The symptom of drift here would be units reported as
+        orphans because this sweep could not see the project they belong
+        to.
         """
-        from sysadmin.projects.agent import ProjectOrganiserAgent
-
         organiser_config = config.agents.project_organiser
         root = Path(organiser_config.projects_root)
         if not root.exists():
             return []
 
-        refs: list[ProjectRef] = []
-        seen: set[str] = set()
-
-        for path in discover_projects(root, organiser_config.discovery_depth):
-            status = config.projects.status_for(
-                path.name, str(path)
-            ) or ProjectOrganiserAgent._infer_status(path, root)
-            refs.append(ProjectRef(name=path.name, path=str(path), status=status))
-            seen.add(str(path))
-
-        # projects.yaml may point outside projects_root (or at a directory
-        # with no marker files).  Those still own units, and a unit for a
-        # project the sweep cannot see would be misreported as an orphan.
-        for managed in config.projects.projects if config.projects else []:
-            if not managed.path or managed.path in seen:
-                continue
-            refs.append(
-                ProjectRef(
-                    name=managed.name,
-                    path=managed.path,
-                    status=managed.status or "active",
-                )
-            )
-
-        return refs
+        registry = load_registry(root, organiser_config.discovery_depth)
+        return [
+            ProjectRef(name=entry.path.name, path=str(entry.path), status=entry.status)
+            for entry in registry.entries
+        ]
 
     async def _maintain_alert(
         self, session, actionable: int, threshold: int, scan

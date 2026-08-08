@@ -27,7 +27,7 @@ from sysadmin.projects import branch_actions, recommendations
 from sysadmin.projects import review as project_review
 from sysadmin.projects.models.project_review import ProjectReview
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
-from sysadmin.registry import derive_id
+from sysadmin.registry import load_registry
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -190,7 +190,7 @@ async def get_projects_report(session: AsyncSession = Depends(get_db_session)):
 async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
     """List projects from projects.yaml with live service health status."""
     config = get_config()
-    managed = config.projects.projects
+    registry = load_registry(config.agents.project_organiser.projects_root)
 
     # Fetch latest health check per service
     latest_health_subq = (
@@ -238,8 +238,8 @@ async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
     declared = get_services()
 
     projects_out = []
-    for mp in managed:
-        svc_entries = declared.for_project(derive_id(mp.name))
+    for mp in registry.declared:
+        svc_entries = declared.for_project(mp.id)
         services = []
         all_healthy = True
         for svc in svc_entries:
@@ -261,7 +261,7 @@ async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
 
         projects_out.append({
             "name": mp.name,
-            "path": mp.path,
+            "path": str(mp.path),
             "services": services,
             "project_health": project_health,
             "all_services_healthy": all_healthy if services else None,
@@ -739,11 +739,14 @@ async def prune_project_branches(
     stale_days = (
         organiser.stale_branch_days if body.stale_days is None else body.stale_days
     )
-    managed_paths = {
-        project.name: project.path
-        for project in config.projects.projects
-        if project.path
-    }
+    # Both the manifest id and the directory name resolve, because a
+    # caller reasonably uses either: the board reports directory names,
+    # services.yaml references ids.
+    registry = load_registry(organiser.projects_root)
+    managed_paths: dict[str, str] = {}
+    for entry in registry.declared:
+        managed_paths.setdefault(entry.id, str(entry.path))
+        managed_paths.setdefault(entry.path.name, str(entry.path))
 
     try:
         repo_path = await asyncio.to_thread(

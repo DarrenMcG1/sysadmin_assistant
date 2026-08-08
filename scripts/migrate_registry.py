@@ -44,7 +44,7 @@ from sysadmin.registry import (  # noqa: E402
     has_manifest,
 )
 
-DEFAULT_PROJECTS_YAML = REPO_ROOT / "projects.yaml"
+DEFAULT_PROJECTS_YAML = REPO_ROOT / "docs" / "projects-registry-legacy.yaml"
 DEFAULT_ROOT = Path("~/projects")
 
 
@@ -129,6 +129,90 @@ def build_plan(projects_yaml: Path, root: Path, depth: int, force: bool) -> Plan
     return plan
 
 
+#: projects.yaml modelled exactly these two roles, which is the limitation
+#: services.yaml removed. The emission below is faithful to what was there,
+#: not to what the estate needs — the units that could not be expressed in
+#: projects.yaml were never in it to emit.
+LEGACY_ROLES = ("backend", "frontend")
+
+
+def services_from(entry: dict) -> list[dict]:
+    """The services.yaml entries one projects.yaml project would produce.
+
+    ``kind: http`` and ``monitor: true`` for every one, because that is
+    all projects.yaml could express: it had no way to say "this is a
+    timer" or "this one is not expected to be running", which is why
+    those units lived in config.yaml instead.
+
+    Service names are the ones projects.yaml generated — ``<name>`` for a
+    backend and ``<name>-frontend`` for a frontend — because those are
+    the keys in service_health and renaming one orphans its history.
+    """
+    out: list[dict] = []
+    for role in LEGACY_ROLES:
+        block = entry.get(role)
+        if not isinstance(block, dict) or not block.get("url"):
+            continue
+        service: dict = {
+            "project": kebab(entry["name"]),
+            "name": entry["name"] if role == "backend" else f"{entry['name']}-{role}",
+            "role": role,
+            "kind": "http",
+            "monitor": True,
+            "url": block["url"],
+        }
+        if block.get("port"):
+            service["port"] = block["port"]
+        if block.get("systemd_unit"):
+            service["systemd"] = {
+                "unit": block["systemd_unit"],
+                "scope": "user" if block.get("user") else "system",
+            }
+        log = block.get("log")
+        if isinstance(log, dict):
+            service["log"] = {
+                "type": log.get("type", "journalctl"),
+                "severity_filter": log.get("severity_filter", "warning"),
+            }
+        out.append(service)
+    return out
+
+
+def emit_services(projects_yaml: Path) -> dict:
+    """The services.yaml projects.yaml alone would produce."""
+    raw = yaml.safe_load(projects_yaml.read_text(encoding="utf-8")) or {}
+    services: list[dict] = []
+    for entry in raw.get("projects") or []:
+        services.extend(services_from(entry))
+    return {"schema": 1, "services": services}
+
+
+def compare_services(emitted: dict, live_path: Path) -> tuple[list[str], list[str]]:
+    """``(missing, differing)`` service names against the live file.
+
+    The emission is no longer the way services.yaml is produced — it was
+    hand-extended with the units projects.yaml could not model. What it is
+    still good for is proving nothing projects.yaml knew about was dropped
+    on the way across.
+    """
+    if not live_path.is_file():
+        return [s["name"] for s in emitted["services"]], []
+    live_raw = yaml.safe_load(live_path.read_text(encoding="utf-8")) or {}
+    live = {s["name"]: s for s in live_raw.get("services") or []}
+
+    missing, differing = [], []
+    for service in emitted["services"]:
+        current = live.get(service["name"])
+        if current is None:
+            missing.append(service["name"])
+            continue
+        for key in ("project", "url", "port"):
+            if key in service and current.get(key) != service[key]:
+                differing.append(f"{service['name']}.{key}: "
+                                 f"{current.get(key)!r} != {service[key]!r}")
+    return missing, differing
+
+
 def render(body: dict) -> str:
     """The manifest as it will be written."""
     return yaml.safe_dump(body, sort_keys=False, allow_unicode=True)
@@ -183,11 +267,41 @@ def main(argv: list[str] | None = None) -> int:
                         help="write the manifests (default is a dry run)")
     parser.add_argument("--force", action="store_true",
                         help="overwrite manifests that already exist")
+    parser.add_argument("--emit-services", type=Path, metavar="PATH",
+                        help="write the services.yaml projects.yaml alone implies")
+    parser.add_argument("--check-services", type=Path, metavar="PATH",
+                        default=REPO_ROOT / "services.yaml",
+                        help="verify nothing projects.yaml knew about was dropped")
     args = parser.parse_args(argv)
 
     root = args.root.expanduser().resolve()
     if not args.projects_yaml.is_file():
         parser.error(f"not found: {args.projects_yaml}")
+
+    if args.emit_services:
+        emitted = emit_services(args.projects_yaml)
+        args.emit_services.write_text(
+            yaml.safe_dump(emitted, sort_keys=False), encoding="utf-8"
+        )
+        print(f"Wrote {len(emitted['services'])} service(s) to {args.emit_services}")
+        return 0
+
+    missing, differing = compare_services(
+        emit_services(args.projects_yaml), args.check_services
+    )
+    if missing:
+        print(f"\nMISSING from {args.check_services.name} ({len(missing)}) — "
+              "projects.yaml declared these and nothing carries them now:")
+        for name in missing:
+            print(f"  {name}")
+    if differing:
+        print(f"\nDiffers from projects.yaml ({len(differing)}) — deliberate "
+              "or a transcription slip, but not silent either way:")
+        for diff in differing:
+            print(f"  {diff}")
+    if not (missing or differing):
+        print(f"\nEvery service projects.yaml declared is present in "
+              f"{args.check_services.name}, unchanged.")
 
     plan = build_plan(args.projects_yaml, root, args.depth, args.force)
 

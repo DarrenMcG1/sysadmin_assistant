@@ -26,6 +26,7 @@ from sysadmin.core.contracts import (
     UnitScanSummary,
 )
 from sysadmin.core.database import get_db_session
+from sysadmin.registry import load_registry
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.recommendations import (
     KIND_ORDER,
@@ -155,7 +156,10 @@ async def get_unit_actions(
     audit = await _latest_audit(session)
     config = get_config()
 
-    recs = recommendations_for_scan(_findings_from(audit), config.projects)
+    recs = recommendations_for_scan(
+        _findings_from(audit),
+        load_registry(config.agents.project_organiser.projects_root),
+    )
     if kind is not None:
         recs = [r for r in recs if r.kind == kind]
 

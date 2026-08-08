@@ -23,25 +23,19 @@ Ranked, worst first:
    database backup) but because it is a documentation gap rather than a
    defect: the unit is running fine, nobody is watching.
 
-**Never auto-edit the config.**  Both YAML files are hand-curated and
-their comments carry the reasoning — projects.yaml explains *why*
-``user: true`` is mandatory, config.yaml explains *why* a oneshot's timer
-is monitored instead of the service.  A writer that rewrote either would
-destroy that and the next reader would rediscover both lessons the hard
-way.  Advice only: the snippet is text for a human to paste.
+**Never auto-edit the config.**  services.yaml is hand-curated and its
+comments carry reasoning a writer would flatten.  Advice only: the
+snippet is text for a human to paste.
 
-Which file the snippet targets is decided by what will actually work,
-not by which is tidier:
-
-- A ``Type=oneshot`` service is monitored via its **timer**, and
-  projects.yaml models only ``backend``/``frontend`` — so timers go to
-  config.yaml ``services:``.
-- A long-running service goes to config.yaml too **unless its project is
-  already in projects.yaml**, because a projects.yaml endpoint without a
-  ``url`` is inert: ``ManagedProject.to_monitored_services`` skips it, so
-  the entry looks wired and checks nothing.  Ports are Session 26b's job,
-  and until then ``type: systemd`` in config.yaml is the form that
-  actually checks something.
+Every snippet targets services.yaml, which is the whole simplification.
+There used to be two possible destinations and a rule for choosing
+between them, because projects.yaml modelled only ``backend`` and
+``frontend`` and a third unit had nowhere to go.  What remains of that
+rule is narrower and still load-bearing: ``project:`` is emitted only
+when a manifest declares the id, since an id nothing claims fails at
+load, and a ``Type=oneshot`` service is still wired as its ``kind:
+timer`` — which is now a declaration the checker reads rather than a
+convention a comment explained.
 
 Pure module: no DB, no FastAPI.  Give it findings, get advice.
 """
@@ -68,15 +62,15 @@ _KIND_FOR_CATEGORY = {
 
 def recommendations_for_scan(
     findings: Sequence[UnitFinding],
-    projects_config: Any = None,
+    registry: Any = None,
 ) -> list[UnitRecommendationInfo]:
     """Ranked advice for one unit sweep.
 
-    ``projects_config`` is consulted only to decide *where* a snippet
-    should go — whether the finding's project already has a projects.yaml
+    ``registry`` is consulted only to decide *where* a snippet
+    should go — whether the finding's project already has a manifest
     entry to extend.  It is never written to.
     """
-    known = _projects_with_entries(projects_config)
+    known = _project_ids(registry)
     # Computed here, once, so every snippet for a two-scope unit agrees
     # on the disambiguated name.
     duplicates = duplicate_units(findings)
@@ -86,22 +80,25 @@ def recommendations_for_scan(
     return recs
 
 
-def _projects_with_entries(projects_config: Any) -> set[str]:
-    """Names of projects that already appear in projects.yaml."""
-    projects = getattr(projects_config, "projects", None) or []
-    known: set[str] = set()
-    for project in projects:
-        name = getattr(project, "name", None)
-        if name:
-            known.add(str(name))
-        path = getattr(project, "path", None)
-        if path:
-            known.add(str(path).rstrip("/").rsplit("/", 1)[-1])
-    return known
+def _project_ids(registry: Any) -> dict[str, str]:
+    """Every name a declared project answers to, mapped to its id.
+
+    The sweep matches units against the *directory* name it found on
+    disk, while services.yaml references the *manifest id*, and they
+    differ often enough to matter — ``SportsAnalyser`` against
+    ``sports-analyser``. Emitting the name the sweep happened to use
+    would produce a snippet that fails to load, which is a worse outcome
+    than no snippet.
+    """
+    ids: dict[str, str] = {}
+    for entry in getattr(registry, "declared", ()) or ():
+        ids[str(entry.id)] = str(entry.id)
+        ids[entry.path.name] = str(entry.id)
+    return ids
 
 
 def _recommend(
-    finding: UnitFinding, known: set[str], duplicates: set[str]
+    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
 ) -> UnitRecommendationInfo:
     kind = _KIND_FOR_CATEGORY.get(finding.category, "host")
     builder = {
@@ -118,7 +115,7 @@ def _recommend(
 
 
 def _orphan_recommendation(
-    finding: UnitFinding, known: set[str], duplicates: set[str]
+    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
 ) -> UnitRecommendationInfo:
     """Advice for a unit whose project is gone.
 
@@ -156,11 +153,11 @@ def _orphan_recommendation(
 
 
 def _unmonitored_recommendation(
-    finding: UnitFinding, known: set[str], duplicates: set[str]
+    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
 ) -> UnitRecommendationInfo:
     """Advice for a live project's unwatched unit."""
     target, snippet = _snippet_for(finding, known, duplicates)
-    where = "projects.yaml" if target == "projects.yaml" else "config.yaml"
+    where = target or "services.yaml"
 
     detail = f"{finding.reason}."
     if finding.monitor_unit != finding.unit:
@@ -192,7 +189,7 @@ def _unmonitored_recommendation(
 
 
 def _host_recommendation(
-    finding: UnitFinding, known: set[str], duplicates: set[str]
+    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
 ) -> UnitRecommendationInfo:
     """Advice for hand-written infrastructure with no project."""
     target, snippet = _snippet_for(finding, known, duplicates)
@@ -200,7 +197,7 @@ def _host_recommendation(
     detail = (
         f"{finding.description or finding.unit} is a hand-written unit under "
         f"{_scope_dir(finding.scope)} that maps to no project in "
-        "~/projects, so no projects.yaml entry can cover it."
+        "~/projects, so its services.yaml entry carries no `project:`."
     )
     if finding.monitor_unit != finding.unit:
         detail += (
@@ -222,7 +219,7 @@ def _host_recommendation(
         monitor_unit=finding.monitor_unit,
         title=f"Monitor the host unit {finding.monitor_unit}",
         detail=detail,
-        action="Paste the snippet below into config.yaml under agents.sysadmin.services",
+        action="Paste the snippet below into services.yaml under services:",
         snippet=snippet,
         snippet_target=target,
     )
@@ -260,83 +257,70 @@ def _removal_command(finding: UnitFinding) -> str:
 
 
 def _snippet_for(
-    finding: UnitFinding, known: set[str], duplicates: set[str]
+    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
 ) -> tuple[str | None, str]:
     """``(target_file, snippet)`` for a finding worth wiring up.
 
-    A oneshot's timer and any unit with no project both go to config.yaml
-    — projects.yaml models only ``backend``/``frontend``, and neither is
-    a backend or a frontend.  A long-running unit whose project is
-    already in projects.yaml gets a projects.yaml fragment instead, since
-    that is where its sibling endpoints already live.
+    One target now. Every unit on this host is declared in services.yaml,
+    whether it belongs to a project or to the machine — the old split,
+    where a third unit could not be expressed beside its siblings and had
+    to be filed under "sysadmin" with a comment, is what services.yaml
+    removed.
     """
     if finding.manual:
         # Nothing to wire: a hand-started oneshot has no steady state to
         # check, so a monitor would report it dead almost always.
         return None, ""
 
-    is_timer = finding.monitor_unit != finding.unit
-    if not is_timer and finding.project and finding.project in known:
-        return "projects.yaml", _projects_yaml_snippet(finding)
-    return "config.yaml", _config_yaml_snippet(finding, duplicates)
+    return "services.yaml", _services_yaml_snippet(finding, known, duplicates)
 
 
-def _config_yaml_snippet(finding: UnitFinding, duplicates: set[str]) -> str:
-    """A ``agents.sysadmin.services`` entry.
+def _services_yaml_snippet(
+    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
+) -> str:
+    """A services.yaml entry for one unwired unit.
 
-    ``type: systemd`` rather than ``http``: this scan does not know the
-    unit's port (that is Session 26b), and a systemd check needs no URL.
-    ``controllable: false`` on a timer because start/stop from the tray
-    would arm or disarm a schedule, which is not what the button reads as.
+    ``kind: systemd`` rather than ``http``: this scan does not know the
+    unit's port, and a systemd check needs no url. A timer gets
+    ``kind: timer``, which is the declaration that stops its oneshot
+    service being checked, and ``controllable: false``, because start and
+    stop from the tray would arm or disarm a schedule rather than restart
+    something.
+
+    ``project:`` is emitted only when the project is *declared* — an id
+    no manifest claims fails at load, so guessing one would turn advice
+    into an outage.
     """
+    is_timer = finding.monitor_unit.endswith(".timer")
     lines = [
-        f"      # {finding.description}" if finding.description else None,
-        f"      - name: {_service_name(finding, duplicates)}",
-        "        type: systemd",
-        f"        systemd_unit: {finding.monitor_unit}",
+        f"  # {finding.description}" if finding.description else None,
     ]
-    if finding.scope == "user":
-        lines.append("        user: true  # systemd *user* unit")
-    if finding.monitor_unit.endswith(".timer"):
-        lines.append(
-            "        controllable: false  # start/stop would arm/disarm the schedule"
-        )
-    return "\n".join(line for line in lines if line)
-
-
-def _projects_yaml_snippet(finding: UnitFinding) -> str:
-    """A ``backend:`` fragment for a project already in projects.yaml.
-
-    ``url`` is present but commented, not omitted and not invented.
-    ``to_monitored_services`` skips an endpoint with no ``url``, so an
-    uncommented entry without one would look wired and check nothing —
-    the exact failure mode the SportsAnalyser entry's own comment records
-    from 2026-08-04.  The reader has to supply the port; the scan does
-    not know it yet.
-    """
-    role = "frontend" if "frontend" in finding.unit else "backend"
-    lines = [
-        f"    # {finding.description}" if finding.description else None,
-        f"    {role}:",
-        "      # url: http://localhost:PORT/api/health   # required — a",
-        "      #   systemd_unit with no url is skipped by the health check",
-        f"      systemd_unit: {finding.monitor_unit}",
-    ]
-    if finding.scope == "user":
-        lines.append("      user: true  # systemd *user* unit")
-    lines.extend(
-        [
-            "      log:",
-            "        type: journalctl",
-            f"        unit: {finding.monitor_unit}",
-            "        severity_filter: warning",
-        ]
+    project_id = known.get(finding.project) if finding.project else None
+    if project_id:
+        lines.append(f"  - project: {project_id}")
+        lines.append(f"    name: {_service_name(finding, duplicates)}")
+    else:
+        lines.append(f"  - name: {_service_name(finding, duplicates)}")
+        if finding.project:
+            lines.append(
+                f"    # {finding.project} has no .project.yaml manifest, so it "
+                "has no id to reference yet"
+            )
+    lines.append(f"    kind: {'timer' if is_timer else 'systemd'}")
+    lines.append(
+        f"    systemd: {{ unit: {finding.monitor_unit}, scope: {finding.scope} }}"
     )
+    if is_timer:
+        lines.append(
+            "    controllable: false  # start/stop would arm/disarm the schedule"
+        )
+    else:
+        lines.append("    log: { type: journalctl, severity_filter: warning }")
     return "\n".join(line for line in lines if line)
 
 
 def _service_name(finding: UnitFinding, duplicates: AbstractSet[str] = frozenset()) -> str:
-    """A config.yaml ``name:`` for the unit.
+    """A services.yaml ``name:`` for the unit.
 
     Unit stem with the suffix dropped, plus ``-timer`` when the thing
     monitored is a timer — the convention config.yaml already uses for

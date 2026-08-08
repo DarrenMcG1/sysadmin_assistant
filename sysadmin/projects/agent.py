@@ -28,46 +28,22 @@ from sysadmin.projects.git import (
 )
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 from sysadmin.projects.roadmap import scan_roadmap
+from sysadmin.registry import load_registry
 
 logger = logging.getLogger(__name__)
 
-PROJECT_MARKERS = {".git", "pyproject.toml", "package.json", "Cargo.toml", "go.mod"}
+#: Statuses whose commit staleness is penalised.  ``dormant`` and
+#: ``archived`` are declared exemptions; ``undeclared`` is not one —
+#: nobody has said the project is resting, so it is scored as though
+#: it were active and reported as undeclared separately.
+ACTIVELY_SCORED = frozenset({"active", "undeclared"})
 
-
-def discover_projects(root: Path, max_depth: int = 2) -> list[Path]:
-    """Find directories that look like projects.
-
-    A directory with a project marker IS a project and is never descended
-    into (a repo's vendored sub-repos are its own business).  A directory
-    without markers is a *category* (``apps/``, ``ml/``) and is searched
-    one level further, down to ``max_depth`` levels below ``root``.
-
-    Module-level rather than a method so the service-discovery agent can
-    share it (Session 26).  Two agents with two ideas of what counts as a
-    project would drift, and the symptom would be units reported as
-    orphans because the sweep could not see the project they belong to.
-    """
-    projects: list[Path] = []
-
-    def scan(directory: Path, remaining: int) -> None:
-        try:
-            entries = sorted(directory.iterdir())
-        except PermissionError:
-            logger.warning(
-                "permission_denied_scanning_projects",
-                extra={"path": str(directory)},
-            )
-            return
-        for entry in entries:
-            if not entry.is_dir() or entry.name.startswith("."):
-                continue
-            if any((entry / marker).exists() for marker in PROJECT_MARKERS):
-                projects.append(entry)
-            elif remaining > 1:
-                scan(entry, remaining - 1)
-
-    scan(root, max(max_depth, 1))
-    return projects
+# Discovery, identity and declared status all come from
+# sysadmin.registry now.  ``discover_projects`` and ``_infer_status`` used
+# to live here and were imported by the service-discovery agent, which is
+# the drift the registry exists to remove: two agents with two ideas of
+# what counts as a project, whose symptom is a unit reported as an orphan
+# because one sweep could not see the project the other could.
 
 
 class ProjectOrganiserAgent(BaseAgent):
@@ -84,41 +60,23 @@ class ProjectOrganiserAgent(BaseAgent):
             logger.warning("projects_root_not_found", extra={"path": str(projects_root)})
             return AgentResult()
 
-        # Discover projects
-        projects = await asyncio.to_thread(
-            self._discover_projects, projects_root, agent_config.discovery_depth
+        registry = await asyncio.to_thread(
+            load_registry, projects_root, agent_config.discovery_depth
         )
 
-        # Include explicit project paths from projects.yaml
-        if config.projects and config.projects.projects:
-            discovered_set = set(projects)
-            for mp in config.projects.projects:
-                if mp.path:
-                    p = Path(mp.path)
-                    if p.exists() and p not in discovered_set:
-                        projects.append(p)
-
         alerts_raised = 0
+        undeclared = 0
 
-        for project_path in projects:
-            # Declared status wins; otherwise location decides: anything
-            # under <projects_root>/archive/ is archived, all else active.
-            status = config.projects.status_for(
-                project_path.name, str(project_path)
-            ) or self._infer_status(project_path, projects_root)
+        for entry in registry.entries:
+            if not entry.declared:
+                undeclared += 1
 
             snapshot = await asyncio.to_thread(
-                self._analyse_project, project_path, agent_config, status
+                self._analyse_project, entry.path, agent_config, entry.status
             )
             session.add(snapshot)
 
-            threshold = self._effective_threshold(
-                config.projects,
-                agent_config,
-                snapshot.project_name,
-                snapshot.project_path,
-                status,
-            )
+            threshold = self._effective_threshold(entry, agent_config)
             if snapshot.health_score < threshold:
                 await self.raise_alert(
                     session,
@@ -133,39 +91,27 @@ class ProjectOrganiserAgent(BaseAgent):
                 alerts_raised += 1
 
         return AgentResult(
-            findings_count=len(projects),
+            findings_count=len(registry.entries),
             alerts_raised=alerts_raised,
-            details={"projects_scanned": len(projects)},
+            details={
+                "projects_scanned": len(registry.entries),
+                "undeclared": undeclared,
+            },
         )
 
-    def _discover_projects(self, root: Path, max_depth: int = 2) -> list[Path]:
-        """Kept as a method so existing callers and tests are unaffected."""
-        return discover_projects(root, max_depth)
-
     @staticmethod
-    def _effective_threshold(
-        projects_config, agent_config, name: str, path: str, status: str
-    ) -> int:
+    def _effective_threshold(entry, agent_config) -> int:
         """The health-score floor below which this project alerts.
 
-        Explicit projects.yaml ``alert_threshold`` > everything.  Failing
-        that, ``archived`` projects get 0 (retirement is not a defect) and
-        everyone else the global ``agents.project_organiser`` default.
+        An explicit ``alert_threshold`` in the manifest wins.  Failing
+        that, an ``archived`` project gets 0 — retirement is not a defect
+        — and everything else the global default.  ``undeclared`` is
+        undecided rather than exempt: nobody has said this project is
+        resting, so it is still scored and still alerts.
         """
-        if projects_config.has_explicit_alert_threshold(name, path):
-            return projects_config.alert_threshold_for(
-                name, path, agent_config.alert_threshold
-            )
-        return 0 if status == "archived" else agent_config.alert_threshold
-
-    @staticmethod
-    def _infer_status(project_path: Path, projects_root: Path) -> str:
-        """Status when projects.yaml doesn't declare one."""
-        try:
-            relative = project_path.resolve().relative_to(projects_root.resolve())
-        except ValueError:
-            return "active"
-        return "archived" if relative.parts and relative.parts[0] == "archive" else "active"
+        if entry.alert_threshold is not None:
+            return entry.alert_threshold
+        return 0 if entry.status == "archived" else agent_config.alert_threshold
 
     def _analyse_project(
         self, project_path: Path, agent_config, status: str = "active"
@@ -175,9 +121,11 @@ class ProjectOrganiserAgent(BaseAgent):
         ``status`` shapes the rubric: a ``dormant`` project is resting on
         purpose, so commit staleness is recorded but not penalised; an
         ``archived`` one additionally keeps its stale branches penalty-free
-        — git hygiene stops mattering at retirement.  Everything else
-        (docs, TODOs, locks) still counts, so the score keeps meaning
-        "how tidy is this directory" whatever the intent.
+        — git hygiene stops mattering at retirement.  ``undeclared`` is
+        scored exactly like ``active``: an absent decision is not a
+        decision to waive anything.  Everything else (docs, TODOs, locks)
+        still counts, so the score keeps meaning "how tidy is this
+        directory" whatever the intent.
         """
         name = project_path.name
         findings: dict[str, Any] = {"status": status}
@@ -211,11 +159,11 @@ class ProjectOrganiserAgent(BaseAgent):
                     last_commit_at = last_commit_at.replace(tzinfo=UTC)
                 days_since = (datetime.now(UTC) - last_commit_at).days
                 if days_since > 60:
-                    if status == "active":
+                    if status in ACTIVELY_SCORED:
                         score -= 15
                     findings["stale"] = f"No commits in {days_since} days"
                 elif days_since > 30:
-                    if status == "active":
+                    if status in ACTIVELY_SCORED:
                         score -= 10
                     findings["aging"] = f"No commits in {days_since} days"
 

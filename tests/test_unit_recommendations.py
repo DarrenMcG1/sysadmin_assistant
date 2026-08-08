@@ -7,6 +7,8 @@ so several tests below assert on what is *absent* — an uncommented
 ``url``, a projects.yaml entry for a timer — rather than on what is there.
 """
 
+from pathlib import Path
+
 import pytest
 import yaml
 
@@ -26,18 +28,20 @@ def _finding(unit, category=HOST, **kw) -> UnitFinding:
     return UnitFinding(unit=unit, category=category, **kw)
 
 
-class _Project:
-    def __init__(self, name, path=None):
-        self.name = name
-        self.path = path
+class _Entry:
+    """A declared registry entry, as far as these snippets care."""
+
+    def __init__(self, project_id, path):
+        self.id = project_id
+        self.path = Path(path)
 
 
-class _ProjectsConfig:
-    def __init__(self, projects):
-        self.projects = projects
+class _Registry:
+    def __init__(self, declared):
+        self.declared = declared
 
 
-ALFRED = _ProjectsConfig([_Project("Alfred", "/home/gaddi/projects/Alfred")])
+ALFRED = _Registry([_Entry("alfred", "/home/gaddi/projects/Alfred")])
 
 
 # ── Ranking ──────────────────────────────────────────────────────────
@@ -129,7 +133,7 @@ def test_orphan_detail_says_the_failures_were_silent():
 # ── Snippet targeting ────────────────────────────────────────────────
 
 
-def test_timer_snippet_goes_to_config_yaml_not_projects_yaml():
+def test_timer_snippet_declares_kind_timer():
     """projects.yaml models only backend/frontend; a timer is neither."""
     (rec,) = recommendations_for_scan(
         [
@@ -142,27 +146,27 @@ def test_timer_snippet_goes_to_config_yaml_not_projects_yaml():
         ],
         ALFRED,
     )
-    assert rec.snippet_target == "config.yaml"
+    assert rec.snippet_target == "services.yaml"
     assert "alfred-job.timer" in rec.snippet
 
 
-def test_long_running_unit_of_a_known_project_targets_projects_yaml():
+def test_a_declared_project_gets_a_project_reference():
     (rec,) = recommendations_for_scan(
         [_finding("alfred-worker.service", UNMONITORED, project="Alfred")], ALFRED
     )
-    assert rec.snippet_target == "projects.yaml"
+    assert rec.snippet_target == "services.yaml"
 
 
-def test_unit_of_a_project_not_in_projects_yaml_targets_config_yaml():
+def test_an_undeclared_project_gets_no_project_reference():
     (rec,) = recommendations_for_scan(
         [_finding("imbabots-bot.service", UNMONITORED, project="ImbaBots")], ALFRED
     )
-    assert rec.snippet_target == "config.yaml"
+    assert rec.snippet_target == "services.yaml"
 
 
-def test_host_unit_always_targets_config_yaml():
+def test_host_unit_carries_no_project():
     (rec,) = recommendations_for_scan([_finding("pgbackrest-backup.service")], ALFRED)
-    assert rec.snippet_target == "config.yaml"
+    assert rec.snippet_target == "services.yaml"
     assert "projects.yaml" not in rec.action
 
 
@@ -184,16 +188,16 @@ def _parse(snippet: str):
     return yaml.safe_load("\n".join(ln[indent:] for ln in lines))
 
 
-def test_config_yaml_snippet_is_valid_yaml_of_the_expected_shape():
+def test_snippet_is_valid_yaml_of_the_expected_shape():
     (rec,) = recommendations_for_scan(
         [_finding("deadlock-api-ingest.service", description="Ingest")], ALFRED
     )
     (entry,) = _parse(rec.snippet)
     assert entry == {
         "name": "deadlock-api-ingest",
-        "type": "systemd",
-        "systemd_unit": "deadlock-api-ingest.service",
-        "user": True,
+        "kind": "systemd",
+        "systemd": {"unit": "deadlock-api-ingest.service", "scope": "user"},
+        "log": {"type": "journalctl", "severity_filter": "warning"},
     }
 
 
@@ -221,26 +225,46 @@ def test_timer_entry_is_named_and_marked_uncontrollable():
     assert entry["controllable"] is False
 
 
-def test_projects_yaml_snippet_leaves_url_commented_out():
-    """to_monitored_services skips an endpoint with no url, so an entry
-    with systemd_unit and no url looks wired and checks nothing.  The
-    scan does not know the port yet — that is Session 26b."""
+def test_snippet_uses_kind_systemd_since_the_port_is_unknown():
+    """kind: http would need a url, and the scan does not know the port.
+
+    kind: systemd checks something real without one, which is what the
+    old shape could not do: a projects.yaml endpoint carrying a
+    systemd_unit and no url was skipped entirely and looked wired.
+    """
     (rec,) = recommendations_for_scan(
         [_finding("alfred-worker.service", UNMONITORED, project="Alfred")], ALFRED
     )
-    parsed = _parse(rec.snippet)
-    assert "url" not in parsed["backend"]
-    assert "# url:" in rec.snippet
-    assert parsed["backend"]["systemd_unit"] == "alfred-worker.service"
-    assert parsed["backend"]["user"] is True
-    assert parsed["backend"]["log"]["unit"] == "alfred-worker.service"
+    (entry,) = _parse(rec.snippet)
+    assert entry["kind"] == "systemd"
+    assert "url" not in entry
+    assert entry["systemd"] == {
+        "unit": "alfred-worker.service", "scope": "user"
+    }
 
 
-def test_projects_yaml_snippet_uses_the_frontend_role_when_named_so():
+def test_snippet_references_the_manifest_id_not_the_directory_name():
+    """The sweep matches on the directory name; services.yaml keys on the
+    manifest id. Emitting the wrong one produces a snippet that fails to
+    load, which is worse than no snippet."""
     (rec,) = recommendations_for_scan(
         [_finding("alfred-frontend.service", UNMONITORED, project="Alfred")], ALFRED
     )
-    assert "frontend" in _parse(rec.snippet)
+    (entry,) = _parse(rec.snippet)
+    assert entry["project"] == "alfred"
+
+
+def test_the_snippet_parses_as_a_real_service_entry():
+    """The point of a paste-ready snippet is that it pastes."""
+    from sysadmin.monitor.services import ServiceEntry
+
+    (rec,) = recommendations_for_scan(
+        [_finding("alfred-worker.service", UNMONITORED, project="Alfred")], ALFRED
+    )
+    (entry,) = _parse(rec.snippet)
+    parsed = ServiceEntry.model_validate(entry)
+    assert parsed.unit == "alfred-worker.service"
+    assert parsed.scope == "user"
 
 
 def test_description_becomes_a_comment_not_a_field():
@@ -287,9 +311,10 @@ def test_no_findings_yields_no_recommendations():
     assert recommendations_for_scan([], ALFRED) == []
 
 
-def test_missing_projects_config_is_tolerated():
+def test_missing_registry_is_tolerated():
     recs = recommendations_for_scan([_finding("x.service", UNMONITORED, project="P")], None)
-    assert recs[0].snippet_target == "config.yaml"
+    assert recs[0].snippet_target == "services.yaml"
+    assert "no .project.yaml manifest" in recs[0].snippet
 
 
 @pytest.mark.parametrize("category", [ORPHANED, UNMONITORED, HOST])

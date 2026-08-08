@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -345,142 +344,13 @@ class LogAggregatorConfig(BaseModel):
     summarise_with_llm: bool = True
 
 
-# --- Managed projects (projects.yaml) ---
-
-
-class ProjectEndpointLog(BaseModel):
-    """Log source config for a project endpoint.
-
-    ``user`` selects ``journalctl --user`` for a *user* unit's journal.
-    Left unset it inherits the owning :class:`ProjectEndpoint`'s ``user``,
-    since an endpoint's unit and that unit's journal live in the same
-    systemd scope in every realistic case.
-    """
-
-    type: str = "journalctl"
-    unit: str | None = None
-    user: bool | None = None
-    path: str | None = None
-    severity_filter: str = "warning"
-
-
-class ProjectEndpoint(BaseModel):
-    """A backend or frontend endpoint within a managed project.
-
-    ``user`` marks ``systemd_unit`` as a *user* unit, so health checks,
-    service actions and log reads use ``systemctl --user`` /
-    ``journalctl --user``.  Without it a user unit looks permanently
-    unknown to the system-scope ``systemctl``, which fails silently.
-    """
-
-    url: str | None = None
-    port: int | None = None
-    systemd_unit: str | None = None
-    user: bool = False
-    log: ProjectEndpointLog | None = None
-
-
-class ManagedProject(BaseModel):
-    """A project with associated endpoints and metadata."""
-
-    name: str
-    path: str | None = None
-    backend: ProjectEndpoint | None = None
-    frontend: ProjectEndpoint | None = None
-    # Health-score floor for *this* project. Absent → the global
-    # ``agents.project_organiser.alert_threshold``.  A long-lived archive
-    # can be given 0 (never alert) and a flagship project 70.
-    alert_threshold: int | None = None
-    # Declared intent, which the organiser folds into scoring:
-    # ``dormant`` — deliberately resting, staleness is not a defect;
-    # ``archived`` — retired, git hygiene no longer matters and no alert
-    # is raised unless an explicit ``alert_threshold`` says otherwise.
-    # Absent → inferred: paths under <projects_root>/archive/ are
-    # ``archived``, everything else is ``active``.
-    status: Literal["active", "dormant", "archived"] | None = None
-
-    # to_monitored_services / to_log_sources were removed with the
-    # services.yaml move: this file no longer contributes anything to
-    # monitoring. What remains — status and alert_threshold — is project
-    # state, read by the organiser until Phase 4 retires the file.
-
-
-class ProjectsConfig(BaseModel):
-    """Root model for projects.yaml."""
-
-    projects: list[ManagedProject] = Field(default_factory=list)
-
-    def _setting_for(self, name: str, path: str | None, field: str):
-        """The value of ``field`` for one scanned project, or None.
-
-        The scanner names a project after its *directory* while
-        projects.yaml names it however the user likes
-        (``personal-assistant`` vs ``PersonalAssistant``), so matching
-        tries three keys, most specific first:
-
-        1. the resolved filesystem path,
-        2. the managed project's ``name``,
-        3. the basename of the managed project's ``path``.
-
-        Entries where ``field`` is unset are ignored entirely, so a
-        projects.yaml written before an option existed keeps the global
-        default for every project.
-        """
-        resolved: str | None = None
-        if path:
-            try:
-                resolved = str(Path(path).expanduser().resolve())
-            except OSError:  # pragma: no cover - resolve() is non-strict
-                resolved = None
-
-        by_name = None
-        by_basename = None
-
-        for project in self.projects:
-            value = getattr(project, field)
-            if value is None:
-                continue
-            if resolved and project.path:
-                try:
-                    if str(Path(project.path).expanduser().resolve()) == resolved:
-                        return value
-                except OSError:  # pragma: no cover
-                    pass
-            if by_name is None and project.name == name:
-                by_name = value
-            if by_basename is None and project.path and Path(project.path).name == name:
-                by_basename = value
-
-        return by_name if by_name is not None else by_basename
-
-    def alert_threshold_for(
-        self,
-        name: str,
-        path: str | None = None,
-        default: int = 40,
-    ) -> int:
-        """The health-score alert floor for one scanned project."""
-        value = self._setting_for(name, path, "alert_threshold")
-        return default if value is None else value
-
-    def status_for(self, name: str, path: str | None = None) -> str | None:
-        """The declared status for one scanned project, or None.
-
-        None means projects.yaml says nothing — the caller decides how to
-        infer a status (the organiser treats paths under
-        ``<projects_root>/archive/`` as ``archived``, all else ``active``).
-        """
-        return self._setting_for(name, path, "status")
-
-    def has_explicit_alert_threshold(
-        self, name: str, path: str | None = None
-    ) -> bool:
-        """Whether projects.yaml pins an alert floor for this project.
-
-        Needed because ``archived`` suppresses the *default* floor but
-        must not override a floor the user set deliberately.
-        """
-        return self._setting_for(name, path, "alert_threshold") is not None
+# projects.yaml was retired in Session 35 Phase 4.  Project identity,
+# declared status and per-project alert thresholds now live in a
+# ``.project.yaml`` manifest inside each repository, read through
+# :mod:`sysadmin.registry`; services live in services.yaml.  The file
+# itself is kept as docs/projects-registry-legacy.yaml, because its
+# comments were the only record of several decisions and those move into
+# ``decisions:`` blocks by hand, one project at a time.
 
 
 class DndScheduleWindow(BaseModel):
@@ -625,30 +495,6 @@ class AppConfig(BaseModel):
     self_monitor: SelfMonitorConfig = Field(default_factory=SelfMonitorConfig)
     events: EventsConfig = Field(default_factory=EventsConfig)
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
-    projects: ProjectsConfig = Field(default_factory=ProjectsConfig, exclude=True)
-
-
-# --- Merge logic ---
-
-
-def _merge_projects_config(config: AppConfig, projects_path: Path) -> None:
-    """Load projects.yaml and inject entries into agent configs."""
-    if not projects_path.exists():
-        return  # Backward-compatible: no projects.yaml is fine
-
-    try:
-        with open(projects_path) as f:
-            raw = yaml.safe_load(f) or {}
-
-        config.projects = ProjectsConfig.model_validate(raw)
-    except Exception:
-        logger.warning("failed to load %s, skipping", projects_path, exc_info=True)
-        return
-
-    # Endpoints are no longer injected from here. services.yaml owns every
-    # service and every journal source attached to one; this file is read
-    # only for the project-side settings the organiser still uses
-    # (``status``, ``alert_threshold``) until Phase 4 retires it.
 
 
 # --- Singleton loader ---
@@ -677,10 +523,6 @@ def load_config(config_path: Path | None = None) -> AppConfig:
         raw = yaml.safe_load(f)
 
     _config = AppConfig.model_validate(raw or {})
-
-    # Merge projects.yaml (sibling of config.yaml)
-    projects_path = config_path.parent / "projects.yaml"
-    _merge_projects_config(_config, projects_path)
 
     return _config
 

@@ -1,3 +1,17 @@
+# RETIRED 2026-08-08 (Session 35 Phase 4). Nothing reads this file.
+#
+# Kept verbatim because its comments were the only record of several
+# decisions. Those are being transferred into the `decisions:` blocks of
+# each project's own `.project.yaml`, by hand, one project at a time —
+# not parsed out of here by a script, which would flatten the reasoning
+# into a field and lose the part that mattered.
+#
+# Where each half went:
+#   backend/frontend endpoints, logs  ->  services.yaml (keyed by id)
+#   name, path, status, alert_threshold  ->  <project>/.project.yaml
+#
+# Delete this file once every comment below appears in a manifest.
+
 # Managed projects: endpoints to health-check, logs to aggregate, and
 # optional per-project overrides.
 #

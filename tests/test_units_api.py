@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -204,8 +204,9 @@ async def test_actions_carry_a_pasteable_snippet(test_client, mock_session):
     _return_audit(mock_session, _audit())
     body = (await test_client.get("/api/units/actions?kind=host")).json()
     rec = body["recommendations"][0]
-    assert rec["snippet_target"] == "config.yaml"
-    assert "systemd_unit: deadlock-api-ingest.service" in rec["snippet"]
+    assert rec["snippet_target"] == "services.yaml"
+    assert "unit: deadlock-api-ingest.service" in rec["snippet"]
+    assert "kind: systemd" in rec["snippet"]
 
 
 async def test_orphan_action_carries_a_removal_command_not_a_snippet(
@@ -333,22 +334,31 @@ async def test_alert_details_cap_the_examples(agent):
 # ── Project references ───────────────────────────────────────────────
 
 
-def test_project_refs_include_managed_projects_outside_the_scan_root(mock_config):
-    """A projects.yaml entry pointing outside projects_root still owns
-    units; without it those units would be misreported as orphans."""
-    from sysadmin.core.config import ManagedProject, ProjectsConfig
-
-    mock_config.projects = ProjectsConfig(
-        projects=[ManagedProject(name="elsewhere", path="/opt/elsewhere")]
+def test_project_refs_come_from_the_registry(mock_config, tmp_path):
+    """Both agents read the same registry, so neither can invent a
+    different idea of what counts as a project. Drift there showed up as
+    units reported as orphans because one sweep could not see the project
+    the other could."""
+    (tmp_path / "thing" / ".git").mkdir(parents=True)
+    (tmp_path / "thing" / ".project.yaml").write_text(
+        "schema: 1\nid: thing\nname: thing\nstatus: active\n", encoding="utf-8"
     )
-    mock_config.agents.project_organiser.projects_root = "/definitely/not/here"
+    mock_config.agents.project_organiser.projects_root = str(tmp_path)
 
-    with patch("pathlib.Path.exists", return_value=True), patch(
-        "sysadmin.units.agent.discover_projects", return_value=[]
-    ):
-        refs = ServiceDiscoveryAgent._project_refs(mock_config)
+    refs = ServiceDiscoveryAgent._project_refs(mock_config)
 
-    assert [(r.name, r.path) for r in refs] == [("elsewhere", "/opt/elsewhere")]
+    assert [(r.name, r.status) for r in refs] == [("thing", "active")]
+
+
+def test_project_refs_include_undeclared_repositories(mock_config, tmp_path):
+    """An undeclared repository still owns its units. Omitting it would
+    misreport every one of them as an orphan."""
+    (tmp_path / "mystery" / ".git").mkdir(parents=True)
+    mock_config.agents.project_organiser.projects_root = str(tmp_path)
+
+    refs = ServiceDiscoveryAgent._project_refs(mock_config)
+
+    assert [(r.name, r.status) for r in refs] == [("mystery", "undeclared")]
 
 
 def test_project_refs_are_empty_when_the_root_is_missing(mock_config):

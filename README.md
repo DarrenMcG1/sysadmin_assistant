@@ -66,7 +66,7 @@ unless the request body sets `confirm: true`**.
 ## Configuration
 
 Everything lives in `config.yaml` (validated by Pydantic models in
-`sysadmin/core/config.py`), with per-service topology in `services.yaml` — keyed by project id, no paths in it — and project identity in a `.project.yaml` manifest inside each repository.
+`sysadmin/core/config.py`), with per-service topology in `services.yaml` — keyed by project id, no paths in it — and project identity in a `.project.yaml` manifest inside each repository, which also records why each project is in the state it is.
 **No environment variables are read and there is no `.env` file** — including
 the database URL, which sits under `database:` in `config.yaml`.
 

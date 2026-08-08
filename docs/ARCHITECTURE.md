@@ -61,12 +61,12 @@ and its outbound integration is now dormant (see "PA integration" below).
 sysadmin_assistant/
 ├── config.yaml            # All runtime configuration (validated by sysadmin/core/config.py)
 ├── services.yaml          # Every service, keyed by project id, no paths
-├── projects.yaml          # Project state only; superseded by .project.yaml manifests
+│                          # (projects.yaml retired -> docs/projects-registry-legacy.yaml)
 ├── sysadmin/              # Backend package (PyPI name: sysadmin-service)
 │   ├── main.py            # create_app() factory + lifespan + module-level app
 │   ├── metadata.py        # Every mapped table in one import (Alembic + drift test)
 │   ├── core/              # Depended on by every domain, depends on none
-│   │   ├── config.py      # Pydantic models for config.yaml/projects.yaml, singleton loader
+│   │   ├── config.py      # Pydantic models for config.yaml, singleton loader
 │   │   ├── contracts.py   # Shared wire contracts (pydantic-only) — used by tray
 │   │   ├── defaults.py    # Canonical API host/port defaults (stdlib-only) — used by tray
 │   │   ├── agent.py       # BaseAgent template method
@@ -122,7 +122,7 @@ defaults 06:00/03:00) → exposes shared instances on `app.state` → clean shut
 |--------|--------|---------|
 | health | `/health` | Liveness (status, service, version) |
 | sysadmin | `/api/sysadmin` | Service status/actions, resources (+history), alerts (+ack), ports, GPU, DND |
-| projects | `/api/projects` | Health overview/grades, stale, report, managed (projects.yaml + live health), per-project detail/todos/branches, scan |
+| projects | `/api/projects` | Health overview/grades, stale, report, managed (manifests + live health), per-project detail/todos/branches, scan |
 | files | `/api/files` | Filesystem audit status, quick-wins, duplicates, trends (+reclaimable forecast with configurable milestones), stale-cache clean, scan |
 | logs | `/api/logs` | Recent entries, stats, summaries |
 | units | `/api/units` | Service-discovery sweep and its ranked advice (GET only) |
