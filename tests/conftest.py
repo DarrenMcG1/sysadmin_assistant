@@ -18,13 +18,49 @@ from sysadmin.core.config import (
     AppConfig,
     DatabaseConfig,
     FileOrganiserConfig,
-    MonitoredService,
     ProjectOrganiserConfig,
     ServiceConfig,
     SysAdminAgentConfig,
     Thresholds,
 )
+from sysadmin.monitor import services as services_module
+from sysadmin.monitor.services import ServiceEntry, ServicesFile
 
+#: The services every test sees unless it installs its own. Mirrors the
+#: shapes that matter: an http service with no unit, a tcp one, a
+#: controllable systemd unit and a non-controllable one.
+DEFAULT_TEST_SERVICES = [
+    {"name": "test-api", "kind": "http", "url": "http://localhost:9999/health"},
+    {"name": "test-tcp", "kind": "tcp", "host": "localhost", "port": 5432},
+    {"name": "test-systemd", "kind": "systemd",
+     "systemd": {"unit": "test.service", "scope": "system"}},
+    {"name": "test-infra", "kind": "systemd", "controllable": False,
+     "systemd": {"unit": "infra.service", "scope": "system"}},
+]
+
+
+def set_services(*entries: dict | ServiceEntry) -> ServicesFile:
+    """Install a services.yaml for the duration of one test.
+
+    Written into the module singleton rather than patched per import site:
+    ``get_services`` is imported by name in half a dozen modules, so
+    patching the function would need one target per consumer and would
+    silently miss the next one.
+    """
+    parsed = [
+        e if isinstance(e, ServiceEntry) else ServiceEntry.model_validate(e)
+        for e in entries
+    ]
+    services_module._services = ServicesFile(schema=1, services=parsed)
+    return services_module._services
+
+
+@pytest.fixture(autouse=True)
+def services():
+    """Default service list, reset after every test."""
+    installed = set_services(*DEFAULT_TEST_SERVICES)
+    yield installed
+    services_module._services = None
 
 @pytest.fixture
 def mock_config():
@@ -40,30 +76,6 @@ def mock_config():
             sysadmin=SysAdminAgentConfig(
                 enabled=True,
                 health_check_interval_seconds=60,
-                services=[
-                    MonitoredService(
-                        name="test-api",
-                        type="http",
-                        url="http://localhost:9999/health",
-                    ),
-                    MonitoredService(
-                        name="test-tcp",
-                        type="tcp",
-                        host="localhost",
-                        port=5432,
-                    ),
-                    MonitoredService(
-                        name="test-systemd",
-                        type="systemd",
-                        systemd_unit="test.service",
-                    ),
-                    MonitoredService(
-                        name="test-infra",
-                        type="systemd",
-                        systemd_unit="infra.service",
-                        controllable=False,
-                    ),
-                ],
                 thresholds=Thresholds(
                     disk_warning_percent=80,
                     disk_critical_percent=90,

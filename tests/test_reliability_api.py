@@ -18,6 +18,8 @@ from sysadmin.monitor.reliability_history import (
     record_reliability_snapshot,
 )
 from sysadmin.monitor.routers.services import summarise, to_contract
+from sysadmin.monitor.services import get_services
+from tests.conftest import set_services
 
 NOW = datetime(2026, 8, 7, 12, 0, tzinfo=UTC)
 INTERVAL = 60  # mock_config's health_check_interval_seconds
@@ -51,7 +53,7 @@ async def test_every_configured_service_is_scored_even_with_no_checks(
     scores = await compute_reliability(mock_session, mock_config, now=NOW)
 
     assert {s.service for s in scores} == {
-        s.name for s in mock_config.agents.sysadmin.services
+        s.name for s in get_services().services
     }
     unchecked = next(s for s in scores if s.service == "test-tcp")
     assert unchecked.checks_recorded == 0
@@ -73,7 +75,7 @@ async def test_retired_services_in_the_table_are_not_scored(
 
 
 async def test_no_configured_services_yields_no_scores(mock_config, mock_session):
-    mock_config.agents.sysadmin.services = []
+    set_services()
     scores = await compute_reliability(mock_session, mock_config, now=NOW)
     assert scores == []
     mock_session.execute.assert_not_called()
@@ -95,7 +97,7 @@ async def test_the_configured_window_and_interval_are_used(
 
 
 def test_muted_set_reads_the_service_flag(mock_config):
-    mock_config.agents.sysadmin.services[0].mute = True
+    get_services().services[0].mute = True
     assert "test-api" in muted_service_names(mock_config)
 
 
@@ -108,7 +110,7 @@ def test_muted_set_reads_the_tray_list_too(mock_config):
 
 
 def test_muted_set_is_the_union_without_duplication(mock_config):
-    mock_config.agents.sysadmin.services[0].mute = True
+    get_services().services[0].mute = True
     mock_config.notifications.tray.mute_services = ["test-api", "other"]
     assert muted_service_names(mock_config) == {"test-api", "other"}
 
@@ -116,7 +118,7 @@ def test_muted_set_is_the_union_without_duplication(mock_config):
 async def test_a_muted_service_is_scored_with_waived_deductions(
     mock_config, mock_session
 ):
-    mock_config.agents.sysadmin.services[0].mute = True
+    get_services().services[0].mute = True
     _rows(mock_session, _checks("test-api", ["critical"] * 100))
 
     scores = await compute_reliability(mock_session, mock_config, now=NOW)

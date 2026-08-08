@@ -60,7 +60,8 @@ and its outbound integration is now dormant (see "PA integration" below).
 ```
 sysadmin_assistant/
 ├── config.yaml            # All runtime configuration (validated by sysadmin/core/config.py)
-├── projects.yaml          # Managed projects — merged into agent configs at load
+├── services.yaml          # Every service, keyed by project id, no paths
+├── projects.yaml          # Project state only; superseded by .project.yaml manifests
 ├── sysadmin/              # Backend package (PyPI name: sysadmin-service)
 │   ├── main.py            # create_app() factory + lifespan + module-level app
 │   ├── metadata.py        # Every mapped table in one import (Alembic + drift test)

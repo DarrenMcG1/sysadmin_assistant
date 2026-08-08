@@ -27,6 +27,7 @@ from sqlalchemy import select
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 from sysadmin.core.models.alert import Alert
+from sysadmin.monitor.services import get_services
 from sysadmin.projects.agent import discover_projects
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.scan import (
@@ -54,7 +55,7 @@ class ServiceDiscoveryAgent(BaseAgent):
         agent_config = config.agents.service_discovery
 
         projects = await asyncio.to_thread(self._project_refs, config)
-        wired = wired_units(config.projects, config.agents.sysadmin.services)
+        wired = wired_units(config.projects, get_services().services)
 
         user_dir = Path(agent_config.user_unit_dir).expanduser()
         system_dir = Path(agent_config.system_unit_dir)

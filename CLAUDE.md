@@ -161,7 +161,7 @@ Run `./scripts/claude-postflight.sh` to verify docs are updated.
 
 **Backend Port:** `8500`
 
-**Configuration source:** all settings live in `config.yaml` (validated by Pydantic models in `sysadmin/core/config.py`) plus optional `projects.yaml` for managed projects. **No environment variables are read** — there is no `.env` file. Database URLs are set under the `database:` section of `config.yaml`.
+**Configuration source:** settings live in `config.yaml` (validated by Pydantic models in `sysadmin/core/config.py`); per-service topology lives in `services.yaml`, keyed by project id and resolved through the `.project.yaml` manifests via `sysadmin/registry/`. `projects.yaml` is now project state only (`status`, `alert_threshold`) and is being retired. **No environment variables are read** — there is no `.env` file. Database URLs are set under the `database:` section of `config.yaml`.
 
 ---
 

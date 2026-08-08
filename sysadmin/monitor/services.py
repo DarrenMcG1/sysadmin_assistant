@@ -27,6 +27,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from sysadmin.core.config import LogSource
 from sysadmin.registry import Registry
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,22 @@ class ServiceEntry(BaseModel):
     @property
     def unit(self) -> str | None:
         return self.systemd.unit if self.systemd else None
+
+    @property
+    def systemd_unit(self) -> str | None:
+        """Alias for :attr:`unit`, under the name every consumer already uses."""
+        return self.unit
+
+    @property
+    def user(self) -> bool:
+        """Whether the unit lives in the user scope.
+
+        The boolean the systemd helpers take. ``scope`` is the field
+        because "user" and "system" say which one; ``user: false`` never
+        said "system", it only said "not user", which is how an omission
+        became a silent system-bus query.
+        """
+        return self.scope == "user"
 
     @property
     def log_unit(self) -> str | None:
@@ -269,3 +286,62 @@ def load_services(
             registry.assert_known(parsed.project_ids, str(path))
 
     return parsed
+
+
+def log_sources(services: ServicesFile) -> list[LogSource]:
+    """The journal sources declared alongside the services that emit them.
+
+    A service and its logs were previously described in two files that had
+    to agree by hand: config.yaml listed ``sysadmin.service`` under the
+    name ``sysadmin`` while projects.yaml generated ``sysadmin-service``
+    for the same unit, so the journal was ingested twice under two names
+    and neither file said so.
+    """
+    sources: list[LogSource] = []
+    for entry in services.services:
+        if entry.log is None:
+            continue
+        sources.append(
+            LogSource(
+                name=entry.name,
+                type=entry.log.type,
+                unit=entry.log_unit,
+                user=entry.user,
+                path=entry.log.path,
+                severity_filter=entry.log.severity_filter,
+            )
+        )
+    return sources
+
+
+_services: ServicesFile | None = None
+
+
+def load_services_singleton(
+    path: Path | str | None = None, registry: Registry | None = None
+) -> ServicesFile:
+    """Load services.yaml into the process-wide slot and return it."""
+    global _services
+    _services = load_services(path or default_services_path(), registry)
+    return _services
+
+
+def get_services() -> ServicesFile:
+    """The loaded services.yaml, reading it on first use.
+
+    Mirrors ``get_config`` so callers do not have to thread the file
+    through. Loaded without a registry here: the id check belongs to
+    startup, where a failure can stop the service, not to whichever
+    request happened to touch this first.
+    """
+    global _services
+    if _services is None:
+        _services = load_services(default_services_path())
+    return _services
+
+
+def default_services_path() -> Path:
+    """services.yaml beside config.yaml, at the repository root."""
+    from sysadmin.core.config import REPO_ROOT
+
+    return REPO_ROOT / "services.yaml"

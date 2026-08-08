@@ -21,6 +21,7 @@ from sysadmin.core.llm_client import LLMClient
 from sysadmin.monitor.journal import SEVERITY_ORDER, read_journal
 from sysadmin.monitor.models.log_entry import LogEntry
 from sysadmin.monitor.models.log_summary import LogSummary
+from sysadmin.monitor.services import get_services, log_sources
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +47,53 @@ class LogAggregatorAgent(BaseAgent):
         # belonging to somebody else's loop (SNAG-AGENT-003).
         self._llm = LLMClient()
 
+
+    @staticmethod
+    def _sources(agent_config) -> list:
+        """Journal sources, services.yaml first, config.yaml for the rest.
+
+        A service and its logs used to be described in two files that had
+        to agree by hand, and they did not: ``sysadmin.service`` was
+        ingested twice, as ``sysadmin`` from config.yaml and as
+        ``sysadmin-service`` from projects.yaml. Declaring the source
+        beside the service removes the second name; a config.yaml entry
+        that still duplicates one is dropped here and logged, because a
+        journal read twice costs nothing but shows up as doubled error
+        counts in the summaries.
+        """
+        sources = log_sources(get_services())
+        seen = {s.name for s in sources}
+        by_unit = {(s.unit, s.user) for s in sources if s.unit}
+        for extra in agent_config.sources:
+            if extra.name in seen:
+                logger.warning(
+                    "duplicate_log_source_name",
+                    extra={"source": extra.name, "kept": "services.yaml"},
+                )
+                continue
+            if extra.unit and (extra.unit, extra.user) in by_unit:
+                logger.warning(
+                    "duplicate_log_source_unit",
+                    extra={"source": extra.name, "unit": extra.unit,
+                           "kept": "services.yaml"},
+                )
+                continue
+            sources.append(extra)
+            seen.add(extra.name)
+        return sources
+
     async def _execute(self, session) -> AgentResult:
         config = get_config()
         agent_config = config.agents.log_aggregator
         total_ingested = 0
         alerts_raised = 0
 
-        for source in agent_config.sources:
+        # Sources declared beside the service that emits them, plus the
+        # ones in config.yaml that belong to no service — the kernel
+        # journal has no unit to hang off.  Names collide only if a
+        # config.yaml source duplicates a service, which is the fault this
+        # merge exists to make visible rather than to tolerate silently.
+        for source in self._sources(agent_config):
             if source.type == "journalctl" and source.unit:
                 entries = await read_journal(
                     unit=source.unit,

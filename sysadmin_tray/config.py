@@ -59,29 +59,44 @@ def _default_config_path() -> Path:
     return here.parent / "config.yaml"
 
 
-def _collect_muted_services(raw: dict, notif_section: dict) -> list[str]:
-    """Union of explicitly muted names and ``mute: true`` monitored services.
+def _read_services(config_path: Path) -> list[dict]:
+    """The ``services:`` list from services.yaml beside config.yaml.
+
+    Parsed raw rather than through the backend models on purpose: the tray
+    is a separate process that must start whether or not the backend is
+    installed or the estate is migrated, and a missing or malformed
+    services.yaml costs it a mute list, not a launch.
+    """
+    path = config_path.parent / "services.yaml"
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return []
+    services = raw.get("services") or []
+    return [s for s in services if isinstance(s, dict)]
+
+
+def _collect_muted_services(
+    notif_section: dict, services: list[dict]
+) -> list[str]:
+    """Union of explicitly muted names and ``mute: true`` services.
 
     Muting is for services that are *expected* to be down (a dev backend
     that only runs on demand) — their alerts never produce a desktop
     notification, though they still colour the tray icon and appear in
     the dashboard.
 
-    Services contributed by projects.yaml have no ``mute`` flag of their
-    own; list them by name under ``notifications.tray.mute_services``.
+    ``mute`` is now available on every service, which it was not while
+    half of them were generated from projects.yaml with no flag of their
+    own. ``notifications.tray.mute_services`` stays as the way to mute
+    something without editing its declaration.
     """
     muted: list[str] = []
     for name in notif_section.get("mute_services", []) or []:
         if name and name not in muted:
             muted.append(str(name))
 
-    services = (
-        ((raw.get("agents", {}) or {}).get("sysadmin", {}) or {}).get("services", [])
-        or []
-    )
     for service in services:
-        if not isinstance(service, dict):
-            continue
         name = service.get("name")
         if service.get("mute") and name and name not in muted:
             muted.append(str(name))
@@ -133,7 +148,9 @@ def load_tray_config(
         if key in notif_section:
             kwargs[key] = notif_section[key]
 
-    kwargs["muted_services"] = _collect_muted_services(raw, notif_section)
+    kwargs["muted_services"] = _collect_muted_services(
+        notif_section, _read_services(config_path)
+    )
 
     # Shared API auth token from the backend's api: section
     api_section = raw.get("api", {}) or {}

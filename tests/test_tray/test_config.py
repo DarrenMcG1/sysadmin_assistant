@@ -192,20 +192,31 @@ class TestNotificationCalmConfig:
         cfg = load_tray_config(config_path=cfg_file)
         assert cfg.muted_services == ["redis", "personal-assistant"]
 
-    def test_monitored_service_mute_flag(self, tmp_path: Path):
+    def test_service_mute_flag(self, tmp_path: Path):
+        """``mute:`` moved to services.yaml with the rest of the topology."""
         cfg_file = tmp_path / "config.yaml"
-        cfg_file.write_text(dedent("""\
-            agents:
-              sysadmin:
-                services:
-                  - name: postgresql
-                    type: systemd
-                  - name: redis
-                    type: tcp
-                    mute: true
+        cfg_file.write_text("service:\n  port: 8500\n")
+        (tmp_path / "services.yaml").write_text(dedent("""\
+            schema: 1
+            services:
+              - name: postgresql
+                kind: systemd
+                systemd: {unit: postgresql.service, scope: system}
+              - name: redis
+                kind: tcp
+                host: localhost
+                port: 6379
+                mute: true
         """))
         cfg = load_tray_config(config_path=cfg_file)
         assert cfg.muted_services == ["redis"]
+
+    def test_missing_services_yaml_costs_a_mute_list_not_a_launch(
+        self, tmp_path: Path
+    ):
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text("service:\n  port: 8500\n")
+        assert load_tray_config(config_path=cfg_file).muted_services == []
 
     def test_mute_sources_are_unioned_without_duplicates(self, tmp_path: Path):
         cfg_file = tmp_path / "config.yaml"
@@ -214,15 +225,19 @@ class TestNotificationCalmConfig:
               tray:
                 mute_services:
                   - redis
-            agents:
-              sysadmin:
-                services:
-                  - name: redis
-                    type: tcp
-                    mute: true
-                  - name: personal-assistant
-                    type: http
-                    mute: true
+        """))
+        (tmp_path / "services.yaml").write_text(dedent("""\
+            schema: 1
+            services:
+              - name: redis
+                kind: tcp
+                host: localhost
+                port: 6379
+                mute: true
+              - name: personal-assistant
+                kind: http
+                url: http://localhost:8000/health
+                mute: true
         """))
         cfg = load_tray_config(config_path=cfg_file)
         assert cfg.muted_services == ["redis", "personal-assistant"]

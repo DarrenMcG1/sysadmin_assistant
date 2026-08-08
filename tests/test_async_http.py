@@ -22,8 +22,8 @@ import httpx
 import pytest
 
 from sysadmin.core.async_http import LoopBoundClient
-from sysadmin.core.config import MonitoredService
 from sysadmin.monitor.agent import SysAdminAgent
+from sysadmin.monitor.services import ServiceEntry
 
 
 class _KeepAliveHandler(BaseHTTPRequestHandler):
@@ -145,7 +145,7 @@ class TestAgentHttpCheckAcrossRuns:
         llama-server while curl was answering in under a millisecond.
         """
         agent = SysAdminAgent()
-        svc = MonitoredService(name="probe", type="http", url=health_url)
+        svc = ServiceEntry(name="probe", kind="http", url=health_url)
 
         async def one_run() -> tuple[str, int | None, dict]:
             # Mirrors _execute(): a run-scoped client on this run's loop.
@@ -161,7 +161,7 @@ class TestAgentHttpCheckAcrossRuns:
     def test_check_works_with_no_run_scope_at_all(self, health_url):
         """A check outside a run builds and closes its own client."""
         agent = SysAdminAgent()
-        svc = MonitoredService(name="probe", type="http", url=health_url)
+        svc = ServiceEntry(name="probe", kind="http", url=health_url)
 
         assert asyncio.run(agent._check_http(svc))[0] == "ok"
         assert asyncio.run(agent._check_http(svc))[0] == "ok"

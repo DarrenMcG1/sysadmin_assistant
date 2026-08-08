@@ -17,12 +17,12 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.briefing.data import generate_briefing_data
-from sysadmin.core.config import get_config
 from sysadmin.core.database import get_db_session
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
+from sysadmin.monitor.services import get_services
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 
 router = APIRouter(prefix="/api", tags=["integration"])
@@ -42,8 +42,7 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
     (including GPU and disk), DND status, and project health scores.
     """
     # --- Services: latest status per configured service ---
-    config = get_config()
-    configured_names = {s.name for s in config.agents.sysadmin.services}
+    configured_names = {s.name for s in get_services().services}
 
     svc_subq = (
         select(

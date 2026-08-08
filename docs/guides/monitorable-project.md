@@ -31,7 +31,7 @@ No registration needed.
 | No stale `.git/index.lock` | Deduction (usually means a crashed git process) |
 | Vendored sub-repos are fine | A marker-bearing directory is never descended into, so inner repos stay invisible |
 
-Non-default lifecycle? Declare it in `projects.yaml`: `status: dormant`
+Non-default lifecycle? Declare it in `.project.yaml`: `status: dormant`
 (resting on purpose — staleness unpenalised) or `status: archived`.
 
 **Declaring status is the highest-leverage line in this file.** An
@@ -181,44 +181,61 @@ backend" is how a project ends up with three unlisted listeners.
 
 ### 2.4 Wire it into the sysadmin (same day, not "later")
 
-1. **projects.yaml** — add/extend the project entry. `user: true` is
-   mandatory for user units: without it the daemon queries the *system*
-   scope, which has never heard of the unit, and the check fails silently
-   forever (how the old PA entries rotted).
+1. **`.project.yaml`** — a manifest at the root of the repository, so the
+   project's identity travels with the directory. A rename or a move
+   cannot orphan it, which two dead `projects.yaml` paths did before this.
 
    ```yaml
-   - name: venture-assistant
-     path: /home/gaddi/projects/apps/venture-assistant
-     backend:
-       url: http://localhost:8300/api/health
-       port: 8300
-       systemd_unit: venture-assistant-backend.service
-       user: true
-       log:
-         type: journalctl
-         unit: venture-assistant-backend.service
-         severity_filter: warning
-     frontend:
-       url: http://localhost:3300
-       port: 3300
-       systemd_unit: venture-assistant-frontend.service
-       user: true
-       log:
-         type: journalctl
-         unit: venture-assistant-frontend.service
-         severity_filter: warning
+   schema: 1
+   id: venture-assistant          # lowercase kebab-case, unique
+   name: venture-assistant
+   category: apps
+   status: active                 # active | dormant | archived | undeclared
+   decisions: []
    ```
 
-2. **config.yaml** — projects.yaml only models `backend`/`frontend`, so
-   **timers go in `agents.sysadmin.services`**:
+   A repository with no manifest is reported as `undeclared`. That is a
+   state in its own right, not a synonym for active — declaring intent is
+   still the highest-leverage line in this document.
+
+2. **services.yaml** — every service the project runs, keyed by that id.
+   **There is no one-backend-one-frontend limit**: list as many as exist.
+   `kind` decides the check, so the rules that used to live in config.yaml
+   comments are now fields the code reads.
 
    ```yaml
-   - name: venture-assistant-pipeline-timer
-     type: systemd
-     systemd_unit: venture-assistant-pipeline.timer
-     user: true
+   - project: venture-assistant
+     name: venture-assistant
+     role: backend
+     kind: http                    # polls url AND asserts the unit is active
+     url: http://localhost:8300/api/health
+     port: 8300
+     systemd: { unit: venture-assistant-backend.service, scope: user }
+     log: { type: journalctl, severity_filter: warning }
+
+   - project: venture-assistant
+     name: venture-assistant-pipeline-timer
+     role: schedule
+     kind: timer                   # watches the TIMER, never the oneshot
+     systemd: { unit: venture-assistant-pipeline.timer, scope: user }
      controllable: false
    ```
+
+   `scope` defaults to **user**, which is the way round that matches this
+   box. The old `user: true` opt-in meant an omission sent the check to
+   the system bus, where the unit is simply unknown and the failure is
+   silent — how the old PA entries rotted.
+
+   `kind` values: `http` (poll the url, assert the unit), `tcp`,
+   `systemd` (assert active), `timer` (assert the timer, inspect its last
+   run), `oneshot` and `static` (never checked — inactive between runs by
+   design). `monitor: false` suppresses checking outright and **requires a
+   `reason`**, so "deliberately not watched" never looks like "nobody
+   wired it up".
+
+   A `project:` naming an id no manifest declares **fails at startup**,
+   listing every bad reference at once. That is the point of keying on ids
+   rather than paths.
 
 3. **CORS** — only if the project's *browser* frontend will call the
    sysadmin API directly: add its origin to `service.cors_origins`.
@@ -286,8 +303,8 @@ three llama-servers were found running their models in system RAM.
       `SyslogIdentifier` set, journald output
 - [ ] Scheduled jobs are oneshot + timer (`Persistent=true`)
 - [ ] Every unit `systemctl --user enable`d explicitly
-- [ ] projects.yaml entry with `user: true` and log blocks
-- [ ] Timers added to config.yaml `agents.sysadmin.services`
+- [ ] `.project.yaml` manifest at the repository root, with a declared `status:`
+- [ ] services.yaml entries for every unit, with `kind:` and `systemd.scope:`
 - [ ] `sudo systemctl restart sysadmin.service`
 - [ ] Verified via `/api/sysadmin/status`
 - [ ] GPU-resident? `ExecStartPre=%h/.local/bin/wait-for-dgpu`, VRAM row
@@ -306,8 +323,8 @@ every installed unit every six hours and reports the gaps:
     curl -s localhost:8500/api/units/actions | jq '.recommendations[] | {kind, title, action}'
 
 `/api/units/actions` hands back **ready-to-paste YAML**, correctly targeted:
-a `config.yaml` `services:` entry for timers and for units with no project,
-a `projects.yaml` fragment for a long-running unit whose project already has
+a services.yaml entry keyed by project id, or one with no `project:` at all
+for a host unit that belongs to no repository — and a fragment for a unit whose project already has
 an entry. It never edits either file — both are hand-curated and their
 comments carry the reasoning, which a rewriter would destroy.
 
@@ -316,8 +333,8 @@ Three categories, worst first:
 | Category | Meaning | Fix |
 |----------|---------|-----|
 | `orphaned` | Dead `WorkingDirectory`, or the project is declared `archived` | Remove it — the exact `systemctl disable && rm` is in `action` |
-| `unmonitored` | Maps to a live project, nothing in projects.yaml or config.yaml watches it | Paste the snippet |
-| `host` | Hand-written, maps to no project (`pgbackrest-backup`, `ethernet-optimise`) | Paste the config.yaml snippet |
+| `unmonitored` | Maps to a live project, nothing in services.yaml watches it | Paste the snippet |
+| `host` | Hand-written, maps to no project (`pgbackrest-backup`, `ethernet-optimise`) | Paste the snippet — a services.yaml entry with no `project:` |
 
 An orphan is ranked `risk`, above everything else, because it is not merely
 unwatched: a `WorkingDirectory` that no longer exists makes systemd fail the
@@ -327,7 +344,8 @@ precisely because nothing monitored it.
 **Two contract rules the detector will catch you breaking**, both because
 they cost a live debugging session first:
 
-- A `projects.yaml` endpoint with a `systemd_unit` but **no `url` is
+- A services.yaml entry of `kind: http` must carry a `url`; the schema
+  rejects one without. The old shape, a `projects.yaml` endpoint with a `systemd_unit` but **no `url`, was
   inert** — `ManagedProject.to_monitored_services` skips it, so the entry
   looks wired and checks nothing. This is why generated snippets leave
   `url:` commented rather than omitting it.

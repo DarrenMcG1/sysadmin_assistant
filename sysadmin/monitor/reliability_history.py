@@ -27,6 +27,7 @@ from sysadmin.monitor.reliability import (
     ReliabilityScore,
     score_services,
 )
+from sysadmin.monitor.services import get_services
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def muted_service_names(config: AppConfig) -> set[str]:
     ``ManagedProject.to_monitored_services`` and have no ``mute`` field
     at all, so the list is the *only* way to declare one of them.
     """
-    muted = {s.name for s in config.agents.sysadmin.services if s.mute}
+    muted = {s.name for s in get_services().services if s.mute}
     muted |= set(config.notifications.tray.mute_services)
     return muted
 
@@ -67,7 +68,7 @@ async def compute_reliability(
     now = now or datetime.now(UTC)
     window_start = now - timedelta(days=settings.window_days)
 
-    names = [s.name for s in config.agents.sysadmin.services]
+    names = [s.name for s in get_services().services]
     if not names:
         return []
 

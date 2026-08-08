@@ -562,6 +562,12 @@ stays open: the package is only worth its weight once `discover_projects` and
 the three readers of `projects_root` are pointed at it, and until then it is a
 second implementation of the thing it exists to deduplicate.
 
+**Phase 3 complete 2026-08-08.** services.yaml is wired: config.yaml holds no
+per-service topology, startup validates project ids against the registry, and
+`kind` decides every check. Behaviour deltas are recorded in STATUS.md. Still
+open for Phase 4: `projects.yaml` becomes `docs/projects-registry-legacy.yaml`
+and its comments move into `decisions:` blocks by hand, one project at a time.
+
 **Phase 3, first half, landed 2026-08-08** — 16 `.project.yaml` manifests
 (written by `scripts/migrate_registry.py`, pulled forward from Phase 4 because
 Phase 3 cannot validate ids that do not exist yet), `services.yaml` with no

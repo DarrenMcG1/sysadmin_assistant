@@ -115,80 +115,11 @@ agents:
   sysadmin:
     enabled: true
     health_check_interval_seconds: 300
-    # Add `mute: true` to a service that is expected to be down (it still
-    # colours the tray icon and shows in the dashboard, but never toasts)
-    services:
-      - name: postgresql
-        type: systemd
-        systemd_unit: postgresql.service
-        controllable: false
-      - name: llama-server
-        type: http
-        url: http://localhost:8081/health
-        systemd_unit: alfred-inference.service
-        user: true  # systemd *user* unit
-      # Alfred's nightly evaluation. Monitor the TIMER, not the service:
-      # alfred-evaluate.service is Type=oneshot and therefore inactive/dead
-      # between runs, so checking it would alert continuously by design.
-      # A .timer stays ActiveState=active (SubState=waiting) whenever it is
-      # armed, so the ordinary systemd check reports it correctly — an
-      # inactive timer genuinely means the schedule has stopped.
-      - name: alfred-evaluate-timer
-        type: systemd
-        systemd_unit: alfred-evaluate.timer
-        user: true  # systemd *user* unit
-        controllable: false
-      # Alfred's daily 08:20 career-mail ingest — oneshot, so monitor the
-      # TIMER (same rule as alfred-evaluate). Offset from alfred-evaluate's
-      # 08:00 because both touch the dGPU. The service is `static` by design:
-      # it has no [Install] and is driven solely by its timer, so an enabled
-      # timer is the only honest signal that the schedule is alive.
-      - name: alfred-career-mail-timer
-        type: systemd
-        systemd_unit: alfred-career-mail.timer
-        user: true  # systemd *user* unit
-        controllable: false
-      # SportsAnalyser's daily 06:00 pipeline — same oneshot rule as above:
-      # monitor the timer, not the service. (Its backend/frontend services
-      # are wired through projects.yaml, which can't model a third unit.)
-      - name: sportsanalyser-pipeline-timer
-        type: systemd
-        systemd_unit: sportsanalyser-pipeline.timer
-        user: true  # systemd *user* unit
-        controllable: false
-      # venture-assistant's resident inference servers. The chat server
-      # lived in projects.yaml as the stand-in backend until the real
-      # FastAPI backend claimed that slot (2026-08-07); both llama units
-      # are overflow here now. See the projects.yaml comment for why
-      # venture-chat-large.service is deliberately absent.
-      - name: venture-chat
-        type: http
-        url: http://localhost:8080/health
-        systemd_unit: venture-chat.service
-        user: true  # systemd *user* unit
-      - name: venture-embed
-        type: http
-        url: http://localhost:8082/health
-        systemd_unit: venture-embed.service
-        user: true  # systemd *user* unit
-      # venture-assistant's 02:00 enrichment drain — oneshot, so monitor
-      # the TIMER (same rule as alfred-evaluate and sportsanalyser-pipeline).
-      - name: venture-enrich-nightly-timer
-        type: systemd
-        systemd_unit: venture-enrich-nightly.timer
-        user: true  # systemd *user* unit
-        controllable: false
-      - name: networkmanager
-        type: systemd
-        systemd_unit: NetworkManager.service
-        controllable: false
-      - name: internet
-        type: http
-        url: https://1.1.1.1/cdn-cgi/trace
-      - name: pgbackrest-backup-timer
-        type: systemd
-        systemd_unit: pgbackrest-backup.timer
-        controllable: false  # start/stop would arm/disarm the schedule
+    # Per-service topology lives in services.yaml, keyed by project id.
+    # It was in two files before — here and projects.yaml — and seven of
+    # the eleven entries that used to sit here were project units filed
+    # under "sysadmin" only because projects.yaml modelled exactly one
+    # backend and one frontend and could not express a third unit.
     thresholds:
       disk_warning_percent: 80
       disk_critical_percent: 90
@@ -352,20 +283,10 @@ agents:
   log_aggregator:
     enabled: true
     poll_interval_seconds: 60
+    # Only sources with no service to hang off. Everything that belongs
+    # to a service is declared beside it in services.yaml, which is what
+    # stopped sysadmin.service being ingested twice under two names.
     sources:
-      - name: postgresql
-        type: journalctl
-        unit: postgresql.service
-        severity_filter: error
-      - name: llama-server
-        type: journalctl
-        unit: alfred-inference.service
-        user: true  # journalctl --user
-        severity_filter: warning
-      - name: sysadmin
-        type: journalctl
-        unit: sysadmin.service
-        severity_filter: warning
       - name: kernel
         type: journalctl
         unit: kernel

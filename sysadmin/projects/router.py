@@ -22,10 +22,12 @@ from sysadmin.core.contracts import (
 )
 from sysadmin.core.database import get_db_session
 from sysadmin.monitor.models.service_health import ServiceHealth
+from sysadmin.monitor.services import get_services
 from sysadmin.projects import branch_actions, recommendations
 from sysadmin.projects import review as project_review
 from sysadmin.projects.models.project_review import ProjectReview
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+from sysadmin.registry import derive_id
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -230,9 +232,14 @@ async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
     snap_result = await session.execute(snap_query)
     snap_map = {r.project_name: r for r in snap_result.scalars().all()}
 
+    # Services come from services.yaml, resolved by project id. projects.yaml
+    # used to generate them from its own backend/frontend blocks, which is
+    # why it could only ever report two per project — Alfred has four.
+    declared = get_services()
+
     projects_out = []
     for mp in managed:
-        svc_entries = mp.to_monitored_services()
+        svc_entries = declared.for_project(derive_id(mp.name))
         services = []
         all_healthy = True
         for svc in svc_entries:

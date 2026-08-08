@@ -47,9 +47,11 @@ from sysadmin.monitor.reliability_history import record_reliability_snapshot
 from sysadmin.monitor.routers.logs import router as logs_router
 from sysadmin.monitor.routers.services import router as services_router
 from sysadmin.monitor.routers.sysadmin import router as sysadmin_router
+from sysadmin.monitor.services import check_plan, load_services_singleton
 from sysadmin.projects.agent import ProjectOrganiserAgent
 from sysadmin.projects.review import run_weekly_review
 from sysadmin.projects.router import router as projects_router
+from sysadmin.registry import load_registry
 from sysadmin.units.agent import ServiceDiscoveryAgent
 from sysadmin.units.router import router as units_router
 
@@ -88,6 +90,24 @@ async def lifespan(app: FastAPI):
             "api.auth_token is not set — state-changing endpoints are UNAUTHENTICATED. "
             "Set api.auth_token in config.yaml to enable bearer-token auth."
         )
+
+    # services.yaml, validated against the registry. An id that names no
+    # project fails here, at startup, naming every bad reference at once —
+    # which is the whole reason services are keyed on id rather than path.
+    # A path that names nothing fails silently and did, twice.
+    services = load_services_singleton(registry=load_registry(
+        config.agents.project_organiser.projects_root
+    ))
+    logger.info(
+        "services_loaded",
+        extra={
+            "services": len(services.services),
+            "projects": len(services.project_ids),
+            "unchecked": sum(
+                1 for s in services.services if check_plan(s).checks_nothing
+            ),
+        },
+    )
 
     # Agents publish change events from scheduler threads (each with its own
     # event loop) — bind the API loop so SSE clients are woken on it.

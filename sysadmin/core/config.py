@@ -82,22 +82,6 @@ class LLMConfig(BaseModel):
 # --- Agent sub-configs ---
 
 
-class MonitoredService(BaseModel):
-    name: str
-    type: str  # http | tcp | systemd
-    url: str | None = None
-    host: str | None = None
-    port: int | None = None
-    systemd_unit: str | None = None
-    user: bool = False  # systemd unit is a *user* unit (systemctl --user)
-    controllable: bool = True
-    auto_restart: bool = False
-    auto_restart_after_checks: int = 3
-    # Expected-down service: alerts still recorded and shown, but the tray
-    # never raises a desktop notification for them (see notifications.tray)
-    mute: bool = False
-
-
 class Thresholds(BaseModel):
     disk_warning_percent: int = 80
     disk_critical_percent: int = 90
@@ -157,9 +141,17 @@ class ReliabilityConfig(BaseModel):
 
 
 class SysAdminAgentConfig(BaseModel):
+    """Monitoring agent settings.
+
+    The service list is deliberately absent. Per-service topology lives in
+    services.yaml, keyed by project id — see
+    :mod:`sysadmin.monitor.services`. It was in two places before this
+    (here and projects.yaml), which is how seven project units ended up
+    filed under "sysadmin" with comments explaining why.
+    """
+
     enabled: bool = True
     health_check_interval_seconds: int = 300
-    services: list[MonitoredService] = Field(default_factory=list)
     thresholds: Thresholds = Field(default_factory=Thresholds)
     anomaly: AnomalyConfig = Field(default_factory=AnomalyConfig)
     reliability: ReliabilityConfig = Field(default_factory=ReliabilityConfig)
@@ -407,43 +399,10 @@ class ManagedProject(BaseModel):
     # ``archived``, everything else is ``active``.
     status: Literal["active", "dormant", "archived"] | None = None
 
-    def to_monitored_services(self) -> list[MonitoredService]:
-        """Generate MonitoredService entries for health checking."""
-        services = []
-        if self.backend and self.backend.url:
-            services.append(MonitoredService(
-                name=self.name,
-                type="http",
-                url=self.backend.url,
-                systemd_unit=self.backend.systemd_unit,
-                user=self.backend.user,
-            ))
-        if self.frontend and self.frontend.url:
-            services.append(MonitoredService(
-                name=f"{self.name}-frontend",
-                type="http",
-                url=self.frontend.url,
-                systemd_unit=self.frontend.systemd_unit,
-                user=self.frontend.user,
-            ))
-        return services
-
-    def to_log_sources(self) -> list[LogSource]:
-        """Generate LogSource entries for log aggregation."""
-        sources = []
-        for label, endpoint in [("backend", self.backend), ("frontend", self.frontend)]:
-            if endpoint and endpoint.log:
-                log = endpoint.log
-                sources.append(LogSource(
-                    name=self.name if label == "backend" else f"{self.name}-{label}",
-                    type=log.type,
-                    unit=log.unit,
-                    # Unset on the log → inherit the endpoint's systemd scope
-                    user=log.user if log.user is not None else endpoint.user,
-                    path=log.path,
-                    severity_filter=log.severity_filter,
-                ))
-        return sources
+    # to_monitored_services / to_log_sources were removed with the
+    # services.yaml move: this file no longer contributes anything to
+    # monitoring. What remains — status and alert_threshold — is project
+    # state, read by the organiser until Phase 4 retires the file.
 
 
 class ProjectsConfig(BaseModel):
@@ -686,19 +645,10 @@ def _merge_projects_config(config: AppConfig, projects_path: Path) -> None:
         logger.warning("failed to load %s, skipping", projects_path, exc_info=True)
         return
 
-    existing_svc_names = {s.name for s in config.agents.sysadmin.services}
-    existing_src_names = {s.name for s in config.agents.log_aggregator.sources}
-
-    for project in config.projects.projects:
-        for svc in project.to_monitored_services():
-            if svc.name not in existing_svc_names:
-                config.agents.sysadmin.services.append(svc)
-                existing_svc_names.add(svc.name)
-
-        for src in project.to_log_sources():
-            if src.name not in existing_src_names:
-                config.agents.log_aggregator.sources.append(src)
-                existing_src_names.add(src.name)
+    # Endpoints are no longer injected from here. services.yaml owns every
+    # service and every journal source attached to one; this file is read
+    # only for the project-side settings the organiser still uses
+    # (``status``, ``alert_threshold``) until Phase 4 retires it.
 
 
 # --- Singleton loader ---

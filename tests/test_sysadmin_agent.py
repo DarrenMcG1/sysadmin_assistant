@@ -6,9 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from sysadmin.core.config import MonitoredService, Thresholds
+from sysadmin.core.config import Thresholds
 from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
+from sysadmin.monitor.services import SKIPPED, ServiceEntry
 from sysadmin.monitor.systemd import SystemdQueryError, UserBusUnavailableError
 
 # ---------------------------------------------------------------------------
@@ -33,22 +34,23 @@ def http_client(agent):
 
 @pytest.fixture
 def http_service():
-    return MonitoredService(
-        name="web-api", type="http", url="http://localhost:8000/health"
+    return ServiceEntry(
+        name="web-api", kind="http", url="http://localhost:8000/health"
     )
 
 
 @pytest.fixture
 def tcp_service():
-    return MonitoredService(
-        name="postgres", type="tcp", host="localhost", port=5432
+    return ServiceEntry(
+        name="postgres", kind="tcp", host="localhost", port=5432
     )
 
 
 @pytest.fixture
 def systemd_service():
-    return MonitoredService(
-        name="redis", type="systemd", systemd_unit="redis.service"
+    return ServiceEntry(
+        name="redis", kind="systemd",
+        systemd={"unit": "redis.service", "scope": "system"}
     )
 
 
@@ -233,12 +235,37 @@ class TestCheckSystemd:
 
 
 class TestCheckServiceDispatch:
+    def test_an_unknown_kind_cannot_be_constructed(self):
+        """The old dispatch had an unreachable "unknown type" branch.
+
+        ``kind`` is a closed set now, so a typo fails when services.yaml
+        is read rather than becoming a service that reports unreachable
+        forever.
+        """
+        with pytest.raises(ValueError):
+            ServiceEntry(name="mystery", kind="grpc")
+
     @pytest.mark.asyncio
-    async def test_unknown_type(self, agent):
-        svc = MonitoredService(name="mystery", type="grpc")
+    async def test_a_quiet_kind_is_recorded_as_skipped(self, agent):
+        svc = ServiceEntry(
+            name="on-demand", kind="static",
+            systemd={"unit": "on-demand.service"},
+        )
         status, ms, details = await agent._check_service(svc)
-        assert status == "unreachable"
-        assert "Unknown check type" in details["error"]
+        assert status == SKIPPED
+        assert ms is None
+        assert details["kind"] == "static"
+        assert details["reason"]
+
+    @pytest.mark.asyncio
+    async def test_monitor_false_carries_its_declared_reason(self, agent):
+        svc = ServiceEntry(
+            name="drain", kind="static", monitor=False,
+            reason="pulled up by the nightly drain",
+            systemd={"unit": "drain.service"},
+        )
+        _, _, details = await agent._check_service(svc)
+        assert details["reason"] == "pulled up by the nightly drain"
 
 
 # ---------------------------------------------------------------------------
@@ -249,12 +276,13 @@ class TestCheckServiceDispatch:
 class TestHandleStatus:
     @pytest.fixture
     def svc(self):
-        return MonitoredService(name="svc", type="http", url="http://localhost/health")
+        return ServiceEntry(name="svc", kind="http", url="http://localhost/health")
 
     @pytest.fixture
     def auto_restart_svc(self):
-        return MonitoredService(
-            name="svc", type="systemd", systemd_unit="svc.service",
+        return ServiceEntry(
+            name="svc", kind="systemd",
+            systemd={"unit": "svc.service", "scope": "system"},
             auto_restart=True, auto_restart_after_checks=3,
         )
 
@@ -358,8 +386,9 @@ class TestHandleStatus:
     @pytest.mark.asyncio
     async def test_non_controllable_skips_auto_restart(self, agent, mock_session):
         """Non-controllable services should not auto-restart even with auto_restart=True."""
-        svc = MonitoredService(
-            name="pg", type="systemd", systemd_unit="postgresql.service",
+        svc = ServiceEntry(
+            name="pg", kind="systemd",
+            systemd={"unit": "postgresql.service", "scope": "system"},
             controllable=False, auto_restart=True, auto_restart_after_checks=1,
         )
         agent._failure_counts["pg"] = 0

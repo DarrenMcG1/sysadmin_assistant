@@ -8,11 +8,11 @@ from sysadmin.core.config import (
     AppConfig,
     FileOrganiserConfig,
     HealthGradeBands,
-    MonitoredService,
     SchedulesConfig,
     ServiceConfig,
 )
 from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
+from sysadmin.monitor.services import ServiceEntry
 from sysadmin_tray.config import TrayConfig, load_tray_config
 
 
@@ -64,15 +64,20 @@ class TestLiftedMagicNumbers:
         assert cfg.agents.file_organiser.reclaimable_milestones_mb[0] == 1024
 
 
-class TestMonitoredServiceMute:
-    """Session 16 — per-service mute flag for expected-down services."""
+class TestServiceMute:
+    """Session 16 — per-service mute flag for expected-down services.
+
+    Moved to services.yaml with the rest of the topology. Every service
+    can now carry it, which was not true while half of them were
+    generated from projects.yaml with no flag of their own.
+    """
 
     def test_mute_defaults_to_false(self):
-        svc = MonitoredService(name="redis", type="tcp")
+        svc = ServiceEntry(name="redis", kind="tcp", host="h", port=6379)
         assert svc.mute is False
 
     def test_mute_can_be_set(self):
-        svc = MonitoredService(name="redis", type="tcp", mute=True)
+        svc = ServiceEntry(name="redis", kind="tcp", host="h", port=6379, mute=True)
         assert svc.mute is True
 
 

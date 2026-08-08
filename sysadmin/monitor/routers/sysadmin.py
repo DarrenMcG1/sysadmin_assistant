@@ -28,6 +28,7 @@ from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.self_monitor import build_self_report
+from sysadmin.monitor.services import get_services
 from sysadmin.monitor.sse import event_broadcaster, event_stream
 from sysadmin.monitor.systemd import (
     SystemdQueryError,
@@ -54,8 +55,7 @@ async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
     )
 
     # Filter to currently-configured services only (excludes stale DB records)
-    config = get_config()
-    configured_names = {s.name for s in config.agents.sysadmin.services}
+    configured_names = {s.name for s in get_services().services}
 
     query = (
         select(ServiceHealth)
@@ -72,13 +72,13 @@ async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
     rows = result.scalars().all()
     unit_map = {
         s.name: s.systemd_unit
-        for s in config.agents.sysadmin.services
+        for s in get_services().services
     }
 
     # Map service name → controllable flag from config
     controllable_map = {
         s.name: s.controllable
-        for s in config.agents.sysadmin.services
+        for s in get_services().services
     }
 
     return {
@@ -131,8 +131,7 @@ async def get_service_status(
 @router.get("/services/{service_name}/details")
 async def get_service_details(service_name: str):
     """Get detailed systemd unit status for a monitored service."""
-    config = get_config()
-    svc_map = {s.name: s for s in config.agents.sysadmin.services}
+    svc_map = {s.name: s for s in get_services().services}
 
     if service_name not in svc_map:
         raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found")
@@ -171,8 +170,7 @@ async def service_action(
     action: Literal["restart", "start", "stop"],
 ):
     """Restart, start, or stop a monitored service via systemd."""
-    config = get_config()
-    svc_map = {s.name: s for s in config.agents.sysadmin.services}
+    svc_map = {s.name: s for s in get_services().services}
 
     if service_name not in svc_map:
         raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found")

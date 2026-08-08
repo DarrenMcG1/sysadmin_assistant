@@ -28,13 +28,14 @@ from sqlalchemy import select, update
 
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.async_http import LoopBoundClient
-from sysadmin.core.config import AnomalyConfig, AppConfig, MonitoredService, get_config
+from sysadmin.core.config import AnomalyConfig, AppConfig, get_config
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.self_monitor import build_self_report
+from sysadmin.monitor.services import SKIPPED, ServiceEntry, check_plan, get_services
 from sysadmin.monitor.systemd import SystemdQueryError, get_unit_status, restart_unit
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,28 @@ HTTP_CHECK_TIMEOUT_S = 10.0
 
 def _stall_title(agent_name: str) -> str:
     return f"{agent_name} {STALL_TITLE_SUFFIX}"
+
+
+#: Timer properties worth recording, under readable names.  ``systemctl
+#: show`` returns microseconds-since-epoch as strings and "0" for "never",
+#: neither of which is worth carrying into the details blob raw.
+_TIMER_PROPS = {
+    "LastTriggerUSec": "last_run",
+    "NextElapseUSecRealtime": "next_run",
+    "Result": "last_result",
+}
+
+
+def _timer_facts(props: dict) -> dict:
+    """The last-run picture for a timer, from ``systemctl show`` output."""
+    facts: dict = {}
+    for prop, label in _TIMER_PROPS.items():
+        raw = props.get(prop)
+        if raw in (None, "", "0", "[not set]", "n/a"):
+            continue
+        facts[label] = raw
+    facts["last_run_recorded"] = "last_run" in facts
+    return facts
 
 
 class SysAdminAgent(BaseAgent):
@@ -74,13 +97,14 @@ class SysAdminAgent(BaseAgent):
         """Run all health checks and record resource snapshot."""
         config = get_config()
         agent_config = config.agents.sysadmin
+        services = get_services().services
         alerts_raised = 0
 
         # --- Service health checks ---
         # One connection pool per run, bound to this run's event loop and
         # closed when the block exits (SNAG-AGENT-003).
         async with self._http.scoped():
-            for svc in agent_config.services:
+            for svc in services:
                 status, response_time_ms, details = await self._check_service(svc)
 
                 # Record to DB
@@ -127,27 +151,35 @@ class SysAdminAgent(BaseAgent):
         # Self-monitoring — has another agent silently stopped running?
         alerts_raised += await self._check_agent_liveness(session, config)
 
+        checked = sum(1 for svc in services if not check_plan(svc).checks_nothing)
         return AgentResult(
-            findings_count=len(agent_config.services),
+            findings_count=len(services),
             alerts_raised=alerts_raised,
-            details={"services_checked": len(agent_config.services)},
+            details={"services_checked": checked, "services_declared": len(services)},
         )
 
     # --- Service checks ---
 
     async def _check_service(
-        self, svc: MonitoredService
+        self, svc: ServiceEntry
     ) -> tuple[str, int | None, dict]:
-        """Check a single service. Returns (status, response_time_ms, details)."""
+        """Check one service, as its ``kind`` in services.yaml calls for.
+
+        The plan comes from :func:`~sysadmin.monitor.services.check_plan`
+        rather than from a chain of conditionals here, so "a oneshot is
+        watched through its timer" is a property of the declaration and
+        not of this function.
+        """
+        plan = check_plan(svc)
+        if plan.checks_nothing:
+            return SKIPPED, None, self._skip_details(svc)
+
         try:
-            if svc.type == "http":
-                return await self._check_http(svc)
-            elif svc.type == "tcp":
+            if plan.connect:
                 return await self._check_tcp(svc)
-            elif svc.type == "systemd":
-                return await self._check_systemd(svc)
-            else:
-                return "unreachable", None, {"error": f"Unknown check type: {svc.type}"}
+            if plan.poll_url:
+                return await self._check_http_and_unit(svc, plan)
+            return await self._check_systemd(svc, inspect_timer=plan.inspect_timer)
         except Exception as e:
             logger.error(
                 "service_check_error",
@@ -155,8 +187,63 @@ class SysAdminAgent(BaseAgent):
             )
             return "unreachable", None, {"error": str(e)}
 
+    @staticmethod
+    def _skip_details(svc: ServiceEntry) -> dict:
+        """Why a service was not checked, recorded with the skip.
+
+        A ``skipped`` row with no explanation is only marginally better
+        than no row, which is the option this replaced.
+        """
+        details: dict = {"kind": svc.kind, "monitored": svc.monitor}
+        details["reason"] = svc.reason or (
+            f"kind {svc.kind}: not expected to be running between invocations"
+        )
+        if svc.unit:
+            details["unit"] = svc.unit
+        return details
+
+    async def _check_http_and_unit(
+        self, svc: ServiceEntry, plan
+    ) -> tuple[str, int | None, dict]:
+        """Poll the URL, and assert the unit is active when one is named.
+
+        A 200 from a URL says something answered, not that the unit this
+        estate believes serves it is the thing that answered. Where a unit
+        is declared, both must hold.
+
+        The unit check **fails open**: a systemd query that cannot run
+        yields the URL's own verdict rather than a failure. Treating an
+        unreadable bus as a down service is precisely SNAG-SYSD-001, which
+        flagged a live user timer as down for a week.
+        """
+        status, elapsed_ms, details = await self._check_http(svc)
+        unit = svc.unit
+        if not plan.assert_active or unit is None or status != "ok":
+            return status, elapsed_ms, details
+
+        try:
+            unit_info = await get_unit_status(unit, user=svc.user)
+        except SystemdQueryError as e:
+            logger.warning(
+                "unit_assertion_unavailable",
+                extra={"service": svc.name, "unit": unit, "error": str(e)},
+            )
+            return status, elapsed_ms, {**details, "unit_check": "unavailable"}
+
+        if unit_info.get("is_active"):
+            return status, elapsed_ms, details
+        if unit_info.get("ActiveState") == "activating":
+            return "degraded", elapsed_ms, {
+                **details, "reason": "url ok, unit still activating", **unit_info
+            }
+        return "degraded", elapsed_ms, {
+            **details,
+            "reason": f"url ok but {unit} is not active",
+            **unit_info,
+        }
+
     async def _check_http(
-        self, svc: MonitoredService
+        self, svc: ServiceEntry
     ) -> tuple[str, int | None, dict]:
         """HTTP health check."""
         if not svc.url:
@@ -184,7 +271,7 @@ class SysAdminAgent(BaseAgent):
             return "unreachable", None, {"error": "connection refused"}
 
     async def _check_tcp(
-        self, svc: MonitoredService
+        self, svc: ServiceEntry
     ) -> tuple[str, int | None, dict]:
         """TCP connection check."""
         start = time.monotonic()
@@ -204,9 +291,15 @@ class SysAdminAgent(BaseAgent):
             return "unreachable", None, {"error": str(e)}
 
     async def _check_systemd(
-        self, svc: MonitoredService
+        self, svc: ServiceEntry, inspect_timer: bool = False
     ) -> tuple[str, int | None, dict]:
-        """Systemd unit status check."""
+        """Systemd unit status check.
+
+        ``inspect_timer`` adds the timer's schedule to the recorded
+        details. An armed timer is ``active (waiting)``, so the active
+        test alone cannot tell a schedule that is about to fire from one
+        whose last run failed — the properties say which.
+        """
         if not svc.systemd_unit:
             return "error", None, {"error": "no systemd_unit configured for systemd check"}
 
@@ -214,6 +307,9 @@ class SysAdminAgent(BaseAgent):
         try:
             status_info = await get_unit_status(svc.systemd_unit, user=svc.user)
             elapsed_ms = int((time.monotonic() - start) * 1000)
+
+            if inspect_timer:
+                status_info = {**status_info, **_timer_facts(status_info)}
 
             if status_info.get("is_active"):
                 return "ok", elapsed_ms, status_info
@@ -246,13 +342,20 @@ class SysAdminAgent(BaseAgent):
     # --- Alerting logic ---
 
     async def _handle_status(
-        self, session, svc: MonitoredService, status: str, details: dict
+        self, session, svc: ServiceEntry, status: str, details: dict
     ) -> int:
         """Handle status transitions, alerting, and auto-restart.
 
         Returns count of alerts raised.
         """
         service_name = svc.name
+
+        if status == SKIPPED:
+            # services.yaml says not to check this one.  Nothing was
+            # measured, so there is nothing to alert on and nothing to
+            # count — the same reasoning as "error" below, arrived at by
+            # decision rather than by failure.
+            return 0
 
         if status == "error":
             # The *check* failed (misconfigured, or systemctl could not be
