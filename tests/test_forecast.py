@@ -1,8 +1,8 @@
-"""Tests for the pure forecasting maths in ``sysadmin.services.forecast``.
+"""Tests for the pure forecasting maths in ``sysadmin.files.forecast``.
 
 No Qt, no database — every input is a plain contract object or a raw
 ``(timestamp, disk_usage)`` pair.  Contracts are imported from
-:mod:`sysadmin.contracts` rather than the tray's re-export: the maths
+:mod:`sysadmin.core.contracts` rather than the tray's re-export: the maths
 lives on the backend now and must not depend on the tray to be tested.
 """
 
@@ -12,8 +12,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from sysadmin.contracts import FileTrendForecast, ResourceHistoryResponse
-from sysadmin.services.forecast import (
+from sysadmin.core.contracts import FileTrendForecast, ResourceHistoryResponse
+from sysadmin.files.forecast import (
     ThresholdProjection,
     describe_reclaimable_forecast,
     disk_series,

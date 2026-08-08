@@ -10,9 +10,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from sysadmin.models.filesystem_audit import FilesystemAudit
-from sysadmin.models.log_entry import LogEntry
-from sysadmin.models.resource_snapshot import ResourceSnapshot
+from sysadmin.files.models.filesystem_audit import FilesystemAudit
+from sysadmin.monitor.models.log_entry import LogEntry
+from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 
 # ---------------------------------------------------------------------------
 # Helpers

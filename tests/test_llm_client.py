@@ -11,8 +11,8 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from sysadmin.config import AppConfig, LLMConfig
-from sysadmin.services.llm_client import LLMClient
+from sysadmin.core.config import AppConfig, LLMConfig
+from sysadmin.core.llm_client import LLMClient
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def _chat_response(content: str) -> httpx.Response:
 
 def _patch_config(config):
     return patch(
-        "sysadmin.services.llm_client.get_config", return_value=config
+        "sysadmin.core.llm_client.get_config", return_value=config
     )
 
 

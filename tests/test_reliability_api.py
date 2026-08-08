@@ -10,14 +10,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.contracts import ReliabilityResponse
-from sysadmin.routers.services import summarise, to_contract
-from sysadmin.services.reliability import score_service
-from sysadmin.services.reliability_history import (
+from sysadmin.core.contracts import ReliabilityResponse
+from sysadmin.monitor.reliability import score_service
+from sysadmin.monitor.reliability_history import (
     compute_reliability,
     muted_service_names,
     record_reliability_snapshot,
 )
+from sysadmin.monitor.routers.services import summarise, to_contract
 
 NOW = datetime(2026, 8, 7, 12, 0, tzinfo=UTC)
 INTERVAL = 60  # mock_config's health_check_interval_seconds
@@ -250,9 +250,9 @@ async def test_snapshot_job_writes_one_row_per_service(mock_config, mock_session
     ctx.__aexit__ = AsyncMock(return_value=False)
 
     with patch(
-        "sysadmin.services.reliability_history.get_config", return_value=mock_config
+        "sysadmin.monitor.reliability_history.get_config", return_value=mock_config
     ), patch(
-        "sysadmin.services.reliability_history.get_scheduler_session",
+        "sysadmin.monitor.reliability_history.get_scheduler_session",
         return_value=ctx,
     ):
         written = await record_reliability_snapshot()
@@ -269,7 +269,7 @@ async def test_snapshot_job_is_a_noop_when_disabled(mock_config):
     mock_config.agents.sysadmin.reliability.enabled = False
 
     with patch(
-        "sysadmin.services.reliability_history.get_config", return_value=mock_config
+        "sysadmin.monitor.reliability_history.get_config", return_value=mock_config
     ):
         assert await record_reliability_snapshot() == 0
 

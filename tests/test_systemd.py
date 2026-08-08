@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.utils import systemd
-from sysadmin.utils.systemd import (
+from sysadmin.monitor import systemd
+from sysadmin.monitor.systemd import (
     SystemdQueryError,
     UserBusUnavailableError,
     build_env,
@@ -28,7 +28,7 @@ from sysadmin.utils.systemd import (
     user_runtime_dir,
 )
 
-_SPAWN = "sysadmin.utils.systemd.asyncio.create_subprocess_exec"
+_SPAWN = "sysadmin.monitor.systemd.asyncio.create_subprocess_exec"
 
 #: The exact message systemd emits when it cannot find the session bus.
 BUS_FAILURE_STDERR = (
@@ -78,7 +78,7 @@ class TestBuildEnv:
         """The daemon's environment has only PATH — we supply the default."""
         monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
 
-        with patch("sysadmin.utils.systemd.os.path.isdir", return_value=True):
+        with patch("sysadmin.monitor.systemd.os.path.isdir", return_value=True):
             env = build_env(user=True)
 
         assert env is not None

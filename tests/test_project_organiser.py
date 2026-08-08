@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.agents.project_organiser import ProjectOrganiserAgent
-from sysadmin.config import ProjectOrganiserConfig
+from sysadmin.core.config import ProjectOrganiserConfig
+from sysadmin.projects.agent import ProjectOrganiserAgent
 
 
 @pytest.fixture
@@ -108,7 +108,7 @@ class TestAnalyseProject:
         """Context manager that patches all git utility functions."""
         repo = MagicMock()
         last_commit = datetime.now(UTC) - timedelta(days=last_commit_days_ago)
-        mod = "sysadmin.agents.project_organiser"
+        mod = "sysadmin.projects.agent"
 
         stack = ExitStack()
         stack.enter_context(patch(f"{mod}.get_repo", return_value=repo))
@@ -188,7 +188,7 @@ class TestAnalyseProject:
         assert "stale_git_lock" in snapshot.findings
 
     def test_no_git_repo(self, agent, agent_config, project_dir):
-        mod = "sysadmin.agents.project_organiser"
+        mod = "sysadmin.projects.agent"
         with (
             patch(f"{mod}.get_repo", return_value=None),
             patch(f"{mod}.get_repo_size_mb", return_value=10),
@@ -328,7 +328,7 @@ class TestTodoPenaltyCap:
 
 class TestAlertThreshold:
     async def _run(self, agent, tmp_path, score, managed=None, global_threshold=40):
-        from sysadmin.config import (
+        from sysadmin.core.config import (
             AgentsConfig,
             AppConfig,
             ProjectOrganiserConfig,
@@ -357,7 +357,7 @@ class TestAlertThreshold:
         session = MagicMock()
         session.add = MagicMock()
 
-        mod = "sysadmin.agents.project_organiser"
+        mod = "sysadmin.projects.agent"
         with (
             patch(f"{mod}.get_config", return_value=config),
             patch.object(agent, "_analyse_project", return_value=snapshot),
@@ -374,7 +374,7 @@ class TestAlertThreshold:
         assert alert.await_count == 0
 
     async def test_per_project_override_raises_the_bar(self, agent, tmp_path):
-        from sysadmin.config import ManagedProject
+        from sysadmin.core.config import ManagedProject
 
         managed = [
             ManagedProject(
@@ -387,7 +387,7 @@ class TestAlertThreshold:
         assert "alert threshold 70" in alert.await_args.kwargs["message"]
 
     async def test_per_project_override_silences_a_project(self, agent, tmp_path):
-        from sysadmin.config import ManagedProject
+        from sysadmin.core.config import ManagedProject
 
         managed = [
             ManagedProject(name="demo", path=str(tmp_path / "demo"), alert_threshold=0)
@@ -397,7 +397,7 @@ class TestAlertThreshold:
         assert alert.await_count == 0
 
     async def test_other_projects_keep_the_global_default(self, agent, tmp_path):
-        from sysadmin.config import ManagedProject
+        from sysadmin.core.config import ManagedProject
 
         managed = [
             ManagedProject(
@@ -533,7 +533,7 @@ class TestStatusScoring:
 
 class TestEffectiveThreshold:
     def _configs(self, managed=None, global_threshold=40):
-        from sysadmin.config import ProjectsConfig
+        from sysadmin.core.config import ProjectsConfig
 
         return (
             ProjectsConfig(projects=managed or []),
@@ -559,7 +559,7 @@ class TestEffectiveThreshold:
         ) == 0
 
     def test_explicit_floor_beats_archived(self, agent, tmp_path):
-        from sysadmin.config import ManagedProject
+        from sysadmin.core.config import ManagedProject
 
         managed = [
             ManagedProject(name="demo", path=str(tmp_path), alert_threshold=50)
@@ -573,7 +573,7 @@ class TestEffectiveThreshold:
 class TestArchivedAlerts:
     async def test_archived_location_never_alerts_by_default(self, agent, tmp_path):
         """End-to-end: a rotten project under archive/ raises nothing."""
-        from sysadmin.config import (
+        from sysadmin.core.config import (
             AgentsConfig,
             AppConfig,
             ProjectsConfig,
@@ -595,7 +595,7 @@ class TestArchivedAlerts:
         )
         session = MagicMock()
 
-        mod = "sysadmin.agents.project_organiser"
+        mod = "sysadmin.projects.agent"
         with (
             patch(f"{mod}.get_config", return_value=config),
             patch.object(agent, "_analyse_project", return_value=snapshot) as analyse,

@@ -22,10 +22,10 @@ from pathlib import Path
 
 import pytest
 
-from sysadmin.config import FileActionsConfig, FileOrganiserConfig
-from sysadmin.contracts import FileActionResponse, FileOperation
-from sysadmin.services import file_actions
-from sysadmin.services.file_actions import (
+from sysadmin.core.config import FileActionsConfig, FileOrganiserConfig
+from sysadmin.core.contracts import FileActionResponse, FileOperation
+from sysadmin.files import actions as file_actions
+from sysadmin.files.actions import (
     FileActionError,
     PathEscapeError,
     classify_pdf,

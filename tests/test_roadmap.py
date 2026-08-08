@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from sysadmin.services.roadmap import (
+from sysadmin.projects.roadmap import (
     count_checked,
     count_open_snags,
     count_unchecked,

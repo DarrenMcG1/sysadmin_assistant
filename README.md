@@ -12,8 +12,8 @@ Version 0.1.0. UK English throughout the codebase and docs.
 
 ## What it does
 
-Four agents run on an APScheduler timetable inside the FastAPI process
-(`sysadmin/agents/`):
+Five agents run on an APScheduler timetable inside the FastAPI process,
+one per domain package:
 
 | Agent | Responsibility |
 |-------|----------------|
@@ -22,7 +22,7 @@ Four agents run on an APScheduler timetable inside the FastAPI process
 | `FileOrganiserAgent` | filesystem audit — duplicates, misplaced files, large files, stale caches |
 | `LogAggregatorAgent` | journal ingestion and error summarisation |
 
-Supporting services (`sysadmin/services/`) add anomaly detection, disk-usage
+Supporting modules across those packages and `sysadmin/core/` add anomaly detection, disk-usage
 forecasting, a recommendations engine for both the project portfolio and the
 disk, a morning briefing, an SSE event bus, retention pruning, do-not-disturb
 handling, and an LLM client used for weekly narrated reviews.
@@ -44,18 +44,18 @@ Managed by `uv`; the lockfile is `uv.lock`.
 
 ## API
 
-51 routes across five routers, all mounted on the backend at port **8500**:
+55 routes across eight routers, all mounted on the backend at port **8500**:
 
 | Prefix | Router |
 |--------|--------|
-| `/health` | `sysadmin/routers/health.py` |
+| `/health` | `sysadmin/core/health.py` |
 | `/api/sysadmin/*` | services, resources, alerts, DND, SSE events, self-monitor |
 | `/api/logs/*` | recent entries and stats |
 | `/api/projects/*` | overview, per-project detail, recommendations, reviews |
 | `/api/files/*` | audit results, trends, recommendations, clean/organise actions |
 | `/api/*` | briefing/summary for external consumers |
 
-Response shapes are pinned in `sysadmin/contracts.py` (pydantic only) and
+Response shapes are pinned in `sysadmin/core/contracts.py` (pydantic only) and
 re-exported by the tray, so backend and client cannot drift silently. The
 mapping of endpoint → contract model is tabulated in `CLAUDE.md`.
 
@@ -66,7 +66,7 @@ unless the request body sets `confirm: true`**.
 ## Configuration
 
 Everything lives in `config.yaml` (validated by Pydantic models in
-`sysadmin/config.py`) plus `projects.yaml` for the managed-project list.
+`sysadmin/core/config.py`) plus `projects.yaml` for the managed-project list.
 **No environment variables are read and there is no `.env` file** — including
 the database URL, which sits under `database:` in `config.yaml`.
 

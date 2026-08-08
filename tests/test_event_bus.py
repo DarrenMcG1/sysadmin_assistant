@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from sysadmin.services.event_bus import EventBus, event_bus
+from sysadmin.core.event_bus import EventBus, event_bus
 
 
 class TestSubscribePublish:
@@ -172,14 +172,14 @@ class TestThreadsafePublish:
 
 class TestSharedBusSingleton:
     def test_module_singleton_is_shared(self):
-        from sysadmin.agents.base import event_bus as agent_bus
+        from sysadmin.core.agent import event_bus as agent_bus
         from sysadmin.main import event_bus as main_bus
 
         assert agent_bus is event_bus
         assert main_bus is event_bus
 
     def test_sse_broadcaster_listens_to_the_singleton(self):
-        from sysadmin.services.sse import STREAMED_EVENTS
+        from sysadmin.monitor.sse import STREAMED_EVENTS
 
         for event_type in STREAMED_EVENTS:
             assert event_bus._subscribers[event_type], f"{event_type} has no subscriber"
@@ -207,7 +207,7 @@ class TestAgentEventPublishing:
     async def test_alert_event_is_published_after_the_commit(
         self, recording_bus, mock_session
     ):
-        from sysadmin.agents.base import AgentResult, BaseAgent
+        from sysadmin.core.agent import AgentResult, BaseAgent
 
         bus, events = recording_bus
         timeline: list[str] = []
@@ -226,8 +226,8 @@ class TestAgentEventPublishing:
             timeline.append("committed")
 
         with (
-            patch("sysadmin.agents.base.event_bus", bus),
-            patch("sysadmin.agents.base.get_scheduler_session", fake_session),
+            patch("sysadmin.core.agent.event_bus", bus),
+            patch("sysadmin.core.agent.get_scheduler_session", fake_session),
         ):
             await _Agent().run()
             await asyncio.sleep(0)
@@ -238,7 +238,7 @@ class TestAgentEventPublishing:
 
     @pytest.mark.asyncio
     async def test_run_event_reports_the_outcome(self, recording_bus, mock_session):
-        from sysadmin.agents.base import BaseAgent
+        from sysadmin.core.agent import BaseAgent
 
         bus, events = recording_bus
 
@@ -253,8 +253,8 @@ class TestAgentEventPublishing:
             yield mock_session
 
         with (
-            patch("sysadmin.agents.base.event_bus", bus),
-            patch("sysadmin.agents.base.get_scheduler_session", fake_session),
+            patch("sysadmin.core.agent.event_bus", bus),
+            patch("sysadmin.core.agent.get_scheduler_session", fake_session),
         ):
             await _BrokenAgent().run(run_type="manual")
             await asyncio.sleep(0)

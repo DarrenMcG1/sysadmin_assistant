@@ -139,7 +139,7 @@ it is the rule.
 Two seams carry data between apps: **sysadmin → Alfred** (Alfred pulls
 `/api/sysadmin/briefing/preview`, and will pull the board) and **Alfred →
 alfred-glance**. Both ends already guard their *internal* contracts —
-`sysadmin/contracts.py` is imported by backend and tray with a round-trip
+`sysadmin/core/contracts.py` is imported by backend and tray with a round-trip
 test; Alfred regenerates `openapi.json` + `frontend/types/api.ts` with a
 commit hook. Neither guards the seam *between* them.
 

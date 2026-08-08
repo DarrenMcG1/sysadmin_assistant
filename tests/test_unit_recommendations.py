@@ -10,12 +10,12 @@ so several tests below assert on what is *absent* — an uncommented
 import pytest
 import yaml
 
-from sysadmin.services.unit_recommendations import (
+from sysadmin.units.recommendations import (
     KIND_ORDER,
     duplicate_units,
     recommendations_for_scan,
 )
-from sysadmin.services.units import HOST, ORPHANED, UNMONITORED, UnitFinding
+from sysadmin.units.scan import HOST, ORPHANED, UNMONITORED, UnitFinding
 
 
 def _finding(unit, category=HOST, **kw) -> UnitFinding:

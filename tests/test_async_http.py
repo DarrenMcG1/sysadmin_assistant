@@ -21,9 +21,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import httpx
 import pytest
 
-from sysadmin.agents.sysadmin_agent import SysAdminAgent
-from sysadmin.config import MonitoredService
-from sysadmin.utils.async_http import LoopBoundClient
+from sysadmin.core.async_http import LoopBoundClient
+from sysadmin.core.config import MonitoredService
+from sysadmin.monitor.agent import SysAdminAgent
 
 
 class _KeepAliveHandler(BaseHTTPRequestHandler):

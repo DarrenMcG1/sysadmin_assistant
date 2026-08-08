@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.config import AppConfig, SelfMonitorConfig
-from sysadmin.models.agent_run import AgentRun
-from sysadmin.services.self_monitor import (
+from sysadmin.core.config import AppConfig, SelfMonitorConfig
+from sysadmin.core.models.agent_run import AgentRun
+from sysadmin.monitor.self_monitor import (
     AGENT_NAMES,
     AgentSchedule,
     agent_schedules,
@@ -402,7 +402,7 @@ class TestSelfEndpoint:
 
     @pytest.mark.asyncio
     async def test_parses_as_the_shared_contract(self, test_client, mock_session):
-        from sysadmin.contracts import SelfMonitorResponse
+        from sysadmin.core.contracts import SelfMonitorResponse
 
         _mock_scalars_all(mock_session, [_live_run("sysadmin")])
         resp = await test_client.get("/api/sysadmin/self")
@@ -445,14 +445,14 @@ def _stall_alert(agent_name: str, alert_id: str = "stall-1"):
 
 @pytest.fixture
 def sysadmin_agent():
-    from sysadmin.agents.sysadmin_agent import SysAdminAgent
+    from sysadmin.monitor.agent import SysAdminAgent
 
     return SysAdminAgent()
 
 
 def _patch_report(report: dict):
     return patch(
-        "sysadmin.agents.sysadmin_agent.build_self_report",
+        "sysadmin.monitor.agent.build_self_report",
         new_callable=AsyncMock,
         return_value=report,
     )
@@ -561,7 +561,7 @@ class TestStalledAgentAlerting:
     ):
         mock_config.self_monitor.enabled = False
         with patch(
-            "sysadmin.agents.sysadmin_agent.build_self_report", new_callable=AsyncMock
+            "sysadmin.monitor.agent.build_self_report", new_callable=AsyncMock
         ) as report:
             raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
 

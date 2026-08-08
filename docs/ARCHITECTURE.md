@@ -1,10 +1,12 @@
 # Architecture Overview
 
-**Last rewritten**: 2026-07-24 (Session 14) — reflects the code as it exists now.
+**Last rewritten**: 2026-07-24 (Session 14). Paths and counts refreshed
+2026-08-08 for the Phase 2 module split; the prose below still describes
+the pre-split narrative in places.
 
 Infrastructure monitoring and housekeeping service for a single Linux workstation.
-A FastAPI backend (port **8500**) runs four scheduled agents that watch services,
-projects, files, and logs, persisting everything to PostgreSQL. A PyQt6 KDE tray
+A FastAPI backend (port **8500**) runs five scheduled agents that watch services,
+projects, files, logs, and installed systemd units, persisting everything to PostgreSQL. A PyQt6 KDE tray
 app polls the API and surfaces state via a tray icon, native dashboard, and D-Bus
 notifications. The tray is the only UI: PersonalAssistant (PA), which consumed a
 digest endpoint and received briefings/notifications, was retired on 2026-07-24
@@ -19,22 +21,24 @@ and its outbound integration is now dormant (see "PA integration" below).
                             │        FastAPI backend  :8500               │
                             │        (sysadmin/main.py create_app)        │
  ┌──────────────┐  HTTP     │                                             │
- │ PyQt6 tray   │──────────▶│  Routers          Services                  │
- │ sysadmin_tray│  poll     │  ├ health         ├ scheduler (APScheduler) │
- │ ├ tray_icon  │           │  ├ sysadmin       ├ notifier ──────────┐    │
- │ ├ dashboard  │           │  ├ projects       ├ briefing (06:00) ──┤    │
- │ └ D-Bus      │           │  ├ files          ├ retention (03:00)  │    │
- │   notifs     │           │  ├ logs           ├ event_bus          │    │
- └──────┬───────┘           │  └ summary ───────├ dnd                │    │
-        │ imports           │                   └ llm_client ───┐    │    │
-        ▼                   │  Agents (BaseAgent)               │    │    │
+ │ PyQt6 tray   │──────────▶│  Packages         core/                     │
+ │ sysadmin_tray│  poll     │  ├ monitor        ├ scheduler (APScheduler) │
+ │ ├ tray_icon  │           │  ├ projects       ├ agent (BaseAgent)       │
+ │ ├ dashboard  │           │  ├ files          ├ retention (03:00)  ┐    │
+ │ └ D-Bus      │           │  ├ units          ├ event_bus          │    │
+ │   notifs     │           │  ├ registry       ├ llm_client ───┐    │    │
+ └──────┬───────┘           │  └ briefing (06:00) ──────────────┤    │    │
+        │ imports           │                                   │    │    │
+        ▼                   │  Agents (core.agent.BaseAgent)    │    │    │
  ┌──────────────┐           │  ├ SysAdminAgent                  │    │    │
  │ sysadmin/    │           │  ├ ProjectOrganiserAgent          │    │    │
- │ contracts.py │◀──────────│  ├ FileOrganiserAgent             │    │    │
- │ defaults.py  │ response_ │  └ LogAggregatorAgent             │    │    │
- │ (pydantic/   │ model=    └──────────┬───────────────────┬────┼────┼────┘
- │  stdlib only)│                      │ SQLAlchemy async   │    │    │
- └──────────────┘                      ▼                    │    ▼    ▼
+ │ core/        │◀──────────│  ├ FileOrganiserAgent             │    │    │
+ │ contracts.py │ response_ │  ├ LogAggregatorAgent             │    │    │
+ │ defaults.py  │ model=    │  └ ServiceDiscoveryAgent          │    │    │
+ │ (pydantic/   │           │                                   │    │    │
+ │  stdlib only)│           └──────────┬───────────────────┬────┼────┼────┘
+ └──────────────┘                      │ SQLAlchemy async   │    │    │
+                                       ▼                    │    ▼    ▼
                             ┌─────────────────────┐         │  ┌───────────────┐
                             │ PostgreSQL          │         │  │ PersonalAssist│
                             │ db: projects        │         │  │ :8000 (v2     │
@@ -55,27 +59,34 @@ and its outbound integration is now dormant (see "PA integration" below).
 
 ```
 sysadmin_assistant/
-├── config.yaml            # All runtime configuration (validated by sysadmin/config.py)
+├── config.yaml            # All runtime configuration (validated by sysadmin/core/config.py)
 ├── projects.yaml          # Managed projects — merged into agent configs at load
 ├── sysadmin/              # Backend package (PyPI name: sysadmin-service)
 │   ├── main.py            # create_app() factory + lifespan + module-level app
-│   ├── config.py          # Pydantic models for config.yaml/projects.yaml, singleton loader
-│   ├── contracts.py       # Shared wire contracts (pydantic-only) — used by tray
-│   ├── defaults.py        # Canonical API host/port defaults (stdlib-only) — used by tray
-│   ├── auth.py            # require_auth bearer-token dependency
-│   ├── database.py        # Async engine/session + NullPool scheduler sessions
-│   ├── logging_setup.py   # Structured JSON (or text) logging
-│   ├── middleware.py      # Request access-log middleware (excludes /health)
-│   ├── agents/            # BaseAgent + the four agents
-│   ├── routers/           # health, sysadmin, projects, files, logs, summary
-│   ├── services/          # scheduler, notifier, briefing, retention, event_bus, dnd, llm_client
-│   ├── models/            # SQLAlchemy models (9 tables)
-│   └── utils/             # git, gpu, journal, systemd helpers
+│   ├── metadata.py        # Every mapped table in one import (Alembic + drift test)
+│   ├── core/              # Depended on by every domain, depends on none
+│   │   ├── config.py      # Pydantic models for config.yaml/projects.yaml, singleton loader
+│   │   ├── contracts.py   # Shared wire contracts (pydantic-only) — used by tray
+│   │   ├── defaults.py    # Canonical API host/port defaults (stdlib-only) — used by tray
+│   │   ├── agent.py       # BaseAgent template method
+│   │   ├── auth.py        # require_auth bearer-token dependency
+│   │   ├── database.py    # Async engine/session + NullPool scheduler sessions
+│   │   ├── health.py      # GET /health
+│   │   ├── scheduler.py   # APScheduler bridge
+│   │   ├── llm_client.py, retention.py, event_bus.py, async_http.py
+│   │   ├── logging_setup.py, middleware.py
+│   │   └── models/        # agent_runs, alerts, retention_config
+│   ├── registry/          # Project identity: .project.yaml manifests, id → path map
+│   ├── monitor/           # Health checks, logs, alerting, reliability, SSE
+│   ├── projects/          # Scanning, scoring, roadmap advice, the board, branches
+│   ├── files/             # Filesystem audit, reclaim advice, forecasting, actions
+│   ├── units/             # Service discovery — units vs projects vs wired config
+│   └── briefing/          # Cross-domain digests for external consumers
 ├── sysadmin_tray/         # PyQt6 KDE tray app (console script: sysadmin-tray)
 │   ├── app.py             # Orchestrator: QTimers + ApiClient + TrayIcon + Dashboard
 │   ├── client.py          # httpx API client (bearer token, connection-lost handling)
 │   ├── config.py          # TrayConfig — reads the same config.yaml
-│   ├── models.py          # Re-exports sysadmin.contracts + icon-state logic
+│   ├── models.py          # Re-exports sysadmin.core.contracts + icon-state logic
 │   ├── tray_icon.py       # Tray icon, menu, alert fingerprint tracking
 │   ├── notifications.py   # D-Bus (org.freedesktop.Notifications) notifier
 │   ├── dashboard/         # Native dashboard window: overview/services/projects/logs tabs
@@ -95,7 +106,7 @@ sysadmin_assistant/
 
 `sysadmin/main.py` exposes `create_app(lifespan_ctx=None)` which builds the real
 application: CORS middleware (origins from `service.cors_origins` in config.yaml),
-`RequestLoggingMiddleware`, a JSON 500 exception handler, all six routers, and the
+`RequestLoggingMiddleware`, a JSON 500 exception handler, all eight routers, and the
 `/api/sysadmin/scan-all` trigger endpoint. Tests build this same app with a stub
 lifespan; production uses the module-level `app = create_app()`.
 
@@ -104,7 +115,7 @@ starts services/agents → registers scheduler jobs (agent intervals from each
 agent's config; briefing/retention cron times from `schedules:` in config.yaml,
 defaults 06:00/03:00) → exposes shared instances on `app.state` → clean shutdown.
 
-### Routers (6)
+### Routers (8)
 
 | Router | Prefix | Purpose |
 |--------|--------|---------|
@@ -113,11 +124,13 @@ defaults 06:00/03:00) → exposes shared instances on `app.state` → clean shut
 | projects | `/api/projects` | Health overview/grades, stale, report, managed (projects.yaml + live health), per-project detail/todos/branches, scan |
 | files | `/api/files` | Filesystem audit status, quick-wins, duplicates, trends (+reclaimable forecast with configurable milestones), stale-cache clean, scan |
 | logs | `/api/logs` | Recent entries, stats, summaries |
+| units | `/api/units` | Service-discovery sweep and its ranked advice (GET only) |
+| services | `/api/services` | Per-service reliability scores over a rolling window |
 | summary | `/api/summary` | Single-call digest (services, alerts, resources, GPU, DND, project scores) — built for PA, now unconsumed |
 
 ### Agents — template-method pattern
 
-`agents/base.py` defines `BaseAgent`: the public `run()` template method opens a
+`core/agent.py` defines `BaseAgent`: the public `run()` template method opens a
 scheduler DB session, records a row in `agent_runs` (status/duration/findings),
 calls the subclass's abstract `_execute(session)`, and handles failures. It also
 provides `raise_alert()` / `resolve_alerts()` writing to the `alerts` table.
@@ -131,10 +144,10 @@ provides `raise_alert()` / `resolve_alerts()` writing to the `alerts` table.
 
 ### Scheduler — APScheduler bridge
 
-`services/scheduler.py` wraps APScheduler 3.x `BackgroundScheduler` (thread pool).
+`core/scheduler.py` wraps APScheduler 3.x `BackgroundScheduler` (thread pool).
 Agents are async, so jobs run through an `asyncio.run()` bridge (`_run_async`),
 giving each scheduled run its own event loop in the scheduler thread — which is
-why scheduler DB sessions use `NullPool` (see `database.py`). Interval triggers
+why scheduler DB sessions use `NullPool` (see `core/database.py`). Interval triggers
 for agents, cron triggers for briefing/retention; job defaults: coalesce,
 `max_instances=1`, 300 s misfire grace.
 
@@ -183,11 +196,11 @@ against the live DB.
 Two deliberately **dependency-light** modules (pydantic/stdlib only — no FastAPI
 or SQLAlchemy) are imported by both sides:
 
-- **`sysadmin/contracts.py`** — wire contracts for every tray-consumed endpoint.
+- **`sysadmin/core/contracts.py`** — wire contracts for every tray-consumed endpoint.
   Backend routers set them as `response_model=`; the tray parses responses with
   `Model.from_dict()` (tolerant: `extra="ignore"`, defaulted fields; parse
   failure raises `ValidationError` → tray marks connection lost).
-- **`sysadmin/defaults.py`** — canonical API host/port defaults
+- **`sysadmin/core/defaults.py`** — canonical API host/port defaults
   (`DEFAULT_API_HOST`/`DEFAULT_API_PORT`/`default_api_url()`), used by the
   backend's `ServiceConfig` and the tray's `TrayConfig` fallback.
 

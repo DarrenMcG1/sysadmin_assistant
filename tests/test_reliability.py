@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from sysadmin.services.reliability import (
+from sysadmin.monitor.reliability import (
     DOWNTIME_CAP,
     INSTABILITY_CAP,
     INSTABILITY_PER_EPISODE,

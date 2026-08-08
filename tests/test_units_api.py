@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.agents.service_discovery import ALERT_TITLE, ServiceDiscoveryAgent
-from sysadmin.models.unit_audit import UnitAudit
-from sysadmin.services.units import HOST, ORPHANED, UNMONITORED
+from sysadmin.units.agent import ALERT_TITLE, ServiceDiscoveryAgent
+from sysadmin.units.models import UnitAudit
+from sysadmin.units.scan import HOST, ORPHANED, UNMONITORED
 
 SCANNED_AT = datetime(2026, 8, 7, 9, 0, tzinfo=UTC)
 
@@ -336,7 +336,7 @@ async def test_alert_details_cap_the_examples(agent):
 def test_project_refs_include_managed_projects_outside_the_scan_root(mock_config):
     """A projects.yaml entry pointing outside projects_root still owns
     units; without it those units would be misreported as orphans."""
-    from sysadmin.config import ManagedProject, ProjectsConfig
+    from sysadmin.core.config import ManagedProject, ProjectsConfig
 
     mock_config.projects = ProjectsConfig(
         projects=[ManagedProject(name="elsewhere", path="/opt/elsewhere")]
@@ -344,7 +344,7 @@ def test_project_refs_include_managed_projects_outside_the_scan_root(mock_config
     mock_config.agents.project_organiser.projects_root = "/definitely/not/here"
 
     with patch("pathlib.Path.exists", return_value=True), patch(
-        "sysadmin.agents.service_discovery.discover_projects", return_value=[]
+        "sysadmin.units.agent.discover_projects", return_value=[]
     ):
         refs = ServiceDiscoveryAgent._project_refs(mock_config)
 
@@ -364,8 +364,8 @@ def test_the_agent_is_self_monitored():
     the monitoring service failing to monitor its own newest agent.  The
     job_id must match main.py or the stall window is computed against a
     schedule that does not exist."""
-    from sysadmin.config import AppConfig
-    from sysadmin.services.self_monitor import AGENT_NAMES, agent_schedules
+    from sysadmin.core.config import AppConfig
+    from sysadmin.monitor.self_monitor import AGENT_NAMES, agent_schedules
 
     assert "service_discovery" in AGENT_NAMES
     schedule = agent_schedules(AppConfig())["service_discovery"]
@@ -380,7 +380,7 @@ def test_the_agent_name_is_accepted_by_the_alerts_constraint():
     import importlib.util
     from pathlib import Path
 
-    from sysadmin.services.self_monitor import AGENT_NAMES
+    from sysadmin.monitor.self_monitor import AGENT_NAMES
 
     # alembic/versions is not a package — load the revision by path.
     path = (

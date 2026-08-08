@@ -53,7 +53,7 @@ def test_models_match_migrated_schema():
     from alembic.autogenerate import compare_metadata
     from alembic.migration import MigrationContext
 
-    from sysadmin.models import Base
+    from sysadmin.metadata import Base
 
     engine = create_engine(SYNC_URL)
     try:

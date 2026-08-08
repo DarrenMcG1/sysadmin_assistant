@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from sysadmin.services.scheduler import Scheduler
+from sysadmin.core.scheduler import Scheduler
 
 
 async def _noop() -> None:

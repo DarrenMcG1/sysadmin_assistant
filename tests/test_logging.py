@@ -8,8 +8,8 @@ from unittest.mock import patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from sysadmin.config import ServiceConfig
-from sysadmin.logging_setup import configure_logging
+from sysadmin.core.config import ServiceConfig
+from sysadmin.core.logging_setup import configure_logging
 
 # --- JSON formatter tests ---
 
@@ -98,8 +98,8 @@ class TestRequestLoggingMiddleware:
 
         from fastapi import FastAPI
 
-        from sysadmin.middleware import RequestLoggingMiddleware
-        from sysadmin.routers.health import router as health_router
+        from sysadmin.core.health import router as health_router
+        from sysadmin.core.middleware import RequestLoggingMiddleware
 
         @asynccontextmanager
         async def noop_lifespan(app):
@@ -126,7 +126,7 @@ class TestRequestLoggingMiddleware:
             yield c
 
     async def test_logs_request_with_correct_fields(self, client):
-        with patch("sysadmin.middleware.logger") as mock_logger:
+        with patch("sysadmin.core.middleware.logger") as mock_logger:
             await client.get("/api/sysadmin/status")
             mock_logger.info.assert_called_once()
             _, kwargs = mock_logger.info.call_args
@@ -137,7 +137,7 @@ class TestRequestLoggingMiddleware:
             assert "duration_ms" in extra
 
     async def test_excludes_health_endpoint(self, client):
-        with patch("sysadmin.middleware.logger") as mock_logger:
+        with patch("sysadmin.core.middleware.logger") as mock_logger:
             resp = await client.get("/health")
             # The real router must answer here — a 404 would mean we are
             # testing an exclusion for a path that doesn't exist
@@ -145,14 +145,14 @@ class TestRequestLoggingMiddleware:
             mock_logger.info.assert_not_called()
 
     async def test_logs_post_requests(self, client):
-        with patch("sysadmin.middleware.logger") as mock_logger:
+        with patch("sysadmin.core.middleware.logger") as mock_logger:
             await client.post("/api/sysadmin/scan-all")
             _, kwargs = mock_logger.info.call_args
             assert kwargs["extra"]["method"] == "POST"
             assert kwargs["extra"]["status"] == 200
 
     async def test_logs_404_status(self, client):
-        with patch("sysadmin.middleware.logger") as mock_logger:
+        with patch("sysadmin.core.middleware.logger") as mock_logger:
             await client.get("/nonexistent")
             _, kwargs = mock_logger.info.call_args
             assert kwargs["extra"]["status"] == 404

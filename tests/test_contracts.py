@@ -11,15 +11,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from sysadmin.contracts import (
+from sysadmin.core.contracts import (
     AlertsResponse,
     ResourceHistoryResponse,
     ResourceResponse,
     StatusResponse,
 )
-from sysadmin.models.alert import Alert
-from sysadmin.models.resource_snapshot import ResourceSnapshot
-from sysadmin.models.service_health import ServiceHealth
+from sysadmin.core.models.alert import Alert
+from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
+from sysadmin.monitor.models.service_health import ServiceHealth
 
 
 def _mock_scalars_all(mock_session, rows):
@@ -160,8 +160,8 @@ class TestRecommendationsRoundTrip:
     async def test_recommendations_parse_through_tray_contract(
         self, test_client, mock_session
     ):
-        from sysadmin.contracts import ProjectRecommendationsResponse
-        from sysadmin.models.project_snapshot import ProjectSnapshot
+        from sysadmin.core.contracts import ProjectRecommendationsResponse
+        from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 
         row = ProjectSnapshot(
             project_name="demo",
@@ -189,8 +189,8 @@ class TestRecommendationsRoundTrip:
     async def test_portfolio_actions_parse_through_tray_contract(
         self, test_client, mock_session
     ):
-        from sysadmin.contracts import PortfolioActionsResponse
-        from sysadmin.models.project_snapshot import ProjectSnapshot
+        from sysadmin.core.contracts import PortfolioActionsResponse
+        from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 
         row = ProjectSnapshot(
             project_name="demo",
@@ -215,8 +215,8 @@ class TestRecommendationsRoundTrip:
         self, test_client, mock_session
     ):
         """The file currency is megabytes, not points — a separate model."""
-        from sysadmin.contracts import FileActionsResponse
-        from sysadmin.models.filesystem_audit import FilesystemAudit
+        from sysadmin.core.contracts import FileActionsResponse
+        from sysadmin.files.models.filesystem_audit import FilesystemAudit
 
         audit = FilesystemAudit(
             scan_root="/home/gaddi",
@@ -252,8 +252,8 @@ class TestRecommendationsRoundTrip:
     async def test_disk_review_parses_through_tray_contract(
         self, test_client, mock_session
     ):
-        from sysadmin.contracts import DiskReviewResponse
-        from sysadmin.models.disk_review import DiskReview
+        from sysadmin.core.contracts import DiskReviewResponse
+        from sysadmin.files.models.disk_review import DiskReview
 
         review = DiskReview(
             period_days=7,
@@ -283,8 +283,8 @@ class TestReviewRoundTrip:
     async def test_review_parses_through_tray_contract(
         self, test_client, mock_session
     ):
-        from sysadmin.contracts import ProjectReviewResponse
-        from sysadmin.models.project_review import ProjectReview
+        from sysadmin.core.contracts import ProjectReviewResponse
+        from sysadmin.projects.models.project_review import ProjectReview
 
         row = ProjectReview(period_days=7, narrative="Weekly text.", llm_used=False)
         row.id = uuid.uuid4()
@@ -309,7 +309,7 @@ class TestReliabilityRoundTrip:
     """GET /api/services/reliability — Session 25.
 
     Parsed through ``sysadmin_tray.models`` rather than
-    ``sysadmin.contracts`` so the tray's re-export is exercised too: a
+    ``sysadmin.core.contracts`` so the tray's re-export is exercised too: a
     contract the tray cannot import is a contract the tray does not have.
     """
 

@@ -1,11 +1,11 @@
 """API response models for the tray app.
 
-The response shapes are imported from :mod:`sysadmin.contracts` — the
+The response shapes are imported from :mod:`sysadmin.core.contracts` — the
 shared pydantic contracts module used by the backend as ``response_model``
 on the same endpoints. The tray no longer hand-copies these shapes
 (root cause of SNAG-TRAY-005).
 
-``sysadmin.contracts`` is dependency-light (pydantic + stdlib only), so
+``sysadmin.core.contracts`` is dependency-light (pydantic + stdlib only), so
 importing it here does not pull FastAPI or SQLAlchemy into the tray.
 
 Defensive parsing behaviour is preserved: unknown fields are ignored,
@@ -22,7 +22,7 @@ from __future__ import annotations
 from enum import Enum
 
 # Re-exported shared contracts (imported by client, dashboard, widgets, tests)
-from sysadmin.contracts import (  # noqa: F401
+from sysadmin.core.contracts import (  # noqa: F401
     AlertInfo,
     AlertsResponse,
     CleanResultResponse,

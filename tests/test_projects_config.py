@@ -3,7 +3,7 @@
 import textwrap
 from pathlib import Path
 
-from sysadmin.config import (
+from sysadmin.core.config import (
     AppConfig,
     ManagedProject,
     MonitoredService,
@@ -361,7 +361,7 @@ class TestLoadConfigIntegration:
         """)
 
         # Reset singleton
-        import sysadmin.config as cfg
+        import sysadmin.core.config as cfg
         cfg._config = None
 
         config = load_config(config_file)
@@ -381,7 +381,7 @@ class TestLoadConfigIntegration:
               port: 8500
         """)
 
-        import sysadmin.config as cfg
+        import sysadmin.core.config as cfg
         cfg._config = None
 
         config = load_config(config_file)

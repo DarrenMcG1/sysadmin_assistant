@@ -18,21 +18,10 @@ from sqlalchemy import create_engine, pool, text
 from sqlalchemy.engine import Connection
 
 from alembic import context
-from sysadmin.config import get_config
+from sysadmin.core.config import get_config
 
 # Import all models so Alembic can detect them for autogenerate
-from sysadmin.models import (  # noqa: F401
-    AgentRun,
-    Alert,
-    Base,  # noqa: F401
-    FilesystemAudit,
-    LogEntry,
-    LogSummary,
-    ProjectSnapshot,
-    ResourceSnapshot,
-    RetentionConfig,
-    ServiceHealth,
-)
+from sysadmin.metadata import Base
 
 # Alembic Config object
 config = context.config

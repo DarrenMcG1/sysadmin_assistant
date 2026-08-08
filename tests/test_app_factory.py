@@ -49,8 +49,8 @@ class TestExceptionHandler:
         async def boom():
             raise RuntimeError("kaboom")
 
-        with patch("sysadmin.config.get_config", return_value=mock_config):
-            with patch("sysadmin.config._config", mock_config):
+        with patch("sysadmin.core.config.get_config", return_value=mock_config):
+            with patch("sysadmin.core.config._config", mock_config):
                 transport = ASGITransport(app=test_app, raise_app_exceptions=False)
                 async with AsyncClient(
                     transport=transport, base_url="http://test"
@@ -88,7 +88,7 @@ class TestResponseModelEnforcement:
     @pytest.mark.asyncio
     async def test_dnd_response_drops_uncontracted_fields(self, test_client):
         """response_model enforcement: fields outside the contract never leak."""
-        with patch("sysadmin.routers.sysadmin.dnd_manager") as mock_dnd:
+        with patch("sysadmin.monitor.routers.sysadmin.dnd_manager") as mock_dnd:
             mock_dnd.get_status.return_value = {
                 "active": True,
                 "manual_override": None,

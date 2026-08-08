@@ -18,9 +18,9 @@ from unittest.mock import patch
 
 import pytest
 
-from sysadmin.contracts import EventMessage
-from sysadmin.services.event_bus import EventBus
-from sysadmin.services.sse import (
+from sysadmin.core.contracts import EventMessage
+from sysadmin.core.event_bus import EventBus
+from sysadmin.monitor.sse import (
     HEARTBEAT,
     STREAMED_EVENTS,
     Event,
@@ -358,7 +358,7 @@ class TestEventsEndpoint:
     @pytest.mark.asyncio
     async def test_agent_events_reach_the_endpoint(self, test_app):
         """An agent publishing to the shared bus lands on a connected stream."""
-        from sysadmin.services.event_bus import event_bus
+        from sysadmin.core.event_bus import event_bus
 
         async with sse_request(test_app) as connection:
             await connection.next_chunk()  # connected
@@ -377,14 +377,14 @@ class TestEventsEndpoint:
     @pytest.mark.asyncio
     async def test_stream_is_excluded_from_the_access_log(self, test_app):
         """Long-lived streams must not reintroduce SNAG-API-002's log noise."""
-        with patch("sysadmin.middleware.logger") as mock_logger:
+        with patch("sysadmin.core.middleware.logger") as mock_logger:
             async with sse_request(test_app) as connection:
                 await connection.next_chunk()
 
             mock_logger.info.assert_not_called()
 
     def test_events_path_is_in_the_exclusion_list(self):
-        from sysadmin.middleware import _EXCLUDED_PATHS
+        from sysadmin.core.middleware import _EXCLUDED_PATHS
 
         assert EVENTS_PATH in _EXCLUDED_PATHS
 

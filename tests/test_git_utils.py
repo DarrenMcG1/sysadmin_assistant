@@ -1,4 +1,4 @@
-"""Tests for git repository inspection helpers (sysadmin.utils.git).
+"""Tests for git repository inspection helpers (sysadmin.projects.git).
 
 Uses real throwaway repos created with GitPython — no mocking of git
 itself, so branch iteration behaviour is exercised for real.
@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from git import Repo
 
-from sysadmin.utils.git import get_last_commit_date, get_repo
+from sysadmin.projects.git import get_last_commit_date, get_repo
 
 OLD_DATE = "2026-01-01 12:00:00 +0000"
 NEW_DATE = "2026-06-15 09:30:00 +0000"
@@ -97,8 +97,8 @@ class TestGetRepo:
 
     def test_unexpected_error_logged_and_returns_none(self, tmp_path, caplog):
         with (
-            patch("sysadmin.utils.git.Repo", side_effect=RuntimeError("boom")),
-            caplog.at_level(logging.WARNING, logger="sysadmin.utils.git"),
+            patch("sysadmin.projects.git.Repo", side_effect=RuntimeError("boom")),
+            caplog.at_level(logging.WARNING, logger="sysadmin.projects.git"),
         ):
             assert get_repo(tmp_path) is None
 

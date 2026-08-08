@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from sysadmin.agents.sysadmin_agent import SysAdminAgent
-from sysadmin.config import MonitoredService, Thresholds
-from sysadmin.models.resource_snapshot import ResourceSnapshot
-from sysadmin.utils.systemd import SystemdQueryError, UserBusUnavailableError
+from sysadmin.core.config import MonitoredService, Thresholds
+from sysadmin.monitor.agent import SysAdminAgent
+from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
+from sysadmin.monitor.systemd import SystemdQueryError, UserBusUnavailableError
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -151,7 +151,7 @@ class TestCheckSystemd:
     @pytest.mark.asyncio
     async def test_systemd_active(self, agent, systemd_service):
         with patch(
-            "sysadmin.agents.sysadmin_agent.get_unit_status",
+            "sysadmin.monitor.agent.get_unit_status",
             new_callable=AsyncMock,
             return_value={"is_active": True, "ActiveState": "active"},
         ):
@@ -163,7 +163,7 @@ class TestCheckSystemd:
     @pytest.mark.asyncio
     async def test_systemd_activating(self, agent, systemd_service):
         with patch(
-            "sysadmin.agents.sysadmin_agent.get_unit_status",
+            "sysadmin.monitor.agent.get_unit_status",
             new_callable=AsyncMock,
             return_value={"is_active": False, "ActiveState": "activating"},
         ):
@@ -174,7 +174,7 @@ class TestCheckSystemd:
     @pytest.mark.asyncio
     async def test_systemd_inactive_is_critical(self, agent, systemd_service):
         with patch(
-            "sysadmin.agents.sysadmin_agent.get_unit_status",
+            "sysadmin.monitor.agent.get_unit_status",
             new_callable=AsyncMock,
             return_value={"is_active": False, "ActiveState": "inactive"},
         ):
@@ -185,7 +185,7 @@ class TestCheckSystemd:
     @pytest.mark.asyncio
     async def test_systemd_error_is_unreachable(self, agent, systemd_service):
         with patch(
-            "sysadmin.agents.sysadmin_agent.get_unit_status",
+            "sysadmin.monitor.agent.get_unit_status",
             new_callable=AsyncMock,
             side_effect=RuntimeError("dbus failed"),
         ):
@@ -204,7 +204,7 @@ class TestCheckSystemd:
         timer as failed.
         """
         with patch(
-            "sysadmin.agents.sysadmin_agent.get_unit_status",
+            "sysadmin.monitor.agent.get_unit_status",
             new_callable=AsyncMock,
             side_effect=UserBusUnavailableError("systemd user bus unreachable"),
         ):
@@ -217,7 +217,7 @@ class TestCheckSystemd:
     @pytest.mark.asyncio
     async def test_failed_query_is_error(self, agent, systemd_service):
         with patch(
-            "sysadmin.agents.sysadmin_agent.get_unit_status",
+            "sysadmin.monitor.agent.get_unit_status",
             new_callable=AsyncMock,
             side_effect=SystemdQueryError("no ActiveState"),
         ):
@@ -325,7 +325,7 @@ class TestHandleStatus:
         with (
             patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra,
             patch(
-                "sysadmin.agents.sysadmin_agent.restart_unit",
+                "sysadmin.monitor.agent.restart_unit",
                 new_callable=AsyncMock,
                 return_value=(True, "restarted"),
             ) as restart_mock,
@@ -347,7 +347,7 @@ class TestHandleStatus:
         with (
             patch.object(agent, "raise_alert", new_callable=AsyncMock),
             patch(
-                "sysadmin.agents.sysadmin_agent.restart_unit",
+                "sysadmin.monitor.agent.restart_unit",
                 new_callable=AsyncMock,
             ) as restart_mock,
         ):
@@ -366,7 +366,7 @@ class TestHandleStatus:
         with (
             patch.object(agent, "raise_alert", new_callable=AsyncMock),
             patch(
-                "sysadmin.agents.sysadmin_agent.restart_unit",
+                "sysadmin.monitor.agent.restart_unit",
                 new_callable=AsyncMock,
             ) as restart_mock,
         ):
@@ -389,9 +389,9 @@ class TestResourceSnapshot:
     @pytest.mark.asyncio
     async def test_snapshot_fields(self, agent, mock_config):
         with (
-            patch("sysadmin.agents.sysadmin_agent.psutil") as mock_psutil,
+            patch("sysadmin.monitor.agent.psutil") as mock_psutil,
             patch(
-                "sysadmin.agents.sysadmin_agent.get_gpu_usage", new_callable=AsyncMock
+                "sysadmin.monitor.agent.get_gpu_usage", new_callable=AsyncMock
             ) as mock_gpu,
         ):
             mock_psutil.cpu_percent.return_value = 42.5
@@ -446,10 +446,10 @@ class TestResourceSnapshot:
             return 10.0
 
         gpu_patch = patch(
-            "sysadmin.agents.sysadmin_agent.get_gpu_usage", new_callable=AsyncMock
+            "sysadmin.monitor.agent.get_gpu_usage", new_callable=AsyncMock
         )
         with (
-            patch("sysadmin.agents.sysadmin_agent.psutil") as mock_psutil,
+            patch("sysadmin.monitor.agent.psutil") as mock_psutil,
             gpu_patch as mock_gpu,
         ):
             mock_psutil.cpu_percent.side_effect = _cpu_percent_off_loop

@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.models.alert import Alert
-from sysadmin.models.filesystem_audit import FilesystemAudit
-from sysadmin.models.resource_snapshot import ResourceSnapshot
-from sysadmin.models.service_health import ServiceHealth
+from sysadmin.core.models.alert import Alert
+from sysadmin.files.models.filesystem_audit import FilesystemAudit
+from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
+from sysadmin.monitor.models.service_health import ServiceHealth
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -246,7 +246,7 @@ class TestAlertAcknowledge:
 class TestDndEndpoints:
     @pytest.mark.asyncio
     async def test_get_dnd_status(self, test_client):
-        with patch("sysadmin.routers.sysadmin.dnd_manager") as mock_dnd:
+        with patch("sysadmin.monitor.routers.sysadmin.dnd_manager") as mock_dnd:
             mock_dnd.get_status.return_value = {
                 "active": False,
                 "manual_override": None,
@@ -260,7 +260,7 @@ class TestDndEndpoints:
 
     @pytest.mark.asyncio
     async def test_toggle_dnd_on(self, test_client):
-        with patch("sysadmin.routers.sysadmin.dnd_manager") as mock_dnd:
+        with patch("sysadmin.monitor.routers.sysadmin.dnd_manager") as mock_dnd:
             mock_dnd.get_status.return_value = {"active": True, "manual_override": True}
             resp = await test_client.post(
                 "/api/sysadmin/dnd", json={"enabled": True}
@@ -279,7 +279,7 @@ class TestPortsEndpoint:
     @pytest.mark.asyncio
     async def test_get_ports(self, test_client):
         with patch(
-            "sysadmin.routers.sysadmin.SysAdminAgent.get_port_usage",
+            "sysadmin.monitor.routers.sysadmin.SysAdminAgent.get_port_usage",
             return_value=[
                 {"port": 5432, "address": "127.0.0.1", "pid": 1234, "process": "postgres"},
             ],
@@ -304,7 +304,7 @@ class TestPortsEndpoint:
             return []
 
         with patch(
-            "sysadmin.routers.sysadmin.SysAdminAgent.get_port_usage",
+            "sysadmin.monitor.routers.sysadmin.SysAdminAgent.get_port_usage",
             side_effect=_assert_no_loop,
         ):
             resp = await test_client.get("/api/sysadmin/ports")
@@ -319,7 +319,7 @@ class TestPortsEndpoint:
 
 
 def _make_project_snapshot(name, score, findings):
-    from sysadmin.models.project_snapshot import ProjectSnapshot
+    from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 
     row = ProjectSnapshot(
         project_name=name,
@@ -431,7 +431,7 @@ class TestPortfolioActions:
 
 
 def _make_review(narrative="Fine week.", llm_used=True):
-    from sysadmin.models.project_review import ProjectReview
+    from sysadmin.projects.models.project_review import ProjectReview
 
     row = ProjectReview(period_days=7, narrative=narrative, llm_used=llm_used)
     row.id = uuid.uuid4()
@@ -465,7 +465,7 @@ class TestProjectReviewEndpoints:
         review = _make_review("Fresh review.", llm_used=False)
 
         with patch(
-            "sysadmin.routers.projects.project_review.generate_review",
+            "sysadmin.projects.router.project_review.generate_review",
             new=AsyncMock(return_value=review),
         ):
             resp = await test_client.post("/api/projects/review/generate")
@@ -478,7 +478,7 @@ class TestProjectReviewEndpoints:
     @pytest.mark.asyncio
     async def test_generate_409_without_snapshots(self, test_client, mock_session):
         with patch(
-            "sysadmin.routers.projects.project_review.generate_review",
+            "sysadmin.projects.router.project_review.generate_review",
             new=AsyncMock(return_value=None),
         ):
             resp = await test_client.post("/api/projects/review/generate")
@@ -654,7 +654,7 @@ class TestFileActions:
 
 class TestDiskReviewEndpoints:
     def _review(self, narrative="Disk /: 67.4% used.", llm_used=True):
-        from sysadmin.models.disk_review import DiskReview
+        from sysadmin.files.models.disk_review import DiskReview
 
         review = DiskReview(
             period_days=7,
@@ -692,7 +692,7 @@ class TestDiskReviewEndpoints:
         review = self._review("Fresh disk review.", llm_used=False)
 
         with patch(
-            "sysadmin.routers.files.disk_review.generate_review",
+            "sysadmin.files.router.disk_review.generate_review",
             new=AsyncMock(return_value=review),
         ):
             resp = await test_client.post("/api/files/review/generate")
@@ -706,7 +706,7 @@ class TestDiskReviewEndpoints:
     @pytest.mark.asyncio
     async def test_generate_409_without_audits(self, test_client, mock_session):
         with patch(
-            "sysadmin.routers.files.disk_review.generate_review",
+            "sysadmin.files.router.disk_review.generate_review",
             new=AsyncMock(return_value=None),
         ):
             resp = await test_client.post("/api/files/review/generate")

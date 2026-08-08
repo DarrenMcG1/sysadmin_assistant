@@ -19,11 +19,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.config import AgentsConfig, AppConfig, FileOrganiserConfig
-from sysadmin.models.alert import Alert
-from sysadmin.models.disk_review import DiskReview
-from sysadmin.models.filesystem_audit import FilesystemAudit
-from sysadmin.services.disk_review import (
+from sysadmin.core.config import AgentsConfig, AppConfig, FileOrganiserConfig
+from sysadmin.core.models.alert import Alert
+from sysadmin.files.models.disk_review import DiskReview
+from sysadmin.files.models.filesystem_audit import FilesystemAudit
+from sysadmin.files.review import (
     REVIEW_INSTRUCTIONS,
     build_facts_section,
     build_fallback_narrative,
@@ -35,7 +35,7 @@ from sysadmin.services.disk_review import (
     strip_markdown,
 )
 
-MOD = "sysadmin.services.disk_review"
+MOD = "sysadmin.files.review"
 BASE = datetime(2026, 8, 1, 12, 0, tzinfo=UTC)
 
 

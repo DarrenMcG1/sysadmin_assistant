@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from sysadmin.config import (
+from sysadmin.core.config import (
     AgentsConfig,
     AppConfig,
     DatabaseConfig,
@@ -108,8 +108,8 @@ def mock_session():
 @pytest.fixture
 def patched_config(mock_config):
     """Patch get_config() globally to return the mock config."""
-    with patch("sysadmin.config.get_config", return_value=mock_config):
-        with patch("sysadmin.config._config", mock_config):
+    with patch("sysadmin.core.config.get_config", return_value=mock_config):
+        with patch("sysadmin.core.config._config", mock_config):
             yield mock_config
 
 
@@ -146,7 +146,7 @@ def test_app(mock_config, mock_session):
     """
     from contextlib import asynccontextmanager
 
-    from sysadmin.database import get_db_session
+    from sysadmin.core.database import get_db_session
     from sysadmin.main import create_app
 
     @asynccontextmanager
@@ -167,8 +167,8 @@ def test_app(mock_config, mock_session):
 async def test_client(test_app, mock_config):
     """Async httpx client against the real app with mocked dependencies."""
     # Patch config for routers that call get_config() directly
-    with patch("sysadmin.config.get_config", return_value=mock_config):
-        with patch("sysadmin.config._config", mock_config):
+    with patch("sysadmin.core.config.get_config", return_value=mock_config):
+        with patch("sysadmin.core.config._config", mock_config):
             transport = ASGITransport(app=test_app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 yield client

@@ -12,9 +12,9 @@ import yaml
 from pydantic import BaseModel, Field
 
 # Canonical host/port defaults shared with the backend's ServiceConfig
-# (sysadmin.defaults is stdlib-only, like sysadmin.contracts — safe to
+# (sysadmin.core.defaults is stdlib-only, like sysadmin.core.contracts — safe to
 # import from the tray without pulling in backend dependencies)
-from sysadmin.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
+from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
 
 
 class TrayConfig(BaseModel):

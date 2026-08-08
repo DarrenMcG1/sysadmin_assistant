@@ -4,7 +4,7 @@ Guards against the backend and tray drifting apart on host/port, and
 pins the defaults for values that used to be hard-coded in routers/main.
 """
 
-from sysadmin.config import (
+from sysadmin.core.config import (
     AppConfig,
     FileOrganiserConfig,
     HealthGradeBands,
@@ -12,7 +12,7 @@ from sysadmin.config import (
     SchedulesConfig,
     ServiceConfig,
 )
-from sysadmin.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
+from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
 from sysadmin_tray.config import TrayConfig, load_tray_config
 
 

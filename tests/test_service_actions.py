@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from sysadmin.utils.systemd import UserBusUnavailableError
+from sysadmin.monitor.systemd import UserBusUnavailableError
 
 # Patch target: the shared helper all actions delegate to
-_CONTROL = "sysadmin.utils.systemd._control_unit"
+_CONTROL = "sysadmin.monitor.systemd._control_unit"
 
 
 class TestServiceAction:
@@ -82,7 +82,7 @@ class TestServiceAction:
 class TestServiceDetails:
     """GET /api/sysadmin/services/{name}/details."""
 
-    _STATUS = "sysadmin.routers.sysadmin.get_unit_status"
+    _STATUS = "sysadmin.monitor.routers.sysadmin.get_unit_status"
 
     @pytest.mark.asyncio
     async def test_details_returns_unit_properties(self, test_client):

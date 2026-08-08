@@ -13,11 +13,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.models.filesystem_audit import FilesystemAudit
-from sysadmin.models.log_summary import LogSummary
-from sysadmin.models.project_snapshot import ProjectSnapshot
-from sysadmin.models.service_health import ServiceHealth
-from sysadmin.services.briefing import generate_briefing_data, send_morning_briefing
+from sysadmin.briefing.data import generate_briefing_data, send_morning_briefing
+from sysadmin.files.models.filesystem_audit import FilesystemAudit
+from sysadmin.monitor.models.log_summary import LogSummary
+from sysadmin.monitor.models.service_health import ServiceHealth
+from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -78,7 +78,7 @@ def _result_first(row):
 
 
 def _review(narrative: str = "A fine week.", days_old: int = 0):
-    from sysadmin.models.project_review import ProjectReview
+    from sysadmin.projects.models.project_review import ProjectReview
 
     row = ProjectReview(period_days=7, narrative=narrative, llm_used=True)
     row.generated_at = datetime.now(UTC) - timedelta(days=days_old)
@@ -86,7 +86,7 @@ def _review(narrative: str = "A fine week.", days_old: int = 0):
 
 
 def _disk_review(narrative: str = "Disk held steady.", days_old: int = 0):
-    from sysadmin.models.disk_review import DiskReview
+    from sysadmin.files.models.disk_review import DiskReview
 
     row = DiskReview(period_days=7, narrative=narrative, llm_used=True)
     row.generated_at = datetime.now(UTC) - timedelta(days=days_old)
@@ -147,7 +147,7 @@ class TestGenerateBriefingData:
             projects=[_project("pa")],
         )
 
-        with patch("sysadmin.services.briefing.psutil.disk_usage") as mock_disk:
+        with patch("sysadmin.briefing.data.psutil.disk_usage") as mock_disk:
             mock_disk.return_value = MagicMock(percent=89.0)
             briefing = await generate_briefing_data(session)
 
@@ -201,7 +201,7 @@ class TestGenerateBriefingData:
     async def test_filesystem_section_metrics(self):
         session = _session_returning(infra=[], log=None, filesystem=_audit(), projects=[])
 
-        with patch("sysadmin.services.briefing.psutil.disk_usage") as mock_disk:
+        with patch("sysadmin.briefing.data.psutil.disk_usage") as mock_disk:
             mock_disk.return_value = MagicMock(percent=89.0)
             briefing = await generate_briefing_data(session)
 
@@ -216,7 +216,7 @@ class TestGenerateBriefingData:
         session = _session_returning(infra=[], log=None, filesystem=_audit(), projects=[])
 
         with patch(
-            "sysadmin.services.briefing.psutil.disk_usage", side_effect=OSError("no mount")
+            "sysadmin.briefing.data.psutil.disk_usage", side_effect=OSError("no mount")
         ):
             briefing = await generate_briefing_data(session)
 
@@ -262,7 +262,7 @@ def _patch_scheduler_session(session):
     async def fake_session():
         yield session
 
-    return patch("sysadmin.services.briefing.get_scheduler_session", fake_session)
+    return patch("sysadmin.briefing.data.get_scheduler_session", fake_session)
 
 
 def _project_with_roadmap(name, *, status="active", **roadmap_overrides):
@@ -385,7 +385,7 @@ class TestSendMorningBriefing:
         notifier = _mock_notifier(send_result=True)
 
         with _patch_scheduler_session(session):
-            with patch("sysadmin.services.notifier.Notifier", return_value=notifier):
+            with patch("sysadmin.monitor.notifier.Notifier", return_value=notifier):
                 await send_morning_briefing()
 
         notifier.startup.assert_awaited_once()
@@ -400,7 +400,7 @@ class TestSendMorningBriefing:
         notifier = _mock_notifier(send_result=False)
 
         with _patch_scheduler_session(session):
-            with patch("sysadmin.services.notifier.Notifier", return_value=notifier):
+            with patch("sysadmin.monitor.notifier.Notifier", return_value=notifier):
                 await send_morning_briefing()
 
         notifier.shutdown.assert_awaited_once()

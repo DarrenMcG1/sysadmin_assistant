@@ -23,16 +23,16 @@ from pathlib import Path
 import pytest
 from git import Repo
 
-from sysadmin.config import BranchActionsConfig
-from sysadmin.contracts import BranchCleanupResponse, BranchInfo
-from sysadmin.services import branch_actions
-from sysadmin.services.branch_actions import (
+from sysadmin.core.config import BranchActionsConfig
+from sysadmin.core.contracts import BranchCleanupResponse, BranchInfo
+from sysadmin.projects import branch_actions
+from sysadmin.projects.branch_actions import (
     BranchActionError,
     execute_branch_cleanup,
     plan_branch_cleanup,
     resolve_project_repo,
 )
-from sysadmin.utils.git import detect_default_branch, upstream_state, worktree_branches
+from sysadmin.projects.git import detect_default_branch, upstream_state, worktree_branches
 
 # ---------------------------------------------------------------------------
 # Throwaway repository helpers
@@ -816,7 +816,7 @@ class TestPruneApi:
     async def test_managed_project_name_resolves(
         self, mock_config, prune_client, tmp_path
     ):
-        from sysadmin.config import ManagedProject
+        from sysadmin.core.config import ManagedProject
 
         path = tmp_path / "projects" / "RealDir"
         repo = init_repo(path)

@@ -99,7 +99,7 @@ class TestScanAllRoute:
     """The scan-all route on the main app carries the auth dependency."""
 
     def test_scan_all_route_has_auth(self):
-        from sysadmin.auth import require_auth
+        from sysadmin.core.auth import require_auth
         from sysadmin.main import app
 
         route = next(

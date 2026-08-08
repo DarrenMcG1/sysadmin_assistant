@@ -18,40 +18,40 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from sysadmin import __version__
-from sysadmin.agents.file_organiser import FileOrganiserAgent
-from sysadmin.agents.log_aggregator import LogAggregatorAgent
-from sysadmin.agents.project_organiser import ProjectOrganiserAgent
-from sysadmin.agents.service_discovery import ServiceDiscoveryAgent
-
-# Agents
-from sysadmin.agents.sysadmin_agent import SysAdminAgent
-from sysadmin.auth import require_auth
-from sysadmin.config import get_config, load_config
-from sysadmin.contracts import ScanAllResponse
-from sysadmin.database import create_engine_and_session, dispose_engine, verify_connection
-from sysadmin.logging_setup import configure_logging
-from sysadmin.middleware import RequestLoggingMiddleware
-from sysadmin.routers.files import router as files_router
+from sysadmin.briefing.data import send_morning_briefing
+from sysadmin.briefing.router import router as summary_router
+from sysadmin.core.auth import require_auth
+from sysadmin.core.config import get_config, load_config
+from sysadmin.core.contracts import ScanAllResponse
+from sysadmin.core.database import create_engine_and_session, dispose_engine, verify_connection
+from sysadmin.core.event_bus import event_bus
 
 # Routers
-from sysadmin.routers.health import router as health_router
-from sysadmin.routers.logs import router as logs_router
-from sysadmin.routers.projects import router as projects_router
-from sysadmin.routers.services import router as services_router
-from sysadmin.routers.summary import router as summary_router
-from sysadmin.routers.sysadmin import router as sysadmin_router
-from sysadmin.routers.units import router as units_router
-from sysadmin.services.briefing import send_morning_briefing
-from sysadmin.services.disk_review import run_weekly_review as run_weekly_disk_review
-from sysadmin.services.dnd import dnd_manager
-from sysadmin.services.event_bus import event_bus
-from sysadmin.services.notifier import Notifier
-from sysadmin.services.project_review import run_weekly_review
-from sysadmin.services.reliability_history import record_reliability_snapshot
-from sysadmin.services.retention import run_retention
+from sysadmin.core.health import router as health_router
+from sysadmin.core.logging_setup import configure_logging
+from sysadmin.core.middleware import RequestLoggingMiddleware
+from sysadmin.core.retention import run_retention
 
 # Services
-from sysadmin.services.scheduler import Scheduler
+from sysadmin.core.scheduler import Scheduler
+from sysadmin.files.agent import FileOrganiserAgent
+from sysadmin.files.review import run_weekly_review as run_weekly_disk_review
+from sysadmin.files.router import router as files_router
+
+# Agents
+from sysadmin.monitor.agent import SysAdminAgent
+from sysadmin.monitor.dnd import dnd_manager
+from sysadmin.monitor.log_aggregator import LogAggregatorAgent
+from sysadmin.monitor.notifier import Notifier
+from sysadmin.monitor.reliability_history import record_reliability_snapshot
+from sysadmin.monitor.routers.logs import router as logs_router
+from sysadmin.monitor.routers.services import router as services_router
+from sysadmin.monitor.routers.sysadmin import router as sysadmin_router
+from sysadmin.projects.agent import ProjectOrganiserAgent
+from sysadmin.projects.review import run_weekly_review
+from sysadmin.projects.router import router as projects_router
+from sysadmin.units.agent import ServiceDiscoveryAgent
+from sysadmin.units.router import router as units_router
 
 logger = logging.getLogger(__name__)
 

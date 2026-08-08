@@ -6,7 +6,7 @@
 > *pulls* rather than receiving a push:
 >
 > ```
-> Alfred  backend/alfred/services/briefings.py → adapt_sysadmin()
+> Alfred  backend/alfred/sysadmin/briefing/data.py → adapt_sysadmin()
 >         GET http://localhost:8500/api/sysadmin/briefing/preview
 > ```
 >
@@ -189,7 +189,7 @@ briefing, leave `notifications.pa_notify.enabled: false`.
 ## Everything else that is pullable
 
 All unauthenticated GETs on :8500; response shapes pinned in
-`sysadmin/contracts.py`.
+`sysadmin/core/contracts.py`.
 
 | Data | Endpoint |
 |------|----------|

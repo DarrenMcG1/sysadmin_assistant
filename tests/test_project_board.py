@@ -11,9 +11,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sysadmin.config import ProjectOrganiserConfig
-from sysadmin.models.project_snapshot import ProjectSnapshot
-from sysadmin.services.recommendations import (
+from sysadmin.core.config import ProjectOrganiserConfig
+from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+from sysadmin.projects.recommendations import (
     STALLED_HANDOFF_DAYS,
     recommendations_for,
 )

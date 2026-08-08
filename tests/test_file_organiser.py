@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from sysadmin.agents.file_organiser import FileOrganiserAgent
-from sysadmin.config import FileOrganiserConfig
+from sysadmin.core.config import FileOrganiserConfig
+from sysadmin.files.agent import FileOrganiserAgent
 
 
 @pytest.fixture

@@ -161,13 +161,13 @@ Run `./scripts/claude-postflight.sh` to verify docs are updated.
 
 **Backend Port:** `8500`
 
-**Configuration source:** all settings live in `config.yaml` (validated by Pydantic models in `sysadmin/config.py`) plus optional `projects.yaml` for managed projects. **No environment variables are read** — there is no `.env` file. Database URLs are set under the `database:` section of `config.yaml`.
+**Configuration source:** all settings live in `config.yaml` (validated by Pydantic models in `sysadmin/core/config.py`) plus optional `projects.yaml` for managed projects. **No environment variables are read** — there is no `.env` file. Database URLs are set under the `database:` section of `config.yaml`.
 
 ---
 
 ## Contract Registry
 
-Backend↔tray response shapes live in **`sysadmin/contracts.py`** — pydantic-only
+Backend↔tray response shapes live in **`sysadmin/core/contracts.py`** — pydantic-only
 (no FastAPI/SQLAlchemy), imported by both the backend (as `response_model=`)
 and the tray (`sysadmin_tray/models.py` re-exports them). Parsing is defensive:
 unknown fields ignored, missing fields defaulted, failures raise
@@ -247,11 +247,11 @@ review here, both learned from live runs:
 
 The three `/api/files/*` action endpoints share one manifest shape and are
 **dry runs unless the request body sets `confirm: true`** — see
-`sysadmin/services/file_actions.py` for the safety rules (root confinement,
+`sysadmin/files/actions.py` for the safety rules (root confinement,
 no symlink following, no overwriting, trash instead of delete).
 
 `POST /api/projects/{name}/branches/prune` follows the same contract for git
-branches — see `sysadmin/services/branch_actions.py`. Dry run by default;
+branches — see `sysadmin/projects/branch_actions.py`. Dry run by default;
 only branches **merged into the detected default branch** are eligible, and
 deleting an unmerged one needs `include_unmerged: true` on the request **and**
 `agents.project_organiser.branch_actions.allow_unmerged_delete` in config. The

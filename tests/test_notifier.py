@@ -13,14 +13,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from sysadmin.config import (
+from sysadmin.core.config import (
     AppConfig,
     NotificationsConfig,
     PaNotificationsConfig,
     PersonalAssistantConfig,
 )
-from sysadmin.services import notifier as notifier_module
-from sysadmin.services.notifier import Notifier
+from sysadmin.monitor import notifier as notifier_module
+from sysadmin.monitor.notifier import Notifier
 
 
 def _config(enabled: bool) -> AppConfig:
@@ -57,7 +57,7 @@ class TestIntegrationDisabled:
     async def test_notification_makes_no_http_call(self, notifier_with_client):
         notifier, client = notifier_with_client
 
-        with patch("sysadmin.services.notifier.get_config", return_value=_config(False)):
+        with patch("sysadmin.monitor.notifier.get_config", return_value=_config(False)):
             result = await notifier.send_notification("critical", "Disk full", "90%")
 
         assert result is False
@@ -67,7 +67,7 @@ class TestIntegrationDisabled:
     async def test_briefing_makes_no_http_call(self, notifier_with_client):
         notifier, client = notifier_with_client
 
-        with patch("sysadmin.services.notifier.get_config", return_value=_config(False)):
+        with patch("sysadmin.monitor.notifier.get_config", return_value=_config(False)):
             result = await notifier.send_briefing_data([{"title": "Infra"}])
 
         assert result is False
@@ -78,8 +78,8 @@ class TestIntegrationDisabled:
         """Ten suppressed sends must not produce ten log records."""
         notifier, _client = notifier_with_client
 
-        with patch("sysadmin.services.notifier.get_config", return_value=_config(False)):
-            with caplog.at_level("INFO", logger="sysadmin.services.notifier"):
+        with patch("sysadmin.monitor.notifier.get_config", return_value=_config(False)):
+            with caplog.at_level("INFO", logger="sysadmin.monitor.notifier"):
                 for _ in range(10):
                     await notifier.send_notification("critical", "Disk full", "90%")
 
@@ -91,8 +91,8 @@ class TestIntegrationDisabled:
         """A retired integration is expected, so nothing above INFO is emitted."""
         notifier, _client = notifier_with_client
 
-        with patch("sysadmin.services.notifier.get_config", return_value=_config(False)):
-            with caplog.at_level("DEBUG", logger="sysadmin.services.notifier"):
+        with patch("sysadmin.monitor.notifier.get_config", return_value=_config(False)):
+            with caplog.at_level("DEBUG", logger="sysadmin.monitor.notifier"):
                 await notifier.send_notification("critical", "Disk full", "90%")
                 await notifier.send_briefing_data([{"title": "Infra"}])
 
@@ -107,7 +107,7 @@ class TestIntegrationEnabled:
     async def test_notification_posts_as_before(self, notifier_with_client):
         notifier, client = notifier_with_client
 
-        with patch("sysadmin.services.notifier.get_config", return_value=_config(True)):
+        with patch("sysadmin.monitor.notifier.get_config", return_value=_config(True)):
             result = await notifier.send_notification("critical", "Disk full", "90%")
 
         assert result is True
@@ -123,7 +123,7 @@ class TestIntegrationEnabled:
         notifier, client = notifier_with_client
         sections = [{"title": "Infrastructure Status"}]
 
-        with patch("sysadmin.services.notifier.get_config", return_value=_config(True)):
+        with patch("sysadmin.monitor.notifier.get_config", return_value=_config(True)):
             result = await notifier.send_briefing_data(sections)
 
         assert result is True

@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.agents.sysadmin_agent import SysAdminAgent
-from sysadmin.config import Thresholds
-from sysadmin.models.resource_snapshot import ResourceSnapshot
-from sysadmin.utils.gpu import (
+from sysadmin.core.config import Thresholds
+from sysadmin.monitor.agent import SysAdminAgent
+from sysadmin.monitor.gpu import (
     _parse_float,
     _parse_int,
     get_gpu_usage,
 )
+from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 
 # ---------------------------------------------------------------------------
 # Sample rocm-smi JSON data
@@ -81,10 +81,10 @@ class TestRocmSmiParsing:
         async def mock_names_communicate():
             return (SAMPLE_NAMES.encode(), b"")
 
-        with patch("sysadmin.utils.gpu.Path") as mock_path:
+        with patch("sysadmin.monitor.gpu.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
 
-            with patch("sysadmin.utils.gpu.asyncio.create_subprocess_exec") as mock_exec:
+            with patch("sysadmin.monitor.gpu.asyncio.create_subprocess_exec") as mock_exec:
                 metrics_proc = AsyncMock()
                 metrics_proc.communicate = mock_communicate
                 names_proc = AsyncMock()
@@ -104,10 +104,10 @@ class TestRocmSmiParsing:
         async def mock_names_communicate():
             return (SAMPLE_NAMES.encode(), b"")
 
-        with patch("sysadmin.utils.gpu.Path") as mock_path:
+        with patch("sysadmin.monitor.gpu.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
 
-            with patch("sysadmin.utils.gpu.asyncio.create_subprocess_exec") as mock_exec:
+            with patch("sysadmin.monitor.gpu.asyncio.create_subprocess_exec") as mock_exec:
                 metrics_proc = AsyncMock()
                 metrics_proc.communicate = mock_communicate
                 names_proc = AsyncMock()
@@ -134,10 +134,10 @@ class TestRocmSmiParsing:
         async def mock_names_communicate():
             return (SAMPLE_NAMES.encode(), b"")
 
-        with patch("sysadmin.utils.gpu.Path") as mock_path:
+        with patch("sysadmin.monitor.gpu.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
 
-            with patch("sysadmin.utils.gpu.asyncio.create_subprocess_exec") as mock_exec:
+            with patch("sysadmin.monitor.gpu.asyncio.create_subprocess_exec") as mock_exec:
                 metrics_proc = AsyncMock()
                 metrics_proc.communicate = mock_communicate
                 names_proc = AsyncMock()
@@ -150,12 +150,12 @@ class TestRocmSmiParsing:
 
     @pytest.mark.asyncio
     async def test_rocm_smi_failure_falls_back_to_sysfs(self):
-        with patch("sysadmin.utils.gpu.Path") as mock_path:
+        with patch("sysadmin.monitor.gpu.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
 
-            with patch("sysadmin.utils.gpu._from_rocm_smi", side_effect=Exception("boom")):
+            with patch("sysadmin.monitor.gpu._from_rocm_smi", side_effect=Exception("boom")):
                 with patch(
-                    "sysadmin.utils.gpu._from_sysfs",
+                    "sysadmin.monitor.gpu._from_sysfs",
                     return_value={"card0": {"name": "sysfs"}},
                 ) as mock_sysfs:
                     result = await get_gpu_usage()
@@ -165,9 +165,9 @@ class TestRocmSmiParsing:
 
     @pytest.mark.asyncio
     async def test_no_rocm_smi_uses_sysfs(self):
-        with patch("sysadmin.utils.gpu.Path") as mock_path:
+        with patch("sysadmin.monitor.gpu.Path") as mock_path:
             mock_path.return_value.exists.return_value = False
-            with patch("sysadmin.utils.gpu._from_sysfs", return_value={}) as mock_sysfs:
+            with patch("sysadmin.monitor.gpu._from_sysfs", return_value={}) as mock_sysfs:
                 result = await get_gpu_usage()
 
         assert result == {}

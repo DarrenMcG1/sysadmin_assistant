@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from sysadmin.services.forecast import ThresholdProjection
+from sysadmin.files.forecast import ThresholdProjection
 from sysadmin_tray.models import (
     FileQuickWins,
     FileStatusResponse,

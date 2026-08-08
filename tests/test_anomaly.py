@@ -10,10 +10,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.agents.sysadmin_agent import SysAdminAgent
-from sysadmin.config import AnomalyConfig, Thresholds
-from sysadmin.models.resource_snapshot import ResourceSnapshot
-from sysadmin.services.anomaly import (
+from sysadmin.core.config import AnomalyConfig, Thresholds
+from sysadmin.monitor.agent import SysAdminAgent
+from sysadmin.monitor.anomaly import (
     Anomaly,
     detect_anomalies,
     mean,
@@ -21,6 +20,7 @@ from sysadmin.services.anomaly import (
     stdev,
     z_score,
 )
+from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 
 # ---------------------------------------------------------------------------
 # Helpers

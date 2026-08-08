@@ -30,7 +30,7 @@ Two parameters:
 - `?include_inactive=true` adds dormant and archived projects, which the
   page should not use — see §5.
 
-Response (`ProjectBoardResponse` in `sysadmin/contracts.py` — that file is
+Response (`ProjectBoardResponse` in `sysadmin/core/contracts.py` — that file is
 the contract, this is the summary):
 
 ```json
@@ -92,7 +92,7 @@ not today's task. Render it as a decision, not a to-do:
 > `[ Resume ]` `[ Mark dormant ]`
 
 Threshold is 30 days, defined once in
-`sysadmin/services/recommendations.STALLED_HANDOFF_DAYS`. Don't
+`sysadmin/projects/recommendations.STALLED_HANDOFF_DAYS`. Don't
 re-implement it — read the `stalled` boolean.
 
 ### `open_tasks: null` is not zero

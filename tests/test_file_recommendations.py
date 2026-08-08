@@ -15,14 +15,14 @@ from __future__ import annotations
 
 import pytest
 
-from sysadmin.config import FileOrganiserConfig
-from sysadmin.services.file_recommendations import (
+from sysadmin.core.config import FileOrganiserConfig
+from sysadmin.files.forecast import ThresholdProjection
+from sysadmin.files.recommendations import (
     CACHE_DIR_TYPES,
     RISK_HORIZON_DAYS,
     recommendations_for_audit,
     total_reclaimable_mb,
 )
-from sysadmin.services.forecast import ThresholdProjection
 
 
 @pytest.fixture

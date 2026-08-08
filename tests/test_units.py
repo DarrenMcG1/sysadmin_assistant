@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from sysadmin.services.units import (
+from sysadmin.units.scan import (
     HOST,
     ORPHANED,
     UNMONITORED,

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.services.retention import (
+from sysadmin.core.retention import (
     TABLE_TIMESTAMP_MAP,
     _downsample_resources,
     run_retention,
@@ -88,7 +88,7 @@ class TestRunRetention:
 
         mock_session.execute = AsyncMock(side_effect=tracked_execute)
 
-        with patch("sysadmin.services.retention.get_scheduler_session") as ctx:
+        with patch("sysadmin.core.retention.get_scheduler_session") as ctx:
             ctx.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             ctx.return_value.__aexit__ = AsyncMock(return_value=False)
             await run_retention()
@@ -122,7 +122,7 @@ class TestRunRetention:
 
         mock_session.execute = AsyncMock(side_effect=tracking_execute)
 
-        with patch("sysadmin.services.retention.get_scheduler_session") as ctx:
+        with patch("sysadmin.core.retention.get_scheduler_session") as ctx:
             ctx.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             ctx.return_value.__aexit__ = AsyncMock(return_value=False)
             await run_retention()
@@ -151,7 +151,7 @@ class TestRunRetention:
 
         mock_session.execute = AsyncMock(side_effect=tracking_execute)
 
-        with patch("sysadmin.services.retention.get_scheduler_session") as ctx:
+        with patch("sysadmin.core.retention.get_scheduler_session") as ctx:
             ctx.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             ctx.return_value.__aexit__ = AsyncMock(return_value=False)
             await run_retention()

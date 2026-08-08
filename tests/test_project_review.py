@@ -12,11 +12,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.config import AgentsConfig, AppConfig, ProjectOrganiserConfig
-from sysadmin.models.alert import Alert
-from sysadmin.models.project_review import ProjectReview
-from sysadmin.models.project_snapshot import ProjectSnapshot
-from sysadmin.services.project_review import (
+from sysadmin.core.config import AgentsConfig, AppConfig, ProjectOrganiserConfig
+from sysadmin.core.models.alert import Alert
+from sysadmin.projects.models.project_review import ProjectReview
+from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+from sysadmin.projects.review import (
     REVIEW_INSTRUCTIONS,
     build_fallback_narrative,
     build_movers_section,
@@ -26,7 +26,7 @@ from sysadmin.services.project_review import (
     run_weekly_review,
 )
 
-MOD = "sysadmin.services.project_review"
+MOD = "sysadmin.projects.review"
 
 
 def _snapshot(name, score, findings=None, scanned_days_ago=0):

@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.models.alert import Alert
-from sysadmin.models.project_snapshot import ProjectSnapshot
-from sysadmin.models.resource_snapshot import ResourceSnapshot
-from sysadmin.models.service_health import ServiceHealth
+from sysadmin.core.models.alert import Alert
+from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
+from sysadmin.monitor.models.service_health import ServiceHealth
+from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 
 
 def _make_health(name: str, status: str = "ok") -> ServiceHealth:
@@ -83,7 +83,7 @@ class TestSummaryEndpoint:
             [_make_project("myapp", 85)],       # projects
         ])
 
-        with patch("sysadmin.routers.summary.dnd_manager") as mock_dnd:
+        with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:
             mock_dnd.get_status.return_value = {"active": False}
             resp = await test_client.get("/api/summary")
 
@@ -105,7 +105,7 @@ class TestSummaryEndpoint:
             [],
         ])
 
-        with patch("sysadmin.routers.summary.dnd_manager") as mock_dnd:
+        with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:
             mock_dnd.get_status.return_value = {"active": False}
             resp = await test_client.get("/api/summary")
 
@@ -117,7 +117,7 @@ class TestSummaryEndpoint:
     async def test_empty_state(self, test_client, mock_session):
         _mock_multi_queries(mock_session, [[], [], None, []])
 
-        with patch("sysadmin.routers.summary.dnd_manager") as mock_dnd:
+        with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:
             mock_dnd.get_status.return_value = {"active": False}
             resp = await test_client.get("/api/summary")
 
@@ -136,7 +136,7 @@ class TestSummaryEndpoint:
             [],
         ])
 
-        with patch("sysadmin.routers.summary.dnd_manager") as mock_dnd:
+        with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:
             mock_dnd.get_status.return_value = {"active": False}
             resp = await test_client.get("/api/summary")
 

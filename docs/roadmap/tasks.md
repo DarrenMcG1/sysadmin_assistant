@@ -562,6 +562,20 @@ stays open: the package is only worth its weight once `discover_projects` and
 the three readers of `projects_root` are pointed at it, and until then it is a
 second implementation of the thing it exists to deduplicate.
 
+**Phase 2 landed 2026-08-08** — the module boundary. 62 modules moved into
+`core/`, `monitor/`, `projects/`, `files/`, `units/` and `briefing/`, with
+`tests/test_import_boundary.py` enforcing that monitor never imports projects.
+Routes unchanged (55 → 55), suite 1509 → 1512. The registry is still unwired:
+`units/agent.py` continues to import `discover_projects` from
+`projects/agent.py`, which is one of the two edges Phase 1 exists to remove.
+
+> **Note on the STATUS.md "Next up" paragraph**: it records the module split as
+> *considered and rejected on 2026-08-06*, on the grounds that it would
+> duplicate `discover_projects`. The split was subsequently directed as Session
+> 35 Phase 2 and has landed; the duplication objection does not apply, because
+> `units/` imports that function rather than copying it. The rejection note is
+> now stale and should be rewritten or removed.
+
 - [ ] **Extract the pure inspection layer** into a top-level package in this
       repository, installed as a path dependency: `utils/git.py`,
       `discover_projects`, `services/roadmap.py`, and the manifest reader
