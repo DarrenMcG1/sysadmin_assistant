@@ -8,17 +8,64 @@ above is when work last happened, not when Claude last ran._
 
 ## Next action
 
-Session 24: File organiser tiers — disk instead of portfolio → The model ignores the 150-word limit (final live narrative ran  _(from docs/roadmap/tasks.md)_
+Take Session 34 and fix the twelve project-side defects, starting with SNAG-PROJ-003/004 because the alerts table now holds 601,410 unresolved rows and retention only purges resolved ones.
 
-## Uncommitted at session end
+## Session 35 is complete
 
-     M docs/sessions/handoff.md
+All six phases landed and are committed. The registry owns project
+identity, `services.yaml` owns service topology, `projects.yaml` is
+retired, `estate.json` is emitted on every scan, and the organiser runs
+from its own timer.
 
-## Commits today
+- `sysadmin/` is seven packages; `monitor` may not import `projects`,
+  enforced by `tests/test_import_boundary.py`
+- 16 `.project.yaml` manifests carry 20 recorded decisions
+- 55 routes before and after, every path identical
+- Suite 1441 → 1565, ruff and mypy clean
 
-    93cb648 feat(projects): emit estate.json on every scan (Session 35 Phase 5)
-    e4165f6 refactor(registry): retire projects.yaml (Session 35 Phase 4)
-    1960a11 feat(monitor): wire services.yaml into the live monitor (Session 35 Phase 3b)
-    81af41a feat(registry): project manifests and services.yaml (Session 35 Phase 3a)
-    9421088 docs(status): the module split is reversed, not rejected
-    512af01 refactor: split the backend into domain packages (Session 35 Phase 2)
+Reasoning is in [ADR-0001](../adr/0001-project-registry.md).
+
+## Wanted next, in order
+
+1. **Session 34** — twelve project-side defects, three P1. The alert
+   figure below makes SNAG-PROJ-003/004 the place to start.
+2. **SNAG-ROADMAP-003** (filed today) — three handoff conventions exist
+   across the estate and the scanner knows two, so two active projects
+   have their next action read from an 850-byte stub while a 6 KB and a
+   141 KB record sit unread. It compounds SNAG-ROADMAP-001.
+3. **25b/25c, 26b, 27** — the monitoring track, unchanged and
+   independent of the above.
+
+## Found today, not acted on
+
+- **The alerts table is 142 MB with 601,410 unresolved rows**, oldest
+  2026-02-06: 547,864 from the log aggregator (SNAG-AGENT-002, one alert
+  per error line), 51,881 from the sysadmin agent, 1,664 from the
+  organiser. Retention purges **resolved** rows only, so none of this
+  expires. The `sysadmin` schema is 797 MB. Decide what happens to the
+  existing rows before shipping any resolve fix, or the size is
+  permanent.
+- **PostgreSQL reports a collation version mismatch** on the `projects`
+  database — created under 2.43, the OS now provides 2.44. Every query
+  warns. Text indexes built under the old collation can be subtly wrong
+  until reindexed. Outside this session's scope; nobody has looked at it.
+
+## Pending ops actions
+
+- `sudo systemctl restart sysadmin.service` — the daemon has been up
+  since 2026-08-07 and holds the pre-Session-35 config, so it is still
+  scanning on the retired 6-hourly schedule and has not seen
+  `services.yaml`
+- `systemctl --user enable sportsanalyser-backend.service`
+- The estate cleanup Session 26 surfaced: 11 orphaned units to remove and
+  7 host units to wire, exact commands from `GET /api/units/actions`
+
+## Left deliberately
+
+- `docs/projects-registry-legacy.yaml` cannot be deleted yet: one comment
+  records the removal of a project that no longer exists, so there is no
+  manifest to move it into
+- 9 repositories remain `undeclared`, 8 of them under `archive/`. That is
+  a reportable state, not a gap to close silently
+- `archive/Portfolio` and `archive/portfolio` derive the same provisional
+  id; declaring either resolves it
