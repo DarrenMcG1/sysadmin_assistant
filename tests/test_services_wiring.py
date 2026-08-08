@@ -182,3 +182,64 @@ class TestLogSourceDeduplication:
             LogSource(name="kernel", type="journalctl", unit="kernel"),
         ])
         assert [s.name for s in LogAggregatorAgent._sources(agent_config)] == ["kernel"]
+
+
+class TestTimerPropertiesAreActuallyFetched:
+    """The coupling that made timer inspection inert on the first attempt.
+
+    ``_timer_facts`` reads properties out of whatever ``get_unit_status``
+    returns, and ``get_unit_status`` asks systemctl for a fixed list. The
+    two agreed only by accident, and when they stopped agreeing the check
+    still reported ``ok`` — it simply recorded nothing. Nothing failed, so
+    nothing said so.
+    """
+
+    def test_every_property_timer_facts_reads_is_requested(self):
+        import inspect
+
+        from sysadmin.monitor import systemd
+        from sysadmin.monitor.agent import _TIMER_PROPS
+
+        source = inspect.getsource(systemd.get_unit_status)
+        missing = [prop for prop in _TIMER_PROPS if f'"{prop}"' not in source]
+        assert not missing, (
+            "get_unit_status does not request: " + ", ".join(missing) +
+            " — _timer_facts would silently record nothing"
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_timer_that_has_fired_records_its_last_run(self, agent):
+        svc = ServiceEntry(name="nightly", kind="timer",
+                           systemd={"unit": "nightly.timer"})
+        with patch(_UNIT_STATUS, new_callable=AsyncMock, return_value={
+            "is_active": True,
+            "ActiveState": "active",
+            "SubState": "waiting",
+            "LastTriggerUSec": "Sat 2026-08-08 08:00:01 BST",
+            "NextElapseUSecRealtime": "Sun 2026-08-09 08:00:00 BST",
+            "Result": "success",
+        }):
+            status, _, details = await agent._check_service(svc)
+
+        assert status == "ok"
+        assert details["last_run"] == "Sat 2026-08-08 08:00:01 BST"
+        assert details["next_run"] == "Sun 2026-08-09 08:00:00 BST"
+        assert details["last_result"] == "success"
+        assert details["last_run_recorded"] is True
+
+    @pytest.mark.asyncio
+    async def test_an_armed_timer_that_has_never_fired_is_still_ok(self, agent):
+        """A newly installed timer is active and waiting with no last run.
+        That is correct, not a fault."""
+        svc = ServiceEntry(name="fresh", kind="timer",
+                           systemd={"unit": "fresh.timer"})
+        with patch(_UNIT_STATUS, new_callable=AsyncMock, return_value={
+            "is_active": True, "SubState": "waiting",
+            "LastTriggerUSec": "", "Result": "success",
+            "NextElapseUSecRealtime": "Sun 2026-08-09 04:33:53 BST",
+        }):
+            status, _, details = await agent._check_service(svc)
+
+        assert status == "ok"
+        assert details["last_run_recorded"] is False
+        assert details["next_run"]

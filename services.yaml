@@ -177,6 +177,19 @@ services:
     systemd: { unit: sysadmin.service, scope: system }
     log: { type: journalctl, severity_filter: warning }
 
+  # The organiser's own schedule, installed 2026-08-08. It runs the
+  # project scan outside this service so the two do not share a fate, and
+  # monitoring the timer is what replaces the daemon's self-monitor watch
+  # over that agent — `agents.project_organiser.enabled: false` in
+  # config.yaml means the daemon no longer schedules it and so can no
+  # longer tell whether it ran.
+  - project: sysadmin-assistant
+    name: sysadmin-organiser-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: sysadmin-organiser.timer, scope: user }
+    controllable: false
+
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any
   # repository, which is what the unit sweep already calls a host unit.

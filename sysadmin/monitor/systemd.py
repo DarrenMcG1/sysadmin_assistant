@@ -141,9 +141,15 @@ async def get_unit_status(unit: str, user: bool = False) -> dict:
             for a unit that does not exist (``LoadState=not-found``), so a
             non-zero exit really does mean the query failed.
     """
+    # The timer properties are requested for every unit, not just timers:
+    # systemctl omits the ones that do not apply, so asking costs nothing
+    # and a second call to fetch them would double the subprocess count
+    # for the estate's six timers.  ``Result`` is meaningful for services
+    # too — it is how a oneshot reports the outcome of its last run.
     props = [
         "ActiveState", "SubState", "MainPID",
         "MemoryCurrent", "CPUUsageNSec", "LoadState",
+        "LastTriggerUSec", "NextElapseUSecRealtime", "Result",
     ]
     prop_args = ",".join(props)
 
