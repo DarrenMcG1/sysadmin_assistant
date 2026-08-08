@@ -1,0 +1,6 @@
+schema: 1
+id: sysadmin-assistant
+name: sysadmin_assistant
+category: null
+status: active
+decisions: []

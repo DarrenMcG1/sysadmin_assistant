@@ -24,9 +24,12 @@ class ServiceHealth(UUIDPrimaryKeyMixin, Base):
         # 'error' means the *check* failed (misconfigured, or systemctl
         # could not be queried) — distinct from 'critical'/'unreachable',
         # which are claims about the service itself. See migration 003.
+        # 'skipped' is a service services.yaml says not to check — a
+        # static or oneshot unit, or monitor: false. Distinct again from
+        # 'error': nobody looked, rather than looking failed. Migration 009.
         CheckConstraint(
             "status IN ('ok', 'degraded', 'warning', 'critical', "
-            "'unreachable', 'error')",
+            "'unreachable', 'error', 'skipped')",
             name="chk_health_status",
         ),
         Index("idx_service_health_name_time", "service_name", checked_at.desc()),

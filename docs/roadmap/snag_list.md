@@ -4,13 +4,15 @@
 >
 > **Related**: [tasks.md](tasks.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-07
+> **Last Updated**: 2026-08-08
 
 ---
 
 ## Open Issues
 
-_Seventeen open snags. Three were found on 2026-08-07 by the consumer — Alfred now
+_Eighteen open snags. `SNAG-ROADMAP-003` was found on 2026-08-08 while
+writing the `.project.yaml` manifests: three handoff conventions exist across
+the estate and the scanner reads two of them. Three were found on 2026-08-07 by the consumer — Alfred now
 renders `briefing/preview` daily and is building a page on `/api/projects/board`,
 so producer-side content defects have a reader for the first time. Twelve more
 (`SNAG-PROJ-001`…`012`) came from the project-organiser capability audit of the
@@ -35,6 +37,13 @@ same day; none were fixed during the audit, and all are owned by
   - **Cause**: Two compounding faults in [`roadmap.py`](../../sysadmin/services/roadmap.py). (1) `next_action_from_handoff`'s **first branch — the "next" heading path — never calls `is_placeholder` at all**; the detector is only wired into `first_unchecked_task` (lines 162, 166), which is the *fallback*. The deliberately-signalled path is the unguarded one. (2) Even adding the call there would not catch this line, because `_first_meaningful` strips leading/trailing underscores (`re.sub(r"^_+|_+$", "", line)`) **before** returning, and `_PLACEHOLDER_RES[0]` is `^_.*_$` — the strip removes precisely the marks the rule matches on. Verified: `is_placeholder("_No unchecked task found…_")` → `True`; `is_placeholder(_first_meaningful([same]))` → `False`
   - **Impact**: Narrower than it looks — `~/.claude/hooks/generate-handoff.sh` emits this italic line, so it will recur on every repo whose session ended without an unchecked task, and always with `source: handoff`. That is the value the guide tells consumers to "show plainly — this is the real thing", which is exactly backwards here. The right outcome is the row being **omitted**, which the builder already does for projects with no action
   - **Fix**: Run `is_placeholder` on the raw line before `_first_meaningful` normalises it (or have `_first_meaningful` return both raw and cleaned), and call it on the "next" heading path. Worth adding the generated line's own wording to `_PLACEHOLDER_RES` as a belt-and-braces rule, since it is emitted by a hook this box controls
+
+- [P2] SNAG-ROADMAP-003: Three handoff conventions exist on this box; the scanner knows two, and prefers the wrong one twice (2026-08-08)
+  - **Symptom**: `HANDOFF_PATHS` in [`roadmap.py`](../../sysadmin/projects/roadmap.py) is `("docs/sessions/handoff.md", "docs/roadmap/handoff.md")`. The estate actually uses **four** locations. `venture-assistant` keeps a **6,044-byte `HANDOFF.md` at its root** (2026-08-07) and `ImbaBots` a **141,096-byte `docs/handoff.md`** (2026-08-07); neither path is a candidate, so neither file is ever read. Both repos *also* carry a `docs/sessions/handoff.md` of 851 and 882 bytes — the SessionEnd hook's generated stub — and that is the file the scanner picks up. **The next action for two active projects is derived from an 850-byte stub while a 6 KB and a 141 KB record sit unread beside it**
+  - **Cause**: Two separate faults. (1) The candidate tuple is incomplete — `HANDOFF.md` and `docs/handoff.md` are both real shapes in the wild and neither is listed. (2) `_read` returns **the first candidate that reads**, which makes precedence a function of tuple order rather than of which document is current. `Alfred` has both listed candidates: `docs/sessions/handoff.md` (815 B, 2026-08-07) wins over `docs/roadmap/handoff.md` (3,150 B, 2026-07-11). That one happens to be right, by luck of ordering rather than by rule
+  - **Impact**: Reaches every consumer of `next_action` — the board, `Pick This Up` in the briefing, `GET /api/projects/actions`, and the planned `GET /api/projects/next`. It compounds `SNAG-ROADMAP-001`: the stub the scanner prefers is exactly the file that carries the unfilled-placeholder line, so the two faults together publish a template's apology while the real handoff is invisible. `ImbaBots`'s 141 KB `docs/handoff.md` is an append-log, which is the shape [Session 32](tasks.md) is blocked on wanting
+  - **Fix**: Add `HANDOFF.md` and `docs/handoff.md` to the candidates, then **stop letting tuple order decide**: when more than one candidate exists, pick by modification time and record the also-rans, so a repo with two handoffs is a reportable finding rather than a silent choice. The comment above `HANDOFF_PATHS` claims "Alfred keeps its handoff in `docs/roadmap/`" — Alfred now has both and the scanner reads the other one, so the comment is stale and should go with the fix
+  - **Note**: The duplicates are worth resolving on the estate side too, but that is 3 repos' housekeeping and separate from the scanner accepting what is there. Raised by the estate owner on 2026-08-08
 
 - [P2] SNAG-ROADMAP-002: `count_open_snags` miscounts a document that groups or cross-references its snags (2026-08-07)
   - **Symptom**: Two independent miscounts, both found while filing the twelve entries below. (1) A `###` sub-heading *inside* `## Open Issues` hid every snag under it — the count read 4 when 16 were open. (2) Once that was fixed the count read **21 for 16 snags**, because five nested `- **Cause**:` bullets happened to mention another snag's id

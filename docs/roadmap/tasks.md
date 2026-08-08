@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-07
+> **Last Updated**: 2026-08-08
 
 ---
 
@@ -561,6 +561,16 @@ clean, suite 1441 → 1509. **Nothing imports it yet**, so every checkbox below
 stays open: the package is only worth its weight once `discover_projects` and
 the three readers of `projects_root` are pointed at it, and until then it is a
 second implementation of the thing it exists to deduplicate.
+
+**Phase 3, first half, landed 2026-08-08** — 16 `.project.yaml` manifests
+(written by `scripts/migrate_registry.py`, pulled forward from Phase 4 because
+Phase 3 cannot validate ids that do not exist yet), `services.yaml` with no
+paths, `sysadmin/monitor/services.py`, and migration 009 adding `'skipped'`.
+**Nothing reads services.yaml yet** — the wiring is the second half and it
+changes monitoring behaviour: 8 http checks gain a unit assertion, 5 systemd
+checks become `kind: timer`, `venture-chat-large` appears as a new declared-
+but-skipped service, and the duplicate ingestion of `sysadmin.service` under
+two log-source names has to be resolved one way or the other.
 
 **Phase 2 landed 2026-08-08** — the module boundary. 62 modules moved into
 `core/`, `monitor/`, `projects/`, `files/`, `units/` and `briefing/`, with

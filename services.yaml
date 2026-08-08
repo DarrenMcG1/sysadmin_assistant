@@ -1,0 +1,206 @@
+# What this host runs, and how each thing is checked.
+#
+# Replaces the runtime half of projects.yaml (backend/frontend endpoints)
+# and the agents.sysadmin.services block in config.yaml. Projects are
+# referenced by `project:` id, resolved through sysadmin/registry against
+# the .project.yaml manifests. There are deliberately no paths in this
+# file: an id that names nothing fails at load, a path that names nothing
+# fails silently, and this estate has been bitten by the latter twice.
+#
+# `kind` decides the check:
+#   http     poll `url`, and assert the unit is active when one is named
+#   tcp      open a socket to host:port
+#   systemd  assert the unit is active
+#   timer    assert the TIMER is active and inspect its last run; the
+#            service it triggers is never checked
+#   oneshot  never check active state — inactive between runs by design
+#   static   never check — pulled up on demand, not expected to be running
+#
+# `monitor: false` suppresses checking entirely and REQUIRES a `reason`.
+# `systemd.scope` is user or system and defaults to **user**: most units
+# here are user units, and the old `user: true` opt-in meant an omission
+# sent the check to the system bus, where the unit is simply unknown and
+# the failure is silent.
+#
+# Service `name` values are the historical ones. They are the key in
+# service_health, reliability scores and the tray's mute list, so renaming
+# one to something tidier (`alfred` -> `alfred-backend`) would orphan its
+# history. `role` carries the tidier label instead.
+
+schema: 1
+
+services:
+
+  # --- Alfred ---------------------------------------------------------
+  # Four services, which is why three of them lived in config.yaml until
+  # now: projects.yaml could model a backend and a frontend and nothing
+  # else, so the inference server and both timers were exiled with
+  # comments explaining that they belonged to a project the file could
+  # not express.
+  - project: alfred
+    name: alfred
+    role: backend
+    kind: http
+    url: http://localhost:8100/api/health   # /health and /api/v1/health both 404
+    port: 8100
+    systemd: { unit: alfred-backend.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
+  - project: alfred
+    name: alfred-frontend
+    role: frontend
+    kind: http
+    url: http://localhost:3100              # Nuxt/Nitro
+    port: 3100
+    systemd: { unit: alfred-frontend.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
+  - project: alfred
+    name: llama-server
+    role: inference
+    kind: http
+    url: http://localhost:8081/health
+    port: 8081
+    systemd: { unit: alfred-inference.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
+  # Nightly evaluation. The service is Type=oneshot and therefore
+  # inactive/dead between runs, so the timer is what carries the signal —
+  # an inactive timer genuinely means the schedule has stopped.
+  - project: alfred
+    name: alfred-evaluate-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: alfred-evaluate.timer, scope: user }
+    controllable: false
+
+  # Daily 08:20 career-mail ingest. Offset from alfred-evaluate's 08:00
+  # because both touch the dGPU. The service is `static` by design — no
+  # [Install], driven solely by its timer.
+  - project: alfred
+    name: alfred-career-mail-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: alfred-career-mail.timer, scope: user }
+    controllable: false
+
+  # --- SportsAnalyser -------------------------------------------------
+  # Dormant since 2026-08-06, but the services are still running and
+  # still worth alerting on, so they stay monitored.
+  - project: sports-analyser
+    name: sports_analyser
+    role: backend
+    kind: http
+    url: http://localhost:8200/api/v1/health
+    port: 8200
+    systemd: { unit: sportsanalyser-backend.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
+  - project: sports-analyser
+    name: sports_analyser-frontend
+    role: frontend
+    kind: http
+    url: http://localhost:3200              # Next.js
+    port: 3200
+    systemd: { unit: sportsanalyser-frontend.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
+  - project: sports-analyser
+    name: sportsanalyser-pipeline-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: sportsanalyser-pipeline.timer, scope: user }
+    controllable: false
+
+  # --- venture-assistant ----------------------------------------------
+  # Five services. The real FastAPI backend claimed port 8300 on
+  # 2026-08-07; /api/health answers 200 even when the llama servers are
+  # down ("degraded" in the body), so a failing check means the API
+  # itself is dead.
+  - project: venture-assistant
+    name: venture-assistant
+    role: backend
+    kind: http
+    url: http://localhost:8300/api/health
+    port: 8300
+    systemd: { unit: venture-assistant-backend.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
+  # Port 8080 is llama.cpp's default and the most contended port on this
+  # box. Recorded in the registry, but should move to 83xx when the llama
+  # units are next touched.
+  - project: venture-assistant
+    name: venture-chat
+    role: inference
+    kind: http
+    url: http://localhost:8080/health
+    port: 8080
+    systemd: { unit: venture-chat.service, scope: user }
+
+  - project: venture-assistant
+    name: venture-embed
+    role: inference
+    kind: http
+    url: http://localhost:8082/health
+    port: 8082
+    systemd: { unit: venture-embed.service, scope: user }
+
+  - project: venture-assistant
+    name: venture-enrich-nightly-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: venture-enrich-nightly.timer, scope: user }
+    controllable: false
+
+  # Pulled up only by venture-enrich-nightly for the 02:00 drain and
+  # stopped by its ExecStopPost. Previously absent from every config file
+  # rather than declared, which made "deliberately not watched"
+  # indistinguishable from "nobody wired it up".
+  - project: venture-assistant
+    name: venture-chat-large
+    role: inference
+    kind: static
+    monitor: false
+    reason: >-
+      pulled up by venture-enrich-nightly for the 02:00 drain and stopped
+      by its ExecStopPost; inactive between runs by design
+    systemd: { unit: venture-chat-large.service, scope: user }
+
+  # --- This service ---------------------------------------------------
+  # A system unit, unlike almost everything else here.
+  - project: sysadmin-assistant
+    name: sysadmin-service
+    role: backend
+    kind: http
+    url: http://localhost:8500/health
+    port: 8500
+    systemd: { unit: sysadmin.service, scope: system }
+    log: { type: journalctl, severity_filter: warning }
+
+  # --- Host services --------------------------------------------------
+  # No `project:`. These belong to the machine rather than to any
+  # repository, which is what the unit sweep already calls a host unit.
+  - name: postgresql
+    kind: systemd
+    systemd: { unit: postgresql.service, scope: system }
+    controllable: false
+    log: { type: journalctl, severity_filter: error }
+
+  - name: networkmanager
+    kind: systemd
+    systemd: { unit: NetworkManager.service, scope: system }
+    controllable: false
+
+  # Reachability probe. Deliberately has no unit: nothing on this machine
+  # serves it, which is why `kind: http` asserts a unit only when one is
+  # named.
+  - name: internet
+    kind: http
+    url: https://1.1.1.1/cdn-cgi/trace
+
+  # The only database backup on the box. `controllable: false` because
+  # start/stop here would arm or disarm the schedule.
+  - name: pgbackrest-backup-timer
+    kind: timer
+    systemd: { unit: pgbackrest-backup.timer, scope: system }
+    controllable: false
