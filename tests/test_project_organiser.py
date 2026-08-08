@@ -62,6 +62,12 @@ class TestAnalyseProject:
         stack = ExitStack()
         stack.enter_context(patch(f"{mod}.get_repo", return_value=repo))
         stack.enter_context(patch(f"{mod}.get_last_commit_date", return_value=last_commit))
+        # Staleness is measured from the code commit; with nothing
+        # ignored the two dates are the same, which is the case every
+        # test here is about.
+        stack.enter_context(
+            patch(f"{mod}.get_last_code_commit_date", return_value=(last_commit, 0))
+        )
         stack.enter_context(patch(f"{mod}.get_branches", return_value=branches or ["main"]))
         stack.enter_context(patch(f"{mod}.get_stale_branches", return_value=stale_branches or []))
         stack.enter_context(patch(f"{mod}.has_remote", return_value=has_remote))

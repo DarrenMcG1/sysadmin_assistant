@@ -18,8 +18,11 @@ from typing import Any
 
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
+from sysadmin.monitor.services import get_services, services_by_project
+from sysadmin.projects.estate import build_estate, estate_path, write_atomic
 from sysadmin.projects.git import (
     get_branches,
+    get_last_code_commit_date,
     get_last_commit_date,
     get_repo,
     get_repo_size_mb,
@@ -66,6 +69,7 @@ class ProjectOrganiserAgent(BaseAgent):
 
         alerts_raised = 0
         undeclared = 0
+        scored: dict[str, tuple[dict, int]] = {}
 
         for entry in registry.entries:
             if not entry.declared:
@@ -75,6 +79,7 @@ class ProjectOrganiserAgent(BaseAgent):
                 self._analyse_project, entry.path, agent_config, entry.status
             )
             session.add(snapshot)
+            scored[str(entry.path)] = (snapshot.findings, snapshot.health_score)
 
             threshold = self._effective_threshold(entry, agent_config)
             if snapshot.health_score < threshold:
@@ -90,14 +95,45 @@ class ProjectOrganiserAgent(BaseAgent):
                 )
                 alerts_raised += 1
 
+        estate_written = await asyncio.to_thread(
+            self._emit_estate, registry, agent_config, scored
+        )
+
         return AgentResult(
             findings_count=len(registry.entries),
             alerts_raised=alerts_raised,
             details={
                 "projects_scanned": len(registry.entries),
                 "undeclared": undeclared,
+                "estate": str(estate_written) if estate_written else None,
             },
         )
+
+    @staticmethod
+    def _emit_estate(registry, agent_config, scored) -> Path | None:
+        """Write estate.json for this run.
+
+        Failure here never fails the scan. The snapshots are already in
+        the session and are the durable record; estate.json is a
+        re-projection of them for consumers outside this repository, and
+        losing one run of it is a smaller problem than losing the scan
+        that produced it.
+        """
+        settings = agent_config.estate
+        if not settings.enabled:
+            return None
+
+        try:
+            services = services_by_project(get_services())
+            payload = build_estate(
+                registry, services, settings.code_commit_ignore, scored
+            )
+            return write_atomic(
+                estate_path(settings.path, agent_config.projects_root), payload
+            )
+        except Exception:  # noqa: BLE001 - reported, never fatal to the scan
+            logger.exception("estate_write_failed")
+            return None
 
     @staticmethod
     def _effective_threshold(entry, agent_config) -> int:
@@ -134,12 +170,40 @@ class ProjectOrganiserAgent(BaseAgent):
         # Git analysis
         repo = get_repo(project_path)
         last_commit_at = None
+        newest_commit_at = None
+        ignored_commits = 0
         branch_count = 0
         stale_branch_count = 0
         has_remote_flag = False
 
         if repo:
-            last_commit_at = get_last_commit_date(repo)
+            # Staleness is measured from the last commit that changed real
+            # work.  A single sweep across forty repositories left every
+            # one of them looking touched on the same day, which is the
+            # opposite of what the figure is for.  ``last_commit_at`` on
+            # the snapshot therefore carries the *code* date — every
+            # downstream staleness reading is derived from that column —
+            # and the true newest commit is recorded beside it in
+            # ``findings`` so the difference is visible, not applied
+            # behind the reader's back.
+            newest_commit_at = get_last_commit_date(repo)
+            last_commit_at, ignored_commits = get_last_code_commit_date(
+                repo,
+                agent_config.estate.code_commit_ignore.message_patterns,
+                agent_config.estate.code_commit_ignore.shas,
+                agent_config.estate.code_commit_ignore.max_walk,
+            )
+            if ignored_commits:
+                findings["git"] = {
+                    "last_commit": (
+                        newest_commit_at.date().isoformat()
+                        if newest_commit_at else None
+                    ),
+                    "last_code_commit": (
+                        last_commit_at.date().isoformat() if last_commit_at else None
+                    ),
+                    "ignored_commits": ignored_commits,
+                }
             branches = get_branches(repo)
             branch_count = len(branches)
             stale_branches = get_stale_branches(repo, agent_config.stale_branch_days)

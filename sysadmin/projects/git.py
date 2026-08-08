@@ -2,6 +2,8 @@
 
 import logging
 import os
+import re
+from collections.abc import Collection, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -233,3 +235,135 @@ def get_repo_size_mb(path: Path) -> int:
     except (PermissionError, OSError):
         pass
     return total // (1024 * 1024)
+
+
+#: Extension → language, for the estate's ``languages`` field.  A ranking
+#: by file count, not a claim about proportions of anything.
+LANGUAGE_BY_SUFFIX = {
+    ".py": "python", ".ts": "typescript", ".tsx": "typescript",
+    ".js": "javascript", ".jsx": "javascript", ".vue": "vue",
+    ".gd": "gdscript", ".c": "c", ".h": "c", ".cpp": "cpp", ".hpp": "cpp",
+    ".rs": "rust", ".go": "go", ".sql": "sql", ".sh": "shell",
+    ".java": "java", ".kt": "kotlin", ".cs": "csharp", ".rb": "ruby",
+    ".php": "php", ".swift": "swift", ".dart": "dart", ".lua": "lua",
+    ".html": "html", ".css": "css", ".scss": "css",
+}
+
+#: Directories never walked when counting languages — generated code and
+#: vendored dependencies would otherwise decide the answer.
+_LANGUAGE_SKIP = frozenset({
+    ".git", "node_modules", "__pycache__", ".venv", "venv", "build",
+    "dist", ".next", ".nuxt", "target", ".godot", "vendor", ".mypy_cache",
+    ".pytest_cache", "site-packages", ".tox", "coverage",
+})
+
+_CI_PATHS = (".github/workflows", ".gitlab-ci.yml", ".circleci", "Jenkinsfile")
+_TEST_DIRS = ("tests", "test", "spec", "__tests__")
+
+
+def is_ignored_commit(
+    commit: Any, patterns: Sequence[Any], shas: Collection[str]
+) -> bool:
+    """Whether a commit is estate housekeeping rather than work.
+
+    Matched on the subject line only.  A body can quote anything,
+    including the subject of the commit it is reverting, and a rule that
+    reads the body would exclude commits that mention the bulk one.
+    """
+    if commit.hexsha in shas or commit.hexsha[:12] in shas:
+        return True
+    if not patterns:
+        return False
+    lines = str(commit.message).splitlines() if commit.message else []
+    subject = lines[0].strip() if lines else ""
+    return any(pattern.search(subject) for pattern in patterns)
+
+
+def get_last_code_commit_date(
+    repo: Repo,
+    message_patterns: Sequence[str] = (),
+    shas: Collection[str] = (),
+    max_walk: int = 200,
+) -> tuple[datetime | None, int]:
+    """``(date, skipped)`` for the newest commit that changed real work.
+
+    Returns the true last commit date when nothing is ignored, so a
+    repository the rule does not touch costs one comparison and behaves
+    exactly as before.  ``skipped`` is reported rather than swallowed:
+    "this project's newest three commits were all estate housekeeping" is
+    the kind of thing worth seeing once and never guessing at.
+    """
+    patterns = [re.compile(p, re.IGNORECASE) for p in message_patterns if p]
+    ignored = {s.strip() for s in shas if s.strip()}
+    skipped = 0
+
+    try:
+        for commit in repo.iter_commits(max_count=max_walk):
+            if is_ignored_commit(commit, patterns, ignored):
+                skipped += 1
+                continue
+            stamp = datetime.fromtimestamp(commit.committed_date, tz=UTC)
+            return stamp, skipped
+    except (ValueError, OSError):
+        # Unborn HEAD, or a repository whose objects cannot be read.
+        return None, skipped
+    except Exception:  # noqa: BLE001 - GitPython raises broadly on bad refs
+        return None, skipped
+
+    return None, skipped
+
+
+def detect_languages(path: Path, limit: int = 4) -> list[str]:
+    """The languages present, most files first."""
+    counts: dict[str, int] = {}
+    for dirpath, dirnames, filenames in os.walk(path):
+        dirnames[:] = [
+            d for d in dirnames if d not in _LANGUAGE_SKIP and not d.startswith(".")
+        ]
+        for name in filenames:
+            language = LANGUAGE_BY_SUFFIX.get(Path(name).suffix.lower())
+            if language:
+                counts[language] = counts.get(language, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [language for language, _ in ranked[:limit]]
+
+
+def detect_signals(path: Path) -> dict[str, bool]:
+    """Whether each of the estate's documentation and tooling markers exists."""
+    return {
+        "claude_md": (path / "CLAUDE.md").is_file(),
+        "readme": (path / "README.md").is_file(),
+        "docs": (path / "docs").is_dir(),
+        "tests": any((path / hint).is_dir() for hint in _TEST_DIRS),
+        "ci": any((path / candidate).exists() for candidate in _CI_PATHS),
+    }
+
+
+def current_branch(repo: Repo) -> str | None:
+    try:
+        return repo.active_branch.name
+    except (TypeError, ValueError):
+        return None
+    except Exception:  # noqa: BLE001 - detached HEAD, unborn branch
+        return None
+
+
+def commit_count(repo: Repo) -> int:
+    try:
+        return sum(1 for _ in repo.iter_commits())
+    except Exception:  # noqa: BLE001 - unborn HEAD
+        return 0
+
+
+def is_dirty(repo: Repo) -> bool:
+    try:
+        return bool(repo.is_dirty(untracked_files=False))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def remote_url(repo: Repo) -> str | None:
+    try:
+        return repo.remotes.origin.url
+    except Exception:  # noqa: BLE001 - no origin
+        return None

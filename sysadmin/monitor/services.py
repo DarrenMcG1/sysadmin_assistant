@@ -288,6 +288,20 @@ def load_services(
     return parsed
 
 
+def services_by_project(services: ServicesFile) -> dict[str, list[str]]:
+    """Project id → the names of its services, in declaration order.
+
+    Names only. estate.json publishes which services a project owns, not
+    where they listen — embedding urls and units would make it a second
+    place to edit when a port moves.
+    """
+    grouped: dict[str, list[str]] = {}
+    for entry in services.services:
+        if entry.project:
+            grouped.setdefault(entry.project, []).append(entry.name)
+    return grouped
+
+
 def log_sources(services: ServicesFile) -> list[LogSource]:
     """The journal sources declared alongside the services that emit them.
 

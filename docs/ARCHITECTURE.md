@@ -61,6 +61,7 @@ and its outbound integration is now dormant (see "PA integration" below).
 sysadmin_assistant/
 ├── config.yaml            # All runtime configuration (validated by sysadmin/core/config.py)
 ├── services.yaml          # Every service, keyed by project id, no paths
+│                          # (the organiser writes estate.json into projects_root)
 │                          # (projects.yaml retired -> docs/projects-registry-legacy.yaml)
 ├── sysadmin/              # Backend package (PyPI name: sysadmin-service)
 │   ├── main.py            # create_app() factory + lifespan + module-level app

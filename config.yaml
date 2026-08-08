@@ -174,6 +174,30 @@ agents:
       neglected_min: 40
     alert_threshold: 40  # global health floor; override per project in projects.yaml
     max_todo_penalty: 30  # ceiling on the TODO/FIXME deduction (null = uncapped)
+    # estate.json — the scanner's output contract, rewritten on every run.
+    # Versioned and written atomically (temp file + rename) because it is
+    # read by things this repository does not own. `health` inside it is
+    # derived each run from the same rubric the board uses and is never
+    # stored there, so scoring can change without a migration.
+    estate:
+      enabled: true
+      path: estate.json          # relative paths resolve against projects_root
+      # Commits that touched a repository without being work in it. A
+      # single sweep across forty repos leaves every one looking active on
+      # the same day, which is the opposite of what a staleness figure is
+      # for. Two exist here and neither is a variant of the other, so this
+      # is a list: with only the reorganisation snapshot, the roadmap
+      # fan-out still shadows it and eleven projects read as touched last
+      # week. Every staleness figure downstream is computed from
+      # last_code_commit; last_commit is still published beside it so the
+      # difference is visible rather than applied silently.
+      code_commit_ignore:
+        message_patterns:
+          - "WIP snapshot before ~/projects reorganisation"
+          - "^Add roadmap document set$"
+        shas: []
+        max_walk: 200
+
     branch_actions:  # POST /api/projects/{name}/branches/prune — dry run unless confirm=true
       enabled: true
       protected_branches:  # globs never deleted (the default branch is protected regardless)

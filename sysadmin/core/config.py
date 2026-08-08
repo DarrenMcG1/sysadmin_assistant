@@ -199,6 +199,66 @@ class BranchActionsConfig(BaseModel):
     min_stale_days: int = 7
 
 
+class CodeCommitIgnoreConfig(BaseModel):
+    """Commits that touched a repository without being work in it.
+
+    A single ``git commit -am`` across forty repositories leaves every one
+    of them looking active on the same day.  This estate has two such
+    commits, from the 2026-08-04/05 ``~/projects`` reorganisation, and
+    before they were excluded every dormant project read as touched four
+    days ago — which is the opposite of what a staleness figure is for.
+
+    ``message_patterns`` are matched against the commit subject
+    (case-insensitive, unanchored) and any one matching excludes the
+    commit.  ``shas`` pins specific commits when a pattern would be too
+    broad.
+
+    A *list* rather than the single regex first sketched, because this
+    estate has two such sweeps and neither is a variation of the other:
+    the reorganisation snapshot, and the fan-out that wrote a roadmap
+    document set into eleven repositories.  With only the first, the
+    second still shadows it — the newest commit in eleven projects would
+    be a document set, and the walk would stop there having skipped
+    nothing.
+
+    Only the *date* is affected. Nothing is rewritten and no commit is
+    hidden — ``last_commit`` still reports the true newest commit beside
+    ``last_code_commit``, so the difference between them is visible rather
+    than silently applied.
+    """
+
+    message_patterns: list[str] = Field(
+        default_factory=lambda: [
+            r"WIP snapshot before ~/projects reorganisation",
+            r"^Add roadmap document set$",
+        ]
+    )
+    shas: list[str] = Field(default_factory=list)
+    #: How far back to walk before giving up and reporting no code commit.
+    #: A repository whose entire history is ignored commits is a real case
+    #: (the empty shells), and an unbounded walk on a 400-commit repo for
+    #: every scan is not worth the certainty.
+    max_walk: int = 200
+
+
+class EstateConfig(BaseModel):
+    """``estate.json`` — the scanner's output contract.
+
+    Versioned and written atomically because it is read by things this
+    repository does not own.  ``health`` inside it is derived on every run
+    and never persisted, so the scoring rules can change without a
+    migration and without a stale score outliving them.
+    """
+
+    enabled: bool = True
+    #: Written beside the projects it describes.  Relative paths resolve
+    #: against ``projects_root``.
+    path: str = "estate.json"
+    code_commit_ignore: CodeCommitIgnoreConfig = Field(
+        default_factory=CodeCommitIgnoreConfig
+    )
+
+
 class ProjectOrganiserConfig(BaseModel):
     enabled: bool = True
     scan_interval_hours: int = 6
@@ -228,6 +288,7 @@ class ProjectOrganiserConfig(BaseModel):
     # reporting anything about the rest of its health.  ``None`` = no cap.
     max_todo_penalty: int | None = 30
     branch_actions: BranchActionsConfig = Field(default_factory=BranchActionsConfig)
+    estate: EstateConfig = Field(default_factory=EstateConfig)
 
 
 class FileActionsConfig(BaseModel):

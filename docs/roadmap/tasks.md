@@ -562,6 +562,13 @@ stays open: the package is only worth its weight once `discover_projects` and
 the three readers of `projects_root` are pointed at it, and until then it is a
 second implementation of the thing it exists to deduplicate.
 
+**Phase 5 complete 2026-08-08.** `estate.json` is emitted on every organiser
+run, versioned and written atomically, with `last_code_commit` separated from
+`last_commit` and every downstream staleness figure derived from the former.
+The ignore rule needed **two** patterns, not one — the roadmap-document fan-out
+of 2026-08-06 is newer than the reorganisation snapshot and shadowed it.
+Remaining for Phase 6: the organiser's own user timer, and the ADR.
+
 **Phase 4 complete 2026-08-08.** projects.yaml is retired to
 `docs/projects-registry-legacy.yaml` and nothing reads it. The registry removed
 the last `units -> projects` import. Remaining: **delete the legacy file** once
