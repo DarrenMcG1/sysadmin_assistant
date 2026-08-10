@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-08
+> **Last Updated**: 2026-08-10
 
 ---
 
@@ -556,14 +556,27 @@ Write-ups archived under "Fixed Issues" in [snag_list.md](snag_list.md).
 
 **Follow-up this session revealed** — not part of the twelve:
 
-- [ ] **Startup schema-revision check** ([SNAG-DB-001](snag_list.md)). The live
-      database was at Alembic **008** while the repository head was 009 —
-      migration 009 was committed on 2026-08-08 and never applied, and nothing
-      compares the two. The pending `sudo systemctl restart sysadmin.service`
-      would have hit a CHECK constraint violation on every `skipped` health
-      write. Compare `alembic_version` against the packaged head at startup and
-      fail loudly; serving against a schema the code was not written for is
-      worse than not starting
+**[SNAG-DB-001](snag_list.md) — the un-applied migration that blacked out
+monitoring for 39 hours.** Fixed by applying it; the three detection gaps that
+let it run that long are not, and are the real work. In order of value:
+
+- [ ] **Fail startup on a schema-revision mismatch.** Nothing applies
+      migrations here — no script, no `ExecStartPre`, no CI step — and nothing
+      checks. `verify_connection` proves the database answers, not that it is
+      the schema this code was written for. Compare `alembic_version` against
+      the packaged head and refuse to start: serving against a schema the code
+      does not match is worse than not starting, and this incident is the proof
+- [ ] **Isolate the per-service health write.** `SysAdminAgent._execute` adds
+      all nineteen services to one session and commits once, so a single
+      rejected row aborted the whole transaction — one deliberately-unmonitored
+      service cost the other eighteen their check for 39 hours. A savepoint per
+      service, or a failed row recorded as `error` rather than aborting, would
+      have turned a total blackout into one missing tile
+- [ ] **Alert on consecutive agent-run failures.** The daemon logged
+      `agent_run_failed` every five minutes for ~18 hours of uptime and nothing
+      read it. `agent_runs` already records every failure with its status;
+      nothing watches the column. Note the shape of the problem: the agent that
+      raises alerts is the one that was failing, so this cannot live inside it
 - [ ] **A live-database test path for the shared snapshot query.** The suite
       mocks every session, so the freshness filter's *effect* is unobservable
       — `tests/test_project_snapshots_query.py` asserts the predicate compiles

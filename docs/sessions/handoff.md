@@ -8,7 +8,7 @@ above is when work last happened, not when Claude last ran._
 
 ## Next action
 
-Take Session 36 and build the briefing envelope, now that 34 and 35 have both cleared the way.
+Close the three SNAG-DB-001 detection gaps before Session 36, because an un-applied migration blacked out health monitoring for 39 hours and nothing reported it.
 
 ## Session 34 is complete
 
@@ -40,27 +40,54 @@ archived under "Fixed Issues" in
 
 ## Found this session, not on the list
 
-**SNAG-DB-001 (P1, fixed same day): the live database was three
-migrations behind and nothing noticed.** `alembic current` reported
-**008**; the repository head was 009, written on 2026-08-08 and never
-applied. Migration 009 adds `'skipped'` to `chk_health_status`, which
-`services.yaml`'s `kind: static`, `kind: oneshot` and `monitor: false`
-entries all record — so the pending `sudo systemctl restart
-sysadmin.service` would have produced a constraint violation on every
-such write. It had not bitten only because the daemon has been up since
-2026-08-07 holding the pre-services.yaml config; zero `skipped` rows
-exist, which confirms it. 009, 010 and 011 are now applied.
+**SNAG-DB-001 (P0, fixed same day): an un-applied migration had blacked
+out health monitoring for 39 hours, and nothing said so.**
 
-The restart is safe to do now.
+**Zero rows were written to `service_health` between 2026-08-08 17:34:54
+and 2026-08-10 09:07:25.** Applying the migration is what resumed them.
+
+Three causes, each survivable alone:
+
+1. `alembic current` reported **008**; the head was 009. Migration 009
+   adds `'skipped'` to `chk_health_status`, was written 2026-08-08 and
+   never applied. **Nothing applies migrations** — no script, no
+   `ExecStartPre`, no CI step.
+2. `sysadmin.service` restarted at 17:36 on 2026-08-08 and picked up the
+   new `services.yaml`, where `venture-chat-large` is `kind: static` /
+   `monitor: false` and so records `skipped`.
+3. **One rejected row killed all nineteen services.** The health writes
+   share one session and one commit, so the constraint violation aborted
+   the whole transaction.
+
+Nothing noticed because each thing that could have, couldn't: the daemon
+logged `agent_run_failed` every five minutes (29 times this morning) and
+nothing reads it; `verify_connection` checks that the database answers,
+not that it matches this code; and the drift guard skips
+`alembic_version` *and* uses `compare_metadata`, which does not diff
+CHECK constraints — confirmed by restoring the old constraint in a
+rolled-back transaction and getting an empty diff. **The alerting path
+was the thing that broke, so it could not report itself.**
+
+I found this by accident, chasing why the drift guard was green — not by
+anything designed to catch it. Correct the instinct this creates: the
+fix applied here (`alembic upgrade head`) addresses this instance and
+none of the three reasons it ran for 39 hours. Those are in tasks.md.
+
+**Earlier in this session I described this as "latent, not yet
+realised".** That was wrong, and came from repeating STATUS.md's stale
+note that the daemon had held pre-services.yaml config since 2026-08-07
+rather than checking `systemctl status`. It had restarted at 06:37 that
+morning.
 
 ## Wanted next, in order
 
-1. **Session 36** — the briefing envelope, with `facts{}` beside the
+1. **The three SNAG-DB-001 detection gaps**, ahead of Session 36. A
+   39-hour blackout in the monitoring service's own core function
+   outranks a briefing format: fail startup on a revision mismatch,
+   isolate the per-service health write so one bad row cannot cost the
+   other eighteen, and alert on consecutive agent-run failures.
+2. **Session 36** — the briefing envelope, with `facts{}` beside the
    prose so briefings can be diffed. Unblocked for the first time.
-2. **A startup schema-revision check** (the SNAG-DB-001 follow-up).
-   Compare `alembic_version` against the packaged head and fail loudly:
-   serving against a schema the code was not written for is worse than
-   not starting.
 3. **SNAG-ROADMAP-003** — three handoff conventions exist on this box,
    the scanner knows two, and prefers the wrong one twice.
 4. **SNAG-AGENT-002** — the log aggregator raises one alert per error
@@ -79,8 +106,10 @@ integration test is filed in [tasks.md](../roadmap/tasks.md).
 
 ## Pending ops actions
 
-- `sudo systemctl restart sysadmin.service` — the daemon has held stale
-  config since 2026-08-07. Now safe (see SNAG-DB-001).
+- ~~`sudo systemctl restart sysadmin.service`~~ — **already done**, at
+  06:37 on 2026-08-10, and it is what triggered SNAG-DB-001. The note
+  claiming the daemon held stale config since 2026-08-07 was stale
+  itself.
 - `systemctl --user enable sportsanalyser-backend.service`
 - The estate cleanup Session 26 surfaced: **11 orphaned systemd units**
   to remove and **7 host units** (including `pgbackrest-backup`, the
