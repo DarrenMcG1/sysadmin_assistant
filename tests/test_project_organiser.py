@@ -316,6 +316,9 @@ class TestAlertThreshold:
         )
         session = MagicMock()
         session.add = MagicMock()
+        # The scan now closes alerts it did not re-raise (SNAG-PROJ-003),
+        # so execute() must be awaitable even when nothing is resolved.
+        session.execute = AsyncMock(return_value=MagicMock(rowcount=0))
 
         mod = "sysadmin.projects.agent"
         with (
@@ -473,6 +476,7 @@ class TestArchivedAlerts:
             findings={},
         )
         session = MagicMock()
+        session.execute = AsyncMock(return_value=MagicMock(rowcount=0))
 
         mod = "sysadmin.projects.agent"
         with (
@@ -484,3 +488,351 @@ class TestArchivedAlerts:
 
         alert.assert_not_awaited()
 
+
+
+# ---------------------------------------------------------------------------
+# Marker scanning — SNAG-PROJ-007/008/009
+#
+# All three defects made the score say something the surfaces could not
+# explain: HACK and XXX cost points and appeared in no column, a repo's
+# own snag list counted towards its own penalty, and the documented cap
+# was grep's per-file limit rather than a total.
+# ---------------------------------------------------------------------------
+
+
+class TestMarkerScanExclusions:
+    def test_markdown_is_not_scanned(self, agent, tmp_path):
+        """Writing up a snag must not lower the score of the repo writing it."""
+        proj = tmp_path / "documented"
+        proj.mkdir()
+        (proj / "snag_list.md").write_text("- TODO: fix the thing\n- TODO: and this")
+
+        assert agent._count_todos(proj, ["TODO"])["TODO"] == 0
+
+    def test_code_is_still_scanned(self, agent, tmp_path):
+        """Guard against the test above passing because nothing is scanned."""
+        proj = tmp_path / "coded"
+        proj.mkdir()
+        (proj / "main.py").write_text("# TODO: fix the thing")
+
+        assert agent._count_todos(proj, ["TODO"])["TODO"] == 1
+
+    def test_yaml_is_still_scanned(self, agent, tmp_path):
+        proj = tmp_path / "configured"
+        proj.mkdir()
+        (proj / "config.yaml").write_text("# TODO: raise the timeout")
+
+        assert agent._count_todos(proj, ["TODO"])["TODO"] == 1
+
+
+class TestMarkerScanWordBoundaries:
+    """``TODO`` is a marker; ``TODO_STATES`` is an identifier."""
+
+    @pytest.mark.parametrize(
+        ("line", "expected"),
+        [
+            ("# TODO: implement", 1),
+            ("# TODO implement", 1),
+            ("x = 1  # TODO", 1),
+            ("TODO_STATES = ['a']", 0),
+            ("print(TODOS)", 0),
+            ("class TodoList: pass", 0),
+        ],
+    )
+    def test_only_whole_words_count(self, agent, tmp_path, line, expected):
+        proj = tmp_path / "words"
+        proj.mkdir()
+        (proj / "main.py").write_text(line)
+
+        assert agent._count_todos(proj, ["TODO"])["TODO"] == expected
+
+
+class TestMarkerScanCap:
+    def test_cap_is_a_project_total_not_a_per_file_limit(self, agent, tmp_path):
+        """``-m 1000`` bounded each file; 300 files could return 300,000."""
+        proj = tmp_path / "swamped"
+        proj.mkdir()
+        per_file = agent._MAX_MATCHES_PER_FILE
+        files = (agent._MAX_MATCHES_PER_PATTERN // per_file) + 2
+        for i in range(files):
+            (proj / f"mod{i}.py").write_text("# TODO: x\n" * per_file)
+
+        findings: dict = {}
+        counts = agent._count_todos(proj, ["TODO"], findings)
+
+        assert counts["TODO"] == agent._MAX_MATCHES_PER_PATTERN
+        assert findings["todo_scan_truncated"] == ["TODO"]
+
+    def test_an_uncapped_scan_records_no_truncation(self, agent, tmp_path):
+        proj = tmp_path / "modest"
+        proj.mkdir()
+        (proj / "main.py").write_text("# TODO: x\n# TODO: y")
+
+        findings: dict = {}
+        agent._count_todos(proj, ["TODO"], findings)
+
+        assert "todo_scan_truncated" not in findings
+
+
+class TestAllMarkersAreRecorded:
+    def test_hack_and_xxx_reach_findings(self, agent, agent_config, project_dir):
+        """The penalty is levied on all four patterns, so all four are stored."""
+        agent_config.todo_patterns = ["TODO", "FIXME", "HACK", "XXX"]
+        (project_dir / "nasty.py").write_text("# HACK: temporary\n# XXX: revisit")
+
+        mod = "sysadmin.projects.agent"
+        with (
+            patch(f"{mod}.get_repo", return_value=None),
+            patch(f"{mod}.get_repo_size_mb", return_value=1),
+        ):
+            snapshot = agent._analyse_project(project_dir, agent_config)
+
+        assert snapshot.findings["todos"]["HACK"] == 1
+        assert snapshot.findings["todos"]["XXX"] == 1
+
+    def test_named_columns_still_mean_what_they_say(
+        self, agent, agent_config, project_dir
+    ):
+        """``todo_count`` counts TODOs — not "all markers"."""
+        agent_config.todo_patterns = ["TODO", "FIXME", "HACK"]
+        (project_dir / "nasty.py").write_text("# HACK: one\n# HACK: two")
+
+        mod = "sysadmin.projects.agent"
+        with (
+            patch(f"{mod}.get_repo", return_value=None),
+            patch(f"{mod}.get_repo_size_mb", return_value=1),
+        ):
+            snapshot = agent._analyse_project(project_dir, agent_config)
+
+        assert snapshot.findings["todos"]["HACK"] == 2
+        assert snapshot.todo_count == 1  # the one in main.py
+        assert snapshot.fixme_count == 0
+
+
+# ---------------------------------------------------------------------------
+# Alert resolution — SNAG-PROJ-003/004
+#
+# The organiser raised on every six-hourly scan and never resolved, so
+# 1,664 rows were live and unresolvable by 2026-08-07. Retention purges
+# resolved alerts only, so none of them would ever have expired.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+class TestAlertResolution:
+    async def _run(self, agent, tmp_path, *, score, resolved_rows=0):
+        from sysadmin.core.config import (
+            AgentsConfig,
+            AppConfig,
+            ProjectOrganiserConfig,
+        )
+
+        project = tmp_path / "demo"
+        project.mkdir(exist_ok=True)
+        (project / ".git").mkdir(exist_ok=True)
+
+        config = AppConfig(
+            agents=AgentsConfig(
+                project_organiser=ProjectOrganiserConfig(
+                    projects_root=str(tmp_path), alert_threshold=40
+                )
+            ),
+        )
+        snapshot = MagicMock(
+            project_name="demo",
+            project_path=str(project),
+            health_score=score,
+            findings={},
+        )
+        session = MagicMock()
+        session.execute = AsyncMock(
+            return_value=MagicMock(rowcount=resolved_rows)
+        )
+
+        mod = "sysadmin.projects.agent"
+        with (
+            patch(f"{mod}.get_config", return_value=config),
+            patch.object(agent, "_analyse_project", return_value=snapshot),
+            patch.object(agent, "raise_alert", new=AsyncMock()),
+        ):
+            result = await agent._execute(session)
+        return session, result
+
+    async def test_every_scan_attempts_a_resolve(self, agent, tmp_path):
+        """Not only when something recovered — a vanished project never does."""
+        session, _ = await self._run(agent, tmp_path, score=90)
+
+        session.execute.assert_awaited_once()
+
+    async def test_resolved_count_is_reported(self, agent, tmp_path):
+        _, result = await self._run(agent, tmp_path, score=90, resolved_rows=7)
+
+        assert result.details["alerts_resolved"] == 7
+
+    async def test_a_still_failing_project_is_excluded_from_the_resolve(
+        self, agent, tmp_path
+    ):
+        """Its alert was raised moments ago in this same transaction."""
+        session, _ = await self._run(agent, tmp_path, score=10)
+
+        sql = str(session.execute.await_args.args[0])
+        assert "title NOT IN" in sql
+
+    async def test_a_clean_scan_resolves_without_an_exclusion(
+        self, agent, tmp_path
+    ):
+        """Nothing failing means every open health alert is stale."""
+        session, _ = await self._run(agent, tmp_path, score=90)
+
+        sql = str(session.execute.await_args.args[0])
+        assert "title NOT IN" not in sql
+        assert "title LIKE" in sql
+
+    async def test_only_this_agents_health_alerts_are_touched(
+        self, agent, tmp_path
+    ):
+        """The log aggregator's 547,882 rows are a different defect."""
+        session, _ = await self._run(agent, tmp_path, score=90)
+
+        sql = str(session.execute.await_args.args[0])
+        assert "alerts.agent =" in sql
+        assert "resolved IS false" in sql
+
+
+class TestAlertTitleHasOneSource:
+    """A hand-written resolve pattern that matches nothing is invisible."""
+
+    def test_raise_and_resolve_derive_from_the_same_function(self):
+        from sysadmin.projects.agent import _ALERT_TITLE_LIKE, _alert_title
+
+        title = _alert_title("demo")
+        prefix, suffix = _ALERT_TITLE_LIKE.split("%")
+
+        assert title.startswith(prefix) and title.endswith(suffix)
+
+
+# ---------------------------------------------------------------------------
+# What `archived` actually waives — SNAG-PROJ-011/012
+#
+# Three places described archived projects as exempt from git hygiene
+# generally. They are not: `archived` waives the stale-branch deduction
+# and the staleness deduction, and nothing else. Alert suppression, by
+# contrast, is stronger than the docs implied — absolute, at any score.
+# ---------------------------------------------------------------------------
+
+
+class TestArchivedWaivesExactlyTwoDeductions:
+    def _analyse(self, agent, agent_config, project_dir, status, **git):
+        mod = "sysadmin.projects.agent"
+        repo = MagicMock()
+        last_commit = datetime.now(UTC) - timedelta(
+            days=git.pop("last_commit_days_ago", 5)
+        )
+        with (
+            patch(f"{mod}.get_repo", return_value=repo),
+            patch(f"{mod}.get_last_commit_date", return_value=last_commit),
+            patch(
+                f"{mod}.get_last_code_commit_date", return_value=(last_commit, 0)
+            ),
+            patch(f"{mod}.get_branches", return_value=["main"]),
+            patch(
+                f"{mod}.get_stale_branches",
+                return_value=git.pop("stale_branches", []),
+            ),
+            patch(f"{mod}.has_remote", return_value=git.pop("has_remote", True)),
+            patch(f"{mod}.get_repo_size_mb", return_value=1),
+        ):
+            return agent._analyse_project(project_dir, agent_config, status)
+
+    def test_stale_branches_are_waived(self, agent, agent_config, project_dir):
+        branches = [f"b{i}" for i in range(5)]
+        active = self._analyse(
+            agent, agent_config, project_dir, "active", stale_branches=branches
+        )
+        archived = self._analyse(
+            agent, agent_config, project_dir, "archived", stale_branches=branches
+        )
+
+        assert archived.health_score > active.health_score
+        # Recorded either way — waived is not the same as unmeasured.
+        assert archived.findings["stale_branches"] == branches
+
+    def test_commit_staleness_is_waived(self, agent, agent_config, project_dir):
+        active = self._analyse(
+            agent, agent_config, project_dir, "active", last_commit_days_ago=400
+        )
+        archived = self._analyse(
+            agent, agent_config, project_dir, "archived", last_commit_days_ago=400
+        )
+
+        assert archived.health_score > active.health_score
+
+    def test_a_stale_git_lock_still_costs_an_archived_project(
+        self, agent, agent_config, project_dir
+    ):
+        """The specific claim SNAG-PROJ-011 was filed about."""
+        (project_dir / ".git" / "index.lock").write_text("")
+        archived = self._analyse(agent, agent_config, project_dir, "archived")
+
+        assert archived.findings["stale_git_lock"] is True
+        assert archived.health_score <= 95
+
+    def test_a_missing_remote_is_still_reported_when_archived(
+        self, agent, agent_config, project_dir
+    ):
+        archived = self._analyse(
+            agent, agent_config, project_dir, "archived", has_remote=False
+        )
+
+        assert archived.findings.get("no_remote") is True
+
+    def test_missing_docs_still_count_when_archived(
+        self, agent, agent_config, project_dir
+    ):
+        (project_dir / "README.md").unlink()
+        archived = self._analyse(agent, agent_config, project_dir, "archived")
+
+        assert "missing_readme" in archived.findings
+
+
+class TestArchivedAlertSuppressionIsAbsolute:
+    """`_effective_threshold` returns 0 and the score is clamped at 0.
+
+    So the alert condition is `score < 0` — unreachable at any score,
+    for any repository. The docs read as though a low enough score would
+    still alert (SNAG-PROJ-012); it cannot, and the guarantee is worth
+    a test rather than a sentence.
+    """
+
+    def _entry(self, status, alert_threshold=None):
+        return SimpleNamespace(
+            status=status, alert_threshold=alert_threshold, declared=True
+        )
+
+    def test_archived_threshold_is_zero(self, agent, agent_config):
+        threshold = agent._effective_threshold(
+            self._entry("archived"), agent_config
+        )
+        assert threshold == 0
+
+    @pytest.mark.parametrize("score", [0, 1, 40, 100])
+    def test_no_score_can_reach_the_threshold(self, agent, agent_config, score):
+        threshold = agent._effective_threshold(
+            self._entry("archived"), agent_config
+        )
+        assert not score < threshold
+
+    def test_an_explicit_threshold_still_overrides_it(self, agent, agent_config):
+        """The escape hatch: a retired repo somebody still wants warned about."""
+        threshold = agent._effective_threshold(
+            self._entry("archived", alert_threshold=50), agent_config
+        )
+        assert threshold == 50
+        assert 30 < threshold
+
+    def test_dormant_is_not_suppressed(self, agent, agent_config):
+        """Only `archived` gets the absolute waiver — resting is not retired."""
+        threshold = agent._effective_threshold(
+            self._entry("dormant"), agent_config
+        )
+        assert threshold == agent_config.alert_threshold

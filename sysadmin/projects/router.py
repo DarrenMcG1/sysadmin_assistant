@@ -19,6 +19,7 @@ from sysadmin.core.contracts import (
     ProjectOverviewResponse,
     ProjectRecommendationsResponse,
     ProjectReviewResponse,
+    StaleProjectsResponse,
 )
 from sysadmin.core.database import get_db_session
 from sysadmin.monitor.models.service_health import ServiceHealth
@@ -27,6 +28,7 @@ from sysadmin.projects import branch_actions, recommendations
 from sysadmin.projects import review as project_review
 from sysadmin.projects.models.project_review import ProjectReview
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+from sysadmin.projects.snapshots import latest_snapshot_query
 from sysadmin.registry import load_registry
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -35,25 +37,7 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 @router.get("/overview", response_model=ProjectOverviewResponse)
 async def get_projects_overview(session: AsyncSession = Depends(get_db_session)):
     """Get all projects with their latest health scores."""
-    # Latest snapshot per project
-    latest_subq = (
-        select(
-            ProjectSnapshot.project_name,
-            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
-        )
-        .group_by(ProjectSnapshot.project_name)
-        .subquery()
-    )
-
-    query = (
-        select(ProjectSnapshot)
-        .join(
-            latest_subq,
-            (ProjectSnapshot.project_name == latest_subq.c.project_name)
-            & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
-        )
-        .order_by(desc(ProjectSnapshot.health_score))
-    )
+    query = latest_snapshot_query().order_by(desc(ProjectSnapshot.health_score))
 
     result = await session.execute(query)
     rows = result.scalars().all()
@@ -90,36 +74,49 @@ async def get_projects_overview(session: AsyncSession = Depends(get_db_session))
     }
 
 
-@router.get("/stale")
+@router.get("/stale", response_model=StaleProjectsResponse)
 async def get_stale_projects(
-    days: int = Query(default=30, le=365),
+    days: int = Query(default=30, ge=1, le=365),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get projects with no activity in N days."""
-    bands = get_config().agents.project_organiser.grade_bands
-    # Latest snapshot per project
-    latest_subq = (
-        select(
-            ProjectSnapshot.project_name,
-            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
-        )
-        .group_by(ProjectSnapshot.project_name)
-        .subquery()
-    )
+    """Projects with no commit in the last ``days`` days.
 
+    Staleness is **idleness**, not ill health.  This handler used to
+    ignore ``days`` entirely and filter on ``health_score <
+    needs_attention_min``, which made it a duplicate of ``/overview``
+    under a name that promised something else: a well-kept repository
+    untouched for a year scored 90 and never appeared, while an actively
+    developed one with a dirty tree and no README appeared every day.
+
+    A project with no commits at all — no git history, or a repository
+    the scanner could not read — is reported with ``days_idle: null``
+    rather than omitted.  "Never committed" is the strongest form of the
+    thing being asked about, and dropping it would answer a narrower
+    question than the caller asked.
+    """
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     query = (
-        select(ProjectSnapshot)
-        .join(
-            latest_subq,
-            (ProjectSnapshot.project_name == latest_subq.c.project_name)
-            & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
+        latest_snapshot_query()
+        .where(
+            (ProjectSnapshot.last_commit_at < cutoff)
+            | (ProjectSnapshot.last_commit_at.is_(None))
         )
-        .where(ProjectSnapshot.health_score < bands.needs_attention_min)
-        .order_by(ProjectSnapshot.health_score)
+        # Nulls first: never-committed is more stale than any date.
+        .order_by(ProjectSnapshot.last_commit_at.asc().nullsfirst())
     )
 
     result = await session.execute(query)
     rows = result.scalars().all()
+
+    now = datetime.now(UTC)
+
+    def _days_idle(row: ProjectSnapshot) -> int | None:
+        if row.last_commit_at is None:
+            return None
+        last = row.last_commit_at
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=UTC)
+        return (now - last).days
 
     return {
         "stale_projects": [
@@ -127,36 +124,21 @@ async def get_stale_projects(
                 "name": r.project_name,
                 "health_score": r.health_score,
                 "last_commit_at": r.last_commit_at.isoformat() if r.last_commit_at else None,
+                "days_idle": _days_idle(r),
+                "status": (r.findings or {}).get("status", "active"),
                 "findings": r.findings,
             }
             for r in rows
         ],
         "count": len(rows),
+        "days": days,
     }
 
 
 @router.get("/report")
 async def get_projects_report(session: AsyncSession = Depends(get_db_session)):
     """Get a full markdown report of all projects."""
-    # Latest snapshot per project
-    latest_subq = (
-        select(
-            ProjectSnapshot.project_name,
-            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
-        )
-        .group_by(ProjectSnapshot.project_name)
-        .subquery()
-    )
-
-    query = (
-        select(ProjectSnapshot)
-        .join(
-            latest_subq,
-            (ProjectSnapshot.project_name == latest_subq.c.project_name)
-            & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
-        )
-        .order_by(desc(ProjectSnapshot.health_score))
-    )
+    query = latest_snapshot_query().order_by(desc(ProjectSnapshot.health_score))
 
     result = await session.execute(query)
     rows = result.scalars().all()
@@ -213,23 +195,7 @@ async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
     health_map = {r.service_name: r for r in result.scalars().all()}
 
     # Fetch latest project snapshot per project
-    latest_snap_subq = (
-        select(
-            ProjectSnapshot.project_name,
-            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
-        )
-        .group_by(ProjectSnapshot.project_name)
-        .subquery()
-    )
-    snap_query = (
-        select(ProjectSnapshot)
-        .join(
-            latest_snap_subq,
-            (ProjectSnapshot.project_name == latest_snap_subq.c.project_name)
-            & (ProjectSnapshot.scanned_at == latest_snap_subq.c.max_scanned),
-        )
-    )
-    snap_result = await session.execute(snap_query)
+    snap_result = await session.execute(latest_snapshot_query())
     snap_map = {r.project_name: r for r in snap_result.scalars().all()}
 
     # Services come from services.yaml, resolved by project id. projects.yaml
@@ -268,23 +234,6 @@ async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
         })
 
     return {"projects": projects_out, "count": len(projects_out)}
-
-
-def _latest_snapshot_query():
-    """Select the newest snapshot per project (shared subquery pattern)."""
-    latest_subq = (
-        select(
-            ProjectSnapshot.project_name,
-            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
-        )
-        .group_by(ProjectSnapshot.project_name)
-        .subquery()
-    )
-    return select(ProjectSnapshot).join(
-        latest_subq,
-        (ProjectSnapshot.project_name == latest_subq.c.project_name)
-        & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
-    )
 
 
 # NOTE: /review and /review/generate must stay declared before ``/{name}``
@@ -338,7 +287,7 @@ async def get_portfolio_actions(
     session: AsyncSession = Depends(get_db_session),
 ):
     """Top housekeeping wins across every project, ranked by impact."""
-    result = await session.execute(_latest_snapshot_query())
+    result = await session.execute(latest_snapshot_query())
     rows = result.scalars().all()
 
     agent_config = get_config().agents.project_organiser
@@ -402,27 +351,13 @@ async def get_project_board(
     *meant* — and listing them turns a short actionable board into an
     inventory.
     """
-    result = await session.execute(_latest_snapshot_query())
+    result = await session.execute(latest_snapshot_query())
     rows = result.scalars().all()
 
-    # Drop projects the most recent scan did not see.  ``_latest_snapshot_query``
-    # returns the newest row *per project name* with no freshness test, so a
-    # project deleted from disk keeps its final snapshot forever and goes on
-    # being reported as live: PA-worktrees was removed during the ~/projects
-    # reorganisation and still occupied a board row two days later, with a
-    # health score and a next action.
-    #
-    # A scan stamps every project it finds within the same few seconds, so
-    # "materially behind the newest stamp" means "not found last time round".
-    # The hour of slack is against a scan that straddles the boundary, and is
-    # far inside the 6-hour scan interval.
-    if rows:
-        newest = max(
-            (r.scanned_at for r in rows if r.scanned_at), default=None
-        )
-        if newest is not None:
-            cutoff = newest - timedelta(hours=1)
-            rows = [r for r in rows if r.scanned_at and r.scanned_at >= cutoff]
+    # The freshness test that used to live here is now inside
+    # ``latest_snapshot_query`` — the board was the only one of nine
+    # surfaces applying it, which is why a deleted project was dropped
+    # here and reported everywhere else.  See sysadmin/projects/snapshots.py.
 
     config = get_config()
     bands = config.agents.project_organiser.grade_bands

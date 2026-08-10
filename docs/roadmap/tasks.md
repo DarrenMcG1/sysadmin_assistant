@@ -515,42 +515,60 @@ with its contract test green the whole time.
 ## Project-side consolidation (34–36) — from the 2026-08-07 capability audit
 
 Consolidated from one pass over the project side and the design decisions taken
-alongside it. **The ordering is not negotiable**: every defect in Session 34
+alongside it. **The ordering was not negotiable**: every defect in Session 34
 corrupts output Alfred already consumes, and building the briefing envelope
 (36) on top of wrong data just makes the wrong data better formatted. 35 is the
-structural work 36 needs; 34 blocks both.
+structural work 36 needs; 34 blocked both.
 
-### Session 34: Defect clearance — the project side (blocking)
+**34 and 35 are both done** (35 on 2026-08-08, 34 on 2026-08-10 — taken out of
+order because 35 was already in flight). **36 is now unblocked**, and is the
+only remaining member of this group.
 
-Twelve defects, none fixed during the audit, written up in full in
-[snag_list.md](snag_list.md). Three are P1. Two pairs must be taken together.
+### Session 34: Defect clearance — the project side ✅ (2026-08-10)
 
-- [ ] [SNAG-PROJ-001](snag_list.md) + [SNAG-PROJ-002](snag_list.md) — apply the
-      board's `newest_scan − 1h` freshness filter everywhere. Seven surfaces
-      plus `project_review.gather_review_data` report a deleted directory
-      today. **Fix by moving the cutoff into `_latest_snapshot_query`**, and
-      route through it the four call sites that open-code the latest-per-name
-      query — not by repeating the filter eight times
-- [ ] [SNAG-PROJ-003](snag_list.md) + [SNAG-PROJ-004](snag_list.md) — the
-      organiser never calls `BaseAgent.resolve_alerts`, so 1,664 rows are live
-      and unresolvable, and retention purges resolved rows only. **Settle what
-      happens to the existing 1,664 before shipping the fix**, or the table's
-      size becomes permanent
-- [ ] [SNAG-PROJ-005](snag_list.md) — make the project review's prompt
-      figure-free by construction, the way the disk review was on 2026-08-06,
-      and port the guard test asserting no digit reaches the model. CLAUDE.md
-      already records this exact approach failing live
-- [ ] [SNAG-PROJ-007](snag_list.md), [008](snag_list.md), [009](snag_list.md) —
-      the TODO scan, taken as one job: `HACK`/`XXX` cost points and appear in
-      no column; `*.md` means a repo's own snag list penalises it; the patterns
-      have no word boundary; and `-m 1000` is grep's *per-file* limit while the
-      docstring claims a global cap
-- [ ] [SNAG-PROJ-006](snag_list.md), [010](snag_list.md), [011](snag_list.md),
-      [012](snag_list.md) — the small ones: implement or delete
-      `/api/projects/stale`'s unused `days` parameter; add `project_reviews`
-      (and check `disk_reviews`) to the retention map; correct the
-      archived-status description in three places; document that archived alert
-      suppression is absolute, not conditional
+All twelve defects fixed, tested and verified against the live estate.
+Write-ups archived under "Fixed Issues" in [snag_list.md](snag_list.md).
+
+- [x] [SNAG-PROJ-001](snag_list.md) + [SNAG-PROJ-002](snag_list.md) — the
+      cutoff moved into a new `sysadmin/projects/snapshots.py`. The audit said
+      eight surfaces; grep found **nine** open-coded copies of the join across
+      three packages, which is the tell that counting them by hand was never
+      going to be reliable. `tests/test_project_snapshots_query.py` now fails
+      if any module re-implements it
+- [x] [SNAG-PROJ-003](snag_list.md) + [SNAG-PROJ-004](snag_list.md) —
+      `_resolve_recovered` closes every health alert a scan did not re-raise,
+      and migration 010 resolved the backlog. **1,664 rows resolved live**,
+      matching the audit's count exactly
+- [x] [SNAG-PROJ-005](snag_list.md) — the project review's prompt is
+      figure-free by construction: scores → bands, deltas → directions,
+      recommendation titles → `kind` phrases. Guard test ported from the disk
+      review
+- [x] [SNAG-PROJ-007](snag_list.md), [008](snag_list.md), [009](snag_list.md) —
+      `*.md` dropped from the scan, `grep -w` for word boundaries, a real
+      project-total cap that records its own truncation, and the
+      recommendation names the markers it charged for
+- [x] [SNAG-PROJ-006](snag_list.md), [010](snag_list.md), [011](snag_list.md),
+      [012](snag_list.md) — `/stale` implements `days` against last-commit age
+      with a `StaleProjectsResponse` contract; `project_reviews`,
+      `disk_reviews` **and `unit_audits`** added to retention (migration 011);
+      the `archived` description corrected in three places and its absolute
+      alert suppression pinned by a test
+
+**Follow-up this session revealed** — not part of the twelve:
+
+- [ ] **Startup schema-revision check** ([SNAG-DB-001](snag_list.md)). The live
+      database was at Alembic **008** while the repository head was 009 —
+      migration 009 was committed on 2026-08-08 and never applied, and nothing
+      compares the two. The pending `sudo systemctl restart sysadmin.service`
+      would have hit a CHECK constraint violation on every `skipped` health
+      write. Compare `alembic_version` against the packaged head at startup and
+      fail loudly; serving against a schema the code was not written for is
+      worse than not starting
+- [ ] **A live-database test path for the shared snapshot query.** The suite
+      mocks every session, so the freshness filter's *effect* is unobservable
+      — `tests/test_project_snapshots_query.py` asserts the predicate compiles
+      into the statement, which is not the same as Postgres evaluating it.
+      Worth one integration test against a real database
 
 ### Session 35: The inspection library and the `.project.yaml` manifest
 

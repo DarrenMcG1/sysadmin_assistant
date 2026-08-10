@@ -329,40 +329,42 @@ class TestActionsTruncationIsVisible:
 class TestDeletedProjectsLeaveTheBoard:
     """A project removed from disk must stop being reported as live.
 
-    `_latest_snapshot_query` has no freshness test, so a deleted project
-    keeps its final snapshot forever. PA-worktrees was deleted during the
-    ~/projects reorganisation and still held a board row two days later,
-    complete with health score and next action.
+    ``PA-worktrees`` was deleted during the ~/projects reorganisation and
+    still held a board row two days later, complete with health score and
+    next action.
+
+    The board applied the ``newest_scan − 1h`` cutoff in Python and was
+    the only surface of nine that did (SNAG-PROJ-001). It now comes from
+    ``latest_snapshot_query``, in SQL, so a mocked session cannot
+    demonstrate the exclusion — the rows a test stubs are returned
+    whatever the ``WHERE`` clause says. The predicate itself is asserted
+    in ``tests/test_project_snapshots_query.py``; what stays here is the
+    board's own behaviour on rows the query does hand it.
     """
 
-    async def test_stale_snapshot_excluded(self, test_client, mock_session):
+    async def test_board_no_longer_filters_by_hand(self, test_client, mock_session):
+        """Rows the query returns are rendered — the cutoff is upstream.
+
+        The inverse of the old test, and deliberately so: a second
+        filter here would be the "repeat it at every call site" shape
+        that caused the defect.
+        """
         fresh = make_snapshot(name="live")
-        gone = make_snapshot(name="deleted")
-        gone.scanned_at = datetime.now(UTC) - timedelta(days=2)
-        stub_rows(mock_session, [fresh, gone])
+        old = make_snapshot(name="also-live")
+        old.scanned_at = datetime.now(UTC) - timedelta(days=2)
+        stub_rows(mock_session, [fresh, old])
 
         body = (await test_client.get("/api/projects/board")).json()
-        assert [p["name"] for p in body["projects"]] == ["live"]
-
-    async def test_slack_tolerates_a_scan_straddling_the_boundary(
-        self, test_client, mock_session
-    ):
-        """Same scan, stamps a few minutes apart — both must survive."""
-        a = make_snapshot(name="a")
-        b = make_snapshot(name="b")
-        b.scanned_at = datetime.now(UTC) - timedelta(minutes=20)
-        stub_rows(mock_session, [a, b])
-
-        body = (await test_client.get("/api/projects/board")).json()
-        assert sorted(p["name"] for p in body["projects"]) == ["a", "b"]
+        assert sorted(p["name"] for p in body["projects"]) == ["also-live", "live"]
 
     async def test_snapshots_without_a_timestamp_do_not_crash_it(
         self, test_client, mock_session
     ):
+        """``scanned_at`` is nullable in the model, so the board must cope."""
         row = make_snapshot(name="odd")
         row.scanned_at = None
         stub_rows(mock_session, [row, make_snapshot(name="fine")])
 
         resp = await test_client.get("/api/projects/board")
         assert resp.status_code == 200
-        assert [p["name"] for p in resp.json()["projects"]] == ["fine"]
+        assert sorted(p["name"] for p in resp.json()["projects"]) == ["fine", "odd"]

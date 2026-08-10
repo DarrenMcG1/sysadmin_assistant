@@ -23,7 +23,6 @@ per run (never shared across scheduler event loops — SNAG-AGENT-003).
 """
 
 import logging
-import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -33,6 +32,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sysadmin.core.config import get_config
 from sysadmin.core.database import get_scheduler_session
 from sysadmin.core.models.alert import Alert
+
+# Re-exported: this was strip_markdown's original home, and the project
+# review needs it too — see sysadmin/core/text.py for why it moved.
+from sysadmin.core.text import strip_markdown
 from sysadmin.files import forecast
 from sysadmin.files import recommendations as file_recommendations
 from sysadmin.files.models.disk_review import DiskReview
@@ -450,34 +453,6 @@ def build_review_prompt(data: dict[str, Any]) -> str:
 
     lines += ["", REVIEW_INSTRUCTIONS]
     return "\n".join(lines)
-
-
-def strip_markdown(text: str) -> str:
-    """Remove heading, list and emphasis markers the model was told not to emit.
-
-    Instructions are a request, not a constraint. Verified live
-    2026-08-06: under an explicit "no markdown, no headings, no numbered
-    or bulleted lists" instruction, dria-agent-a-3b produced
-    ``### Where the Mess is Coming From``, then ``1. **Node_modules
-    directories**:`` on the next attempt. Stripping is deterministic, so
-    the stored narrative matches the plain-text format the briefing and
-    tray expect whatever the model does.
-
-    Markers are only recognised at the start of a line, so prose keeps
-    its hyphens and any inline asterisks.
-    """
-    cleaned = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            stripped = stripped.lstrip("#").strip()
-        elif stripped.startswith(("- ", "* ", "+ ")):
-            stripped = stripped[2:].strip()
-        else:
-            # "1. ", "2) " — an ordered list the model was asked not to use
-            stripped = re.sub(r"^\d+[.)]\s+", "", stripped)
-        cleaned.append(stripped.replace("**", ""))
-    return "\n".join(cleaned).strip()
 
 
 def build_fallback_narrative(data: dict[str, Any]) -> str:

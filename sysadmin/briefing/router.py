@@ -24,6 +24,7 @@ from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.services import get_services
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+from sysadmin.projects.snapshots import latest_snapshot_query
 
 router = APIRouter(prefix="/api", tags=["integration"])
 
@@ -117,23 +118,7 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
         }
 
     # --- Project health: latest score per project ---
-    proj_subq = (
-        select(
-            ProjectSnapshot.project_name,
-            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
-        )
-        .group_by(ProjectSnapshot.project_name)
-        .subquery()
-    )
-    proj_query = (
-        select(ProjectSnapshot)
-        .join(
-            proj_subq,
-            (ProjectSnapshot.project_name == proj_subq.c.project_name)
-            & (ProjectSnapshot.scanned_at == proj_subq.c.max_scanned),
-        )
-        .order_by(desc(ProjectSnapshot.health_score))
-    )
+    proj_query = latest_snapshot_query().order_by(desc(ProjectSnapshot.health_score))
     proj_result = await session.execute(proj_query)
     proj_rows = proj_result.scalars().all()
 

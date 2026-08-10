@@ -184,8 +184,12 @@ projects:
   # kept on disk under archive/. They stay listed so they remain visible
   # in the dashboard and eligible for stale-branch pruning.
   #
-  # `status: archived` (Session 21) means git hygiene is no longer scored
-  # and no health alert fires unless an explicit alert_threshold is set.
+  # `status: archived` (Session 21) waives exactly two deductions —
+  # commit staleness and stale branches — and suppresses health alerts
+  # absolutely, at any score, unless an explicit alert_threshold is set.
+  # It is NOT a general git-hygiene exemption, which is what this comment
+  # claimed until SNAG-PROJ-011: a leftover .git/index.lock still costs
+  # an archived project 5 points, and a missing remote is still reported.
   # Anything under archive/ is inferred archived anyway — these are
   # explicit as the worked example. `status: dormant` is the lighter
   # touch: staleness unpenalised, everything else still scored.

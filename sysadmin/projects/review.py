@@ -25,9 +25,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sysadmin.core.config import get_config
 from sysadmin.core.database import get_scheduler_session
 from sysadmin.core.models.alert import Alert
+from sysadmin.core.text import strip_markdown
 from sysadmin.projects.models.project_review import ProjectReview
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 from sysadmin.projects.recommendations import recommendations_for
+from sysadmin.projects.snapshots import latest_snapshot_query
 
 logger = logging.getLogger(__name__)
 
@@ -37,21 +39,92 @@ REVIEW_SYSTEM_PROMPT = (
     "projects by name. Do not invent facts not present in the data."
 )
 
-# The numeric "what moved" section is deliberately NOT the model's job.
-# Verified live 2026-08-04 (dria-agent-a-3b): asked for score changes it
-# enumerated every unchanged project as "increased from 95 to 95", and a
-# stricter prompt had it presenting recommendation points as movement.
-# Numbers are computed in build_movers_section; the model only gets the
-# qualitative sections, where being a language model actually helps.
+# The numeric sections are deliberately NOT the model's job, and the
+# enforcement is structural rather than instructional.
+#
+# The older of the two reviews, and the one that taught the lesson: asked
+# for score changes on 2026-08-04, dria-agent-a-3b enumerated every
+# unchanged project as "increased from 95 to 95", and a stricter prompt
+# had it presenting recommendation points as movement. The disk review
+# was rebuilt figure-free by construction on 2026-08-06 after the same
+# model, given "25.0 GB across 50 directories" and an explicit "do not
+# restate figures", restated them *and* published the quotient as "each
+# consuming 5GB". This prompt was left behind until SNAG-PROJ-005.
+#
+# So the prompt below contains no figures at all: scores become bands,
+# deltas become directions, and recommendation titles — which carry
+# counts like "Burn down 40 code markers" — become number-free phrases.
+# A model with no numbers in its context cannot restate or derive one.
+# Every real figure lives in build_facts_section, prepended
+# deterministically.
 REVIEW_INSTRUCTIONS = (
-    "Score changes are reported separately — do NOT list, restate or "
-    "summarise scores or deltas. Write three brief plain-text sections: "
-    "1) Decaying: which active projects most need attention and why, "
-    "judging from their listed actions; 2) Archive candidates: projects "
-    "that look abandoned, if any; 3) Focus for next week: at most three "
-    "concrete actions, quoted from the listed actions. Hard limit 150 "
-    "words. No markdown, no headings, no lists of every project."
+    "Write three brief plain-text sections: 1) Decaying: which active "
+    "projects most need attention and why, judging from their listed "
+    "actions; 2) Archive candidates: projects that look abandoned, if "
+    "any; 3) Focus for next week: at most three concrete actions, named "
+    "from the listed actions. Figures are reported separately, so do "
+    "not state any number, score, count, percentage or date — describe "
+    "magnitude in words. Hard limit 150 words. Plain prose only: no "
+    "markdown, no headings, no numbered or bulleted lists, no listing "
+    "of every project."
 )
+
+# Number-free names for each recommendation kind. Several Tier 2 titles
+# carry counts ("Prune 7 stale branches", "3 open snags") and so cannot
+# go in the prompt; these say the same thing without a figure to
+# regurgitate.
+KIND_PHRASES = {
+    "risk": "a risk item",
+    "docs": "missing documentation (README or CLAUDE.md)",
+    "config": "no .env beside the committed .env.example",
+    "hygiene": "housekeeping left undone (a stale git lock or node_modules)",
+    "git": "stale branches to prune",
+    "activity": "no recent commits",
+    "todos": "code markers left in the source (TODO, FIXME and similar)",
+    "roadmap": "roadmap documents out of date (handoff, tasks or snags)",
+}
+
+# Score bands, in descending order. The prompt sees the label; the score
+# itself only ever reaches build_facts_section.
+SCORE_BANDS = (
+    (90, "in good shape"),
+    (75, "healthy"),
+    (50, "needing attention"),
+    (25, "neglected"),
+    (0, "effectively abandoned"),
+)
+
+
+def score_band(score: int) -> str:
+    """Qualitative health — the only score the prompt is allowed to see."""
+    for threshold, label in SCORE_BANDS:
+        if score >= threshold:
+            return label
+    return "effectively abandoned"
+
+
+def delta_phrase(delta: int | None) -> str:
+    """Describe the week's movement without stating it.
+
+    ``None`` is "no earlier snapshot", which is a different statement
+    from "unchanged" and must not collapse into it — a project scanned
+    for the first time this week has not held steady, it has no history.
+    """
+    if delta is None:
+        return "no earlier reading"
+    if delta >= 10:
+        return "improved markedly"
+    if delta > 0:
+        return "improved"
+    if delta <= -10:
+        return "slipped sharply"
+    if delta < 0:
+        return "slipped"
+    return "held steady"
+
+
+def _kind_phrase(kind: str) -> str:
+    return KIND_PHRASES.get(kind, kind.replace("_", " "))
 
 
 async def gather_review_data(
@@ -63,22 +136,14 @@ async def gather_review_data(
     its *oldest snapshot inside the window* — the closest thing to "where
     it stood a week ago" without assuming any particular scan cadence.
     Projects with a single snapshot get ``delta: None``.
+
+    The current-state side is freshness-filtered, so a project deleted
+    from disk stops contributing to ``average_active_score``.  The
+    baseline side deliberately is not: it asks where a *surviving*
+    project stood a week ago, and rows for the deleted ones are dropped
+    anyway when the two sides are joined by name below.
     """
-    latest_subq = (
-        select(
-            ProjectSnapshot.project_name,
-            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
-        )
-        .group_by(ProjectSnapshot.project_name)
-        .subquery()
-    )
-    result = await session.execute(
-        select(ProjectSnapshot).join(
-            latest_subq,
-            (ProjectSnapshot.project_name == latest_subq.c.project_name)
-            & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
-        )
-    )
+    result = await session.execute(latest_snapshot_query())
     latest_rows = {r.project_name: r for r in result.scalars().all()}
 
     cutoff = datetime.now(UTC) - timedelta(days=period_days)
@@ -120,8 +185,17 @@ async def gather_review_data(
             "status": findings.get("status", "active"),
             "score": row.health_score,
             "delta": delta,
+            # ``kind`` is what the prompt sees — the titles carry counts
+            # ("Prune 7 stale branches") and must not reach the model.
+            # Both are kept: the titles are what ``stats`` is audited
+            # against and what the fallback narrative quotes.
             "top_recommendations": [
-                {"title": r.title, "points": r.points, "severity": r.severity}
+                {
+                    "kind": r.kind,
+                    "title": r.title,
+                    "points": r.points,
+                    "severity": r.severity,
+                }
                 for r in recs[:3]
             ],
         })
@@ -145,60 +219,77 @@ async def gather_review_data(
 
 
 def build_review_prompt(data: dict[str, Any]) -> str:
-    """Deterministic prompt from the gathered facts."""
+    """Deterministic, figure-free prompt from the gathered facts.
+
+    Contains no numbers by construction — see the note above
+    :data:`REVIEW_INSTRUCTIONS` for the two live failures that motivated
+    it. Project names pass through unaltered: a name is an identifier the
+    model must be able to quote, not a quantity it can restate as a
+    finding.
+    """
     lines = [
-        f"Portfolio data for the last {data['period_days']} days.",
-        f"Totals: {data['totals']}",
+        "Weekly review of a personal software portfolio.",
         "",
-        "Projects (score is 0-100 health; delta is change over the period):",
+        "Projects, with health and how they moved over the period:",
     ]
     for p in data["projects"]:
-        delta = "n/a" if p["delta"] is None else f"{p['delta']:+d}"
-        line = f"- {p['name']} [{p['status']}] score {p['score']} (delta {delta})"
+        line = (
+            f"- {p['name']} [{p['status']}] — {score_band(p['score'])}, "
+            f"{delta_phrase(p['delta'])}"
+        )
         if p["top_recommendations"]:
             recs = "; ".join(
-                f"{r['title']} (+{r['points']})"
-                if r["severity"] != "risk"
-                else f"{r['title']} (RISK)"
+                _kind_phrase(r["kind"])
+                + (" [RISK]" if r["severity"] == "risk" else "")
                 for r in p["top_recommendations"]
             )
-            line += f" — actions: {recs}"
+            line += f" — outstanding: {recs}"
         lines.append(line)
     lines += ["", REVIEW_INSTRUCTIONS]
     return "\n".join(lines)
 
 
-def build_movers_section(data: dict[str, Any]) -> str:
-    """Deterministic 'what moved' line — numbers never come from the LLM."""
-    movers = [p for p in data["projects"] if p["delta"]]
-    if not movers:
-        return "What moved: no score changes this week."
-    moved = ", ".join(
-        f"{p['name']} {p['delta']:+d}"
-        for p in sorted(movers, key=lambda p: p["delta"], reverse=True)
-    )
-    return f"What moved: {moved}."
+def build_facts_section(data: dict[str, Any]) -> str:
+    """Deterministic figures block — numbers never come from the LLM.
 
-
-def build_fallback_narrative(data: dict[str, Any]) -> str:
-    """Deterministic digest used when llama-server is unavailable."""
+    Prepended to the model's prose so every real figure in the stored
+    narrative is one this function computed. Was ``build_movers_section``
+    and reported only the deltas; the totals joined it when the prompt
+    stopped carrying them, or the review would have lost them entirely.
+    """
     totals = data["totals"]
+    average = totals["average_active_score"]
     lines = [
-        f"Weekly project review ({data['period_days']} days) — "
-        "generated without LLM narration.",
         f"{totals['project_count']} projects tracked, "
-        f"{totals['active_count']} active; average active score "
-        f"{totals['average_active_score']}. "
+        f"{totals['active_count']} active"
+        + (
+            f"; average active score {average}."
+            if average is not None
+            else "; no active projects to average."
+        ),
         f"{totals['recoverable_points']} points recoverable across the "
         f"portfolio; {totals['risk_count']} risk item(s).",
     ]
+
     movers = [p for p in data["projects"] if p["delta"]]
-    if movers:
+    if not movers:
+        lines.append("What moved: no score changes this period.")
+    else:
         moved = ", ".join(
             f"{p['name']} {p['delta']:+d}"
             for p in sorted(movers, key=lambda p: p["delta"], reverse=True)
         )
-        lines.append(f"Moved this week: {moved}.")
+        lines.append(f"What moved: {moved}.")
+    return "\n".join(lines)
+
+
+def build_fallback_narrative(data: dict[str, Any]) -> str:
+    """Deterministic digest used when llama-server is unavailable."""
+    lines = [
+        f"Weekly project review ({data['period_days']} days) — "
+        "generated without LLM narration.",
+        build_facts_section(data),
+    ]
     worst = [
         p for p in data["projects"]
         if p["status"] == "active" and p["top_recommendations"]
@@ -251,9 +342,10 @@ async def generate_review(
             await client.shutdown()
 
     llm_used = narrative is not None
-    if llm_used:
-        # Numbers first, deterministically; the model's prose follows
-        narrative = f"{build_movers_section(data)}\n\n{narrative}"
+    if narrative is not None:
+        # Numbers first, deterministically; the model's prose follows,
+        # with the markdown it was told not to emit stripped off.
+        narrative = f"{build_facts_section(data)}\n\n{strip_markdown(narrative)}"
     else:
         narrative = build_fallback_narrative(data)
         logger.warning("project_review_llm_unavailable_used_fallback")

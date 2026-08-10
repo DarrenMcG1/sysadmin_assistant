@@ -18,6 +18,7 @@ from typing import Any
 
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
+from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.services import get_services, services_by_project
 from sysadmin.projects.estate import build_estate, estate_path, write_atomic
 from sysadmin.projects.git import (
@@ -40,6 +41,20 @@ logger = logging.getLogger(__name__)
 #: nobody has said the project is resting, so it is scored as though
 #: it were active and reported as undeclared separately.
 ACTIVELY_SCORED = frozenset({"active", "undeclared"})
+
+#: The one place the health alert's title is built.  Raising and
+#: resolving derive from this function, so the two cannot drift — the
+#: failure mode of a hand-written title pattern is a resolve that quietly
+#: matches nothing and an alerts table that only ever grows.
+_ALERT_TITLE_SUFFIX = "health critical"
+
+
+def _alert_title(project_name: str) -> str:
+    return f"Project {project_name} {_ALERT_TITLE_SUFFIX}"
+
+
+#: SQL ``LIKE`` form of the above, for the set-based resolve.
+_ALERT_TITLE_LIKE = f"Project % {_ALERT_TITLE_SUFFIX}"
 
 # Discovery, identity and declared status all come from
 # sysadmin.registry now.  ``discover_projects`` and ``_infer_status`` used
@@ -70,6 +85,7 @@ class ProjectOrganiserAgent(BaseAgent):
         alerts_raised = 0
         undeclared = 0
         scored: dict[str, tuple[dict, int]] = {}
+        still_failing: set[str] = set()
 
         for entry in registry.entries:
             if not entry.declared:
@@ -83,10 +99,11 @@ class ProjectOrganiserAgent(BaseAgent):
 
             threshold = self._effective_threshold(entry, agent_config)
             if snapshot.health_score < threshold:
+                still_failing.add(_alert_title(snapshot.project_name))
                 await self.raise_alert(
                     session,
                     severity="warning",
-                    title=f"Project {snapshot.project_name} health critical",
+                    title=_alert_title(snapshot.project_name),
                     message=(
                         f"Health score: {snapshot.health_score}/100 "
                         f"(alert threshold {threshold})"
@@ -94,6 +111,8 @@ class ProjectOrganiserAgent(BaseAgent):
                     details=snapshot.findings,
                 )
                 alerts_raised += 1
+
+        alerts_resolved = await self._resolve_recovered(session, still_failing)
 
         estate_written = await asyncio.to_thread(
             self._emit_estate, registry, agent_config, scored
@@ -105,9 +124,64 @@ class ProjectOrganiserAgent(BaseAgent):
             details={
                 "projects_scanned": len(registry.entries),
                 "undeclared": undeclared,
+                "alerts_resolved": alerts_resolved,
                 "estate": str(estate_written) if estate_written else None,
             },
         )
+
+    async def _resolve_recovered(self, session, still_failing: set[str]) -> int:
+        """Resolve every health alert this scan did **not** re-raise.
+
+        Deliberately set-based, where the two reference agents
+        (:mod:`sysadmin.monitor.agent`, :mod:`sysadmin.units.agent`) loop
+        and call :meth:`BaseAgent.resolve_alerts` once per recovered
+        item.  Their populations are fixed by configuration; a project's
+        is not.  A project deleted from disk never appears in a scan, so
+        it can never be observed *recovering*, so a per-project loop
+        would leave its alert unresolved forever — and retention purges
+        resolved rows only.  That is exactly how 1,664 rows accumulated
+        by 2026-08-07, 326 of them sharing one title.
+
+        Asking the inverse question — "which of my open alerts would
+        this scan not raise?" — closes recovery, deletion, rename and
+        re-declaration as ``archived`` in one statement, and cannot
+        drift from the raise path because both titles come from
+        :func:`_alert_title`.
+
+        The rows raised moments ago in this same transaction are excluded
+        by ``still_failing``, not by timestamp: a title comparison is
+        exact, whereas a "created before now" test races the clock the
+        inserts were stamped with.
+
+        Returns:
+            Number of alerts resolved.
+        """
+        from sqlalchemy import update
+
+        conditions = [
+            Alert.agent == self.name,
+            Alert.resolved.is_(False),
+            Alert.title.like(_ALERT_TITLE_LIKE),
+        ]
+        if still_failing:
+            conditions.append(Alert.title.notin_(sorted(still_failing)))
+
+        result = await session.execute(
+            update(Alert)
+            .where(*conditions)
+            .values(resolved=True, resolved_at=datetime.now(UTC))
+        )
+        resolved: int = result.rowcount or 0
+        if resolved:
+            logger.info(
+                "project_alerts_resolved",
+                extra={"agent": self.name, "count": resolved},
+            )
+            self._queue_event(
+                "alert.resolved",
+                {"agent": self.name, "match": _ALERT_TITLE_LIKE, "count": resolved},
+            )
+        return resolved
 
     @staticmethod
     def _emit_estate(registry, agent_config, scored) -> Path | None:
@@ -144,6 +218,20 @@ class ProjectOrganiserAgent(BaseAgent):
         — and everything else the global default.  ``undeclared`` is
         undecided rather than exempt: nobody has said this project is
         resting, so it is still scored and still alerts.
+
+        **An archived project's alert suppression is absolute**, not
+        "unless it scores badly enough". The caller's condition is
+        ``score < threshold`` and the score is clamped with ``max(0,
+        …)``, so a threshold of 0 makes the condition ``score < 0`` —
+        unreachable by construction, at any score, for any repository.
+        Documented because it did not read that way (SNAG-PROJ-012) and
+        pinned by a test; the mechanism is worth keeping as it is, since
+        a threshold of 0 expresses "never alert" more clearly than a
+        special case in the caller would.
+
+        An explicit ``alert_threshold`` in the manifest overrides this,
+        including on an archived project — a deliberate escape hatch for
+        a retired repository somebody still wants warned about.
         """
         if entry.alert_threshold is not None:
             return entry.alert_threshold
@@ -154,14 +242,26 @@ class ProjectOrganiserAgent(BaseAgent):
     ) -> ProjectSnapshot:
         """Analyse a single project and build a snapshot.
 
-        ``status`` shapes the rubric: a ``dormant`` project is resting on
-        purpose, so commit staleness is recorded but not penalised; an
-        ``archived`` one additionally keeps its stale branches penalty-free
-        — git hygiene stops mattering at retirement.  ``undeclared`` is
-        scored exactly like ``active``: an absent decision is not a
-        decision to waive anything.  Everything else (docs, TODOs, locks)
-        still counts, so the score keeps meaning "how tidy is this
-        directory" whatever the intent.
+        ``status`` shapes the rubric, and shapes **only two deductions**:
+
+        - ``dormant`` and ``archived`` waive the *commit staleness*
+          penalty. The project is resting on purpose, so the date is
+          recorded and not charged for.
+        - ``archived`` additionally waives the *stale branch* penalty.
+          Branches nobody will merge are not a defect in a retired repo.
+
+        That is the whole list. It is emphatically **not** "git hygiene
+        stops mattering at retirement", which is what three places used
+        to say (SNAG-PROJ-011): a leftover ``.git/index.lock`` still
+        costs an archived project 5 points, and a missing git remote is
+        still reported as a risk. Everything else — README, CLAUDE.md,
+        code markers, ``.env``, node_modules, size — is scored
+        identically whatever the status, so the number keeps meaning
+        "how tidy is this directory" rather than "how tidy is this
+        directory, for a given intent".
+
+        ``undeclared`` is scored exactly like ``active``: an absent
+        decision is not a decision to waive anything.
         """
         name = project_path.name
         findings: dict[str, Any] = {"status": status}
@@ -266,7 +366,15 @@ class ProjectOrganiserAgent(BaseAgent):
         todo_count = 0
         fixme_count = 0
         if agent_config.track_todos:
-            todos = self._count_todos(project_path, agent_config.todo_patterns)
+            todos = self._count_todos(
+                project_path, agent_config.todo_patterns, findings
+            )
+            # ``todo_count`` and ``fixme_count`` stay exact counts of the
+            # markers they are named after.  The penalty is levied on all
+            # configured patterns, so the full per-pattern mapping goes
+            # into ``findings['todos']`` and the recommendation quotes it
+            # by name — a project penalised for 40 HACK markers used to
+            # read "0 TODOs, 0 FIXMEs" with an unexplained deduction.
             todo_count = todos.get("TODO", 0)
             fixme_count = todos.get("FIXME", 0)
             total_todos = sum(todos.values())
@@ -360,26 +468,63 @@ class ProjectOrganiserAgent(BaseAgent):
         ".eggs", "egg-info", "vendor", "bower_components",
     ]
 
+    #: File types the marker scan reads.  ``*.md`` was here and is not
+    #: any more: a repository's own ``snag_list.md``, ``tasks.md`` and
+    #: ``handoff.md`` counted towards its own penalty, so writing up a
+    #: defect lowered the score of the project that wrote it up.  The
+    #: markers are a *code* signal, and counting them in documentation
+    #: inverts the incentive the score exists to create.
+    _SCANNED_INCLUDES = (
+        "*.py", "*.js", "*.ts", "*.tsx", "*.vue", "*.yaml", "*.yml",
+    )
+
+    #: Per-pattern ceiling on matches *for the whole project*.  The old
+    #: ``-m 1000`` is grep's **per-file** limit, so a 300-file repository
+    #: could return 300,000 while the docstring claimed a cap of 1000.
+    #: Enforced here, on the total, which is the number that reaches the
+    #: score.
+    _MAX_MATCHES_PER_PATTERN = 1000
+
+    #: Per-file limit, kept to bound the work grep does on a generated
+    #: file with tens of thousands of markers.  Named for what it is.
+    _MAX_MATCHES_PER_FILE = 200
+
     def _count_todos(
-        self, project_path: Path, patterns: list[str]
+        self,
+        project_path: Path,
+        patterns: list[str],
+        findings: dict[str, Any] | None = None,
     ) -> dict[str, int]:
-        """Count TODO/FIXME/etc. occurrences using grep. Capped at 1000 matches."""
+        """Count code-marker occurrences per pattern.
+
+        Matches whole words only (``grep -w``): without it ``TODO``
+        matched ``TODOS``, ``TODO_LIST`` and any prose sentence
+        containing the word, so a constant named ``TODO_STATES`` cost
+        points.
+
+        Each pattern's total is capped at
+        :data:`_MAX_MATCHES_PER_PATTERN` across the whole project, and
+        a pattern that hits the cap is recorded in
+        ``findings['todo_scan_truncated']`` — a capped count is a lower
+        bound and any surface quoting it should be able to say so.
+        """
         exclude_args = []
         for d in self._EXCLUDE_DIRS:
             exclude_args.extend(["--exclude-dir", d])
 
+        include_args = [f"--include={pat}" for pat in self._SCANNED_INCLUDES]
+
         counts: dict[str, int] = {}
+        truncated: list[str] = []
         for pattern in patterns:
             try:
                 result = subprocess.run(
                     [
-                        "grep", "-rn",
-                        "--include=*.py", "--include=*.js",
-                        "--include=*.ts", "--include=*.tsx", "--include=*.vue",
-                        "--include=*.md", "--include=*.yaml", "--include=*.yml",
+                        "grep", "-rnw",
+                        *include_args,
                         *exclude_args,
-                        "-m", "1000",
-                        pattern,
+                        "-m", str(self._MAX_MATCHES_PER_FILE),
+                        "--", pattern,
                         str(project_path),
                     ],
                     capture_output=True,
@@ -387,7 +532,12 @@ class ProjectOrganiserAgent(BaseAgent):
                     timeout=30,
                 )
                 count = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
+                if count >= self._MAX_MATCHES_PER_PATTERN:
+                    count = self._MAX_MATCHES_PER_PATTERN
+                    truncated.append(pattern)
                 counts[pattern] = count
             except (subprocess.TimeoutExpired, FileNotFoundError):
                 counts[pattern] = 0
+        if truncated and findings is not None:
+            findings["todo_scan_truncated"] = truncated
         return counts

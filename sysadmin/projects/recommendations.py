@@ -105,7 +105,9 @@ def recommendations_for(
             action="Delete node_modules (reinstall on next build)",
         ))
 
-    # Git hygiene — waived for archived projects, exactly like the scorer
+    # Stale branches only — the one git deduction ``archived`` waives,
+    # exactly like the scorer.  The stale-lock and missing-remote items
+    # above deliberately still apply to an archived project.
     stale_branches = findings.get("stale_branches") or []
     if stale_branches and status != "archived":
         count = len(stale_branches)
@@ -155,14 +157,26 @@ def recommendations_for(
 
     todo_points = _todo_points(findings, agent_config)
     if todo_points > 0:
-        total = sum((findings.get("todos") or {}).values())
+        marker_counts = findings.get("todos") or {}
+        total = sum(marker_counts.values())
+        # Name the markers that were actually charged for.  The title
+        # said "TODO/FIXME markers" whatever the mix, so a project
+        # penalised for 40 HACK markers reported 0 TODOs and 0 FIXMEs
+        # beside a deduction nothing on the page explained.
+        breakdown = ", ".join(
+            f"{name} {count}"
+            for name, count in sorted(marker_counts.items())
+            if count
+        )
+        detail = f"Every {TODO_BLOCK_SIZE} markers cost {TODO_PENALTY_PER_BLOCK} points (capped)."
+        if breakdown:
+            detail = f"{breakdown}. {detail}"
+        if findings.get("todo_scan_truncated"):
+            detail += " Count is a lower bound — the scan hit its per-pattern cap."
         recs.append(RecommendationInfo(
             kind="todos",
-            title=f"Burn down {total} TODO/FIXME markers",
-            detail=(
-                "Every 10 markers cost "
-                f"{TODO_PENALTY_PER_BLOCK} points (capped)."
-            ),
+            title=f"Burn down {total} code markers",
+            detail=detail,
             points=todo_points,
             action=f"GET /api/projects/{snapshot.project_name}/todos for the list",
         ))

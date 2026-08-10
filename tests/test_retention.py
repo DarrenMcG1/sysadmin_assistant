@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from sysadmin.core.retention import (
+    KEEP_LATEST_PER,
     TABLE_TIMESTAMP_MAP,
     _downsample_resources,
     run_retention,
@@ -35,6 +36,9 @@ class TestTableTimestampMap:
             "log_summaries", "alerts", "project_snapshots",
             "filesystem_audits", "unit_audits", "reliability_scores",
             "agent_runs",
+            # SNAG-PROJ-010: added by migrations 004 and 005 and left out
+            # of retention entirely, so they grew one row per week forever.
+            "project_reviews", "disk_reviews",
         }
         assert set(TABLE_TIMESTAMP_MAP.keys()) == expected_tables
 
@@ -42,6 +46,19 @@ class TestTableTimestampMap:
         for col in TABLE_TIMESTAMP_MAP.values():
             assert isinstance(col, str)
             assert len(col) > 0
+
+    def test_keep_latest_tables_are_all_purgeable(self):
+        """A keep-latest rule for a table nothing purges is dead config."""
+        assert set(KEEP_LATEST_PER) <= set(TABLE_TIMESTAMP_MAP)
+
+    def test_review_tables_keep_their_newest_row(self):
+        """Emptying them would make /api/*/review 404 — read as "never run".
+
+        A portfolio left unreviewed for longer than the retention window
+        must still serve its last review rather than the empty state.
+        """
+        assert KEEP_LATEST_PER["project_reviews"] == "true"
+        assert KEEP_LATEST_PER["disk_reviews"] == "true"
 
 
 # ---------------------------------------------------------------------------

@@ -24,6 +24,7 @@ from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+from sysadmin.projects.snapshots import latest_snapshot_query
 
 logger = logging.getLogger(__name__)
 
@@ -184,21 +185,7 @@ async def _build_filesystem_section(session: AsyncSession) -> dict | None:
 
 async def _build_project_section(session: AsyncSession) -> dict | None:
     """Build the project health table from latest snapshots."""
-    # Get latest snapshot per project
-    latest_subq = (
-        select(
-            ProjectSnapshot.project_name,
-            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
-        )
-        .group_by(ProjectSnapshot.project_name)
-        .subquery()
-    )
-
-    query = select(ProjectSnapshot).join(
-        latest_subq,
-        (ProjectSnapshot.project_name == latest_subq.c.project_name)
-        & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
-    ).order_by(desc(ProjectSnapshot.health_score))
+    query = latest_snapshot_query().order_by(desc(ProjectSnapshot.health_score))
     result = await session.execute(query)
     rows = result.scalars().all()
 
@@ -248,20 +235,7 @@ async def _build_next_actions_section(session: AsyncSession) -> dict | None:
     """
     from sysadmin.projects.recommendations import STALLED_HANDOFF_DAYS
 
-    latest_subq = (
-        select(
-            ProjectSnapshot.project_name,
-            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
-        )
-        .group_by(ProjectSnapshot.project_name)
-        .subquery()
-    )
-    query = select(ProjectSnapshot).join(
-        latest_subq,
-        (ProjectSnapshot.project_name == latest_subq.c.project_name)
-        & (ProjectSnapshot.scanned_at == latest_subq.c.max_scanned),
-    )
-    result = await session.execute(query)
+    result = await session.execute(latest_snapshot_query())
     rows = result.scalars().all()
 
     entries = []

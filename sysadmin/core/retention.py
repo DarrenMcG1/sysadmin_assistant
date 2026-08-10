@@ -14,7 +14,13 @@ from sysadmin.core.models.retention_config import RetentionConfig
 
 logger = logging.getLogger(__name__)
 
-# Map table names to their timestamp column for retention
+# Map table names to their timestamp column for retention.
+#
+# A table absent from here is silently skipped, and a table present here
+# but absent from the ``retention_config`` *table* is never visited at
+# all — the loop below iterates config rows, not this map. Both halves
+# are needed, which is how ``project_reviews`` grew unbounded from
+# migration 004 and ``unit_audits`` from 006: each had one half.
 TABLE_TIMESTAMP_MAP = {
     "service_health": "checked_at",
     "resource_snapshots": "recorded_at",
@@ -26,6 +32,32 @@ TABLE_TIMESTAMP_MAP = {
     "unit_audits": "scanned_at",
     "reliability_scores": "computed_at",
     "agent_runs": "started_at",
+    "project_reviews": "generated_at",
+    "disk_reviews": "generated_at",
+}
+
+# Tables whose newest row per entity survives the purge regardless of age.
+# The value is the SQL expression identifying the entity.
+#
+# ``true`` means "the whole table is one entity" — the review tables hold
+# an estate-wide narrative with no per-entity dimension, so this keeps
+# exactly the latest one. Without it a portfolio left unreviewed for
+# longer than its window would purge its last review and make
+# ``GET /api/projects/review`` start 404ing, which reads to a consumer as
+# "no review has ever been generated" rather than "none lately".
+KEEP_LATEST_PER = {
+    "project_snapshots": "project_name",
+    # Keep the newest score per service, so a service that stopped being
+    # checked still shows its last verdict rather than silently vanishing
+    # from the history.
+    "reliability_scores": "service_name",
+    # No per-entity dimension worth keeping history for — a sweep covers
+    # the whole estate — so the "entity" is the directory pair, which
+    # keeps the latest sweep.
+    "unit_audits": "system_unit_dir",
+    "filesystem_audits": "scan_root",
+    "project_reviews": "true",
+    "disk_reviews": "true",
 }
 
 
@@ -52,29 +84,9 @@ async def run_retention() -> None:
                     f"DELETE FROM sysadmin.{table_name} "
                     f"WHERE {ts_col} < :cutoff AND resolved = TRUE"
                 )
-            # Keep latest per entity for snapshot tables
-            elif table_name in (
-                "project_snapshots",
-                "filesystem_audits",
-                "unit_audits",
-                "reliability_scores",
-            ):
-                # Delete old rows but keep the most recent per entity
-                if table_name == "project_snapshots":
-                    entity_col = "project_name"
-                elif table_name == "reliability_scores":
-                    # Keep the newest score per service, so a service that
-                    # stopped being checked still shows its last verdict
-                    # rather than silently vanishing from the history.
-                    entity_col = "service_name"
-                elif table_name == "unit_audits":
-                    # No per-entity dimension worth keeping history for —
-                    # a sweep covers the whole estate — so the "entity" is
-                    # the directory pair, which keeps the latest sweep.
-                    entity_col = "system_unit_dir"
-                else:
-                    entity_col = "scan_root"
-
+            # Keep latest per entity for snapshot and review tables
+            elif table_name in KEEP_LATEST_PER:
+                entity_col = KEEP_LATEST_PER[table_name]
                 stmt = text(
                     f"DELETE FROM sysadmin.{table_name} "
                     f"WHERE {ts_col} < :cutoff "

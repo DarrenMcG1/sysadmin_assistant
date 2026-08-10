@@ -4,20 +4,28 @@
 >
 > **Related**: [tasks.md](tasks.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-08
+> **Last Updated**: 2026-08-10
 
 ---
 
 ## Open Issues
 
-_Eighteen open snags, plus SNAG-SYSD-002 found and fixed on 2026-08-08. `SNAG-ROADMAP-003` was found on 2026-08-08 while
+_Six open snags, plus two found and fixed the same day
+(`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on 2026-08-10). The twelve
+`SNAG-PROJ-*` entries from the 2026-08-07 project-organiser capability audit
+were **all cleared by [Session 34](tasks.md) on 2026-08-10** and are archived
+below with their fix dates. `SNAG-ROADMAP-003` was found on 2026-08-08 while
 writing the `.project.yaml` manifests: three handoff conventions exist across
-the estate and the scanner reads two of them. Three were found on 2026-08-07 by the consumer — Alfred now
-renders `briefing/preview` daily and is building a page on `/api/projects/board`,
-so producer-side content defects have a reader for the first time. Twelve more
-(`SNAG-PROJ-001`…`012`) came from the project-organiser capability audit of the
-same day; none were fixed during the audit, and all are owned by
-[Session 34](tasks.md)._
+the estate and the scanner reads two of them. The `BRIEF`/`ROADMAP` entries were
+found on 2026-08-07 by the consumer — Alfred now renders `briefing/preview`
+daily and is building a page on `/api/projects/board`, so producer-side content
+defects have a reader for the first time._
+
+- [P1] SNAG-DB-001: the live database was three migrations behind, and nothing noticed (2026-08-10, fixed same day)
+  - **Symptom**: `alembic current` reported **008** while the repository's head was 009. Migration 009 was written and committed on 2026-08-08 (Session 35 Phase 3) and never applied
+  - **Cause**: Nothing compares the database's Alembic revision against the code's head. The application starts, connects and serves normally against an out-of-date schema; `verify_connection` checks that the database answers, not that it is the schema this code was written for
+  - **Impact**: **Latent, not yet realised, and the trigger was already queued.** Migration 009 adds `'skipped'` to `chk_health_status`. `services.yaml` declares `kind: static`, `kind: oneshot` and `monitor: false` entries that all record `skipped` — so the pending `sudo systemctl restart sysadmin.service` in STATUS.md would have produced a CHECK constraint violation on every such write. It had not bitten only because the daemon has been up since 2026-08-07 holding the pre-services.yaml config. Confirmed: zero `skipped` rows exist
+  - **Fixed**: `uv run alembic upgrade head` applied 009, 010 and 011 together on 2026-08-10. **The detection gap is not fixed** — see the follow-up task in [tasks.md](tasks.md): a startup check comparing `alembic_version` against the packaged head, failing loudly rather than serving against a schema it does not match
 
 - [P1] SNAG-BRIEF-001: `Project Health` publishes every project ever scanned, including retired ones (2026-08-07)
   - **Symptom**: The section carries **26 rows**, among them `PersonalAssistant`, `PersonalAssistant-auto` and `PA-worktrees` — a project retired 2026-07-24 whose repos are deliberately archived — plus four near-duplicate casings of the same work (`Portfolio` / `portfolio` / `portfolionew`, `BSL-Translator` / `bsl-translator` / `bsl-translation-app`). The same briefing's `Pick This Up` section lists 5 projects and `GET /api/projects/board` returns 6. One payload, three different answers to "what is on this box"
@@ -74,6 +82,46 @@ a briefing envelope on top of wrong data only makes the wrong data better
 formatted. Kept under this heading rather than a `###` sub-heading on purpose —
 `roadmap._sections` splits on any heading level, so a sub-heading would hide
 all twelve from `count_open_snags` and from preflight._
+
+---
+
+## Fixed Issues
+
+_All SNAGs fixed to date are archived — nothing outstanding is hidden here._
+
+| SNAG | Title | Fixed |
+|---|---|---|
+| SNAG-PROJ-001 | Board freshness filter applied on one route out of nine | 2026-08-10 |
+| SNAG-PROJ-002 | Deleted projects contributed to `average_active_score` | 2026-08-10 |
+| SNAG-PROJ-003 | Project organiser never resolved its own alerts | 2026-08-10 |
+| SNAG-PROJ-004 | 1,664 existing alert rows would never have cleared | 2026-08-10 |
+| SNAG-PROJ-005 | Project review handed the model its figures | 2026-08-10 |
+| SNAG-PROJ-006 | `/api/projects/stale` declared a `days` parameter it never read | 2026-08-10 |
+| SNAG-PROJ-007 | `HACK`/`XXX` cost points and appeared in no column | 2026-08-10 |
+| SNAG-PROJ-008 | TODO scan counted a project's own roadmap documents | 2026-08-10 |
+| SNAG-PROJ-009 | `_count_todos`'s cap was per file, docstring said otherwise | 2026-08-10 |
+| SNAG-PROJ-010 | `project_reviews` (and `disk_reviews`, `unit_audits`) never purged | 2026-08-10 |
+| SNAG-PROJ-011 | Three places described `archived` as waiving git hygiene generally | 2026-08-10 |
+| SNAG-PROJ-012 | Archived alert suppression absolute but documented as conditional | 2026-08-10 |
+| SNAG-DB-001 | Live database three migrations behind, undetected | 2026-08-10 |
+| SNAG-CONF-001 | `sports_analyser` projects.yaml entry silently dead (wrong-case path) | 2026-08-04 |
+| SNAG-SYSD-001 | `systemctl --user` checks always fail from the daemon (missing `XDG_RUNTIME_DIR`) | 2026-07-24 |
+| SNAG-AGENT-003 | Shared `httpx.AsyncClient` reused across event loops | 2026-07-24 |
+| SNAG-API-001 | Alert ack returned 200 with a malformed body for missing alerts | 2026-07-24 |
+| SNAG-API-002 | Access-log middleware never excluded the real health endpoint | 2026-07-24 |
+| SNAG-API-003 | Two endpoints blocked the event loop with sync psutil calls | 2026-07-24 |
+| SNAG-TRAY-005 | Malformed API responses silently froze the tray on stale data | 2026-07-24 |
+| SNAG-TRAY-004 | StatsPopup unreachable after dashboard cutover but still live | 2026-07-24 |
+| SNAG-AGENT-001 | Project staleness scored from HEAD only, not all branches | 2026-07-24 |
+
+
+### Session 34 write-ups (project-organiser capability audit, fixed 2026-08-10)
+
+_Kept in full rather than summarised: each entry records what was measured
+and why the chosen fix was chosen, which is the part that stops the defect
+being reintroduced. Line references are to the pre-Session-35 layout
+(`routers/projects.py`, `agents/project_organiser.py`); those modules are now
+`projects/router.py` and `projects/agent.py`._
 
 - [P1] SNAG-PROJ-001: the board's freshness filter is applied on one route out of eight (2026-08-07)
   - **Symptom**: A project whose directory has been deleted is still reported by `/overview`, `/stale`, `/report`, `/actions`, `/api/summary`, `_build_project_section` and `_build_next_actions_section`. `GET /api/projects/board` is the only surface that drops it
@@ -136,23 +184,6 @@ all twelve from `count_open_snags` and from preflight._
   - **Cause**: `_effective_threshold` returns `0` for archived, and the score is clamped with `max(0, …)`, so the alert condition is `score < 0` — unreachable by construction
   - **Fix**: Document it as absolute. Worth keeping the mechanism as-is: a threshold of 0 is a clearer expression of "never alert" than a special case, provided the guarantee is written down and tested
 
----
-
-## Fixed Issues
-
-_All SNAGs fixed to date are archived — nothing outstanding is hidden here._
-
-| SNAG | Title | Fixed |
-|---|---|---|
-| SNAG-CONF-001 | `sports_analyser` projects.yaml entry silently dead (wrong-case path) | 2026-08-04 |
-| SNAG-SYSD-001 | `systemctl --user` checks always fail from the daemon (missing `XDG_RUNTIME_DIR`) | 2026-07-24 |
-| SNAG-AGENT-003 | Shared `httpx.AsyncClient` reused across event loops | 2026-07-24 |
-| SNAG-API-001 | Alert ack returned 200 with a malformed body for missing alerts | 2026-07-24 |
-| SNAG-API-002 | Access-log middleware never excluded the real health endpoint | 2026-07-24 |
-| SNAG-API-003 | Two endpoints blocked the event loop with sync psutil calls | 2026-07-24 |
-| SNAG-TRAY-005 | Malformed API responses silently froze the tray on stale data | 2026-07-24 |
-| SNAG-TRAY-004 | StatsPopup unreachable after dashboard cutover but still live | 2026-07-24 |
-| SNAG-AGENT-001 | Project staleness scored from HEAD only, not all branches | 2026-07-24 |
 
 Full symptom/cause/fix write-ups:
 [archive/completed_2026-08-05.md](archive/completed_2026-08-05.md) (2026-07-24 → 2026-08-04) ·

@@ -272,6 +272,54 @@ class ProjectOverviewResponse(Contract):
         return _fill_count(data, "projects")
 
 
+# ── /api/projects/stale ──────────────────────────────────────────────
+
+
+class StaleProjectEntry(Contract):
+    """One idle project.
+
+    ``days_idle`` is ``None`` when the project has no commit at all —
+    distinct from ``0``, which means committed today.  A consumer that
+    sorts on this must decide where null belongs; the endpoint returns
+    them first, since "never" outranks any date.
+    """
+
+    name: str = ""
+    health_score: int = 0
+    last_commit_at: str | None = None
+    days_idle: int | None = None
+    status: str = "active"
+    findings: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("health_score", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+    @field_validator("findings", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+
+class StaleProjectsResponse(Contract):
+    """The window is echoed back so a cached response stays interpretable.
+
+    Without ``days`` the body cannot be told apart from one generated
+    under a different window, and the parameter this endpoint spent its
+    first life ignoring becomes invisible again.
+    """
+
+    stale_projects: list[StaleProjectEntry] = Field(default_factory=list)
+    count: int = 0
+    days: int = 30
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "stale_projects")
+
+
 # ── /api/projects/managed ────────────────────────────────────────────
 
 

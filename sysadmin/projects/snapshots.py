@@ -1,0 +1,77 @@
+"""The one query that answers "which projects exist, and how are they?".
+
+Every surface that reports on projects needs the newest snapshot per
+project name, and every one of them needs the same freshness test on top
+of it.  Before this module there were **nine** open-coded copies of the
+join across three packages and one shared helper with the filter applied
+by hand at a single call site, so a project deleted from disk kept its
+final snapshot forever and went on being reported as live on eight of the
+nine.  ``PA-worktrees`` was removed during the ~/projects reorganisation
+and still occupied a board row two days later, with a health score and a
+next action.
+
+The filter is in the query rather than in the callers on purpose.  A
+caller cannot forget a ``WHERE`` clause it does not know exists, and the
+defect's shape was *the filter repeated in one place out of nine* — so
+repeating it in nine places would have been the same defect with better
+odds.
+
+Freshness is expressed relative to the newest scan in the table, not to
+wall-clock now.  The organiser scan stamps every project it finds within
+the same few seconds, so "materially behind the newest stamp" means "not
+found on the last run".  Anchoring to ``now()`` instead would empty every
+surface the moment the organiser's timer stopped, which is a monitoring
+failure reported as an estate with no projects in it.
+"""
+
+from datetime import timedelta
+
+from sqlalchemy import Select, func, select
+
+from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+
+# Slack against a scan that straddles the boundary.  Far inside the
+# 6-hour scan interval, so a project missed by one whole scan still drops.
+FRESHNESS_WINDOW = timedelta(hours=1)
+
+
+def latest_snapshot_query(*, fresh: bool = True) -> Select[tuple[ProjectSnapshot]]:
+    """Select the newest snapshot per project.
+
+    Args:
+        fresh: Keep only projects the most recent scan saw.  Defaults to
+            ``True`` because every reporting surface wants it.  Pass
+            ``False`` only to ask a question *about* the history itself
+            — a review's week-ago baseline, say — where excluding the
+            projects that have since disappeared would hide the change
+            being measured.
+
+    Returns:
+        A ``Select`` of whole ``ProjectSnapshot`` rows, unordered.
+        Callers add their own ``order_by``; there is no natural order
+        shared by a board, a report and a briefing table.
+    """
+    newest_per_project = (
+        select(
+            ProjectSnapshot.project_name,
+            func.max(ProjectSnapshot.scanned_at).label("max_scanned"),
+        )
+        .group_by(ProjectSnapshot.project_name)
+        .subquery()
+    )
+
+    query = select(ProjectSnapshot).join(
+        newest_per_project,
+        (ProjectSnapshot.project_name == newest_per_project.c.project_name)
+        & (ProjectSnapshot.scanned_at == newest_per_project.c.max_scanned),
+    )
+
+    if not fresh:
+        return query
+
+    # Evaluated by the database in the same statement rather than by a
+    # second round trip: two queries could straddle a scan writing rows
+    # between them and compute the cutoff from a scan the first query
+    # never saw.
+    newest_scan = select(func.max(ProjectSnapshot.scanned_at)).scalar_subquery()
+    return query.where(ProjectSnapshot.scanned_at >= newest_scan - FRESHNESS_WINDOW)

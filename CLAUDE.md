@@ -191,6 +191,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/logs/recent` | `LogsResponse` / `LogEntryInfo` | response_model |
 | `GET /api/logs/stats` | `LogStatsResponse` | response_model |
 | `GET /api/projects/overview` | `ProjectOverviewResponse` | response_model |
+| `GET /api/projects/stale` | `StaleProjectsResponse` (+`StaleProjectEntry`) | response_model |
 | `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model |
 | `GET /api/projects/{name}` | `ProjectDetailResponse` (+`ProjectHistoryPoint`) | parse-side only (history newest-first; tray reverses for plotting) |
 | `GET /api/files/status` | `FileStatusResponse` (+`FileAuditSummary`, `FileQuickWins`) | parse-side only (404 = "no scan yet" → empty state) |
@@ -214,6 +215,79 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/units/status` | `UnitScanResponse` (+`UnitScanSummary`, `UnitFindingInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/units/actions` | `UnitActionsResponse` (+`UnitRecommendationInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/services/reliability` | `ReliabilityResponse` (+`ReliabilitySummary`, `ServiceReliabilityInfo`, `ReliabilityDeduction`) | response_model (computed live — never 404s) |
+
+Every surface that reports on projects goes through
+**`sysadmin/projects/snapshots.py`**, which owns the latest-snapshot-per-name
+join *and* the `newest_scan − 1h` freshness cutoff. Before Session 34 the
+cutoff existed on `GET /api/projects/board` and nowhere else, so a project
+deleted from disk was dropped from the board and reported as live by the other
+eight surfaces — `PA-worktrees` held a row for two days after deletion, with a
+health score and a next action. The audit counted eight call sites and there
+were **nine**, which is the argument for a shared query rather than a repeated
+filter: a copy-pasted pattern cannot be counted reliably.
+
+Two rules the module encodes:
+
+1. **Freshness is anchored to the newest scan, never to `now()`.** Anchoring
+   to wall-clock would empty every project surface the moment the organiser's
+   timer stopped — a monitoring failure reported as an estate with no projects
+   in it.
+2. **`fresh=False` exists for questions about history**, such as a review's
+   week-ago baseline, where excluding projects that have since disappeared
+   would hide the change being measured. Every *reporting* caller uses the
+   default.
+
+`tests/test_project_snapshots_query.py` fails if any module outside
+`snapshots.py` builds `func.max(ProjectSnapshot.scanned_at)` for itself. Note
+what it cannot show: the suite mocks every session, so a `WHERE` clause is
+invisible to it and the filter's effect is asserted on compiled SQL, not a
+round trip.
+
+`GET /api/projects/stale` answers **idleness, not ill health** — commits older
+than `days`, defaulting to 30. It spent its first life declaring `days` and
+filtering on `health_score < needs_attention_min` instead, which made it a
+duplicate of `/overview`: a well-kept repository untouched for a year scored 90
+and never appeared. `days_idle` is `None` for a project with no commit at all,
+which is distinct from `0` (committed today) and is deliberately *included*
+rather than dropped — "never" is the strongest form of the question being
+asked. The window is echoed back in the body so a cached response stays
+interpretable.
+
+**`ProjectOrganiserAgent` resolves alerts set-based**, unlike the two reference
+agents which loop and call `BaseAgent.resolve_alerts` per recovered item. Their
+populations are fixed by configuration; a project's is not — a project deleted
+from disk never appears in a scan, so it can never be observed *recovering*,
+and a per-project loop leaves its alert unresolved forever while retention
+purges resolved rows only. That is how 1,664 rows accumulated by 2026-08-07,
+326 sharing one title. `_resolve_recovered` asks the inverse question — which
+open health alerts would this scan *not* raise — closing recovery, deletion,
+rename and re-declaration as `archived` in one statement. Raise and resolve
+both derive their title from `_alert_title`, because a hand-written resolve
+pattern that matches nothing is invisible.
+
+**`status: archived` waives exactly two deductions** — commit staleness and
+stale branches — and nothing else. It is *not* a general git-hygiene exemption:
+a leftover `.git/index.lock` still costs an archived project 5 points and a
+missing remote is still reported. Its **alert suppression, by contrast, is
+absolute**: `_effective_threshold` returns 0 and the score is clamped with
+`max(0, …)`, so the condition is `score < 0` — unreachable at any score, for
+any repository, unless a manifest sets an explicit `alert_threshold`.
+
+**The marker scan reads code, not documentation.** `*.md` is excluded because a
+repository's own `snag_list.md` counted towards its own penalty — writing up a
+defect lowered the score of the project writing it up. Patterns match whole
+words (`grep -w`), so `TODO_STATES` and `TodoList` are identifiers rather than
+markers, and the cap is a **project total** that records its own truncation in
+`findings['todo_scan_truncated']`; `-m` is grep's per-file limit and was
+documented as a global one. All configured patterns are penalised, so
+`findings['todos']` carries the full per-pattern mapping and the
+recommendation names the markers it charged for — a project penalised for 40
+`HACK` markers used to read "0 TODOs, 0 FIXMEs" beside an unexplained
+deduction.
+
+Both weekly reviews are **figure-free by construction**, not by instruction,
+and share `strip_markdown` from `sysadmin/core/text.py` — it lives in `core`
+because neither domain may import the other.
 
 `GET /api/files/actions` is the file-organiser mirror of
 `GET /api/projects/actions`, with one deliberate difference: its currency is
@@ -344,6 +418,17 @@ than omitted. An expected-down service (`mute: true`, **or** listed in
 `notifications.tray.mute_services` — the only way to mark one contributed
 by projects.yaml, since those entries have no `mute` field) has its
 deductions computed and reported with `waived: true` but not applied.
+
+Retention needs **both halves**: a row in the `retention_config` table and
+an entry in `TABLE_TIMESTAMP_MAP`. `run_retention` iterates config rows and
+looks each up in the map, so a table with one half is silently never purged
+— `project_reviews` and `disk_reviews` had neither, `unit_audits` had only
+the map. Review tables get **365 days**, not the 30 that check data gets: a
+weekly narrative kept for 30 days is four rows, too few to see a trend.
+`KEEP_LATEST_PER` protects the newest row per entity (`"true"` means "the
+whole table is one entity"), because a purge that emptied `project_reviews`
+would make `GET /api/projects/review` 404 — which reads as "never generated"
+rather than "none lately".
 
 Adding a **new agent** touches four places, not one: the Python wiring in
 `main.py`, a config class in `config.py`, the `chk_alert_agent` CHECK
