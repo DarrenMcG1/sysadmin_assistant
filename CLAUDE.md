@@ -210,6 +210,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/projects/{name}/recommendations` | `ProjectRecommendationsResponse` (+`RecommendationInfo`) | response_model |
 | `GET /api/projects/actions` | `PortfolioActionsResponse` (+`PortfolioAction`) | response_model |
 | `GET /api/projects/board` | `ProjectBoardResponse` (+`ProjectBoardEntry`) | response_model |
+| `GET /api/projects/next` | `NextProjectResponse` (+`NextProjectInfo`) | response_model (200 with `project: null` when nothing qualifies — never 404s) |
 | `GET /api/projects/review` | `ProjectReviewResponse` | response_model |
 | `POST /api/projects/review/generate` | `ProjectReviewResponse` | response_model (auth; LLM optional — digest fallback) |
 | `GET /api/units/status` | `UnitScanResponse` (+`UnitScanSummary`, `UnitFindingInfo`) | response_model (404 = "no sweep yet") |
@@ -261,6 +262,37 @@ window to compare against; rendering that as "unchanged" invents a streak
 whose length moves with `limit` while the data does not. Snapshots from
 before 2026-08-06 carry `{}` and yield `None` — every `findings` access is
 defensive, since this runs over whatever 90 days of retention holds.
+
+**`GET /api/projects/next` ranks by stuckness, and the unit is days.**
+The board describes projects and lets the caller order them; `/next`
+chooses *for* the caller — alfred-glance shows one item, so the ranking is
+invisible and `reason` is the only place the choice is accountable. The
+rule, decided 2026-08-10, is **how long the stated next action has stood
+unchanged**, tie-broken by the most recent commit. Rejected: longest-idle
+(ranks by guilt, against the stated goal of momentum), nearest-to-finishing
+(`done_tasks`/`open_tasks` are `None` for three of five active projects, so
+it would be blind to most of the population while looking authoritative)
+and smallest-next-step (unmeasurable — nothing records the size of a step).
+
+**Days, not scans, because the cadence is irregular by construction**:
+6-hourly until Session 35, daily from the organiser's timer since, plus
+every manual `POST /api/projects/scan` — the live table holds two scans 17
+minutes apart on 2026-08-08. A run length in scans ranks by how often the
+organiser happened to run and calls it the owner's behaviour.
+`unchanged_scans` is reported as evidence for the number, never ranked on,
+and `at_window_edge` marks a run that reaches the oldest scan held, so
+`days_unchanged` is a lower bound.
+
+Three further rules. **Elapsed days come from the snapshot series, not
+`handoff_age_days`** — the document's self-reported date says what it
+claims about itself, the series says what was observed, and
+`handoff_age_days` already decides `stalled`. **A `git`-sourced action is
+not a candidate**: a commit subject is a record of the past, honest on the
+board where the source is rendered beside it, and not an instruction.
+**Nothing to do returns 200 with `project: null`**, never 404, which would
+collapse "every project is up to date" into "no scan has ever run";
+`skipped` breaks the ruled-out population down by reason, which is what
+made it legible that the eligible set is 2 of 23.
 
 `GET /api/projects/stale` answers **idleness, not ill health** — commits older
 than `days`, defaulting to 30. It spent its first life declaring `days` and

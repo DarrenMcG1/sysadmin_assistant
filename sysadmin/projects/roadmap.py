@@ -200,6 +200,59 @@ def is_placeholder(text: str) -> bool:
     return any(rx.search(stripped) for rx in _PLACEHOLDER_RES)
 
 
+# A handoff line that *states there is nothing to do*.  Distinct from a
+# placeholder, which is an unfilled template: this is a filled-in, correct
+# handoff whose content is "no next action".  Both are useless to a
+# consumer that promises one thing to do next, and both are honest input,
+# so neither is a scanner bug to fix upstream.
+#
+# Split in two on purpose.  The bare words are anchored to the whole line,
+# because "None of the migrations are applied" is real work and starts
+# with "None"; the phrases may match anywhere, because they cannot be
+# read any other way.
+_NO_ACTION_WHOLE_LINE = re.compile(
+    r"^(none|n/?a|nothing|no|tbd|-+|—+)\.?$", re.IGNORECASE
+)
+_NO_ACTION_PHRASES = (
+    re.compile(r"\bno unchecked task\b", re.IGNORECASE),
+    re.compile(r"\bnothing (?:left )?to do\b", re.IGNORECASE),
+    # Anchored, or completed by a word that settles the reading. Bare
+    # "no action" mid-sentence is left alone: "there is no task runner
+    # configured — add one" is real work and would otherwise vanish.
+    re.compile(r"^no (?:next )?(?:action|task)s?\b", re.IGNORECASE),
+    re.compile(r"\b(?:no|zero) (?:next )?(?:action|task)s?\s+"
+               r"(?:found|set|recorded|outstanding|remaining|left)\b", re.IGNORECASE),
+    re.compile(r"\bset one before the next session\b", re.IGNORECASE),
+)
+
+
+def looks_like_no_action(text: str | None) -> bool:
+    """True when a stated next action says there is no next action.
+
+    Two live handoffs on this estate read "No unchecked task found — set
+    one before the next session."  That is a *correct* handoff: the
+    session genuinely left nothing queued.  It is still not something to
+    hand a consumer whose whole premise is glance-then-act, which would
+    show the reader a sentence instructing them to go and write a
+    sentence.
+
+    Conservative in the same direction as :func:`is_placeholder`, and for
+    the same reason: a false positive hides real work, so the bare-word
+    forms must be the entire line.  Placeholders count as no-action too —
+    an unfilled template says nothing about what to do next either.
+    """
+    if text is None:
+        return True
+    stripped = text.strip().strip("*").strip()
+    if not stripped:
+        return True
+    if is_placeholder(stripped):
+        return True
+    if _NO_ACTION_WHOLE_LINE.match(stripped):
+        return True
+    return any(rx.search(stripped) for rx in _NO_ACTION_PHRASES)
+
+
 def first_unchecked_task(text: str) -> str | None:
     """First *real* ``- [ ]`` item, prefixed with the section it sits under.
 

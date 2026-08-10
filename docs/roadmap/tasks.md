@@ -426,22 +426,51 @@ a project yet. Success is measured in what stops being shown.
 Take 29 first: 30 consumes its ranking, and 31/32 are more useful once one
 project at a time is the unit.
 
-### Session 29: The one-thing endpoint
+### Session 29: The one-thing endpoint — done 2026-08-10
 
-- [ ] `GET /api/projects/next` — **one** project, one action, one sentence
+- [x] `GET /api/projects/next` — **one** project, one action, one sentence
       of why it is that one. Not a filtered board: a different object, with
-      a `reason` field the consumer must render
-- [ ] **The open design question, and it is the whole feature: what decides
-      when two projects both have a live next action?** Longest-idle is the
-      obvious rule and probably the wrong one — it optimises for guilt.
-      "Smallest next step" or "nearest to finishing" optimise for momentum,
-      which is the stated goal. Needs a decision before code
-- [ ] Honour `?exclude=` so a deferred suggestion can be skipped without
-      re-rolling the same answer
-- [ ] Contract-pinned; feeds alfred-glance, whose whole premise is glance
+      a `reason` field the consumer must render. `NextProjectInfo` carries
+      four fields the board has no use for (`days_unchanged`,
+      `unchanged_since`, `unchanged_scans`, `at_window_edge`), which is what
+      stops it reading as `/board?limit=1`
+- [x] **The open design question, and it is the whole feature: what decides
+      when two projects both have a live next action?** Decided 2026-08-10:
+      **stuckness** — how long the stated next action has stood unchanged —
+      with the most recently committed project breaking a tie. Rejected:
+      longest-idle (ranks by guilt), nearest-to-finishing (reads
+      `done_tasks`/`open_tasks`, which are `None` for three of five active
+      projects, so it would be blind to most of the population while looking
+      authoritative), smallest-next-step (unmeasurable — nothing records the
+      size of a step and every proxy is invented)
+- [x] **The unit is elapsed days, not scans.** The cadence is irregular by
+      construction (6-hourly until Session 35, daily from the timer since,
+      plus manual scans — two live scans 17 minutes apart on 2026-08-08), so
+      a run length in scans ranks by how often the organiser happened to
+      run. Run length in observations is reported as evidence, not ranked on
+- [x] Honour `?exclude=` so a deferred suggestion can be skipped without
+      re-rolling the same answer. Repeatable; exclusions are counted in
+      `skipped` and echoed in `excluded`, so a caller that excluded its way
+      to an empty answer can tell that from an estate with no work in it
+- [x] Contract-pinned; feeds alfred-glance, whose whole premise is glance
       then act
-- [ ] Deliberately **not** in scope: a resume/deep-link command. Considered
+- [x] Eligibility: active, `next_action_source` in (`handoff`, `tasks`), and
+      not a handoff stating there is nothing queued. `roadmap.looks_like_no_action`
+      catches the two live cases ("No unchecked task found — set one before
+      the next session"); conservative like `is_placeholder`, since a false
+      positive hides real work
+- [x] Empty is `200` with `project: null` and a reason, never `404` — a 404
+      would collapse "every project is up to date" into "no scan has run"
+- [x] Deliberately **not** in scope: a resume/deep-link command. Considered
       and dropped 2026-08-06
+
+**Left for a later session** (found while building, deliberately not fixed):
+
+- [ ] The eligible population is **2 of 23** fresh projects — 20 inactive,
+      1 with no stated action, 2 stating there is nothing queued. The
+      endpoint is correct and the estate is the constraint; whether
+      `says_no_action` should itself become a nudge ("write a next action")
+      belongs with Session 31, not here
 
 ### Session 30: Next action → an Alfred work item
 

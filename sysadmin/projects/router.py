@@ -16,6 +16,7 @@ from sysadmin.core.config import get_config
 from sysadmin.core.contracts import (
     BranchCleanupResponse,
     ManagedProjectsResponse,
+    NextProjectResponse,
     PortfolioActionsResponse,
     ProjectBoardResponse,
     ProjectOverviewResponse,
@@ -26,11 +27,12 @@ from sysadmin.core.contracts import (
 from sysadmin.core.database import get_db_session
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.services import get_services
-from sysadmin.projects import branch_actions, recommendations
+from sysadmin.projects import branch_actions, next_action, recommendations
 from sysadmin.projects import review as project_review
 from sysadmin.projects.models.project_review import ProjectReview
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
-from sysadmin.projects.snapshots import latest_snapshot_query
+from sysadmin.projects.roadmap import looks_like_no_action
+from sysadmin.projects.snapshots import action_history_query, latest_snapshot_query
 from sysadmin.registry import load_registry
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -450,6 +452,137 @@ async def get_project_board(
         "projects": entries,
         "count": len(entries),
         "stalled_count": sum(1 for e in entries if e["stalled"]),
+        "generated_at": now.isoformat(),
+    }
+
+
+# NOTE: must stay declared before ``/{name}`` — same capture hazard as
+# /actions, /review and /board above.
+@router.get("/next", response_model=NextProjectResponse)
+async def get_next_project(
+    exclude: list[str] = Query(default=[]),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """The one project to pick up next, and why it is that one.
+
+    The board's smaller sibling, and a different object rather than
+    ``/board?limit=1``: it ranks by how long a next action has stood
+    unchanged, which no board ordering exposes.  Built for
+    alfred-glance, whose premise is glance-then-act — a six-row list on
+    a phone reintroduces the choosing problem the feature exists to
+    remove.
+
+    ``?exclude=`` is repeatable and takes project names, so a suggestion
+    can be deferred without re-rolling the same answer.  The exclusions
+    are counted in ``skipped`` and echoed in ``excluded``: a caller that
+    has excluded its way to an empty response should be able to see that
+    is what happened, rather than read it as an estate with no work in
+    it.
+
+    The ranking, the reason text and the eligibility rules live in
+    :mod:`sysadmin.projects.next_action`, which records why stuckness
+    was chosen over idleness and why the unit is days rather than scans.
+    """
+    result = await session.execute(latest_snapshot_query())
+    rows = result.scalars().all()
+
+    now = datetime.now(UTC)
+    excluded = sorted({name.strip() for name in exclude if name.strip()})
+    skipped: dict[str, int] = {}
+
+    def _skip(reason: str) -> None:
+        skipped[reason] = skipped.get(reason, 0) + 1
+
+    candidates: list[next_action.Candidate] = []
+    for row in rows:
+        findings = row.findings or {}
+        if findings.get("status", "active") != "active":
+            # Dormant and archived projects have no next action by
+            # definition — that is what declaring them dormant meant.
+            _skip("inactive")
+            continue
+        if row.project_name in excluded:
+            _skip("excluded")
+            continue
+
+        roadmap = findings.get("roadmap") or {}
+        action = roadmap.get("next_action")
+        source = roadmap.get("next_action_source")
+        if not action or not source:
+            _skip("no_action")
+            continue
+        if source not in next_action.ELIGIBLE_SOURCES:
+            # The board's git fallback: honest there, where the source is
+            # rendered beside it, and not an instruction to act on here.
+            _skip("source_git")
+            continue
+        if looks_like_no_action(action):
+            _skip("says_no_action")
+            continue
+
+        days_since = None
+        if row.last_commit_at:
+            last = row.last_commit_at
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=UTC)
+            days_since = (now - last).days
+
+        candidates.append(next_action.Candidate(
+            name=row.project_name,
+            path=row.project_path,
+            next_action=str(action),
+            next_action_source=str(source),
+            health_score=row.health_score,
+            days_since_commit=days_since,
+            open_tasks=roadmap.get("open_tasks"),
+            open_snags=roadmap.get("open_snags", 0),
+            scanned_at=row.scanned_at,
+        ))
+
+    # Only the candidates' history is fetched.  Reading every project's
+    # series to rank five of them would pull ninety days of scans for the
+    # thirty-odd repositories that were already ruled out.
+    streaks: dict[str, next_action.Streak] = {}
+    if candidates:
+        history = await session.execute(
+            action_history_query([c.name for c in candidates])
+        )
+        series: dict[str, list[tuple[datetime, str | None]]] = {}
+        for name, scanned_at, past_action in history.all():
+            series.setdefault(name, []).append((scanned_at, past_action))
+        streaks = {
+            name: next_action.streak_days(points)
+            for name, points in series.items()
+        }
+
+    winner, streak, reason = next_action.choose(candidates, streaks, skipped)
+
+    project = None
+    if winner is not None and streak is not None:
+        project = {
+            "name": winner.name,
+            "path": winner.path,
+            "next_action": winner.next_action,
+            "next_action_source": winner.next_action_source,
+            "days_unchanged": streak.days,
+            "unchanged_since": streak.since.isoformat() if streak.since else None,
+            "unchanged_scans": streak.scans,
+            "at_window_edge": streak.at_window_edge,
+            "days_since_commit": winner.days_since_commit,
+            "health_score": winner.health_score,
+            "open_tasks": winner.open_tasks,
+            "open_snags": winner.open_snags,
+            "scanned_at": (
+                winner.scanned_at.isoformat() if winner.scanned_at else None
+            ),
+        }
+
+    return {
+        "project": project,
+        "reason": reason,
+        "considered": len(candidates),
+        "skipped": dict(sorted(skipped.items())),
+        "excluded": excluded,
         "generated_at": now.isoformat(),
     }
 

@@ -1092,6 +1092,70 @@ class ProjectBoardResponse(Contract):
     generated_at: str | None = None
 
 
+class NextProjectInfo(Contract):
+    """The one project to pick up, as ``GET /api/projects/next`` picked it.
+
+    Deliberately **not** a ``ProjectBoardEntry``.  The board describes a
+    project; this asserts something about it, and the fields that carry
+    the assertion (``days_unchanged``, ``unchanged_since``,
+    ``unchanged_scans``, ``at_window_edge``) have no meaning in a list
+    where each row was not chosen over the others.  Reusing the board
+    entry would have made ``/next`` look like ``/board?limit=1``, which
+    is precisely the reading that loses the ranking.
+
+    ``days_unchanged`` is elapsed days since this next action first
+    appeared in the snapshot series, **not** a count of scans: the scan
+    cadence is irregular, so a scan count would rank on how often the
+    organiser happened to run.  ``unchanged_scans`` reports the
+    observations behind the number.
+
+    ``at_window_edge`` True means the run reaches the oldest scan held,
+    so ``days_unchanged`` is a lower bound — render it as "at least".
+    """
+
+    name: str = ""
+    path: str = ""
+    next_action: str = ""
+    next_action_source: str = ""      # handoff | tasks (never git — see below)
+    days_unchanged: int = 0
+    unchanged_since: str | None = None
+    unchanged_scans: int = 0
+    at_window_edge: bool = False
+    days_since_commit: int | None = None
+    health_score: int = 0
+    open_tasks: int | None = None
+    open_snags: int = 0
+    scanned_at: str | None = None
+
+
+class NextProjectResponse(Contract):
+    """GET /api/projects/next — one project, one action, one reason.
+
+    ``project`` is null when nothing qualifies, with ``reason`` saying
+    why; this endpoint does not 404 for an empty result.  A 404 here
+    would collapse "every project is up to date" into "no scan has ever
+    run", and a consumer cannot tell those apart from a status code —
+    the same empty-versus-unreachable confusion the board avoids.
+
+    ``reason`` is not decoration.  The consumer for this endpoint
+    (alfred-glance) shows a single item, so the ranking that produced it
+    is invisible; the sentence is the only place the choice is
+    accountable.  Render it.
+
+    ``skipped`` counts what was ruled out and why, keyed by
+    ``inactive``, ``no_action``, ``source_git``, ``says_no_action`` and
+    ``excluded`` — so "nothing to do" can be distinguished from "nobody
+    wrote down what to do", which need opposite responses.
+    """
+
+    project: NextProjectInfo | None = None
+    reason: str = ""
+    considered: int = 0
+    skipped: dict[str, int] = Field(default_factory=dict)
+    excluded: list[str] = Field(default_factory=list)
+    generated_at: str | None = None
+
+
 class ProjectReviewResponse(Contract):
     """GET /api/projects/review — the latest stored portfolio review.
 

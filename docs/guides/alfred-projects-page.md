@@ -174,20 +174,11 @@ failure this repo keeps finding.
 
 ## 7. What is coming, and what to leave room for
 
-Planned as Sessions 29–32 (see [tasks.md](../roadmap/tasks.md)). None of it
-is built; the point of listing it here is that **one of these changes what
-the primary surface should be**, and building the wrong thing first is
-avoidable:
+Planned as Sessions 29–32 (see [tasks.md](../roadmap/tasks.md)). **Session
+29 is built** — see 7.1. The rest is not; the point of listing it here is
+that **one of these changes what the primary surface should be**, and
+building the wrong thing first is avoidable:
 
-- **`GET /api/projects/next`** — *one* project, one action, plus a `reason`
-  string, instead of a list. For **alfred-glance** this is the right
-  endpoint, not the board: glance-then-act wants one thing, and a six-row
-  list on a phone reintroduces the choosing problem the feature exists to
-  remove. The board stays correct for a desktop page.
-
-  Its ranking policy is an open decision and is the whole feature — longest
-  idle optimises for guilt, smallest-next-step optimises for momentum. Do
-  not assume an order; render the `reason` the endpoint gives you.
 - **Alfred creating `work_item`s** from that endpoint, one per active
   project, refreshed daily, linked by the nullable `sysadmin_name` on
   `trackables.Project`. The write happens **in Alfred, pulling** — which is
@@ -199,6 +190,65 @@ Design so additions are free: **render what arrives, ignore what you do not
 recognise, never hard-code the set of fields or sections.** The briefing
 grew from five sections to seven without any consumer change, which is the
 standard to hold to.
+
+### 7.1 `GET /api/projects/next` — built 2026-08-10
+
+*One* project, one action, plus a `reason` string, instead of a list. For
+**alfred-glance** this is the right endpoint, not the board: glance-then-act
+wants one thing, and a six-row list on a phone reintroduces the choosing
+problem the feature exists to remove. The board stays correct for a desktop
+page.
+
+```json
+{
+  "project": {
+    "name": "sysadmin_assistant",
+    "path": "/home/gaddi/projects/sysadmin_assistant",
+    "next_action": "Surface handoff_duplicates as a roadmap recommendation",
+    "next_action_source": "handoff",
+    "days_unchanged": 2,
+    "unchanged_since": "2026-08-07T19:30:54+00:00",
+    "unchanged_scans": 9,
+    "at_window_edge": false,
+    "days_since_commit": 1,
+    "health_score": 70,
+    "open_tasks": 55,
+    "open_snags": 20,
+    "scanned_at": "2026-08-10T08:06:34+00:00"
+  },
+  "reason": "Its next action has stood for 2 days, level with 1 other project, and of those it is the one you committed to most recently.",
+  "considered": 2,
+  "skipped": {"inactive": 20, "no_action": 1, "says_no_action": 2},
+  "excluded": [],
+  "generated_at": "2026-08-10T14:21:24+00:00"
+}
+```
+
+**Four obligations on the consumer:**
+
+1. **Render `reason`.** The ranking is stuckness — how long the stated next
+   action has stood unchanged, tie-broken by the most recent commit — and
+   you are showing one item, so the comparison that produced it is
+   invisible. The sentence is the only place the choice is accountable.
+   Do not re-rank client-side and keep the sentence; they would disagree.
+2. **`days_unchanged` is elapsed days, not scans**, because the scan cadence
+   is irregular (6-hourly, then daily, plus manual scans). `unchanged_scans`
+   is the evidence behind it. When `at_window_edge` is true the run reaches
+   the oldest scan held, so render "at least N days" — the `reason` string
+   already hedges itself.
+3. **`project: null` is a 200, not a 404.** Read `reason` and `skipped`:
+   "nothing queued anywhere" and "no scan has ever run" need opposite
+   responses, and a status code cannot tell them apart.
+4. **`?exclude=` is repeatable** and takes project names, so a deferred
+   suggestion is skipped without re-rolling the same answer. Exclusions come
+   back in `excluded` and are counted in `skipped.excluded`.
+
+`next_action_source` here is only ever `handoff` or `tasks`. The board's
+`git` fallback is deliberately not a candidate — a commit subject is a
+record of the past, honest on the board where the source is rendered beside
+it, and not an instruction to act on. Neither is a handoff that states there
+is nothing queued (two live estate handoffs read "No unchecked task found —
+set one before the next session"); those land in `skipped.says_no_action`.
 
 ## 8. CORS
 
