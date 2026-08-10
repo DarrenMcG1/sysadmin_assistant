@@ -2,7 +2,7 @@
 
 ## Next action
 
-Decide whether the estate migration runs now — four repos still carry a generated `docs/sessions/handoff.md` beside or instead of a real one, and `SportsAnalyser`'s is 156 days old.
+Surface `handoff_duplicates` and the stalled-handoff signal somewhere a human reads — `scan_roadmap` records both and nothing consumes them, so a repo mid-migration stays invisible.
 
 ## This session (Session 37): the handoff pipeline, both ends
 
@@ -61,20 +61,43 @@ nothing.
   ImbaBots' real handoff carries no ISO date and lost to a stub written an
   hour earlier. The fallback has to apply uniformly.
 
+## Estate migration — done the same session
+
+All six repos now read a root `HANDOFF.md`, zero duplicates. Committed in
+each repo separately, staging only the handoff paths so unrelated work
+(`alfred-glance`'s contract changes, the untracked `.project.yaml` files)
+was left alone.
+
+Three consequences that are intended, not regressions:
+
+- **`alfred-glance` now has no handoff at all** — it only ever held a
+  generated stub. "No session handoff" fires for it, which is the first
+  time that recommendation has been reachable: while the hook guaranteed
+  the file, the check could never fire.
+- **`Alfred` reports 30 days** rather than the fresh date its stub was
+  manufacturing. Its real handoff is from 2026-07-10. One day off the
+  `STALLED_HANDOFF_DAYS` boundary, so it flags tomorrow.
+- **`SportsAnalyser` stays stalled at 156 days.** Unchanged — its handoff
+  was hand-written and was already being read.
+
 ## Blocked / waiting on
 
-- **Estate migration needs a decision, not a blocker.** `Alfred`,
-  `ImbaBots`, `alfred-glance` and this repo still hold a generated
-  `docs/sessions/handoff.md`. The reader handles duplicates, so nothing is
-  broken — but it is four repos of housekeeping across repo boundaries and
-  was deliberately not done unilaterally.
 - `handoff_duplicates` and `handoff_path` are recorded by `scan_roadmap`
   and **read by nothing**. A `kind: "roadmap"` recommendation is the
-  natural consumer.
+  natural consumer. This is the next action above.
+- **`venture-assistant` has the estate's richest handoff and still falls
+  back to `tasks` for its next action**, because the document has no
+  `## Next action` heading — its headings are "This session", "Previous
+  session", "Loose ends". Deliberately not edited here: choosing that
+  sentence is the author's call, and the Stop hook's template supplies the
+  heading at the end of its next session.
 - `SNAG-ROADMAP-002` remains open, with new evidence: `count_open_snags`
   reports 7 for the 5 open snags in this repo's own list.
 
 ## State
 
-Branch `main`, suite 1635 passing, ruff and mypy clean. Nothing committed
-yet — the working tree holds this session's changes.
+Branch `main`, suite 1635 passing, ruff and mypy clean. This repo's work is
+committed as `754a32d`; the four estate migrations as `7144fc5` (ImbaBots),
+`479da83` (Alfred), `c3b323e` (SportsAnalyser), plus two untracked stubs
+removed in `alfred-glance` and `venture-assistant` that left nothing to
+commit.
