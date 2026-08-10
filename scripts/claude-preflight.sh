@@ -17,17 +17,28 @@ BOLD='\033[1m'
 NC='\033[0m' # No Colour
 
 # 0. CHECK FOR SESSION HANDOFF (context from previous session)
-HANDOFF_FILE="docs/sessions/handoff.md"
-if [ -f "$HANDOFF_FILE" ]; then
+#
+# Candidates match sysadmin/projects/roadmap.py HANDOFF_PATHS, newest first
+# by mtime. Root HANDOFF.md is the convention; the rest are read so repos
+# can migrate one at a time.
+#
+# The extract below prints the "## Next action" section. It used to print
+# ranges anchored on "## ⚠️ READ THIS FIRST" and "## In-Progress Tasks" —
+# headings from a template no handoff on this box has ever used, so this
+# banner announced a handoff and then displayed nothing at all. Anchor on
+# what is actually written, which is the same heading the scanner parses.
+HANDOFF_FILE=$(ls -t HANDOFF.md docs/sessions/handoff.md docs/handoff.md \
+    docs/roadmap/handoff.md 2>/dev/null | head -1)
+if [ -n "$HANDOFF_FILE" ] && [ -f "$HANDOFF_FILE" ]; then
     HANDOFF_AGE=$(( ($(date +%s) - $(stat -c %Y "$HANDOFF_FILE" 2>/dev/null || stat -f %m "$HANDOFF_FILE")) / 3600 ))
     if [ "$HANDOFF_AGE" -lt 48 ]; then
         echo -e "\n${BOLD}${YELLOW}╔══════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${BOLD}${YELLOW}║  ⚠️  SESSION HANDOFF FOUND (${HANDOFF_AGE}h old)                        ║${NC}"
         echo -e "${BOLD}${YELLOW}╚══════════════════════════════════════════════════════════════╝${NC}"
-        echo -e "${YELLOW}Review previous session context:${NC}"
-        sed -n '/## ⚠️ READ THIS FIRST/,/---/p' "$HANDOFF_FILE" 2>/dev/null | head -5 | sed 's/^/  /'
+        head -1 "$HANDOFF_FILE" 2>/dev/null | sed 's/^/  /'
         echo ""
-        sed -n '/## In-Progress Tasks/,/## Critical Snags/p' "$HANDOFF_FILE" 2>/dev/null | head -10 | sed 's/^/  /'
+        awk '/^## / { if (seen) exit; if (tolower($0) ~ /next/) { seen=1; print; next } }
+             seen { print }' "$HANDOFF_FILE" 2>/dev/null | head -8 | sed 's/^/  /'
         echo -e "\n  ${BLUE}Full handoff: $HANDOFF_FILE${NC}"
         echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
     fi

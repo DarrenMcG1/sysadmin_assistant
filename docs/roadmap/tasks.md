@@ -331,7 +331,12 @@ in Alfred, without Alfred ever reading a directory. Delivered:
       wired in `~/.claude/settings.json`) writes `docs/sessions/handoff.md`
       in whatever repo the session ran in. Replaces the instruction in
       CLAUDE.md that postflight "generates handoff" — it never did, which
-      is why `docs/sessions/` sat empty for months
+      is why `docs/sessions/` sat empty for months.
+      **Superseded 2026-08-10 by Session 37**: right that an instruction is
+      a request and a hook is executed, wrong about what follows. SessionEnd
+      cannot block, so the file it guaranteed contained only what `git`
+      already knew — and by always existing, it removed the signal that a
+      real handoff was missing
 - [x] `sysadmin/services/roadmap.py` — pure parser for handoff / tasks /
       snag documents, resolving a **next action** (handoff → tasks → git)
 - [x] `findings["roadmap"]` recorded by the organiser; **no score
@@ -755,6 +760,61 @@ Not scheduled; recorded so they are not rediscovered as new.
   consumes. Worth settling before building anything further on top of the score
   — and it subsumes the Session 28 open decision on whether missing roadmap docs
   should cost points
+
+---
+
+## Session 37: The handoff pipeline — writer and reader ✅ (2026-08-10)
+
+Raised by the estate owner: "the handoff hook isn't doing much in
+venture-assistant." It was doing worse than nothing, on both ends.
+
+**What was measured first** (15 repos, before any change): 5 carried
+`docs/sessions/handoff.md` and **every one was hook output**. Exactly two
+repos had ever held a handoff someone wrote — `venture-assistant`
+(root `HANDOFF.md`, 8 of its 9 commits) and `SportsAnalyser` (abandoned
+2026-03-07). Root `HANDOFF.md` existed in **1 of 15**, not "most".
+
+- [x] **The writer.** `SessionEnd` **cannot block** — it is an
+      observability event — so `generate-handoff.sh` could only emit what
+      `git` already recorded. Retired (left on disk, unwired, with the
+      reasoning). Replaced by `~/.claude/hooks/require-handoff.sh`, a
+      **Stop** hook that blocks a session which changed code until
+      `HANDOFF.md` carries today's date. Three independent loop guards
+      (`stop_hook_active`, a per-session+repo marker file, exit 0 on every
+      failure path); ten payload cases verified before wiring
+- [x] **The reader.** `SNAG-ROADMAP-003` closed — four candidate paths,
+      selection by `handoff_date` rather than tuple order, also-rans
+      reported as `handoff_duplicates`. Live proof: `venture-assistant`
+      now reads its 6 KB root handoff, `ImbaBots` its 141 KB
+      `docs/handoff.md`; both had been serving the board an 850-byte stub
+- [x] Stale references corrected in `recommendations.py` (its "No session
+      handoff" advice described a hook that guaranteed the check could
+      never fire), both `CLAUDE.md` files, `monitorable-project.md` (which
+      said "don't hand-write handoffs" — now inverted), and
+      `claude-preflight.sh`, whose extract was anchored on
+      `## ⚠️ READ THIS FIRST` and `## In-Progress Tasks`: headings no
+      handoff on this box has ever used, so it announced a handoff and
+      then printed nothing
+
+**The design lesson, worth keeping**: a file guaranteed to exist cannot
+also be the file whose absence means something. The hook filled the slot
+in every repo, so nothing ever signalled a real handoff was missing —
+`venture-assistant` kept the habit only because its handoff lived at a
+path the hook never touched.
+
+### Follow-ups this session opened
+
+- [ ] Estate migration: `Alfred`, `ImbaBots`, `alfred-glance` and this repo
+      still carry a generated `docs/sessions/handoff.md` beside (or instead
+      of) a real one, and `SportsAnalyser`'s is 156 days old. The reader
+      handles duplicates, so this is housekeeping, not a blocker — but
+      `handoff_duplicates` should reach a surface that reports it
+- [ ] `handoff_duplicates` and `handoff_path` are recorded by
+      `scan_roadmap` and read by nothing. A `kind: "roadmap"`
+      recommendation ("two handoffs, one migration half-done") is the
+      natural home
+- [ ] `SNAG-ROADMAP-002` remains open and this session added evidence:
+      `count_open_snags` reports 7 for 5 open snags in this very file
 
 ---
 

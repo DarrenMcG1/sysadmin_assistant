@@ -75,7 +75,7 @@ These directories waste tokens - never read or search them:
 | Bugs to fix | `docs/roadmap/snag_list.md` | Before starting work |
 | Feature ideas | `docs/roadmap/ideas.md` | When planning new features |
 | Architecture decisions | `docs/ARCHITECTURE.md` | Only for structural changes |
-| Previous session context | `docs/sessions/handoff.md` | Session start (auto-read by preflight) |
+| Previous session context | `HANDOFF.md` (root) | Session start (auto-read by preflight) |
 | Active refactors | `docs/refactors/` | When doing large migrations |
 
 **Do NOT embed these files** - just read the specific sections you need.

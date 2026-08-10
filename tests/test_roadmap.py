@@ -9,6 +9,7 @@ form would report "no next action" for every hand-written handoff on the
 box, silently.
 """
 
+import os
 from datetime import UTC, datetime
 
 import pytest
@@ -211,6 +212,104 @@ class TestScanRoadmap:
         info = scan_roadmap(project)
         assert info["next_action_source"] == "tasks"
         assert "docs/roadmap/tasks.md" in info["next_action"]
+
+
+class TestHandoffSelection:
+    """SNAG-ROADMAP-003 — which of four candidate handoffs is read.
+
+    Four shapes exist on this estate.  Before this, ``_read`` returned the
+    first candidate that opened, so tuple order decided, and the answer was
+    wrong wherever a repo held two: an 850-byte generated stub supplied the
+    estate board's next action while the real record sat unread beside it.
+    """
+
+    @pytest.fixture
+    def project(self, tmp_path):
+        (tmp_path / "docs" / "sessions").mkdir(parents=True)
+        (tmp_path / "docs" / "roadmap").mkdir(parents=True)
+        return tmp_path
+
+    def test_root_handoff_is_read(self, project):
+        """venture-assistant's shape, and the one the Stop hook writes."""
+        (project / "HANDOFF.md").write_text(
+            "# Handoff — 2026-08-10\n\n## Next action\n\nShip the thing.\n"
+        )
+        info = scan_roadmap(project)
+        assert info["handoff_path"] == "HANDOFF.md"
+        assert info["next_action"] == "Ship the thing."
+
+    def test_docs_handoff_is_read(self, project):
+        """ImbaBots' shape — a 141 KB append-log at docs/handoff.md."""
+        (project / "docs/handoff.md").write_text(
+            "# Handoff — 2026-08-07\n\n## Next action\n\nClose risk gate 3.\n"
+        )
+        info = scan_roadmap(project)
+        assert info["handoff_path"] == "docs/handoff.md"
+
+    def test_newest_authored_date_wins_not_tuple_order(self, project):
+        """The stub is first in the tuple and must still lose."""
+        (project / "docs/sessions/handoff.md").write_text(
+            "# Handoff — 2026-01-01\n\n## Next action\n\nStale stub line.\n"
+        )
+        (project / "docs/handoff.md").write_text(
+            "# Handoff — 2026-08-07\n\n## Next action\n\nThe real record.\n"
+        )
+        info = scan_roadmap(project)
+        assert info["handoff_path"] == "docs/handoff.md"
+        assert info["next_action"] == "The real record."
+        assert info["handoff_duplicates"] == ["docs/sessions/handoff.md"]
+
+    def test_undated_heading_is_dated_by_mtime_and_can_still_win(self, project):
+        """The live ImbaBots case, which the first fix got wrong.
+
+        Its 141 KB ``docs/handoff.md`` heads itself "Handoff — M5 (Tier 2)"
+        and carries no ISO date, while an 882-byte generated stub written an
+        hour *earlier* the same day carries one.  Ranking every undated
+        document below every dated one handed the estate board the stub.
+        The fallback has to apply uniformly: mtime dates the undated file to
+        the same day, and the within-day mtime tiebreak then decides.
+
+        Both timestamps are real same-day times rather than bare epochs —
+        with epoch mtimes the stub's 2026 heading wins honestly, and the
+        test would pass for the wrong reason.
+        """
+        day = datetime(2026, 8, 7, tzinfo=UTC)
+
+        stub = project / "docs/sessions/handoff.md"
+        stub.write_text("# Handoff — 2026-08-07\n\n## Next action\n\nStub line.\n")
+        early = day.replace(hour=10, minute=59).timestamp()
+        os.utime(stub, (early, early))
+
+        real = project / "docs/handoff.md"
+        real.write_text("# Handoff — M5 (Tier 2)\n\n## Next action\n\nReal line.\n")
+        late = day.replace(hour=12, minute=3).timestamp()
+        os.utime(real, (late, late))
+
+        info = scan_roadmap(project)
+        assert info["handoff_path"] == "docs/handoff.md"
+        assert info["next_action"] == "Real line."
+
+    def test_duplicates_are_reported_not_silently_resolved(self, project):
+        """Two handoffs is a half-done migration, and worth surfacing.
+
+        Dates *and* mtimes are equalised so the canonical-path preference is
+        what actually decides — with mtimes left as written, the last file
+        touched wins, which is correct behaviour but not what this pins.
+        """
+        for rel in ("HANDOFF.md", "docs/sessions/handoff.md", "docs/handoff.md"):
+            (project / rel).write_text("# Handoff — 2026-08-10\n")
+            os.utime(project / rel, (1_000_000, 1_000_000))
+        info = scan_roadmap(project)
+        assert info["handoff_path"] == "HANDOFF.md"
+        assert set(info["handoff_duplicates"]) == {
+            "docs/sessions/handoff.md",
+            "docs/handoff.md",
+        }
+
+    def test_no_handoff_reports_no_path_and_no_duplicates(self, project):
+        info = scan_roadmap(project)
+        assert info["handoff_path"] is None
+        assert info["handoff_duplicates"] == []
 
     def test_handoff_without_a_next_action_defers_to_tasks(self, project):
         (project / "docs/sessions/handoff.md").write_text(

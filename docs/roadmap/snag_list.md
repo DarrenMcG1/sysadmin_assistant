@@ -10,13 +10,16 @@
 
 ## Open Issues
 
-_Six open snags, plus two found and fixed the same day
-(`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on 2026-08-10). The twelve
+_Five open snags, plus two found and fixed the same day and left in place for
+the write-up (`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on 2026-08-10) —
+`count_open_snags` therefore reports 7, which is the entries listed rather than
+the entries outstanding, and is itself an instance of `SNAG-ROADMAP-002`. The twelve
 `SNAG-PROJ-*` entries from the 2026-08-07 project-organiser capability audit
 were **all cleared by [Session 34](tasks.md) on 2026-08-10** and are archived
-below with their fix dates. `SNAG-ROADMAP-003` was found on 2026-08-08 while
-writing the `.project.yaml` manifests: three handoff conventions exist across
-the estate and the scanner reads two of them. The `BRIEF`/`ROADMAP` entries were
+below with their fix dates. `SNAG-ROADMAP-003` — found 2026-08-08 while writing
+the `.project.yaml` manifests — was **fixed on 2026-08-10 (Session 37)** along
+with the SessionEnd hook that had been generating the stubs it preferred. The
+`BRIEF`/`ROADMAP` entries were
 found on 2026-08-07 by the consumer — Alfred now renders `briefing/preview`
 daily and is building a page on `/api/projects/board`, so producer-side content
 defects have a reader for the first time._
@@ -58,13 +61,6 @@ defects have a reader for the first time._
   - **Fix**: Requested the three properties for every unit (systemctl omits inapplicable ones, so it costs nothing and avoids a second subprocess for the estate's six timers; `Result` is meaningful for services too, being how a oneshot reports its last outcome). Added a test asserting every property `_timer_facts` reads appears in `get_unit_status`'s request list — the coupling itself is now checked, rather than only the behaviour on a mock that satisfies it
   - **Found**: while installing `sysadmin-organiser.timer` and verifying it end to end rather than assuming, which is the step [monitorable-project.md](../guides/monitorable-project.md) requires and the only reason this surfaced
 
-- [P2] SNAG-ROADMAP-003: Three handoff conventions exist on this box; the scanner knows two, and prefers the wrong one twice (2026-08-08)
-  - **Symptom**: `HANDOFF_PATHS` in [`roadmap.py`](../../sysadmin/projects/roadmap.py) is `("docs/sessions/handoff.md", "docs/roadmap/handoff.md")`. The estate actually uses **four** locations. `venture-assistant` keeps a **6,044-byte `HANDOFF.md` at its root** (2026-08-07) and `ImbaBots` a **141,096-byte `docs/handoff.md`** (2026-08-07); neither path is a candidate, so neither file is ever read. Both repos *also* carry a `docs/sessions/handoff.md` of 851 and 882 bytes — the SessionEnd hook's generated stub — and that is the file the scanner picks up. **The next action for two active projects is derived from an 850-byte stub while a 6 KB and a 141 KB record sit unread beside it**
-  - **Cause**: Two separate faults. (1) The candidate tuple is incomplete — `HANDOFF.md` and `docs/handoff.md` are both real shapes in the wild and neither is listed. (2) `_read` returns **the first candidate that reads**, which makes precedence a function of tuple order rather than of which document is current. `Alfred` has both listed candidates: `docs/sessions/handoff.md` (815 B, 2026-08-07) wins over `docs/roadmap/handoff.md` (3,150 B, 2026-07-11). That one happens to be right, by luck of ordering rather than by rule
-  - **Impact**: Reaches every consumer of `next_action` — the board, `Pick This Up` in the briefing, `GET /api/projects/actions`, and the planned `GET /api/projects/next`. It compounds `SNAG-ROADMAP-001`: the stub the scanner prefers is exactly the file that carries the unfilled-placeholder line, so the two faults together publish a template's apology while the real handoff is invisible. `ImbaBots`'s 141 KB `docs/handoff.md` is an append-log, which is the shape [Session 32](tasks.md) is blocked on wanting
-  - **Fix**: Add `HANDOFF.md` and `docs/handoff.md` to the candidates, then **stop letting tuple order decide**: when more than one candidate exists, pick by modification time and record the also-rans, so a repo with two handoffs is a reportable finding rather than a silent choice. The comment above `HANDOFF_PATHS` claims "Alfred keeps its handoff in `docs/roadmap/`" — Alfred now has both and the scanner reads the other one, so the comment is stale and should go with the fix
-  - **Note**: The duplicates are worth resolving on the estate side too, but that is 3 repos' housekeeping and separate from the scanner accepting what is there. Raised by the estate owner on 2026-08-08
-
 - [P2] SNAG-ROADMAP-002: `count_open_snags` miscounts a document that groups or cross-references its snags (2026-08-07)
   - **Symptom**: Two independent miscounts, both found while filing the twelve entries below. (1) A `###` sub-heading *inside* `## Open Issues` hid every snag under it — the count read 4 when 16 were open. (2) Once that was fixed the count read **21 for 16 snags**, because five nested `- **Cause**:` bullets happened to mention another snag's id
   - **Cause**: [`_sections`](../../sysadmin/services/roadmap.py#L79) splits on **any** heading level and returns a flat list, so a `###` under a `##` ends the parent section rather than nesting inside it; and `_SNAG_LINE_RE` is `^\s*[-*]\s+.*\bSNAG-[A-Z]+-\d+`, whose leading `\s*` makes an indented detail bullet indistinguishable from a top-level entry
@@ -96,6 +92,7 @@ _All SNAGs fixed to date are archived — nothing outstanding is hidden here._
 
 | SNAG | Title | Fixed |
 |---|---|---|
+| SNAG-ROADMAP-003 | Four handoff conventions; scanner knew two and tuple order decided | 2026-08-10 |
 | SNAG-PROJ-001 | Board freshness filter applied on one route out of nine | 2026-08-10 |
 | SNAG-PROJ-002 | Deleted projects contributed to `average_active_score` | 2026-08-10 |
 | SNAG-PROJ-003 | Project organiser never resolved its own alerts | 2026-08-10 |
@@ -119,6 +116,16 @@ _All SNAGs fixed to date are archived — nothing outstanding is hidden here._
 | SNAG-TRAY-004 | StatsPopup unreachable after dashboard cutover but still live | 2026-07-24 |
 | SNAG-AGENT-001 | Project staleness scored from HEAD only, not all branches | 2026-07-24 |
 
+
+### Session 37 write-up (handoff pipeline, fixed 2026-08-10)
+
+**SNAG-ROADMAP-003 — four handoff conventions; the scanner knew two, and tuple order decided.**
+
+- **Symptom**: `HANDOFF_PATHS` was `("docs/sessions/handoff.md", "docs/roadmap/handoff.md")`. The estate used **four** locations. `venture-assistant` kept a 6,044-byte `HANDOFF.md` at its root and `ImbaBots` a 141,096-byte `docs/handoff.md`; neither path was a candidate, so neither file was ever read. Both repos *also* carried a `docs/sessions/handoff.md` of 851 and 882 bytes — the SessionEnd hook's generated stub — and that was the file the scanner picked up. The next action for two active projects came from an 850-byte stub while a 6 KB and a 141 KB record sat unread beside it
+- **Cause**: Two faults. (1) The candidate tuple was incomplete. (2) `_read` returned the first candidate that opened, making precedence a function of tuple order rather than of which document was current. `Alfred` had both listed candidates and happened to get the right one, by luck of ordering rather than by rule
+- **Fix**: All four shapes listed, and `_read_handoff` selects by `handoff_date` — the document's own first-heading date, mtime as fallback — with tuple order breaking ties only. Also-rans are returned as `handoff_duplicates` rather than discarded, so a repo mid-migration is a reportable finding instead of a silent choice
+- **The first attempt at the fix was wrong, and only the live estate showed it.** Ranking every *undated* candidate below every dated one is intuitive and re-creates the bug from the other side: `ImbaBots`' real handoff heads itself "Handoff — M5 (Tier 2)" with no ISO date, so the 882-byte stub written an hour *earlier the same day* outranked it purely for carrying one. The fallback has to apply uniformly — which is what `scan_roadmap` already did downstream when ageing a handoff, so the module had been holding two contradictory rules at once. The regression test uses real same-day timestamps deliberately: with bare epoch mtimes the stub wins honestly and the test would pass for the wrong reason
+- **Root cause was upstream, and is also fixed.** The stubs existed because a SessionEnd hook wrote them. `SessionEnd` cannot block, so it could only emit what `git` already knew. It is retired in favour of a **Stop** hook that blocks until `HANDOFF.md` carries today's date — see [tasks.md](tasks.md) Session 37
 
 ### Session 34 write-ups (project-organiser capability audit, fixed 2026-08-10)
 

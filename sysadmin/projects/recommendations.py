@@ -233,12 +233,15 @@ def _roadmap_recommendations(
             kind="roadmap",
             title="No session handoff",
             detail=(
-                "docs/sessions/handoff.md is absent, so there is no record of "
-                "where work stopped. The SessionEnd hook writes one after any "
-                "session that changes something."
+                "No HANDOFF.md, so there is no record of where work stopped. "
+                "Until 2026-08-10 a SessionEnd hook wrote this file itself, "
+                "which meant it always existed and this check could never "
+                "fire — the absence had been made unobservable. A Stop hook "
+                "now blocks instead, so the file is written by whoever knows "
+                "what the session did."
             ),
             points=0,
-            action="Finish a session in this repo — the hook creates the file",
+            action="Write HANDOFF.md at the repo root at the end of a session",
         ))
 
     open_snags = roadmap.get("open_snags") or 0

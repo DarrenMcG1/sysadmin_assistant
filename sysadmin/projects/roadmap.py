@@ -4,7 +4,7 @@ The scanner has always answered "how tidy is this directory".  It has
 never answered "what was I doing and what comes next", because the only
 document it looked at was ``README.md`` and it only checked that the file
 existed.  This module reads the four documents this estate actually keeps
-— ``docs/sessions/handoff.md``, ``docs/roadmap/tasks.md``,
+— ``HANDOFF.md``, ``docs/roadmap/tasks.md``,
 ``snag_list.md`` and ``ideas.md`` — and extracts the one thing worth
 surfacing per project: **the next action**.
 
@@ -40,10 +40,22 @@ from typing import Any
 # Where each document is looked for, in preference order.  The estate has
 # settled on docs/roadmap/, but a root-level TASKS.md is the other shape
 # seen in the wild and costs nothing to accept.
-# Alfred keeps its handoff in docs/roadmap/, this repo and SportsAnalyser
-# in docs/sessions/. Both are real; accepting both costs one tuple entry
-# and is cheaper than a migration nobody asked for.
-HANDOFF_PATHS = ("docs/sessions/handoff.md", "docs/roadmap/handoff.md")
+# Four handoff shapes exist on this box, and the canonical one is the root
+# HANDOFF.md the Stop hook now requires (~/.claude/hooks/require-handoff.sh,
+# 2026-08-10).  The other three are pre-existing and stay readable: repos
+# migrate over weeks, and during that time most carry two.
+#
+# Order here is preference on a *tie only* — see _read_handoff.  It is
+# deliberately not the selection rule.  SNAG-ROADMAP-003: when tuple order
+# decided, venture-assistant's 6 KB root handoff and ImbaBots' 141 KB
+# docs/handoff.md were invisible while an 850-byte generated stub beside
+# each of them supplied the estate board's next action.
+HANDOFF_PATHS = (
+    "HANDOFF.md",
+    "docs/sessions/handoff.md",
+    "docs/handoff.md",
+    "docs/roadmap/handoff.md",
+)
 TASKS_PATHS = ("docs/roadmap/tasks.md", "TASKS.md", "docs/TASKS.md")
 SNAGS_PATHS = ("docs/roadmap/snag_list.md", "docs/roadmap/snags.md")
 IDEAS_PATHS = ("docs/roadmap/ideas.md",)
@@ -74,6 +86,55 @@ def _read(project_path: Path, candidates: tuple[str, ...]) -> tuple[str | None, 
         except OSError:
             continue
     return None, ""
+
+
+def _read_handoff(project_path: Path) -> tuple[str | None, str, list[str]]:
+    """The most recently *authored* handoff, plus the also-rans it beat.
+
+    Selection is by ``handoff_date`` — the date in the document's own first
+    heading, falling back to mtime when it carries none — which is the same
+    resolution ``scan_roadmap`` already uses to age a handoff.  Authored
+    date beats mtime for the reason that function records: a clone or a
+    checkout rewrites every mtime on disk, which would make a five-month-old
+    handoff look like this morning's and silently outrank a current one.
+
+    The fallback must apply *uniformly*.  Ranking every undated document
+    below every dated one instead re-creates the bug from the other side:
+    ImbaBots' 141 KB ``docs/handoff.md`` heads itself "Handoff — M5 (Tier
+    2)" with no ISO date, and lost to an 882-byte generated stub written an
+    hour earlier purely for carrying one.
+
+    Tuple order breaks ties and nothing else.  It used to *be* the rule,
+    and the rule was wrong in two of the three repos that had a choice — a
+    generated stub outranking the real record purely by sitting earlier in
+    a tuple (SNAG-ROADMAP-003).
+
+    The losers are returned rather than discarded.  A repo holding two
+    handoffs is a housekeeping finding worth surfacing; silently picking
+    one is how the estate ended up with four conventions and nobody
+    noticing.
+    """
+    found: list[tuple[tuple[date, float, int], str, str]] = []
+    for idx, rel in enumerate(HANDOFF_PATHS):
+        f = project_path / rel
+        try:
+            if not f.is_file():
+                continue
+            text = f.read_text(encoding="utf-8", errors="replace")
+            mtime = f.stat().st_mtime
+        except OSError:
+            continue
+        mtime_date = datetime.fromtimestamp(mtime, tz=UTC).date()
+        written = handoff_date(text, fallback=mtime_date) or date.min
+        # -idx so that a lower index wins a tie under a descending sort.
+        found.append(((written, mtime, -idx), rel, text))
+
+    if not found:
+        return None, "", []
+
+    found.sort(key=lambda item: item[0], reverse=True)
+    _, best_rel, best_text = found[0]
+    return best_text, best_rel, [rel for _, rel, _ in found[1:]]
 
 
 def _sections(text: str) -> list[tuple[str, list[str]]]:
@@ -249,7 +310,7 @@ def scan_roadmap(project_path: Path, now: datetime | None = None) -> dict[str, A
     now = now or datetime.now(UTC)
     today = now.date()
 
-    handoff_text, handoff_rel = _read(project_path, HANDOFF_PATHS)
+    handoff_text, handoff_rel, handoff_others = _read_handoff(project_path)
     tasks_text, tasks_rel = _read(project_path, TASKS_PATHS)
     snags_text, _ = _read(project_path, SNAGS_PATHS)
     ideas_text, _ = _read(project_path, IDEAS_PATHS)
@@ -264,6 +325,12 @@ def scan_roadmap(project_path: Path, now: datetime | None = None) -> dict[str, A
         "next_action": None,
         "next_action_source": None,
         "handoff_age_days": None,
+        # Which of the four shapes was read, and which were passed over.
+        # Reported rather than merely resolved: two handoffs in one repo is
+        # a migration left half-done, and it is invisible to whoever wrote
+        # the one that lost.
+        "handoff_path": handoff_rel or None,
+        "handoff_duplicates": handoff_others,
         # None means "not measurable" (no task list, or one that does not
         # use checkboxes); 0 means "measured, nothing outstanding".
         "open_tasks": None,

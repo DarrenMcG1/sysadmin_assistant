@@ -51,7 +51,7 @@ parked is busywork dressed as progress.
 
 | Document | Purpose | Who writes it |
 |---|---|---|
-| `docs/sessions/handoff.md` | Where work actually stopped. **The** source of the next action | the SessionEnd hook, automatically |
+| `HANDOFF.md` (repo root) | Where work actually stopped. **The** source of the next action | Claude, at the end of a session — a Stop hook blocks until it exists |
 | `docs/roadmap/tasks.md` | What was *planned*. Fallback when no handoff exists | you |
 | `docs/roadmap/snag_list.md` | Known bugs, under an "Open Issues" heading | you |
 | `docs/roadmap/STATUS.md` | Current phase and recently completed | you |
@@ -59,13 +59,26 @@ parked is busywork dressed as progress.
 
 Notes that stop this rotting:
 
-- **Don't hand-write handoffs.** `~/.claude/hooks/generate-handoff.sh`
-  runs on SessionEnd in whatever repo the session ran in, and skips
-  sessions that changed nothing so a read-only visit cannot overwrite a
-  real one. A hand-written handoff is a snapshot that starts rotting
-  immediately; a generated one is a byproduct of work you were doing.
-- **`docs/roadmap/handoff.md` is accepted too** (Alfred's convention).
-  Both paths are read; pick one and stay with it.
+- **Write the handoff at the end of the session, in prose.** This
+  reverses the advice that stood here until 2026-08-10 ("don't hand-write
+  handoffs — the SessionEnd hook generates one"). That was measured and
+  found wrong: across 15 repos, every `docs/sessions/handoff.md` on the
+  box was hook output, and the only two handoffs anyone had actually
+  written lived at paths the hook never touched. `SessionEnd` **cannot
+  block** — it is an observability event — so a script there can only
+  write what `git` already records: branch, changed files, today's
+  commits. A handoff that restates those has said nothing.
+  `~/.claude/hooks/require-handoff.sh` is a **Stop** hook, which can
+  block, and does: a session that changed code cannot finish until
+  `HANDOFF.md` carries today's date. It asks once per session and never
+  interrupts a read-only visit.
+- **Four paths are read, and the newest wins** — `HANDOFF.md`,
+  `docs/sessions/handoff.md`, `docs/handoff.md`, `docs/roadmap/handoff.md`.
+  Selection is by the date in the document's own first heading (mtime
+  only as a fallback), never by which path was checked first; a repo
+  holding two reports the also-rans under `handoff_duplicates`. Root
+  `HANDOFF.md` is the convention going forward — the rest are read so
+  that migration can happen a repo at a time.
 - **Checkboxes are optional.** A `tasks.md` tracked as a status table
   (Alfred) reports `open_tasks: null`, meaning "not measurable here" —
   which is honest. Only checkbox lists get counted.
