@@ -861,10 +861,33 @@ class DiskReviewResponse(Contract):
 
 
 class ProjectHistoryPoint(Contract):
-    """One point of the ``history`` list from GET /api/projects/{name}."""
+    """One point of the ``history`` list from GET /api/projects/{name}.
+
+    Carries the *narrative* state as well as the score.  The organiser has
+    written the whole roadmap findings block into ``project_snapshots``
+    since Session 28 (2026-08-06) and nothing read it back: ninety days of
+    next actions sat in JSONB with no endpoint over them, which is why
+    Session 32's start-versus-finish accounting was recorded as blocked on
+    a document format when the data already existed.
+
+    ``next_action`` is ``None`` on snapshots taken before 2026-08-06, and
+    on any project whose scan resolved no next action at all.  The two
+    cases are indistinguishable here on purpose — both mean "this point
+    cannot tell you what was next".
+    """
 
     health_score: int = 0
     scanned_at: str | None = None
+    next_action: str | None = None
+    next_action_source: str | None = None
+    #: Whether ``next_action`` differs from the *older* neighbouring point.
+    #: ``True`` marks a finish (work moved on), a run of ``False`` measures
+    #: how long one action stayed open.  ``None`` on the oldest point in
+    #: the window, where there is nothing to compare against — that is
+    #: "not knowable from this response", **not** "unchanged", and a
+    #: consumer that renders it as unchanged will report a false streak
+    #: every time the window slides.
+    next_action_changed: bool | None = None
 
     @field_validator("health_score", mode="before")
     @classmethod

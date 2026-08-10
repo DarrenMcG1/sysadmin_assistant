@@ -193,7 +193,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/projects/overview` | `ProjectOverviewResponse` | response_model |
 | `GET /api/projects/stale` | `StaleProjectsResponse` (+`StaleProjectEntry`) | response_model |
 | `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model |
-| `GET /api/projects/{name}` | `ProjectDetailResponse` (+`ProjectHistoryPoint`) | parse-side only (history newest-first; tray reverses for plotting) |
+| `GET /api/projects/{name}` | `ProjectDetailResponse` (+`ProjectHistoryPoint`) | parse-side only (history newest-first; tray reverses for plotting; carries `next_action` per point — see below) |
 | `GET /api/files/status` | `FileStatusResponse` (+`FileAuditSummary`, `FileQuickWins`) | parse-side only (404 = "no scan yet" → empty state) |
 | `GET /api/files/duplicates` | `DuplicatesResponse` | parse-side only (404 = "no scan yet") |
 | `GET /api/files/misplaced` | `MisplacedFilesResponse` | parse-side only (404 = "no scan yet") |
@@ -242,6 +242,25 @@ Two rules the module encodes:
 what it cannot show: the suite mocks every session, so a `WHERE` clause is
 invisible to it and the filter's effect is asserted on compiled SQL, not a
 round trip.
+
+**`ProjectHistoryPoint` carries the narrative, not just the score.** The
+organiser has written the whole roadmap findings block into
+`project_snapshots` since Session 28, and until Session 37 the history list
+exposed `health_score` and `scanned_at` only — ninety days of next actions
+sat in JSONB with no endpoint over them, which is why Session 32's
+start-versus-finish accounting was filed as blocked on a *document format*
+when the data already existed. `build_narrative_history` adds
+`next_action`, `next_action_source` and `next_action_changed`.
+
+Two rules it encodes. **The comparison runs against the older neighbour**
+(rows are newest-first, so index `i + 1`): `True` marks the scan where work
+moved on, and a run of `False` measures how long one action stayed open —
+ImbaBots' `M5-T05` shows 10 consecutive scans across 3 days. **The oldest
+point is `None`, never `False`**, because there is nothing older in the
+window to compare against; rendering that as "unchanged" invents a streak
+whose length moves with `limit` while the data does not. Snapshots from
+before 2026-08-06 carry `{}` and yield `None` — every `findings` access is
+defensive, since this runs over whatever 90 days of retention holds.
 
 `GET /api/projects/stale` answers **idleness, not ill health** — commits older
 than `days`, defaulting to 30. It spent its first life declaring `days` and

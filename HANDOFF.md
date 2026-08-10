@@ -2,7 +2,7 @@
 
 ## Next action
 
-Surface `handoff_duplicates` and the stalled-handoff signal somewhere a human reads — `scan_roadmap` records both and nothing consumes them, so a repo mid-migration stays invisible.
+Surface `handoff_duplicates` as a `kind: "roadmap"` recommendation — `scan_roadmap` records it and nothing consumes it, so a repo left mid-migration with two handoffs stays invisible.
 
 ## This session (Session 37): the handoff pipeline, both ends
 
@@ -80,11 +80,35 @@ Three consequences that are intended, not regressions:
 - **`SportsAnalyser` stays stalled at 156 days.** Unchanged — its handoff
   was hand-written and was already being read.
 
+## The narrative history, made readable
+
+Asked how the project module derives history and state, the answer turned
+out to settle the snapshot-versus-log question from earlier the same
+session. **The module already is the log**: `project_snapshots` holds one
+row per scan, 90-day retention, ~201 rows per project since 2026-05-10,
+and Session 28 has written the whole roadmap findings block into its
+`findings` JSONB since 2026-08-06. Only `health_score` and `scanned_at`
+were ever read back.
+
+`ProjectHistoryPoint` now carries `next_action`, `next_action_source` and
+`next_action_changed`, built by `build_narrative_history` — extracted as a
+pure function rather than left inline in the route, so it is testable
+without mocking a session.
+
+**This unblocks Session 32** (start-versus-finish accounting), which was
+recorded as blocked on the SessionEnd hook overwriting its handoff instead
+of appending a log. Both halves of that premise were wrong: the hook no
+longer writes, and the log was already there.
+
+So the handoff does **not** need to carry history. It needs the one thing
+nothing else can derive — what is next, and why the session went the way
+it did. Everything else the module already measures better.
+
 ## Blocked / waiting on
 
 - `handoff_duplicates` and `handoff_path` are recorded by `scan_roadmap`
-  and **read by nothing**. A `kind: "roadmap"` recommendation is the
-  natural consumer. This is the next action above.
+  and **still read by nothing** — unlike the next-action history, this one
+  has no consumer at all. This is the next action above.
 - **`venture-assistant` has the estate's richest handoff and still falls
   back to `tasks` for its next action**, because the document has no
   `## Next action` heading — its headings are "This session", "Previous

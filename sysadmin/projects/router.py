@@ -1,8 +1,10 @@
 """Project Organiser API endpoints."""
 
 import asyncio
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -452,6 +454,48 @@ async def get_project_board(
     }
 
 
+def build_narrative_history(rows: Sequence[Any]) -> list[dict[str, Any]]:
+    """Score *and* next action per snapshot, newest-first like ``rows``.
+
+    The organiser has written the whole roadmap findings block into
+    ``project_snapshots`` since Session 28 (2026-08-06) and nothing read it
+    back — ninety days of next actions in JSONB with no endpoint over them.
+    Session 32's start-versus-finish accounting was recorded as blocked on
+    a document format while the data it needed was already being collected.
+
+    Each point is compared against its *older* neighbour (index ``i + 1``),
+    so ``next_action_changed`` is ``True`` on the scan where the action
+    moved on, and a run of ``False`` measures how long one action stayed
+    open. The oldest point gets ``None``, not ``False``: there is nothing
+    older in the window to compare it to, and calling that "unchanged"
+    would invent a streak whose length varies with ``limit``.
+
+    Every ``findings`` access is defensive. Snapshots predate the roadmap
+    block, so rows from before 2026-08-06 carry ``{}`` and must yield
+    ``None`` rather than raise — this runs over whatever 90 days of
+    retention happens to hold.
+    """
+    def _action(row: Any) -> tuple[str | None, str | None]:
+        roadmap = (getattr(row, "findings", None) or {}).get("roadmap") or {}
+        return roadmap.get("next_action"), roadmap.get("next_action_source")
+
+    actions = [_action(r) for r in rows]
+    out: list[dict[str, Any]] = []
+    for i, r in enumerate(rows):
+        action, source = actions[i]
+        changed: bool | None = None
+        if i + 1 < len(actions):
+            changed = action != actions[i + 1][0]
+        out.append({
+            "health_score": r.health_score,
+            "scanned_at": r.scanned_at.isoformat() if r.scanned_at else None,
+            "next_action": action,
+            "next_action_source": source,
+            "next_action_changed": changed,
+        })
+    return out
+
+
 @router.get("/{name}")
 async def get_project_detail(
     name: str,
@@ -472,6 +516,7 @@ async def get_project_detail(
         raise HTTPException(status_code=404, detail=f"Project '{name}' not found")
 
     latest = rows[0]
+    history = build_narrative_history(rows)
     return {
         "name": name,
         "current": {
@@ -487,13 +532,7 @@ async def get_project_detail(
             "findings": latest.findings,
             "scanned_at": latest.scanned_at.isoformat() if latest.scanned_at else None,
         },
-        "history": [
-            {
-                "health_score": r.health_score,
-                "scanned_at": r.scanned_at.isoformat() if r.scanned_at else None,
-            }
-            for r in rows
-        ],
+        "history": history,
     }
 
 

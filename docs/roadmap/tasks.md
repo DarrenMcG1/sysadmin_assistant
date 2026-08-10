@@ -809,10 +809,21 @@ path the hook never touched.
       of) a real one, and `SportsAnalyser`'s is 156 days old. The reader
       handles duplicates, so this is housekeeping, not a blocker — but
       `handoff_duplicates` should reach a surface that reports it
+- [x] **The narrative history is now readable** (done 2026-08-10).
+      `ProjectHistoryPoint` gained `next_action`, `next_action_source` and
+      `next_action_changed`; `build_narrative_history` in
+      [router.py](../../sysadmin/projects/router.py) builds them. The data
+      was already being collected — Session 28 wrote the whole roadmap
+      findings block into `project_snapshots` and the history list exposed
+      the score only. **This unblocks Session 32**, whose recorded blocker
+      was the SessionEnd hook overwriting its handoff instead of appending
+      a log: the log exists, in JSONB, 90 days deep. Live proof — ImbaBots'
+      `M5-T05` unchanged across 10 scans and 3 days
 - [ ] `handoff_duplicates` and `handoff_path` are recorded by
-      `scan_roadmap` and read by nothing. A `kind: "roadmap"`
+      `scan_roadmap` and still read by nothing. A `kind: "roadmap"`
       recommendation ("two handoffs, one migration half-done") is the
-      natural home
+      natural home. Unlike the next-action history this one has no
+      consumer at all yet
 - [ ] `SNAG-ROADMAP-002` remains open and this session added evidence:
       `count_open_snags` reports 7 for 5 open snags in this very file
 
