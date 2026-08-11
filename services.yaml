@@ -190,6 +190,35 @@ services:
     systemd: { unit: sysadmin-organiser.timer, scope: user }
     controllable: false
 
+  # The tray, given a unit on 2026-08-11 after it was found not running:
+  # nothing had ever started it. No autostart entry, no unit — it had only
+  # ever been launched by hand, so the 2026-08-10 reboot ended it silently
+  # and the estate lost its only notification surface for a day.
+  #
+  # `monitor: false`, and the reason is the unit's own design: it is
+  # PartOf=graphical-session.target, so it is inactive by construction
+  # whenever nobody is logged in. Checking it would raise an alert every
+  # night and teach the reader to ignore the one surface that shows them.
+  # What makes that acceptable — rather than a hole — is that the
+  # *consequence* of a dead tray is now covered: the daemon's own
+  # notifier (sysadmin/monitor/desktop.py, same day) speaks whenever the
+  # tray is not polling, so a tray that dies mid-session is no longer a
+  # notification blackout. Restart=on-failure handles the crash case.
+  #
+  # If a nightly "tray down" alert is ever wanted, this becomes
+  # `kind: systemd` with monitor left at its default.
+  - project: sysadmin-assistant
+    name: sysadmin-tray
+    role: tray
+    kind: systemd
+    monitor: false
+    reason: >-
+      GUI unit bound to graphical-session.target — inactive by design
+      whenever nobody is logged in; a check would alert every night.
+      A dead tray is covered by the daemon's own desktop notifier.
+    systemd: { unit: sysadmin-tray.service, scope: user }
+    controllable: false
+
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any
   # repository, which is what the unit sweep already calls a host unit.

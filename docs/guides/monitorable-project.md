@@ -180,6 +180,23 @@ backend" is how a project ends up with three unlisted listeners.
   WantedBy=default.target
   ```
 
+- **A GUI unit binds to the graphical session, not to `default.target`.**
+  The skeleton above is for a headless service and is actively wrong for
+  a desktop app: lingering is on for `gaddi`, so a `default.target` unit
+  starts at boot with no compositor and restart-loops until someone logs
+  in. Use `PartOf=graphical-session.target`, `After=` the same, and
+  `WantedBy=graphical-session.target` — it then starts at login and stops
+  cleanly at logout. KDE imports `DISPLAY`/`WAYLAND_DISPLAY` into the
+  systemd user manager (`systemctl --user show-environment`), which is
+  what makes this work at all; check that before blaming the unit.
+  Prefer `Restart=on-failure` over `always` if the app has its own Quit
+  action, or the menu item becomes a no-op. `sysadmin-tray.service` is
+  the worked example, installed 2026-08-11.
+- **Such a unit is `monitor: false` with a reason**, because "inactive"
+  is its normal state whenever nobody is logged in and a check would
+  alert every night. Say so in the `reason:` — an unchecked service
+  without one is indistinguishable from a forgotten one, which the
+  loader enforces.
 - **Scheduled jobs are `Type=oneshot` + a `.timer`** (with
   `Persistent=true`), never a long-running loop. A oneshot service is
   inactive between runs *by design*, so the sysadmin monitors the

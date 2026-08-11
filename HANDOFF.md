@@ -4,6 +4,39 @@
 
 Run `sudo systemctl restart sysadmin.service` so the daemon picks up the desktop notifier wired today, then take Session 36, the briefing envelope, which is unblocked and unstarted.
 
+## The tray was not broken — nothing had ever started it
+
+Reported as "no longer working". Diagnosed before building: **no
+autostart entry, no unit**. It had only ever been launched by hand, and
+the box booted 2026-08-10 06:37, which ended the last instance. Running
+`.venv/bin/sysadmin-tray` directly proved the code was fine — it came up
+and polled the API immediately.
+
+So the estate's only notification surface had been dead for a day and
+nothing said so. Same shape as SNAG-DB-001: what would have told you was
+what was down.
+
+`~/.config/systemd/user/sysadmin-tray.service` is installed, enabled and
+running. **It is the first GUI unit on this box and the contract's
+skeleton is wrong for one** — lingering is on for `gaddi`, so a
+`WantedBy=default.target` unit would start at boot with no compositor and
+restart-loop. It binds to `graphical-session.target` instead, which works
+because KDE imports `DISPLAY`/`WAYLAND_DISPLAY` into the systemd user
+manager (checked with `systemctl --user show-environment`, not assumed).
+`Restart=on-failure` rather than `always`, because the tray's own Quit
+action exits 0 and `always` would make it a no-op. Both rules are now in
+[monitorable-project.md](docs/guides/monitorable-project.md) §2.3.
+
+Wired into services.yaml with `monitor: false` and a reason: bound to the
+graphical session, it is *correctly* inactive whenever nobody is logged
+in, so a check would alert every night and train you to ignore the one
+surface that shows you alerts. That is acceptable only because the
+desktop notifier below landed hours earlier — a tray dying mid-session is
+now covered rather than merely unwatched.
+
+**The services.yaml entry needs the same restart the notifier does**: the
+daemon loads services at startup.
+
 ## SNAG-CFG-001: the daemon could not speak, and nobody had noticed
 
 Chased from a stale config key, found to be a dead limb.
