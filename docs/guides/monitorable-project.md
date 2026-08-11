@@ -124,7 +124,8 @@ your row when you claim one.**
 | 8500 | sysadmin-service | backend (FastAPI) |
 | 3100 | Alfred | frontend (Nuxt) |
 | 3200 | SportsAnalyser | frontend (Next.js) |
-| 3300 | _free — next frontend allocation_ | |
+| 3300 | venture-assistant | frontend (Nuxt 3 dashboard, dev server for now; unit to follow) — claimed 2026-08-10 |
+| 3400 | _free — next frontend allocation_ | |
 
 **Never take a tool's default port.** 8080 is llama.cpp's default, and it
 is also the default of Tomcat, Jenkins, webpack-dev-server, `http.server`
