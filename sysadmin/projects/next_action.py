@@ -33,9 +33,12 @@ existing job of deciding ``stalled``.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any
+
+from sysadmin.projects.roadmap import looks_like_no_action
 
 # A next action is only work if a human queued it.  ``git`` means neither
 # a handoff nor a task list existed and the last commit subject is
@@ -57,6 +60,96 @@ class Candidate:
     open_tasks: int | None
     open_snags: int
     scanned_at: datetime | None
+
+
+def eligible_candidates(
+    rows: Iterable[Any],
+    *,
+    now: datetime | None = None,
+    excluded: Collection[str] = (),
+) -> tuple[list[Candidate], dict[str, int]]:
+    """Which snapshots represent a live commitment, and why the rest don't.
+
+    Extracted from ``GET /api/projects/next`` when the idle nudges of
+    Session 31 became its second caller.  The rules are a *definition of
+    a commitment* — active, human-authored, not "nothing queued" — and
+    two copies of a definition drift by construction: the nudge would go
+    on reminding you about a project the endpoint had already stopped
+    offering, and nothing would report the disagreement.  This repository
+    has already paid for that lesson once, in
+    :mod:`sysadmin.projects.snapshots`.
+
+    Args:
+        rows: Snapshot-like objects.  Attributes read are
+            ``project_name``, ``project_path``, ``findings``,
+            ``last_commit_at``, ``health_score`` and ``scanned_at``, so a
+            freshly built :class:`~sysadmin.projects.models.project_snapshot.ProjectSnapshot`
+            works as well as one loaded from the database — the agent
+            evaluates the scan it has just written.
+        now: Clock for ``days_since_commit``.  Injectable so a test does
+            not have to move the machine's clock.
+        excluded: Project names the caller has already ruled out.
+
+    Returns:
+        ``(candidates, skipped)`` where ``skipped`` counts the rejections
+        by reason.  The counts exist so an empty result can distinguish
+        "everything is up to date" from "nothing has ever been scanned";
+        a bare empty list reads as the second whichever it is.
+    """
+    moment = now or datetime.now(UTC)
+    ruled_out = set(excluded)
+    candidates: list[Candidate] = []
+    skipped: dict[str, int] = {}
+
+    def skip(reason: str) -> None:
+        skipped[reason] = skipped.get(reason, 0) + 1
+
+    for row in rows:
+        findings = row.findings or {}
+        if findings.get("status", "active") != "active":
+            # Dormant and archived projects have no next action by
+            # definition — that is what declaring them dormant meant.
+            skip("inactive")
+            continue
+        if row.project_name in ruled_out:
+            skip("excluded")
+            continue
+
+        roadmap = findings.get("roadmap") or {}
+        action = roadmap.get("next_action")
+        source = roadmap.get("next_action_source")
+        if not action or not source:
+            skip("no_action")
+            continue
+        if source not in ELIGIBLE_SOURCES:
+            # The board's git fallback: honest there, where the source is
+            # rendered beside it, and not an instruction to act on here.
+            skip("source_git")
+            continue
+        if looks_like_no_action(action):
+            skip("says_no_action")
+            continue
+
+        days_since = None
+        if row.last_commit_at:
+            last = row.last_commit_at
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=UTC)
+            days_since = (moment - last).days
+
+        candidates.append(Candidate(
+            name=row.project_name,
+            path=row.project_path,
+            next_action=str(action),
+            next_action_source=str(source),
+            health_score=row.health_score,
+            days_since_commit=days_since,
+            open_tasks=roadmap.get("open_tasks"),
+            open_snags=roadmap.get("open_snags", 0),
+            scanned_at=row.scanned_at,
+        ))
+
+    return candidates, skipped
 
 
 @dataclass(frozen=True)

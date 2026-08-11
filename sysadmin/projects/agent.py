@@ -20,6 +20,7 @@ from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.services import get_services, services_by_project
+from sysadmin.projects import nudges
 from sysadmin.projects.estate import build_estate, estate_path, write_atomic
 from sysadmin.projects.git import (
     get_branches,
@@ -31,7 +32,9 @@ from sysadmin.projects.git import (
     has_remote,
 )
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+from sysadmin.projects.next_action import eligible_candidates
 from sysadmin.projects.roadmap import scan_roadmap
+from sysadmin.projects.snapshots import load_action_streaks
 from sysadmin.registry import load_registry
 
 logger = logging.getLogger(__name__)
@@ -86,6 +89,13 @@ class ProjectOrganiserAgent(BaseAgent):
         undeclared = 0
         scored: dict[str, tuple[dict, int]] = {}
         still_failing: set[str] = set()
+        written: list[ProjectSnapshot] = []
+        # Keyed by *directory* name, because that is what
+        # ``_analyse_project`` writes into ``project_name`` — a manifest's
+        # ``name:`` is free text and need not match the directory, so
+        # keying on ``entry.name`` would silently drop the override for
+        # any project where the two differ.
+        nudge_thresholds: dict[str, int] = {}
 
         for entry in registry.entries:
             if not entry.declared:
@@ -95,7 +105,10 @@ class ProjectOrganiserAgent(BaseAgent):
                 self._analyse_project, entry.path, agent_config, entry.status
             )
             session.add(snapshot)
+            written.append(snapshot)
             scored[str(entry.path)] = (snapshot.findings, snapshot.health_score)
+            if entry.idle_nudge_days is not None:
+                nudge_thresholds[entry.path.name] = entry.idle_nudge_days
 
             threshold = self._effective_threshold(entry, agent_config)
             if snapshot.health_score < threshold:
@@ -114,20 +127,191 @@ class ProjectOrganiserAgent(BaseAgent):
 
         alerts_resolved = await self._resolve_recovered(session, still_failing)
 
+        nudged = await self._nudge_idle_projects(
+            session, written, nudge_thresholds, agent_config
+        )
+
         estate_written = await asyncio.to_thread(
             self._emit_estate, registry, agent_config, scored
         )
 
         return AgentResult(
             findings_count=len(registry.entries),
-            alerts_raised=alerts_raised,
+            alerts_raised=alerts_raised + nudged["raised"] + nudged["escalated"],
             details={
                 "projects_scanned": len(registry.entries),
                 "undeclared": undeclared,
                 "alerts_resolved": alerts_resolved,
+                "nudges": nudged,
                 "estate": str(estate_written) if estate_written else None,
             },
         )
+
+    async def _nudge_idle_projects(
+        self,
+        session,
+        written: list[ProjectSnapshot],
+        thresholds: dict[str, int],
+        agent_config,
+    ) -> dict[str, int]:
+        """Raise, escalate and clear the "you said you would" nudges.
+
+        Session 31.  The policy — eligibility, the day thresholds, the
+        quiet-then-loud ladder — lives in
+        :mod:`sysadmin.projects.nudges` and
+        :mod:`sysadmin.projects.next_action`; what is decided *here* is
+        the alert lifecycle, and it differs from the health alerts above
+        in one way that matters.
+
+        **A nudge is raised once per open nudge, not once per scan.**
+        :meth:`BaseAgent.raise_alert` inserts unconditionally, and the
+        organiser runs daily, so the health-alert pattern of re-raising
+        every scan writes one row per day per stuck project.  On a
+        commitment that is *meant* to stay open for a week or more, that
+        is the pile-up this repository has already been through, dressed
+        up as a feature — and an unacknowledged count that climbs on its
+        own trains the reader to clear the tray without looking.
+
+        **Escalation resolves the quiet row and raises a loud one**
+        rather than updating the severity in place.  The tray fingerprints
+        notifications as ``"{severity}:{title}"``, so an in-place change
+        keeps the ``info`` fingerprint it has already suppressed and the
+        escalation is never spoken — the one thing the escalation is for.
+        Two rows also leave the history readable: when it went quiet, and
+        when it got loud.
+
+        The scan's own snapshots are evaluated (``written``), not a
+        re-read of the table, and the flush below is what makes them
+        visible to the history query — without it the newest point in
+        every series would be yesterday's scan and a streak would be a
+        day short.
+
+        Returns:
+            ``{"raised", "escalated", "resolved"}`` counts, reported in
+            ``agent_runs.details`` so a silent nudge run is
+            distinguishable from one that never executed.
+        """
+        settings = agent_config.idle_nudges
+        if not settings.enabled:
+            return {"raised": 0, "escalated": 0, "resolved": 0}
+
+        await session.flush()
+
+        candidates, _ = eligible_candidates(written)
+        streaks = await load_action_streaks(session, [c.name for c in candidates])
+        due = nudges.evaluate(
+            candidates,
+            streaks,
+            thresholds,
+            default_days=settings.days,
+            # The gap, not a multiplier: a project that relaxes its own
+            # threshold moves when the clock starts, not how long the
+            # escalation waits afterwards.
+            escalation_gap=max(0, settings.escalate_days - settings.days),
+        )
+
+        # Read the open nudges only when there is something to compare
+        # them against.  Nothing due still has to *resolve* below — a
+        # project whose action moved has no candidate to look up — but
+        # that is one statement rather than two.
+        open_nudges = await self._open_nudges(session) if due else {}
+        raised = 0
+        escalated = 0
+        for nudge in due:
+            existing = open_nudges.get(nudge.title)
+            if existing is not None:
+                loudness = nudges.SEVERITY_ORDER
+                if loudness.get(nudge.severity, 0) <= loudness.get(existing.severity, 0):
+                    continue
+                existing.resolved = True
+                existing.resolved_at = datetime.now(UTC)
+                escalated += 1
+            else:
+                raised += 1
+
+            await self.raise_alert(
+                session,
+                severity=nudge.severity,
+                title=nudge.title,
+                message=nudge.message,
+                details=nudge.details,
+            )
+
+        resolved = await self._resolve_moved_on(
+            session, {nudge.title for nudge in due}
+        )
+        return {"raised": raised, "escalated": escalated, "resolved": resolved}
+
+    async def _open_nudges(self, session) -> dict[str, Alert]:
+        """Every unresolved idle-nudge, by title, loudest kept on a tie.
+
+        A duplicate title should not exist — this method is why — but if
+        one ever does, comparing against the *quietest* row would
+        re-escalate on every scan, so the loudest wins and the leftovers
+        are cleared by :meth:`_resolve_moved_on` when the action moves.
+        """
+        from sqlalchemy import select
+
+        result = await session.execute(
+            select(Alert).where(
+                Alert.agent == self.name,
+                Alert.resolved.is_(False),
+                Alert.title.like(nudges.NUDGE_TITLE_LIKE),
+            )
+        )
+        open_by_title: dict[str, Alert] = {}
+        for alert in result.scalars().all():
+            current = open_by_title.get(alert.title)
+            if current is None or nudges.SEVERITY_ORDER.get(
+                alert.severity, 0
+            ) > nudges.SEVERITY_ORDER.get(current.severity, 0):
+                open_by_title[alert.title] = alert
+        return open_by_title
+
+    async def _resolve_moved_on(self, session, still_nudged: set[str]) -> int:
+        """Close every open nudge this scan did not re-state.
+
+        The inverse question, like :meth:`_resolve_recovered` and for the
+        same reason: the reasons a nudge stops applying are *the action
+        changed*, *the project was declared dormant*, *the handoff was
+        cleared*, *the repository was deleted* — and only the first is
+        observable as an event.  A per-project loop would leave the rest
+        open forever, and retention purges resolved rows only.
+
+        The rows raised moments ago in this same transaction are excluded
+        by title rather than by timestamp: an exact comparison cannot
+        race the clock those inserts were stamped with.
+        """
+        from sqlalchemy import update
+
+        conditions = [
+            Alert.agent == self.name,
+            Alert.resolved.is_(False),
+            Alert.title.like(nudges.NUDGE_TITLE_LIKE),
+        ]
+        if still_nudged:
+            conditions.append(Alert.title.notin_(sorted(still_nudged)))
+
+        result = await session.execute(
+            update(Alert)
+            .where(*conditions)
+            .values(resolved=True, resolved_at=datetime.now(UTC))
+        )
+        resolved: int = result.rowcount or 0
+        if resolved:
+            logger.info(
+                "project_nudges_resolved",
+                extra={"agent": self.name, "count": resolved},
+            )
+            self._queue_event(
+                "alert.resolved",
+                {
+                    "agent": self.name,
+                    "match": nudges.NUDGE_TITLE_LIKE,
+                    "count": resolved,
+                },
+            )
+        return resolved
 
     async def _resolve_recovered(self, session, still_failing: set[str]) -> int:
         """Resolve every health alert this scan did **not** re-raise.

@@ -528,18 +528,67 @@ re-derive that the endpoint now exists.
 
 [adr64]: file:///home/gaddi/projects/Alfred/docs/adr/0064-estate-board-consumption.md
 
-### Session 31: Idle nudges — a commitment, not hygiene
+### Session 31: Idle nudges — a commitment, not hygiene ✅ 2026-08-11
 
-- [ ] Distinct from the staleness score, which asks "is this repo tidy".
+- [x] Distinct from the staleness score, which asks "is this repo tidy".
       This asks "**you have a stated next action and have not touched it in
-      N days**" — a broken commitment, not a dirty directory
-- [ ] Rides plumbing that already exists: severity thresholds, DND windows,
-      desktop notifications, the tray. No new delivery path
-- [ ] Only for `active` projects with a non-null `next_action`. A dormant
-      project has made its decision; a project with no next action has
-      nothing to be reminded of
-- [ ] Threshold per project, defaulting globally. Getting this wrong makes
-      the tray a nag, which trains the user to ignore it — start long
+      N days**" — a broken commitment, not a dirty directory. The score is
+      never consulted: `venture-assistant` scores 100 and can still be sat
+      on the same action for a fortnight
+- [x] Rides plumbing that already exists: severity thresholds, DND windows,
+      desktop notifications, the tray. No new delivery path — and **no new
+      endpoint**, so the daemon needs no restart; the organiser is a oneshot
+      timer that picks this up on its next run
+- [x] Only for `active` projects with a non-null `next_action`. Eligibility
+      was **not re-implemented** — it was extracted out of
+      `GET /api/projects/next` into `next_action.eligible_candidates`, which
+      both now call. Two copies of "what counts as a commitment" drift in
+      the direction nobody notices: the endpoint stops offering a project
+      while the nudge goes on reminding you about it
+- [x] Threshold per project (`idle_nudge_days` in `.project.yaml`, beside
+      `alert_threshold`), defaulting globally to **7 days**
+
+**Decisions taken, with what was rejected:**
+
+- **7 days, quiet; 14 days, loud.** The live estate turns its next actions
+  over in 1–4 days, so 7 fires on nothing today and that is the intended
+  shape — the threshold is "long enough that standing still is a fact".
+  5 was rejected as within normal turnover; 14-as-first-rung was rejected
+  because a feature that can never be observed firing cannot be trusted
+- **The `info` rung is silent on this host and that is deliberate**, but
+  not for the reason first written down: the gate is
+  `tray.notify_min_severity`, **not** `notifications.desktop.min_severity`,
+  which is parsed by `DesktopNotificationsConfig` and read by nothing.
+  Filed as `SNAG-CFG-001`; three comments named the wrong knob before the
+  grep was run
+- **Never `critical`.** Criticals break through DND by configuration
+  (`notifications.dnd.allow_critical: true`), and waking someone at 02:00
+  about a roadmap item is how a monitor gets muted wholesale
+- **Escalation is a gap, not a multiplier.** A project that relaxes its own
+  threshold to 21 days escalates at 28, not 42. The per-project knob moves
+  when the clock starts, not how patient the escalation is
+- **Raised once per open nudge, not once per scan.** `BaseAgent.raise_alert`
+  inserts unconditionally — this is the mechanism behind the 1,664-row
+  pile-up of `SNAG-PROJ-004` — and the organiser runs daily, so re-raising
+  would write one row per day per stuck project. Escalation **resolves the
+  quiet row and raises a loud one** rather than updating severity in place:
+  the tray fingerprints on `"{severity}:{title}"`, so an in-place change
+  keeps a fingerprint it has already suppressed and the escalation is never
+  spoken
+- **Resolution is set-based**, the inverse question `_resolve_recovered`
+  already asks: the action moved, the project went dormant, the handoff was
+  cleared, the repository was deleted — only the first is observable as an
+  event, and a per-project loop leaves the rest open forever
+
+**Verified 2026-08-11**, not assumed: a live organiser run over 25
+repositories reported `nudges: {raised: 0, escalated: 0, resolved: 0}` —
+correct, since all three eligible projects changed their next action that
+morning. Because a clean run proves only that nothing crashed, the ladder
+was then run over the **real** historical series for `sysadmin_assistant`
+(the "Session 24: File organiser tiers" action, 9 scans across 2 days):
+`streak_days` folded it to one run of 2 days, and the ladder produced
+`info` / `warning` / no-nudge at the thresholds it should. The 9-scans-to-
+2-days ratio is the argument for days over scans, live.
 
 ### Session 32: Start-versus-finish accounting
 

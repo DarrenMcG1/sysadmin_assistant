@@ -31,6 +31,7 @@ from typing import Any
 from sqlalchemy import Select, desc, func, select
 
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+from sysadmin.projects.next_action import Streak, streak_days
 
 # Slack against a scan that straddles the boundary.  Far inside the
 # 6-hour scan interval, so a project missed by one whole scan still drops.
@@ -130,3 +131,34 @@ def action_history_query(
         .where(ProjectSnapshot.scanned_at >= newest_scan - window)
         .order_by(ProjectSnapshot.project_name, desc(ProjectSnapshot.scanned_at))
     )
+
+
+async def load_action_streaks(session: Any, names: Sequence[str]) -> dict[str, Streak]:
+    """Run :func:`action_history_query` and fold it into one streak per name.
+
+    The fold is three lines and was written out twice the day the idle
+    nudges arrived — once in the endpoint, once in the agent — which is
+    how the row order (newest-first) and the window anchor become
+    assumptions two callers hold separately.  Kept here beside the query
+    whose output shape it depends on.
+
+    Only the names handed in are read: ranking or nudging a handful of
+    projects must not pull ninety days of scans for the thirty-odd
+    repositories that were ruled out before this was called.  An empty
+    ``names`` short-circuits without a round trip.
+
+    A project absent from the result — no snapshot in the window at all —
+    is simply absent from the mapping rather than defaulted to a
+    zero-day streak here.  Whether "unknown" means "not stuck" is the
+    caller's decision, and the two callers answer differently: the
+    endpoint ranks it last, the nudge declines to raise.
+    """
+    if not names:
+        return {}
+
+    result = await session.execute(action_history_query(list(names)))
+    series: dict[str, list[tuple[datetime, str | None]]] = {}
+    for name, scanned_at, past_action in result.all():
+        series.setdefault(name, []).append((scanned_at, past_action))
+
+    return {name: streak_days(points) for name, points in series.items()}

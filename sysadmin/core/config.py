@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT
 
@@ -259,6 +259,47 @@ class EstateConfig(BaseModel):
     )
 
 
+class IdleNudgeConfig(BaseModel):
+    """Idle-nudge thresholds (Session 31).
+
+    A nudge is a *broken commitment*, not a dirty directory: the project
+    is active, a human wrote down a next action, and that action has not
+    changed for ``days``.  The health score answers a different question
+    and is deliberately not consulted — a repository can be tidy, score
+    100 and still have stood still for a fortnight.
+
+    **The ladder is quiet-then-loud, and the quiet half is quiet because
+    of config.yaml, not because of this code.**  ``tray.notify_min_
+    severity`` is ``warning`` on this host, so the ``info`` nudge at
+    ``days`` reaches the alerts list and the tray badge and never speaks;
+    the escalation at ``escalate_days`` is the first thing that toasts.
+    Lowering that to ``info`` moves the first toast forward by a week,
+    which is the knob to reach for if the nudge is arriving too late —
+    not this threshold.  Note it is the ``tray:`` section, **not**
+    ``notifications.desktop.min_severity``: the latter is parsed by
+    :class:`DesktopNotificationsConfig` and read by nothing (SNAG-CFG-001).
+
+    ``escalate_days`` must be at least ``days``: a ladder whose second
+    rung is below its first would raise the warning on the same scan as
+    the info, so the escalation could never be observed as an escalation.
+    """
+
+    enabled: bool = True
+    #: Days a stated next action may stand before an ``info`` nudge.
+    days: int = 7
+    #: Days at which the open nudge is escalated to ``warning``.
+    escalate_days: int = 14
+
+    @model_validator(mode="after")
+    def _ladder_ascends(self) -> "IdleNudgeConfig":
+        if self.escalate_days < self.days:
+            raise ValueError(
+                f"idle_nudges.escalate_days ({self.escalate_days}) must be >= "
+                f"days ({self.days}); a ladder that descends never escalates"
+            )
+        return self
+
+
 class ProjectOrganiserConfig(BaseModel):
     enabled: bool = True
     scan_interval_hours: int = 6
@@ -289,6 +330,9 @@ class ProjectOrganiserConfig(BaseModel):
     max_todo_penalty: int | None = 30
     branch_actions: BranchActionsConfig = Field(default_factory=BranchActionsConfig)
     estate: EstateConfig = Field(default_factory=EstateConfig)
+    # Idle nudges (Session 31). A project may override the threshold with
+    # ``idle_nudge_days`` in its own ``.project.yaml``.
+    idle_nudges: IdleNudgeConfig = Field(default_factory=IdleNudgeConfig)
 
 
 class FileActionsConfig(BaseModel):

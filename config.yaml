@@ -205,6 +205,27 @@ agents:
         shas: []
         max_walk: 200
 
+    # Idle nudges — "you said you would and haven't" (Session 31). Not a
+    # hygiene check: an active project with a human-written next action
+    # that has not changed for `days`. Dormant and archived projects have
+    # made their decision, and a project with no stated action has nothing
+    # to be reminded of, so neither is eligible.
+    #
+    # The 7-day rung is SILENT on this host by design: tray.notify_min_severity
+    # (line ~353, NOT notifications.desktop.min_severity, which nothing reads —
+    # SNAG-CFG-001) is `warning`, so the info nudge marks the alerts list and
+    # the tray badge without speaking, and the 14-day escalation is the first
+    # thing that toasts. If nudges arrive too late, lower that to `info`
+    # rather than shortening `days` — the threshold is about when a
+    # commitment counts as broken, not about loudness.
+    #
+    # A project may override the threshold with `idle_nudge_days` in its
+    # own .project.yaml (e.g. a long-cycle repo where a fortnight is normal).
+    idle_nudges:
+      enabled: true
+      days: 7            # info nudge after this many days unchanged
+      escalate_days: 14  # the open nudge becomes a warning here
+
     branch_actions:  # POST /api/projects/{name}/branches/prune — dry run unless confirm=true
       enabled: true
       protected_branches:  # globs never deleted (the default branch is protected regardless)

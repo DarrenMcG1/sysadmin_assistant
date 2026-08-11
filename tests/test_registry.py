@@ -167,6 +167,30 @@ class TestManifest:
         assert manifest.decisions[0].date.isoformat() == "2026-08-06"
         assert isinstance(manifest.decisions[0], Decision)
 
+    def test_idle_nudge_days_defaults_to_the_global_setting(self):
+        """A manifest that says nothing takes config.yaml's threshold."""
+        manifest = ProjectManifest.model_validate(declared("thing", "Thing"))
+        assert manifest.idle_nudge_days is None
+
+    def test_idle_nudge_days_is_separate_from_alert_threshold(self):
+        """Health and commitment are different questions (Session 31).
+
+        A long-cycle repository wants a relaxed nudge without also going
+        unwatched for a missing README.
+        """
+        manifest = ProjectManifest.model_validate(
+            declared("thing", "Thing") | {"idle_nudge_days": 21, "alert_threshold": 40}
+        )
+        assert (manifest.idle_nudge_days, manifest.alert_threshold) == (21, 40)
+
+    @pytest.mark.parametrize("bad", [0, -1])
+    def test_idle_nudge_days_must_be_at_least_one(self, bad):
+        """Zero would nudge on the scan that wrote the action."""
+        with pytest.raises(ValueError, match="idle_nudge_days"):
+            ProjectManifest.model_validate(
+                declared("thing", "Thing") | {"idle_nudge_days": bad}
+            )
+
     def test_unknown_schema_rejected(self):
         with pytest.raises(ValueError, match="unsupported schema"):
             ProjectManifest.model_validate(declared("thing", "Thing") | {"schema": 2})

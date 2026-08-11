@@ -294,6 +294,44 @@ collapse "every project is up to date" into "no scan has ever run";
 `skipped` breaks the ruled-out population down by reason, which is what
 made it legible that the eligible set is 2 of 23.
 
+**Idle nudges have no endpoint, and that is the design** (Session 31). A
+nudge is an `alerts` row raised by the organiser — `Project <name> next
+action idle` — so it reaches the tray, the DND windows and
+`GET /api/sysadmin/alerts` through plumbing that already exists. What it
+asks is deliberately *not* the health score: an `active` project whose
+human-written next action has not changed for **7 days** (`info`), then
+**14** (`warning`), overridable per project as `idle_nudge_days` in
+`.project.yaml`. `venture-assistant` scores 100 and could still be sat on
+the same action for a fortnight, which is why the score is never
+consulted.
+
+Eligibility is **borrowed from `GET /api/projects/next`**, not restated:
+`next_action.eligible_candidates` is the one definition of a commitment
+(active, `handoff`/`tasks` source, not a "nothing queued" sentence) and
+both call it. Two copies drift in the direction nobody notices — the
+endpoint stops offering a project while the nudge goes on reminding you
+about it, and nothing reports the disagreement.
+
+Three rules `sysadmin/projects/nudges.py` and `_nudge_idle_projects`
+encode, each the opposite of the obvious implementation:
+
+1. **Raised once per open nudge, not once per scan.** `raise_alert`
+   inserts unconditionally and the organiser runs daily, so the
+   health-alert pattern writes one row per day per stuck project — the
+   1,664-row pile-up expressed as a feature.
+2. **Escalation resolves the quiet row and raises a loud one**, never
+   updates severity in place: the tray fingerprints on
+   `"{severity}:{title}"`, so an in-place change keeps a fingerprint it
+   has already suppressed and the escalation is recorded but never spoken.
+3. **The escalation is a gap, not a multiplier.** A project relaxing its
+   own threshold to 21 days escalates at 28, not 42 — the per-project
+   knob moves when the clock starts, not how patient the escalation is.
+
+A nudge is never `critical`: criticals break through DND by configuration.
+Whether the `info` rung is audible at all is decided by
+**`tray.notify_min_severity`** — *not* `notifications.desktop.min_severity`,
+which is parsed and read by nothing (SNAG-CFG-001).
+
 `GET /api/projects/stale` answers **idleness, not ill health** — commits older
 than `days`, defaulting to 30. It spent its first life declaring `days` and
 filtering on `health_score < needs_attention_min` instead, which made it a

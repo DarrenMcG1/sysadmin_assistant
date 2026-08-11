@@ -78,6 +78,11 @@ class ProjectEntry:
     def alert_threshold(self) -> int | None:
         return self.manifest.alert_threshold if self.manifest else None
 
+    @property
+    def idle_nudge_days(self) -> int | None:
+        """Days before a stuck next action nudges, or None for the default."""
+        return self.manifest.idle_nudge_days if self.manifest else None
+
 
 @dataclass(frozen=True)
 class Registry:

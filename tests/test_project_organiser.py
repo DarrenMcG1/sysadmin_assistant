@@ -319,6 +319,9 @@ class TestAlertThreshold:
         # The scan now closes alerts it did not re-raise (SNAG-PROJ-003),
         # so execute() must be awaitable even when nothing is resolved.
         session.execute = AsyncMock(return_value=MagicMock(rowcount=0))
+        # Idle nudges (Session 31) flush the scan's snapshots before
+        # reading their history, so flush has to be awaitable too.
+        session.flush = AsyncMock()
 
         mod = "sysadmin.projects.agent"
         with (
@@ -477,6 +480,9 @@ class TestArchivedAlerts:
         )
         session = MagicMock()
         session.execute = AsyncMock(return_value=MagicMock(rowcount=0))
+        # Idle nudges (Session 31) flush the scan's snapshots before
+        # reading their history, so flush has to be awaitable too.
+        session.flush = AsyncMock()
 
         mod = "sysadmin.projects.agent"
         with (
@@ -648,6 +654,7 @@ class TestAlertResolution:
         session.execute = AsyncMock(
             return_value=MagicMock(rowcount=resolved_rows)
         )
+        session.flush = AsyncMock()
 
         mod = "sysadmin.projects.agent"
         with (
@@ -658,11 +665,34 @@ class TestAlertResolution:
             result = await agent._execute(session)
         return session, result
 
+    @staticmethod
+    def _health_sql(session) -> str:
+        """The health resolve's statement, not the idle nudges' (Session 31).
+
+        The scan issues two set-based resolves now — one per alert
+        family — so ``await_args`` is the nudge statement and asserting
+        on it would silently move these tests onto the wrong subject.
+        """
+        from sysadmin.projects.agent import _ALERT_TITLE_LIKE
+
+        # The LIKE pattern is a bound parameter, so which family a
+        # statement belongs to is only visible in its params.
+        health = [
+            compiled
+            for compiled in (
+                call.args[0].compile() for call in session.execute.await_args_list
+            )
+            if _ALERT_TITLE_LIKE in compiled.params.values()
+        ]
+        assert health, "no health-alert resolve issued"
+        return str(health[0])
+
     async def test_every_scan_attempts_a_resolve(self, agent, tmp_path):
         """Not only when something recovered — a vanished project never does."""
         session, _ = await self._run(agent, tmp_path, score=90)
 
-        session.execute.assert_awaited_once()
+        # _health_sql fails if no statement carried the health pattern.
+        assert "title LIKE" in self._health_sql(session)
 
     async def test_resolved_count_is_reported(self, agent, tmp_path):
         _, result = await self._run(agent, tmp_path, score=90, resolved_rows=7)
@@ -675,7 +705,7 @@ class TestAlertResolution:
         """Its alert was raised moments ago in this same transaction."""
         session, _ = await self._run(agent, tmp_path, score=10)
 
-        sql = str(session.execute.await_args.args[0])
+        sql = self._health_sql(session)
         assert "title NOT IN" in sql
 
     async def test_a_clean_scan_resolves_without_an_exclusion(
@@ -684,7 +714,7 @@ class TestAlertResolution:
         """Nothing failing means every open health alert is stale."""
         session, _ = await self._run(agent, tmp_path, score=90)
 
-        sql = str(session.execute.await_args.args[0])
+        sql = self._health_sql(session)
         assert "title NOT IN" not in sql
         assert "title LIKE" in sql
 
@@ -694,7 +724,7 @@ class TestAlertResolution:
         """The log aggregator's 547,882 rows are a different defect."""
         session, _ = await self._run(agent, tmp_path, score=90)
 
-        sql = str(session.execute.await_args.args[0])
+        sql = self._health_sql(session)
         assert "alerts.agent =" in sql
         assert "resolved IS false" in sql
 

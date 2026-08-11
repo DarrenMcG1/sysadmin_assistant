@@ -60,7 +60,25 @@ class ProjectManifest(BaseModel):
     supersedes: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     alert_threshold: int | None = None
+    #: Days this project's stated next action may stand before it nudges
+    #: (Session 31).  ``None`` takes the global default from config.yaml.
+    #: Deliberately a *separate* knob from ``alert_threshold``: that one
+    #: governs a health score, this one governs a commitment, and a repo
+    #: with a long release cycle wants the second relaxed without also
+    #: going unwatched for the first.
+    idle_nudge_days: int | None = None
     decisions: list[Decision] = Field(default_factory=list)
+
+    @field_validator("idle_nudge_days")
+    @classmethod
+    def _positive_nudge_days(cls, value: int | None) -> int | None:
+        if value is not None and value < 1:
+            raise ValueError(
+                "idle_nudge_days must be at least 1; to switch nudges off for "
+                "this project set a large number rather than 0, so the "
+                "intention stays readable"
+            )
+        return value
 
     @field_validator("schema_version")
     @classmethod

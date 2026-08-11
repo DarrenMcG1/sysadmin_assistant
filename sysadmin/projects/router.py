@@ -31,8 +31,10 @@ from sysadmin.projects import branch_actions, next_action, recommendations
 from sysadmin.projects import review as project_review
 from sysadmin.projects.models.project_review import ProjectReview
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
-from sysadmin.projects.roadmap import looks_like_no_action
-from sysadmin.projects.snapshots import action_history_query, latest_snapshot_query
+from sysadmin.projects.snapshots import (
+    latest_snapshot_query,
+    load_action_streaks,
+)
 from sysadmin.registry import load_registry
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -488,72 +490,19 @@ async def get_next_project(
 
     now = datetime.now(UTC)
     excluded = sorted({name.strip() for name in exclude if name.strip()})
-    skipped: dict[str, int] = {}
 
-    def _skip(reason: str) -> None:
-        skipped[reason] = skipped.get(reason, 0) + 1
-
-    candidates: list[next_action.Candidate] = []
-    for row in rows:
-        findings = row.findings or {}
-        if findings.get("status", "active") != "active":
-            # Dormant and archived projects have no next action by
-            # definition — that is what declaring them dormant meant.
-            _skip("inactive")
-            continue
-        if row.project_name in excluded:
-            _skip("excluded")
-            continue
-
-        roadmap = findings.get("roadmap") or {}
-        action = roadmap.get("next_action")
-        source = roadmap.get("next_action_source")
-        if not action or not source:
-            _skip("no_action")
-            continue
-        if source not in next_action.ELIGIBLE_SOURCES:
-            # The board's git fallback: honest there, where the source is
-            # rendered beside it, and not an instruction to act on here.
-            _skip("source_git")
-            continue
-        if looks_like_no_action(action):
-            _skip("says_no_action")
-            continue
-
-        days_since = None
-        if row.last_commit_at:
-            last = row.last_commit_at
-            if last.tzinfo is None:
-                last = last.replace(tzinfo=UTC)
-            days_since = (now - last).days
-
-        candidates.append(next_action.Candidate(
-            name=row.project_name,
-            path=row.project_path,
-            next_action=str(action),
-            next_action_source=str(source),
-            health_score=row.health_score,
-            days_since_commit=days_since,
-            open_tasks=roadmap.get("open_tasks"),
-            open_snags=roadmap.get("open_snags", 0),
-            scanned_at=row.scanned_at,
-        ))
+    # Eligibility lives in next_action so the idle nudges of Session 31
+    # cannot drift from it — one definition of "a commitment", read by
+    # the endpoint that offers work and by the agent that reminds you of
+    # it.
+    candidates, skipped = next_action.eligible_candidates(
+        rows, now=now, excluded=excluded
+    )
 
     # Only the candidates' history is fetched.  Reading every project's
     # series to rank five of them would pull ninety days of scans for the
     # thirty-odd repositories that were already ruled out.
-    streaks: dict[str, next_action.Streak] = {}
-    if candidates:
-        history = await session.execute(
-            action_history_query([c.name for c in candidates])
-        )
-        series: dict[str, list[tuple[datetime, str | None]]] = {}
-        for name, scanned_at, past_action in history.all():
-            series.setdefault(name, []).append((scanned_at, past_action))
-        streaks = {
-            name: next_action.streak_days(points)
-            for name, points in series.items()
-        }
+    streaks = await load_action_streaks(session, [c.name for c in candidates])
 
     winner, streak, reason = next_action.choose(candidates, streaks, skipped)
 
