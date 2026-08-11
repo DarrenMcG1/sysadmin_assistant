@@ -63,50 +63,67 @@ The monitor must not own the things it monitors.
 
 **Answered 2026-08-11, with what the measurements did to each answer.**
 
-**Who watches the queue for correctness?** The owner's answer was "the
-estate manager". That reinstates the recursion Session 39 rejected — a
-watcher sharing fate with what it watches. It does not need a new
-decision, because it follows from a rule already taken: **the estate emits
-the invariants (queue depth, oldest waiting request, dropped count) and
-sysadmin judges them.** The monitor must not own the things it monitors.
-Note what this needs from the estate that liveness does not: an endpoint
-whose *numbers* can be wrong while the service is perfectly up.
+**Who watches the queue for correctness? sysadmin does** — "exactly what
+it's built for", per the owner. That is the split that follows from a rule
+already taken: **the estate emits the invariants (queue depth, oldest
+waiting request, dropped count) and sysadmin judges them**, because the
+monitor must not own the things it monitors. Note what this asks of the
+estate that liveness does not: an endpoint whose *numbers* can be wrong
+while the service is perfectly up.
 
-**The policy is "GPU usage above ~30% ⇒ no LLM activity, then by
-priority", and the estate owns it.** Measured the same hour, and it does
-not survive contact as stated:
+**The policy is not a thing to design. It is built, twice, and the two
+copies have already drifted.** The metric is `gpu_busy_percent`, read from
+sysfs **by PCI slot**, threshold **25** — and the implementations are:
 
-| Measured 2026-08-11 | Reading |
-|---|---|
-| `GPU use (%)` | **29** |
-| `GPU Memory Allocated (VRAM%)` | **84** |
-| `rocm-smi --showpids` | *"No KFD PIDs currently running"* |
-| DRM fdinfo, `llama-server` pid 1083 | no `drm-engine` fields |
+| | Alfred | venture-assistant |
+|---|---|---|
+| Where | `alfred/inference/guard.py` | `app/llm/guard.py` |
+| Sampling | **min of 4 samples over ~2 s** | **one sample** |
+| Mid-run | `pause_until_idle`, 600 s cap | defer only |
+| Config key | `inference_gpu_busy_threshold` | `GPU_BUSY_THRESHOLD` |
 
-1. **The threshold straddles the number depending on the metric.** 29%
-   compute says go; 84% VRAM says stop. Which one is meant is the whole
-   policy.
-2. **VRAM is the wrong metric.** It reads 84% *because the estate's own
-   models are resident*, so the rule would block LLM work on the grounds
-   that LLM work is loaded.
-3. **Per-process attribution does not exist on this box, by either
-   route.** The models run through Vulkan rather than ROCm, so they are
-   not KFD processes, and fdinfo exposes no `drm-engine` fields. Nothing
-   can currently answer *"whose 29% is this?"*.
+Line 18 of each file carries the **same glob string**, and both carry the
+same log message: *"GPU guard: no readable gpu_busy_percent under %s/%s —
+dispatching unguarded"*. It was copied. **And Alfred's own docstring
+states the failure mode the copy still has** — *"`gpu_busy_percent` is
+total utilisation, so a read taken immediately after our own call still
+shows our work"*, which is why it takes the minimum of several spread
+samples and treats only *sustained* load as somebody else's.
 
-Point 3 cuts the other way once centralisation is assumed, and this is the
-strongest argument for the queue that neither party started with: **if the
-estate is the sole launcher, it knows what it started, so "usage not
-attributable to me" is computable by subtraction.** Centralisation makes
-the unmeasurable measurable — conditional on nothing bypassing it, where
-today four units start models on their own. Whether the estate becomes the
-sole launcher is therefore a load-bearing decision, not an implementation
-detail.
+This is the estate manager's case made concretely, and far better than
+`operator_profile` made it: one policy, two implementations, already
+diverged, with the weaker one carrying a defect the stronger one
+documents. It is also the answer to attribution — **the minimum-of-samples
+trick decides "is someone else holding the GPU" without ever needing to
+know who**, so no per-process attribution is required. (Just as well:
+`rocm-smi --showpids` reports no KFD processes because the models run
+through Vulkan, and DRM fdinfo exposes no `drm-engine` fields, so
+attribution is not available on this box at all.)
 
-Priority order also already has a recorded policy that the unit files
-contradict: 2026-08-06 chose *"queue and wait, Alfred takes precedence"*,
-while `Conflicts=` encodes **whoever started last wins**. Two policies,
-one of them written down and not implemented.
+Two things to carry into the design rather than rediscover:
+
+1. **Resolve the device by PCI slot, never by `cardN`.** Verified
+   2026-08-11: `card0` is slot `0000:47:00.0`, the **idle iGPU** at 0%,
+   while the dGPU is `card1`, slot `0000:03:00.0`, reading 58% then 100%
+   within a minute. Alfred's ADR-0052 F2 records this and an index-based
+   guard "would silently poll the wrong GPU and never fire". A session
+   measuring with `rocm-smi` indices fell into exactly that trap while
+   writing this entry.
+2. **Fail open.** Unreadable counter ⇒ dispatch with a warning. Deliberate
+   in both copies: a mis-set slot must degrade to "no guard", never to "no
+   inference".
+
+The gaming case is also already real rather than hypothetical: on
+2026-07-23 an eval run against a live game took it **from 220 fps to 20**,
+and the harness *"had even sampled `gpu_busy_percent` first — and written
+80% into its own report before running anyway. It observed the problem and
+recorded it instead of acting on it."* That is the estate's recurring
+motif, and the same sentence could describe Session 39's stall alert.
+
+Priority order has a recorded policy the unit files contradict: 2026-08-06
+chose *"queue and wait, Alfred takes precedence"*, while `Conflicts=`
+encodes **whoever started last wins**. Two policies, and the written one
+is not the implemented one.
 
 **Has anyone asked venture-assistant or SportsAnalyser?** The owner's
 evidence was `operator_profile` — believed to be data duplicated into
@@ -129,10 +146,16 @@ rule is invoked inside one app's roadmap with no canonical statement
 anywhere, and the next app either rediscovers it or contradicts it without
 either being visible.
 
-That is a **documents** problem, fixed by phase 1, needing no runtime —
-and it is the clearest justification yet for the estate manager existing
-at all. The catch also depended entirely on the owner remembering at
-sign-off; nothing on the box would have raised it.
+That is a **documents** problem, fixed by phase 1, needing no runtime. The
+catch also depended entirely on the owner remembering at sign-off; nothing
+on the box would have raised it.
+
+**Ranked honestly, the evidence for the estate manager is**: (1) the GPU
+guard copied into two repos and already drifted — a policy with two
+implementations; (2) an estate rule cited by name with no canonical
+statement; (3) `operator_profile`, which turned out to be a near-miss
+resolved correctly rather than a duplication. The first is the strongest
+and is what the owner meant by "tried and tested in both".
 - **`GET /api/projects/next` returning 200 has expired one of ADR-0064's
   three reasons for deferral.** That is a reason for Alfred to re-examine
   on its own side, not a reason to build here. Neither of its two counted

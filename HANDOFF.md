@@ -190,30 +190,44 @@ monitors.
 repo needs no port and no `/api/health`. It will listen, so both are
 claimed on day one.
 
-**The GPU policy the owner supplied does not survive measurement as
-stated.** It is "usage above ~30% ⇒ no LLM activity, then by priority",
-with the estate owning the policy. Measured the same hour: `GPU use (%)`
-**29**, `VRAM%` **84** — so the threshold straddles the number depending
-on which metric is meant, and VRAM is the wrong one because it reads 84%
-*because the estate's own models are resident*, making the rule block LLM
-work on the grounds that LLM work is loaded. Worse, **per-process
-attribution does not exist on this box by either route**: `rocm-smi
---showpids` reports no KFD processes (the models run through Vulkan, not
-ROCm) and DRM fdinfo exposes no `drm-engine` fields, so nothing can answer
-"whose 29% is this?".
+**The GPU policy is already built, twice, and the copies have drifted —
+which is the estate manager's case made concretely.** The metric is
+`gpu_busy_percent` from sysfs **by PCI slot**, threshold **25**. Line 18 of
+`Alfred/backend/alfred/inference/guard.py` and of
+`venture-assistant/app/llm/guard.py` carry the same glob string and the
+same log message: it was copied. Alfred takes the **minimum of four
+samples over two seconds** and has `pause_until_idle` with a 600 s cap;
+venture-assistant takes **one sample**. Alfred's docstring states the
+defect the copy still has — *"a read taken immediately after our own call
+still shows our work"*. One policy, two implementations, the weaker
+carrying a failure mode the stronger documents.
 
-That inverts into the best argument for the queue so far: **if the estate
-is the sole launcher it knows what it started, so "usage not attributable
-to me" is computable by subtraction.** Centralisation makes the
-unmeasurable measurable — conditional on nothing bypassing it, and today
-four units start models themselves. Whether the estate becomes the sole
-launcher is load-bearing, and is the open question.
+That min-of-samples trick also **settles attribution by not needing it**:
+it decides "is somebody else holding the GPU" without asking who. Just as
+well — attribution is unavailable on this box (`rocm-smi --showpids` sees
+no KFD processes, since the models run through Vulkan; DRM fdinfo exposes
+no `drm-engine` fields).
 
-Also unresolved by the owner's answer: "the estate manager watches the
-queue" reinstates the recursion Session 39 rejected. Recorded as the split
-that follows from a rule already taken — **the estate emits the invariants,
-sysadmin judges them** — because the monitor must not own the things it
-monitors.
+Two things to carry rather than rediscover. **Resolve the device by PCI
+slot, never `cardN`**: verified 2026-08-11, `card0` is slot
+`0000:47:00.0` — the **idle iGPU** at 0% — while the dGPU is `card1`, slot
+`0000:03:00.0`, reading 58% then 100% within a minute. Alfred's ADR-0052 F2
+records that an index-based guard "would silently poll the wrong GPU and
+never fire", and this session measured with `rocm-smi` indices and fell
+into precisely that trap before checking. **And fail open**: an unreadable
+counter dispatches with a warning, in both copies, deliberately.
+
+The gaming case is real, not hypothetical: on 2026-07-23 an eval against a
+live game took it **from 220 fps to 20**, and the harness *"had even
+sampled `gpu_busy_percent` first — and written 80% into its own report
+before running anyway"*. Observed and recorded instead of acted on, which
+is the same sentence as Session 39's stall alert.
+
+**sysadmin watches the queue** — "exactly what it's built for". The split:
+the estate emits the invariants (queue depth, oldest waiting request,
+dropped count) and sysadmin judges them, because the monitor must not own
+the things it monitors. Note what that asks of the estate that liveness
+does not — an endpoint whose *numbers* can be wrong while the service is up.
 
 **`operator_profile` was checked and is not duplication**, which changes
 what it is evidence for. Alfred's own ideas.md, captured the same day,
@@ -223,8 +237,12 @@ not mirror"; migration 013 was never built, so no effort was wasted. **The
 real finding is one line further in**: that entry cites *"estate rule: no
 cross-DB queries"*, and the rule exists **nowhere central**. A named rule
 invoked inside one app's roadmap is one the next app rediscovers or
-contradicts invisibly. That is a documents problem, fixed by phase 1, and
-the clearest justification the estate manager has.
+contradicts invisibly. That is a documents problem, fixed by phase 1.
+
+Evidence for the estate manager, ranked honestly: the **copied-and-drifted
+GPU guard** first, the **rule cited with no canonical statement** second,
+and `operator_profile` third — a near-miss resolved correctly rather than a
+duplication.
 
 **Measured rather than assumed** (2026-08-11): 5 active projects, 4 GPU
 consumers on one 24 GB card, `stalled_count: 0`. Alfred's ADR-0064
