@@ -1029,6 +1029,25 @@ Notifications (from SNAG-CFG-001, 2026-08-11):
       be exact. Deferred because an older tray build would then go
       unrecognised and both would toast — the duplicate this design
       exists to prevent
+- [ ] **The tray re-announces the open alert set on every start**, because
+      `NotificationPolicy`'s fingerprint state is in-memory. Now that
+      `sysadmin-tray.service` starts at login this happens every login.
+      Measured 2026-08-11 against the live set — six distinct
+      fingerprints fold into **one** coalesced summary and the next poll
+      is silent, so it is currently a feature ("here is what is
+      outstanding") rather than noise. It stops being one if the distinct
+      count ever drops below `coalesce_threshold` while the volume stays
+      high. No action while the numbers hold; recorded so the next
+      "why did it just announce everything?" is a lookup, not an
+      investigation
+- [ ] **Page-1 churn can re-notify a standing alert.** The tray fetches
+      the newest 50 unresolved alerts; with 547,814 of them, a burst of
+      new rows pushes an older title off the page, `_close_inactive`
+      closes its episode, and the title notifies again as a *new* episode
+      when it reappears. Harmless at the current rate (one alert in 90
+      minutes) and unbounded when the log aggregator is noisy — which
+      makes it a second consequence of SNAG-AGENT-002 rather than a tray
+      defect. A fix belongs on the volume, not on `limit=50`
 - [ ] **547,814 unresolved `Log error: kernel` rows** were found in the
       table while measuring notification volume. That is SNAG-AGENT-002's
       damage rather than a new defect, and the notifier's incident gate
