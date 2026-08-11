@@ -10,9 +10,9 @@
 
 ## Open Issues
 
-_Eight open snags, plus three found and fixed the same day and left in place for
+_Nine open snags, plus three found and fixed the same day and left in place for
 the write-up (`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on 2026-08-10,
-`SNAG-CFG-001` on 2026-08-11) — `count_open_snags` therefore reports 11, which is
+`SNAG-CFG-001` on 2026-08-11) — `count_open_snags` therefore reports 12, which is
 the entries listed rather than the entries outstanding, and is itself an
 instance of `SNAG-ROADMAP-002`.
 `SNAG-DB-002` and `SNAG-SYSD-003` were both found sideways by Session 39 while
@@ -20,6 +20,10 @@ looking at something else — a collation warning printed by `psql`, and a retir
 `ollama.service` in the unit file being edited. Neither was the session's
 subject, and both are recorded rather than fixed for reasons given in the
 entries.
+`SNAG-AGENT-004` was found on 2026-08-11 by looking at the live table to
+confirm the Session 39 ladder had fired — 26,270 unresolved alerts for four
+retired services, which is the project side's set-based-resolve defect
+reappearing on the service side at sixteen times the scale.
 `SNAG-PROJ-013` was found by Session 32 on 2026-08-11: the momentum endpoint
 cannot see a session in a repository that never dates its handoff.
 `SNAG-CFG-001` was found by Session 31, which needed to know which severity is
@@ -60,6 +64,14 @@ defects have a reader for the first time._
   - **Impact**: `GET /api/files/*` has served five-day-old figures throughout — `reclaimable_mb: 34849`, `stale_project_dirs: 102` — with nothing on those endpoints saying so, and the weekly disk review narrates from the same stale audit. Same shape as SNAG-DB-001: a monitoring component silently stopped, and the estate reported the last thing it knew as though it were current
   - **Fix**: establish which of the two candidates it is before changing anything — a scheduler that never fires and an agent that dies silently need opposite fixes. Then make the difference visible: `GET /api/sysadmin/self` already reads `agent_runs` and the stall alert already fired, so the missing piece is that **nothing forces the alert to be seen**, not that nothing detected it
   - **Second half addressed 2026-08-11 (Session 39), first half still open.** The escalation ladder now re-raises a stall as `critical` once the `warning` has stood `escalate_after_hours` unresolved, and `critical` is the only severity the tray renders as a notification that does not expire — so this alert would have become persistent on 2026-08-11 09:07 rather than remaining a single toast from the day before. That fixes *being told*. **It does not fix the file organiser**, which has still run once in its life, and the two candidate causes above are still unseparated. Note what the ladder changes about the evidence: from now on a stall of this kind leaves two rows and a `details.first_alerted_at`, so the next occurrence records how long it stood rather than only that it happened
+
+- [P1] SNAG-AGENT-004: **26,270 alert rows for four services that no longer exist can never be resolved or purged** (2026-08-11)
+  - **Symptom**: unresolved alerts, counted live — `personal-assistant` **9,748**, `personal-assistant-frontend` **9,748**, `redis` **4,950** (newest 2026-03-07), `ollama` **1,824**. None of the four appears in `config.yaml` or `services.yaml`; PA and ollama were retired 2026-07-24. `GET /api/sysadmin/alerts` and the tray badge carry them, and three `Critical disk usage on /` rows from July sit alongside them although the disk has been at 68 % since August
+  - **Cause, two halves that only bite together**. `SysAdminAgent._handle_status` calls `resolve_alerts(session, service_name)` **inside the per-service check loop** ([agent.py:391](../../sysadmin/monitor/agent.py#L391)), so recovery is only ever observed for a service still being checked. A service removed from configuration is never checked again, so it can never be seen to recover. And `run_retention` purges alerts `WHERE ... AND resolved = TRUE` ([retention.py:85](../../sysadmin/core/retention.py#L85)) — deliberately, so an open incident is never deleted from under its reader. An unresolved row for a deleted entity therefore lives for ever
+  - **This is a defect the project side already fixed, on the service side.** `ProjectOrganiserAgent._resolve_recovered` exists precisely because "a project deleted from disk never appears in a scan, so it can never be observed *recovering*, and a per-project loop leaves its alert unresolved forever" — that is how 1,664 rows accumulated. The monitor has the same shape at **16× the scale**, and the fix pattern is already in the codebase: ask the inverse question set-based (which open service alerts would this run *not* raise), rather than looping over the survivors
+  - **Found**: by checking live state at the end of Session 39 while confirming the escalation ladder had fired. Nothing surfaced it — which is the point: these rows are indistinguishable from live incidents on every surface that shows them
+  - **Impact**: worse than table size. A permanently-open `critical` trains the reader to dismiss the alerts list, which is the exact behaviour Session 39 spent a day trying to earn back. It also poisons any future "is anything wrong right now" check built on `resolved = false`
+  - **Fix**: a set-based resolve for service alerts, mirroring `_resolve_recovered` — and a one-off backfill for the four retired services, which is a data change and needs an explicit call. Note the retention rule must **not** be relaxed to purge unresolved rows: that would hide the symptom and delete live incidents with it
 
 - [P2] SNAG-DB-002: **every PostgreSQL database on this box has a stale collation version**, and all three warn on every connection (2026-08-11)
   - **Symptom**: `psql -d projects` prints `WARNING: database "projects" has a collation version mismatch — created using collation version 2.43, but the operating system provides version 2.44` before every command. Confirmed across the estate, not just this app's database: `pg_database.datcollversion` is **2.43** for `projects`, `alfred` **and** `postgres`, while `ldd --version` reports glibc **2.44**
