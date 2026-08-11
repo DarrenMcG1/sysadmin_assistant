@@ -1,108 +1,123 @@
-# Handoff — 2026-08-10
+# Handoff — 2026-08-11
 
 ## Next action
 
-Restart `sysadmin.service` with `sudo systemctl restart sysadmin.service`, because the running process predates Session 37 and every stored snapshot carries neither `handoff_path` nor `handoff_duplicates`, so two sessions of project-side work are invisible on the live box until it happens.
+Restart `sysadmin.service` with `sudo systemctl restart sysadmin.service`, because the running process predates Session 37 and every stored snapshot carries neither `handoff_path` nor `handoff_duplicates`, so three sessions of project-side work stay invisible on the live box until it happens.
 
-## This session (Session 38): the unread handoff gets a reader
+## This session (Session 39): Session 30 was closed unbuilt, by its consumer
 
-`handoff_duplicates` had been recorded by `scan_roadmap` since Session 37
-and consumed by nothing. It is now a zero-point `kind: "roadmap"`
-recommendation. Because all three surfaces call `recommendations_for`,
-that one addition reaches `/api/projects/{name}/recommendations`,
-`/api/projects/actions` and the weekly review — no route, no contract
-change, no migration.
+The sitting opened to build Session 30 — Alfred creating one `work_item`
+per active project from `/api/projects/next`. Checking the consumer
+before writing anything ended it. **Alfred accepted ADR-0064 on
+2026-08-07**, three days *before* Session 29 shipped, declining the whole
+projects-page arc for v1 behind two named triggers. This repo's tasks.md
+said "nothing here blocks it beyond Session 29". The block was never on
+this side; the row was wrong the day it was written.
 
-**Re-measuring the estate first changed what this session was.** The task
-was written when four repos carried a generated `docs/sessions/handoff.md`
-beside a real one. Commit `0d56081` cleared them: **seven repos hold a
-handoff and every one holds exactly one** — root `HANDOFF.md` in `Alfred`,
-`ImbaBots`, this repo, `apps/venture-assistant` and
-`apps/SportsAnalyser`, plus `docs/sessions/handoff.md` in the two archived
-`PersonalAssistant` repos, which the non-active waiver excludes anyway.
-Nothing holds two, so this ships as a regression detector rather than a
-report on a live mess, and it was verified against a constructed
-two-handoff repository. The mtime branch is the one that fired — a
-generated stub headed `# Session Handoff` carries no ISO date, which is
-the realistic shape.
+**Neither trigger fires, and one moved the wrong way.**
 
-**The first survey was wrong, and the way it was wrong is worth keeping.**
-It globbed `~/projects/*/` — 11 directories — while `discovery_depth: 2`
-makes the scanned population 25 across `~/projects/`, `apps/` and
-`archive/`. It therefore reported `venture-assistant` and `SportsAnalyser`
-as holding no handoff at all, which **contradicts a Session 37 finding**
-sitting in this repo's own tasks.md (venture-assistant's root `HANDOFF.md`
-is in 8 of its 9 commits) and the contradiction was not noticed. The
-conclusion survived the correction; the evidence given for it did not.
-Enumerate the estate the way the scanner does, or read `estate-map.md` —
-a top-level glob is not the estate.
+| Trigger | Fires at | Live 2026-08-11 |
+|---|---|---|
+| (a) Stall returns | `stalled_count ≥ 2` on `?sort=neglect`, sustained over two weekly reads | **0** |
+| (b) Estate outgrows the five-row cap | `count ≥ 12` active | **5** (was 6 when the ADR was written) |
 
-**The live table could not have answered either way, and that is the next
-action.** The newest snapshot (09:06 today) has neither of the two Session
-37 keys, so 90 days of JSONB read `None` for both.
+The board carries 3 stalled projects, all among the 20 **inactive** ones
+the trigger deliberately excludes — declaring a project dormant *was* the
+decision, so it cannot also count as a stall.
+
+**The decline is not a rejection of the endpoints**, which matters for how
+this is filed. ADR-0064 §1 finds the momentum data already reaches the
+owner as the daily digest's `Pick This Up` section, rendered with this
+repo's own honesty treatment, and §2 makes `alfred-projects-page.md` the
+build instruction the moment a trigger fires — "good and should be
+followed rather than redesigned". So the spec is deferred, not discarded,
+and §§1–6 of it still describe live contract-pinned endpoints that any
+other consumer reads as written.
+
+**The real defect was that the decision lived in one repo and the work in
+the other.** A declined-by-the-consumer state had no representation on the
+producer's side, so this roadmap kept advertising the work as unblocked
+while Alfred had refused it in writing four days earlier. Recorded now in
+both places it gets read from: the tasks.md row carries the trigger table
+and the one-line `curl` that re-checks it, and the guide gains a **§0
+status block ahead of §1** so nobody reaches the spec without meeting the
+decline first.
+
+## Also fixed: a test that failed on a date, not on a change
+
+`test_endpoint_filters_by_confidence` was red on arrival, and pre-existing
+— confirmed by stashing the uncommitted Session 38 work and watching it
+fail anyway, before anything was attributed to it.
+
+`tests/test_reliability_api.py` held **two clocks**. Every direct-scorer
+call pins `now=NOW` (2026-08-07 12:00) with the fixture rows anchored
+there, while the nine endpoint calls go through the route, which reads
+`datetime.now(UTC)` because that endpoint is computed live by design. As
+real time drew away from `NOW`, the seven-day window slid off the fixture
+data. The confidence test went first, at the 3.5-day mark reached on
+2026-08-11, where a seven-day run of checks stops covering half the window
+and `_confidence` correctly downgrades to `low` — **the scorer was right
+and the test was wrong**. The other eight had until 2026-08-14, when the
+run would have left the window outright and all nine would have failed at
+once, in whichever session happened to be open.
+
+An autouse fixture pins the route's clock to the same `NOW`. `datetime` is
+used exactly once in that route module, so the patch is narrow, and the
+route can no longer observe wall-clock time at all.
 
 ## Decisions and what was rejected
 
-- **The field was widened from bare paths to
-  `{path, date, date_source, days_older}`.** Two cases a reader must
-  separate are indistinguishable as paths: a loser nine days behind the
-  winner is migration debris and can be deleted, while one *sharing* the
-  winner's date lost on tuple order alone. Advice that conflated them
-  would recreate `SNAG-ROADMAP-003` from the deletion side — throwing away
-  the real record to tidy up the stub. Rejected: keeping paths and hedging
-  the wording (cheaper, but the advice can never license the deletion it
-  exists to recommend); adding a parallel `handoff_duplicate_details` key
-  (a redundant key in every future snapshot to protect readers that do not
-  exist).
-- **`days_older` measures the gap to the chosen handoff, not to today.**
-  `handoff_age_days` already answers "how current is the record"; this
-  answers "how far behind is the one nobody reads", and it must not move
-  when the clock does. Pinned by a test that scans with `now` a year on.
-- **`date_source` exists because `handoff_date` falls back to mtime.** A
-  clone or a checkout rewrites every mtime on disk, so an age derived that
-  way is the weaker claim. Selection still applies the fallback uniformly
-  — that was Session 37's hard-won fix and is untouched. This constrains
-  only what the *advice* asserts: mtime-derived gaps are marked "by file
-  date" and the detail says why.
-- **`days_older` of `0` or `None` never produces "delete".** Both mean
-  this module cannot say which document is real — same-day lost on path
-  preference, `None` is the pre-widening shape — so both take "confirm
-  which is current".
-- **The bare-string shape is still accepted**, on the `stale_branches`
-  precedent: retention outlives a shape change, and a hand-written
-  findings dict is a legitimate way to exercise the code.
-- **`handoff_path` is consumed in the detail line only**, which was a
-  deliberate call and leaves it unread in a repo with one handoff. Putting
-  it on `ProjectBoardEntry` is the fuller answer to Session 37's
-  provenance argument, and it touches `contracts.py`, the board builder,
-  `alfred-projects-page.md` and Alfred's expectations — a sitting of its
-  own, filed in tasks.md rather than ridden along here.
+- **Session 30 was closed rather than built.** Rejected: building it in
+  Alfred anyway (overrides an accepted ADR, jumps its row 134, and lands
+  on a dirty tree carrying an unrelated career-correspondence feature);
+  and re-opening ADR-0064 on the strength of the expired premise below
+  (the premise is genuinely dead, but it is a *reason*, not a *trigger*).
+- **The expired premise is recorded, not acted on.** ADR-0064 §3 declines
+  to design against `GET /api/projects/next` because "it returns 404
+  today" and its ranking is "undecided by its own author". Session 29
+  shipped it on 2026-08-10 with a decided, documented ranking. That
+  retires a stated reason and moves neither trigger — which is the whole
+  discipline of a counted deferral: it is re-opened by the count, not by
+  an argument. Written into the tasks.md row and guide §0 so the next
+  reader of the ADR does not re-derive it.
+- **The two commits were kept separate**, and the test fix went first. It
+  is not Session 38's defect and dating it to Session 38's commit would
+  put a wrong date on when the bomb was armed.
+- **The clock was pinned rather than the fixtures re-anchored to real
+  time.** Anchoring `_checks` to `datetime.now(UTC)` for endpoint tests
+  would also have worked and is smaller, but it leaves the file with two
+  clocks and a reader wondering why some calls pass `end=` and others do
+  not. One clock is the fix; the drift was the symptom.
 
 ## Blocked / waiting on
 
-- **The daemon restart is the next action and needs `sudo`.** It has been
-  owed since 2026-07-24; what is new is a measurement of the cost rather
-  than a reminder.
-- **The detector fires for nothing today, by construction.** It cannot be
-  confirmed against live data until a repo grows a second handoff. The
-  constructed-repository check is in the session log above; there is no
-  live proof and this handoff does not claim one.
-- **The non-active waiver is inherited, not decided.** A duplicate handoff
-  in a dormant repo raises nothing, because
-  `_roadmap_recommendations` waives everything for non-active projects.
-  Defensible, and a dormant repo mid-migration is where a stray handoff
-  survives longest. Filed for revisit if one is ever found.
-- **Session 30 remains unblocked and is work in Alfred's repo** —
-  unchanged; nothing here touches it.
+- **The daemon restart is the next action and needs `sudo`.** Owed since
+  2026-07-24. Session 38 measured the cost; this session added a third
+  session's worth of invisible work to it.
+- **Session 30 is closed until a trigger fires**, and nothing runs those
+  triggers automatically. ADR-0064 §Consequences admits this: they are
+  recorded on Alfred's monthly retro row (E-T4) as a named re-check, "no
+  stronger than the retro habit itself". Nothing on *this* side checks
+  them either, and a scheduled check is not obviously worth building for
+  two numbers on an endpoint that already ships.
+- **Alfred's ADR does not record its own expired premise.** Doing so is a
+  one-paragraph amendment in Alfred's repo, which has an unrelated feature
+  mid-flight and its own next action (row 134). Deliberately not done from
+  here; it is the sibling repo's session to take.
 - `SNAG-ROADMAP-002` remains open: `count_open_snags` reports 7 for the 5
   open snags in this repo's own list.
+- Session 38's three follow-ups stand, including `handoff_path` on
+  `ProjectBoardEntry`.
 
 ## State
 
-Branch `main`, suite 1690 → 1701 (11 new), ruff and mypy clean, 56 routes
-unchanged. Uncommitted at the time of writing: `sysadmin/projects/roadmap.py`,
-`sysadmin/projects/recommendations.py`, `tests/test_roadmap.py`,
-`tests/test_project_board.py`, plus `docs/roadmap/STATUS.md`,
-`docs/roadmap/tasks.md` and this file. `docs/guides/monitorable-project.md`
-carried an unrelated uncommitted edit from before this session started and
-was left alone.
+Branch `main`, two commits pushed to nothing (no remote configured for
+this work): `99fe1b6` the test clock fix, `8dc8759` Session 38. Suite
+**1701 passed**, ruff and mypy clean, 56 routes unchanged. Uncommitted at
+the time of writing: `docs/roadmap/tasks.md`, `docs/roadmap/STATUS.md`,
+`docs/guides/alfred-projects-page.md` and this file — all documentation,
+all this session's. `docs/guides/monitorable-project.md` still carries the
+edit from before Session 38 that claims port 3300 for venture-assistant's
+frontend and moves the free marker to 3400; it is a coherent complete
+change, it belongs to whoever made it, and it has now survived two
+sessions untouched — commit it or drop it.

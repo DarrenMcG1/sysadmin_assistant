@@ -472,18 +472,61 @@ project at a time is the unit.
       `says_no_action` should itself become a nudge ("write a next action")
       belongs with Session 31, not here
 
-### Session 30: Next action → an Alfred work item
+### Session 30: Next action → an Alfred work item — declined by the consumer 2026-08-11
 
-- [ ] Alfred creates one `work_item` per active project from
-      `/api/projects/next` (or the board), refreshed daily, linked by the
-      nullable `sysadmin_name` on `trackables.Project`
-- [ ] **The write happens in Alfred, pulling** — exactly as it already does
-      for `/api/sysadmin/briefing/preview`. sysadmin stays read-only, so the
-      "report only" restriction survives intact rather than being revisited
-- [ ] Do **not** insert sysadmin's projects into `trackables.projects` —
-      that table is curated life projects (warhammer, birdfeeder). See
-      [guides/alfred-projects-page.md](../guides/alfred-projects-page.md) §3
-- [ ] Work in Alfred's repo; nothing here blocks it beyond Session 29
+**Not blocked, not deferred: refused, by the repo that would build it.**
+Alfred accepted [ADR-0064][adr64] on 2026-08-07 — three days *before*
+Session 29 shipped — declining the whole projects-page arc for v1 and
+putting it behind two named triggers. This row said "nothing here blocks
+it beyond Session 29" and was wrong when it was written; the block was
+never on this side.
+
+The decline is not a rejection of the endpoints. ADR-0064 §1 finds the
+estate's momentum data **already ships**, as the daily digest's
+`Pick This Up` section, rendered with this guide's own honesty treatment.
+A second surface over the same data is the failure mode ADR-0063 was
+written to avoid — the ADR names it "a surface that exists because its
+data exists".
+
+**The triggers, and where they stood when this was checked (2026-08-11):**
+
+| Trigger | Fires at | Live |
+|---|---|---|
+| (a) Stall returns | `stalled_count ≥ 2` on `?sort=neglect`, sustained across two consecutive weekly reads | **0** |
+| (b) Estate outgrows the five-row cap | `count ≥ 12` active | **5** |
+
+Neither is close, and (b) moved the wrong way: 6 active when the ADR was
+written, 5 now. The board carries 3 stalled projects among the 20
+inactive ones, which the trigger deliberately does not count — declaring
+a project dormant *was* the decision, so it cannot also be a stall.
+
+- [ ] **Do not build this here or in Alfred until a trigger fires.** Both
+      are one `curl` against an endpoint that already ships, which is the
+      point of writing them as numbers:
+      `curl -s 'localhost:8500/api/projects/board?sort=neglect' | jq '{count, stalled_count}'`
+- [ ] When one does fire, ADR-0064 §2 says the build instruction is
+      [guides/alfred-projects-page.md](../guides/alfred-projects-page.md)
+      as written — "good and should be followed rather than redesigned".
+      The `sysadmin_name` column on `trackables.Project` belongs to *that*
+      triggered ADR, not to this row and not to ADR-0064
+- [ ] The boundary survives either way and is now recorded on both sides:
+      sysadmin stays read-only, the write happens in Alfred pulling, and
+      the board is never written into `trackables.projects` — a curated
+      list of life projects against every directory on disk carrying a
+      marker (§3 here, ADR-0064 §3 there)
+
+**One premise of the decline has since expired, and it fires nothing.**
+ADR-0064 §3 declines to design against `GET /api/projects/next` because
+"it returns 404 today" and its ranking policy is "undecided by its own
+author". Session 29 shipped it on 2026-08-10: it returns 200, and the
+ranking (stuckness in days, tie-broken by the most recent commit) is
+decided, documented and argued. That removes a *stated reason* without
+touching either *trigger*, and the distinction is the whole discipline —
+a deferral with countable triggers is re-opened by the count, not by an
+argument. Recorded here so the next reader of ADR-0064 does not have to
+re-derive that the endpoint now exists.
+
+[adr64]: file:///home/gaddi/projects/Alfred/docs/adr/0064-estate-board-consumption.md
 
 ### Session 31: Idle nudges — a commitment, not hygiene
 

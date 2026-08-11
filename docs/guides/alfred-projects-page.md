@@ -11,6 +11,46 @@ of the design, not an implementation detail.
 
 ---
 
+## 0. Status: declined for v1, with two triggers (2026-08-07)
+
+**Do not build from this document until a trigger below fires.** Alfred
+accepted `docs/adr/0064-estate-board-consumption.md` in its own repo,
+which answers this spec and declines the page for v1. Nothing is wrong
+with the spec — ADR-0064 §2 calls it "good and should be followed rather
+than redesigned", and makes it the build instruction the moment a trigger
+fires. What it disputes is the *timing*: the estate this was written
+against (18 projects, one stalled 152 days) had already become 6 active
+and 0 stalled by the time it was read, so the `[ Resume ] [ Mark dormant ]`
+panel in §2 would render empty every morning. The momentum data itself
+already reaches the owner, as the daily digest's `Pick This Up` section,
+built to §2's honesty treatment.
+
+| Trigger | Fires at | Checked 2026-08-11 |
+|---|---|---|
+| (a) Stall returns | `stalled_count ≥ 2` on `?sort=neglect`, sustained across two consecutive weekly reads | **0** |
+| (b) The estate outgrows the five-row cap | `count ≥ 12` active | **5** |
+
+Both are fields on a response that already ships, so re-checking costs
+one request:
+
+```bash
+curl -s 'localhost:8500/api/projects/board?sort=neglect' | jq '{count, stalled_count}'
+```
+
+Two things this status does **not** mean. It does not defer §7's idle
+nudges, which are sysadmin-side and need nothing from Alfred. And it does
+not stale the contract: §§1–6 describe endpoints that are live, tested and
+contract-pinned today, so anything else consuming the board reads them as
+written.
+
+**One premise has since expired.** §3 of the ADR declines to design
+against `GET /api/projects/next` because it 404s and its ranking is
+undecided. It shipped 2026-08-10 — see §7.1 — with a decided, documented
+ranking. That retires a reason without moving either trigger, which is the
+distinction a counted deferral exists to hold.
+
+---
+
 ## 1. The one call
 
 ```
@@ -174,6 +214,9 @@ failure this repo keeps finding.
 
 ## 7. What is coming, and what to leave room for
 
+> **Read §0 first.** Alfred declined this page for v1 on 2026-08-07. The
+> spec below is the build instruction *when a trigger fires*, not a queue.
+
 Planned as Sessions 29–32 (see [tasks.md](../roadmap/tasks.md)). **Session
 29 is built** — see 7.1. The rest is not; the point of listing it here is
 that **one of these changes what the primary surface should be**, and
@@ -182,9 +225,12 @@ building the wrong thing first is avoidable:
 - **Alfred creating `work_item`s** from that endpoint, one per active
   project, refreshed daily, linked by the nullable `sysadmin_name` on
   `trackables.Project`. The write happens **in Alfred, pulling** — which is
-  what keeps §3's boundary intact and sysadmin read-only.
+  what keeps §3's boundary intact and sysadmin read-only. **Declined for
+  v1** with the rest of the page — see §0.
 - **Idle nudges** — a project with a stated next action and no commits for
   N days. Delivered over the existing notification path, not a new one.
+  Unaffected by §0: it is a sysadmin-side notification over plumbing that
+  already exists here, and needs nothing from Alfred.
 
 Design so additions are free: **render what arrives, ignore what you do not
 recognise, never hard-code the set of fields or sections.** The briefing
