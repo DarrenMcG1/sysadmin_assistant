@@ -23,7 +23,12 @@ from sysadmin.briefing.router import router as summary_router
 from sysadmin.core.auth import require_auth
 from sysadmin.core.config import get_config, load_config
 from sysadmin.core.contracts import ScanAllResponse
-from sysadmin.core.database import create_engine_and_session, dispose_engine, verify_connection
+from sysadmin.core.database import (
+    create_engine_and_session,
+    dispose_engine,
+    get_async_session,
+    verify_connection,
+)
 from sysadmin.core.event_bus import event_bus
 
 # Routers
@@ -34,6 +39,7 @@ from sysadmin.core.retention import run_retention
 
 # Services
 from sysadmin.core.scheduler import Scheduler
+from sysadmin.core.unit_failure import OWN_UNIT, resolve_unit_failures
 from sysadmin.files.agent import FileOrganiserAgent
 from sysadmin.files.review import run_weekly_review as run_weekly_disk_review
 from sysadmin.files.router import router as files_router
@@ -125,6 +131,19 @@ async def lifespan(app: FastAPI):
     await create_engine_and_session()
     await verify_connection()
     logger.info("database connection verified")
+
+    # This service starting IS the recovery from its own unit failure, and
+    # this is the only moment that fact exists. `sysadmin-failed.service`
+    # writes a critical alert while the application is dead, so no agent
+    # can ever observe the recovery — leaving a row that only accumulates,
+    # which is how 1,664 orphaned alerts happened once already. Failure
+    # here must not stop startup: an unresolved alert is a stale row, and
+    # refusing to boot over one would be a worse outcome than the row.
+    try:
+        async with get_async_session() as session:
+            await resolve_unit_failures(session, OWN_UNIT)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("could not resolve unit-failure alerts: %s", exc)
 
     # Start services.  Agents deliberately have no startup hook: they run
     # on scheduler threads, each with its own event loop, so anything

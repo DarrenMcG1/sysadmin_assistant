@@ -287,6 +287,57 @@ re-examine, not ours to build against. Terminology corrected on the way
 through: `wait-for-dgpu` is a **driver-readiness probe**, not a gaming
 check, and nothing on this box detects a game starting.
 
+## A unit failure now leaves state, filed under a known agent
+
+The owner chose `agent='sysadmin'` over a migration adding a sixth value to
+`chk_alert_agent`. It reads oddly — the sysadmin agent did not raise this
+row; it was dead, which is the news — so **`details.source` carries the
+provenance `agent` cannot**: `systemd_onfailure`, plus `raised_by` naming
+the script. Read that way `agent` is the ownership field the constraint
+makes it, and nothing untrue is claimed. The migration was rejected because
+a sixth value naming a *script* rather than an agent would also make
+`self_monitor.AGENT_NAMES` wrong, and that list is pinned to the constraint
+by `tests/test_units_api.py`.
+
+**The write only makes sense because the daemon now clears it.** The
+handler runs while the application is dead, so no agent can ever observe
+the recovery — the service *starting* is the recovery, and the lifespan is
+the only place that fact exists. Without that half this would be an alert
+type that can only accumulate, which is how 1,664 orphaned rows happened.
+Dedup on an open row is safe only because of the pairing.
+
+`sysadmin/core/unit_failure.py` uses the **sync** engine that exists for
+Alembic, because at handler time there is no event loop, no scheduler
+session and nothing subscribed to the event bus. Recording never raises: a
+dead database returns `False` and logs, since the handler's exit status is
+reserved for whether it could tell a *human*.
+
+**Verified end to end against the live database**, not just in tests: the
+handler wrote `critical | sysadmin | sysadmin.service failed | source=
+systemd_onfailure`, and `resolve_unit_failures` then closed it
+(`resolved_at` set), which also cleared the false critical the rehearsal
+had inserted.
+
+## Why the estate manager exists, stated properly
+
+The owner asked for the observation to go into ADR-0002. Writing it up
+sharpened it: "this estate measures well and acts poorly" is too weak.
+**The pattern is that the component doing the measuring is the component
+whose interest is served by ignoring the measurement.** Six instances, all
+surfaced in one day — the eval harness that sampled `gpu_busy_percent`,
+*wrote 80% into its own report*, and ran anyway; Session 39's stall alert
+choosing its own volume; `SNAG-DB-001`; `SNAG-CFG-001`; Alfred's staleness
+check that cannot fire; retention needing both halves.
+
+The harness is the purest case: the party asking "may I use the GPU?" was
+the party that wanted the GPU. No improvement to the measurement fixes
+that. What fixes it is the requester ceasing to be the decider — which is
+what centralising the launcher and queue buys beyond removing 439
+duplicated lines: **an arbiter with no stake in the answer**. Recorded with
+its two honest limits, since a central arbiter can also ignore its own
+numbers, and that is why sysadmin judging the queue's invariants is part of
+the design rather than decoration.
+
 ## Left open on purpose
 
 - **`Type=notify` + `WatchdogSec=`** was deliberately not attempted in the
@@ -294,13 +345,9 @@ check, and nothing on this box detects a game starting.
   kill the service outright (a missing `READY=1` makes systemd treat
   startup as failed), and two unit changes with one rollback path is how
   a rollback becomes a guess.
-- **An `OnFailure=` firing leaves no alert row.** The handler notifies and
-  writes to journald; neither is visible to `GET /api/sysadmin/alerts`
-  afterwards, so a failure while nobody was logged in is invisible later.
-  Blocked on a decision, not on work: `alerts.agent` has a
-  `chk_alert_agent` CHECK constraint, so an external writer either lies
-  about provenance (`agent='sysadmin'`, when the point is that the
-  sysadmin service was dead) or needs a migration.
+- ~~**An `OnFailure=` firing leaves no alert row.**~~ **Closed** the same
+  day — `agent='sysadmin'` with `details.source`, resolved by the daemon's
+  lifespan. See above.
 - **Off-box is still nothing.** Listeners are `127.0.0.1` and
   `192.168.1.2` only — nothing built today survives the box being off.
   Recorded as the known gap rather than pretended closed.

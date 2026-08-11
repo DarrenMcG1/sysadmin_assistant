@@ -1241,7 +1241,21 @@ work:
 - [x] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
       reaches `failed`, then an `OnFailure=` unit that says so — done
       2026-08-11, `StartLimitBurst=5` / `StartLimitIntervalSec=600` plus
-      `sysadmin-failed.service` → `scripts/notify-unit-failed.sh`
+      `sysadmin-failed.service` → `scripts/notify-unit-failed.sh`.
+      **Installed and verified on the live box the same day**, and the
+      ladder proved itself in production on the stall that motivated it:
+      the 2026-08-10 09:07 `warning` was resolved and a `critical` raised
+      at 17:13 with `hours_since_first_alert: 32.1`
+- [x] **A failure leaves state, not just a toast** — added the same day
+      after the owner chose `agent='sysadmin'` over a sixth
+      `chk_alert_agent` value. `sysadmin/core/unit_failure.py` writes a
+      critical row through the **sync** engine (no event loop, no
+      scheduler session, nothing subscribed — the application is dead by
+      definition), with `details.source = systemd_onfailure` carrying the
+      provenance `agent` cannot. **Paired with a resolve in the lifespan**,
+      because the service starting *is* the recovery and nothing else can
+      ever observe it; without that half it is an alert type that can only
+      accumulate. Verified end to end against the live database
 - [x] **Do not** build a second detector. Detection works; every item above
       is about a signal persisting until it is seen — held to; not one line
       of `self_monitor.py` changed

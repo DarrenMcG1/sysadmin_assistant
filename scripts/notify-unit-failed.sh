@@ -53,6 +53,29 @@ Monitoring and all agents are DOWN until it is started.
 # when the notification below cannot be delivered.
 printf '%s | %s\n' "$summary" "${body//$'\n'/ | }" | systemd-cat -t sysadmin-failed -p err
 
+# Then an alert row, so the failure is still visible on
+# GET /api/sysadmin/alerts once the service is back — a toast expires and a
+# journal entry is not a surface anyone opens unprompted, so without this a
+# failure that happened overnight leaves no state behind.
+#
+# `|| true` is deliberate and load-bearing: the database may itself be why
+# the service died, and this script's exit status is reserved for whether it
+# could tell a *human*. A failed insert must not become a failed unit that
+# then needs its own explanation. The row is filed under agent='sysadmin'
+# with the real provenance in details.source — see
+# sysadmin/core/unit_failure.py for why, and ADR-0002 for the migration that
+# was considered instead.
+venv="/home/gaddi/projects/sysadmin_assistant/.venv/bin/sysadmin-record-failure"
+if [[ -x "$venv" ]]; then
+	"$venv" "$unit" \
+		--result "${result:-}" \
+		--exit-status "${status:-}" \
+		--restarts "${restarts:-}" 2>&1 |
+		systemd-cat -t sysadmin-failed -p warning || true
+else
+	echo "no sysadmin-record-failure at $venv — alert row not written" >&2
+fi
+
 # The session bus is not inherited by a system unit, so it is named
 # explicitly. Hardcoded uid 1000 (gaddi) — this box has one human, and
 # guessing the "current" session from a system unit is how a handler picks

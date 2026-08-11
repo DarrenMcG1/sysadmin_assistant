@@ -359,6 +359,49 @@ because this repository's CLAUDE.md says to match Alfred's marker "so a cut
 made here and a cut made there read identically" — and they no longer do.
 A convention maintained by copying is a convention with a half-life.
 
+### The strongest reason: the measurer and the actor keep being the same party
+
+Deduplication is the reason that is easy to count. This is the reason that
+actually recurs, and it was noticed only because six unrelated instances of
+it surfaced inside a single day's work.
+
+**The pattern is not "this estate is bad at acting on measurements".** That
+was the first formulation and it is too weak to be useful. The pattern is
+that **the component doing the measuring is the component whose interest is
+served by ignoring the measurement**, so the measurement is taken, recorded,
+and overridden by the same process:
+
+| Incident | Measured | Acted |
+|---|---|---|
+| 2026-07-23, live game at 220→20 fps | eval harness sampled `gpu_busy_percent` and **wrote 80% into its own report** | ran anyway — it was the thing that wanted to run |
+| `SNAG-AGENT-003` (Session 39) | `self_monitor` flagged the stall correctly, alert raised | the alerting component chose its own volume; one toast, then silence |
+| `SNAG-DB-001` | migration 009 written and committed | nothing applies migrations; `alembic current` read 008 for **39 hours** |
+| `SNAG-CFG-001` | `notifications.desktop` parsed and validated by pydantic | read by nothing; `Notifier.send_notification` had no production caller |
+| Alfred's producer staleness check | `generated_at` carried into `produced_at`, 12-hour rule implemented | structurally cannot fire on a pulled endpoint — the stamp is request time |
+| Retention | `project_reviews`/`disk_reviews` had config rows *or* map entries | never purged, because `run_retention` needs both halves |
+
+The eval harness is the purest case and the reason this belongs in *this*
+ADR: it had the number, it wrote the number down, and it proceeded, because
+**the party asking "may I use the GPU?" was the party that wanted the
+GPU.** No amount of improving that measurement fixes it. What fixes it is
+that the requester stops being the decider.
+
+That is what centralising the launcher and the queue actually buys, beyond
+removing 439 duplicated lines: **an arbiter with no stake in the answer.**
+An app asks; something else decides; the app cannot override it by being
+the code that also holds the sysfs read.
+
+Two honest limits, so this is not read as a guarantee:
+
+- **A central arbiter can ignore its own measurements too.** What changes
+  is that a *requester* no longer can, which removes the conflict of
+  interest rather than removing the possibility of a bug.
+- **It needs a second party to be worth anything**, which is why
+  `sysadmin` judging the queue's invariants — depth, oldest waiting
+  request, dropped count — is part of the design and not decoration. One
+  component measuring, deciding *and* reporting on itself is the same
+  pattern at a larger scale.
+
 **The queue is an extraction, not a design.** `drain.py` already carries
 `gpu_is_busy()`, `wait_for_chat_server()` polling to 300 s, and
 `DEFER_SLEEP_SECONDS`/`DEFER_LIMIT` — defer-with-cap, server readiness and

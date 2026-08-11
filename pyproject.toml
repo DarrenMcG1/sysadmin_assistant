@@ -37,6 +37,10 @@ tray = [
 [project.scripts]
 sysadmin-tray = "sysadmin_tray.app:main"
 sysadmin-organiser = "sysadmin.projects.cli:main"
+# Called by sysadmin-failed.service when the daemon has entered `failed`.
+# A console script rather than inline psql: the alert row must satisfy the
+# same model and CHECK constraint the application writes through.
+sysadmin-record-failure = "sysadmin.core.unit_failure:main"
 
 [build-system]
 requires = ["hatchling"]

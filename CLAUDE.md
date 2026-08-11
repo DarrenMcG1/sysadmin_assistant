@@ -424,6 +424,27 @@ terminal and `sysadmin-failed.service` announces it, persistently
 not need anyone logged in. `tests/test_systemd_units.py` pins the two
 halves together, because either alone accomplishes nothing.
 
+**A unit failure also leaves an alert row, and the write is only half of
+it.** `sysadmin/core/unit_failure.py` runs *while the application is
+dead* — so no async engine, no `BaseAgent.raise_alert`, no event bus; it
+uses the **sync** engine that exists for Alembic. `agent` is `'sysadmin'`
+because `chk_alert_agent` admits only the five agent names, and
+`details['source'] = 'systemd_onfailure'` carries the provenance `agent`
+cannot: the sysadmin agent did not raise this, it was dead, which is the
+news. A sixth constraint value was rejected — it would name a script
+rather than an agent and make `self_monitor.AGENT_NAMES` wrong, and those
+two are pinned together by `tests/test_units_api.py`.
+
+**The lifespan resolves it, and that pairing is what makes the row
+legitimate.** The service starting *is* the recovery, and it is the only
+moment that fact exists — nothing observed the failure from inside. Without
+the resolve this is an alert type that can only accumulate, which is how
+1,664 orphaned rows happened; dedup on an open row is safe *only* because
+of it. `OWN_UNIT` is named in three files (the constant, the unit's
+`ExecStart=`, the script's default) and a mismatch does not error — one
+side writes `sysadmin.service failed` and the other resolves
+`sysadmin failed`, so the row is simply never closed.
+
 **Idle nudges have no endpoint, and that is the design** (Session 31). A
 nudge is an `alerts` row raised by the organiser — `Project <name> next
 action idle` — so it reaches the tray, the DND windows and
