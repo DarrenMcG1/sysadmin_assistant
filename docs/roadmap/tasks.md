@@ -1387,9 +1387,11 @@ Two measurements made the case rather than the argument doing it:
 - [ ] **Create the repository**, with a `.project.yaml` on day one. An
       undeclared project defaults to `active`, so without it the organiser
       starts deducting staleness points and raising idle nudges about work
-      nobody has committed to. No port and no `/api/health`: nothing in it
-      listens, and [monitorable-project.md](../guides/monitorable-project.md)
-      asks for both only of services
+      nobody has committed to. **Claim a port and design `/api/health` in
+      this first change too**, even though phase 1 ships no runtime — the
+      ADR-0002 amendment makes the estate a service, and claiming a port
+      late is how two services end up guessing at the same number. This
+      repository holds the registry that exists to prevent that
 - [ ] **Move the four cross-repo guides**, and this ADR set. `api_auth.md`
       stays — it documents this service's bearer tokens
 - [ ] **Update `~/.claude/CLAUDE.md`'s two hardcoded paths in the same

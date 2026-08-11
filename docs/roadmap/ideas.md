@@ -12,6 +12,73 @@
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
 
+### 🧠 2026-08-11 — the estate as the estate's central nervous system
+
+Raised by the estate owner while ADR-0002 was still being written, and it
+enlarges that ADR rather than sitting beside it — the decisions taken are
+in the **[ADR-0002 amendment](../adr/0002-estate-manager.md#amendment-2026-08-11-the-estate-is-a-service)**,
+and this entry holds the programme and the numbers.
+
+**The shape.** The estate manager becomes a service, not a document
+repository: it arbitrates inference across the box, owns project state,
+and aggregates the briefing. Apps (venture-assistant, SportsAnalyser,
+sysadmin) contribute; Alfred is the frontend that renders. Alfred's own
+workload component reads project state and turns items into its own work
+items — pulling, which is the boundary its ADR-0064 already drew.
+
+**Three tracks, and they are not equally ready.**
+
+1. **Inference arbitration** — the motivating case, and the one with a
+   found ceiling rather than an assumed one. `Conflicts=` + `After=` +
+   `ExecStopPost` was built per the 2026-08-06 decision and works; what it
+   cannot do is queue. Its measured defect is that **restoration is
+   hand-wired in the evictor**, so every new GPU consumer must know about
+   every existing one — already duplicated at four consumers. Ladder:
+   probe (exists) → game-start signal (needs a runtime) → queue (needs
+   persistence).
+2. **Projects extraction** — answers ADR-0001's open question. Cheap for
+   code (files in repos, tested import boundary, own timer), **not cheap
+   for the interface**: 2 tables in the `sysadmin` schema, ~13 modules, a
+   dozen endpoints, and Alfred pulling `briefing/preview` whose two
+   headline sections *are* project data. Implies the briefing producer
+   moves too, which closes the never-built per-app `GET /api/briefing`
+   fan-out from 2026-08-06.
+3. **Briefing inversion** — falls out of (2) rather than being chosen: the
+   estate aggregates, sysadmin becomes one contributor among several.
+
+**Numbers, so the scale is on the record rather than assumed.** Measured
+2026-08-11: **5 active projects** on the board, **4 GPU consumers**
+(`alfred-inference`, `venture-chat`, `venture-chat-large`,
+`venture-assistant-backend`), one 24 GB card. `stalled_count: 0`. An estate
+of five active projects is small, and a queue for four consumers is a
+different proposition from a queue for forty — worth re-reading before the
+service grows features.
+
+**The constraint that governs all three**: sysadmin publishes alerts
+directly with its own credential, and the estate owns provisioning only,
+never delivery — otherwise the estate dying silences the alarm about the
+estate dying, which is the Session 39 defect rebuilt inside its own fix.
+**sysadmin does not move**, and watches the estate like any other unit.
+The monitor must not own the things it monitors.
+
+**Open, and deliberately not decided here:**
+
+- **Who watches the estate's queue for correctness, not liveness?** A
+  queue that silently drops a request is up, healthy, and wrong — and
+  `GET /api/services/reliability` measures whether a unit answers, not
+  whether it kept its promises.
+- **What does an app ask for, exactly?** "Queue inference" is still an
+  abstract noun: a model name, a VRAM figure, a priority, a deadline, a
+  cancel? The unit files currently encode precedence as *who started last*,
+  which is a policy nobody wrote down.
+- **Does SportsAnalyser or venture-assistant actually want this?** Session
+  30's fate is the precedent — a surface was built for a consumer that
+  had declined it in writing. Neither app has been asked.
+- **`GET /api/projects/next` returning 200 has expired one of ADR-0064's
+  three reasons for deferral.** That is a reason for Alfred to re-examine
+  on its own side, not a reason to build here. Neither of its two counted
+  triggers fires (`stalled_count` 0 of 2, `count` 5 of 12).
+
 ### ✅ Promoted 2026-08-05 — the project-manager tier pattern in other domains
 
 Sessions 21–23's three-tier ladder (measure → advice as data → periodic LLM

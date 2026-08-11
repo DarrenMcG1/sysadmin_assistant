@@ -1,7 +1,11 @@
 # ADR-0002: Shared infrastructure gets an owner that is not an application
 
 - **Status**: accepted, unbuilt
-- **Date**: 2026-08-11
+- **Date**: 2026-08-11, **amended the same day** — see
+  [Amendment](#amendment-2026-08-11-the-estate-is-a-service) at the end.
+  The amendment reverses "nothing new runs continuously"; the reversal is
+  recorded rather than edited in, because the reasoning that was overturned
+  is the part worth keeping.
 - **Answers**: [ADR-0001](0001-project-registry.md)'s open question, "who
   owns project state", for the infrastructure half of it
 - **Session**: raised during 39, scoped as 40
@@ -167,3 +171,147 @@ already blocked on an Alfred-side change.
 - **Off-box alerting is still absent.** Listeners are `127.0.0.1` and
   `192.168.1.2`; nothing here survives the box being off. Recorded again
   because a bus promotion reads like it might have fixed it.
+
+---
+
+## Amendment 2026-08-11: the estate is a service
+
+Raised by the estate owner within the hour, and it reverses the "nothing
+new runs continuously" decision above. The reversal is recorded rather
+than edited into place: the overturned reasoning is still correct about
+what it was warning of, and a future session needs to see what was traded
+for what.
+
+### What changed the answer
+
+The owner's proposal is broader than a document owner: **inference queued
+centrally across the estate**, so GPU contention is arbitrated once rather
+than per app, with the estate as the aggregation point that
+venture-assistant and SportsAnalyser feed and Alfred renders.
+
+An inference queue cannot be declarative. It arbitrates at request time,
+so it is a runtime by definition, and "a boot oneshot, never a daemon" is
+not available for it.
+
+**The prerequisite for proposing this had already been satisfied**, which
+is why it is not a shortcut. The 2026-08-06 decision was *"GPU arbitration
+is systemd, not a lease service — try this before building any daemon"*,
+and it **was** tried and shipped: `Conflicts=venture-chat.service` with
+`After=` in `venture-chat-large`, `ExecStopPost` restoring the evicted
+model, and `wait-for-dgpu` as `ExecStartPre` on four units.
+
+It works, and it has a structural defect its own comments state:
+*"Conflicts= does not put it back"*, *"nothing restarts it"*. Restoration
+is hand-wired **in the evictor**, so every new GPU consumer must know
+about every existing one — already duplicated across `venture-chat-large`
+and `venture-enrich-nightly`, at four consumers. `Conflicts=` provides
+preemption; it cannot provide a queue, fairness, or precedence beyond
+whoever-started-last, and no amount of unit files will add them.
+
+So the systemd approach was not rejected in favour of a daemon. It was
+built, and its ceiling was found.
+
+### The constraint the reversal creates, and how it is answered
+
+**If the estate is a service and it owns the alerting path, then the
+estate dying silences the alarm about the estate dying.** That is exactly
+the shape Session 39 existed to remove, and it must not be reintroduced by
+the fix for Session 39's blocker.
+
+Therefore:
+
+> **sysadmin holds its own broker credential and publishes alerts
+> directly. The estate owns provisioning and schema — never delivery.**
+
+Estate death then costs the GPU queue and the projects API, and does not
+cost the alarm. This is the whole reason the credential arrives by
+`LoadCredential=` on `sysadmin.service` rather than being requested from
+an estate API at runtime: an alerting path with a live dependency on
+another service is not an alerting path.
+
+**And sysadmin does not move.** It stays the monitor, and it watches the
+estate through `GET /api/units/status` and
+`GET /api/services/reliability` like any other unit. The recursion
+objection that killed the email option applies to a watcher that watches
+itself; it does not apply to a monitored service. Stated positively:
+**the monitor must not own the things it monitors**, which is the sharpest
+available argument for the owner's instinct to leave sysadmin doing
+sysadmin.
+
+### Gaming arbitration is a ladder, and only the top rung needs the daemon
+
+Terminology first, because it changes the mechanism: **`wait-for-dgpu` is
+a driver-readiness probe, not a gaming check.** It exists because amdgpu
+loses a boot race and llama.cpp silently falls back to CPU — `-ngl 99` is
+a request, not a constraint, and granite-3.1-8b served from system RAM at
+14.8 GB RSS for weeks. The only gaming logic on this box is
+`venture-enrich-nightly` exiting 0 and waiting for the next night when the
+GPU is busy. **Nothing detects a game starting, and nothing emits a signal
+when one does.**
+
+Three rungs, built in order, each independently useful:
+
+1. **Don't start a model while a game runs** — a pre-flight probe, the
+   shape that already exists. No signal, no daemon.
+2. **Evict models when a game starts** — needs something to notice a
+   launch and act. This is the first rung that requires a running
+   component, and MQTT is the obvious carrier now the bus is an estate bus.
+3. **Queue requests behind a game** — requests wait and drain rather than
+   failing. A queue holding real work must not lose it on restart, so this
+   rung implies persistence: a table, not a unit.
+
+The ladder matters because it keeps the daemon honest. Rung 1 needs
+nothing new; if rungs 2 and 3 are never reached, the service stays small.
+
+### The briefing inverts, which closes a five-day-old loop
+
+If the estate owns project state, **the briefing producer moves with it** —
+the two headline sections of `GET /api/sysadmin/briefing/preview` *are*
+project data, so leaving the briefing here would mean either an HTTP call
+into the 06:00 path or two services owning one table.
+
+sysadmin then exposes `GET /api/briefing` as one contributor among
+several. That is precisely the per-app fan-out agreed on 2026-08-06 and
+never built: **the estate aggregates, apps contribute, Alfred renders.**
+
+The cost is explicit: Alfred's pulled URL changes, so this is a two-repo
+contract migration and not a directory move. ADR-0001's claim that
+extraction becomes "a directory move rather than a rewrite" is true of the
+code layout and **false of the interface** — worth saying plainly, because
+that sentence will otherwise be quoted as though the whole job were cheap.
+
+### What this does to phase 1
+
+Phase 1 stays documents-only and reversible. One thing about it was wrong
+and is corrected here: it said the new repository *"needs no port and no
+`/api/health`: nothing in it listens"*. It will listen. So the port is
+claimed in the registry and the health endpoint is designed **on day one**,
+per [monitorable-project.md](../guides/monitorable-project.md) — claiming a
+port late is how two services end up guessing at the same number, and this
+repository holds the registry that exists to stop that.
+
+### Alfred's side, measured rather than assumed
+
+The owner's "Alfred can assign tasks" means **Alfred's own workload
+component**, not repo tasks. Checked against Alfred's ADR-0064, which
+pre-authorises exactly that shape — *"any 'turn this recommendation into a
+work item' write happens in Alfred, pulling"*, joined by a nullable
+`sysadmin_name` — so it is not an override of that ADR.
+
+Its triggers were evaluated live on 2026-08-11, both being queries costing
+one `curl` by design:
+
+| Trigger | Threshold | Measured | Fires |
+|---|---|---|---|
+| (a) stall returns | `stalled_count ≥ 2`, two consecutive weeks | **0** | no |
+| (b) estate outgrows the cap | `count ≥ 12` active | **5** | no |
+
+Neither fires. But ADR-0064's third reason for not designing against
+`GET /api/projects/next` — *"it returns 404 today; its ranking policy is
+undecided by its own author"* — has **expired**: it returns 200 and the
+ranking is decided with its rejected alternatives recorded. That is a
+legitimate reason for Alfred to re-examine, on Alfred's side, and not a
+reason to build a consumer surface here for a consumer that has not asked.
+
+The one guardrail that stands unchanged: **the board is never written into
+`trackables.projects`.** Decoration by join, never a merge.

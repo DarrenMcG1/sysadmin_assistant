@@ -163,6 +163,43 @@ environment variables; and documents move before authority does.
 Alfred's `reconcile()` to delete only subscriber-role clients with no live
 token unblocks the MQTT half without any of the above.
 
+**Amended within the hour: the estate is a service.** The owner enlarged
+the idea to central inference arbitration, project ownership and briefing
+aggregation — a central nervous system, with Alfred as the frontend. A
+queue cannot be declarative, so "nothing runs continuously" is reversed;
+the reversal is recorded in ADR-0002 rather than edited in, because the
+overturned reasoning is still right about what it warned of.
+
+Two things make it a considered move rather than a shortcut. The
+2026-08-06 instruction was *"try systemd before building any daemon"* and
+it **was** tried and shipped — `Conflicts=`/`After=`/`ExecStopPost` across
+`venture-chat-large` and `venture-enrich-nightly` — so what is being
+proposed replaces something with a **found ceiling**: preemption works,
+queueing is impossible, and restoration is hand-wired in each evictor so
+every new GPU consumer must learn about every existing one.
+
+**The constraint the reversal creates, and the answer to it**: if the
+estate owns the alerting path, the estate dying silences the alarm about
+the estate dying — Session 39's defect rebuilt inside its own fix. So
+sysadmin keeps its own credential and publishes directly; the estate owns
+provisioning, never delivery. **sysadmin does not move** and watches the
+estate like any other unit. The monitor must not own the things it
+monitors.
+
+**Corrected from an hour earlier**: Session 40's first task said the new
+repo needs no port and no `/api/health`. It will listen, so both are
+claimed on day one.
+
+**Measured rather than assumed** (2026-08-11): 5 active projects, 4 GPU
+consumers on one 24 GB card, `stalled_count: 0`. Alfred's ADR-0064
+pre-authorises the workload-component read the owner meant, so it is no
+override — but **neither of its counted triggers fires** (0 of 2, 5 of 12).
+One of its three deferral reasons *has* expired: `GET /api/projects/next`
+returns 200 now and its ranking is decided. That is Alfred's cue to
+re-examine, not ours to build against. Terminology corrected on the way
+through: `wait-for-dgpu` is a **driver-readiness probe**, not a gaming
+check, and nothing on this box detects a game starting.
+
 ## Left open on purpose
 
 - **`Type=notify` + `WatchdogSec=`** was deliberately not attempted in the
