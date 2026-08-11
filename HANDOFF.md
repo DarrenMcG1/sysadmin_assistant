@@ -2,7 +2,7 @@
 
 ## Next action
 
-Run `sudo systemctl restart sysadmin.service` so the daemon stops serving the pre-envelope briefing — it currently answers `/api/sysadmin/briefing/preview` with 25 Project Health rows and no `facts` block — then take `SNAG-AGENT-003`, the file organiser having run exactly once in its life while its own stall alert sat open unread.
+Run `sudo systemctl restart sysadmin.service` so the daemon stops serving the pre-envelope briefing — it currently answers `/api/sysadmin/briefing/preview` with 25 Project Health rows and no `facts` block — then take Session 39, the watcher escalation ladder, whose scope, two decisions and two blocking constraints are already written into tasks.md.
 
 ## Session 36: the briefing envelope, and half of it was already built
 

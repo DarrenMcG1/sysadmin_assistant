@@ -1137,6 +1137,127 @@ realistic case is the one where the age comes from the weaker clock.
 
 ---
 
+## Session 39: Who watches the watchers
+
+Raised by the estate owner on 2026-08-11, straight after `SNAG-AGENT-003`.
+The framing question was "can we have someone who watches the watchers", and
+the first thing worth recording is that **the watcher already existed and
+worked**:
+
+| Step | Component | Result |
+|---|---|---|
+| Detect | `self_monitor.build_self_report` | `stalled: true`, correct, at interval × 3 |
+| Alert | `SysAdminAgent._check_agent_stalls` | **one** row, 2026-08-10 09:07 |
+| Speak | tray, fingerprint `{severity}:{title}` | **one** toast |
+| Escalate | — | nothing exists |
+
+Detection is not the gap. `agent.py` skips raising when an unresolved alert
+with that title is open — the same rule that stopped the 1,664-row pile-up,
+and correct — but combined with the tray's fingerprint it means **the alarm
+rings once, at the quietest severity, and is then silent while the fault
+persists**. A warning that fires once and goes quiet is indistinguishable
+from one that got fixed. Same shape as `SNAG-DB-001` and as the
+`generated_at` hole Session 36 found: *absence of signal read as absence of
+problem*.
+
+**The owner's diagnosis, asked and answered rather than assumed: "I never
+saw the toast."** Not ignored — away from the machine. That rules out
+severity tuning and ranking, and it means escalating louder into D-Bus
+repeats the miss on a longer timescale. Targets chosen: **an agent silently
+stopping**, and **the daemon dying or wedging**. Explicitly not chosen: box
+death (needs an off-box dead man's switch, which this estate has none of).
+
+### What the box actually has — inventory, 2026-08-11
+
+- **`notify-send` / D-Bus** — the tray plus `monitor/desktop.py`. The
+  channel that was missed.
+- **`zenity`** — installed, unused. Modal; blocks rather than notifies.
+- **`claude-preflight.sh`, the briefing, journald** — passive surfaces the
+  owner opens deliberately.
+- **alfred-glance already renders pushed alerts** — `MqttEventReceiver.kt`
+  subscribes to mosquitto (active) and `Notifier.kt` carries a dedicated
+  `ALERTS_CHANNEL_ID` for "server-pushed alerts", separate from the daily
+  nudge. **A working phone path that exists today.**
+- **Off-box: nothing.** postfix/exim/opensmtpd/dma all inactive, no
+  `.msmtprc`; `/usr/bin/mail` is s-nail with no MTA behind it. No ntfy, no
+  healthchecks.io.
+- **No `OnFailure=` anywhere** — user or system. Layer 2 is unbuilt, not
+  partly built.
+
+### Decisions taken 2026-08-11, before any code
+
+1. **MQTT is promoted from Alfred's private bus to an estate bus.**
+   [estate-map.md](../guides/estate-map.md) reserved this decision in
+   writing — *"if a second consumer ever appears, decide then whether it is
+   promoted"* — and a second **producer** has now appeared. The guide must
+   be amended to record the promotion **and its terms** (who may publish,
+   topic naming, LAN-only), not merely to delete the old sentence.
+2. **`systemd WatchdogSec` for the wedge case**, over a polling timer. A
+   true dead man's switch, native, no new unit — and the heartbeat proves
+   the **event loop** is alive rather than merely the process.
+
+### The two constraints found while checking the premises
+
+Both were verified rather than assumed, and both change the shape of the
+work:
+
+- **alfred-glance's topic registry is closed by construction.**
+  `RENDERERS` in `BusEvents.kt` is "the single source of truth" and
+  `SUBSCRIBED_TOPICS` derives from `RENDERERS.keys`, so an unregistered
+  topic cannot be subscribed to by design. Publishing therefore needs a
+  **second repository, a Kotlin change and an Android release** — not a
+  `mosquitto_pub` one-liner. Every existing topic is `alfred/events/<domain>/
+  <event>`, so the namespace itself encodes the private-bus assumption:
+  promotion has to decide between `alfred/events/sysadmin/…` (cheap,
+  keeps a misleading prefix) and a neutral root (honest, touches seven
+  existing constants and both ends).
+- **`Restart=always` means the crash case is *already* invisible.**
+  `sysadmin.service` is `Type=simple` with `Restart=always`, so the unit
+  rarely enters `failed` and an `OnFailure=` hook would seldom fire. It
+  needs `StartLimitBurst`/`StartLimitIntervalSec` to make a restart *loop*
+  reach the failed state. This is the same silence-reads-as-health shape
+  the session exists to fix, sitting in the unit file.
+
+### The work
+
+- [ ] **Escalation ladder for stalled agents**, reusing
+      `sysadmin/projects/nudges.py` rather than copying it — including the
+      rule it already encodes: **resolve the quiet row and raise a louder
+      one**, never update severity in place, because the tray fingerprints
+      on `{severity}:{title}` and an in-place change stays suppressed
+- [ ] **Publish alerts to MQTT** at or above a configured severity. Decide
+      the topic namespace first (above); amend estate-map.md with the terms
+      of the promotion in the same change
+- [ ] **Register the topic in alfred-glance** — `BusEvents.kt` renderer,
+      `BusPayloads.kt` shape. Separate repo, separate session if it needs
+      an Android release
+- [ ] **`Type=notify` + `WatchdogSec=` on `sysadmin.service`**, with the
+      ping issued from the async loop. **Risk to rehearse before enabling**:
+      if `READY=1` is never sent, systemd treats startup as failed and kills
+      the service — so the rollback must be written down before the unit is
+      edited
+- [ ] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
+      reaches `failed`, then an `OnFailure=` unit that says so
+- [ ] **Do not** build a second detector. Detection works; every item above
+      is about a signal persisting until it is seen
+
+### Rejected, and why
+
+- **A watchdog agent inside the daemon.** A watcher that shares fate with
+  what it watches is not a watcher — and the failing component here was
+  never the detector.
+- **Escalating louder into D-Bus alone.** The owner was away from the
+  machine; a louder alarm in an empty room is the same miss with more
+  volume.
+- **Email.** No MTA is configured and installing one to carry alerts is a
+  new service to monitor, which is the problem recursing.
+- **Off-box (ntfy / healthchecks.io)** — the only thing that survives the
+  box being off, and deliberately deferred: it was not among the failures
+  the owner chose, and it adds an external dependency and an account.
+  Record it as the known gap rather than pretending the ladder closes it.
+
+---
+
 ## Backlog
 
 **Carried-forward follow-ups** — small items noted by the sessions that
