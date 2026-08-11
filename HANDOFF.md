@@ -244,6 +244,39 @@ GPU guard** first, the **rule cited with no canonical statement** second,
 and `operator_profile` third — a near-miss resolved correctly rather than a
 duplication.
 
+## The estate manager is three things, and the queue already exists
+
+The owner agreed the estate becomes the **sole launcher** of inference, and
+asked what else is worth centralising. Surveyed, with line counts:
+
+| Duplicated | Where | State |
+|---|---|---|
+| llama-server client | Alfred 163, venture 155, sysadmin 121 | **3 implementations, 439 lines**, one server |
+| GPU guard | `inference/guard.py`, `llm/guard.py` | copied, **drifted** (min-of-4 vs single sample) |
+| Queue / defer loop | venture `drain.py` 213 + 3×103 | exists in **one** repo |
+| `TRUNCATION_MARKER` | Alfred `:50`, sysadmin `:47` | same name, **different value** |
+| Health endpoints | all three | *not* duplication — the contract requires each |
+
+**The queue is an extraction, not a design.** `drain.py` already carries
+`gpu_is_busy()`, `wait_for_chat_server()` polling to 300 s, and
+`DEFER_SLEEP_SECONDS`/`DEFER_LIMIT`, running nightly. Generalising it from
+three workloads to N consumers inherits behaviour that has already survived
+a live game.
+
+**And "launching and guarding" wants two different shapes.** Alfred's guard
+docstring makes the argument itself — *"not a window, not a daemon"* — and
+it fails open, so routing it through the estate would mean a down estate
+equals silently unguarded inference: the 220 fps → 20 incident restored.
+Decided: **library for the guard and the LLM client, service for the
+launcher and the queue.** Documents, library, service — the opening
+question of ADR-0002 answered as all three, each assigned by a property of
+the thing being centralised rather than by preference.
+
+`TRUNCATION_MARKER` is the sharper of the two drifts: it was copied
+*deliberately*, because this repo's CLAUDE.md says to match Alfred's marker
+"so a cut made here and a cut made there read identically". They no longer
+do. A convention maintained by copying has a half-life.
+
 **Measured rather than assumed** (2026-08-11): 5 active projects, 4 GPU
 consumers on one 24 GB card, `stalled_count: 0`. Alfred's ADR-0064
 pre-authorises the workload-component read the owner meant, so it is no

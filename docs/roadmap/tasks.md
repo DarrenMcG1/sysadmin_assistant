@@ -1451,6 +1451,56 @@ Two measurements made the case rather than the argument doing it:
 - [ ] **The broker's systemd drop-in moves too**, eventually — currently
       Alfred's, per its ADR-0046
 
+### Phase 3 — the extractions, once the repository exists
+
+Ordered by evidence, not by size. The **estate becomes the sole launcher**
+of inference (decided 2026-08-11): a queue nothing is obliged to use is
+advisory, and four units currently start models on their own.
+
+- [ ] **The GPU guard → the shared library.** Copied line-for-line into
+      `alfred/inference/guard.py` and `app/llm/guard.py`, and **already
+      drifted**: Alfred takes the minimum of four samples over ~2 s and
+      has `pause_until_idle` (600 s cap); venture-assistant takes one
+      sample. Alfred's own docstring names the defect the copy retains —
+      *"a read taken immediately after our own call still shows our
+      work"*. Carry two rules across or they get rediscovered: **resolve
+      the device by PCI slot, never `cardN`** (`card0` is the idle iGPU
+      here — ADR-0052 F2), and **fail open** on an unreadable counter
+- [ ] **The llama-server client → the shared library.** Three
+      implementations, **439 lines** (Alfred 163, venture-assistant 155,
+      sysadmin 121), all against the same server on `:8081`. The largest
+      single extraction by volume and the one most likely to keep changing
+- [ ] **`TRUNCATION_MARKER` → the shared library.** `alfred/schemas/
+      briefings.py:50` is `"\n\n… (truncated)"`; `sysadmin/core/text.py:47`
+      is `"… (truncated)"`. Copied *deliberately* — CLAUDE.md says to match
+      Alfred's marker "so a cut made here and a cut made there read
+      identically" — and they no longer do. A convention maintained by
+      copying has a half-life
+- [ ] **The queue → the service, by generalising `drain.py`.** Not a
+      design job: venture-assistant already has `gpu_is_busy()`,
+      `wait_for_chat_server()` (300 s poll) and
+      `DEFER_SLEEP_SECONDS`/`DEFER_LIMIT` across 213 + 3×103 lines,
+      running nightly. Generalise from one app's three workloads to the
+      estate's N consumers, so the first version inherits behaviour that
+      has survived contact with a live game
+- [ ] **Reconcile the two priority policies.** 2026-08-06 chose *"queue
+      and wait, Alfred takes precedence"*; `Conflicts=` encodes **whoever
+      started last wins**. The written policy is not the implemented one,
+      and the queue has to pick
+- [ ] **Retire the per-app eviction wiring.** `ExecStopPost` restoration
+      lives in each *evictor* (`venture-chat-large`,
+      `venture-enrich-nightly`), so every new GPU consumer must know about
+      every existing one. This is the O(n²) defect the queue exists to
+      remove — it is not done until the unit files stop doing it
+- [ ] **Expose queue invariants for sysadmin to judge**: depth, oldest
+      waiting request, dropped count. sysadmin watches the queue —
+      "exactly what it's built for" — and this is the part liveness cannot
+      cover: an endpoint whose *numbers* can be wrong while the service is
+      perfectly up
+- [ ] **Not health endpoints.** Three exist and that is correct — the
+      monitorable-project contract requires each app to serve its own. Do
+      not "deduplicate" them
+
 ### Decided, with the alternatives that were live
 
 1. **Extracted from `sysadmin_assistant`, not started empty beside it.**

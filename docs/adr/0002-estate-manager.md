@@ -315,3 +315,54 @@ reason to build a consumer surface here for a consumer that has not asked.
 
 The one guardrail that stands unchanged: **the board is never written into
 `trackables.projects`.** Decoration by join, never a merge.
+
+### The estate manager is three things, and the split is not a compromise
+
+The opening question of this ADR was whether the estate is a documents
+repository, a shared library, or a service. The answer is **all three**,
+and each part is assigned by a property of the thing being centralised
+rather than by preference.
+
+| Part | Carries | Because |
+|---|---|---|
+| **Documents** | conventions, estate map, entity inventory, broker definitions | read by humans and by other sessions; drift is invisible and cheap to prevent |
+| **Library** | the GPU guard, the llama-server client, shared markers | runs *inside* each app's dispatch path; must not acquire a network dependency |
+| **Service** | model launching, the queue, priority order | needs **shared state** — who is next, who holds the card — which no library can hold |
+
+**The guard must be a library, not a service call, and Alfred's own
+docstring is the argument**: *"The read is a single sysfs file open
+immediately before dispatch — **not a window, not a daemon** — because a
+stale-by-milliseconds answer is harmless for a deferrable job."* It also
+**fails open**. Route it through the estate and every dispatch gains a
+network hop, while fail-open turns a down estate into *silently unguarded
+inference* — restoring the 2026-07-23 incident where an eval took a live
+game from 220 fps to 20.
+
+The cost is accepted rather than waved away: a shared library is a
+**versioned dependency across three repos**, so changing the guard means
+three redeploys. It is worth it because the alternative is measured, not
+hypothetical — see the inventory below.
+
+### What is duplicated, measured 2026-08-11
+
+| Duplicated | Where | State |
+|---|---|---|
+| **llama-server client** | Alfred 163 ln, venture-assistant 155 ln, sysadmin 121 ln | **three implementations, 439 lines**, one server on `:8081` |
+| **GPU guard** | `alfred/inference/guard.py`, `app/llm/guard.py` | copied line-for-line, **drifted**: min-of-4-samples vs a single sample |
+| **Queue / defer loop** | venture-assistant `drain.py` (213 ln) + 3 cycles | exists in **one** repo — the thing to generalise, not design |
+| **`TRUNCATION_MARKER`** | `alfred/schemas/briefings.py:50`, `sysadmin/core/text.py:47` | same name, **different value** — Alfred prefixes `\n\n` |
+| Health endpoints | all three | **not** duplication — the contract requires each app to serve its own |
+
+Two of these are already drifted, which is the whole argument in evidence.
+`TRUNCATION_MARKER` is the sharper of the two: it was copied *deliberately*,
+because this repository's CLAUDE.md says to match Alfred's marker "so a cut
+made here and a cut made there read identically" — and they no longer do.
+A convention maintained by copying is a convention with a half-life.
+
+**The queue is an extraction, not a design.** `drain.py` already carries
+`gpu_is_busy()`, `wait_for_chat_server()` polling to 300 s, and
+`DEFER_SLEEP_SECONDS`/`DEFER_LIMIT` — defer-with-cap, server readiness and
+GPU gating, running nightly. Generalising it from one app's three workloads
+to the estate's N consumers is a smaller and far better-evidenced job than
+writing a queue, and it means the first version inherits behaviour that has
+already survived contact with a live game.
