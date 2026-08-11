@@ -122,6 +122,27 @@ class TestFailureIsReportable:
         """
         assert flag in _script_code("notify-unit-failed.sh")
 
+    def test_the_broker_credential_arrives_by_loadcredential_not_env(self):
+        """ADR-0003: the MQTT password reaches this service as a systemd
+        credential, never as configuration.
+
+        ``config.yaml`` is tracked in git and has never held a secret, and
+        this repository reads no environment variables — so the only door
+        left is ``LoadCredential=``, which delivers the password into
+        ``$CREDENTIALS_DIRECTORY`` without touching git, the environment,
+        or the process list. The id must stay ``mqtt``: the publisher code
+        will read ``$CREDENTIALS_DIRECTORY/mqtt`` by that name.
+        """
+        directives = _directives("sysadmin.service")
+        credential = directives.get("LoadCredential", "")
+        cred_id, _, source = credential.partition(":")
+        assert cred_id == "mqtt", f"LoadCredential id must be 'mqtt', got {credential!r}"
+        assert source.startswith("/"), "credential source must be an absolute path"
+        assert "EnvironmentFile" not in directives, (
+            "an EnvironmentFile= would reintroduce the env-var door this "
+            "repository's conventions keep closed"
+        )
+
     def test_the_handler_writes_to_the_journal_before_the_session_bus(self):
         """Journald is the destination that does not need anyone logged in.
 

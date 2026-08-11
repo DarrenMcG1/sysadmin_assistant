@@ -1230,6 +1230,13 @@ work:
 - [ ] **Publish alerts to MQTT** at or above a configured severity. Decide
       the topic namespace first (above); amend estate-map.md with the terms
       of the promotion in the same change
+      *(Unblocked 2026-08-11 by estate-manager Session 2: the broker-side
+      identity `sysadmin-publisher` exists with write access to `estate/#`
+      and survives Alfred restarts; the password arrives as
+      `$CREDENTIALS_DIRECTORY/mqtt` per [ADR-0003](../adr/0003-mqtt-credential-by-loadcredential.md).
+      Remaining here: an MQTT client dependency (Alfred uses `aiomqtt`),
+      config keys for host/username/topic, the publisher itself wired to
+      the severity gate, and the topic scheme under `estate/…`)*
 - [ ] **Register the topic in alfred-glance** — `BusEvents.kt` renderer,
       `BusPayloads.kt` shape. Separate repo, separate session if it needs
       an Android release
@@ -1318,7 +1325,7 @@ shipped before (a retention row with no `TABLE_TIMESTAMP_MAP` entry).
 
 ### Still open, and what the two constraints did to the plan
 
-- [ ] **MQTT publishing is blocked on an Alfred-side change, not on a
+- [x] **MQTT publishing is blocked on an Alfred-side change, not on a
       topic name.** The premise checked in the scoping session was
       alfred-glance's closed renderer registry. That is real but secondary:
       mosquitto here is `allow_anonymous false` with the **dynamic-security
@@ -1332,13 +1339,26 @@ shipped before (a retention row with no `TABLE_TIMESTAMP_MAP` entry).
       available failure mode, and it is this session's own bug reinstalled
       in the fix. Decided 2026-08-11: **Alfred provisions a protected
       non-device publisher for sysadmin**, in its code.
-- [ ] **The neutral root costs a dynsec change too.** Both roles are
+      *(Unblocked 2026-08-11 by estate-manager Session 2, with the
+      decision superseded in the details: Alfred's `reconcile()` was
+      narrowed to subscriber-role clients with no live token (Alfred
+      ADR-0068) rather than growing a protected list, and
+      `sysadmin-publisher` is provisioned by the **estate**, declared in
+      `estate-manager/mqtt/dynsec.yaml` (its ADR-0005 §3) — verified
+      live: the client survived an alfred-backend restart. This service's
+      password arrives via `LoadCredential=` — [ADR-0003](../adr/0003-mqtt-credential-by-loadcredential.md))*
+- [x] **The neutral root costs a dynsec change too.** Both roles are
       scoped to `_TOPIC_FILTER = alfred/events/#`, so `estate/…` is
       **denied by the broker** until Alfred's roles gain a widened or
       second filter. The namespace decision (neutral root, taken
       2026-08-11) is therefore not "seven constants and both ends" as
       scoped — it is that plus the broker's access control. Terms recorded
       in [estate-map.md](../guides/estate-map.md).
+      *(Done 2026-08-11, estate-side: `alfred-subscriber` now reads
+      `estate/#`, the new `estate-publisher` role writes it, and the path
+      was proven over the wire — a publish as `sysadmin-publisher` on
+      `estate/alerts/test` reached a subscriber-role client. The
+      publisher code here remains open, above)*
 - [ ] **Persist an `OnFailure=` firing where the tray can see it.** The
       handler notifies and writes to journald; neither survives as an
       *alert row*, so a failure that happened while nobody was logged in is

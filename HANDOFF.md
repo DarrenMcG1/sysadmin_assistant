@@ -2,7 +2,25 @@
 
 ## Next action
 
-Install the two unit files with `sudo cp systemd/sysadmin.service systemd/sysadmin-failed.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart sysadmin.service`, then rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears.
+Run `sudo ~/projects/estate-manager/scripts/install-broker-system-units.sh` — it installs this repository's two unit files (now including sysadmin.service's new LoadCredential=mqtt, ADR-0003) alongside the estate's broker provisioner and credential files, then rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears.
+
+## Late same day: the MQTT half unblocked from the estate side
+
+estate-manager's Session 2 ran (its founding MQTT extraction). Both walls
+below are down: Alfred's `reconcile()` narrowed (its ADR-0068),
+`estate/#` admitted, `sysadmin-publisher` provisioned estate-side and
+verified to survive an alfred-backend restart. This repository gained
+[ADR-0003](docs/adr/0003-mqtt-credential-by-loadcredential.md)
+(`LoadCredential=mqtt:/etc/credstore/sysadmin-mqtt` on the unit, pinned
+by a new `test_systemd_units.py` invariant), and `services.yaml` now
+watches `estate-broker-provision.service` and — previously unmonitored —
+`mosquitto.service` itself. **Publishing alerts is now purely this
+repository's own work**: client dependency, config keys, severity gate,
+topic scheme under `estate/…` (tasks.md row updated). Note the unit
+install command below is superseded by the estate script above, which
+copies both unit files and restarts the service after creating the
+credential file the new unit requires — `sudo cp` alone would now fail
+the unit on the missing `/etc/credstore/sysadmin-mqtt`.
 
 ## Session 40 ran on 2026-08-11, as estate-manager's Session 1
 

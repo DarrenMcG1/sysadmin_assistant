@@ -42,6 +42,18 @@ User=gaddi
 Group=gaddi
 WorkingDirectory=/home/gaddi/projects/sysadmin_assistant
 Environment=PATH=/home/gaddi/projects/sysadmin_assistant/.venv/bin:/usr/local/bin:/usr/bin
+
+# Session 40 / estate-manager Session 2 (ADR-0003 here, estate ADR-0001).
+# The broker password for `sysadmin-publisher` — this service's OWN MQTT
+# identity, held so alert delivery never depends on another service being
+# up: an alerting path with a live dependency on another service is not an
+# alerting path. Delivered into $CREDENTIALS_DIRECTORY/mqtt at start; never
+# in config.yaml (tracked in git), never an EnvironmentFile (this repo
+# reads no environment variables). The source file is root-owned 600,
+# created by estate-manager's scripts/install-broker-system-units.sh;
+# systemd reads it as root before dropping to gaddi. NOTE: if the source
+# file is absent the unit FAILS to start — install the credential first.
+LoadCredential=mqtt:/etc/credstore/sysadmin-mqtt
 ExecStart=/home/gaddi/projects/sysadmin_assistant/.venv/bin/uvicorn sysadmin.main:app --host 127.0.0.1 --port 8500 --workers 1
 Restart=always
 RestartSec=10

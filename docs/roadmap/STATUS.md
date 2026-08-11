@@ -28,6 +28,28 @@
 
 ## Recently Completed
 
+- **2026-08-11 — Session 39's MQTT half unblocked, from the other side.**
+  estate-manager's Session 2 (its founding MQTT extraction, executed
+  under estate ADR-0002's bounded exception) removed both walls recorded
+  below: Alfred's `reconcile()` now deletes only subscriber-role clients
+  with no live token (Alfred ADR-0068), and the neutral root is live —
+  `sysadmin-publisher` exists with role `estate-publisher` (write
+  `estate/#`), provisioned from `estate-manager/mqtt/dynsec.yaml`, and a
+  publish on `estate/alerts/test` reached a subscriber-role client with
+  the identity surviving an alfred-backend restart. This repository's
+  side: `sysadmin.service` gained
+  `LoadCredential=mqtt:/etc/credstore/sysadmin-mqtt`
+  ([ADR-0003](../adr/0003-mqtt-credential-by-loadcredential.md) — why
+  not `config.yaml`, not an `EnvironmentFile`), pinned by a new
+  `test_systemd_units.py` invariant; `services.yaml` gained
+  `estate-broker-provision` (the estate's boot oneshot, `scope: system`)
+  and — found while wiring it — **`mosquitto.service` itself, which was
+  unmonitored**: a dead broker means alerts publish nowhere while every
+  consumer reconnect-loops silently. The publisher code stays this
+  repository's own open task; the credential file and unit install land
+  with estate-manager's `scripts/install-broker-system-units.sh` (one
+  sudo run, which also covers the Session 39 unit install below).
+
 - **2026-08-11 — Session 39 (part 1): the alarm now keeps ringing, and the crash case can reach `failed`.** Two of the six scoped items shipped; MQTT publishing is blocked on an Alfred-side change and is written up below. **Detection was not touched, deliberately** — not one line of `self_monitor.py` changed, because it was never broken.
 
   **The escalation ladder.** A stalled agent is raised at `warning` exactly as before, and re-raised as `critical` once that warning has stood unresolved for `self_monitor.escalate_after_hours` (24). The shared half — `SEVERITY_ORDER`, `Ladder`, `step_for` — went into **`sysadmin/core/escalation.py`**, because the scoped instruction "reuse `nudges.py` rather than copying it" was not possible as written: `sysadmin/monitor` may not import `sysadmin.projects` (`tests/test_import_boundary.py`). Same move `strip_markdown` made into `core/text.py`, same reason.

@@ -219,6 +219,23 @@ services:
     systemd: { unit: sysadmin-tray.service, scope: user }
     controllable: false
 
+  # --- estate-manager -------------------------------------------------
+  # The estate's first runtime artefact (its Session 2, 2026-08-11): a
+  # boot oneshot that asserts the broker's dynsec schema (roles, ACLs,
+  # static clients) from estate-manager/mqtt/dynsec.yaml. It sets
+  # RemainAfterExit=yes, so `active (exited)` is its healthy steady state
+  # and `failed` means this boot's assertion did not complete. Until
+  # estate-manager's scripts/install-broker-system-units.sh has been run
+  # (the same sitting this entry was added), the unit is not yet
+  # installed and this check will rightly complain.
+  - project: estate-manager
+    name: estate-broker-provision
+    role: broker-provision
+    kind: systemd
+    systemd: { unit: estate-broker-provision.service, scope: system }
+    controllable: false
+    log: { type: journalctl, severity_filter: warning }
+
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any
   # repository, which is what the unit sweep already calls a host unit.
@@ -232,6 +249,18 @@ services:
     kind: systemd
     systemd: { unit: NetworkManager.service, scope: system }
     controllable: false
+
+  # The estate bus (promoted 2026-08-11; schema owned by estate-manager
+  # since its Session 2). Unmonitored until now — found while wiring the
+  # provisioner in: a dead broker means alerts publish nowhere while
+  # every consumer reconnect-loops silently, which is SNAG-13's shape at
+  # estate scale. Alfred's ADR-0046 drop-in (now estate-owned) makes it
+  # patient at boot; `failed` here is therefore a real fault, not a race.
+  - name: mosquitto
+    kind: systemd
+    systemd: { unit: mosquitto.service, scope: system }
+    controllable: false
+    log: { type: journalctl, severity_filter: warning }
 
   # Reachability probe. Deliberately has no unit: nothing on this machine
   # serves it, which is why `kind: http` asserts a unit only when one is
