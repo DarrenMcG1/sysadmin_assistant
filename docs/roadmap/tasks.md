@@ -1354,6 +1354,122 @@ shipped before (a retention row with no `TABLE_TIMESTAMP_MAP` entry).
 
 ---
 
+## Session 40: the estate manager, phase 1 (documents only)
+
+Raised by the estate owner on 2026-08-11, immediately after Session 39
+part 1 blocked on MQTT. Decisions are recorded in
+**[ADR-0002](../adr/0002-estate-manager.md)**; this is the work list.
+
+The framing question was "is it worth making an estate manager to handle
+cross-repo concerns" and the answer is yes, for a reason worth stating
+precisely: **the Session 39 blocker is architectural, not incidental.**
+`dynsec.reconcile()` deleting foreign clients is *correct* for a private
+bus. What is wrong is that an application owns shared infrastructure, so
+Alfred's startup is a single point of failure for the estate's alerting
+path. Patching Alfred's protected set fixes the instance and leaves the
+category — the next app to want the bus hits the same wall and finds out
+by the alarm going quiet.
+
+Two measurements made the case rather than the argument doing it:
+
+- **4 of the 5 files in `docs/guides/` are not about this repository.**
+  `estate-map.md` and `monitorable-project.md` describe the box;
+  `alfred-briefing-integration.md` and `alfred-projects-page.md` are
+  contracts between two *other* codebases. Only `api_auth.md` is local.
+- **The whole shared broker is app-owned.** Not just the dynsec schema —
+  mosquitto's boot-reliability drop-in is sourced from
+  `Alfred/scripts/systemd/mosquitto.service.d` with its rationale in
+  Alfred's ADR-0046. estate-map.md already recorded that sentence without
+  drawing the conclusion from it.
+
+### The work — documents move, no runtime is touched
+
+- [ ] **Create the repository**, with a `.project.yaml` on day one. An
+      undeclared project defaults to `active`, so without it the organiser
+      starts deducting staleness points and raising idle nudges about work
+      nobody has committed to. No port and no `/api/health`: nothing in it
+      listens, and [monitorable-project.md](../guides/monitorable-project.md)
+      asks for both only of services
+- [ ] **Move the four cross-repo guides**, and this ADR set. `api_auth.md`
+      stays — it documents this service's bearer tokens
+- [ ] **Update `~/.claude/CLAUDE.md`'s two hardcoded paths in the same
+      commit.** It points at `sysadmin_assistant/docs/guides/
+      monitorable-project.md` and `.../estate-map.md`, and every
+      new-project session reads them. A stale pointer does not error — it
+      silently stops the contract being read, which is the failure mode
+      this whole roadmap keeps meeting
+- [ ] **Leave a pointer, not a copy**, at each moved path. A copy is two
+      documents that will disagree
+- [ ] **Do not move `sysadmin/projects/`.** ADR-0001 left "who owns
+      project state" open on purpose and staged the code so the answer
+      stays cheap; this session answers the question for *infrastructure
+      and conventions* only
+
+### Phase 2, named so phase 1 does not read as complete
+
+- [ ] **Narrow Alfred's `reconcile()`** to delete only subscriber-role
+      clients with no live token, instead of everything it does not
+      recognise. **Worth doing even if nothing else here is built** — it
+      is the one predicate that makes the bus safely shareable, and it
+      unblocks Session 39's MQTT half on its own
+- [ ] **`mqtt/dynsec.yaml` + `estate-broker-provision.service`** —
+      `Type=oneshot`, `After=mosquitto.service`,
+      `Before=alfred-backend.service`, `ExecStart` being the same CLI a
+      human runs by hand so the boot path and the manual path cannot
+      diverge
+- [ ] **Widen the dynsec roles to admit a neutral root.** Both are scoped
+      to `alfred/events/#`, so `estate/…` is **denied by the broker**, not
+      merely inconsistent
+- [ ] **`LoadCredential=mqtt:/path` on `sysadmin.service`**, read from
+      `$CREDENTIALS_DIRECTORY`. Not `config.yaml` (tracked in git, and
+      `api.auth_token` is `""` because this repo has never held a secret)
+      and not an `EnvironmentFile` (CLAUDE.md: no environment variables
+      are read)
+- [ ] **Pick the MQTT client library.** `paho-mqtt` is not installed here;
+      Alfred uses `aiomqtt`. Matching Alfred is probably right and is a
+      dependency decision, not an import
+- [ ] **The broker's systemd drop-in moves too**, eventually — currently
+      Alfred's, per its ADR-0046
+
+### Decided, with the alternatives that were live
+
+1. **Extracted from `sysadmin_assistant`, not started empty beside it.**
+   A new repo holding only new concerns leaves cross-repo documentation in
+   two places, which is the drift this repository has filed three snags
+   about.
+2. **The estate owns the schema; each app ensures its own identity.**
+   Alembic owns the schema, applications write their own rows. If both
+   moved, Alfred's bus would be dead whenever the provisioner had not run
+   — a new boot-ordering failure mode in the alerting path, introduced by
+   the change meant to make that path reliable.
+3. **A boot oneshot, never a daemon.** A daemon is a new service to
+   monitor, which is the objection that killed the email option in Session
+   39 — the problem recursing. A CLI alone depends on someone remembering,
+   which is the shape of `SNAG-DB-001`. The unit calls the CLI, so there
+   is one implementation.
+4. **Documents move before authority does.** The repository earns a reason
+   to exist before it is given the power to delete credentials, and phase
+   1 is reversible because it touches no runtime.
+
+### Rejected
+
+- **A running estate service.** Fixes the category properly and
+  reintroduces the recursion: a new unit, a new port, and a watcher that
+  needs watching. Reconsider only if declarative provisioning proves
+  insufficient.
+- **Broker first, documents later.** Fastest to a working phone alert, and
+  the new repo then exists for weeks as a single YAML file while cross-repo
+  docs stay here.
+- **A path to the secret named in `config.yaml`.** Workable, and it makes
+  file permissions the entire protection. `LoadCredential=` keeps the
+  secret out of git, out of the environment and out of config at once.
+- **Relaxing the no-env-vars rule.** A convention worth removing
+  deliberately if at all — not as a side effect of one password.
+- **Moving `sysadmin/projects/`** — see above; ADR-0001 owns that question
+  and deliberately has not answered it.
+
+---
+
 ## Backlog
 
 **Carried-forward follow-ups** — small items noted by the sessions that

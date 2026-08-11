@@ -2,7 +2,7 @@
 
 ## Next action
 
-Install the two unit files with `sudo cp systemd/sysadmin.service systemd/sysadmin-failed.service /etc/systemd/system/ && sudo systemctl daemon-reload`, then rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears, before taking the MQTT half of Session 39 — which needs an Alfred-side change first, because `dynsec.reconcile()` deletes any publisher Alfred did not create.
+Install the two unit files with `sudo cp systemd/sysadmin.service systemd/sysadmin-failed.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart sysadmin.service`, rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears, then take Session 40 — the estate manager's document-only phase 1, whose decisions are already recorded in ADR-0002.
 
 ## Session 39 (part 1): the alarm rings more than once
 
@@ -134,6 +134,34 @@ filter — not "seven constants and both ends", but that plus the broker's
 access control. The terms of the promotion are now written into
 [estate-map.md](docs/guides/estate-map.md), which had reserved this
 decision in writing for exactly this case.
+
+## Raised after the commit: the estate manager (ADR-0002, Session 40)
+
+The owner asked whether a cross-repo manager is worth making, with MQTT as
+the first candidate. It is, and the reason is that **today's blocker is
+architectural rather than incidental**: `reconcile()` is correct for a
+private bus, and what is wrong is that an application owns shared
+infrastructure. Patching Alfred's protected set fixes the instance and
+leaves the category — the next app to want the bus finds out by its alarm
+going quiet.
+
+Two measurements carried the argument. **4 of 5 files in `docs/guides/`
+are not about this repository.** And the *whole* shared broker is
+app-owned: not only the dynsec schema but mosquitto's boot drop-in, from
+`Alfred/scripts/systemd/mosquitto.service.d` per Alfred's ADR-0046 — a
+sentence estate-map.md already carried without drawing the conclusion.
+
+Decided: extracted from here rather than started empty; **the estate owns
+the schema while each app still ensures its own identity** (Alembic owns
+the schema, apps write their own rows — if both moved, Alfred's bus dies
+whenever the provisioner has not run); a boot oneshot, never a daemon,
+whose `ExecStart` is the same CLI a human runs; `LoadCredential=` for the
+machine password, because `config.yaml` is tracked and this repo forbids
+environment variables; and documents move before authority does.
+
+**The cheap fix stands on its own and should probably go first**: narrowing
+Alfred's `reconcile()` to delete only subscriber-role clients with no live
+token unblocks the MQTT half without any of the above.
 
 ## Left open on purpose
 

@@ -705,6 +705,14 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 
 **Decision records** live in `docs/adr/`:
 
+- **[0002-estate-manager.md](docs/adr/0002-estate-manager.md)** — accepted
+  but **unbuilt**: why shared infrastructure gets an owner that is not an
+  application, why the estate owns the broker's *schema* while each app
+  still ensures its own identity, why provisioning is a boot oneshot and
+  never a daemon, and why `LoadCredential=` rather than `config.yaml` or
+  an `EnvironmentFile`. Read it before adding a cross-repo document to
+  `docs/guides/`, before publishing to MQTT from here, or before putting
+  a secret anywhere near this repository.
 - **[0001-project-registry.md](docs/adr/0001-project-registry.md)** — why
   project identity moved into the repositories as `.project.yaml`, why
   `services.yaml` holds no paths, why persistence was deliberately
