@@ -590,21 +590,84 @@ was then run over the **real** historical series for `sysadmin_assistant`
 `info` / `warning` / no-nudge at the thresholds it should. The 9-scans-to-
 2-days ratio is the argument for days over scans, live.
 
-### Session 32: Start-versus-finish accounting
+### Session 32: Start-versus-finish accounting ✅ (2026-08-11)
 
-- [ ] The one signal nothing else here can produce: **sessions that start
-      and land nothing**. The SessionEnd hook records that a session
-      happened; git records whether anything shipped. A project
-      accumulating sessions with no commits between them is the
-      start-and-drop pattern made measurable
-- [ ] **Blocker to solve first:** the hook *overwrites*
-      `docs/sessions/handoff.md`, so session history does not survive. Needs
-      either an append-only `docs/sessions/log.jsonl` written by the hook,
-      or sysadmin recording handoff-date transitions per scan. The former is
-      cheaper and keeps the record with the repo
-- [ ] Couples to Session 31 — both answer "you said you would and didn't"
-      from different evidence (elapsed time vs. attempts made). Worth
-      taking together if 31 lands first
+`GET /api/projects/momentum` ships. The reasoning lives in
+[momentum.py](../../sysadmin/projects/momentum.py); what follows is what
+was decided rather than what was built.
+
+- [x] **The blocker named the wrong evidence and was already gone.** The
+      recorded fix was "an append-only `docs/sessions/log.jsonl` written
+      by the hook, **or** sysadmin recording handoff-date transitions per
+      scan" — and the second had been true since 2026-08-06. Session 28
+      writes `handoff_age_days` on every scan, so
+      `scanned_at − handoff_age_days` reconstructs the date a handoff was
+      written and a *change* in it between two scans is an observed
+      session. The log existed sideways, in JSONB, and no new hook,
+      writer or migration was needed
+- [x] **A landing is matched by date window, not at the transition
+      scan.** The obvious rule — "had a commit been made by the time the
+      scanner saw the new handoff?" — was written first and refuted by
+      the live series within the hour: the scan at `2026-08-10 09:06` saw
+      this repository's new handoff while `last_commit_at` still read
+      2026-08-08, because the handoff is written *before* the work is
+      committed. That day's six commits arrived afterwards and a
+      productive day was reported as dropped. Scan timing was deciding
+      the answer, and no fixture with a tidy cadence would have shown it.
+      A commit dated in `[session_date, next_session_date)` is now that
+      session's output. Pinned by
+      `test_a_commit_after_the_scan_still_counts_as_landed`
+- [x] **Both landings are reported**, because they are different
+      failures. `dropped_code` is a session that shipped no code;
+      `dropped` is one that shipped *nothing at all*; `docs_only` is the
+      gap. A session that wrote up what it decided is a materially better
+      outcome than silence and must not be summed with it. No scanner
+      change was needed for the second count: `findings['git']` is
+      written only when a housekeeping commit was skipped (77 rows of
+      3,635), and its absence means the newest commit *is* the newest
+      code commit — so the fallback to `last_commit_at` is exact
+- [x] **The observed period is the dated scans, not every scan.** Caught
+      on the live run: this repo holds 198 snapshots back to 2026-05-13,
+      of which 22 carry a roadmap block. Reporting the series as three
+      months long invited dividing five sessions by ninety days
+- [x] `handoff_date_source` is now recorded for the *chosen* handoff, not
+      only the also-rans. An undated handoff falls back to mtime and a
+      clone or checkout rewrites mtime, which would present a
+      `git checkout` as a morning's work. Prospective only — every
+      session observed before today reads `unverified`, and the count is
+      hedged in the `reason` sentence rather than quietly asserted
+- [x] The population is `ACTIVELY_SCORED` (`active` + `undeclared`),
+      **borrowed** from the agent rather than restated — deliberately
+      wider than `/api/projects/next`, which additionally requires a
+      stated next action. A commitment needs someone to have written one
+      down; a session that shipped nothing is a fact about a repository
+      whether or not it has a plan
+- [x] Couples to Session 31 as predicted — both answer "you said you
+      would and didn't", from elapsed time and from attempts made
+
+**Verified against the live estate, and it disagrees with the health
+scores.** `alfred-glance` opened 2 sessions and landed nothing (last code
+commit 2026-08-03); `venture-assistant` 3 sessions, 1 landed; this repo
+5 sessions, 4 landed — the single drop is 2026-08-09, and `git log`
+confirms zero commits that day. `Alfred` is 4 of 4. Suite 1776 → 1824.
+
+### Follow-ups this session opened
+
+- [ ] [SNAG-PROJ-013](snag_list.md) — add an ISO date to ImbaBots'
+      `HANDOFF.md` first heading, in that repository. Without one the
+      Stop hook cannot be satisfied and will block its next
+      code-changing session. **This snag was filed with the wrong
+      diagnosis first** ("commits without moving its handoff date") and
+      corrected the same day by opening the repository: ImbaBots' last
+      session updated its handoff in the same commit as the code, and
+      its 0 is the baseline rule working, not a failure
+- [ ] Re-read `/api/projects/momentum` after the next organiser run, when
+      `handoff_date_source` starts arriving. Every session is currently
+      `unverified` by absence of the field, which is honest but makes the
+      hedge unconditional and therefore unreadable
+- [ ] No consumer renders this yet. It is a `GET` with a `reason`
+      sentence built for a one-line surface; alfred-glance is the
+      obvious reader, and Session 30's fate says to ask before assuming
 
 ### Session 33: Seam drift detection
 

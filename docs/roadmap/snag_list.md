@@ -10,11 +10,13 @@
 
 ## Open Issues
 
-_Five open snags, plus three found and fixed the same day and left in place for
+_Six open snags, plus three found and fixed the same day and left in place for
 the write-up (`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on 2026-08-10,
-`SNAG-CFG-001` on 2026-08-11) — `count_open_snags` therefore reports 8, which is
+`SNAG-CFG-001` on 2026-08-11) — `count_open_snags` therefore reports 9, which is
 the entries listed rather than the entries outstanding, and is itself an
 instance of `SNAG-ROADMAP-002`.
+`SNAG-PROJ-013` was found by Session 32 on 2026-08-11: the momentum endpoint
+cannot see a session in a repository that never dates its handoff.
 `SNAG-CFG-001` was found by Session 31, which needed to know which severity is
 audible and found that the obvious knob is not the one; the fix turned out to
 be a whole dead notification path rather than a stale key. The twelve
@@ -38,6 +40,12 @@ defects have a reader for the first time._
   - **Impact**: ~39.5 hours wall clock, of which roughly **18 hours the daemon was up and failing every five minutes** (the box was asleep for the rest). No health history, no alerts, no reliability data. `GET /api/services/reliability` computes live from `service_health`, so it scored the estate off a table with a day-and-a-half hole in it
   - **Fixed**: `uv run alembic upgrade head` on 2026-08-10 applied 009, 010 and 011. Checks resumed at 09:07:25, first `skipped` row written successfully. **This was found by accident** — while tracing why the drift guard had stayed green, not by anything designed to catch it
   - **The detection gap is still open**, and is the real defect. Three things are missing, in order of value: (1) a startup check comparing `alembic_version` against the packaged head, failing loudly rather than serving against a schema it does not match; (2) per-service write isolation, or at minimum a savepoint, so one bad row cannot cost the other eighteen their check; (3) an alert when an agent's runs fail consecutively — `agent_runs` records every failure and nothing reads it. See [tasks.md](tasks.md)
+
+- [P2] SNAG-PROJ-013: `ImbaBots` heads its handoff with no ISO date, so the Stop hook will block its next code session (2026-08-11)
+  - **Filed first with the wrong diagnosis, corrected the same day.** The original entry read "commits without ever moving its handoff date — either the hook is not firing there or that work is not done through Claude Code sessions", and both alternatives are false. Recorded rather than quietly rewritten, because the mistake was to reason from an endpoint's output instead of opening the repository
+  - **What is actually true**: ImbaBots' last session is `edbd8c2` (2026-08-07 12:03), which changed 22 `game/` files **and** `docs/handoff.md` in one commit — the habit was kept. `HANDOFF.md`'s mtime is still that timestamp because nothing has run there since. The only later commit, `7144fc5` on 2026-08-10, is the estate migration promoting `docs/handoff.md` to the root, run from *this* repository. ImbaBots' first scan in the momentum window falls after 12:03 on 2026-08-07, so that date is its **baseline** — a state, not a transition — and `sessions: 0` is the correct reading, not a measurement failure
+  - **The residual defect is smaller and elsewhere**: the first heading is `# Handoff — M5 (Tier 2) · ⚠ …` with no `YYYY-MM-DD`. `~/.claude/hooks/require-handoff.sh` greps the first heading for today's date, so **the next code-changing session in ImbaBots will be blocked until someone adds one** — the hook cannot be satisfied by the document as it stands. Secondarily, an undated heading means `handoff_date_source` is permanently `mtime` there, so every session ImbaBots ever contributes reads `unverified`
+  - **Fix**: add an ISO date to ImbaBots' `HANDOFF.md` first heading. One line, in another repository, and it resolves both halves. **Not** a change to this codebase: the `commits_without_sessions` field considered in the original entry would have been a contract widened to describe a defect that does not exist
 
 - [P1] SNAG-BRIEF-001: `Project Health` publishes every project ever scanned, including retired ones (2026-08-07)
   - **Symptom**: The section carries **26 rows**, among them `PersonalAssistant`, `PersonalAssistant-auto` and `PA-worktrees` — a project retired 2026-07-24 whose repos are deliberately archived — plus four near-duplicate casings of the same work (`Portfolio` / `portfolio` / `portfolionew`, `BSL-Translator` / `bsl-translator` / `bsl-translation-app`). The same briefing's `Pick This Up` section lists 5 projects and `GET /api/projects/board` returns 6. One payload, three different answers to "what is on this box"

@@ -1156,6 +1156,84 @@ class NextProjectResponse(Contract):
     generated_at: str | None = None
 
 
+class ProjectMomentumEntry(Contract):
+    """One project's start-versus-finish record.
+
+    Every count is a **lower bound**, and the field names are chosen so a
+    consumer cannot round it up by accident.  Three things make it one:
+    a session that changed no code never wrote a handoff and was never
+    observed; two sessions on one date collapse into one; and the oldest
+    observation is a state rather than a transition, so the session that
+    produced it is not counted.  ``at_window_edge`` adds a fourth —
+    retention purged scans older than the series shown.
+
+    ``dropped`` and ``dropped_code`` are different failures and are
+    reported separately.  ``dropped_code`` is a session that shipped no
+    code; ``dropped`` is a session that shipped *nothing at all*.  The
+    gap between them is ``docs_only`` — a session that wrote up what it
+    decided but changed no work, which is a materially better outcome
+    than silence and must not be summed with it.
+
+    ``unverified`` counts sessions whose handoff date came from file
+    mtime rather than the document's own heading, or from a snapshot
+    written before 2026-08-11 when the distinction was not recorded.  A
+    clone or a checkout rewrites mtime, so those transitions can be
+    artefacts.  A consumer reporting ``sessions`` without this hedge is
+    asserting more than the data knows.
+    """
+
+    name: str = ""
+    sessions: int = 0
+    landed_code: int = 0
+    landed_any: int = 0
+    docs_only: int = 0
+    dropped: int = 0
+    dropped_code: int = 0
+    unverified: int = 0
+    drop_rate: float = 0.0
+    scans: int = 0
+    observed_from: str | None = None
+    observed_to: str | None = None
+    at_window_edge: bool = False
+    last_session: str | None = None
+    last_landing: str | None = None
+
+
+class ProjectMomentumResponse(Contract):
+    """GET /api/projects/momentum — sessions that started and landed nothing.
+
+    The estate ranked worst-first, plus ``worst`` naming a single project
+    and ``reason`` defending the choice in prose.  The headline is not
+    decoration: the ranked list is invisible to a one-line consumer, and
+    the sentence is the only place the choice is accountable — the same
+    obligation ``GET /api/projects/next`` carries.
+
+    ``worst`` is null when nothing has been measured, with ``reason``
+    saying which kind of nothing it is.  This endpoint does not 404 for
+    an empty result: a 404 would collapse "every session landed code"
+    into "no scan has ever run", and a consumer cannot tell those apart
+    from a status code.
+
+    Projects with no observed session are included but ranked last.  A
+    0-of-0 record is an absence of evidence, and omitting it would read
+    as an estate smaller than it is.
+    """
+
+    projects: list[ProjectMomentumEntry] = Field(default_factory=list)
+    worst: ProjectMomentumEntry | None = None
+    reason: str = ""
+    count: int = 0
+    total_sessions: int = 0
+    total_dropped_code: int = 0
+    #: Why the other repositories are not here, keyed by reason.  The
+    #: estate is 25 repositories and this reports on the handful being
+    #: worked on, which is a decision worth showing rather than a filter
+    #: applied behind the reader's back.
+    skipped: dict[str, int] = Field(default_factory=dict)
+    window_days: int = 90
+    generated_at: str | None = None
+
+
 class ProjectReviewResponse(Contract):
     """GET /api/projects/review — the latest stored portfolio review.
 

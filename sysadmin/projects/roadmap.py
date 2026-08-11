@@ -414,6 +414,15 @@ def scan_roadmap(project_path: Path, now: datetime | None = None) -> dict[str, A
         "next_action": None,
         "next_action_source": None,
         "handoff_age_days": None,
+        # Which clock produced ``handoff_age_days``.  ``heading`` means the
+        # document dated itself; ``mtime`` means it did not and the
+        # filesystem was asked instead — weaker evidence, because a clone
+        # or a checkout rewrites every mtime on disk.  Recorded for the
+        # *chosen* handoff and not just the also-rans (Session 32) because
+        # a series of these dates is read back as a session log: an mtime
+        # rewrite would otherwise present a `git checkout` as a morning's
+        # work.  ``None`` on snapshots written before 2026-08-11.
+        "handoff_date_source": None,
         # Which of the four shapes was read, and which were passed over.
         # Reported rather than merely resolved: two handoffs in one repo is
         # a migration left half-done, and it is invisible to whoever wrote
@@ -436,9 +445,14 @@ def scan_roadmap(project_path: Path, now: datetime | None = None) -> dict[str, A
             mtime_date = datetime.fromtimestamp(stat.st_mtime, tz=UTC).date()
         except OSError:
             pass
-        written = handoff_date(handoff_text, fallback=mtime_date)
+        # Asked without the fallback first, so the two answers can be told
+        # apart.  A malformed date in the heading returns None here and is
+        # therefore reported as ``mtime``, which is what it is.
+        authored = handoff_date(handoff_text)
+        written = authored or mtime_date
         if written:
             info["handoff_age_days"] = max(0, (today - written).days)
+            info["handoff_date_source"] = "heading" if authored else "mtime"
         action = next_action_from_handoff(handoff_text)
         if action:
             info["next_action"] = action

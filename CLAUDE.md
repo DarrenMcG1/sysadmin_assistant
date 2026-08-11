@@ -211,6 +211,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/projects/actions` | `PortfolioActionsResponse` (+`PortfolioAction`) | response_model |
 | `GET /api/projects/board` | `ProjectBoardResponse` (+`ProjectBoardEntry`) | response_model |
 | `GET /api/projects/next` | `NextProjectResponse` (+`NextProjectInfo`) | response_model (200 with `project: null` when nothing qualifies — never 404s) |
+| `GET /api/projects/momentum` | `ProjectMomentumResponse` (+`ProjectMomentumEntry`) | response_model (200 with `worst: null` when nothing is measurable — never 404s) |
 | `GET /api/projects/review` | `ProjectReviewResponse` | response_model |
 | `POST /api/projects/review/generate` | `ProjectReviewResponse` | response_model (auth; LLM optional — digest fallback) |
 | `GET /api/units/status` | `UnitScanResponse` (+`UnitScanSummary`, `UnitFindingInfo`) | response_model (404 = "no sweep yet") |
@@ -293,6 +294,56 @@ board where the source is rendered beside it, and not an instruction.
 collapse "every project is up to date" into "no scan has ever run";
 `skipped` breaks the ruled-out population down by reason, which is what
 made it legible that the eligible set is 2 of 23.
+
+**`GET /api/projects/momentum` counts events, not state.** The board and
+`/next` read the newest snapshot and the idle nudges read how long one
+action has stood — all three describe how things are *now*. This reads the
+series and asks how often a session starts here and nothing ships.
+
+The session record is a **side effect of a Stop hook**, not a log.
+`~/.claude/hooks/require-handoff.sh` blocks a session that changed code
+until `HANDOFF.md` carries today's date, and the organiser has stored that
+document's age on every scan since 2026-08-06 — so
+`scanned_at − handoff_age_days` reconstructs the date it was written, and a
+change in that value between two scans is an observed session. Session 32
+was filed as blocked on writing `docs/sessions/log.jsonl`; the log already
+existed, sideways, in JSONB.
+
+Three rules `sysadmin/projects/momentum.py` encodes, the first of which was
+written the obvious way and refuted by the live series the same hour:
+
+1. **A landing is matched by date window, never at the transition scan.**
+   Asking "had a commit been made by the time the scanner saw the new
+   handoff?" reads as common sense and is wrong, because the handoff is
+   written *before* the work is committed. The scan at `2026-08-10 09:06`
+   saw this repository's new handoff while `last_commit_at` still read
+   2026-08-08; the day's six commits arrived afterwards and a productive
+   day was reported as dropped. Scan timing was deciding the answer. A
+   commit dated in `[session_date, next_session_date)` is that session's
+   output.
+2. **"Landed nothing" and "landed no code" are separate counts.**
+   `dropped_code` versus `dropped`, with `docs_only` as the gap — a
+   session that wrote up what it decided is a better outcome than silence
+   and must not be summed with it. The any-commit date needs no scanner
+   change: `findings['git']` is written only when a housekeeping commit
+   was skipped (77 rows of 3,635), so its absence means the newest commit
+   *is* the newest code commit and the fallback to `last_commit_at` is
+   exact rather than approximate.
+3. **Every count is a lower bound and the fields say so.** A session that
+   changed no code never wrote a handoff; two sessions on one date
+   collapse into one; the oldest observation is a state rather than a
+   transition, so the session behind it is uncounted (the same rule
+   `build_narrative_history` applies to `next_action_changed`); and
+   `unverified` marks sessions dated by file mtime, which a clone or
+   checkout rewrites. `observed_from` reports the first **dated** scan,
+   not the first scan — this estate holds 198 snapshots of
+   `sysadmin_assistant` and 22 of them can carry a session.
+
+Its population is `ACTIVELY_SCORED` (`active` + `undeclared`), borrowed
+from the agent rather than restated, and deliberately **wider** than
+`/api/projects/next`: a commitment needs someone to have written one down,
+whereas a session that shipped nothing is a fact about a repository
+whether or not it has a plan.
 
 **Two things speak on this box, and only one of them at a time.** The tray
 polls `GET /api/sysadmin/alerts` and owns the notification policy (dedup,

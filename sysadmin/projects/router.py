@@ -19,6 +19,7 @@ from sysadmin.core.contracts import (
     NextProjectResponse,
     PortfolioActionsResponse,
     ProjectBoardResponse,
+    ProjectMomentumResponse,
     ProjectOverviewResponse,
     ProjectRecommendationsResponse,
     ProjectReviewResponse,
@@ -27,13 +28,16 @@ from sysadmin.core.contracts import (
 from sysadmin.core.database import get_db_session
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.services import get_services
-from sysadmin.projects import branch_actions, next_action, recommendations
+from sysadmin.projects import branch_actions, momentum, next_action, recommendations
 from sysadmin.projects import review as project_review
+from sysadmin.projects.agent import ACTIVELY_SCORED
 from sysadmin.projects.models.project_review import ProjectReview
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 from sysadmin.projects.snapshots import (
+    ACTION_HISTORY_WINDOW,
     latest_snapshot_query,
     load_action_streaks,
+    load_momentum_series,
 )
 from sysadmin.registry import load_registry
 
@@ -532,6 +536,94 @@ async def get_next_project(
         "considered": len(candidates),
         "skipped": dict(sorted(skipped.items())),
         "excluded": excluded,
+        "generated_at": now.isoformat(),
+    }
+
+
+def _momentum_entry(record: momentum.Momentum) -> dict[str, Any]:
+    return {
+        "name": record.name,
+        "sessions": record.sessions,
+        "landed_code": record.landed_code,
+        "landed_any": record.landed_any,
+        "docs_only": record.docs_only,
+        "dropped": record.dropped,
+        "dropped_code": record.dropped_code,
+        "unverified": record.unverified,
+        "drop_rate": round(record.drop_rate, 3),
+        "scans": record.scans,
+        "observed_from": (
+            record.observed_from.isoformat() if record.observed_from else None
+        ),
+        "observed_to": record.observed_to.isoformat() if record.observed_to else None,
+        "at_window_edge": record.at_window_edge,
+        "last_session": record.last_session.isoformat() if record.last_session else None,
+        "last_landing": record.last_landing.isoformat() if record.last_landing else None,
+    }
+
+
+@router.get("/momentum", response_model=ProjectMomentumResponse)
+async def get_project_momentum(session: AsyncSession = Depends(get_db_session)):
+    """How often a session starts here and nothing ships.
+
+    The third question this service asks about a project, and the only
+    one that is about *behaviour* rather than state: ``/board`` and
+    ``/next`` read the newest snapshot, the idle nudges read how long one
+    action has stood, and all three describe how things are right now.
+    This reads the series and counts events.
+
+    The measurement, its four blind spots and why "landed" has two
+    answers are recorded in :mod:`sysadmin.projects.momentum`.  The short
+    version: a handoff date that moves between two scans is an observed
+    session, because a Stop hook forces a code-touching session to date
+    one, and a session landed if a commit dated on or after its handoff
+    had been made by the time the scanner looked.
+
+    The population is the projects this service already scores —
+    ``active`` and ``undeclared``, borrowed from
+    :data:`~sysadmin.projects.agent.ACTIVELY_SCORED` rather than
+    restated.  A dormant or archived project opening sessions that ship
+    nothing is not a finding; that is what declaring it dormant meant.
+    Note that this is a *wider* population than ``/api/projects/next``,
+    which additionally requires a stated next action: a commitment needs
+    someone to have written one down, whereas a session that shipped
+    nothing is a fact about a repository whether or not it has a plan.
+    """
+    now = datetime.now(UTC)
+
+    result = await session.execute(latest_snapshot_query())
+    rows = result.scalars().all()
+
+    names: list[str] = []
+    skipped: dict[str, int] = {}
+    for row in rows:
+        status = (row.findings or {}).get("status", "active")
+        if status in ACTIVELY_SCORED:
+            names.append(row.project_name)
+        else:
+            skipped[status] = skipped.get(status, 0) + 1
+
+    # Only the scored projects' history is fetched: reading ninety days of
+    # scans for the twenty repositories already ruled out would be the
+    # bulk of the query to produce none of the answer.
+    series, window_start = await load_momentum_series(session, names)
+
+    records = momentum.rank([
+        momentum.measure(name, series.get(name, []), window_start=window_start)
+        for name in names
+    ])
+
+    worst = next((r for r in records if r.sessions), None)
+
+    return {
+        "projects": [_momentum_entry(r) for r in records],
+        "worst": _momentum_entry(worst) if worst else None,
+        "reason": momentum.build_reason(records),
+        "count": len(records),
+        "total_sessions": sum(r.sessions for r in records),
+        "total_dropped_code": sum(r.dropped_code for r in records),
+        "skipped": dict(sorted(skipped.items())),
+        "window_days": ACTION_HISTORY_WINDOW.days,
         "generated_at": now.isoformat(),
     }
 

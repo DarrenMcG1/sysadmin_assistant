@@ -31,6 +31,7 @@ from typing import Any
 from sqlalchemy import Select, desc, func, select
 
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
+from sysadmin.projects.momentum import Observation, parse_observation
 from sysadmin.projects.next_action import Streak, streak_days
 
 # Slack against a scan that straddles the boundary.  Far inside the
@@ -131,6 +132,101 @@ def action_history_query(
         .where(ProjectSnapshot.scanned_at >= newest_scan - window)
         .order_by(ProjectSnapshot.project_name, desc(ProjectSnapshot.scanned_at))
     )
+
+
+def momentum_history_query(
+    names: Sequence[str],
+    *,
+    window: timedelta = ACTION_HISTORY_WINDOW,
+) -> Select[tuple[str, datetime, datetime | None, str | None, str | None, str | None]]:
+    """The handoff-and-commit series per project, newest scan first.
+
+    Six columns rather than whole rows, for the reason
+    :func:`action_history_query` records: ``findings`` is a JSONB blob of
+    a few kilobytes and this reads three short strings out of it across
+    every scan in the window.
+
+    Two of those strings are read from paths that did not always exist.
+    ``handoff_date_source`` has been written since 2026-08-11 and
+    ``roadmap`` itself only since 2026-08-06; ``.astext`` yields NULL for
+    a missing path rather than raising, and
+    :func:`~sysadmin.projects.momentum.parse_observation` treats NULL as
+    "not known" rather than as a value.
+
+    ``git → last_commit`` is present **only** on scans where a
+    housekeeping commit was skipped — 77 rows of 3,635 on this estate.
+    That is not a gap: absence means the newest commit and the newest
+    *code* commit are the same, so the parser falls back to
+    ``last_commit_at`` and the answer is exact.
+
+    Args:
+        names: Projects to fetch.  Empty selects no rows, so "no
+            candidates" cannot silently mean "the whole estate".
+        window: How far back to look, anchored to the newest scan for the
+            same reason the freshness cutoff is.
+    """
+    findings: Any = ProjectSnapshot.findings
+    age = findings["roadmap"]["handoff_age_days"].astext.label("handoff_age_days")
+    source = findings["roadmap"]["handoff_date_source"].astext.label("date_source")
+    any_commit = findings["git"]["last_commit"].astext.label("any_commit")
+
+    newest_scan = select(func.max(ProjectSnapshot.scanned_at)).scalar_subquery()
+
+    return (
+        select(
+            ProjectSnapshot.project_name,
+            ProjectSnapshot.scanned_at,
+            ProjectSnapshot.last_commit_at,
+            age,
+            source,
+            any_commit,
+        )
+        .where(ProjectSnapshot.project_name.in_(names))
+        .where(ProjectSnapshot.scanned_at >= newest_scan - window)
+        .order_by(ProjectSnapshot.project_name, desc(ProjectSnapshot.scanned_at))
+    )
+
+
+async def load_momentum_series(
+    session: Any,
+    names: Sequence[str],
+    *,
+    window: timedelta = ACTION_HISTORY_WINDOW,
+) -> tuple[dict[str, list[Observation]], datetime | None]:
+    """Run :func:`momentum_history_query` and parse it into observations.
+
+    Returns ``(series, window_start)``.  ``window_start`` is the oldest
+    scan the query could have returned, and is handed to
+    :func:`~sysadmin.projects.momentum.measure` so a series that begins
+    at the boundary can say its counts were truncated by retention rather
+    than by the project being young.  It is computed from the newest scan
+    the query actually returned — the same anchor the ``WHERE`` clause
+    used, so the two cannot disagree even if a scan lands between them.
+
+    A project absent from the result is absent from the mapping rather
+    than defaulted here.  Whether "never scanned" means "no dropped
+    sessions" is the caller's decision, and it is not the same answer as
+    "measured, and nothing was dropped".
+    """
+    if not names:
+        return {}, None
+
+    result = await session.execute(momentum_history_query(list(names), window=window))
+    series: dict[str, list[Observation]] = {}
+    newest: datetime | None = None
+
+    for name, scanned_at, last_commit_at, age, source, any_commit in result.all():
+        if newest is None or scanned_at > newest:
+            newest = scanned_at
+        series.setdefault(name, []).append(parse_observation(
+            scanned_at=scanned_at,
+            last_commit_at=last_commit_at,
+            handoff_age_days=age,
+            handoff_date_source=source,
+            any_commit=any_commit,
+        ))
+
+    return series, (newest - window) if newest else None
 
 
 async def load_action_streaks(session: Any, names: Sequence[str]) -> dict[str, Streak]:
