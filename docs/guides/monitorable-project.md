@@ -120,7 +120,7 @@ your row when you claim one.**
 | 8100 | Alfred | backend (FastAPI) |
 | 8200 | SportsAnalyser | backend (FastAPI) |
 | 8300 | venture-assistant | backend (FastAPI, `venture-assistant-backend.service`) — claimed 2026-08-07 |
-| 8400 | _free — next backend allocation_ | |
+| 8400 | estate-manager | backend (planned) — claimed 2026-08-11 before anything listens, because claiming late is how two services guess the same number |
 | 8500 | sysadmin-service | backend (FastAPI) |
 | 3100 | Alfred | frontend (Nuxt) |
 | 3200 | SportsAnalyser | frontend (Next.js) |

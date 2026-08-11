@@ -1368,189 +1368,36 @@ shipped before (a retention row with no `TABLE_TIMESTAMP_MAP` entry).
 
 ---
 
-## Session 40: the estate manager, phase 1 (documents only)
+## Session 40: MOVED to ~/projects/estate-manager
 
-Raised by the estate owner on 2026-08-11, immediately after Session 39
-part 1 blocked on MQTT. Decisions are recorded in
-**[ADR-0002](../adr/0002-estate-manager.md)**; this is the work list.
+The estate manager repository was created on 2026-08-11 and this session
+became **its Session 1**. The work list, the two follow-on sessions and the
+measurements behind them now live in
+`~/projects/estate-manager/docs/roadmap/tasks.md`.
 
-The framing question was "is it worth making an estate manager to handle
-cross-repo concerns" and the answer is yes, for a reason worth stating
-precisely: **the Session 39 blocker is architectural, not incidental.**
-`dynsec.reconcile()` deleting foreign clients is *correct* for a private
-bus. What is wrong is that an application owns shared infrastructure, so
-Alfred's startup is a single point of failure for the estate's alerting
-path. Patching Alfred's protected set fixes the instance and leaves the
-category — the next app to want the bus hits the same wall and finds out
-by the alarm going quiet.
+**A pointer, not a copy** — the rule that session's own scope insists on,
+applied to itself. Two roadmaps describing one piece of work would disagree
+inside a week, and this repository has filed three snags about exactly that.
 
-Two measurements made the case rather than the argument doing it:
+What stays here, because it is about *this* service rather than about the
+estate:
 
-- **4 of the 5 files in `docs/guides/` are not about this repository.**
-  `estate-map.md` and `monitorable-project.md` describe the box;
-  `alfred-briefing-integration.md` and `alfred-projects-page.md` are
-  contracts between two *other* codebases. Only `api_auth.md` is local.
-- **The whole shared broker is app-owned.** Not just the dynsec schema —
-  mosquitto's boot-reliability drop-in is sourced from
-  `Alfred/scripts/systemd/mosquitto.service.d` with its rationale in
-  Alfred's ADR-0046. estate-map.md already recorded that sentence without
-  drawing the conclusion from it.
-
-### The work — documents move, no runtime is touched
-
-- [ ] **Create the repository**, with a `.project.yaml` on day one. An
-      undeclared project defaults to `active`, so without it the organiser
-      starts deducting staleness points and raising idle nudges about work
-      nobody has committed to. **Claim a port and design `/api/health` in
-      this first change too**, even though phase 1 ships no runtime — the
-      ADR-0002 amendment makes the estate a service, and claiming a port
-      late is how two services end up guessing at the same number. This
-      repository holds the registry that exists to prevent that
-- [ ] **Move the four cross-repo guides**, and this ADR set. `api_auth.md`
-      stays — it documents this service's bearer tokens
-- [ ] **Update `~/.claude/CLAUDE.md`'s two hardcoded paths in the same
-      commit.** It points at `sysadmin_assistant/docs/guides/
-      monitorable-project.md` and `.../estate-map.md`, and every
-      new-project session reads them. A stale pointer does not error — it
-      silently stops the contract being read, which is the failure mode
-      this whole roadmap keeps meeting
-- [ ] **Leave a pointer, not a copy**, at each moved path. A copy is two
-      documents that will disagree
-- [ ] **Write down the estate rules that are already being cited but exist
-      nowhere.** Found 2026-08-11: Alfred's ideas.md invokes *"estate rule:
-      no cross-DB queries"* by name, and there is no canonical statement of
-      it anywhere — estate-map.md's "one database per app" governs where
-      data *lives*, not who may query across it. A rule cited in one app's
-      roadmap is a rule the next app rediscovers or contradicts, with
-      neither being visible. **This is the clearest justification the
-      estate manager has**, and it needs no runtime
-- [ ] **Add a data/entity inventory, not just an infrastructure one.**
-      estate-map.md lists apps, ports, databases and units; it does not
-      list *what each app knows about*. The near-duplication of
-      `operator_profile` across Alfred and venture-assistant was caught by
-      the owner remembering at a phase sign-off — the analysis concluded
-      the two are adjacent rather than the same ("a sync must map, not
-      mirror"), so nothing was wasted, and **nothing on this box would
-      have raised it**. An entity-level inventory is what would have —
-      "who holds skills data" is answerable from a list and is not
-      answerable from ports and unit names
-- [ ] **Do not move `sysadmin/projects/`.** ADR-0001 left "who owns
-      project state" open on purpose and staged the code so the answer
-      stays cheap; this session answers the question for *infrastructure
-      and conventions* only
-
-### Phase 2, named so phase 1 does not read as complete
-
-- [ ] **Narrow Alfred's `reconcile()`** to delete only subscriber-role
-      clients with no live token, instead of everything it does not
-      recognise. **Worth doing even if nothing else here is built** — it
-      is the one predicate that makes the bus safely shareable, and it
-      unblocks Session 39's MQTT half on its own
-- [ ] **`mqtt/dynsec.yaml` + `estate-broker-provision.service`** —
-      `Type=oneshot`, `After=mosquitto.service`,
-      `Before=alfred-backend.service`, `ExecStart` being the same CLI a
-      human runs by hand so the boot path and the manual path cannot
-      diverge
-- [ ] **Widen the dynsec roles to admit a neutral root.** Both are scoped
-      to `alfred/events/#`, so `estate/…` is **denied by the broker**, not
-      merely inconsistent
-- [ ] **`LoadCredential=mqtt:/path` on `sysadmin.service`**, read from
-      `$CREDENTIALS_DIRECTORY`. Not `config.yaml` (tracked in git, and
-      `api.auth_token` is `""` because this repo has never held a secret)
-      and not an `EnvironmentFile` (CLAUDE.md: no environment variables
-      are read)
-- [ ] **Pick the MQTT client library.** `paho-mqtt` is not installed here;
-      Alfred uses `aiomqtt`. Matching Alfred is probably right and is a
-      dependency decision, not an import
-- [ ] **The broker's systemd drop-in moves too**, eventually — currently
-      Alfred's, per its ADR-0046
-
-### Phase 3 — the extractions, once the repository exists
-
-Ordered by evidence, not by size. The **estate becomes the sole launcher**
-of inference (decided 2026-08-11): a queue nothing is obliged to use is
-advisory, and four units currently start models on their own.
-
-- [ ] **The GPU guard → the shared library.** Copied line-for-line into
-      `alfred/inference/guard.py` and `app/llm/guard.py`, and **already
-      drifted**: Alfred takes the minimum of four samples over ~2 s and
-      has `pause_until_idle` (600 s cap); venture-assistant takes one
-      sample. Alfred's own docstring names the defect the copy retains —
-      *"a read taken immediately after our own call still shows our
-      work"*. Carry two rules across or they get rediscovered: **resolve
-      the device by PCI slot, never `cardN`** (`card0` is the idle iGPU
-      here — ADR-0052 F2), and **fail open** on an unreadable counter
-- [ ] **The llama-server client → the shared library.** Three
-      implementations, **439 lines** (Alfred 163, venture-assistant 155,
-      sysadmin 121), all against the same server on `:8081`. The largest
-      single extraction by volume and the one most likely to keep changing
-- [ ] **`TRUNCATION_MARKER` → the shared library.** `alfred/schemas/
-      briefings.py:50` is `"\n\n… (truncated)"`; `sysadmin/core/text.py:47`
-      is `"… (truncated)"`. Copied *deliberately* — CLAUDE.md says to match
-      Alfred's marker "so a cut made here and a cut made there read
-      identically" — and they no longer do. A convention maintained by
-      copying has a half-life
-- [ ] **The queue → the service, by generalising `drain.py`.** Not a
-      design job: venture-assistant already has `gpu_is_busy()`,
-      `wait_for_chat_server()` (300 s poll) and
-      `DEFER_SLEEP_SECONDS`/`DEFER_LIMIT` across 213 + 3×103 lines,
-      running nightly. Generalise from one app's three workloads to the
-      estate's N consumers, so the first version inherits behaviour that
-      has survived contact with a live game
-- [ ] **Reconcile the two priority policies.** 2026-08-06 chose *"queue
-      and wait, Alfred takes precedence"*; `Conflicts=` encodes **whoever
-      started last wins**. The written policy is not the implemented one,
-      and the queue has to pick
-- [ ] **Retire the per-app eviction wiring.** `ExecStopPost` restoration
-      lives in each *evictor* (`venture-chat-large`,
-      `venture-enrich-nightly`), so every new GPU consumer must know about
-      every existing one. This is the O(n²) defect the queue exists to
-      remove — it is not done until the unit files stop doing it
-- [ ] **Expose queue invariants for sysadmin to judge**: depth, oldest
-      waiting request, dropped count. sysadmin watches the queue —
-      "exactly what it's built for" — and this is the part liveness cannot
-      cover: an endpoint whose *numbers* can be wrong while the service is
-      perfectly up
-- [ ] **Not health endpoints.** Three exist and that is correct — the
-      monitorable-project contract requires each app to serve its own. Do
-      not "deduplicate" them
-
-### Decided, with the alternatives that were live
-
-1. **Extracted from `sysadmin_assistant`, not started empty beside it.**
-   A new repo holding only new concerns leaves cross-repo documentation in
-   two places, which is the drift this repository has filed three snags
-   about.
-2. **The estate owns the schema; each app ensures its own identity.**
-   Alembic owns the schema, applications write their own rows. If both
-   moved, Alfred's bus would be dead whenever the provisioner had not run
-   — a new boot-ordering failure mode in the alerting path, introduced by
-   the change meant to make that path reliable.
-3. **A boot oneshot, never a daemon.** A daemon is a new service to
-   monitor, which is the objection that killed the email option in Session
-   39 — the problem recursing. A CLI alone depends on someone remembering,
-   which is the shape of `SNAG-DB-001`. The unit calls the CLI, so there
-   is one implementation.
-4. **Documents move before authority does.** The repository earns a reason
-   to exist before it is given the power to delete credentials, and phase
-   1 is reversible because it touches no runtime.
-
-### Rejected
-
-- **A running estate service.** Fixes the category properly and
-  reintroduces the recursion: a new unit, a new port, and a watcher that
-  needs watching. Reconsider only if declarative provisioning proves
-  insufficient.
-- **Broker first, documents later.** Fastest to a working phone alert, and
-  the new repo then exists for weeks as a single YAML file while cross-repo
-  docs stay here.
-- **A path to the secret named in `config.yaml`.** Workable, and it makes
-  file permissions the entire protection. `LoadCredential=` keeps the
-  secret out of git, out of the environment and out of config at once.
-- **Relaxing the no-env-vars rule.** A convention worth removing
-  deliberately if at all — not as a side effect of one password.
-- **Moving `sysadmin/projects/`** — see above; ADR-0001 owns that question
-  and deliberately has not answered it.
+- **[ADR-0002](../adr/0002-estate-manager.md)** still lives here and is
+  still the founding record. Moving it is a task in the new repository's
+  Session 1, together with deciding what cross-repo ADR numbering looks
+  like — it currently sits in this repository's sequence.
+- **sysadmin does not move.** It stays the monitor, keeps its own broker
+  credential and publishes alerts directly, and will watch the estate
+  manager's units like any other. The monitor must not own the things it
+  monitors, and an alerting path with a live dependency on another service
+  is not an alerting path.
+- **Port 8400 is claimed** for estate-manager in
+  [monitorable-project.md](../guides/monitorable-project.md), which is
+  still the registry until Session 1 moves it.
+- **The four cross-repo guides are still here** and
+  `~/.claude/CLAUDE.md` still points at two of them. Deliberate: a global
+  pointer at a repository that has not been filled yet would silently stop
+  the monitorable-project contract being read by every new-project session.
 
 ---
 
