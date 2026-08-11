@@ -40,7 +40,37 @@ POSTs only the `sections` array:
 
 ```json
 {
+  "schema": 1,
   "source": "sysadmin-service",
+  "generated_at": "2026-08-11T11:51:26.277758+00:00",
+  "period": {
+    "from": "2026-08-11T05:00:00+00:00",
+    "to": "2026-08-11T11:51:26.277758+00:00",
+    "anchor": "schedule"
+  },
+  "summary": "18 of 23 services healthy; personal-assistant, ollama and 3 more down. 21 open alert incidents (41962 critical, 557832 warning rows). Disk at 68%, 34849 MB reclaimable. 5 active projects. 5 next actions outstanding. Note: filesystem is over a day old — the agent behind it may have stopped.",
+  "alerts": [
+    {
+      "severity": "warning",
+      "title": "High VRAM usage on AMD Radeon RX 7900 XTX",
+      "occurrences": 62,
+      "latest": "2026-08-11T11:04:34.366846+00:00"
+    }
+  ],
+  "facts": {
+    "services": {"total": 23, "healthy": 18, "failing": ["ollama"],
+                 "measured_at": "2026-08-11T11:51:04.430161+00:00"},
+    "filesystem": {"disk_used_percent": 68.3, "reclaimable_mb": 34849,
+                   "measured_at": "2026-08-06T11:05:41.786549+00:00"},
+    "projects": {"active": 5, "shown": 5, "omitted": 0, "below_threshold": 0,
+                 "threshold": 60, "lowest": {"project": "sysadmin_assistant", "score": 70},
+                 "actions_outstanding": 5, "actions_stalled": 0,
+                 "measured_at": "2026-08-11T05:10:05.788018+00:00"},
+    "alerts": {"open": 599794, "incidents": 21, "shown": 10,
+               "by_severity": {"critical": 41962, "warning": 557832, "info": 0}},
+    "reviews": {"project": "2026-08-04T21:14:24+00:00", "disk": "2026-08-06T11:10:10+00:00"},
+    "stale_sources": ["filesystem"]
+  },
   "sections": [
     {
       "title": "Infrastructure Status",
@@ -101,6 +131,45 @@ POSTs only the `sections` array:
 }
 ```
 
+## The envelope (added 2026-08-11, Session 36)
+
+`sections` and `generated_at` are **unchanged**. Everything above them in
+the payload is new, and a consumer that ignores unknown keys needs no
+change at all.
+
+| Key | What it is |
+|---|---|
+| `schema` | Envelope version. Bumped when a key changes meaning or disappears — **never** for an addition, which cannot break a consumer that ignores what it does not recognise |
+| `period` | The span reported on: `from` the previous **scheduled** briefing (`schedules.briefing_hour`, 06:00) to now. `anchor: "schedule"` is in the payload because the other reading — since the previous *pull* — is the one a consumer would otherwise assume, and it differs by however often that consumer polls |
+| `summary` | One paragraph, assembled deterministically from `facts` and nothing else. No LLM: the two weekly reviews are narrated and pay for it with a figure-free prompt and a markdown stripper, which a summary made only of numbers has nothing to gain from and a 06:00 path has plenty to lose |
+| `alerts` | Open alerts **grouped by incident**, capped at 10, newest first. `occurrences` is how many rows that incident holds |
+| `facts` | The deterministic input `summary` was written from — counts and identifiers, never rows. It exists so two briefings can be **diffed** and a summary that has drifted from its inputs is detectable |
+
+### `generated_at` cannot tell you whether this is stale — `facts` can
+
+Alfred already has a staleness rule: `_producer_timestamp` reads
+`generated_at` into `produced_at`, and `DigestSection.vue` flags a gap
+over 12 hours from digest composition. It is correctly implemented and
+**structurally incapable of firing here**, because this is a *pull*
+endpoint: the payload is stamped at the moment it is answered.
+`generated_at` says when the phone was picked up. It says nothing about
+the age of the data recited into it — a service whose organiser died
+three days ago serves a payload one second old containing three-day-old
+projects.
+
+So every block in `facts` carries its own **`measured_at`**, and
+`facts.stale_sources` names any measured more than 26 hours ago (the
+daily agents' cadence plus a margin). `summary` states it in words:
+
+> Note: filesystem is over a day old — the agent behind it may have stopped.
+
+That was true on the first live run, and independently corroborated by an
+open `file_organiser agent stalled` alert in the same payload.
+
+**A consumer wanting a real freshness check should read
+`facts.stale_sources`, or compare each `measured_at` itself. Reading
+`generated_at` alone will always say "fresh".**
+
 Rules a consumer must honour:
 
 - **Sections are omitted, not empty** — no overnight logs means no
@@ -128,6 +197,23 @@ Rules a consumer must honour:
   overstates the confidence. `note` appears only when a project has
   stalled past 30 days, and then the row is a resume-or-park **decision**,
   not a task.
+- **`next` is capped at 180 characters and every cut is marked.** The cap
+  lands on a word boundary and the row ends `… (truncated)` — the same
+  marker Alfred's own `sanitise_text` appends, so a cut made here and a
+  cut made there read identically. Until 2026-08-11 this was a bare
+  `[:180]` slice: venture-assistant's action stopped mid-sentence and
+  nothing said so, while `GET /api/projects/board` served the same field
+  at its full 293 characters. **The board still applies no cap** — if you
+  need the whole action, read it there.
+- **"Project Health" is `status: active` only, worst score first, capped
+  at five.** It published every project ever scanned until 2026-08-11 —
+  26 rows, including work retired in July and four near-duplicate casings
+  of the same repository — while "Pick This Up" in the same payload
+  listed 5 and the board returned 6. The two project sections now draw
+  from one query and one filter, so they cannot disagree. Ascending order
+  matters: sorted by score *descending*, a cap shows exactly the rows
+  carrying no information. `facts.projects.omitted` says how many were
+  cut.
 - **`generated_at` depends on the path.** The pull route returns it; the
   push path sends `sections` only, so a push consumer must timestamp on
   receipt. Do not assume its absence.
@@ -207,18 +293,25 @@ board must not be written into Alfred's own `trackables.projects` table.
 
 ## Coming, and what it means for a consumer
 
-Planned as Sessions 29–32 (see [tasks.md](../roadmap/tasks.md)); nothing
-here is built yet, but the direction is fixed and worth designing around:
+Planned as Sessions 29–32 (see [tasks.md](../roadmap/tasks.md)). **Three
+of the four shipped on 2026-08-10/11** and the fourth was declined by its
+consumer:
 
-- **`GET /api/projects/next`** — *one* project and one action, with a
-  `reason` field, rather than the board's list. This is the endpoint
-  alfred-glance should eventually render, since glance-then-act wants one
-  thing, not six. Expect it to supersede "Pick This Up" as the primary
-  momentum surface; the briefing section will stay for the daily digest.
-- **Alfred creating `work_item`s** from that endpoint — the write happens
-  in Alfred, pulling, so this service stays read-only. No inbox, again.
-- **Idle nudges** will ride the existing notification path
-  (`Notifier.send_notification`), not a new one.
+- **`GET /api/projects/next`** — ships. *One* project and one action with
+  a `reason` field, rather than the board's list, ranked by how long the
+  stated next action has stood unchanged. This is the endpoint
+  alfred-glance should render, since glance-then-act wants one thing, not
+  six. It returns 200 with `project: null` when nothing qualifies —
+  never 404. "Pick This Up" stays for the daily digest.
+- **`GET /api/projects/momentum`** — ships. How often a session starts in
+  a repository and nothing ships. **No consumer yet**; ask before
+  assuming one wants it.
+- **Idle nudges** — ship, and have **no endpoint by design**: a nudge is
+  an `alerts` row (`Project <name> next action idle`), so it reaches the
+  tray, DND and `GET /api/sysadmin/alerts` through existing plumbing.
+- **Alfred creating `work_item`s** from `/next` — **declined** by its
+  consumer in Alfred's ADR-0064, behind two countable triggers, neither
+  of which fires. Not planned.
 
 The stable contract across all of it: **sections and fields are added,
 never renumbered or assumed complete.** Build consumers that render what

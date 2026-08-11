@@ -1,10 +1,14 @@
-"""Text normalisation shared by the LLM-narrated reviews.
+"""Text normalisation shared across domains.
 
 Lives in ``core`` because both :mod:`sysadmin.files.review` and
 :mod:`sysadmin.projects.review` need it and neither may import the other.
 Nothing here knows anything about disks or projects — it is string
 handling, and the reason it is shared is that the model misbehaves the
 same way whatever it is being asked about.
+
+:func:`truncate_at_word` joined them for the same reason from the other
+direction: the briefing cuts a next action, the reviews cut a narrative,
+and a cut that is invisible is worse than a long line either way.
 """
 
 import re
@@ -36,3 +40,48 @@ def strip_markdown(text: str) -> str:
             stripped = re.sub(r"^\d+[.)]\s+", "", stripped)
         cleaned.append(stripped.replace("**", ""))
     return "\n".join(cleaned).strip()
+
+
+#: Matches the marker Alfred's own ``sanitise_text`` appends (ADR-0063 §2),
+#: so a cut made here and a cut made there read identically on the page.
+TRUNCATION_MARKER = "… (truncated)"
+
+#: Below this fraction of the limit, backing up to a word boundary throws
+#: away more than it saves — a 180-character limit that surrendered at
+#: character 40 because the text held one very long token would report far
+#: less than it could have.  A hard cut mid-word is then the honest cut,
+#: and the marker still says so.
+_MIN_WORD_BOUNDARY_RATIO = 0.5
+
+
+def truncate_at_word(text: str, limit: int) -> str:
+    """Cut ``text`` to roughly ``limit`` characters, visibly.
+
+    Two rules, both learned from ``SNAG-BRIEF-002`` — the briefing served
+    ``action[:180]`` as a bare slice, so venture-assistant's next action
+    stopped mid-sentence and *nothing said so*.  A truncated instruction
+    that looks complete is worse than a long one, and no consumer can
+    detect it: 180 characters of prose is indistinguishable from prose
+    that happened to be 180 characters.
+
+    1. **Back up to a word boundary**, so the cut lands between words
+       rather than inside one.
+    2. **Always mark it.** The marker is appended even when the boundary
+       search fails, because the mark is the part that carries the
+       information.
+
+    The result can exceed ``limit`` by the marker's own length.  That is
+    deliberate: a cap that had to swallow the marker to stay under itself
+    would be a cap on the wrong thing.
+    """
+    if len(text) <= limit:
+        return text
+
+    cut = text[:limit].rstrip()
+    boundary = cut.rfind(" ")
+    if boundary >= limit * _MIN_WORD_BOUNDARY_RATIO:
+        cut = cut[:boundary]
+    # Trailing punctuation left dangling by the cut reads as a typo rather
+    # than as a sentence that continues.
+    cut = cut.rstrip().rstrip(",;:-—([{\"'")
+    return f"{cut.rstrip()} {TRUNCATION_MARKER}"

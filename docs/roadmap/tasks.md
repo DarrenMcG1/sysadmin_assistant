@@ -897,29 +897,93 @@ Also rejected: **pre-commit hooks for document standards**. Most of the estate
 is dormant, so blocking commits in repos nobody is working is pure friction,
 and installing hooks across forty repos is its own maintenance problem.
 
-### Session 36: The briefing publisher
+### Session 36: The briefing publisher ✅ (2026-08-11)
 
-Less work than expected — `_build_project_section`,
-`_build_next_actions_section` and `_build_review_section` already exist, and
-Alfred already pulls `GET /api/sysadmin/briefing/preview`.
+Less work than expected, twice over. Half of it had already landed as Session
+35 Phase 5 on 2026-08-08, and the two remaining builds were smaller than the
+snag fixes they sat on top of.
 
-- [ ] Emit `estate.json` from the library's survey. This is the survey function
-      serialised, not a separate feature
-- [ ] **Separate `last_commit` from `last_code_commit`**, with a configurable
+- [x] Emit `estate.json` from the library's survey. This is the survey function
+      serialised, not a separate feature — **done 2026-08-08 (Session 35 Phase
+      5)**, `sysadmin/projects/estate.py`, `SCHEMA_VERSION = 1`
+- [x] **Separate `last_commit` from `last_code_commit`**, with a configurable
       ignore rule (SHA list or commit-message pattern) seeded with the
       2026-08-04/05 "WIP snapshot before ~/projects reorganisation" commits.
       Every staleness figure downstream computes from `last_code_commit`.
-      Supersedes the Session 28 follow-up describing the same weakness
-- [ ] Adopt the briefing envelope — `schema`, `source`, `generated`, `period`,
+      Supersedes the Session 28 follow-up describing the same weakness —
+      **done 2026-08-08**; it needed **two** patterns, not one, because the
+      roadmap-document fan-out of 2026-08-06 is newer than the reorganisation
+      snapshot and shadowed it
+- [x] Adopt the briefing envelope — `schema`, `source`, `generated`, `period`,
       `summary`, `alerts[]`, `facts{}`. Prose is what Alfred surfaces; `facts`
       is the deterministic input the prose was written from, **so briefings can
       be diffed and a drifting summary is detectable**
-- [ ] Generate the prose from the `facts` block rather than from raw code output
-- [ ] Write `estate.json` and any briefing artefact **atomically** — temporary
-      path, then rename
-- [ ] Confirm Alfred enforces staleness on `generated`. A publisher that has
+- [x] Generate the prose from the `facts` block rather than from raw code output
+- [x] Write `estate.json` and any briefing artefact **atomically** — temporary
+      path, then rename — **done 2026-08-08**, `tempfile` + `os.replace`
+- [x] Confirm Alfred enforces staleness on `generated`. A publisher that has
       not run in three days still reads as current, which is worse than no
-      briefing at all
+      briefing at all — **it does, and the check cannot fire.** See below
+
+**The envelope is additive, and that was the whole delivery decision.**
+Alfred's `adapt_sysadmin` reads `payload["sections"]` and returns one red
+error section if it is absent, and reads `generated_at` into `produced_at`.
+The spec named `generated` and no `sections`, so shipping it literally would
+have turned Alfred's Infrastructure group red every morning. Additive is not
+a compromise: the spec's own sentence — "prose is what Alfred surfaces,
+`facts` is the deterministic input the prose was written from" — resolves it,
+because **`sections` are the prose**. Alfred owns the section contract by its
+ADR-0063; this service owns the envelope round it. Rejected: an
+envelope-native second endpoint (two payloads where one gets updated is the
+drift this repository keeps filing snags about) and a coordinated breaking
+change (two repos in one sitting, digest red in between). No `generated` key
+was added beside `generated_at` — two stamps holding one value is a fork
+waiting to happen.
+
+**Checkbox 6's answer is worse than the checkbox feared, and it is what
+`facts` is for.** Alfred *does* enforce staleness: `_producer_timestamp`
+carries `generated_at` into `produced_at` and `DigestSection.vue` flags a
+12-hour gap. It is correctly implemented and **structurally incapable of
+firing**, because this is a *pull* endpoint — `generated_at` is stamped when
+the request is answered. It says when the phone was picked up, not how old
+the data recited into it is. A service whose organiser died three days ago
+serves a payload one second old. So every `facts` block carries its own
+`measured_at`, `facts.stale_sources` names anything over 26 hours, and
+`summary` says it in words. **First live run caught one**: `filesystem` last
+measured 2026-08-06, corroborated by an open `file_organiser agent stalled`
+alert in the same payload — two independent routes to the same fact, which
+is the argument for the field.
+
+**`period` is anchored to the schedule, not the last pull.** "Since the
+previous briefing" has no anchor on a pulled endpoint: two consumers polling
+would each shorten the other's window, and storing a row per pull turns the
+route into a pull log and needs a migration. `schedules.briefing_hour`
+already declares the cadence, so the window is the most recent 06:00
+boundary — one meaning for every caller, no storage. `anchor: "schedule"` is
+in the payload because the other reading is the one a consumer would
+otherwise assume.
+
+**`summary` is deterministic, and `facts` is a projection rather than a
+copy.** No LLM in the 06:00 path: the two weekly reviews are narrated and
+pay for it with a figure-free prompt, a deterministic facts prepend and a
+markdown stripper, all of which a summary made only of numbers has nothing
+to gain from — while a down llama-server would take the briefing with it.
+`facts` carries counts and identifiers and never the rows the sections
+render, because a facts block containing the whole payload cannot be diffed,
+which is the only reason it exists. A test asserts every list in it holds
+scalars.
+
+Two defects fixed underneath, both in the functions the envelope wraps —
+`SNAG-BRIEF-001` (26 project rows → 5, one query and one filter for both
+sections) and `SNAG-BRIEF-002` (a bare `[:180]` slice → word boundary plus
+`… (truncated)`, matching Alfred's own marker). The snag list's own note
+made the ordering non-negotiable: *"building a briefing envelope on top of
+wrong data only makes the wrong data better formatted."*
+
+Also removed: the project snapshots were being **fetched twice** per
+briefing, once per project section, differing only by an `ORDER BY` Python
+does for free. Two reads of one table in one payload is two chances to
+disagree.
 
 ### Deferred (34–36)
 

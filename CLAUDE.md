@@ -596,6 +596,46 @@ whole table is one entity"), because a purge that emptied `project_reviews`
 would make `GET /api/projects/review` 404 — which reads as "never generated"
 rather than "none lately".
 
+**The briefing envelope is additive, and `sections` is the part Alfred
+owns.** `GET /api/sysadmin/briefing/preview` carries `schema`, `period`,
+`summary`, `alerts[]` and `facts{}` *alongside* `sections` and
+`generated_at` — never replacing them, because Alfred's `adapt_sysadmin`
+reads both and returns one red error section if `sections` is missing.
+Alfred owns the section contract by its ADR-0063 and normalises every
+producer into it; this service owns the envelope round it. There is no
+`generated` key beside `generated_at`: two stamps holding one value is a
+fork waiting to happen.
+
+Four rules `sysadmin/briefing/data.py` encodes:
+
+1. **`generated_at` cannot express staleness on a pulled endpoint.**
+   Alfred's check is real (`_producer_timestamp` → `produced_at`, flagged
+   at a 12-hour gap) and cannot fire, because the payload is stamped when
+   the request is answered — an organiser dead three days still yields a
+   payload one second old. Every `facts` block carries `measured_at`,
+   `facts.stale_sources` names anything over 26 hours, and `summary` says
+   it in words. It caught `filesystem` at five days on its first live run.
+2. **`period` is anchored to `schedules.briefing_hour`, not to the last
+   pull.** Two consumers polling would each shorten the other's window,
+   and storing a row per pull makes this route a pull log. `anchor` is in
+   the payload because the wrong reading is the one a consumer assumes.
+3. **`facts` is a projection, not a copy** — counts and identifiers,
+   never the rows the sections render. A facts block containing the whole
+   payload cannot be diffed, which is the only reason it exists. A test
+   asserts every list in it holds scalars.
+4. **`summary` is deterministic.** The two weekly reviews are LLM-narrated
+   and pay for it with a figure-free prompt and a markdown stripper; a
+   summary made only of numbers gains nothing from that and would take the
+   06:00 path down with llama-server.
+
+Both project sections read **one** snapshot query and one
+`status == "active"` filter (SNAG-BRIEF-001: they used to disagree inside
+one payload — 26 rows against 5). Health rows sort **ascending**, because
+descending plus a cap shows only the projects sitting on 100. `next` is
+capped at `NEXT_ACTION_CHARS` through `truncate_at_word`, which always
+marks the cut (SNAG-BRIEF-002); `GET /api/projects/board` deliberately
+serves the same field uncapped.
+
 Adding a **new agent** touches four places, not one: the Python wiring in
 `main.py`, a config class in `config.py`, the `chk_alert_agent` CHECK
 constraint on `sysadmin.alerts` (a migration — the database rejects an
