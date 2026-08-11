@@ -2,7 +2,45 @@
 
 ## Next action
 
-Restart `sysadmin.service` with `sudo systemctl restart sysadmin.service`, because the running process predates Session 37 and every stored snapshot carries neither `handoff_path` nor `handoff_duplicates`, so three sessions of project-side work stay invisible on the live box until it happens.
+Take Session 31, idle nudges, which is the one item in the projects arc that today's ADR-0064 finding leaves untouched because it is a sysadmin-side notification over severity thresholds, DND windows and the tray that all already exist, and which needs nothing from Alfred.
+
+## Done at the end of this session: the restart, and what it was actually owed for
+
+`sysadmin.service` was restarted at 05:44 and is healthy. Session 37's
+`build_narrative_history` is live — `GET /api/projects/ImbaBots` now
+returns history points carrying `next_action` and `next_action_changed`.
+
+**Half of the next action this session inherited was already false when it
+was written, and the unit file says why.** It asserted that stored
+snapshots lacked `handoff_path` and `handoff_duplicates` *because* the
+running daemon predated Session 37. Those are independent facts:
+
+- `sysadmin.service` is long-running uvicorn. Python binds imports at
+  start, so the editable install still serves whatever code existed when
+  the process began — this genuinely needed the restart.
+- `sysadmin-organiser.service` is `Type=oneshot` off a daily timer, from
+  the same editable venv, so it picks up new code on its **next run**. It
+  ran at 04:33 today and wrote both keys for every project — about an hour
+  before the restart, and without needing one.
+
+`sysadmin-organiser.service` carries the comment "Needs the database, not
+the monitoring daemon... the two are independent by design", which is
+exactly the fact the next action welded into a single causal claim. The
+snapshot half resolved itself overnight; only the API half was ever
+waiting on a human with `sudo`.
+
+**A wrong probe nearly hid this.** The first check was
+`findings ? 'handoff_path'`, which is false for every row because the keys
+nest under `findings->'roadmap'`. Session 38's handoff reports the same
+absence and may rest on the same mistake — its claim was true of the
+snapshot it named, which predated the code, so the conclusion held and the
+evidence may not have. **Probe the nested path**:
+`findings->'roadmap' ? 'handoff_path'`.
+
+Also committed: `docs/guides/monitorable-project.md`, venture-assistant's
+own claim on port 3300, verified against `dashboard/package.json`
+(`nuxt dev --port 3300`) before landing. Nothing listens on it yet, which
+matches the row's "dev server for now; unit to follow".
 
 ## This session (Session 39): Session 30 was closed unbuilt, by its consumer
 
@@ -91,9 +129,8 @@ route can no longer observe wall-clock time at all.
 
 ## Blocked / waiting on
 
-- **The daemon restart is the next action and needs `sudo`.** Owed since
-  2026-07-24. Session 38 measured the cost; this session added a third
-  session's worth of invisible work to it.
+- **The daemon restart is done** (05:44 today, owed since 2026-07-24) —
+  see the section above for what it was and was not owed for.
 - **Session 30 is closed until a trigger fires**, and nothing runs those
   triggers automatically. ADR-0064 §Consequences admits this: they are
   recorded on Alfred's monthly retro row (E-T4) as a named re-check, "no
@@ -111,13 +148,8 @@ route can no longer observe wall-clock time at all.
 
 ## State
 
-Branch `main`, two commits pushed to nothing (no remote configured for
-this work): `99fe1b6` the test clock fix, `8dc8759` Session 38. Suite
-**1701 passed**, ruff and mypy clean, 56 routes unchanged. Uncommitted at
-the time of writing: `docs/roadmap/tasks.md`, `docs/roadmap/STATUS.md`,
-`docs/guides/alfred-projects-page.md` and this file — all documentation,
-all this session's. `docs/guides/monitorable-project.md` still carries the
-edit from before Session 38 that claims port 3300 for venture-assistant's
-frontend and moves the free marker to 3400; it is a coherent complete
-change, it belongs to whoever made it, and it has now survived two
-sessions untouched — commit it or drop it.
+Branch `main`, four commits: `99fe1b6` the test clock fix, `8dc8759`
+Session 38, `6774eaf` the Session 30 decline, `d50004d` the port-3300
+claim. Suite **1701 passed**, ruff and mypy clean, 56 routes unchanged.
+`sysadmin.service` restarted 05:44 and healthy; `sysadmin-organiser.timer`
+next fires 04:30 tomorrow. Working tree clean apart from this file.
