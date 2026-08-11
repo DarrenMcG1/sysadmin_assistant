@@ -129,6 +129,178 @@ class TestRoadmapRecommendations:
         assert recommendations_for(snap, ProjectOrganiserConfig()) == []
 
 
+def duplicate(path, days_older=7, date_source="heading", date="2026-08-03"):
+    return {
+        "path": path,
+        "date": date,
+        "date_source": date_source,
+        "days_older": days_older,
+    }
+
+
+class TestDuplicateHandoffAdvice:
+    """``handoff_duplicates`` reaching a surface that reports it.
+
+    ``_read_handoff`` has picked a winner and reported the losers since
+    Session 37, and until now the losers were reported to nobody — the
+    field was recorded and read by nothing.  The harm being surfaced is
+    not disk space: it is that somebody is writing session notes into a
+    document no consumer reads, and cannot tell.
+    """
+
+    def test_two_handoffs_raise_one_zero_point_roadmap_item(self):
+        snap = make_snapshot(
+            roadmap=roadmap(
+                handoff_path="HANDOFF.md",
+                handoff_duplicates=[duplicate("docs/handoff.md")],
+            )
+        )
+        recs = recommendations_for(snap, ProjectOrganiserConfig())
+
+        (rec,) = [r for r in recs if "unread" in r.title]
+        assert rec.kind == "roadmap"
+        assert rec.severity == "advice"
+        assert rec.points == 0
+        assert rec.title == "Two handoffs — one is unread"
+
+    def test_detail_names_the_winner_and_the_loser(self):
+        """``handoff_path`` is consumed here and nowhere else.
+
+        A recommendation that says "you have two handoffs" without
+        saying which one the estate board is actually reading leaves the
+        reader to guess which document their next action came from.
+        """
+        snap = make_snapshot(
+            roadmap=roadmap(
+                handoff_path="HANDOFF.md",
+                handoff_duplicates=[duplicate("docs/sessions/handoff.md")],
+            )
+        )
+        (rec,) = [
+            r
+            for r in recommendations_for(snap, ProjectOrganiserConfig())
+            if "unread" in r.title
+        ]
+        assert "Reading HANDOFF.md" in rec.detail
+        assert "docs/sessions/handoff.md (7 days older)" in rec.detail
+
+    def test_a_dated_gap_licenses_deletion(self):
+        snap = make_snapshot(
+            roadmap=roadmap(
+                handoff_path="HANDOFF.md",
+                handoff_duplicates=[duplicate("docs/handoff.md", days_older=12)],
+            )
+        )
+        (rec,) = [
+            r
+            for r in recommendations_for(snap, ProjectOrganiserConfig())
+            if "unread" in r.title
+        ]
+        assert rec.action.startswith("Fold anything still true into HANDOFF.md")
+        assert "delete docs/handoff.md" in rec.action
+
+    def test_a_same_day_loser_is_never_told_to_delete(self):
+        """Zero days apart means path order decided, not recency.
+
+        The winner is whichever sits earlier in ``HANDOFF_PATHS``, which
+        says nothing about which document holds the real record — this
+        is precisely the shape SNAG-ROADMAP-003 was.  Advice to delete
+        here would destroy the record to tidy up the stub.
+        """
+        snap = make_snapshot(
+            roadmap=roadmap(
+                handoff_path="HANDOFF.md",
+                handoff_duplicates=[duplicate("docs/handoff.md", days_older=0)],
+            )
+        )
+        (rec,) = [
+            r
+            for r in recommendations_for(snap, ProjectOrganiserConfig())
+            if "unread" in r.title
+        ]
+        assert rec.action.startswith("Confirm which is current")
+        assert "same date — it lost on path order" in rec.detail
+
+    def test_an_mtime_dated_gap_says_the_claim_is_weaker(self):
+        snap = make_snapshot(
+            roadmap=roadmap(
+                handoff_path="HANDOFF.md",
+                handoff_duplicates=[
+                    duplicate("docs/handoff.md", date_source="mtime")
+                ],
+            )
+        )
+        (rec,) = [
+            r
+            for r in recommendations_for(snap, ProjectOrganiserConfig())
+            if "unread" in r.title
+        ]
+        assert "7 days older by file date" in rec.detail
+        assert "clone or checkout rewrites those" in rec.detail
+
+    def test_a_bare_path_from_an_older_snapshot_is_tolerated(self):
+        """The field held plain strings before it was widened.
+
+        Ninety days of retention outlive a shape change, so an undatable
+        entry must still render — and must take the cautious branch,
+        because nothing here can say which document is the real one.
+        """
+        snap = make_snapshot(
+            roadmap=roadmap(
+                handoff_path="HANDOFF.md",
+                handoff_duplicates=["docs/handoff.md"],
+            )
+        )
+        (rec,) = [
+            r
+            for r in recommendations_for(snap, ProjectOrganiserConfig())
+            if "unread" in r.title
+        ]
+        assert "docs/handoff.md" in rec.detail
+        assert rec.action.startswith("Confirm which is current")
+
+    def test_three_handoffs_count_the_unread_ones(self):
+        snap = make_snapshot(
+            roadmap=roadmap(
+                handoff_path="HANDOFF.md",
+                handoff_duplicates=[
+                    duplicate("docs/handoff.md"),
+                    duplicate("docs/sessions/handoff.md", days_older=1),
+                ],
+            )
+        )
+        (rec,) = [
+            r
+            for r in recommendations_for(snap, ProjectOrganiserConfig())
+            if "unread" in r.title
+        ]
+        assert rec.title == "3 handoffs — 2 are unread"
+        assert "1 day older" in rec.detail
+
+    def test_one_handoff_raises_nothing(self):
+        snap = make_snapshot(
+            roadmap=roadmap(handoff_path="HANDOFF.md", handoff_duplicates=[])
+        )
+        assert not any(
+            "unread" in r.title
+            for r in recommendations_for(snap, ProjectOrganiserConfig())
+        )
+
+    def test_dormant_project_is_not_nagged_about_duplicates(self):
+        """Nobody is misled by an unread handoff in a repo nobody opens."""
+        snap = make_snapshot(
+            status="dormant",
+            roadmap=roadmap(
+                handoff_path="HANDOFF.md",
+                handoff_duplicates=[duplicate("docs/handoff.md")],
+            ),
+        )
+        assert not any(
+            r.kind == "roadmap"
+            for r in recommendations_for(snap, ProjectOrganiserConfig())
+        )
+
+
 @pytest.mark.anyio
 class TestBoardEndpoint:
     async def test_returns_next_action_and_source(self, test_client, mock_session):

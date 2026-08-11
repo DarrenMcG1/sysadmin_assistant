@@ -205,7 +205,9 @@ def _roadmap_recommendations(
     Everything is waived for non-active projects.  Nagging a deliberately
     dormant repo to write a session handoff is busywork dressed as
     progress, and generating it for fourteen parked scratch projects is
-    how a useful signal becomes noise.
+    how a useful signal becomes noise.  The duplicate-handoff item is
+    waived on the same terms: nobody is being misled by an unread handoff
+    in a repo nobody is working in.
     """
     roadmap = findings.get("roadmap")
     if not isinstance(roadmap, dict) or status != "active":
@@ -244,6 +246,10 @@ def _roadmap_recommendations(
             action="Write HANDOFF.md at the repo root at the end of a session",
         ))
 
+    duplicates = roadmap.get("handoff_duplicates") or []
+    if duplicates:
+        out.append(_duplicate_handoff(roadmap.get("handoff_path"), duplicates))
+
     open_snags = roadmap.get("open_snags") or 0
     if open_snags:
         out.append(RecommendationInfo(
@@ -255,6 +261,93 @@ def _roadmap_recommendations(
         ))
 
     return out
+
+
+def _duplicate_handoff(chosen: str | None, raw: list) -> RecommendationInfo:
+    """Two handoffs in one repo — a migration someone stopped halfway.
+
+    The harm is not the wasted file, it is that **somebody is writing
+    into a document nothing reads**.  ``_read_handoff`` picks the newest
+    and reports the rest; until now it reported them to nobody, so the
+    author of the losing document had no way to find out they had lost.
+
+    The advice branches on whether the gap is *known and non-zero*.  A
+    loser days behind the winner is a leftover and can be folded in and
+    deleted.  One sharing the winner's date lost on tuple order alone —
+    and a snapshot written before this field was widened carries a bare
+    path with no date at all — so both get the cautious wording.  Telling
+    someone to delete a handoff this module cannot date is how the real
+    record gets thrown away to tidy up a stub.
+    """
+    entries = [_duplicate_entry(d) for d in raw]
+    others = len(entries)
+    reading = chosen or "the newest handoff"
+    paths = ", ".join(e["path"] for e in entries)
+    # None (legacy shape, no date recorded) and 0 (same day, decided by
+    # path preference) are both "this module cannot say which is real".
+    uncertain = any(e["days_older"] in (None, 0) for e in entries)
+
+    detail = (
+        f"Reading {reading}; passed over "
+        + ", ".join(_describe_duplicate(e) for e in entries)
+        + ". Whoever wrote the one that lost cannot see that it lost."
+    )
+    if any(e["date_source"] == "mtime" for e in entries):
+        detail += (
+            " Ages marked \"by file date\" come from mtime rather than the "
+            "document's own heading — a clone or checkout rewrites those, "
+            "so treat them as the weaker claim."
+        )
+
+    if uncertain:
+        action = (
+            f"Confirm which is current before deleting either — fold the "
+            f"rest into {reading} ({paths})"
+        )
+    else:
+        action = (
+            f"Fold anything still true into {reading}, then delete {paths}"
+        )
+
+    return RecommendationInfo(
+        kind="roadmap",
+        title=(
+            "Two handoffs — one is unread"
+            if others == 1
+            else f"{others + 1} handoffs — {others} are unread"
+        ),
+        detail=detail,
+        points=0,
+        action=action,
+    )
+
+
+def _duplicate_entry(raw: object) -> dict:
+    """Normalise one also-ran to ``{path, days_older, date_source}``.
+
+    Accepts the bare string the field held before it was widened, for the
+    same reason ``stale_branches`` does: ninety days of stored snapshots
+    predate the change, and a hand-written findings dict is a legitimate
+    way to exercise this code.
+    """
+    if isinstance(raw, dict):
+        days = raw.get("days_older")
+        return {
+            "path": str(raw.get("path") or "an unnamed handoff"),
+            "days_older": days if isinstance(days, int) else None,
+            "date_source": raw.get("date_source"),
+        }
+    return {"path": str(raw), "days_older": None, "date_source": None}
+
+
+def _describe_duplicate(entry: dict) -> str:
+    days = entry["days_older"]
+    if days is None:
+        return entry["path"]
+    if days == 0:
+        return f"{entry['path']} (same date — it lost on path order)"
+    by = " by file date" if entry["date_source"] == "mtime" else ""
+    return f"{entry['path']} ({days} day{'s' if days != 1 else ''} older{by})"
 
 
 def potential_score(snapshot: ProjectSnapshot, recs: list[RecommendationInfo]) -> int:

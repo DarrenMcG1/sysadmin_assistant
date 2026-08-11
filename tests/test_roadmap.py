@@ -257,7 +257,14 @@ class TestHandoffSelection:
         info = scan_roadmap(project)
         assert info["handoff_path"] == "docs/handoff.md"
         assert info["next_action"] == "The real record."
-        assert info["handoff_duplicates"] == ["docs/sessions/handoff.md"]
+        assert info["handoff_duplicates"] == [
+            {
+                "path": "docs/sessions/handoff.md",
+                "date": "2026-01-01",
+                "date_source": "heading",
+                "days_older": 218,
+            }
+        ]
 
     def test_undated_heading_is_dated_by_mtime_and_can_still_win(self, project):
         """The live ImbaBots case, which the first fix got wrong.
@@ -301,10 +308,49 @@ class TestHandoffSelection:
             os.utime(project / rel, (1_000_000, 1_000_000))
         info = scan_roadmap(project)
         assert info["handoff_path"] == "HANDOFF.md"
-        assert set(info["handoff_duplicates"]) == {
+        assert {d["path"] for d in info["handoff_duplicates"]} == {
             "docs/sessions/handoff.md",
             "docs/handoff.md",
         }
+        # All three share a date, so every gap is zero — which is what
+        # tells a consumer the winner was chosen by path preference and
+        # not by being newer.  Advice that says "delete the older ones"
+        # off this finding would be deleting on no evidence.
+        assert [d["days_older"] for d in info["handoff_duplicates"]] == [0, 0]
+
+    def test_duplicate_dated_by_mtime_says_so(self, project):
+        """An undated loser is still dated — but by the weaker clock.
+
+        ``handoff_date`` falls back to mtime so selection stays uniform
+        (the ImbaBots case above).  The finding records *which* clock
+        answered, because a clone rewrites every mtime on disk and the
+        resulting age is not something advice should assert flatly.
+        """
+        (project / "HANDOFF.md").write_text("# Handoff — 2026-08-10\n")
+        stale = project / "docs/handoff.md"
+        stale.write_text("# Handoff — M5 (Tier 2)\n")
+        when = datetime(2026, 8, 3, 12, tzinfo=UTC).timestamp()
+        os.utime(stale, (when, when))
+
+        (dup,) = scan_roadmap(project)["handoff_duplicates"]
+        assert dup["path"] == "docs/handoff.md"
+        assert dup["date"] == "2026-08-03"
+        assert dup["date_source"] == "mtime"
+        assert dup["days_older"] == 7
+
+    def test_days_older_measures_the_gap_to_the_winner_not_to_today(self, project):
+        """``handoff_age_days`` already answers "how current is the record".
+
+        This field answers a different question — how far behind the
+        chosen document the also-ran is — so it must not move when the
+        clock does.
+        """
+        (project / "HANDOFF.md").write_text("# Handoff — 2026-06-10\n")
+        (project / "docs/handoff.md").write_text("# Handoff — 2026-06-01\n")
+
+        info = scan_roadmap(project, now=datetime(2027, 1, 1, tzinfo=UTC))
+        assert info["handoff_age_days"] == 205
+        assert info["handoff_duplicates"][0]["days_older"] == 9
 
     def test_no_handoff_reports_no_path_and_no_duplicates(self, project):
         info = scan_roadmap(project)

@@ -88,7 +88,9 @@ def _read(project_path: Path, candidates: tuple[str, ...]) -> tuple[str | None, 
     return None, ""
 
 
-def _read_handoff(project_path: Path) -> tuple[str | None, str, list[str]]:
+def _read_handoff(
+    project_path: Path,
+) -> tuple[str | None, str, list[dict[str, Any]]]:
     """The most recently *authored* handoff, plus the also-rans it beat.
 
     Selection is by ``handoff_date`` — the date in the document's own first
@@ -113,8 +115,24 @@ def _read_handoff(project_path: Path) -> tuple[str | None, str, list[str]]:
     handoffs is a housekeeping finding worth surfacing; silently picking
     one is how the estate ended up with four conventions and nobody
     noticing.
+
+    Each loser is returned as ``{path, date, date_source, days_older}``
+    rather than a bare path, because the two cases a reader must tell
+    apart look identical as paths.  A loser twelve days older than the
+    winner is a stub left behind by a migration and can be deleted; one
+    sharing the winner's date lost on tuple order alone, and deleting it
+    unread could destroy the real record.  ``days_older`` is the gap to
+    the *chosen* handoff, not to today — ``handoff_age_days`` already
+    answers "how current is the record".
+
+    ``date_source`` says which clock produced that gap.  ``heading``
+    means the document dated itself; ``mtime`` means it did not and the
+    filesystem was asked instead, which is weaker evidence for exactly
+    the reason ``handoff_date`` records — a clone or a checkout rewrites
+    every mtime on disk.  Selection still uses the fallback uniformly;
+    this only stops the *advice* from asserting more than it knows.
     """
-    found: list[tuple[tuple[date, float, int], str, str]] = []
+    found: list[tuple[tuple[date, float, int], str, str, date, str]] = []
     for idx, rel in enumerate(HANDOFF_PATHS):
         f = project_path / rel
         try:
@@ -125,16 +143,34 @@ def _read_handoff(project_path: Path) -> tuple[str | None, str, list[str]]:
         except OSError:
             continue
         mtime_date = datetime.fromtimestamp(mtime, tz=UTC).date()
-        written = handoff_date(text, fallback=mtime_date) or date.min
+        authored = handoff_date(text)
+        written = authored or mtime_date
         # -idx so that a lower index wins a tie under a descending sort.
-        found.append(((written, mtime, -idx), rel, text))
+        found.append((
+            (written, mtime, -idx),
+            rel,
+            text,
+            written,
+            "heading" if authored else "mtime",
+        ))
 
     if not found:
         return None, "", []
 
     found.sort(key=lambda item: item[0], reverse=True)
-    _, best_rel, best_text = found[0]
-    return best_text, best_rel, [rel for _, rel, _ in found[1:]]
+    _, best_rel, best_text, best_date, _ = found[0]
+    duplicates = [
+        {
+            "path": rel,
+            "date": written.isoformat(),
+            "date_source": source,
+            # Never negative: the primary sort key is this date, so a
+            # loser is at most as new as the winner.
+            "days_older": max(0, (best_date - written).days),
+        }
+        for _, rel, _, written, source in found[1:]
+    ]
+    return best_text, best_rel, duplicates
 
 
 def _sections(text: str) -> list[tuple[str, list[str]]]:
@@ -381,7 +417,9 @@ def scan_roadmap(project_path: Path, now: datetime | None = None) -> dict[str, A
         # Which of the four shapes was read, and which were passed over.
         # Reported rather than merely resolved: two handoffs in one repo is
         # a migration left half-done, and it is invisible to whoever wrote
-        # the one that lost.
+        # the one that lost.  Each entry is
+        # {path, date, date_source, days_older} — see _read_handoff for why
+        # a bare path is not enough to advise on.
         "handoff_path": handoff_rel or None,
         "handoff_duplicates": handoff_others,
         # None means "not measurable" (no task list, or one that does not

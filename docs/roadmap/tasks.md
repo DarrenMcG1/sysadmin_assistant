@@ -833,11 +833,22 @@ path the hook never touched.
 
 ### Follow-ups this session opened
 
-- [ ] Estate migration: `Alfred`, `ImbaBots`, `alfred-glance` and this repo
-      still carry a generated `docs/sessions/handoff.md` beside (or instead
-      of) a real one, and `SportsAnalyser`'s is 156 days old. The reader
-      handles duplicates, so this is housekeeping, not a blocker — but
-      `handoff_duplicates` should reach a surface that reports it
+- [x] Estate migration **done** (commit `0d56081`, 2026-08-10). Seven
+      repos hold a handoff and every one holds exactly one: root
+      `HANDOFF.md` in `Alfred`, `ImbaBots`, this repo,
+      `apps/venture-assistant` and `apps/SportsAnalyser`, plus
+      `docs/sessions/handoff.md` in the two archived `PersonalAssistant`
+      repos. Re-checked at the top of Session 38 before building the
+      reporter, which is what turned that work from a report on a live
+      mess into a regression detector.
+      **The first re-check was wrong** — it globbed `~/projects/*/`, which
+      is 11 directories, while `discovery_depth: 2` makes the scanned
+      population 25 across `~/projects/`, `apps/` and `archive/`. It
+      reported `venture-assistant` and `SportsAnalyser` as having no
+      handoff when both have a root one, contradicting a Session 37
+      finding without that contradiction being spotted. Enumerate the
+      estate the way the scanner does, or read `estate-map.md`; a
+      top-level glob is not the estate
 - [x] **The narrative history is now readable** (done 2026-08-10).
       `ProjectHistoryPoint` gained `next_action`, `next_action_source` and
       `next_action_changed`; `build_narrative_history` in
@@ -848,13 +859,58 @@ path the hook never touched.
       was the SessionEnd hook overwriting its handoff instead of appending
       a log: the log exists, in JSONB, 90 days deep. Live proof — ImbaBots'
       `M5-T05` unchanged across 10 scans and 3 days
-- [ ] `handoff_duplicates` and `handoff_path` are recorded by
-      `scan_roadmap` and still read by nothing. A `kind: "roadmap"`
-      recommendation ("two handoffs, one migration half-done") is the
-      natural home. Unlike the next-action history this one has no
-      consumer at all yet
+- [x] `handoff_duplicates` now has a reader (Session 38, 2026-08-10) — a
+      zero-point `kind: "roadmap"` recommendation, so it reaches
+      `/api/projects/{name}/recommendations`, `/api/projects/actions` and
+      the weekly review without a new route. The field was widened from
+      bare paths to `{path, date, date_source, days_older}` first: paths
+      alone cannot separate migration debris (delete it) from a document
+      that lost on tuple order (do not), and advice that conflated them
+      would recreate SNAG-ROADMAP-003 from the deletion side. Nothing on
+      the estate holds two handoffs any more, so it was verified against
+      a constructed repository rather than live data
 - [ ] `SNAG-ROADMAP-002` remains open and this session added evidence:
       `count_open_snags` reports 7 for 5 open snags in this very file
+
+---
+
+## Session 38: The unread handoff gets a reader ✅ (2026-08-10)
+
+Session 37's `handoff_duplicates` reached a surface. Added to
+`_roadmap_recommendations`, so it lands on
+`/api/projects/{name}/recommendations`, `/api/projects/actions` and the
+weekly review at once — no route, no contract change, no migration.
+
+**The estate was re-measured before anything was built, and it changed
+what was built.** Zero repos hold two handoffs; the migration cleared
+them. This is therefore a regression detector, and it was verified against
+a constructed two-handoff repository. The mtime branch is what fired — a
+generated stub headed `# Session Handoff` carries no ISO date, so the
+realistic case is the one where the age comes from the weaker clock.
+
+### Follow-ups this session opened
+
+- [ ] `handoff_path` is still read only inside the duplicate
+      recommendation's detail line, so in a repo with one handoff — every
+      repo on the estate today — it remains consumed by nothing. Putting
+      it on `ProjectBoardEntry` would let any consumer rendering a
+      handoff-sourced next action name the document it came from, which
+      is the provenance argument Session 37 made. Deliberately deferred:
+      it touches `contracts.py`, the board builder,
+      `alfred-projects-page.md` and Alfred's expectations, and that is a
+      sitting of its own rather than a rider on this one
+- [ ] The recommendation is waived for non-active projects, inheriting
+      `_roadmap_recommendations`' blanket rule. Defensible — nobody is
+      misled by an unread handoff in a repo nobody opens — but it is an
+      inherited default here rather than a decision taken for this item,
+      and a dormant repo mid-migration is exactly where a stray handoff
+      survives longest. Revisit if a dormant project is ever found
+      holding two
+- [ ] Nothing asserts the widened `handoff_duplicates` shape at the
+      storage boundary. The recommendation tolerates both shapes and the
+      scanner emits the new one, so a third shape would degrade quietly
+      rather than fail — acceptable for advisory JSONB, worth a schema
+      guard if a second consumer appears
 
 ---
 
@@ -922,6 +978,12 @@ sudo systemctl restart sysadmin.service
 Owed since the 2026-07-24 daemon fixes and the Alfred config migration, and
 again since 2026-08-05's SportsAnalyser wiring — the running process
 predates all of it.
+
+**Measured cost, 2026-08-10 (Session 38):** the newest stored snapshot
+(09:06 today) carries neither `handoff_path` nor `handoff_duplicates`, so
+the whole Session 37 reader is absent from the database and every surface
+built on it reads `None`. This debt is no longer only theoretical — two
+sessions of project-side work are invisible until the restart happens.
 
 ### ⚠️ Pending: enable the SportsAnalyser backend unit
 
