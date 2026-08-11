@@ -726,14 +726,17 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 
 **Decision records** live in `docs/adr/`:
 
-- **[0002-estate-manager.md](docs/adr/0002-estate-manager.md)** — accepted
-  but **unbuilt**: why shared infrastructure gets an owner that is not an
-  application, why the estate owns the broker's *schema* while each app
-  still ensures its own identity, why provisioning is a boot oneshot and
-  never a daemon, and why `LoadCredential=` rather than `config.yaml` or
-  an `EnvironmentFile`. Read it before adding a cross-repo document to
-  `docs/guides/`, before publishing to MQTT from here, or before putting
-  a secret anywhere near this repository.
+- **0002-estate-manager.md** — **moved 2026-08-11** to
+  [estate-manager ADR-0001](../estate-manager/docs/adr/0001-estate-manager.md)
+  (renumbered; a pointer stands at [docs/adr/0002-estate-manager.md](docs/adr/0002-estate-manager.md)).
+  Why shared infrastructure gets an owner that is not an application, why
+  the estate owns the broker's *schema* while each app still ensures its
+  own identity, why provisioning is a boot oneshot and never a daemon,
+  and why `LoadCredential=` rather than `config.yaml` or an
+  `EnvironmentFile`. Read it before publishing to MQTT from here or
+  before putting a secret anywhere near this repository. Cross-repo
+  documents no longer live in this repository's `docs/guides/` — add
+  them to estate-manager.
 - **[0001-project-registry.md](docs/adr/0001-project-registry.md)** — why
   project identity moved into the repositories as `.project.yaml`, why
   `services.yaml` holds no paths, why persistence was deliberately
@@ -741,23 +744,12 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
   before adding a table for project data or changing how projects are
   identified.
 
-For comprehensive guides on specific topics, see `docs/guides/`:
-
-- **monitorable-project.md** is enforced mechanically by the Session 26
-  service-discovery agent — see `GET /api/units/actions`.
-- **alfred-projects-page.md** — the spec for Alfred's projects page:
-  `GET /api/projects/board`, what `next_action_source` obliges a consumer
-  to render differently, and why the board must not be written into
-  Alfred's own `trackables.projects` table.
-- **estate-map.md** — what runs on this box and how it connects: the app
-  inventory, the one app-to-app data flow (briefing → Alfred → glance),
-  shared resources (GPU/VRAM, `~/models/`, PostgreSQL, Alfred's private
-  MQTT), and which apps are grandfathered against which convention. Read
-  it for anything spanning two projects; also pointed at from
-  `~/.claude/CLAUDE.md`.
-- **monitorable-project.md** — the contract new `~/projects` services must
-  follow (port registry, `/api/health`, unit naming, oneshot→timer,
-  projects.yaml wiring). Pointed at from `~/.claude/CLAUDE.md` so every
-  new-project session reads it.
-- **api_auth.md** — bearer-token auth setup
-- **alfred-briefing-integration.md** — consuming the briefing from Alfred
+Guides: only **api_auth.md** (bearer-token auth setup) still lives in
+this repository's `docs/guides/`. The four cross-repo guides —
+`estate-map.md`, `monitorable-project.md` (which holds the port
+registry), `alfred-briefing-integration.md`, `alfred-projects-page.md` —
+**moved to `~/projects/estate-manager/docs/guides/` on 2026-08-11**;
+pointers stand at the old paths. `monitorable-project.md` is still
+enforced mechanically by this repository's Session 26 service-discovery
+agent (`GET /api/units/actions`) — the document moved, the enforcement
+did not.

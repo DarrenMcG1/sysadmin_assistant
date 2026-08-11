@@ -1382,22 +1382,23 @@ inside a week, and this repository has filed three snags about exactly that.
 What stays here, because it is about *this* service rather than about the
 estate:
 
-- **[ADR-0002](../adr/0002-estate-manager.md)** still lives here and is
-  still the founding record. Moving it is a task in the new repository's
-  Session 1, together with deciding what cross-repo ADR numbering looks
-  like — it currently sits in this repository's sequence.
+- **ADR-0002 moved on 2026-08-11** (estate-manager Session 1) and was
+  renumbered to
+  [estate-manager ADR-0001](../../../estate-manager/docs/adr/0001-estate-manager.md);
+  a pointer stands at [../adr/0002-estate-manager.md](../adr/0002-estate-manager.md)
+  and the number is never reused here.
 - **sysadmin does not move.** It stays the monitor, keeps its own broker
   credential and publishes alerts directly, and will watch the estate
   manager's units like any other. The monitor must not own the things it
   monitors, and an alerting path with a live dependency on another service
   is not an alerting path.
-- **Port 8400 is claimed** for estate-manager in
-  [monitorable-project.md](../guides/monitorable-project.md), which is
-  still the registry until Session 1 moves it.
-- **The four cross-repo guides are still here** and
-  `~/.claude/CLAUDE.md` still points at two of them. Deliberate: a global
-  pointer at a repository that has not been filled yet would silently stop
-  the monitorable-project contract being read by every new-project session.
+- **The four cross-repo guides moved the same day**, leaving pointers in
+  `docs/guides/` (`api_auth.md` stays — it is local). The port registry
+  now lives in
+  [estate-manager's monitorable-project.md](../../../estate-manager/docs/guides/monitorable-project.md),
+  and `~/.claude/CLAUDE.md` points at the new paths — updated in the same
+  sitting precisely because a stale global pointer would silently stop
+  the contract being read.
 
 ---
 

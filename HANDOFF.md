@@ -2,7 +2,22 @@
 
 ## Next action
 
-Install the two unit files with `sudo cp systemd/sysadmin.service systemd/sysadmin-failed.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart sysadmin.service`, rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears, then take Session 40 — the estate manager's document-only phase 1, whose decisions are already recorded in ADR-0002.
+Install the two unit files with `sudo cp systemd/sysadmin.service systemd/sysadmin-failed.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart sysadmin.service`, then rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears.
+
+## Session 40 ran on 2026-08-11, as estate-manager's Session 1
+
+The document-only phase 1 scoped as Session 40 was executed in
+`~/projects/estate-manager`. What changed in *this* repository: the four
+cross-repo guides in `docs/guides/` and ADR-0002 were replaced with
+pointer stubs (the documents now live in estate-manager, ADR-0002
+renumbered to its ADR-0001; `api_auth.md` stays, being local), and
+CLAUDE.md and tasks.md were updated to match. `~/.claude/CLAUDE.md`'s
+two hardcoded paths now point at estate-manager — flipped in the same
+sitting, after the destination files existed. The port registry
+consumers are unaffected: it lives inside `monitorable-project.md`,
+which travelled whole. Session 39's MQTT half stays blocked on the same
+Alfred-side change as before (narrowing `reconcile()`), which is now
+estate-manager's Session 2, first item.
 
 ## Session 39 (part 1): the alarm rings more than once
 
