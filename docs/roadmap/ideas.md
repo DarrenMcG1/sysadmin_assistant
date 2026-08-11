@@ -61,19 +61,78 @@ estate dying, which is the Session 39 defect rebuilt inside its own fix.
 **sysadmin does not move**, and watches the estate like any other unit.
 The monitor must not own the things it monitors.
 
-**Open, and deliberately not decided here:**
+**Answered 2026-08-11, with what the measurements did to each answer.**
 
-- **Who watches the estate's queue for correctness, not liveness?** A
-  queue that silently drops a request is up, healthy, and wrong — and
-  `GET /api/services/reliability` measures whether a unit answers, not
-  whether it kept its promises.
-- **What does an app ask for, exactly?** "Queue inference" is still an
-  abstract noun: a model name, a VRAM figure, a priority, a deadline, a
-  cancel? The unit files currently encode precedence as *who started last*,
-  which is a policy nobody wrote down.
-- **Does SportsAnalyser or venture-assistant actually want this?** Session
-  30's fate is the precedent — a surface was built for a consumer that
-  had declined it in writing. Neither app has been asked.
+**Who watches the queue for correctness?** The owner's answer was "the
+estate manager". That reinstates the recursion Session 39 rejected — a
+watcher sharing fate with what it watches. It does not need a new
+decision, because it follows from a rule already taken: **the estate emits
+the invariants (queue depth, oldest waiting request, dropped count) and
+sysadmin judges them.** The monitor must not own the things it monitors.
+Note what this needs from the estate that liveness does not: an endpoint
+whose *numbers* can be wrong while the service is perfectly up.
+
+**The policy is "GPU usage above ~30% ⇒ no LLM activity, then by
+priority", and the estate owns it.** Measured the same hour, and it does
+not survive contact as stated:
+
+| Measured 2026-08-11 | Reading |
+|---|---|
+| `GPU use (%)` | **29** |
+| `GPU Memory Allocated (VRAM%)` | **84** |
+| `rocm-smi --showpids` | *"No KFD PIDs currently running"* |
+| DRM fdinfo, `llama-server` pid 1083 | no `drm-engine` fields |
+
+1. **The threshold straddles the number depending on the metric.** 29%
+   compute says go; 84% VRAM says stop. Which one is meant is the whole
+   policy.
+2. **VRAM is the wrong metric.** It reads 84% *because the estate's own
+   models are resident*, so the rule would block LLM work on the grounds
+   that LLM work is loaded.
+3. **Per-process attribution does not exist on this box, by either
+   route.** The models run through Vulkan rather than ROCm, so they are
+   not KFD processes, and fdinfo exposes no `drm-engine` fields. Nothing
+   can currently answer *"whose 29% is this?"*.
+
+Point 3 cuts the other way once centralisation is assumed, and this is the
+strongest argument for the queue that neither party started with: **if the
+estate is the sole launcher, it knows what it started, so "usage not
+attributable to me" is computable by subtraction.** Centralisation makes
+the unmeasurable measurable — conditional on nothing bypassing it, where
+today four units start models on their own. Whether the estate becomes the
+sole launcher is therefore a load-bearing decision, not an implementation
+detail.
+
+Priority order also already has a recorded policy that the unit files
+contradict: 2026-08-06 chose *"queue and wait, Alfred takes precedence"*,
+while `Conflicts=` encodes **whoever started last wins**. Two policies,
+one of them written down and not implemented.
+
+**Has anyone asked venture-assistant or SportsAnalyser?** The owner's
+evidence was `operator_profile` — believed to be data duplicated into
+venture-assistant that Alfred already held. **Checked, and it is not
+duplication**, which changes what it is evidence *for*. Alfred's own
+ideas.md entry, captured the same day at venture's phase 7 sign-off,
+concludes the two are adjacent but distinct — Alfred's skills data is
+employment-facing (gaps vs role specs, market demand), venture's is
+venture-fit-facing plus fields "Alfred will never own" (weekly hours, risk
+appetite, growth interests) — and therefore **"a sync must map, not
+mirror"**. `operator_profile` is migration 013 and was not built. No
+schema was duplicated and no build was wasted.
+
+**The finding is one line further in, and it is better evidence than
+duplication would have been.** That entry cites *"estate rule: no cross-DB
+queries"* — and **the rule exists nowhere central.** estate-map.md carries
+"one database per app" as a convention with grandfathered exceptions,
+which governs where data lives, not who may query across it. So a named
+rule is invoked inside one app's roadmap with no canonical statement
+anywhere, and the next app either rediscovers it or contradicts it without
+either being visible.
+
+That is a **documents** problem, fixed by phase 1, needing no runtime —
+and it is the clearest justification yet for the estate manager existing
+at all. The catch also depended entirely on the owner remembering at
+sign-off; nothing on the box would have raised it.
 - **`GET /api/projects/next` returning 200 has expired one of ADR-0064's
   three reasons for deferral.** That is a reason for Alfred to re-examine
   on its own side, not a reason to build here. Neither of its two counted

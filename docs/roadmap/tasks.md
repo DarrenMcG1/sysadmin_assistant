@@ -1402,6 +1402,24 @@ Two measurements made the case rather than the argument doing it:
       this whole roadmap keeps meeting
 - [ ] **Leave a pointer, not a copy**, at each moved path. A copy is two
       documents that will disagree
+- [ ] **Write down the estate rules that are already being cited but exist
+      nowhere.** Found 2026-08-11: Alfred's ideas.md invokes *"estate rule:
+      no cross-DB queries"* by name, and there is no canonical statement of
+      it anywhere — estate-map.md's "one database per app" governs where
+      data *lives*, not who may query across it. A rule cited in one app's
+      roadmap is a rule the next app rediscovers or contradicts, with
+      neither being visible. **This is the clearest justification the
+      estate manager has**, and it needs no runtime
+- [ ] **Add a data/entity inventory, not just an infrastructure one.**
+      estate-map.md lists apps, ports, databases and units; it does not
+      list *what each app knows about*. The near-duplication of
+      `operator_profile` across Alfred and venture-assistant was caught by
+      the owner remembering at a phase sign-off — the analysis concluded
+      the two are adjacent rather than the same ("a sync must map, not
+      mirror"), so nothing was wasted, and **nothing on this box would
+      have raised it**. An entity-level inventory is what would have —
+      "who holds skills data" is answerable from a list and is not
+      answerable from ports and unit names
 - [ ] **Do not move `sysadmin/projects/`.** ADR-0001 left "who owns
       project state" open on purpose and staged the code so the answer
       stays cheap; this session answers the question for *infrastructure

@@ -190,6 +190,42 @@ monitors.
 repo needs no port and no `/api/health`. It will listen, so both are
 claimed on day one.
 
+**The GPU policy the owner supplied does not survive measurement as
+stated.** It is "usage above ~30% ⇒ no LLM activity, then by priority",
+with the estate owning the policy. Measured the same hour: `GPU use (%)`
+**29**, `VRAM%` **84** — so the threshold straddles the number depending
+on which metric is meant, and VRAM is the wrong one because it reads 84%
+*because the estate's own models are resident*, making the rule block LLM
+work on the grounds that LLM work is loaded. Worse, **per-process
+attribution does not exist on this box by either route**: `rocm-smi
+--showpids` reports no KFD processes (the models run through Vulkan, not
+ROCm) and DRM fdinfo exposes no `drm-engine` fields, so nothing can answer
+"whose 29% is this?".
+
+That inverts into the best argument for the queue so far: **if the estate
+is the sole launcher it knows what it started, so "usage not attributable
+to me" is computable by subtraction.** Centralisation makes the
+unmeasurable measurable — conditional on nothing bypassing it, and today
+four units start models themselves. Whether the estate becomes the sole
+launcher is load-bearing, and is the open question.
+
+Also unresolved by the owner's answer: "the estate manager watches the
+queue" reinstates the recursion Session 39 rejected. Recorded as the split
+that follows from a rule already taken — **the estate emits the invariants,
+sysadmin judges them** — because the monitor must not own the things it
+monitors.
+
+**`operator_profile` was checked and is not duplication**, which changes
+what it is evidence for. Alfred's own ideas.md, captured the same day,
+concludes the two are adjacent — employment-facing versus venture-fit
+-facing, with fields "Alfred will never own" — and that "a sync must map,
+not mirror"; migration 013 was never built, so no effort was wasted. **The
+real finding is one line further in**: that entry cites *"estate rule: no
+cross-DB queries"*, and the rule exists **nowhere central**. A named rule
+invoked inside one app's roadmap is one the next app rediscovers or
+contradicts invisibly. That is a documents problem, fixed by phase 1, and
+the clearest justification the estate manager has.
+
 **Measured rather than assumed** (2026-08-11): 5 active projects, 4 GPU
 consumers on one 24 GB card, `stalled_count: 0`. Alfred's ADR-0064
 pre-authorises the workload-component read the owner meant, so it is no
