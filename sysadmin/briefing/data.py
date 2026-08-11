@@ -59,6 +59,7 @@ from sysadmin.core.text import truncate_at_word
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.models.service_health import ServiceHealth
+from sysadmin.monitor.services import SKIPPED
 from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 from sysadmin.projects.snapshots import latest_snapshot_query
 
@@ -426,11 +427,18 @@ def build_facts(gathered: dict[str, Any], now: datetime) -> dict[str, Any]:
     services = gathered["services"]
     if services:
         items = services["items"]
-        failing = [s["name"] for s in items if s["status"] != "ok"]
+        # `skipped` is a declared non-check — a GUI unit bound to
+        # graphical-session.target, a service marked `monitor: false` with
+        # a reason.  Counting it as failing reports a *decision* as a
+        # fault, and names units as "down" that are running.  Four of the
+        # estate's 40 live rows are skipped.
+        watched = [s for s in items if s["status"] != SKIPPED]
+        failing = [s["name"] for s in watched if s["status"] != "ok"]
         facts["services"] = {
-            "total": len(items),
-            "healthy": len(items) - len(failing),
+            "total": len(watched),
+            "healthy": len(watched) - len(failing),
             "failing": failing,
+            "unmonitored": len(items) - len(watched),
             "measured_at": services["measured_at"],
         }
 
@@ -645,7 +653,14 @@ def render_sections(gathered: dict[str, Any]) -> list[dict[str, Any]]:
                 "title": "Infrastructure Status",
                 "type": "status_grid",
                 "data": {
-                    "all_services_healthy": all(s["status"] == "ok" for s in items),
+                    # A `skipped` row is a declared non-check, not a
+                    # failure.  Before this it dragged the flag
+                    # permanently false: four units on this estate are
+                    # skipped by design, so Alfred's grid could never
+                    # read healthy however well the box was running.
+                    "all_services_healthy": all(
+                        s["status"] in ("ok", SKIPPED) for s in items
+                    ),
                     "services": items,
                 },
             }

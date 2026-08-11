@@ -899,6 +899,53 @@ class TestBuildFacts:
             "total": 2,
             "healthy": 1,
             "failing": ["b"],
+            "unmonitored": 0,
             "measured_at": gathered["services"]["measured_at"],
         }
         assert "projects" not in facts
+
+
+class TestSkippedServices:
+    """A declared non-check is not a failure.
+
+    `skipped` (migration 009) marks a service the estate has decided not
+    to monitor and said why — a GUI unit bound to
+    `graphical-session.target`, or `monitor: false` with a reason.
+    Counting it as failing reports a *decision* as a fault.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_skipped_service_is_not_reported_down(self):
+        session = _session_returning(
+            infra=[
+                _service("postgres", "ok"),
+                _service("sysadmin-tray", "skipped"),
+                _service("ollama", "unreachable"),
+            ],
+            log=None,
+            filesystem=None,
+            projects=[],
+        )
+        briefing = await generate_briefing_data(session)
+
+        services = briefing["facts"]["services"]
+        assert services["failing"] == ["ollama"]
+        assert services["total"] == 2
+        assert services["unmonitored"] == 1
+        assert "sysadmin-tray" not in briefing["summary"]
+
+    @pytest.mark.asyncio
+    async def test_skipped_alone_still_reads_healthy(self):
+        """Four units on this estate are skipped by design.  Treating them
+        as unhealthy pinned Alfred's grid permanently false."""
+        session = _session_returning(
+            infra=[_service("postgres", "ok"), _service("sysadmin-tray", "skipped")],
+            log=None,
+            filesystem=None,
+            projects=[],
+        )
+        briefing = await generate_briefing_data(session)
+
+        (infra,) = briefing["sections"]
+        assert infra["data"]["all_services_healthy"] is True
+        assert briefing["summary"].startswith("All 1 services healthy.")
