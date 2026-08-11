@@ -131,10 +131,21 @@ envelope is a workaround sitting on top of `SNAG-AGENT-002`, which is Tier
 
 ## Blocked, and left open on purpose
 
-- **Nothing consumes the new keys yet.** Alfred is unchanged and unaffected
-  by design; whether it should read `facts.stale_sources` instead of
-  relying on `produced_at` is a question for Alfred's side, and Session
-  30's fate says to ask before assuming a consumer wants something.
+- **Nothing consumes the new keys yet, and the question has been handed
+  over rather than answered here.** Alfred is unchanged and unaffected by
+  design. The staleness finding was written into **Alfred's**
+  `docs/external/briefing_producers.md` (its own re-open trigger covers a
+  payload gaining fields) and re-opened as live **row 130c** — row 130
+  itself is complete and archived, so reverting it to `Planned` would
+  have falsely un-shipped a delivered backend. Whether `adapt_sysadmin`
+  reads `facts.stale_sources` is Alfred's decision to record either way;
+  Session 30's fate says to ask rather than assume a consumer wants
+  something. Alfred commit `22bc4ad`.
+- **The staleness limit is not sysadmin-specific and the note says so.**
+  It applies to every *pulled* producer that stamps at request time, and
+  **SportsAnalyser's `generated_at` has not been checked either way** —
+  one `curl` settles whether `produced_at` means anything on those
+  sections. Flagged in Alfred's file, not chased from here.
 - **`facts.stale_sources` reported a real problem it did not cause**, and
   the follow-up measurement made it worse than it looked: `agent_runs`
   holds **one** `file_organiser` row, ever, against `log_aggregator`'s
