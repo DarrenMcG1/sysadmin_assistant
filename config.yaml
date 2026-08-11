@@ -119,6 +119,24 @@ self_monitor:
   stall_grace_multiplier: 3.0
   min_stall_grace_seconds: 300
   recent_runs: 10          # runs per agent used for the duration trend
+  # Session 39. Detection was never the problem: the file_organiser stall
+  # on 2026-08-10 was caught correctly and alerted once, at `warning`, and
+  # then went silent for a day while still being true. A warning toast is
+  # TRANSIENT — it expires whether or not anyone was in the room. `critical`
+  # is the only severity the tray leaves on screen (notifications.py sets
+  # transient=False for it alone), so the second rung is about persistence,
+  # not volume.
+  #
+  # The clock starts when the FIRST alert was raised, not when the stall
+  # began — otherwise a restart after a long outage escalates all five
+  # agents at once, charging the estate for this service's own downtime.
+  #
+  # 24h is measured against the slowest agent (file_organiser and
+  # service_discovery run daily): a shorter gap escalates stalls that were
+  # about to clear on their own. Lowering it makes the persistent alarm
+  # arrive sooner; it does NOT make detection faster — that is
+  # stall_grace_multiplier above.
+  escalate_after_hours: 24
 
 # Server-Sent Events stream — GET /api/sysadmin/events (push instead of polling)
 events:

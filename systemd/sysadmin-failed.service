@@ -1,0 +1,37 @@
+[Unit]
+Description=Announce that sysadmin.service has failed
+Documentation=file:///home/gaddi/projects/sysadmin_assistant/scripts/notify-unit-failed.sh
+
+# Started by OnFailure= on sysadmin.service, which is reachable only
+# because that unit now carries StartLimitBurst — with Restart=always and
+# no limit it would sit in `activating (auto-restart)` for ever and never
+# enter `failed`, so this hook would never fire. The two halves are one
+# change; installing this alone accomplishes nothing.
+#
+# Deliberately NO OnFailure= of its own. A failure handler that has a
+# failure handler is a loop, and the one destination that cannot fail is
+# the journal, which the script writes to first and unconditionally.
+#
+# Deliberately no After=/Requires= on sysadmin.service either: it is
+# broken, that is the entire reason this is running, and ordering against
+# a dead unit is how a handler ends up waiting for the thing it is meant
+# to report on.
+
+[Service]
+Type=oneshot
+User=gaddi
+Group=gaddi
+
+# %n expands to the *invoking* unit only when this is started by OnFailure=,
+# so the argument is passed explicitly rather than assumed. Running it by
+# hand with no argument defaults to sysadmin.service, which is what a
+# rehearsal wants.
+ExecStart=/home/gaddi/projects/sysadmin_assistant/scripts/notify-unit-failed.sh sysadmin.service
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sysadmin-failed
+
+# Nothing here should be able to hang: a handler that blocks holds a
+# systemd job open while the fault it is reporting goes unreported.
+TimeoutStartSec=30

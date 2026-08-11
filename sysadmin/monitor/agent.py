@@ -30,6 +30,7 @@ from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import AnomalyConfig, AppConfig, get_config
 from sysadmin.core.models.alert import Alert
+from sysadmin.monitor import stalls
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
@@ -40,15 +41,22 @@ from sysadmin.monitor.systemd import SystemdQueryError, get_unit_status, restart
 
 logger = logging.getLogger(__name__)
 
-#: Title prefix for stalled-agent alerts — also used to resolve them.
-STALL_TITLE_SUFFIX = "agent stalled"
+#: Title suffix for stalled-agent alerts. Re-exported from
+#: :mod:`sysadmin.monitor.stalls`, which owns it along with the escalation
+#: ladder — one definition, since raise, escalate and resolve all derive
+#: their title from it and a resolve pattern that matches nothing fails
+#: silently while the table grows.
+STALL_TITLE_SUFFIX = stalls.STALL_TITLE_SUFFIX
 
 #: Timeout for HTTP health probes.
 HTTP_CHECK_TIMEOUT_S = 10.0
 
-
-def _stall_title(agent_name: str) -> str:
-    return f"{agent_name} {STALL_TITLE_SUFFIX}"
+#: The stall-ladder outcome of a run that did nothing about stalls —
+#: because ``self_monitor.enabled`` is false, or because no agent is
+#: stalled. Zeroes rather than an absent key: ``"stalls": {}`` in
+#: ``agent_runs.details`` reads as "the check did not run", which is the
+#: exact confusion Session 39 exists to remove.
+_NO_STALLS: dict[str, int] = {"stalled": 0, "raised": 0, "escalated": 0}
 
 
 #: Timer properties worth recording, under readable names.  ``systemctl
@@ -92,9 +100,14 @@ class SysAdminAgent(BaseAgent):
         self._threshold_keys: set[str] = set()
         # Last known status per service, for service.status change events.
         self._last_status: dict[str, str] = {}
+        # Stall ladder outcome for the current run. Reset per run rather
+        # than accumulated: a stale count reported in agent_runs.details
+        # would read as an escalation that this run performed.
+        self._stall_counts: dict[str, int] = _NO_STALLS
 
     async def _execute(self, session) -> AgentResult:
         """Run all health checks and record resource snapshot."""
+        self._stall_counts = _NO_STALLS
         config = get_config()
         agent_config = config.agents.sysadmin
         services = get_services().services
@@ -155,7 +168,14 @@ class SysAdminAgent(BaseAgent):
         return AgentResult(
             findings_count=len(services),
             alerts_raised=alerts_raised,
-            details={"services_checked": checked, "services_declared": len(services)},
+            details={
+                "services_checked": checked,
+                "services_declared": len(services),
+                # Recorded so a run that escalated an existing stall is
+                # distinguishable from one that found a new one — the two
+                # sum into `alerts_raised` and mean different things.
+                "stalls": self._stall_counts,
+            },
         )
 
     # --- Service checks ---
@@ -737,12 +757,37 @@ class SysAdminAgent(BaseAgent):
     # --- Self-monitoring ---
 
     async def _check_agent_liveness(self, session, config: AppConfig) -> int:
-        """Alert when an agent has silently stopped running.
+        """Alert when an agent has silently stopped running, and keep saying so.
 
         Reuses the same report the ``/api/sysadmin/self`` endpoint serves,
-        so the alert and the endpoint can never disagree. Alerts are
-        deduplicated by title and resolved automatically once the agent
-        runs again.
+        so the alert and the endpoint can never disagree. Detection is
+        unchanged since it was written and was never the gap — see
+        :mod:`sysadmin.monitor.stalls` for the Session 39 evidence that it
+        caught ``SNAG-AGENT-003`` correctly and then went quiet.
+
+        What is decided *here* is the alert lifecycle, and it now has three
+        outcomes rather than two:
+
+        - **Raise** — first detection, at :attr:`STALL_LADDER.quiet`.
+        - **Escalate** — the warning has stood ``escalate_after_hours``
+          unresolved. The quiet row is **resolved and a louder one
+          inserted**, never updated in place: the tray fingerprints on
+          ``"{severity}:{title}"``, so an in-place severity change keeps
+          the fingerprint it has already suppressed and the escalation is
+          recorded but never spoken.
+        - **Hold** — a row at that severity or louder is already open.
+          This is the branch that stopped the 1,664-row pile-up and it
+          stays exactly as it was.
+
+        Recovery still resolves the row outright, and deliberately does not
+        walk back down the rungs: an agent that ran again is not a quieter
+        fault, it is not a fault.
+
+        Returns:
+            Rows written — raises *and* escalations, since both are an
+            alert this run produced. ``details["stalls"]`` breaks them
+            down, so a run that only escalated is distinguishable from one
+            that found a new stall.
         """
         if not config.self_monitor.enabled:
             return 0
@@ -751,45 +796,66 @@ class SysAdminAgent(BaseAgent):
         stalled = {a["name"]: a for a in report["agents"] if a["stalled"]}
 
         active = await self._active_alerts(session)
-        open_stall_alerts = {
-            alert.title: alert.id
-            for alert in active
-            if (alert.details or {}).get("stalled_agent")
-        }
+        # Keyed by the *stalled agent*, from details rather than by parsing
+        # the title back apart. Rows raised before Session 39 carry the
+        # same key, so an alert already open when this deployed is found
+        # and escalated rather than duplicated.
+        open_stalls: dict[str, tuple[Any, stalls.OpenStall]] = {}
+        for alert in active:
+            name = (alert.details or {}).get(stalls.STALL_DETAIL_KEY)
+            if not name:
+                continue
+            open_stalls[name] = (
+                alert,
+                stalls.OpenStall(
+                    alert_id=alert.id,
+                    severity=alert.severity,
+                    created_at=alert.created_at,
+                ),
+            )
+
+        due = stalls.evaluate(
+            list(stalled.values()),
+            {name: entry[1] for name, entry in open_stalls.items()},
+            escalate_after_hours=config.self_monitor.escalate_after_hours,
+        )
 
         raised = 0
-        for name, entry in stalled.items():
-            title = _stall_title(name)
-            if title in open_stall_alerts:
-                continue
+        escalated = 0
+        for item in due:
+            if item.step is stalls.Step.ESCALATE:
+                quiet_row = open_stalls[item.agent_name][0]
+                quiet_row.resolved = True
+                quiet_row.resolved_at = datetime.now(UTC)
+                escalated += 1
+            else:
+                raised += 1
             await self.raise_alert(
                 session,
-                severity="warning",
-                title=title,
-                message=(
-                    f"The {name} agent has not run since "
-                    f"{entry['last_run_at']} — {entry['stall_reason']}"
-                ),
-                details={
-                    "stalled_agent": name,
-                    "last_run_at": entry["last_run_at"],
-                    "seconds_since_last_run": entry["seconds_since_last_run"],
-                    "interval_seconds": entry["interval_seconds"],
-                },
+                severity=item.severity,
+                title=item.title,
+                message=item.message,
+                details=item.details,
             )
-            raised += 1
 
-        # Agent came back — clear its stall alert
+        # Agent came back — clear its stall alert. Read from open_stalls
+        # rather than recomputing titles, so this cannot drift from the
+        # lookup above.
         await self._resolve_alert_ids(
             session,
             [
-                alert_id
-                for title, alert_id in open_stall_alerts.items()
-                if title not in {_stall_title(name) for name in stalled}
+                entry[1].alert_id
+                for name, entry in open_stalls.items()
+                if name not in stalled
             ],
         )
 
-        return raised
+        self._stall_counts = {
+            "stalled": len(stalled),
+            "raised": raised,
+            "escalated": escalated,
+        }
+        return raised + escalated
 
     # --- Port detection ---
 

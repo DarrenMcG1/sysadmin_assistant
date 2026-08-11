@@ -1,7 +1,40 @@
 [Unit]
 Description=SysAdmin Infrastructure Monitoring Service
+Documentation=file:///home/gaddi/projects/sysadmin_assistant/docs/roadmap/tasks.md
 After=network.target postgresql.service ollama.service
 Wants=postgresql.service
+
+# Session 39. Restart=always below never gives up, so a daemon that
+# crash-loops for ever stays in `activating (auto-restart)` and NEVER
+# reaches `failed` — which is the state every failure hook and every
+# `systemctl is-failed` check watches for. The crash case was silent by
+# construction: the same silence-reads-as-health shape the escalation
+# ladder was built to fix, sitting in the unit file.
+#
+# The limit is what makes a loop terminal, and terminal is what makes it
+# reportable. 5 starts inside 10 minutes: a genuine loop (RestartSec=10)
+# trips it in about a minute, while a service that dies once a fortnight
+# never approaches it.
+#
+# What this trades away, sized rather than assumed: `Restart=always` with
+# no limit rides out a dependency that is slow to appear, and this app
+# does exit rather than degrade when the database is absent
+# (`verify_connection` raises inside the lifespan). Measured on 2026-08-11
+# before making the change — NRestarts=0 and zero "Scheduled restart job"
+# entries in 30 days of journal, so the retry has never once fired here.
+# The window is 10 minutes rather than 5 to leave that headroom anyway.
+#
+# ROLLBACK: comment out these two lines plus OnFailure=, then
+#   sudo systemctl daemon-reload && sudo systemctl reset-failed sysadmin
+# `reset-failed` is the part that is easy to forget — without it the unit
+# stays failed and refuses to start even once the limit is gone.
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+# Reached only via the limit above. A failure that nobody is told about is
+# the fault this session exists to remove, so the hook is not optional
+# dressing — it is the half that speaks.
+OnFailure=sysadmin-failed.service
 
 [Service]
 Type=simple

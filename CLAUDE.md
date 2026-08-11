@@ -371,6 +371,59 @@ Three rules it encodes, each measured rather than assumed:
 Recovery is deliberately **not** announced: `alert.resolved` carries a
 match pattern (`"Project % health critical"`), not a subject.
 
+**A detected fault has to keep speaking, and the ladder that makes it do
+so lives in `core`** (Session 39). `sysadmin/core/escalation.py` owns
+`SEVERITY_ORDER`, `Ladder` and `step_for`; `sysadmin/projects/nudges.py`
+and `sysadmin/monitor/stalls.py` both climb it. It is in `core` for the
+reason `strip_markdown` is — `monitor` may not import `projects`
+(`tests/test_import_boundary.py`) — so "reuse rather than copy" required
+the move first.
+
+The failure it fixes is **not** a detection failure.
+`self_monitor.build_self_report` caught SNAG-AGENT-003 correctly and
+`_check_agent_liveness` raised one row; the raise is then deduplicated
+while that row is open (correct — it is what stopped the 1,664-row
+pile-up) and the tray fingerprints on `{severity}:{title}`. Net effect:
+**the alarm rings once, at the quietest severity, and is silent while the
+fault persists.** A warning that fires once is indistinguishable from one
+that got fixed.
+
+Four rules, three of them the opposite of the obvious implementation:
+
+1. **Escalation resolves the quiet row and raises a louder one**, never
+   updates severity in place — an in-place change keeps the fingerprint
+   the tray has already suppressed, so the escalation is recorded and
+   never spoken.
+2. **The loud rung for a stall is `critical`, and that is about
+   persistence, not volume.** `sysadmin_tray/notifications.py` sets
+   `transient=False` for `critical` alone, making it the only severity
+   the tray leaves on screen. The owner's reported failure was "I never
+   saw the toast" — away from the machine — and a transient toast in an
+   empty room is the miss, whatever its severity. A nudge, by contrast,
+   never reaches `critical`; the two modules' docstrings cite each other
+   so the difference reads as deliberate.
+3. **The escalation clock starts when the alarm rang, not when the stall
+   began.** Anchoring to the stall's own age makes a daemon outage
+   produce a wall of criticals on restart — nothing runs while the
+   service is down, so every agent is stalled — which charges the estate
+   for this application's downtime, the rule
+   `GET /api/services/reliability` already encodes as "a gap in the
+   series never costs points".
+4. **`escalate_after_hours: 24` is measured against the slowest agent.**
+   `file_organiser` and `service_discovery` run daily, so a stall that is
+   merely late clears within one interval; a shorter gap escalates faults
+   about to fix themselves. It cannot make detection faster — that is
+   `stall_grace_multiplier`, which is the wrong knob someone will reach
+   for, so the config docstring says so.
+
+`Restart=always` made the **crash** case silent the same way:
+`sysadmin.service` never entered `failed`, so an `OnFailure=` hook could
+not fire. `StartLimitBurst=5` / `StartLimitIntervalSec=600` makes a loop
+terminal and `sysadmin-failed.service` announces it, persistently
+(`--expire-time=0`) and to journald first — the one destination that does
+not need anyone logged in. `tests/test_systemd_units.py` pins the two
+halves together, because either alone accomplishes nothing.
+
 **Idle nudges have no endpoint, and that is the design** (Session 31). A
 nudge is an `alerts` row raised by the organiser — `Project <name> next
 action idle` — so it reaches the tray, the DND windows and

@@ -49,6 +49,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from sysadmin.core.escalation import SEVERITY_ORDER, Ladder
 from sysadmin.projects.next_action import Candidate, Streak
 
 #: The one place a nudge's title is built.  Raise, escalate and resolve
@@ -57,12 +58,20 @@ from sysadmin.projects.next_action import Candidate, Streak
 #: matches nothing fails silently and the table only grows.
 NUDGE_TITLE_SUFFIX = "next action idle"
 
-#: Severity ordering, matching the tray's ``SEVERITY_LEVELS``.  A nudge
-#: never reaches ``critical``: an unattended commitment is not an
-#: incident, and criticals break through DND by configuration
+#: Re-exported so ``nudges.SEVERITY_ORDER`` keeps working at the call
+#: site in :mod:`sysadmin.projects.agent`, which compares an open row's
+#: loudness against a due nudge's.  The dict itself moved to
+#: :mod:`sysadmin.core.escalation` in Session 39, when stalled agents
+#: needed the same ladder and ``monitor`` may not import ``projects``.
+__all__ = ["NUDGE_TITLE_SUFFIX", "SEVERITY_ORDER", "Nudge", "evaluate", "severity_for"]
+
+#: A nudge is quiet at the threshold and loud after the gap, and **never
+#: reaches ``critical``**: an unattended commitment is not an incident,
+#: and criticals break through DND by configuration
 #: (``notifications.dnd.allow_critical``) — waking someone at 02:00
-#: about a roadmap item is how a monitor gets muted wholesale.
-SEVERITY_ORDER: dict[str, int] = {"info": 0, "warning": 1, "critical": 2}
+#: about a roadmap item is how a monitor gets muted wholesale.  Compare
+#: :data:`sysadmin.monitor.stalls.STALL_LADDER`, which does reach it.
+NUDGE_LADDER = Ladder(quiet="info", loud="warning")
 
 
 def nudge_title(project_name: str) -> str:
@@ -146,18 +155,13 @@ def _shorten(action: str) -> str:
 def severity_for(days: int, threshold: int, escalation_gap: int) -> str | None:
     """Which rung of the ladder ``days`` reaches, or ``None`` for none.
 
-    ``None`` rather than a "no nudge" severity because the caller's next
-    decision is whether to raise at all, and a sentinel string would
-    have to be checked for at every use.
-
-    An ``escalation_gap`` of 0 is legitimate — it means "loud from the
-    first rung" — and yields ``warning`` at the threshold itself.
+    A thin wrapper over :meth:`NUDGE_LADDER.severity_for
+    <sysadmin.core.escalation.Ladder.severity_for>` that fixes the unit
+    as **days**.  Kept as a named function because that unit is the
+    thing a reader of this module needs to know and the shared ladder is
+    deliberately unit-agnostic.
     """
-    if days < threshold:
-        return None
-    if days >= threshold + escalation_gap:
-        return "warning"
-    return "info"
+    return NUDGE_LADDER.severity_for(days, threshold, escalation_gap)
 
 
 def evaluate(

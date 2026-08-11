@@ -107,13 +107,53 @@ database.
 > ~15 GB, more than the file organiser's entire reclaimable estimate. Not
 > actioned; a schema drop is irreversible and needs an explicit call.
 
-### MQTT — Alfred-internal
+### MQTT — promoted to an estate bus 2026-08-11, on terms
 
-Mosquitto runs with an override under Alfred's systemd directory and carries
-Alfred's chore/event bus. **It is not an estate bus**: no other app
-publishes or subscribes, and nothing is planned. Treat it as Alfred's
-private plumbing, and do not reach for it when connecting two other apps —
-if a second consumer ever appears, decide then whether it is promoted.
+Mosquitto runs with an override under Alfred's systemd directory and carried
+Alfred's chore/event bus alone. This section used to read *"it is not an
+estate bus… if a second consumer ever appears, decide then whether it is
+promoted"* — and that decision has now been made rather than deleted. A
+second **producer** appeared (Session 39: this service wants to push
+critical alerts to a phone that is already subscribed), and the bus is
+promoted. The terms matter more than the decision, because the promotion
+changes who is allowed to break it.
+
+**Who may publish, and who says so.** The broker is
+`allow_anonymous false` with `plugin mosquitto_dynamic_security.so`, and
+**Alfred owns the dynsec schema the way Alembic owns a database schema** —
+`Alfred/backend/alfred/events/dynsec.py`, bootstrapped on its startup. Ops
+provisions only an admin client and a store; every other identity is
+Alfred's to create.
+
+> ⚠️ **A hand-provisioned client does not survive.** `dynsec.reconcile()`
+> deletes every client that is not Alfred's admin, not Alfred's publisher,
+> and not a live device token. Adding `sysadmin-publisher` with
+> `mosquitto_ctrl` works until Alfred next restarts, at which point the
+> credential is deleted — best-effort, logged at `info`, no alert. For an
+> **alerting** path that is the worst possible failure mode: the alarm goes
+> quiet and nothing says so. A second publisher must therefore be added to
+> dynsec's protected set **in Alfred's code**, not to the broker by hand.
+
+**Topic namespace: a neutral root, not `alfred/events/…`.** Every existing
+topic is `alfred/events/<domain>/<event>`, so the namespace itself encodes
+the private-bus assumption. Keeping that prefix for a second producer was
+the cheap option and was rejected: the prefix would become a standing lie
+about ownership, and — because dynsec's roles are scoped to
+`_TOPIC_FILTER = alfred/events/#` — a lie the broker's access control
+depends on, which gets harder to undo the longer it stands. A neutral root
+costs a widened or additional dynsec topic filter, seven constants in
+Alfred and a change at both ends. That is the price of the promotion being
+real.
+
+**LAN-only, unchanged.** Listeners are `127.0.0.1` and `192.168.1.2` only.
+Nothing here reaches off the LAN, which is why an off-box dead man's switch
+remains an open gap rather than something the bus can be stretched to cover.
+
+**The subscriber end is closed by construction.** alfred-glance derives
+`SUBSCRIBED_TOPICS` from `RENDERERS.keys` in `BusEvents.kt`, so an
+unregistered topic cannot be subscribed to — deliberately. Publishing a new
+topic therefore needs a Kotlin change and an Android release, and is not a
+`mosquitto_pub` one-liner.
 
 ---
 

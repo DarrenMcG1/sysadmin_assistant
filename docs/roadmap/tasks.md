@@ -1220,11 +1220,13 @@ work:
 
 ### The work
 
-- [ ] **Escalation ladder for stalled agents**, reusing
+- [x] **Escalation ladder for stalled agents**, reusing
       `sysadmin/projects/nudges.py` rather than copying it — including the
       rule it already encodes: **resolve the quiet row and raise a louder
       one**, never update severity in place, because the tray fingerprints
-      on `{severity}:{title}` and an in-place change stays suppressed
+      on `{severity}:{title}` and an in-place change stays suppressed —
+      done 2026-08-11; the shared half had to move to `core` first, see
+      below
 - [ ] **Publish alerts to MQTT** at or above a configured severity. Decide
       the topic namespace first (above); amend estate-map.md with the terms
       of the promotion in the same change
@@ -1236,10 +1238,104 @@ work:
       if `READY=1` is never sent, systemd treats startup as failed and kills
       the service — so the rollback must be written down before the unit is
       edited
-- [ ] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
-      reaches `failed`, then an `OnFailure=` unit that says so
-- [ ] **Do not** build a second detector. Detection works; every item above
-      is about a signal persisting until it is seen
+- [x] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
+      reaches `failed`, then an `OnFailure=` unit that says so — done
+      2026-08-11, `StartLimitBurst=5` / `StartLimitIntervalSec=600` plus
+      `sysadmin-failed.service` → `scripts/notify-unit-failed.sh`
+- [x] **Do not** build a second detector. Detection works; every item above
+      is about a signal persisting until it is seen — held to; not one line
+      of `self_monitor.py` changed
+
+### Done 2026-08-11 (part 1 of the session)
+
+**The ladder, and where it had to live.** `sysadmin/monitor` may not import
+`sysadmin.projects` (`tests/test_import_boundary.py`), so "reuse nudges.py
+rather than copy it" was not possible as stated. The shared half moved to
+**`sysadmin/core/escalation.py`** — `SEVERITY_ORDER`, `Ladder`, `step_for`
+— the same move `strip_markdown` made into `core/text.py` and for the same
+reason. `nudges.py` now delegates to it; `severity_for` survives as a thin
+wrapper because the *unit* (days) is what a reader of that module needs.
+
+**The loud rung is `critical`, and the reason is not volume.**
+`sysadmin_tray/notifications.py` sets `transient=effective == "info"` on a
+first notification and `transient=False` only in `_maybe_escalate`, which
+fires for `critical` alone. **`critical` is the only severity the tray
+leaves on screen.** A `warning` toast expires whether or not anyone was in
+the room — which is exactly the owner's reported failure, so the second
+rung is about *persistence*, not loudness. This is the opposite of the rule
+`nudges.py` encodes (a nudge never reaches `critical`) and the two
+docstrings now point at each other so the difference reads as deliberate.
+
+**The escalation clock runs from when the alarm rang, not from when the
+stall began.** Both are computable; the alert row's `created_at` is right
+for two reasons. It is the honest claim — "you were told yesterday and it
+is still true", and the thing that failed was the telling. And anchoring to
+the stall's own age would make **a daemon outage produce a wall of
+criticals on restart**: while the service is down no agent runs, so the
+first check back would escalate all five at once, charging the estate for
+this application's downtime. `GET /api/services/reliability` already
+encodes that rule as "a gap in the series never costs points".
+
+**`escalate_after_hours: 24`, measured against the slowest agent, not the
+fastest.** `file_organiser` and `service_discovery` run daily, so a stall of
+theirs that is merely late recovers within one interval; a shorter gap
+escalates faults that were about to clear themselves, and an alarm that
+cries wolf stops being read. The knob cannot make *detection* faster —
+that is `stall_grace_multiplier`, and the config docstring says so, because
+that is the wrong knob someone will reach for.
+
+**`StartLimit` risk, sized rather than assumed.** `Restart=always` with no
+limit rides out a slow dependency, and this app does exit rather than
+degrade when the database is absent (`verify_connection` raises inside the
+lifespan). Measured before making the change: **`NRestarts=0` and zero
+"Scheduled restart job" entries in 30 days of journal** — the retry has
+never once fired on this box, so the resilience being traded away is
+theoretical while the silence it causes is not. The window is 600s rather
+than 300s to leave the headroom anyway, and the rollback (including the
+`systemctl reset-failed` that is easy to forget) is written into the unit
+file rather than into a session note.
+
+`tests/test_systemd_units.py` pins the pair together: `Restart=always`
+**with** a burst limit, a window that outlasts `burst × RestartSec`, an
+`OnFailure=` naming a unit that exists, a handler with no `OnFailure=` of
+its own, and `--expire-time=0` in the script. Installing either half alone
+accomplishes nothing, which is the shape of half-change this repository has
+shipped before (a retention row with no `TABLE_TIMESTAMP_MAP` entry).
+
+### Still open, and what the two constraints did to the plan
+
+- [ ] **MQTT publishing is blocked on an Alfred-side change, not on a
+      topic name.** The premise checked in the scoping session was
+      alfred-glance's closed renderer registry. That is real but secondary:
+      mosquitto here is `allow_anonymous false` with the **dynamic-security
+      plugin**, whose schema Alfred owns
+      (`Alfred/backend/alfred/events/dynsec.py`), and
+      **`dynsec.reconcile()` deletes every client that is not Alfred's
+      admin, not Alfred's publisher, and not a live device token**. A
+      `sysadmin-publisher` added by hand with `mosquitto_ctrl` therefore
+      works until Alfred next restarts and is then deleted — best-effort,
+      logged at `info`, no alert. For an alerting path that is the worst
+      available failure mode, and it is this session's own bug reinstalled
+      in the fix. Decided 2026-08-11: **Alfred provisions a protected
+      non-device publisher for sysadmin**, in its code.
+- [ ] **The neutral root costs a dynsec change too.** Both roles are
+      scoped to `_TOPIC_FILTER = alfred/events/#`, so `estate/…` is
+      **denied by the broker** until Alfred's roles gain a widened or
+      second filter. The namespace decision (neutral root, taken
+      2026-08-11) is therefore not "seven constants and both ends" as
+      scoped — it is that plus the broker's access control. Terms recorded
+      in [estate-map.md](../guides/estate-map.md).
+- [ ] **Persist an `OnFailure=` firing where the tray can see it.** The
+      handler notifies and writes to journald; neither survives as an
+      *alert row*, so a failure that happened while nobody was logged in is
+      invisible to `GET /api/sysadmin/alerts` afterwards. Blocked on a
+      decision rather than on work: `alerts.agent` has a `chk_alert_agent`
+      CHECK constraint, so an external writer either lies about provenance
+      (`agent='sysadmin'`, when the whole point is that the sysadmin
+      service was dead) or needs a migration adding a value for it.
+- [ ] **Off-box remains the known gap.** Listeners are `127.0.0.1` and
+      `192.168.1.2` only, so nothing built this session survives the box
+      being off. Recorded, not closed.
 
 ### Rejected, and why
 

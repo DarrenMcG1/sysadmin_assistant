@@ -574,12 +574,41 @@ class SelfMonitorConfig(BaseModel):
     ``min_stall_grace_seconds`` so short-interval agents are not flagged
     by a single restart). The interval comes from each agent's own config
     section — the same values ``main.py`` registers with the scheduler.
+
+    **``escalate_after_hours`` is the Session 39 knob, and it does not
+    change detection at all.** A stall is alerted at ``warning`` the
+    moment it is detected, exactly as before; this decides how long that
+    warning may stand *unresolved* before the fault is restated at
+    ``critical`` — the only severity the tray renders as a notification
+    that persists on screen rather than expiring unseen. Lowering it
+    makes the persistent alarm arrive sooner; it cannot make detection
+    faster, which is ``stall_grace_multiplier``'s job. See
+    :mod:`sysadmin.monitor.stalls`.
+
+    24 hours is chosen against the *slowest* agent rather than the
+    fastest. ``file_organiser`` and ``service_discovery`` run on 24-hour
+    intervals, so a stall of theirs that is merely late — a restart, a
+    missed tick — recovers within one interval. A gap shorter than that
+    escalates faults that were about to clear themselves, and an alarm
+    that cries wolf is how the persistent rung stops being read.
     """
 
     enabled: bool = True
     stall_grace_multiplier: float = 3.0
     min_stall_grace_seconds: int = 300
     recent_runs: int = 10
+    #: Hours a ``warning`` stall may stand open before it is re-raised as
+    #: ``critical``. 0 means "critical from the first detection".
+    escalate_after_hours: float = 24.0
+
+    @model_validator(mode="after")
+    def _escalation_gap_is_not_negative(self) -> "SelfMonitorConfig":
+        if self.escalate_after_hours < 0:
+            raise ValueError(
+                f"self_monitor.escalate_after_hours ({self.escalate_after_hours}) "
+                "must be >= 0; a negative gap would escalate before it warned"
+            )
+        return self
 
 
 class EventsConfig(BaseModel):

@@ -435,10 +435,23 @@ def _report(*stalled: str) -> dict:
     return {"agents": agents, "count": len(agents), "stalled_count": len(stalled)}
 
 
-def _stall_alert(agent_name: str, alert_id: str = "stall-1"):
+def _stall_alert(
+    agent_name: str,
+    alert_id: str = "stall-1",
+    severity: str = "warning",
+    age_hours: float = 0.0,
+):
+    """An open stall row.
+
+    ``severity`` and ``created_at`` are not decoration: since Session 39
+    the ladder reads both to decide raise / escalate / hold. A row without
+    them is not a row this code can ever meet.
+    """
     alert = MagicMock()
     alert.id = alert_id
     alert.title = f"{agent_name} agent stalled"
+    alert.severity = severity
+    alert.created_at = datetime.now(UTC) - timedelta(hours=age_hours)
     alert.details = {"stalled_agent": agent_name}
     return alert
 
@@ -567,3 +580,233 @@ class TestStalledAgentAlerting:
 
         assert raised == 0
         report.assert_not_called()
+
+
+class TestStallEscalationLadder:
+    """Session 39 — the alarm has to keep ringing until someone hears it.
+
+    The failure being fixed: detection worked, one ``warning`` was raised,
+    and the fault then went silent for a day while still being true. These
+    pin the second rung, and pin it as a *second row* rather than an edit.
+    """
+
+    @pytest.mark.asyncio
+    async def test_stall_still_open_after_the_gap_is_re_raised_as_critical(
+        self, sysadmin_agent, mock_session, mock_config
+    ):
+        open_row = _stall_alert("file_organiser", alert_id="stall-9", age_hours=25)
+        with (
+            _patch_report(_report("file_organiser")),
+            patch.object(
+                sysadmin_agent,
+                "_active_alerts",
+                new_callable=AsyncMock,
+                return_value=[open_row],
+            ),
+            patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
+            patch.object(
+                sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
+            ),
+        ):
+            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+
+        assert raised == 1
+        assert ra.call_args.kwargs["severity"] == "critical"
+        assert ra.call_args.kwargs["title"] == "file_organiser agent stalled"
+
+    @pytest.mark.asyncio
+    async def test_escalation_resolves_the_quiet_row_rather_than_editing_it(
+        self, sysadmin_agent, mock_session, mock_config
+    ):
+        """The whole point: the tray fingerprints on ``{severity}:{title}``.
+
+        Updating the row's severity in place keeps the fingerprint the tray
+        has already spoken and suppressed, so the escalation would be
+        recorded in the database and never said out loud.
+        """
+        open_row = _stall_alert("file_organiser", age_hours=48)
+        with (
+            _patch_report(_report("file_organiser")),
+            patch.object(
+                sysadmin_agent,
+                "_active_alerts",
+                new_callable=AsyncMock,
+                return_value=[open_row],
+            ),
+            patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
+            patch.object(
+                sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
+            ),
+        ):
+            await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+
+        assert open_row.resolved is True
+        assert open_row.resolved_at is not None
+        # ...and the new row is an insert, not a mutation of the old one.
+        assert ra.await_count == 1
+        assert open_row.severity == "warning"
+
+    @pytest.mark.asyncio
+    async def test_a_warning_younger_than_the_gap_stays_quiet(
+        self, sysadmin_agent, mock_session, mock_config
+    ):
+        """Below the gap this must behave exactly as it did before.
+
+        The dedup branch is what stopped the 1,664-row pile-up; the ladder
+        must not have turned it into "re-raise every five minutes".
+        """
+        with (
+            _patch_report(_report("file_organiser")),
+            patch.object(
+                sysadmin_agent,
+                "_active_alerts",
+                new_callable=AsyncMock,
+                return_value=[_stall_alert("file_organiser", age_hours=23)],
+            ),
+            patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
+        ):
+            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+
+        assert raised == 0
+        ra.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_an_open_critical_is_never_re_raised(
+        self, sysadmin_agent, mock_session, mock_config
+    ):
+        """The top rung is a rung, not a repeat.
+
+        Without this the ladder writes one critical per health check —
+        every 60 seconds on this config — which is the pile-up back again
+        at the loudest severity available.
+        """
+        with (
+            _patch_report(_report("file_organiser")),
+            patch.object(
+                sysadmin_agent,
+                "_active_alerts",
+                new_callable=AsyncMock,
+                return_value=[
+                    _stall_alert("file_organiser", severity="critical", age_hours=200)
+                ],
+            ),
+            patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
+        ):
+            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+
+        assert raised == 0
+        ra.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_recovery_resolves_a_critical_without_walking_back_down(
+        self, sysadmin_agent, mock_session, mock_config
+    ):
+        """An agent that ran again is not a quieter fault; it is not a fault."""
+        with (
+            _patch_report(_report()),
+            patch.object(
+                sysadmin_agent,
+                "_active_alerts",
+                new_callable=AsyncMock,
+                return_value=[
+                    _stall_alert(
+                        "file_organiser",
+                        alert_id="stall-crit",
+                        severity="critical",
+                        age_hours=30,
+                    )
+                ],
+            ),
+            patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
+            patch.object(
+                sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
+            ) as resolve,
+        ):
+            await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+
+        ra.assert_not_called()
+        assert resolve.call_args.args[1] == ["stall-crit"]
+
+    @pytest.mark.asyncio
+    async def test_escalated_row_still_carries_the_stalled_agent_key(
+        self, sysadmin_agent, mock_session, mock_config
+    ):
+        """Load-bearing, not decorative.
+
+        The next run finds open stall rows by testing ``details`` for this
+        key. An escalated row that dropped it would be invisible, so the
+        fault would be re-raised from the quiet rung for ever — and the
+        critical row would never be resolved on recovery either.
+        """
+        with (
+            _patch_report(_report("file_organiser")),
+            patch.object(
+                sysadmin_agent,
+                "_active_alerts",
+                new_callable=AsyncMock,
+                return_value=[_stall_alert("file_organiser", age_hours=30)],
+            ),
+            patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
+            patch.object(
+                sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
+            ),
+        ):
+            await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+
+        details = ra.call_args.kwargs["details"]
+        assert details["stalled_agent"] == "file_organiser"
+        assert details["escalated"] is True
+        assert details["first_alerted_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_run_details_separate_raises_from_escalations(
+        self, sysadmin_agent, mock_session, mock_config
+    ):
+        """``alerts_raised`` sums two different events; the breakdown does not.
+
+        A run that escalated a day-old stall and a run that discovered a
+        new one both report ``1``. Only ``details["stalls"]`` distinguishes
+        "something new broke" from "the same thing is still broken".
+        """
+        with (
+            _patch_report(_report("file_organiser", "log_aggregator")),
+            patch.object(
+                sysadmin_agent,
+                "_active_alerts",
+                new_callable=AsyncMock,
+                return_value=[_stall_alert("file_organiser", age_hours=30)],
+            ),
+            patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock),
+            patch.object(
+                sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
+            ),
+        ):
+            total = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+
+        assert total == 2
+        assert sysadmin_agent._stall_counts == {
+            "stalled": 2, "raised": 1, "escalated": 1,
+        }
+
+    @pytest.mark.asyncio
+    async def test_zero_gap_means_critical_from_first_detection(
+        self, sysadmin_agent, mock_session, mock_config
+    ):
+        """A legitimate setting, and the ladder must not skip the row.
+
+        ``escalate_after_hours: 0`` is how someone says "a stalled agent is
+        never merely a warning". The first detection has no open row to
+        escalate, so this exercises the RAISE path at the loud rung.
+        """
+        mock_config.self_monitor.escalate_after_hours = 0
+        with (
+            _patch_report(_report("log_aggregator")),
+            patch.object(
+                sysadmin_agent, "_active_alerts", new_callable=AsyncMock, return_value=[]
+            ),
+            patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
+        ):
+            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+
+        assert raised == 1
+        assert ra.call_args.kwargs["severity"] == "critical"

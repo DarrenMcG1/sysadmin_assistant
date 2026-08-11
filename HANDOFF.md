@@ -2,160 +2,165 @@
 
 ## Next action
 
-Run `sudo systemctl restart sysadmin.service` so the daemon stops serving the pre-envelope briefing — it currently answers `/api/sysadmin/briefing/preview` with 25 Project Health rows and no `facts` block — then take Session 39, the watcher escalation ladder, whose scope, two decisions and two blocking constraints are already written into tasks.md.
+Install the two unit files with `sudo cp systemd/sysadmin.service systemd/sysadmin-failed.service /etc/systemd/system/ && sudo systemctl daemon-reload`, then rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears, before taking the MQTT half of Session 39 — which needs an Alfred-side change first, because `dynsec.reconcile()` deletes any publisher Alfred did not create.
 
-## Session 36: the briefing envelope, and half of it was already built
+## Session 39 (part 1): the alarm rings more than once
 
-`GET /api/sysadmin/briefing/preview` now carries `schema`, `period`,
-`summary`, `alerts[]` and `facts{}` alongside the `sections` and
-`generated_at` it always had.
+Two of the six scoped items shipped. **Detection was not touched** — not a
+line of `self_monitor.py` changed, because it was never the fault. The
+scope said so and the code confirmed it: the `file_organiser` stall was
+detected correctly at interval × 3 and alerted at 09:07 on 2026-08-10.
 
-Three of the session's six checkboxes had landed on 2026-08-08 as Session
-35 Phase 5 — `estate.json`, `last_code_commit` and the atomic write — and
-were verified in the code rather than taken from the notes before being
-ticked. What remained was the envelope, the prose over it, and one
-question that turned out to be the interesting part of the session.
+What was broken is that the alarm rang **once, at the quietest severity,
+and went silent while the fault persisted**. `_check_agent_liveness` skips
+raising while an unresolved row with that title is open — correct, and
+what stopped the 1,664-row pile-up — and the tray fingerprints on
+`{severity}:{title}`. A warning that fires once is indistinguishable from
+one that got fixed.
 
-## The delivery decision, taken before any code
+## The reuse instruction could not be followed as written
 
-Alfred's `adapt_sysadmin` reads `payload["sections"]` and returns a single
-red error section if that key is absent, and reads `generated_at` into
-`produced_at`. The envelope as specified had **neither** — it named
-`generated` and listed no `sections` — so shipping it literally would have
-replaced Alfred's whole Infrastructure group with one error box every
-morning, in a separate repository with its own ADR governing the contract.
+The scope said to reuse `sysadmin/projects/nudges.py` rather than copy it.
+`sysadmin/monitor` may not import `sysadmin.projects`
+(`tests/test_import_boundary.py`), so the shared half moved into
+**`sysadmin/core/escalation.py`** first — `SEVERITY_ORDER`, `Ladder`,
+`step_for`. Same move `strip_markdown` made into `core/text.py`, same
+reason, and `nudges.py` now delegates rather than owning it. The
+alternative was a copy, and a copied rule drifts in the direction nobody
+notices: the escalation stops escalating on one side and nothing reports
+the disagreement.
 
-**Additive, and it is not a compromise.** The spec's own sentence settles
-it: "prose is what Alfred surfaces; `facts` is the deterministic input the
-prose was written from". `sections` *are* the prose. Alfred owns the
-section contract (ADR-0063) and normalises producers into it; this service
-owns the envelope round it, and both stay true at once.
+## Why the loud rung is `critical`, which is not the obvious reason
 
-**Rejected**: an envelope-native second endpoint with `/preview` frozen —
-two payloads where one gets updated is the exact drift this repository has
-filed three snags about; and a breaking change with a coordinated Alfred
-edit — two repos in one sitting, digest red between deploys.
+Not volume. `sysadmin_tray/notifications.py` sets `transient=effective ==
+"info"` on a first notification and `transient=False` only inside
+`_maybe_escalate`, which fires for `critical` alone — so **`critical` is
+the only severity the tray renders as a notification that stays on
+screen**. The owner's diagnosis was "I never saw the toast", away from the
+machine; a `warning` toast expires whether or not anyone was in the room.
+The second rung buys *persistence*, and persistence is the thing that was
+missing.
 
-**No `generated` key was added beside `generated_at`.** Two stamps holding
-the same value are a fork waiting to happen, and the existing name is the
-one a live consumer already reads.
+This is the exact opposite of the rule `nudges.py` encodes — a nudge never
+reaches `critical`, because criticals pierce DND and waking someone at
+02:00 about a roadmap item is how a monitor gets muted wholesale. Both
+docstrings now cite the other, so the difference reads as a decision
+rather than an inconsistency. (`notifications.dnd.enabled` is `false` on
+this host in any case, checked rather than assumed.)
 
-## Checkbox 6 was a measurement, and it found the hole
+## The clock starts when the alarm rang, not when the stall began
 
-"Confirm Alfred enforces staleness on `generated`."
+Both were computable — the stall began at `last_run_at + stall_window` —
+and the obvious choice is wrong twice.
 
-It does. `_producer_timestamp` carries the stamp into `produced_at`, and
-`DigestSection.vue` flags a producer whose payload predates digest
-composition by more than 12 hours. Correctly implemented, and **it can
-never fire for this service** — because Alfred *pulls*, and
-`generate_briefing_data` stamps `datetime.now(UTC)` at request time. The
-stamp says when the phone was picked up. It says nothing about the age of
-the data recited into it: a service whose organiser died three days ago
-serves a payload one second old containing three-day-old projects.
+1. The thing that failed was the **telling**, so the telling is what the
+   second rung should measure: "you were told yesterday and it is still
+   true". A fault detected for the first time has had no chance to be
+   seen, whatever its age, so it opens quiet.
+2. Anchoring to the stall's own age makes **a daemon outage produce a wall
+   of criticals on restart**. Nothing runs while the service is down, so
+   every agent is stalled by hours and the first check back would escalate
+   all five at once — charging the estate for this application's downtime.
+   `GET /api/services/reliability` already encodes that rule as "a gap in
+   the series never costs points".
 
-That is the pull-versus-push asymmetry. For a pushed artefact, generation
-time and measurement time coincide and one stamp serves both. For a pulled
-one they diverge silently, and the consumer's freshness check quietly
-degrades into a liveness check on the HTTP handler.
+The clock does keep running while the daemon is down, which is right: a
+warning row two days old has genuinely stood unseen for two days.
 
-So every `facts` block carries its own `measured_at`,
-`facts.stale_sources` names anything measured more than 26 hours ago, and
-`summary` states it in a sentence. **It caught one on the first live run**:
-`filesystem` last measured 2026-08-06, five days stale — and independently
-corroborated by an open `file_organiser agent stalled` alert sitting in the
-same payload. Two routes to one fact is the argument for the field.
+**`escalate_after_hours: 24` is set against the slowest agent, not the
+fastest.** `file_organiser` and `service_discovery` run daily, so a stall
+of theirs that is merely late clears within one interval; a shorter gap
+escalates faults that were about to fix themselves, and an alarm that
+cries wolf stops being read. The config docstring states that this knob
+cannot make *detection* faster, because `stall_grace_multiplier` is the
+wrong knob someone will reach for.
 
-## Decisions taken, and what was rejected
+## The crash case, and the measurement that de-risked the change
 
-**`period` is anchored to the schedule, not the last pull.** "Since the
-previous briefing" has no anchor on a pulled route: two consumers polling
-would each shorten the other's window, and storing a row per pull turns the
-endpoint into a pull log and needs a migration. `schedules.briefing_hour`
-already declares the cadence, so the window runs from the most recent 06:00
-boundary — one meaning for every caller, no storage, no table.
-`anchor: "schedule"` is in the payload because the other reading is the one
-a consumer would otherwise assume. The stored-history alternative was put
-back to the estate owner and is still available if a real diff of
-consecutive briefings is ever wanted.
+`sysadmin.service` was `Restart=always` with no limit, so a crash-loop
+sits in `activating (auto-restart)` for ever and **never enters
+`failed`** — the state every failure hook and every `systemctl is-failed`
+watches. The silence-reads-as-health shape, sitting in the unit file.
 
-**`summary` is deterministic.** Chosen over LLM narration: the two weekly
-reviews are narrated and pay for it with a figure-free prompt, a
-deterministic facts prepend and a markdown stripper, because the 3B model
-restates numbers it was told not to. A summary made *only* of numbers has
-nothing to gain from any of that, and a 06:00 path has llama-server being
-down to lose.
+The trade was real and was sized rather than assumed: infinite retry rides
+out a dependency that is slow to appear, and this app *does* exit rather
+than degrade without a database (`verify_connection` raises inside the
+lifespan). Measured before the edit — **`NRestarts=0`, and zero
+"Scheduled restart job" entries in 30 days of journal.** The retry has
+never once fired on this box, so the resilience being traded away is
+theoretical while the silence it causes is not. The window is 600s rather
+than 300s to leave that headroom anyway.
 
-**`facts` is a projection, not a copy** — counts and identifiers, never the
-rows the sections render. A facts block containing the whole payload cannot
-be diffed, which is the only reason the block exists. A test asserts every
-list inside it holds scalars.
+`sysadmin-failed.service` runs `scripts/notify-unit-failed.sh`:
+`--urgency=critical --expire-time=0`, and **journald first,
+unconditionally**, that being the one destination which does not require
+anyone to be logged in. It exits non-zero when it cannot reach the session
+bus, because returning 0 there would record "the failure was reported"
+when it was not. The handler was **rehearsed, not trusted** — run by hand,
+journal line confirmed.
 
-**Both project sections now read one query and one filter.** They were
-issuing the same `latest_snapshot_query` separately, differing only by an
-`ORDER BY` Python does for free — two reads of one table in one payload,
-which is also two chances to disagree, which is precisely what
-SNAG-BRIEF-001 was.
+`tests/test_systemd_units.py` pins the two halves together: `Restart=always`
+with a burst limit, a window that outlasts `burst × RestartSec`, an
+`OnFailure=` naming a unit that exists, and a handler with no `OnFailure=`
+of its own. Either half alone accomplishes nothing, which is the shape of
+half-change this repo has shipped before (a retention row with no
+`TABLE_TIMESTAMP_MAP` entry).
 
-## The two snags underneath, and why they came first
+## Blocked: MQTT, on something the scoping session did not find
 
-The snag list argued the ordering itself: *"building a briefing envelope on
-top of wrong data only makes the wrong data better formatted."*
+The premise checked while scoping was alfred-glance's closed renderer
+registry. Real, but secondary. Mosquitto here is `allow_anonymous false`
+running the **dynamic-security plugin**, and Alfred owns that plugin's
+schema "the way Alembic owns a database schema"
+(`Alfred/backend/alfred/events/dynsec.py`).
 
-**SNAG-BRIEF-001** — Project Health published every project ever scanned:
-26 rows including work retired in July and four near-duplicate casings of
-one repository, while "Pick This Up" in the same payload listed 5 and the
-board returned 6. Now `status == "active"` (the line the board and
-`/api/projects/next` both draw), ordered **ascending** because descending
-plus a cap shows exactly the rows carrying no information, capped at 5,
-with `facts.projects.omitted` reporting the cut. Live: **26 rows became
-5**, and the two sections agree by construction rather than by matching
-filters.
+**`dynsec.reconcile()` deletes every client that is not Alfred's admin,
+not Alfred's publisher, and not a live device token.** A
+`sysadmin-publisher` added with `mosquitto_ctrl` works until Alfred next
+restarts and is then deleted — best-effort, logged at `info`, no alert.
+For an *alerting* path that is the worst available failure mode, and it is
+this session's own bug reinstalled inside the fix.
 
-**SNAG-BRIEF-002** — a bare `[:180]` slice cut a next action mid-word with
-nothing to say so. `truncate_at_word` now lives in `sysadmin/core/text.py`:
-word boundary, and **always** the marker `… (truncated)`, deliberately the
-same string Alfred's own `sanitise_text` appends so a cut made either side
-reads identically. The cap is documented rather than anonymous. It was
-**not** moved upstream into `roadmap.next_action_from_handoff`: the board
-serves the field uncapped on purpose, so capping at source would shorten a
-surface that had no defect.
+**Decided**: Alfred provisions a protected non-device publisher, in its
+code. Rejected: reusing `alfred-backend`'s credential (shared identity, no
+separate revocation, and rotating Alfred's password silently kills the
+alarm), and routing alerts through an Alfred HTTP ingest route (keeps the
+bus private, but couples the alarm to Alfred's backend being up).
 
-## What it says about this estate
+**The namespace decision costs more than scoped, too.** Both dynsec roles
+are scoped to `_TOPIC_FILTER = alfred/events/#`, so the chosen neutral
+root (`estate/…`) is **denied by the broker** until those roles gain a
+filter — not "seven constants and both ends", but that plus the broker's
+access control. The terms of the promotion are now written into
+[estate-map.md](docs/guides/estate-map.md), which had reserved this
+decision in writing for exactly this case.
 
-The alert grouping had to be built to make `alerts[]` readable at all, and
-what it measured is the case for the next session: **599,794 open alert
-rows across 21 incidents**, 557,832 of them warnings. One unresolved
-`Log error: kernel` accounts for most of it. Grouping by incident in the
-envelope is a workaround sitting on top of `SNAG-AGENT-002`, which is Tier
-1 of Session 27.
+## Left open on purpose
 
-## Blocked, and left open on purpose
-
-- **Nothing consumes the new keys yet, and the question has been handed
-  over rather than answered here.** Alfred is unchanged and unaffected by
-  design. The staleness finding was written into **Alfred's**
-  `docs/external/briefing_producers.md` (its own re-open trigger covers a
-  payload gaining fields) and re-opened as live **row 130c** — row 130
-  itself is complete and archived, so reverting it to `Planned` would
-  have falsely un-shipped a delivered backend. Whether `adapt_sysadmin`
-  reads `facts.stale_sources` is Alfred's decision to record either way;
-  Session 30's fate says to ask rather than assume a consumer wants
-  something. Alfred commit `22bc4ad`.
-- **The staleness limit is not sysadmin-specific and the note says so.**
-  It applies to every *pulled* producer that stamps at request time, and
-  **SportsAnalyser's `generated_at` has not been checked either way** —
-  one `curl` settles whether `produced_at` means anything on those
-  sections. Flagged in Alfred's file, not chased from here.
-- **`facts.stale_sources` reported a real problem it did not cause**, and
-  the follow-up measurement made it worse than it looked: `agent_runs`
-  holds **one** `file_organiser` row, ever, against `log_aggregator`'s
-  31,431. Filed as `SNAG-AGENT-003` and deliberately not chased here —
-  a scheduler that never fires and an agent that dies silently need
-  opposite fixes, and nothing recorded has ever been a failure. The
-  second half of that snag is that a `file_organiser agent stalled`
-  alert had been open since 2026-08-10 and nobody read it; detection was
-  never the missing piece.
-- **The 180-character cap and the board's uncapped field are now a
-  documented disagreement** rather than an accidental one. If a consumer
-  ever needs the full action in a briefing, the fix is to raise the cap,
-  not to remove the marker.
+- **`Type=notify` + `WatchdogSec=`** was deliberately not attempted in the
+  same sitting as the `StartLimit` change. It is the one item that can
+  kill the service outright (a missing `READY=1` makes systemd treat
+  startup as failed), and two unit changes with one rollback path is how
+  a rollback becomes a guess.
+- **An `OnFailure=` firing leaves no alert row.** The handler notifies and
+  writes to journald; neither is visible to `GET /api/sysadmin/alerts`
+  afterwards, so a failure while nobody was logged in is invisible later.
+  Blocked on a decision, not on work: `alerts.agent` has a
+  `chk_alert_agent` CHECK constraint, so an external writer either lies
+  about provenance (`agent='sysadmin'`, when the point is that the
+  sysadmin service was dead) or needs a migration.
+- **Off-box is still nothing.** Listeners are `127.0.0.1` and
+  `192.168.1.2` only — nothing built today survives the box being off.
+  Recorded as the known gap rather than pretended closed.
+- **`SNAG-DB-002`, found sideways**: every database on this box has a
+  stale collation version (glibc 2.44 against `datcollversion` 2.43; 25
+  indexes in the `sysadmin` schema). Not fixed — a reindex touches two
+  other apps' data — and the `REFRESH COLLATION VERSION` that clears the
+  warning without rebuilding is the trap, since it turns a loud known
+  risk into a silent one. A check for it belongs in the sysadmin agent.
+- **`SNAG-SYSD-003`**: `After=ollama.service` on a runtime retired
+  2026-07-24, spotted in the file being edited and left there so the unit
+  change kept exactly one rollback path.
+- **`SNAG-AGENT-003`'s first half is untouched.** The alert would now go
+  persistent, but the file organiser has still run once in its life and
+  the two candidate causes are still unseparated.
