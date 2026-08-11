@@ -25,6 +25,29 @@ NOW = datetime(2026, 8, 7, 12, 0, tzinfo=UTC)
 INTERVAL = 60  # mock_config's health_check_interval_seconds
 
 
+@pytest.fixture(autouse=True)
+def _pinned_route_clock():
+    """Pin the route's clock to ``NOW``, the one every fixture is built from.
+
+    The endpoint is computed live by design, so it reads ``datetime.now``
+    rather than taking a ``now`` argument the way ``compute_reliability``
+    does.  That left this file with **two clocks**: the scorer calls pinned
+    to ``NOW`` and the nine endpoint calls following the wall clock, with
+    the fixture rows anchored to ``NOW`` in both cases.  As real time drew
+    away from ``NOW`` the rows slid out of the seven-day window, and the
+    tests began to fail on a date rather than on a change.
+
+    ``test_endpoint_filters_by_confidence`` went first, on 2026-08-11, at
+    the 3.5-day mark where a seven-day run of checks stops covering half
+    the window and ``_confidence`` correctly downgrades it.  The remaining
+    eight had until 2026-08-14, when the run would have left the window
+    outright.  One clock, and none of that is reachable.
+    """
+    with patch("sysadmin.monitor.routers.services.datetime") as clock:
+        clock.now.return_value = NOW
+        yield
+
+
 def _rows(mock_session, rows):
     """Make ``session.execute`` yield ``(service_name, status, checked_at)``."""
     result = MagicMock()
