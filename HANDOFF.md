@@ -2,7 +2,7 @@
 
 ## Next action
 
-Run `sudo systemctl restart sysadmin.service` so the daemon stops serving the pre-envelope briefing — it currently answers `/api/sysadmin/briefing/preview` with 25 Project Health rows and no `facts` block — then take Session 27, the log-aggregator tiers, with `SNAG-AGENT-002`.
+Run `sudo systemctl restart sysadmin.service` so the daemon stops serving the pre-envelope briefing — it currently answers `/api/sysadmin/briefing/preview` with 25 Project Health rows and no `facts` block — then take `SNAG-AGENT-003`, the file organiser having run exactly once in its life while its own stall alert sat open unread.
 
 ## Session 36: the briefing envelope, and half of it was already built
 
@@ -135,9 +135,15 @@ envelope is a workaround sitting on top of `SNAG-AGENT-002`, which is Tier
   by design; whether it should read `facts.stale_sources` instead of
   relying on `produced_at` is a question for Alfred's side, and Session
   30's fate says to ask before assuming a consumer wants something.
-- **`facts.stale_sources` is reporting a real problem it did not cause**:
-  the file organiser last scanned 2026-08-06. Not investigated here —
-  filed by the envelope, not fixed by it.
+- **`facts.stale_sources` reported a real problem it did not cause**, and
+  the follow-up measurement made it worse than it looked: `agent_runs`
+  holds **one** `file_organiser` row, ever, against `log_aggregator`'s
+  31,431. Filed as `SNAG-AGENT-003` and deliberately not chased here —
+  a scheduler that never fires and an agent that dies silently need
+  opposite fixes, and nothing recorded has ever been a failure. The
+  second half of that snag is that a `file_organiser agent stalled`
+  alert had been open since 2026-08-10 and nobody read it; detection was
+  never the missing piece.
 - **The 180-character cap and the board's uncapped field are now a
   documented disagreement** rather than an accidental one. If a consumer
   ever needs the full action in a briefing, the fix is to raise the cap,
