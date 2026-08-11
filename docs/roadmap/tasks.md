@@ -1012,6 +1012,29 @@ realistic case is the one where the age comes from the weaker clock.
 deferred them. Hoisted here 2026-08-05 when Sessions 10–23 were archived,
 so nothing was buried with them.
 
+Notifications (from SNAG-CFG-001, 2026-08-11):
+- [ ] **The daemon announces an outage's start and never its end.**
+      `sysadmin/monitor/desktop.py` notifies on `alert.raised` only,
+      because `alert.resolved` carries a *match pattern* rather than a
+      subject — `BaseAgent.resolve_alerts` publishes
+      `{"agent", "match", "count"}`, and the project organiser's `match`
+      is `"Project % health critical"`. A recovery toast needs the
+      resolve events to name what recovered, which means changing the
+      three resolve paths, not the notifier
+- [ ] **The presence signal cannot tell the tray from any other client.**
+      Any GET of `/api/sysadmin/alerts` counts as "somebody is watching",
+      including a `curl`. It errs towards silence, which is the safe
+      direction and the pre-existing behaviour, but a tray that
+      identified itself (a header set in `sysadmin_tray/client.py`) would
+      be exact. Deferred because an older tray build would then go
+      unrecognised and both would toast — the duplicate this design
+      exists to prevent
+- [ ] **547,814 unresolved `Log error: kernel` rows** were found in the
+      table while measuring notification volume. That is SNAG-AGENT-002's
+      damage rather than a new defect, and the notifier's incident gate
+      makes it harmless to *notifications*, but nothing has ever purged
+      or resolved them — retention purges resolved rows only
+
 Tray / UI:
 - Wire Session 18's file-action endpoints (`/api/files/organise`,
   `clean/duplicates`, `clean/downloads`) into Session 19's Files tab — the

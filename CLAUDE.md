@@ -294,6 +294,32 @@ collapse "every project is up to date" into "no scan has ever run";
 `skipped` breaks the ruled-out population down by reason, which is what
 made it legible that the eligible set is 2 of 23.
 
+**Two things speak on this box, and only one of them at a time.** The tray
+polls `GET /api/sysadmin/alerts` and owns the notification policy (dedup,
+flap cooldown, coalescing, digest — `sysadmin_tray/notifications.py`).
+`sysadmin/monitor/desktop.py` is its **understudy**: subscribed to
+`alert.raised`, it stays silent whenever that route has been polled within
+`notifications.desktop.tray_grace_seconds`, and speaks when the tray is not
+running — which was silent altogether until 2026-08-11 (SNAG-CFG-001:
+`notifications.desktop` was parsed by pydantic and read by nothing, and
+`Notifier.send_notification` had no production caller at all).
+
+Three rules it encodes, each measured rather than assumed:
+
+1. **One notification per incident, not per alert row.** The monitor
+   writes one row *per failed check* — 186 for one `venture-assistant`
+   outage, 88 criticals a day, 547,814 unresolved `Log error: kernel`
+   rows in the table. The daemon speaks only when no other alert with
+   that title is open.
+2. **Both gates fail closed.** An unreachable database returns "not a new
+   incident", because the alternative turns a blip into a storm.
+3. **Subscribed, never called from `raise_alert`.** `core` must not import
+   a domain, and `_queue_event` buffers until the run's transaction
+   commits — so the notifier's query cannot race the insert it reacts to.
+
+Recovery is deliberately **not** announced: `alert.resolved` carries a
+match pattern (`"Project % health critical"`), not a subject.
+
 **Idle nudges have no endpoint, and that is the design** (Session 31). A
 nudge is an `alerts` row raised by the organiser — `Project <name> next
 action idle` — so it reaches the tray, the DND windows and

@@ -40,6 +40,7 @@ from sysadmin.files.router import router as files_router
 
 # Agents
 from sysadmin.monitor.agent import SysAdminAgent
+from sysadmin.monitor.desktop import desktop_notifier
 from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.log_aggregator import LogAggregatorAgent
 from sysadmin.monitor.notifier import Notifier
@@ -112,6 +113,13 @@ async def lifespan(app: FastAPI):
     # Agents publish change events from scheduler threads (each with its own
     # event loop) — bind the API loop so SSE clients are woken on it.
     event_bus.bind_loop(asyncio.get_running_loop())
+
+    # The daemon's own desktop notifications — the tray's understudy,
+    # silent whenever the tray is polling.  Subscribed rather than called
+    # from raise_alert so ``core`` keeps its rule of never importing a
+    # domain, and so notifications fire only after the raising agent's
+    # transaction has committed (events are buffered until then).
+    event_bus.subscribe("alert.raised", desktop_notifier.on_alert_raised)
 
     # Initialise database
     await create_engine_and_session()

@@ -10,12 +10,14 @@
 
 ## Open Issues
 
-_Six open snags, plus two found and fixed the same day and left in place for
-the write-up (`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on 2026-08-10) —
-`count_open_snags` therefore reports 8, which is the entries listed rather than
-the entries outstanding, and is itself an instance of `SNAG-ROADMAP-002`.
-`SNAG-CFG-001` was added on 2026-08-11 by Session 31, which needed to know
-which severity is audible and found that the obvious knob is not the one. The twelve
+_Five open snags, plus three found and fixed the same day and left in place for
+the write-up (`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on 2026-08-10,
+`SNAG-CFG-001` on 2026-08-11) — `count_open_snags` therefore reports 8, which is
+the entries listed rather than the entries outstanding, and is itself an
+instance of `SNAG-ROADMAP-002`.
+`SNAG-CFG-001` was found by Session 31, which needed to know which severity is
+audible and found that the obvious knob is not the one; the fix turned out to
+be a whole dead notification path rather than a stale key. The twelve
 `SNAG-PROJ-*` entries from the 2026-08-07 project-organiser capability audit
 were **all cleared by [Session 34](tasks.md) on 2026-08-10** and are archived
 below with their fix dates. `SNAG-ROADMAP-003` — found 2026-08-08 while writing
@@ -70,12 +72,16 @@ defects have a reader for the first time._
   - **Fix**: Nest sections by heading depth (a `###` under an "open" `##` inherits it), and require the id on an unindented bullet — or count entries by the `[P0]`/`[P1]`/`[P2]` marker, which only ever appears on a real entry line. Add a fixture covering both shapes: a grouped open section, and an entry whose sub-bullets name other snags
   - **Note**: the same `_sections` flattening governs `next_action_from_handoff` and `first_unchecked_task`, so a handoff using sub-headings under `## Next` is exposed to the first half of this
 
-- [P2] SNAG-CFG-001: `notifications.desktop.min_severity` is read by nothing, and looks exactly like the knob that decides whether an alert speaks (2026-08-11)
+- [P2] SNAG-CFG-001: `notifications.desktop.min_severity` was read by nothing, and looked exactly like the knob that decides whether an alert speaks (2026-08-11, **fixed same day**)
   - **Symptom**: `config.yaml` carries `notifications.desktop: {enabled: true, min_severity: warning}` and `sysadmin/core/config.py` validates it through `DesktopNotificationsConfig`. **No module reads `config.notifications.desktop`** — verified by grep across `sysadmin/`, which finds the section's siblings (`.dnd` in `monitor/dnd.py`, `.pa_notify` and `.tray.mute_services` in `monitor/notifier.py` and `monitor/reliability_history.py`) and never `.desktop`. The setting that actually gates a desktop toast is **`tray.notify_min_severity`** in the separate top-level `tray:` section, parsed by `sysadmin_tray/config.py`, which the tray reads out of the same file
   - **Cause**: The backend used to own desktop notification and handed the job to the tray in Phase 3 (popup retired 2026-07-24). The producer moved; its configuration did not, and the tray brought its own key rather than adopting the existing one. Both currently read `warning`, so the two have never disagreed and nothing has ever surfaced the redundancy
   - **Impact**: Latent, and of the shape this repository keeps finding — a control that is *requested* but not *enforced*. Lowering `notifications.desktop.min_severity` to `info` changes nothing, and raising it to `critical` silences nothing; a reader tuning notification loudness edits the plausible knob and concludes the setting does not work. Found on 2026-08-11 while writing Session 31's idle nudges, whose whole ladder is designed around *which* severity is audible — three comments were written naming the wrong knob before the grep was run
-  - **Fix**: Either delete `DesktopNotificationsConfig` and the YAML block (the tray's key is the live one and is documented where the tray reads it), or make `tray.notify_min_severity` default to `notifications.desktop.min_severity` so the section means something. Deletion is preferred: two keys for one decision is the defect, and keeping both with a fallback preserves it
-  - **Not fixed here**: it is in the tray's configuration boundary, not the project organiser's, and Session 31 changed no notification code. Filed rather than folded in
+  - **The defect was larger than the key.** `Notifier.send_notification` — the only method that had ever consulted this section — has **no production caller**: grep finds it in `tests/test_notifier.py` and nowhere else. `Notifier` is instantiated in `main.py`, started in the lifespan and attached to `app.state`, and nothing ever asks it to send an alert. `BaseAgent.raise_alert`'s own docstring says "the notifier service should be called separately" and `monitor/agent.py` says criticals are "to be picked up by notifier"; neither ever happened. The dead key was one symptom of a notification path that had been dead since it was written
+  - **Fixed 2026-08-11** by giving the daemon a real notifier rather than deleting the config: `sysadmin/monitor/desktop.py` subscribes to `alert.raised` on the existing event bus and sends via `notify-send`. It is the tray's **understudy** — silent whenever the tray has polled `/api/sysadmin/alerts` within `tray_grace_seconds` — so the two can never both toast one alert, and the case it covers is the one that was previously silent: **the tray not running**, which was true on this box while the fix was being written
+  - **The gate that makes it survivable is one-notification-per-incident.** The monitor writes one alert row per failed check, so a notifier that speaks per row is a denial of service against its own reader. Measured while building: 186 rows for one `venture-assistant` outage, 123 for one `internet` outage, 88 criticals/day at steady state, and **547,814 unresolved `Log error: kernel` rows** sitting in the table right now (SNAG-AGENT-002's damage). The daemon speaks only when no other alert with that title is already open, verified against those live rows: `Log error: kernel` → silent, an unseen title → speaks
+  - **Subscribed, not called from `raise_alert`**, for two reasons: `core` must not import a domain (`test_import_boundary`), and `_queue_event` buffers until the run's transaction commits, so the "is another one open?" query cannot race the insert it is reacting to
+  - **Both gates fail closed.** An unreachable database returns "not new" rather than "new", because the alternative turns a connection blip into a notification storm — which is the failure the module spends most of its code avoiding
+  - **Still open, deliberately**: recovery is not announced. `alert.resolved` carries a *match pattern* rather than a subject (`"Project % health critical"`), so two of the three producers would publish something that reads as gibberish on a desktop. Announcing an outage's start and never its end is a real gap, recorded as one rather than papered over — see [tasks.md](tasks.md) Backlog
 
 - [P2] SNAG-AGENT-002: Log aggregator raises one alert per error line (2026-07-24)
   - **Symptom**: A single poll over a noisy unit produces dozens of separate alerts — observed live during Session 17 while streaming `/api/sysadmin/events`, where one log_aggregator run emitted alerts continuously

@@ -2,7 +2,54 @@
 
 ## Next action
 
-Take Session 36, the briefing envelope, which is unblocked and unstarted, and leave Session 32 alone until the SessionEnd hook appends a session log instead of overwriting the handoff, because without that the evidence it needs does not survive.
+Run `sudo systemctl restart sysadmin.service` so the daemon picks up the desktop notifier wired today, then take Session 36, the briefing envelope, which is unblocked and unstarted.
+
+## SNAG-CFG-001: the daemon could not speak, and nobody had noticed
+
+Chased from a stale config key, found to be a dead limb.
+`Notifier.send_notification` is fully implemented, DND-aware and
+retry-capable, and **nothing outside its own tests has ever called it**.
+`raise_alert`'s docstring says "the notifier service should be called
+separately"; `monitor/agent.py` says criticals are "to be picked up by
+notifier". Neither ever happened. Every alerting path ended at a database
+row and waited for the tray to come and read it.
+
+`sysadmin/monitor/desktop.py` now subscribes to `alert.raised` and sends
+via `notify-send`. It is the tray's **understudy**, silent whenever
+`/api/sysadmin/alerts` has been polled within 180s, so the two never both
+toast one alert. The tray was **not running** while this was written
+(`ps`, `ss` — no process, no connection to 8500), which is exactly the
+case it covers.
+
+**The gate that makes it survivable is one-notification-per-incident.**
+The monitor writes one alert row per failed check: 186 rows for one
+`venture-assistant` outage, 123 for one `internet` outage, 88 criticals a
+day, and **547,814 unresolved `Log error: kernel` rows** sitting in the
+table now. Verified against those live rows — `Log error: kernel` stays
+silent, an unseen title speaks, both silent while the tray polls.
+
+Both gates **fail closed**: an unreachable database returns "not new",
+because the alternative turns a connection blip into a storm.
+
+**Two things this needed that were not obvious.** `sysadmin.service` is a
+*system* unit with no session-bus address, so a bare `notify-send` fails
+with "Cannot autolaunch D-Bus without X11 $DISPLAY" — the address is
+supplied in code from `/run/user/<uid>/bus`, only when the socket exists,
+so no root-owned unit file has to be edited. And the subscription is on
+the event bus rather than inside `raise_alert`, because `core` must not
+import a domain and because `_queue_event` buffers until the
+transaction commits — which is what stops the notifier's own query
+racing the insert it is reacting to.
+
+**Left open on purpose, in the Backlog**: recovery is never announced
+(`alert.resolved` carries `"Project % health critical"`, a pattern, not a
+subject); the presence signal cannot tell the tray from any other client
+of the alerts route; and those 547,814 rows have never been purged,
+because retention purges resolved rows only.
+
+**This one needs the restart.** Unlike the organiser, it is daemon code.
+
+
 
 ## Session 31: idle nudges, and one wrong premise caught by grep
 

@@ -47,9 +47,24 @@ llm:
   timeout_seconds: 120
 
 notifications:
+  # The DAEMON's own desktop notifications (sysadmin/monitor/desktop.py) —
+  # the tray's understudy, not the tray. It stays silent whenever the tray
+  # has polled /api/sysadmin/alerts within tray_grace_seconds, so the two
+  # never both toast the same alert; it speaks when the tray is not
+  # running, which was silent before 2026-08-11 (SNAG-CFG-001 — this
+  # section was parsed and read by nothing).
+  #
+  # It notifies once per INCIDENT, not once per alert row: the monitor
+  # writes one row per failed check (186 rows for one venture-assistant
+  # outage), so a toast per row would be unusable. A title with another
+  # unresolved alert already open is treated as ongoing and stays quiet.
+  #
+  # To change how loud the TRAY is, edit tray.notify_min_severity (~line
+  # 370). This setting does not affect it.
   desktop:
     enabled: true
     min_severity: warning
+    tray_grace_seconds: 180  # 3× the tray's alert_poll_seconds
   pa_notify:
     enabled: true
     min_severity: critical

@@ -474,8 +474,28 @@ class DndConfig(BaseModel):
 
 
 class DesktopNotificationsConfig(BaseModel):
+    """The daemon's own desktop notifications (``sysadmin/monitor/desktop.py``).
+
+    Read by nothing between Phase 3 and 2026-08-11 (SNAG-CFG-001): the
+    tray took over speaking, brought its own ``tray.notify_min_severity``
+    key, and this section stayed in config.yaml looking like the knob
+    that decided whether an alert was heard.  It now drives a real
+    notifier — one that deliberately stays quiet whenever the tray is
+    doing the job, so the two never both toast the same alert.
+
+    ``min_severity`` therefore governs *the tray's understudy*, not the
+    tray.  Raising it here silences the daemon and leaves the tray as
+    loud as it was.
+    """
+
     enabled: bool = True
     min_severity: str = "warning"  # info | warning | critical
+    #: How recently the alerts route must have been polled for the daemon
+    #: to consider the tray present and stay silent.  Three times the
+    #: tray's 60-second ``alert_poll_seconds``, so one dropped poll (or a
+    #: laptop resuming) does not produce a burst of daemon notifications
+    #: for alerts the tray is about to show anyway.
+    tray_grace_seconds: int = 180
 
 
 class PaNotificationsConfig(BaseModel):

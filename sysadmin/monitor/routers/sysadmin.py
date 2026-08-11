@@ -24,6 +24,7 @@ from sysadmin.core.contracts import (
 from sysadmin.core.database import get_db_session
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.agent import SysAdminAgent
+from sysadmin.monitor.desktop import tray_presence
 from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
@@ -280,7 +281,18 @@ async def get_alerts(
     limit: int = Query(default=50, le=200),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get alerts, optionally filtered to active (unresolved) only."""
+    """Get alerts, optionally filtered to active (unresolved) only.
+
+    Polling this route is what tells the daemon somebody is already
+    watching, which keeps its own desktop notifier quiet — see
+    :mod:`sysadmin.monitor.desktop`.  Marked here rather than in
+    middleware because this is the *only* route the tray's notification
+    loop depends on: a client fetching ``/status`` for a dashboard is not
+    going to show anyone an alert, and treating it as presence would
+    silence the daemon for a reader that never sees alerts at all.
+    """
+    tray_presence.mark_seen()
+
     query = select(Alert).order_by(desc(Alert.created_at)).limit(limit)
     if active_only:
         query = query.where(Alert.resolved.is_(False))
