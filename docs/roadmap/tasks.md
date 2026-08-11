@@ -653,14 +653,18 @@ confirms zero commits that day. `Alfred` is 4 of 4. Suite 1776 → 1824.
 
 ### Follow-ups this session opened
 
-- [ ] [SNAG-PROJ-013](snag_list.md) — add an ISO date to ImbaBots'
-      `HANDOFF.md` first heading, in that repository. Without one the
-      Stop hook cannot be satisfied and will block its next
-      code-changing session. **This snag was filed with the wrong
-      diagnosis first** ("commits without moving its handoff date") and
-      corrected the same day by opening the repository: ImbaBots' last
-      session updated its handoff in the same commit as the code, and
-      its 0 is the baseline rule working, not a failure
+- [ ] [SNAG-PROJ-013](snag_list.md) — ImbaBots' `HANDOFF.md` heading
+      carries no ISO date, so the Stop hook will block its next
+      code-changing session. **Deliberately left for that session to
+      fix**: the hook demands *today's* date, so dating it on a day
+      nobody worked there writes a handoff for a session that did not
+      happen — a phantom transition, and therefore a phantom session in
+      `/api/projects/momentum`. Close this when a dated ImbaBots handoff
+      appears. **The snag was also filed with the wrong diagnosis
+      first** ("commits without moving its handoff date") and corrected
+      the same day by opening the repository: ImbaBots' last session
+      updated its handoff in the same commit as the code, and its 0 is
+      the baseline rule working, not a failure
 - [ ] Re-read `/api/projects/momentum` after the next organiser run, when
       `handoff_date_source` starts arriving. Every session is currently
       `unverified` by absence of the field, which is honest but makes the

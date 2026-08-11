@@ -118,10 +118,26 @@ repository.
 `SNAG-PROJ-013`: ImbaBots' first heading is `# Handoff — M5 (Tier 2) ·
 ⚠ …` with no `YYYY-MM-DD`, and `require-handoff.sh` greps the first
 heading for today's date — so **the next code-changing session there
-will be blocked until someone adds one**. Fix it in ImbaBots with one
-line, not here. The `commits_without_sessions` field considered earlier
-would have widened this contract to describe a defect that does not
-exist.
+will be blocked until someone adds one**.
+
+**That one-line fix was started and then deliberately abandoned**, which
+is the more useful record. The hook fires on *any* dirty tree or commit
+that day, not only code, and demands **today's** date — so editing
+ImbaBots on a day nobody worked there writes a handoff for a session
+that did not happen. On the next scan that is a handoff-date transition,
+i.e. a **phantom session in the endpoint this session just built**; and
+because `docs(…)` is not in `code_commit_ignore`, the doc commit itself
+would set `last_commit_at` to that day and the phantom would read as
+*landed*. The `unverified` machinery exists to stop mtime inventing a
+session, and back-writing a date does the same thing on purpose. Adding
+`docs(handoff)` to `code_commit_ignore` to soften it was rejected too:
+it changes staleness measurement estate-wide to accommodate one edit,
+and the row is still a phantom.
+
+So ImbaBots is left alone. The hook will stop its next real session, on
+a real date, and its block message already says the first heading must
+carry today's date — the mechanism working rather than a trap. Close
+`SNAG-PROJ-013` when a dated ImbaBots handoff appears.
 
 **Every session currently reads `unverified`.** `handoff_date_source` is
 recorded from today and the organiser has not run since, so no observed
