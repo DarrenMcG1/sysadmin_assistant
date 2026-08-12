@@ -13,6 +13,10 @@ and a cut that is invisible is worse than a long line either way.
 
 import re
 
+from estate.text import TRUNCATION_MARKER
+
+__all__ = ["TRUNCATION_MARKER", "strip_markdown", "truncate_at_word"]
+
 
 def strip_markdown(text: str) -> str:
     """Remove heading, list and emphasis markers the model was told not to emit.
@@ -42,9 +46,11 @@ def strip_markdown(text: str) -> str:
     return "\n".join(cleaned).strip()
 
 
-#: Matches the marker Alfred's own ``sanitise_text`` appends (ADR-0063 §2),
-#: so a cut made here and a cut made there read identically on the page.
-TRUNCATION_MARKER = "… (truncated)"
+#: ``TRUNCATION_MARKER`` is imported from ``estate.text`` (top of file) and
+#: re-exported for existing importers. The copied constant this replaces
+#: *claimed* to match Alfred's and never did — Alfred's carried a leading
+#: ``"\n\n"`` (estate-manager ADR-0006). The library owns the bare visible
+#: token; the single-space separator in :func:`truncate_at_word` is ours.
 
 #: Below this fraction of the limit, backing up to a word boundary throws
 #: away more than it saves — a 180-character limit that surrendered at

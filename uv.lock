@@ -175,6 +175,27 @@ wheels = [
 ]
 
 [[package]]
+name = "estate-lib"
+version = "0.1.0"
+source = { editable = "../estate-manager/lib" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pydantic", specifier = ">=2.9" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.129.0"
 source = { registry = "https://pypi.org/simple" }
@@ -971,6 +992,7 @@ dependencies = [
     { name = "alembic" },
     { name = "apscheduler" },
     { name = "asyncpg" },
+    { name = "estate-lib" },
     { name = "fastapi" },
     { name = "gitpython" },
     { name = "httpx" },
@@ -1002,6 +1024,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.13.0" },
     { name = "apscheduler", specifier = ">=3.10.0" },
     { name = "asyncpg", specifier = ">=0.29.0" },
+    { name = "estate-lib", editable = "../estate-manager/lib" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "gitpython", specifier = ">=3.1.0" },
     { name = "httpx", specifier = ">=0.27.0" },

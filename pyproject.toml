@@ -18,6 +18,9 @@ dependencies = [
     "gitpython>=3.1.0",
     "psycopg2-binary>=2.9.0",
     "python-json-logger>=3.0.0",
+    # Estate-shared in-process mechanism: llama-server client core and the
+    # truncation marker (estate-manager ADR-0006, this repo's ADR-0004).
+    "estate-lib",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +44,11 @@ sysadmin-organiser = "sysadmin.projects.cli:main"
 # A console script rather than inline psql: the alert row must satisfy the
 # same model and CHECK constraint the application writes through.
 sysadmin-record-failure = "sysadmin.core.unit_failure:main"
+
+[tool.uv.sources]
+# Editable relative path, deliberately unversioned: one box, one committer,
+# a change reaches this service at its next restart (estate ADR-0006 §4).
+estate-lib = { path = "../estate-manager/lib", editable = true }
 
 [build-system]
 requires = ["hatchling"]

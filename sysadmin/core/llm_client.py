@@ -1,17 +1,29 @@
 """Shared LLM HTTP client for llama.cpp's llama-server.
 
-Speaks the OpenAI-compatible API exposed by llama-server
-(POST /v1/chat/completions, GET /health). Gracefully handles the server
-being unavailable (logs warning, returns None).
+The wire mechanics (payload construction, POST, content extraction, the
+health probe) live in ``estate.llama`` since 2026-08-12 (estate-manager
+ADR-0006; this repository's ADR-0004). What stays here is this service's
+convention: **failures degrade to ``None`` with a warning, never an
+exception** — callers treat "no narrative" as a first-class outcome — and
+the event-loop-safe client lifecycle below.
 
 Note: llama-server serves a single loaded model, so the ``model`` field in
 requests is largely informational — it is recorded but does not switch models.
 """
 
 import logging
-from typing import Any
 
 import httpx
+from estate.llama import (
+    LlamaConnectError,
+    LlamaInvalidResponse,
+    LlamaStatusError,
+    LlamaTimeout,
+    chat_payload,
+    extract_content,
+    post_chat,
+    probe_health,
+)
 
 from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import get_config
@@ -26,7 +38,8 @@ class LLMClient:
     :class:`~sysadmin.core.async_http.LoopBoundClient`: the log
     aggregator calls this from APScheduler threads, each with its own
     short-lived event loop, and a client shared across loops raises
-    "Event loop is closed" (SNAG-AGENT-003).
+    "Event loop is closed" (SNAG-AGENT-003). This is why the estate
+    library takes the client as an argument rather than owning one.
     """
 
     def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
@@ -58,9 +71,12 @@ class LLMClient:
         """Generate a chat completion from llama-server.
 
         Returns the response text, or None if the server is unavailable.
+        Free-text path: ``temperature=None`` keeps the server's own
+        sampling defaults — this call generates prose, not structured
+        extraction, so the estate's structured-path temperature pin does
+        not apply (estate ADR-0006 decision 3).
         """
         config = get_config()
-        url = f"{config.llm.url}/v1/chat/completions"
         model = model or config.llm.model
 
         messages: list[dict[str, str]] = []
@@ -68,35 +84,28 @@ class LLMClient:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        payload: dict[str, Any] = {
-            "model": model,
-            "messages": messages,
-            "stream": False,
-        }
+        payload = chat_payload(model, messages, temperature=None, stream=False)
 
         try:
             async with self._http.borrow() as client:
-                resp = await client.post(url, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                try:
-                    return data["choices"][0]["message"]["content"]
-                except (KeyError, IndexError, TypeError):
-                    logger.warning(
-                        "llm_malformed_response",
-                        extra={"model": model},
-                    )
-                    return None
-            else:
-                logger.warning(
-                    "llm_error",
-                    extra={"status": resp.status_code, "model": model},
-                )
-                return None
-        except (httpx.ConnectError, httpx.TimeoutException) as e:
+                response = await post_chat(client, config.llm.url, payload)
+            return extract_content(response)
+        except (LlamaTimeout, LlamaConnectError) as e:
             logger.warning(
                 "llm_unavailable",
                 extra={"error": str(e), "model": model},
+            )
+            return None
+        except LlamaStatusError as e:
+            logger.warning(
+                "llm_error",
+                extra={"status": e.status, "model": model},
+            )
+            return None
+        except LlamaInvalidResponse:
+            logger.warning(
+                "llm_malformed_response",
+                extra={"model": model},
             )
             return None
         except Exception as e:
@@ -115,7 +124,6 @@ class LLMClient:
         config = get_config()
         try:
             async with self._http.borrow() as client:
-                resp = await client.get(f"{config.llm.url}/health")
-            return resp.status_code == 200
+                return await probe_health(client, config.llm.url)
         except Exception:
             return False
