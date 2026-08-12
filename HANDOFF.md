@@ -2,21 +2,25 @@
 
 ## Next action
 
-Restart `sysadmin.service` with `sudo systemctl restart sysadmin.service` — it is a system unit serving start-time code, so the running daemon is still on the old raise rule and has written 800 new alert rows in the four minutes since the backlog was cleared.
+Start Session 43 on `SNAG-DB-001`'s detection gap and settle its one open question first — whether an agent whose runs keep failing is a new alert family or an extension of `% agent stalled` — because the two are different states ("ran and failed" versus "hasn't run"), `_resolve_recovered` excludes the stall family precisely so `stalls.py` can own its lifecycle, and a new family without the same exclusion will have its rows closed by the sysadmin agent while they are still true.
 
-## Read this first: the fix is written and tested but not deployed
+## Deployed and verified the same day
 
-`sysadmin.service` is a **system** unit (`systemctl`, not `--user`) running
-from this working tree, and `sudo` on this box wants a password, so the
-session could not restart it. Everything else is done: the code is in, the
-suite is green at 1,956, and the 598,091-row backlog is resolved. The
-daemon is adding roughly **200 rows a minute** until it picks up the new
-code.
+Both owner-side steps were done on 2026-08-12: `sysadmin.service` restarted
+(it is a **system** unit, `systemctl` not `--user`), and the udev rule
+de-authorising the MT7927's Bluetooth half installed. Measured afterwards:
 
-Nothing needs cleaning up afterwards. The new `_resolve_quiet` sweep
-closes those rows on its own — they fall back to `created_at`, which is
-older than the 15-minute quiet window within a quarter of an hour of the
-restart.
+| | |
+|---|---|
+| Kernel Bluetooth messages, 2 min | **0** (was 1,016) |
+| `/sys/bus/usb/devices/1-11/authorized` | **0** |
+| Open `log_aggregator` alerts | **3** |
+| `occurrences` on each firmware row | **10,306** |
+
+The two firmware rows were raised at 17:31 and absorbed **20,612 log lines
+between them**, surviving a daemon restart at 19:16 — identity lives in the
+title, so a restart does not fork the row. All four agents completing, no
+failures. Suite green at 1,956.
 
 ## Session 42 (2026-08-12): SNAG-AGENT-005, and the option that was not on the list
 
@@ -148,15 +152,28 @@ no driver bound at all — which is the genuinely unsupported part.
 
 ## Open, in order
 
-1. Restart the daemon (above), then confirm with
-   `SELECT title, details->>'occurrences' FROM sysadmin.alerts WHERE
-   agent='log_aggregator' AND resolved=false;` — expect a handful of rows,
-   not a page.
+1. **`SNAG-DB-001`'s detection gap — the only P0, and the one worth taking
+   next.** Three items, in the snag's own order of value: a startup check
+   comparing `alembic_version` against the packaged head (the drift guard
+   explicitly skips `alembic_version`, and `compare_metadata` does not diff
+   CHECK constraints, so nothing can catch this today); a savepoint per
+   service in `SysAdminAgent._execute`, because one `CheckViolationError`
+   cost the other **eighteen** services their check; and an alert on
+   consecutive agent-run failures. **The third only became implementable in
+   Session 41** — before it, `_record_outcome` wrote `status='failed'` into
+   the transaction the failure had already destroyed, so there were no
+   failure rows to read. There are now, and nothing reads them.
 2. `SNAG-DB-002` — every database on this box has a stale collation
-   version, and a text-index lookup can miss a row that is present. Still
-   the only open defect that could silently corrupt a result rather than a
-   count.
-3. `SNAG-SYSD-003` — `sysadmin.service` still orders itself after
+   version, and a text-index lookup can miss a row that is present. Two
+   halves: the **check** belongs in the sysadmin agent by the snag's own
+   argument, and is small; the `REINDEX` is ops work touching two other
+   apps' data and wants a quiet window.
+3. `SNAG-ESTATE-001` — **looks already resolved and should be verified and
+   closed rather than worked.** The two retired PersonalAssistant units are
+   gone from the user manager (no `UnitFileState`, `NRestarts` 0, 16
+   journal mentions this boot), so the 52,178-restart loop it records is
+   not running.
+4. `SNAG-SYSD-003` — `sysadmin.service` still orders itself after
    `ollama.service`, retired three weeks ago. The honest question is
-   whether it should order against `alfred-inference.service` at all
-   rather than which name to substitute.
+   whether it should order against `alfred-inference.service` at all rather
+   than which name to substitute.
