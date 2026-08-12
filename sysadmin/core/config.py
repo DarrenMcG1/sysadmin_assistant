@@ -454,6 +454,24 @@ class LogAggregatorConfig(BaseModel):
     retention_days: int = 30
     summarise_with_llm: bool = True
 
+    #: How long a fault must go unobserved before its open alert is
+    #: resolved.  This is the knob that makes a log alert a *state*: one
+    #: row is raised per distinct fault signature and stays open while the
+    #: fault keeps being logged, so the only honest recovery signal is
+    #: silence.  Measured against the poll, not the fault — 15 minutes is
+    #: 15 polls at the default ``poll_interval_seconds``, wide enough that
+    #: an intermittent error is one incident rather than a flapping pair.
+    #: Too short and a recurring fault is announced as recovered between
+    #: occurrences, which is the flap the tray's cooldown exists to damp.
+    alert_quiet_minutes: int = 15
+
+    #: Maximum entries taken from one read of one source.  A ceiling is
+    #: unavoidable (this box has sustained 8.5 kernel messages a second
+    #: for days); what was missing is that hitting it is now reported as
+    #: ``details['truncated_sources']`` rather than showing up as a
+    #: findings count that never moves (``SNAG-AGENT-005``).
+    max_entries_per_read: int = 500
+
 
 # projects.yaml was retired in Session 35 Phase 4.  Project identity,
 # declared status and per-project alert thresholds now live in a

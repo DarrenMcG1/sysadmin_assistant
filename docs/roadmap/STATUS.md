@@ -19,7 +19,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | 1900 total (backend + tray); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, smoke script |
+| Testing | 🟢 Complete | 1954 total (backend + tray); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -27,6 +27,32 @@
 ---
 
 ## Recently Completed
+
+- **2026-08-12 — Session 42: the log storm, fixed as a raise rule.**
+  `SNAG-AGENT-005` — **598,091 unresolved alert rows**, 91 % of every
+  unresolved alert in the table, 99.8 % of them two Bluetooth firmware
+  messages from a kernel retry loop running at ~8.5 lines a second. The
+  agent raised one alert row per matching log line, which is the mistake
+  this application had already written down once, in
+  `GET /api/services/reliability`'s docstring: a log is not an incident.
+  The `SNAG-AGENT-004` inversion does not apply — a log line that was
+  written cannot un-write itself, so "which open alerts would this run not
+  raise?" answers "all of them, one run later". **Alerts are now keyed on
+  a normalised fault signature**, one open row per fault, repeats bumping
+  `details['occurrences']`, resolved when the fault goes quiet for 15
+  minutes. Plain dedup on the existing title was refuted by the live table
+  before it was written: `Log error: kernel` is shared by every kernel
+  error, so the storm would have masked the RCU stall and the USB
+  enumeration failure sitting in the same 30-day window. Verified live:
+  **2,000 kernel error lines in ten minutes → 2 alert rows**, and the
+  titles finally name the fault. The 598,091 existing rows were resolved
+  as `superseded`; table-wide unresolved alerts went to **2**. Two smaller
+  defects went with it — journal reads now resume from `__CURSOR` rather
+  than re-reading a 2-minute window on a 60-second poll (**96 entries then
+  0** on back-to-back runs, where every entry used to be stored twice), and
+  the silent `-n 500` cap is reported as `details['truncated_sources']`.
+  **`sysadmin.service` still needs restarting to pick this up** — it is a
+  system unit serving start-time code.
 
 - **2026-08-12 — Session 41: the two P1 agent defects, both with the filed
   cause corrected.** `SNAG-AGENT-003` — the file organiser having run once

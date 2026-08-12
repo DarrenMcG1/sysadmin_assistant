@@ -378,6 +378,17 @@ agents:
         severity_filter: error
     retention_days: 30
     summarise_with_llm: true
+    # SNAG-AGENT-005. One alert row is raised per distinct *fault
+    # signature*, not per log line, and it stays open while the fault keeps
+    # being logged — so silence is the only recovery signal there is, and
+    # this is how long it has to last. 15 minutes is 15 polls above.
+    alert_quiet_minutes: 15
+    # Entries taken from one read of one source. A ceiling is unavoidable
+    # (the kernel journal here has sustained 8.5 messages a second for
+    # days); what changed is that hitting it is reported as
+    # details['truncated_sources'] instead of showing up as a findings
+    # count that never moves.
+    max_entries_per_read: 500
 
 tray:
   status_poll_seconds: 30

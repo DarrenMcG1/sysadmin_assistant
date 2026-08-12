@@ -1706,3 +1706,112 @@ again is the pile-up wearing a declaration as an excuse.
   [archive/completed_2026-08-05.md](archive/completed_2026-08-05.md)
 - Sessions 1–9 (full service + tray app) →
   [archive/completed_2026-03-23.md](archive/completed_2026-03-23.md)
+
+## Session 42: The log storm — a raise rule, not a resolve rule ✅ (2026-08-12)
+
+`SNAG-AGENT-005`, the last of the alert-table defects and the only one
+that could still grow without bound. **598,091 unresolved rows**, 91 % of
+every unresolved alert in the table, 99.8 % of them two Bluetooth
+firmware messages emitted by a kernel retry loop at ~8.5 lines a second.
+
+The session opened on the question the handoff said to settle first —
+burst alerting, or drop log alerting entirely — and the answer turned out
+to be neither of the two options as written.
+
+### The decision, and the third option the data produced
+
+Dedup-plus-quiet-resolve was chosen over both. A burst threshold
+suppresses a *single* genuine critical until it repeats, which is the
+wrong signal to lose; dropping alerting outright means a first-ever
+critical from a service reaches nobody, and `GET /api/logs/stats` is a
+surface nothing polls.
+
+But plain dedup — one open row per source, the obvious reading — was
+**refuted by the live table before any of it was written**. The kernel's
+30-day error population:
+
+| Message | Rows |
+|---|---|
+| `Bluetooth: hci0: Failed to set up firmware (-2)` | 297,390 |
+| `Bluetooth: hci0: Failed to load firmware file (-2)` | 297,389 |
+| `usb 1-11: device descriptor read/64, error -110` | 66 |
+| `usb 1-11: device not accepting address 9/10, error -71` | 44 |
+| `usb usb1-port11: unable to enumerate USB device` | 22 |
+| `rcu: … detected expedited stalls` / `INFO: task … blocked on a mutex` | 8 |
+
+Every one of those shares the title `Log error: kernel`. Dedup on that
+title and the Bluetooth storm holds the single open row while **an RCU
+stall and a USB enumeration failure go silent** — not a hypothetical, all
+three are in the same window. Half a million rows traded for a mask over
+every other kernel fault is not a fix, so the key is the message with its
+variable parts removed.
+
+- [x] **`sysadmin/monitor/log_signature.py`** — digit runs → `N`, hex
+      literals → `0xN`, whitespace collapsed. Collapses 594,779 Bluetooth
+      lines to 2 signatures and 110 USB lines to 2, and leaves all six
+      distinct faults distinguishable. The signature goes **in the
+      title**, not in `details`: dedup, the set-based resolve and the
+      tray's `{severity}:{title}` fingerprint all key on title already, so
+      nothing new is needed and none of them can disagree about identity
+      — and four open rows all reading `Log error: kernel` are
+      indistinguishable to the person looking at the tray
+- [x] **One row per fault, repeats bump `details['occurrences']`.** The
+      count that used to be expressed as row volume, at 1/300,000th of the
+      storage and legible on one line. `details` is *reassigned* rather
+      than mutated — SQLAlchemy does not track mutation inside a plain
+      JSONB dict, so an in-place update would look like it worked, write
+      nothing, and leave `last_seen_at` frozen while the fault fired
+- [x] **`_resolve_quiet` — silence is the only recovery signal an event
+      has.** 15 minutes, i.e. 15 polls. Excluded by exact title as well as
+      by age, because an exclusion set cannot race the clock that stamped
+      the row; `COALESCE(details->>'last_seen_at', created_at)` so the
+      pre-existing backlog is reachable at all
+- [x] **`_open_alerts` bounded by the titles this run raised.** Written
+      first as "every unresolved row this agent owns", which on the live
+      table is **593,814 ORM objects on the first run** — the fix falling
+      over on the backlog it exists to end. Caught before deployment, not
+      after
+- [x] **598,091 rows resolved as `superseded`**, in one statement, with
+      the reason in `details`. Table-wide unresolved alerts: **2**
+
+### The two smaller defects, fixed in the same sitting
+
+- [x] **Double ingest.** `read_journal` resumes from `__CURSOR`, not from
+      `since="2m ago"` on a 60-second poll. A cursor rather than a
+      narrower window because narrowing trades the duplicate for a *gap*
+      whenever a run runs long, and a gap is the worse failure for a
+      monitor. Proven live: back-to-back runs ingested **96 then 0**. The
+      cursor advances over every entry read, **not** only those surviving
+      the severity filter — otherwise the resume point sits behind a run
+      of info-level noise and the whole defect returns one layer down. It
+      is in memory, so a restart falls back to the newest `logged_at`
+      already stored for that source, passed as `--since @<epoch>`
+      because journalctl reads a bare datetime as **local** time
+- [x] **The silent `-n 500` cap** is now `details['truncated_sources']`.
+      The ceiling stays — 8.5 messages a second makes it unavoidable —
+      but `findings_count` sitting at exactly 200 on every run was the
+      symptom nobody read. Sources are **named**, not counted: which one
+      is at its ceiling decides whether it matters
+
+### Verified live, 2026-08-12
+
+```
+2000 kernel error lines in 10 min -> 2 alert rows
+  x1000  Log error: kernel — Bluetooth: hciN: Failed to load firmware file (-N)
+  x1000  Log error: kernel — Bluetooth: hciN: Failed to set up firmware (-N)
+  (old rule: 2000 rows, all titled 'Log error: kernel')
+```
+
+### Left open
+
+- [ ] **The host fault is untouched and is now harder to stop.**
+      `BT_RAM_CODE_MT6639_2_1_hdr.bin` is still absent from
+      `/lib/firmware/mediatek/mt7927/`, and `rfkill list` now prints
+      **nothing** — the adapter no longer registers a soft-block switch,
+      so the one reversible workaround the handoff recorded is gone. This
+      is deliberately not this repository's to fix; the point of Session
+      42 is that the storm now costs 2 alert rows instead of 43,000 a day
+- [ ] **`sysadmin.service` must be restarted to pick this up.** It is a
+      **system** unit (`systemctl`, not `--user`) running from this
+      working tree, so the running daemon serves start-time code and is
+      still on the old raise rule

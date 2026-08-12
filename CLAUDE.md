@@ -588,10 +588,69 @@ a substring `ilike`, so `venture-chat` recovering closed
 `venture-chat-large`'s alerts — a second bug nobody had filed, removed by
 having one owner of the lifecycle instead of one per item.
 
-What it does **not** cover is `log_aggregator`'s 547,891 rows
-(SNAG-AGENT-005). Those are **events, not states** — a log line that was
-written cannot un-write itself — so there is no run at which "this would not
-be raised" becomes true, and the fix is a *raise* rule, not a resolve rule.
+What it does **not** cover is `log_aggregator`'s rows (SNAG-AGENT-005, fixed
+Session 41's successor). Those are **events, not states** — a log line that
+was written cannot un-write itself — so there is no run at which "this would
+not be raised" becomes true, and the fix was a *raise* rule.
+
+**A log is not an incident, and the alert's identity is the fault, not the
+source** (Session 42, SNAG-AGENT-005). `LogAggregatorAgent` raised one alert
+row per matching log line: **598,091 unresolved rows**, 91 % of every
+unresolved alert in the table, of which 99.8 % were two Bluetooth firmware
+messages emitted by a kernel retry loop at ~8.5 lines a second. This
+application had already recorded the mistake once — *"that table records one
+row per failed check — 123 rows for one internet outage"*, in
+`GET /api/services/reliability`'s docstring — and not generalised it.
+
+`sysadmin/monitor/log_signature.py` owns the identity: the message with its
+variable parts removed (digit runs → `N`, hex → `0xN`, whitespace collapsed).
+Four rules, the first of which was the obvious implementation and was refuted
+by the live table before it was written:
+
+1. **The key is the signature, not the source.** `Log error: kernel` is
+   shared by every kernel error whatever it says, so deduplicating on the
+   existing title would have let the Bluetooth storm hold the single open row
+   while an RCU stall and a USB enumeration failure — **both in the same live
+   30-day window** — went unannounced. Half a million rows traded for a mask
+   over every other kernel fault is not a fix. Normalisation does lose
+   `error -110` versus `error -71`; nothing is actually lost, because
+   `message` carries the last verbatim line and `details['occurrences']`
+   carries the count that used to be expressed as row volume.
+2. **The signature lives in the title**, not in `details`. Dedup, the resolve
+   and the tray's `{severity}:{title}` fingerprint all key on title already,
+   so no new machinery is needed and none of them can disagree about
+   identity — and four open rows all reading `Log error: kernel` are
+   indistinguishable to whoever is looking at the tray.
+3. **Silence is the only recovery signal an event has.** `_resolve_quiet`
+   closes a row unobserved for `alert_quiet_minutes` (15, i.e. 15 polls),
+   excluded by exact title as well as by age because an exclusion set cannot
+   race the clock that stamped the row. `COALESCE(details->>'last_seen_at',
+   created_at)` is what made the pre-existing backlog reachable at all.
+   `details` is *reassigned*, never mutated in place: SQLAlchemy does not
+   track mutation inside a plain JSONB dict, so an in-place bump looks like
+   it worked, writes nothing, and freezes `last_seen_at` while the fault
+   fires.
+4. **`_open_alerts` is bounded by the titles the run raised.** Written first
+   as "every unresolved row this agent owns" — 593,814 ORM objects on the
+   first live run, the fix falling over on the backlog it exists to end. An
+   unbounded `SELECT` over the table whose unboundedness is the bug is easy
+   to write and nasty to ship.
+
+**Journal reads resume from a cursor, and it must advance over what the
+filter discards.** `read_journal` was called with `since="2m ago"` on a
+60-second poll, so every unit-journal event was stored **exactly twice**.
+`__CURSOR` rather than a narrower window, because narrowing trades the
+duplicate for a *gap* whenever a run runs long — the worse failure for a
+monitor. The cursor is taken **before** the severity filter: advancing only
+past kept entries leaves the resume point behind a run of info-level noise
+and rebuilds the defect one layer down. It is in memory, so a restart falls
+back to the newest `logged_at` already stored for that source, passed as
+`--since @<epoch>` because journalctl reads a bare datetime as **local**
+time. The `-n 500` ceiling stays — 8.5 messages a second makes one
+unavoidable — but hitting it is now `details['truncated_sources']`, which
+**names** the sources rather than counting them, because which one is at its
+ceiling decides whether it matters. It was invisible before: `findings_count`
+sat at exactly 200 on every run.
 
 **`status: archived` waives exactly two deductions** — commit staleness and
 stale branches — and nothing else. It is *not* a general git-hygiene exemption:
