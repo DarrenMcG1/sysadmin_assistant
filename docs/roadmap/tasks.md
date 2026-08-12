@@ -1547,6 +1547,159 @@ systemctl --user enable sportsanalyser-backend.service
 
 ---
 
+## Session 41: The two P1 agent defects ✅ (2026-08-12)
+
+`SNAG-AGENT-003` and `SNAG-AGENT-004`, taken together because both are the
+same shape — **a component that stopped working and reported nothing** —
+and because both had been diagnosed from the outside and not from the box.
+Neither filed cause survived contact with the evidence.
+
+### SNAG-AGENT-003 — the cause was a third possibility, found in 90 seconds of journal
+
+The snag named two candidates (APScheduler never firing the job;
+the agent dying before it records) and said they needed separating before
+anything was changed. Separating them took one `journalctl` call and the
+answer was neither:
+
+```
+17:08:12  scheduled_interval_job  file_organiser_scan  {"hours": 24}
+17:11:10  agent_run_completed     file_organiser  duration_s 117.71  findings 25317
+17:11:10  scheduler_job_error     InterfaceError: connection is closed
+          [SQL: UPDATE sysadmin.agent_runs SET status='completed' ...]
+```
+
+**The scheduler fires and the agent succeeds. The transaction is killed
+underneath it.** `SHOW idle_in_transaction_session_timeout` → `1min`.
+`BaseAgent.run` inserted the `running` row and **flushed** it — starting a
+transaction — before handing the same session to `_execute`, which then
+spent 118 seconds in `asyncio.to_thread` touching no database at all.
+PostgreSQL terminated the backend at t+60s.
+
+Three things this explains that the snag recorded as separate mysteries:
+
+1. **Why `agent_first_run_delay_seconds: 60` looked broken.** It was
+   never broken. It has been doing its job since it was added.
+2. **Why nothing has ever recorded a failure.** The failure record lived
+   in the transaction the failure destroyed. `status='failed'` was written
+   to a row that no longer existed.
+3. **Why 2026-08-06 is the one surviving run.** It took **29.63 s** — the
+   only file-organiser run in the agent's life to finish inside the
+   timeout. The successful row is the evidence, not the exception.
+
+It is a `BaseAgent` defect, not a file-organiser one; every other agent
+survives only by being fast (sysadmin 13 s, project_organiser 2.3 s,
+service_discovery 0.2 s, log_aggregator 0.3 s). And it is a rule this
+repository had **already written down one layer up** — *"commit the read
+transaction before calling the LLM"* in `files/review.py` — learned for
+inference and not generalised to the framework underneath.
+
+- [x] **`BaseAgent.run` runs in three transactions, not one.** The
+      `running` row commits on its own; `_execute` gets a session that has
+      never been flushed, so its transaction opens at its *first
+      statement* rather than 118 seconds earlier; the outcome is an
+      `UPDATE` by id from a third. Free, because `UUIDPrimaryKeyMixin`
+      sets `default=uuid.uuid4` client-side — the id exists before the
+      INSERT is sent
+- [x] **A failed run now records that it failed.** The bookkeeping
+      survives the work it books, which is the half that made five days of
+      failure indistinguishable from five days of nothing having been
+      scheduled
+- [x] Rejected: **setting `idle_in_transaction_session_timeout` on
+      scheduler connections.** One line, and it keeps a two-minute idle
+      transaction holding locks and blocking vacuum — suppressing the
+      host's deliberate guard on the one connection that idles longest,
+      and still leaving a failed run unable to record itself
+- [x] **Proven on the box, 2026-08-12.** After the restart the file
+      organiser recorded **3 completed runs and one `running`** in
+      `agent_runs`, against **one run in the agent's entire life** before
+      today, and `filesystem_audits` gained three rows (08:59, 10:45,
+      12:36) where it had held one since 2026-08-06. The `running` row is
+      the new behaviour working as designed, not a fault: a run in flight
+      is now visible instead of absent
+
+**Two changes of meaning, both deliberate.** `_execute`'s writes are no
+longer atomic with the run record — still atomic with each other, but a
+failed run now leaves a `failed` row where it left nothing. And a process
+killed mid-run leaves a permanent `running` row, where before it left no
+row: an agent that died and an agent that was never scheduled used to look
+identical, which is precisely how this stayed invisible.
+
+### SNAG-AGENT-004 — right diagnosis, and about twenty times the stated scope
+
+The filed cause was correct and the fix pattern was already named. What
+the entry understated was the population. Counted live 2026-08-12,
+unresolved rows under `agent='sysadmin'`:
+
+| Family | Rows | Newest | Resolve path before |
+|---|---:|---|---|
+| Retired services (**five**, not four — `nuxt-frontend` was missed) | 27,827 | 2026-07-24 | per-service loop, unreachable once deconfigured |
+| Resource thresholds (disk, RAM, VRAM) | 24,097 | 2026-08-11 | **none, ever** |
+
+`Critical disk usage on /` alone is **13,971 open rows**, last raised
+2026-07-26, against a disk that has been at 68 % since. `_check_thresholds`
+raises unconditionally and nothing in this application's history has ever
+resolved a resource alert. A condition that recovered and could not be
+observed recovering is the same defect as a service that was retired, so
+one statement closes both.
+
+- [x] **`SysAdminAgent._resolve_recovered`**, mirroring the project side:
+      *which of my open alerts would this run not raise?* Population is
+      `RESOLVABLE_TITLE_PATTERNS` — **patterns, not the configured service
+      list**, because a set built from configuration cannot contain a
+      deconfigured service, which is the entire defect
+- [x] **The per-service `resolve_alerts(session, service_name)` is gone.**
+      It was also a substring `ilike`, so `venture-chat` recovering closed
+      `venture-chat-large`'s alerts — a second, unfiled bug removed by the
+      same change
+- [x] **Three families deliberately excluded**, each having a lifecycle
+      owner already: `% agent stalled` (`stalls.py` escalates *off* the
+      quiet row staying open), `% failed` (`unit_failure.py` writes it
+      dead, the lifespan resolves it alive), `Unusual % usage`
+      (`_check_anomalies` resolves by id). Verified against the live
+      table: the only `agent='sysadmin'` row the statement leaves open is
+      the file organiser's stall, which is still true
+- [x] **Services and resources take different exclusions, and the
+      difference is not cosmetic** — see the rejected version below
+- [x] **Backfill ran itself** on the first agent run after the restart —
+      **51,976 rows resolved**, `agent='sysadmin'` unresolved **51,925 →
+      43**. Chosen over a one-off script so the fix would be proven by
+      doing exactly what it will do for ever after, and it was
+
+**The version that was written first and refuted before it shipped.**
+Excluding only "titles this run raised" is the obvious reading of the
+project-side pattern and is wrong here. `_degraded_counts` is in memory
+and resets on daemon restart, so the first run after one raises nothing
+for a service that has been degraded for hours — the alert would be
+**resolved as recovered and re-raised two checks later**, announcing a
+recovery to the tray for a fault that never went away. Services are
+therefore resolved only when this run measured them *healthy*
+(`unhealthy` carries everything else, `error` included, where the check
+itself failed and the state is genuinely unknown). Resource thresholds
+keep the raised/not-raised test, because a mount either breached this run
+or did not and no streak counter is involved.
+
+`skipped` counts as healthy, deliberately: it means `services.yaml`
+declares `monitor: false`, and an open critical nothing will ever look at
+again is the pile-up wearing a declaration as an excuse.
+
+### Residual, recorded rather than fixed
+
+- **The table still grows by one row per check while a condition holds** —
+  only one is *open* at a time now, which is what the tray and
+  `GET /api/sysadmin/alerts` read. Retention can finally purge the rest,
+  since it purges `resolved = TRUE` only
+- **`log_aggregator`'s 547,891 rows are untouched and need their own
+  rule.** `Log error: kernel` alone is 547,814. These are **events, not
+  states** — a log line that happened cannot recover — so widening this
+  resolve to cover them would be the wrong mechanism. Filed as
+  `SNAG-AGENT-005`
+- **`SNAG-AGENT-003`'s numbers in the snag entry were derived from a
+  scheduler that was working.** Worth remembering next time an endpoint's
+  output is used to reason about a cause: `GET /api/sysadmin/self` reports
+  `agent_runs`, and `agent_runs` was the thing being lost
+
+---
+
 ## Archive
 
 - Sessions 10–23, 2026-07-24 maintenance, and SNAGs fixed in that period →

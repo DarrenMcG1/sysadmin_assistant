@@ -28,6 +28,30 @@
 
 ## Recently Completed
 
+- **2026-08-12 — Session 41: the two P1 agent defects, both with the filed
+  cause corrected.** `SNAG-AGENT-003` — the file organiser having run once
+  in its life — was neither of the two candidates the entry named. The
+  scheduler fires and the agent *succeeds*: `BaseAgent.run` opened a
+  transaction (insert + flush of the `running` row) before handing the same
+  session to `_execute`, and this host sets
+  `idle_in_transaction_session_timeout=1min`, so a 117.71-second scan had
+  its backend terminated at t+60s and lost every write **including its own
+  failure record**. The one surviving run, 2026-08-06, took 29.63 s — the
+  only one ever to finish inside the timeout. `run()` is now three
+  transactions and a failed run records that it failed.
+  `SNAG-AGENT-004` was diagnosed correctly and **understated by about twenty
+  times**: 27,827 rows for five retired services (not four — `nuxt-frontend`
+  was missed) *plus* 24,097 resource-threshold rows that had no resolve path
+  at any point in this application's life, `Critical disk usage on /` alone
+  holding 13,971 open rows against a disk at 68 % since July.
+  `SysAdminAgent._resolve_recovered` closes both families set-based;
+  **51,924 rows in the population**, verified against the live table, with
+  the only `agent='sysadmin'` row left open being the file organiser's
+  stall. **Both were deployed and proven the same day**: the file organiser
+  recorded 3 completed runs against **one in its entire life** before today,
+  `filesystem_audits` went 1 row → 4, and **51,976 alerts resolved**, taking
+  `agent='sysadmin'` unresolved from 51,925 to **43**. 1,939 tests green (+35).
+
 - **2026-08-11 — Session 39's MQTT half unblocked, from the other side.**
   estate-manager's Session 2 (its founding MQTT extraction, executed
   under estate ADR-0002's bounded exception) removed both walls recorded
