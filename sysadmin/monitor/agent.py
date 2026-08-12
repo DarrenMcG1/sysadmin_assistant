@@ -51,6 +51,68 @@ STALL_TITLE_SUFFIX = stalls.STALL_TITLE_SUFFIX
 #: Timeout for HTTP health probes.
 HTTP_CHECK_TIMEOUT_S = 10.0
 
+#: Every way :meth:`SysAdminAgent._handle_status` can name a service in an
+#: alert title.  One tuple because raise and resolve both derive from it —
+#: the rule :func:`sysadmin.projects.agent._alert_title` records, for the
+#: reason a hand-written resolve pattern that matches nothing fails
+#: silently while the table grows.
+SERVICE_ALERT_KINDS = (
+    "degraded",
+    "warning",
+    "critical",
+    "unreachable",
+    "auto-restarted",
+)
+
+
+def service_alert_title(service_name: str, kind: str) -> str:
+    """The alert title for ``service_name`` being in state ``kind``."""
+    return f"{service_name} {kind}"
+
+
+def disk_alert_title(mount: str, critical: bool) -> str:
+    """The alert title for disk occupancy on ``mount``."""
+    return f"{'Critical' if critical else 'High'} disk usage on {mount}"
+
+
+#: Alert families whose *recovery* this agent is responsible for observing.
+#:
+#: Written as ``LIKE`` patterns rather than derived from the configured
+#: services, and that is the whole point of SNAG-AGENT-004: a set built
+#: from configuration cannot contain a **deconfigured** service, so
+#: ``redis unreachable`` — 6,283 rows, newest 2026-03-07 — could never be
+#: matched by anything.  ``retention.run_retention`` purges resolved rows
+#: only, so those rows were immortal.
+#:
+#: Two families are deliberately **absent**, because something else already
+#: owns their lifecycle and a second owner is how a row gets closed while
+#: still being true:
+#:
+#: - ``Unusual % usage`` — :meth:`SysAdminAgent._check_anomalies` resolves
+#:   by alert id when the resource returns to range.
+#: - ``% agent stalled`` — :mod:`sysadmin.monitor.stalls` owns the quiet →
+#:   loud ladder, and its escalation *depends* on the quiet row staying
+#:   open for ``escalate_after_hours``.
+#: - ``% failed`` — :mod:`sysadmin.core.unit_failure` writes it while this
+#:   application is dead and the lifespan resolves it on the next start.
+#:   That pairing is what makes the row legitimate; resolving it from here
+#:   would close it before anyone saw it.
+RESOLVABLE_TITLE_PATTERNS = tuple(
+    f"% {kind}" for kind in SERVICE_ALERT_KINDS
+) + (
+    # _check_thresholds — one per resource, and until now these had no
+    # resolve path *at all*.  23,501 rows were open on 2026-08-12, 13,971
+    # of them `Critical disk usage on /` last raised 2026-07-26, against a
+    # disk that has been at 68 % since.  A condition that recovered and
+    # could not be observed recovering is the same defect as a service
+    # that was retired, so it is fixed by the same statement.
+    "High RAM usage",
+    "High GPU temperature on %",
+    "High VRAM usage on %",
+    "Critical disk usage on %",
+    "High disk usage on %",
+)
+
 #: The stall-ladder outcome of a run that did nothing about stalls —
 #: because ``self_monitor.enabled`` is false, or because no agent is
 #: stalled. Zeroes rather than an absent key: ``"stalls": {}`` in
@@ -104,14 +166,44 @@ class SysAdminAgent(BaseAgent):
         # than accumulated: a stale count reported in agent_runs.details
         # would read as an escalation that this run performed.
         self._stall_counts: dict[str, int] = _NO_STALLS
+        # Exact alert titles raised by the current run — the "still
+        # failing" set _resolve_recovered subtracts. Collected in
+        # raise_alert rather than at the ten call sites, so it cannot
+        # drift from them.
+        self._raised_titles: set[str] = set()
+
+    async def raise_alert(
+        self,
+        session,
+        severity: str,
+        title: str,
+        message: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> Alert:
+        """Raise as normal, and remember the title for :meth:`_resolve_recovered`.
+
+        The inverse question that method asks — "which of my open alerts
+        did this run *not* raise?" — needs the run's titles exactly, and
+        the one place they all pass through is here.  Titles outside
+        :data:`RESOLVABLE_TITLE_PATTERNS` (anomalies, stalls) are
+        collected too and are simply never matched, which is cheaper than
+        a second rule about which ones to collect.
+        """
+        self._raised_titles.add(title)
+        return await super().raise_alert(session, severity, title, message, details)
 
     async def _execute(self, session) -> AgentResult:
         """Run all health checks and record resource snapshot."""
         self._stall_counts = _NO_STALLS
+        self._raised_titles = set()
         config = get_config()
         agent_config = config.agents.sysadmin
         services = get_services().services
         alerts_raised = 0
+        # Configured services this run did not measure as healthy. Their
+        # open alerts are protected from the resolve below — see
+        # _resolve_recovered.
+        unhealthy: set[str] = set()
 
         # --- Service health checks ---
         # One connection pool per run, bound to this run's event loop and
@@ -119,6 +211,8 @@ class SysAdminAgent(BaseAgent):
         async with self._http.scoped():
             for svc in services:
                 status, response_time_ms, details = await self._check_service(svc)
+                if status not in ("ok", SKIPPED):
+                    unhealthy.add(svc.name)
 
                 # Record to DB
                 health = ServiceHealth(
@@ -164,6 +258,9 @@ class SysAdminAgent(BaseAgent):
         # Self-monitoring — has another agent silently stopped running?
         alerts_raised += await self._check_agent_liveness(session, config)
 
+        # Everything this run measured and did not alert on has recovered.
+        alerts_resolved = await self._resolve_recovered(session, unhealthy)
+
         checked = sum(1 for svc in services if not check_plan(svc).checks_nothing)
         return AgentResult(
             findings_count=len(services),
@@ -171,6 +268,7 @@ class SysAdminAgent(BaseAgent):
             details={
                 "services_checked": checked,
                 "services_declared": len(services),
+                "alerts_resolved": alerts_resolved,
                 # Recorded so a run that escalated an existing stall is
                 # distinguishable from one that found a new one — the two
                 # sum into `alerts_raised` and mean different things.
@@ -387,8 +485,13 @@ class SysAdminAgent(BaseAgent):
         if status == "ok":
             self._degraded_counts[service_name] = 0
             self._failure_counts[service_name] = 0
-            # Resolve any existing alerts for this service
-            await self.resolve_alerts(session, service_name)
+            # No resolve here. It used to call
+            # `resolve_alerts(session, service_name)` — a substring
+            # `ilike`, so `venture-chat` recovering also closed
+            # `venture-chat-large`'s alerts — and, being inside the loop
+            # over *configured* services, it could only ever observe a
+            # service that was still being checked. `_resolve_recovered`
+            # at the end of the run asks the inverse question instead.
             return 0
 
         if status == "degraded":
@@ -400,7 +503,7 @@ class SysAdminAgent(BaseAgent):
                 await self.raise_alert(
                     session,
                     severity="warning",
-                    title=f"{service_name} degraded",
+                    title=service_alert_title(service_name, "degraded"),
                     message=f"{service_name} has been degraded for 3 consecutive checks",
                     details={**details, "service_name": service_name},
                 )
@@ -413,7 +516,7 @@ class SysAdminAgent(BaseAgent):
             await self.raise_alert(
                 session,
                 severity="warning",
-                title=f"{service_name} warning",
+                title=service_alert_title(service_name, "warning"),
                 message=f"{service_name} is in warning state",
                 details={**details, "service_name": service_name},
             )
@@ -446,7 +549,7 @@ class SysAdminAgent(BaseAgent):
                 await self.raise_alert(
                     session,
                     severity="warning",
-                    title=f"{service_name} auto-restarted",
+                    title=service_alert_title(service_name, "auto-restarted"),
                     message=(
                         f"{service_name} was automatically restarted after "
                         f"{svc.auto_restart_after_checks} consecutive failures"
@@ -459,13 +562,105 @@ class SysAdminAgent(BaseAgent):
             await self.raise_alert(
                 session,
                 severity="critical",
-                title=f"{service_name} {'critical' if status == 'critical' else 'unreachable'}",
+                title=service_alert_title(service_name, status),
                 message=f"{service_name} is {status}",
                 details={**details, "service_name": service_name},
             )
             return 1
 
         return 0
+
+    # --- Alert recovery ---
+
+    async def _resolve_recovered(self, session, unhealthy: set[str]) -> int:
+        """Resolve every owned alert this run did **not** raise.
+
+        The service-side twin of
+        :meth:`sysadmin.projects.agent.ProjectOrganiserAgent._resolve_recovered`,
+        and the same defect at sixteen times the scale (SNAG-AGENT-004).
+        Recovery used to be observed one service at a time, inside the
+        loop over the *configured* services — so a service removed from
+        configuration was never checked again, could never be seen to
+        recover, and its alerts stayed open for ever.  ``run_retention``
+        purges ``resolved = TRUE`` rows only, deliberately, so nothing
+        else was ever going to clear them.
+
+        Live on 2026-08-12, before this ran: **27,827** unresolved rows
+        for five services that no longer exist in either config file
+        (``personal-assistant`` 9,748, ``personal-assistant-frontend``
+        9,748, ``redis`` 6,283, ``ollama`` 1,824, ``nuxt-frontend`` 224),
+        and **23,501** more for resource thresholds that had no resolve
+        path at any point in this application's life.
+
+        Asking the inverse question closes retirement, rename, recovery
+        and threshold-cleared in one statement, and cannot drift from the
+        raise path: the population comes from
+        :data:`RESOLVABLE_TITLE_PATTERNS` and the exclusions from
+        :attr:`_raised_titles`, which :meth:`raise_alert` fills.
+
+        **The two halves take different exclusions, and the difference is
+        not cosmetic.** A resource threshold either breached this run or
+        did not, so ``_raised_titles`` decides it exactly.  A service's
+        alert is governed by a *streak* — three consecutive degraded
+        checks — held in memory, and ``_degraded_counts`` resets when the
+        daemon restarts.  Testing "did this run raise it?" would therefore
+        close a genuinely-degraded service's alert on the first run after
+        every restart and re-raise it two checks later: a spurious
+        recovery, announced to the tray, for a fault that never went away.
+        So a service's titles are resolved only when this run measured it
+        **healthy** — ``unhealthy`` carries everything else, including
+        ``error``, where the check itself failed and the state is
+        genuinely unknown.
+
+        ``skipped`` counts as healthy for this purpose, and deliberately.
+        It means ``services.yaml`` declares ``monitor: false``: the estate
+        has said it does not want to know, and an open critical that
+        nothing will ever look at again is the pile-up wearing a
+        declaration as an excuse.
+
+        A **deconfigured** service is in neither set — it is not in the
+        loop at all — so its rows fall through to the resolve.  That is
+        the fix, and it is why the population must be pattern-based.
+
+        Titles are excluded by exact match, never by "created before
+        now": the rows raised moments ago are in this same transaction
+        and a timestamp comparison races the clock that stamped them.
+
+        Returns:
+            Number of alerts resolved.
+        """
+        from sqlalchemy import or_
+
+        protected = self._raised_titles | {
+            service_alert_title(name, kind)
+            for name in unhealthy
+            for kind in SERVICE_ALERT_KINDS
+        }
+
+        conditions = [
+            Alert.agent == self.name,
+            Alert.resolved.is_(False),
+            or_(*[Alert.title.like(p) for p in RESOLVABLE_TITLE_PATTERNS]),
+        ]
+        if protected:
+            conditions.append(Alert.title.notin_(sorted(protected)))
+
+        result = await session.execute(
+            update(Alert)
+            .where(*conditions)
+            .values(resolved=True, resolved_at=datetime.now(UTC))
+        )
+        resolved: int = result.rowcount or 0
+        if resolved:
+            logger.info(
+                "service_alerts_resolved",
+                extra={"agent": self.name, "count": resolved},
+            )
+            self._queue_event(
+                "alert.resolved",
+                {"agent": self.name, "match": "recovered", "count": resolved},
+            )
+        return resolved
 
     # --- Resource monitoring ---
 
@@ -590,7 +785,7 @@ class SysAdminAgent(BaseAgent):
                 await self.raise_alert(
                     session,
                     severity="critical",
-                    title=f"Critical disk usage on {mount}",
+                    title=disk_alert_title(mount, critical=True),
                     message=(
                         f"Disk at {pct}% on {mount} "
                         f"(threshold: {thresholds.disk_critical_percent}%)"
@@ -608,7 +803,7 @@ class SysAdminAgent(BaseAgent):
                 await self.raise_alert(
                     session,
                     severity="warning",
-                    title=f"High disk usage on {mount}",
+                    title=disk_alert_title(mount, critical=False),
                     message=(
                         f"Disk at {pct}% on {mount} "
                         f"(threshold: {thresholds.disk_warning_percent}%)"

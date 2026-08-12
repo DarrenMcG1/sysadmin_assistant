@@ -13,12 +13,19 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import DateTime, func, select, update
 
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 from sysadmin.core.llm_client import LLMClient
-from sysadmin.monitor.journal import SEVERITY_ORDER, read_journal
+from sysadmin.core.models.alert import Alert
+from sysadmin.monitor.journal import (
+    SEVERITY_ORDER,
+    JournalRead,
+    read_journal,
+    since_timestamp,
+)
+from sysadmin.monitor.log_signature import alert_title
 from sysadmin.monitor.models.log_entry import LogEntry
 from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.services import get_services, log_sources
@@ -40,6 +47,11 @@ class LogAggregatorAgent(BaseAgent):
 
     def __init__(self) -> None:
         self._file_offsets: dict[str, int] = {}
+        # Journal resume positions, one per source.  In memory, so a
+        # restart falls back to _resume_floor(), which reads the highest
+        # entry already stored for that source — the cursor removes the
+        # per-poll duplication, the floor removes the per-restart kind.
+        self._cursors: dict[str, str] = {}
         # Constructing an LLMClient opens no connections, and it manages
         # its own per-event-loop HTTP client — so there is deliberately no
         # startup()/shutdown() here.  Opening one on the API loop would
@@ -83,10 +95,44 @@ class LogAggregatorAgent(BaseAgent):
         return sources
 
     async def _execute(self, session) -> AgentResult:
+        """Ingest every source, then raise **one alert per distinct fault**.
+
+        The raise used to sit inside the entry loop, unconditional, one row
+        per matching log line — 593,814 unresolved rows for a Bluetooth
+        firmware retry loop, 91 % of every unresolved alert in the table
+        (``SNAG-AGENT-005``).  That is the mistake this application already
+        recorded once, in ``GET /api/services/reliability``'s docstring:
+        *"that table records one row per failed check — 123 rows for one
+        internet outage"*.  A log is not an incident.
+
+        So alerting happens **after** the loop, over
+        :func:`~sysadmin.monitor.log_signature.alert_title` keys, and the
+        three rules are the interesting part:
+
+        1. **One open row per fault signature**, not per line and not per
+           source.  A source-level key would let the Bluetooth storm hold
+           the single ``Log error: kernel`` row while an RCU stall went
+           unannounced — both are in the live 30-day window, so this is
+           measured rather than hypothetical.
+        2. **A repeat bumps the open row instead of raising a new one.**
+           ``details['occurrences']`` carries the count that used to be
+           expressed as row volume, which is the same information at
+           1/300,000th of the storage and is legible on one tray line.
+        3. **Silence is the only recovery signal there is**, so the resolve
+           is time-based (:meth:`_resolve_quiet`) rather than the
+           "which open alerts would this run not raise?" inversion
+           :meth:`sysadmin.monitor.agent.SysAdminAgent._resolve_recovered`
+           uses.  That question is meaningless for an event: the answer is
+           "all of them, one run later", which is expiry wearing
+           resolution's clothes.
+        """
         config = get_config()
         agent_config = config.agents.log_aggregator
         total_ingested = 0
         alerts_raised = 0
+        truncated: list[str] = []
+        # signature title -> (severity, source, last message, count)
+        faults: dict[str, dict[str, Any]] = {}
 
         # Sources declared beside the service that emits them, plus the
         # ones in config.yaml that belong to no service — the kernel
@@ -95,23 +141,24 @@ class LogAggregatorAgent(BaseAgent):
         # merge exists to make visible rather than to tolerate silently.
         for source in self._sources(agent_config):
             if source.type == "journalctl" and source.unit:
-                entries = await read_journal(
-                    unit=source.unit,
-                    since="2m ago",
-                    severity_filter=source.severity_filter,
-                    user=source.user,
+                read = await self._read_journal_source(
+                    session, source, agent_config.max_entries_per_read
                 )
             elif source.type == "file" and source.path:
-                entries = await asyncio.to_thread(
+                read = await asyncio.to_thread(
                     self._read_log_file,
                     source.name,
                     source.path,
                     source.severity_filter,
+                    agent_config.max_entries_per_read,
                 )
             else:
                 continue
 
-            for entry in entries:
+            if read.truncated:
+                truncated.append(source.name)
+
+            for entry in read.entries:
                 log_entry = LogEntry(
                     source=entry["source"],
                     severity=entry["severity"],
@@ -123,22 +170,208 @@ class LogAggregatorAgent(BaseAgent):
                 session.add(log_entry)
                 total_ingested += 1
 
-                # Alert on error/critical
-                if entry["severity"] in ("error", "critical"):
-                    await self.raise_alert(
-                        session,
-                        severity="warning" if entry["severity"] == "error" else "critical",
-                        title=f"Log {entry['severity']}: {entry['source']}",
-                        message=entry["message"][:500],
-                        details={"source": entry["source"]},
-                    )
-                    alerts_raised += 1
+                if entry["severity"] not in ("error", "critical"):
+                    continue
+
+                title = alert_title(
+                    entry["severity"], entry["source"], entry["message"]
+                )
+                fault = faults.get(title)
+                if fault is None:
+                    faults[title] = {
+                        "severity": (
+                            "critical" if entry["severity"] == "critical" else "warning"
+                        ),
+                        "source": entry["source"],
+                        "message": entry["message"],
+                        "count": 1,
+                    }
+                else:
+                    # The newest line wins, so the verbatim example beside
+                    # a normalised title is the most recent occurrence
+                    # rather than whichever arrived first.
+                    fault["message"] = entry["message"]
+                    fault["count"] += 1
+
+        open_alerts = await self._open_alerts(session, set(faults))
+        now = datetime.now(UTC)
+        for title, fault in faults.items():
+            existing = open_alerts.get(title)
+            if existing is not None:
+                self._record_recurrence(existing, fault, now)
+                continue
+            await self.raise_alert(
+                session,
+                severity=fault["severity"],
+                title=title,
+                message=fault["message"][:500],
+                details={
+                    "source": fault["source"],
+                    "first_seen_at": now.isoformat(),
+                    "last_seen_at": now.isoformat(),
+                    "occurrences": fault["count"],
+                },
+            )
+            alerts_raised += 1
+
+        alerts_resolved = await self._resolve_quiet(
+            session, set(faults), agent_config.alert_quiet_minutes, now
+        )
+
+        if truncated:
+            logger.warning(
+                "log_read_truncated",
+                extra={"sources": truncated, "limit": agent_config.max_entries_per_read},
+            )
 
         return AgentResult(
             findings_count=total_ingested,
             alerts_raised=alerts_raised,
-            details={"entries_ingested": total_ingested},
+            details={
+                "entries_ingested": total_ingested,
+                "distinct_faults": len(faults),
+                "alerts_resolved": alerts_resolved,
+                # Named, not counted: a source at its ceiling is a source
+                # whose entries are being dropped, and which one it is
+                # decides whether that matters.
+                "truncated_sources": truncated,
+            },
         )
+
+    async def _read_journal_source(
+        self, session, source, limit: int
+    ) -> JournalRead:
+        """Read one journal source, resuming where the last read stopped.
+
+        Two resume mechanisms, because they fail in different ways.
+        ``self._cursors`` is exact and covers the poll-to-poll case, which
+        is where the damage was: ``since="2m ago"`` on a 60-second poll
+        ingested every unit-journal event **exactly twice** — two copies of
+        all 18 ``venture-assistant-backend`` and all 15
+        ``sportsanalyser-frontend`` events, doubling every count anything
+        downstream computes from ``log_entries``.
+
+        The cursor lives in memory, so a restart loses it.  The floor
+        covers that: the newest ``logged_at`` already stored for this
+        source, which is durable because it *is* the stored data.  A window
+        is still needed for a genuinely first read, and only then.
+        """
+        cursor = self._cursors.get(source.name)
+        since = "5m ago"
+        if not cursor:
+            floor = await self._resume_floor(session, source.unit)
+            if floor is not None:
+                since = since_timestamp(floor)
+
+        read = await read_journal(
+            unit=source.unit,
+            since=since,
+            severity_filter=source.severity_filter,
+            user=source.user,
+            after_cursor=cursor,
+            limit=limit,
+        )
+        if read.cursor:
+            self._cursors[source.name] = read.cursor
+        return read
+
+    @staticmethod
+    async def _resume_floor(session, unit: str) -> datetime | None:
+        """Newest stored ``logged_at`` for ``unit``, or ``None`` if never read."""
+        result = await session.execute(
+            select(func.max(LogEntry.logged_at)).where(LogEntry.source == unit)
+        )
+        return result.scalar_one_or_none()
+
+    async def _open_alerts(self, session, titles: set[str]) -> dict[str, Alert]:
+        """Unresolved alerts among ``titles``, keyed by title.
+
+        **Bounded by the titles this run raised, deliberately.** The
+        obvious query — every unresolved row this agent owns — would have
+        materialised 593,814 ORM objects on the first run against the live
+        table, so the fix would have fallen over on the backlog it exists
+        to end.  A run only needs the rows it might bump, and that set is
+        the number of distinct fault signatures in one poll.
+
+        No title-pattern population here, unlike
+        :data:`~sysadmin.monitor.agent.RESOLVABLE_TITLE_PATTERNS`: this
+        agent raises exactly one kind of alert, so ``agent = 'log_aggregator'``
+        already names every row it owns and a pattern list would only be a
+        second thing to keep in step with the raise site.
+        """
+        if not titles:
+            return {}
+        result = await session.execute(
+            select(Alert).where(
+                Alert.agent == self.name,
+                Alert.resolved.is_(False),
+                Alert.title.in_(sorted(titles)),
+            )
+        )
+        return {alert.title: alert for alert in result.scalars().all()}
+
+    @staticmethod
+    def _record_recurrence(alert: Alert, fault: dict[str, Any], now: datetime) -> None:
+        """Fold a repeat occurrence into the open row.
+
+        ``details`` is reassigned rather than mutated in place: SQLAlchemy
+        does not track mutation inside a plain JSONB dict, so an in-place
+        update would look like it worked and write nothing — and the whole
+        resolve depends on ``last_seen_at`` moving.
+        """
+        details = dict(alert.details or {})
+        details["last_seen_at"] = now.isoformat()
+        details["occurrences"] = int(details.get("occurrences") or 0) + fault["count"]
+        details.setdefault("first_seen_at", details["last_seen_at"])
+        details.setdefault("source", fault["source"])
+        alert.details = details
+        alert.message = fault["message"][:500]
+
+    async def _resolve_quiet(
+        self, session, seen: set[str], quiet_minutes: int, now: datetime
+    ) -> int:
+        """Resolve open alerts whose fault has not been logged for a while.
+
+        The resolve is **excluded by exact title** for anything this run
+        observed, and only then filtered on age.  Both tests do the same
+        job — a title seen this run has just had ``last_seen_at`` set to
+        ``now`` — and the exclusion is kept because it cannot race a clock,
+        which is the caution
+        :meth:`sysadmin.monitor.agent.SysAdminAgent._resolve_recovered`
+        records for rows raised inside the same transaction.
+
+        ``created_at`` is the fallback for a row with no ``last_seen_at``,
+        which is every row raised before this change.  Without it the whole
+        pre-existing backlog would be permanently unresolvable — the defect
+        this method exists to end, preserved by the fix for it.
+        """
+        cutoff = now - timedelta(minutes=quiet_minutes)
+        last_seen = func.coalesce(
+            Alert.details["last_seen_at"].astext.cast(DateTime(timezone=True)),
+            Alert.created_at,
+        )
+        conditions = [
+            Alert.agent == self.name,
+            Alert.resolved.is_(False),
+            last_seen < cutoff,
+        ]
+        if seen:
+            conditions.append(Alert.title.notin_(sorted(seen)))
+
+        result = await session.execute(
+            update(Alert).where(*conditions).values(resolved=True, resolved_at=now)
+        )
+        resolved: int = result.rowcount or 0
+        if resolved:
+            logger.info(
+                "log_alerts_resolved",
+                extra={"agent": self.name, "count": resolved, "quiet_minutes": quiet_minutes},
+            )
+            self._queue_event(
+                "alert.resolved",
+                {"agent": self.name, "match": "went quiet", "count": resolved},
+            )
+        return resolved
 
     async def summarise(self, session) -> str | None:
         """Generate an LLM summary of recent warnings/errors. Called on a separate schedule."""
@@ -202,12 +435,19 @@ class LogAggregatorAgent(BaseAgent):
         return summary_text
 
     def _read_log_file(
-        self, source_name: str, path: str, severity_filter: str
-    ) -> list[dict[str, Any]]:
-        """Read new lines from a log file, tracking byte offset."""
+        self, source_name: str, path: str, severity_filter: str, limit: int
+    ) -> JournalRead:
+        """Read new lines from a log file, tracking byte offset.
+
+        Returns a :class:`~sysadmin.monitor.journal.JournalRead` so a file
+        source and a journal source report truncation the same way.  It
+        carries no cursor: a byte offset already resumes exactly, and it is
+        durable across a restart only in the sense that the file is — a
+        rotation resets it, which the size check below detects.
+        """
         filepath = Path(path)
         if not filepath.exists():
-            return []
+            return JournalRead(entries=[])
 
         entries = []
         min_severity = SEVERITY_ORDER.get(severity_filter, 0)
@@ -235,7 +475,12 @@ class LogAggregatorAgent(BaseAgent):
                 extra={"path": path, "error": str(e)},
             )
 
-        return entries[:500]
+        # The cap was ``entries[:500]``, silent — the same defect as
+        # journalctl's ``-n 500`` and fixed the same way.  Here the
+        # *oldest* entries are kept, because the byte offset has already
+        # advanced past the lot: dropping the newest would leave them
+        # unread for good, whereas a journal cursor can be re-read.
+        return JournalRead(entries=entries[:limit], truncated=len(entries) > limit)
 
     def _parse_log_line(self, source: str, line: str) -> dict[str, Any] | None:
         """Parse a log line into structured data."""

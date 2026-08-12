@@ -445,6 +445,42 @@ of it. `OWN_UNIT` is named in three files (the constant, the unit's
 side writes `sysadmin.service failed` and the other resolves
 `sysadmin failed`, so the row is simply never closed.
 
+**`BaseAgent.run` runs in three transactions, and the count is the
+invariant** (Session 39's snag, fixed Session 41). It used to open one
+session, insert the `running` row, **flush** it — which starts a
+transaction — and hand that same session to `_execute`. This host sets
+`idle_in_transaction_session_timeout=1min`, so any agent whose work
+outlasts a minute has its backend terminated and loses every write of the
+run. The file organiser scanned for 117.71 s on 2026-08-11, found 25,317
+issues, logged `agent_run_completed`, and wrote **nothing**: no audit, no
+`completed` row, and no `failed` row either.
+
+That last one is the half worth remembering. The `except` branch sets
+`status='failed'` on a row living in the transaction the failure
+destroyed, so **the failure record dies with the run it records** — an
+agent failing this way is indistinguishable from one that was never
+scheduled, which is what `GET /api/sysadmin/self` reported for five days,
+correctly, off a table that was being emptied. The one surviving run is
+the proof rather than the exception: 2026-08-06 took **29.63 s**, the only
+run in the agent's life to finish inside the timeout.
+
+Now `_record_start` commits alone, `_execute` gets a session that has
+**never been flushed** — so its transaction opens at its first statement
+rather than two minutes earlier — and `_record_outcome` is an `UPDATE` by
+id from a third. It costs nothing because `UUIDPrimaryKeyMixin` sets
+`default=uuid.uuid4` client-side: the id exists before the INSERT is sent.
+`tests/test_agent_run_recording.py` asserts the transaction count, because
+collapsing them back is the defect.
+
+Two changes of meaning, both deliberate. `_execute`'s writes are no longer
+atomic with the run record — still atomic with each other — and a process
+killed mid-run leaves a permanent `running` row where it used to leave no
+row at all. The second is an improvement for the same reason as the first:
+absence of a row is the thing that cannot be told apart from absence of a
+run. Note the rule already existed one layer up, in `files/review.py`
+("commit the read transaction before calling the LLM") — learned for
+inference and never generalised to the framework beneath it.
+
 **Idle nudges have no endpoint, and that is the design** (Session 31). A
 nudge is an `alerts` row raised by the organiser — `Project <name> next
 action idle` — so it reaches the tray, the DND windows and
@@ -493,17 +529,128 @@ rather than dropped — "never" is the strongest form of the question being
 asked. The window is echoed back in the body so a cached response stays
 interpretable.
 
-**`ProjectOrganiserAgent` resolves alerts set-based**, unlike the two reference
-agents which loop and call `BaseAgent.resolve_alerts` per recovered item. Their
-populations are fixed by configuration; a project's is not — a project deleted
-from disk never appears in a scan, so it can never be observed *recovering*,
-and a per-project loop leaves its alert unresolved forever while retention
-purges resolved rows only. That is how 1,664 rows accumulated by 2026-08-07,
-326 sharing one title. `_resolve_recovered` asks the inverse question — which
-open health alerts would this scan *not* raise — closing recovery, deletion,
-rename and re-declaration as `archived` in one statement. Raise and resolve
-both derive their title from `_alert_title`, because a hand-written resolve
-pattern that matches nothing is invisible.
+**Both scoring agents resolve alerts set-based**, and the second one arrived
+by the first one's argument being reused rather than rediscovered.
+`ProjectOrganiserAgent._resolve_recovered` came first: a project deleted from
+disk never appears in a scan, so it can never be observed *recovering*, a
+per-project loop leaves its alert unresolved forever, and retention purges
+resolved rows only. That is how 1,664 rows accumulated by 2026-08-07, 326
+sharing one title. `_resolve_recovered` asks the inverse question — which open
+health alerts would this scan *not* raise — closing recovery, deletion, rename
+and re-declaration as `archived` in one statement. Raise and resolve both
+derive their title from `_alert_title`, because a hand-written resolve pattern
+that matches nothing is invisible.
+
+`SysAdminAgent._resolve_recovered` is the same statement on the service side
+(Session 41, SNAG-AGENT-004), where the same defect had reached **51,924
+rows** — twenty times the scale, and in two families rather than one:
+
+- **27,827 for five services that no longer exist** in either config file.
+  Recovery was observed inside the loop over the *configured* services, so a
+  deconfigured service was never checked, never seen to recover, and never
+  resolvable. `redis unreachable` held 6,283 rows last raised 2026-03-07.
+- **24,097 for resource thresholds**, which had **no resolve path at any
+  point in this application's life**. `Critical disk usage on /` alone is
+  13,971 open rows last raised 2026-07-26, against a disk that has been at
+  68 % since. A condition that recovered and could not be observed
+  recovering is the same defect as a service that was retired, so one
+  statement closes both.
+
+Four rules it encodes, two of which are the opposite of the obvious version:
+
+1. **The population is `RESOLVABLE_TITLE_PATTERNS`, not the configured
+   service list.** A set built from configuration cannot contain a
+   deconfigured service, which is the entire defect. Patterns are the only
+   shape that can reach a row whose subject is gone.
+2. **Services and resource thresholds take different exclusions.** A mount
+   either breached this run or did not, so "titles this run raised" decides
+   it exactly. A service's alert is governed by a *streak* — three
+   consecutive degraded checks — held in `_degraded_counts`, which is in
+   memory and **resets on daemon restart**. The same test would therefore
+   close a genuinely-degraded service's alert on the first run after every
+   restart and re-raise it two checks later: a recovery announced to the
+   tray for a fault that never went away. Services are resolved only when
+   this run measured them *healthy*.
+3. **Three families are excluded because each has a lifecycle owner
+   already**, and a second owner closes a row while it is still true:
+   `% agent stalled` (`stalls.py` escalates *off* the quiet row staying
+   open), `% failed` (`unit_failure.py` writes it dead and the lifespan
+   resolves it alive), `Unusual % usage` (`_check_anomalies` resolves by id).
+4. **`skipped` counts as healthy; `error` does not.** Both mean nothing was
+   measured, and the difference is who decided. `error` is the check
+   failing — the state is unknown and resolving on unknown announces a
+   recovery nobody observed. `skipped` is `services.yaml` declaring
+   `monitor: false`, and an open critical nothing will ever look at again is
+   the pile-up wearing a declaration as an excuse.
+
+The per-service `resolve_alerts(session, service_name)` it replaced was also
+a substring `ilike`, so `venture-chat` recovering closed
+`venture-chat-large`'s alerts — a second bug nobody had filed, removed by
+having one owner of the lifecycle instead of one per item.
+
+What it does **not** cover is `log_aggregator`'s rows (SNAG-AGENT-005, fixed
+Session 41's successor). Those are **events, not states** — a log line that
+was written cannot un-write itself — so there is no run at which "this would
+not be raised" becomes true, and the fix was a *raise* rule.
+
+**A log is not an incident, and the alert's identity is the fault, not the
+source** (Session 42, SNAG-AGENT-005). `LogAggregatorAgent` raised one alert
+row per matching log line: **598,091 unresolved rows**, 91 % of every
+unresolved alert in the table, of which 99.8 % were two Bluetooth firmware
+messages emitted by a kernel retry loop at ~8.5 lines a second. This
+application had already recorded the mistake once — *"that table records one
+row per failed check — 123 rows for one internet outage"*, in
+`GET /api/services/reliability`'s docstring — and not generalised it.
+
+`sysadmin/monitor/log_signature.py` owns the identity: the message with its
+variable parts removed (digit runs → `N`, hex → `0xN`, whitespace collapsed).
+Four rules, the first of which was the obvious implementation and was refuted
+by the live table before it was written:
+
+1. **The key is the signature, not the source.** `Log error: kernel` is
+   shared by every kernel error whatever it says, so deduplicating on the
+   existing title would have let the Bluetooth storm hold the single open row
+   while an RCU stall and a USB enumeration failure — **both in the same live
+   30-day window** — went unannounced. Half a million rows traded for a mask
+   over every other kernel fault is not a fix. Normalisation does lose
+   `error -110` versus `error -71`; nothing is actually lost, because
+   `message` carries the last verbatim line and `details['occurrences']`
+   carries the count that used to be expressed as row volume.
+2. **The signature lives in the title**, not in `details`. Dedup, the resolve
+   and the tray's `{severity}:{title}` fingerprint all key on title already,
+   so no new machinery is needed and none of them can disagree about
+   identity — and four open rows all reading `Log error: kernel` are
+   indistinguishable to whoever is looking at the tray.
+3. **Silence is the only recovery signal an event has.** `_resolve_quiet`
+   closes a row unobserved for `alert_quiet_minutes` (15, i.e. 15 polls),
+   excluded by exact title as well as by age because an exclusion set cannot
+   race the clock that stamped the row. `COALESCE(details->>'last_seen_at',
+   created_at)` is what made the pre-existing backlog reachable at all.
+   `details` is *reassigned*, never mutated in place: SQLAlchemy does not
+   track mutation inside a plain JSONB dict, so an in-place bump looks like
+   it worked, writes nothing, and freezes `last_seen_at` while the fault
+   fires.
+4. **`_open_alerts` is bounded by the titles the run raised.** Written first
+   as "every unresolved row this agent owns" — 593,814 ORM objects on the
+   first live run, the fix falling over on the backlog it exists to end. An
+   unbounded `SELECT` over the table whose unboundedness is the bug is easy
+   to write and nasty to ship.
+
+**Journal reads resume from a cursor, and it must advance over what the
+filter discards.** `read_journal` was called with `since="2m ago"` on a
+60-second poll, so every unit-journal event was stored **exactly twice**.
+`__CURSOR` rather than a narrower window, because narrowing trades the
+duplicate for a *gap* whenever a run runs long — the worse failure for a
+monitor. The cursor is taken **before** the severity filter: advancing only
+past kept entries leaves the resume point behind a run of info-level noise
+and rebuilds the defect one layer down. It is in memory, so a restart falls
+back to the newest `logged_at` already stored for that source, passed as
+`--since @<epoch>` because journalctl reads a bare datetime as **local**
+time. The `-n 500` ceiling stays — 8.5 messages a second makes one
+unavoidable — but hitting it is now `details['truncated_sources']`, which
+**names** the sources rather than counting them, because which one is at its
+ceiling decides whether it matters. It was invisible before: `findings_count`
+sat at exactly 200 on every run.
 
 **`status: archived` waives exactly two deductions** — commit staleness and
 stale branches — and nothing else. It is *not* a general git-hygiene exemption:

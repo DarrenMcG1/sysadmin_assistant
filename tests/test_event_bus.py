@@ -212,6 +212,11 @@ class TestAgentEventPublishing:
         bus, events = recording_bus
         timeline: list[str] = []
 
+        async def note_publish(data: dict) -> None:
+            timeline.append("published")
+
+        bus.subscribe("alert.raised", note_publish)
+
         class _Agent(BaseAgent):
             name = "sysadmin"
 
@@ -232,7 +237,13 @@ class TestAgentEventPublishing:
             await _Agent().run()
             await asyncio.sleep(0)
 
-        assert timeline == ["executed", "committed"]
+        # Three transactions, and the count is the assertion: the run's
+        # `running` row commits before _execute is handed a session, and
+        # the outcome is written after that session closes. Collapsing
+        # them back into one is SNAG-AGENT-003 — an agent whose work
+        # outlasts `idle_in_transaction_session_timeout` (60s on this
+        # host) loses every write including its own failure record.
+        assert timeline == ["committed", "executed", "committed", "committed", "published"]
         assert [e[0] for e in events] == ["alert.raised", "agent.run"]
         assert events[0][1]["title"] == "Disk full"
 

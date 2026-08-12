@@ -236,6 +236,22 @@ services:
     controllable: false
     log: { type: journalctl, severity_filter: warning }
 
+  # The estate's 8400 service (its Session 3 second half, 2026-08-12, its
+  # ADR-0007): the GPU queue. Grants leases, performs the granite/24B swap
+  # the units' Conflicts=/ExecStopPost wiring used to do, and restores the
+  # baseline at release or lease expiry. Its /api/queue/invariants (depth,
+  # oldest-waiting age, dropped count) is exposed to be judged HERE — the
+  # estate never judges its own queue; that judging is this repository's
+  # own upcoming task.
+  - project: estate-manager
+    name: estate-manager-api
+    role: api
+    kind: http
+    url: http://localhost:8400/api/health
+    port: 8400
+    systemd: { unit: estate-manager-api.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any
   # repository, which is what the unit sweep already calls a host unit.

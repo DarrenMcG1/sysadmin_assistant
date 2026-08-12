@@ -9,6 +9,7 @@ Provides:
 
 import logging
 import time
+import uuid
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from typing import Any
@@ -76,6 +77,75 @@ class BaseAgent(ABC):
         for event_type, data in pending:
             event_bus.publish_threadsafe(event_type, data)
 
+    async def _record_start(self, run_type: str, started_at: datetime) -> uuid.UUID:
+        """Commit the ``running`` row in a transaction of its own.
+
+        Its own, because the previous arrangement inserted this row and
+        then handed the *same* session to :meth:`_execute` — which opens
+        a transaction and leaves it idle for as long as the agent's work
+        takes.  This host sets ``idle_in_transaction_session_timeout`` to
+        one minute (the rule ``files/review.py`` already records for LLM
+        calls), so PostgreSQL terminated the backend under any agent
+        whose work ran longer than that, and the run's every write —
+        *including this row* — went down with it.
+
+        That is SNAG-AGENT-003.  The file organiser scanned for 117.71 s
+        on 2026-08-11, found 25,317 issues, and left no trace at all: no
+        audit, no ``completed`` row, and no ``failed`` row either, because
+        the record of the failure lived in the transaction the failure
+        destroyed.  It read as an agent that had never been scheduled.
+        The one run it *did* record, on 2026-08-06, took 29.63 s — the
+        only one ever to finish inside the timeout.
+
+        The id is generated client-side (``UUIDPrimaryKeyMixin`` sets
+        ``default=uuid.uuid4``), so it is known here without a round trip
+        and the outcome can be written from a different session later.
+        """
+        run_id = uuid.uuid4()
+        async with get_scheduler_session() as session:
+            session.add(
+                AgentRun(
+                    id=run_id,
+                    agent=self.name,
+                    run_type=run_type,
+                    status="running",
+                    started_at=started_at,
+                )
+            )
+        return run_id
+
+    async def _record_outcome(
+        self,
+        run_id: uuid.UUID,
+        status: str,
+        duration: float,
+        findings_count: int,
+        alerts_raised: int,
+        details: dict[str, Any],
+    ) -> None:
+        """Close out the run's row, in a third short transaction.
+
+        Separate from the work's session so that a failure *of* that
+        session is still recordable — which is the whole point.  An
+        ``UPDATE`` by id rather than a mutated ORM object, because the
+        object belongs to a session that has already committed and closed.
+        """
+        from sqlalchemy import update
+
+        async with get_scheduler_session() as session:
+            await session.execute(
+                update(AgentRun)
+                .where(AgentRun.id == run_id)
+                .values(
+                    status=status,
+                    completed_at=datetime.now(UTC),
+                    duration_seconds=round(duration, 2),
+                    findings_count=findings_count,
+                    alerts_raised=alerts_raised,
+                    details=details,
+                )
+            )
+
     async def run(self, run_type: str = "scheduled") -> AgentResult | None:
         """Template method: record run, execute, handle errors.
 
@@ -84,62 +154,74 @@ class BaseAgent(ABC):
         one-shot invocation needs something to turn into an exit code,
         and re-reading the row it just wrote to find out how it went
         would be a strange way to ask.
+
+        **Three transactions, not one** — see :meth:`_record_start` for
+        the fault that bought them.  Two consequences worth stating,
+        because both are changes of meaning and not only of plumbing:
+
+        1. ``_execute``'s writes are no longer atomic with the run
+           record.  They are still atomic with *each other* — the session
+           below rolls back as a unit — but a run that fails now leaves a
+           ``failed`` row saying so, where before it left nothing.  The
+           bookkeeping surviving the work it books is the improvement.
+        2. A process killed mid-run leaves a permanent ``running`` row.
+           Before it left no row at all, which is worse: an agent that
+           died and an agent that was never scheduled looked identical,
+           and that is precisely how this defect stayed invisible for
+           five days.  ``GET /api/sysadmin/self`` reports it as the last
+           status.
+
+        ``duration`` is now measured after ``_execute``'s transaction
+        commits rather than before, so it includes the commit — a slower
+        number than the old one, and the honest one.
         """
         start = time.monotonic()
         started_at = datetime.now(UTC)
         self._pending_events = []
         outcome_result: AgentResult | None = None
 
-        async with get_scheduler_session() as session:
-            # Record the run as started
-            agent_run = AgentRun(
-                agent=self.name,
-                run_type=run_type,
-                status="running",
-                started_at=started_at,
-            )
-            session.add(agent_run)
-            await session.flush()
+        run_id = await self._record_start(run_type, started_at)
 
-            outcome = "failed"
-            duration = 0.0
+        outcome = "failed"
+        duration = 0.0
+        findings_count = 0
+        alerts_raised = 0
+        details: dict[str, Any] = {}
 
-            try:
+        try:
+            async with get_scheduler_session() as session:
                 result = await self._execute(session)
-                outcome_result = result
-                duration = time.monotonic() - start
-                outcome = "completed"
 
-                # Update run record with results
-                agent_run.status = "completed"
-                agent_run.completed_at = datetime.now(UTC)
-                agent_run.duration_seconds = round(duration, 2)
-                agent_run.findings_count = result.findings_count
-                agent_run.alerts_raised = result.alerts_raised
-                agent_run.details = result.details
+            duration = time.monotonic() - start
+            outcome = "completed"
+            outcome_result = result
+            findings_count = result.findings_count
+            alerts_raised = result.alerts_raised
+            details = result.details
 
-                logger.info(
-                    "agent_run_completed",
-                    extra={
-                        "agent": self.name,
-                        "run_type": run_type,
-                        "duration_s": round(duration, 2),
-                        "findings": result.findings_count,
-                        "alerts": result.alerts_raised,
-                    },
-                )
+            logger.info(
+                "agent_run_completed",
+                extra={
+                    "agent": self.name,
+                    "run_type": run_type,
+                    "duration_s": round(duration, 2),
+                    "findings": result.findings_count,
+                    "alerts": result.alerts_raised,
+                },
+            )
 
-            except Exception as e:
-                duration = time.monotonic() - start
-                agent_run.status = "failed"
-                agent_run.completed_at = datetime.now(UTC)
-                agent_run.duration_seconds = round(duration, 2)
-                agent_run.details = {"error": str(e)}
+        except Exception as e:
+            duration = time.monotonic() - start
+            details = {"error": str(e)}
 
-                logger.exception(
-                    "agent_run_failed",
-                    extra={"agent": self.name, "run_type": run_type, "error": str(e)},
-                )
+            logger.exception(
+                "agent_run_failed",
+                extra={"agent": self.name, "run_type": run_type, "error": str(e)},
+            )
+
+        await self._record_outcome(
+            run_id, outcome, duration, findings_count, alerts_raised, details
+        )
 
         # Transaction has committed — safe to tell clients what changed.
         self._queue_event(

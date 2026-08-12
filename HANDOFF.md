@@ -1,398 +1,179 @@
-# Handoff — 2026-08-11
+# Handoff — 2026-08-12
 
 ## Next action
 
-Run `sudo ~/projects/estate-manager/scripts/install-broker-system-units.sh` — it installs this repository's two unit files (now including sysadmin.service's new LoadCredential=mqtt, ADR-0003) alongside the estate's broker provisioner and credential files, then rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears.
+Start Session 43 on `SNAG-DB-001`'s detection gap and settle its one open question first — whether an agent whose runs keep failing is a new alert family or an extension of `% agent stalled` — because the two are different states ("ran and failed" versus "hasn't run"), `_resolve_recovered` excludes the stall family precisely so `stalls.py` can own its lifecycle, and a new family without the same exclusion will have its rows closed by the sysadmin agent while they are still true.
 
-## Late same day: the MQTT half unblocked from the estate side
+## Deployed and verified the same day
 
-estate-manager's Session 2 ran (its founding MQTT extraction). Both walls
-below are down: Alfred's `reconcile()` narrowed (its ADR-0068),
-`estate/#` admitted, `sysadmin-publisher` provisioned estate-side and
-verified to survive an alfred-backend restart. This repository gained
-[ADR-0003](docs/adr/0003-mqtt-credential-by-loadcredential.md)
-(`LoadCredential=mqtt:/etc/credstore/sysadmin-mqtt` on the unit, pinned
-by a new `test_systemd_units.py` invariant), and `services.yaml` now
-watches `estate-broker-provision.service` and — previously unmonitored —
-`mosquitto.service` itself. **Publishing alerts is now purely this
-repository's own work**: client dependency, config keys, severity gate,
-topic scheme under `estate/…` (tasks.md row updated). Note the unit
-install command below is superseded by the estate script above, which
-copies both unit files and restarts the service after creating the
-credential file the new unit requires — `sudo cp` alone would now fail
-the unit on the missing `/etc/credstore/sysadmin-mqtt`.
+Both owner-side steps were done on 2026-08-12: `sysadmin.service` restarted
+(it is a **system** unit, `systemctl` not `--user`), and the udev rule
+de-authorising the MT7927's Bluetooth half installed. Measured afterwards:
 
-## Session 40 ran on 2026-08-11, as estate-manager's Session 1
+| | |
+|---|---|
+| Kernel Bluetooth messages, 2 min | **0** (was 1,016) |
+| `/sys/bus/usb/devices/1-11/authorized` | **0** |
+| Open `log_aggregator` alerts | **3** |
+| `occurrences` on each firmware row | **10,306** |
 
-The document-only phase 1 scoped as Session 40 was executed in
-`~/projects/estate-manager`. What changed in *this* repository: the four
-cross-repo guides in `docs/guides/` and ADR-0002 were replaced with
-pointer stubs (the documents now live in estate-manager, ADR-0002
-renumbered to its ADR-0001; `api_auth.md` stays, being local), and
-CLAUDE.md and tasks.md were updated to match. `~/.claude/CLAUDE.md`'s
-two hardcoded paths now point at estate-manager — flipped in the same
-sitting, after the destination files existed. The port registry
-consumers are unaffected: it lives inside `monitorable-project.md`,
-which travelled whole. Session 39's MQTT half stays blocked on the same
-Alfred-side change as before (narrowing `reconcile()`), which is now
-estate-manager's Session 2, first item.
+The two firmware rows were raised at 17:31 and absorbed **20,612 log lines
+between them**, surviving a daemon restart at 19:16 — identity lives in the
+title, so a restart does not fork the row. All four agents completing, no
+failures. Suite green at 1,956.
 
-## Session 39 (part 1): the alarm rings more than once
+## Session 42 (2026-08-12): SNAG-AGENT-005, and the option that was not on the list
 
-Two of the six scoped items shipped. **Detection was not touched** — not a
-line of `self_monitor.py` changed, because it was never the fault. The
-scope said so and the code confirmed it: the `file_organiser` stall was
-detected correctly at interval × 3 and alerted at 09:07 on 2026-08-10.
+The handoff asked which of two options to take — alert on a **burst** and
+resolve when the source goes quiet, or **drop alerting** from the log
+aggregator entirely. The answer was neither as written, and the reason is
+worth keeping because the data refuted the obvious implementation *before*
+any of it was written.
 
-What was broken is that the alarm rang **once, at the quietest severity,
-and went silent while the fault persisted**. `_check_agent_liveness` skips
-raising while an unresolved row with that title is open — correct, and
-what stopped the 1,664-row pile-up — and the tray fingerprints on
-`{severity}:{title}`. A warning that fires once is indistinguishable from
-one that got fixed.
+Burst-alerting suppresses a single genuine critical until it repeats.
+Dropping alerting means a first-ever critical from a service reaches
+nobody, and `GET /api/logs/stats` is a surface nothing polls. So: **dedup
+plus a quiet-resolve** — one open row per fault, resolved when the fault
+goes quiet.
 
-## The reuse instruction could not be followed as written
+### The part that had to be measured
 
-The scope said to reuse `sysadmin/projects/nudges.py` rather than copy it.
-`sysadmin/monitor` may not import `sysadmin.projects`
-(`tests/test_import_boundary.py`), so the shared half moved into
-**`sysadmin/core/escalation.py`** first — `SEVERITY_ORDER`, `Ladder`,
-`step_for`. Same move `strip_markdown` made into `core/text.py`, same
-reason, and `nudges.py` now delegates rather than owning it. The
-alternative was a copy, and a copied rule drifts in the direction nobody
-notices: the escalation stops escalating on one side and nothing reports
-the disagreement.
+Deduplicating on the existing alert title is the obvious reading of
+"dedup", and it is wrong. The title is `Log {severity}: {source}`, so
+every kernel error shares one. The live 30-day kernel population:
 
-## Why the loud rung is `critical`, which is not the obvious reason
+| Message | Rows |
+|---|---|
+| `Bluetooth: hci0: Failed to set up firmware (-2)` | 297,390 |
+| `Bluetooth: hci0: Failed to load firmware file (-2)` | 297,389 |
+| `usb 1-11: device descriptor read/64, error -110` | 66 |
+| `usb 1-11: device not accepting address 9/10, error -71` | 44 |
+| `usb usb1-port11: unable to enumerate USB device` | 22 |
+| `rcu: … expedited stalls` / `INFO: task … blocked on a mutex` | 8 |
 
-Not volume. `sysadmin_tray/notifications.py` sets `transient=effective ==
-"info"` on a first notification and `transient=False` only inside
-`_maybe_escalate`, which fires for `critical` alone — so **`critical` is
-the only severity the tray renders as a notification that stays on
-screen**. The owner's diagnosis was "I never saw the toast", away from the
-machine; a `warning` toast expires whether or not anyone was in the room.
-The second rung buys *persistence*, and persistence is the thing that was
-missing.
+Dedup on the title and the Bluetooth storm holds the one open row while
+**the RCU stall and the USB enumeration failure go silent** — all three
+are in the same window, so this is measured rather than argued. Half a
+million rows traded for a mask over every other kernel fault is not a fix.
 
-This is the exact opposite of the rule `nudges.py` encodes — a nudge never
-reaches `critical`, because criticals pierce DND and waking someone at
-02:00 about a roadmap item is how a monitor gets muted wholesale. Both
-docstrings now cite the other, so the difference reads as a decision
-rather than an inconsistency. (`notifications.dnd.enabled` is `false` on
-this host in any case, checked rather than assumed.)
+So the key is `sysadmin/monitor/log_signature.py`: the message with digit
+runs and hex literals replaced. It collapses 594,779 Bluetooth lines to 2
+signatures and 110 USB lines to 2, and leaves all six faults distinct. The
+signature goes **in the title**, because dedup, the resolve and the tray's
+`{severity}:{title}` fingerprint all key on title already — and four rows
+all reading `Log error: kernel` are indistinguishable to whoever is
+looking at the tray.
 
-## The clock starts when the alarm rang, not when the stall began
+Verified against the live storm:
 
-Both were computable — the stall began at `last_run_at + stall_window` —
-and the obvious choice is wrong twice.
+```
+2000 kernel error lines in 10 min -> 2 alert rows
+  x1000  Log error: kernel — Bluetooth: hciN: Failed to load firmware file (-N)
+  x1000  Log error: kernel — Bluetooth: hciN: Failed to set up firmware (-N)
+```
 
-1. The thing that failed was the **telling**, so the telling is what the
-   second rung should measure: "you were told yesterday and it is still
-   true". A fault detected for the first time has had no chance to be
-   seen, whatever its age, so it opens quiet.
-2. Anchoring to the stall's own age makes **a daemon outage produce a wall
-   of criticals on restart**. Nothing runs while the service is down, so
-   every agent is stalled by hours and the first check back would escalate
-   all five at once — charging the estate for this application's downtime.
-   `GET /api/services/reliability` already encodes that rule as "a gap in
-   the series never costs points".
+### Three things caught on the way, two of them mine
 
-The clock does keep running while the daemon is down, which is right: a
-warning row two days old has genuinely stood unseen for two days.
+**`_open_alerts` would have OOMed on the backlog it exists to end.** It
+was written the natural way — every unresolved row this agent owns — which
+against the live table is 593,814 ORM objects on the first run. Bounded to
+the titles the run is about to raise before deployment, not after. An
+unbounded `SELECT` over the table whose unboundedness is the bug is an
+easy one to write.
 
-**`escalate_after_hours: 24` is set against the slowest agent, not the
-fastest.** `file_organiser` and `service_discovery` run daily, so a stall
-of theirs that is merely late clears within one interval; a shorter gap
-escalates faults that were about to fix themselves, and an alarm that
-cries wolf stops being read. The config docstring states that this knob
-cannot make *detection* faster, because `stall_grace_multiplier` is the
-wrong knob someone will reach for.
+**`details` has to be reassigned, not mutated.** SQLAlchemy does not track
+mutation inside a plain JSONB dict, so bumping `occurrences` in place
+looks like it worked, writes nothing, and freezes `last_seen_at` while the
+fault fires — which would resolve the row on the next quiet sweep with the
+storm still running.
 
-## The crash case, and the measurement that de-risked the change
+**The cursor must advance over entries the severity filter discards.**
+Advancing only past *kept* entries leaves the resume point behind a run of
+info-level noise, and the next read parses it all again — the
+duplicate-ingest defect rebuilt one layer down.
 
-`sysadmin.service` was `Restart=always` with no limit, so a crash-loop
-sits in `activating (auto-restart)` for ever and **never enters
-`failed`** — the state every failure hook and every `systemctl is-failed`
-watches. The silence-reads-as-health shape, sitting in the unit file.
+### The two smaller defects, both fixed
 
-The trade was real and was sized rather than assumed: infinite retry rides
-out a dependency that is slow to appear, and this app *does* exit rather
-than degrade without a database (`verify_connection` raises inside the
-lifespan). Measured before the edit — **`NRestarts=0`, and zero
-"Scheduled restart job" entries in 30 days of journal.** The retry has
-never once fired on this box, so the resilience being traded away is
-theoretical while the silence it causes is not. The window is 600s rather
-than 300s to leave that headroom anyway.
+Journal reads resume from `__CURSOR` rather than re-reading a two-minute
+window on a sixty-second poll. A cursor rather than a narrower window,
+because narrowing trades the duplicate for a **gap** whenever a run runs
+long, and a gap is the worse failure for a monitor. Back-to-back runs
+ingested **96 entries then 0**, where every entry used to be stored twice.
+The cursor is in memory, so a restart falls back to the newest `logged_at`
+already stored for that source, passed as `--since @<epoch>` — journalctl
+reads a bare datetime as **local** time and everything here is UTC.
 
-`sysadmin-failed.service` runs `scripts/notify-unit-failed.sh`:
-`--urgency=critical --expire-time=0`, and **journald first,
-unconditionally**, that being the one destination which does not require
-anyone to be logged in. It exits non-zero when it cannot reach the session
-bus, because returning 0 there would record "the failure was reported"
-when it was not. The handler was **rehearsed, not trusted** — run by hand,
-journal line confirmed.
+The `-n 500` cap stays, because 8.5 messages a second makes a ceiling
+unavoidable, but hitting it is now `details['truncated_sources']` and it
+**names** the sources rather than counting them. It was invisible before:
+`findings_count` sat at exactly 200 on every single run.
 
-`tests/test_systemd_units.py` pins the two halves together: `Restart=always`
-with a burst limit, a window that outlasts `burst × RestartSec`, an
-`OnFailure=` naming a unit that exists, and a handler with no `OnFailure=`
-of its own. Either half alone accomplishes nothing, which is the shape of
-half-change this repo has shipped before (a retention row with no
-`TABLE_TIMESTAMP_MAP` entry).
+## The host fault is untouched, and the reversible stop is gone
 
-## Blocked: MQTT, on something the scoping session did not find
+`BT_RAM_CODE_MT6639_2_1_hdr.bin` is still absent from
+`/lib/firmware/mediatek/mt7927/`, the `btusb`/`btmtk` retry loop is still
+running at ~8.5 lines a second, and **`rfkill list` now prints nothing at
+all** — the adapter no longer registers a soft-block switch, so the
+one-line workaround the last handoff recorded is no longer available.
+Neither disabling `bluetooth.service` (userspace; the loop is in the
+kernel) nor `rfkill` is on the table.
 
-The premise checked while scoping was alfred-glance's closed renderer
-registry. Real, but secondary. Mosquitto here is `allow_anonymous false`
-running the **dynamic-security plugin**, and Alfred owns that plugin's
-schema "the way Alembic owns a database schema"
-(`Alfred/backend/alfred/events/dynsec.py`).
+That is deliberately not this repository's problem to solve, and the point
+of this session is that it no longer has to be: the storm costs 2 alert
+rows instead of 43,000 a day.
 
-**`dynsec.reconcile()` deletes every client that is not Alfred's admin,
-not Alfred's publisher, and not a live device token.** A
-`sysadmin-publisher` added with `mosquitto_ctrl` works until Alfred next
-restarts and is then deleted — best-effort, logged at `info`, no alert.
-For an *alerting* path that is the worst available failure mode, and it is
-this session's own bug reinstalled inside the fix.
+**The fix this entry recorded does not exist, and that was checked rather
+than assumed.** The snag concluded that installing
+`BT_RAM_CODE_MT6639_2_1_hdr.bin` from upstream linux-firmware was the real
+fix. Upstream ships only `WIFI_MT6639_PATCH_MCU_2_1_hdr.bin` and
+`WIFI_RAM_CODE_MT6639_2_1.bin` for the MT7927, and `WHENCE` declares
+nothing else — **MediaTek has not published the Bluetooth firmware at
+all.** A vendor publication gap, not a distribution one, so there is no
+package to wait for and no way to date a fix. The original reasoning — the
+driver names the file, every sibling chip has one, therefore it is merely
+missing here — is sound and wrong: a `modinfo` firmware line is a
+*request*, not evidence of existence, and the upstream tree was never
+checked.
 
-**Decided**: Alfred provisions a protected non-device publisher, in its
-code. Rejected: reusing `alfred-backend`'s credential (shared identity, no
-separate revocation, and rotating Alfred's password silently kills the
-alarm), and routing alerts through an Alfred HTTP ingest route (keeps the
-bus private, but couples the alarm to Alfred's backend being up).
+What does stop it, at no cost, is de-authorising the device so nothing
+probes it. Bluetooth does not work either way. The rule is written and
+ready at
+`scratchpad/99-mt7927-bt-no-firmware.rules` (matching `0489:e13a` on port
+`1-11`); it needs `sudo install` into `/etc/udev/rules.d/`, so it belongs
+to the owner. Blacklisting `btusb`/`btmtk` is the blunter fallback.
 
-**The namespace decision costs more than scoped, too.** Both dynsec roles
-are scoped to `_TOPIC_FILTER = alfred/events/#`, so the chosen neutral
-root (`estate/…`) is **denied by the broker** until those roles gain a
-filter — not "seven constants and both ends", but that plus the broker's
-access control. The terms of the promotion are now written into
-[estate-map.md](docs/guides/estate-map.md), which had reserved this
-decision in writing for exactly this case.
+Worth doing even now: the alert table is bounded, but the lines are still
+ingested. `log_entries` holds 610,941 rows / 622 MB and took on 64,047
+today against 30-day retention; journald is at 4 GB with 165,670 kernel
+lines today.
 
-## Raised after the commit: the estate manager (ADR-0002, Session 40)
+The Wi-Fi half of the same MT7927 is the mirror image — firmware present,
+no driver bound at all — which is the genuinely unsupported part.
 
-The owner asked whether a cross-repo manager is worth making, with MQTT as
-the first candidate. It is, and the reason is that **today's blocker is
-architectural rather than incidental**: `reconcile()` is correct for a
-private bus, and what is wrong is that an application owns shared
-infrastructure. Patching Alfred's protected set fixes the instance and
-leaves the category — the next app to want the bus finds out by its alarm
-going quiet.
+## Open, in order
 
-Two measurements carried the argument. **4 of 5 files in `docs/guides/`
-are not about this repository.** And the *whole* shared broker is
-app-owned: not only the dynsec schema but mosquitto's boot drop-in, from
-`Alfred/scripts/systemd/mosquitto.service.d` per Alfred's ADR-0046 — a
-sentence estate-map.md already carried without drawing the conclusion.
-
-Decided: extracted from here rather than started empty; **the estate owns
-the schema while each app still ensures its own identity** (Alembic owns
-the schema, apps write their own rows — if both moved, Alfred's bus dies
-whenever the provisioner has not run); a boot oneshot, never a daemon,
-whose `ExecStart` is the same CLI a human runs; `LoadCredential=` for the
-machine password, because `config.yaml` is tracked and this repo forbids
-environment variables; and documents move before authority does.
-
-**The cheap fix stands on its own and should probably go first**: narrowing
-Alfred's `reconcile()` to delete only subscriber-role clients with no live
-token unblocks the MQTT half without any of the above.
-
-**Amended within the hour: the estate is a service.** The owner enlarged
-the idea to central inference arbitration, project ownership and briefing
-aggregation — a central nervous system, with Alfred as the frontend. A
-queue cannot be declarative, so "nothing runs continuously" is reversed;
-the reversal is recorded in ADR-0002 rather than edited in, because the
-overturned reasoning is still right about what it warned of.
-
-Two things make it a considered move rather than a shortcut. The
-2026-08-06 instruction was *"try systemd before building any daemon"* and
-it **was** tried and shipped — `Conflicts=`/`After=`/`ExecStopPost` across
-`venture-chat-large` and `venture-enrich-nightly` — so what is being
-proposed replaces something with a **found ceiling**: preemption works,
-queueing is impossible, and restoration is hand-wired in each evictor so
-every new GPU consumer must learn about every existing one.
-
-**The constraint the reversal creates, and the answer to it**: if the
-estate owns the alerting path, the estate dying silences the alarm about
-the estate dying — Session 39's defect rebuilt inside its own fix. So
-sysadmin keeps its own credential and publishes directly; the estate owns
-provisioning, never delivery. **sysadmin does not move** and watches the
-estate like any other unit. The monitor must not own the things it
-monitors.
-
-**Corrected from an hour earlier**: Session 40's first task said the new
-repo needs no port and no `/api/health`. It will listen, so both are
-claimed on day one.
-
-**The GPU policy is already built, twice, and the copies have drifted —
-which is the estate manager's case made concretely.** The metric is
-`gpu_busy_percent` from sysfs **by PCI slot**, threshold **25**. Line 18 of
-`Alfred/backend/alfred/inference/guard.py` and of
-`venture-assistant/app/llm/guard.py` carry the same glob string and the
-same log message: it was copied. Alfred takes the **minimum of four
-samples over two seconds** and has `pause_until_idle` with a 600 s cap;
-venture-assistant takes **one sample**. Alfred's docstring states the
-defect the copy still has — *"a read taken immediately after our own call
-still shows our work"*. One policy, two implementations, the weaker
-carrying a failure mode the stronger documents.
-
-That min-of-samples trick also **settles attribution by not needing it**:
-it decides "is somebody else holding the GPU" without asking who. Just as
-well — attribution is unavailable on this box (`rocm-smi --showpids` sees
-no KFD processes, since the models run through Vulkan; DRM fdinfo exposes
-no `drm-engine` fields).
-
-Two things to carry rather than rediscover. **Resolve the device by PCI
-slot, never `cardN`**: verified 2026-08-11, `card0` is slot
-`0000:47:00.0` — the **idle iGPU** at 0% — while the dGPU is `card1`, slot
-`0000:03:00.0`, reading 58% then 100% within a minute. Alfred's ADR-0052 F2
-records that an index-based guard "would silently poll the wrong GPU and
-never fire", and this session measured with `rocm-smi` indices and fell
-into precisely that trap before checking. **And fail open**: an unreadable
-counter dispatches with a warning, in both copies, deliberately.
-
-The gaming case is real, not hypothetical: on 2026-07-23 an eval against a
-live game took it **from 220 fps to 20**, and the harness *"had even
-sampled `gpu_busy_percent` first — and written 80% into its own report
-before running anyway"*. Observed and recorded instead of acted on, which
-is the same sentence as Session 39's stall alert.
-
-**sysadmin watches the queue** — "exactly what it's built for". The split:
-the estate emits the invariants (queue depth, oldest waiting request,
-dropped count) and sysadmin judges them, because the monitor must not own
-the things it monitors. Note what that asks of the estate that liveness
-does not — an endpoint whose *numbers* can be wrong while the service is up.
-
-**`operator_profile` was checked and is not duplication**, which changes
-what it is evidence for. Alfred's own ideas.md, captured the same day,
-concludes the two are adjacent — employment-facing versus venture-fit
--facing, with fields "Alfred will never own" — and that "a sync must map,
-not mirror"; migration 013 was never built, so no effort was wasted. **The
-real finding is one line further in**: that entry cites *"estate rule: no
-cross-DB queries"*, and the rule exists **nowhere central**. A named rule
-invoked inside one app's roadmap is one the next app rediscovers or
-contradicts invisibly. That is a documents problem, fixed by phase 1.
-
-Evidence for the estate manager, ranked honestly: the **copied-and-drifted
-GPU guard** first, the **rule cited with no canonical statement** second,
-and `operator_profile` third — a near-miss resolved correctly rather than a
-duplication.
-
-## The estate manager is three things, and the queue already exists
-
-The owner agreed the estate becomes the **sole launcher** of inference, and
-asked what else is worth centralising. Surveyed, with line counts:
-
-| Duplicated | Where | State |
-|---|---|---|
-| llama-server client | Alfred 163, venture 155, sysadmin 121 | **3 implementations, 439 lines**, one server |
-| GPU guard | `inference/guard.py`, `llm/guard.py` | copied, **drifted** (min-of-4 vs single sample) |
-| Queue / defer loop | venture `drain.py` 213 + 3×103 | exists in **one** repo |
-| `TRUNCATION_MARKER` | Alfred `:50`, sysadmin `:47` | same name, **different value** |
-| Health endpoints | all three | *not* duplication — the contract requires each |
-
-**The queue is an extraction, not a design.** `drain.py` already carries
-`gpu_is_busy()`, `wait_for_chat_server()` polling to 300 s, and
-`DEFER_SLEEP_SECONDS`/`DEFER_LIMIT`, running nightly. Generalising it from
-three workloads to N consumers inherits behaviour that has already survived
-a live game.
-
-**And "launching and guarding" wants two different shapes.** Alfred's guard
-docstring makes the argument itself — *"not a window, not a daemon"* — and
-it fails open, so routing it through the estate would mean a down estate
-equals silently unguarded inference: the 220 fps → 20 incident restored.
-Decided: **library for the guard and the LLM client, service for the
-launcher and the queue.** Documents, library, service — the opening
-question of ADR-0002 answered as all three, each assigned by a property of
-the thing being centralised rather than by preference.
-
-`TRUNCATION_MARKER` is the sharper of the two drifts: it was copied
-*deliberately*, because this repo's CLAUDE.md says to match Alfred's marker
-"so a cut made here and a cut made there read identically". They no longer
-do. A convention maintained by copying has a half-life.
-
-**Measured rather than assumed** (2026-08-11): 5 active projects, 4 GPU
-consumers on one 24 GB card, `stalled_count: 0`. Alfred's ADR-0064
-pre-authorises the workload-component read the owner meant, so it is no
-override — but **neither of its counted triggers fires** (0 of 2, 5 of 12).
-One of its three deferral reasons *has* expired: `GET /api/projects/next`
-returns 200 now and its ranking is decided. That is Alfred's cue to
-re-examine, not ours to build against. Terminology corrected on the way
-through: `wait-for-dgpu` is a **driver-readiness probe**, not a gaming
-check, and nothing on this box detects a game starting.
-
-## A unit failure now leaves state, filed under a known agent
-
-The owner chose `agent='sysadmin'` over a migration adding a sixth value to
-`chk_alert_agent`. It reads oddly — the sysadmin agent did not raise this
-row; it was dead, which is the news — so **`details.source` carries the
-provenance `agent` cannot**: `systemd_onfailure`, plus `raised_by` naming
-the script. Read that way `agent` is the ownership field the constraint
-makes it, and nothing untrue is claimed. The migration was rejected because
-a sixth value naming a *script* rather than an agent would also make
-`self_monitor.AGENT_NAMES` wrong, and that list is pinned to the constraint
-by `tests/test_units_api.py`.
-
-**The write only makes sense because the daemon now clears it.** The
-handler runs while the application is dead, so no agent can ever observe
-the recovery — the service *starting* is the recovery, and the lifespan is
-the only place that fact exists. Without that half this would be an alert
-type that can only accumulate, which is how 1,664 orphaned rows happened.
-Dedup on an open row is safe only because of the pairing.
-
-`sysadmin/core/unit_failure.py` uses the **sync** engine that exists for
-Alembic, because at handler time there is no event loop, no scheduler
-session and nothing subscribed to the event bus. Recording never raises: a
-dead database returns `False` and logs, since the handler's exit status is
-reserved for whether it could tell a *human*.
-
-**Verified end to end against the live database**, not just in tests: the
-handler wrote `critical | sysadmin | sysadmin.service failed | source=
-systemd_onfailure`, and `resolve_unit_failures` then closed it
-(`resolved_at` set), which also cleared the false critical the rehearsal
-had inserted.
-
-## Why the estate manager exists, stated properly
-
-The owner asked for the observation to go into ADR-0002. Writing it up
-sharpened it: "this estate measures well and acts poorly" is too weak.
-**The pattern is that the component doing the measuring is the component
-whose interest is served by ignoring the measurement.** Six instances, all
-surfaced in one day — the eval harness that sampled `gpu_busy_percent`,
-*wrote 80% into its own report*, and ran anyway; Session 39's stall alert
-choosing its own volume; `SNAG-DB-001`; `SNAG-CFG-001`; Alfred's staleness
-check that cannot fire; retention needing both halves.
-
-The harness is the purest case: the party asking "may I use the GPU?" was
-the party that wanted the GPU. No improvement to the measurement fixes
-that. What fixes it is the requester ceasing to be the decider — which is
-what centralising the launcher and queue buys beyond removing 439
-duplicated lines: **an arbiter with no stake in the answer**. Recorded with
-its two honest limits, since a central arbiter can also ignore its own
-numbers, and that is why sysadmin judging the queue's invariants is part of
-the design rather than decoration.
-
-## Left open on purpose
-
-- **`Type=notify` + `WatchdogSec=`** was deliberately not attempted in the
-  same sitting as the `StartLimit` change. It is the one item that can
-  kill the service outright (a missing `READY=1` makes systemd treat
-  startup as failed), and two unit changes with one rollback path is how
-  a rollback becomes a guess.
-- ~~**An `OnFailure=` firing leaves no alert row.**~~ **Closed** the same
-  day — `agent='sysadmin'` with `details.source`, resolved by the daemon's
-  lifespan. See above.
-- **Off-box is still nothing.** Listeners are `127.0.0.1` and
-  `192.168.1.2` only — nothing built today survives the box being off.
-  Recorded as the known gap rather than pretended closed.
-- **`SNAG-DB-002`, found sideways**: every database on this box has a
-  stale collation version (glibc 2.44 against `datcollversion` 2.43; 25
-  indexes in the `sysadmin` schema). Not fixed — a reindex touches two
-  other apps' data — and the `REFRESH COLLATION VERSION` that clears the
-  warning without rebuilding is the trap, since it turns a loud known
-  risk into a silent one. A check for it belongs in the sysadmin agent.
-- **`SNAG-SYSD-003`**: `After=ollama.service` on a runtime retired
-  2026-07-24, spotted in the file being edited and left there so the unit
-  change kept exactly one rollback path.
-- **`SNAG-AGENT-003`'s first half is untouched.** The alert would now go
-  persistent, but the file organiser has still run once in its life and
-  the two candidate causes are still unseparated.
+1. **`SNAG-DB-001`'s detection gap — the only P0, and the one worth taking
+   next.** Three items, in the snag's own order of value: a startup check
+   comparing `alembic_version` against the packaged head (the drift guard
+   explicitly skips `alembic_version`, and `compare_metadata` does not diff
+   CHECK constraints, so nothing can catch this today); a savepoint per
+   service in `SysAdminAgent._execute`, because one `CheckViolationError`
+   cost the other **eighteen** services their check; and an alert on
+   consecutive agent-run failures. **The third only became implementable in
+   Session 41** — before it, `_record_outcome` wrote `status='failed'` into
+   the transaction the failure had already destroyed, so there were no
+   failure rows to read. There are now, and nothing reads them.
+2. `SNAG-DB-002` — every database on this box has a stale collation
+   version, and a text-index lookup can miss a row that is present. Two
+   halves: the **check** belongs in the sysadmin agent by the snag's own
+   argument, and is small; the `REINDEX` is ops work touching two other
+   apps' data and wants a quiet window.
+3. `SNAG-ESTATE-001` — **looks already resolved and should be verified and
+   closed rather than worked.** The two retired PersonalAssistant units are
+   gone from the user manager (no `UnitFileState`, `NRestarts` 0, 16
+   journal mentions this boot), so the 52,178-restart loop it records is
+   not running.
+4. `SNAG-SYSD-003` — `sysadmin.service` still orders itself after
+   `ollama.service`, retired three weeks ago. The honest question is
+   whether it should order against `alfred-inference.service` at all rather
+   than which name to substitute.
