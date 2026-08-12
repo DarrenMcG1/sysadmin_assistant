@@ -116,11 +116,35 @@ kernel) nor `rfkill` is on the table.
 
 That is deliberately not this repository's problem to solve, and the point
 of this session is that it no longer has to be: the storm costs 2 alert
-rows instead of 43,000 a day. Making Bluetooth *work* means dropping the
-firmware blob from upstream linux-firmware into
-`/lib/firmware/mediatek/mt7927/`; the Wi-Fi half of the same MT7927 has
-firmware present and no driver bound at all, which is the genuinely
-unsupported part.
+rows instead of 43,000 a day.
+
+**The fix this entry recorded does not exist, and that was checked rather
+than assumed.** The snag concluded that installing
+`BT_RAM_CODE_MT6639_2_1_hdr.bin` from upstream linux-firmware was the real
+fix. Upstream ships only `WIFI_MT6639_PATCH_MCU_2_1_hdr.bin` and
+`WIFI_RAM_CODE_MT6639_2_1.bin` for the MT7927, and `WHENCE` declares
+nothing else — **MediaTek has not published the Bluetooth firmware at
+all.** A vendor publication gap, not a distribution one, so there is no
+package to wait for and no way to date a fix. The original reasoning — the
+driver names the file, every sibling chip has one, therefore it is merely
+missing here — is sound and wrong: a `modinfo` firmware line is a
+*request*, not evidence of existence, and the upstream tree was never
+checked.
+
+What does stop it, at no cost, is de-authorising the device so nothing
+probes it. Bluetooth does not work either way. The rule is written and
+ready at
+`scratchpad/99-mt7927-bt-no-firmware.rules` (matching `0489:e13a` on port
+`1-11`); it needs `sudo install` into `/etc/udev/rules.d/`, so it belongs
+to the owner. Blacklisting `btusb`/`btmtk` is the blunter fallback.
+
+Worth doing even now: the alert table is bounded, but the lines are still
+ingested. `log_entries` holds 610,941 rows / 622 MB and took on 64,047
+today against 30-day retention; journald is at 4 GB with 165,670 kernel
+lines today.
+
+The Wi-Fi half of the same MT7927 is the mirror image — firmware present,
+no driver bound at all — which is the genuinely unsupported part.
 
 ## Open, in order
 
