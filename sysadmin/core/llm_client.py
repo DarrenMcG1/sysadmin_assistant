@@ -14,6 +14,7 @@ requests is largely informational — it is recorded but does not switch models.
 import logging
 
 import httpx
+from estate.gpu import GpuBusy, ensure_gpu_idle
 from estate.llama import (
     LlamaConnectError,
     LlamaInvalidResponse,
@@ -70,7 +71,12 @@ class LLMClient:
     ) -> str | None:
         """Generate a chat completion from llama-server.
 
-        Returns the response text, or None if the server is unavailable.
+        Returns the response text, or None if the server is unavailable
+        — or if the dGPU is busy with foreground work (ADR-0004 as
+        amended 2026-08-12): this service's inference is deferrable
+        housekeeping, and it shares Alfred's server on a GPU someone may
+        be gaming on. A busy GPU degrades to "no narrative this run",
+        the same first-class outcome callers already handle.
         Free-text path: ``temperature=None`` keeps the server's own
         sampling defaults — this call generates prose, not structured
         extraction, so the estate's structured-path temperature pin does
@@ -78,6 +84,19 @@ class LLMClient:
         """
         config = get_config()
         model = model or config.llm.model
+
+        try:
+            ensure_gpu_idle(config.llm.gpu_pci_slot, config.llm.gpu_busy_threshold)
+        except GpuBusy as e:
+            logger.warning(
+                "llm_gpu_busy",
+                extra={
+                    "busy_percent": e.busy_percent,
+                    "threshold": e.threshold,
+                    "model": model,
+                },
+            )
+            return None
 
         messages: list[dict[str, str]] = []
         if system:

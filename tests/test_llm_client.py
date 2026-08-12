@@ -17,12 +17,18 @@ from sysadmin.core.llm_client import LLMClient
 
 @pytest.fixture
 def llm_config():
-    """AppConfig with a deterministic llm block."""
+    """AppConfig with a deterministic llm block.
+
+    ``gpu_pci_slot=""`` disables the GPU gate so these tests never read
+    the real sysfs counter (a run during live inference would defer and
+    fail); the gate has its own tests below with a patched sampler.
+    """
     return AppConfig(
         llm=LLMConfig(
             url="http://testserver:8081",
             model="test-model.gguf",
             timeout_seconds=5.0,
+            gpu_pci_slot="",
         )
     )
 
@@ -197,6 +203,63 @@ class TestGenerate:
         client = _make_client(handler, llm_config)
         with _patch_config(llm_config):
             assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+
+class TestGpuGate:
+    """ADR-0004 as amended: a busy dGPU degrades to None, fail-open stands."""
+
+    @pytest.fixture
+    def gated_config(self):
+        # Estate-default slot and threshold — the gate is live here.
+        return AppConfig(
+            llm=LLMConfig(
+                url="http://testserver:8081",
+                model="test-model.gguf",
+                timeout_seconds=5.0,
+            )
+        )
+
+    @pytest.mark.asyncio
+    async def test_busy_gpu_returns_none_without_dispatching(
+        self, gated_config, monkeypatch
+    ):
+        monkeypatch.setattr("estate.gpu.sample_gpu_busy", lambda *a, **k: 90)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise AssertionError("no dispatch while the GPU is busy")
+
+        client = LLMClient(transport=httpx.MockTransport(handler))
+        with _patch_config(gated_config):
+            assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_unreadable_counter_fails_open_and_dispatches(
+        self, gated_config, monkeypatch
+    ):
+        monkeypatch.setattr("estate.gpu.sample_gpu_busy", lambda *a, **k: None)
+
+        client = LLMClient(
+            transport=httpx.MockTransport(lambda request: _chat_response("still fine"))
+        )
+        with _patch_config(gated_config):
+            assert await client.generate(prompt="hi") == "still fine"
+        await client.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_probe_is_not_gated(self, gated_config, monkeypatch):
+        # is_available answers "is the server up", not "may I dispatch" —
+        # a busy GPU must not make the server look down.
+        monkeypatch.setattr("estate.gpu.sample_gpu_busy", lambda *a, **k: 90)
+
+        client = LLMClient(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(200, json={"status": "ok"})
+            )
+        )
+        with _patch_config(gated_config):
+            assert await client.is_available() is True
         await client.shutdown()
 
 

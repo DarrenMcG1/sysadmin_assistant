@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import yaml
+from estate.gpu import DEFAULT_BUSY_THRESHOLD, DGPU_PCI_SLOT
 from pydantic import BaseModel, Field, model_validator
 
 from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT
@@ -76,6 +77,11 @@ class LLMConfig(BaseModel):
     url: str = "http://localhost:8081"
     model: str = "dria-agent-a-3b.Q4_K_M.gguf"
     timeout_seconds: float = 120.0
+    # The GPU idle-gate (ADR-0004 as amended 2026-08-12): defaults come from
+    # the estate so a third transcription of slot/threshold never happens.
+    # An empty slot disables the gate; an unreadable counter fails open.
+    gpu_pci_slot: str = DGPU_PCI_SLOT
+    gpu_busy_threshold: int = DEFAULT_BUSY_THRESHOLD
 
 
 # --- Agent sub-configs ---

@@ -56,6 +56,34 @@ ours joined the bare token with a space. Each side believed it matched.
 - **No retry, no breaker.** Same reasoning: those are behaviour changes,
   not extractions.
 
+## Amendment, same day: the guard arrives after all
+
+"What this deliberately does not do" said no GPU guard would be added —
+a behaviour change does not belong inside an extraction. That reasoning
+stands; what changed is that **the owner instructed the change
+directly** (2026-08-12, estate Session 3 follow-up), which is the
+delegation rule's own exception: estate ADR-0002 constrains what an
+estate session may decide for this repository, not what its owner may.
+
+- `generate()` now runs `estate.gpu.ensure_gpu_idle` before dispatch. A
+  busy dGPU logs `llm_gpu_busy` (with the numbers) and returns `None` —
+  the same first-class "no narrative" outcome callers already handle,
+  because this service's inference is deferrable housekeeping sharing
+  Alfred's server on a GPU someone may be gaming on.
+- `is_available()` is **not** gated: it answers "is the server up", and
+  a busy GPU must not make the server look down.
+- `LLMConfig` gains `gpu_pci_slot` / `gpu_busy_threshold`, **defaulting
+  to the estate's constants** (`estate.gpu.DGPU_PCI_SLOT`,
+  `DEFAULT_BUSY_THRESHOLD`) so this repository never transcribes the
+  slot or threshold — the third transcription was the drift being
+  prevented. Empty slot disables the gate; unreadable counter fails
+  open, per the estate contract.
+- Estate-side record: estate ADR-0006's same-day amendment; closes
+  estate `SNAG-ESTATE-006`.
+
+Takes effect on this service's next restart (the running process holds
+the old module).
+
 ## Consequences
 
 - One minor logging change: a 200 response with a non-JSON body now logs
