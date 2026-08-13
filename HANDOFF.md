@@ -2,7 +2,7 @@
 
 ## Next action
 
-Take `SNAG-AGENT-006` — give the service and threshold alert families the dedup that `sysadmin/estate/agent.py` proved can coexist with a set-based sweep, by changing the exclusion set from the titles the run raised to the titles the run judged still true.
+Run the two time-boxed checks recorded below first (did the estate's timers finally fire, and is `attention` ever populated), then take `SNAG-AGENT-006` — give the service and threshold alert families the dedup that `sysadmin/estate/agent.py` proved can coexist with a set-based sweep, by changing the exclusion set from the titles the run raised to the titles the run judged still true.
 
 ## This session
 
@@ -213,6 +213,61 @@ serving pre-session code and `estate_judge` is absent from
   only ever been `null`. The null path is tested; the populated one is
   not.
 - **The tray toast**, the same gap Sessions 43 and 44 both left.
+
+## Two checks for tomorrow morning, both time-boxed to tomorrow
+
+Neither is a task and neither should become one — both are observations
+that are only available on 2026-08-14 and cost nothing to make.
+
+**1. Did the estate's timers fire?** Neither has ever run:
+`systemctl --user list-timers 'estate*'` showed `LAST PASSED: -` for all
+three on 2026-08-13, so `scans_total` was **1** and that one scan was
+`run_type: manual`. `estate-manager-scan.timer` is due 04:31 and
+`estate-manager-audit.timer` 05:03.
+
+```
+systemctl --user list-timers 'estate*' --all
+curl -s localhost:8400/api/projects/invariants | python3 -m json.tool
+```
+
+If either did not fire, `estate_judge` should have raised
+`Estate scan stale` (or `Estate audit stale`) by about **06:35** —
+26 hours after the last run on record. **That would be the first real
+judgement this agent has ever made**, and it is worth more than the
+successful case: it would confirm the whole path end to end — pull,
+judge, raise, dedup — on a fault nobody planted. Check with:
+
+```
+psql -X -tAc "SELECT severity, title, created_at FROM sysadmin.alerts \
+  WHERE agent='estate_judge' AND resolved=false ORDER BY created_at" projects
+```
+
+If the timers *did* fire, the agent correctly stays silent and the check
+costs one command. Either answer is useful; the second answer is more so.
+
+**2. Is `attention` ever populated?** `GET :8400/api/projects/attention`
+has answered `{"health": [], "nudges": []}` every single time anybody has
+looked, on **both** sides of the seam — the estate's own suite asserts
+exactly that (`test_nudges_are_published_not_stored`). So
+`judge_attention` is the one half of this agent that has never seen real
+data, and its rules are pinned against literals built from the producer's
+dataclass fields rather than from a capture.
+
+```
+curl -s localhost:8400/api/projects/attention | python3 -m json.tool
+```
+
+A nudge needs an eligible project whose stated next action has stood
+**7 days** unchanged, computed on read from the latest snapshots — so a
+scan that has actually run overnight is a precondition, which is why this
+check follows the first one rather than standing alone. A health entry
+needs a project scoring under its manifest threshold.
+
+**If either list is non-empty, capture the payload verbatim** into the
+`SNAG-ESTATE-002` entry before doing anything else with it. That is the
+evidence neither repository currently has, it is worth more than the
+alert it produces, and the shape it proves or disproves is
+`asdict`-drops-properties — the finding that entry exists to record.
 
 ## Open, in order
 
