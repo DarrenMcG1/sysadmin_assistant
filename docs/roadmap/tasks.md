@@ -23,6 +23,27 @@ debts that landing deliberately left behind._
       act; this repository judges — that is the swap estate ADR-0004 §6
       records. **Until this runs, idle nudges reach no tray toast**: the
       data exists on 8400 and nothing here reads it yet
+- [ ] **Watch and judge the estate's audit agent** (delegated requirement
+      from estate-manager Session 5, 2026-08-13 — its
+      [ADR-0009](../../../estate-manager/docs/adr/0009-audit-agent-shape.md) §8).
+      Two parts, and the first is overdue by the estate's own contract:
+      1. **Add `estate-manager-audit.timer` to `services.yaml`** (user
+         unit, alongside the scan and review timers already there). The
+         monitorable-project contract says a new unit is wired the same
+         day it is created — but estate ADR-0002's bounded exception
+         closed on 2026-08-13, so that repository may no longer edit this
+         one's runtime-read config, and it recorded the requirement here
+         instead of making the edit. **Until this lands the audit timer
+         runs unmonitored**: a silent failure is visible only in the
+         retained `estate/audit/status` timestamp.
+      2. **Judge `GET :8400/api/audit/invariants`** beside the scan's and
+         the queue's — audit age, `checks_errored`, and `publish_error`
+         (non-null means the audit's findings stopped reaching the bus,
+         which is invisible *from* the bus by construction: nothing
+         arrives to say nothing is arriving). Findings themselves are at
+         `/api/audit/findings`, each carrying how long it has stood. The
+         estate publishes and grades nothing; this repository judges —
+         the same swap as the scan above
 - [ ] **Drop the frozen project tables** — `sysadmin.project_snapshots`
       and `sysadmin.project_reviews`, their `FROZEN_TABLES` exclusions in
       `alembic/env.py` **and** `tests/test_schema_drift.py` (both, or a
