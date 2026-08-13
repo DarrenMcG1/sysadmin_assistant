@@ -57,11 +57,36 @@ it by emulating SQL `LIKE` against every pattern.
    Not health — Session 41's defect leaving a fingerprint, since
    `_record_outcome` used to write `status='failed'` into the transaction
    the failure had already destroyed. **Part (3) was therefore not
-   implementable when the snag was filed**, and it ships against zero
-   live evidence: nothing has failed since. Correctness rests on tests,
-   not on production confirmation. **The first genuine agent failure is
-   worth opening deliberately** — confirm the alert fires, the message
-   carries the right error, and the row resolves on recovery.
+   implementable when the snag was filed.**
+
+   That left it shipping with no production evidence, and rather than
+   wait for a first natural failure — unbounded, since there has never
+   been one — **both new mechanisms were exercised against the live
+   database inside a transaction that was rolled back**, so nothing
+   persisted and no toast reached the owner. Verified end to end:
+
+   - one failure raises nothing (threshold 2); the second raises
+     `service_discovery agent failing` at `warning` with the flattened
+     error in the message and `failing_agent` / `consecutive_failures` /
+     `kind` in details; a repeat run holds without duplicating; aging the
+     quiet row past 24 h **resolves it and inserts a `critical`** rather
+     than editing severity in place; a clean run resolves both. Residue
+     afterwards: 0 alerts, 0 failed runs.
+   - the savepoint against real asyncpg: a bad `status` raises
+     `IntegrityError` **at savepoint exit rather than at `session.add`**,
+     and — the part a mock cannot show — **the outer transaction survives
+     it**, so the `error` fallback row writes and a service *after* the
+     bad one still gets its row. A plain Postgres transaction would be
+     poisoned at that point and every later statement would fail with
+     "current transaction is aborted". That is exactly what turns a
+     39-hour blackout into one bad tile. Residue: 0 rows.
+
+   **What is still unproven is only the tray toast** — polling
+   `/api/sysadmin/alerts` and fingerprinting on `{severity}:{title}`.
+   That path is shared with the stall family and unchanged, and forcing
+   it would mean committing a synthetic alert row to the live table,
+   which is the pollution three previous sessions spent their time
+   clearing. Left deliberately.
 2. **A savepoint alone would not have caught the original fault.**
    `session.add` never talks to the database, so the
    `CheckViolationError` surfaced at the single commit ending the run.
@@ -175,5 +200,7 @@ directly rather than reported: `uv run pytest` 1422 passed,
 `uv run ruff check .` clean, `uv run mypy sysadmin` clean across 75
 source files. The schema guard was additionally verified against the live
 database — passes at 011/011, and refuses a forced mismatch naming both
-revisions and the remedy. **Not yet deployed**: the daemon serves
-start-time code, so none of this is live until the restart above.
+revisions and the remedy — and the failure family and the savepoint were
+both exercised against the live database in rolled-back transactions (see
+above). **Not yet deployed**: the daemon serves start-time code, so none
+of this is live until the restart above.
