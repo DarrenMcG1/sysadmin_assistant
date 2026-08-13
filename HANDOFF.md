@@ -2,35 +2,38 @@
 
 ## Next action
 
-Restart `sysadmin.service` (a **system** unit — `sudo systemctl restart sysadmin.service`, not `--user`) to deploy Sessions 43 and 44 together, then confirm three things in one pass: the journal carries `schema_revision_verified` at revision 011 rather than a refusal, the 60 open `sysadmin-organiser-timer critical` rows resolve themselves as a deconfigured service, and `agent_runs.details->'collation'` reads `mismatched: 8` on the first run.
+Take the judging session — wire `GET :8400/api/projects/invariants` and `GET :8400/api/projects/attention` into checks and alerts here, since both endpoints answer 200 today and until something in this repository reads them the estate's idle nudges reach no tray toast at all.
 
 ## This session
 
 Session 44 landed `SNAG-DB-002`'s **check** half as `63ed848`. The
 `REINDEX` half is open, stays open and stays manual.
 
-**The deploy step from the last handoff did not happen** — `sudo` needs a
-password this session cannot supply. It is still the next action, and it
-now carries two sessions rather than one.
+**Sessions 43 and 44 are both deployed and verified in production**, at
+`14:22:09` today. Everything below was observed on the running daemon,
+not inferred from tests.
 
-### The daemon is running code from before the estate cutover, and it is costing something
+### The stale daemon had been costing something, and the restart cleaned it up itself
 
-`sysadmin.service` has been up since 2026-08-12 19:16, which is before
-`7467d2c`. It loaded `services.yaml` at that moment, and that file still
+`sysadmin.service` had been up since 2026-08-12 19:16 — before `7467d2c`
+— so it was still serving `services.yaml` as loaded at that moment, which
 declared `sysadmin-organiser.timer`. The cutover replaced that entry with
-the estate's two timers; the running process never saw the change, so it
-has been checking a unit `systemctl` reports as `LoadState: not-found`
-and raising a `critical` every five minutes. **60 unresolved rows between
-07:41 and 12:36 today.**
+the estate's two timers; the running process never saw it, so it spent
+19 hours checking a unit `systemctl` reports as `LoadState: not-found`
+and raising a `critical` every five minutes. **81 unresolved rows by the
+time it was restarted.**
 
-The restart cleans up after itself, and the mechanism is worth knowing.
-On restart `sysadmin-organiser-timer` is a **deconfigured** service: it
-is in neither `_raised_titles` nor `unhealthy`, because it is not in the
-loop at all. So all 60 rows fall through `_resolve_recovered`'s inverse
-question and close in one statement — SNAG-AGENT-004's pattern-based
-population handling a fault created after it shipped. Nothing needs to be
-done by hand; it is worth *watching* happen, because it is the cheapest
-confirmation available that the fix works on the case it was designed for.
+**All 81 resolved on the first post-restart run, in one statement.** On
+restart `sysadmin-organiser-timer` is a **deconfigured** service: it is
+in neither `_raised_titles` nor `unhealthy`, because it is not in the
+loop at all, so its rows fall straight through `_resolve_recovered`'s
+inverse question. That is SNAG-AGENT-004's pattern-based population
+handling a fault created *after* it shipped — the cheapest confirmation
+available that the fix works on the case it was designed for, and it
+cost nothing to obtain.
+
+The board is now clean: **every unresolved `agent='sysadmin'` row is one
+of the eight collation alerts**, and nothing else.
 
 ### The snag's own count was wrong, and the shape of the error is the finding
 
@@ -128,21 +131,47 @@ narrowed as if 2 reindexed and 1 dropped:
 residue after rollback: 0 rows
 ```
 
-**Unproven: the tray toast**, the same gap Session 43 left. Forcing it
-means committing a synthetic alert row to the live table, which is the
-pollution three previous sessions spent their time clearing. The path is
-shared with every other `warning` family and unchanged.
+**Then confirmed in production**, which the rolled-back runs could not
+show — these rows are committed and are the live state:
+
+```
+14:22:09  restart; schema_revision_verified revision=011 (not a refusal)
+          scheduler started with 8 jobs, was 9 — project_organiser_scan
+          gone with the cutover, as intended
+14:27:11  run 1  details->'collation' = {raised: 8, resolved: 0, mismatched: 8}
+                 8 open `warning` rows, one per stale database
+                 81 `sysadmin-organiser-timer critical` rows resolved
+14:32:11  run 2  details->'collation' = {raised: 0, resolved: 0, mismatched: 8}
+                 total collation rows in the table: still 8
+```
+
+Run 2 is the one that mattered: under the `_check_thresholds` pattern it
+would have written eight more. `mismatched` is the standing number and
+`raised` is 0 on every run after the first, which is why both are
+reported rather than one.
+
+**Note the sysadmin agent is the only agent with no
+`agent_first_run_delay_seconds`** — that knob is for the hours-scale
+agents — so its first run is restart + `health_check_interval_seconds`,
+i.e. five minutes. Nothing is wrong during that window; it looks like a
+dead agent if you go looking too early.
+
+**Still unproven: the tray toast**, the same gap Session 43 left. The
+eight rows are `warning`, above `tray.notify_min_severity`, and the path
+is shared with every other `warning` family and unchanged — but nobody
+watched a toast appear.
 
 ## Open, in order
 
-1. **The restart above**, which is now the prerequisite for everything —
-   nothing from Sessions 43 or 44 is live until it happens.
-2. **`SNAG-AGENT-006`** (new) — the raise-side pile-up. Both halves move
-   together; see above.
-3. **The judging session** — wire `GET :8400/api/projects/invariants` and
+1. **The judging session** — wire `GET :8400/api/projects/invariants` and
    `/attention` into checks and alerts. Both endpoints answer 200 today.
    **Until this runs, idle nudges reach no tray toast**: the estate
-   computes them and nothing here reads them.
+   computes them and nothing here reads them. This is the only item on
+   the list where a whole capability is dark rather than a defect being
+   open, which is why it is first.
+2. **`SNAG-AGENT-006`** (new) — the raise-side pile-up. Both halves move
+   together; see above. `sysadmin/monitor/collation.py` is the worked
+   example and is fresh, so this is cheaper now than it will be later.
 4. **`SNAG-ESTATE-001`** — looks already resolved; verify and close
    rather than work.
 5. **`SNAG-TRAY-006`** — a consumer-driven contract test against the 8400
@@ -156,5 +185,7 @@ shared with every other `warning` family and unchanged.
 Working tree clean at `63ed848`. All three gates green and checked
 directly rather than reported: `uv run pytest` **1455 passed** (1422 +
 33 new), `uv run ruff check .` clean, `uv run mypy sysadmin` clean across
-76 source files. `./scripts/lint_check.sh` clean. **Not yet deployed** —
-the daemon serves start-time code from 2026-08-12 19:16.
+76 source files. `./scripts/lint_check.sh` clean. **Deployed and verified in
+production** at 14:22:09 — the daemon serves Session 44's code, the
+schema guard passed at 011, and the collation family has raised its eight
+rows and held at eight across two runs.
