@@ -22,13 +22,13 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from estate.registry import load_registry
 from sqlalchemy import select
 
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.services import get_services
-from estate.registry import load_registry
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.scan import (
     HOST,

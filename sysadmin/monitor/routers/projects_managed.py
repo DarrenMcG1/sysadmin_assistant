@@ -9,11 +9,11 @@ it lives with the monitor and keeps its path. The tray keeps its URL.
 
 from typing import Any
 
+from estate.registry import load_registry
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from estate.registry import load_registry
 from sysadmin.core.config import get_config
 from sysadmin.core.contracts import ManagedProjectsResponse
 from sysadmin.core.database import get_db_session

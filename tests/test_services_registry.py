@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from estate.registry import UnknownProjectError, load_registry
 
 from sysadmin.monitor.services import (
     SKIPPED,
@@ -15,7 +16,6 @@ from sysadmin.monitor.services import (
     load_services,
     parse_services,
 )
-from estate.registry import UnknownProjectError, load_registry
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LIVE_SERVICES_YAML = REPO_ROOT / "services.yaml"

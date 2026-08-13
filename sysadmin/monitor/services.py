@@ -25,10 +25,10 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+from estate.registry import Registry
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from sysadmin.core.config import LogSource
-from estate.registry import Registry
 
 logger = logging.getLogger(__name__)
 

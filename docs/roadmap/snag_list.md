@@ -247,6 +247,7 @@ _All SNAGs fixed to date are archived — nothing outstanding is hidden here._
 
 | SNAG | Title | Fixed |
 |---|---|---|
+| SNAG-CI-001 | Cutover commit left `main` red on lint: the session ran `pytest` and took green for the gate, but CI runs `ruff check .` and `mypy` too — five `estate.registry` import blocks were unsorted | 2026-08-13 |
 | SNAG-ROADMAP-003 | Four handoff conventions; scanner knew two and tuple order decided | 2026-08-10 |
 | SNAG-PROJ-001 | Board freshness filter applied on one route out of nine | 2026-08-10 |
 | SNAG-PROJ-002 | Deleted projects contributed to `average_active_score` | 2026-08-10 |

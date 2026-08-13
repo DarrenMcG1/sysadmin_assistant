@@ -13,6 +13,7 @@ should do to a machine on its own.
 
 import logging
 
+from estate.registry import load_registry
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +27,6 @@ from sysadmin.core.contracts import (
     UnitScanSummary,
 )
 from sysadmin.core.database import get_db_session
-from estate.registry import load_registry
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.recommendations import (
     KIND_ORDER,
