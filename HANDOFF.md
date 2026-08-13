@@ -221,12 +221,23 @@ serving pre-session code and `estate_judge` is absent from
 
 ## State at close
 
-Uncommitted at `fa51aac` — note that is **not** the commit the previous
-handoff named: a concurrent estate-manager session committed a delegated
-requirement into this repository's `tasks.md` mid-session (ADR-0002's
-delegation pattern working — it recorded the requirement rather than
-making the edit). Both its parts are done here. All three gates green and checked directly:
+Committed as **`8220bcc`** — 20 files, +2,630/−182. Note the parent is
+`fa51aac`, **not** the commit the previous handoff named: a concurrent
+estate-manager session committed a delegated requirement into this
+repository's `tasks.md` mid-session (ADR-0002's delegation pattern
+working — it recorded the requirement rather than making the edit). Both
+its parts are done here.
+
+All three gates green and checked directly rather than reported:
 `uv run pytest` **1517 passed** (1455 + 62 new), `uv run ruff check .`
 clean, `uv run mypy sysadmin` clean across 80 source files.
-`./scripts/lint_check.sh` clean. Migration 012 applied to the live
-database. **Not deployed** — the daemon has not been restarted.
+`./scripts/lint_check.sh` clean, and the pre-commit hook's own lint and
+documentation checks both passed.
+
+**Migration 012 is applied to the live database.** **The daemon is not
+deployed** — it booted at 17:46:44 BST, roughly ninety seconds before
+this session began, so it serves pre-session code and `estate_judge` is
+absent from `GET /api/sysadmin/self`, which still lists four agents.
+Nothing is broken by that gap: `schema_guard` runs at boot only, so the
+running process is unaffected by the newer revision beneath it. The next
+restart picks up both.
