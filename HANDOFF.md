@@ -2,7 +2,7 @@
 
 ## Next action
 
-Restart `sysadmin.service` with `sudo systemctl restart sysadmin.service`, then confirm the first `estate_judge` run 60 seconds later, because migration 012 is already applied and the running daemon is serving code from before this session.
+Take `SNAG-AGENT-006` — give the service and threshold alert families the dedup that `sysadmin/estate/agent.py` proved can coexist with a set-based sweep, by changing the exclusion set from the titles the run raised to the titles the run judged still true.
 
 ## This session
 
@@ -12,9 +12,23 @@ Session 4 cutover that was deliberately left behind: the estate manager
 publishes and never acts, so until this runs it computes idle nudges
 every night into a surface nothing reads.
 
-**Not deployed.** Everything below is verified against the live database
-and the live 8400 producer, but in **rolled-back** transactions. The
-daemon has not been restarted since the changes — see Next action.
+**Deployed and verified in production** at 21:30:24, after the
+rolled-back verification below. The first run at 21:31:24 read all four
+surfaces, judged nothing and wrote nothing:
+
+```
+completed | findings=0 | raised=0
+surfaces_read: [audit_invariants, projects_attention,
+                projects_invariants, queue_invariants]
+unread_surfaces: {}
+by_surface: all zero
+```
+
+Zero is the correct answer at that moment — the scan and the audit had
+both run within the hour, the queue was idle and `attention` was empty —
+and it is also exactly what a wrong key name would produce, which is why
+the narrowed-threshold dry run against the same live payloads was done
+first. `GET /api/sysadmin/self` now lists five agents.
 
 ### It judges four surfaces, not the two the task named
 
@@ -221,12 +235,11 @@ serving pre-session code and `estate_judge` is absent from
 
 ## State at close
 
-Committed as **`8220bcc`** — 20 files, +2,630/−182. Note the parent is
-`fa51aac`, **not** the commit the previous handoff named: a concurrent
-estate-manager session committed a delegated requirement into this
-repository's `tasks.md` mid-session (ADR-0002's delegation pattern
-working — it recorded the requirement rather than making the edit). Both
-its parts are done here.
+Committed as **`8220bcc`** (20 files, +2,630/−182) and **`0b8691f`**.
+Note the parent is `fa51aac`, **not** the commit the previous handoff
+named: a concurrent estate-manager session committed a delegated
+requirement into this repository's `tasks.md` mid-session (ADR-0002's
+delegation pattern working). Both its parts are done here.
 
 All three gates green and checked directly rather than reported:
 `uv run pytest` **1517 passed** (1455 + 62 new), `uv run ruff check .`
@@ -234,10 +247,7 @@ clean, `uv run mypy sysadmin` clean across 80 source files.
 `./scripts/lint_check.sh` clean, and the pre-commit hook's own lint and
 documentation checks both passed.
 
-**Migration 012 is applied to the live database.** **The daemon is not
-deployed** — it booted at 17:46:44 BST, roughly ninety seconds before
-this session began, so it serves pre-session code and `estate_judge` is
-absent from `GET /api/sysadmin/self`, which still lists four agents.
-Nothing is broken by that gap: `schema_guard` runs at boot only, so the
-running process is unaffected by the newer revision beneath it. The next
-restart picks up both.
+**Migration 012 applied and the daemon restarted at 21:30:24**, so both
+halves are live. Still unverified, and unverifiable today: `judge_attention`
+against a populated payload, `oldest_waiting_seconds` against a busy
+queue, and the tray toast.
