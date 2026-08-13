@@ -132,6 +132,8 @@ def _drive(agent, services, statuses, mock_config):
                      new_callable=AsyncMock, return_value=0),
         patch.object(agent, "_check_agent_health",
                      new_callable=AsyncMock, return_value=0),
+        patch.object(agent, "_check_collation",
+                     new_callable=AsyncMock, return_value=0),
         patch.object(agent, "_resolve_recovered",
                      new_callable=AsyncMock, return_value=0),
         patch.object(agent, "raise_alert", new_callable=AsyncMock),

@@ -32,7 +32,7 @@ from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import AnomalyConfig, AppConfig, get_config
 from sysadmin.core.models.alert import Alert
 from sysadmin.core.text import TRUNCATION_MARKER
-from sysadmin.monitor import failures, stalls
+from sysadmin.monitor import collation, failures, stalls
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
@@ -129,6 +129,17 @@ def disk_alert_title(mount: str, critical: bool) -> str:
 #:   ``degraded``/``warning``/``critical``/``unreachable``/``auto-restarted``
 #:   would have its rows closed from here while they were still true.
 #:   ``tests/test_agent_failures.py`` pins that.
+#: - ``Stale collation version on %`` — :mod:`sysadmin.monitor.collation`
+#:   raises **once per open row** rather than once per run, because the
+#:   fault persists until someone reindexes and 300-second polling would
+#:   write 2,304 rows a day for it.  Dedup and this sweep are mutually
+#:   exclusive: the sweep closes any owned row the run did not raise,
+#:   which is sound only for a family that re-raises every run.  Adding
+#:   the pattern here would make the row flip-flop — resolved on the run
+#:   that holds, re-raised on the next — and each flip clears the tray's
+#:   ``{severity}:{title}`` fingerprint, so it notifies again.  The
+#:   database name sits last in the title, which keeps it clear of the
+#:   five ``% <kind>`` patterns by construction rather than by luck.
 RESOLVABLE_TITLE_PATTERNS = tuple(
     f"% {kind}" for kind in SERVICE_ALERT_KINDS
 ) + (
@@ -156,6 +167,13 @@ _NO_STALLS: dict[str, int] = {"stalled": 0, "raised": 0, "escalated": 0}
 #: agents. Zeroes rather than an absent key, for the same reason as
 #: :data:`_NO_STALLS`.
 _NO_AGENT_FAILURES: dict[str, int] = {"failing": 0, "raised": 0, "escalated": 0}
+
+#: The collation outcome of a run that checked nothing — because
+#: ``agents.sysadmin.collation.enabled`` is false. Zeroes rather than an
+#: absent key, for the same reason as :data:`_NO_STALLS`: ``{}`` in
+#: ``agent_runs.details`` reads as "the check did not run", and here that
+#: is *exactly* what it means, so the two must not look alike.
+_NO_COLLATION: dict[str, int] = {"mismatched": 0, "raised": 0, "resolved": 0}
 
 
 #: Timer properties worth recording, under readable names.  ``systemctl
@@ -208,6 +226,10 @@ class SysAdminAgent(BaseAgent):
         # for auto-restart. Two meanings behind one name in one class is
         # how a counter gets reset by the wrong branch.
         self._agent_failure_counts: dict[str, int] = _NO_AGENT_FAILURES
+        # Collation outcome for the current run. Reset per run for the
+        # same reason as _stall_counts: a carried-over count reads as
+        # work this run performed.
+        self._collation_counts: dict[str, int] = _NO_COLLATION
         # Exact alert titles raised by the current run — the "still
         # failing" set _resolve_recovered subtracts. Collected in
         # raise_alert rather than at the ten call sites, so it cannot
@@ -238,6 +260,7 @@ class SysAdminAgent(BaseAgent):
         """Run all health checks and record resource snapshot."""
         self._stall_counts = _NO_STALLS
         self._agent_failure_counts = _NO_AGENT_FAILURES
+        self._collation_counts = _NO_COLLATION
         self._raised_titles = set()
         config = get_config()
         agent_config = config.agents.sysadmin
@@ -337,6 +360,10 @@ class SysAdminAgent(BaseAgent):
         # Self-monitoring — has another agent silently stopped running?
         alerts_raised += await self._check_agent_health(session, config)
 
+        # Text ordering the databases were built against, versus the one
+        # the OS provides now (SNAG-DB-002).
+        alerts_raised += await self._check_collation(session, agent_config)
+
         # Everything this run measured and did not alert on has recovered.
         alerts_resolved = await self._resolve_recovered(session, unhealthy)
 
@@ -361,6 +388,12 @@ class SysAdminAgent(BaseAgent):
                 # "ran and failed" are different states, which is the
                 # whole reason they are separate alert families.
                 "agent_failures": self._agent_failure_counts,
+                # Databases whose recorded collation version no longer
+                # matches the OS. Reported beside the two ladders and
+                # never summed with them: this family raises once per
+                # open row, so `raised` is new faults rather than
+                # current ones — `mismatched` is the standing count.
+                "collation": self._collation_counts,
             },
         )
 
@@ -1341,6 +1374,100 @@ class SysAdminAgent(BaseAgent):
             "escalated": escalated,
         }
         return raised + escalated
+
+    # --- Database collation ---
+
+    async def _check_collation(self, session, agent_config) -> int:
+        """Alert on databases whose text ordering predates the OS's.
+
+        ``SNAG-DB-002``, and the reason it belongs *here* rather than in
+        a script: it is measurable in one query, invisible until
+        something goes wrong, and was found only because a human happened
+        to open ``psql``.  That is the exact class of fault this service
+        exists to catch, and nothing on this box was watching for it.
+
+        **This family owns its own lifecycle**, so it resolves its own
+        rows two blocks below rather than falling to
+        :meth:`_resolve_recovered` — see rule 4 in
+        :mod:`sysadmin.monitor.collation` and the note against
+        :data:`RESOLVABLE_TITLE_PATTERNS`.  Dedup and that sweep cannot
+        both apply to one family.
+
+        The read is deliberately not wrapped in a savepoint.  Unlike a
+        service health row it writes nothing of its own before the
+        alerts, so there is no partial state to isolate; a catalog read
+        that fails means the database is unreachable, which every other
+        check in this run has already discovered more loudly.
+        ``SQLAlchemyError`` is caught so a cluster that does not offer
+        ``pg_database_collation_actual_version`` (it arrived in
+        PostgreSQL 15) costs a log line rather than the whole run — the
+        savepoint lesson from ``SNAG-DB-001`` applied at the granularity
+        that is available here.
+
+        Returns:
+            Rows raised.  ``details["collation"]`` also carries the
+            standing ``mismatched`` count, which is the number that
+            matters: ``raised`` is 0 on every run after the first.
+        """
+        if not agent_config.collation.enabled:
+            self._collation_counts = _NO_COLLATION
+            return 0
+
+        try:
+            result = await session.execute(collation.MISMATCH_SQL)
+            rows = result.mappings().all()
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "collation_check_failed",
+                extra={"agent": self.name, "error": _truncate_error(exc)},
+            )
+            self._collation_counts = _NO_COLLATION
+            return 0
+
+        mismatches = [
+            collation.Mismatch(
+                datname=row["datname"],
+                recorded=str(row["recorded"]),
+                actual=str(row["actual"]),
+            )
+            for row in rows
+        ]
+
+        # Open rows are keyed from details, not by parsing the title
+        # apart — the same lookup the stall and failure families use.
+        open_rows: dict[str, Any] = {}
+        for alert in await self._active_alerts(session):
+            datname = (alert.details or {}).get(collation.COLLATION_DETAIL_KEY)
+            if datname:
+                open_rows[datname] = alert.id
+
+        raised = 0
+        for item in collation.evaluate(mismatches, set(open_rows)):
+            await self.raise_alert(
+                session,
+                severity=collation.COLLATION_SEVERITY,
+                title=item.title,
+                message=item.message,
+                details=item.details,
+            )
+            raised += 1
+
+        # Reindexed, dropped, or recreated on current locale data — one
+        # set difference covers all three, where a loop over the current
+        # mismatches could only ever see the first.
+        cleared = collation.resolved_databases(
+            set(open_rows), {m.datname for m in mismatches}
+        )
+        await self._resolve_alert_ids(
+            session, [open_rows[name] for name in sorted(cleared)]
+        )
+
+        self._collation_counts = {
+            "mismatched": len(mismatches),
+            "raised": raised,
+            "resolved": len(cleared),
+        }
+        return raised
 
     # --- Port detection ---
 

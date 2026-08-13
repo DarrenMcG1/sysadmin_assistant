@@ -170,6 +170,28 @@ agents:
       min_samples: 30       # cold-start guard — fewer snapshots, no flagging
       min_stdev: 1.0        # skip near-constant series (no infinite z-scores)
       severity: warning
+    # Stale collation detection (SNAG-DB-002). A glibc upgrade changes
+    # libc's sort order; PostgreSQL records the version each database was
+    # created with so it can tell you it no longer matches. Any B-tree
+    # index on text was built against the old ordering, so a lookup can
+    # miss a row that is present — which here would present as an alert
+    # that never deduplicates or never resolves. Eight of this box's
+    # eleven databases are stale as of 2026-08-13.
+    #
+    # One row per database, raised once per open row and NOT once per
+    # run: the fault persists until someone reindexes, and this agent
+    # polls every 300s, so the raise-every-run pattern used by
+    # `thresholds:` above would write 2,304 rows a day for it. That is
+    # why this family is absent from RESOLVABLE_TITLE_PATTERNS and
+    # resolves its own rows — the two mechanisms are mutually exclusive.
+    #
+    # The fix is deliberately NOT automated: `REINDEX DATABASE` on a
+    # 16 GB database touching two other apps' data wants a quiet window
+    # and a human. The alert carries both statements in order, because
+    # `REFRESH COLLATION VERSION` alone clears the warning without
+    # rebuilding anything — a loud known risk turned into a silent one.
+    collation:
+      enabled: true
     # Per-service reliability scoring — GET /api/services/reliability.
     # Score = 100 - downtime (100 - uptime%, cap 60) - instability
     # (5 per outage episode, cap 25). A gap in the check series means the

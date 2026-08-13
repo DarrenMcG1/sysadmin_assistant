@@ -145,6 +145,27 @@ class ReliabilityConfig(BaseModel):
     grade_bands: ReliabilityGradeBands = Field(default_factory=ReliabilityGradeBands)
 
 
+class CollationCheckConfig(BaseModel):
+    """Stale-collation detection (``SNAG-DB-002``).
+
+    One knob, and only one.  Severity is fixed in
+    :data:`sysadmin.monitor.collation.COLLATION_SEVERITY` rather than
+    exposed here: ``critical`` breaks through the DND windows by
+    configuration and ``info`` sits below ``tray.notify_min_severity`` on
+    this box, so two of the four values turn the check into either an
+    interruption or silence, and the reasoning for ``warning`` belongs
+    beside the code that acts on it.
+
+    There is no per-database allowlist either.  Deciding which of the
+    cluster's databases "matter" needs a second registry of estate facts
+    living in this repository, which is the duplication
+    ``~/projects/estate-manager`` exists to prevent — and a test database
+    is where a wrong-ordering bug is cheapest to find.
+    """
+
+    enabled: bool = True
+
+
 class SysAdminAgentConfig(BaseModel):
     """Monitoring agent settings.
 
@@ -160,6 +181,7 @@ class SysAdminAgentConfig(BaseModel):
     thresholds: Thresholds = Field(default_factory=Thresholds)
     anomaly: AnomalyConfig = Field(default_factory=AnomalyConfig)
     reliability: ReliabilityConfig = Field(default_factory=ReliabilityConfig)
+    collation: CollationCheckConfig = Field(default_factory=CollationCheckConfig)
 
 
 class HealthGradeBands(BaseModel):

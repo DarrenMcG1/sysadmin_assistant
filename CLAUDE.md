@@ -717,6 +717,57 @@ by the live table before it was written:
    unbounded `SELECT` over the table whose unboundedness is the bug is easy
    to write and nasty to ship.
 
+**Dedup and the set-based resolve are mutually exclusive, and the
+collation family is where that got written down** (Session 44,
+SNAG-DB-002). A glibc upgrade moved this box from locale data 2.43 to
+2.44; PostgreSQL records the version each database was created with so
+it can say it no longer matches, and had been printing that on every
+`psql` connection, read by nobody. Any B-tree index on text was built
+against the old ordering, so a lookup can miss a row that is present —
+which here would present as an alert that never deduplicates or never
+resolves. `sysadmin/monitor/collation.py` reads `pg_database` once per
+sysadmin run; the catalog is **cluster-wide**, so the existing
+connection to `projects` sees all eleven databases without a second
+engine. Eight are stale. The snag said three, because three is how many
+someone had opened a shell against.
+
+Four rules, three of them the opposite of the obvious implementation:
+
+1. **Not-knowing is not a mismatch, and this fails _open_** —
+   deliberately the reverse of `core/schema_guard.py`, which refuses to
+   boot on every way of not-knowing. `template0` records no version and
+   a `C`-locale database has no actual version to compare against, so
+   both sides are required non-NULL **in SQL**; `IS DISTINCT FROM` is
+   rejected for reporting `2.43` against `NULL` as a difference. The
+   guard fails closed because serving against the wrong schema is worse
+   than not serving; here a false positive is an operator reindexing a
+   16 GB database that is fine.
+2. **Raised once per open row, never once per run.** The agent polls
+   every 300 s and a stale collation persists until someone reindexes,
+   so the `_check_thresholds` pattern would write 2,304 rows a day for
+   one fault.
+3. **Therefore the family stays out of `RESOLVABLE_TITLE_PATTERNS` and
+   owns its own lifecycle.** That sweep closes every owned row the run
+   did not raise, which is sound *only* for a family that re-raises
+   every run — which is why `_check_thresholds` can be in the tuple and
+   this cannot. Dedup plus sweep makes a row flip-flop, resolved on the
+   run that holds and re-raised on the next, and each flip clears the
+   tray's `{severity}:{title}` fingerprint so it notifies again. A
+   pile-up is loud; that is loud *and* reads as recovery. The database
+   name sits last in the title, keeping it clear of the five
+   `% <kind>` patterns by construction.
+4. **The remedy's trap is carried in the alert.** `ALTER DATABASE …
+   REFRESH COLLATION VERSION` alone clears the warning by asserting the
+   versions now match without rebuilding anything — a loud known risk
+   turned into a silent one — so the message names `REINDEX` first and
+   `details['remedy']` is an ordered two-element list.
+
+The gap this leaves is `SNAG-AGENT-006`: the *service* and *threshold*
+families still raise unconditionally, so a sustained fault writes one
+row per run — 60 for one dead timer in five hours. Bounded rather than
+immortal since Session 41's resolve, and not fixed here because both
+halves must move together.
+
 **Journal reads resume from a cursor, and it must advance over what the
 filter discards.** `read_journal` was called with `since="2m ago"` on a
 60-second poll, so every unit-journal event was stored **exactly twice**.

@@ -28,6 +28,30 @@
 
 ## Recently Completed
 
+- **2026-08-13 — Session 44: the collation check (`SNAG-DB-002`).** A
+  glibc upgrade moved this box from locale data 2.43 to 2.44; PostgreSQL
+  has been printing a mismatch warning on every `psql` connection since,
+  read by nobody, while any B-tree index on text sits built against the
+  old ordering — a lookup can miss a row that is present.
+  `sysadmin/monitor/collation.py` reads `pg_database` once per sysadmin
+  run and raises `Stale collation version on <db>` at `warning`. The
+  snag said three databases; the catalog says **eight of eleven**, because
+  the original number came from the databases someone had opened a shell
+  against. Four rules, three of them the opposite of the obvious
+  implementation: it fails **open** on NULL (deliberately the reverse of
+  `schema_guard` — `template0` records no version, and inventing an alert
+  whose remedy does not exist is the worse error here); it raises **once
+  per open row**, because 300-second polling against a fault that
+  persists for weeks would write 2,304 rows a day; and it therefore stays
+  **out of `RESOLVABLE_TITLE_PATTERNS`** — dedup and that sweep are
+  mutually exclusive, and combining them makes a row flip-flop, clearing
+  the tray fingerprint on every flip. The `REINDEX` remedy is
+  deliberately not automated and the alert names it **before** `REFRESH`,
+  which alone would silence the warning without rebuilding anything.
+  Verified live in rolled-back transactions, both raise and resolve,
+  residue 0. Filed on the way: `SNAG-AGENT-006`, the raise-side twin of
+  `SNAG-AGENT-004` — 60 rows for one dead timer in five hours.
+
 - **2026-08-13 — Session 43: `SNAG-DB-001`'s detection gap, all three parts.**
   The un-applied migration that blacked out monitoring for 39 hours was
   fixed on 2026-08-10 by applying it; the reason nobody noticed was the

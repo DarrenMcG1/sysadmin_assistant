@@ -1760,6 +1760,113 @@ again is the pile-up wearing a declaration as an excuse.
 
 ---
 
+## Session 44: The collation check — a fault nobody was watching for ✅ (2026-08-13)
+
+_`SNAG-DB-002`. A routine glibc upgrade moved this box from locale data
+2.43 to 2.44. PostgreSQL records the version each database was created
+with precisely so it can say it no longer matches, and every `psql`
+session has printed that warning since — **read by nobody**. This
+application is the thing on this box whose job is to notice, and the
+fault was found because a human happened to open a shell while checking
+a column type._
+
+- [x] **`sysadmin/monitor/collation.py`** — one cluster-wide read of
+      `pg_database` per sysadmin run, both sides of the comparison from
+      one query. `pg_database_collation_actual_version(oid)` (PostgreSQL
+      15+) gives the OS side, so no second engine, no second credential
+      and no loop over connections
+- [x] **`_check_collation` on the sysadmin agent**, with the raise, the
+      dedup and the resolve in one method and the decisions in the pure
+      module beside them
+- [x] **`agents.sysadmin.collation.enabled`**, one knob and only one —
+      severity is fixed in code because two of the four values turn the
+      check into either an interruption (`critical` breaks DND) or
+      silence (`info` is below `tray.notify_min_severity`)
+- [x] **33 tests**, including the title asserted against every pattern in
+      `RESOLVABLE_TITLE_PATTERNS` by emulating SQL `LIKE`
+
+### The count in the snag was wrong, and the shape of the error is the lesson
+
+The entry says three databases. It is **eight of eleven**: the five
+`alfred*` copies, `postgres`, `projects` and `template1`. The original
+number came from the databases someone had opened a `psql` session
+against; `pg_database` is cluster-wide, so one query sees them all.
+`estate`, `estate_test` and `venture` are clean at 2.44 — created after
+the upgrade, which is the evidence that `CREATE DATABASE` stamps the
+current OS version rather than inheriting the template's.
+
+### Four rules, three of them the opposite of the obvious implementation
+
+- [x] **Not-knowing is not a mismatch, and this check fails _open_** —
+      deliberately the opposite of `schema_guard`. `template0` records no
+      version, and a `C`-locale database has no actual version to compare
+      against; `recorded != actual` in Python reads NULL as a fault and
+      invents an alert whose remedy does not exist. Both sides are
+      required non-NULL **in SQL**, and `IS DISTINCT FROM` is rejected
+      for reporting `2.43` against `NULL` as a difference. The guard
+      refuses to boot on not-knowing because serving against the wrong
+      schema is worse than not serving; here the cost of a false positive
+      is an operator reindexing a database that is fine
+- [x] **One row per database, and the databases are not filtered.** Five
+      of the eight are Alfred's dev and test copies. Filtering to "the
+      ones that matter" needs a second registry of estate facts living in
+      this repository, which `~/projects/estate-manager` exists to
+      prevent — and a test database is where a wrong-ordering bug is
+      cheapest to find. Per-database rather than one cluster row because
+      the remedy names one database and a row that closes when its own
+      database is reindexed shows progress
+- [x] **Raised once per open row, never once per run.** The agent polls
+      every 300 s and a stale collation persists for weeks, so the
+      `_check_thresholds` pattern would write **2,304 rows a day** for
+      this one fault — `SNAG-AGENT-004` and `SNAG-AGENT-005` a third time
+- [x] **Therefore this family stays out of `RESOLVABLE_TITLE_PATTERNS`
+      and owns its own lifecycle.** The two are mutually exclusive, which
+      nothing in the codebase said before: that sweep closes any owned row
+      the run did not raise, which is sound only for a family that
+      re-raises every run. Dedup plus sweep makes a row flip-flop —
+      resolved on the run that holds, re-raised on the next — and each
+      flip clears the tray's `{severity}:{title}` fingerprint, so it
+      notifies again. A pile-up is loud; that would be loud *and* read as
+      recovery. The database name sits last in the title, which keeps it
+      clear of the five `% <kind>` patterns by construction
+
+### The remedy's trap is carried in the alert, not left to the reader
+
+`ALTER DATABASE … REFRESH COLLATION VERSION` on its own clears the
+warning by asserting the versions now match, **without rebuilding
+anything** — a loud known risk turned into a silent one. The message
+names `REINDEX` first and `details['remedy']` is a two-element list in
+order, because a reader copying one line out of a paragraph is how that
+gets sprung. A test asserts the ordering.
+
+### Verified against the live database, 2026-08-13
+
+Both halves, in transactions that were rolled back — residue 0 rows:
+
+```
+run 1: raised=8   (exactly the 8 stale databases, all `warning`)
+run 2: raised=0   counts={'mismatched': 8, 'raised': 0}  open=8
+narrowed as if 2 reindexed + 1 dropped:
+       raised=0   counts={'mismatched': 5, 'resolved': 3}
+       RESOLVED alfred_e2e / alfred_test_cc / template1, 5 left open
+```
+
+### Found on the way, filed rather than fixed
+
+- [ ] **`SNAG-AGENT-006`** — a sustained fault still writes one alert row
+      per run. `sysadmin-organiser-timer critical` held **60 unresolved
+      rows in five hours**. This is `SNAG-AGENT-004`'s *raise* side: that
+      session fixed the resolve, which bounds the leak at retention but
+      does not stop it. Not fixed here because both halves must move
+      together — dedup without removing the family from
+      `RESOLVABLE_TITLE_PATTERNS` makes the rows flip-flop, and those are
+      the families carrying `critical`
+- [ ] **The `REINDEX` half of `SNAG-DB-002` stays open**, and stays
+      manual. Eight databases, two of them another application's, one of
+      them 16 GB. It wants a quiet window and a human
+
+---
+
 ## Archive
 
 - Sessions 10–23, 2026-07-24 maintenance, and SNAGs fixed in that period →
