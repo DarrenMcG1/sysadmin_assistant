@@ -386,7 +386,18 @@ def test_the_agent_is_self_monitored():
 def test_the_agent_name_is_accepted_by_the_alerts_constraint():
     """sysadmin.alerts has a CHECK constraint enumerating agents; the
     first live run was rejected by it after the scan had succeeded.
-    Migration 007 widened it, and AGENT_NAMES mirrors it."""
+    Migration 007 widened it for this agent.
+
+    Asserted as *containment against 007*, not equality: 007 is a fact
+    about Session 26 and is permanently true, whereas "the constraint
+    lists exactly AGENT_NAMES" is an invariant that has to follow the
+    migration head.  Fusing the two made this test fail on every new
+    agent, with the fix each time being an edit to an unrelated
+    session's test — which is how it read when `estate_judge` arrived at
+    012.  The invariant lives in
+    `tests/test_estate_judge_wiring.py::test_the_newest_constraint_migration_matches_agent_names`,
+    which finds the head itself and cannot rot.
+    """
     import importlib.util
     from pathlib import Path
 
@@ -403,4 +414,5 @@ def test_the_agent_name_is_accepted_by_the_alerts_constraint():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    assert set(module.AGENTS) == set(AGENT_NAMES)
+    assert "service_discovery" in module.AGENTS
+    assert set(module.AGENTS) <= set(AGENT_NAMES)

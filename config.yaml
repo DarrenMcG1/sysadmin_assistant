@@ -388,6 +388,38 @@ agents:
     # SNAG-AGENT-002.  Set to 0 to record findings and never alert.
     alert_threshold: 5
 
+  # The judging swap (ADR-0005; estate-manager ADR-0004 §6). The estate
+  # manager publishes and never acts — it files audit findings rather
+  # than alerting, and it never grades its own scan. This agent reads its
+  # four published surfaces on 8400 and decides what wakes a human.
+  #
+  # Hourly, not at the sysadmin agent's 300 s: the producers change twice
+  # a day (scan 04:30, audit 05:03) and /api/projects/attention re-walks
+  # ~26 .project.yaml manifests from disk on every request.
+  estate_judge:
+    enabled: true
+    # Must agree with estate-manager-api's url in services.yaml. Not
+    # derived from it deliberately: renaming that service, or setting
+    # `monitor: false` on it, would silently stop the judging for an
+    # unrelated reason. A test asserts the two agree instead.
+    base_url: http://localhost:8400
+    poll_interval_hours: 1
+    # DERIVED, not chosen: estate-manager-scan.timer is daily at 04:30
+    # and estate-manager-audit.timer daily at 05:03, so 26h is one
+    # interval plus the same two-hour margin the briefing already uses
+    # for facts.stale_sources. Shorter alerts on a timer that is late.
+    scan_max_age_hours: 26
+    audit_max_age_hours: 26
+    # INVENTED, and flagged as such. Nothing on this box records what a
+    # normal GPU queue looks like — until estate-manager's Session 3
+    # there was no queue. Move these once a busy day has been observed.
+    queue_max_depth: 3
+    queue_max_wait_seconds: 900
+    # There is deliberately no threshold for dropped_total, expired_total
+    # or grants_total: they are lifetime count(*) values over gpu_leases,
+    # so any rule on them raises a row no future state can clear. That is
+    # redis unreachable's 6,283 rows arriving by a new route.
+
   log_aggregator:
     enabled: true
     poll_interval_seconds: 60

@@ -31,8 +31,17 @@ class Alert(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "severity IN ('info', 'warning', 'critical')",
             name="chk_alert_severity",
         ),
+        # Kept in step with the migrations by hand, and it had drifted:
+        # `service_discovery` was added to the database by migration 007
+        # in Session 26 and never here, because alembic's autogenerate
+        # does not diff CHECK constraints (the blind spot
+        # `core/schema_guard.py` records for its own reasons). Nothing
+        # broke, since no code path builds this table from metadata —
+        # which is also why nothing caught it. `estate_judge` arrives
+        # with migration 012.
         CheckConstraint(
-            "agent IN ('sysadmin', 'project_organiser', 'file_organiser', 'log_aggregator')",
+            "agent IN ('sysadmin', 'project_organiser', 'file_organiser',"
+            " 'log_aggregator', 'service_discovery', 'estate_judge')",
             name="chk_alert_agent",
         ),
         Index("idx_alerts_active", "created_at", postgresql_where=text("resolved = FALSE")),

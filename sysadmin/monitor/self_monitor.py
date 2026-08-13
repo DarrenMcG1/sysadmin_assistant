@@ -49,6 +49,7 @@ AGENT_NAMES = (
     "file_organiser",
     "log_aggregator",
     "service_discovery",
+    "estate_judge",
 )
 
 #: Minimum recent runs needed before a duration trend is meaningful.
@@ -122,6 +123,12 @@ def agent_schedules(config: AppConfig) -> dict[str, AgentSchedule]:
             enabled=agents.service_discovery.enabled,
             interval_seconds=agents.service_discovery.scan_interval_hours * 3600,
             job_id="service_discovery_scan",
+        ),
+        "estate_judge": AgentSchedule(
+            name="estate_judge",
+            enabled=agents.estate_judge.enabled,
+            interval_seconds=agents.estate_judge.poll_interval_hours * 3600,
+            job_id="estate_judge_poll",
         ),
     }
 

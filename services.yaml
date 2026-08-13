@@ -258,6 +258,24 @@ services:
     systemd: { unit: estate-manager-review.timer, scope: user }
     controllable: false
 
+  # The conformance audit (estate-manager Session 5, its ADR-0009), added
+  # 2026-08-13 as part 1 of the delegated requirement its ADR-0009 §8
+  # recorded in this repository's tasks.md. It could not add it itself:
+  # ADR-0002's bounded exception closed the same day, so the estate may
+  # no longer edit this repository's runtime-read config and records the
+  # requirement here instead.
+  #
+  # Wiring the timer and judging /api/audit/invariants are two different
+  # jobs and both are needed. This entry catches a timer that stops
+  # firing; `estate_judge` catches an audit that runs and goes wrong.
+  # Neither sees the other's fault.
+  - project: estate-manager
+    name: estate-manager-audit-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: estate-manager-audit.timer, scope: user }
+    controllable: false
+
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any
   # repository, which is what the unit sweep already calls a host unit.

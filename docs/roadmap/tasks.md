@@ -16,14 +16,33 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
-- [ ] **The judging session.** Wire the estate's published surfaces into
-      checks and alerts: `GET :8400/api/projects/invariants` (scan age,
-      parse failures, repos skipped) and `GET :8400/api/projects/attention`
-      (health breaches, idle nudges). The estate publishes and may not
-      act; this repository judges — that is the swap estate ADR-0004 §6
-      records. **Until this runs, idle nudges reach no tray toast**: the
-      data exists on 8400 and nothing here reads it yet
-- [ ] **Watch and judge the estate's audit agent** (delegated requirement
+- [x] **The judging session.** *(2026-08-13, Session 45.)* Landed as a
+      new agent, `estate_judge` — `sysadmin/estate/` with a client, a
+      pure `judgements` module and the lifecycle. It judges **four**
+      surfaces, not the two this entry named: the scan's invariants and
+      attention as planned, plus `GET :8400/api/audit/invariants` (which
+      estate ADR-0009 requires sysadmin to judge — "the estate never
+      grades its own audit") and `GET :8400/api/queue/invariants` (ADR-0007,
+      already live and named in `services.yaml`'s own comment as ours to
+      judge). Hourly, since the producers change twice a day and
+      `/attention` re-walks ~26 manifests from disk per request.
+      Migration 012 widens `chk_alert_agent`
+  - **Nudge severity is taken verbatim** from the producer, which
+    computes it on the ladder that moved with the domain; re-deriving it
+    here would be two implementations in two repositories. Health
+    breaches carry no published severity — that machinery was deleted
+    rather than ported — so they are `warning`, one rung, never `critical`
+  - **Reachability is deliberately not judged**: `estate-manager-api` is
+    already an `http` entry in `services.yaml` and both estate timers are
+    `kind: timer` beside it. A second owner of one lifecycle closes a row
+    while the first still holds it true
+  - **The cumulative queue totals are reported and never judged**
+    (`dropped_total` is already 1), because a rule on a lifetime
+    `count(*)` raises a row no future state can clear
+  - Follow-ups filed: `SNAG-ESTATE-002` (the producer's nudge title never
+    reaches the wire) and `SNAG-ESTATE-003` (no escalation for these
+    families)
+- [x] **Watch and judge the estate's audit agent** *(both parts done 2026-08-13, Session 45)* (delegated requirement
       from estate-manager Session 5, 2026-08-13 — its
       [ADR-0009](../../../estate-manager/docs/adr/0009-audit-agent-shape.md) §8).
       Two parts, and the first is overdue by the estate's own contract:
@@ -44,6 +63,25 @@ debts that landing deliberately left behind._
          `/api/audit/findings`, each carrying how long it has stood. The
          estate publishes and grades nothing; this repository judges —
          the same swap as the scan above
+  - **Part 1 landed**: `estate-manager-audit-timer` is in `services.yaml`
+    beside the scan and review timers, `kind: timer`, user scope.
+  - **Part 2 landed** in `sysadmin/estate/judgements.py` as
+    `judge_audit_invariants` — audit age (26 h: one daily interval plus
+    the briefing's existing two-hour margin), `checks_errored` (which
+    **names** the erroring checks from the `checks{}` map, because a
+    check that errored produced no finding, so a clean-looking result for
+    that dimension means nothing *looked*), `publish_error` and `error`,
+    each its own alert family.
+  - **`findings_total` is deliberately not judged**, and that is why this
+    entry's wording is right to name only the three: the estate files
+    findings about *other* repositories, and 8 of today's 10 are the
+    collation family `monitor/collation.py` already holds eight open rows
+    for. A rule on the total would announce this service's own alerts a
+    second time through a different producer.
+  - **The two parts catch different faults and both are needed**: the
+    `services.yaml` entry catches a timer that stops firing, and
+    `estate_judge` catches an audit that runs and goes wrong. Neither
+    sees the other's.
 - [ ] **Drop the frozen project tables** — `sysadmin.project_snapshots`
       and `sysadmin.project_reviews`, their `FROZEN_TABLES` exclusions in
       `alembic/env.py` **and** `tests/test_schema_drift.py` (both, or a

@@ -768,6 +768,84 @@ row per run — 60 for one dead timer in five hours. Bounded rather than
 immortal since Session 41's resolve, and not fixed here because both
 halves must move together.
 
+**The estate publishes and never acts; this repository judges — and the
+judge owns every row it sweeps, which is what lets it do both** (Session
+45). `sysadmin/estate/` is a package rather than a module in `monitor/`
+because it is a domain: a client that pulls, a **pure** `judgements`
+module holding every threshold, and an agent holding only the lifecycle.
+It reads four surfaces on 8400 — the scan's invariants, `attention`, the
+audit's invariants and the queue's — hourly, because the producers change
+twice a day and `/api/projects/attention` re-walks ~26 `.project.yaml`
+manifests from disk on every request.
+
+`monitor/collation.py` records that dedup and a set-based resolve are
+mutually exclusive. They are — *there*. That sweep's exclusion set is the
+titles the run **raised**, so a deduplicating family (which raises
+nothing on run two) has its still-true row resolved, re-raised, resolved,
+and each flip clears the tray's `{severity}:{title}` fingerprint. This
+agent's exclusion set is the titles the run **judged**, which is a
+different set: dedup suppresses the raise, never the judgement. A fault
+that persists is in `current` every run and is never swept; a fault that
+clears leaves `current` once and resolves once. That is available only to
+an agent that owns every row it sweeps — `_resolve_recovered` scopes on
+`Alert.agent == self.name`, so `estate_judge` rows are unreachable from
+the sysadmin agent by construction.
+
+Five rules, three of them the opposite of the obvious implementation:
+
+1. **A cumulative total is not a rate.** The queue publishes
+   `dropped_total`, `expired_total` and `grants_total` as `count(*)` over
+   the whole `gpu_leases` table. `dropped_total` is 1 today, so a `> 0`
+   rule raises a row no future state can clear — `redis unreachable`'s
+   6,283 and `Critical disk usage on /`'s 13,971 arriving by a fourth
+   route. Only `depth` and `oldest_waiting_seconds` are gauges; the
+   totals are carried in `details` as evidence.
+2. **The sweep is scoped to the surfaces the run read.** Four independent
+   surfaces come from one process, so three answering while one 500s is a
+   real state; sweeping globally would close every health breach and idle
+   nudge on the strength of a payload nobody received. Rows carry
+   `details['estate_surface']` rather than being matched back by title —
+   `COLLATION_DETAIL_KEY`'s rule.
+3. **Unreachability is not judged at all.** `estate-manager-api` is an
+   `http` entry in `services.yaml` polled every 300 s, with both estate
+   timers beside it as `kind: timer`. A second owner of one lifecycle
+   closes a row while the first still holds it true. 8400 being down
+   costs a log line and `details['unread_surfaces']`, which **names** the
+   surfaces.
+4. **Nudge severity is the producer's; health severity is ours.** The
+   estate computes a nudge's rung on the ladder that moved with the
+   domain, so taking it verbatim keeps one implementation. `health`
+   carries no severity — that machinery was deleted rather than ported —
+   so a breach is `warning`, one rung, never `critical`. The audit's
+   `findings_total` is never judged: 8 of today's 10 are the collation
+   family this service already raises, and the rest are other
+   repositories' conformance, which the estate rules send to their own
+   ADR processes. What is judged is whether the audit **ran**.
+5. **Variable text never enters a title.** `sources_unreachable` is free
+   text ending in an exception class name, so a per-source title opens a
+   second row the day the same dead seam fails with `ConnectError`
+   instead of `HTTPStatusError`. One row; `details['sources']` names
+   them. The title is also kept clear of `RESOLVABLE_TITLE_PATTERNS` by
+   construction — `Estate scan could not reach sources`, not `… sources
+   unreachable`, which `% unreachable` would match.
+
+`scan_max_age_hours`/`audit_max_age_hours` are **derived** (both timers
+are daily, plus the briefing's existing two-hour `stale_sources` margin);
+`queue_max_depth`/`queue_max_wait_seconds` are **invented** and say so in
+config, because until estate-manager's Session 3 there was no queue to
+measure. `base_url` duplicates `services.yaml` deliberately — deriving it
+would stop the judging silently when a service is renamed — and a test
+asserts the two agree.
+
+Two gaps are filed rather than assumed settled: `SNAG-ESTATE-002` (the
+producer's `Nudge.title`/`.message` are `@property` and `asdict` drops
+them, so this repository builds a format the estate believes it owns —
+and `judge_attention` has therefore never been exercised against a
+populated payload, because both lists have been empty every time anyone
+has looked) and `SNAG-ESTATE-003` (no escalation; the loud rung would be
+`critical`, which is reserved for faults on this box, and the family most
+in need already arrives pre-escalated from the producer).
+
 **Journal reads resume from a cursor, and it must advance over what the
 filter discards.** `read_journal` was called with `since="2m ago"` on a
 60-second poll, so every unit-journal event was stored **exactly twice**.

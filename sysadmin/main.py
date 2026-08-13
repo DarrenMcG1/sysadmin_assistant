@@ -42,6 +42,7 @@ from sysadmin.core.retention import run_retention
 from sysadmin.core.scheduler import Scheduler
 from sysadmin.core.schema_guard import verify_schema_revision
 from sysadmin.core.unit_failure import OWN_UNIT, resolve_unit_failures
+from sysadmin.estate.agent import EstateJudgeAgent
 from sysadmin.files.agent import FileOrganiserAgent
 from sysadmin.files.review import run_weekly_review as run_weekly_disk_review
 from sysadmin.files.router import router as files_router
@@ -70,6 +71,7 @@ sysadmin_agent = SysAdminAgent()
 file_organiser_agent = FileOrganiserAgent()
 log_aggregator_agent = LogAggregatorAgent()
 service_discovery_agent = ServiceDiscoveryAgent()
+estate_judge_agent = EstateJudgeAgent()
 
 
 @asynccontextmanager
@@ -190,6 +192,20 @@ async def lifespan(app: FastAPI):
             job_id="service_discovery_scan",
             func=service_discovery_agent.run,
             hours=agents_config.service_discovery.scan_interval_hours,
+            first_run_delay_seconds=first_run_delay,
+        )
+
+    # Estate Judge: the estate publishes, this judges (ADR-0005). Hourly
+    # rather than at the sysadmin agent's 300 s, because the producers
+    # change twice a day and `attention` re-walks ~26 manifests from disk
+    # on every request. It gets a first-run delay for the reason the
+    # hours-scale agents do — IntervalTrigger alone puts the first fire
+    # at now + interval, so a box that restarts daily never judges.
+    if agents_config.estate_judge.enabled:
+        scheduler.schedule_interval(
+            job_id="estate_judge_poll",
+            func=estate_judge_agent.run,
+            hours=agents_config.estate_judge.poll_interval_hours,
             first_run_delay_seconds=first_run_delay,
         )
 

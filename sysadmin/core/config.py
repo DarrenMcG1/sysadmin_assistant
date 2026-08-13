@@ -460,6 +460,60 @@ class ServiceDiscoveryConfig(BaseModel):
     alert_threshold: int = 5
 
 
+class EstateJudgeConfig(BaseModel):
+    """Judging the estate's published surfaces (the judging swap).
+
+    The estate manager publishes and never acts — it files audit
+    findings rather than alerting, and it never grades its own scan
+    (estate-manager ADR-0003, ADR-0004 §6).  This agent reads its four
+    published surfaces on 8400 and decides what wakes a human.
+
+    ``base_url`` duplicates the address already in ``services.yaml``
+    under ``estate-manager-api``, and the duplication is deliberate
+    rather than sloppy.  Deriving it from that entry would make this
+    agent stop working when a service is renamed or given
+    ``monitor: false`` — a silent failure with an unrelated cause, which
+    is the shape this repository keeps filing snags about.  What keeps
+    the two honest is a test
+    (``tests/test_estate_judge_wiring.py``) asserting they agree, not a
+    runtime lookup.
+
+    **Which thresholds are measured and which are judgements** is worth
+    knowing before moving one:
+
+    - ``scan_max_age_hours`` / ``audit_max_age_hours`` are **derived**.
+      ``estate-manager-scan.timer`` fires at 04:30 and
+      ``estate-manager-audit.timer`` at 05:03, both daily, so 26 hours
+      is one interval plus the two-hour margin the briefing already uses
+      for ``facts.stale_sources``.  A shorter window alerts about a
+      timer that is merely late.
+    - ``queue_max_depth`` / ``queue_max_wait_seconds`` are **invented**,
+      and say so here rather than in a docstring nobody opens.  Nothing
+      on this box records what a normal GPU queue looks like, because
+      until estate-manager's Session 3 there was no queue; these are
+      starting points to be moved once a busy day has been observed.
+
+    There is no threshold for ``dropped_total``, ``expired_total`` or
+    ``grants_total``, and there must not be: they are lifetime
+    ``count(*)`` values, so any rule on them raises a row no future
+    state can clear.  See :mod:`sysadmin.estate.judgements` rule 1.
+    """
+
+    enabled: bool = True
+    #: Must match ``estate-manager-api``'s entry in ``services.yaml``.
+    base_url: str = "http://localhost:8400"
+    #: Hourly: the producers change twice a day, and ``attention``
+    #: re-walks ~26 manifests from disk per request, so a 300 s poll
+    #: would have the estate reading the filesystem 288 times a day to
+    #: serve unchanged data.  An hour is also the longest a nudge waits
+    #: for its toast after the 04:30 scan.
+    poll_interval_hours: int = 1
+    scan_max_age_hours: float = 26.0
+    audit_max_age_hours: float = 26.0
+    queue_max_depth: int = 3
+    queue_max_wait_seconds: float = 900.0
+
+
 class LogSource(BaseModel):
     name: str
     type: str  # journalctl | file
@@ -711,6 +765,7 @@ class AgentsConfig(BaseModel):
     service_discovery: ServiceDiscoveryConfig = Field(
         default_factory=ServiceDiscoveryConfig
     )
+    estate_judge: EstateJudgeConfig = Field(default_factory=EstateJudgeConfig)
 
 
 # --- Root config ---
