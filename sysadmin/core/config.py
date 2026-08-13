@@ -624,6 +624,21 @@ class SelfMonitorConfig(BaseModel):
     #: Hours a ``warning`` stall may stand open before it is re-raised as
     #: ``critical``. 0 means "critical from the first detection".
     escalate_after_hours: float = 24.0
+    #: Consecutive failed runs before :mod:`sysadmin.monitor.failures`
+    #: speaks. **A count of runs, deliberately not a duration** — the
+    #: opposite unit from ``escalate_after_hours`` two lines up, because
+    #: ``agent_runs`` records a run rather than a schedule and "failing
+    #: for three hours" cannot tell an agent that is failing apart from
+    #: one that is not running. The latter is the stall family's
+    #: question, and a time-based threshold here would silently merge
+    #: the two.
+    #:
+    #: 2 rather than 1 because the news is "reproducible", not
+    #: "happened": a single failure clears on the next run, which for
+    #: ``log_aggregator`` is 60 seconds later. The trade is that a count
+    #: is fast for a frequent agent (2 minutes) and slow for a daily one
+    #: (2 days); raising it slows the daily agents further.
+    failure_alert_threshold: int = 2
 
     @model_validator(mode="after")
     def _escalation_gap_is_not_negative(self) -> "SelfMonitorConfig":
@@ -631,6 +646,23 @@ class SelfMonitorConfig(BaseModel):
             raise ValueError(
                 f"self_monitor.escalate_after_hours ({self.escalate_after_hours}) "
                 "must be >= 0; a negative gap would escalate before it warned"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _failure_threshold_is_at_least_one(self) -> "SelfMonitorConfig":
+        """0 would alert on every *successful* run.
+
+        ``_consecutive_failures`` returns 0 for a healthy agent, and the
+        family's test is ``>= threshold`` — so a threshold of 0 makes
+        every agent permanently "failing", which is five criticals and a
+        muted monitor rather than an obviously-wrong config.
+        """
+        if self.failure_alert_threshold < 1:
+            raise ValueError(
+                "self_monitor.failure_alert_threshold "
+                f"({self.failure_alert_threshold}) must be >= 1; 0 would "
+                "match every agent, including the ones that are fine"
             )
         return self
 

@@ -70,7 +70,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sysadmin.core.escalation import Ladder, Step, step_for
+from sysadmin.core.escalation import (
+    Ladder,
+    Step,
+    hours_since,
+    humanise_hours,
+    step_for,
+)
 
 #: Title suffix for stalled-agent alerts.  The one place it is written —
 #: raise, escalate and resolve all derive their title from
@@ -122,7 +128,7 @@ class StallAlert:
         """
         base = f"The {self.agent_name} agent has not run since {self.last_run_at}"
         if self.step is Step.ESCALATE and self.hours_since_first_alert is not None:
-            hours = _humanise_hours(self.hours_since_first_alert)
+            hours = humanise_hours(self.hours_since_first_alert)
             return (
                 f"Still stalled {hours} after the first warning — "
                 f"{self.agent_name} has not run since {self.last_run_at}"
@@ -165,18 +171,6 @@ class StallAlert:
             ),
             "escalate_after_hours": self.escalate_after_hours,
         }
-
-
-def _humanise_hours(hours: float) -> str:
-    """``hours`` as a phrase a notification can end a clause with."""
-    if hours < 1:
-        minutes = max(1, int(round(hours * 60)))
-        return f"{minutes} minute" if minutes == 1 else f"{minutes} minutes"
-    if hours < 48:
-        whole = int(round(hours))
-        return f"{whole} hour" if whole == 1 else f"{whole} hours"
-    days = int(hours // 24)
-    return f"{days} day" if days == 1 else f"{days} days"
 
 
 #: An open row whose ``details`` carry this key belongs to a stall.
@@ -230,7 +224,7 @@ def evaluate(
             continue
 
         existing = open_stalls.get(name)
-        elapsed_hours = _hours_since(existing.created_at, at) if existing else 0.0
+        elapsed_hours = hours_since(existing.created_at, at) if existing else 0.0
 
         # Threshold 0: the fault is on the ladder the moment it is seen.
         # Detection has already applied the agent's own grace window, so
@@ -262,21 +256,3 @@ def evaluate(
     alerts.sort(key=lambda a: (a.severity != "critical", a.agent_name))
     return alerts
 
-
-def _hours_since(then: datetime, now: datetime) -> float:
-    """Hours between ``then`` and ``now``, tolerating a naive ``then``.
-
-    ``alerts.created_at`` is ``DateTime(timezone=True)``, so a row read
-    back through asyncpg is aware and needs no coercion.  The guard is
-    for the values that do **not** come from a round trip: an ``Alert``
-    built in a test, and a default applied in Python rather than by the
-    database.  ``self_monitor`` already carries the same two lines for
-    ``agent_runs.started_at``, which is declared the same way — mixing an
-    aware and a naive datetime raises ``TypeError`` rather than returning
-    something merely wrong, so the whole health check would fail instead
-    of escalating.  UTC is assumed because that is what
-    :meth:`BaseAgent.raise_alert` writes.
-    """
-    if then.tzinfo is None:
-        then = then.replace(tzinfo=UTC)
-    return max(0.0, (now - then).total_seconds() / 3600.0)

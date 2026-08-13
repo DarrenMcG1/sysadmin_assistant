@@ -25,12 +25,14 @@ from typing import Any
 import httpx
 import psutil
 from sqlalchemy import select, update
+from sqlalchemy.exc import SQLAlchemyError
 
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import AnomalyConfig, AppConfig, get_config
 from sysadmin.core.models.alert import Alert
-from sysadmin.monitor import stalls
+from sysadmin.core.text import TRUNCATION_MARKER
+from sysadmin.monitor import failures, stalls
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
@@ -40,6 +42,28 @@ from sysadmin.monitor.services import SKIPPED, ServiceEntry, check_plan, get_ser
 from sysadmin.monitor.systemd import SystemdQueryError, get_unit_status, restart_unit
 
 logger = logging.getLogger(__name__)
+
+#: Ceiling on the DBAPI error text carried into a ``service_health``
+#: row.  A SQLAlchemy exception embeds the failing statement and its
+#: bound parameters, which for a rejected health row is several hundred
+#: characters of noise around one useful clause; the full text goes to
+#: the log, which is where anyone diagnosing it will be looking.
+WRITE_ERROR_CHARS = 400
+
+
+def _truncate_error(exc: Exception) -> str:
+    """The exception as one capped line, class name first.
+
+    The class name leads because it is the part that survives
+    truncation and the part that classifies the fault —
+    ``IntegrityError`` versus ``OperationalError`` is the difference
+    between a bad row and a lost connection, and only the first is this
+    service's own doing.
+    """
+    text = " ".join(f"{exc.__class__.__name__}: {exc}".split())
+    if len(text) <= WRITE_ERROR_CHARS:
+        return text
+    return text[:WRITE_ERROR_CHARS] + TRUNCATION_MARKER
 
 #: Title suffix for stalled-agent alerts. Re-exported from
 #: :mod:`sysadmin.monitor.stalls`, which owns it along with the escalation
@@ -97,6 +121,14 @@ def disk_alert_title(mount: str, critical: bool) -> str:
 #:   application is dead and the lifespan resolves it on the next start.
 #:   That pairing is what makes the row legitimate; resolving it from here
 #:   would close it before anyone saw it.
+#: - ``% agent failing`` — :mod:`sysadmin.monitor.failures` owns the same
+#:   quiet → loud ladder for agents whose *runs* keep failing, and
+#:   resolves off the streak returning to zero.  Its suffix was chosen so
+#:   that it cannot match any pattern in this tuple: ``failing`` is not
+#:   one of :data:`SERVICE_ALERT_KINDS`, and a family ending in
+#:   ``degraded``/``warning``/``critical``/``unreachable``/``auto-restarted``
+#:   would have its rows closed from here while they were still true.
+#:   ``tests/test_agent_failures.py`` pins that.
 RESOLVABLE_TITLE_PATTERNS = tuple(
     f"% {kind}" for kind in SERVICE_ALERT_KINDS
 ) + (
@@ -119,6 +151,11 @@ RESOLVABLE_TITLE_PATTERNS = tuple(
 #: ``agent_runs.details`` reads as "the check did not run", which is the
 #: exact confusion Session 39 exists to remove.
 _NO_STALLS: dict[str, int] = {"stalled": 0, "raised": 0, "escalated": 0}
+
+#: The failure-ladder outcome of a run that did nothing about failing
+#: agents. Zeroes rather than an absent key, for the same reason as
+#: :data:`_NO_STALLS`.
+_NO_AGENT_FAILURES: dict[str, int] = {"failing": 0, "raised": 0, "escalated": 0}
 
 
 #: Timer properties worth recording, under readable names.  ``systemctl
@@ -166,6 +203,11 @@ class SysAdminAgent(BaseAgent):
         # than accumulated: a stale count reported in agent_runs.details
         # would read as an escalation that this run performed.
         self._stall_counts: dict[str, int] = _NO_STALLS
+        # Deliberately NOT named _failure_counts: that one already
+        # exists above and counts consecutive *service* check failures
+        # for auto-restart. Two meanings behind one name in one class is
+        # how a counter gets reset by the wrong branch.
+        self._agent_failure_counts: dict[str, int] = _NO_AGENT_FAILURES
         # Exact alert titles raised by the current run — the "still
         # failing" set _resolve_recovered subtracts. Collected in
         # raise_alert rather than at the ten call sites, so it cannot
@@ -195,6 +237,7 @@ class SysAdminAgent(BaseAgent):
     async def _execute(self, session) -> AgentResult:
         """Run all health checks and record resource snapshot."""
         self._stall_counts = _NO_STALLS
+        self._agent_failure_counts = _NO_AGENT_FAILURES
         self._raised_titles = set()
         config = get_config()
         agent_config = config.agents.sysadmin
@@ -204,6 +247,11 @@ class SysAdminAgent(BaseAgent):
         # open alerts are protected from the resolve below — see
         # _resolve_recovered.
         unhealthy: set[str] = set()
+        # Services whose own savepoint rolled back. Named rather than
+        # counted in agent_runs.details: which service could not be
+        # written decides whether it matters, the lesson
+        # `details['truncated_sources']` records on the log side.
+        write_failures: list[str] = []
 
         # --- Service health checks ---
         # One connection pool per run, bound to this run's event loop and
@@ -214,27 +262,58 @@ class SysAdminAgent(BaseAgent):
                 if status not in ("ok", SKIPPED):
                     unhealthy.add(svc.name)
 
-                # Record to DB
-                health = ServiceHealth(
-                    service_name=svc.name,
-                    status=status,
-                    response_time_ms=response_time_ms,
-                    details=details,
-                )
-                session.add(health)
+                # One savepoint per service — SNAG-DB-001's second gap.
+                # These writes used to accumulate in the run's single
+                # transaction and land in one commit, so the rejected
+                # `venture-chat-large` row aborted the whole thing and
+                # took the other eighteen services' checks with it. Zero
+                # rows reached `service_health` for 39 hours.
+                #
+                # The savepoint is load-bearing *because leaving the
+                # block flushes*. `session.add` never talks to the
+                # database, so a CHECK violation surfaces at flush time
+                # — which, before this, was the single commit at the end
+                # of the run, by which point the offending row could not
+                # be told apart from the eighteen good ones.
+                try:
+                    async with session.begin_nested():
+                        session.add(ServiceHealth(
+                            service_name=svc.name,
+                            status=status,
+                            response_time_ms=response_time_ms,
+                            details=details,
+                        ))
+                        # Inside the savepoint deliberately: a service's
+                        # health row and the alert raised about it are
+                        # one statement about that service, and half of
+                        # it committed is worse than neither.
+                        svc_alerts = await self._handle_status(
+                            session, svc, status, details
+                        )
+                except SQLAlchemyError as exc:
+                    await self._isolate_write_failure(session, svc, status, exc)
+                    # Nothing was measured *and recorded*, so this
+                    # service's open alerts must survive the run —
+                    # `_resolve_recovered` skips whatever is in
+                    # `unhealthy`, and resolving on an unknown state
+                    # announces a recovery nobody observed.
+                    unhealthy.add(svc.name)
+                    write_failures.append(svc.name)
+                    continue
 
-                # Push a change event when a service flips state
+                alerts_raised += svc_alerts
+
+                # Push a change event when a service flips state. After
+                # the savepoint, not before: an event announcing a
+                # transition whose row rolled back is a state change the
+                # database never saw, and `_last_status` would suppress
+                # the real one on the next run.
                 if self._last_status.get(svc.name) != status:
                     self._last_status[svc.name] = status
                     self._queue_event(
                         "service.status",
                         {"service": svc.name, "status": status},
                     )
-
-                # Alerting logic (+ auto-restart)
-                alerts_raised += await self._handle_status(
-                    session, svc, status, details
-                )
 
         # --- Resource snapshot ---
         snapshot = await self._take_resource_snapshot(config)
@@ -256,7 +335,7 @@ class SysAdminAgent(BaseAgent):
         )
 
         # Self-monitoring — has another agent silently stopped running?
-        alerts_raised += await self._check_agent_liveness(session, config)
+        alerts_raised += await self._check_agent_health(session, config)
 
         # Everything this run measured and did not alert on has recovered.
         alerts_resolved = await self._resolve_recovered(session, unhealthy)
@@ -269,14 +348,85 @@ class SysAdminAgent(BaseAgent):
                 "services_checked": checked,
                 "services_declared": len(services),
                 "alerts_resolved": alerts_resolved,
+                # Empty list, never an absent key: `{}` in the details
+                # blob reads as "the isolation did not run", which is
+                # the confusion this whole area exists to remove.
+                "write_failures": write_failures,
                 # Recorded so a run that escalated an existing stall is
                 # distinguishable from one that found a new one — the two
                 # sum into `alerts_raised` and mean different things.
                 "stalls": self._stall_counts,
+                # The failure family's counts, reported beside the stall
+                # family's and never summed with them: "has not run" and
+                # "ran and failed" are different states, which is the
+                # whole reason they are separate alert families.
+                "agent_failures": self._agent_failure_counts,
             },
         )
 
     # --- Service checks ---
+
+    async def _isolate_write_failure(
+        self, session, svc: ServiceEntry, status: str, exc: Exception
+    ) -> None:
+        """Turn one service's failed write into one bad tile, not a blackout.
+
+        The savepoint has already rolled back by the time this is
+        called, so the session is usable again and a *second* savepoint
+        can record that the check happened and could not be stored.
+        ``status="error"`` because that is what the column's own
+        vocabulary calls "nothing is known about this service", and
+        because it is the value most likely to be legal: the failure
+        being isolated is, in the case this exists for, a CHECK
+        violation on this very column.
+
+        Writing something matters more than it looks.  SNAG-DB-001's
+        39-hour hole was invisible precisely because the absence of a
+        row is indistinguishable from a service nobody configured — the
+        same confusion ``_record_outcome`` was fixed for in Session 41.
+        A row saying "error" makes the tray show a broken tile, which is
+        a question someone asks.
+
+        **What a savepoint does not undo.**  It rolls back SQL and
+        nothing else.  ``_handle_status`` may have restarted a unit
+        through ``systemctl`` and will have bumped ``_degraded_counts``
+        or ``_failure_counts``, both of which live in memory; those
+        stand.  The streak counters being one ahead can fire the next
+        alert one check early, which is the mild direction, and the
+        alternative — snapshotting them per service — buys accuracy in
+        a path that only runs when the database is already rejecting
+        writes.
+
+        Failure to write even this is logged and swallowed: raising here
+        would abort the run and reinstate exactly the behaviour being
+        removed.
+        """
+        logger.error(
+            "service_write_isolated",
+            extra={
+                "service": svc.name,
+                "attempted_status": status,
+                "error": str(exc),
+            },
+        )
+        try:
+            async with session.begin_nested():
+                session.add(ServiceHealth(
+                    service_name=svc.name,
+                    status="error",
+                    response_time_ms=None,
+                    details={
+                        "source": "write_isolation",
+                        "attempted_status": status,
+                        "error": _truncate_error(exc),
+                    },
+                ))
+        except SQLAlchemyError:
+            logger.exception(
+                "service_write_isolation_failed",
+                extra={"service": svc.name},
+            )
+
 
     async def _check_service(
         self, svc: ServiceEntry
@@ -951,11 +1101,156 @@ class SysAdminAgent(BaseAgent):
 
     # --- Self-monitoring ---
 
-    async def _check_agent_liveness(self, session, config: AppConfig) -> int:
+    async def _check_agent_health(self, session, config: AppConfig) -> int:
+        """Both self-monitoring families, off **one** snapshot of the tables.
+
+        ``agent_runs`` and ``alerts`` are read once here and handed to
+        both checks.  Fetching separately would let the two disagree
+        about the same agent between one query and the next — and their
+        mutual exclusion (a stalled agent is never also reported as
+        failing) is only sound if they are looking at the same data.
+
+        The two families are deliberately separate — see
+        :mod:`sysadmin.monitor.failures` for why "has not run" and "ran
+        and failed" are not one alert with two messages — but they are
+        one *decision*, made together, which is why there is one caller.
+
+        Counts are reset here rather than in ``_execute`` so that a run
+        with ``self_monitor.enabled`` false reports zeroes rather than
+        the previous run's numbers.
+        """
+        self._stall_counts = _NO_STALLS
+        self._agent_failure_counts = _NO_AGENT_FAILURES
+        if not config.self_monitor.enabled:
+            return 0
+
+        report = await build_self_report(session, config)
+        active = await self._active_alerts(session)
+
+        written = await self._check_agent_liveness(session, config, report, active)
+        written += await self._check_agent_failures(session, config, report, active)
+        return written
+
+    async def _check_agent_failures(
+        self,
+        session,
+        config: AppConfig,
+        report: dict[str, Any],
+        active: list[Alert],
+    ) -> int:
+        """Alert when an agent's runs keep failing, and keep saying so.
+
+        The reader SNAG-DB-001 was missing: for ~18 hours of uptime the
+        daemon logged ``agent_run_failed`` every five minutes and
+        nothing read it, because the thing that had broken *was* the
+        alerting path.  ``agent_runs`` has recorded those failures since
+        Session 41 — before that the ``failed`` row died in the
+        transaction the failure destroyed — and this is what reads them.
+
+        Lifecycle is identical to :meth:`_check_agent_liveness`: raise
+        quiet, escalate by resolving the quiet row and inserting a loud
+        one (never an in-place severity change, which keeps a tray
+        fingerprint that has already been suppressed), hold while a row
+        that loud is open.
+
+        **The handover between the two families is automatic**, and it
+        is the point of routing eligibility through
+        :func:`failures.is_failing`.  An agent that fails repeatedly and
+        then stops being scheduled ceases to be "failing" and becomes
+        "stalled": this run resolves its failure row and
+        :meth:`_check_agent_liveness` opens a stall row, so the owner
+        sees one open alert that changed its mind rather than two
+        criticals about one dead agent.
+
+        Returns:
+            Rows written — raises *and* escalations.
+            ``details["agent_failures"]`` breaks them down.
+        """
+        threshold = config.self_monitor.failure_alert_threshold
+        entries: list[dict[str, Any]] = report["agents"]
+
+        # The resolve set comes from the same predicate the raise does,
+        # rather than a second reading of "failing" — two copies of an
+        # eligibility rule drift in the direction nobody notices.
+        failing = {a["name"] for a in entries if failures.is_failing(a, threshold)}
+
+        # Keyed from details rather than by parsing the title apart,
+        # matching how the stall family finds its own rows.
+        open_failures: dict[str, tuple[Any, failures.OpenFailure]] = {}
+        for alert in active:
+            name = (alert.details or {}).get(failures.FAILURE_DETAIL_KEY)
+            if not name:
+                continue
+            open_failures[name] = (
+                alert,
+                failures.OpenFailure(
+                    alert_id=alert.id,
+                    severity=alert.severity,
+                    created_at=alert.created_at,
+                ),
+            )
+
+        due = failures.evaluate(
+            entries,
+            {name: entry[1] for name, entry in open_failures.items()},
+            failure_threshold=threshold,
+            escalate_after_hours=config.self_monitor.escalate_after_hours,
+        )
+
+        raised = 0
+        escalated = 0
+        for item in due:
+            if item.step is failures.Step.ESCALATE:
+                quiet_row = open_failures[item.agent_name][0]
+                quiet_row.resolved = True
+                quiet_row.resolved_at = datetime.now(UTC)
+                escalated += 1
+            else:
+                raised += 1
+            await self.raise_alert(
+                session,
+                severity=item.severity,
+                title=item.title,
+                message=item.message,
+                details=item.details,
+            )
+
+        # Ran clean again, or handed over to the stall family. Read from
+        # open_failures rather than recomputing titles, so this cannot
+        # drift from the lookup above.
+        await self._resolve_alert_ids(
+            session,
+            [
+                entry[1].alert_id
+                for name, entry in open_failures.items()
+                if name not in failing
+            ],
+        )
+
+        self._agent_failure_counts = {
+            "failing": len(failing),
+            "raised": raised,
+            "escalated": escalated,
+        }
+        return raised + escalated
+
+    async def _check_agent_liveness(
+        self,
+        session,
+        config: AppConfig,
+        report: dict[str, Any],
+        active: list[Alert],
+    ) -> int:
         """Alert when an agent has silently stopped running, and keep saying so.
 
-        Reuses the same report the ``/api/sysadmin/self`` endpoint serves,
-        so the alert and the endpoint can never disagree. Detection is
+        The report and the open-alert list are passed in by
+        :meth:`_check_agent_health` rather than fetched here, so this and
+        the failure family read **one** snapshot of ``agent_runs`` and
+        one of ``alerts``. Two fetches a few milliseconds apart could
+        disagree about whether an agent is stalled or failing, and the
+        two families' mutual exclusion is asserted against exactly that.
+        It is still the same report ``/api/sysadmin/self`` serves, so the
+        alert and the endpoint cannot disagree either. Detection is
         unchanged since it was written and was never the gap — see
         :mod:`sysadmin.monitor.stalls` for the Session 39 evidence that it
         caught ``SNAG-AGENT-003`` correctly and then went quiet.
@@ -984,13 +1279,8 @@ class SysAdminAgent(BaseAgent):
             down, so a run that only escalated is distinguishable from one
             that found a new stall.
         """
-        if not config.self_monitor.enabled:
-            return 0
-
-        report = await build_self_report(session, config)
         stalled = {a["name"]: a for a in report["agents"] if a["stalled"]}
 
-        active = await self._active_alerts(session)
         # Keyed by the *stalled agent*, from details rather than by parsing
         # the title back apart. Rows raised before Session 39 carry the
         # same key, so an alert already open when this deployed is found

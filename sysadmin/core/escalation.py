@@ -42,6 +42,7 @@ described in a comment at each call site:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import StrEnum
 
 #: Severity ordering, matching the tray's ``SEVERITY_LEVELS``.  The only
@@ -125,3 +126,50 @@ class Ladder:
         if elapsed >= threshold + escalation_gap:
             return self.loud
         return self.quiet
+
+
+def hours_since(then: datetime, now: datetime) -> float:
+    """Hours between ``then`` and ``now``, tolerating a naive ``then``.
+
+    The ladder's clock, and it lives beside the ladder for the reason
+    the ladder itself moved here: both families that climb it — stalled
+    agents and failing agents — measure the same elapsed time from the
+    same column, ``alerts.created_at``, and a third copy is how the two
+    stop agreeing.
+
+    That column is ``DateTime(timezone=True)``, so a row read back
+    through asyncpg is aware and needs no coercion.  The guard is for
+    the values that do **not** come from a round trip: an ``Alert``
+    built in a test, and a default applied in Python rather than by the
+    database.  Mixing an aware and a naive datetime raises
+    ``TypeError`` rather than returning something merely wrong, so an
+    unguarded subtraction here would take the whole health check down
+    instead of misreporting one row.  UTC is assumed because that is
+    what :meth:`BaseAgent.raise_alert` writes.
+
+    Clamped at zero: a row stamped a few milliseconds in the future by
+    clock skew is not a negative-age fault, and a negative ``elapsed``
+    would read as below every threshold and silently suppress the rung.
+    """
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=UTC)
+    return max(0.0, (now - then).total_seconds() / 3600.0)
+
+
+def humanise_hours(hours: float) -> str:
+    """``hours`` as a phrase a notification can end a clause with.
+
+    Shared for consistency rather than for economy: "still stalled 2
+    days after the first warning" and "still failing 2 days after the
+    first warning" are the same sentence about different faults, and an
+    owner comparing two toasts should not have to work out whether
+    "2 days" and "48 hours" mean the same thing.
+    """
+    if hours < 1:
+        minutes = max(1, int(round(hours * 60)))
+        return f"{minutes} minute" if minutes == 1 else f"{minutes} minutes"
+    if hours < 48:
+        whole = int(round(hours))
+        return f"{whole} hour" if whole == 1 else f"{whole} hours"
+    days = int(hours // 24)
+    return f"{days} day" if days == 1 else f"{days} days"

@@ -424,6 +424,87 @@ terminal and `sysadmin-failed.service` announces it, persistently
 not need anyone logged in. `tests/test_systemd_units.py` pins the two
 halves together, because either alone accomplishes nothing.
 
+**Serving against a schema this code was not written for is worse than
+not starting** (Session 43, SNAG-DB-001). `sysadmin/core/schema_guard.py`
+compares `alembic_version` against the packaged head in the lifespan and
+raises — deliberately **not** inside a `try`, unlike the unit-failure
+resolve three lines below it, because a stale alert row is worth less
+than a boot and a schema mismatch is the exact opposite trade. Migration
+009 was written, committed and never applied; two minutes later the
+daemon began writing a status the database rejected, and
+`service_health` took **no rows for 39 hours** while the tray went on
+rendering the last values it had. Nothing applies migrations here — no
+script, no `ExecStartPre`, no CI step.
+
+Refusing is the only option whose failure mode is visible: the unit
+enters `failed`, `StartLimitBurst=5` makes the loop terminal, and
+`sysadmin-failed.service` announces it — the Session 39 machinery's
+second caller. Coming up degraded and raising a critical instead would
+write that alert *through the schema that is wrong*.
+
+Three rules. **The head comes from alembic's own `ScriptDirectory`**,
+never a regex over `alembic/versions/*.py` — a second implementation of
+the revision graph drifts from the command it exists to measure against.
+**`alembic_version` is read schema-qualified**: `version_table_schema`
+exists because the `projects` database holds another application's copy
+in `public`, and resolving through `search_path` would compare this code
+against a stranger's revision and pass. **Every way of not-knowing fails
+closed with its own message** — unreadable scripts, a branched history
+(two heads, which `alembic upgrade head` itself refuses), and a database
+never migrated are three different faults and the operator needs to be
+told which. Note what could *not* have caught this: `verify_connection`
+proves the database answers, and the drift guard skips `alembic_version`
+and does not diff CHECK constraints.
+
+**One savepoint per service, and it works because leaving the block
+flushes.** `SysAdminAgent._execute` used to add all nineteen services'
+rows to one session and commit once, so one `CheckViolationError` aborted
+the lot. `session.add` never talks to the database — the rejection
+surfaced at that single commit, by which point the bad row was
+indistinguishable from the eighteen good ones. `session.begin_nested()`
+forces it to surface while that service's own savepoint is innermost.
+
+Three consequences. A rejected service is written as `status="error"`
+with `details['source'] = 'write_isolation'`, because **absence of a row
+is what made the hole invisible** — the same rule `_record_outcome`
+learned in Session 41. It is added to `unhealthy`, so `_resolve_recovered`
+cannot announce a recovery nobody observed. And `details['write_failures']`
+**names** the services rather than counting them. The honest limit: a
+savepoint rolls back SQL and nothing else — an auto-restart already
+issued stands, and the in-memory streak counters stay bumped.
+
+**"Has not run" and "ran and failed" are two alert families, not one
+title with two messages** (Session 43). `sysadmin/monitor/failures.py` is
+a **sibling** of `stalls.py` sharing `core/escalation.py`'s ladder, and
+the two are mutually exclusive by construction: a failing agent is
+recording runs, so its `last_run_at` is fresh and `summarise_agent` never
+marks it stalled. `_check_agent_health` reads **one** snapshot of
+`agent_runs` and `alerts` and hands it to both — two fetches could
+disagree about the same agent, and that mutual exclusion is only sound if
+they are looking at the same data.
+
+Four rules. **The suffix `agent failing` is load-bearing**: `failing` is
+not one of `SERVICE_ALERT_KINDS`, which is the only thing keeping these
+rows out of `_resolve_recovered`'s reach — a family ending in
+`degraded`/`warning`/`critical`/`unreachable`/`auto-restarted` would have
+its rows closed by the sysadmin agent while they were still true, and a
+test pins it. **The threshold is a count of runs, never a duration** —
+deliberately the opposite unit from `escalate_after_hours` in the same
+config section, because `agent_runs` records a *run* rather than a
+schedule, so "failing for three hours" cannot tell a failing agent from
+one that is not running, which is the stall family's question. The cost
+is stated rather than hidden: a count is fast for a 60-second agent and
+slow for a daily one. **Two failures, not one**, because the news is
+"reproducible" rather than "happened". **The handover is automatic** — an
+agent that fails and then stops being scheduled has its failure row
+resolved as the stall row opens, so one fault shows one alert.
+
+This family **could not have been written before Session 41**:
+`_record_outcome` wrote `status='failed'` into the transaction the failure
+had already destroyed, so `agent_runs` held no failure rows at all — 39,762
+runs and zero failures, which reads as perfect health off a table that
+could not express the opposite.
+
 **A unit failure also leaves an alert row, and the write is only half of
 it.** `sysadmin/core/unit_failure.py` runs *while the application is
 dead* — so no async engine, no `BaseAgent.raise_alert`, no event bus; it

@@ -28,6 +28,21 @@ from sysadmin.core.config import AppConfig, SelfMonitorConfig
 from sysadmin.core.models.agent_run import AgentRun
 
 #: Agent identifiers, matching the ``chk_alert_agent`` DB constraint.
+#:
+#: **This is not the set of agents this daemon runs**, and stopped being
+#: it on 2026-08-13 when ``project_organiser`` moved to the estate's 8400
+#: service (ADR-0005). The two answer different questions:
+#:
+#: - ``AGENT_NAMES`` — agents the ``alerts`` table admits, *ever*. The
+#:   constraint is add-only and historical rows carry retired names, so
+#:   nothing may be removed from here without a migration that would
+#:   orphan them.
+#: - :func:`agent_schedules` — agents this daemon schedules *today*.
+#:
+#: They were identical until that cutover, which is why one name served
+#: both. ``tests/test_self_monitor.py`` now asserts containment rather
+#: than equality, and ``tests/test_units_api.py`` still pins this tuple
+#: to migration 007.
 AGENT_NAMES = (
     "sysadmin",
     "project_organiser",
@@ -62,6 +77,25 @@ def agent_schedules(config: AppConfig) -> dict[str, AgentSchedule]:
     Mirrors the ``scheduler.schedule_interval`` calls in ``main.py`` — if a
     job is added or its interval source changes there, change it here too
     (``tests/test_self_monitor.py`` pins the pairing).
+
+    **A subset of :data:`AGENT_NAMES`, not an alias for it.**
+    ``project_organiser`` is absent because the agent left this
+    repository for the estate's 8400 service on 2026-08-13 (ADR-0005),
+    and an entry here would mean the self-monitor watching an agent that
+    can never run: a ``project_organiser agent stalled`` row that nothing
+    can resolve, escalating to ``critical`` and staying on screen, since
+    ``_resolve_recovered`` excludes the stall family by design.
+
+    Removing it rather than relying on ``agents.project_organiser.enabled:
+    false`` is deliberate. That flag did hold the fault off — the stall
+    test gates on ``schedule.enabled`` — but it made a config line
+    load-bearing for a structural fact, and its own comment justified it
+    by a reason (double-scanning against ``sysadmin-organiser.timer``)
+    that the cutover retired. A config value is the wrong place to record
+    "this agent does not exist here".
+
+    The ``agents.project_organiser`` config block survives as recorded
+    debt per ADR-0005; nothing in self-monitoring reads it any more.
     """
     agents = config.agents
     return {
@@ -70,12 +104,6 @@ def agent_schedules(config: AppConfig) -> dict[str, AgentSchedule]:
             enabled=agents.sysadmin.enabled,
             interval_seconds=agents.sysadmin.health_check_interval_seconds,
             job_id="sysadmin_health_check",
-        ),
-        "project_organiser": AgentSchedule(
-            name="project_organiser",
-            enabled=agents.project_organiser.enabled,
-            interval_seconds=agents.project_organiser.scan_interval_hours * 3600,
-            job_id="project_organiser_scan",
         ),
         "file_organiser": AgentSchedule(
             name="file_organiser",
@@ -106,21 +134,40 @@ def stall_window_seconds(schedule: AgentSchedule, config: SelfMonitorConfig) -> 
     )
 
 
-def _consecutive_failures(runs: list[AgentRun]) -> int:
-    """Count failed runs from the newest backwards, stopping at a success.
+def _failure_streak(runs: list[AgentRun]) -> tuple[int, str | None]:
+    """The run of failures at the head of ``runs``, and what it says.
+
+    Returns ``(count, last_error)`` from **one** walk rather than two.
+    The count and the error have to agree about where the streak ends,
+    and a second function walking the same list would agree today and
+    diverge the first time someone changes how a ``running`` row is
+    treated — surfacing as an alert that says "failed 3 runs in a row"
+    beside an error text from a different incident.
 
     In-flight ("running") records are skipped rather than breaking the
-    streak — a run that is still going has not failed yet.
+    streak: a run that is still going has not failed yet.  They cannot
+    supply the error either, so the text comes from the newest run whose
+    status is actually ``failed``.
+
+    ``last_error`` is ``str(e)`` as ``BaseAgent.run`` recorded it in
+    ``agent_runs.details['error']``, or ``None`` when the streak is
+    empty — or when the failure predates Session 41, whose three-
+    transaction split is what made a ``failed`` row survive the failure
+    it records at all.
     """
     count = 0
+    last_error: str | None = None
     for run in runs:
         if run.status == "running":
             continue
         if run.status == "failed":
             count += 1
+            if last_error is None:
+                error = (run.details or {}).get("error")
+                last_error = str(error) if error else None
             continue
         break
-    return count
+    return count, last_error
 
 
 def _duration_trend(durations: list[float]) -> str:
@@ -178,6 +225,8 @@ def summarise_agent(
         if r.duration_seconds is not None
     ]
 
+    consecutive_failures, last_error = _failure_streak(runs)
+
     last = runs[0] if runs else None
     last_run_at = last.started_at if last else None
     if last_run_at is not None and last_run_at.tzinfo is None:
@@ -215,7 +264,8 @@ def summarise_agent(
             else None
         ),
         "runs_considered": len(runs),
-        "consecutive_failures": _consecutive_failures(runs),
+        "consecutive_failures": consecutive_failures,
+        "last_error": last_error,
         "recent_durations": [round(d, 2) for d in durations],
         "mean_duration_seconds": (
             round(m, 2) if (m := mean_or_none(durations)) is not None else None

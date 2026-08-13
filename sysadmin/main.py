@@ -40,6 +40,7 @@ from sysadmin.core.retention import run_retention
 
 # Services
 from sysadmin.core.scheduler import Scheduler
+from sysadmin.core.schema_guard import verify_schema_revision
 from sysadmin.core.unit_failure import OWN_UNIT, resolve_unit_failures
 from sysadmin.files.agent import FileOrganiserAgent
 from sysadmin.files.review import run_weekly_review as run_weekly_disk_review
@@ -128,6 +129,15 @@ async def lifespan(app: FastAPI):
     await create_engine_and_session()
     await verify_connection()
     logger.info("database connection verified")
+
+    # ...and that it is the schema this code was written for, which is a
+    # different question and the one SNAG-DB-001 turned on. Deliberately
+    # NOT wrapped in a try: an un-applied migration must stop startup, so
+    # the unit enters `failed` and `sysadmin-failed.service` announces it.
+    # Contrast the unit-failure resolve below, which IS caught — a stale
+    # alert row is worth less than a boot, and a schema mismatch is the
+    # exact opposite trade.
+    await verify_schema_revision()
 
     # This service starting IS the recovery from its own unit failure, and
     # this is the only moment that fact exists. `sysadmin-failed.service`

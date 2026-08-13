@@ -789,23 +789,47 @@ Write-ups archived under "Fixed Issues" in [snag_list.md](snag_list.md).
 monitoring for 39 hours.** Fixed by applying it; the three detection gaps that
 let it run that long are not, and are the real work. In order of value:
 
-- [ ] **Fail startup on a schema-revision mismatch.** Nothing applies
-      migrations here — no script, no `ExecStartPre`, no CI step — and nothing
-      checks. `verify_connection` proves the database answers, not that it is
-      the schema this code was written for. Compare `alembic_version` against
-      the packaged head and refuse to start: serving against a schema the code
-      does not match is worse than not starting, and this incident is the proof
-- [ ] **Isolate the per-service health write.** `SysAdminAgent._execute` adds
-      all nineteen services to one session and commits once, so a single
-      rejected row aborted the whole transaction — one deliberately-unmonitored
-      service cost the other eighteen their check for 39 hours. A savepoint per
-      service, or a failed row recorded as `error` rather than aborting, would
-      have turned a total blackout into one missing tile
-- [ ] **Alert on consecutive agent-run failures.** The daemon logged
-      `agent_run_failed` every five minutes for ~18 hours of uptime and nothing
-      read it. `agent_runs` already records every failure with its status;
-      nothing watches the column. Note the shape of the problem: the agent that
-      raises alerts is the one that was failing, so this cannot live inside it
+- [x] **Fail startup on a schema-revision mismatch** — `sysadmin/core/schema_guard.py`,
+      called from the lifespan straight after `verify_connection` and
+      deliberately **not** wrapped in a `try`. The head comes from alembic's own
+      `ScriptDirectory`, never a regex over `alembic/versions/*.py`: a second
+      implementation of the revision graph would drift from the very command it
+      exists to measure against. `alembic_version` is read schema-qualified,
+      because the `projects` database holds another application's copy in
+      `public` and resolving through `search_path` could compare this code
+      against a stranger's revision and pass. Three ways of not-knowing all fail
+      closed with their own message — unreadable scripts, a branched history
+      (two heads, which `alembic upgrade head` refuses), and a database never
+      migrated. Verified live 2026-08-13: passes at 011/011, and refuses a
+      forced mismatch naming both revisions and the remedy
+- [x] **Isolate the per-service health write** — one `session.begin_nested()`
+      per service in `SysAdminAgent._execute`. The savepoint works *because
+      leaving the block flushes*: `session.add` never talks to the database, so
+      before this the rejection surfaced at the single commit ending the run, by
+      which point the bad row could not be told from the eighteen good ones. A
+      rejected service is recorded as `status="error"` with
+      `details['source'] = 'write_isolation'` and its attempted status, because
+      absence of a row is what made the 39-hour hole invisible; it is also added
+      to `unhealthy`, so `_resolve_recovered` cannot announce a recovery nobody
+      observed. `details['write_failures']` **names** the services. Documented
+      limit: a savepoint rolls back SQL and not side effects — an auto-restart
+      already issued stands, and the in-memory streak counters stay bumped
+- [x] **Alert on consecutive agent-run failures** — `sysadmin/monitor/failures.py`,
+      a **sibling of `stalls.py`, not an extension of it**. "Has not run" and
+      "ran and failed" are different states with different remedies, and they
+      are mutually exclusive by construction: a failing agent records runs, so
+      its `last_run_at` is fresh and it is never marked stalled. The suffix
+      `agent failing` is load-bearing — `failing` is not one of
+      `SERVICE_ALERT_KINDS`, which is what keeps the family out of
+      `_resolve_recovered`'s reach, and a test pins it. The threshold is a
+      **count of runs, never a duration**, the opposite unit from
+      `escalate_after_hours` in the same config section: `agent_runs` records a
+      run rather than a schedule, so "failing for three hours" cannot tell a
+      failing agent from one that is not running, which is the stall family's
+      question. Both families read **one** snapshot of `agent_runs` and
+      `alerts` via `_check_agent_health`, and the handover between them is
+      automatic — an agent that fails and then stops being scheduled has its
+      failure row resolved as the stall row opens, so one fault shows one alert
 - [ ] **A live-database test path for the shared snapshot query.** The suite
       mocks every session, so the freshness filter's *effect* is unobservable
       — `tests/test_project_snapshots_query.py` asserts the predicate compiles

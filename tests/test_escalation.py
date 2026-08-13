@@ -98,3 +98,115 @@ class TestStepFor:
 # The two are now free to differ, which is the point — but if the
 # severities are ever meant to agree again, that is a shared contract and
 # belongs in estate-lib, not in two hand-kept copies.
+
+
+# ── The ladder's clock, shared by both families (Session 43) ──────────
+
+
+class TestHoursSince:
+    """``hours_since`` moved into ``core`` when a second family needed it.
+
+    ``stalls.py`` and ``failures.py`` both measure elapsed time from
+    ``alerts.created_at`` to decide the rung. Three copies of that
+    (``self_monitor`` carries its own for ``agent_runs.started_at``) is
+    how two ladders stop agreeing about when to escalate.
+    """
+
+    def test_measures_whole_hours(self):
+        from datetime import UTC, datetime, timedelta
+
+        from sysadmin.core.escalation import hours_since
+
+        now = datetime(2026, 8, 13, 12, 0, tzinfo=UTC)
+        assert hours_since(now - timedelta(hours=26), now) == 26.0
+
+    def test_a_naive_datetime_is_read_as_utc(self):
+        """Not every value comes from a round trip.
+
+        An ``Alert`` built in a test, or a default applied in Python,
+        is naive — and mixing aware and naive raises ``TypeError``, which
+        would take the whole health check down rather than misreport one
+        row.
+        """
+        from datetime import UTC, datetime
+
+        from sysadmin.core.escalation import hours_since
+
+        now = datetime(2026, 8, 13, 12, 0, tzinfo=UTC)
+        naive = datetime(2026, 8, 13, 6, 0)
+        assert hours_since(naive, now) == 6.0
+
+    def test_a_future_timestamp_clamps_to_zero(self):
+        """Clock skew must not read as "below every threshold".
+
+        A negative elapsed would silently suppress the rung rather than
+        opening it quiet.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        from sysadmin.core.escalation import hours_since
+
+        now = datetime(2026, 8, 13, 12, 0, tzinfo=UTC)
+        assert hours_since(now + timedelta(hours=3), now) == 0.0
+
+
+class TestHumaniseHours:
+    """Shared so two toasts about different faults phrase time the same."""
+
+    @pytest.mark.parametrize(
+        "hours,expected",
+        [
+            (0.01, "1 minute"),
+            (0.5, "30 minutes"),
+            (1.0, "1 hour"),
+            (26.0, "26 hours"),
+            (48.0, "2 days"),
+            (24.0 * 9, "9 days"),
+        ],
+    )
+    def test_phrasing(self, hours, expected):
+        from sysadmin.core.escalation import humanise_hours
+
+        assert humanise_hours(hours) == expected
+
+    def test_both_families_render_the_same_elapsed_time_identically(self):
+        """The point of sharing it rather than copying it."""
+        from datetime import UTC, datetime, timedelta
+
+        from sysadmin.core.escalation import Step
+        from sysadmin.monitor.failures import FailureAlert
+        from sysadmin.monitor.stalls import StallAlert
+
+        at = datetime(2026, 8, 13, 12, 0, tzinfo=UTC)
+        first = at - timedelta(hours=50)
+
+        stall = StallAlert(
+            agent_name="a", severity="critical", step=Step.ESCALATE,
+            last_run_at="t", stall_reason=None, seconds_since_last_run=1.0,
+            interval_seconds=300, first_alerted_at=first,
+            hours_since_first_alert=50.0, escalate_after_hours=24.0,
+        )
+        failure = FailureAlert(
+            agent_name="a", severity="critical", step=Step.ESCALATE,
+            consecutive_failures=3, last_error=None, last_run_at="t",
+            failure_threshold=2, first_alerted_at=first,
+            hours_since_first_alert=50.0, escalate_after_hours=24.0,
+        )
+        assert "2 days" in stall.message
+        assert "2 days" in failure.message
+
+
+class TestNoPrivateCopiesRemain:
+    def test_neither_family_carries_its_own_clock(self):
+        """Guards the copy coming back.
+
+        Both modules had a verbatim ``_hours_since`` and
+        ``_humanise_hours`` before Session 43; reuse required the move
+        first, and a reintroduced copy would drift silently.
+        """
+        from pathlib import Path
+
+        for module in ("sysadmin/monitor/stalls.py", "sysadmin/monitor/failures.py"):
+            source = Path(module).read_text()
+            assert "def _hours_since" not in source, module
+            assert "def _humanise_hours" not in source, module

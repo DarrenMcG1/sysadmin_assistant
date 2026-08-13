@@ -28,6 +28,44 @@
 
 ## Recently Completed
 
+- **2026-08-13 — Session 43: `SNAG-DB-001`'s detection gap, all three parts.**
+  The un-applied migration that blacked out monitoring for 39 hours was
+  fixed on 2026-08-10 by applying it; the reason nobody noticed was the
+  real defect, and it is now closed. **(1)** `sysadmin/core/schema_guard.py`
+  compares `alembic_version` against the packaged head at startup and
+  **refuses to boot** on a mismatch — not wrapped in a `try`, so the unit
+  enters `failed` and `sysadmin-failed.service` announces it, making this
+  the Session 39 machinery's second caller. The head comes from alembic's
+  own `ScriptDirectory` rather than a regex over the version files, and
+  `alembic_version` is read schema-qualified because the `projects`
+  database holds another application's copy in `public`. Verified live:
+  passes at 011/011, refuses a forced mismatch naming both revisions and
+  the remedy. **(2)** One `session.begin_nested()` per service in
+  `SysAdminAgent._execute` — load-bearing *because leaving the block
+  flushes*, since `session.add` never talks to the database and the
+  rejection previously surfaced at the single commit ending the run. A
+  rejected service is recorded as `status="error"` rather than costing
+  the other eighteen their check. **(3)** `sysadmin/monitor/failures.py`,
+  a **sibling** of `stalls.py` on the shared ladder, not an extension of
+  it: "has not run" and "ran and failed" are different states with
+  different remedies, and the suffix `agent failing` is chosen so
+  `_resolve_recovered` cannot reach it. **The threshold is a count of
+  runs, never a duration** — the opposite unit from `escalate_after_hours`
+  in the same config section, because `agent_runs` records a run rather
+  than a schedule. Part (3) **was not implementable when the snag was
+  filed**: before Session 41 a failed run left no row, so there was
+  nothing to read. 61 new tests. One new snag filed at the estate-manager
+  session's request — `SNAG-DB-003`, the autogenerate exclusion list
+  hand-copied across `alembic/env.py` and `tests/test_schema_drift.py`,
+  where the dangerous direction is silent: an exclusion present only in
+  the test leaves `--autogenerate` willing to write `op.drop_table` for
+  frozen data.
+
+  _Ran alongside estate-manager's project-state cutover, which was
+  editing this repository concurrently under the founding-extraction
+  exception. `docs/adr/0005-project-state-leaves.md` arrived from that
+  session, not this one._
+
 - **2026-08-12 — Session 42: the log storm, fixed as a raise rule.**
   `SNAG-AGENT-005` — **598,091 unresolved alert rows**, 91 % of every
   unresolved alert in the table, 99.8 % of them two Bluetooth firmware

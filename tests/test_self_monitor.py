@@ -24,6 +24,14 @@ from sysadmin.monitor.self_monitor import (
 
 NOW = datetime(2026, 7, 24, 12, 0, 0, tzinfo=UTC)
 
+#: The agents this daemon actually schedules — a strict subset of
+#: ``AGENT_NAMES`` since ``project_organiser`` left for the estate's 8400
+#: service on 2026-08-13 (ADR-0005). Anything asserting on the *report*
+#: counts this, because ``build_self_report`` iterates the schedules;
+#: ``AGENT_NAMES`` is what the ``alerts`` table admits and still includes
+#: the retired agent, whose historical rows carry its name.
+SCHEDULED_AGENTS = tuple(agent_schedules(AppConfig()))
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -86,20 +94,43 @@ def _mock_scalars_all(mock_session, rows):
 
 
 class TestAgentSchedules:
-    def test_covers_every_agent(self):
+    def test_every_scheduled_agent_is_one_the_alerts_table_admits(self):
+        """Containment, not equality — the two sets diverged 2026-08-13.
+
+        ``AGENT_NAMES`` mirrors the add-only ``chk_alert_agent``
+        constraint and retains ``project_organiser``, whose historical
+        alert rows still carry that name. ``agent_schedules`` is what
+        this daemon runs *today*, and the organiser left for the estate's
+        8400 service (ADR-0005).
+
+        The direction still matters: an agent scheduled here but absent
+        from ``AGENT_NAMES`` would raise alerts the database rejects,
+        which is the fault migration 007 was written for.
+        """
         schedules = agent_schedules(AppConfig())
-        assert set(schedules) == set(AGENT_NAMES)
+        assert set(schedules) <= set(AGENT_NAMES)
+        assert "project_organiser" not in schedules
+        assert "project_organiser" in AGENT_NAMES
+
+    def test_a_retired_agent_is_not_watched_for_stalls(self):
+        """The reason the entry was removed rather than disabled.
+
+        A schedule for an agent that can never run yields a
+        ``project_organiser agent stalled`` row that nothing resolves —
+        ``_resolve_recovered`` excludes the stall family by design — so
+        it escalates to ``critical`` and stays on screen for ever.
+        """
+        report_names = set(agent_schedules(AppConfig()))
+        assert "project_organiser" not in report_names
 
     def test_intervals_come_from_config_not_hardcoded(self, mock_config):
         mock_config.agents.sysadmin.health_check_interval_seconds = 45
-        mock_config.agents.project_organiser.scan_interval_hours = 2
         mock_config.agents.file_organiser.scan_interval_hours = 12
         mock_config.agents.log_aggregator.poll_interval_seconds = 90
 
         schedules = agent_schedules(mock_config)
 
         assert schedules["sysadmin"].interval_seconds == 45
-        assert schedules["project_organiser"].interval_seconds == 2 * 3600
         assert schedules["file_organiser"].interval_seconds == 12 * 3600
         assert schedules["log_aggregator"].interval_seconds == 90
 
@@ -280,8 +311,8 @@ class TestBuildSelfReport:
 
         report = await build_self_report(mock_session, mock_config, NOW)
 
-        assert report["count"] == len(AGENT_NAMES)
-        assert {a["name"] for a in report["agents"]} == set(AGENT_NAMES)
+        assert report["count"] == len(SCHEDULED_AGENTS)
+        assert {a["name"] for a in report["agents"]} == set(SCHEDULED_AGENTS)
 
     @pytest.mark.asyncio
     async def test_healthy_when_everything_ran_recently(self, mock_session, mock_config):
@@ -355,7 +386,7 @@ class TestSelfEndpoint:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["count"] == len(AGENT_NAMES)
+        assert data["count"] == len(SCHEDULED_AGENTS)
         assert data["healthy"] is True
         assert data["generated_at"]
 
@@ -409,8 +440,8 @@ class TestSelfEndpoint:
 
         parsed = SelfMonitorResponse.from_dict(resp.json())
         assert isinstance(parsed, SelfMonitorResponse)
-        assert parsed.count == len(AGENT_NAMES)
-        assert {a.name for a in parsed.agents} == set(AGENT_NAMES)
+        assert parsed.count == len(SCHEDULED_AGENTS)
+        assert {a.name for a in parsed.agents} == set(SCHEDULED_AGENTS)
 
 
 # ---------------------------------------------------------------------------
@@ -428,7 +459,9 @@ def _report(*stalled: str) -> dict:
             "stall_reason": "no run for 9000s" if name in stalled else None,
             "seconds_since_last_run": 9000.0 if name in stalled else 5.0,
             "interval_seconds": 300,
+            "enabled": True,
             "consecutive_failures": 0,
+            "last_error": None,
         }
         for name in AGENT_NAMES
     ]
@@ -464,11 +497,36 @@ def sysadmin_agent():
 
 
 def _patch_report(report: dict):
+    """Patch the one report both self-monitoring families read.
+
+    The tests call ``_check_agent_health`` rather than
+    ``_check_agent_liveness`` because that is where the report is
+    fetched — the two families share one snapshot so they cannot
+    disagree about an agent, so there is one entry point to drive.
+    ``_report`` sets ``consecutive_failures: 0`` throughout, so the
+    failure family contributes nothing to these counts.
+    """
     return patch(
         "sysadmin.monitor.agent.build_self_report",
         new_callable=AsyncMock,
         return_value=report,
     )
+
+
+def _resolved_ids(resolve_mock) -> set:
+    """Every alert id resolved across all calls, as one set.
+
+    Since Session 43 the two self-monitoring families each own their own
+    resolve, so ``_check_agent_health`` calls ``_resolve_alert_ids``
+    twice — stalls first, failures second. Asserting on ``call_args``
+    reads the *last* call and would silently start testing the wrong
+    family. What these tests mean is "this row was closed", which is a
+    question about the union.
+    """
+    ids: set = set()
+    for call in resolve_mock.call_args_list:
+        ids.update(call.args[1])
+    return ids
 
 
 class TestStalledAgentAlerting:
@@ -483,7 +541,7 @@ class TestStalledAgentAlerting:
             ),
             patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
         ):
-            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            raised = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert raised == 1
         kwargs = ra.call_args.kwargs
@@ -503,7 +561,7 @@ class TestStalledAgentAlerting:
             ),
             patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
         ):
-            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            raised = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert raised == 0
         ra.assert_not_called()
@@ -522,7 +580,7 @@ class TestStalledAgentAlerting:
             ),
             patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
         ):
-            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            raised = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert raised == 0
         ra.assert_not_called()
@@ -543,10 +601,13 @@ class TestStalledAgentAlerting:
                 sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
             ) as resolve,
         ):
-            await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
-        resolve.assert_awaited_once()
-        assert resolve.call_args.args[1] == ["stall-7"]
+        # Two awaits, not one: each family resolves its own rows. The
+        # failure family's is empty here, and `_resolve_alert_ids`
+        # short-circuits on an empty list, so it costs no round trip.
+        assert resolve.await_count == 2
+        assert _resolved_ids(resolve) == {"stall-7"}
 
     @pytest.mark.asyncio
     async def test_two_stalled_agents_raise_two_alerts(
@@ -559,7 +620,7 @@ class TestStalledAgentAlerting:
             ),
             patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
         ):
-            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            raised = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert raised == 2
         titles = {call.kwargs["title"] for call in ra.call_args_list}
@@ -576,7 +637,7 @@ class TestStalledAgentAlerting:
         with patch(
             "sysadmin.monitor.agent.build_self_report", new_callable=AsyncMock
         ) as report:
-            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            raised = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert raised == 0
         report.assert_not_called()
@@ -608,7 +669,7 @@ class TestStallEscalationLadder:
                 sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
             ),
         ):
-            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            raised = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert raised == 1
         assert ra.call_args.kwargs["severity"] == "critical"
@@ -638,7 +699,7 @@ class TestStallEscalationLadder:
                 sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
             ),
         ):
-            await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert open_row.resolved is True
         assert open_row.resolved_at is not None
@@ -665,7 +726,7 @@ class TestStallEscalationLadder:
             ),
             patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
         ):
-            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            raised = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert raised == 0
         ra.assert_not_called()
@@ -692,7 +753,7 @@ class TestStallEscalationLadder:
             ),
             patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
         ):
-            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            raised = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert raised == 0
         ra.assert_not_called()
@@ -722,10 +783,10 @@ class TestStallEscalationLadder:
                 sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
             ) as resolve,
         ):
-            await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         ra.assert_not_called()
-        assert resolve.call_args.args[1] == ["stall-crit"]
+        assert _resolved_ids(resolve) == {"stall-crit"}
 
     @pytest.mark.asyncio
     async def test_escalated_row_still_carries_the_stalled_agent_key(
@@ -751,7 +812,7 @@ class TestStallEscalationLadder:
                 sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
             ),
         ):
-            await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         details = ra.call_args.kwargs["details"]
         assert details["stalled_agent"] == "file_organiser"
@@ -781,7 +842,7 @@ class TestStallEscalationLadder:
                 sysadmin_agent, "_resolve_alert_ids", new_callable=AsyncMock
             ),
         ):
-            total = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            total = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert total == 2
         assert sysadmin_agent._stall_counts == {
@@ -806,7 +867,7 @@ class TestStallEscalationLadder:
             ),
             patch.object(sysadmin_agent, "raise_alert", new_callable=AsyncMock) as ra,
         ):
-            raised = await sysadmin_agent._check_agent_liveness(mock_session, mock_config)
+            raised = await sysadmin_agent._check_agent_health(mock_session, mock_config)
 
         assert raised == 1
         assert ra.call_args.kwargs["severity"] == "critical"

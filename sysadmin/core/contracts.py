@@ -419,6 +419,10 @@ class AgentSelfHealth(Contract):
     expected_next_run_at: str | None = None
     runs_considered: int = 0
     consecutive_failures: int = 0
+    #: ``str(e)`` from the newest failed run, or None when the streak is
+    #: 0. Carried so the alert message can name the fault rather than
+    #: only counting it — the full text stays in ``agent_runs.details``.
+    last_error: str | None = None
     recent_durations: list[float] = Field(default_factory=list)
     mean_duration_seconds: float | None = None
     duration_trend: str = "unknown"  # "rising" | "falling" | "steady" | "unknown"

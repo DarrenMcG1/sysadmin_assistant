@@ -1,179 +1,208 @@
-# Handoff — 2026-08-12
+# Handoff — 2026-08-13
 
 ## Next action
 
-Start Session 43 on `SNAG-DB-001`'s detection gap and settle its one open question first — whether an agent whose runs keep failing is a new alert family or an extension of `% agent stalled` — because the two are different states ("ran and failed" versus "hasn't run"), `_resolve_recovered` excludes the stall family precisely so `stalls.py` can own its lifecycle, and a new family without the same exclusion will have its rows closed by the sysadmin agent while they are still true.
+Back out Session 43's two `sysadmin/main.py` hunks and two `sysadmin/core/config.py` hunks the moment the estate-manager session says it is ready to commit, so its cutover lands green and self-contained, then re-apply them and commit Session 43's three `SNAG-DB-001` detection fixes.
 
-## Deployed and verified the same day
+## This session
 
-Both owner-side steps were done on 2026-08-12: `sysadmin.service` restarted
-(it is a **system** unit, `systemctl` not `--user`), and the udev rule
-de-authorising the MT7927's Bluetooth half installed. Measured afterwards:
+Session 43 closed `SNAG-DB-001`'s detection gap, all three parts. The
+blackout itself was fixed on 2026-08-10 by applying migration 009; the
+reason **nobody noticed for 39 hours** was always the real defect.
 
-| | |
-|---|---|
-| Kernel Bluetooth messages, 2 min | **0** (was 1,016) |
-| `/sys/bus/usb/devices/1-11/authorized` | **0** |
-| Open `log_aggregator` alerts | **3** |
-| `occurrences` on each firmware row | **10,306** |
+### The open question the last handoff asked, and how it was settled
 
-The two firmware rows were raised at 17:31 and absorbed **20,612 log lines
-between them**, surviving a daemon restart at 19:16 — identity lives in the
-title, so a restart does not fork the row. All four agents completing, no
-failures. Suite green at 1,956.
+*Is an agent whose runs keep failing a new alert family, or an extension
+of `% agent stalled`?* **A new family, sharing the ladder.** The
+deciding argument is that the two are mutually exclusive by
+construction — a failing agent is recording runs, so its `last_run_at`
+is fresh and `summarise_agent` never marks it stalled — and their
+remedies differ: a stall points at the scheduler or the process, a
+failure at the code or the data. One title with two messages would put
+two faults behind one line in the tray, which is the mistake
+`SNAG-AGENT-005` had already recorded on the log side.
 
-## Session 42 (2026-08-12): SNAG-AGENT-005, and the option that was not on the list
+**The risk the last handoff named turned out to be conditional, and the
+condition is a naming one.** `RESOLVABLE_TITLE_PATTERNS` is an
+*allowlist*, not a denylist — `% agent stalled` is structurally
+unmatched rather than actively excluded. A new family is swept only if
+its title's last word is one of the five in `SERVICE_ALERT_KINDS`. So
+the suffix `agent failing` is load-bearing, and
+`tests/test_agent_failures.py` pins it by emulating SQL `LIKE` against
+every pattern.
 
-The handoff asked which of two options to take — alert on a **burst** and
-resolve when the source goes quiet, or **drop alerting** from the log
-aggregator entirely. The answer was neither as written, and the reason is
-worth keeping because the data refuted the obvious implementation *before*
-any of it was written.
+### Decisions taken, with the rejected option and why
 
-Burst-alerting suppresses a single genuine critical until it repeats.
-Dropping alerting means a first-ever critical from a service reaches
-nobody, and `GET /api/logs/stats` is a surface nothing polls. So: **dedup
-plus a quiet-resolve** — one open row per fault, resolved when the fault
-goes quiet.
+- **The failure threshold is a count of runs, never a duration** — the
+  opposite unit from `escalate_after_hours` in the same config section.
+  A duration was rejected because `agent_runs` records a *run* rather
+  than a schedule, so "failing for three hours" cannot tell an agent
+  that is failing from one that is not running, and that is precisely
+  the stall family's question. A time-based threshold silently
+  re-merges the two families the whole design exists to separate. The
+  cost is real and stated rather than hidden: a count is fast for a
+  60-second agent (two minutes) and slow for a daily one (two days).
+- **Two failures, not one.** One failure clears on the next run — for
+  `log_aggregator` that is a warning toast with a 60-second life. The
+  news worth raising is "reproducible", not "happened".
+- **A stalled agent is never also reported as failing**, and the
+  handover is automatic: an agent that fails and then stops being
+  scheduled has its failure row resolved in the same run as its stall
+  row opens, so one fault shows one alert rather than two criticals.
+- **Refuse to start on a schema mismatch**, rejecting "start degraded
+  and raise a critical" — that writes the alert *through the schema
+  that is wrong*, which is the loop the snag already demonstrated.
+  Refusing puts the unit into `failed`, where `StartLimitBurst=5` makes
+  it terminal and `sysadmin-failed.service` announces it. This is the
+  Session 39 machinery's second caller.
+- **The head comes from alembic's own `ScriptDirectory`**, rejecting a
+  regex over `alembic/versions/*.py`: a second implementation of the
+  revision graph drifts from the very command the guard measures
+  against.
 
-### The part that had to be measured
+### Three things discovered that the code does not say
 
-Deduplicating on the existing alert title is the obvious reading of
-"dedup", and it is wrong. The title is `Log {severity}: {source}`, so
-every kernel error shares one. The live 30-day kernel population:
+1. **`agent_runs` held 0 `failed` rows across 39,762 runs, all-time.**
+   That is not health, it is Session 41's defect leaving a fingerprint —
+   `_record_outcome` used to write `status='failed'` into the
+   transaction the failure had already destroyed. **Part (3) of this
+   snag was therefore not implementable when the snag was filed**, and
+   it is still being deployed against zero live evidence: nothing has
+   failed since the fix. Correctness rests on tests, not on production
+   confirmation, and the first real failure is worth watching for.
+2. **A savepoint alone would not have caught the original fault.**
+   `session.add` never talks to the database, so the `CheckViolationError`
+   surfaced at the single commit ending the run. `begin_nested()` works
+   only because *leaving the block flushes*, forcing each service's
+   rejection to surface while its own savepoint is innermost. Anyone
+   simplifying that loop later needs to know the flush is the mechanism.
+3. **A savepoint rolls back SQL and nothing else.** An auto-restart
+   already issued by `_handle_status` stands, and `_degraded_counts` /
+   `_failure_counts` stay bumped — so a streak counter can be one ahead
+   and fire the next alert one check early. Accepted deliberately: the
+   alternative buys accuracy only on a path that runs when the database
+   is already rejecting writes.
 
-| Message | Rows |
-|---|---|
-| `Bluetooth: hci0: Failed to set up firmware (-2)` | 297,390 |
-| `Bluetooth: hci0: Failed to load firmware file (-2)` | 297,389 |
-| `usb 1-11: device descriptor read/64, error -110` | 66 |
-| `usb 1-11: device not accepting address 9/10, error -71` | 44 |
-| `usb usb1-port11: unable to enumerate USB device` | 22 |
-| `rcu: … expedited stalls` / `INFO: task … blocked on a mutex` | 8 |
+### Two copies removed rather than a third added
 
-Dedup on the title and the Bluetooth storm holds the one open row while
-**the RCU stall and the USB enumeration failure go silent** — all three
-are in the same window, so this is measured rather than argued. Half a
-million rows traded for a mask over every other kernel fault is not a fix.
+`hours_since` and `humanise_hours` were verbatim duplicates the moment
+`failures.py` existed. They moved into `sysadmin/core/escalation.py`
+beside the ladder they clock — the module's own founding argument — and
+a test fails if a private copy reappears. `_consecutive_failures` became
+`_failure_streak`, returning the count *and* the error text from one
+walk: two walkers would agree today and diverge the first time someone
+changes how a `running` row is treated, surfacing as "failed 3 runs in a
+row" beside an error from a different incident.
 
-So the key is `sysadmin/monitor/log_signature.py`: the message with digit
-runs and hex literals replaced. It collapses 594,779 Bluetooth lines to 2
-signatures and 110 USB lines to 2, and leaves all six faults distinct. The
-signature goes **in the title**, because dedup, the resolve and the tray's
-`{severity}:{title}` fingerprint all key on title already — and four rows
-all reading `Log error: kernel` are indistinguishable to whoever is
-looking at the tray.
+### This session ran alongside a concurrent one, and that shaped it
 
-Verified against the live storm:
+`estate-manager` Session 4 was editing this repository throughout,
+executing the project-state extraction under the founding-extraction
+exception. Consequences worth knowing:
 
-```
-2000 kernel error lines in 10 min -> 2 alert rows
-  x1000  Log error: kernel — Bluetooth: hciN: Failed to load firmware file (-N)
-  x1000  Log error: kernel — Bluetooth: hciN: Failed to set up firmware (-N)
-```
+- `docs/adr/0005-project-state-leaves.md` **arrived from that session**,
+  not this one.
+- Preflight reported a clean tree; twenty minutes later the tree was
+  non-importable. Two `main.py` hunks written early were **backed out**
+  and re-applied at the end so that session's commit stayed purely its
+  own.
+- Three defects were found by reading their work and handed over rather
+  than fixed here: the stale reason on `agents.project_organiser.enabled`
+  (the flag is fine; its comment justifies itself by a fact about to
+  become false), the **autogenerate exclusion trap** (an exclusion added
+  only to `tests/test_schema_drift.py` leaves `alembic revision
+  --autogenerate` willing to emit `op.drop_table` for frozen data —
+  green test, loaded gun), and the three-way pairing break below.
+- `SNAG-DB-003` was filed here at their request, covering the
+  hand-maintained mirror between `alembic/env.py` and
+  `tests/test_schema_drift.py`.
 
-### Three things caught on the way, two of them mine
+### One correction issued to that session, and acted on
 
-**`_open_alerts` would have OOMed on the backlog it exists to end.** It
-was written the natural way — every unresolved row this agent owns — which
-against the live table is 593,814 ORM objects on the first run. Bounded to
-the titles the run is about to raise before deployment, not after. An
-unbounded `SELECT` over the table whose unboundedness is the bug is an
-easy one to write.
+Advice given earlier — "keep both `AGENT_NAMES` and the `agent_schedules`
+entry" — was **incomplete**, and the missing half surfaced as a failing
+test.
+There is a third link in the chain: `test_job_ids_match_the_scheduler_registration`
+asserts every `agent_schedules` job id appears in the lifespan, and
+`project_organiser_scan` has left it. Removing the name from
+`AGENT_NAMES` does not fix it and should not be done — `chk_alert_agent`
+is add-only and historical rows carry that agent. The resolution is to
+break the *identity* in the middle link, because the two sets have
+stopped answering the same question: `AGENT_NAMES` is "agents the
+`alerts` table admits, ever" and `agent_schedules` is "agents this
+daemon schedules today". They were identical until this cutover.
 
-**`details` has to be reassigned, not mutated.** SQLAlchemy does not track
-mutation inside a plain JSONB dict, so bumping `occurrences` in place
-looks like it worked, writes nothing, and freezes `last_seen_at` while the
-fault fires — which would resolve the row on the next quiet sweep with the
-storm still running.
+That session agreed, and the change is **made**: `agent_schedules()` no
+longer carries `project_organiser`, and `test_covers_every_agent` became
+`test_every_scheduled_agent_is_one_the_alerts_table_admits`, asserting
+`set(schedules) <= set(AGENT_NAMES)`. The direction still matters and is
+still tested — an agent scheduled but *absent* from `AGENT_NAMES` would
+raise alerts the database rejects, which is the fault migration 007 was
+written for.
 
-**The cursor must advance over entries the severity filter discards.**
-Advancing only past *kept* entries leaves the resume point behind a run of
-info-level noise, and the next read parses it all again — the
-duplicate-ingest defect rebuilt one layer down.
+**Removing the entry rather than leaning on `enabled: false` was the
+point.** That flag did hold the fault off, since the stall test gates on
+`schedule.enabled` — but it made a config line load-bearing for a
+structural fact, and its own comment justified it by a reason (double
+scanning against `sysadmin-organiser.timer`) the cutover retired. A
+config value is the wrong place to record "this agent does not exist
+here". Anything asserting on the *report* now counts `SCHEDULED_AGENTS`,
+because `build_self_report` iterates the schedules.
 
-### The two smaller defects, both fixed
+## Blocked / waiting on
 
-Journal reads resume from `__CURSOR` rather than re-reading a two-minute
-window on a sixty-second poll. A cursor rather than a narrower window,
-because narrowing trades the duplicate for a **gap** whenever a run runs
-long, and a gap is the worse failure for a monitor. Back-to-back runs
-ingested **96 entries then 0**, where every entry used to be stored twice.
-The cursor is in memory, so a restart falls back to the newest `logged_at`
-already stored for that source, passed as `--since @<epoch>` — journalctl
-reads a bare datetime as **local** time and everything here is UTC.
-
-The `-n 500` cap stays, because 8.5 messages a second makes a ceiling
-unavoidable, but hitting it is now `details['truncated_sources']` and it
-**names** the sources rather than counting them. It was invisible before:
-`findings_count` sat at exactly 200 on every single run.
-
-## The host fault is untouched, and the reversible stop is gone
-
-`BT_RAM_CODE_MT6639_2_1_hdr.bin` is still absent from
-`/lib/firmware/mediatek/mt7927/`, the `btusb`/`btmtk` retry loop is still
-running at ~8.5 lines a second, and **`rfkill list` now prints nothing at
-all** — the adapter no longer registers a soft-block switch, so the
-one-line workaround the last handoff recorded is no longer available.
-Neither disabling `bluetooth.service` (userspace; the loop is in the
-kernel) nor `rfkill` is on the table.
-
-That is deliberately not this repository's problem to solve, and the point
-of this session is that it no longer has to be: the storm costs 2 alert
-rows instead of 43,000 a day.
-
-**The fix this entry recorded does not exist, and that was checked rather
-than assumed.** The snag concluded that installing
-`BT_RAM_CODE_MT6639_2_1_hdr.bin` from upstream linux-firmware was the real
-fix. Upstream ships only `WIFI_MT6639_PATCH_MCU_2_1_hdr.bin` and
-`WIFI_RAM_CODE_MT6639_2_1.bin` for the MT7927, and `WHENCE` declares
-nothing else — **MediaTek has not published the Bluetooth firmware at
-all.** A vendor publication gap, not a distribution one, so there is no
-package to wait for and no way to date a fix. The original reasoning — the
-driver names the file, every sibling chip has one, therefore it is merely
-missing here — is sound and wrong: a `modinfo` firmware line is a
-*request*, not evidence of existence, and the upstream tree was never
-checked.
-
-What does stop it, at no cost, is de-authorising the device so nothing
-probes it. Bluetooth does not work either way. The rule is written and
-ready at
-`scratchpad/99-mt7927-bt-no-firmware.rules` (matching `0489:e13a` on port
-`1-11`); it needs `sudo install` into `/etc/udev/rules.d/`, so it belongs
-to the owner. Blacklisting `btusb`/`btmtk` is the blunter fallback.
-
-Worth doing even now: the alert table is bounded, but the lines are still
-ingested. `log_entries` holds 610,941 rows / 622 MB and took on 64,047
-today against 30-day retention; journald is at 4 GB with 165,670 kernel
-lines today.
-
-The Wi-Fi half of the same MT7927 is the mirror image — firmware present,
-no driver bound at all — which is the genuinely unsupported part.
-
-## Open, in order
-
-1. **`SNAG-DB-001`'s detection gap — the only P0, and the one worth taking
-   next.** Three items, in the snag's own order of value: a startup check
-   comparing `alembic_version` against the packaged head (the drift guard
-   explicitly skips `alembic_version`, and `compare_metadata` does not diff
-   CHECK constraints, so nothing can catch this today); a savepoint per
-   service in `SysAdminAgent._execute`, because one `CheckViolationError`
-   cost the other **eighteen** services their check; and an alert on
-   consecutive agent-run failures. **The third only became implementable in
-   Session 41** — before it, `_record_outcome` wrote `status='failed'` into
-   the transaction the failure had already destroyed, so there were no
-   failure rows to read. There are now, and nothing reads them.
-2. `SNAG-DB-002` — every database on this box has a stale collation
-   version, and a text-index lookup can miss a row that is present. Two
-   halves: the **check** belongs in the sysadmin agent by the snag's own
-   argument, and is small; the `REINDEX` is ops work touching two other
-   apps' data and wants a quiet window.
-3. `SNAG-ESTATE-001` — **looks already resolved and should be verified and
-   closed rather than worked.** The two retired PersonalAssistant units are
-   gone from the user manager (no `UnitFileState`, `NRestarts` 0, 16
-   journal mentions this boot), so the 52,178-restart loop it records is
-   not running.
-4. `SNAG-SYSD-003` — `sysadmin.service` still orders itself after
-   `ollama.service`, retired three weeks ago. The honest question is
-   whether it should order against `alfred-inference.service` at all rather
-   than which name to substitute.
+- **The suite is green — `uv run pytest` is 1422 passed** as of the end
+  of this session, including Session 43's 72 new tests. That is the
+  *combined* tree: the estate-manager cutover landed in the working tree
+  while this handoff was being written, so the number reflects both
+  sessions and neither is committed yet.
+- **`ruff check .` still fails on 5 files, all from the other session** —
+  `sysadmin/units/router.py`, `sysadmin/units/agent.py`,
+  `sysadmin/monitor/services.py`, `sysadmin/monitor/routers/projects_managed.py`
+  and `tests/test_services_registry.py`. CI runs `ruff check .`, so
+  nothing should be committed until those clear. Session 43's own files
+  are `ruff` and `mypy` clean (75 source files), and the schema guard is
+  verified against the live database: passes at 011/011, refuses a forced
+  mismatch naming both revisions and the remedy.
+- **Step 1 of the handover is DONE and the tree is in the deliberate
+  broken window.** Session 43's two `main.py` hunks and two `config.py`
+  hunks are backed out, saved verbatim to
+  `<scratchpad>/session43-hunks.json`; both files verify as carrying only
+  the other session's work (`config.py` one hunk, `main.py` nine, `ruff`
+  clean). **`monitor/agent.py` and `monitor/failures.py` currently read
+  `config.self_monitor.failure_alert_threshold`, which does not exist —
+  so the suite is expected to fail until the hunks go back.** If this
+  handoff is being read *before* the re-apply, that is the first thing to
+  do: replay the JSON and re-run.
+- **The two sessions cannot both commit atomically**, because the
+  changes are entangled in `sysadmin/main.py`. Splitting by file leaves a
+  broken intermediate whichever way round: the estate-manager session
+  taking `main.py` whole gets `await verify_schema_revision()` without
+  `schema_guard.py`, and Session 43 taking it whole gets the project
+  wiring removed while `sysadmin/projects/` still exists. The asymmetry
+  that resolves it is that **the cutover is self-consistent alone,
+  whereas Session 43's changes are purely additive to the other
+  session's files** — so the agreed sequence is: back out Session 43's
+  four hunks in `main.py` and `config.py`, let the cutover commit green,
+  then re-apply and commit. The back-out has been rehearsed once already
+  this session and the diff is kept in the scratchpad. **Do not run the
+  suite between those two steps** — `monitor/agent.py` reads
+  `config.self_monitor.failure_alert_threshold`, which will not exist,
+  and the failures would be an artefact of the handover rather than of
+  either session's work.
+- **Not started**: the fourth item on `SNAG-DB-001`'s list, a
+  live-database test path for the shared snapshot query. Still open, and
+  still worth one integration test.
+- **Two snags filed for others to pick up**, both handed over by the
+  estate-manager session rather than found here: `SNAG-DB-003` (the
+  autogenerate exclusion hand-copied across `alembic/env.py` and
+  `tests/test_schema_drift.py`, where the silent direction leaves
+  `--autogenerate` willing to emit `op.drop_table` for frozen data) and
+  `SNAG-TRAY-006`. The second was filed with its **diagnosis corrected**:
+  it was handed over as "one shape defined in two repositories", and the
+  two are not duplicates but different jobs — `contracts.py` is a
+  consumer's tolerant parse where a `ValidationError` means "connection
+  lost", the estate's is a producer's `response_model=` guarantee.
+  Merging them makes the tray's defensiveness the producer's problem.
+  What is missing is a consumer-driven contract test, which a shared
+  class would appear to provide and would not.
