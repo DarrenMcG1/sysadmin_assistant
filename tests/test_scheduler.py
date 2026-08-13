@@ -66,12 +66,16 @@ class TestLifespanRegistration:
     """The hours-scale agents must be registered with the delay."""
 
     def test_organiser_agents_get_a_first_run_delay(self, monkeypatch):
+        """One job now: the project organiser left with the scanner in the
+        Session 4 cutover (ADR-0005); the estate runs it from its own
+        timer. The loop stays a loop so the next hours-scale agent is
+        covered by adding a name, not a test."""
         import inspect
 
         from sysadmin import main
 
         source = inspect.getsource(main.lifespan)
-        for job in ("project_organiser_scan", "file_organiser_scan"):
+        for job in ("file_organiser_scan",):
             block = source.split(job, 1)[1].split(")", 1)[0]
             assert "first_run_delay_seconds" in block, (
                 f"{job} must pass first_run_delay_seconds or it may never run"

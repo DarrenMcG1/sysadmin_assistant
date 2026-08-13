@@ -75,10 +75,15 @@ class ApiWorker(QObject):
         self,
         api_url: str,
         auth_token: str | None = None,
+        estate_api_url: str = "http://127.0.0.1:8400",
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._api_url = api_url.rstrip("/")
+        # Project state moved to the estate's 8400 service at the Session 4
+        # cutover (ADR-0005): /api/projects/overview and /api/projects/{name}
+        # are served there now; /api/projects/managed stays on api_url.
+        self._estate_api_url = estate_api_url.rstrip("/")
         # Send the bearer token on every request (only mutating endpoints
         # require it, but sending it everywhere is harmless and simpler).
         headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
@@ -229,9 +234,9 @@ class ApiWorker(QObject):
 
     @pyqtSlot()
     def fetch_project_overview(self) -> None:
-        """GET /api/projects/overview."""
+        """GET /api/projects/overview — from the estate's 8400 service."""
         try:
-            resp = self._client.get(f"{self._api_url}/api/projects/overview")
+            resp = self._client.get(f"{self._estate_api_url}/api/projects/overview")
             resp.raise_for_status()
             overview = ProjectOverviewResponse.from_dict(resp.json())
             self.project_overview_ready.emit(overview)
@@ -240,10 +245,10 @@ class ApiWorker(QObject):
 
     @pyqtSlot(str, int)
     def fetch_project_detail(self, project_name: str, limit: int = 30) -> None:
-        """GET /api/projects/{name}?limit=N — current snapshot + score history."""
+        """GET /api/projects/{name}?limit=N — from the estate's 8400 service."""
         try:
             resp = self._client.get(
-                f"{self._api_url}/api/projects/{project_name}",
+                f"{self._estate_api_url}/api/projects/{project_name}",
                 params={"limit": limit},
             )
             resp.raise_for_status()
@@ -481,12 +486,15 @@ class ApiClient(QObject):
         self,
         api_url: str,
         auth_token: str | None = None,
+        estate_api_url: str = "http://127.0.0.1:8400",
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
 
         self._thread = QThread(self)
-        self._worker = ApiWorker(api_url, auth_token=auth_token)
+        self._worker = ApiWorker(
+            api_url, auth_token=auth_token, estate_api_url=estate_api_url
+        )
         self._worker.moveToThread(self._thread)
 
         # Wire trigger signals → worker slots

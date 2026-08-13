@@ -35,7 +35,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from sysadmin.registry import (  # noqa: E402
+from estate.registry import (  # noqa: E402
     MANIFEST_NAME,
     SCHEMA_VERSION,
     derive_category,

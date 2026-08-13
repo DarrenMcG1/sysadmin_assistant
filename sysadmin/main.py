@@ -13,6 +13,7 @@ import logging
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
+from estate.registry import load_registry
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -52,13 +53,10 @@ from sysadmin.monitor.log_aggregator import LogAggregatorAgent
 from sysadmin.monitor.notifier import Notifier
 from sysadmin.monitor.reliability_history import record_reliability_snapshot
 from sysadmin.monitor.routers.logs import router as logs_router
+from sysadmin.monitor.routers.projects_managed import router as projects_managed_router
 from sysadmin.monitor.routers.services import router as services_router
 from sysadmin.monitor.routers.sysadmin import router as sysadmin_router
 from sysadmin.monitor.services import check_plan, load_services_singleton
-from sysadmin.projects.agent import ProjectOrganiserAgent
-from sysadmin.projects.review import run_weekly_review
-from sysadmin.projects.router import router as projects_router
-from sysadmin.registry import load_registry
 from sysadmin.units.agent import ServiceDiscoveryAgent
 from sysadmin.units.router import router as units_router
 
@@ -68,7 +66,6 @@ logger = logging.getLogger(__name__)
 scheduler = Scheduler()
 notifier = Notifier()
 sysadmin_agent = SysAdminAgent()
-project_organiser_agent = ProjectOrganiserAgent()
 file_organiser_agent = FileOrganiserAgent()
 log_aggregator_agent = LogAggregatorAgent()
 service_discovery_agent = ServiceDiscoveryAgent()
@@ -166,15 +163,6 @@ async def lifespan(app: FastAPI):
     # so the 24h file organiser never ran on a box that restarts daily.
     first_run_delay = config.schedules.agent_first_run_delay_seconds
 
-    # Project Organiser: project scanning
-    if agents_config.project_organiser.enabled:
-        scheduler.schedule_interval(
-            job_id="project_organiser_scan",
-            func=project_organiser_agent.run,
-            hours=agents_config.project_organiser.scan_interval_hours,
-            first_run_delay_seconds=first_run_delay,
-        )
-
     # File Organiser: filesystem audit
     if agents_config.file_organiser.enabled:
         scheduler.schedule_interval(
@@ -217,18 +205,9 @@ async def lifespan(app: FastAPI):
         hour=schedules.retention_hour,
         minute=schedules.retention_minute,
     )
-    # Weekly portfolio review — scheduled before the briefing on the same
-    # morning so the briefing can carry the fresh narrative
-    if agents_config.project_organiser.weekly_review:
-        scheduler.schedule_cron(
-            job_id="weekly_project_review",
-            func=run_weekly_review,
-            hour=schedules.review_hour,
-            minute=schedules.review_minute,
-            day_of_week=schedules.review_day_of_week,
-        )
-    # Weekly disk review — same morning, staggered after the portfolio
-    # review so only one llama-server generation is in flight at a time
+    # Weekly disk review — the slot after the estate's portfolio review
+    # (now on 8400, estate ADR-0008 / our ADR-0005) so only one
+    # llama-server generation is in flight at a time
     if agents_config.file_organiser.weekly_review:
         scheduler.schedule_cron(
             job_id="weekly_disk_review",
@@ -258,7 +237,6 @@ async def lifespan(app: FastAPI):
     app.state.notifier = notifier
     app.state.dnd_manager = dnd_manager
     app.state.sysadmin_agent = sysadmin_agent
-    app.state.project_organiser_agent = project_organiser_agent
     app.state.file_organiser_agent = file_organiser_agent
     app.state.log_aggregator_agent = log_aggregator_agent
     app.state.service_discovery_agent = service_discovery_agent
@@ -310,7 +288,7 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
     # --- Routers ---
     app.include_router(health_router)
     app.include_router(sysadmin_router)
-    app.include_router(projects_router)
+    app.include_router(projects_managed_router)
     app.include_router(files_router)
     app.include_router(logs_router)
     app.include_router(units_router)
@@ -328,7 +306,6 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
         """Trigger all agents to run immediately."""
         state = request.app.state
         asyncio.create_task(state.sysadmin_agent.run(run_type="manual"))
-        asyncio.create_task(state.project_organiser_agent.run(run_type="manual"))
         asyncio.create_task(state.file_organiser_agent.run(run_type="manual"))
         asyncio.create_task(state.log_aggregator_agent.run(run_type="manual"))
         asyncio.create_task(state.service_discovery_agent.run(run_type="manual"))

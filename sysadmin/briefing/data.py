@@ -39,9 +39,17 @@ staleness — ``_producer_timestamp`` reads ``generated_at`` into
 never fire here, because a pulled payload is stamped at the moment it is
 answered.  ``generated_at`` says when the phone was picked up; it says
 nothing about the age of the data recited into it.  A service whose
-organiser timer died three days ago serves a payload one second old
-containing three-day-old projects.  ``measured_at`` per source is what
+file-audit agent died three days ago serves a payload one second old
+containing three-day-old figures.  ``measured_at`` per source is what
 makes that visible, and :func:`summarise` states it in words.
+
+**The project half is gone** (Session 4 cutover, ADR-0005): "Project
+Health", "Pick This Up" and "Weekly Project Review" now come from the
+estate's own producer (``GET :8400/api/estate/briefing``), which Alfred
+pulls separately (its ADR-0070).  This module keeps the machine
+sections — Infrastructure, Overnight Logs, Filesystem, Weekly Disk
+Review — and the alert digest, so the alerting path never routes
+through the estate.
 """
 
 import logging
@@ -55,13 +63,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sysadmin.core.config import get_config
 from sysadmin.core.database import get_scheduler_session
 from sysadmin.core.models.alert import Alert
-from sysadmin.core.text import truncate_at_word
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.services import SKIPPED
-from sysadmin.projects.models.project_snapshot import ProjectSnapshot
-from sysadmin.projects.snapshots import latest_snapshot_query
 
 logger = logging.getLogger(__name__)
 
@@ -70,16 +75,6 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION = 1
 
 SOURCE = "sysadmin-service"
-
-#: How many rows either project table may carry.  Shared by "Project
-#: Health" and "Pick This Up" so one payload cannot give two answers to
-#: "how much of the estate am I being shown" — half of SNAG-BRIEF-001.
-_BOARD_LIMIT = 5
-
-#: The documented cap on a next action.  Documented is the operative word:
-#: SNAG-BRIEF-002 was a bare ``[:180]`` slice that the integration guide
-#: never mentioned, so a consumer had no way to know a cut had happened.
-NEXT_ACTION_CHARS = 180
 
 #: Distinct alert titles carried in the envelope.  The *counts* beside it
 #: are exact — see :func:`_gather_alerts`.
@@ -146,23 +141,14 @@ def _period(now: datetime) -> dict[str, str]:
 
 
 async def _gather(session: AsyncSession, now: datetime) -> dict[str, Any]:
-    """Run every query the briefing needs, once each.
-
-    The project snapshots used to be fetched **twice** — "Project Health"
-    and "Pick This Up" both issued :func:`latest_snapshot_query`, differing
-    only in an ``ORDER BY`` that Python can do for free.  Two reads of the
-    same table in one payload is also two chances to disagree.
-    """
+    """Run every query the briefing needs, once each."""
     from sysadmin.files.models.disk_review import DiskReview
-    from sysadmin.projects.models.project_review import ProjectReview
 
     return {
         "services": await _gather_services(session),
         "logs": await _gather_logs(session, now),
         "filesystem": await _gather_filesystem(session),
-        "projects": await _gather_projects(session),
         "alerts": await _gather_alerts(session),
-        "project_review": await _gather_review(session, now, ProjectReview),
         "disk_review": await _gather_review(session, now, DiskReview),
     }
 
@@ -243,36 +229,6 @@ async def _gather_filesystem(session: AsyncSession) -> dict[str, Any] | None:
     }
 
 
-async def _gather_projects(session: AsyncSession) -> dict[str, Any]:
-    """Latest snapshot per project, filtered to what is actually on this box.
-
-    **The status filter is the fix for SNAG-BRIEF-001.**  "Project Health"
-    published every project ever scanned — 26 rows including
-    ``PersonalAssistant``, retired 2026-07-24, and four near-duplicate
-    casings of the same work — while "Pick This Up" in the same payload
-    listed 5 and ``GET /api/projects/board`` returned 6.  One payload,
-    three answers to "what is on this box".
-
-    ``status == "active"`` rather than ``ACTIVELY_SCORED``: the board and
-    ``/api/projects/next`` both draw the line there, and the whole defect
-    was two sections in one document disagreeing.  Declaring a project
-    dormant is supposed to suppress it everywhere at once — that is the
-    highest-leverage line in the monitorable-project contract, and it
-    held everywhere except the one section a human reads each morning.
-    """
-    from sysadmin.projects.recommendations import STALLED_HANDOFF_DAYS
-
-    result = await session.execute(latest_snapshot_query())
-    rows = [r for r in result.scalars().all() if _status_of(r) == "active"]
-
-    return {
-        "health": _project_health_rows(rows),
-        "actions": _next_action_rows(rows, STALLED_HANDOFF_DAYS),
-        "scored": len(rows),
-        "measured_at": _newest(r.scanned_at for r in rows),
-    }
-
-
 async def _gather_alerts(session: AsyncSession) -> dict[str, Any]:
     """Open alerts, grouped by incident rather than listed by row.
 
@@ -329,9 +285,9 @@ async def _gather_alerts(session: AsyncSession) -> dict[str, Any]:
 async def _gather_review(session: AsyncSession, now: datetime, model: Any) -> Any | None:
     """The latest review of one kind, if it is still this week's.
 
-    ``model`` is ``ProjectReview`` or ``DiskReview`` — separate tables
-    with identical shapes, so the freshness rule lives here once rather
-    than being copied per review kind.
+    Parametrised on ``model`` from the days it served ``ProjectReview``
+    too (that review moved to the estate, ADR-0005); today its one
+    caller passes ``DiskReview``, and the freshness rule stays here.
     """
     query = select(model).order_by(desc(model.generated_at)).limit(1)
     result = await session.execute(query)
@@ -342,72 +298,6 @@ async def _gather_review(session: AsyncSession, now: datetime, model: Any) -> An
     if now - _aware(review.generated_at) > timedelta(days=_REVIEW_FRESH_DAYS):
         return None
     return review
-
-
-# ---------------------------------------------------------------------------
-# Project rows — shared by the facts block and the two project sections
-# ---------------------------------------------------------------------------
-
-
-def _project_health_rows(rows: list[ProjectSnapshot]) -> list[dict[str, Any]]:
-    """Health rows, **worst first** and capped.
-
-    Ascending by score is the other half of SNAG-BRIEF-001's fix: sorting
-    by score descending — as it did — puts the 100s at the top, so a cap
-    would have shown exactly the rows carrying no information.  A briefing
-    is read for what needs attention.
-    """
-    entries = []
-    for r in rows:
-        entry: dict[str, Any] = {"project": r.project_name, "score": r.health_score}
-        notes = []
-        if r.stale_branch_count and r.stale_branch_count > 0:
-            notes.append(f"{r.stale_branch_count} stale branches")
-        if r.todo_count and r.todo_count > 20:
-            notes.append(f"{r.todo_count} TODOs")
-        if notes:
-            entry["note"] = ", ".join(notes)
-        entries.append(entry)
-
-    entries.sort(key=lambda e: (e["score"] if e["score"] is not None else 0, e["project"]))
-    return entries[:_BOARD_LIMIT]
-
-
-def _next_action_rows(rows: list[ProjectSnapshot], stalled_days: int) -> list[dict[str, Any]]:
-    """One next action per active project, ranked by how long it has sat.
-
-    Deliberately **not** a list of everything outstanding.  The health
-    table already reports 400 TODOs across the portfolio, and a longer
-    list is more to avoid rather than less.
-
-    Projects with no next action are omitted entirely — a row saying
-    "nothing recorded" is noise in a document whose whole job is to be
-    short.  Stalled entries are marked rather than dropped, because
-    "decide whether to park this" is itself the action.
-    """
-    ranked: list[tuple[int, dict[str, Any]]] = []
-    for r in rows:
-        findings = r.findings or {}
-        roadmap = findings.get("roadmap") or {}
-        action = roadmap.get("next_action")
-        source = roadmap.get("next_action_source")
-        if not action and findings.get("last_commit_subject"):
-            action, source = str(findings["last_commit_subject"]), "git"
-        if not action:
-            continue
-
-        age = roadmap.get("handoff_age_days")
-        entry: dict[str, Any] = {
-            "project": r.project_name,
-            "next": truncate_at_word(str(action), NEXT_ACTION_CHARS),
-            "source": source,
-        }
-        if isinstance(age, int) and age > stalled_days:
-            entry["note"] = f"stalled {age} days — resume or park"
-        ranked.append((age if isinstance(age, int) else -1, entry))
-
-    ranked.sort(key=lambda pair: -pair[0])
-    return [entry for _, entry in ranked[:_BOARD_LIMIT]]
 
 
 # ---------------------------------------------------------------------------
@@ -455,24 +345,6 @@ def build_facts(gathered: dict[str, Any], now: datetime) -> dict[str, Any]:
     if filesystem:
         facts["filesystem"] = dict(filesystem)
 
-    projects = gathered["projects"]
-    if projects["scored"]:
-        health = projects["health"]
-        threshold = get_config().agents.project_organiser.grade_bands.needs_attention_min
-        below = [e for e in health if (e["score"] or 0) < threshold]
-        actions = projects["actions"]
-        facts["projects"] = {
-            "active": projects["scored"],
-            "shown": len(health),
-            "omitted": max(0, projects["scored"] - len(health)),
-            "below_threshold": len(below),
-            "threshold": threshold,
-            "lowest": health[0] if health else None,
-            "actions_outstanding": len(actions),
-            "actions_stalled": sum(1 for e in actions if "note" in e),
-            "measured_at": projects["measured_at"],
-        }
-
     alerts = gathered["alerts"]
     facts["alerts"] = {
         "open": alerts["open"],
@@ -482,7 +354,6 @@ def build_facts(gathered: dict[str, Any], now: datetime) -> dict[str, Any]:
     }
 
     facts["reviews"] = {
-        "project": _iso(getattr(gathered["project_review"], "generated_at", None)),
         "disk": _iso(getattr(gathered["disk_review"], "generated_at", None)),
     }
 
@@ -504,7 +375,7 @@ def _stale_sources(facts: dict[str, Any], now: datetime) -> list[str]:
     however dead the agent behind it is.
     """
     stale = []
-    for name in ("services", "filesystem", "projects", "logs"):
+    for name in ("services", "filesystem", "logs"):
         block = facts.get(name)
         measured = block.get("measured_at") if isinstance(block, dict) else None
         if not measured:
@@ -538,7 +409,6 @@ def summarise(facts: dict[str, Any]) -> str:
         _services_clause(facts.get("services")),
         _alerts_clause(facts.get("alerts")),
         _filesystem_clause(facts.get("filesystem")),
-        _projects_clause(facts.get("projects")),
         _logs_clause(facts.get("logs")),
         _staleness_clause(facts.get("stale_sources")),
     ]
@@ -587,25 +457,6 @@ def _filesystem_clause(facts: dict[str, Any] | None) -> str | None:
     if not parts:
         return None
     return f"{', '.join(parts)}."
-
-
-def _projects_clause(facts: dict[str, Any] | None) -> str | None:
-    if not facts:
-        return None
-    parts = [f"{facts['active']} active projects"]
-    if facts["below_threshold"]:
-        parts.append(f"{facts['below_threshold']} below {facts['threshold']}")
-    if facts["omitted"]:
-        parts.append(f"showing the {facts['shown']} lowest")
-    sentence = f"{', '.join(parts)}."
-
-    if facts["actions_outstanding"]:
-        stalled = facts["actions_stalled"]
-        tail = f"{facts['actions_outstanding']} next actions outstanding"
-        if stalled:
-            tail += f", {stalled} stalled"
-        sentence += f" {tail}."
-    return sentence
 
 
 def _logs_clause(facts: dict[str, Any] | None) -> str | None:
@@ -686,22 +537,11 @@ def render_sections(gathered: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
 
-    projects = gathered["projects"]
-    if projects["health"]:
+    disk_review = gathered["disk_review"]
+    if disk_review is not None:
         sections.append(
-            {"title": "Project Health", "type": "table", "data": projects["health"]}
+            {"title": "Weekly Disk Review", "type": "text", "data": disk_review.narrative}
         )
-    if projects["actions"]:
-        sections.append(
-            {"title": "Pick This Up", "type": "table", "data": projects["actions"]}
-        )
-
-    for review, title in (
-        (gathered["project_review"], "Weekly Project Review"),
-        (gathered["disk_review"], "Weekly Disk Review"),
-    ):
-        if review is not None:
-            sections.append({"title": title, "type": "text", "data": review.narrative})
 
     return sections
 
@@ -709,11 +549,6 @@ def render_sections(gathered: dict[str, Any]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Small shared helpers
 # ---------------------------------------------------------------------------
-
-
-def _status_of(row: ProjectSnapshot) -> str:
-    findings = row.findings or {}
-    return str(findings.get("status", "active"))
 
 
 def _aware(stamp: datetime) -> datetime:

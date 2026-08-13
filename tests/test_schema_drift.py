@@ -27,6 +27,14 @@ def _db_available() -> bool:
         return False
 
 
+# Frozen by estate-manager ADR-0005: the models moved to the 8400
+# service, the tables stay until the tasks.md drop entry ("drop the
+# frozen project tables") runs. Excluded so neither the drift guard
+# nor a future `--autogenerate` proposes dropping data this repo no
+# longer models.
+FROZEN_TABLES = {"project_snapshots", "project_reviews"}
+
+
 def _include_object(object, name, type_, reflected, compare_to):
     """Mirror alembic/env.py: only sysadmin-schema tables, skip version table."""
     if type_ == "table":
@@ -34,6 +42,8 @@ def _include_object(object, name, type_, reflected, compare_to):
         if schema != "sysadmin":
             return False
         if name == "alembic_version":
+            return False
+        if name in FROZEN_TABLES:
             return False
     return True
 

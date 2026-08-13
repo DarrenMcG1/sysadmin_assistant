@@ -8,6 +8,42 @@
 
 ---
 
+## After the Session 4 cutover (estate-manager, 2026-08-13)
+
+_Project state left this repository — [ADR-0005](../adr/0005-project-state-leaves.md).
+`sysadmin/projects/` and `sysadmin/registry/` are both gone: the first to
+the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
+which `units/` and `monitor/` now import from there. These three are the
+debts that landing deliberately left behind._
+
+- [ ] **The judging session.** Wire the estate's published surfaces into
+      checks and alerts: `GET :8400/api/projects/invariants` (scan age,
+      parse failures, repos skipped) and `GET :8400/api/projects/attention`
+      (health breaches, idle nudges). The estate publishes and may not
+      act; this repository judges — that is the swap estate ADR-0004 §6
+      records. **Until this runs, idle nudges reach no tray toast**: the
+      data exists on 8400 and nothing here reads it yet
+- [ ] **Drop the frozen project tables** — `sysadmin.project_snapshots`
+      and `sysadmin.project_reviews`, their `FROZEN_TABLES` exclusions in
+      `alembic/env.py` **and** `tests/test_schema_drift.py` (both, or a
+      future `--autogenerate` writes a `drop_table` into an unrelated
+      migration), the `project_snapshots` retention entry, and the
+      `agents.project_organiser` config block. Their history was copied
+      into database `estate` on 2026-08-13; leave a settling period
+      before dropping, since a copy verified once is not a copy verified
+      twice
+- [ ] **Pin the tray's parse of the estate's responses.** The tray reads
+      `/api/projects/overview` and `/{name}` from **8400** now but parses
+      them with *this* repository's contract classes
+      (`ProjectOverviewResponse` and friends), which the estate also
+      defines in `estate_service/projects/contracts.py`. That is one
+      shape maintained in two repositories — the copy-drift pattern the
+      estate exists to remove, surviving here because the consumer's
+      parse and the producer's contract are genuinely different jobs.
+      Either pin it with a contract test against the live producer, or
+      move the shapes into `estate-lib` where both sides import one
+      definition. Decide deliberately rather than letting it age
+
 ## Active Sessions
 
 _Sessions 24–27 promoted from [ideas.md](ideas.md) on 2026-08-05. They are

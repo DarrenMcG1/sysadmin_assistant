@@ -26,7 +26,7 @@ from sysadmin.core.contracts import (
     UnitScanSummary,
 )
 from sysadmin.core.database import get_db_session
-from sysadmin.registry import load_registry
+from estate.registry import load_registry
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.recommendations import (
     KIND_ORDER,

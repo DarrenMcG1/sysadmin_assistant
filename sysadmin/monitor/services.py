@@ -4,7 +4,7 @@ Replaces the runtime half of projects.yaml and the ``agents.sysadmin.services``
 block in config.yaml. Three properties are the point of the format:
 
 **No paths.** A service is attached to a project by *id*, resolved through
-:mod:`sysadmin.registry`. A path can rot without anything noticing — twice
+:mod:`estate.registry`. A path can rot without anything noticing — twice
 already, once from a case mismatch and once from a directory deleted during
 a reorganisation. An id cannot: an unknown one fails at load.
 
@@ -28,7 +28,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from sysadmin.core.config import LogSource
-from sysadmin.registry import Registry
+from estate.registry import Registry
 
 logger = logging.getLogger(__name__)
 

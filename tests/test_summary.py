@@ -1,4 +1,9 @@
-"""Tests for GET /api/summary digest endpoint."""
+"""Tests for GET /api/summary digest endpoint.
+
+The projects section left with the scanner in the Session 4 cutover
+(ADR-0005): this digest is machine-flavoured now — services, alerts,
+resources, DND. Project state is served by the estate on 8400.
+"""
 
 import uuid
 from datetime import UTC, datetime
@@ -9,7 +14,6 @@ import pytest
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
-from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 
 
 def _make_health(name: str, status: str = "ok") -> ServiceHealth:
@@ -41,19 +45,6 @@ def _make_snapshot() -> ResourceSnapshot:
     return row
 
 
-def _make_project(name: str, score: int) -> ProjectSnapshot:
-    row = ProjectSnapshot(
-        project_name=name, project_path=f"/projects/{name}",
-        health_score=score, branch_count=3, stale_branch_count=1,
-        todo_count=5, fixme_count=2, has_readme=True, has_claude_md=True,
-        total_size_mb=100, findings={},
-    )
-    row.id = uuid.uuid4()
-    row.scanned_at = datetime.now(UTC)
-    row.last_commit_at = datetime.now(UTC)
-    return row
-
-
 def _mock_multi_queries(mock_session, results_sequence):
     """Mock session.execute to return different results for sequential queries."""
     call_count = 0
@@ -80,7 +71,6 @@ class TestSummaryEndpoint:
             [_make_health("api", "ok")],      # services
             [_make_alert("High RAM")],          # alerts
             _make_snapshot(),                    # resources
-            [_make_project("myapp", 85)],       # projects
         ])
 
         with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:
@@ -94,7 +84,10 @@ class TestSummaryEndpoint:
         assert "alerts" in data
         assert "resources" in data
         assert "dnd" in data
-        assert "projects" in data
+        # Project state moved to the estate's 8400 service (ADR-0005);
+        # asserted absent so a reintroduction is a failing test, not a
+        # second producer nobody noticed.
+        assert "projects" not in data
 
     @pytest.mark.asyncio
     async def test_services_section(self, test_client, mock_session):
@@ -102,7 +95,6 @@ class TestSummaryEndpoint:
             [_make_health("api", "ok"), _make_health("db", "critical")],
             [],
             None,
-            [],
         ])
 
         with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:
@@ -115,7 +107,7 @@ class TestSummaryEndpoint:
 
     @pytest.mark.asyncio
     async def test_empty_state(self, test_client, mock_session):
-        _mock_multi_queries(mock_session, [[], [], None, []])
+        _mock_multi_queries(mock_session, [[], [], None])
 
         with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:
             mock_dnd.get_status.return_value = {"active": False}
@@ -125,7 +117,6 @@ class TestSummaryEndpoint:
         assert data["services"]["all_healthy"] is True
         assert data["alerts"]["count"] == 0
         assert data["resources"] is None
-        assert data["projects"]["count"] == 0
 
     @pytest.mark.asyncio
     async def test_gpu_included_in_resources(self, test_client, mock_session):
@@ -133,7 +124,6 @@ class TestSummaryEndpoint:
             [],
             [],
             _make_snapshot(),
-            [],
         ])
 
         with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:

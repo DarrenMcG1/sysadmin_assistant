@@ -314,187 +314,24 @@ class TestPortsEndpoint:
 
 
 # ---------------------------------------------------------------------------
-# /api/projects recommendations (Session 22)
+# /api/projects — left with the scanner in the Session 4 cutover (ADR-0005)
 # ---------------------------------------------------------------------------
+#
+# The recommendations, portfolio-actions and review endpoints (and their
+# route-shadowing pins, which mattered because /{name} would swallow a
+# literal segment) are the estate's on 8400 now, covered by its suite.
+# The one project-prefixed route still served here is GET
+# /api/projects/managed — service health joined to registry identity,
+# monitor substance that never left.
 
-
-def _make_project_snapshot(name, score, findings):
-    from sysadmin.projects.models.project_snapshot import ProjectSnapshot
-
-    row = ProjectSnapshot(
-        project_name=name,
-        project_path=f"/projects/{name}",
-        health_score=score,
-        findings=findings,
-    )
-    row.id = uuid.uuid4()
-    row.scanned_at = datetime.now(UTC)
-    return row
+# Kept from that section: the disk-review tests below share this helper,
+# and it says nothing about projects.
 
 
 def _mock_scalars_first(mock_session, row):
     result = MagicMock()
     result.scalars.return_value.first.return_value = row
     mock_session.execute = AsyncMock(return_value=result)
-
-
-class TestProjectRecommendations:
-    @pytest.mark.asyncio
-    async def test_recommendations_for_a_project(self, test_client, mock_session):
-        row = _make_project_snapshot(
-            "demo", 75, {"missing_readme": True, "stale": "No commits in 90 days"}
-        )
-        _mock_scalars_first(mock_session, row)
-
-        resp = await test_client.get("/api/projects/demo/recommendations")
-        assert resp.status_code == 200
-        data = resp.json()
-
-        assert data["project"] == "demo"
-        assert data["health_score"] == 75
-        assert data["potential_score"] == 100
-        assert data["count"] == 2
-        assert data["recommendations"][0]["points"] == 15
-
-    @pytest.mark.asyncio
-    async def test_unknown_project_404s(self, test_client, mock_session):
-        _mock_scalars_first(mock_session, None)
-
-        resp = await test_client.get("/api/projects/nope/recommendations")
-        assert resp.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_status_echoed_from_findings(self, test_client, mock_session):
-        row = _make_project_snapshot("old", 100, {"status": "archived"})
-        _mock_scalars_first(mock_session, row)
-
-        resp = await test_client.get("/api/projects/old/recommendations")
-        assert resp.json()["status"] == "archived"
-
-
-class TestPortfolioActions:
-    @pytest.mark.asyncio
-    async def test_ranked_across_projects(self, test_client, mock_session):
-        rows = [
-            _make_project_snapshot("tidy", 100, {}),
-            _make_project_snapshot("risky", 100, {"no_remote": True}),
-            _make_project_snapshot(
-                "messy", 70, {"missing_readme": True, "stale": "No commits in 90 days"}
-            ),
-        ]
-        _mock_scalars_all(mock_session, rows)
-
-        resp = await test_client.get("/api/projects/actions")
-        assert resp.status_code == 200
-        data = resp.json()
-
-        # Risk first, then points descending; tidy contributes nothing
-        assert data["actions"][0]["project"] == "risky"
-        assert data["actions"][0]["severity"] == "risk"
-        assert data["actions"][1]["points"] == 15
-        assert data["projects_with_actions"] == 2
-        assert data["count"] == data["total_available"] == 3
-
-    @pytest.mark.asyncio
-    async def test_limit_truncates_but_reports_total(self, test_client, mock_session):
-        rows = [
-            _make_project_snapshot(
-                "messy", 60,
-                {"missing_readme": True, "missing_claude_md": True,
-                 "stale_git_lock": True},
-            ),
-        ]
-        _mock_scalars_all(mock_session, rows)
-
-        resp = await test_client.get("/api/projects/actions?limit=2")
-        data = resp.json()
-
-        assert data["count"] == 2
-        assert data["total_available"] == 3
-        assert len(data["actions"]) == 2
-
-    @pytest.mark.asyncio
-    async def test_actions_route_not_shadowed_by_name_route(
-        self, test_client, mock_session
-    ):
-        """Regression: /actions must not be captured as project 'actions'."""
-        _mock_scalars_all(mock_session, [])
-
-        resp = await test_client.get("/api/projects/actions")
-        assert resp.status_code == 200
-        assert resp.json()["actions"] == []
-
-
-# ---------------------------------------------------------------------------
-# /api/projects/review (Session 23)
-# ---------------------------------------------------------------------------
-
-
-def _make_review(narrative="Fine week.", llm_used=True):
-    from sysadmin.projects.models.project_review import ProjectReview
-
-    row = ProjectReview(period_days=7, narrative=narrative, llm_used=llm_used)
-    row.id = uuid.uuid4()
-    row.generated_at = datetime.now(UTC)
-    row.stats = {"totals": {"project_count": 1}}
-    return row
-
-
-class TestProjectReviewEndpoints:
-    @pytest.mark.asyncio
-    async def test_latest_review_returned(self, test_client, mock_session):
-        _mock_scalars_first(mock_session, _make_review("Steady progress."))
-
-        resp = await test_client.get("/api/projects/review")
-        assert resp.status_code == 200
-        data = resp.json()
-
-        assert data["narrative"] == "Steady progress."
-        assert data["llm_used"] is True
-        assert data["stats"]["totals"]["project_count"] == 1
-
-    @pytest.mark.asyncio
-    async def test_404_before_first_review(self, test_client, mock_session):
-        _mock_scalars_first(mock_session, None)
-
-        resp = await test_client.get("/api/projects/review")
-        assert resp.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_generate_on_demand(self, test_client, mock_session):
-        review = _make_review("Fresh review.", llm_used=False)
-
-        with patch(
-            "sysadmin.projects.router.project_review.generate_review",
-            new=AsyncMock(return_value=review),
-        ):
-            resp = await test_client.post("/api/projects/review/generate")
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["narrative"] == "Fresh review."
-        assert data["llm_used"] is False
-
-    @pytest.mark.asyncio
-    async def test_generate_409_without_snapshots(self, test_client, mock_session):
-        with patch(
-            "sysadmin.projects.router.project_review.generate_review",
-            new=AsyncMock(return_value=None),
-        ):
-            resp = await test_client.post("/api/projects/review/generate")
-
-        assert resp.status_code == 409
-
-    @pytest.mark.asyncio
-    async def test_review_route_not_shadowed_by_name_route(
-        self, test_client, mock_session
-    ):
-        """Regression: /review must not be captured as project 'review'."""
-        _mock_scalars_first(mock_session, None)
-
-        resp = await test_client.get("/api/projects/review")
-        # 404 from "no review yet", NOT from "project not found"
-        assert resp.json()["detail"] == "No review generated yet"
 
 
 # ---------------------------------------------------------------------------

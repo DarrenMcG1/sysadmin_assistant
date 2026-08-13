@@ -90,26 +90,11 @@ class TestStepFor:
         assert Step.ESCALATE == "escalate"
 
 
-class TestNudgesStillUsesTheSharedLadder:
-    """The reason this module is in ``core`` at all.
-
-    ``sysadmin.monitor`` may not import ``sysadmin.projects``
-    (``tests/test_import_boundary.py``), so the alternative to sharing was
-    copying — and a copied rule drifts in the direction nobody notices.
-    """
-
-    def test_nudge_severities_come_from_the_shared_ladder(self):
-        from sysadmin.projects import nudges
-
-        assert nudges.NUDGE_LADDER.quiet == "info"
-        assert nudges.NUDGE_LADDER.loud == "warning"
-        assert nudges.SEVERITY_ORDER is SEVERITY_ORDER
-
-    @pytest.mark.parametrize(
-        ("days", "expected"),
-        [(6, None), (7, "info"), (13, "info"), (14, "warning")],
-    )
-    def test_nudge_severity_for_is_unchanged_by_the_move(self, days, expected):
-        from sysadmin.projects.nudges import severity_for
-
-        assert severity_for(days, 7, 7) == expected
+# TestNudgesStillUsesTheSharedLadder left with the nudges in the Session
+# 4 cutover (ADR-0005). It pinned that sysadmin.projects.nudges climbed
+# *this* ladder rather than a copy; the estate's port inlined the ladder
+# deliberately (estate ADR-0008 §3) because the estate labels its own
+# published data and this repo's escalation policy stays this repo's.
+# The two are now free to differ, which is the point — but if the
+# severities are ever meant to agree again, that is a shared contract and
+# belongs in estate-lib, not in two hand-kept copies.

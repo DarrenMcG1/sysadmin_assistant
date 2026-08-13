@@ -15,7 +15,7 @@ from sysadmin.monitor.services import (
     load_services,
     parse_services,
 )
-from sysadmin.registry import UnknownProjectError, load_registry
+from estate.registry import UnknownProjectError, load_registry
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LIVE_SERVICES_YAML = REPO_ROOT / "services.yaml"

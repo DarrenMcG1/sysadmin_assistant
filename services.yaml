@@ -2,7 +2,7 @@
 #
 # Replaces the runtime half of projects.yaml (backend/frontend endpoints)
 # and the agents.sysadmin.services block in config.yaml. Projects are
-# referenced by `project:` id, resolved through sysadmin/registry against
+# referenced by `project:` id, resolved through estate.registry against
 # the .project.yaml manifests. There are deliberately no paths in this
 # file: an id that names nothing fails at load, a path that names nothing
 # fails silently, and this estate has been bitten by the latter twice.
@@ -177,19 +177,6 @@ services:
     systemd: { unit: sysadmin.service, scope: system }
     log: { type: journalctl, severity_filter: warning }
 
-  # The organiser's own schedule, installed 2026-08-08. It runs the
-  # project scan outside this service so the two do not share a fate, and
-  # monitoring the timer is what replaces the daemon's self-monitor watch
-  # over that agent — `agents.project_organiser.enabled: false` in
-  # config.yaml means the daemon no longer schedules it and so can no
-  # longer tell whether it ran.
-  - project: sysadmin-assistant
-    name: sysadmin-organiser-timer
-    role: schedule
-    kind: timer
-    systemd: { unit: sysadmin-organiser.timer, scope: user }
-    controllable: false
-
   # The tray, given a unit on 2026-08-11 after it was found not running:
   # nothing had ever started it. No autostart entry, no unit — it had only
   # ever been launched by hand, so the 2026-08-10 reboot ended it silently
@@ -251,6 +238,25 @@ services:
     port: 8400
     systemd: { unit: estate-manager-api.service, scope: user }
     log: { type: journalctl, severity_filter: warning }
+
+  # The estate's scan/review timers (Session 4: the scanner and the
+  # weekly portfolio review moved to the 8400 service, replacing
+  # sysadmin-organiser.timer). Watched here per the judging swap
+  # (ADR-0005): the estate never judges its own scan, so its schedule is
+  # this repository's to assert.
+  - project: estate-manager
+    name: estate-manager-scan-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: estate-manager-scan.timer, scope: user }
+    controllable: false
+
+  - project: estate-manager
+    name: estate-manager-review-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: estate-manager-review.timer, scope: user }
+    controllable: false
 
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any

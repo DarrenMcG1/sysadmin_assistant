@@ -17,7 +17,6 @@ PROTECTED_ROUTES = [
     "/api/sysadmin/services/test-api/restart",
     "/api/sysadmin/alerts/some-id/ack",
     "/api/sysadmin/dnd",
-    "/api/projects/scan",
     "/api/files/scan",
     "/api/files/clean/stale-caches",
     "/api/files/organise",

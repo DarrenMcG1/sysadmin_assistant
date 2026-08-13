@@ -28,7 +28,7 @@ from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.services import get_services
-from sysadmin.registry import load_registry
+from estate.registry import load_registry
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.scan import (
     HOST,
@@ -121,7 +121,7 @@ class ServiceDiscoveryAgent(BaseAgent):
         had run once — and worse than useless, because with no projects to
         match, *every* unit classifies as an orphan or a host unit.
 
-        Both agents now go through :func:`sysadmin.registry.load_registry`,
+        Both agents now go through :func:`estate.registry.load_registry`,
         so there is one definition of "a project" rather than two that can
         drift. The symptom of drift here would be units reported as
         orphans because this sweep could not see the project they belong

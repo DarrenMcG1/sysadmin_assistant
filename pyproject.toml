@@ -15,7 +15,6 @@ dependencies = [
     "psutil>=5.9.0",
     "httpx>=0.27.0",
     "apscheduler>=3.10.0",
-    "gitpython>=3.1.0",
     "psycopg2-binary>=2.9.0",
     "python-json-logger>=3.0.0",
     # Estate-shared in-process mechanism: llama-server client core and the
@@ -39,7 +38,6 @@ tray = [
 
 [project.scripts]
 sysadmin-tray = "sysadmin_tray.app:main"
-sysadmin-organiser = "sysadmin.projects.cli:main"
 # Called by sysadmin-failed.service when the daemon has entered `failed`.
 # A console script rather than inline psql: the alert row must satisfy the
 # same model and CHECK constraint the application writes through.

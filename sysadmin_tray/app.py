@@ -53,7 +53,11 @@ class TrayApp:
         self._config = config
 
         # API client (owns the worker thread)
-        self._client = ApiClient(config.api_url, auth_token=config.auth_token)
+        self._client = ApiClient(
+            config.api_url,
+            auth_token=config.auth_token,
+            estate_api_url=config.estate_api_url,
+        )
 
         # UI components
         self._tray = TrayIcon()

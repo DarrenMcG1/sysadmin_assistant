@@ -8,6 +8,11 @@ is not allowed to do that.
 Paths are unchanged from before the Phase 2 move: ``/api/summary`` is the
 single-call digest, and ``/api/sysadmin/briefing/preview`` keeps its
 sysadmin-namespaced path because Alfred already pulls it.
+
+Since the Session 4 cutover (ADR-0005) both payloads are machine-only:
+project health left with the scanner for the estate's 8400 service, so
+``/api/summary`` carries services, alerts and resources, and the project
+digest is the estate's to serve.
 """
 
 from datetime import UTC, datetime
@@ -23,8 +28,6 @@ from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.services import get_services
-from sysadmin.projects.models.project_snapshot import ProjectSnapshot
-from sysadmin.projects.snapshots import latest_snapshot_query
 
 router = APIRouter(prefix="/api", tags=["integration"])
 
@@ -40,7 +43,7 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
     """Single-call digest of system state for PA consumption.
 
     Returns service health, active alerts, latest resource snapshot
-    (including GPU and disk), DND status, and project health scores.
+    (including GPU and disk), and DND status.
     """
     # --- Services: latest status per configured service ---
     configured_names = {s.name for s in get_services().services}
@@ -117,21 +120,6 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
             "recorded_at": snapshot.recorded_at.isoformat() if snapshot.recorded_at else None,
         }
 
-    # --- Project health: latest score per project ---
-    proj_query = latest_snapshot_query().order_by(desc(ProjectSnapshot.health_score))
-    proj_result = await session.execute(proj_query)
-    proj_rows = proj_result.scalars().all()
-
-    projects = [
-        {
-            "name": r.project_name,
-            "health_score": r.health_score,
-            "todo_count": r.todo_count,
-            "stale_branches": r.stale_branch_count,
-        }
-        for r in proj_rows
-    ]
-
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "services": {
@@ -144,8 +132,4 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
         },
         "resources": resources,
         "dnd": dnd_manager.get_status(),
-        "projects": {
-            "count": len(projects),
-            "items": projects,
-        },
     }

@@ -191,13 +191,14 @@ agents:
 
 
   project_organiser:
-    # `enabled` gates the schedule *inside this daemon*, nothing else. The
-    # organiser now runs from sysadmin-organiser.timer (installed
-    # 2026-08-08), so leaving this true would scan the estate twice — once
-    # every 6h here and once daily there. The endpoints, the manual
-    # POST /api/projects/scan trigger and the weekly review are unaffected.
-    # The timer is monitored through services.yaml, which is what takes
-    # over from the self-monitor's stall watch on this agent.
+    # The organiser lives in the estate's 8400 service since Session 4
+    # (ADR-0005) — this daemon no longer constructs, schedules or
+    # self-monitors it (`agent_schedules()` dropped the entry in Session
+    # 43, so nothing here reads these values any more). The block
+    # survives as recorded config debt: the files domain still reads
+    # `projects_root` for its safety fence, and the classes fan out into
+    # the defaults tests. Retire it with the frozen project tables — see
+    # the tasks.md entry.
     enabled: false
     scan_interval_hours: 6
     projects_root: /home/gaddi/projects

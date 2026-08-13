@@ -21,7 +21,6 @@ class TestScanAll:
 
         for name in (
             "sysadmin_agent",
-            "project_organiser_agent",
             "file_organiser_agent",
             "log_aggregator_agent",
         ):
@@ -29,15 +28,9 @@ class TestScanAll:
             agent.run.assert_called_once_with(run_type="manual")
 
 
-class TestProjectScanTrigger:
-    @pytest.mark.asyncio
-    async def test_project_scan_uses_app_state_agent(self, test_client, test_app):
-        resp = await test_client.post("/api/projects/scan")
-        assert resp.status_code == 200
-        assert resp.json() == {"status": "scan_triggered"}
-        test_app.state.project_organiser_agent.run.assert_called_once_with(
-            run_type="manual"
-        )
+# TestProjectScanTrigger left with the scanner in the Session 4 cutover
+# (ADR-0005): POST /api/projects/scan is the estate's route now, covered
+# by its own suite. Nothing here should trigger a project scan.
 
 
 class TestExceptionHandler:

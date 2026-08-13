@@ -23,8 +23,6 @@ from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.models.reliability_score import ReliabilityScore
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
-from sysadmin.projects.models.project_review import ProjectReview
-from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 from sysadmin.units.models import UnitAudit
 
 ALL_MODELS = (
@@ -34,8 +32,6 @@ ALL_MODELS = (
     FilesystemAudit,
     LogEntry,
     LogSummary,
-    ProjectReview,
-    ProjectSnapshot,
     ReliabilityScore,
     ResourceSnapshot,
     RetentionConfig,

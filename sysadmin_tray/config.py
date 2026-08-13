@@ -21,6 +21,11 @@ class TrayConfig(BaseModel):
     """Tray-specific configuration with sensible defaults."""
 
     api_url: str = default_api_url()
+    #: The estate's 8400 service — project state lives there since the
+    #: Session 4 cutover (ADR-0005). /api/projects/overview and
+    #: /api/projects/{name} are fetched from here; /api/projects/managed
+    #: stays on api_url (service health is this repository's data).
+    estate_api_url: str = "http://127.0.0.1:8400"
     auth_token: str | None = None
     status_poll_seconds: int = 10
     resource_poll_seconds: int = 30
@@ -133,10 +138,10 @@ def load_tray_config(
     tray_section = raw.get("tray", {}) or {}
     kwargs: dict = {}
 
-    # Poll intervals from tray section
+    # Poll intervals (and the estate URL) from tray section
     for key in ("status_poll_seconds", "resource_poll_seconds",
                 "alert_poll_seconds", "show_notifications",
-                "notify_min_severity", "dashboard_url"):
+                "notify_min_severity", "dashboard_url", "estate_api_url"):
         if key in tray_section:
             kwargs[key] = tray_section[key]
 

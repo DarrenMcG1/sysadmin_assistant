@@ -476,7 +476,7 @@ class LogAggregatorConfig(BaseModel):
 # projects.yaml was retired in Session 35 Phase 4.  Project identity,
 # declared status and per-project alert thresholds now live in a
 # ``.project.yaml`` manifest inside each repository, read through
-# :mod:`sysadmin.registry`; services live in services.yaml.  The file
+# :mod:`estate.registry`; services live in services.yaml.  The file
 # itself is kept as docs/projects-registry-legacy.yaml, because its
 # comments were the only record of several decisions and those move into
 # ``decisions:`` blocks by hand, one project at a time.

@@ -38,6 +38,14 @@ def get_url() -> str:
     return app_config.database.sync_url
 
 
+# Frozen by estate-manager ADR-0005: the models moved to the 8400
+# service, the tables stay until the tasks.md drop entry ("drop the
+# frozen project tables") runs. Excluded so neither the drift guard
+# nor a future `--autogenerate` proposes dropping data this repo no
+# longer models.
+FROZEN_TABLES = {"project_snapshots", "project_reviews"}
+
+
 def include_object(object, name, type_, reflected, compare_to):
     """Only include objects from the sysadmin schema in autogenerate."""
     if type_ == "table":
@@ -47,6 +55,8 @@ def include_object(object, name, type_, reflected, compare_to):
             return False
         # Skip alembic's own version table
         if name == "alembic_version":
+            return False
+        if name in FROZEN_TABLES:
             return False
     return True
 

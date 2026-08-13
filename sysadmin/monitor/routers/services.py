@@ -36,10 +36,26 @@ from sysadmin.core.contracts import (
 from sysadmin.core.database import get_db_session
 from sysadmin.monitor.reliability import ReliabilityScore
 from sysadmin.monitor.reliability_history import compute_reliability
+from sysadmin.monitor.services import get_services, services_by_project
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/services", tags=["services"])
+
+
+@router.get("/by-project")
+async def by_project() -> dict:
+    """Project id → the names of its services — sysadmin's contribution.
+
+    Added in estate-manager Session 4 (its ADR-0008, sysadmin ADR-0005):
+    the project scanner moved to the estate, but which services a project
+    owns is declared in this repository's ``services.yaml`` and stays
+    machine-flavoured. The estate pulls this once per scan to publish
+    ``services[]`` in estate.json. Names only, deliberately — embedding
+    urls and units would make estate.json a second place to edit when a
+    port moves.
+    """
+    return {"by_project": services_by_project(get_services())}
 
 GRADES = ("reliable", "degraded", "unreliable", "failing")
 CONFIDENCE_LEVELS = ("high", "low")

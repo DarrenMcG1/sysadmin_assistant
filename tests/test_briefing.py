@@ -2,14 +2,15 @@
 
 DB access is mocked at the session level (same pattern as
 tests/test_routers.py); psutil and the notifier are patched.  ``_gather``
-runs its queries in a fixed order — services, logs, filesystem, projects,
-alerts, then the two reviews — so ``session.execute`` uses ``side_effect``
-to feed each one its result.
+runs its queries in a fixed order — services, logs, filesystem, alerts,
+then the disk review — so ``session.execute`` uses ``side_effect`` to
+feed each one its result.
 
-Note what a mocked session cannot show: the project query's freshness
-cutoff and the alert query's ``GROUP BY`` are invisible here, because no
-``WHERE`` clause is ever executed.  Those belong to
-tests/test_project_snapshots_query.py and to reading the SQL.
+The project sections left with the scanner at the Session 4 cutover
+(ADR-0005): "Project Health", "Pick This Up" and "Weekly Project Review"
+are the estate producer's to test now.  What remains here is the machine
+half — Infrastructure, Overnight Logs, Filesystem, Weekly Disk Review —
+and the alert digest.
 """
 
 from contextlib import asynccontextmanager
@@ -20,7 +21,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from sysadmin.briefing.data import (
-    NEXT_ACTION_CHARS,
     SCHEMA_VERSION,
     build_facts,
     generate_briefing_data,
@@ -30,7 +30,6 @@ from sysadmin.briefing.data import (
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.models.service_health import ServiceHealth
-from sysadmin.projects.models.project_snapshot import ProjectSnapshot
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -61,26 +60,13 @@ def _log_summary(text: str = "All quiet overnight.") -> LogSummary:
     return row
 
 
-def _audit() -> FilesystemAudit:
+def _audit(days_old: int = 0) -> FilesystemAudit:
     row = FilesystemAudit()
     row.total_reclaimable_mb = 1234
     row.empty_dirs_count = 5
     row.stale_project_dirs_count = 2
     row.duplicate_groups_count = 3
-    row.scanned_at = datetime.now(UTC)
-    return row
-
-
-def _project(
-    name: str,
-    score: int = 90,
-    stale_branches: int = 0,
-    todos: int = 0,
-) -> ProjectSnapshot:
-    row = ProjectSnapshot(project_name=name, health_score=score)
-    row.stale_branch_count = stale_branches
-    row.todo_count = todos
-    row.scanned_at = datetime.now(UTC)
+    row.scanned_at = datetime.now(UTC) - timedelta(days=days_old)
     return row
 
 
@@ -88,14 +74,6 @@ def _result_first(row):
     result = MagicMock()
     result.scalars.return_value.first.return_value = row
     return result
-
-
-def _review(narrative: str = "A fine week.", days_old: int = 0):
-    from sysadmin.projects.models.project_review import ProjectReview
-
-    row = ProjectReview(period_days=7, narrative=narrative, llm_used=True)
-    row.generated_at = datetime.now(UTC) - timedelta(days=days_old)
-    return row
 
 
 def _disk_review(narrative: str = "Disk held steady.", days_old: int = 0):
@@ -130,8 +108,6 @@ def _session_returning(
     infra,
     log,
     filesystem,
-    projects,
-    review=None,
     disk_review=None,
     alerts=None,
 ):
@@ -140,14 +116,9 @@ def _session_returning(
     Order matters and is positional: adding a query to ``_gather``
     without adding a result here exhausts the iterator and every test in
     this file fails at once.  (It did, when "Pick This Up" was added, and
-    again when the envelope added alerts — the docstring was right twice.)
-
-    ``projects`` feeds **one** query, not two.  "Project Health" and
-    "Pick This Up" used to issue the same latest-snapshot query
-    separately; they now share a single read, which is why the old
-    ``next_actions`` parameter is gone.  A test that wants different rows
-    in the two sections was expressing something the database could never
-    produce.
+    again when the envelope added alerts — the docstring was right twice.
+    The Session 4 cutover then *removed* the two project reads, which
+    broke every test the other way.)
     """
     session = AsyncMock()
     session.execute = AsyncMock(
@@ -155,9 +126,7 @@ def _session_returning(
             _result_all(infra),
             _result_one(log),
             _result_one(filesystem),
-            _result_all(projects),
             _result_rows(alerts or []),
-            _result_first(review),
             _result_first(disk_review),
         ]
     )
@@ -176,7 +145,6 @@ class TestGenerateBriefingData:
             infra=[_service("postgres"), _service("redis")],
             log=_log_summary(),
             filesystem=_audit(),
-            projects=[_project("pa")],
         )
 
         with patch("sysadmin.briefing.data.psutil.disk_usage") as mock_disk:
@@ -190,12 +158,11 @@ class TestGenerateBriefingData:
             "Infrastructure Status",
             "Overnight Log Summary",
             "Filesystem",
-            "Project Health",
         ]
 
     @pytest.mark.asyncio
     async def test_empty_database_yields_no_sections(self):
-        session = _session_returning(infra=[], log=None, filesystem=None, projects=[])
+        session = _session_returning(infra=[], log=None, filesystem=None)
         briefing = await generate_briefing_data(session)
         assert briefing["sections"] == []
 
@@ -208,7 +175,6 @@ class TestGenerateBriefingData:
             ],
             log=None,
             filesystem=None,
-            projects=[],
         )
         briefing = await generate_briefing_data(session)
 
@@ -221,7 +187,7 @@ class TestGenerateBriefingData:
     @pytest.mark.asyncio
     async def test_log_section_carries_summary_text(self):
         session = _session_returning(
-            infra=[], log=_log_summary("Two errors from redis."), filesystem=None, projects=[]
+            infra=[], log=_log_summary("Two errors from redis."), filesystem=None
         )
         briefing = await generate_briefing_data(session)
 
@@ -231,7 +197,7 @@ class TestGenerateBriefingData:
 
     @pytest.mark.asyncio
     async def test_filesystem_section_metrics(self):
-        session = _session_returning(infra=[], log=None, filesystem=_audit(), projects=[])
+        session = _session_returning(infra=[], log=None, filesystem=_audit())
 
         with patch("sysadmin.briefing.data.psutil.disk_usage") as mock_disk:
             mock_disk.return_value = MagicMock(percent=89.0)
@@ -245,7 +211,7 @@ class TestGenerateBriefingData:
 
     @pytest.mark.asyncio
     async def test_filesystem_section_survives_psutil_failure(self):
-        session = _session_returning(infra=[], log=None, filesystem=_audit(), projects=[])
+        session = _session_returning(infra=[], log=None, filesystem=_audit())
 
         with patch(
             "sysadmin.briefing.data.psutil.disk_usage", side_effect=OSError("no mount")
@@ -254,26 +220,6 @@ class TestGenerateBriefingData:
 
         (fs,) = briefing["sections"]
         assert fs["data"]["disk_used_percent"] is None
-
-    @pytest.mark.asyncio
-    async def test_project_section_notes_stale_branches_and_todos(self):
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[
-                _project("clean", score=95),
-                _project("messy", score=40, stale_branches=3, todos=25),
-            ],
-        )
-        briefing = await generate_briefing_data(session)
-
-        (projects,) = briefing["sections"]
-        assert projects["type"] == "table"
-        clean = next(p for p in projects["data"] if p["project"] == "clean")
-        messy = next(p for p in projects["data"] if p["project"] == "messy")
-        assert "note" not in clean
-        assert messy["note"] == "3 stale branches, 25 TODOs"
 
 
 # ---------------------------------------------------------------------------
@@ -297,117 +243,11 @@ def _patch_scheduler_session(session):
     return patch("sysadmin.briefing.data.get_scheduler_session", fake_session)
 
 
-def _project_with_roadmap(name, *, status="active", **roadmap_overrides):
-    """A snapshot carrying roadmap findings, for the "Pick This Up" section."""
-    roadmap = {
-        "next_action": f"Do the {name} thing",
-        "next_action_source": "handoff",
-        "handoff_age_days": 2,
-    }
-    roadmap.update(roadmap_overrides)
-    row = _project(name)
-    row.findings = {"status": status, "roadmap": roadmap}
-    return row
-
-
-class TestNextActionsSection:
-    """The "Pick This Up" section — one action per project, not a backlog."""
-
-    @pytest.mark.asyncio
-    async def test_section_lists_next_actions(self):
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[_project_with_roadmap("alfred")],
-        )
-        data = await generate_briefing_data(session)
-        section = next(s for s in data["sections"] if s["title"] == "Pick This Up")
-
-        assert section["type"] == "table"
-        assert section["data"] == [
-            {"project": "alfred", "next": "Do the alfred thing", "source": "handoff"}
-        ]
-
-    @pytest.mark.asyncio
-    async def test_stalled_projects_are_marked_and_sorted_first(self):
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[
-                _project_with_roadmap("fresh", handoff_age_days=1),
-                _project_with_roadmap("stalled", handoff_age_days=150),
-            ],
-        )
-        data = await generate_briefing_data(session)
-        rows = next(
-            s for s in data["sections"] if s["title"] == "Pick This Up"
-        )["data"]
-
-        assert rows[0]["project"] == "stalled"
-        assert "stalled 150 days" in rows[0]["note"]
-        assert "note" not in rows[1]
-
-    @pytest.mark.asyncio
-    async def test_capped_so_the_briefing_stays_short(self):
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[
-                _project_with_roadmap(f"p{i}", handoff_age_days=i) for i in range(12)
-            ],
-        )
-        data = await generate_briefing_data(session)
-        rows = next(
-            s for s in data["sections"] if s["title"] == "Pick This Up"
-        )["data"]
-        assert len(rows) == 5
-
-    @pytest.mark.asyncio
-    async def test_projects_without_an_action_are_omitted_not_blank(self):
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[
-                _project_with_roadmap("has-one"),
-                _project_with_roadmap("has-none", next_action=None),
-            ],
-        )
-        data = await generate_briefing_data(session)
-        rows = next(
-            s for s in data["sections"] if s["title"] == "Pick This Up"
-        )["data"]
-        assert [r["project"] for r in rows] == ["has-one"]
-
-    @pytest.mark.asyncio
-    async def test_dormant_projects_excluded(self):
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[_project_with_roadmap("parked", status="dormant")],
-        )
-        data = await generate_briefing_data(session)
-        assert not any(s["title"] == "Pick This Up" for s in data["sections"])
-
-    @pytest.mark.asyncio
-    async def test_section_omitted_entirely_when_nothing_to_show(self):
-        """Sections are omitted, not empty — the consumer contract."""
-        session = _session_returning(
-            infra=[], log=None, filesystem=None, projects=[]
-        )
-        data = await generate_briefing_data(session)
-        assert not any(s["title"] == "Pick This Up" for s in data["sections"])
-
-
 class TestSendMorningBriefing:
     @pytest.mark.asyncio
     async def test_sends_generated_sections(self):
         session = _session_returning(
-            infra=[_service("postgres")], log=None, filesystem=None, projects=[]
+            infra=[_service("postgres")], log=None, filesystem=None
         )
         notifier = _mock_notifier(send_result=True)
 
@@ -423,7 +263,7 @@ class TestSendMorningBriefing:
 
     @pytest.mark.asyncio
     async def test_notifier_shutdown_runs_even_on_delivery_failure(self):
-        session = _session_returning(infra=[], log=None, filesystem=None, projects=[])
+        session = _session_returning(infra=[], log=None, filesystem=None)
         notifier = _mock_notifier(send_result=False)
 
         with _patch_scheduler_session(session):
@@ -434,67 +274,12 @@ class TestSendMorningBriefing:
 
 
 # ---------------------------------------------------------------------------
-# Weekly review section (Session 23)
-# ---------------------------------------------------------------------------
-
-
-class TestReviewSection:
-    @pytest.mark.asyncio
-    async def test_fresh_review_included(self):
-        session = _session_returning(
-            infra=[_service("postgres")],
-            log=None,
-            filesystem=None,
-            projects=[],
-            review=_review("Portfolio held steady this week."),
-        )
-        briefing = await generate_briefing_data(session)
-
-        titles = [s["title"] for s in briefing["sections"]]
-        assert "Weekly Project Review" in titles
-        review_section = next(
-            s for s in briefing["sections"] if s["title"] == "Weekly Project Review"
-        )
-        assert review_section["type"] == "text"
-        assert review_section["data"] == "Portfolio held steady this week."
-
-    @pytest.mark.asyncio
-    async def test_stale_review_excluded(self):
-        session = _session_returning(
-            infra=[_service("postgres")],
-            log=None,
-            filesystem=None,
-            projects=[],
-            review=_review(days_old=9),
-        )
-        briefing = await generate_briefing_data(session)
-
-        titles = [s["title"] for s in briefing["sections"]]
-        assert "Weekly Project Review" not in titles
-
-    @pytest.mark.asyncio
-    async def test_no_review_no_section(self):
-        session = _session_returning(
-            infra=[_service("postgres")], log=None, filesystem=None, projects=[]
-        )
-        briefing = await generate_briefing_data(session)
-
-        titles = [s["title"] for s in briefing["sections"]]
-        assert "Weekly Project Review" not in titles
-
-
-# ---------------------------------------------------------------------------
 # Weekly disk review section (Session 24 Tier 3)
 # ---------------------------------------------------------------------------
 
 
 class TestDiskReviewSection:
-    """The disk review reuses the project review's freshness rule.
-
-    ``_build_review_section`` is parameterised by model, so these tests
-    guard that the second caller is wired up — not that the 8-day rule
-    works, which TestReviewSection already covers.
-    """
+    """The 8-day freshness rule, exercised through its one remaining caller."""
 
     @pytest.mark.asyncio
     async def test_fresh_disk_review_included(self):
@@ -502,7 +287,6 @@ class TestDiskReviewSection:
             infra=[_service("postgres")],
             log=None,
             filesystem=None,
-            projects=[],
             disk_review=_disk_review("Junk is coming from Downloads."),
         )
         briefing = await generate_briefing_data(session)
@@ -519,7 +303,6 @@ class TestDiskReviewSection:
             infra=[_service("postgres")],
             log=None,
             filesystem=None,
-            projects=[],
             disk_review=_disk_review(days_old=9),
         )
         briefing = await generate_briefing_data(session)
@@ -529,26 +312,9 @@ class TestDiskReviewSection:
         ]
 
     @pytest.mark.asyncio
-    async def test_both_reviews_appear_project_first(self):
-        session = _session_returning(
-            infra=[_service("postgres")],
-            log=None,
-            filesystem=None,
-            projects=[],
-            review=_review("Portfolio steady."),
-            disk_review=_disk_review("Disk steady."),
-        )
-        briefing = await generate_briefing_data(session)
-
-        titles = [s["title"] for s in briefing["sections"]]
-        assert titles.index("Weekly Project Review") < titles.index(
-            "Weekly Disk Review"
-        )
-
-    @pytest.mark.asyncio
     async def test_no_disk_review_no_section(self):
         session = _session_returning(
-            infra=[_service("postgres")], log=None, filesystem=None, projects=[]
+            infra=[_service("postgres")], log=None, filesystem=None
         )
         briefing = await generate_briefing_data(session)
 
@@ -575,7 +341,7 @@ class TestEnvelope:
         precisely so that neither moves.
         """
         session = _session_returning(
-            infra=[_service("postgres")], log=None, filesystem=None, projects=[]
+            infra=[_service("postgres")], log=None, filesystem=None
         )
         briefing = await generate_briefing_data(session)
 
@@ -587,7 +353,7 @@ class TestEnvelope:
     @pytest.mark.asyncio
     async def test_envelope_keys_present(self):
         session = _session_returning(
-            infra=[_service("postgres")], log=None, filesystem=None, projects=[]
+            infra=[_service("postgres")], log=None, filesystem=None
         )
         briefing = await generate_briefing_data(session)
 
@@ -602,7 +368,7 @@ class TestEnvelope:
     async def test_period_is_anchored_to_the_schedule(self):
         """Not to the last pull — two consumers polling would each shorten
         the other's window, and the span must mean one thing."""
-        session = _session_returning(infra=[], log=None, filesystem=None, projects=[])
+        session = _session_returning(infra=[], log=None, filesystem=None)
         briefing = await generate_briefing_data(session)
 
         period = briefing["period"]
@@ -623,10 +389,11 @@ class TestEnvelope:
         session = _session_returning(
             infra=[_service("postgres"), _service("redis", "unreachable")],
             log=None,
-            filesystem=None,
-            projects=[_project_with_roadmap(f"p{i}") for i in range(9)],
+            filesystem=_audit(),
         )
-        briefing = await generate_briefing_data(session)
+        with patch("sysadmin.briefing.data.psutil.disk_usage") as mock_disk:
+            mock_disk.return_value = MagicMock(percent=42.0)
+            briefing = await generate_briefing_data(session)
 
         def scalars_only(value, path="facts"):
             if isinstance(value, dict):
@@ -637,124 +404,6 @@ class TestEnvelope:
                     assert not isinstance(item, (dict, list)), f"{path} carries rows"
 
         scalars_only(briefing["facts"])
-
-
-# ---------------------------------------------------------------------------
-# SNAG-BRIEF-001 — Project Health published everything ever scanned
-# ---------------------------------------------------------------------------
-
-
-class TestProjectHealthFilter:
-    @pytest.mark.asyncio
-    async def test_only_active_projects_are_published(self):
-        """26 rows including a project retired in July was the symptom.
-
-        The same payload's "Pick This Up" listed 5 and the board returned
-        6 — one document, three answers to "what is on this box".
-        """
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[
-                _project_with_roadmap("live"),
-                _project_with_roadmap("retired", status="archived"),
-                _project_with_roadmap("parked", status="dormant"),
-            ],
-        )
-        briefing = await generate_briefing_data(session)
-
-        health = next(s for s in briefing["sections"] if s["title"] == "Project Health")
-        assert [row["project"] for row in health["data"]] == ["live"]
-
-    @pytest.mark.asyncio
-    async def test_both_project_sections_agree_on_the_population(self):
-        """The defect was two sections in one document disagreeing."""
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[
-                _project_with_roadmap("live"),
-                _project_with_roadmap("retired", status="archived"),
-            ],
-        )
-        briefing = await generate_briefing_data(session)
-
-        by_title = {s["title"]: s["data"] for s in briefing["sections"]}
-        assert {r["project"] for r in by_title["Project Health"]} == {
-            r["project"] for r in by_title["Pick This Up"]
-        }
-
-    @pytest.mark.asyncio
-    async def test_worst_scores_come_first(self):
-        """Descending order plus a cap would show exactly the rows that
-        carry no information — every project sitting on 100."""
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[_project("good", 95), _project("bad", 30), _project("mid", 70)],
-        )
-        briefing = await generate_briefing_data(session)
-
-        health = next(s for s in briefing["sections"] if s["title"] == "Project Health")
-        assert [row["project"] for row in health["data"]] == ["bad", "mid", "good"]
-
-    @pytest.mark.asyncio
-    async def test_capped_and_the_omission_is_counted(self):
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[_project(f"p{i}", score=i) for i in range(12)],
-        )
-        briefing = await generate_briefing_data(session)
-
-        health = next(s for s in briefing["sections"] if s["title"] == "Project Health")
-        assert len(health["data"]) == 5
-        assert briefing["facts"]["projects"]["active"] == 12
-        assert briefing["facts"]["projects"]["omitted"] == 7
-        assert "showing the 5 lowest" in briefing["summary"]
-
-
-# ---------------------------------------------------------------------------
-# SNAG-BRIEF-002 — a next action cut mid-word with no marker
-# ---------------------------------------------------------------------------
-
-
-class TestNextActionTruncation:
-    @pytest.mark.asyncio
-    async def test_a_long_action_is_cut_visibly(self):
-        long_action = "Review the scoring sample and decide what to do about it " * 6
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[_project_with_roadmap("va", next_action=long_action)],
-        )
-        briefing = await generate_briefing_data(session)
-
-        (row,) = next(
-            s for s in briefing["sections"] if s["title"] == "Pick This Up"
-        )["data"]
-        assert row["next"].endswith("… (truncated)")
-        assert len(row["next"]) <= NEXT_ACTION_CHARS + len("… (truncated)") + 1
-
-    @pytest.mark.asyncio
-    async def test_a_short_action_is_left_alone(self):
-        session = _session_returning(
-            infra=[],
-            log=None,
-            filesystem=None,
-            projects=[_project_with_roadmap("va")],
-        )
-        briefing = await generate_briefing_data(session)
-
-        (row,) = next(
-            s for s in briefing["sections"] if s["title"] == "Pick This Up"
-        )["data"]
-        assert row["next"] == "Do the va thing"
 
 
 # ---------------------------------------------------------------------------
@@ -776,7 +425,7 @@ class TestAlerts:
             for i in range(15)
         ]
         session = _session_returning(
-            infra=[], log=None, filesystem=None, projects=[], alerts=rows
+            infra=[], log=None, filesystem=None, alerts=rows
         )
         briefing = await generate_briefing_data(session)
 
@@ -791,7 +440,6 @@ class TestAlerts:
             infra=[],
             log=None,
             filesystem=None,
-            projects=[],
             alerts=[_alert_row("kernel noise", "critical", occurrences=547814)],
         )
         briefing = await generate_briefing_data(session)
@@ -800,7 +448,7 @@ class TestAlerts:
 
     @pytest.mark.asyncio
     async def test_no_alerts_no_clause(self):
-        session = _session_returning(infra=[], log=None, filesystem=None, projects=[])
+        session = _session_returning(infra=[], log=None, filesystem=None)
         briefing = await generate_briefing_data(session)
 
         assert "alert" not in briefing["summary"]
@@ -818,14 +466,13 @@ class TestSummary:
             infra=[_service("postgres"), _service("redis", "unreachable")],
             log=None,
             filesystem=None,
-            projects=[],
         )
         briefing = await generate_briefing_data(session)
 
         assert briefing["summary"].startswith("1 of 2 services healthy; redis down.")
 
     def test_summary_is_a_pure_function_of_facts(self):
-        """No LLM in the 06:00 path.  The two weekly reviews pay for
+        """No LLM in the 06:00 path.  The weekly reviews pay for
         narration with a figure-free prompt and a markdown stripper; a
         summary that is only numbers has nothing to gain from that and a
         down llama-server to lose."""
@@ -850,22 +497,24 @@ class TestSummary:
         Alfred's staleness rule reads `generated_at`, which on a pulled
         payload is seconds old however long ago the agent behind it died.
         """
-        old = _project("forgotten", 55)
-        old.scanned_at = datetime.now(UTC) - timedelta(days=3)
         session = _session_returning(
-            infra=[], log=None, filesystem=None, projects=[old]
+            infra=[], log=None, filesystem=_audit(days_old=3)
         )
-        briefing = await generate_briefing_data(session)
+        with patch("sysadmin.briefing.data.psutil.disk_usage") as mock_disk:
+            mock_disk.return_value = MagicMock(percent=42.0)
+            briefing = await generate_briefing_data(session)
 
-        assert briefing["facts"]["stale_sources"] == ["projects"]
-        assert "projects is over a day old" in briefing["summary"]
+        assert briefing["facts"]["stale_sources"] == ["filesystem"]
+        assert "filesystem is over a day old" in briefing["summary"]
 
     @pytest.mark.asyncio
     async def test_fresh_data_is_not_flagged(self):
         session = _session_returning(
-            infra=[], log=None, filesystem=None, projects=[_project("live", 90)]
+            infra=[], log=None, filesystem=_audit()
         )
-        briefing = await generate_briefing_data(session)
+        with patch("sysadmin.briefing.data.psutil.disk_usage") as mock_disk:
+            mock_disk.return_value = MagicMock(percent=42.0)
+            briefing = await generate_briefing_data(session)
 
         assert briefing["facts"]["stale_sources"] == []
         assert "over a day old" not in briefing["summary"]
@@ -882,7 +531,6 @@ class TestBuildFacts:
             },
             "logs": None,
             "filesystem": None,
-            "projects": {"health": [], "actions": [], "scored": 0, "measured_at": None},
             "alerts": {
                 "items": [],
                 "open": 0,
@@ -890,7 +538,6 @@ class TestBuildFacts:
                 "shown": 0,
                 "by_severity": {"critical": 0, "warning": 0, "info": 0},
             },
-            "project_review": None,
             "disk_review": None,
         }
         facts = build_facts(gathered, datetime.now(UTC))
@@ -924,7 +571,6 @@ class TestSkippedServices:
             ],
             log=None,
             filesystem=None,
-            projects=[],
         )
         briefing = await generate_briefing_data(session)
 
@@ -942,7 +588,6 @@ class TestSkippedServices:
             infra=[_service("postgres", "ok"), _service("sysadmin-tray", "skipped")],
             log=None,
             filesystem=None,
-            projects=[],
         )
         briefing = await generate_briefing_data(session)
 
