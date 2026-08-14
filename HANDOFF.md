@@ -145,6 +145,27 @@ backlog it existed to end. Not fixed mid-change: a titles-only projection costs
 a second definition of "this agent's open rows", and splitting a shared query
 in the same sitting as a lifecycle change makes both harder to verify.
 
+### A delegated requirement arrived after this session's commit
+
+`c890a52`, landed by a concurrent estate-manager session **after** `a472beb`:
+**monitor SearXNG when the estate deploys it.** Documents only, 53 lines into
+`tasks.md`, ADR-0002's pattern working — same shape as `fa51aac` the day
+before. Verified here as documents-only with a clean tree; nothing it says
+conflicts with this session's work.
+
+It is **unactioned and correctly so** — its trigger is estate-manager
+deploying SearXNG and claiming a port, which has not happened. Two of its
+three parts are decisions that *block* that deploy rather than follow it,
+which is why it was recorded before the deploy rather than after; the
+`estate-manager-audit.timer` precedent shipped a unit that ran unmonitored
+until this repository's next session. Noted here because the next session
+reads this file before `tasks.md` and would otherwise meet it as a surprise.
+
+Two of its findings were checked against `services.yaml` by its author and
+agree with this side: `kind: http` polls whatever `url` says, so a service
+without `/api/health` needs no shim; and SearXNG needs no `project:` id,
+five entries already omitting one.
+
 ## Blocked / waiting on
 
 - **Deploy.** The daemon serves start-time code, so none of the SNAG-AGENT-006
