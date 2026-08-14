@@ -126,6 +126,59 @@ debts that landing deliberately left behind._
       test instead: a recorded 8400 payload the suite always parses,
       plus a reachability-gated live pair sharing one set of assertions
 
+- [ ] **Monitor SearXNG — the estate's first self-hosted third-party
+      service** (delegated requirement from estate-manager, recorded
+      2026-08-14 at the owner's request; the deploy decision was the
+      owner's on 2026-08-12, in venture-assistant's phase 7 sign-off).
+      **The deploy is not this repository's** — SearXNG is shared
+      infrastructure and gets an owner that is not an application, so
+      estate-manager hosts it and this repository watches it, the same
+      split as everywhere else. **Recorded before the deploy rather than
+      after, deliberately**: the estate's own backlog item raised the
+      sequencing question and the owner answered it this way, because
+      two of the three parts below are decisions that *block* the deploy
+      rather than follow it, and because the estate-manager-audit.timer
+      precedent (`fa51aac`) shipped a unit that ran unmonitored until
+      this repository's next session. **Trigger:** estate-manager
+      deploys SearXNG and claims its port in the registry.
+      1. **Add it to `services.yaml`.** `kind: http`, an explicit `url`
+         with SearXNG's own health path, and `systemd.scope: user` (the
+         default) once the unit is named per the monitorable-project
+         contract.
+      2. **The `/api/health` worry in the estate's item does not apply
+         to this side — checked, not assumed.** That item warns against
+         "silently grandfathering a fifth exception" because the
+         contract's `GET /api/health` shape was written for our own
+         apps. But `services.yaml` has never required that shape: it
+         polls whatever `url` says, and already carries
+         `http://localhost:8081/health`,
+         `http://localhost:8200/api/v1/health` and
+         `https://1.1.1.1/cdn-cgi/trace`. **No shim is needed here.**
+         What remains is a contract question for estate-manager — whether
+         a third-party service is held to `/api/health` at all — not a
+         monitoring one. Worth telling the estate so its item can shrink.
+      3. **It needs no `project:` id, and that is the precedent to
+         follow.** Five entries already omit it — `postgresql`,
+         `mosquitto`, `NetworkManager`, `internet`,
+         `pgbackrest-backup-timer` — all infrastructure rather than
+         projects, and an id that names nothing **fails at load**, so
+         inventing one for a service with no repository and no
+         `.project.yaml` would break the file. **Project-less is not
+         ownerless**: `mosquitto` has been estate-owned since that
+         repository's Session 2 and carries no `project:` here, which is
+         the exact shape SearXNG should take.
+      4. **Judge it like any other service** once it is declared — no
+         new invariant endpoint, nothing estate-specific. SearXNG is
+         third-party software the estate hosts, not another estate
+         surface that publishes its own numbers.
+      **Note for whoever writes this:** the estate's backlog item and the
+      global `~/.claude/CLAUDE.md` both still say to wire new services
+      into `projects.yaml` with `user: true`. Both are gone — this
+      file's own header records that `services.yaml` replaced
+      `projects.yaml`'s runtime half and that `systemd.scope` replaced
+      the `user: true` opt-in. The estate-side copies are being
+      corrected; flagged here so the stale wording is not followed.
+
 ## Active Sessions
 
 _Sessions 24–27 promoted from [ideas.md](ideas.md) on 2026-08-05. They are
