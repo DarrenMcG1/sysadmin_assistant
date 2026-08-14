@@ -19,7 +19,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | 1517 backend + tray; real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, smoke script |
+| Testing | 🟢 Complete | 1546 backend + tray (3 skipped: the SearXNG deploy guard, dormant until the unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -27,6 +27,38 @@
 ---
 
 ## Recently Completed
+
+### SearXNG pre-staged — a delegated requirement made mechanical (2026-08-14)
+
+The estate's SearXNG task **stays unchecked**: the trigger is
+estate-manager deploying it and claiming a port, and it has not fired —
+no unit on either bus, nothing listening, no registry row. So the
+`services.yaml` entry cannot be written, because `url` and `port` are
+the deploy's to decide. Pre-staged at the owner's request. Suite **1546
+passed, 3 skipped**, ruff and mypy clean.
+
+**The commented block is the smaller half.** It sits in `services.yaml`
+beside `mosquitto` with every decided field and `<PORT>` where the two
+unknowns go. But the failure this item exists to prevent is *a unit
+ships and nobody notices*, and a comment does not prevent it —
+`tests/test_searxng_wiring.py` does. It skips while no searxng unit
+exists and fails from the moment one does, gated on the **unit file**
+rather than a port probe (a probe flips off exactly when the service is
+down) and matching the substring `searx` rather than one spelling (a
+container deploy names its unit `podman-searxng.service`). Nine ungated
+tests drive the gate against a fake estate under `tmp_path`: a gate that
+has never fired and a gate that cannot fire look identical from outside.
+
+**One part of the task was already enforced; another was at risk from
+the thing enforcing it.** The Session 26 unit sweep catches a
+hand-written searxng unit unaided, files it `host`, and omits `project:`
+— so that decision needs nobody to remember it. Its snippet says
+`kind: systemd` though, because the scan cannot know a port, and a unit
+check passes a SearXNG that is up while every search errors. Following
+the sweep would have *appeared* to close the item. Filed as
+`SNAG-UNITS-001`. Fixed in passing: an `unmonitored` finding's `reason`
+named `projects.yaml` and `config.yaml`, two files that no longer exist,
+in a string the operator reads.
 
 ### Session 46 — three snags, and one of them had bad advice in it (2026-08-14)
 

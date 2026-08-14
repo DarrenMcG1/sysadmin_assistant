@@ -2,7 +2,7 @@
 
 ## Next action
 
-Run `sudo systemctl restart sysadmin.service` to deploy the SNAG-AGENT-006 dedup, then confirm on the first run 60 seconds later that `agent_runs.details->'standing'` carries `judged` and `suppressed` and that no service or threshold alert has written a second row for a fault that was already open.
+Run `sudo systemctl restart sysadmin.service` to deploy the SNAG-AGENT-006 dedup and the unit-sweep string fixes together, then confirm on the first run 60 seconds later that `agent_runs.details->'standing'` carries `judged` and `suppressed` and that no service or threshold alert has written a second row for a fault that was already open.
 
 ## This session
 
@@ -166,6 +166,63 @@ agree with this side: `kind: http` polls whatever `url` says, so a service
 without `/api/health` needs no shim; and SearXNG needs no `project:` id,
 five entries already omitting one.
 
+### SearXNG — pre-staged the same day, and still unchecked
+
+The paragraph above stands as written: the trigger has still not fired.
+Re-verified before touching anything — no searxng unit under either
+`~/.config/systemd/user` or `/etc/systemd/system`, nothing listening on a
+plausible port (the only 80xx listener is `llama-server` on 8080), no row in
+estate-manager's port registry, no directory under `~/projects`, and the
+estate's own item still unchecked. The owner asked for the sysadmin half to
+be pre-staged anyway, having been told the honest cost first: **the entry
+cannot be written**, because `url` and `port` are the deploy's to decide and
+guessing a port is the one thing `services.yaml` exists to prevent.
+
+**What pre-staging turned out to be worth is not the commented block.** The
+block is in `services.yaml` beside `mosquitto` and carries every decided
+field, but a comment does not fix the failure this item was written against —
+*a unit ships and nobody notices* — because nobody reads a comment until they
+already know. `tests/test_searxng_wiring.py` does: it skips while no searxng
+unit exists and fails from the moment one does, so the red arrives on the day
+the gap opens rather than at whichever session next reads `tasks.md`.
+
+Three decisions in it worth keeping. The gate is the **unit file, not a port
+probe** — a probe flips the gate off exactly when SearXNG is down, which is
+the state monitoring exists for. It matches the substring `searx` rather than
+`searxng.service`, because a container deploy names its unit
+`podman-searxng.service` and a gate that knows one spelling fails open on the
+other two. And **nine ungated tests drive the gate against a fake estate under
+`tmp_path`**, because everything else in the file skips on this box and will
+keep skipping until another repository acts — a gate that has never fired and
+a gate that cannot fire are indistinguishable from outside, and the second is
+worse than no test.
+
+**Part 3 turned out to be enforced already, and part 1 turned out to be at
+risk from the thing enforcing it.** The Session 26 unit sweep catches a
+hand-written searxng unit unaided, classifies it `host`, and emits a snippet
+that correctly omits `project:` — so the `project:` decision needs nobody to
+remember it. But that snippet says `kind: systemd`, documented in
+`sysadmin/units/recommendations.py` as *"this scan does not know the unit's
+port"*, and a unit check passes a SearXNG that is running while every search
+errors. Following the sweep's advice would therefore have *appeared* to close
+this item while leaving the only check worth having unwritten. Filed as
+`SNAG-UNITS-001` — the general case, since it applies to every future HTTP
+service — and pinned for this one service by the guard.
+
+Fixed in passing, same defect class as the item's own note about stale
+`projects.yaml` wording: an `unmonitored` finding's `reason` read *"no
+projects.yaml or config.yaml entry monitors it"*, naming two deleted files in
+a string the operator reads. Four category docstrings in
+`sysadmin/units/scan.py` and two in `agent.py` said the same and now say
+`services.yaml`.
+
+One number was incremented rather than audited: `snag_list.md`'s header prose
+said *"Eight open snags … reports 13"* and now says nine and 14. A raw count
+of unmarked entries under that heading returns 14 open, not nine — the prose
+and the markers have disagreed since before this session, which is
+`SNAG-ROADMAP-002` describing itself. Not corrected here; a +1 to whatever
+the number meant is faithful, re-auditing the document is its own sitting.
+
 ## Blocked / waiting on
 
 - **Deploy.** The daemon serves start-time code, so none of the SNAG-AGENT-006
@@ -175,6 +232,12 @@ five entries already omitting one.
   and now with one more negative observation behind it. Needs an eligible
   project whose stated next action has stood 7 days unchanged.
 - **The tray toast**, the same gap Sessions 43, 44 and 45 all left.
+- **SearXNG's deploy**, which is estate-manager's. Nothing here is left to
+  decide: fill in the port, confirm the health path against the deployed
+  version (upstream serves `/healthz`, venture's seam calls
+  `/search?q=…&format=json` — neither taken on trust), uncomment the block,
+  restart. `tests/test_searxng_wiring.py` goes red the moment the unit lands
+  and stays red until that is done, so this needs no remembering.
 - **Nothing** — but one note on how the estate record landed. Two
   estate-manager sessions were live while its `snag_list.md` was edited from
   here, and one of them **committed the entry itself**, as `86f67d8`

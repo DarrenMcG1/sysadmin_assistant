@@ -178,6 +178,54 @@ debts that landing deliberately left behind._
       `projects.yaml`'s runtime half and that `systemd.scope` replaced
       the `user: true` opt-in. The estate-side copies are being
       corrected; flagged here so the stale wording is not followed.
+      **Pre-staged 2026-08-14 at the owner's request, and it stays
+      unchecked.** The trigger has not fired — no searxng unit on either
+      bus, nothing listening, and no row in the estate's port registry —
+      so the entry cannot be written: `url` and `port` are the two fields
+      the deploy decides, and *"claim ports in the registry, don't
+      guess"* is the rule `services.yaml` exists to enforce. What was
+      done instead:
+      - **A commented block in `services.yaml`**, in the host section
+        beside `mosquitto`, carrying every decided field with the port
+        and health path left as `<PORT>`. **Commented rather than live**:
+        the loader has no "declared but absent" state, so an entry naming
+        an uninstalled unit checks as down every 300 seconds for as long
+        as the deploy takes — this repository's own alert-storm shape.
+      - **`tests/test_searxng_wiring.py`**, which is the part that makes
+        pre-staging worth more than a note. The failure mode this whole
+        item was written against is *"the unit ships and nobody
+        notices"*, and a comment does not fix that — nobody reads it
+        until they already know. The guard skips while no searxng unit
+        exists and fails from the moment one does, so the red appears on
+        the day the gap opens. Its gate is the **unit file**, not a port
+        probe: a probe flips off exactly when SearXNG is down, which is
+        the state monitoring exists for. It matches the substring
+        `searx`, because a container deploy names its unit
+        `podman-searxng.service` and a gate that knows one spelling fails
+        open on the others. Nine ungated tests drive the gate against a
+        fake estate under `tmp_path`, because a gate that has never
+        fired and a gate that cannot fire look identical from outside.
+      - **A finding that shrinks part 1 and files a snag.** The Session
+        26 unit sweep will catch a hand-written searxng unit unaided and
+        classify it `host` — hand-written, mapping to no project — and
+        its snippet already omits `project:`, so **part 3 is enforced
+        mechanically and needs nobody to remember it.** But that snippet
+        says `kind: systemd`, because the scan cannot know a port
+        (`sysadmin/units/recommendations.py`), and a unit check passes a
+        SearXNG that is running while every search errors. So the sweep
+        would *appear* to close this item while leaving the one check
+        worth having unwritten. Filed as `SNAG-UNITS-001` for the
+        general case; pinned for this one service by the test above.
+      - **Stale file names in the sweep's own output**, fixed in passing:
+        an `unmonitored` finding's `reason` read *"no projects.yaml or
+        config.yaml entry monitors it"* — two files that no longer
+        exist, in a string the operator reads. Four category docstrings
+        in `sysadmin/units/scan.py` and two in `agent.py` said the same.
+      **What is left when the deploy lands** is three lines: fill in the
+      port, confirm the health path against the deployed version
+      (upstream serves `/healthz`; venture's seam calls
+      `/search?q=…&format=json` — neither taken on trust here),
+      uncomment, restart. The guard turns red until that happens.
 
 ## Active Sessions
 

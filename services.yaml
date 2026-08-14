@@ -302,6 +302,40 @@ services:
     controllable: false
     log: { type: journalctl, severity_filter: warning }
 
+  # --- Pre-staged, not yet live ---------------------------------------
+  # SearXNG, when estate-manager deploys it. Commented rather than
+  # active because the loader has no "declared but absent" state: an
+  # entry naming a unit that does not exist checks as down, every 300
+  # seconds, for as long as the deploy takes.
+  #
+  # Two fields are unknowable until the deploy and are the only reason
+  # this cannot be uncommented as it stands:
+  #   * the port, which is claimed in estate-manager's registry
+  #     (docs/guides/monitorable-project.md) BEFORE anything listens
+  #   * the health path, which is SearXNG's own. Upstream serves
+  #     /healthz on recent versions; venture-assistant's seam calls
+  #     /search?q=...&format=json. Confirm against the deployed
+  #     version rather than taking either from here.
+  #
+  # Everything else is decided (see docs/roadmap/tasks.md). `kind: http`
+  # rather than `systemd`, because a SearXNG that is running and failing
+  # its searches is the case worth catching and a unit check passes it.
+  # No `project:` — third-party software with no repository and no
+  # .project.yaml, the shape `mosquitto` above has held since 2026-08-11;
+  # an id resolving to nothing fails this file at load. `scope` omitted,
+  # so it defaults to user.
+  #
+  # Note the unit sweep will file this as a `host` finding on its own and
+  # offer a snippet — that snippet will say `kind: systemd`, because the
+  # scan cannot know a port. Prefer this block over it.
+  #
+  # - name: searxng
+  #   kind: http
+  #   url: http://localhost:<PORT>/healthz
+  #   port: <PORT>
+  #   systemd: { unit: searxng.service }
+  #   log: { type: journalctl, severity_filter: warning }
+
   # Reachability probe. Deliberately has no unit: nothing on this machine
   # serves it, which is why `kind: http` asserts a unit only when one is
   # named.

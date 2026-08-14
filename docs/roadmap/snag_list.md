@@ -10,10 +10,10 @@
 
 ## Open Issues
 
-_Eight open snags, plus five found and fixed the same day or since and left in
+_Nine open snags, plus five found and fixed the same day or since and left in
 place for the write-up (`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on
 2026-08-10, `SNAG-CFG-001` on 2026-08-11, and `SNAG-AGENT-003`/`-004` on
-2026-08-12) — `count_open_snags` therefore reports 13, which is
+2026-08-12) — `count_open_snags` therefore reports 14, which is
 the entries listed rather than the entries outstanding, and is itself an
 instance of `SNAG-ROADMAP-002`.
 `SNAG-AGENT-003` and `SNAG-AGENT-004` were both **fixed on 2026-08-12
@@ -190,6 +190,13 @@ defects have a reader for the first time._
   - **Why it is worth filing anyway**: this is the `SNAG-AGENT-005` shape. `_open_alerts` there was first written as "every unresolved row this agent owns" and pulled **593,814 ORM objects** on its first live run — the fix falling over on the backlog it existed to end. Nothing structurally prevents a repeat here; what prevents it today is that the table is small, which is a state rather than a guarantee
   - **The fix is not free, which is why it was not taken mid-change**: the dedup caller needs only titles, so a `select(Alert.title)` projection would fix it — at the cost of a second definition of "this agent's open rows" sitting beside `_active_alerts`, which is the copy-drift `sysadmin/projects/snapshots.py` exists to argue against. The other three callers genuinely need the rows (id, severity, created_at, details) to run their ladders off, and must see what the run has already written, so they cannot share the `_execute` snapshot
   - **Found**: 2026-08-14 while fixing SNAG-AGENT-006, and deliberately left — splitting a shared query in the same sitting as a lifecycle change would have made both harder to verify
+
+- [P3] SNAG-UNITS-001: **the unit sweep's snippet always says `kind: systemd`, so following its advice under-monitors every HTTP service** (2026-08-14)
+  - **Symptom**: `_services_yaml_snippet` emits `kind: systemd` for every non-timer unit it advises on, in both the `unmonitored` and `host` categories. A `kind: systemd` check asserts only that the unit is *active*. A backend that is running while every request 500s is active, healthy by this check, and broken — which is the failure an HTTP service is most likely to have and the only one a unit check structurally cannot see
+  - **It is documented rather than accidental**: the docstring says *"`kind: systemd` rather than `http`: this scan does not know the unit's port"*, which is true and is the right floor for a **generic** generator. The scan reads unit files; a port lives in an `ExecStart` argument, a config file, an environment file or nowhere at all. Inventing one would produce advice that fails at load
+  - **Why it is still a defect**: the advice is presented as a paste-ready snippet with no marker saying it is the weaker of two shapes. Nobody pasting it is told that a port would buy them a real check, so the sweep quietly converts every future HTTP service on this box into a liveness-only one. That is the `SNAG-SYSD-002` shape — a check that records less than the reader believes
+  - **Found**: 2026-08-14 while pre-staging the SearXNG entry, which is the case that makes it concrete: SearXNG's port *will* be knowable (estate-manager's registry claims it before anything listens), so the generated snippet would be strictly worse than the hand-written one for a service whose port is a matter of record
+  - **The fix is a comment, not a parser**: emit the `kind: systemd` line with `# no port known — use kind: http with a url if this serves one`, rather than attempting port extraction. Left unfixed here because the SearXNG session pre-staged its own entry and `tests/test_searxng_wiring.py` pins the shape for that one service; the general case needs its own sitting and a decision about whether `LISTEN`/`ExecStart` sniffing is worth the false positives
 
 - [P2] SNAG-DB-002: **every PostgreSQL database on this box has a stale collation version**, and all three warn on every connection (2026-08-11)
   - **Symptom**: `psql -d projects` prints `WARNING: database "projects" has a collation version mismatch — created using collation version 2.43, but the operating system provides version 2.44` before every command. Confirmed across the estate, not just this app's database: `pg_database.datcollversion` is **2.43** for `projects`, `alfred` **and** `postgres`, while `ldd --version` reports glibc **2.44**
