@@ -227,6 +227,68 @@ debts that landing deliberately left behind._
       `/search?q=…&format=json` — neither taken on trust here),
       uncomment, restart. The guard turns red until that happens.
 
+      ---
+
+      **THE TRIGGER HAS FIRED — SearXNG went live 2026-08-14, and
+      `tests/test_searxng_wiring.py` is RED as of now.** Recorded here by
+      an estate-manager session under
+      [estate ADR-0002](../../../estate-manager/docs/adr/0002-delegation-not-command.md)
+      (documents into other repositories, never their code, units or
+      runtime-read config), the same shape as `c890a52`. The estate's
+      record is
+      [ADR-0010](../../../estate-manager/docs/adr/0010-searxng-deploy-shape.md).
+      **Every value this row was waiting on is now decided**, and one of
+      them is not what the commented block currently says:
+  - `url: http://localhost:8600/api/health`
+  - `port: 8600`
+  - `systemd: { unit: estate-manager-searxng-shim.service }` —
+        **not `searxng.service`**, which is what the pre-staged block
+        names. This is the one field that changed shape rather than
+        just gaining a value
+  - `kind: http`, no `project:`, `scope` omitted — all three exactly as
+        this row already determined
+  - **The health path is `/api/health` after all, and that is a
+        ruling, not a coincidence.** This row and `f5b37e6` in the estate
+        both recorded the routed question — *is a third-party service
+        held to `/api/health` at all?* — as answered **no**. The owner
+        was then put the question directly during the deploy, with
+        exemption as the *recommended* option, and **chose the
+        opposite**: the contract binds it, and the estate owns a thin
+        shim that makes it true. So there are two units, and the split
+        is the point:
+  - **`estate-manager-searxng-shim.service`, port 8600** — an
+        estate-owned FastAPI process. It serves `/api/health` and proxies
+        everything else. **This is the one to monitor.**
+  - **`estate-manager-searxng.service`, port 8601** — the upstream
+        SearXNG container, bound to loopback, reachable only through the
+        shim. No health surface of its own worth watching; it has a
+        registry row because sidecars count, not because it needs a
+        check
+  - **The health check is not a liveness restatement, which matters for
+        how its states should be judged.** It reports **503** when
+        SearXNG is not answering at all, and **424 Failed Dependency**
+        when SearXNG is up but *searching* is broken — engines
+        captcha'd, all upstreams failing. Under this file's own ladder
+        that lands as `critical` and `degraded` respectively, which is
+        the intended reading: a dead container is this box's problem, a
+        captcha'd engine is not, and venture degrades past the second
+        cleanly. `SNAG-UNITS-001` is the general form of exactly this
+        distinction — a unit check passes a SearXNG whose every search
+        errors
+  - **Expect `degraded` to appear legitimately.** The instance runs two
+        engines (`duckduckgo`, `seznam`) chosen by measurement, not
+        reputation — `brave` returns 429 on every request from this box,
+        `mojeek` answers nothing, and DuckDuckGo issued a CAPTCHA during
+        the deploy session itself. Two engines exist so that one
+        captcha is degradation rather than an outage. **A 424 here is
+        usually upstream having a bad day, not a fault on this box** —
+        worth an alert only if it stands
+  - **Verified from the estate side rather than reported**: the guard
+        was run there and fails naming both units, the audit re-run
+        after the deploy raises no new finding, and both ports answer.
+        What is left here is genuinely the four lines above plus
+        `sudo systemctl restart sysadmin.service`
+
 ## Active Sessions
 
 _Sessions 24–27 promoted from [ideas.md](ideas.md) on 2026-08-05. They are
