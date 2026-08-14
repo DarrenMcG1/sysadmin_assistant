@@ -154,7 +154,12 @@ in the same sitting as a lifecycle change makes both harder to verify.
   and now with one more negative observation behind it. Needs an eligible
   project whose stated next action has stood 7 days unchanged.
 - **The tray toast**, the same gap Sessions 43, 44 and 45 all left.
-- **A concurrency note for whoever works in estate-manager next**: two other
-  estate-manager sessions were live while its `snag_list.md` and `tasks.md`
-  were edited here (`estate-manager-a9`, `estate-manager-91`). Nothing was
-  committed there, so re-read before trusting a diff.
+- **Nothing** — but one note on how the estate record landed. Two
+  estate-manager sessions were live while its `snag_list.md` was edited from
+  here, and one of them **committed the entry itself**, as `86f67d8`
+  alongside an unrelated SearXNG correction. Content verified intact
+  afterwards (all seven bullets, filed `P3`). The risk was foreseen and is
+  worth stating as a rule rather than an anecdote: **a doc change left
+  uncommitted in a repository with live sessions will be committed by one of
+  them, under a message about something else.** Write and commit in the same
+  breath, or hand the text over and let the owning session place it.
