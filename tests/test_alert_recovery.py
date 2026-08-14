@@ -24,6 +24,19 @@ title                                  rows  newest
 This is the defect ``ProjectOrganiserAgent._resolve_recovered`` already
 fixed on the project side, at sixteen times the scale.
 
+**The exclusion set changed in SNAG-AGENT-006 and this file is where
+that is pinned.** It used to be ``_raised_titles``, filled by a
+``raise_alert`` override; the service and threshold families raised
+unconditionally, so "raised" and "still true" were the same set and the
+distinction cost nothing. They deduplicate now — one dead timer wrote
+**60** rows in five hours — so a family raises nothing on its second
+run, and an exclusion set of raised titles would sweep a row that is
+still true, re-raise it on the third run and sweep it again on the
+fourth. The set is now ``_judged_titles``, filled by ``_raise_judged``
+whether or not a row was written. ``tests/test_alert_dedup.py`` drives
+the four-run lifecycle; what is asserted here is that the statement
+excludes what was **judged**.
+
 **What these tests can and cannot show.** Sessions are mocked, so a
 ``WHERE`` clause has no effect here and the *population* is asserted on
 compiled SQL — it proves the predicate is in the statement, not that
@@ -129,7 +142,10 @@ def session():
     return s
 
 
-async def resolve_sql(agent, session, unhealthy=frozenset()) -> str:
+async def resolve_sql(
+    agent, session, unhealthy=frozenset(), judged=frozenset()
+) -> str:
+    agent._judged_titles |= set(judged)
     count = await agent._resolve_recovered(session, set(unhealthy))
     statement = session.execute.await_args.args[0]
     assert count == 27827
@@ -157,12 +173,32 @@ class TestTheResolveStatement:
             # `%` doubles in the compiled string — pyformat paramstyle.
             assert f"LIKE '{pattern.replace('%', '%%')}'" in sql
 
-    async def test_titles_raised_this_run_are_excluded(self, agent, session):
-        agent._raised_titles = {"venture-assistant unreachable"}
+    async def test_titles_judged_still_true_are_excluded(self, agent, session):
+        sql = await resolve_sql(
+            agent,
+            session,
+            judged={"venture-assistant unreachable"},
+        )
+
+        assert "NOT IN ('venture-assistant unreachable')" in sql
+
+    async def test_a_judged_fault_is_excluded_even_when_no_row_was_written(
+        self, agent, session
+    ):
+        """The whole of SNAG-AGENT-006, expressed as one clause.
+
+        On the second run of a sustained fault ``_raise_judged`` writes
+        nothing, so an exclusion set built from raises would be empty
+        here and this statement would close a row that is still true —
+        then the third run would raise it again, and each flip clears
+        the tray's ``{severity}:{title}`` fingerprint.
+        """
+        agent._judged_titles = {"Critical disk usage on /"}
+        agent._suppressed = 1
 
         sql = await resolve_sql(agent, session)
 
-        assert "NOT IN ('venture-assistant unreachable')" in sql
+        assert "NOT IN ('Critical disk usage on /')" in sql
 
     async def test_an_unhealthy_services_whole_family_is_excluded(
         self, agent, session
@@ -182,8 +218,10 @@ class TestTheResolveStatement:
         degraded for hours.  Testing "did this run raise it?" would close
         that alert and re-raise it two checks later — a recovery
         announced to the tray for a fault that never went away.  Hence
-        `unhealthy`, which does not depend on the streak."""
-        agent._raised_titles = set()
+        `unhealthy`, which does not depend on the streak.  Judging does
+        not rescue it either: nothing is judged until the third
+        consecutive degraded check, which is two runs away."""
+        agent._judged_titles = set()
 
         sql = await resolve_sql(agent, session, unhealthy={"venture-chat"})
 
@@ -230,20 +268,69 @@ class TestNoDrift:
 
 
 @pytest.mark.asyncio
-class TestRaisedTitlesAreCollectedCentrally:
-    async def test_raise_alert_records_the_title(self, agent):
+class TestJudgementIsCollectedCentrally:
+    """One helper judges and then decides, so the two cannot drift.
+
+    There are nine raise sites across ``_handle_status`` and
+    ``_check_thresholds``.  An inline ``if title not in open: raise`` at
+    each is the shape ``projects/snapshots.py`` argues against — the
+    audit that motivated it counted eight call sites where there were
+    nine — and here the copy that forgot to record its judgement would
+    not fail, it would resolve a live alert.
+    """
+
+    async def _session(self):
         s = MagicMock()
         s.flush = AsyncMock()
+        return s
 
-        await agent.raise_alert(s, severity="critical", title="redis unreachable")
+    async def test_a_judgement_that_raises_records_the_title(self, agent):
+        s = await self._session()
 
-        assert agent._raised_titles == {"redis unreachable"}
+        written = await agent._raise_judged(
+            s, severity="critical", title="redis unreachable",
+            message="down", details={},
+        )
 
-    async def test_the_alert_is_still_written(self, agent):
-        s = MagicMock()
-        s.flush = AsyncMock()
+        assert written == 1
+        assert agent._judged_titles == {"redis unreachable"}
 
-        alert = await agent.raise_alert(s, severity="warning", title="x warning")
+    async def test_a_judgement_that_is_suppressed_records_it_too(self, agent):
+        agent._open_titles = {"redis unreachable"}
+        s = await self._session()
 
-        s.add.assert_called_once_with(alert)
+        written = await agent._raise_judged(
+            s, severity="critical", title="redis unreachable",
+            message="down", details={},
+        )
+
+        assert written == 0
+        assert agent._judged_titles == {"redis unreachable"}
+        assert agent._suppressed == 1
+        s.add.assert_not_called()
+
+    async def test_the_alert_is_still_written_when_nothing_is_open(self, agent):
+        s = await self._session()
+
+        await agent._raise_judged(
+            s, severity="warning", title="x warning", message="m", details={},
+        )
+
+        s.add.assert_called_once()
         s.flush.assert_awaited_once()
+
+    async def test_the_row_just_written_dedups_the_rest_of_the_run(self, agent):
+        """Two identically-named GPUs must not open two rows.
+
+        The snapshot is taken before anything is raised, so within one
+        run the helper has to consult what it has itself written.
+        """
+        s = await self._session()
+        for _ in range(2):
+            await agent._raise_judged(
+                s, severity="warning", title="High VRAM usage on RX 7900",
+                message="m", details={},
+            )
+
+        assert s.add.call_count == 1
+        assert agent._suppressed == 1

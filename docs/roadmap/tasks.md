@@ -16,6 +16,17 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 46 — three snags.** *(2026-08-14.)* `SNAG-AGENT-006`
+      (the raise-side pile-up), `SNAG-TRAY-006` (the untested 8400 seam)
+      and `SNAG-ESTATE-002` (recorded in estate-manager, fixed nowhere,
+      per its ADR-0002). The first entry's stated remedy was **wrong** and
+      is flagged as superseded in `snag_list.md`: removing the service and
+      threshold families from `RESOLVABLE_TITLE_PATTERNS` would have undone
+      `SNAG-AGENT-004`. The patterns stayed and the exclusion set changed
+      from what a run raised to what it **judged** — `sysadmin/estate/agent.py`'s
+      pattern, reused rather than rediscovered. Verified live and rolled
+      back: 10 sustained runs of one fault → 1 row, was 10. Filed on the
+      way: `SNAG-AGENT-007`
 - [x] **The judging session.** *(2026-08-13, Session 45.)* Landed as a
       new agent, `estate_judge` — `sysadmin/estate/` with a client, a
       pure `judgements` module and the lifecycle. It judges **four**
@@ -91,7 +102,7 @@ debts that landing deliberately left behind._
       into database `estate` on 2026-08-13; leave a settling period
       before dropping, since a copy verified once is not a copy verified
       twice
-- [ ] **Pin the tray's parse of the estate's responses.** The tray reads
+- [x] **Pin the tray's parse of the estate's responses.** The tray reads
       `/api/projects/overview` and `/{name}` from **8400** now but parses
       them with *this* repository's contract classes
       (`ProjectOverviewResponse` and friends), which the estate also
@@ -99,9 +110,21 @@ debts that landing deliberately left behind._
       shape maintained in two repositories — the copy-drift pattern the
       estate exists to remove, surviving here because the consumer's
       parse and the producer's contract are genuinely different jobs.
-      Either pin it with a contract test against the live producer, or
-      move the shapes into `estate-lib` where both sides import one
-      definition. Decide deliberately rather than letting it age
+      **Decided 2026-08-14 (SNAG-TRAY-006): a contract test, and the
+      shapes stay in two repositories.** `estate-lib` was rejected
+      because the two are not duplicates — this side is a tolerant
+      consumer parse (`extra="ignore"`, every field defaulted, a
+      `ValidationError` meaning "connection lost" to the tray *by
+      design*) and the estate's is a producer guarantee enforced as
+      `response_model=`. One class makes the tray's defensiveness the
+      producer's problem and the producer's strictness a way for the
+      tray to crash on an unknown field — the exact defect
+      `extra="ignore"` exists to prevent. It would also have *appeared*
+      to close this while proving nothing about whether the producer is
+      reachable or still populating the routes.
+      `tests/test_estate_project_contracts.py` is the consumer-driven
+      test instead: a recorded 8400 payload the suite always parses,
+      plus a reachability-gated live pair sharing one set of assertions
 
 ## Active Sessions
 

@@ -49,22 +49,34 @@ Four rules, three of them the opposite of the obvious implementation.
    done and says nothing in between.
 
 3. **Raised once per open row, never once per run.**  The sysadmin agent
-   polls every 300 s and a stale collation persists for weeks, so the
-   ``_check_thresholds`` pattern — ``raise_alert`` unconditionally, let
-   ``_resolve_recovered`` sweep — would write **2,304 rows a day** for
-   this one fault.  That is ``SNAG-AGENT-004`` and ``SNAG-AGENT-005``
-   reappearing a third time, and this module is written knowing it.
+   polls every 300 s and a stale collation persists for weeks, so
+   ``_check_thresholds``'s pattern **as it then stood** — ``raise_alert``
+   unconditionally, let ``_resolve_recovered`` sweep — would have
+   written **2,304 rows a day** for this one fault.  That is
+   ``SNAG-AGENT-004`` and ``SNAG-AGENT-005`` reappearing a third time,
+   and this module is written knowing it.  Writing it down is what
+   surfaced ``SNAG-AGENT-006``: the divergence between this family and
+   the one beside it was the finding, and the service and threshold
+   families deduplicate too as of that fix.
 
 4. **Therefore this family owns its own lifecycle and must stay out of**
-   :data:`sysadmin.monitor.agent.RESOLVABLE_TITLE_PATTERNS`.  The two
-   are mutually exclusive: that sweep closes any owned row the run did
-   not raise, which is sound only for a family that re-raises every run.
-   Dedup plus pattern-sweep makes a row flip-flop — resolved on the run
-   that holds, re-raised on the next — and because the tray fingerprints
-   on ``{severity}:{title}``, each flip clears the suppression and
-   notifies again.  A pile-up is loud; this would be loud *and* look
-   like recovery.  ``tests/test_collation_check.py`` pins the title
-   against every pattern in that tuple.
+   :data:`sysadmin.monitor.agent.RESOLVABLE_TITLE_PATTERNS`.  The reason
+   has narrowed and it is worth being exact about which half survived.
+   The original argument was that dedup and that sweep are mutually
+   exclusive — the sweep closes any owned row the run did not *raise*,
+   so a deduplicating family's still-true row flip-flops, and each flip
+   clears the tray's ``{severity}:{title}`` fingerprint and notifies
+   again.  ``SNAG-AGENT-006`` refuted the general form by changing the
+   exclusion set to what the run **judged**, following
+   :mod:`sysadmin.estate.agent`; dedup suppresses the raise, never the
+   judgement, so there is no longer anything to flip.  What stands is
+   the narrower rule: this family **resolves its own rows by id**, and a
+   second owner closes a row while the first still holds it true — the
+   defect this repository has now found at three scales.  Nothing here
+   feeds that sweep's judged set, so joining the tuple would resolve
+   these rows on the first run and re-raise them on the next.
+   ``tests/test_collation_check.py`` pins the title against every
+   pattern in that tuple.
 
 The remedy's own trap is carried in the alert rather than left to the
 reader: ``ALTER DATABASE … REFRESH COLLATION VERSION`` on its own clears

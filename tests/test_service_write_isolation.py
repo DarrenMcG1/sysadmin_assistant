@@ -68,7 +68,15 @@ class FakeSession:
         self.committed_rows: list = []
         self.rolled_back: list[list] = []
         self._current: list | None = None
-        self.execute = AsyncMock()
+        # ``_execute`` opens with one ``_active_alerts`` SELECT — the
+        # run's open-row snapshot for the dedup (SNAG-AGENT-006).
+        # Nothing in this file is about alert rows, so it answers empty;
+        # what it has to answer *with* is a result whose
+        # ``.scalars().all()`` is not itself awaitable, which a bare
+        # ``AsyncMock``'s chained children are.
+        alerts = MagicMock()
+        alerts.scalars.return_value.all.return_value = []
+        self.execute = AsyncMock(return_value=alerts)
         self.flush = AsyncMock()
         self.commit = AsyncMock()
         self.rollback = AsyncMock()

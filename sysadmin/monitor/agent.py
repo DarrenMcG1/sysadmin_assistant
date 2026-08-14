@@ -14,6 +14,12 @@ Alerting:
 - DEGRADED → 3 consecutive = escalate to WARNING
 - WARNING → log to alerts table
 - CRITICAL → immediate alert (to be picked up by notifier)
+- A fault that is still true writes no second row.  The service and
+  threshold families deduplicate against their own open rows, and the
+  sweep that closes them keys on what the run **judged** rather than on
+  what it raised — see :meth:`SysAdminAgent._raise_judged`
+  (SNAG-AGENT-006) and :mod:`sysadmin.estate.agent`, which is where the
+  pairing was first shown to work.
 """
 
 import asyncio
@@ -130,16 +136,20 @@ def disk_alert_title(mount: str, critical: bool) -> str:
 #:   would have its rows closed from here while they were still true.
 #:   ``tests/test_agent_failures.py`` pins that.
 #: - ``Stale collation version on %`` — :mod:`sysadmin.monitor.collation`
-#:   raises **once per open row** rather than once per run, because the
-#:   fault persists until someone reindexes and 300-second polling would
-#:   write 2,304 rows a day for it.  Dedup and this sweep are mutually
-#:   exclusive: the sweep closes any owned row the run did not raise,
-#:   which is sound only for a family that re-raises every run.  Adding
-#:   the pattern here would make the row flip-flop — resolved on the run
-#:   that holds, re-raised on the next — and each flip clears the tray's
-#:   ``{severity}:{title}`` fingerprint, so it notifies again.  The
-#:   database name sits last in the title, which keeps it clear of the
-#:   five ``% <kind>`` patterns by construction rather than by luck.
+#:   raises **once per open row** and resolves its own rows by id, so a
+#:   sweep from here would be the second owner of one lifecycle.  That is
+#:   the reason it stays out, and it is *not* the reason originally
+#:   written here.  The original said dedup and this sweep are mutually
+#:   exclusive; that was true of an exclusion set holding the titles the
+#:   run **raised**, which since SNAG-AGENT-006 it no longer is.  The
+#:   service and threshold families deduplicate now too, and survive this
+#:   sweep because :attr:`SysAdminAgent._judged_titles` carries every
+#:   fault the run measured, written or suppressed.  What has not changed
+#:   is that two owners of one row close it while the other still holds
+#:   it true — this repository's most repeated defect, found at three
+#:   scales.  The database name sits last in the title, which keeps it
+#:   clear of the five ``% <kind>`` patterns by construction rather than
+#:   by luck.
 RESOLVABLE_TITLE_PATTERNS = tuple(
     f"% {kind}" for kind in SERVICE_ALERT_KINDS
 ) + (
@@ -230,38 +240,113 @@ class SysAdminAgent(BaseAgent):
         # same reason as _stall_counts: a carried-over count reads as
         # work this run performed.
         self._collation_counts: dict[str, int] = _NO_COLLATION
-        # Exact alert titles raised by the current run — the "still
-        # failing" set _resolve_recovered subtracts. Collected in
-        # raise_alert rather than at the ten call sites, so it cannot
-        # drift from them.
-        self._raised_titles: set[str] = set()
+        # Titles of this agent's unresolved rows, snapshotted once at
+        # the top of the run. The dedup reads this; nothing writes an
+        # alert without consulting it. There was a `_raised_titles` set
+        # here until SNAG-AGENT-006, filled by a `raise_alert` override
+        # and read by `_resolve_recovered`; both are gone, because a set
+        # nobody reads is the SNAG-CFG-001 shape and the exclusion now
+        # comes from `_judged_titles` below.
+        self._open_titles: set[str] = set()
+        # Titles this run judged **still true**, whether or not a row was
+        # written for them — the set `_resolve_recovered` subtracts.
+        # Deliberately not "the titles this run raised": see
+        # `_raise_judged`, where the difference is the entire fix.
+        self._judged_titles: set[str] = set()
+        # Judgements that found a row already open. Counted so that a run
+        # reporting zero raises can say which zero it means.
+        self._suppressed: int = 0
 
-    async def raise_alert(
+    async def _raise_judged(
         self,
         session,
+        *,
         severity: str,
         title: str,
-        message: str | None = None,
-        details: dict[str, Any] | None = None,
-    ) -> Alert:
-        """Raise as normal, and remember the title for :meth:`_resolve_recovered`.
+        message: str,
+        details: dict[str, Any],
+        dedup: bool = True,
+    ) -> int:
+        """Judge a fault still true, and write a row only if none is open.
 
-        The inverse question that method asks — "which of my open alerts
-        did this run *not* raise?" — needs the run's titles exactly, and
-        the one place they all pass through is here.  Titles outside
-        :data:`RESOLVABLE_TITLE_PATTERNS` (anomalies, stalls) are
-        collected too and are simply never matched, which is cheaper than
-        a second rule about which ones to collect.
+        ``SNAG-AGENT-006``.  ``sysadmin-organiser-timer critical`` held
+        **60** unresolved rows raised between 07:41 and 12:36 on
+        2026-08-13 — one every 300 s, which is
+        ``health_check_interval_seconds`` — for one dead timer.
+        ``venture-chat unreachable`` reached 85 across 36 hours and
+        ``redis unreachable`` 6,283 before anything could close it.  The
+        tray never noticed, because it fingerprints on
+        ``{severity}:{title}`` and sixty rows are one toast; what read
+        sixty times high was ``GET /api/sysadmin/alerts`` and every count
+        built on ``resolved = false``.
+
+        **Judging and raising are two operations, and pulling them apart
+        is the fix.**  Every call records the title in
+        :attr:`_judged_titles` — the set :meth:`_resolve_recovered`
+        subtracts — and only then asks whether a row is needed.  The snag
+        was filed saying dedup and that sweep are mutually exclusive, and
+        against the exclusion set as it then stood they were: it held the
+        titles the run **raised**, so a family that writes nothing on its
+        second run had its still-true row swept, re-raised on the third,
+        swept on the fourth, each flip clearing the tray fingerprint and
+        notifying again.  :mod:`sysadmin.estate.agent` had already shown
+        the third option — an exclusion set of what the run **judged**.
+        Dedup suppresses the raise, never the judgement, so a fault that
+        persists is in the set on every run and is never swept, and a
+        fault that clears leaves it exactly once and is resolved exactly
+        once.  It is available here for the same reason it was available
+        there: this agent owns every row the sweep can reach.
+
+        ``dedup=False`` is for the one title in these two families that
+        is an **event rather than a state** — ``% auto-restarted``.
+        ``_failure_counts`` is reset to zero the moment ``restart_unit``
+        returns, so that title fires once per restart *cycle*; a second
+        restart three hours later is a second piece of news, and
+        deduplicating it would suppress the row that carries it.  Same
+        distinction :mod:`sysadmin.monitor.log_signature` draws between a
+        log line and an incident.  It is still *judged*, so this run's
+        sweep leaves it alone; when the service is next measured healthy
+        it falls out of both this set and ``unhealthy`` and resolves with
+        the rest of its family.
+
+        Suppression is deliberately the **only** thing this does.  It is
+        not folded into :meth:`raise_alert`, because five families —
+        anomalies, stalls, agent failures, unit failures, collation —
+        already own their own lifecycles, and silently changing all of
+        them from one override is the "second owner of one lifecycle"
+        defect that produced this method in the first place.
+
+        Returns:
+            1 if a row was written, 0 if the fault already had one open.
         """
-        self._raised_titles.add(title)
-        return await super().raise_alert(session, severity, title, message, details)
+        self._judged_titles.add(title)
+        if dedup and title in self._open_titles:
+            self._suppressed += 1
+            logger.debug(
+                "alert_suppressed_row_already_open",
+                extra={"agent": self.name, "title": title},
+            )
+            return 0
+        await self.raise_alert(
+            session,
+            severity=severity,
+            title=title,
+            message=message,
+            details=details,
+        )
+        # So that a second judgement of the same title inside one run —
+        # two identically-named GPUs, say — dedups against the row this
+        # call just wrote rather than against a snapshot taken before it.
+        self._open_titles.add(title)
+        return 1
 
     async def _execute(self, session) -> AgentResult:
         """Run all health checks and record resource snapshot."""
         self._stall_counts = _NO_STALLS
         self._agent_failure_counts = _NO_AGENT_FAILURES
         self._collation_counts = _NO_COLLATION
-        self._raised_titles = set()
+        self._judged_titles = set()
+        self._suppressed = 0
         config = get_config()
         agent_config = config.agents.sysadmin
         services = get_services().services
@@ -275,6 +360,23 @@ class SysAdminAgent(BaseAgent):
         # written decides whether it matters, the lesson
         # `details['truncated_sources']` records on the log side.
         write_failures: list[str] = []
+
+        # One snapshot of the open rows for the whole run, taken before
+        # anything is raised — `_handle_status` and `_check_thresholds`
+        # both dedup against it (SNAG-AGENT-006). Read here rather than
+        # at the nine call sites for the reason `_check_agent_health`
+        # reads its own tables once: separate fetches milliseconds apart
+        # can disagree about the same row, and a per-site query would
+        # also need a session, which `_handle_status` is legitimately
+        # called without on the skipped path.
+        #
+        # Deliberately *not* shared with `_check_agent_health` or
+        # `_check_collation`, which take their own `_active_alerts`
+        # snapshots later in the run. Those two run ladders off the Alert
+        # rows themselves — id, severity, created_at, details — and must
+        # see what this run has already written; titles taken before the
+        # service loop are neither.
+        self._open_titles = {a.title for a in await self._active_alerts(session)}
 
         # --- Service health checks ---
         # One connection pool per run, bound to this run's event loop and
@@ -394,6 +496,18 @@ class SysAdminAgent(BaseAgent):
                 # open row, so `raised` is new faults rather than
                 # current ones — `mismatched` is the standing count.
                 "collation": self._collation_counts,
+                # The two deduplicating families' standing picture.
+                # `alerts_raised` alone cannot tell "nothing is wrong"
+                # from "sixty things are wrong and every one of them is
+                # already on the board" — zero is the correct answer to
+                # both, and the second is exactly what a broken dedup
+                # also produces. `judged` counts the distinct faults this
+                # run measured as still true; `suppressed` how many of
+                # them already had a row.
+                "standing": {
+                    "judged": len(self._judged_titles),
+                    "suppressed": self._suppressed,
+                },
             },
         )
 
@@ -424,11 +538,14 @@ class SysAdminAgent(BaseAgent):
         nothing else.  ``_handle_status`` may have restarted a unit
         through ``systemctl`` and will have bumped ``_degraded_counts``
         or ``_failure_counts``, both of which live in memory; those
-        stand.  The streak counters being one ahead can fire the next
-        alert one check early, which is the mild direction, and the
-        alternative — snapshotting them per service — buys accuracy in
-        a path that only runs when the database is already rejecting
-        writes.
+        stand.  So does the entry ``_raise_judged`` made in
+        ``_judged_titles``, which is the harmless direction — it
+        protects this service's open rows from the sweep for one more
+        run, and ``unhealthy`` protects them anyway.  The streak
+        counters being one ahead can fire the next alert one check
+        early, which is the mild direction, and the alternative —
+        snapshotting them per service — buys accuracy in a path that
+        only runs when the database is already rejecting writes.
 
         Failure to write even this is logged and swallowed: raising here
         would abort the run and reinstate exactly the behaviour being
@@ -647,7 +764,20 @@ class SysAdminAgent(BaseAgent):
     ) -> int:
         """Handle status transitions, alerting, and auto-restart.
 
-        Returns count of alerts raised.
+        **Every side effect here happens whether or not a row is
+        written.**  The streak counters move and ``restart_unit`` runs
+        before :meth:`_raise_judged` decides whether the fault already
+        has an open row, because suppressing the *raise* must never
+        suppress the *check*: a service whose alert is already open
+        still has to be counted towards its next restart, and a restart
+        that did not happen because the alert was old is a service left
+        down.
+
+        Returns:
+            Rows written — 0 when the fault is real and already on the
+            board.  ``details["standing"]`` in the run record reports
+            what was judged beside what was raised, so the two zeroes
+            are distinguishable.
         """
         service_name = svc.name
 
@@ -683,27 +813,25 @@ class SysAdminAgent(BaseAgent):
                 self._degraded_counts.get(service_name, 0) + 1
             )
             if self._degraded_counts[service_name] >= 3:
-                await self.raise_alert(
+                return await self._raise_judged(
                     session,
                     severity="warning",
                     title=service_alert_title(service_name, "degraded"),
                     message=f"{service_name} has been degraded for 3 consecutive checks",
                     details={**details, "service_name": service_name},
                 )
-                return 1
             return 0
 
         if status == "warning":
             self._degraded_counts[service_name] = 0
             self._failure_counts[service_name] = 0
-            await self.raise_alert(
+            return await self._raise_judged(
                 session,
                 severity="warning",
                 title=service_alert_title(service_name, "warning"),
                 message=f"{service_name} is in warning state",
                 details={**details, "service_name": service_name},
             )
-            return 1
 
         if status in ("critical", "unreachable"):
             self._degraded_counts[service_name] = 0
@@ -729,7 +857,7 @@ class SysAdminAgent(BaseAgent):
                 # Reset counter to avoid restart loop
                 self._failure_counts[service_name] = 0
 
-                await self.raise_alert(
+                return await self._raise_judged(
                     session,
                     severity="warning",
                     title=service_alert_title(service_name, "auto-restarted"),
@@ -739,17 +867,21 @@ class SysAdminAgent(BaseAgent):
                         f" — {'succeeded' if success else f'failed: {msg}'}"
                     ),
                     details={**details, "service_name": service_name, "auto_restart": True},
+                    # The one title in this family that is an event
+                    # rather than a state. `_failure_counts` was reset
+                    # three lines up, so the next row here means a
+                    # *second* restart — news, not a repeat — and
+                    # deduplicating it would swallow exactly that.
+                    dedup=False,
                 )
-                return 1
 
-            await self.raise_alert(
+            return await self._raise_judged(
                 session,
                 severity="critical",
                 title=service_alert_title(service_name, status),
                 message=f"{service_name} is {status}",
                 details={**details, "service_name": service_name},
             )
-            return 1
 
         return 0
 
@@ -779,21 +911,34 @@ class SysAdminAgent(BaseAgent):
         and threshold-cleared in one statement, and cannot drift from the
         raise path: the population comes from
         :data:`RESOLVABLE_TITLE_PATTERNS` and the exclusions from
-        :attr:`_raised_titles`, which :meth:`raise_alert` fills.
+        :attr:`_judged_titles`, which :meth:`_raise_judged` fills.
 
-        **The two halves take different exclusions, and the difference is
-        not cosmetic.** A resource threshold either breached this run or
-        did not, so ``_raised_titles`` decides it exactly.  A service's
-        alert is governed by a *streak* — three consecutive degraded
-        checks — held in memory, and ``_degraded_counts`` resets when the
-        daemon restarts.  Testing "did this run raise it?" would therefore
-        close a genuinely-degraded service's alert on the first run after
-        every restart and re-raise it two checks later: a spurious
-        recovery, announced to the tray, for a fault that never went away.
-        So a service's titles are resolved only when this run measured it
-        **healthy** — ``unhealthy`` carries everything else, including
-        ``error``, where the check itself failed and the state is
-        genuinely unknown.
+        **The exclusion is what the run judged, not what it raised, and
+        that is the whole reason these families can deduplicate**
+        (SNAG-AGENT-006).  Against a raised set, a family that writes no
+        row on its second run has its still-true row swept here,
+        re-raised on the third run, swept on the fourth — a flip-flop
+        that clears the tray's ``{severity}:{title}`` fingerprint every
+        turn, so one fault notifies on every poll.  Against a judged set
+        there is nothing to flip: the row is protected for as long as
+        the fault is measured, and becomes reachable on the first run it
+        is not.  :mod:`sysadmin.estate.agent` is where that pairing was
+        first shown to work, and it works here for the same reason —
+        every row this statement can reach belongs to this agent.
+
+        **The two halves still take different exclusions, and the
+        difference is not cosmetic.** A resource threshold either
+        breached this run or did not, so the judged set decides it
+        exactly.  A service's alert is governed by a *streak* — three
+        consecutive degraded checks — held in memory, and
+        ``_degraded_counts`` resets when the daemon restarts.  Judging
+        alone would therefore close a genuinely-degraded service's alert
+        on the first run after every restart and re-raise it two checks
+        later: a spurious recovery, announced to the tray, for a fault
+        that never went away.  So a service's titles are resolved only
+        when this run measured it **healthy** — ``unhealthy`` carries
+        everything else, including ``error``, where the check itself
+        failed and the state is genuinely unknown.
 
         ``skipped`` counts as healthy for this purpose, and deliberately.
         It means ``services.yaml`` declares ``monitor: false``: the estate
@@ -814,7 +959,7 @@ class SysAdminAgent(BaseAgent):
         """
         from sqlalchemy import or_
 
-        protected = self._raised_titles | {
+        protected = self._judged_titles | {
             service_alert_title(name, kind)
             for name in unhealthy
             for kind in SERVICE_ALERT_KINDS
@@ -905,17 +1050,26 @@ class SysAdminAgent(BaseAgent):
     async def _check_thresholds(
         self, session, snapshot: ResourceSnapshot, thresholds
     ) -> int:
-        """Check resource thresholds and raise alerts. Returns alert count.
+        """Check resource thresholds and raise alerts. Returns rows written.
 
-        Also records the resource keys that alerted in ``_threshold_keys``
-        so :meth:`_check_anomalies` can suppress duplicates.
+        Also records the resource keys that **breached** in
+        ``_threshold_keys`` so :meth:`_check_anomalies` can suppress
+        duplicates — breached, not raised, and the distinction became
+        load-bearing with SNAG-AGENT-006's dedup.  A disk that has been
+        over the critical mark for a week writes no new row, and tying
+        the key to the row would then let an anomaly alert fire for
+        exactly the resource whose threshold alert is sitting open: one
+        family's suppression manufacturing a duplicate in the other.
+        Every ``add`` therefore sits *above* its ``_raise_judged`` call,
+        where skipping it takes an edit rather than an oversight.
         """
         alerts = 0
         self._threshold_keys = set()
 
         # RAM check
         if snapshot.ram_percent and float(snapshot.ram_percent) >= thresholds.ram_warning_percent:
-            await self.raise_alert(
+            self._threshold_keys.add("ram")
+            alerts += await self._raise_judged(
                 session,
                 severity="warning",
                 title="High RAM usage",
@@ -929,26 +1083,23 @@ class SysAdminAgent(BaseAgent):
                     "threshold": True,
                 },
             )
-            self._threshold_keys.add("ram")
-            alerts += 1
 
         # GPU checks
         for card_id, gpu in (snapshot.gpu_usage or {}).items():
             gpu_name = gpu.get("name", card_id)
             temp = gpu.get("temp_c")
             if temp is not None and temp >= thresholds.gpu_temp_warning_c:
-                await self.raise_alert(
+                alerts += await self._raise_judged(
                     session,
                     severity="warning",
                     title=f"High GPU temperature on {gpu_name}",
                     message=f"GPU temp at {temp}°C (threshold: {thresholds.gpu_temp_warning_c}°C)",
                     details={"card": card_id, "temp_c": temp},
                 )
-                alerts += 1
 
             vram_pct = gpu.get("vram_percent")
             if vram_pct is not None and vram_pct >= thresholds.gpu_vram_warning_percent:
-                await self.raise_alert(
+                alerts += await self._raise_judged(
                     session,
                     severity="warning",
                     title=f"High VRAM usage on {gpu_name}",
@@ -958,14 +1109,14 @@ class SysAdminAgent(BaseAgent):
                     ),
                     details={"card": card_id, "vram_percent": vram_pct},
                 )
-                alerts += 1
 
         # Disk check
         for mount, usage in (snapshot.disk_usage or {}).items():
             pct = usage.get("percent", 0)
             disk_key = f"{DISK_KEY_PREFIX}{mount}"
             if pct >= thresholds.disk_critical_percent:
-                await self.raise_alert(
+                self._threshold_keys.add(disk_key)
+                alerts += await self._raise_judged(
                     session,
                     severity="critical",
                     title=disk_alert_title(mount, critical=True),
@@ -980,10 +1131,9 @@ class SysAdminAgent(BaseAgent):
                         "threshold": True,
                     },
                 )
-                self._threshold_keys.add(disk_key)
-                alerts += 1
             elif pct >= thresholds.disk_warning_percent:
-                await self.raise_alert(
+                self._threshold_keys.add(disk_key)
+                alerts += await self._raise_judged(
                     session,
                     severity="warning",
                     title=disk_alert_title(mount, critical=False),
@@ -998,8 +1148,6 @@ class SysAdminAgent(BaseAgent):
                         "threshold": True,
                     },
                 )
-                self._threshold_keys.add(disk_key)
-                alerts += 1
 
         return alerts
 

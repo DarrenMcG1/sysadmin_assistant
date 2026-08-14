@@ -1,0 +1,80 @@
+{
+  "name": "sysadmin_assistant",
+  "current": {
+    "health_score": 95,
+    "last_commit_at": "2026-08-13T13:33:18+00:00",
+    "branch_count": 4,
+    "stale_branch_count": 0,
+    "todo_count": 7,
+    "fixme_count": 5,
+    "has_readme": true,
+    "has_claude_md": true,
+    "total_size_mb": 2,
+    "findings": {
+      "todos": {
+        "XXX": 2,
+        "HACK": 2,
+        "TODO": 7,
+        "FIXME": 5
+      },
+      "status": "active",
+      "roadmap": {
+        "has_ideas": true,
+        "has_snags": true,
+        "has_tasks": true,
+        "done_tasks": 96,
+        "has_status": true,
+        "open_snags": 28,
+        "open_tasks": 57,
+        "has_handoff": true,
+        "next_action": "Take the judging session \u2014 wire `GET :8400/api/projects/invariants` and `GET :8400/api/projects/attention` into checks and alerts here, since both endpoints answer 200 today and until something in this repository reads them the estate's idle nudges reach no tray toast at all.",
+        "handoff_path": "HANDOFF.md",
+        "missing_docs": [],
+        "handoff_age_days": 0,
+        "handoff_duplicates": [],
+        "next_action_source": "handoff",
+        "handoff_date_source": "heading"
+      },
+      "no_remote": true,
+      "last_commit_subject": "docs: Session 44 deployed and verified in production"
+    },
+    "scanned_at": "2026-08-13T16:53:41.644409+00:00"
+  },
+  "history": [
+    {
+      "health_score": 95,
+      "scanned_at": "2026-08-13T16:53:41.644409+00:00",
+      "next_action": "Take the judging session \u2014 wire `GET :8400/api/projects/invariants` and `GET :8400/api/projects/attention` into checks and alerts here, since both endpoints answer 200 today and until something in this repository reads them the estate's idle nudges reach no tray toast at all.",
+      "next_action_source": "handoff",
+      "next_action_changed": true
+    },
+    {
+      "health_score": 70,
+      "scanned_at": "2026-08-13T06:35:46.473352+00:00",
+      "next_action": "Start Session 43 on `SNAG-DB-001`'s detection gap and settle its one open question first \u2014 whether an agent whose runs keep failing is a new alert family or an extension of `% agent stalled` \u2014 because the two are different states (\"ran and failed\" versus \"hasn't run\"), `_resolve_recovered` excludes the stall family precisely so `stalls.py` can own its lifecycle, and a new family without the same exclusion will have its rows closed by the sysadmin agent while they are still true.",
+      "next_action_source": "handoff",
+      "next_action_changed": true
+    },
+    {
+      "health_score": 70,
+      "scanned_at": "2026-08-12T03:30:54.414532+00:00",
+      "next_action": "Run `sudo ~/projects/estate-manager/scripts/install-broker-system-units.sh` \u2014 it installs this repository's two unit files (now including sysadmin.service's new LoadCredential=mqtt, ADR-0003) alongside the estate's broker provisioner and credential files, then rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears.",
+      "next_action_source": "handoff",
+      "next_action_changed": true
+    },
+    {
+      "health_score": 70,
+      "scanned_at": "2026-08-11T17:09:35.460581+00:00",
+      "next_action": "Install the two unit files with `sudo cp systemd/sysadmin.service systemd/sysadmin-failed.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart sysadmin.service`, rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears, then take Session 40 \u2014 the estate manager's document-only phase 1, whose decisions are already recorded in ADR-0002.",
+      "next_action_source": "handoff",
+      "next_action_changed": false
+    },
+    {
+      "health_score": 70,
+      "scanned_at": "2026-08-11T17:09:27.144225+00:00",
+      "next_action": "Install the two unit files with `sudo cp systemd/sysadmin.service systemd/sysadmin-failed.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart sysadmin.service`, rehearse the failure path once with `sudo systemctl start sysadmin-failed.service` to confirm a persistent critical toast appears, then take Session 40 \u2014 the estate manager's document-only phase 1, whose decisions are already recorded in ADR-0002.",
+      "next_action_source": "handoff",
+      "next_action_changed": null
+    }
+  ]
+}

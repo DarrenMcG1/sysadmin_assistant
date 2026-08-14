@@ -69,15 +69,22 @@ def _mismatch(datname: str = "projects") -> Mismatch:
 
 
 class TestTitleIsNotSweptByTheServiceResolve:
-    """Dedup and the pattern sweep are mutually exclusive.
+    """This family resolves its own rows, so nothing else may.
 
-    ``_resolve_recovered`` closes every open row matching
-    ``RESOLVABLE_TITLE_PATTERNS`` that the run did not re-raise.  This
-    family raises **once per open row**, so from the second run onward it
-    raises nothing — and would have its own row closed, then reopened on
-    the next run.  Because the tray fingerprints on
-    ``{severity}:{title}``, each flip clears the suppression and
-    notifies again: a pile-up that also reads as recovery.
+    The assertion has outlived its original reason and the difference is
+    worth stating.  It was written because dedup and the pattern sweep
+    were mutually exclusive: that sweep closed every owned row the run
+    did not **raise**, so a family raising nothing from its second run
+    onward had its own row closed and reopened, each flip clearing the
+    tray's ``{severity}:{title}`` fingerprint.  SNAG-AGENT-006 refuted
+    the general form — the exclusion set is now what the run **judged**,
+    and the service and threshold families deduplicate too.
+
+    What survives is narrower and is why this still has to hold: this
+    family resolves its own rows by id, in ``_check_collation``, and
+    nothing here feeds the sweep's judged set.  A second owner would
+    close a row on the first run and re-raise it on the next, which is
+    the same flip-flop arrived at from the other direction.
     """
 
     @pytest.mark.parametrize("datname", LIVE_MISMATCHED + ["template0", "estate"])

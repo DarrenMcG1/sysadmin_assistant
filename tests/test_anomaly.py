@@ -286,6 +286,55 @@ class TestThresholdKeys:
         assert {d["resource"] for d in details} == {"ram", "disk:/home"}
 
     @pytest.mark.asyncio
+    async def test_a_breach_records_its_key_even_when_the_raise_is_suppressed(
+        self, agent, mock_session
+    ):
+        """The coupling SNAG-AGENT-006's dedup could have broken silently.
+
+        A disk that has been over the critical mark for a week writes no
+        new row, because ``_raise_judged`` finds one already open.  If
+        the ``_threshold_keys.add`` had been tied to the row rather than
+        to the breach, ``_check_anomalies`` would then see no threshold
+        alert for that resource and raise an anomaly for it — one
+        family's suppression manufacturing a duplicate in the other, on
+        exactly the resources that have been broken longest.
+        """
+        thresholds = Thresholds(ram_warning_percent=85, disk_warning_percent=80)
+        agent._open_titles = {"High RAM usage", "High disk usage on /home"}
+        snapshot = _snapshot(ram=90.0, disk={"/home": {"percent": 85}})
+
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            written = await agent._check_thresholds(
+                mock_session, snapshot, thresholds
+            )
+
+        assert written == 0
+        ra.assert_not_called()
+        assert agent._threshold_keys == {"ram", "disk:/home"}
+
+    @pytest.mark.asyncio
+    async def test_an_anomaly_is_still_suppressed_on_the_second_run(
+        self, agent, mock_session
+    ):
+        """The two halves, end to end, on the run that writes no row."""
+        _rows(mock_session, [])
+        agent._open_titles = {"Critical disk usage on /"}
+        snapshot = _snapshot(disk={"/": {"percent": 95}})
+
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            await agent._check_thresholds(
+                mock_session, snapshot,
+                Thresholds(disk_warning_percent=80, disk_critical_percent=90),
+            )
+            raised = await agent._check_anomalies(
+                mock_session, snapshot, {"disk:/": [40.0, 41.0, 42.0] * 5},
+                AnomalyConfig(min_samples=5, z_threshold=3.0, min_stdev=0.5),
+            )
+
+        assert raised == 0
+        ra.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_keys_reset_between_runs(self, agent, mock_session):
         thresholds = Thresholds(ram_warning_percent=85)
         with patch.object(agent, "raise_alert", new_callable=AsyncMock):
