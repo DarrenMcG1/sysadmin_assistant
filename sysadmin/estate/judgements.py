@@ -40,17 +40,30 @@ Three rules run through everything below.
    rule :mod:`sysadmin.monitor.journal` already applies to
    ``truncated_sources``.
 
-3. **The estate's findings are not this repository's alerts.**  The
-   audit publishes ``findings_total`` — 10 today, of which 8 are the
-   collation family :mod:`sysadmin.monitor.collation` already raises
-   here.  Alerting on that number would double-count this service's own
-   alerts through a second producer, and the remaining findings are
-   conformance breaches in *other* repositories, which the estate rules
-   direct to those repositories' own ADR processes.  What is judged is
-   whether the audit **ran and completed** — ``checks_errored``,
-   ``publish_error``, ``error``, age.  A check that errored produced no
-   finding at all, which is the difference between "nothing is wrong"
-   and "nothing looked".
+3. **The estate's findings are mostly not this repository's alerts —
+   with one named exception.**  The audit publishes ``findings_total``,
+   and alerting on that *number* would double-count: the collation
+   findings are the family :mod:`sysadmin.monitor.collation` already
+   raises here, arriving a second time through a different producer, and
+   ``pointers``/``seams`` are conformance breaches inside *other*
+   repositories, which the estate rules direct to those repositories'
+   own ADR processes.  So the total is never judged; what is judged of
+   ``/api/audit/invariants`` is whether the audit **ran and completed**
+   — ``checks_errored``, ``publish_error``, ``error``, age.  A check that
+   errored produced no finding at all, which is the difference between
+   "nothing is wrong" and "nothing looked".
+
+   The exception is ``ports``, judged per finding by
+   :func:`judge_audit_findings`, and it is a **narrowing of this rule
+   rather than a reversal**: neither reason above reaches it.  A port is
+   not any repository's conformance — no repository owns one — and this
+   service raises nothing about ports itself, so there is nothing to
+   double-count.  What decided it is that the estate *may not alert*: it
+   files findings and never acts, this box's monitor is the only party
+   permitted to speak, and the alternative to judging it here is a
+   ``breach`` that is detected, correct, machine-readable and never said
+   out loud.  That is the shape Session 46 removed for units, one layer
+   up.
 """
 
 from __future__ import annotations
@@ -64,7 +77,7 @@ from typing import Any
 #: windows by configuration and is the only severity
 #: ``sysadmin_tray.notifications`` renders non-transient, which
 #: :mod:`sysadmin.monitor.stalls` reserves for a fault that has already
-#: been announced once and persisted.  Nothing on these four surfaces is
+#: been announced once and persisted.  Nothing on these five surfaces is
 #: an outage of this box — the estate being wrong about a scan costs the
 #: morning's project sections, never an alert path (estate ADR-0008 §6).
 #: Not ``info`` either: ``info`` is below ``tray.notify_min_severity``
@@ -86,6 +99,7 @@ SURFACE_TITLE_PATTERNS: dict[str, tuple[str, ...]] = {
     "projects_invariants": ("Estate scan %",),
     "projects_attention": ("Project % health breach", "Project % next action idle"),
     "audit_invariants": ("Estate audit %",),
+    "audit_findings": ("Estate port %",),
     "queue_invariants": ("Estate queue %",),
 }
 
@@ -121,9 +135,7 @@ def _hours(seconds: float | None) -> str:
 # --- the scan ------------------------------------------------------------
 
 
-def judge_projects_invariants(
-    payload: dict[str, Any], max_age_hours: float
-) -> list[Judgement]:
+def judge_projects_invariants(payload: dict[str, Any], max_age_hours: float) -> list[Judgement]:
     """The estate's scan, judged from the record it keeps of itself.
 
     ``scan_runs`` is written in its own transaction precisely so a failed
@@ -369,9 +381,7 @@ def judge_attention(payload: dict[str, Any]) -> list[Judgement]:
                     f"{threshold}): {nudge.get('next_action', '')}"
                 ),
                 severity=(
-                    severity
-                    if severity in {"info", "warning", "critical"}
-                    else DEFAULT_SEVERITY
+                    severity if severity in {"info", "warning", "critical"} else DEFAULT_SEVERITY
                 ),
                 details={
                     "project": name,
@@ -393,9 +403,7 @@ def judge_attention(payload: dict[str, Any]) -> list[Judgement]:
 # --- the audit -----------------------------------------------------------
 
 
-def judge_audit_invariants(
-    payload: dict[str, Any], max_age_hours: float
-) -> list[Judgement]:
+def judge_audit_invariants(payload: dict[str, Any], max_age_hours: float) -> list[Judgement]:
     """The conformance audit's own numbers — never its findings.
 
     Rule 3 of the module docstring is the whole design of this function.
@@ -455,9 +463,7 @@ def judge_audit_invariants(
     if errored:
         checks = last.get("checks") or {}
         failed = sorted(
-            name
-            for name, check in checks.items()
-            if isinstance(check, dict) and check.get("error")
+            name for name, check in checks.items() if isinstance(check, dict) and check.get("error")
         )
         out.append(
             Judgement(
@@ -502,6 +508,212 @@ def judge_audit_invariants(
         )
 
     return out
+
+
+#: The one audit check whose findings this repository speaks for.
+#:
+#: Named explicitly rather than filtered on severity, and the difference
+#: is not cosmetic: **all four** of the estate's checks emit ``breach``,
+#: so a severity-only rule would re-import the collation family
+#: :mod:`sysadmin.monitor.collation` already raises here — the exact
+#: double-count rule 3 forbids — and pull in ``pointers`` and ``seams``,
+#: which are conformance breaches inside *other* repositories and belong
+#: to their own ADR processes.
+#:
+#: Ports are the exception because no repository owns a port.  A port is
+#: estate-wide by construction, the estate may not alert (it files
+#: findings and never acts), and this service is the only party on this
+#: box permitted to speak — so the alternative to judging it here is that
+#: nobody says it at all.
+JUDGED_AUDIT_CHECK = "ports"
+
+#: The producer's own severity, used as the filter.
+#:
+#: The same deference :func:`judge_attention` gives a nudge's rung: the
+#: estate computed it against the contract it owns, and a second opinion
+#: here would be two implementations of one policy.  Its ``ports`` check
+#: assigns ``breach`` to a *live listener with no registry row* — "the
+#: registry being wrong, and it is how two projects end up guessing the
+#: same number" — and ``warn`` to a claimed port that is silent.
+#:
+#: Only the first is judged, because the second is **availability**, and
+#: availability on this box already has an owner: ``services.yaml`` plus
+#: the sysadmin agent's ``% unreachable`` family.  Judging it would make
+#: this agent a second owner of that lifecycle, the defect this package's
+#: docstrings name three times over.  That the one live ``warn`` today
+#: (port 3300, venture-assistant's frontend) happens *not* to overlap is
+#: luck rather than design — its registry row reads "unit to follow", so
+#: the overlap arrives on the day that unit ships.
+JUDGED_AUDIT_SEVERITY = "breach"
+
+
+def judge_audit_findings(payload: dict[str, Any], max_rows: int) -> list[Judgement]:
+    """The audit's port findings — the one family this repository speaks for.
+
+    Rule 3 said the estate's findings are not this repository's alerts,
+    and it is **narrowed rather than reversed** here.  Its two reasons
+    both still hold and both still exclude what they excluded: the
+    collation findings are this service's own alerts arriving by a second
+    producer, and ``pointers``/``seams`` are other repositories'
+    conformance.  Neither reason reaches ``ports``, which is nobody's
+    repository — and the estate may not alert about it, so the choice was
+    never "who speaks" but "does anyone".
+
+    It did not, and the cost is already measured on the other side of the
+    same seam.  ``GET /api/units/status`` classified both PersonalAssistant
+    units ``orphaned``, correctly and in plain English, eight days before
+    anyone looked while they restart-looped 52,178 times.  A finding that
+    is complete, correct, machine-readable and unread is the shape Session
+    46 spent itself removing, and an audit that files into a surface
+    nothing judges reproduces it one layer up.
+
+    Four rules, three of them the opposite of the first draft:
+
+    1. **One row per port, with the port in the title.**  Session 46's
+       rule: ``Unmonitored systemd units: 17 findings`` was open, accurate
+       and unread for eight days because a roll-up cannot name anything,
+       and a shared title means one fault masks the next behind the tray's
+       ``{severity}:{title}`` fingerprint.
+
+    2. **Until the count says the fault is the registry itself.**  Above
+       ``max_rows`` this emits one roll-up naming the ports in
+       ``details``, which looks like the mistake rule 1 just forbade and
+       is its complement: six simultaneous unclaimed listeners is not six
+       faults, it is the table having been moved, truncated or
+       re-formatted, and six toasts would train the reader to dismiss the
+       family before it had said anything true (``SNAG-UNITS-002``'s
+       argument for not shipping fifteen rows).  The estate guards the
+       *empty* parse on its side and errors rather than reporting zero
+       findings; a partial parse is the gap that leaves.
+
+    3. **The port comes from ``detail['port']``, never from ``subject``.**
+       ``subject`` is producer-written prose (``"port 3300"`` today) and
+       rule 2 keeps variable text out of titles.  A port number is not
+       the free text that rule is about — two unclaimed ports are two
+       faults and deserve two rows, unlike one dead seam spelled with two
+       exception classes — but the *integer* is stable where the sentence
+       around it is not.  A finding whose port will not parse is skipped
+       rather than titled from the sentence, because the fallback is
+       precisely the forkable title.
+
+    4. **The title carries no ``code``.**  ``unclaimed_listener`` is the
+       only ``breach`` the ports check emits today, and a title built from
+       the code would fork the row the day a second one is added for the
+       same port.  The code lives in ``details``; the producer's own
+       ``summary`` is the message, so its wording can change without
+       moving the identity.
+
+    ``standing_days`` and ``runs_observed`` are carried through because
+    the estate computes them and this module owns no clock — the same
+    reason every age here arrives in the payload.  ``age_truncated``
+    marks a first-seen at the retention edge, so ``standing_days`` is a
+    lower bound, the rule ``at_window_edge`` already applies on
+    ``/api/projects/next``.
+    """
+    findings = payload.get("findings")
+    if not isinstance(findings, list):
+        return []
+
+    breaches: list[tuple[int, dict[str, Any]]] = []
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        if finding.get("check") != JUDGED_AUDIT_CHECK:
+            continue
+        if finding.get("severity") != JUDGED_AUDIT_SEVERITY:
+            continue
+        port = _port_of(finding)
+        if port is None:
+            continue
+        breaches.append((port, finding))
+
+    if not breaches:
+        return []
+
+    breaches.sort(key=lambda pair: pair[0])
+    ports = [port for port, _ in breaches]
+
+    if len(breaches) > max_rows:
+        return [
+            Judgement(
+                surface="audit_findings",
+                title="Estate port registry breach",
+                message=(
+                    f"{len(breaches)} ports are listening with no row in the "
+                    "estate's port registry. That many at once is the registry "
+                    "itself being wrong — moved, truncated or re-formatted — "
+                    "rather than that many services. Check "
+                    "estate-manager/docs/guides/monitorable-project.md against "
+                    "the audit at :8400/api/audit/findings."
+                ),
+                details={
+                    "ports": ports,
+                    "breach_count": len(breaches),
+                    "max_rows": max_rows,
+                },
+            )
+        ]
+
+    return [
+        Judgement(
+            surface="audit_findings",
+            title=f"Estate port {port} registry breach",
+            message=_breach_message(port, finding),
+            details={
+                "port": port,
+                "code": finding.get("code"),
+                "fingerprint": finding.get("fingerprint"),
+                "standing_days": finding.get("standing_days"),
+                "runs_observed": finding.get("runs_observed"),
+                "age_truncated": finding.get("age_truncated"),
+                "first_seen_at": finding.get("first_seen_at"),
+                "audit_summary": finding.get("summary"),
+            },
+        )
+        for port, finding in breaches
+    ]
+
+
+def _port_of(finding: dict[str, Any]) -> int | None:
+    """The port a finding is about, or ``None`` if it cannot be trusted.
+
+    Accepts the int the estate's ``ports`` check writes and the digit
+    string a JSON round trip through a looser producer could yield;
+    refuses everything else, including a port recoverable only by
+    splitting ``subject``.  See rule 3.
+    """
+    detail = finding.get("detail")
+    if not isinstance(detail, dict):
+        return None
+    port = detail.get("port")
+    if isinstance(port, bool):
+        return None
+    if isinstance(port, int):
+        return port
+    if isinstance(port, str) and port.isdigit():
+        return int(port)
+    return None
+
+
+def _breach_message(port: int, finding: dict[str, Any]) -> str:
+    """The producer's sentence, with how long it has stood appended.
+
+    The summary is taken verbatim rather than rewritten: the estate owns
+    the ``ports`` contract and its wording explains the fault better than
+    a paraphrase that has to be kept in step with it.
+    """
+    summary = str(finding.get("summary") or f"port {port} is listening unclaimed")
+    standing = finding.get("standing_days")
+    if not isinstance(standing, (int, float)) or isinstance(standing, bool):
+        return summary
+    days = f"{standing:.1f}".rstrip("0").rstrip(".")
+    if days in ("0", ""):
+        # A first sighting. "Standing 0 days" is true, reads as a
+        # rounding artefact, and adds nothing the row's own
+        # ``created_at`` does not already say.
+        return summary
+    edge = " at least" if finding.get("age_truncated") else ""
+    return f"{summary}. Standing{edge} {days} days."
 
 
 # --- the queue -----------------------------------------------------------

@@ -10,14 +10,24 @@
 
 ## Open Issues
 
-_Ten open snags, plus five found and fixed the same day or since and left in
+_Eleven open snags, plus five found and fixed the same day or since and left in
 place for the write-up (`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on
 2026-08-10, `SNAG-CFG-001` on 2026-08-11, and `SNAG-AGENT-003`/`-004` on
-2026-08-12) — `count_open_snags` therefore reports 15, which is
-the entries listed rather than the entries outstanding, and is itself an
-instance of `SNAG-ROADMAP-002`. Both numbers are again a +1 rather than an
-audit: `SNAG-UNITS-002` was opened on 2026-08-14, and `SNAG-ESTATE-001` stays
-open with its speaking half fixed and its retirement-checklist half not.
+2026-08-12) — the entries listed therefore exceed the
+entries outstanding, which is itself an instance of `SNAG-ROADMAP-002`.
+**This used to claim `count_open_snags` reports 15. It reports 47**
+(measured 2026-08-14 against `estate_service/projects/roadmap.py`, which
+is where that function has lived since the 2026-08-13 migration — this
+repository no longer contains it, so the claim had outlived the code it
+named as well as the count). The parser counts `- [P…]` lines under
+**every** heading whose text contains "open", and this file has more than
+one. Correcting it to a measured number rather than re-deriving the
+taxonomy is deliberate — the taxonomy is `SNAG-ROADMAP-002`'s job — but a
+header disagreeing with the live parser by 32 is precisely the failure
+that entry describes. Both numbers are again a +1 rather than an
+audit: `SNAG-UNITS-002` and `SNAG-ESTATE-004` were both opened on 2026-08-14,
+and `SNAG-ESTATE-001` stays open with its speaking half fixed and its
+retirement-checklist half not.
 `SNAG-AGENT-003` and `SNAG-AGENT-004` were both **fixed on 2026-08-12
 (Session 41)** and both had their filed cause corrected in the process: 003's
 two candidates were neither of them right, and 004's population was
@@ -173,6 +183,14 @@ defects have a reader for the first time._
   - **Why it was left**, stated rather than forgotten. The loud rung is `critical`, which breaks through the DND windows by configuration and is the only severity the tray renders non-transient — reserved, by `stalls.py`'s own docstring, for a fault on **this box** that has already been announced and ignored. The estate being a day behind on a scan is not that. And the family most in need of escalation already has it *from the producer*: an idle nudge arrives pre-escalated on the estate's own ladder (`info` at 7 days, `warning` at 14), which this agent takes verbatim
   - **What would settle it**: a third rung, or a `warning`-that-repeats mechanism that is not `critical`. Neither exists, and inventing one to hold this family alone is the wrong shape — if a repeat-without-critical rung is right, `collation.py` and the service families want it too
   - **Found**: 2026-08-13 by Session 45, while deciding whether to wire `core/escalation.py` into the new agent
+
+- [P3] SNAG-ESTATE-004: **the "never take a tool's default port" rule is written in the estate's own guide and enforced by nobody** (2026-08-14, **delegated**)
+  - **Symptom**: `monitorable-project.md` §2.1 states the rule in prose — "8080 is llama.cpp's default… never take a tool's default port" — and annotates the one live violation by hand ("venture-assistant holds 8080 today only because it was allocated before this rule existed; it should move to 8301 when next touched"). Nothing checks it. The audit's `ports` check reconciles the table against `ss` in both directions and has no concept of a *contended* port, only an unclaimed or a silent one
+  - **Consequence**: the rule degrades at the speed the guide is read. A hand-written annotation on one row is not a control — it says a violation was noticed once, not that the next one will be
+  - **This was Session 26b's third checkbox and is being handed over rather than built here**, which is a change of owner and worth the reasoning. Detecting it is *filing a finding*, not alerting, so it is squarely the audit's remit (estate ADR-0003: conformance checks, never alerting and never fixing). It needs no privileges — the markdown table plus `ss -tln`, both already in `checks/ports.py`. And it is a rule about *their* document, in *their* guide, which the estate rules make theirs to enforce. Building it here would have this repository re-parse a cross-repo convention document, the same inversion that killed Session 26b's first checkbox
+  - **Shape of the fix**, so the estate session does not re-derive it: a third branch in `run_check` beside `unclaimed_listener` and `claimed_but_silent`, over `WELL_KNOWN_DEFAULTS = {3000, 5000, 8080, 8888, 9000}` intersected with `claimed_ports`, at `SEVERITY_INFO` — **advisory, not `warn`**, because it has not collided and the remedy is a port move, which is work rather than a correction. Live population today: exactly one, 8080
+  - **Not yet handed over.** Unlike `SNAG-ESTATE-002` this has no counterpart entry in estate-manager yet; it needs an estate-manager session to record it. **The IDs will not correspond** — that repository numbers its own `SNAG-ESTATE-*` series, which is how `SNAG-ESTATE-002` here became its `SNAG-ESTATE-010`
+  - **Found**: 2026-08-14 by Session 26b-A, while checking which of Session 26b's four checkboxes the estate's 2026-08-13 audit had already overtaken
 
 - [P2] SNAG-AGENT-006: **a sustained fault still writes one alert row per run — 60 rows for one dead timer in five hours** (2026-08-13, **fixed 2026-08-14**)
   - **Symptom, live while it was found**: `sysadmin-organiser-timer critical` held **60 unresolved rows** created between 07:41 and 12:36 on 2026-08-13 — one every five minutes, exactly `health_check_interval_seconds`. One fault, sixty rows. `venture-chat unreachable` shows 85 rows across 36 hours and `estate-broker-provision critical` 42, the same shape at whatever rate the fault recurred

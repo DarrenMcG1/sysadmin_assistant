@@ -465,7 +465,7 @@ class EstateJudgeConfig(BaseModel):
 
     The estate manager publishes and never acts — it files audit
     findings rather than alerting, and it never grades its own scan
-    (estate-manager ADR-0003, ADR-0004 §6).  This agent reads its four
+    (estate-manager ADR-0003, ADR-0004 §6).  This agent reads its five
     published surfaces on 8400 and decides what wakes a human.
 
     ``base_url`` duplicates the address already in ``services.yaml``
@@ -493,6 +493,11 @@ class EstateJudgeConfig(BaseModel):
       until estate-manager's Session 3 there was no queue; these are
       starting points to be moved once a busy day has been observed.
 
+    - ``port_breach_max_rows`` is **invented** and is a shape guard
+      rather than a tolerance — see its comment below.  It does not
+      decide whether a breach is worth an alert (every one is); it
+      decides when many of them stop being many faults.
+
     There is no threshold for ``dropped_total``, ``expired_total`` or
     ``grants_total``, and there must not be: they are lifetime
     ``count(*)`` values, so any rule on them raises a row no future
@@ -512,6 +517,16 @@ class EstateJudgeConfig(BaseModel):
     audit_max_age_hours: float = 26.0
     queue_max_depth: int = 3
     queue_max_wait_seconds: float = 900.0
+    #: Above this many unregistered listeners in one audit, the family
+    #: collapses to a single roll-up row.  **Invented**, like the queue
+    #: pair, and for a reason worth stating: this box has never had one.
+    #: Every listening port today maps to a registry row, so the number
+    #: is not "how many breaches are tolerable" but "how many at once
+    #: stop being individual services and start being the registry
+    #: itself" — a table moved, truncated or re-formatted.  Five is one
+    #: more than the estate's whole check count and well under the
+    #: fifteen ``SNAG-UNITS-002`` refused to ship as separate rows.
+    port_breach_max_rows: int = 5
 
 
 class LogSource(BaseModel):

@@ -391,7 +391,7 @@ agents:
   # The judging swap (ADR-0005; estate-manager ADR-0004 §6). The estate
   # manager publishes and never acts — it files audit findings rather
   # than alerting, and it never grades its own scan. This agent reads its
-  # four published surfaces on 8400 and decides what wakes a human.
+  # five published surfaces on 8400 and decides what wakes a human.
   #
   # Hourly, not at the sysadmin agent's 300 s: the producers change twice
   # a day (scan 04:30, audit 05:03) and /api/projects/attention re-walks
@@ -415,6 +415,14 @@ agents:
     # there was no queue. Move these once a busy day has been observed.
     queue_max_depth: 3
     queue_max_wait_seconds: 900
+    # INVENTED, and a shape guard rather than a tolerance. Every breach
+    # is worth a row; this decides when many of them stop being many
+    # faults and start being the registry itself — moved, truncated or
+    # re-formatted. The estate errors on an EMPTY parse of the table; a
+    # partial one is the gap that leaves. Above this, one roll-up row
+    # naming the ports in details, per SNAG-UNITS-002's refusal to ship
+    # fifteen separate rows on a first run.
+    port_breach_max_rows: 5
     # There is deliberately no threshold for dropped_total, expired_total
     # or grants_total: they are lifetime count(*) values over gpu_leases,
     # so any rule on them raises a row no future state can clear. That is

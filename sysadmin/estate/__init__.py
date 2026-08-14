@@ -10,7 +10,7 @@ estate computed idle nudges every night and no toast ever appeared.
 
 Three modules, in the order data moves through them:
 
-- :mod:`sysadmin.estate.client` — pulls the four surfaces over HTTP.
+- :mod:`sysadmin.estate.client` — pulls the five surfaces over HTTP.
   Knows about timeouts and unreachability; knows nothing about
   judgement.
 - :mod:`sysadmin.estate.judgements` — **pure**: a payload in, a list of

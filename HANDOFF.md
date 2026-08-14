@@ -2,193 +2,170 @@
 
 ## Next action
 
-Start `estate-manager-searxng-shim.service` — it is enabled but `inactive (dead)` while SearXNG's container runs behind it on 8601 — then confirm `http://127.0.0.1:8600/api/health` answers in the contract's shape, uncomment the pre-staged `searxng` block in `services.yaml` with port 8600, and restart `sysadmin.service` to deploy that together with this session's armed-orphan alert family.
+Wire the pre-staged `searxng` entry in `services.yaml` to `estate-manager-searxng-shim.service` on port 8600 — the shim is active and answering 200 now — then restart `sysadmin.service` to deploy this session's port-findings judging alongside it, and take `SNAG-UNITS-002` as the next roadmap session.
 
-## This session
+## This session — 26b-A, and most of it was checking whether the plan was still true
 
-One task, taken end to end: `SNAG-ESTATE-001`'s durable half, the "make an
-orphan finding **speak**" part of it. The other half — a retirement
-checklist that includes `systemctl disable` — is a process rather than
-code and is left open.
+Session 26b was asked for. **Three of its four checkboxes had been
+overtaken** and the session's real work was establishing that before
+writing anything, then building the thing none of the four asked for.
 
-Suite **1597 passed** (51 new), ruff and mypy clean, no migration. Plus one
-genuinely red test that is not this work's, described at the bottom.
+Suite **1626 passed** (+29), 1 skipped, ruff and mypy clean, no
+migration. Plus the one deliberately-red SearXNG guard, inherited.
 
-### The failure was never detection, and that shaped the whole design
+### The plan was four days older than the repository that invalidated it
 
-`GET /api/units/status` had both PersonalAssistant units classified
-`orphaned`, with the dead path and the cause in plain English, eight days
-before anyone looked — while they restart-looped 52,178 times and stalled
-the kernel. There was an open alert the entire time: `Unmonitored systemd
-units: 17 findings`.
+Session 26b was scoped **2026-08-07**. `estate-manager` was created
+**2026-08-11** and built its conformance audit **2026-08-13**.
 
-So nothing was added to the *detector*. What was missing is that the
-roll-up cannot name anything. A count says the estate has debt; it cannot
-say which two of the seventeen are on fire. The fix is a second alert
-family beside the roll-up — one row per **armed orphan**, an orphan
-systemd will actually start — with the unit and scope in the title,
-because the tray fingerprints on `{severity}:{title}` and a shared title
-means one armed orphan masks the next.
+- **Item 1 inverted rather than aged.** "Move the registry into
+  `config.yaml`, render the guide's table from it" — but the guide moved
+  to estate-manager on 2026-08-11, and
+  `estate_service/audit/checks/ports.py` now parses *that markdown table*
+  as its source of truth, with a guard that errors rather than reporting
+  zero findings on an empty parse. Mirroring the registry here would
+  break their check and have the monitor own a cross-repo convention.
+  **Killed, not deferred.**
+- **Item 2 was already built** — the `unclaimed_listener` breach — and it
+  has earned its keep: it is how syncthing's 8384 got a registry row on
+  2026-08-13, which that row says in its own text.
+- **Item 3 (contended defaults) was delegated** as `SNAG-ESTATE-004`. It
+  is conformance against a rule in *their* guide, needs no privileges,
+  and filing a finding is the audit's remit rather than ours.
+- **Item 4 is genuinely ours** and became **Session 26c**.
 
-### The obvious rule for "will it loop" was wrong, and the live units refuted it before it was written
+### What shipped instead outranked all four
 
-This is the part worth carrying forward. "`Restart=` with no
-`StartLimitBurst=`" reads as sound and is wrong in **both** directions:
+The estate **files findings and never alerts**, and
+`judge_audit_invariants` deliberately judged only whether the audit
+*ran*. So a `breach` was detected, correct, machine-readable, served at
+`:8400/api/audit/findings` — and never said out loud by anything.
 
-- `personalassistant-backend.service` declares no start limit, so
-  systemd's defaults apply — `DefaultStartLimitIntervalSec=10s`,
-  `DefaultStartLimitBurst=5`. A limit **does** exist. It also sets
-  `RestartSec=10`, which puts starts ten seconds apart, so five can never
-  fit inside a ten-second window: the limiter is unreachable, and that is
-  why it restarted 34,517 times without once entering `failed`. The naive
-  rule gets the right answer here **for the wrong reason**, and would keep
-  getting it until someone added a `StartLimitBurst=` that changed
-  nothing.
-- A unit declaring only `Restart=always` restarts every 100ms, five starts
-  fit easily, and the loop *is* terminal. The naive rule calls that
-  dangerous — and would have opened a critical on most of this box's
-  healthy services on its first run.
+That is Session 46's lesson from **the day before**, one layer up: *the
+diagnosis was complete, correct and machine-readable the entire time; a
+count is not news.* `judge_audit_findings` now judges the `ports` check
+per finding, as a fifth surface.
 
-The real test is arithmetic: `RestartSec × (StartLimitBurst − 1) <
-StartLimitIntervalSec`. It is the same sum Session 39 did by hand for
-`sysadmin.service` (`StartLimitIntervalSec=600` against `RestartSec=10`),
-which is why that fix works, and `alfred-backend.service` passes it too on
-a hand-written `StartLimitIntervalSec=60` — so the check distinguishes a
-real guard from an absent one rather than just counting keys.
+### Rule 3 is narrowed, not reversed, and the filter is a check name for a measured reason
 
-**Not knowing fails open**: an unparseable `RestartSec` falls back to the
-default rather than assuming the worst. A false positive here sends
-someone to rewrite a unit file that is fine, which is the direction
-`monitor/collation.py` settled on for the same class of question.
+`judgements.py` rule 3 said the estate's findings are not our alerts, for
+two reasons — collation findings are this service's own alerts arriving
+through a second producer, and pointers/seams are other repositories'
+conformance. **Both still exclude exactly what they excluded.** Neither
+reaches a port, because no repository owns one, and since the estate may
+not alert the question was never who speaks but whether anyone does.
 
-### Both signals stayed pure, and that was checked rather than assumed
+The filter is `check == "ports"` and **not a severity**, which was
+checked rather than assumed: **all four** estate checks emit `breach`, so
+a severity-only rule would have re-imported the entire collation family.
 
-`scan.py` promises no subprocesses, and it keeps it. "Enabled" is an
-enablement symlink under a `*.wants/`/`*.requires/` directory the sweep
-already walks — the same trade `is_symlink()` already makes for distro
-ownership. Matched on the link **name**, not its target, so a dangling
-link left by an `rm` without a `disable` still counts, which is the state
-`removal_command`'s docstring already warned about.
+### Three decisions that were the opposite of the first draft
 
-Cross-checked against `systemctl is-enabled` on every unit on this box:
-they agreed, both scopes.
+- **`warn` is not judged.** `claimed_but_silent` is *availability*, and
+  availability has an owner here — `services.yaml` plus the sysadmin
+  agent's `% unreachable` family. That today's one live `warn` (port
+  3300) does not overlap is **luck, not design**: its registry row reads
+  "unit to follow", so the overlap arrives the day that unit ships.
+- **Above `port_breach_max_rows` (5) the family collapses to a roll-up**
+  — the inverse of Session 46's one-row-per-fault rule, and its
+  complement. Six unclaimed listeners at once is a table moved or
+  truncated, not six services, and six toasts train the reader to dismiss
+  the family (`SNAG-UNITS-002`'s refusal to ship fifteen). The estate
+  guards the *empty* parse; a partial one is the gap that leaves.
+- **`audit_invariants` and `audit_findings` are two surfaces**, though
+  they come from one check run. They are two HTTP calls that fail
+  independently and the sweep is scoped per surface — one id would let
+  "the audit completed" close port rows raised off a payload nobody
+  received.
 
-What purity costs is stated rather than hidden: this says "armed to loop",
-never "has looped 34,517 times". `NRestarts` and `activating
-(auto-restart)` need a subprocess and are not read.
+### Verified against the real detector, because this family ships with zero live rows
 
-### Three design decisions, each the opposite of the first draft
-
-- **Arming is orphan-only.** Every healthy service here is enabled and
-  most restart unboundedly, so an `armed` that meant "enabled" would alert
-  on all of them. A *disabled* orphan is debt and stays in the roll-up —
-  four of this box's six carry the PersonalAssistant shape exactly and are
-  harmless only because someone disabled them.
-- **The sweep excludes what the run *judged*, not what it raised.**
-  `sysadmin/estate/agent.py`'s rule, and `SNAG-AGENT-006`'s. Against a
-  raised set, a deduplicating family writes nothing on run two, has its
-  still-true row swept, re-raises on run three — a flip-flop clearing the
-  tray's fingerprint every turn.
-- **`step_for` refuses the de-escalation, and that is deliberate here.**
-  An orphan whose `Restart=` is *softened* stays `critical` until it is
-  actually removed. A gentler restart policy does not fix a start job that
-  cannot succeed.
-
-`alert_threshold` does not govern this family. That knob is patience for
-accumulated debt; an armed orphan is a unit failing on every trigger, and
-one of them is worth saying.
-
-### Verified against the live database in a rolled-back transaction
-
-Necessary rather than ceremonial: the suite mocks the session, so it
-cannot prove the title prefix plus `NOT IN (judged)` selects the right
-rows in real PostgreSQL. Five runs of one fault:
+That is `SNAG-ESTATE-002`'s exact starting position, so a synthesised
+literal was not enough. The estate's own `run_check` was driven
+**in-process** against the live registry document with a listener bound
+on 8888 — no writes to their database:
 
 ```
-run 1  raised 1     -> 1 row,  warning
-run 2  held         -> 1 row   (dedup; NOT swept — the flip-flop case)
-run 3  escalated    -> 1 row,  critical  (loop appears)
-run 4  held         -> 1 row,  critical
-run 5  resolved 1   -> 0 rows  (unit disabled)
-
-2 rows written for one fault. Roll-up untouched. Residue after rollback: 0.
+before   breaches=[]                      judged: []
+bind 8888  breaches=[8888] unclaimed_listener
+           -> warning | Estate port 8888 registry breach
+after    breaches=[]                      judged: []
 ```
 
-Two mutations were run against the suite before trusting it: swapping the
-judged set for a raised set, and removing the `HOLD` branch. Each turned
-the intended test red and nothing else.
+It caught one defect no literal would have: the estate stamps a first
+sighting `standing_days: 0.0`, and "Standing 0 days." reads as a rounding
+artefact. The clause is now dropped below 0.1 days.
 
-### Live on this box: 1 armed orphan of 6
+### Session 26c is scoped, and the estate's premise does not hold on this side
 
-`garmin-sync.service` (user, enabled, `WorkingDirectory` under the
-archived PersonalAssistant) → one `warning` row. It has no `Restart=`, so
-it fails once per trigger rather than looping — the warning tier, not
-critical. The four `Restart=always` orphans are all disabled and stay in
-the roll-up.
+Measured, not assumed. **`ss -ltnp` unprivileged as `gaddi` attributes
+every registry-relevant port** — 8080, 8300, 8400, 8500, 8600 all return
+a pid. The estate's "process names need privileges" is true only for
+*other users'* sockets, and almost everything in the registry is our own
+process. `/proc/<pid>/cgroup` then names the unit with scope in the path.
 
-### Filed, not fixed: SNAG-UNITS-002
+Blank for root-owned listeners: 5432, 1883, 631, 139/445, and **8601**
+(the SearXNG container, podman). Rejected routes and why are in tasks.md.
 
-**15 of the 18 units on this box with a `Restart=` policy cannot reach
-`failed`** — every live service except `sysadmin`, `alfred-backend` and
-`alfred-frontend`. This is the estate-wide form of the same defect, and
-the first time the population has been counted rather than asserted.
+**Nothing on this box has ever collided** — every listening port appears
+exactly once — which is the honest argument for 26c being its own session
+rather than folded in here.
 
-Not alerted on: 15 rows on the first run is the pile-up shape wearing a
-new hat, and it would train the reader to dismiss the family before it had
-said anything true. The entry carries two candidate fixes and names the
-decision each needs — the second (advice under `GET /api/units/actions`)
-needs a ruling on whether this repository should advise on units it does
-not own.
+## Corrections to the previous handoff
+
+- **Session 46 is deployed**, contrary to its "Blocked / waiting on:
+  Deploy". `sysadmin.service` restarted at **15:03 BST** today, after
+  that 13:23 commit, and the family is live: one open row, `Orphaned unit
+  still enabled: garmin-sync.service (user)`, created 15:04.
+- **The SearXNG shim is running.** It was `inactive (dead)`; it is now
+  `active` and `http://127.0.0.1:8600/api/health` returns 200
+  `{"status":"healthy"}`. The blocker in that handoff is gone. Note the
+  commented block still guesses `unit: searxng.service` — the real unit
+  is `estate-manager-searxng-shim.service`.
+- **This snag list claimed `count_open_snags` reports 15. It reports 47**,
+  measured against `estate_service/projects/roadmap.py` — which is also
+  where that function lives now, so the claim had outlived the code it
+  named as well as the number.
+- **Session 26b's last checkbox named `sysadmin/services/units.py`**,
+  gone since Session 35's module split. Same stale-path defect as commit
+  `ce71bef`, two days later.
 
 ## Blocked / waiting on
 
-- **Deploy.** The daemon serves start-time code, so none of this is live
-  until `sysadmin.service` restarts. No migration, no config change.
-  `armed_count` is a scalar in the existing `findings` JSONB.
-- **The retirement checklist**, `SNAG-ESTATE-001`'s remaining half. A
-  process, and an estate convention if it is anyone's — not this
-  repository's to enforce.
-- **`judge_attention` against a populated payload**, unchanged from
-  Sessions 45 and its successor.
-- **The tray toast**, the same gap Sessions 43–45 all left.
+- **Deploy of this session's work.** The daemon serves start-time code.
+  No migration; `port_breach_max_rows` is new in `config.yaml`.
+- **`SNAG-ESTATE-004`** needs an estate-manager session to record it —
+  nothing was written into that repository from here, deliberately.
+- **`judge_attention` against a populated payload** — unchanged since
+  Session 45. Note `judge_audit_findings` deliberately did **not** join
+  that queue: it was exercised against the live detector before shipping.
+- **The tray toast**, the gap Sessions 43–46 all left.
 
-## SearXNG deployed mid-session, and the guard caught it within hours
+## Next session — ranked, with the reasoning
 
-`estate-manager` deployed SearXNG at **12:20 today**, while this session
-was running. `tests/test_searxng_wiring.py` — pre-staged yesterday and
-skipping until a unit existed — **went red on the next run**, naming its
-own fix. That is the whole reason it was written instead of a comment.
+**Sub-session actions first, separately** (neither is a session): wire
+SearXNG and restart to deploy, ~10 minutes together.
 
-**It is deliberately left red.** Wiring it is a different task from the
-one this session was asked for, and the owner chose to leave the flag
-flying rather than have it folded in.
+1. **`SNAG-UNITS-002` — 15 of this box's 18 units with a `Restart=`
+   policy cannot reach `failed`**, every live service except `sysadmin`,
+   `alfred-backend` and `alfred-frontend`. It wins because it is the
+   estate-wide form of the fault that **restart-looped 52,178 times and
+   stalled the kernel on 2026-08-08**, it is live now, and the previous
+   session deferred it on a decision that is the actual blocker: whether
+   this repository should advise on units it does not own. That decision
+   costs minutes and unblocks the work.
+2. **Session 27 — log aggregator tiers.** *Demoted on measurement.* Its
+   standing argument was 599,794 open alert rows; the live table now
+   holds **2 open rows, 0 from `log_aggregator`, 0 critical**. Session 42
+   fixed `SNAG-AGENT-002` and the backlog has drained and been purged.
+   What remains is genuine feature work — week-on-week signature trends,
+   noise recommendations — with nothing forcing it.
+3. **Session 26c — port collision detection.** The route is decided and
+   written down, so it is cheap whenever it is wanted, but it detects a
+   fault this box has never had. Speculative, and it says so.
+4. **Sessions 25b/25c — reliability Tiers 2–3.** Nothing is pushing them
+   and Tier 1 is answering.
 
-What the deploy decided, so the next session does not have to re-derive
-it — both blocked fields are now facts, not guesses:
-
-- **`estate-manager-searxng-shim.service` is the unit to monitor**, on
-  **port 8600**, serving `GET /api/health`. Its own unit file says so.
-- `estate-manager-searxng.service` is the upstream container on **8601,
-  loopback only**, and its comments say it deliberately has no health
-  endpoint worth monitoring. Do not point the entry at it.
-
-**The shim is `inactive (dead)` while the container is `active`.** 8601
-answers 200; 8600 answers nothing. It is `enabled` and was never started.
-That is `SNAG-ESTATE-001`'s own shape reproducing one layer up the same
-afternoon — a unit ships, is enabled, nothing starts it, and the only
-thing that noticed was a test written to notice.
-
-Two consequences worth knowing before acting:
-
-- **Uncommenting the entry while the shim is dead raises a truthful
-  `searxng unreachable` alert immediately.** Start the shim first and
-  confirm the health path against the running process rather than against
-  the unit file's claim — the shim is estate-manager's code and this side
-  has never seen its output.
-- **Starting another repository's service is on that repository's side of
-  the line.** It was not done here for that reason. If it stays dead, the
-  honest report is that the estate deployed a surface that does not serve.
-
-Both new units already appear in the sweep as `unmonitored` with
-`restart_bounded=False`, so they join `SNAG-UNITS-002`'s fifteen the
-moment the next sweep runs.
+Named as blocked rather than dropped: `SNAG-ESTATE-001`'s retirement
+checklist (a process, and an estate convention if it is anyone's) and
+`SNAG-ESTATE-004` (needs the other repository's session).

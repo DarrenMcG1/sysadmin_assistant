@@ -581,27 +581,88 @@ ports are free to extract". Half true: the sweep does parse ExecStart, but
 `ss -ltnp` joining, collision detection and the registry migration are a
 sitting of their own.
 
-**Decided 2026-08-07 — option (b).** The port allocation moves into
-`config.yaml` as structured data, with the table in
-[guides/monitorable-project.md](../guides/monitorable-project.md) rendered
-from it. (c) was cheaper but misses sidecars — the three llama-servers,
-`venture-embed` — which is exactly the gap the reconciliation exists to
-close. (a) would have left a markdown table as a load-bearing parser.
+**Decided 2026-08-07 — option (b), and *reversed 2026-08-14*.** The plan
+was to move the port allocation into `config.yaml` as structured data,
+with the guide's table rendered from it. That decision predates
+`estate-manager` (created 2026-08-11) by four days and predates its
+conformance audit (2026-08-13) by six. Three of the four checkboxes below
+have been overtaken, and re-checking them against the live estate was
+most of Session 26b-A.
 
-- [ ] Move the registry into `config.yaml`; render the guide's table from it
-- [ ] **Unregistered listener** — a port held by a project's process with
-      no registry row. Source of truth is `ss -ltnp` joined to the unit by
-      PID/cgroup, not `ExecStart` alone: a port can come from a config
-      file, an `Environment=` line, or a default the flag never mentions
+**What changed, and it inverts item 1.** The guide moved to
+`~/projects/estate-manager/docs/guides/monitorable-project.md` on
+2026-08-11, and the estate's audit
+(`estate_service/audit/checks/ports.py`) now parses that markdown table
+as its source of truth — with a guard that *errors* rather than reporting
+zero findings if the parse comes back empty. Mirroring the registry into
+this repository's `config.yaml` would break that check and would have the
+monitor own a cross-repo convention document, against the estate rules.
+**Item 1 is dead, not deferred.**
+
+- [x] ~~Move the registry into `config.yaml`~~ — **killed 2026-08-14**,
+      see above. The registry stays in estate-manager's markdown and this
+      repository never mirrors it
+- [x] **Unregistered listener** — **already built**, in estate-manager, as
+      the `unclaimed_listener` breach. It has earned its keep: it is how
+      syncthing's 8384 got a registry row on 2026-08-13
+- [x] **Judge the estate's port findings** (Session 26b-A, 2026-08-14) —
+      not on the original list, and it turned out to outrank everything
+      that was. The detection above worked and **nothing on this box ever
+      said it**: the estate files findings and never alerts, and
+      `judge_audit_invariants` deliberately judged only whether the audit
+      *ran*. `judge_audit_findings` now judges the `ports` check per
+      finding. See CLAUDE.md for the five rules
 - [ ] **Contended default** — a project on a well-known default (8080,
-      3000, 5000, 8888, 9000). Advisory: it has not collided *yet*.
-      venture-assistant on 8080 is the live example
+      3000, 5000, 8888, 9000). **Delegated to estate-manager 2026-08-14**
+      (`SNAG-ESTATE-004` here): it is pure conformance against a rule
+      written in *their* guide ("Never take a tool's default port"), it
+      needs no privileges, and detecting it is *filing a finding* rather
+      than alerting — squarely the audit's remit, beside
+      `unclaimed_listener` in the check that already exists
 - [ ] **Collision / near-miss** — two registry rows claiming one port, or
-      a configured port already held by a different cgroup. The only one
-      worth a warning alert; the failure is asymmetric (the loser fails,
-      the winner looks fine)
-- [ ] Reuse `sysadmin/services/units.py` — the parsed `exec_start` lines
-      and the scope-aware unit identity are already there
+      a configured port already held by a different cgroup. **The one
+      genuinely-ours remainder, and now Session 26c.** The estate is
+      *structurally* blocked from the interesting half: its
+      `live_listeners()` runs `ss -H -tln` deliberately **without** `-p`
+      ("process names need privileges for other users' sockets"), so it
+      can say a port is taken and never by whom. Duplicate registry rows
+      also slip through it — `claimed_ports` is a `set`
+
+### Session 26c: Port collision detection (split out 2026-08-14)
+
+**Not started. Nothing on this box has ever collided** — every listening
+port appears exactly once, and 8080 is the only contended default and is
+already annotated in the registry. That is the honest argument for it
+being a session of its own rather than folded into 26b-A, which gave
+voice to a detector that has already found real things.
+
+**The route is decided and measured** (2026-08-14), because the estate's
+premise does not hold on this side of the fence:
+
+- `ss -ltnp` **unprivileged, as `gaddi`, attributes every
+  registry-relevant port** — 8080, 8300, 8400, 8500, 8600 and the rest
+  all come back with a pid. The estate's "needs privileges" is true only
+  for *other users'* sockets, and almost everything in the registry is
+  our own process. Blank for root-owned listeners: 5432, 1883, 631,
+  139/445, and **8601** (the SearXNG container, podman)
+- `/proc/<pid>/cgroup` then names the unit **with scope in the path** —
+  `…/user@1000.service/app.slice/alfred-backend.service` against
+  `/system.slice/…`. That is the scope-aware identity the old last
+  checkbox asked for, for free
+- Rejected: `/proc/net/tcp` + inode→fd scan (same permission wall, ~50
+  lines to reproduce what `ss` prints); `systemctl show -p MainPID` per
+  unit (a subprocess each, misses forked workers, and **requires knowing
+  the scope before you ask** — `sysadmin.service` returns `MainPID=0` on
+  the user bus because it is a system unit); `ExecStart` alone, which the
+  original entry already rejected and 8601 proves right
+- **It cannot live in `sysadmin/units/scan.py`** — that module's
+  no-subprocess promise is load-bearing and was re-verified in Session
+  46. A sibling module
+
+*Corrected 2026-08-14: the old last checkbox said "reuse
+`sysadmin/services/units.py`", which has not existed since Session 35's
+module split — it is `sysadmin/units/scan.py`. Same stale-path defect as
+commit `ce71bef`.*
 
 ### ✅ Session 28: Roadmap findings + the estate board (done 2026-08-06)
 

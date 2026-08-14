@@ -34,6 +34,7 @@ from sysadmin.estate.judgements import (
     DEFAULT_SEVERITY,
     SURFACE_TITLE_PATTERNS,
     judge_attention,
+    judge_audit_findings,
     judge_audit_invariants,
     judge_projects_invariants,
     judge_queue_invariants,
@@ -267,9 +268,7 @@ class TestAttention:
         out = judge_attention(
             {
                 "health": [],
-                "nudges": [
-                    {"project_name": "a", "days": 9, "threshold": 7, "severity": "loud"}
-                ],
+                "nudges": [{"project_name": "a", "days": 9, "threshold": 7, "severity": "loud"}],
             }
         )
         assert out[0].severity == DEFAULT_SEVERITY
@@ -315,9 +314,7 @@ class TestAttention:
         """The producer's contract, not ours. A row titled
         ``Project None health breach`` deduplicates against every other
         malformed entry and names nothing."""
-        out = judge_attention(
-            {"health": [{"score": 1, "threshold": 2}], "nudges": [{"days": 1}]}
-        )
+        out = judge_attention({"health": [{"score": 1, "threshold": 2}], "nudges": [{"days": 1}]})
         assert out == []
 
 
@@ -381,9 +378,7 @@ class TestTheQueue:
         """The live payload today: depth 0, one historical drop."""
         assert judge_queue_invariants(_queue(), 3, 900.0) == []
 
-    @pytest.mark.parametrize(
-        "field", ["dropped_total", "expired_total", "grants_total"]
-    )
+    @pytest.mark.parametrize("field", ["dropped_total", "expired_total", "grants_total"])
     def test_a_cumulative_total_is_never_judged(self, field):
         """Rule 1, and the most important test in this file.
 
@@ -421,6 +416,188 @@ class TestTheQueue:
 
 
 # ---------------------------------------------------------------------------
+def _breach(port=8888, **overrides):
+    """One ``breach`` finding in the shape 8400 actually serves.
+
+    Field-for-field from a live capture on 2026-08-14, which matters
+    because two of the keys this module reads (``standing_days``,
+    ``age_truncated``) are not in estate-manager's ``Finding`` dataclass
+    — its router computes them per response — so a payload built from
+    the dataclass would silently omit them.
+    """
+    finding = {
+        "check": "ports",
+        "severity": "breach",
+        "subject": f"port {port}",
+        "summary": (
+            f"port {port} is listening inside the registry's range but no row "
+            "claims it; the next project to pick a port cannot see that this "
+            "one is taken"
+        ),
+        "fingerprint": f"ports:port {port}:unclaimed_listener",
+        "code": "unclaimed_listener",
+        "detail": {"port": port},
+        "observed_at": "2026-08-14T11:26:09.810417+00:00",
+        "first_seen_at": "2026-08-12T14:18:12.245695+00:00",
+        "standing_days": 2.0,
+        "runs_observed": 12,
+        "age_truncated": False,
+    }
+    finding.update(overrides)
+    return finding
+
+
+#: The live payload on 2026-08-14: one ``warn``, no breach.
+_LIVE_WARN = {
+    "check": "ports",
+    "severity": "warn",
+    "subject": "port 3300",
+    "summary": (
+        "port 3300 is claimed by venture-assistant but nothing is listening; "
+        "the service is stopped, or the row should say dormant"
+    ),
+    "fingerprint": "ports:port 3300:claimed_but_silent",
+    "code": "claimed_but_silent",
+    "detail": {"port": 3300, "project": "venture-assistant", "role": "frontend"},
+    "standing_days": 1.3,
+    "runs_observed": 8,
+    "age_truncated": True,
+}
+
+
+class TestAuditFindings:
+    """Rule 3's one exception: the ``ports`` check, judged per finding."""
+
+    def test_the_live_payload_judges_nothing(self):
+        """The payload as served on 2026-08-14 — one ``warn`` — is silent.
+
+        Pinned deliberately rather than left implicit. This family ships
+        with **zero live rows**, which is the same starting position
+        ``SNAG-ESTATE-002`` files against ``judge_attention``, and a test
+        that only ever ran against a synthesised breach would hide the
+        fact that the quiet case is the observed one.
+        """
+        assert judge_audit_findings({"findings": [_LIVE_WARN]}, 5) == []
+
+    def test_a_breach_is_one_row_naming_the_port(self):
+        [judgement] = judge_audit_findings({"findings": [_breach(port=8888)]}, 5)
+        assert judgement.surface == "audit_findings"
+        assert judgement.title == "Estate port 8888 registry breach"
+        assert judgement.severity == DEFAULT_SEVERITY
+        assert judgement.details["port"] == 8888
+        assert judgement.details["code"] == "unclaimed_listener"
+
+    def test_two_breaches_are_two_rows(self):
+        """Session 46's rule. A shared title means one fault masks the
+        next behind the tray's ``{severity}:{title}`` fingerprint, which
+        is how ``Unmonitored systemd units: 17 findings`` stayed open,
+        accurate and unread for eight days."""
+        judged = judge_audit_findings({"findings": [_breach(port=8888), _breach(port=9999)]}, 5)
+        assert [j.title for j in judged] == [
+            "Estate port 8888 registry breach",
+            "Estate port 9999 registry breach",
+        ]
+
+    def test_rows_are_ordered_by_port(self):
+        """Not for tidiness: the sweep keys on title, so a stable order
+        keeps two runs of the same estate comparable in ``agent_runs``."""
+        judged = judge_audit_findings({"findings": [_breach(port=9999), _breach(port=8888)]}, 5)
+        assert [j.details["port"] for j in judged] == [8888, 9999]
+
+    def test_above_the_cap_it_collapses_to_one_row(self):
+        judged = judge_audit_findings({"findings": [_breach(port=8880 + n) for n in range(6)]}, 5)
+        assert len(judged) == 1
+        assert judged[0].title == "Estate port registry breach"
+        assert judged[0].details["breach_count"] == 6
+
+    def test_the_roll_up_names_the_ports_it_did_not_title(self):
+        """The roll-up is allowed only because it still names them.
+        ``ALERT_TITLE``'s failure was a count with nothing behind it."""
+        judged = judge_audit_findings({"findings": [_breach(port=8880 + n) for n in range(6)]}, 5)
+        assert judged[0].details["ports"] == [8880, 8881, 8882, 8883, 8884, 8885]
+
+    def test_exactly_at_the_cap_is_still_per_port(self):
+        judged = judge_audit_findings({"findings": [_breach(port=8880 + n) for n in range(5)]}, 5)
+        assert len(judged) == 5
+
+    @pytest.mark.parametrize("check", ["collation", "pointers", "seams"])
+    def test_other_checks_are_never_judged_even_at_breach(self, check):
+        """The reason ``JUDGED_AUDIT_CHECK`` is a check name and not a
+        severity: **all four** checks emit ``breach``. Collation is the
+        family ``sysadmin.monitor.collation`` already raises here, so
+        judging it double-counts this service's own alerts through a
+        second producer; pointers and seams are other repositories'
+        conformance."""
+        assert judge_audit_findings({"findings": [_breach(check=check)]}, 5) == []
+
+    @pytest.mark.parametrize("severity", ["warn", "info"])
+    def test_only_breaches_are_judged(self, severity):
+        """``warn`` is ``claimed_but_silent`` — availability, which
+        ``services.yaml`` plus the sysadmin agent's ``% unreachable``
+        family already owns. A second owner closes a row while the first
+        still holds it true."""
+        assert judge_audit_findings({"findings": [_breach(severity=severity)]}, 5) == []
+
+    def test_a_finding_with_no_usable_port_is_skipped(self):
+        """Rule 3: the port comes from ``detail['port']``, never from
+        ``subject``. Falling back to the sentence is what would produce a
+        title that forks when the producer rewords it."""
+        assert judge_audit_findings({"findings": [_breach(detail={})]}, 5) == []
+        assert judge_audit_findings({"findings": [_breach(detail=None)]}, 5) == []
+        assert judge_audit_findings({"findings": [_breach(detail={"port": "eight"})]}, 5) == []
+
+    def test_a_digit_string_port_is_accepted(self):
+        [judgement] = judge_audit_findings({"findings": [_breach(detail={"port": "8888"})]}, 5)
+        assert judgement.details["port"] == 8888
+
+    def test_a_bool_is_not_a_port(self):
+        """``isinstance(True, int)`` is ``True`` in Python, so this is a
+        real hole rather than a hypothetical one."""
+        assert judge_audit_findings({"findings": [_breach(detail={"port": True})]}, 5) == []
+
+    def test_the_title_carries_no_code(self):
+        """``unclaimed_listener`` is the only ports breach today. A title
+        built from the code forks the row the day a second one lands for
+        the same port — the producer owns that vocabulary, not us."""
+        [judgement] = judge_audit_findings({"findings": [_breach(code="some_future_code")]}, 5)
+        assert judgement.title == "Estate port 8888 registry breach"
+        assert judgement.details["code"] == "some_future_code"
+
+    def test_the_message_is_the_producers_summary(self):
+        [judgement] = judge_audit_findings({"findings": [_breach()]}, 5)
+        assert judgement.message.startswith("port 8888 is listening inside")
+        assert "Standing 2 days." in judgement.message
+
+    def test_a_truncated_age_is_reported_as_a_lower_bound(self):
+        """``at_window_edge``'s rule on ``/api/projects/next``: a
+        first-seen at the retention edge makes the standing time a lower
+        bound, and rendering it as exact invents precision."""
+        [judgement] = judge_audit_findings({"findings": [_breach(age_truncated=True)]}, 5)
+        assert "Standing at least 2 days." in judgement.message
+
+    def test_a_first_sighting_drops_the_clause(self):
+        """Caught by the live run, not by design. The estate stamps a
+        brand-new finding ``standing_days: 0.0``, and "Standing 0 days"
+        reads as a rounding artefact rather than a fact — the row's own
+        ``created_at`` already says when it appeared."""
+        [judgement] = judge_audit_findings({"findings": [_breach(standing_days=0.0)]}, 5)
+        assert judgement.message.endswith("this one is taken")
+        assert "Standing" not in judgement.message
+
+    def test_a_missing_standing_time_drops_the_clause(self):
+        [judgement] = judge_audit_findings({"findings": [_breach(standing_days=None)]}, 5)
+        assert "Standing" not in judgement.message
+
+    @pytest.mark.parametrize("payload", [{}, {"findings": None}, {"findings": []}])
+    def test_a_malformed_or_empty_payload_judges_nothing(self, payload):
+        """Defensive for ``core/contracts.py``'s reason: the producer is
+        another repository on its own release cycle."""
+        assert judge_audit_findings(payload, 5) == []
+
+    def test_non_dict_entries_are_ignored(self):
+        assert judge_audit_findings({"findings": ["nonsense", 7, None]}, 5) == []
+
+
 # The partition the resolve depends on
 # ---------------------------------------------------------------------------
 
@@ -465,9 +642,13 @@ def _every_title():
         26.0,
     )
     out += judge_audit_invariants({"audits_total": 0, "last_audit": None}, 26.0)
-    out += judge_queue_invariants(
-        _queue(depth=9, oldest_waiting_seconds=9999.0), 3, 900.0
-    )
+    out += judge_queue_invariants(_queue(depth=9, oldest_waiting_seconds=9999.0), 3, 900.0)
+    # Both shapes of the ports family: one row per port, and the roll-up
+    # that replaces them above `port_breach_max_rows`. The roll-up has a
+    # title of its own and would otherwise never reach the partition
+    # guard, which is exactly how a stray pattern gets shipped.
+    out += judge_audit_findings({"findings": [_breach(port=8888)]}, 5)
+    out += judge_audit_findings({"findings": [_breach(port=8880 + n) for n in range(6)]}, 5)
     return out
 
 

@@ -1,4 +1,4 @@
-"""Pulling the estate's four published surfaces.
+"""Pulling the estate's five published surfaces.
 
 One HTTP round trip each, all four concurrently, and **a result per
 surface** rather than one result for the pull.  That shape is the whole
@@ -42,6 +42,7 @@ SURFACE_PATHS: dict[str, str] = {
     "projects_invariants": "/api/projects/invariants",
     "projects_attention": "/api/projects/attention",
     "audit_invariants": "/api/audit/invariants",
+    "audit_findings": "/api/audit/findings",
     "queue_invariants": "/api/queue/invariants",
 }
 
@@ -96,7 +97,7 @@ async def _fetch(
 ) -> SurfaceResult:
     """Read one surface, converting every failure into a result.
 
-    Nothing raises out of here.  A pull of four surfaces where one throws
+    Nothing raises out of here.  A pull of five surfaces where one throws
     would either lose the other three (if it propagates) or need a
     ``gather(return_exceptions=True)`` and a second place that decides
     what an exception means — and that second place is where the
@@ -131,9 +132,9 @@ async def pull_all(
 ) -> dict[str, SurfaceResult]:
     """Every surface, concurrently, keyed by surface id.
 
-    Concurrent because the four are independent and the producer is one
-    process on localhost: four sequential 10-second timeouts against a
-    hung 8400 would be a 40-second agent run, which
+    Concurrent because the five are independent and the producer is one
+    process on localhost: five sequential 10-second timeouts against a
+    hung 8400 would be a 50-second agent run, which
     ``idle_in_transaction_session_timeout`` has already taught this
     codebase to care about (SNAG-AGENT-003).  The caller holds no
     transaction across this, but the habit is cheap.

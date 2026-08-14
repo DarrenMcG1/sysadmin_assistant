@@ -95,9 +95,7 @@ class TestTheAgentIsWired:
         no code path builds this table from metadata — which is also why
         nothing caught it."""
         constraint = next(
-            c
-            for c in Alert.__table__.constraints
-            if getattr(c, "name", None) == "chk_alert_agent"
+            c for c in Alert.__table__.constraints if getattr(c, "name", None) == "chk_alert_agent"
         )
         text = str(constraint.sqltext)
         for name in AGENT_NAMES:
@@ -112,16 +110,11 @@ class TestTheAddressIsNotDuplicatedByAccident:
         would stop the judging silently and for an unrelated reason —
         but two copies need an assertion, not a comment."""
         services = yaml.safe_load((ROOT / "services.yaml").read_text())
-        entry = next(
-            s
-            for s in services["services"]
-            if s.get("name") == "estate-manager-api"
-        )
+        entry = next(s for s in services["services"] if s.get("name") == "estate-manager-api")
         base_url = load_config().agents.estate_judge.base_url
 
         assert entry["url"].startswith(base_url), (
-            f"config.yaml base_url {base_url!r} does not match "
-            f"services.yaml url {entry['url']!r}"
+            f"config.yaml base_url {base_url!r} does not match services.yaml url {entry['url']!r}"
         )
         assert entry["port"] == 8400
 
@@ -138,5 +131,6 @@ class TestTheSurfacesAreTheOnesTheEstatePublishes:
             "projects_invariants": "/api/projects/invariants",
             "projects_attention": "/api/projects/attention",
             "audit_invariants": "/api/audit/invariants",
+            "audit_findings": "/api/audit/findings",
             "queue_invariants": "/api/queue/invariants",
         }

@@ -837,6 +837,65 @@ measure. `base_url` duplicates `services.yaml` deliberately — deriving it
 would stop the judging silently when a service is renamed — and a test
 asserts the two agree.
 
+**Rule 3 has one named exception, and `ports` is it** (Session 26b-A).
+The estate's audit files findings and **never alerts**; this repository
+is the only party on the box permitted to speak. Until now nothing
+judged `/api/audit/findings`, so a `breach` was detected, correct,
+machine-readable and never said out loud — the shape Session 46 spent
+itself removing for units, reproduced one layer up. `judge_audit_findings`
+judges it per finding.
+
+The narrowing is exact, and both of rule 3's original reasons still
+exclude what they excluded. **Scoped to `check == "ports"`, never to a
+severity**: all four estate checks emit `breach`, so a severity-only
+filter would re-import the collation family `monitor/collation.py`
+already raises here (this service's own alerts arriving through a second
+producer) and pull in `pointers`/`seams`, which are other repositories'
+conformance. Neither reason reaches a port, because **no repository owns
+one**.
+
+Five rules, three of them the opposite of the first draft:
+
+1. **Only `breach`, taking the producer's severity as the filter** — the
+   deference `judge_attention` already gives a nudge's rung. `warn` is
+   `claimed_but_silent`, which is *availability*, and availability has an
+   owner here: `services.yaml` plus the sysadmin agent's `% unreachable`
+   family. That today's one live `warn` (port 3300) happens not to
+   overlap is luck — its registry row reads "unit to follow".
+2. **One row per port, port in the title.** Session 46's rule; a roll-up
+   cannot name anything.
+3. **Until the count says the fault is the registry itself.** Above
+   `port_breach_max_rows` (5) it collapses to one row naming the ports in
+   `details` — six simultaneous unclaimed listeners is a table moved or
+   truncated, not six services, and six toasts train the reader to
+   dismiss the family (`SNAG-UNITS-002`'s refusal to ship fifteen). The
+   estate errors on an **empty** parse; a partial one is the gap that
+   leaves.
+4. **The port comes from `detail['port']`, never from `subject`.**
+   `subject` is producer prose; a finding whose port will not parse is
+   skipped rather than titled from the sentence, because that fallback is
+   the forkable title rule 2 forbids. `isinstance(True, int)` is `True`,
+   so bools are refused explicitly.
+5. **The title carries no `code`.** `unclaimed_listener` is the only
+   ports breach today, and a code in the title forks the row when a
+   second one lands for the same port. The producer's `summary` is the
+   message, so its wording can change without moving the identity.
+
+`audit_invariants` and `audit_findings` are **two surfaces, not one**,
+though they come from a single check run: they are two HTTP calls that
+fail independently, and the sweep is scoped per surface — sharing an id
+would let a successful read of "did the audit complete" close every port
+row raised off a findings payload nobody received.
+
+Verified live rather than only against literals, because this family
+ships with **zero rows today** and that is exactly `SNAG-ESTATE-002`'s
+starting position: the estate's own `run_check` was driven in-process
+against the real registry document with a listener bound on 8888, giving
+clean → `breach` → clean, with no write to the estate's database. It
+caught one defect no literal would have — the estate stamps a first
+sighting `standing_days: 0.0`, and "Standing 0 days" reads as a rounding
+artefact.
+
 Two gaps are filed rather than assumed settled: `SNAG-ESTATE-002` (the
 producer's `Nudge.title`/`.message` are `@property` and `asdict` drops
 them, so this repository builds a format the estate believes it owns —

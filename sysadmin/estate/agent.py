@@ -25,7 +25,7 @@ so ``agent='estate_judge'`` rows are unreachable from the sysadmin
 agent's sweep by construction, and this one reaches nothing else.
 
 **The sweep is scoped to the surfaces this run actually read**, which is
-the rule that stops a partial pull announcing false recoveries.  Four
+the rule that stops a partial pull announcing false recoveries.  Five
 independent surfaces are served by one process, so a 500 from
 ``/api/projects/attention`` while the other three answer is a real
 state; sweeping globally would then resolve every open health breach and
@@ -84,7 +84,7 @@ SURFACE_DETAIL_KEY = "estate_surface"
 
 
 class EstateJudgeAgent(BaseAgent):
-    """Judges the estate's four published surfaces on an hourly poll."""
+    """Judges the estate's five published surfaces on an hourly poll."""
 
     def __init__(self) -> None:
         self._http = LoopBoundClient(lambda: httpx.AsyncClient(timeout=10.0))
@@ -196,6 +196,10 @@ class EstateJudgeAgent(BaseAgent):
         if (payload := payloads.get("audit_invariants")) is not None:
             out += judgements.judge_audit_invariants(
                 payload, config.audit_max_age_hours
+            )
+        if (payload := payloads.get("audit_findings")) is not None:
+            out += judgements.judge_audit_findings(
+                payload, config.port_breach_max_rows
             )
         if (payload := payloads.get("queue_invariants")) is not None:
             out += judgements.judge_queue_invariants(

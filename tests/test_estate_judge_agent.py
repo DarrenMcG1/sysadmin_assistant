@@ -78,6 +78,44 @@ CLEAN_AUDIT = {
         "error": None,
     },
 }
+#: The audit's findings surface as served on 2026-08-14 — one ``warn``,
+#: which this repository does not judge, so the default pull is quiet.
+#: A ``breach`` payload is built per-test by ``port_breach``.
+NO_FINDINGS = {
+    "findings": [
+        {
+            "check": "ports",
+            "severity": "warn",
+            "subject": "port 3300",
+            "summary": "port 3300 is claimed by venture-assistant but nothing is listening",
+            "code": "claimed_but_silent",
+            "detail": {"port": 3300},
+            "standing_days": 1.3,
+        }
+    ]
+}
+
+
+def port_breach(port=8888):
+    """One unregistered listener, in the shape 8400 serves."""
+    return {
+        "findings": [
+            {
+                "check": "ports",
+                "severity": "breach",
+                "subject": f"port {port}",
+                "summary": f"port {port} is listening inside the registry's range",
+                "fingerprint": f"ports:port {port}:unclaimed_listener",
+                "code": "unclaimed_listener",
+                "detail": {"port": port},
+                "standing_days": 2.0,
+                "runs_observed": 12,
+                "age_truncated": False,
+            }
+        ]
+    }
+
+
 IDLE_QUEUE = {
     "depth": 0,
     "oldest_waiting_seconds": None,
@@ -89,12 +127,14 @@ IDLE_QUEUE = {
 NO_ATTENTION = {"health": [], "nudges": []}
 
 
-def results(scan=FRESH_SCAN, attention=NO_ATTENTION, unread=()):
+def results(scan=FRESH_SCAN, attention=NO_ATTENTION, findings=None, unread=()):
     """A full pull, with the named surfaces failed."""
+    findings = NO_FINDINGS if findings is None else findings
     payloads = {
         "projects_invariants": scan,
         "projects_attention": attention,
         "audit_invariants": CLEAN_AUDIT,
+        "audit_findings": findings,
         "queue_invariants": IDLE_QUEUE,
     }
     return {
@@ -148,6 +188,80 @@ async def _run(agent, session, pull):
         return await agent._execute(session)
     finally:
         module.client.pull_all = original
+
+
+# ---------------------------------------------------------------------------
+# 0. The audit's two surfaces are two surfaces
+# ---------------------------------------------------------------------------
+
+
+class TestTheAuditsTwoSurfaces:
+    """``/api/audit/invariants`` and ``/api/audit/findings`` come from one
+    check run and must still fail independently.
+
+    Folding them into one surface id would have been the smaller change
+    and is the bug: "did the audit complete" and "what did it find" are
+    read over two HTTP calls, so one can answer while the other 500s. The
+    sweep is scoped per surface, so sharing an id would let a successful
+    read of the invariants close every port row raised off a findings
+    payload nobody received — ``_resolve_recovered``'s "resolving on
+    unknown announces a recovery nobody observed", one level down from
+    where this package already applies it.
+    """
+
+    async def test_a_port_breach_is_raised_off_its_own_surface(self, agent):
+        session = _session([])
+        result = await _run(agent, session, results(findings=port_breach(8888)))
+
+        assert result.alerts_raised == 1
+        assert result.details["by_surface"]["audit_findings"] == 1
+        assert result.details["by_surface"]["audit_invariants"] == 0
+
+    async def test_a_port_row_survives_an_unread_findings_surface(self, agent):
+        """The load-bearing one. ``audit_invariants`` answers, so the
+        audit looks fine; the port row must not be swept on the strength
+        of that."""
+        open_row = FakeAlert("Estate port 8888 registry breach", "audit_findings")
+        session = _session([open_row])
+
+        result = await _run(agent, session, results(unread=("audit_findings",)))
+
+        assert result.details["resolved"] == 0
+        assert "audit_findings" in result.details["unread_surfaces"]
+
+    async def test_a_cleared_port_breach_resolves_once(self, agent):
+        open_row = FakeAlert("Estate port 8888 registry breach", "audit_findings")
+        session = _session([open_row])
+
+        result = await _run(agent, session, results())
+
+        assert result.details["resolved"] == 1
+        assert result.alerts_raised == 0
+
+    async def test_a_standing_port_breach_is_neither_re_raised_nor_swept(self, agent):
+        open_row = FakeAlert("Estate port 8888 registry breach", "audit_findings")
+        session = _session([open_row])
+
+        result = await _run(agent, session, results(findings=port_breach(8888)))
+
+        assert result.alerts_raised == 0
+        assert result.details["resolved"] == 0
+        assert result.details["standing"] == 1
+
+    async def test_an_unread_invariants_surface_does_not_stop_the_findings(self, agent):
+        """The other direction, and the reason this is not one surface
+        with two payloads: a 500 on the invariants route must not cost
+        the estate its port breaches."""
+        session = _session([])
+        result = await _run(
+            agent,
+            session,
+            results(findings=port_breach(8888), unread=("audit_invariants",)),
+        )
+
+        assert result.alerts_raised == 1
+        assert result.details["by_surface"]["audit_findings"] == 1
+        assert "audit_invariants" not in result.details["by_surface"]
 
 
 # ---------------------------------------------------------------------------
@@ -215,9 +329,7 @@ class TestUnknownIsNotGoodNews:
         open_row = FakeAlert("Project imbabots health breach", "projects_attention")
         session = _session([open_row])
 
-        result = await _run(
-            agent, session, results(unread={"projects_attention"})
-        )
+        result = await _run(agent, session, results(unread={"projects_attention"}))
 
         assert result.details["resolved"] == 0
         assert "projects_attention" in result.details["unread_surfaces"]
@@ -229,9 +341,7 @@ class TestUnknownIsNotGoodNews:
         attention_row = FakeAlert("Project a health breach", "projects_attention")
         session = _session([stale_scan_row, attention_row])
 
-        result = await _run(
-            agent, session, results(unread={"projects_attention"})
-        )
+        result = await _run(agent, session, results(unread={"projects_attention"}))
 
         assert result.details["resolved"] == 1
 
@@ -268,9 +378,7 @@ class TestUnknownIsNotGoodNews:
         """Which surface is dark decides whether it matters — the rule
         ``journal.py`` records for ``truncated_sources``."""
         session = _session([])
-        result = await _run(
-            agent, session, results(unread={"queue_invariants"})
-        )
+        result = await _run(agent, session, results(unread={"queue_invariants"}))
 
         assert list(result.details["unread_surfaces"]) == ["queue_invariants"]
 
