@@ -1,7 +1,7 @@
 """Service Discovery Agent — find systemd units nothing is monitoring.
 
 Tier 1 of Session 26.  Hand-registering every new project's units in
-projects.yaml or config.yaml is tedious and rots silently: a unit that
+``services.yaml`` is tedious and rots silently: a unit that
 was never wired looks exactly like one that is working, and a retired
 project leaves units behind that fail on every start with nobody
 watching.  This agent is the mechanical backstop for the contract in
@@ -11,8 +11,8 @@ The detection itself lives in :mod:`sysadmin.units.scan`, which is
 pure.  This module is the thin part: read the config, run the sweep,
 store the row, decide whether to alert.
 
-**It never edits projects.yaml or config.yaml.**  Both are hand-curated
-and their comments carry reasoning that a rewriter would destroy.  The
+**It never edits services.yaml.**  That file is hand-curated and its
+comments carry reasoning that a rewriter would destroy.  The
 advice (:mod:`sysadmin.units.recommendations`) hands the user a
 snippet to paste.
 """

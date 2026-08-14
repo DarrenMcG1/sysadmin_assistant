@@ -2,8 +2,8 @@
 
 Tier 1 of Session 26.  The problem this solves is bookkeeping rot: every
 new service under ``~/projects`` has to be hand-registered in
-``projects.yaml`` or ``config.yaml``, nobody remembers, and a unit that
-was never wired looks identical to one that is working fine.  Worse in
+``services.yaml``, nobody remembers, and a unit that was never wired
+looks identical to one that is working fine.  Worse in
 the other direction — a retired project leaves its units installed, and
 they either fail on every start or silently do nothing.
 
@@ -16,14 +16,13 @@ on mocks, which is the lesson Sessions 23 and 24 both paid for.
 Four categories, and the boundary between them is the whole point:
 
 ``monitored``
-    The unit (or, for a ``Type=oneshot`` service, its timer) already
-    appears as a ``systemd_unit`` in projects.yaml or config.yaml.
-    Nothing to do.
+    The unit (or, for a ``Type=oneshot`` service, its timer) is
+    already declared in ``services.yaml``.  Nothing to do.
 
 ``unmonitored``
     The unit maps to a project that still exists, and nothing wires it.
-    This is the case the session was asked for.  Advice: a projects.yaml
-    snippet.
+    This is the case the session was asked for.  Advice: a
+    ``services.yaml`` snippet carrying the project's manifest id.
 
 ``orphaned``
     The unit's own declared path is gone — the project was archived,
@@ -36,8 +35,9 @@ Four categories, and the boundary between them is the whole point:
     Hand-written, maps to no project — ``pgbackrest-backup``,
     ``ethernet-optimise``.  These are real infrastructure and a silent
     stop matters (a backup that stopped a month ago looks exactly like
-    one that ran), but they have no project directory, so a projects.yaml
-    snippet would be a lie.  Advice: a config.yaml ``services:`` entry.
+    one that ran), but they have no project directory, so a snippet
+    naming a ``project:`` would be a lie — and an id resolving to nothing
+    fails ``services.yaml`` at load.  Advice: an entry without one.
 
 Distro units are excluded rather than categorised.  The test is
 ``is_symlink()``: ``systemctl enable`` installs a symlink into
@@ -573,9 +573,10 @@ def is_wired(
 ) -> bool:
     """Whether either end of a service/timer pair is already registered.
 
-    Either end counts: config.yaml records ``alfred-evaluate.timer``
-    while projects.yaml records services, and a unit registered under
-    one name is not un-monitored because the other name is absent.
+    Either end counts: ``services.yaml`` records ``alfred-evaluate``
+    under its *timer* while recording other services under the service
+    unit itself, and a unit registered under one name is not unmonitored
+    because the other name is absent.
     """
     key = _wired_key(unit.name, unit.scope)
     if key in wired:
@@ -663,7 +664,7 @@ def _assign_category(finding: UnitFinding, unit: UnitFile, match: UnitMatch) -> 
             else f"its name matches the {match.project.name} project"
         )
         finding.reason = (
-            f"{via}, but no projects.yaml or config.yaml entry monitors it"
+            f"{via}, but no services.yaml entry monitors it"
         )
         return
 
