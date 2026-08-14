@@ -302,39 +302,80 @@ services:
     controllable: false
     log: { type: journalctl, severity_filter: warning }
 
-  # --- Pre-staged, not yet live ---------------------------------------
-  # SearXNG, when estate-manager deploys it. Commented rather than
-  # active because the loader has no "declared but absent" state: an
-  # entry naming a unit that does not exist checks as down, every 300
-  # seconds, for as long as the deploy takes.
+  # SearXNG — wired 2026-08-14, the day estate-manager deployed it
+  # (its ADR-0010). Pre-staged here from 2026-08-13; the two fields that
+  # were unknowable then are settled below, and one of the two guesses
+  # was wrong in the direction that would have mattered.
   #
-  # Two fields are unknowable until the deploy and are the only reason
-  # this cannot be uncommented as it stands:
-  #   * the port, which is claimed in estate-manager's registry
-  #     (docs/guides/monitorable-project.md) BEFORE anything listens
-  #   * the health path, which is SearXNG's own. Upstream serves
-  #     /healthz on recent versions; venture-assistant's seam calls
-  #     /search?q=...&format=json. Confirm against the deployed
-  #     version rather than taking either from here.
+  # The deploy is two processes, and this is deliberately ONE entry:
+  #   * 8600 — the estate's shim, this entry. It serves /api/health in
+  #     the contract's shape and proxies everything else.
+  #   * 8601 — SearXNG's own container, bound to loopback and reachable
+  #     only through the shim. Its unit file says it "intentionally has
+  #     no health endpoint of its own worth monitoring", and a container
+  #     that is down already shows up here as a 503. A second entry
+  #     would give one fault two owners and two alert rows.
   #
-  # Everything else is decided (see docs/roadmap/tasks.md). `kind: http`
-  # rather than `systemd`, because a SearXNG that is running and failing
-  # its searches is the case worth catching and a unit check passes it.
-  # No `project:` — third-party software with no repository and no
-  # .project.yaml, the shape `mosquitto` above has held since 2026-08-11;
-  # an id resolving to nothing fails this file at load. `scope` omitted,
-  # so it defaults to user.
+  # The url is /api/health and NOT /healthz, which is the guess this
+  # block shipped with. The shim proxies unknown paths upstream, so
+  # http://localhost:8600/healthz reaches SearXNG's own liveness ping and
+  # returns 200 whenever the container is running — including when every
+  # search fails, which is the one case this entry exists to catch.
+  # /api/health instead reports whether a real search worked recently
+  # (observed from proxied traffic, with a background probe filling the
+  # silence), which is knowable only to the shim.
   #
-  # Note the unit sweep will file this as a `host` finding on its own and
-  # offer a snippet — that snippet will say `kind: systemd`, because the
-  # scan cannot know a port. Prefer this block over it.
+  # `kind: http` rather than `systemd` for that same reason, and the two
+  # repositories agree on the ladder rather than merely coexisting: the
+  # shim returns 424 when SearXNG answers but searching is broken and 503
+  # when it does not answer at all, chosen against _check_http's mapping
+  # of <500 -> degraded and >=500 -> critical. An upstream-engine outage
+  # is therefore degraded (the fault is off this box), a dead container
+  # critical.
   #
-  # - name: searxng
-  #   kind: http
-  #   url: http://localhost:<PORT>/healthz
-  #   port: <PORT>
-  #   systemd: { unit: searxng.service }
-  #   log: { type: journalctl, severity_filter: warning }
+  # No `project:` — the subject of this check is SearXNG, third-party
+  # software the estate hosts; the shim is the plumbing that makes it
+  # monitorable, not the thing being judged. Attributing a 424 caused by
+  # upstream engines to the estate-manager repository would charge it for
+  # a fault it does not own. `mosquitto` above is the same shape.
+  # `scope` omitted, so it defaults to user.
+  - name: searxng
+    kind: http
+    url: http://localhost:8600/api/health
+    port: 8600
+    systemd: { unit: estate-manager-searxng-shim.service }
+    log: { type: journalctl, severity_filter: warning }
+
+  # SearXNG's own container, the 8601 half of the deploy above. Declared
+  # rather than omitted, and deliberately NOT checked.
+  #
+  # `monitor: false` is the point of the entry. Its health is already
+  # reported — a container that is down makes the shim return 503, which
+  # is one fault with one owner and one alert row. But leaving it out of
+  # this file entirely would put it in the unit sweep's `host` findings
+  # permanently, where it can never be actioned, and would make "watched
+  # through the shim on purpose" indistinguishable from "nobody wired it
+  # up". `venture-chat-large` above carries the same shape for the same
+  # reason.
+  #
+  # `controllable: false`: this is estate-manager's container, pinned by
+  # digest and started with a secret from its own EnvironmentFile.
+  # Restarting it from the tray would take the shim's dependency out from
+  # under it, and operating it is that repository's business.
+  #
+  # No `log:` on purpose. The shim's /api/health already reports search
+  # failures with their unresponsive engines, and pointing the aggregator
+  # at a chatty third-party container is how SNAG-AGENT-002 happened.
+  - name: searxng-upstream
+    kind: systemd
+    monitor: false
+    reason: >-
+      SearXNG's own container on loopback :8601, reachable only through
+      the estate's shim on 8600; a container that is down already shows
+      up there as a 503, and checking both would give one fault two
+      alert rows
+    systemd: { unit: estate-manager-searxng.service }
+    controllable: false
 
   # Reachability probe. Deliberately has no unit: nothing on this machine
   # serves it, which is why `kind: http` asserts a unit only when one is

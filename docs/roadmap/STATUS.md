@@ -19,7 +19,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | 1626 backend + tray (**1 failing on purpose**: `test_searxng_wiring.py` went red when estate-manager deployed SearXNG on 2026-08-14 and is left flying until the entry is wired; 1 skipped); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, smoke script |
+| Testing | 🟢 Complete | **1631 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -27,6 +27,65 @@
 ---
 
 ## Recently Completed
+
+### SearXNG wired — the deploy-triggered guard closed the same day it fired (2026-08-14)
+
+`test_searxng_wiring.py` went red on 2026-08-14 when estate-manager
+deployed SearXNG, which is precisely what it was built to do, and the
+gap was closed the same day. `services.yaml` now carries the entry.
+Suite **1631 passed, nothing skipped, nothing red** (was 1627 passed,
+1 failed on purpose, 1 skipped); ruff and mypy clean; no migration.
+
+**Every handed-over value was verified rather than copied**, and one of
+them was wrong in the direction that would have mattered. The pre-staged
+block named `/healthz`; the shim proxies unknown paths upstream, so
+`http://localhost:8600/healthz` reaches SearXNG's own liveness ping and
+returns **200 whenever the container is running — including when every
+search fails**, which is the one case `kind: http` was chosen to catch.
+It answers 200 today, so that wiring would have looked right on the day
+and been blind on the day it mattered. The live entry polls
+`/api/health`, the only path that knows whether searching works.
+
+**The status ladder was driven, not read.** `_check_http` was run
+against a real socket returning each code: 200 → `ok`, **424 →
+`degraded`** (SearXNG up, searching broken — a fault off this box),
+**503 → `critical`** (container dead). `_handle_status` already requires
+three consecutive degraded checks before raising, so the estate's "worth
+an alert only if it stands" needed no work: a captcha'd engine is silent
+for 15 minutes, a standing outage is not. Live check against the running
+shim: `ok` in **23 ms**, `status: healthy`, probe 153 s old, 20 results,
+no unresponsive engines.
+
+**A second entry the plan did not ask for.** `searxng-upstream` declares
+the 8601 container `monitor: false` with a reason. Its health is already
+covered by the shim's 503 and a second check would give one fault two
+alert rows — but omitting it from the file put it in the unit sweep's
+`host` findings *permanently*, unactionable, with "watched through the
+shim on purpose" indistinguishable from "nobody wired it up".
+`venture-chat-large` carries the same shape. Host findings 9 → 8.
+
+**Item 3's rationale was narrowed, not inherited.** The no-`project:`
+rule was written on "third-party software with no repository"; the shim
+that actually serves the URL is estate-manager's code and *does* have a
+manifest, so the field would now resolve. The omission stands on
+narrower ground, decided by the owner: this entry judges whether
+**searching** works, and a 424 is upstream engines failing off this box
+— not the estate-manager repository's fault to carry.
+
+**The guard changed shape rather than retiring.** Its gate now separates
+environments rather than dates: CI has no searxng unit, so the three
+assertions skip there and run here against the live box, where before
+they skipped everywhere and the file was unfalsifiable. The `kind: http`
+assertion is **stronger** — it asserts *exactly one* searx entry is
+checked before asserting that one is HTTP, because merely skipping
+unmonitored entries would let someone silence the family by muting the
+shim and still pass. Both real unit names are pinned into the gate's
+cases: **neither is any of the three spellings it guessed**, so the
+substring match is the only reason it fired.
+
+**Not deployed.** `sudo systemctl restart sysadmin.service` needs a
+password this session could not supply; the daemon holds `services.yaml`
+in a process-wide singleton, so the entry is inert until that runs.
 
 ### Session 26b-A: the estate's port findings get a voice (2026-08-14)
 

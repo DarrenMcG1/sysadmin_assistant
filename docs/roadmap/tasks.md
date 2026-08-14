@@ -126,7 +126,7 @@ debts that landing deliberately left behind._
       test instead: a recorded 8400 payload the suite always parses,
       plus a reachability-gated live pair sharing one set of assertions
 
-- [ ] **Monitor SearXNG — the estate's first self-hosted third-party
+- [x] **Monitor SearXNG — the estate's first self-hosted third-party
       service** (delegated requirement from estate-manager, recorded
       2026-08-14 at the owner's request; the deploy decision was the
       owner's on 2026-08-12, in venture-assistant's phase 7 sign-off).
@@ -288,6 +288,75 @@ debts that landing deliberately left behind._
         after the deploy raises no new finding, and both ports answer.
         What is left here is genuinely the four lines above plus
         `sudo systemctl restart sysadmin.service`
+
+      ---
+
+      **WIRED 2026-08-14.** `services.yaml` carries the entry, the guard
+      is green, and the check was driven against the live shim before
+      the file was trusted: `ok` in 23 ms, body `status: healthy`, probe
+      153 s old with 20 results and no unresponsive engines. Every value
+      the estate handed over was confirmed here rather than copied —
+      port, unit name, health path and the status ladder.
+
+      **Two things this session found that the handover did not say.**
+
+      - **`/healthz` on 8600 is a trap, and it is the path the
+        pre-staged block named.** The shim proxies unknown paths
+        upstream, so `http://localhost:8600/healthz` reaches SearXNG's
+        own liveness ping and returns 200 whenever the container runs —
+        *including when every search fails*, which is the one case this
+        entry exists to catch. It answers 200 right now, so a wiring
+        that took the pre-staged value would have looked correct on the
+        day and been blind on the day it mattered. `/api/health` is the
+        only path that knows whether searching works. The guard's
+        failure message now names the trap.
+      - **The 424/503 ladder was verified, not assumed.** Both
+        repositories describe it in prose; `_check_http` was driven
+        against a real socket returning each code — 200 → `ok`,
+        424 → `degraded`, 503 → `critical`. And `_handle_status`
+        requires **three consecutive** degraded checks before raising,
+        so the estate's "worth an alert only if it stands" is already
+        the behaviour: a captcha'd engine is silent for 15 minutes, a
+        standing search outage is not.
+
+      **A second entry was added that the plan did not call for.**
+      `searxng-upstream` declares `estate-manager-searxng.service`
+      (the 8601 container) with `monitor: false` and a reason. It is
+      deliberately *not* checked — a dead container already shows up as
+      the shim's 503, and two entries would give one fault two alert
+      rows — but leaving it out of the file entirely put it in the unit
+      sweep's `host` findings **permanently**, where it could never be
+      actioned and where "watched through the shim on purpose" is
+      indistinguishable from "nobody wired it up". That is the shape
+      `venture-chat-large` already carries. Measured: host findings went
+      9 → 8, and no searx unit is left unaccounted for.
+
+      **Item 3's rationale was narrowed rather than inherited.** This row
+      said no `project:` because SearXNG is "third-party software with no
+      repository". What shipped puts an estate-manager-owned shim in
+      front of it, and *that* module has a `.project.yaml` — so the field
+      would now resolve and the loader would not object. The owner was
+      put the question and kept the omission on the narrower ground: what
+      this entry judges is whether **searching works**, and a 424 means
+      upstream engines are failing off this box, which is not the
+      estate-manager repository's fault to carry. The guard's docstring
+      records the narrowing so the next reader does not re-derive it.
+
+      **The guard changed shape rather than being deleted.** Its gate now
+      separates *environments* rather than dates — CI has no searxng
+      unit, so the three assertions skip there and run here against the
+      live box, where before the deploy they skipped everywhere and the
+      file was unfalsifiable. The self-retiring
+      `test_the_pre_staged_block_is_still_commented_out` was deleted per
+      its own failure message. The `kind: http` assertion is now
+      **stronger**, not merely narrowed to skip the unmonitored entry:
+      it asserts *exactly one* searx entry is checked before asserting
+      that one is HTTP, because a filter alone would let someone silence
+      the family by muting the shim and still pass. And the two real unit
+      names are pinned into the gate's parametrised cases — **neither is
+      any of the three spellings it guessed**, so the substring match is
+      the only reason it fired at all, and it must not be "tidied" into
+      an exact one.
 
 ## Active Sessions
 
