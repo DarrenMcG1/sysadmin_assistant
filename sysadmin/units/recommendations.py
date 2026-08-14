@@ -17,6 +17,10 @@ Ranked, worst first:
 1. ``orphan`` (severity ``risk``) — the unit is already broken.  A dead
    ``WorkingDirectory`` makes systemd fail the start job outright, so
    this is not a monitoring gap, it is a thing that does not work.
+   Within the tier, **armed orphans come first**: one systemd will start
+   is failing on every trigger, where a disabled one is only debt.  That
+   is the SNAG-ESTATE-001 distinction, and it is the sole sub-ordering
+   here — a measured fact, not a score.
 2. ``unmonitored`` — a live project's unit that nothing watches.
 3. ``host`` — hand-written infrastructure with no project.  Last not
    because it matters least (``pgbackrest-backup`` is the estate's only
@@ -75,9 +79,22 @@ def recommendations_for_scan(
     # on the disambiguated name.
     duplicates = duplicate_units(findings)
 
-    recs = [_recommend(finding, known, duplicates) for finding in findings]
-    recs.sort(key=lambda r: (KIND_ORDER.index(r.kind), r.scope, r.unit))
-    return recs
+    paired = [(f, _recommend(f, known, duplicates)) for f in findings]
+    # Armed orphans first *within* the orphan tier.  This is a
+    # sub-ordering on a measured fact, not the invented currency the
+    # module docstring refuses: an orphan systemd starts is failing
+    # right now, and one that is disabled is filing debt.  Nothing about
+    # it makes two host units comparable to one orphan, which is the
+    # ranking this tier still declines to invent.
+    paired.sort(
+        key=lambda pair: (
+            KIND_ORDER.index(pair[1].kind),
+            not pair[0].armed,
+            pair[1].scope,
+            pair[1].unit,
+        )
+    )
+    return [rec for _, rec in paired]
 
 
 def _project_ids(registry: Any) -> dict[str, str]:
@@ -146,7 +163,7 @@ def _orphan_recommendation(
         project=finding.project,
         title=f"Remove the dead unit {finding.unit}",
         detail=detail,
-        action=_removal_command(finding),
+        action=removal_command(finding),
         snippet="",
         snippet_target=None,
     )
@@ -236,7 +253,7 @@ def _scope_dir(scope: str) -> str:
     )
 
 
-def _removal_command(finding: UnitFinding) -> str:
+def removal_command(finding: UnitFinding) -> str:
     """The exact command to retire an orphan, scope-correct.
 
     ``disable --now`` before ``rm`` because deleting the unit file first

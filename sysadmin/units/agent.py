@@ -15,6 +15,19 @@ store the row, decide whether to alert.
 comments carry reasoning that a rewriter would destroy.  The
 advice (:mod:`sysadmin.units.recommendations`) hands the user a
 snippet to paste.
+
+**Two alert families, and the split is the point** (SNAG-ESTATE-001's
+durable half).  ``ALERT_TITLE`` is the rolled-up count of everything
+worth doing eventually — debt, re-raised only when the number moves.
+``ARMED_TITLE_PREFIX`` is one row per *armed orphan*: a unit whose
+project is gone and which systemd will nonetheless start.  They are
+separate because the roll-up cannot name anything.  ``Unmonitored
+systemd units: 17 findings`` was open, accurate and unread for eight
+days while two of those seventeen restart-looped 52,178 times and
+stalled the kernel — the detector had the diagnosis in plain English
+the whole time, on a surface nobody opens.  ``GET /api/units/*`` stays
+GET-only and advice-only; what changed is that the dangerous subset now
+speaks without being fetched.
 """
 
 import asyncio
@@ -27,14 +40,17 @@ from sqlalchemy import select
 
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
+from sysadmin.core.escalation import Step, step_for
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.services import get_services
 from sysadmin.units.models import UnitAudit
+from sysadmin.units.recommendations import removal_command
 from sysadmin.units.scan import (
     HOST,
     ORPHANED,
     UNMONITORED,
     ProjectRef,
+    UnitFinding,
     scan_units,
     wired_units,
 )
@@ -43,6 +59,97 @@ logger = logging.getLogger(__name__)
 
 #: Substring used to find this agent's own rolled-up alert again.
 ALERT_TITLE = "Unmonitored systemd units"
+
+#: Title prefix for the per-unit armed-orphan family.  Kept clear of
+#: ``sysadmin/monitor/agent.py``'s ``RESOLVABLE_TITLE_PATTERNS`` by
+#: construction — those are all ``% <kind>`` suffixes (``% unreachable``,
+#: ``% degraded``) and this is a prefix — though the scoping on
+#: ``Alert.agent`` already makes these rows unreachable from that sweep.
+#: Belt and braces, because the cost of being wrong is a row closed by a
+#: second owner while it is still true.
+ARMED_TITLE_PREFIX = "Orphaned unit still enabled"
+
+
+def armed_alert_title(finding: UnitFinding) -> str:
+    """The stable identity of one armed orphan.
+
+    **The unit name is in the title, and that is the whole change.**  The
+    roll-up alert was open and correct for eight days
+    (SNAG-ESTATE-001): ``Unmonitored systemd units: 17 findings`` said
+    the estate had debt, while two of those seventeen were restart-looping
+    at 1.3/min and had stalled the kernel.  A count cannot name the thing
+    that is on fire.  The tray fingerprints on ``{severity}:{title}``, so
+    a title carrying the unit is also what lets two armed orphans
+    notify separately instead of one masking the other.
+
+    Scope is part of the identity, never decoration:
+    ``deadlock-api-ingest.service`` is installed in both scopes on this
+    box running two different binaries, and a scope-blind title would
+    let one unit's row answer for the other's fault.
+
+    Raise, escalate and resolve all derive the title from here.  A
+    hand-written resolve pattern that matches nothing is invisible — the
+    rule ``ProjectOrganiserAgent._alert_title`` already encodes.
+    """
+    return f"{ARMED_TITLE_PREFIX}: {finding.unit} ({finding.scope})"
+
+
+def armed_alert_severity(finding: UnitFinding) -> str:
+    """How loud one armed orphan should be.
+
+    ``critical`` is reserved for a fault that will not stop on its own.
+    An armed orphan whose restart loop can never reach ``failed``
+    (:func:`sysadmin.units.scan.restart_is_bounded`) is exactly that: it
+    fails, restarts, fails, for ever, and because it never enters
+    ``failed`` no ``OnFailure=`` can fire and ``systemctl is-failed``
+    reports nothing wrong.  That is the invisible state Session 39 fixed
+    on ``sysadmin.service`` and nowhere else.
+
+    It is also the only severity ``sysadmin_tray/notifications.py``
+    leaves on screen (``transient=False``).  The owner's reported failure
+    in SNAG-ESTATE-001 was not being at the machine, and a transient
+    toast in an empty room is the miss whatever its severity.
+
+    An armed orphan that does *not* loop still fails on every trigger,
+    which is news but not an emergency: ``warning``.
+    """
+    return "critical" if not finding.restart_bounded else "warning"
+
+
+def armed_alert_message(finding: UnitFinding) -> str:
+    """What the toast says, ending in the command that fixes it.
+
+    The remedy comes from :func:`~sysadmin.units.recommendations.removal_command`
+    rather than being written again here.  Two spellings of one fix drift,
+    and this one has a trap worth not re-deriving: ``disable`` before
+    ``rm``, because deleting the unit file first strands the enablement
+    symlink and systemd warns about a dangling link on every
+    ``daemon-reload`` afterwards.
+    """
+    return f"{finding.reason}. Fix: {removal_command(finding)}"
+
+
+def armed_alert_details(finding: UnitFinding) -> dict[str, Any]:
+    """Evidence for one armed orphan.
+
+    ``restart_bounded`` is carried even though it is implicit in the
+    severity: severity says how loud, this says *why*, and the reader
+    of a resolved row six weeks later has only this.
+    """
+    return {
+        "source": "unit_sweep",
+        "unit": finding.unit,
+        "scope": finding.scope,
+        "path": finding.path,
+        "category": finding.category,
+        "enabled": finding.enabled,
+        "restart": finding.restart,
+        "restart_bounded": finding.restart_bounded,
+        "dead_path": finding.dead_path,
+        "project": finding.project,
+        "project_path": finding.project_path,
+        "remedy": removal_command(finding),
+    }
 
 
 class ServiceDiscoveryAgent(BaseAgent):
@@ -83,6 +190,11 @@ class ServiceDiscoveryAgent(BaseAgent):
         )
         session.add(audit)
 
+        # Armed orphans first: the roll-up's message reports how many
+        # of its findings are already speaking for themselves, and a
+        # reader who sees only one of the two alerts should be able to
+        # tell that the other exists.
+        armed = await self._maintain_armed_alerts(session, scan)
         alerts_raised = await self._maintain_alert(
             session, scan.actionable, agent_config.alert_threshold, scan
         )
@@ -95,12 +207,13 @@ class ServiceDiscoveryAgent(BaseAgent):
                 "orphaned": scan.count(ORPHANED),
                 "unmonitored": scan.count(UNMONITORED),
                 "host": scan.count(HOST),
+                "armed": armed["armed"],
             },
         )
 
         return AgentResult(
             findings_count=scan.actionable,
-            alerts_raised=alerts_raised,
+            alerts_raised=alerts_raised + armed["raised"] + armed["escalated"],
             details={
                 "units_scanned": scan.units_scanned,
                 "units_excluded": scan.units_excluded,
@@ -109,8 +222,157 @@ class ServiceDiscoveryAgent(BaseAgent):
                 "orphaned": scan.count(ORPHANED),
                 "unmonitored": scan.count(UNMONITORED),
                 "host": scan.count(HOST),
+                # Named ``standing`` for the reason SNAG-AGENT-006 gave
+                # it that name on the sysadmin agent: with dedup in
+                # place, ``alerts_raised`` reads 0 while a fault is still
+                # true, so anything trending it needs the judged count
+                # beside it to tell silence from suppression.
+                "armed_standing": armed,
             },
         )
+
+    async def _maintain_armed_alerts(self, session, scan) -> dict[str, int]:
+        """One row per orphan systemd will actually start.
+
+        **This family exists because the roll-up cannot name anything.**
+        SNAG-ESTATE-001 is the whole argument: ``Unmonitored systemd
+        units: 17 findings`` was open, accurate and unread for eight
+        days while two of those findings restart-looped 52,178 times and
+        stalled the kernel.  The diagnosis was complete and
+        machine-readable; what no surface said was *which two of the
+        seventeen were live*.  A count is not news.
+
+        Deliberately **not** governed by ``alert_threshold``.  That knob
+        is a patience setting for accumulated debt — twenty findings on a
+        detector's first run should not shout — and an armed orphan is
+        not debt, it is a unit failing on every trigger right now.  One
+        of them is worth saying.
+
+        Three rules, and the middle one is the opposite of the obvious
+        implementation:
+
+        1. **Deduplicated on the title, so a standing fault writes one
+           row.** The sweep runs four times a day; the roll-up's own
+           docstring records what happens without this.
+        2. **The sweep's exclusion set is what this run *judged*, not
+           what it *raised*** (SNAG-AGENT-006). Against a raised set, a
+           deduplicating family writes nothing on run two, has its
+           still-true row swept here, re-raises on run three — a
+           flip-flop that clears the tray's ``{severity}:{title}``
+           fingerprint every turn, so one fault notifies on every poll.
+           Dedup suppresses the raise, never the judgement.
+        3. **Escalation resolves the quiet row and raises a louder one**,
+           never updates severity in place: the tray has already
+           suppressed the fingerprint an in-place change would keep. It
+           fires when a ``warning`` orphan gains an unbounded
+           ``Restart=``. :func:`~sysadmin.core.escalation.step_for`
+           refuses the reverse — a ``critical`` row is never quietly
+           downgraded — so an orphan whose restart policy is *softened*
+           stays loud until it is actually removed, which is the right
+           way round for a unit that is still broken.
+
+        Returns the standing counts for ``agent_runs.details``:
+        ``alerts_raised`` reads 0 on a run where a known fault is still
+        true, and that is its intended meaning rather than silence.
+        """
+        armed = scan.armed
+        # Every armed orphan is judged, whether or not it is raised.
+        judged = {armed_alert_title(f) for f in armed}
+
+        open_rows = {
+            row.title: row
+            for row in (
+                await session.execute(
+                    select(Alert).where(
+                        Alert.agent == self.name,
+                        Alert.resolved.is_(False),
+                        Alert.title.like(f"{ARMED_TITLE_PREFIX}%"),
+                    )
+                )
+            ).scalars()
+        }
+
+        raised = escalated = held = 0
+        for finding in armed:
+            title = armed_alert_title(finding)
+            wanted = armed_alert_severity(finding)
+            existing = open_rows.get(title)
+            step = step_for(wanted, existing.severity if existing else None)
+
+            if step is Step.HOLD:
+                held += 1
+                continue
+            if step is Step.ESCALATE:
+                await self.resolve_alerts(session, title)
+                escalated += 1
+            else:
+                raised += 1
+
+            await self.raise_alert(
+                session,
+                severity=wanted,
+                title=title,
+                message=armed_alert_message(finding),
+                details=armed_alert_details(finding),
+            )
+
+        resolved = await self._resolve_disarmed(session, judged)
+        return {
+            "armed": len(armed),
+            "raised": raised,
+            "escalated": escalated,
+            "held": held,
+            "resolved": resolved,
+        }
+
+    async def _resolve_disarmed(self, session, judged: set[str]) -> int:
+        """Close rows for orphans this sweep did not judge armed.
+
+        Recovery here is any of four things and the statement does not
+        care which: the unit was disabled, the unit was deleted, the
+        project came back, or the sweep stopped classifying it as an
+        orphan.  That is the ``_resolve_recovered`` argument the project
+        and service sides both arrived at — a per-item loop can only
+        observe recovery for items it still sees, and a deleted one is
+        never seen again, which is how 1,664 and then 51,924 rows
+        accumulated.
+
+        Scoped to this agent's own rows and to this family's prefix, so
+        the roll-up alert beside it is out of reach.  **One owner per
+        lifecycle** is the rule those pile-ups keep restating.
+        """
+        from datetime import UTC, datetime
+
+        from sqlalchemy import update
+
+        conditions = [
+            Alert.agent == self.name,
+            Alert.resolved.is_(False),
+            Alert.title.like(f"{ARMED_TITLE_PREFIX}%"),
+        ]
+        if judged:
+            conditions.append(Alert.title.notin_(sorted(judged)))
+
+        result = await session.execute(
+            update(Alert)
+            .where(*conditions)
+            .values(resolved=True, resolved_at=datetime.now(UTC))
+        )
+        count: int = result.rowcount or 0
+        if count:
+            self._queue_event(
+                "alert.resolved",
+                {
+                    "agent": self.name,
+                    "match": f"{ARMED_TITLE_PREFIX} %",
+                    "count": count,
+                },
+            )
+            logger.info(
+                "armed_orphan_alerts_resolved",
+                extra={"agent": self.name, "count": count},
+            )
+        return count
 
     @staticmethod
     def _project_refs(config) -> list[ProjectRef]:
@@ -186,8 +448,16 @@ class ServiceDiscoveryAgent(BaseAgent):
     def _alert_message(scan) -> str:
         parts = []
         if scan.count(ORPHANED):
+            armed = len(scan.armed)
+            # The count of armed orphans is repeated here on purpose.
+            # They each have their own alert, and a reader looking at
+            # this one needs to know the louder rows exist — otherwise
+            # the roll-up reads as the complete picture, which is
+            # exactly how SNAG-ESTATE-001 ran for eight days.
+            live = f", {armed} of them enabled and failing now" if armed else ""
             parts.append(
-                f"{scan.count(ORPHANED)} orphaned (project gone — these fail on start)"
+                f"{scan.count(ORPHANED)} orphaned (project gone — these fail "
+                f"on start{live})"
             )
         if scan.count(UNMONITORED):
             parts.append(f"{scan.count(UNMONITORED)} unmonitored project units")
@@ -210,6 +480,7 @@ class ServiceDiscoveryAgent(BaseAgent):
         return {
             "actionable": actionable,
             "orphaned": scan.count(ORPHANED),
+            "armed": len(scan.armed),
             "unmonitored": scan.count(UNMONITORED),
             "host": scan.count(HOST),
             "units_scanned": scan.units_scanned,

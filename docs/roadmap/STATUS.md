@@ -19,7 +19,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | 1546 backend + tray (3 skipped: the SearXNG deploy guard, dormant until the unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, smoke script |
+| Testing | 🟢 Complete | 1597 backend + tray (3 skipped: the SearXNG deploy guard, dormant until the unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -27,6 +27,49 @@
 ---
 
 ## Recently Completed
+
+### The unit sweep learns to speak — SNAG-ESTATE-001's durable half (2026-08-14)
+
+An orphan finding no longer waits to be fetched. The sweep now measures
+whether an orphan is **armed** — systemd will start it — and each armed
+one gets its own alert row naming the unit and scope, beside the roll-up
+rather than instead of it. Suite **1597 passed, 3 skipped**, ruff and
+mypy clean. No migration.
+
+**The failure was never detection.** Both PersonalAssistant units were
+classified `orphaned` with the dead path and the cause in plain English
+eight days before anyone looked, and `Unmonitored systemd units: 17
+findings` was open the whole time. A count cannot name the thing that is
+on fire.
+
+**The obvious rule for "will it loop" was wrong in both directions**, and
+the live units refuted it before it was written.
+`personalassistant-backend.service` declares no start limit, so systemd's
+defaults apply — one *does* exist. It also sets `RestartSec=10`, so five
+starts can never fit inside the ten-second window: the limiter is
+unreachable and it restarted 34,517 times without once entering `failed`.
+Meanwhile a bare `Restart=always` restarts every 100ms, five starts fit
+easily, and the loop terminates. The real test is arithmetic —
+`RestartSec × (StartLimitBurst − 1) < StartLimitIntervalSec` — the same
+sum Session 39 did by hand for `sysadmin.service`.
+
+**Both signals are pure**, so `scan.py` keeps its no-subprocess promise:
+an enablement symlink under a `*.wants/` directory it already walks, and
+four keys of unit text it already parses. Agreed with `systemctl
+is-enabled` on every unit on this box.
+
+**Live: 1 armed orphan of 6** — `garmin-sync.service`, one `warning` row.
+The four `Restart=always` orphans are harmless only because someone
+disabled them, so they stay in the roll-up as debt. Verified in a
+rolled-back transaction against the live database: five runs of one fault
+wrote 2 rows (raise, dedup, escalate, hold, resolve), roll-up untouched,
+residue 0.
+
+**Filed, not fixed: `SNAG-UNITS-002`.** 15 of the 18 units on this box
+with a `Restart=` policy cannot reach `failed`, including every live
+service except `sysadmin`, `alfred-backend` and `alfred-frontend`. Not
+alerted on — 15 rows on the first run is the pile-up shape wearing a new
+hat.
 
 ### SearXNG pre-staged — a delegated requirement made mechanical (2026-08-14)
 

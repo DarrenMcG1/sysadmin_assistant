@@ -105,6 +105,11 @@ async def test_status_returns_summary_and_findings(test_client, mock_session):
         "orphaned": 1,
         "unmonitored": 1,
         "host": 2,
+        # A subset of ``orphaned``, deliberately outside the sum the
+        # next test asserts.  This fixture's blob predates
+        # ``armed_count``, which is the historical-row case the router
+        # defaults to 0 rather than 404ing on.
+        "armed": 0,
     }
     assert body["count"] == 4
     assert body["scanned_at"].startswith("2026-08-07T09:00")
@@ -231,7 +236,7 @@ async def test_actions_are_read_only(test_app):
 # ── The agent ────────────────────────────────────────────────────────
 
 
-def _scan(orphaned=0, unmonitored=0, host=0, monitored=12, scanned=38):
+def _scan(orphaned=0, unmonitored=0, host=0, monitored=12, scanned=38, armed=0):
     counts = {ORPHANED: orphaned, UNMONITORED: unmonitored, HOST: host}
     findings = [
         SimpleNamespace(unit=f"{category}-{i}.service", category=category)
@@ -244,6 +249,11 @@ def _scan(orphaned=0, unmonitored=0, host=0, monitored=12, scanned=38):
         actionable=len(findings),
         monitored_count=monitored,
         units_scanned=scanned,
+        # A subset of the orphaned findings, never a separate list —
+        # ``armed`` is a filter over ``findings`` in the real UnitScan
+        # and a fake that let the two disagree would hide exactly the
+        # arithmetic the roll-up's message relies on.
+        armed=[f for f in findings if f.category == ORPHANED][:armed],
     )
 
 

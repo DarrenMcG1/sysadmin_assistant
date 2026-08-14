@@ -2050,6 +2050,85 @@ narrowed as if 2 reindexed + 1 dropped:
 
 ---
 
+## Session 46: The unit sweep learns to speak ✅ (2026-08-14)
+
+_`SNAG-ESTATE-001`'s durable half, the "make an orphan finding speak"
+part of it. Not a detection failure: `GET /api/units/status` had both
+PersonalAssistant units classified `orphaned`, with the dead path and the
+cause in plain English, eight days before anyone looked — while they
+restart-looped 52,178 times and stalled the kernel. There was even an
+open alert. What no surface said is **which two of the seventeen findings
+were live**._
+
+- [x] **The sweep measures arming.** An orphan is `armed` when systemd
+      will start it — `category == "orphaned" and enabled`. Enablement is
+      an enablement symlink under a `*.wants/`/`*.requires/` directory the
+      sweep already walks, matched on link *name* so a dangling link left
+      by an `rm` without a `disable` still counts. Cross-checked against
+      `systemctl is-enabled` on every unit on this box: they agreed
+- [x] **`restart_is_bounded` — the loop test is arithmetic, not the
+      presence of a setting.** `RestartSec × (StartLimitBurst − 1) <
+      StartLimitIntervalSec`, against systemd's documented manager
+      defaults. Recorded on every finding, not only the ones that alert
+- [x] **One alert row per armed orphan**, titled with the unit *and*
+      scope, beside the roll-up rather than instead of it. Deduplicated
+      on title; escalates `warning` → `critical` when the loop appears;
+      swept against the titles the run **judged**, not the titles it
+      raised
+- [x] **`enabled` / `restart` / `restart_bounded` / `armed` on
+      `UnitFindingInfo`, `armed` on `UnitScanSummary`** (a subset of
+      `orphaned`, deliberately outside the sum), armed orphans ranked
+      first within the orphan tier of `GET /api/units/actions`
+- [x] 51 new tests — suite 1546 → 1597. No migration: `armed_count` is a
+      scalar in the existing `findings` blob
+
+**The obvious rule was wrong, and the live units refuted it before it was
+written.** "`Restart=` with no `StartLimitBurst=`" is wrong in *both*
+directions. `personalassistant-backend.service` declares no start limit,
+so systemd's defaults apply — a limit does exist. It also sets
+`RestartSec=10`, so five starts can never fit in the ten-second window,
+the limiter is unreachable, and it restarted 34,517 times without once
+entering `failed`. And a bare `Restart=always` restarts every 100ms, five
+starts fit easily, and the loop *is* terminal — so the naive rule would
+have opened a critical on most of this box's healthy services on its
+first run.
+
+**Verified against the live database in a rolled-back transaction**,
+which was necessary rather than ceremonial: the suite stands in for
+PostgreSQL's `LIKE` with mocks, so it cannot prove the prefix plus `NOT
+IN (judged)` selects the right rows in real SQL. Five runs of one fault
+wrote **2** rows — raise, dedup, escalate, hold, resolve once on clearing
+— roll-up untouched, residue 0.
+
+### Live on this box
+
+```
+44 units scanned, 6 orphaned, 1 armed
+
+  [warning] Orphaned unit still enabled: garmin-sync.service (user)
+
+  4 disabled orphans carry Restart=always with an unreachable start
+  limit — the PersonalAssistant shape exactly, harmless only because
+  someone disabled them. They stay in the roll-up as debt.
+```
+
+### Left open
+
+- [ ] **The retirement checklist**, which is the other half of
+      `SNAG-ESTATE-001`'s durable part. A process rather than code, and
+      not this repository's to enforce — an estate convention if it is
+      anyone's
+- [ ] **`SNAG-UNITS-002` — the general case, filed not fixed.** 15 of
+      the 18 units on this box with a `Restart=` policy cannot reach
+      `failed`, including every live service except `sysadmin`,
+      `alfred-backend` and `alfred-frontend`. Not alerted on: 15 rows on
+      the first run is the pile-up shape wearing a new hat. The snag
+      carries two candidate fixes and the decision each needs
+- [ ] **`sysadmin.service` must be restarted to pick this up**, and the
+      **organiser** is a separate deploy path — this agent is on a
+      6-hourly interval inside the daemon, so a restart is the whole
+      deploy
+
 ## Archive
 
 - Sessions 10–23, 2026-07-24 maintenance, and SNAGs fixed in that period →

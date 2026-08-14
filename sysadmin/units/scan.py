@@ -31,6 +31,15 @@ Four categories, and the boundary between them is the whole point:
     a missing directory makes systemd fail the start job outright.
     Advice: remove it.
 
+    An orphan that is also **enabled** is reported as ``armed``, and
+    that flag is what the agent alerts on individually.  A disabled
+    orphan is debt; an armed one fails on every trigger and, if its
+    restart loop can never reach the start limit
+    (:func:`restart_is_bounded`), does so for ever without systemd ever
+    marking it ``failed``.  Both signals are read off the filesystem —
+    an enablement symlink and four keys of unit text — so this module
+    keeps its promise of no subprocesses.
+
 ``host``
     Hand-written, maps to no project — ``pgbackrest-backup``,
     ``ethernet-optimise``.  These are real infrastructure and a silent
@@ -52,7 +61,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -84,6 +93,165 @@ _SECTION_RE = re.compile(r"^\[(?P<name>[^\]]+)\]\s*$")
 #: box only as distro units, and a socket has no project of its own — it
 #: hands off to a service that does.
 UNIT_SUFFIXES = (".service", ".timer")
+
+
+#: systemd's own defaults for the start rate limiter, from
+#: ``systemd-system.conf(5)``: ``DefaultStartLimitIntervalSec=10s`` and
+#: ``DefaultStartLimitBurst=5``.  Hard-coded rather than read from
+#: ``systemctl show``, which would cost this module its purity for a
+#: number that has not moved in a decade.  Confirmed against this box on
+#: 2026-08-14; a host that overrides them in ``system.conf`` would make
+#: :func:`restart_is_bounded` optimistic, which is the safe direction —
+#: see its docstring.
+DEFAULT_START_LIMIT_INTERVAL = 10.0
+DEFAULT_START_LIMIT_BURST = 5
+
+#: systemd's default ``RestartSec``, 100ms.  It matters more than it
+#: looks: a unit declaring nothing but ``Restart=always`` restarts every
+#: 100ms, so five starts fit inside the ten-second window easily and the
+#: loop *does* terminate.  A rule that flagged every unguarded
+#: ``Restart=`` would therefore be wrong about the majority of units it
+#: fired on.
+DEFAULT_RESTART_SEC = 0.1
+
+#: Multipliers for systemd time-span suffixes (``systemd.time(7)``).
+#: Longest first, so ``ms`` is not matched as ``m``.
+_TIMESPAN_UNITS: tuple[tuple[str, float], ...] = (
+    ("usec", 1e-6),
+    ("us", 1e-6),
+    ("msec", 1e-3),
+    ("ms", 1e-3),
+    ("seconds", 1.0),
+    ("second", 1.0),
+    ("sec", 1.0),
+    ("s", 1.0),
+    ("minutes", 60.0),
+    ("minute", 60.0),
+    ("min", 60.0),
+    ("m", 60.0),
+    ("hours", 3600.0),
+    ("hour", 3600.0),
+    ("hr", 3600.0),
+    ("h", 3600.0),
+    ("days", 86400.0),
+    ("day", 86400.0),
+    ("d", 86400.0),
+    ("weeks", 604800.0),
+    ("week", 604800.0),
+    ("w", 604800.0),
+)
+
+_TIMESPAN_TOKEN = re.compile(r"(\d+(?:\.\d+)?)\s*([a-z]*)")
+
+
+def parse_timespan(value: str | None) -> float | None:
+    """A systemd time span in seconds, or ``None`` if it cannot be read.
+
+    ``None`` is returned for anything unparseable **and is not the same
+    as zero** — every caller treats "cannot read this" as "make no
+    claim", which is the direction :mod:`sysadmin.monitor.collation`
+    settled on for the same kind of question: a false positive here
+    sends someone to rewrite a unit file that is fine.
+
+    Handles the compound form (``1min 30s``) because systemd does, bare
+    numbers as seconds because systemd does, and ``infinity``.
+    """
+    if value is None:
+        return None
+    text = value.strip().lower()
+    if not text:
+        return None
+    if text in {"infinity", "inf"}:
+        return float("inf")
+
+    total = 0.0
+    matched = False
+    position = 0
+    for token in _TIMESPAN_TOKEN.finditer(text):
+        if token.start() != position and text[position : token.start()].strip():
+            # Junk between tokens — refuse the whole value rather than
+            # silently reading the half that parsed.
+            return None
+        position = token.end()
+        number, suffix = token.group(1), token.group(2)
+        if not suffix:
+            multiplier = 1.0
+        else:
+            multiplier = next(
+                (m for name, m in _TIMESPAN_UNITS if suffix == name), 0.0
+            )
+            if multiplier == 0.0:
+                return None
+        total += float(number) * multiplier
+        matched = True
+
+    if not matched or text[position:].strip():
+        return None
+    return total
+
+
+def restart_is_bounded(
+    restart: str | None,
+    restart_sec: float | None,
+    start_limit_interval: float | None,
+    start_limit_burst: int | None,
+) -> bool:
+    """Whether a restart loop in this unit would ever reach ``failed``.
+
+    **This is arithmetic, not the presence of a setting**, and the
+    difference is the whole finding.  The obvious rule — "``Restart=``
+    with no ``StartLimitBurst=`` is a runaway" — is wrong in both
+    directions, and the live estate proves both:
+
+    - ``personalassistant-backend.service`` declares no start limit, so
+      systemd's default 5-starts-in-10s applies.  It also sets
+      ``RestartSec=10``, which puts its starts ten seconds apart: the
+      window can never hold five of them, the limit is unreachable, and
+      the unit restarted **34,517 times** without once entering
+      ``failed``.  A rule reading "no ``StartLimitBurst=``" gets the
+      right answer here for the wrong reason, and would keep getting it
+      until someone added a ``StartLimitBurst=`` that changed nothing.
+    - A unit declaring only ``Restart=always`` restarts every 100ms
+      (:data:`DEFAULT_RESTART_SEC`), so five starts fit in the ten-second
+      window and the loop *is* terminal.  The naive rule calls this
+      dangerous and it is not.
+
+    So: the burst-th start happens ``restart_sec * (burst - 1)`` after
+    the first, and the limiter fires only if that lands inside
+    ``start_limit_interval``.  This is the same arithmetic Session 39
+    did by hand for ``sysadmin.service`` — ``StartLimitIntervalSec=600``
+    against ``RestartSec=10`` gives 40s < 600s, which is why that fix
+    works.
+
+    Returns ``True`` when the unit does not restart at all, and ``True``
+    when a value could not be read: **not knowing is not an accusation**.
+    """
+    if restart is None or restart.strip().lower() in {"", "no"}:
+        return True
+
+    interval = (
+        DEFAULT_START_LIMIT_INTERVAL
+        if start_limit_interval is None
+        else start_limit_interval
+    )
+    burst = DEFAULT_START_LIMIT_BURST if start_limit_burst is None else start_limit_burst
+
+    # systemd documents either being zero as "rate limiting off".  A unit
+    # that turns the limiter off and restarts for ever is the runaway in
+    # its purest form, and it is a deliberate setting rather than an
+    # oversight — which does not make it safe on a unit whose start job
+    # cannot succeed.
+    if interval <= 0 or burst <= 0:
+        return False
+
+    cadence = DEFAULT_RESTART_SEC if restart_sec is None else restart_sec
+    if cadence == float("inf"):
+        return False
+    if burst == 1:
+        # One start allowed in the window: the second start trips it
+        # whenever it happens.
+        return True
+    return cadence * (burst - 1) < interval
 
 
 # --------------------------------------------------------------------------
@@ -209,6 +377,38 @@ class UnitFile:
     #: No ``[Install]`` section — the unit cannot be enabled and is
     #: started by something else (a timer, or by hand).
     static: bool = True
+    #: An enablement symlink for this unit exists under a ``*.wants/`` or
+    #: ``*.requires/`` directory in its own scope — systemd will start it
+    #: without anyone asking.  Read off the filesystem rather than from
+    #: ``systemctl is-enabled``, which keeps this module free of
+    #: subprocesses; the two agreed on all six live orphans when checked
+    #: on 2026-08-14.
+    enabled: bool = False
+    #: ``Restart=`` verbatim, ``None`` when unset.
+    restart: str | None = None
+    #: ``RestartSec=`` in seconds, ``None`` when unset or unparseable.
+    restart_sec: float | None = None
+    #: ``StartLimitIntervalSec=`` in seconds and ``StartLimitBurst=``,
+    #: ``None`` when unset.  Both are read from ``[Unit]`` *and*
+    #: ``[Service]``: systemd moved them to ``[Unit]`` in v229 and still
+    #: accepts the old placement, and a unit written before that move
+    #: would otherwise read as declaring no limit at all.
+    start_limit_interval: float | None = None
+    start_limit_burst: int | None = None
+
+    @property
+    def restart_bounded(self) -> bool:
+        """Whether a restart loop here would ever reach ``failed``.
+
+        Thin wrapper over :func:`restart_is_bounded` so the arithmetic
+        has one home; the finding, the alert and the API all read this.
+        """
+        return restart_is_bounded(
+            self.restart,
+            self.restart_sec,
+            self.start_limit_interval,
+            self.start_limit_burst,
+        )
 
     @property
     def stem(self) -> str:
@@ -275,6 +475,16 @@ def load_unit(path: Path, scope: str, home: str) -> UnitFile:
             # Either way it is not a claim we can test.
             working_dir = None
 
+    def either(key: str) -> str | None:
+        """A key systemd accepts in ``[Unit]`` or (historically) ``[Service]``."""
+        return first("Unit", key) or first("Service", key)
+
+    burst_text = either("StartLimitBurst")
+    try:
+        burst = int(burst_text) if burst_text is not None else None
+    except ValueError:
+        burst = None
+
     name = path.name
     triggers = None
     if name.endswith(".timer"):
@@ -292,7 +502,42 @@ def load_unit(path: Path, scope: str, home: str) -> UnitFile:
         user=first("Service", "User"),
         triggers=triggers,
         static="Install" not in sections,
+        restart=first("Service", "Restart"),
+        restart_sec=parse_timespan(first("Service", "RestartSec")),
+        start_limit_interval=parse_timespan(
+            either("StartLimitIntervalSec") or either("StartLimitInterval")
+        ),
+        start_limit_burst=burst,
     )
+
+
+def enablement_links(base: Path) -> set[str]:
+    """Unit names systemd has been told to start, from the symlinks alone.
+
+    ``systemctl enable`` writes a symlink into ``<target>.wants/`` (or
+    ``.requires/``) beside the unit directory, which is why
+    :func:`sysadmin.units.recommendations.removal_command` disables
+    before it deletes.  Reading those directories is therefore an exact
+    answer to "will systemd start this on its own", with no subprocess —
+    the same trade :func:`discover_units` already makes with
+    ``is_symlink()`` for distro ownership.
+
+    Matched on the **link name**, not its target.  An alias symlink can
+    point at a differently-named unit, and following targets would make
+    this depend on filesystem layout the sweep otherwise never touches.
+    Checked against ``systemctl is-enabled`` on all six live orphans
+    (2026-08-14): they agreed.
+    """
+    names: set[str] = set()
+    if not base.is_dir():
+        return names
+    for wants in sorted(base.glob("*.wants")) + sorted(base.glob("*.requires")):
+        if not wants.is_dir():
+            continue
+        for link in wants.iterdir():
+            if link.name.endswith(UNIT_SUFFIXES):
+                names.add(link.name)
+    return names
 
 
 def discover_units(
@@ -321,6 +566,7 @@ def discover_units(
         base = Path(directory)
         if not base.is_dir():
             continue
+        enabled = enablement_links(base)
         for entry in sorted(base.iterdir()):
             if not entry.name.endswith(UNIT_SUFFIXES):
                 continue
@@ -333,7 +579,12 @@ def discover_units(
                 continue
             if not entry.is_file():
                 continue
-            units.append(load_unit(entry, scope, scope_home))
+            unit = load_unit(entry, scope, scope_home)
+            # ``replace`` rather than a parameter on ``load_unit``: that
+            # function's job is to turn text into a UnitFile, and
+            # enablement is a fact about the *directory*, read once per
+            # scope rather than once per unit.
+            units.append(replace(unit, enabled=entry.name in enabled))
 
     return units, excluded
 
@@ -489,6 +740,32 @@ class UnitFinding:
     #: hand, so "not monitored" is not a defect.
     manual: bool = False
     reason: str = ""
+    #: systemd will start this without anyone asking — an enablement
+    #: symlink exists for the unit, or for the timer named in
+    #: ``monitor_unit``.  The timer counts because a folded oneshot is
+    #: started *by* its timer: disabling the service and leaving the
+    #: timer enabled changes nothing.
+    enabled: bool = False
+    #: ``Restart=`` verbatim, and whether a loop here would ever reach
+    #: ``failed`` (:func:`restart_is_bounded`).  Recorded on every
+    #: finding, not only the ones that alert, because the question
+    #: "which units on this box can loop for ever" has no other home
+    #: and was answerable nowhere before this.
+    restart: str | None = None
+    restart_bounded: bool = True
+
+    @property
+    def armed(self) -> bool:
+        """An orphan systemd will start: broken *and* scheduled to run.
+
+        The distinction this whole family turns on.  A disabled orphan
+        is filing debt — it cannot start itself, and the roll-up alert
+        is the right home for it.  An enabled one is a fault in
+        progress: every trigger fails, and because nothing monitors it,
+        silently.  SNAG-ESTATE-001 ran for eight days as the second kind
+        reported as the first.
+        """
+        return self.category == ORPHANED and self.enabled
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -504,6 +781,10 @@ class UnitFinding:
             "dead_path": self.dead_path,
             "manual": self.manual,
             "reason": self.reason,
+            "enabled": self.enabled,
+            "restart": self.restart,
+            "restart_bounded": self.restart_bounded,
+            "armed": self.armed,
         }
 
 
@@ -600,6 +881,7 @@ def classify_units(
     noise the reader has to filter every time.
     """
     folded, timer_for = fold_timers(units)
+    by_key = {_wired_key(u.name, u.scope): u for u in units}
     findings: list[UnitFinding] = []
 
     for unit in units:
@@ -611,6 +893,11 @@ def classify_units(
 
         monitor_unit = timer_for.get(key, unit.name)
         match = match_unit(unit, projects, path_exists=path_exists)
+        # A folded oneshot is started by its timer, so the timer's
+        # enablement is the one that decides whether anything runs.
+        # Reading only the service would report the PersonalAssistant
+        # shape as dormant whenever the schedule lived in the timer.
+        timer_unit = by_key.get(_wired_key(monitor_unit, unit.scope))
         finding = UnitFinding(
             unit=unit.name,
             scope=unit.scope,
@@ -621,6 +908,9 @@ def classify_units(
             matched_by=match.matched_by,
             dead_path=match.dead_paths[0] if match.dead_paths else None,
             manual=unit.is_oneshot and monitor_unit == unit.name and unit.static,
+            enabled=unit.enabled or bool(timer_unit and timer_unit.enabled),
+            restart=unit.restart,
+            restart_bounded=unit.restart_bounded,
         )
         if match.project is not None:
             finding.project = match.project.name
@@ -645,7 +935,7 @@ def _assign_category(finding: UnitFinding, unit: UnitFile, match: UnitMatch) -> 
         finding.reason = (
             f"WorkingDirectory {finding.dead_path} does not exist — "
             "systemd fails the start job, so this unit cannot run"
-        )
+        ) + _arming_clause(finding)
         return
 
     if match.project is not None and not match.project.is_live:
@@ -653,7 +943,7 @@ def _assign_category(finding: UnitFinding, unit: UnitFile, match: UnitMatch) -> 
         finding.reason = (
             f"belongs to {match.project.name}, which is archived — "
             "the project was retired but its unit was left installed"
-        )
+        ) + _arming_clause(finding)
         return
 
     if match.project is not None:
@@ -672,6 +962,30 @@ def _assign_category(finding: UnitFinding, unit: UnitFile, match: UnitMatch) -> 
     finding.reason = (
         "hand-written unit that maps to no project — real infrastructure "
         "with nothing watching it"
+    )
+
+
+def _arming_clause(finding: UnitFinding) -> str:
+    """The half of an orphan's reason that says whether it is running.
+
+    Written into ``reason`` rather than left for the alert to assemble,
+    because ``reason`` is what the drill-down and the recommendation
+    detail both render.  SNAG-ESTATE-001's diagnosis was already
+    "complete, correct, machine-readable and eight days old" — what it
+    never said is that two of those seventeen findings were *live*.
+    """
+    if not finding.enabled:
+        return ". It is disabled, so nothing starts it"
+    if finding.restart_bounded:
+        return (
+            ". It is enabled, so systemd starts it and the start fails "
+            "every time"
+        )
+    return (
+        f". It is enabled and sets Restart={finding.restart} with a start "
+        "limit it can never reach, so the failed starts repeat for ever "
+        "without the unit entering `failed` — nothing can fire OnFailure= "
+        "and `systemctl is-failed` says it is fine"
     )
 
 
@@ -694,6 +1008,16 @@ class UnitScan:
         return sum(1 for f in self.findings if f.category == category)
 
     @property
+    def armed(self) -> list[UnitFinding]:
+        """Orphans systemd will start — the findings that get their own alert.
+
+        A list rather than a count because every caller wants the units:
+        the alert names them one at a time, which is the entire point of
+        the family.
+        """
+        return [f for f in self.findings if f.armed]
+
+    @property
     def actionable(self) -> int:
         """Findings that are defects or gaps — everything reported."""
         return len(self.findings)
@@ -714,6 +1038,14 @@ class UnitScan:
             "monitored_count": self.monitored_count,
             "timers_folded": self.timers_folded,
             "excluded_units": self.excluded_units[:limit],
+            # A scalar, deliberately, and stored beside the counts rather
+            # than derived from the truncated ``orphaned`` list below.
+            # ``unit_audits`` has a column per category and this one has
+            # none; putting the number in the blob keeps Session 24's
+            # rule (a truncated list is never the source of a count)
+            # without a migration for a figure that is a subset of a
+            # column already stored.
+            "armed_count": len(self.armed),
         }
         for category in CATEGORY_ORDER:
             blob[category] = [

@@ -83,6 +83,15 @@ def _findings_from(audit: UnitAudit, category: str | None = None) -> list[UnitFi
                     dead_path=row.get("dead_path"),
                     manual=bool(row.get("manual", False)),
                     reason=str(row.get("reason", "")),
+                    # Defaulted rather than required: audits stored
+                    # before 2026-08-14 have no arming keys, and a
+                    # KeyError here would 404 the whole endpoint on
+                    # historical rows.  ``enabled=False`` reads as "not
+                    # armed", which is the same answer the sweep gave
+                    # before it could tell.
+                    enabled=bool(row.get("enabled", False)),
+                    restart=row.get("restart"),
+                    restart_bounded=bool(row.get("restart_bounded", True)),
                 )
             )
     return findings
@@ -125,6 +134,10 @@ async def get_unit_status(
             orphaned=audit.orphaned_count,
             unmonitored=audit.unmonitored_count,
             host=audit.host_count,
+            # From the blob's scalar, not from len() over the stored
+            # orphaned list: that list is truncated at 200 and Session
+            # 24's rule is that a truncated list never sources a count.
+            armed=int((audit.findings or {}).get("armed_count") or 0),
         ),
         findings=[UnitFindingInfo(**f.as_dict()) for f in findings],
         count=len(findings),

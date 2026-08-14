@@ -936,12 +936,84 @@ YAML file whose comments carry the reasoning, and the fix for an orphan is
 `systemctl disable && rm`, neither of which a scheduled agent should do on
 its own. A test asserts no non-GET route exists under `/api/units`.
 
+**The sweep has two alert families, and the split is SNAG-ESTATE-001's
+durable half** (Session 46). `ALERT_TITLE` is the rolled-up count of
+everything worth doing eventually; `ARMED_TITLE_PREFIX` is one row per
+**armed orphan** — a unit whose project is gone and which systemd will
+nonetheless start. The roll-up cannot name anything, and that is the
+whole defect: `Unmonitored systemd units: 17 findings` was open,
+accurate and unread for eight days while two of those seventeen
+restart-looped 52,178 times and stalled the kernel. The diagnosis was
+complete, correct and machine-readable the entire time. A count is not
+news.
+
+**The "will it loop" test is arithmetic, not the presence of a
+setting**, and the obvious rule is wrong in *both* directions.
+`personalassistant-backend.service` declares no `StartLimitBurst=`, so
+systemd's defaults apply (`DefaultStartLimitIntervalSec=10s`,
+`DefaultStartLimitBurst=5`) — a limit **does** exist. It also sets
+`RestartSec=10`, putting starts ten seconds apart, so five can never fit
+inside a ten-second window: the limiter is unreachable and the unit
+restarted 34,517 times without once entering `failed`. In the other
+direction a bare `Restart=always` restarts every 100ms, five starts fit
+easily, and the loop *is* terminal — so "no `StartLimitBurst=`" would
+have opened a critical on most of this box's healthy services on its
+first run. `restart_is_bounded` asks whether `RestartSec × (burst − 1) <
+interval`, which is the sum Session 39 did by hand for `sysadmin.service`
+(600s against 40s) and which `alfred-backend.service` also passes on a
+hand-written `StartLimitIntervalSec=60`.
+
+Both signals are **pure**, so `scan.py` keeps its no-subprocess promise:
+`enabled` is an enablement symlink under a `*.wants/`/`*.requires/`
+directory the sweep already walks (matched on link *name*, so a dangling
+link left by an `rm` without a `disable` still counts), and the restart
+keys are text it already parses. Agreed with `systemctl is-enabled` on
+every unit on this box. What purity costs is `NRestarts` and `activating
+(auto-restart)` — this says "armed to loop", never "has looped 34,517
+times".
+
+Five rules, three of them the opposite of the obvious implementation:
+
+1. **Arming is orphan-only.** Every healthy service here is enabled and
+   most restart unboundedly; an `armed` that meant "enabled" would alert
+   on all of them. A *disabled* orphan is debt and stays in the roll-up
+   — four of this box's six carry the PersonalAssistant shape exactly
+   and are harmless only because someone disabled them.
+2. **The sweep's exclusion set is what the run judged, not what it
+   raised** — `sysadmin/estate/agent.py`'s rule, for its reason. Against
+   a raised set a deduplicating family writes nothing on run two, has
+   its still-true row swept, re-raises on run three, and each flip clears
+   the tray's `{severity}:{title}` fingerprint.
+3. **Escalation resolves the quiet row and raises a louder one**, and
+   `step_for` refuses the reverse — an orphan whose `Restart=` is
+   *softened* stays `critical` until it is actually removed, because a
+   softer restart policy does not fix a start job that cannot succeed.
+4. **`alert_threshold` does not govern this family.** That knob is
+   patience for accumulated debt; an armed orphan is a unit failing on
+   every trigger, and one of them is worth saying.
+5. **A folded oneshot is armed by its *timer*.** Reading only the
+   service's own enablement reports a live schedule as dormant.
+
+`armed` is a **subset of `orphaned`** on `UnitScanSummary`, deliberately
+outside the sum the model exists to make auditable, and its count is a
+scalar in the `findings` blob rather than `len()` over the stored list —
+that list is truncated at 200.
+
+What this deliberately does **not** do is the general case:
+`SNAG-UNITS-002` records that 15 of the 18 units on this box with a
+`Restart=` policy cannot reach `failed`, including every live service
+except `sysadmin`, `alfred-backend` and `alfred-frontend`. Fifteen rows
+on the first run is the pile-up shape wearing a new hat.
+
 `UnitRecommendationInfo` carries **no score or size field**, unlike its two
 siblings. `RecommendationInfo` ranks by health-score points and
 `FileRecommendationInfo` by reclaimable megabytes — both directly
 measurable. Nothing makes two host units meaningfully "twice" one orphan,
-so ranking is by `kind` alone (`orphan` → `unmonitored` → `host`) and no
-number is invented to sort on.
+so ranking is by `kind` (`orphan` → `unmonitored` → `host`) and no number
+is invented to sort on. The one sub-ordering, added in Session 46, is
+`armed` orphans ahead of dormant ones — a measured fact about whether
+systemd starts the unit, not a score, and it does not make the tiers
+comparable to each other.
 
 Three rules the detector encodes, each learned from the live estate:
 

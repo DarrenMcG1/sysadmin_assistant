@@ -1262,7 +1262,7 @@ class UnitFindingInfo(Contract):
 
     ``category`` is ``orphaned`` (the unit's own declared path is gone,
     so systemd fails its start job), ``unmonitored`` (maps to a live
-    project, nothing in projects.yaml or config.yaml watches it) or
+    project, no services.yaml entry watches it) or
     ``host`` (hand-written, maps to no project — real infrastructure with
     nothing watching it).  Units that are already monitored are counted,
     never listed: a list of things that are fine is noise every reader
@@ -1279,6 +1279,22 @@ class UnitFindingInfo(Contract):
     what stays active while armed.  The finding is reported under the
     service (which holds the paths and description) with the timer named
     here.
+
+    ``enabled``, ``restart`` and ``restart_bounded`` say whether the unit
+    is merely *installed* or actually *running*, which is the difference
+    SNAG-ESTATE-001 turned on: an orphan nothing starts is debt, and an
+    orphan systemd starts is a fault in progress.  ``armed`` is the pair
+    of them (``category == "orphaned" and enabled``) and is the only
+    field the agent alerts on per-unit.
+
+    ``restart_bounded`` is **arithmetic, not the presence of a
+    setting**: false means the unit's ``RestartSec`` is wide enough that
+    ``StartLimitBurst`` starts can never fit inside
+    ``StartLimitIntervalSec``, so a crash loop never reaches ``failed``,
+    no ``OnFailure=`` can fire, and ``systemctl is-failed`` reports
+    nothing wrong.  ``true`` is also what a unit that does not restart
+    at all reports, and what an unreadable value reports — not knowing
+    is not an accusation.
     """
 
     unit: str = ""
@@ -1290,6 +1306,10 @@ class UnitFindingInfo(Contract):
     project_path: str | None = None
     matched_by: str | None = None  # path | name | None
     monitor_unit: str = ""
+    enabled: bool = False
+    restart: str | None = None
+    restart_bounded: bool = True
+    armed: bool = False
     dead_path: str | None = None
     manual: bool = False
     reason: str = ""
@@ -1339,6 +1359,12 @@ class UnitScanSummary(Contract):
     ``units_excluded`` counts distro-owned and template units filtered
     out before classification.  Reported rather than dropped silently, so
     "we looked at 44 and skipped 6" stays checkable.
+
+    ``armed`` is a **subset of ``orphaned``**, not a sixth bucket, and is
+    therefore excluded from the sum above deliberately — adding it would
+    break the one arithmetic property this model exists to make
+    auditable.  It counts the orphans systemd will actually start, each
+    of which has its own alert row.
     """
 
     units_scanned: int = 0
@@ -1348,6 +1374,7 @@ class UnitScanSummary(Contract):
     orphaned: int = 0
     unmonitored: int = 0
     host: int = 0
+    armed: int = 0
 
 
 class UnitScanResponse(Contract):
