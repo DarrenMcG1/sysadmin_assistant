@@ -2288,6 +2288,94 @@ narrowed as if 2 reindexed + 1 dropped:
 
 ---
 
+## Session 48: The execution sitting — advice, carried out ✅ (2026-08-15)
+
+Three sittings (46, 47, 26c) went into making the diagnosis speak. This
+one **carried out what it says**, and that is the whole finding: two
+defects surfaced inside an hour, neither visible by reading the code,
+both the same root cause — `recommendations.py` under-reading a finding
+the sweep had already filled in.
+
+### What was executed
+
+- **`garmin-sync.service` removed.** The armed orphan, enabled since
+  February, alerting since 14 Aug, `WorkingDirectory` pointing at a
+  `PersonalAssistant` directory that no longer exists. The emitted
+  command ran **verbatim** and worked: enablement symlink removed, unit
+  file gone, `is-enabled` → `not-found`. First end-to-end proof that an
+  orphan action is correct as written.
+- **`sysadmin-tray.service` start limit bounded.** The emitted snippet
+  applied to this repository's own unit. `systemd-analyze verify` silent,
+  `LoadError=` empty, and systemd's own reading agrees with the advice's
+  arithmetic exactly: `StartLimitIntervalUSec=1min`, `StartLimitBurst=5`,
+  `RestartUSec=10s` — so the 5th start lands 40 s after the first, inside
+  the window, and the limiter is reachable. `restart_bounded` flips
+  `False → True` on the same `load_unit` the sweep calls, so the family
+  drops from 13 to 12 on the next sweep.
+- **Three host units wired into `services.yaml`** — `ethernet-optimise`,
+  `paccache-timer`, `deadlock-api-ingest-user`. The first entries in that
+  file produced by pasting endpoint output rather than written by hand.
+  All three parse, resolve, and check **`ok`** against the live box.
+
+### The two defects, both found only by executing
+
+1. **The advice never asked whether the unit is meant to be running.**
+   `grep -n "enabled" recommendations.py` returned nothing, while every
+   finding carries a measured `enabled` the orphan family has trusted
+   since Session 46. Two of the five host snippets named units that are
+   **disabled and inactive**; pasting them would have declared checks
+   returning `critical` **every 300 s, for ever** — verified by running
+   `_check_systemd`'s logic against them. That is the pile-up shape
+   Sessions 41–45 spent themselves deleting, arriving through this
+   module's own remediation text, and with `SNAG-AGENT-006` still open it
+   would have been one row per run: the same 12/hour that entry already
+   measures as "60 for one dead timer in five hours".
+2. **`removal_command` left a folded oneshot's timer behind.**
+   `ticktick-sync.service` is an orphan whose `ticktick-sync.timer`
+   declares `Requires=` on it; the emitted command removed only the
+   service. `monitor_unit` already named the timer — `classify_units`
+   folds it — and the builder ignored the field. The timer is also the
+   half carrying `[Install]`, so it is the half holding the enablement
+   symlink. Now removed first, so the schedule is disarmed before its
+   service goes away.
+
+And the rule both imply: **a row offering no snippet must not say "paste
+the snippet below"**. `sysadmin-failed.service` shipped exactly that —
+`snippet: ""` under paste instructions — which is an item an execution
+sitting *cannot close*, so it returns on every sweep for ever. The
+roll-up defect wearing a single unit's name. Every no-snippet row now
+names its real next step, and for a disabled unit that step is a fork:
+enable it and the next sweep emits a snippet, or remove it.
+
+### What the fixture churn revealed
+
+Twenty tests failed on the gate, because `UnitFinding.enabled` defaults
+to `False` — correct for its first consumer, `armed`, where absent
+evidence must read as "not armed" (quiet), and the **opposite polarity**
+from this one, where absent evidence suppresses advice (loud). One field,
+two consumers, opposite safe defaults. Fixed in the fixtures rather than
+the default: flipping `UnitFinding.enabled` to `True` would quietly make
+every orphan armed.
+
+### Blocked, and named rather than dropped
+
+- **Five system-scope orphans need `sudo`**, which needs a password this
+  session cannot supply. Files backed up; exact commands in HANDOFF.md.
+- **`services.yaml` is read at start-up**, so the three new entries are
+  not live until `sysadmin.service` restarts — also `sudo`.
+- **Eleven restart-unbounded units belong to other repositories** (Alfred
+  1, estate-manager 3, SportsAnalyser 2, venture-assistant 1, plus five
+  unowned). Left as advice: the monitor must not own what it monitors,
+  and the endpoint's own `detail` says the edit is that repository's to
+  make.
+
+Suite **1708 passed** (from 1701), ruff and mypy clean, no migration.
+
+**The collation half of the brief was already closed.** All 12 databases
+report `datcollversion = 2.44` against a live 2.44, and all 8 alert rows
+are `resolved` — one row each, so the dedup rule held. "8 stale
+collations" was a stale reading.
+
 ## Session 47: The restart-limit family — advice, not alarm ✅ (2026-08-15)
 
 `SNAG-UNITS-002`, the general case Session 46 filed rather than fixed.

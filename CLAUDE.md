@@ -1164,6 +1164,46 @@ is invented to sort on. The one sub-ordering, added in Session 46, is
 systemd starts the unit, not a score, and it does not make the tiers
 comparable to each other.
 
+**Advice has to be executable, and Session 48 was the first sitting to
+carry it out.** Sessions 46, 47 and 26c made the diagnosis speak; nobody
+had run what it says. Two defects surfaced inside an hour, both the same
+root cause — `recommendations.py` under-reading a `UnitFinding` the sweep
+had already filled in (`SNAG-UNITS-004`).
+
+**A snippet is offered only for a unit something starts.** `kind:
+systemd` asserts the unit is *active* and `kind: timer` that the schedule
+is armed, so wiring up a disabled unit declares a check that fails on
+every poll for ever — measured: the two suppressed snippets would each
+have written a `critical` **every 300 s**, the pile-up Sessions 41–45
+spent themselves deleting, arriving through this module's own remediation
+text. The gate is **"nothing enables it", not "it is not running"**:
+`enabled` is an enablement symlink `scan.py` already walks and
+`classify_units` folds a oneshot's timer enablement into it, so the
+no-subprocess promise survives where an `ActiveState` test would have
+cost it. `manual` is a subset — no `[Install]` means it cannot be
+enabled — so it is tested first and keeps its wording.
+
+**A folded oneshot's timer is removed with its service.** `monitor_unit`
+names the timer, and the timer is the half carrying `[Install]`, so it
+holds the enablement symlink `removal_command`'s docstring exists to
+avoid orphaning. Removing only the service leaves a `Requires=` pointing
+at nothing, which the next sweep cannot see — a timer with no service is
+not a finding shape this module has.
+
+Both imply the rule that closes the family: **a row offering no snippet
+must never say "paste the snippet below"**. `sysadmin-failed.service`
+shipped exactly that, which is an item an execution sitting *cannot
+close*, so it returns on every sweep for ever — `SNAG-ESTATE-001`'s
+roll-up defect wearing a single unit's name. Every no-snippet row now
+names its real next step, and for a disabled unit that step is a fork.
+
+Note the polarity trap the fix exposed: `UnitFinding.enabled` defaults to
+`False`, which is right for `armed` (absent evidence reads as "not
+armed", quiet) and the **opposite** of what this gate wants (absent
+evidence suppresses advice, loud). One field, two consumers, opposite
+safe defaults — fixed in the fixtures, because flipping the default would
+quietly arm every orphan.
+
 **The snippet knows a port now** (SNAG-UNITS-001, fixed in Session 26c).
 A `kind: systemd` check asserts only that the unit is *active*, so a
 backend running while every request 500s is active, healthy, and broken.

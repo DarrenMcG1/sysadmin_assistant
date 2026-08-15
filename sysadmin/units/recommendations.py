@@ -49,6 +49,38 @@ Ranked, worst first:
 comments carry reasoning a writer would flatten.  Advice only: the
 snippet is text for a human to paste.
 
+**Advice must be executable, and Session 48 was the first sitting to
+check.**  Sessions 46, 47 and 26c made the diagnosis speak; nobody had
+carried out what it says.  Two defects surfaced within the hour, both
+the same root cause — this module under-reading a finding the sweep had
+already filled in:
+
+* **A snippet is offered only for a unit something starts.**  ``kind:
+  systemd`` asserts the unit is *active* and ``kind: timer`` that the
+  schedule is armed, so wiring up a disabled unit declares a check that
+  fails on every poll for ever.  Measured: pasting the two suppressed
+  snippets would have written **two ``critical`` rows every 300 s**, the
+  pile-up shape Sessions 41-45 spent themselves deleting, arriving
+  through this module's own remediation text.  The gate is "nothing
+  enables it" rather than "it is not running", because ``enabled`` is an
+  enablement symlink the sweep already walks and staying pure matters
+  more than the sharper test.  ``manual`` is a subset — no ``[Install]``
+  means it cannot be enabled — so it is tested first and keeps its
+  wording.
+* **A folded oneshot's timer is removed with its service.**
+  ``monitor_unit`` names the timer, and the timer is the half carrying
+  ``[Install]``; removing only the service leaves a ``Requires=``
+  pointing at nothing, which the next sweep cannot see because a timer
+  with no service is not a finding shape this module has.
+
+And the rule both of them imply: **an advice row that offers no snippet
+must not say "paste the snippet below"**.  ``sysadmin-failed.service``
+shipped exactly that, which is an item an execution sitting cannot
+close, so it returns on every sweep for ever — the roll-up defect
+wearing a single unit's name.  Every no-snippet row now names its real
+next step, and for a disabled unit that step is a fork: enable it and
+the next sweep emits a snippet, or remove it.
+
 Snippets have **two** destinations, and the second one is new in the
 restart tier: services.yaml for anything being wired up, and *the unit
 file itself* for a start limit.  That is the first time this module has
@@ -75,6 +107,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
+from pathlib import Path
 from typing import Any
 
 from sysadmin.core.contracts import UnitRecommendationInfo
@@ -445,6 +478,39 @@ def _start_limit_snippet(finding: UnitFinding, interval: float, burst: int) -> s
     return "\n".join(line for line in lines if line)
 
 
+def _enable_command(finding: UnitFinding) -> str:
+    """``systemctl enable --now`` for the unit that actually starts it.
+
+    ``monitor_unit`` rather than ``unit``: enabling a folded oneshot's
+    *service* arms nothing, because a oneshot with a timer is started by
+    the timer.  Same field, same reason, as :func:`removal_command`.
+    """
+    if finding.scope == "user":
+        return f"systemctl --user enable --now {finding.monitor_unit}"
+    return f"sudo systemctl enable --now {finding.monitor_unit}"
+
+
+def _no_snippet_action(finding: UnitFinding) -> str:
+    """What to do about a finding this module declines to wire up.
+
+    An advice row carrying an empty snippet under the text "paste the
+    snippet below" is the thing an execution sitting cannot close: it
+    reads as actionable, is not, and returns on every sweep for ever.
+    Both no-snippet cases have a real next step, so they say it.
+    """
+    if finding.manual:
+        return (
+            "Nothing to wire — a hand-started unit has no steady state to "
+            "check. Leave it, or remove it if it is no longer wanted."
+        )
+    return (
+        f"Decide whether it should run: {_enable_command(finding)} and the "
+        "next sweep will emit a snippet, or remove the unit if it is no "
+        "longer wanted. Do not wire up a disabled unit — the check would "
+        "fail on every poll."
+    )
+
+
 def _unmonitored_recommendation(
     finding: UnitFinding,
     known: dict[str, str],
@@ -468,6 +534,12 @@ def _unmonitored_recommendation(
             "hand; monitoring it would report it dead whenever it is simply "
             "not running."
         )
+    elif not finding.enabled:
+        detail += (
+            f" Nothing enables {finding.monitor_unit}, so no snippet is "
+            "offered: a check on a unit the box never starts would report "
+            "it unhealthy on every poll."
+        )
 
     return UnitRecommendationInfo(
         kind="unmonitored",
@@ -478,7 +550,11 @@ def _unmonitored_recommendation(
         monitor_unit=finding.monitor_unit,
         title=f"Monitor {finding.monitor_unit} ({finding.project})",
         detail=detail,
-        action=f"Paste the snippet below into {where}, then restart sysadmin.service",
+        action=(
+            f"Paste the snippet below into {where}, then restart sysadmin.service"
+            if snippet
+            else _no_snippet_action(finding)
+        ),
         snippet=snippet,
         snippet_target=target,
     )
@@ -508,6 +584,12 @@ def _host_recommendation(
             " It is oneshot with no timer, so it only runs when invoked; "
             "there is no schedule to go quiet."
         )
+    elif not finding.enabled:
+        detail += (
+            f" Nothing enables {finding.monitor_unit}, so no snippet is "
+            "offered: a check on a unit the box never starts would report "
+            "it unhealthy on every poll."
+        )
 
     return UnitRecommendationInfo(
         kind="host",
@@ -518,7 +600,11 @@ def _host_recommendation(
         monitor_unit=finding.monitor_unit,
         title=f"Monitor the host unit {finding.monitor_unit}",
         detail=detail,
-        action="Paste the snippet below into services.yaml under services:",
+        action=(
+            "Paste the snippet below into services.yaml under services:"
+            if snippet
+            else _no_snippet_action(finding)
+        ),
         snippet=snippet,
         snippet_target=target,
     )
@@ -541,16 +627,42 @@ def removal_command(finding: UnitFinding) -> str:
     ``disable --now`` before ``rm`` because deleting the unit file first
     leaves the enablement symlink in ``*.wants/`` behind, and systemd
     then warns about a dangling link on every ``daemon-reload``.
+
+    **A folded oneshot's timer is removed too**, and leaving it out was
+    the defect: ``classify_units`` already folds a oneshot under the
+    timer that starts it, so ``monitor_unit`` names the timer — and the
+    timer, not the service, is the half carrying ``[Install]`` and the
+    enablement symlink.  Removing only the service leaves a timer whose
+    ``Requires=`` points at a unit that no longer exists, which systemd
+    reports on every ``daemon-reload`` and which the next sweep cannot
+    see, because a timer with no service is not a finding shape this
+    module has.  Measured on this box 2026-08-15:
+    ``ticktick-sync.service`` is an orphan whose ``ticktick-sync.timer``
+    the emitted command silently left behind.
+
+    The timer's path is its sibling in the same directory rather than a
+    field, because a unit and the timer that starts it are installed
+    together — the sweep walks one directory per scope.
     """
+    targets = [finding.unit]
+    paths = [str(finding.path)]
+    if finding.monitor_unit and finding.monitor_unit != finding.unit:
+        # Timer first: disabling the timer disarms the schedule before
+        # the service it triggers goes away.
+        targets.insert(0, finding.monitor_unit)
+        paths.insert(0, str(Path(finding.path).parent / finding.monitor_unit))
+
+    units = " ".join(targets)
+    files = " ".join(paths)
     if finding.scope == "user":
         return (
-            f"systemctl --user disable --now {finding.unit} "
-            f"&& rm {finding.path} "
+            f"systemctl --user disable --now {units} "
+            f"&& rm {files} "
             "&& systemctl --user daemon-reload"
         )
     return (
-        f"sudo systemctl disable --now {finding.unit} "
-        f"&& sudo rm {finding.path} "
+        f"sudo systemctl disable --now {units} "
+        f"&& sudo rm {files} "
         "&& sudo systemctl daemon-reload"
     )
 
@@ -572,6 +684,32 @@ def _snippet_for(
     if finding.manual:
         # Nothing to wire: a hand-started oneshot has no steady state to
         # check, so a monitor would report it dead almost always.
+        return None, ""
+
+    if not finding.enabled:
+        # Same argument as ``manual``, one step more general, and the
+        # reason this gate exists at all: a unit nothing enables has no
+        # steady state either.  ``kind: systemd`` asserts the unit is
+        # active and ``kind: timer`` that the schedule is armed, so
+        # wiring up a disabled unit declares a check that fails on every
+        # poll for ever — the pile-up shape Sessions 41-45 spent
+        # themselves deleting, re-created by this module's own advice.
+        #
+        # Measured 2026-08-15: of five ``host`` findings on this box the
+        # two with ``enabled=False`` (``deadlock-api-ingest.service``
+        # system, and its updater timer) were both ``inactive``, and the
+        # three with ``enabled=True`` were all ``active``.
+        #
+        # ``manual`` is a *subset* of this — no ``[Install]`` section
+        # means the unit cannot be enabled — so it is tested first and
+        # keeps its more specific wording.
+        #
+        # Purity is preserved: ``enabled`` is an enablement symlink the
+        # sweep already walks, and :func:`classify_units` folds a
+        # oneshot's timer enablement into it, so a live schedule is
+        # never read as dormant.  The sweep still cannot see *active*
+        # state without a subprocess, which is why the gate is
+        # "nothing starts it" rather than "it is not running".
         return None, ""
 
     return "services.yaml", _services_yaml_snippet(finding, known, duplicates, held)

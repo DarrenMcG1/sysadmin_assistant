@@ -31,6 +31,13 @@ def _finding(unit, category=HOST, **kw) -> UnitFinding:
     kw.setdefault("path", f"/home/gaddi/.config/systemd/user/{unit}")
     kw.setdefault("monitor_unit", unit)
     kw.setdefault("reason", "reason text")
+    # ``enabled`` is load-bearing for snippet emission since the
+    # enablement gate: an advice row for a unit nothing starts declines
+    # to offer paste-ready text.  These fixtures model units that *are*
+    # enabled, so they must now say so — the field defaults to ``False``
+    # for ``armed``'s sake, where absent evidence must read as "not
+    # armed", which is the opposite polarity from this one.
+    kw.setdefault("enabled", True)
     return UnitFinding(unit=unit, category=category, **kw)
 
 
@@ -349,3 +356,138 @@ def test_every_category_produces_a_titled_actionable_recommendation(category):
     )
     assert rec.title and rec.detail and rec.action
     assert rec.unit == "x.service"
+
+
+# ── Session 48: the advice must be executable ────────────────────────
+#
+# Both defects below were found by *executing* the advice this endpoint
+# emits rather than by reading it, which is the argument for the sitting
+# existing at all.  Sessions 46, 47 and 26c made the diagnosis speak; nobody
+# had checked that what it says can be carried out.
+
+
+def test_a_disabled_host_unit_gets_no_snippet():
+    """The pile-up, re-created by this module's own remediation advice.
+
+    ``kind: systemd`` asserts the unit is *active*.  A host unit nothing
+    enables is not started by anything on the box, so pasting the
+    snippet declares a check that fails on every poll for ever — the
+    shape Sessions 41-45 spent themselves deleting.
+
+    Live on 2026-08-15: of five ``host`` findings, the two with
+    ``enabled=False`` (system ``deadlock-api-ingest.service`` and its
+    updater timer) were both ``inactive``; the three with
+    ``enabled=True`` were all ``active``.
+    """
+    (rec,) = recommendations_for_scan(
+        [_finding("deadlock-api-ingest.service", HOST, enabled=False)]
+    )
+    assert rec.snippet == ""
+    assert rec.snippet_target is None
+    assert "Nothing enables" in rec.detail
+
+
+def test_an_enabled_host_unit_still_gets_its_snippet():
+    """The gate must not swallow the family it exists inside."""
+    (rec,) = recommendations_for_scan(
+        [_finding("ethernet-optimise.service", HOST, enabled=True)]
+    )
+    assert rec.snippet
+    assert rec.snippet_target == "services.yaml"
+
+
+def test_a_snippetless_recommendation_never_says_paste_the_snippet_below():
+    """An advice row that reads as actionable and is not.
+
+    ``sysadmin-failed.service`` shipped as exactly this: ``snippet: ""``
+    under the text *"Paste the snippet below into services.yaml"*.  An
+    execution sitting cannot close it, so it returns on every sweep for
+    ever — a count that never falls, which is the roll-up defect wearing
+    a single unit's name.
+    """
+    for kw in ({"enabled": False}, {"manual": True, "enabled": False}):
+        (rec,) = recommendations_for_scan(
+            [_finding("something.service", HOST, **kw)]
+        )
+        assert rec.snippet == ""
+        assert "snippet below" not in rec.action
+        # It must still say what to actually do.
+        assert rec.action.strip()
+
+
+def test_a_disabled_unit_is_told_how_to_become_monitorable():
+    """The next step is a fork, and naming it is what closes the item."""
+    (rec,) = recommendations_for_scan(
+        [_finding("deadlock-api-ingest.service", HOST, enabled=False)]
+    )
+    assert "systemctl --user enable --now deadlock-api-ingest.service" in rec.action
+    assert "remove" in rec.action.lower()
+
+
+def test_the_enable_command_names_the_timer_for_a_folded_oneshot():
+    """Enabling a folded oneshot's *service* arms nothing.
+
+    A oneshot with a timer is started by the timer, so the timer is the
+    half carrying ``[Install]``.  Same field, same reason, as
+    :func:`removal_command`.
+    """
+    (rec,) = recommendations_for_scan(
+        [
+            _finding(
+                "paccache.service",
+                HOST,
+                monitor_unit="paccache.timer",
+                scope="system",
+                enabled=False,
+            )
+        ]
+    )
+    assert "sudo systemctl enable --now paccache.timer" in rec.action
+    assert "paccache.service" not in rec.action
+
+
+def test_removing_a_folded_orphan_removes_its_timer_too():
+    """Removing only the service leaves a timer pointing at nothing.
+
+    ``ticktick-sync.timer`` declares ``Requires=ticktick-sync.service``
+    and was left installed by the command this module emitted — systemd
+    warns on every ``daemon-reload``, and the next sweep cannot see it,
+    because a timer with no service is not a finding shape this module
+    has.  Found on this box 2026-08-15.
+    """
+    (rec,) = recommendations_for_scan(
+        [
+            _finding(
+                "ticktick-sync.service",
+                ORPHANED,
+                scope="system",
+                path="/etc/systemd/system/ticktick-sync.service",
+                monitor_unit="ticktick-sync.timer",
+            )
+        ]
+    )
+    assert "ticktick-sync.timer" in rec.action
+    assert "/etc/systemd/system/ticktick-sync.timer" in rec.action
+    # Timer first: disarm the schedule before its service goes away.
+    assert rec.action.index("ticktick-sync.timer") < rec.action.index(
+        "ticktick-sync.service"
+    )
+
+
+def test_an_unfolded_orphan_removal_is_unchanged():
+    """The timer clause must not fire when there is no timer.
+
+    ``monitor_unit`` equals ``unit`` for every unfolded finding, so a
+    naive implementation would emit the unit twice.
+    """
+    (rec,) = recommendations_for_scan(
+        [
+            _finding(
+                "garmin-sync.service",
+                ORPHANED,
+                path="/home/gaddi/.config/systemd/user/garmin-sync.service",
+            )
+        ]
+    )
+    assert rec.action.count("garmin-sync.service") == 2  # disable, then rm
+    assert "timer" not in rec.action

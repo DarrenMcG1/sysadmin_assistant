@@ -390,3 +390,47 @@ services:
     kind: timer
     systemd: { unit: pgbackrest-backup.timer, scope: system }
     controllable: false
+
+  # --- Wired 2026-08-15, Session 48 -------------------------------------
+  # The first entries in this file produced by pasting `GET
+  # /api/units/actions` output rather than by hand. Three of the five
+  # host findings; the other two are `deadlock-api-ingest.service`
+  # (system) and its updater timer, both disabled and inactive, which
+  # the advice now declines to wire up because a check on a unit nothing
+  # starts fails on every poll for ever. They stay in the sweep's host
+  # findings until someone enables or removes them — that decision is
+  # the box owner's and it is a real one, unlike `searxng-upstream`
+  # above, which is healthy and checked elsewhere.
+
+  # Boot-time NIC tuning. Type=oneshot with RemainAfterExit=yes, so it
+  # stays `active (exited)` once applied and `kind: systemd` is a real
+  # check: inactive here means the tweaks are not in force. Note this is
+  # the one oneshot on the box with no timer that is still monitorable,
+  # which is why it is not folded.
+  - name: ethernet-optimise
+    kind: systemd
+    systemd: { unit: ethernet-optimise.service, scope: system }
+    log: { type: journalctl, severity_filter: warning }
+
+  # Pacman cache trimming, monitored as its TIMER — the service is
+  # Type=oneshot and inactive between runs by design, so watching the
+  # service would alert continuously. `controllable: false` because
+  # start/stop would arm or disarm the schedule, as with
+  # pgbackrest-backup-timer above.
+  - name: paccache-timer
+    kind: timer
+    systemd: { unit: paccache.timer, scope: system }
+    controllable: false
+
+  # Deadlock replay ingest, USER scope. The system-scope unit of the
+  # same name is a different binary (/opt/deadlock-api-ingest) and is
+  # disabled — scope is part of a unit's identity here, which is why the
+  # generated name carries the `-user` suffix and why two tray tiles
+  # cannot end up sharing one label.
+  - name: deadlock-api-ingest-user
+    kind: systemd
+    # No listening port attributed to this unit by the port sweep, so
+    # `kind: systemd` asserts liveness only. If it ever serves HTTP,
+    # this should become kind: http with a url (SNAG-UNITS-001).
+    systemd: { unit: deadlock-api-ingest.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }

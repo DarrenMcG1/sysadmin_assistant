@@ -625,6 +625,11 @@ def test_the_title_stays_clear_of_the_service_families():
 
 def _finding(unit, category, **kwargs):
     kwargs.setdefault("monitor_unit", unit)
+    # These model live, enabled units — the enablement gate declines to
+    # emit a snippet for a unit nothing starts, so the fixture must say
+    # so explicitly.  See the note in tests/test_unit_recommendations.py
+    # for why the field's own default is the other way round.
+    kwargs.setdefault("enabled", True)
     return UnitFinding(
         unit=unit, scope="user", category=category, path=f"/tmp/{unit}", **kwargs
     )

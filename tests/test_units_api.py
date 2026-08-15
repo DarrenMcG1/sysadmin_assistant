@@ -43,6 +43,7 @@ def _audit(**overrides) -> UnitAudit:
                 "matched_by": "path",
                 "monitor_unit": "alfred-worker.service",
                 "reason": "nothing monitors it",
+                "enabled": True,
             }
         ],
         HOST: [
@@ -53,6 +54,10 @@ def _audit(**overrides) -> UnitAudit:
                 "path": f"/{scope}/deadlock-api-ingest.service",
                 "monitor_unit": "deadlock-api-ingest.service",
                 "reason": "maps to no project",
+                # Enabled, so the advice offers a snippet. A stored
+                # sweep always carries this field; the enablement gate
+                # declines to wire up a unit nothing starts.
+                "enabled": True,
             }
             for scope in ("user", "system")
         ],
