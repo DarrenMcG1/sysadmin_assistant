@@ -32,7 +32,7 @@ from sysadmin.units.recommendations import (
     KIND_ORDER,
     recommendations_for_scan,
 )
-from sysadmin.units.scan import CATEGORY_ORDER, UnitFinding
+from sysadmin.units.scan import CATEGORY_ORDER, RESTART_UNBOUNDED, UnitFinding
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +92,55 @@ def _findings_from(audit: UnitAudit, category: str | None = None) -> list[UnitFi
                     enabled=bool(row.get("enabled", False)),
                     restart=row.get("restart"),
                     restart_bounded=bool(row.get("restart_bounded", True)),
+                    restart_sec=row.get("restart_sec"),
+                    start_limit_interval=row.get("start_limit_interval"),
+                    start_limit_burst=row.get("start_limit_burst"),
                 )
             )
+    return findings
+
+
+def _restart_findings_from(audit: UnitAudit) -> list[UnitFinding]:
+    """The restart-limit family, rehydrated from its own blob key.
+
+    Kept out of :func:`_findings_from` on purpose.  That function backs
+    ``/status``, whose ``findings`` list is partitioned by ``category``
+    and whose ``count`` is the number of things to *wire or remove*.
+    Most of this family is already monitored, so folding it in would put
+    units in a list that promises they are unwired and inflate a count
+    the roll-up alert's threshold is read against.
+
+    ``restart_sec`` and friends are read defensively: audits stored
+    before this family existed have neither the key nor the list, and the
+    endpoint must serve them rather than 500.
+    """
+    blob = audit.findings or {}
+    findings: list[UnitFinding] = []
+    for row in blob.get(RESTART_UNBOUNDED) or []:
+        if not isinstance(row, dict):
+            continue
+        findings.append(
+            UnitFinding(
+                unit=str(row.get("unit", "")),
+                scope=str(row.get("scope", "system")),
+                category=RESTART_UNBOUNDED,
+                path=str(row.get("path", "")),
+                description=row.get("description"),
+                project=row.get("project"),
+                project_path=row.get("project_path"),
+                matched_by=row.get("matched_by"),
+                monitor_unit=str(row.get("monitor_unit") or row.get("unit", "")),
+                dead_path=row.get("dead_path"),
+                manual=bool(row.get("manual", False)),
+                reason=str(row.get("reason", "")),
+                enabled=bool(row.get("enabled", False)),
+                restart=row.get("restart"),
+                restart_bounded=bool(row.get("restart_bounded", True)),
+                restart_sec=row.get("restart_sec"),
+                start_limit_interval=row.get("start_limit_interval"),
+                start_limit_burst=row.get("start_limit_burst"),
+            )
+        )
     return findings
 
 
@@ -138,6 +185,11 @@ async def get_unit_status(
             # orphaned list: that list is truncated at 200 and Session
             # 24's rule is that a truncated list never sources a count.
             armed=int((audit.findings or {}).get("armed_count") or 0),
+            # Same rule, same reason: a scalar from the blob, never
+            # len() over the list beside it.
+            restart_unbounded=int(
+                (audit.findings or {}).get("restart_unbounded_count") or 0
+            ),
         ),
         findings=[UnitFindingInfo(**f.as_dict()) for f in findings],
         count=len(findings),
@@ -149,7 +201,7 @@ async def get_unit_status(
 async def get_unit_actions(
     limit: int = Query(10, ge=1, le=100),
     kind: str | None = Query(
-        None, description="orphan | unmonitored | host — omit for all three"
+        None, description="orphan | restart | unmonitored | host — omit for all four"
     ),
     session: AsyncSession = Depends(get_db_session),
 ) -> UnitActionsResponse:
@@ -170,7 +222,11 @@ async def get_unit_actions(
     config = get_config()
 
     recs = recommendations_for_scan(
-        _findings_from(audit),
+        # Both lists.  ``/status`` serves them separately because they
+        # answer different questions; advice is where they belong
+        # together, and it is the only surface that names the units in
+        # the restart family at all.
+        _findings_from(audit) + _restart_findings_from(audit),
         load_registry(config.agents.project_organiser.projects_root),
     )
     if kind is not None:

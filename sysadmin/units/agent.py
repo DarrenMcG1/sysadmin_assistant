@@ -208,6 +208,7 @@ class ServiceDiscoveryAgent(BaseAgent):
                 "unmonitored": scan.count(UNMONITORED),
                 "host": scan.count(HOST),
                 "armed": armed["armed"],
+                "restart_unbounded": len(scan.restart_findings),
             },
         )
 
@@ -222,6 +223,11 @@ class ServiceDiscoveryAgent(BaseAgent):
                 "orphaned": scan.count(ORPHANED),
                 "unmonitored": scan.count(UNMONITORED),
                 "host": scan.count(HOST),
+                # Not summed into ``findings_count`` above, which is
+                # ``scan.actionable``: this family is latent risk in
+                # units mostly already wired, and the roll-up alert's
+                # threshold reads that number.  See ``_alert_details``.
+                "restart_unbounded": len(scan.restart_findings),
                 # Named ``standing`` for the reason SNAG-AGENT-006 gave
                 # it that name on the sysadmin agent: with dedup in
                 # place, ``alerts_raised`` reads 0 while a fault is still
@@ -476,6 +482,19 @@ class ServiceDiscoveryAgent(BaseAgent):
         ``actionable`` is stored so the next sweep can tell "the same
         problem" from "a new one" without re-deriving it from the
         findings blob, which is truncated.
+
+        ``restart_unbounded`` rides here as **evidence and nothing
+        else** (SNAG-UNITS-002).  It is deliberately absent from
+        ``actionable``, which is the number in this alert's title and the
+        number ``alert_threshold`` is compared against: 13 latent risks
+        added there would read as 13 new units to wire up and would trip
+        the threshold on their own, turning a count of gaps into a count
+        of two unrelated things.  It gets no family of its own for the
+        reason the armed split was worth making — one row per unit is
+        right for a fault in progress and wrong for a latent one, and 13
+        rows on the first run is the pile-up shape wearing a new hat.
+        The units are named by ``GET /api/units/actions``, which is where
+        the fix lives.
         """
         return {
             "actionable": actionable,
@@ -485,6 +504,7 @@ class ServiceDiscoveryAgent(BaseAgent):
             "host": scan.count(HOST),
             "units_scanned": scan.units_scanned,
             "monitored": scan.monitored_count,
+            "restart_unbounded": len(scan.restart_findings),
             # Worst first, and capped — an alert body is read in a toast.
             "examples": [f.unit for f in scan.findings[:5]],
         }

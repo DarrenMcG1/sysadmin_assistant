@@ -76,6 +76,16 @@ HOST = "host"
 #: merely-undocumented.  ``monitored`` is not reported at all, only counted.
 CATEGORY_ORDER = (ORPHANED, UNMONITORED, HOST)
 
+#: The restart-limit family (SNAG-UNITS-002).  Deliberately **not** in
+#: :data:`CATEGORY_ORDER`: the four categories above partition every
+#: scanned unit and ``units_scanned`` is their sum, which is the one
+#: arithmetic property :class:`~sysadmin.core.contracts.UnitScanSummary`
+#: exists to make auditable.  A unit that is unbounded is *also*
+#: monitored or host, so a fifth bucket would double-count it.  The same
+#: shape ``armed`` already takes: a subset reported beside the sum, never
+#: inside it.
+RESTART_UNBOUNDED = "restart"
+
 # Characters systemd allows in front of an ExecStart executable
 # (``-`` ignore failure, ``@`` set argv[0], ``+``/``!``/``!!`` privilege
 # escapes).  They are not part of the path and must come off before any
@@ -753,6 +763,17 @@ class UnitFinding:
     #: and was answerable nowhere before this.
     restart: str | None = None
     restart_bounded: bool = True
+    #: The three numbers ``restart_bounded`` was computed from, ``None``
+    #: where the unit declares nothing and systemd's own default applies.
+    #: Carried so the verdict is **checkable**: a boolean on its own asks
+    #: the reader to trust arithmetic they cannot see, and the whole
+    #: family exists because the obvious rule ("no ``StartLimitBurst=``")
+    #: is wrong in both directions.  They are also the inputs
+    #: :func:`~sysadmin.units.recommendations.suggested_start_limit_interval`
+    #: needs to name a value that actually fixes *this* unit.
+    restart_sec: float | None = None
+    start_limit_interval: float | None = None
+    start_limit_burst: int | None = None
 
     @property
     def armed(self) -> bool:
@@ -784,6 +805,9 @@ class UnitFinding:
             "enabled": self.enabled,
             "restart": self.restart,
             "restart_bounded": self.restart_bounded,
+            "restart_sec": self.restart_sec,
+            "start_limit_interval": self.start_limit_interval,
+            "start_limit_burst": self.start_limit_burst,
             "armed": self.armed,
         }
 
@@ -911,6 +935,9 @@ def classify_units(
             enabled=unit.enabled or bool(timer_unit and timer_unit.enabled),
             restart=unit.restart,
             restart_bounded=unit.restart_bounded,
+            restart_sec=unit.restart_sec,
+            start_limit_interval=unit.start_limit_interval,
+            start_limit_burst=unit.start_limit_burst,
         )
         if match.project is not None:
             finding.project = match.project.name
@@ -989,6 +1016,120 @@ def _arming_clause(finding: UnitFinding) -> str:
     )
 
 
+def restart_risk_findings(
+    units: Sequence[UnitFile],
+    findings: Sequence[UnitFinding],
+    projects: Sequence[ProjectRef],
+    path_exists: Any = None,
+) -> list[UnitFinding]:
+    """Units whose restart loop can never reach ``failed`` (SNAG-UNITS-002).
+
+    A **second pass over the same units**, not a fifth category, and it
+    is a second pass for a reason worth stating: 11 of the 13 units this
+    returns on the live box are ``monitored``, and
+    :func:`classify_units` drops those before they exist as findings.
+    The question "which units on this box can loop for ever" was
+    therefore answerable for the six units the sweep already described
+    and invisible for every live service on it — which is the whole of
+    the snag.
+
+    Three rules, two of them the opposite of the obvious version:
+
+    1. **Orphans are excluded, not included.**  The obvious reading is
+       that a broken unit which also loops is the worst case and belongs
+       here twice over.  It cannot be: an orphan's recommendation is
+       *remove it*, and advising someone to add a start limit to a file
+       they should delete is two contradictory instructions for one
+       unit.  The fact is not lost — an orphan that loops is exactly
+       what :func:`sysadmin.units.agent.armed_alert_severity` promotes
+       to ``critical``, so it is already being said, louder, by the
+       family that owns it.
+    2. **A unit with no ``Restart=`` is never here**, because
+       :func:`restart_is_bounded` returns ``True`` for it.  "Does not
+       restart" and "restarts safely" are the same answer to the only
+       question being asked, and separating them would report every
+       oneshot on the box as a finding.
+    3. **Not knowing is not an accusation**, inherited from
+       :func:`restart_is_bounded`: an unparseable ``RestartSec=`` reads
+       as bounded, so a false *negative* is possible and a false
+       positive is not.  A reader sent to rewrite a unit that is fine
+       stops trusting the family.
+
+    Findings the sweep already produced are reused via ``replace`` rather
+    than rebuilt, so a unit's project, description and arming state
+    cannot disagree between the two lists.
+    """
+    classified = {_wired_key(f.unit, f.scope): f for f in findings}
+    folded, timer_for = fold_timers(units)
+    by_key = {_wired_key(u.name, u.scope): u for u in units}
+
+    risky: list[UnitFinding] = []
+    for unit in units:
+        if unit.restart_bounded:
+            continue
+        key = _wired_key(unit.name, unit.scope)
+
+        existing = classified.get(key)
+        if existing is not None and existing.category == ORPHANED:
+            continue
+        if existing is not None:
+            risky.append(
+                replace(
+                    existing,
+                    category=RESTART_UNBOUNDED,
+                    reason=_restart_reason(existing),
+                )
+            )
+            continue
+
+        # Monitored (or a folded timer): no finding exists, so build one.
+        monitor_unit = timer_for.get(key, unit.name)
+        match = match_unit(unit, projects, path_exists=path_exists)
+        timer_unit = by_key.get(_wired_key(monitor_unit, unit.scope))
+        finding = UnitFinding(
+            unit=unit.name,
+            scope=unit.scope,
+            category=RESTART_UNBOUNDED,
+            path=unit.path,
+            description=unit.description,
+            monitor_unit=monitor_unit,
+            matched_by=match.matched_by,
+            dead_path=match.dead_paths[0] if match.dead_paths else None,
+            manual=unit.is_oneshot and monitor_unit == unit.name and unit.static,
+            enabled=unit.enabled or bool(timer_unit and timer_unit.enabled),
+            restart=unit.restart,
+            restart_bounded=unit.restart_bounded,
+            restart_sec=unit.restart_sec,
+            start_limit_interval=unit.start_limit_interval,
+            start_limit_burst=unit.start_limit_burst,
+        )
+        if match.project is not None:
+            finding.project = match.project.name
+            finding.project_path = match.project.path
+        finding.reason = _restart_reason(finding)
+        risky.append(finding)
+
+    risky.sort(key=lambda f: (f.scope, f.unit))
+    return risky
+
+
+def _restart_reason(finding: UnitFinding) -> str:
+    """Why this unit is in the restart family, in the reader's terms.
+
+    States the *consequence* rather than the arithmetic.  The numbers
+    that produced the verdict are on the finding already
+    (``restart``, and the unit file itself), and a reason reading
+    "RestartSec × (burst − 1) ≥ StartLimitIntervalSec" tells someone who
+    has not read :func:`restart_is_bounded` nothing they can act on.
+    """
+    return (
+        f"sets Restart={finding.restart} with a start limit its restart "
+        "cadence can never reach, so failed starts repeat for ever without "
+        "the unit entering `failed` — no OnFailure= can fire and "
+        "`systemctl is-failed` reports it as fine"
+    )
+
+
 @dataclass
 class UnitScan:
     """The whole sweep: what was looked at, and what came back."""
@@ -1003,6 +1144,14 @@ class UnitScan:
     monitored_count: int = 0
     timers_folded: int = 0
     excluded_units: list[str] = field(default_factory=list)
+    #: Units whose restart loop can never reach ``failed``
+    #: (:func:`restart_risk_findings`).  A **parallel list**, not part of
+    #: ``findings``: its members are mostly ``monitored`` units, which
+    #: ``findings`` deliberately never holds, and adding them there would
+    #: break both ``units_scanned``'s arithmetic and ``actionable``'s
+    #: meaning — the latter drives the roll-up alert's threshold, so 13
+    #: latent risks would read as 13 new gaps to wire up.
+    restart_findings: list[UnitFinding] = field(default_factory=list)
 
     def count(self, category: str) -> int:
         return sum(1 for f in self.findings if f.category == category)
@@ -1046,6 +1195,13 @@ class UnitScan:
             # without a migration for a figure that is a subset of a
             # column already stored.
             "armed_count": len(self.armed),
+            # Same rule as ``armed_count``: the scalar is the count, the
+            # list below is capped.  Unlike ``armed`` this one has no
+            # column on ``unit_audits`` at all, so the blob is the only
+            # home — and a count taken from the truncated list would be a
+            # lower bound that reads like a total.
+            "restart_unbounded_count": len(self.restart_findings),
+            RESTART_UNBOUNDED: [f.as_dict() for f in self.restart_findings][:limit],
         }
         for category in CATEGORY_ORDER:
             blob[category] = [
@@ -1065,6 +1221,9 @@ def scan_units(
     """Run the whole sweep.  The one entry point the agent calls."""
     units, excluded = discover_units(user_dir, system_dir, home)
     findings = classify_units(units, projects, wired, path_exists=path_exists)
+    restart_risks = restart_risk_findings(
+        units, findings, projects, path_exists=path_exists
+    )
 
     folded, timer_for = fold_timers(units)
     monitored = sum(
@@ -1075,6 +1234,7 @@ def scan_units(
 
     return UnitScan(
         findings=findings,
+        restart_findings=restart_risks,
         units_scanned=len(units),
         units_excluded=len(excluded),
         monitored_count=monitored,

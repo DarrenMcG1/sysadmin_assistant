@@ -17,7 +17,13 @@ from sysadmin.units.recommendations import (
     duplicate_units,
     recommendations_for_scan,
 )
-from sysadmin.units.scan import HOST, ORPHANED, UNMONITORED, UnitFinding
+from sysadmin.units.scan import (
+    HOST,
+    ORPHANED,
+    RESTART_UNBOUNDED,
+    UNMONITORED,
+    UnitFinding,
+)
 
 
 def _finding(unit, category=HOST, **kw) -> UnitFinding:
@@ -48,9 +54,23 @@ ALFRED = _Registry([_Entry("alfred", "/home/gaddi/projects/Alfred")])
 
 
 def test_orphans_rank_above_gaps_which_rank_above_host_units():
+    """All four tiers, deliberately shuffled in the input.
+
+    ``restart`` sits second (SNAG-UNITS-002): above ``unmonitored``
+    because the two are competing safety nets and a reachable start limit
+    is the stronger one — systemd itself says so, to a hook, whether or
+    not this service is polling.
+    """
     findings = [
         _finding("h.service", HOST),
         _finding("g.service", UNMONITORED, project="Alfred"),
+        _finding(
+            "r.service",
+            RESTART_UNBOUNDED,
+            restart="always",
+            restart_sec=10.0,
+            restart_bounded=False,
+        ),
         _finding("o.service", ORPHANED, dead_path="/gone"),
     ]
     recs = recommendations_for_scan(findings, ALFRED)

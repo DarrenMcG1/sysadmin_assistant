@@ -110,6 +110,11 @@ async def test_status_returns_summary_and_findings(test_client, mock_session):
         # ``armed_count``, which is the historical-row case the router
         # defaults to 0 rather than 404ing on.
         "armed": 0,
+        # Same shape, same historical case: this blob predates
+        # ``restart_unbounded_count`` too.  Unlike ``armed`` it is not a
+        # subset of any one bucket — it cuts across them, and on the live
+        # box 11 of its 13 members are ``monitored``.
+        "restart_unbounded": 0,
     }
     assert body["count"] == 4
     assert body["scanned_at"].startswith("2026-08-07T09:00")
@@ -236,7 +241,15 @@ async def test_actions_are_read_only(test_app):
 # ── The agent ────────────────────────────────────────────────────────
 
 
-def _scan(orphaned=0, unmonitored=0, host=0, monitored=12, scanned=38, armed=0):
+def _scan(
+    orphaned=0,
+    unmonitored=0,
+    host=0,
+    monitored=12,
+    scanned=38,
+    armed=0,
+    restart_findings=(),
+):
     counts = {ORPHANED: orphaned, UNMONITORED: unmonitored, HOST: host}
     findings = [
         SimpleNamespace(unit=f"{category}-{i}.service", category=category)
@@ -254,6 +267,12 @@ def _scan(orphaned=0, unmonitored=0, host=0, monitored=12, scanned=38, armed=0):
         # and a fake that let the two disagree would hide exactly the
         # arithmetic the roll-up's message relies on.
         armed=[f for f in findings if f.category == ORPHANED][:armed],
+        # A parallel list, not a slice of ``findings``: most of the real
+        # family is ``monitored``, which ``findings`` never holds.  The
+        # fake keeps them separate for the same reason the scan does —
+        # ``_alert_details`` reports its length as evidence beside
+        # ``actionable``, never summed into it.
+        restart_findings=list(restart_findings),
     )
 
 
@@ -339,6 +358,39 @@ async def test_alert_message_names_each_category_and_the_endpoint(agent):
 async def test_alert_details_cap_the_examples(agent):
     details = agent._alert_details(_scan(orphaned=20), 20)
     assert len(details["examples"]) == 5
+
+
+async def test_restart_unbounded_is_evidence_never_a_finding_count(agent):
+    """SNAG-UNITS-002 rides in ``details`` and nowhere else.
+
+    ``actionable`` is this alert's title *and* the number
+    ``alert_threshold`` is compared against.  Adding 13 latent risks to
+    it would trip the threshold on their own and would read as 13 new
+    units to wire up — two unrelated things behind one number.  The
+    family gets no alert row of its own for the reason the armed split
+    was worth making: one row per unit is right for a fault in progress
+    and wrong for a latent one, and 13 rows on the first run is the
+    pile-up shape wearing a new hat.
+    """
+    scan = _scan(orphaned=1, restart_findings=[object()] * 13)
+
+    details = agent._alert_details(scan, scan.actionable)
+
+    assert details["restart_unbounded"] == 13
+    assert details["actionable"] == 1
+    assert "restart" not in details["examples"]
+
+
+async def test_the_rollup_title_ignores_the_restart_family(agent, mock_session):
+    """The threshold is patience for accumulated wiring debt.  A box with
+    one gap and thirteen latent restart risks must not alert as though it
+    had fourteen gaps."""
+    _no_existing_alert(mock_session)
+    scan = _scan(orphaned=1, restart_findings=[object()] * 13)
+
+    raised = await agent._maintain_alert(mock_session, scan.actionable, 5, scan)
+
+    assert raised == 0
 
 
 # ── Project references ───────────────────────────────────────────────

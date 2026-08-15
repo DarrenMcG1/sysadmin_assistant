@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-10
+> **Last Updated**: 2026-08-15
 
 ---
 
@@ -2242,6 +2242,131 @@ narrowed as if 2 reindexed + 1 dropped:
 
 ---
 
+## Session 47: The restart-limit family — advice, not alarm ✅ (2026-08-15)
+
+`SNAG-UNITS-002`, the general case Session 46 filed rather than fixed.
+17 of the 20 hand-written units on this box that declare `Restart=` have
+a start limit their own restart cadence can never reach, so a crash loop
+never enters `failed`, no `OnFailure=` hook can fire, and `systemctl
+is-failed` reports nothing wrong.
+
+Suite **1653 passed** (from 1631), ruff and mypy clean, **no migration** —
+the family lives in the audit row's JSONB blob.
+
+### The measurement that decided the design
+
+The snag costed the fix as "one line per unit" under
+`GET /api/units/actions`. Driving the real sweep in-process first showed
+why that is not the cheap option it reads as:
+
+| sweep category | unbounded units |
+|---|---|
+| **`monitored`** | **11** — `venture-*` ×4, `sportsanalyser-*` ×2, `alfred-inference`, `estate-manager-api`, `estate-manager-searxng{,-shim}`, `sysadmin-tray` |
+| `orphaned` | 4 — both PersonalAssistant units, `offline-agents-dashboard`, `ticktick-sync-db` (all disarmed) |
+| `host` | 2 — `deadlock-api-ingest` in both scopes |
+
+`classify_units` drops `monitored` units before they become findings, so
+**two thirds of the population had nothing to hang advice on**. The
+detection had existed since Session 46 — `restart_is_bounded`, and
+`restart_bounded` on every finding — and the question "which units here
+can loop for ever" was answerable for six units and invisible for every
+live service on the box.
+
+### The three decisions, taken by the owner
+
+- [x] **Scope: all of them, whoever owns the unit.** The tier already
+      advises on units this repository does not own — every
+      `unmonitored`/`host` recommendation tells you to wire another
+      project's unit. The estate rule that bites is about *writing* into
+      another repository, and a paste-ready line served over a GET is a
+      pointer. The `detail` names the owning project so the reader knows
+      whose edit it is
+- [x] **Surface: advice-only, with the count as evidence in the roll-up's
+      `details`.** Deliberately **not** added to `scan.actionable` —
+      that is the roll-up alert's title *and* the number
+      `alert_threshold` is compared against, so 13 latent risks would
+      trip it on their own and read as 13 new gaps to wire up. No alert
+      family of its own, for the reason the armed split was worth making
+- [x] **Rank: second, above `unmonitored`.** The two are competing
+      safety nets and this is the stronger one — a wedged unit is seen as
+      `unreachable` only if something polls it, whereas a reachable start
+      limit makes systemd itself say so, to a hook, whether or not this
+      service is running
+
+### What shipped
+
+- [x] **`restart_risk_findings` in `scan.py`** — a second pass over the
+      same units, not a fifth category. `units_scanned` is the sum of the
+      four buckets and a monitored unit appearing twice would break the
+      one arithmetic property `UnitScanSummary` exists to make auditable.
+      Same shape `armed` already takes: a subset reported beside the sum,
+      never inside it
+- [x] **Orphans excluded, which is the opposite of the obvious rule.** A
+      broken unit that also loops reads like the worst case and belongs
+      here twice over; it cannot, because the orphan recommendation is
+      *remove it* and a start limit on a file you should delete is two
+      contradictory instructions. Nothing is lost — an armed orphan that
+      loops is what `armed_alert_severity` already promotes to `critical`.
+      **The family ships with 13, not 17**
+- [x] **`UnitFinding` carries the three numbers the verdict came from**
+      (`restart_sec`, `start_limit_interval`, `start_limit_burst`).
+      Without them the boolean asks a reader to trust arithmetic they
+      cannot see, and the naive version of that arithmetic is wrong in
+      **both** directions. They are also what
+      `suggested_start_limit_interval` needs to name a value that fixes
+      *this* unit
+- [x] **`suggested_start_limit_interval`** — smallest round window
+      clearing `RestartSec x (burst - 1)` by 1.5x. The margin cuts the
+      opposite way from the intuition: a *longer* `StartLimitIntervalSec`
+      is a *stricter* limiter, because more starts fit inside it. Where
+      no window helps (`RestartSec` beyond an hour, `infinity`) it emits
+      **no snippet at all** and says to lower `RestartSec` instead
+- [x] **The snippet targets the unit file**, `[Unit]` section, with
+      `snippet_target` the absolute path rather than a filename so the
+      two destinations cannot be confused. First time this module has
+      emitted text for a file another repository owns
+- [x] **Scope-suffixed titles for a unit installed twice.**
+      `deadlock-api-ingest.service` is in both scopes running two
+      different binaries and both are unbounded today; two rows headed
+      identically read as one item listed twice
+
+### Two tests that are the point
+
+- [x] **The advice is fed back through the detection.** Every live
+      `RestartSec` shape gets its suggested window passed to
+      `restart_is_bounded`, which must return `True`. Detection and
+      remedy are separate arithmetic and nothing else makes them agree —
+      a remedy that clears a symptom without fixing the fault is the trap
+      `ALTER DATABASE … REFRESH COLLATION VERSION` set for the collation
+      family, and it is cheap to build here by accident
+- [x] **The snippet is appended to a real unit file and the unit
+      re-scanned**, which must leave the family. Nothing else proves the
+      two lines land in a section systemd reads them from
+
+### Verified live, then rolled back
+
+The real sweep written to `unit_audits` and read back through the
+router's rehydration: blob carries `restart_unbounded_count: 13`, the
+arithmetic inputs survive JSONB (`restart_sec=10.0`, both limits `None`),
+and `/actions` builds **25 recommendations — 6 orphan, 13 restart, 1
+unmonitored, 5 host**. Residue 0; `unit_audits` still holds 50 rows with
+the same newest `scanned_at`.
+
+### Left open
+
+- [ ] **`sysadmin.service` must be restarted** for any of this to reach
+      the live API — the sweep runs on a 6-hourly interval *inside* the
+      daemon, so a restart is the whole deploy. Two restarts are now
+      owed: this and the SearXNG entry from 2026-08-14
+- [ ] **The `host` tier still prints `deadlock-api-ingest.service`
+      twice with identical titles.** Pre-existing and untouched — its
+      snippets disambiguate via `_service_name`, so only the heading is
+      ambiguous. Filed nowhere; it is one line in `_host_recommendation`
+      if it ever annoys anyone
+- [ ] **Nothing re-checks a unit after the snippet is pasted.** The
+      family clears on the next sweep, which is up to 6 hours later, and
+      there is no "you fixed 3 of 13" signal anywhere
+
 ## Session 46: The unit sweep learns to speak ✅ (2026-08-14)
 
 _`SNAG-ESTATE-001`'s durable half, the "make an orphan finding speak"
@@ -2310,12 +2435,16 @@ wrote **2** rows — raise, dedup, escalate, hold, resolve once on clearing
       `SNAG-ESTATE-001`'s durable part. A process rather than code, and
       not this repository's to enforce — an estate convention if it is
       anyone's
-- [ ] **`SNAG-UNITS-002` — the general case, filed not fixed.** 15 of
-      the 18 units on this box with a `Restart=` policy cannot reach
-      `failed`, including every live service except `sysadmin`,
-      `alfred-backend` and `alfred-frontend`. Not alerted on: 15 rows on
-      the first run is the pile-up shape wearing a new hat. The snag
-      carries two candidate fixes and the decision each needs
+- [x] **`SNAG-UNITS-002` — the general case.** *(Fixed 2026-08-15,
+      Session 47 below.)* 15 of the 18 units on this box with a
+      `Restart=` policy cannot reach `failed`, including every live
+      service except `sysadmin`, `alfred-backend` and `alfred-frontend`.
+      Not alerted on: 15 rows on the first run is the pile-up shape
+      wearing a new hat. The snag carried two candidate fixes and the
+      decision each needed; the second was taken, and **the count was 17
+      of 20 by the time it was** — the population grows with every
+      service the estate adds, because the defect is what a
+      correctly-written unit gets by default here
 - [ ] **`sysadmin.service` must be restarted to pick this up**, and the
       **organiser** is a separate deploy path — this agent is on a
       6-hourly interval inside the daemon, so a restart is the whole

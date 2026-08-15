@@ -1,159 +1,175 @@
-# Handoff — 2026-08-14
+# Handoff — 2026-08-15
 
 ## Next action
 
-Run `sudo systemctl restart sysadmin.service` to deploy the wired SearXNG entry, which is inert until then because the daemon holds `services.yaml` in a process-wide singleton, and then take `SNAG-UNITS-002` as the next roadmap session.
+Run `sudo systemctl restart sysadmin.service` to deploy both the SearXNG entry carried over from 2026-08-14 and this session's restart-limit family, neither of which exists on the live API until the daemon reloads, and then take Session 26c (port collision detection) as the next roadmap session.
 
-## This session — SearXNG wired, the day its guard went red
+## This session — SNAG-UNITS-002, fixed as advice rather than alarm
 
-The deploy-triggered guard did its job. `tests/test_searxng_wiring.py`
-went red when estate-manager deployed SearXNG earlier on 2026-08-14, and
-the gap was closed the same day — which is the entire argument for
-pre-staging a test rather than a note.
+17 of the 20 hand-written units on this box that declare `Restart=` have
+a start limit their own restart cadence can never reach, so a crash loop
+never enters `failed`, no `OnFailure=` hook can fire, and `systemctl
+is-failed` reports nothing wrong. The estate-wide form of
+`SNAG-ESTATE-001`, whose two PersonalAssistant units restart-looped
+52,178 times in exactly that state.
 
-Suite **1631 passed, nothing skipped, nothing red** (from 1627 passed,
-1 failed on purpose, 1 skipped). Ruff and mypy clean. No migration.
+Suite **1653 passed** (from 1631), ruff and mypy clean, **no migration** —
+the family lives in the audit row's JSONB blob.
 
-### Every handed-over value was verified, and one was wrong in the direction that mattered
+### The measurement changed the design before any code was written
 
-estate-manager wrote the port, unit name, health path and status ladder
-into `tasks.md` for us. All four were checked against the live box
-rather than copied, and the check found a trap the *pre-staged block*
-had walked into — not the handover.
+The snag costed the fix as "one line per unit" under
+`GET /api/units/actions`. Driving the real sweep in-process first showed
+why that is not the cheap option it reads as:
 
-**The pre-staged block named `/healthz`.** The shim proxies unknown
-paths upstream, so `http://localhost:8600/healthz` reaches SearXNG's own
-liveness ping and returns **200 whenever the container is running,
-including when every search fails** — the one case `kind: http` was
-chosen to catch. It answers 200 right now, so that wiring would have
-looked correct on the day it landed and been blind on the day it
-mattered. `/api/health` is the only path that knows whether searching
-works: it records the outcome of every real search proxied through, with
-a background probe filling the silence.
+| sweep category | unbounded |
+|---|---|
+| **`monitored`** | **11** |
+| `orphaned` | 4 (all disarmed) |
+| `host` | 2 |
 
-### The 424/503 ladder was driven against real sockets, not read
+`classify_units` drops `monitored` units before they become findings, so
+**two thirds of the population had nothing to hang advice on**. The
+detection had existed since Session 46 — `restart_is_bounded`, and
+`restart_bounded` on every finding — and the question "which units here
+can loop for ever" was answerable for six units and invisible for every
+live service on the box. That is the same shape Session 46 removed for
+armed orphans, one layer up.
 
-Both repositories describe the mapping in prose. `_check_http` was run
-against a socket returning each code: **200 → `ok`**, **424 →
-`degraded`** (SearXNG up, searching broken), **503 → `critical`**
-(container dead). The distinction is deliberate on their side — a
-captcha'd engine is a fault off this box, a dead container is not.
+### Three decisions taken by the owner, not defaulted
 
-`_handle_status` already requires **three consecutive** degraded checks
-before raising, so the estate's request that a 424 be "worth an alert
-only if it stands" needed no work here: 15 minutes of persistence at the
-300-second interval. `auto_restart` defaults to false, so this service
-will never restart estate-manager's container out from under it.
+**Scope: all of them, whoever owns the unit.** The tier already advises
+on units this repository does not own — every `unmonitored`/`host`
+recommendation tells you to wire another project's unit. The estate rule
+that bites is about *writing* into another repository, and a paste-ready
+line served over a GET is a pointer. The `detail` names the owning
+project so the reader knows whose edit it is; 11 of the 13 belong to four
+other repositories.
 
-Live check against the running shim: `ok` in **23 ms**, body
-`status: healthy`, probe 153 s old, 20 results, no unresponsive engines.
+**Surface: advice-only, count as evidence in the roll-up's `details`.**
+Deliberately not added to `scan.actionable` — that is the roll-up alert's
+title *and* the number `alert_threshold` is compared against, so 13
+latent risks there would trip the threshold on their own and read as 13
+new gaps to wire up. No alert family of its own, for the reason the armed
+split was worth making: one row per unit is right for a fault in progress
+and wrong for a latent one.
 
-### A second entry the plan did not ask for
+**Rank: second, above `unmonitored`.** The two are competing safety nets
+and this is the stronger one — a wedged unit is seen as `unreachable`
+only if something polls it, whereas a reachable start limit makes systemd
+itself say so, to a hook, whether or not this service is running.
 
-`searxng-upstream` declares the 8601 container `monitor: false` with a
-reason. It is deliberately not checked — a dead container already
-surfaces as the shim's 503, and two entries give one fault two alert
-rows. But **omitting it from the file entirely put it in the unit
-sweep's `host` findings permanently**, where it could never be actioned
-and where "watched through the shim on purpose" is indistinguishable
-from "nobody wired it up". That is the shape `venture-chat-large`
-already carries for the same reason. Measured: host findings 9 → 8, and
-no searx unit is left unaccounted for.
+### Orphans are excluded, and that is the opposite of the obvious rule
 
-### Item 3's rationale was narrowed rather than inherited
+A broken unit that also loops reads like the worst case and belongs here
+twice over. It cannot: the orphan recommendation is *remove it*, and a
+start limit on a file you should delete is two contradictory instructions
+for one unit. Nothing is lost — an armed orphan that loops is exactly
+what `armed_alert_severity` already promotes to `critical`. **The family
+ships with 13, not 17.**
 
-`tasks.md` said no `project:` because SearXNG is "third-party software
-with no repository". **That premise no longer describes what we
-monitor**: the URL is served by estate-manager's own module and *that*
-repository has a `.project.yaml`, so the field would now resolve and the
-loader would not object.
+### The remedy is checked against the detection
 
-Put to the owner, who kept the omission on narrower ground: what this
-entry judges is whether **searching works**, and a 424 means upstream
-engines are failing off this box — not the estate-manager repository's
-fault to carry. The shim is the plumbing that makes SearXNG monitorable,
-not the thing being monitored. The guard's docstring records the
-narrowing so nobody re-derives it.
+`suggested_start_limit_interval` picks the smallest round window clearing
+`RestartSec x (burst - 1)` by 1.5x, and a test feeds every live shape back
+through `restart_is_bounded` requiring `True`. A second test appends the
+emitted snippet to a real unit file and re-scans, which is the only thing
+proving the two lines land in a section systemd reads them from.
 
-### The guard changed shape rather than retiring
+That pairing is the one thing this family was closest to getting wrong.
+Advice that clears a symptom without fixing the fault is precisely what
+`ALTER DATABASE … REFRESH COLLATION VERSION` does in `SNAG-DB-002`, and
+it is cheap to build here by accident. Where **no** window would help —
+`RestartSec` beyond an hour, or `infinity` — it emits no snippet at all
+and says to lower `RestartSec` instead, because a number that does not
+work costs the family its reader.
 
-Three things, and the third is the one worth keeping:
+**The margin cuts the opposite way from the intuition and has its own
+test**: a *longer* `StartLimitIntervalSec` is a *stricter* limiter,
+because more starts fit inside it. Anyone "tightening" it to be safe
+would make the loop more immortal.
 
-- **Its gate now separates environments, not dates.** CI has no searxng
-  unit, so the three assertions skip there and run here against the live
-  box. Before the deploy they skipped *everywhere*, which the file's own
-  comment calls worse than no test at all.
-- **`test_the_pre_staged_block_is_still_commented_out` was deleted**,
-  per its own failure message. It was gated the opposite way round and
-  would have gone red in CI the moment the block was activated — proved
-  by running the suite under an empty `HOME` rather than reasoned about.
-- **The `kind: http` assertion is stronger, not merely narrowed.** The
-  obvious fix — skip `monitor: false` entries — would let someone
-  silence the family by muting the *shim* and still pass. It now asserts
-  **exactly one** searx entry is checked before asserting that one is
-  HTTP.
+### The verdict is now checkable
 
-Both real unit names are pinned into the gate's parametrised cases.
-**Neither is any of the three spellings it guessed** — the deploy shipped
-`estate-manager-searxng-shim.service` and `estate-manager-searxng.service`
-— so the substring match is the only reason the gate fired at all, and it
-must not be "tidied" into an exact one.
+`UnitFinding` carries `restart_sec`, `start_limit_interval` and
+`start_limit_burst` — the three numbers `restart_bounded` was computed
+from. Without them the boolean asks a reader to trust arithmetic they
+cannot see, and the naive version of that arithmetic is wrong in **both**
+directions (`personalassistant-backend` declares no burst and is
+unbounded; a bare `Restart=always` declares no burst and is bounded).
 
-## Corrections to the previous handoff and STATUS.md
+### Verified live, then rolled back
 
-- STATUS.md's testing row said **1626** tests; the measured baseline was
-  **1627** passed. Corrected to the new 1631.
-- `SNAG-UNITS-002` was filed as **15 of 18** units unable to reach
-  `failed`. Re-measured live: **17 of 20**, and the two additions are the
-  SearXNG units wired this session. The defect is what a correctly
-  written unit gets *by default* on this box, so the population grows
-  with every service the estate adds — filing it as a fixed list of 15
-  understates it as a standing rule. Snag updated.
+The real sweep written to `unit_audits` and read back through the
+router's rehydration: blob carries `restart_unbounded_count: 13`, the
+arithmetic inputs survive JSONB, and `/actions` builds **25
+recommendations — 6 orphan, 13 restart, 1 unmonitored, 5 host**. Residue
+0; `unit_audits` still holds 50 rows with the same newest `scanned_at`.
 
-## Blocked / waiting on
+## The live box, checked rather than assumed
 
-- **The restart could not be run.** `sudo systemctl restart
-  sysadmin.service` needs a password and this session was
-  non-interactive. The daemon is untouched and still `active`; the
-  schema was checked at head **012** beforehand, so the restart is safe
-  when someone runs it. Until then the entry is inert — `services.yaml`
-  is loaded once into a process-wide singleton at lifespan start.
-- **Session 26c** (port-collision detection via `ss -ltnp` →
-  `/proc/<pid>/cgroup`) is unblocked but unstarted.
-- Two open alerts on the live box, both from Session 46 and both real:
-  `Orphaned unit still enabled: garmin-sync.service (user)` and
-  `Unmonitored systemd units: 14 findings`.
+- **Two deploys are owed on one restart.** The daemon has been up since
+  2026-08-14 15:03:47; the SearXNG commit landed at 23:15 and this
+  session's is later still. `/api/sysadmin/status` serves 25 services and
+  no searxng, and the open roll-up alert reads `Unmonitored systemd
+  units: 14 findings` where the current `services.yaml` gives 12 — the
+  daemon is serving from the config it loaded yesterday afternoon
+- **The alerts table is genuinely quiet**: 2 unresolved rows, both
+  `warning`, both accurate (`garmin-sync.service` armed, and the
+  roll-up). That is the whole of the 598,091-row era
+- **`project_organiser` last ran 2026-08-13 07:35 and that is correct** —
+  it left for the estate's 8400 service that day and remains in
+  `AGENT_NAMES` only because the constraint is add-only
+- **`file_organiser` has run 13 times in three days**, last 2026-08-14
+  15:04. `SNAG-AGENT-003`'s "run once in its life" was cured by Session
+  41's transaction split; the entry is still open and its symptom is not
 
-## Next session — ranked, with the reasoning
+## Next session — ranked
 
-**Sub-session actions first, because neither is a session:** the restart
-above, and `systemctl --user disable garmin-sync.service && rm` for the
-armed orphan that has been holding an alert row open since 15:04 today.
+**Sub-session actions first, because neither is a session:**
 
-1. **`SNAG-UNITS-002` — the 17 units that cannot reach `failed`.** It
-   wins because it *moved today*, and moved because of ordinary work:
-   wiring one service added two units to the population. Every other
-   candidate is static. It is also the only open item where this
-   repository's own dependency is affected — the shim now monitored can
-   restart-loop for ever without an `OnFailure=` ever firing, and the
-   `kind: http` check written today is the only thing that would notice.
-   Session 46 already built `restart_is_bounded`, so the detection
-   exists; what is missing is the decision about *saying* it, which
-   `SNAG-UNITS-002` itself records as the hard part — 17 criticals on
-   the first run is the pile-up shape wearing a new hat.
-2. **Session 27 — the log-aggregator tiers, with `SNAG-AGENT-002`.**
-   Loses because its evidence evaporated. Its case was 598,091 unresolved
-   rows; Session 42 fixed the raise rule and the live table now holds
-   **2**. The tiering is still worth building, but it is now a feature
-   rather than a fire, and it competes on merit against work that is
-   still bleeding.
-3. **Sessions 25b/25c — reliability Tiers 2–3.** Loses on the same
-   ground and one more: it is the third scorer on a box whose scoring is
-   already the best-served part of the system, and nothing on the estate
-   is currently asking for it.
+1. `sudo systemctl restart sysadmin.service` — the whole deploy for two
+   sittings' work. Two minutes, and `sudo` wants a password so it is the
+   owner's
+2. `systemctl --user enable sportsanalyser-backend.service` — carried
+   from an earlier sitting, still not done
 
-**Named as blocked rather than dropped:** `SNAG-ESTATE-002` (the
-producer's `Nudge.title`/`.message` are `@property` and `asdict` drops
-them, so `judge_attention` has still never run against a populated
-payload) needs an estate-manager change first and cannot be started
-here.
+**Recommended: Session 26c — port collision detection.**
+
+It wins on three things rather than priority. Its route is **already
+decided and measured** (2026-08-14): `ss -ltnp` unprivileged attributes
+every registry-relevant port, `/proc/<pid>/cgroup` names the unit *with
+scope in the path*, and three alternatives are rejected with reasons — so
+it is an implementation sitting, not a design one. It is the half the
+estate is **structurally blocked from**, running `ss` without `-p`, so
+nobody else will do it. And it extends what landed yesterday: Session
+26b-A gave the audit's port findings a voice, and this supplies the
+attribution that voice currently cannot make.
+
+**Runners-up, and why each lost:**
+
+- **`SNAG-UNITS-001` — the `kind: systemd` snippet has no marker saying
+  it is the weaker of two shapes.** Directly adjacent to the file this
+  session just rewrote, and the fix is one comment line. It lost because
+  it is twenty minutes, not a session — but it should be **folded into
+  26c**, which is the sitting that will know a port for every unit it
+  looks at, and is therefore the one sitting where the comment could
+  become a real `kind: http` suggestion
+- **Session 27 — log aggregator tiers, taken with `SNAG-AGENT-002`.**
+  Lost because its premise has evaporated. It was scoped against a table
+  holding 599,794 open rows; Session 42's raise rule took that to 2, and
+  the tiers were the workaround for a volume that no longer exists
+- **Session 25b/25c — reliability Tiers 2–3.** Real feature work, and it
+  loses on the question this repository keeps answering the hard way:
+  who reads it. `GET /api/services/reliability` has no consumer beyond
+  the API itself, so a narrative layer on top would be a third scorer
+  nobody polls
+
+**Named as blocked rather than dropped**: `SNAG-ESTATE-002`'s residual
+half — `judge_attention` has never been exercised against a populated
+`/api/projects/attention` payload, which has answered `{"health": [],
+"nudges": []}` on every check including after an overnight scheduled scan.
+It cannot be unblocked here; the producer's fix is delegated to
+estate-manager as its `SNAG-ESTATE-010`. `SNAG-DB-002`'s `REINDEX` half
+stays open by choice — it touches two other apps' data and wants a quiet
+window and a human.

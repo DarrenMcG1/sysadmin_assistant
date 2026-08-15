@@ -1309,6 +1309,15 @@ class UnitFindingInfo(Contract):
     enabled: bool = False
     restart: str | None = None
     restart_bounded: bool = True
+    #: The inputs to ``restart_bounded``, ``null`` where the unit
+    #: declares nothing and systemd's manager default applies
+    #: (``RestartSec=100ms``, ``StartLimitIntervalSec=10s``,
+    #: ``StartLimitBurst=5``).  Present so a consumer can check the
+    #: verdict rather than take it: the boolean is the conclusion of an
+    #: arithmetic the naive reading gets wrong in both directions.
+    restart_sec: float | None = None
+    start_limit_interval: float | None = None
+    start_limit_burst: int | None = None
     armed: bool = False
     dead_path: str | None = None
     manual: bool = False
@@ -1323,18 +1332,23 @@ class UnitRecommendationInfo(Contract):
     :class:`FileRecommendationInfo` (reclaimable megabytes).  Both of
     those rank by something directly measurable; there is no equivalent
     here, and nothing makes two host units meaningfully "twice" one
-    orphan.  Ranking is by ``kind`` alone — ``orphan``, then
-    ``unmonitored``, then ``host``.
+    orphan.  Ranking is by ``kind`` alone — ``orphan``, then ``restart``,
+    then ``unmonitored``, then ``host``.
 
-    ``snippet`` is ready-to-paste YAML and ``snippet_target`` names the
-    file it belongs in.  It is text for a human: both YAML files are
-    hand-curated and their comments carry the reasoning, so nothing here
-    ever writes to them.  An empty ``snippet`` with a null
-    ``snippet_target`` means there is nothing to wire — an orphan (remove
-    it instead) or a hand-started oneshot with no steady state to check.
+    ``snippet`` is ready-to-paste text and ``snippet_target`` names the
+    file it belongs in — services.yaml for anything being wired up, and
+    the **absolute path of the unit file** for a ``restart`` finding,
+    which is the one kind whose fix is not a config edit here.  It is
+    text for a human either way: the YAML is hand-curated and its
+    comments carry reasoning, and the unit file usually belongs to
+    another repository.  Nothing in this service ever writes to either.
+    An empty ``snippet`` with a null ``snippet_target`` means there is
+    nothing to paste — an orphan (remove it instead), a hand-started
+    oneshot with no steady state to check, or a restart cadence so wide
+    that no window would fix it.
     """
 
-    kind: str = ""  # orphan | unmonitored | host
+    kind: str = ""  # orphan | restart | unmonitored | host
     severity: str = "advice"  # risk (orphan) | advice
     unit: str = ""
     scope: str = "system"
@@ -1365,6 +1379,16 @@ class UnitScanSummary(Contract):
     break the one arithmetic property this model exists to make
     auditable.  It counts the orphans systemd will actually start, each
     of which has its own alert row.
+
+    ``restart_unbounded`` is the same shape for the same reason and cuts
+    across the buckets rather than sitting beside them: on this box 11 of
+    its 13 members are ``monitored``, which is precisely the bucket
+    ``findings`` never lists.  It counts units whose crash loop can never
+    reach ``failed`` (SNAG-UNITS-002).  **Orphans are excluded from it**
+    — their advice is "remove the unit", and a start limit on a file you
+    should delete is a contradiction, so the number is smaller than a
+    naive sweep of the box would give.  The units themselves are named
+    only by ``GET /api/units/actions``; this endpoint gives the count.
     """
 
     units_scanned: int = 0
@@ -1375,6 +1399,7 @@ class UnitScanSummary(Contract):
     unmonitored: int = 0
     host: int = 0
     armed: int = 0
+    restart_unbounded: int = 0
 
 
 class UnitScanResponse(Contract):
