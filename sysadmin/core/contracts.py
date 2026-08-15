@@ -1380,6 +1380,22 @@ class UnitScanSummary(Contract):
     auditable.  It counts the orphans systemd will actually start, each
     of which has its own alert row.
 
+    ``port_findings`` and ``port_collisions`` are not units at all and
+    are the third thing here outside the sum: they count *ports* where
+    the box and the estate's registry disagree (Session 26c).
+    ``port_collisions`` is a subset of ``port_findings`` — the live half
+    (a ``services.yaml`` entry naming a unit that does not hold the port
+    it checks, or two units on one port), each of which has its own
+    alert row.  The remainder is registry advice under
+    ``GET /api/units/actions``.
+
+    ``ports_checked`` is **false when the check could not run** — ``ss``
+    missing, or the port check disabled — and both counts are then zero
+    for a reason that is not "nothing is wrong".  Reported as its own
+    field rather than left to be inferred, because a zero that means
+    "clean" and a zero that means "did not look" are the pair this
+    repository keeps filing snags about.
+
     ``restart_unbounded`` is the same shape for the same reason and cuts
     across the buckets rather than sitting beside them: on this box 11 of
     its 13 members are ``monitored``, which is precisely the bucket
@@ -1400,6 +1416,9 @@ class UnitScanSummary(Contract):
     host: int = 0
     armed: int = 0
     restart_unbounded: int = 0
+    port_findings: int = 0
+    port_collisions: int = 0
+    ports_checked: bool = False
 
 
 class UnitScanResponse(Contract):

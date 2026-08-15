@@ -43,6 +43,7 @@ from sysadmin.core.config import get_config
 from sysadmin.core.escalation import Step, step_for
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.services import get_services
+from sysadmin.units import ports as port_check
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.recommendations import removal_command
 from sysadmin.units.scan import (
@@ -68,6 +69,22 @@ ALERT_TITLE = "Unmonitored systemd units"
 #: Belt and braces, because the cost of being wrong is a row closed by a
 #: second owner while it is still true.
 ARMED_TITLE_PREFIX = "Orphaned unit still enabled"
+
+#: Title prefix for the per-port collision family (Session 26c).  The
+#: **port** is the identity, never the kind: two kinds landing on one
+#: port are one thing to go and look at, and a title carrying the kind
+#: would fork the row the day a second kind arrives for the same port.
+#: Kept clear of ``sysadmin/monitor/agent.py``'s
+#: ``RESOLVABLE_TITLE_PATTERNS`` by construction — those are ``% <kind>``
+#: suffixes and this is a prefix ending in a number — on top of the
+#: ``Alert.agent`` scoping that already makes these rows unreachable
+#: from that sweep.
+PORT_TITLE_PREFIX = "Port collision on"
+
+
+def port_alert_title(port: int) -> str:
+    """The stable identity of one contested port."""
+    return f"{PORT_TITLE_PREFIX} {port}"
 
 
 def armed_alert_title(finding: UnitFinding) -> str:
@@ -161,8 +178,9 @@ class ServiceDiscoveryAgent(BaseAgent):
         config = get_config()
         agent_config = config.agents.service_discovery
 
-        projects = await asyncio.to_thread(self._project_refs, config)
-        wired = wired_units(get_services().services)
+        projects, aliases = await asyncio.to_thread(self._project_inputs, config)
+        services = get_services().services
+        wired = wired_units(services)
 
         user_dir = Path(agent_config.user_unit_dir).expanduser()
         system_dir = Path(agent_config.system_unit_dir)
@@ -176,6 +194,14 @@ class ServiceDiscoveryAgent(BaseAgent):
             wired,
         )
 
+        # After the sweep: the port check consumes ``scan.unit_projects``,
+        # which is the sweep's own answer to "who owns this unit".  A
+        # second matcher here would drift in the direction where a port
+        # is attributed to the wrong repository and nothing reports it.
+        report = await asyncio.to_thread(
+            self._check_ports, agent_config.ports, services, scan, aliases
+        )
+
         audit = UnitAudit(
             user_unit_dir=str(user_dir),
             system_unit_dir=str(system_dir),
@@ -186,7 +212,7 @@ class ServiceDiscoveryAgent(BaseAgent):
             orphaned_count=scan.count(ORPHANED),
             unmonitored_count=scan.count(UNMONITORED),
             host_count=scan.count(HOST),
-            findings=scan.as_findings_blob(),
+            findings={**scan.as_findings_blob(), "ports": report.as_blob()},
         )
         session.add(audit)
 
@@ -195,6 +221,7 @@ class ServiceDiscoveryAgent(BaseAgent):
         # reader who sees only one of the two alerts should be able to
         # tell that the other exists.
         armed = await self._maintain_armed_alerts(session, scan)
+        collisions = await self._maintain_port_alerts(session, report)
         alerts_raised = await self._maintain_alert(
             session, scan.actionable, agent_config.alert_threshold, scan
         )
@@ -209,12 +236,20 @@ class ServiceDiscoveryAgent(BaseAgent):
                 "host": scan.count(HOST),
                 "armed": armed["armed"],
                 "restart_unbounded": len(scan.restart_findings),
+                "port_findings": len(report.findings),
+                "port_collisions": len(report.collisions),
+                "ports_checked": report.ok,
             },
         )
 
         return AgentResult(
             findings_count=scan.actionable,
-            alerts_raised=alerts_raised + armed["raised"] + armed["escalated"],
+            alerts_raised=(
+                alerts_raised
+                + armed["raised"]
+                + armed["escalated"]
+                + collisions["raised"]
+            ),
             details={
                 "units_scanned": scan.units_scanned,
                 "units_excluded": scan.units_excluded,
@@ -234,6 +269,11 @@ class ServiceDiscoveryAgent(BaseAgent):
                 # true, so anything trending it needs the judged count
                 # beside it to tell silence from suppression.
                 "armed_standing": armed,
+                # Same reason ``armed_standing`` carries the judged count
+                # beside the raised one: with dedup in place a standing
+                # collision reports ``raised: 0``, and silence has to be
+                # tellable from suppression.
+                "port_standing": collisions,
             },
         )
 
@@ -379,6 +419,240 @@ class ServiceDiscoveryAgent(BaseAgent):
                 extra={"agent": self.name, "count": count},
             )
         return count
+
+    @staticmethod
+    def _check_ports(
+        ports_config, services, scan, aliases: dict[str, list[str]]
+    ) -> "port_check.PortReport":
+        """Observe the box's listeners and judge them against both registries.
+
+        Runs in a worker thread: it shells out to ``ss`` and reads a
+        markdown document from another repository, and this agent's
+        event loop should not wait on either.
+
+        **Every way of not-knowing produces a report carrying its
+        reason and no findings**, never a clean sweep.  That matters
+        more here than the usual because
+        :meth:`_maintain_port_alerts` resolves on what this run judged:
+        an empty success would close every open collision row on the
+        strength of a document nobody managed to read.  The estate
+        judge's rule 2, arriving from the other side.
+
+        The registry half degrades on its own — an unreadable document
+        costs the two document comparisons and leaves the two live ones
+        working, because ``ss`` answered.  A missing document is not a
+        missing box.
+        """
+        if not ports_config.enabled:
+            return port_check.PortReport(error="port check disabled in config")
+
+        document = Path(ports_config.document).expanduser()
+        claims: list[port_check.PortClaim] = []
+        registry_error: str | None = None
+        try:
+            claims = port_check.parse_port_registry(
+                document.read_text(encoding="utf-8")
+            )
+        except OSError as exc:
+            registry_error = f"could not read the port registry: {exc}"
+        else:
+            if not claims:
+                # estate-manager's own rule: an empty parse is never a
+                # conformant registry, it is a moved document or a
+                # broken parser, and reporting "no duplicate rows" off
+                # one would be the check quietly switching itself off.
+                registry_error = (
+                    f"port registry at {document} parsed to zero claimed rows"
+                )
+        if registry_error:
+            logger.warning("port_registry_unreadable", extra={"error": registry_error})
+
+        observed = port_check.observe_listeners()
+        return port_check.judge_ports(
+            observed,
+            port_check.declared_ports(services),
+            claims,
+            scan.unit_projects,
+            aliases,
+            audited_ranges=[tuple(r) for r in ports_config.audited_ranges],
+            ignore_ports=ports_config.ignore_ports,
+            registry_document=str(document),
+            registry_error=registry_error,
+        )
+
+    async def _maintain_port_alerts(self, session, report) -> dict[str, int]:
+        """One row per contested port — the live half of Session 26c.
+
+        Only :data:`~sysadmin.units.ports.COLLISION_KINDS` reach here.
+        A duplicate registry row and a mis-attributed one are documents
+        being wrong, which is debt and belongs in the ranked advice
+        beside the orphan and restart tiers; ``wrong_unit`` and
+        ``port_shared`` are the box disagreeing with itself *now* — a
+        health check green against a process the tray's restart button
+        would never touch.  That is the armed-orphan split applied a
+        third time, and it is why ``COLLISION_KINDS`` lives in
+        :mod:`sysadmin.units.ports` rather than here: the alert family
+        and the advice family must not come to disagree about which
+        findings are faults.
+
+        **A run that could not observe judges nothing and sweeps
+        nothing.**  ``report.ok`` is false when ``ss`` failed, and the
+        resolve below is scoped to what this run judged — so treating a
+        failed observation as an empty one would close every open row
+        because nobody looked.
+
+        Deduplicated on the title and swept on the **judged** set, not
+        the raised one (SNAG-AGENT-006): against a raised set a
+        deduplicating family writes nothing on run two, has its
+        still-true row closed here, and re-raises on run three, clearing
+        the tray's ``{severity}:{title}`` fingerprint on every turn.
+
+        No escalation ladder, deliberately.  ``critical`` is what the
+        tray leaves on screen and is reserved for a fault that is
+        actively costing something; a port collision is loud enough at
+        ``warning`` because it names a port and a unit, and this family
+        has never had a member on this box — a ladder tuned against zero
+        observations is a guess with a number on it.
+        """
+        if not report.ok:
+            logger.warning("port_check_unavailable", extra={"error": report.error})
+            return {"judged": 0, "raised": 0, "held": 0, "resolved": 0, "checked": False}
+
+        by_port: dict[int, list[Any]] = {}
+        for finding in report.collisions:
+            by_port.setdefault(finding.port, []).append(finding)
+
+        judged = {port_alert_title(port) for port in by_port}
+        # ``select(Alert.title)`` yields the titles themselves, not rows.
+        # Written as ``row.title`` first, which on a ``str`` silently
+        # returns the bound ``str.title`` method rather than raising — so
+        # every membership test failed and the family raised a duplicate
+        # row on every sweep.  Caught by the dedup test, not by mypy.
+        open_titles = set(
+            (
+                await session.execute(
+                    select(Alert.title).where(
+                        Alert.agent == self.name,
+                        Alert.resolved.is_(False),
+                        Alert.title.like(f"{PORT_TITLE_PREFIX}%"),
+                    )
+                )
+            ).scalars()
+        )
+
+        raised = held = 0
+        for port in sorted(by_port):
+            title = port_alert_title(port)
+            if title in open_titles:
+                held += 1
+                continue
+            # Worst kind first (``KIND_ORDER``), so the message describes
+            # the more serious of two findings and ``kinds`` names both.
+            findings = sorted(
+                by_port[port], key=lambda f: port_check.KIND_ORDER.index(f.kind)
+            )
+            worst = findings[0]
+            await self.raise_alert(
+                session,
+                severity="warning",
+                title=title,
+                message=worst.summary,
+                details={
+                    "port": port,
+                    "kinds": [f.kind for f in findings],
+                    "findings": [f.as_dict() for f in findings],
+                    "source": "port_check",
+                },
+            )
+            raised += 1
+
+        resolved = await self._resolve_uncontested(session, judged)
+        return {
+            "judged": len(judged),
+            "raised": raised,
+            "held": held,
+            "resolved": resolved,
+            "checked": True,
+        }
+
+    async def _resolve_uncontested(self, session, judged: set[str]) -> int:
+        """Close rows for ports this run did not judge contested.
+
+        Recovery here is any of four things and the statement does not
+        care which: the second listener stopped, ``services.yaml`` was
+        corrected, the unit was renamed, or the port left the config
+        entirely.  A per-port loop can only observe recovery for ports
+        it still sees a finding for — and a port that stopped colliding
+        produces no finding at all, which is exactly how the 1,664 and
+        then 51,924 orphaned rows accumulated.
+        """
+        from datetime import UTC, datetime
+
+        from sqlalchemy import update
+
+        conditions = [
+            Alert.agent == self.name,
+            Alert.resolved.is_(False),
+            Alert.title.like(f"{PORT_TITLE_PREFIX}%"),
+        ]
+        if judged:
+            conditions.append(Alert.title.notin_(sorted(judged)))
+
+        result = await session.execute(
+            update(Alert)
+            .where(*conditions)
+            .values(resolved=True, resolved_at=datetime.now(UTC))
+        )
+        count: int = result.rowcount or 0
+        if count:
+            self._queue_event(
+                "alert.resolved",
+                {
+                    "agent": self.name,
+                    "match": f"{PORT_TITLE_PREFIX} %",
+                    "count": count,
+                },
+            )
+            logger.info(
+                "port_collision_alerts_resolved",
+                extra={"agent": self.name, "count": count},
+            )
+        return count
+
+    @staticmethod
+    def _project_inputs(config) -> tuple[list[ProjectRef], dict[str, list[str]]]:
+        """Match targets and the names the estate might call each one by.
+
+        One registry load for both.  ``aliases`` maps a project's
+        directory name — the key ``scan_units`` reports in
+        ``unit_projects`` — to every string that legitimately identifies
+        it: the directory and the manifest id, which differ for a third
+        of the repositories here (``SportsAnalyser`` /
+        ``sports-analyser``).  Without it the port check would read a
+        correct registry row as a mis-attribution on naming alone.
+        """
+        registry = ServiceDiscoveryAgent._registry(config)
+        if registry is None:
+            return [], {}
+        refs = [
+            ProjectRef(name=entry.path.name, path=str(entry.path), status=entry.status)
+            for entry in registry.entries
+        ]
+        aliases = {
+            entry.path.name: [entry.path.name]
+            + ([entry.manifest.id] if entry.manifest else [])
+            for entry in registry.entries
+        }
+        return refs, aliases
+
+    @staticmethod
+    def _registry(config):
+        """The estate registry, or ``None`` when the projects root is gone."""
+        organiser_config = config.agents.project_organiser
+        root = Path(organiser_config.projects_root)
+        if not root.exists():
+            return None
+        return load_registry(root, organiser_config.discovery_depth)
 
     @staticmethod
     def _project_refs(config) -> list[ProjectRef]:

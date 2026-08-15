@@ -115,6 +115,14 @@ async def test_status_returns_summary_and_findings(test_client, mock_session):
         # subset of any one bucket — it cuts across them, and on the live
         # box 11 of its 13 members are ``monitored``.
         "restart_unbounded": 0,
+        # Session 26c, and the third field to arrive this way.  This blob
+        # has no ``ports`` block at all — the pre-26c-sweep case — so
+        # ``ports_checked`` is false and the two zeroes read as "did not
+        # look" rather than "nothing wrong", which is the distinction the
+        # flag exists to make.
+        "port_findings": 0,
+        "port_collisions": 0,
+        "ports_checked": False,
     }
     assert body["count"] == 4
     assert body["scanned_at"].startswith("2026-08-07T09:00")

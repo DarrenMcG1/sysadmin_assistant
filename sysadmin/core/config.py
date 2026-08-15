@@ -438,6 +438,53 @@ class FileOrganiserConfig(BaseModel):
     actions: FileActionsConfig = Field(default_factory=FileActionsConfig)
 
 
+class PortCheckConfig(BaseModel):
+    """Session 26c — who actually holds each port (SNAG-UNITS-001's other half).
+
+    Runs inside the unit sweep because it needs what the sweep already
+    computed: which project each unit belongs to.  It is the one part of
+    that sweep that shells out, which is why the code lives in
+    :mod:`sysadmin.units.ports` and not in the deliberately pure
+    :mod:`sysadmin.units.scan`.
+
+    ``document`` points into **another repository**, and that is the
+    unusual thing about this config block.  estate-manager's port
+    registry is a markdown table in ``monitorable-project.md``; their
+    audit reads it as its source of truth and so does this.  Reading it
+    is a pointer, not a write — the estate rule that bites is about
+    writing into another repository.  A moved or unreadable document
+    disables the two registry comparisons and says so in
+    ``findings['ports']['error']`` rather than reporting a clean sweep,
+    which is the failure mode their own check guards with "an empty
+    parse is never a conformant registry".
+
+    ``audited_ranges`` and ``ignore_ports`` **duplicate** the estate's
+    ``PortRegistryConfig``, for the reason
+    :attr:`EstateJudgeConfig.base_url` duplicates ``services.yaml``:
+    deriving them across a repository boundary would make this check go
+    silently quiet the day the other side reorganises its config.  A
+    test asserts the two agree, which is a failure someone reads rather
+    than a lookup nobody sees fail.
+    """
+
+    enabled: bool = True
+    #: The estate's port registry table.  Absolute, because this service
+    #: runs with ``WorkingDirectory`` set to its own repository.
+    document: str = (
+        "~/projects/estate-manager/docs/guides/monitorable-project.md"
+    )
+    #: The registry's jurisdiction — application backends and frontends.
+    #: Outside these, an unclaimed listener is sshd or Steam and means
+    #: nothing.  Must match estate-manager's ``audit.ports.audited_ranges``.
+    audited_ranges: list[tuple[int, int]] = Field(
+        default_factory=lambda: [(3000, 3999), (8000, 8999)]
+    )
+    #: Ports inside a range that are deliberately not governed.  Each
+    #: entry needs a reason in the yaml comment, or this becomes a place
+    #: findings go to be forgotten.
+    ignore_ports: list[int] = Field(default_factory=list)
+
+
 class ServiceDiscoveryConfig(BaseModel):
     """Session 26 — cross-reference installed units against the estate.
 
@@ -458,6 +505,7 @@ class ServiceDiscoveryConfig(BaseModel):
     # unit appears in /etc.
     system_unit_dir: str = "/etc/systemd/system"
     alert_threshold: int = 5
+    ports: PortCheckConfig = Field(default_factory=PortCheckConfig)
 
 
 class EstateJudgeConfig(BaseModel):

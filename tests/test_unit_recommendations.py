@@ -54,12 +54,17 @@ ALFRED = _Registry([_Entry("alfred", "/home/gaddi/projects/Alfred")])
 
 
 def test_orphans_rank_above_gaps_which_rank_above_host_units():
-    """All four tiers, deliberately shuffled in the input.
+    """All four *unit* tiers, deliberately shuffled in the input.
 
     ``restart`` sits second (SNAG-UNITS-002): above ``unmonitored``
     because the two are competing safety nets and a reachable start limit
     is the stronger one — systemd itself says so, to a hook, whether or
     not this service is polling.
+
+    ``KIND_ORDER``'s fifth entry, ``port``, is not a unit finding at all
+    — it comes from the stored port block, not from this list — so the
+    assertion names the four rather than the whole tuple.  Session 26c's
+    own ordering is covered in ``test_unit_ports.py``.
     """
     findings = [
         _finding("h.service", HOST),
@@ -74,7 +79,7 @@ def test_orphans_rank_above_gaps_which_rank_above_host_units():
         _finding("o.service", ORPHANED, dead_path="/gone"),
     ]
     recs = recommendations_for_scan(findings, ALFRED)
-    assert [r.kind for r in recs] == list(KIND_ORDER)
+    assert [r.kind for r in recs] == [k for k in KIND_ORDER if k != "port"]
 
 
 def test_only_orphans_are_risks():

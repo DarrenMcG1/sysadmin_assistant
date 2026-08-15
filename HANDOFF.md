@@ -2,9 +2,175 @@
 
 ## Next action
 
-Run `sudo systemctl restart sysadmin.service` to deploy both the SearXNG entry carried over from 2026-08-14 and this session's restart-limit family, neither of which exists on the live API until the daemon reloads, and then take Session 26c (port collision detection) as the next roadmap session.
+Run `sudo systemctl restart sysadmin.service` to deploy Session 26c — until it reloads, `/api/units/status` serves no `ports` block and the first port sweep has not run — and then take an execution sitting that works `GET /api/units/actions` end to end rather than adding another detector.
 
-## This session — SNAG-UNITS-002, fixed as advice rather than alarm
+## This session — Session 26c, port collision detection
+
+`sysadmin/units/ports.py` answers the question estate-manager's audit is
+**structurally unable to ask**. Their `live_listeners()` runs `ss -H
+-tln` deliberately without `-p`, on the stated grounds that *"process
+names need privileges for other users' sockets"* — true, and true only
+of *other users'*. Measured as `gaddi` on 2026-08-15: **31 listeners, 24
+attributed**, every registry-relevant port on the box named with its unit
+**and its scope**, blank only for the root-owned and containerised ones
+(5432, 1883, 631, 139/445, 8601).
+
+Suite **1701 passed** (from 1653), ruff and mypy clean, **no migration**
+— the block rides in `unit_audits.findings['ports']`.
+
+### Three registries claim a port and only one cannot lie
+
+That is the argument for the session existing here rather than in
+estate-manager, and it was not in the plan — the plan said "collision
+detection". The three are the estate's markdown table (18 rows, projects,
+no units), this repository's `services.yaml` (**11 entries carrying
+`port:` *and* `systemd: {unit, scope}`** — a hand-declared pair that has
+existed since Session 35, is read by two different checks, and had never
+been compared), and the kernel. This is the only party on the box holding
+all three.
+
+### Four comparisons, two families, and the split decides the surface
+
+`wrong_unit` and `port_shared` are the box disagreeing with itself now —
+one alert row per port, port in the title. `duplicate_claim` (invisible
+to the estate because `claimed_ports` is a `set`) and `wrong_project` are
+a document being wrong while the box is right — ranked advice, last in
+`KIND_ORDER`. The armed-orphan split applied a third time, with
+`COLLISION_KINDS` living in `ports.py` so the two surfaces cannot come to
+disagree about which findings are faults.
+
+### Everything came back clean, and that is the honest result
+
+All 11 declared port↔unit pairs agree with the live cgroup map; no port
+has two holders; no registry row is duplicated. *"Nothing on this box has
+ever collided"* is now **verified with attribution** rather than
+asserted. The one thing the check found is a registry row — 8500 is given
+to `sysadmin-service`, which is neither the manifest id
+(`sysadmin-assistant`) nor the directory (`sysadmin_assistant`). Recorded
+as **evidence, not a finding**: a row may legitimately name a
+third-party daemon (`_syncthing_` holds 8384), and telling a typo from a
+daemon needs judgement this check does not have. Filed as
+`SNAG-ESTATE-005` for its owner; not written into their repository.
+
+### Verified live, because the family ships with zero rows
+
+The estate judge's starting position, and the same answer to it. The
+whole agent path ran against the real database in a rolled-back
+transaction: the sweep stored the block, and a synthetic `wrong_unit`
+gave raise → hold → resolve across three runs, with **0 rows of
+residue**.
+
+### One bug the tests caught that mypy could not
+
+`select(Alert.title)` yields the titles themselves, and the dedup read
+them as `row.title` — which on a `str` silently returns the bound
+`str.title` **method** rather than raising. Every membership test failed,
+so the family would have raised a duplicate row on every sweep. Found by
+the "a standing collision writes one row" test on its first run, which is
+the argument for writing that test at all.
+
+### SNAG-UNITS-001 folded in, and its own premise is what changed
+
+It argued a comment was the only honest fix *because* "this scan does not
+know the unit's port". True of the sweep; no longer true of its siblings.
+The snippet now emits `kind: http` with a real url and port when the unit
+holds **exactly one** audited port, and keeps `kind: systemd` plus the
+comment otherwise (zero ports, two ports — picking one is a guess — or a
+timer, which holds no socket).
+
+Two limits, both measured rather than assumed, and both filed:
+
+- **Its population is empty today.** All 12 units holding an audited port
+  are `monitored`, which `classify_units` drops before they become
+  findings — SNAG-UNITS-002's two-thirds-invisible shape again. Driven as
+  a counterfactual (pretending `alfred-backend.service` were unwired) it
+  reproduces the hand-written entry exactly. This is advice for the
+  *next* service wired up, which is what the tier is for.
+- **The health path is a guess, and a worse one than I first wrote.**
+  `/api/health` is the contract's, and counting every declared entry
+  rather than the two in front of me gave the opposite conclusion: right
+  for **4 of 11**, wrong for **7**. Kept anyway (`SNAG-UNITS-003`),
+  because a wrong url fails **loudly** within one 300 s poll where `kind:
+  systemd` under-monitors **silently and for ever** — the trade
+  `schema_guard` makes by refusing to boot. The snippet names `/health`
+  and `/api/v1/health` so the fix is an edit rather than an
+  investigation.
+
+### Decisions taken by the owner, not defaulted
+
+All four comparisons ship (the owner added `duplicate_claim`, which I had
+offered as the weakest); collisions get an alert row rather than advice
+only; the check runs in the service-discovery agent with the block in
+JSONB rather than a migration; and the SNAG-UNITS-001 fix is a real
+`kind: http` rather than a comment.
+
+### Rejected, with reasons
+
+**Sharing estate-manager's parser**: `parse_registry` lives in
+`estate_service`, which is the *service* — only `estate-lib` is a
+dependency here — and the two parsers answer different questions anyway,
+since theirs folds rows into the `set` that makes duplicates invisible.
+**Deriving `audited_ranges` from their config**: the `base_url`
+precedent — a cross-repository lookup goes silently quiet when the other
+side reorganises, so it is duplicated and three conformance tests keep
+the two honest, including one that fails if their `live_listeners()` ever
+gains `-p` (at which point this module is a duplicate and should go).
+**Re-detecting unclaimed listeners**: the estate detects, this repository
+speaks, and Session 26b-A already gave those findings a voice — so the
+sweep's attribution *enriches* their rows in `details` instead, read from
+the stored sweep rather than a second `ss` call, and never entering the
+title or message.
+
+### Live state, checked rather than copied
+
+Two open alerts in the whole table: one armed orphan
+(`garmin-sync.service`) and the roll-up at 12 findings. `GET
+/api/units/actions` offers **6 orphans, 5 host units and 13 restart
+risks**, all with generated commands and none acted on. Three corrections
+to what STATUS.md was claiming: `sportsanalyser-backend.service` is now
+**enabled**, `pgbackrest-backup` is **wired** in `services.yaml` (so the
+host list is 5 and no longer includes the estate's only database backup),
+and the 2026-08-14 restart deployed both SearXNG and the restart family.
+
+### Blocked, named rather than dropped
+
+`SNAG-ESTATE-002`'s residual half — `judge_attention` has still never
+been exercised against a populated `/api/projects/attention` payload, and
+the producer's fix is delegated as estate-manager's `SNAG-ESTATE-010`.
+`SNAG-ESTATE-005`, raised today, is likewise their document and their
+fix.
+
+## Next session — the ranked recommendation
+
+**Sub-session action, separately and first**: `sudo systemctl restart
+sysadmin.service`. Session 26c is committed and not deployed.
+
+1. **An execution sitting — work `GET /api/units/actions` end to end.**
+   Three consecutive sittings (46, 47, 26c) have gone on making the
+   diagnosis *speak*, and the live box says nobody has answered: 6
+   orphans (one armed and enabled), 5 unwatched host units, 13 units
+   whose crash loop can never reach `failed`, 8 stale collations. That is
+   `SNAG-ESTATE-001`'s shape one level up — the alarm rings and no one
+   moves — and it would be the first sitting in a month that *removes*
+   findings. It also tests the advice against reality, which nothing has:
+   does a pasted snippet actually load, and does `restart_is_bounded`
+   clear on the next sweep? `SNAG-UNITS-002`'s own last bullet names that
+   gap.
+2. **`SNAG-DB-002`'s `REINDEX` half.** The only open *correctness* risk:
+   a B-tree built against glibc 2.43 can miss a row that is present,
+   which presents as an alert that never deduplicates or never resolves —
+   and this session added two more `title.like` lookups. Loses because it
+   is a quiet window over two other apps' 16 GB of data rather than a
+   session, and because the risk is a probability, not an observation.
+3. **Session 27 (log aggregator tiers).** Loses outright: scoped against
+   599,794 open rows, and the table now holds **2**. Sessions 25b/25c
+   (reliability Tiers 2–3) lose behind it on the question this repository
+   keeps answering the hard way — `GET /api/services/reliability` still
+   has no consumer beyond the API.
+
+---
+
+## Previous session (2026-08-15) — SNAG-UNITS-002, fixed as advice rather than alarm
 
 17 of the 20 hand-written units on this box that declare `Restart=` have
 a start limit their own restart cadence can never reach, so a crash loop

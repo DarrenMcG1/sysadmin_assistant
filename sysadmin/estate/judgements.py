@@ -547,7 +547,11 @@ JUDGED_AUDIT_CHECK = "ports"
 JUDGED_AUDIT_SEVERITY = "breach"
 
 
-def judge_audit_findings(payload: dict[str, Any], max_rows: int) -> list[Judgement]:
+def judge_audit_findings(
+    payload: dict[str, Any],
+    max_rows: int,
+    attribution: Any = None,
+) -> list[Judgement]:
     """The audit's port findings — the one family this repository speaks for.
 
     Rule 3 said the estate's findings are not this repository's alerts,
@@ -603,6 +607,22 @@ def judge_audit_findings(payload: dict[str, Any], max_rows: int) -> list[Judgeme
        ``summary`` is the message, so its wording can change without
        moving the identity.
 
+    **``attribution`` is Session 26c's half, and it is the answer to
+    the question this family could not previously ask.**  The estate's
+    check runs ``ss`` deliberately without ``-p``, so a breach says
+    *"port 3300 is listening and no row claims it"* and stops there —
+    which is the sentence a reader has to go and resolve by hand
+    before they can do anything.  The unit sweep already reads
+    ``/proc/<pid>/cgroup`` for every listener, so the holder is a
+    lookup rather than a second subprocess.  Two rules: it is added to
+    ``details`` and **never to the title or the message**, because the
+    identity of this row belongs to the producer and a holder that
+    changes between sweeps must not fork it; and it carries
+    ``observed_at``, since the sweep runs six-hourly and the judge
+    hourly, so the attribution can legitimately be five hours older
+    than the breach it annotates.  Absent attribution changes nothing —
+    the family behaves exactly as it did before.
+
     ``standing_days`` and ``runs_observed`` are carried through because
     the estate computes them and this module owns no clock — the same
     reason every age here arrives in the payload.  ``age_truncated``
@@ -650,6 +670,7 @@ def judge_audit_findings(payload: dict[str, Any], max_rows: int) -> list[Judgeme
                     "ports": ports,
                     "breach_count": len(breaches),
                     "max_rows": max_rows,
+                    "holders": _holders_for(ports, attribution),
                 },
             )
         ]
@@ -668,10 +689,28 @@ def judge_audit_findings(payload: dict[str, Any], max_rows: int) -> list[Judgeme
                 "age_truncated": finding.get("age_truncated"),
                 "first_seen_at": finding.get("first_seen_at"),
                 "audit_summary": finding.get("summary"),
+                "holder": attribution.of(port) if attribution is not None else None,
             },
         )
         for port, finding in breaches
     ]
+
+
+def _holders_for(ports: list[int], attribution: Any) -> dict[str, Any]:
+    """Holders for the roll-up row, keyed by port as a string.
+
+    JSONB keys are strings, so an int-keyed dict comes back from the
+    database with string keys and a consumer comparing against
+    ``details['ports']`` would silently miss every one.  Written that
+    way here rather than discovered on a read.
+    """
+    if attribution is None:
+        return {}
+    return {
+        str(port): holder
+        for port in ports
+        if (holder := attribution.of(port)) is not None
+    }
 
 
 def _port_of(finding: dict[str, Any]) -> int | None:

@@ -697,9 +697,55 @@ monitor own a cross-repo convention document, against the estate rules.
       can say a port is taken and never by whom. Duplicate registry rows
       also slip through it — `claimed_ports` is a `set`
 
-### Session 26c: Port collision detection (split out 2026-08-14)
+### ✅ Session 26c: Port collision detection (done 2026-08-15)
 
-**Not started. Nothing on this box has ever collided** — every listening
+**Done. `sysadmin/units/ports.py` ships four comparisons in two
+families**, the alert half with zero rows on this box and the advice half
+with zero too — which is the honest result and was the expected one.
+Suite **1701 passed** (from 1653), ruff and mypy clean, **no migration**
+(the block rides in `unit_audits.findings['ports']`).
+
+- [x] `ss -H -ltnp` → `/proc/<pid>/cgroup`, unprivileged, scope from the
+      path. 31 listeners, **24 attributed**, 12 units holding a port in
+      the registry's range. Blank only for root-owned and containerised
+      sockets (5432, 1883, 631, 139/445, 8601)
+- [x] **`wrong_unit`** — a `services.yaml` entry whose declared
+      `systemd.unit` does not hold the `port:` it checks. 11 declared
+      pairs on this box, **all 11 agree**; the pair has been in the file
+      since Session 35 and had never been checked, so an `http` probe
+      could be green against a process the tray's restart button would
+      never touch
+- [x] **`port_shared`** — two distinct units on one port. Dual-stack
+      dedup on `(port, pid)` first, without which this fires on every v4
+      +v6 server on the box
+- [x] **`duplicate_claim`** — two registry rows claiming one port. This
+      is the one the estate cannot see: `claimed_ports` is a `set`, so a
+      shared parser would have to return what their check discards
+- [x] **`wrong_project`** — the table's project against the one the
+      sweep matched the holding unit to, through an alias map (directory
+      name *and* manifest id, which differ for a third of the repos).
+      Found one thing on a clean box: 8500's row says `sysadmin-service`,
+      which is neither. Recorded as evidence, filed as `SNAG-ESTATE-005`
+      for its owner
+- [x] **One alert row per contested port**, port in the title, dedup +
+      resolve on the judged set, no escalation ladder. Verified live in a
+      rolled-back transaction: raise → hold → resolve, **0 residue**
+- [x] **Advice for the document half**, ranked last in `KIND_ORDER` —
+      the only kind where nothing here is broken or unwatched
+- [x] **`SNAG-UNITS-001` folded in**: the snippet emits `kind: http` with
+      a real url and port when the unit holds exactly one audited port.
+      Population is empty today (all 12 are `monitored`); the
+      counterfactual reproduces the hand-written entry exactly
+- [x] The estate judge's port breaches carry the holder in `details`,
+      read from the stored sweep rather than a second `ss` call
+- [x] Conformance tests against estate-manager's checkout: audited
+      ranges, the document path, and that their `live_listeners()` still
+      runs `ss` without `-p` — if it ever does not, this module is a
+      duplicate and should go
+
+**Original entry, kept because its route survived contact.**
+
+**Nothing on this box has ever collided** — every listening
 port appears exactly once, and 8080 is the only contended default and is
 already annotated in the registry. That is the honest argument for it
 being a session of its own rather than folded into 26b-A, which gave

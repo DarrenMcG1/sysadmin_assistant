@@ -41,6 +41,17 @@ router = APIRouter(prefix="/api/units", tags=["units"])
 NO_SCAN_YET = "No unit sweep yet — the service_discovery agent has not run."
 
 
+def _ports(audit: UnitAudit) -> dict:
+    """The stored port block, or an empty one.
+
+    Empty for every sweep written before Session 26c, which reports
+    ``ports_checked: false`` — correct, and the same answer a failed
+    ``ss`` gives.
+    """
+    block = (audit.findings or {}).get("ports")
+    return block if isinstance(block, dict) else {}
+
+
 async def _latest_audit(session: AsyncSession) -> UnitAudit:
     audit = (
         await session.execute(
@@ -190,6 +201,13 @@ async def get_unit_status(
             restart_unbounded=int(
                 (audit.findings or {}).get("restart_unbounded_count") or 0
             ),
+            # Same rule a third time.  ``ports_checked`` is read rather
+            # than inferred from the counts: a sweep whose ``ss`` call
+            # failed reports zero findings, and zero-because-clean must
+            # not be served as the same answer as zero-because-blind.
+            port_findings=int(_ports(audit).get("findings_count") or 0),
+            port_collisions=int(_ports(audit).get("collisions_count") or 0),
+            ports_checked=bool(_ports(audit).get("ok")),
         ),
         findings=[UnitFindingInfo(**f.as_dict()) for f in findings],
         count=len(findings),
@@ -201,7 +219,8 @@ async def get_unit_status(
 async def get_unit_actions(
     limit: int = Query(10, ge=1, le=100),
     kind: str | None = Query(
-        None, description="orphan | restart | unmonitored | host — omit for all four"
+        None,
+        description="orphan | restart | unmonitored | host | port — omit for all five",
     ),
     session: AsyncSession = Depends(get_db_session),
 ) -> UnitActionsResponse:
@@ -228,6 +247,12 @@ async def get_unit_actions(
         # the restart family at all.
         _findings_from(audit) + _restart_findings_from(audit),
         load_registry(config.agents.project_organiser.projects_root),
+        # The stored port observation: it upgrades a wired-up snippet
+        # from ``kind: systemd`` to a real ``kind: http`` and carries
+        # the registry-disagreement advice.  Absent on any sweep stored
+        # before Session 26c, which is why the builder reads it
+        # defensively rather than this route refusing to answer.
+        ports=(audit.findings or {}).get("ports"),
     )
     if kind is not None:
         recs = [r for r in recs if r.kind == kind]

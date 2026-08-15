@@ -30,10 +30,20 @@ Ranked, worst first:
    something polls it, whereas a reachable start limit makes systemd
    itself say so, to a hook, whether or not this service is running.
 3. ``unmonitored`` — a live project's unit that nothing watches.
-4. ``host`` — hand-written infrastructure with no project.  Last not
-   because it matters least (``pgbackrest-backup`` is the estate's only
-   database backup) but because it is a documentation gap rather than a
-   defect: the unit is running fine, nobody is watching.
+4. ``host`` — hand-written infrastructure with no project.  Last of the
+   unit kinds not because it matters least (``pgbackrest-backup`` is the
+   estate's only database backup) but because it is a documentation gap
+   rather than a defect: the unit is running fine, nobody is watching.
+5. ``port`` (Session 26c) — the estate's port registry disagrees with
+   the box: one port claimed by two rows, or a row attributing a port to
+   a project that does not own the unit holding it.  **Last, and it is
+   the only kind where nothing on this box is broken or unwatched** —
+   the document is wrong and the box is right.  It is reported here
+   because estate-manager's audit is *structurally* unable to see
+   either case (it folds the table into a ``set`` and runs ``ss``
+   without ``-p``), not because it outranks a unit nobody is watching.
+   The live half of that check does not appear here at all: a port held
+   by the wrong unit is a fault in progress and gets its own alert row.
 
 **Never auto-edit the config.**  services.yaml is hand-curated and its
 comments carry reasoning a writer would flatten.  Advice only: the
@@ -63,11 +73,12 @@ Pure module: no DB, no FastAPI.  Give it findings, get advice.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from typing import Any
 
 from sysadmin.core.contracts import UnitRecommendationInfo
+from sysadmin.units.ports import DUPLICATE_CLAIM
 from sysadmin.units.scan import (
     DEFAULT_RESTART_SEC,
     DEFAULT_START_LIMIT_BURST,
@@ -80,7 +91,7 @@ from sysadmin.units.scan import (
 
 #: Rank order.  Index into this is the sort key, so the list *is* the
 #: policy — there is no second place stating it differently.
-KIND_ORDER = ("orphan", "restart", "unmonitored", "host")
+KIND_ORDER = ("orphan", "restart", "unmonitored", "host", "port")
 
 _KIND_FOR_CATEGORY = {
     ORPHANED: "orphan",
@@ -107,19 +118,30 @@ START_LIMIT_MARGIN = 1.5
 def recommendations_for_scan(
     findings: Sequence[UnitFinding],
     registry: Any = None,
+    ports: Mapping[str, Any] | None = None,
 ) -> list[UnitRecommendationInfo]:
     """Ranked advice for one unit sweep.
 
     ``registry`` is consulted only to decide *where* a snippet
     should go — whether the finding's project already has a manifest
     entry to extend.  It is never written to.
+
+    ``ports`` is the stored ``findings['ports']`` blob and does two
+    unrelated jobs, both of which need a port and neither of which the
+    sweep could do before Session 26c: it upgrades a wired-up snippet
+    from the liveness-only ``kind: systemd`` to a real ``kind: http``
+    (SNAG-UNITS-001), and it contributes the registry-disagreement
+    advice.  ``None`` — a sweep stored before 26c, or one whose ``ss``
+    call failed — degrades to exactly the behaviour that shipped
+    before, which is why every read of it is defensive.
     """
     known = _project_ids(registry)
     # Computed here, once, so every snippet for a two-scope unit agrees
     # on the disambiguated name.
     duplicates = duplicate_units(findings)
+    held = _held_ports(ports)
 
-    paired = [(f, _recommend(f, known, duplicates)) for f in findings]
+    paired = [(f, _recommend(f, known, duplicates, held)) for f in findings]
     # Armed orphans first *within* the orphan tier.  This is a
     # sub-ordering on a measured fact, not the invented currency the
     # module docstring refuses: an orphan systemd starts is failing
@@ -134,7 +156,27 @@ def recommendations_for_scan(
             pair[1].unit,
         )
     )
-    return [rec for _, rec in paired]
+    ranked = [rec for _, rec in paired]
+    # Appended rather than sorted in: ``port`` is last in ``KIND_ORDER``
+    # and has no unit to tie-break on, so the sort key above does not
+    # describe it.  Its own order is the one ``judge_ports`` already
+    # applied — worst kind, then port ascending.
+    ranked.extend(_port_recommendations(ports))
+    return ranked
+
+
+def _held_ports(ports: Mapping[str, Any] | None) -> dict[str, list[int]]:
+    """``"scope:unit"`` → the audited ports it holds, from the stored blob."""
+    if not ports:
+        return {}
+    raw = ports.get("unit_audited_ports") or {}
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(key): [int(p) for p in value]
+        for key, value in raw.items()
+        if isinstance(value, list)
+    }
 
 
 def _project_ids(registry: Any) -> dict[str, str]:
@@ -155,7 +197,10 @@ def _project_ids(registry: Any) -> dict[str, str]:
 
 
 def _recommend(
-    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
+    finding: UnitFinding,
+    known: dict[str, str],
+    duplicates: set[str],
+    held: Mapping[str, Sequence[int]] = (),  # type: ignore[assignment]
 ) -> UnitRecommendationInfo:
     kind = _KIND_FOR_CATEGORY.get(finding.category, "host")
     builder = {
@@ -164,7 +209,7 @@ def _recommend(
         "unmonitored": _unmonitored_recommendation,
         "host": _host_recommendation,
     }[kind]
-    return builder(finding, known, duplicates)
+    return builder(finding, known, duplicates, held)
 
 
 # --------------------------------------------------------------------------
@@ -173,7 +218,10 @@ def _recommend(
 
 
 def _orphan_recommendation(
-    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
+    finding: UnitFinding,
+    known: dict[str, str],
+    duplicates: set[str],
+    held: Mapping[str, Sequence[int]] = (),  # type: ignore[assignment]
 ) -> UnitRecommendationInfo:
     """Advice for a unit whose project is gone.
 
@@ -249,7 +297,10 @@ def suggested_start_limit_interval(
 
 
 def _restart_recommendation(
-    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
+    finding: UnitFinding,
+    known: dict[str, str],
+    duplicates: set[str],
+    held: Mapping[str, Sequence[int]] = (),  # type: ignore[assignment]
 ) -> UnitRecommendationInfo:
     """Advice for a unit whose crash loop can never reach ``failed``.
 
@@ -395,10 +446,13 @@ def _start_limit_snippet(finding: UnitFinding, interval: float, burst: int) -> s
 
 
 def _unmonitored_recommendation(
-    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
+    finding: UnitFinding,
+    known: dict[str, str],
+    duplicates: set[str],
+    held: Mapping[str, Sequence[int]] = (),  # type: ignore[assignment]
 ) -> UnitRecommendationInfo:
     """Advice for a live project's unwatched unit."""
-    target, snippet = _snippet_for(finding, known, duplicates)
+    target, snippet = _snippet_for(finding, known, duplicates, held)
     where = target or "services.yaml"
 
     detail = f"{finding.reason}."
@@ -431,10 +485,13 @@ def _unmonitored_recommendation(
 
 
 def _host_recommendation(
-    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
+    finding: UnitFinding,
+    known: dict[str, str],
+    duplicates: set[str],
+    held: Mapping[str, Sequence[int]] = (),  # type: ignore[assignment]
 ) -> UnitRecommendationInfo:
     """Advice for hand-written infrastructure with no project."""
-    target, snippet = _snippet_for(finding, known, duplicates)
+    target, snippet = _snippet_for(finding, known, duplicates, held)
 
     detail = (
         f"{finding.description or finding.unit} is a hand-written unit under "
@@ -499,7 +556,10 @@ def removal_command(finding: UnitFinding) -> str:
 
 
 def _snippet_for(
-    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
+    finding: UnitFinding,
+    known: dict[str, str],
+    duplicates: set[str],
+    held: Mapping[str, Sequence[int]] = (),  # type: ignore[assignment]
 ) -> tuple[str | None, str]:
     """``(target_file, snippet)`` for a finding worth wiring up.
 
@@ -514,26 +574,74 @@ def _snippet_for(
         # check, so a monitor would report it dead almost always.
         return None, ""
 
-    return "services.yaml", _services_yaml_snippet(finding, known, duplicates)
+    return "services.yaml", _services_yaml_snippet(finding, known, duplicates, held)
 
 
 def _services_yaml_snippet(
-    finding: UnitFinding, known: dict[str, str], duplicates: set[str]
+    finding: UnitFinding,
+    known: dict[str, str],
+    duplicates: set[str],
+    held: Mapping[str, Sequence[int]] = (),  # type: ignore[assignment]
 ) -> str:
     """A services.yaml entry for one unwired unit.
 
-    ``kind: systemd`` rather than ``http``: this scan does not know the
-    unit's port, and a systemd check needs no url. A timer gets
-    ``kind: timer``, which is the declaration that stops its oneshot
-    service being checked, and ``controllable: false``, because start and
-    stop from the tray would arm or disarm a schedule rather than restart
-    something.
+    **``kind: http`` when the port is known, ``kind: systemd`` when it
+    is not** (SNAG-UNITS-001, fixed in Session 26c).  A ``systemd``
+    check asserts only that the unit is *active*, and a backend that is
+    running while every request 500s is active, healthy by that check,
+    and broken — the failure an HTTP service is most likely to have and
+    the only one a unit check structurally cannot see.  The snag's own
+    proposed fix was a comment saying so, on the grounds that *"this
+    scan does not know the unit's port"*.  That sentence was true of
+    the sweep and is no longer true of the sweep's siblings:
+    :mod:`sysadmin.units.ports` reads ``/proc/<pid>/cgroup`` for every
+    listener, and on this box all twelve attributed units hold exactly
+    one port in the registry's range.
+
+    Three rules, because the upgrade is only an improvement if it is
+    narrow:
+
+    1. **Exactly one audited port, or no upgrade.**  Two ports means
+       guessing which one is the service, and a url pointing at the
+       wrong one produces a check that alerts about something real
+       happening somewhere else.
+    2. **The health path is the contract's, and the snippet says so
+       twice.**  The sweep observes a *port*; it never fetches, so
+       ``/api/health`` is what
+       ``docs/guides/monitorable-project.md`` requires rather than what
+       this unit was seen to answer.  Measured on 2026-08-15, that
+       default is **right for 4 of the 11 services declared here and
+       wrong for 7** — three llama-servers on ``/health``,
+       ``sports_analyser`` on ``/api/v1/health``, ``sysadmin`` itself on
+       ``/health``, and two frontends with no path at all.  Kept anyway,
+       and the reason is this repository's own standing preference:
+       a wrong url fails *loudly* within one poll of pasting it, where
+       ``kind: systemd`` under-monitors silently for ever, which is
+       SNAG-UNITS-001 itself.  The comment names the two other shapes in
+       use so the fix is one edit rather than an investigation.  Filed
+       as ``SNAG-UNITS-003`` with the candidate fix (probe once when the
+       snippet is generated) and the reason it was not taken here.
+    3. **The comment survives the downgrade.**  Where no port is known
+       the entry still says a url would buy a real check, because the
+       reader pasting it is the person who knows what the unit serves.
+
+    A timer gets ``kind: timer``, which is the declaration that stops
+    its oneshot service being checked, and ``controllable: false``,
+    because start and stop from the tray would arm or disarm a schedule
+    rather than restart something.  Timers are never upgraded: a timer
+    holds no socket, and the oneshot behind it is not running when the
+    check would look.
 
     ``project:`` is emitted only when the project is *declared* — an id
     no manifest claims fails at load, so guessing one would turn advice
     into an outage.
     """
     is_timer = finding.monitor_unit.endswith(".timer")
+    # Keyed on the unit that holds the socket, which is ``unit`` and not
+    # ``monitor_unit``: for a folded oneshot those differ, and the timer
+    # never listens.  ``is_timer`` short-circuits it anyway; the lookup
+    # is written this way so it stays right if that ever changes.
+    port = _sole_port(held, finding.scope, finding.unit) if not is_timer else None
     lines = [
         f"  # {finding.description}" if finding.description else None,
     ]
@@ -548,7 +656,24 @@ def _services_yaml_snippet(
                 f"    # {finding.project} has no .project.yaml manifest, so it "
                 "has no id to reference yet"
             )
-    lines.append(f"    kind: {'timer' if is_timer else 'systemd'}")
+    if is_timer:
+        lines.append("    kind: timer")
+    elif port is not None:
+        lines.append("    kind: http")
+        lines.append(
+            f"    url: http://localhost:{port}/api/health"
+            "   # observed port; path is the contract's default"
+        )
+        lines.append(
+            "    # check it answers — /health and /api/v1/health are both in use here"
+        )
+        lines.append(f"    port: {port}")
+    else:
+        lines.append("    kind: systemd")
+        lines.append(
+            "    # no listening port attributed to this unit — if it serves HTTP, "
+            "use kind: http with a url; kind: systemd only asserts the unit is active"
+        )
     lines.append(
         f"    systemd: {{ unit: {finding.monitor_unit}, scope: {finding.scope} }}"
     )
@@ -559,6 +684,111 @@ def _services_yaml_snippet(
     else:
         lines.append("    log: { type: journalctl, severity_filter: warning }")
     return "\n".join(line for line in lines if line)
+
+
+def _port_recommendations(
+    ports: Mapping[str, Any] | None,
+) -> list[UnitRecommendationInfo]:
+    """Advice for the registry disagreements — the half that does not alert.
+
+    Only the non-collision kinds reach here.  ``wrong_unit`` and
+    ``port_shared`` describe the box disagreeing with itself now and get
+    an alert row each; ``duplicate_claim`` and ``wrong_project``
+    describe a document that is wrong while the box is right, which is
+    debt and belongs beside the orphan and restart tiers.  The split is
+    read off :data:`~sysadmin.units.ports.COLLISION_KINDS` rather than
+    restated, so the alert family and this list cannot come to disagree
+    about which findings are faults.
+
+    **No snippet, deliberately**, and this is the one advice kind with
+    none.  The fix is a row in another repository's markdown table and
+    the correct row needs the prose in its role column — inventing that
+    would be this service writing an estate document rather than
+    pointing at one, and the estate rule about writes into another
+    repository is the one boundary this tier has stayed inside while
+    happily emitting text for other projects' unit files.  ``action``
+    names the document and the line instead.
+    """
+    if not ports:
+        return []
+    raw = ports.get("findings")
+    if not isinstance(raw, list):
+        return []
+    document = ports.get("registry_document") or "the port registry"
+
+    recs: list[UnitRecommendationInfo] = []
+    for item in raw:
+        if not isinstance(item, dict) or item.get("collision"):
+            continue
+        raw_detail = item.get("detail")
+        detail: dict[str, Any] = raw_detail if isinstance(raw_detail, dict) else {}
+        port = item.get("port")
+        kind = item.get("kind")
+        if kind == DUPLICATE_CLAIM:
+            lines = detail.get("rows") or []
+            where = ", ".join(
+                f"line {row.get('line')} ({row.get('project')})"
+                for row in lines
+                if isinstance(row, dict)
+            )
+            action = (
+                f"Two rows of {document} claim port {port} — {where}. "
+                "Decide which is current and delete or renumber the other; "
+                "the estate's audit folds the table into a set and cannot "
+                "report this."
+            )
+            title = f"Port {port} is claimed twice in the registry"
+        else:
+            action = (
+                f"{document} line {detail.get('registry_line')} gives port "
+                f"{port} to {detail.get('registry_project')}; the unit holding "
+                f"it ({detail.get('holding_unit')}) belongs to "
+                f"{detail.get('actual_project')}. Correct the row, or move the "
+                "service to the port its own row claims."
+            )
+            title = f"Port {port} is attributed to the wrong project"
+
+        # ``holding_unit`` is the sweep's ``"<scope>:<unit>"`` key, and
+        # the contract splits the two — scope is part of a unit's
+        # identity here, not decoration.  A duplicate registry row has
+        # no holder at all, which is why both sides default rather than
+        # being parsed out of an empty string.
+        holder = str(detail.get("holding_unit") or "")
+        unit_scope, _, unit_name = holder.partition(":") if ":" in holder else ("user", "", "")
+
+        recs.append(
+            UnitRecommendationInfo(
+                kind="port",
+                severity="advice",
+                unit=unit_name,
+                scope=unit_scope,
+                project=detail.get("actual_project"),
+                monitor_unit="",
+                title=title,
+                detail=str(item.get("summary") or ""),
+                action=action,
+                snippet="",
+                snippet_target=None,
+            )
+        )
+    return recs
+
+
+def _sole_port(
+    held: Mapping[str, Sequence[int]], scope: str, unit: str
+) -> int | None:
+    """The one audited port this unit holds, or ``None``.
+
+    ``None`` for zero ports (nothing listening, or a root-owned socket
+    ``ss`` would not attribute) and for two or more (which one is the
+    service is a guess).  Both collapse to "make no claim" for the
+    reason :func:`~sysadmin.units.scan.parse_timespan` returns ``None``
+    rather than zero: advice built on a guess costs more than no advice.
+    """
+    if not held:
+        return None
+    ports = held.get(f"{scope}:{unit}") or ()
+    return int(ports[0]) if len(ports) == 1 else None
 
 
 def _service_name(finding: UnitFinding, duplicates: AbstractSet[str] = frozenset()) -> str:

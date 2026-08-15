@@ -59,6 +59,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 from sqlalchemy import select, update
@@ -68,6 +69,8 @@ from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import EstateJudgeConfig, get_config
 from sysadmin.core.models.alert import Alert
 from sysadmin.estate import client, judgements
+from sysadmin.units.models import UnitAudit
+from sysadmin.units.ports import PortAttribution, attribution_from_blob
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +125,7 @@ class EstateJudgeAgent(BaseAgent):
             )
 
         # --- 2. Judge, purely -------------------------------------------
-        judged = self._judge(results, config)
+        judged = self._judge(results, config, await self._attribution(session))
         current = {j.title for j in judged}
 
         # --- 3. Raise and resolve, in one transaction -------------------
@@ -170,7 +173,10 @@ class EstateJudgeAgent(BaseAgent):
         )
 
     def _judge(
-        self, results: dict[str, client.SurfaceResult], config: EstateJudgeConfig
+        self,
+        results: dict[str, client.SurfaceResult],
+        config: EstateJudgeConfig,
+        attribution: Any = None,
     ) -> list[judgements.Judgement]:
         """Every surface that answered, through its own rules.
 
@@ -199,13 +205,43 @@ class EstateJudgeAgent(BaseAgent):
             )
         if (payload := payloads.get("audit_findings")) is not None:
             out += judgements.judge_audit_findings(
-                payload, config.port_breach_max_rows
+                payload, config.port_breach_max_rows, attribution
             )
         if (payload := payloads.get("queue_invariants")) is not None:
             out += judgements.judge_queue_invariants(
                 payload, config.queue_max_depth, config.queue_max_wait_seconds
             )
         return out
+
+    async def _attribution(self, session) -> PortAttribution:
+        """Who held each port, from the newest stored unit sweep.
+
+        **A read across a domain boundary, and it is deliberate.**  The
+        alternative is running ``ss`` here, which would give two answers
+        to one question at two different moments — this agent polls
+        hourly and the sweep runs every six hours — with neither surface
+        saying which one it used.  So the sweep owns the observation and
+        this reads it, carrying ``observed_at`` so the age is visible
+        rather than assumed.
+
+        Failure is silent by design: an unreadable or absent sweep costs
+        the ``details['holder']`` annotation and nothing else.  This
+        family judged ports before Session 26c and must keep judging
+        them if the sweep has never run — the enrichment is not allowed
+        to become a dependency of the alert.
+        """
+        audit = (
+            await session.execute(
+                select(UnitAudit).order_by(UnitAudit.scanned_at.desc()).limit(1)
+            )
+        ).scalar_one_or_none()
+        if audit is None:
+            return PortAttribution()
+        block = (audit.findings or {}).get("ports")
+        return attribution_from_blob(
+            block if isinstance(block, dict) else None,
+            audit.scanned_at.isoformat() if audit.scanned_at else None,
+        )
 
     async def _open_alerts(self, session) -> list[Alert]:
         """This agent's unresolved rows.

@@ -1064,6 +1064,96 @@ What this deliberately does **not** do is the general case:
 except `sysadmin`, `alfred-backend` and `alfred-frontend`. Fifteen rows
 on the first run is the pile-up shape wearing a new hat.
 
+**Three registries claim a port and only one of them cannot lie**
+(Session 26c). `sysadmin/units/ports.py` is a sibling of `scan.py`, not
+part of it — that module's no-subprocess promise is load-bearing and was
+re-verified in Session 46. The three are the estate's markdown table in
+`monitorable-project.md` (18 rows, project granularity, no units), this
+repository's `services.yaml` (11 entries carrying **both** `port:` and
+`systemd: {unit, scope}`, a hand-declared pair nothing had ever checked),
+and the kernel via `ss -H -ltnp` → `/proc/<pid>/cgroup`.
+
+estate-manager compares the first against the third and is
+**structurally blocked from the interesting half**: its `live_listeners()`
+runs `ss` deliberately without `-p`, on the stated grounds that *"process
+names need privileges for other users' sockets"* — true, and true only of
+*other users'*. Measured as `gaddi` on 2026-08-15: every
+registry-relevant port on the box came back with a pid, and the cgroup
+path names the unit **with scope in it** (`…/user@1000.service/app.slice/`
+against `/system.slice/`) — the scope-aware identity `services.yaml`
+already keys on, for free. Blank only for root-owned and containerised
+sockets: 5432, 1883, 631, 139/445 and 8601. A test pins their `ss`
+invocation, because if the estate ever adds `-p` this module is a second
+implementation of their check rather than the half they cannot do, and
+the right move then is to delete it.
+
+**Four comparisons in two families, and the split decides the surface.**
+`wrong_unit` (services.yaml says port P is unit U; the cgroup says V) and
+`port_shared` (two units, one port) are the box disagreeing with itself
+now — one alert row each, port in the title. `duplicate_claim` (two
+registry rows, one port — invisible to the estate because `claimed_ports`
+is a `set`) and `wrong_project` (the table's project against the one the
+sweep matched the holding unit to) are a document being wrong while the
+box is right — ranked advice, last in `KIND_ORDER`. That is the
+armed-orphan split applied a third time, and `COLLISION_KINDS` lives in
+`ports.py` rather than in the agent so the alert family and the advice
+list cannot come to disagree about which findings are faults.
+
+Six rules, four of them the opposite of the obvious implementation:
+
+1. **Not-knowing is never a finding, and this fails _open_** — the
+   `collation.py` posture, not `schema_guard`'s. An unattributed listener
+   is compared against nothing; 8601 alone would otherwise produce a
+   false positive on every sweep. A registry row naming something that is
+   no project here (`_syncthing_`, and today `sysadmin-service` for 8500)
+   lands in `unknown_registry_projects` as evidence: "wrong project" and
+   "not a project" are different faults and only the first is ours.
+   Filed as `SNAG-ESTATE-005` for the owner, never fixed here.
+2. **A failed observation is not an empty one.** `ss` missing yields a
+   report carrying the error and no findings, and `_maintain_port_alerts`
+   then neither raises nor sweeps — the estate judge's rule 2, because a
+   sweep scoped to a payload nobody received closes every row on the
+   strength of not having looked. The registry half degrades separately:
+   an unreadable document costs the two document comparisons and leaves
+   the two live ones working, carried as `registry_error` beside `error`.
+3. **A dual-stack listener is one holder.** A port bound on v4 and v6
+   prints twice with the same pid, so `(port, pid)` is deduplicated —
+   without it `port_shared` fires on every dual-stack server on the box
+   and the family's first live run is entirely false positives.
+4. **The port is the identity, never the kind.** Two kinds on one port
+   are one thing to go and look at; a title carrying the kind forks the
+   row the day a second kind arrives. Session 46's rule and
+   `judgements.py` rule 5 meeting from opposite directions.
+5. **The sweep's exclusion set is what the run judged**, not what it
+   raised — the third time this repository has written that down.
+6. **No escalation ladder, deliberately.** `critical` is what the tray
+   leaves on screen and is reserved for a fault costing something now;
+   this family has never had a member on this box, and a ladder tuned
+   against zero observations is a guess with a number on it.
+
+Verified live rather than only against fixtures, because the family
+ships with **zero rows** — the same starting position as the estate
+judge's. The whole agent path was driven against the real database in a
+rolled-back transaction: the sweep stored `ports` with 31 listeners, 24
+attributed and 12 units holding an audited port; a synthetic `wrong_unit`
+then gave raise → hold → resolve across three runs, with **0 rows of
+residue** after rollback.
+
+`GET /api/units/status` gains `port_findings`, `port_collisions` and
+**`ports_checked`**. The last one is the point: a sweep whose `ss` call
+failed reports zero findings, and zero-because-clean must not be served
+as the same answer as zero-because-blind. Every sweep stored before
+Session 26c reports `false`, correctly.
+
+The estate judge reads the sweep's attribution rather than running `ss`
+itself, and that is a deliberate cross-domain read: two calls at two
+moments (hourly judge, six-hourly sweep) would give two answers to one
+question with neither surface saying which it used. The holder goes in
+`details` and **never** in the title or message — the row's identity
+belongs to the producer — and carries `observed_at`, so a five-hour-old
+attribution says so. Absent attribution changes nothing; the enrichment
+must never become a dependency of the alert.
+
 `UnitRecommendationInfo` carries **no score or size field**, unlike its two
 siblings. `RecommendationInfo` ranks by health-score points and
 `FileRecommendationInfo` by reclaimable megabytes — both directly
@@ -1073,6 +1163,27 @@ is invented to sort on. The one sub-ordering, added in Session 46, is
 `armed` orphans ahead of dormant ones — a measured fact about whether
 systemd starts the unit, not a score, and it does not make the tiers
 comparable to each other.
+
+**The snippet knows a port now** (SNAG-UNITS-001, fixed in Session 26c).
+A `kind: systemd` check asserts only that the unit is *active*, so a
+backend running while every request 500s is active, healthy, and broken.
+The snag reasoned that a comment was the only honest fix *because* "this
+scan does not know the unit's port" — true of the sweep, and no longer
+true of its siblings. The entry now emits `kind: http` with `url:` and
+`port:` whenever the unit holds **exactly one** port in the audited
+range, and keeps `kind: systemd` plus the comment otherwise: zero ports,
+two ports (picking one is a guess), or a timer, which holds no socket.
+
+Two honest limits, both measured rather than assumed. Its **population
+is empty today** — all 12 units holding an audited port are `monitored`,
+which `classify_units` drops before they become findings, the same
+two-thirds-invisible shape SNAG-UNITS-002 hit; driven as a
+counterfactual it reproduces the hand-written `alfred-backend` entry
+exactly. And the **health path is a guess**: `/api/health` is the
+contract's, right for 4 of the 11 declared entries here and wrong for 7.
+Kept anyway (`SNAG-UNITS-003`) because a wrong url fails loudly within
+one poll while `kind: systemd` under-monitors silently for ever — the
+trade `schema_guard` makes by refusing to boot.
 
 Three rules the detector encodes, each learned from the live estate:
 

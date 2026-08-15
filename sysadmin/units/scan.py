@@ -1152,6 +1152,16 @@ class UnitScan:
     #: meaning — the latter drives the roll-up alert's threshold, so 13
     #: latent risks would read as 13 new gaps to wire up.
     restart_findings: list[UnitFinding] = field(default_factory=list)
+    #: ``"<scope>:<unit>"`` → the name of the project the unit belongs to,
+    #: for **every** unit the sweep looked at rather than only the ones
+    #: that became findings.  Session 26c's port check needs to ask "who
+    #: owns the unit holding port 8100", and 8100's unit is ``monitored``
+    #: — the one bucket ``findings`` deliberately never lists.  Built
+    #: here rather than in :mod:`sysadmin.units.ports` so there is one
+    #: definition of what matching a unit to a project means; a second
+    #: one would drift in the direction where a port is attributed to the
+    #: wrong repository and nothing reports the disagreement.
+    unit_projects: dict[str, str] = field(default_factory=dict)
 
     def count(self, category: str) -> int:
         return sum(1 for f in self.findings if f.category == category)
@@ -1232,6 +1242,12 @@ def scan_units(
         if _wired_key(u.name, u.scope) not in folded and is_wired(u, wired, timer_for)
     )
 
+    unit_projects: dict[str, str] = {}
+    for unit in units:
+        match = match_unit(unit, projects, path_exists=path_exists)
+        if match.project is not None:
+            unit_projects[_wired_key(unit.name, unit.scope)] = match.project.name
+
     return UnitScan(
         findings=findings,
         restart_findings=restart_risks,
@@ -1240,6 +1256,7 @@ def scan_units(
         monitored_count=monitored,
         timers_folded=len(folded),
         excluded_units=excluded,
+        unit_projects=unit_projects,
     )
 
 
