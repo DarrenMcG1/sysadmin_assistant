@@ -331,13 +331,24 @@ def log_sources(services: ServicesFile) -> list[LogSource]:
 _services: ServicesFile | None = None
 
 
+def set_services(services: ServicesFile) -> ServicesFile:
+    """Install an already-validated file into the process-wide slot.
+
+    Exists for the reload path (:mod:`sysadmin.reload`), which validates
+    both configuration files before installing either. :func:`load_services`
+    is already pure — it returns rather than assigns — so the split costs
+    nothing here; the singleton is the only mutable half.
+    """
+    global _services
+    _services = services
+    return _services
+
+
 def load_services_singleton(
     path: Path | str | None = None, registry: Registry | None = None
 ) -> ServicesFile:
     """Load services.yaml into the process-wide slot and return it."""
-    global _services
-    _services = load_services(path or default_services_path(), registry)
-    return _services
+    return set_services(load_services(path or default_services_path(), registry))
 
 
 def get_services() -> ServicesFile:

@@ -186,6 +186,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/sysadmin/services/{name}/details` | `ServiceDetailInfo` | parse-side only (raw `systemctl show` props, `[not set]` coercion) |
 | `GET`/`POST /api/sysadmin/dnd` | `DndStatusResponse` | response_model |
 | `POST /api/sysadmin/scan-all` | `ScanAllResponse` | response_model |
+| `POST /api/sysadmin/reload` | `ReloadResponse` | response_model (auth; 200 whatever the outcome — `ok` carries it) |
 | `GET /api/sysadmin/self` | `SelfMonitorResponse` / `AgentSelfHealth` | response_model |
 | `GET /api/sysadmin/events` | `EventMessage` | serialise-side only (SSE stream — each `data:` line, not a JSON body) |
 | `GET /api/logs/recent` | `LogsResponse` / `LogEntryInfo` | response_model |
@@ -1348,6 +1349,80 @@ descending plus a cap shows only the projects sitting on 100. `next` is
 capped at `NEXT_ACTION_CHARS` through `truncate_at_word`, which always
 marks the cut (SNAG-BRIEF-002); `GET /api/projects/board` deliberately
 serves the same field uncapped.
+
+**Configuration is re-read on demand, and the honest half is what it
+says it could not do** (Session 49, `SNAG-UNITS-005`). `sysadmin/reload.py`
+re-reads config.yaml and services.yaml on `SIGHUP` or
+`POST /api/sysadmin/reload`. It sits **beside `main.py`** rather than in
+`core/`: it composes `core.config` with `monitor.services`, and
+`tests/test_import_boundary.py` forbids `core` from importing a domain —
+the rule that makes every other boundary real. `metadata.py` had already
+settled that placement in writing (*"composition roots… no domain imports
+them"*), and that test now enforces it for all three.
+
+The blocker was privilege, not design. `sysadmin.service` is a **system
+unit running `User=gaddi`**, so the owner may signal it without `sudo`
+(verified with `kill -0`, which probes permission without delivering).
+`systemctl reload` would additionally need an `ExecReload=` line, and
+*that* edit needs `sudo` — so the raw signal is the half that removes the
+blocker. Note the trap: Python's default `SIGHUP` action **terminates**,
+so a HUP sent to a daemon running code that predates this module is a
+restart wearing a reload's name.
+
+Four rules, three of them the opposite of the obvious implementation:
+
+1. **Both files are validated before either is installed.** `parse_config`
+   and `load_services` were split out of their loaders so the failure lands
+   before the swap. A reload that half-succeeds *across files* leaves the
+   process running a combination nobody wrote — strictly worse than the
+   restart it replaces, because the operator's model is "the files on disk
+   are what is running" and a partial install breaks it silently. Verified
+   live: a broken services.yaml beside a valid config.yaml installs
+   **neither**.
+2. **Fields a reload cannot deliver are applied-and-named, not refused.**
+   Nearly everything an agent reads is already re-read per run — every
+   `_execute` calls `get_config()` at its top, a consequence of
+   SNAG-AGENT-003 forbidding agents a startup hook, which bought per-run
+   configuration for free. What is read *once* is small and enumerable
+   (`RESTART_ONLY`): the scheduler's triggers, the engine, the socket, the
+   logging setup. Refusing the whole reload when one of those moves would
+   block a threshold fix on an unrelated edit in the same file — and the
+   operator restarts anyway, so the refusal delivers nothing the restart
+   did not. Half-success is only dangerous when it is **silent**; this
+   names the leaves, not the prefixes, in the body and in a `WARNING` log
+   line (the only report the SIGHUP path has).
+3. **The registry is rebuilt from the *new* config's `projects_root`.**
+   Validating against the old root checks project ids against a directory
+   the file being installed no longer names — a check that passes for the
+   wrong reason, which is the failure keying services on ids exists to
+   remove.
+4. **Per-service in-memory state is pruned, never reset.** Clearing
+   `_degraded_counts` would re-arm the three-poll streak that gates an
+   alert, at the moment an operator is most likely to be reloading
+   *because* something is failing. What must go is the other direction: a
+   name removed and later re-added would resume a streak measured against
+   a different declaration. The log aggregator's known set is **both
+   files** — pruning on services.yaml alone would discard cursors
+   config.yaml declares, and a dropped cursor is not a clean slate but a
+   fallback to `_resume_floor()`, the per-restart duplication the cursor
+   exists to remove.
+
+`RESTART_ONLY` is hand-written, so **a test walks `main.py`'s lifespan and
+requires every config path it reads to be classified** — restart-only, or
+listed in `LIVE_AT_STARTUP` with the reason it is read again later
+(`api.auth_token` per request; `projects_root` by the reload itself). A
+hand-maintained classification nothing checks is the SNAG-CFG-001 shape,
+and this one decides what an operator is told about their own edit.
+
+Verified live rather than only against fixtures, on the instance that
+motivated it: with Session 48's three new entries removed to stand in for
+the running daemon, a reload of the real file reports them as `added`,
+installs all three, and reports `requires_restart: []` — so the restart
+owed since 2026-08-15 would not have been owed. What it does **not** do is
+reschedule jobs (`Scheduler` exposes no `reschedule_job`), and the
+divergence that leaves is `SNAG-RELOAD-001`: after a reload the config
+object can hold an interval the running scheduler does not obey, and
+`requires_restart` says so once rather than continuing to.
 
 Adding a **new agent** touches four places, not one: the Python wiring in
 `main.py`, a config class in `config.py`, the `chk_alert_agent` CHECK

@@ -10,6 +10,7 @@ drift from reality.
 
 import asyncio
 import logging
+import signal
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
@@ -23,7 +24,7 @@ from sysadmin.briefing.data import send_morning_briefing
 from sysadmin.briefing.router import router as summary_router
 from sysadmin.core.auth import require_auth
 from sysadmin.core.config import get_config, load_config
-from sysadmin.core.contracts import ScanAllResponse
+from sysadmin.core.contracts import ReloadResponse, ScanAllResponse
 from sysadmin.core.database import (
     create_engine_and_session,
     dispose_engine,
@@ -59,6 +60,7 @@ from sysadmin.monitor.routers.projects_managed import router as projects_managed
 from sysadmin.monitor.routers.services import router as services_router
 from sysadmin.monitor.routers.sysadmin import router as sysadmin_router
 from sysadmin.monitor.services import check_plan, load_services_singleton
+from sysadmin.reload import ReloadReport, reload_configuration
 from sysadmin.units.agent import ServiceDiscoveryAgent
 from sysadmin.units.router import router as units_router
 
@@ -72,6 +74,57 @@ file_organiser_agent = FileOrganiserAgent()
 log_aggregator_agent = LogAggregatorAgent()
 service_discovery_agent = ServiceDiscoveryAgent()
 estate_judge_agent = EstateJudgeAgent()
+
+#: Agents holding in-memory state keyed by a configured name. Only these
+#: two: the file organiser, service discovery and estate judge key nothing
+#: on a service name, so handing them a pruner would be a no-op wearing a
+#: contract.
+PRUNABLE: tuple = (sysadmin_agent, log_aggregator_agent)
+
+
+async def _reload_configuration() -> ReloadReport:
+    """Both triggers land here, so they cannot come to disagree.
+
+    Off the event loop: two YAML reads and a walk of ~26 ``.project.yaml``
+    manifests are blocking I/O, and the API loop is the one serving
+    ``/api/sysadmin/events`` to the tray.
+    """
+    return await asyncio.to_thread(reload_configuration, prunable=PRUNABLE)
+
+
+def _install_sighup_handler(loop: asyncio.AbstractEventLoop) -> bool:
+    """Make ``kill -HUP <MainPID>`` a reload rather than a kill.
+
+    Worth stating plainly, because it decides how this is tested: Python's
+    **default** SIGHUP action terminates the process. Before this handler
+    exists a HUP kills the daemon, and ``Restart=always`` brings it back —
+    a restart wearing a reload's name. So the signal must never be sent to
+    a daemon running code that predates this function.
+
+    ``sysadmin.service`` is a system unit running ``User=gaddi``, so the
+    owner can signal it without ``sudo`` — which is the whole point, since
+    ``SNAG-UNITS-005`` is a privilege blocker rather than a design one.
+    ``systemctl reload`` would additionally need an ``ExecReload=`` line in
+    the unit file, and that edit does need ``sudo``; the raw signal does
+    not, so the class of blocker is removed without one.
+
+    Registered through ``loop.add_signal_handler`` rather than
+    ``signal.signal``: the callback then runs as a normal loop callback
+    rather than interrupting arbitrary bytecode, which matters because the
+    work it schedules takes a lock.
+    """
+    try:
+        loop.add_signal_handler(signal.SIGHUP, _on_sighup)
+    except (NotImplementedError, RuntimeError) as exc:
+        logger.warning("sighup_handler_unavailable: %s", exc)
+        return False
+    return True
+
+
+def _on_sighup() -> None:
+    """Schedule a reload. Never does the work on the signal callback."""
+    logger.info("sighup_received")
+    asyncio.create_task(_reload_configuration())
 
 
 @asynccontextmanager
@@ -267,9 +320,18 @@ async def lifespan(app: FastAPI):
     app.state.log_aggregator_agent = log_aggregator_agent
     app.state.service_discovery_agent = service_discovery_agent
 
+    # Registered last, deliberately. A HUP arriving mid-startup would
+    # otherwise reload files the rest of the lifespan is still installing;
+    # before this line the signal keeps its default action, which is what
+    # every earlier release did anyway.
+    sighup = _install_sighup_handler(asyncio.get_running_loop())
+    logger.info("startup complete", extra={"sighup_reload": sighup})
+
     yield
 
     # --- Shutdown ---
+    if sighup:
+        asyncio.get_running_loop().remove_signal_handler(signal.SIGHUP)
     scheduler.shutdown(wait=False)
     await notifier.shutdown()
     await dispose_engine()
@@ -336,6 +398,26 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
         asyncio.create_task(state.log_aggregator_agent.run(run_type="manual"))
         asyncio.create_task(state.service_discovery_agent.run(run_type="manual"))
         return {"status": "all_scans_triggered"}
+
+    @app.post(
+        "/api/sysadmin/reload",
+        tags=["sysadmin"],
+        dependencies=[Depends(require_auth)],
+        response_model=ReloadResponse,
+    )
+    async def reload_config():
+        """Re-read config.yaml and services.yaml. See :mod:`sysadmin.reload`.
+
+        Defined here rather than in the sysadmin router because
+        ``sysadmin.reload`` is a composition root and no domain may import
+        one — the same rule that puts ``scan-all`` above in this file.
+
+        Always 200: ``ok`` carries the outcome, and ``requires_restart``
+        carries the half a reload cannot do. A non-2xx would make a client
+        discard the body, which is the entire product.
+        """
+        report = await _reload_configuration()
+        return report.to_payload()
 
     return app
 

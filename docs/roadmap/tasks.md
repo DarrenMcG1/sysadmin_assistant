@@ -360,6 +360,61 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### ✅ Session 49: A reload path for services.yaml (done 2026-08-15)
+
+**`SNAG-UNITS-005`'s durable half.** STATUS.md had this as a runner-up,
+demoted as *"a sub-task rather than a session"* — a judgement made on two
+data points, where the third consecutive sitting owing a restart was the
+one that made it session-sized. It removes the class of blocker rather
+than the instance.
+
+**The design question it carried was settled by measurement, and the
+measurement moved the answer.** The question as filed was whether
+config.yaml is safe to reload *"which holds thresholds the running agents
+have already read"*. They have not: every agent calls `get_config()`
+inside `_execute`, because SNAG-AGENT-003 forbade agents a startup hook —
+a constraint written for event-loop safety that bought per-run
+configuration for free. So the reloadable half is nearly everything, and
+the start-time-read half is small enough to enumerate.
+
+**Three decisions taken, all three the recommended option:**
+
+- **Both files, naming what was ignored** — rather than refusing the
+  config half. Refusing blocks a threshold fix on an unrelated edit in the
+  same file, and the operator then restarts anyway, so it delivers nothing
+  the restart did not. Half-success is dangerous when *silent*; this names
+  the changed leaves in the body and in a `WARNING` log line.
+- **`SIGHUP` and an authenticated `POST`, one shared function** — the
+  signal is the path that needs no `sudo` (the unit is system-scope but
+  runs `User=gaddi`); the endpoint is the only one that can *return* the
+  report, and the only one that is straightforwardly testable.
+- **Prune per-service in-memory state, never reset it** — resetting
+  re-arms the three-poll degraded streak at the moment an operator is
+  most likely to be reloading because something is failing.
+
+**Shipped**: `sysadmin/reload.py` (a composition root beside `main.py`,
+now enforced by `tests/test_import_boundary.py`), `parse_config`/
+`set_config`/`set_services` split out of the loaders so validation
+precedes installation, `forget_unknown()` on the two agents holding
+name-keyed state, `ReloadResponse`, the endpoint and the signal handler.
+**1733 tests pass** (from 1708), ruff and mypy clean, no migration.
+
+**Verified live on the instance that motivated it**: with Session 48's
+three new entries removed to stand in for the running daemon, a reload of
+the real `services.yaml` reports them `added`, installs all three, and
+reports `requires_restart: []`.
+
+**One follow-up filed**: `SNAG-RELOAD-001` — after a reload the config
+object can hold a scheduler setting the running scheduler does not obey,
+and `requires_restart` says so once rather than continuing to. The real
+fix is a `reschedule_job` on `Scheduler`, which would shrink
+`RESTART_ONLY` to the socket, the engine and the logging setup.
+
+**Still owed, and not addressable by any reload**: the five system-scope
+orphan removals under `/etc/systemd/system`. `SNAG-UNITS-005` conflated a
+deploy blocker with an ops blocker; only the first is gone.
+
+
 _Sessions 24–27 promoted from [ideas.md](ideas.md) on 2026-08-05. They are
 **independent of each other** — take them in any order. 24 and 26 are done,
 and 25's Tier 1 landed 2026-08-07; **25b/25c (reliability Tiers 2–3) and

@@ -488,6 +488,42 @@ class ScanAllResponse(Contract):
     status: str = ""
 
 
+class ReloadResponse(Contract):
+    """POST /api/sysadmin/reload — what the reload did and could not do.
+
+    Answered **200 whatever the outcome**, with ``ok`` carrying it. An
+    invalid config.yaml is an operator's typo, not a server fault, and a
+    4xx would make a client discard the body — which is the whole product
+    here. Same rule as ``GET /api/projects/next`` returning 200 with a null
+    project rather than 404: a status code that collapses two meanings
+    costs more than it saves.
+
+    ``ok: false`` means **nothing** was installed. The two files are
+    validated before either is swapped, so a refusal leaves the running
+    configuration untouched rather than half-replaced.
+
+    ``requires_restart`` is the honest half: fields that changed in
+    config.yaml and are read once, at startup — the scheduler's triggers,
+    the engine, the socket, the logging setup. Everything an agent reads is
+    re-read per run and is live the moment this returns. A reader who
+    ignores this list is running a config.yaml the process is not fully
+    obeying, which is precisely what the field exists to prevent.
+    """
+
+    ok: bool = False
+    reloaded_at: str | None = None  # ISO-8601, like every other stamp here
+    error: str | None = None
+    requires_restart: list[str] = Field(default_factory=list)
+    services_total: int = 0
+    services_added: list[str] = Field(default_factory=list)
+    services_removed: list[str] = Field(default_factory=list)
+    services_changed: list[str] = Field(default_factory=list)
+    #: Agent name -> service/source names whose in-memory state was
+    #: dropped. Names rather than a count: which one lost its resume
+    #: cursor or its degraded streak is what decides whether it matters.
+    pruned: dict[str, list[str]] = Field(default_factory=dict)
+
+
 # ── /api/files/* mutating actions ────────────────────────────────────
 #
 # Shared manifest shape for organise / duplicate cleanup / downloads

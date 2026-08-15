@@ -59,3 +59,36 @@ def test_core_and_registry_do_not_import_domains():
                 if any(module == d or module.startswith(f"{d}.") for d in domains):
                     offenders.append(f"{path}: {module}")
     assert not offenders, "core/registry must not import a domain:\n" + "\n".join(offenders)
+
+
+def test_no_domain_imports_a_composition_root():
+    """``main``, ``metadata`` and ``reload`` are imported by nothing below them.
+
+    ``sysadmin/metadata.py`` states the rule — *"both are composition
+    roots: they are allowed to import every domain, and no domain imports
+    them"* — and until ``sysadmin/reload.py`` joined them nothing checked
+    it. It is what keeps the composition roots free to import across every
+    boundary the two tests above defend: the moment a domain imports one,
+    it has a transitive route to every other domain and both of those
+    tests stay green while meaning nothing.
+
+    It is also load-bearing for the reload path specifically. ``reload``
+    composes ``core.config`` with ``monitor.services``, so a router that
+    imported it would give ``monitor`` an import edge to every domain
+    ``reload`` may grow.
+    """
+    roots = ("sysadmin.main", "sysadmin.metadata", "sysadmin.reload")
+    package = PACKAGE.parent
+    offenders = []
+    for path in package.rglob("*.py"):
+        if path.parent == package and path.stem in {
+            "main", "metadata", "reload", "__init__"
+        }:
+            continue
+        for module in imported_modules(path):
+            if module in roots or any(module.startswith(f"{r}.") for r in roots):
+                offenders.append(f"{path.relative_to(package.parent)}: {module}")
+    assert not offenders, (
+        "a composition root must be imported by nothing below it:\n"
+        + "\n".join(offenders)
+    )

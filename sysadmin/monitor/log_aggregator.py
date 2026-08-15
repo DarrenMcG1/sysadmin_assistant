@@ -59,6 +59,28 @@ class LogAggregatorAgent(BaseAgent):
         # belonging to somebody else's loop (SNAG-AGENT-003).
         self._llm = LLMClient()
 
+    def forget_unknown(self) -> list[str]:
+        """Drop resume state for sources no longer declared.
+
+        The known set is :meth:`_sources`, not ``services.yaml`` alone —
+        this agent reads journal sources from **both** files, and pruning
+        on the services half would discard the cursor of every source
+        config.yaml contributes. A dropped cursor is not a clean slate: the
+        next poll falls back to ``_resume_floor()``, re-reading from the
+        newest stored entry, which is the per-restart duplication the
+        cursor exists to remove.
+
+        So this prunes only what neither file declares any more, and it is
+        called only from a configuration reload (:mod:`sysadmin.reload`).
+        Returns the names dropped — ``details['truncated_sources']``'s rule:
+        which source is affected decides whether it matters.
+        """
+        known = {s.name for s in self._sources(get_config().agents.log_aggregator)}
+        dropped = sorted((set(self._cursors) | set(self._file_offsets)) - known)
+        for name in dropped:
+            self._cursors.pop(name, None)
+            self._file_offsets.pop(name, None)
+        return dropped
 
     @staticmethod
     def _sources(agent_config) -> list:

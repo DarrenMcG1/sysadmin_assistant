@@ -10,7 +10,7 @@
 
 ## Open Issues
 
-_Eleven open snags, plus five found and fixed the same day or since and left in
+_Twelve open snags (`SNAG-RELOAD-001` added 2026-08-15), plus five found and fixed the same day or since and left in
 place for the write-up (`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on
 2026-08-10, `SNAG-CFG-001` on 2026-08-11, and `SNAG-AGENT-003`/`-004` on
 2026-08-12) — the entries listed therefore exceed the
@@ -64,6 +64,13 @@ found on 2026-08-07 by the consumer — Alfred now renders `briefing/preview`
 daily and is building a page on `/api/projects/board`, so producer-side content
 defects have a reader for the first time._
 
+- [P3] SNAG-RELOAD-001: **after a reload, the config object can hold a scheduler setting the running scheduler does not obey, and nothing says so twice** (2026-08-15)
+  - **Symptom**: `sysadmin/reload.py` installs the whole `AppConfig`, so `get_config().agents.sysadmin.health_check_interval_seconds` reads the new value while the APScheduler job keeps the trigger built at startup. Measured live this sitting: edited to 999, the config object returned 999 and the job stayed on 300 s
+  - **Before the reload existed this divergence could not occur** — startup built the config object and the scheduler from one read, so the two always agreed. It is a cost the reload introduces, not a pre-existing fault it exposes
+  - **It is reported, once.** `ReloadReport.requires_restart` names every such leaf in the response body and in a `WARNING` log line. That is the whole mitigation, and it is the shape Session 39 spent itself removing: a warning that fires once is indistinguishable from one that got fixed. An operator who reloads and walks away has nothing that still says the scheduler is not obeying config.yaml
+  - **Two candidate fixes, neither costed.** Store the last `ReloadReport` and serve it (cheap; but a field nobody polls is the `SNAG-CFG-001` shape), or raise it as an alert row so it reaches the tray, the DND windows and `/api/sysadmin/alerts` through plumbing that exists. The second is the right shape and needs a settled dedup and resolve lifecycle before it is written — a family added without one is how 51,924 rows happened
+  - **The real fix is upstream of both**: `Scheduler` exposes no `reschedule_job`, so nothing re-times a job. Adding it would shrink `RESTART_ONLY` to the socket, the engine and the logging setup and make this snag mostly disappear, rather than reporting it better
+  - **Found**: 2026-08-15 by running the mixed edit against the live config.yaml — one live field and two restart-only ones in one file — which is the case the apply-and-name decision was taken for
 - [P0] SNAG-DB-001: the live database was a migration behind, and it caused a **39-hour monitoring blackout** nobody saw (2026-08-10, fixed same day)
   - **Symptom**: **Zero rows were written to `service_health` between 2026-08-08 17:34:54 and 2026-08-10 09:07:25.** Not degraded — absent. `/api/sysadmin/status`, the tray grid and reliability scoring were all serving from a table that had stopped receiving data a day and a half earlier
   - **Cause, in three parts, each individually survivable**:
@@ -227,11 +234,15 @@ defects have a reader for the first time._
   - **What the 20 failing tests were actually saying.** `UnitFinding.enabled` defaults to `False`, which is correct for `armed` — absent evidence must read as "not armed", the quiet direction — and the **opposite polarity** from this gate, where absent evidence suppresses advice, the loud direction. One field, two consumers, opposite safe defaults. Fixed in the fixtures, not the default: flipping the default would quietly arm every orphan
   - **Fix**: `sysadmin/units/recommendations.py` (`_snippet_for` gate, `_no_snippet_action`, `_enable_command`, `removal_command`), 7 tests in `tests/test_unit_recommendations.py`. Suite 1708 green
 
-- [P2] SNAG-UNITS-005: **five system-scope orphans and a pending restart are blocked on `sudo`, which no agent session can supply** (2026-08-15)
+- [P2] SNAG-UNITS-005: **five system-scope orphans and a pending restart are blocked on `sudo`, which no agent session can supply** (2026-08-15, **durable half fixed 2026-08-15**)
   - `offline-agents-dashboard`, `personalassistant-backend`, `personalassistant-frontend`, `ticktick-sync` (+ its timer) and `ticktick-sync-db` are all confirmed dead — the first, fourth and fifth point at directories that no longer exist; the two PersonalAssistant units were confirmed retired by the owner this sitting, `/opt/personalassistant` being leftover payload rather than a live project
   - The user-scope orphan (`garmin-sync.service`) **was** removed, so the emitted command is proven correct as written; only the privilege is missing. All six unit files are backed up
   - **The same wall blocks the deploy**: `services.yaml` is read at start-up, so Session 48's three new host entries are inert until `sudo systemctl restart sysadmin.service`. This is the second sitting in a row to hand a restart forward — worth a decision about whether the daemon should reload `services.yaml` on `SIGHUP`, which would remove the class of blocker rather than the instance
   - **Not a defect in the advice**: the emitted commands correctly say `sudo`, and refusing to run them unprivileged is right. It is filed because a recommendation nobody on the box can execute is indistinguishable, on the endpoint, from one nobody has got to
+  - **The durable half is fixed (Session 49): `sysadmin/reload.py`**, reached by `SIGHUP` or `POST /api/sysadmin/reload`. The entry called this "worth a decision about whether the daemon should reload `services.yaml` on `SIGHUP`"; it was taken, and widened on measurement — every agent already calls `get_config()` inside `_execute`, so config.yaml's thresholds were re-read per run all along and only the scheduler's triggers, the engine, the socket and the logging setup are genuinely read once
+  - **The privilege claim the entry rests on was checked rather than assumed.** `sysadmin.service` is a *system* unit but runs `User=gaddi`, so the owner may signal it without `sudo` — probed with `kill -0`, which tests permission without delivering. `systemctl reload` would need an `ExecReload=` line and *that* edit does need `sudo`, so the raw signal is the half that removes the blocker. Python's default `SIGHUP` action **terminates**, so a HUP sent to a daemon predating the handler is a restart wearing a reload's name, and the handler is asserted by a test rather than assumed
+  - **Verified against the exact blocked instance**: with Session 48's three new entries removed to stand in for the running daemon, a reload of the real `services.yaml` reports them `added`, installs all three, and reports `requires_restart: []`. Had this existed on 2026-08-15 the restart would not have been owed
+  - **The five orphan removals are untouched and still owed** — those are `systemctl disable` and `rm` under `/etc/systemd/system`, which no reload path can reach. The entry conflated a *deploy* blocker with an *ops* blocker; only the first is removed, and the second is not a defect in anything this repository ships
 
 - [P3] SNAG-UNITS-001: **the unit sweep's snippet always says `kind: systemd`, so following its advice under-monitors every HTTP service** (2026-08-14, **fixed 2026-08-15**)
   - **Symptom**: `_services_yaml_snippet` emits `kind: systemd` for every non-timer unit it advises on, in both the `unmonitored` and `host` categories. A `kind: systemd` check asserts only that the unit is *active*. A backend that is running while every request 500s is active, healthy by this check, and broken — which is the failure an HTTP service is most likely to have and the only one a unit check structurally cannot see

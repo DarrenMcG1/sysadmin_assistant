@@ -859,12 +859,23 @@ _config: AppConfig | None = None
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def load_config(config_path: Path | None = None) -> AppConfig:
-    """Load and validate config from YAML file."""
-    global _config
+def default_config_path() -> Path:
+    """config.yaml at the repository root, beside services.yaml."""
+    return REPO_ROOT / "config.yaml"
 
+
+def parse_config(config_path: Path | None = None) -> AppConfig:
+    """Read and validate config.yaml **without** touching the singleton.
+
+    Split out of :func:`load_config` for the reload path
+    (:mod:`sysadmin.reload`), which must know whether the new file is
+    valid *before* it replaces the one currently being served. A loader
+    that validates and installs in one step can only fail halfway: the
+    process ends up running a file nobody wrote, which is strictly worse
+    than the restart the reload exists to avoid.
+    """
     if config_path is None:
-        config_path = REPO_ROOT / "config.yaml"
+        config_path = default_config_path()
 
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -872,9 +883,19 @@ def load_config(config_path: Path | None = None) -> AppConfig:
     with open(config_path) as f:
         raw = yaml.safe_load(f)
 
-    _config = AppConfig.model_validate(raw or {})
+    return AppConfig.model_validate(raw or {})
 
+
+def set_config(config: AppConfig) -> AppConfig:
+    """Install an already-validated config into the process-wide slot."""
+    global _config
+    _config = config
     return _config
+
+
+def load_config(config_path: Path | None = None) -> AppConfig:
+    """Load and validate config from YAML file."""
+    return set_config(parse_config(config_path))
 
 
 def get_config() -> AppConfig:

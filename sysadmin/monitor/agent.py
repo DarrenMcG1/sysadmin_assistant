@@ -257,6 +257,40 @@ class SysAdminAgent(BaseAgent):
         # reporting zero raises can say which zero it means.
         self._suppressed: int = 0
 
+    def forget_unknown(self) -> list[str]:
+        """Drop per-service state for services no longer declared.
+
+        Called after a configuration reload (:mod:`sysadmin.reload`), and
+        only then — a scheduled run must never prune, because the three
+        dicts below are exactly what a run is accumulating.
+
+        **Streaks for services that survive the reload are kept, and that
+        is the decision rather than the shortcut.** ``_degraded_counts``
+        holds the three-consecutive-failures streak that gates an alert,
+        and a reload is operator-initiated: clearing it would re-arm the
+        streak at the moment an operator is most likely to be poking at a
+        service that is already failing, delaying a genuine alert by up to
+        three polls. The daemon restart this reload replaces clears them
+        anyway (``_resolve_recovered`` documents that it does), so keeping
+        them is a strict improvement rather than a new risk.
+
+        What must go is the other direction: a name that is removed and
+        later re-added would otherwise resume a streak measured against a
+        different declaration. Returns the names dropped rather than a
+        count — which service lost its state is what decides whether it
+        matters.
+        """
+        known = {s.name for s in get_services().services}
+        dropped = sorted(
+            (set(self._degraded_counts) | set(self._failure_counts)
+             | set(self._last_status)) - known
+        )
+        for name in dropped:
+            self._degraded_counts.pop(name, None)
+            self._failure_counts.pop(name, None)
+            self._last_status.pop(name, None)
+        return dropped
+
     async def _raise_judged(
         self,
         session,
