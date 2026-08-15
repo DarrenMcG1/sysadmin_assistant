@@ -1384,8 +1384,9 @@ Four rules, three of them the opposite of the obvious implementation:
    `_execute` calls `get_config()` at its top, a consequence of
    SNAG-AGENT-003 forbidding agents a startup hook, which bought per-run
    configuration for free. What is read *once* is small and enumerable
-   (`RESTART_ONLY`): the scheduler's triggers, the engine, the socket, the
-   logging setup. Refusing the whole reload when one of those moves would
+   (`RESTART_ONLY`): since Session 50, **two prefixes** — `service` and
+   `database`, covering the socket, the logging setup and the engine.
+   Refusing the whole reload when one of those moves would
    block a threshold fix on an unrelated edit in the same file — and the
    operator restarts anyway, so the refusal delivers nothing the restart
    did not. Half-success is only dangerous when it is **silent**; this
@@ -1407,28 +1408,84 @@ Four rules, three of them the opposite of the obvious implementation:
    fallback to `_resume_floor()`, the per-restart duplication the cursor
    exists to remove.
 
-`RESTART_ONLY` is hand-written, so **a test walks `main.py`'s lifespan and
-requires every config path it reads to be classified** — restart-only, or
-listed in `LIVE_AT_STARTUP` with the reason it is read again later
-(`api.auth_token` per request; `projects_root` by the reload itself). A
-hand-maintained classification nothing checks is the SNAG-CFG-001 shape,
-and this one decides what an operator is told about their own edit.
+`RESTART_ONLY` is hand-written, so **a test requires every config path
+read at startup to be classified** — restart-only, listed in
+`LIVE_AT_STARTUP` with the reason it is read again later (`api.auth_token`
+per request; `projects_root` by the reload itself), or declared by a
+`JobSpec`. A hand-maintained classification nothing checks is the
+SNAG-CFG-001 shape, and this one decides what an operator is told about
+their own edit.
 
 Verified live rather than only against fixtures, on the instance that
 motivated it: with Session 48's three new entries removed to stand in for
 the running daemon, a reload of the real file reports them as `added`,
 installs all three, and reports `requires_restart: []` — so the restart
-owed since 2026-08-15 would not have been owed. What it does **not** do is
-reschedule jobs (`Scheduler` exposes no `reschedule_job`), and the
-divergence that leaves is `SNAG-RELOAD-001`: after a reload the config
-object can hold an interval the running scheduler does not obey, and
-`requires_restart` says so once rather than continuing to.
+owed since 2026-08-15 would not have been owed.
+
+**The scheduler is re-timed too, and the third classification is the only
+one that is derived** (Session 50, `SNAG-RELOAD-001`). Session 49 shipped
+the reload without it, so an installed `AppConfig` read 999 while the job
+went on firing every 300 s and `requires_restart` named it **once** — the
+warning-fires-once shape Session 39 spent itself removing, and a cost the
+reload *introduced*, since before it existed the config object and the
+scheduler were built from one read and could never disagree.
+
+`sysadmin/core/jobs.py` owns the plan: `plan_jobs(config)` maps an
+`AppConfig` to the nine jobs it asks for and `apply_jobs` reconciles a
+scheduler with it. It is `core` rather than a fourth composition root
+because it imports no domain and knows no agent — `main.py` hands in
+`JOB_TARGETS`, so that file owns *what* runs and this one owns *when*, and
+`tests/test_jobs.py` asserts the two sets match exactly. The lifespan and
+the reload call the same function, so the schedule at startup and the
+schedule after a reload cannot be produced differently.
+
+Five rules, three of them the opposite of the obvious implementation:
+
+1. **A job whose trigger has not changed is not touched.**
+   `reschedule_job` recomputes the next fire from *now*, so re-applying
+   every job on every reload postpones every job by a full interval — a
+   daily file organiser on a box reloaded daily never runs, which is
+   `agent_first_run_delay_seconds`'s failure with a reload standing in
+   for a restart. The comparison is against the **live** trigger, never a
+   remembered plan: a remembered plan is a second statement of what the
+   scheduler is doing, and two statements that can disagree is the defect
+   being closed.
+2. **A job being added gets the first-run delay; a job being re-timed does
+   not.** Added means this process has never scheduled it — a cold start,
+   or an agent just re-enabled — and `IntervalTrigger` alone puts the
+   first fire at `now + interval`. Re-timed means it already has a next
+   fire, and bringing that forward turns an unrelated threshold edit into
+   a 118-second filesystem scan nobody asked for.
+3. **The plan is total: a disabled job is emitted disabled, never
+   omitted**, because only a plan that still names it can *remove* it.
+   The other side is bounded by **only planned ids are removed** — a job
+   this module did not schedule belongs to whoever added it, the estate
+   judge's sweep-scoping rule.
+4. **`JOB_CONFIG_PATHS` is derived from the plan**, and each `JobSpec`'s
+   declared `config_paths` must equal what `plan_jobs` actually reads
+   (`tests/test_reload.py`). Without a syncer the reload falls back to
+   reporting those leaves as restart-only, which is Session 49's exact
+   behaviour and must not fall behind the jobs it describes.
+5. **`jobs_synced` says which of the two happened.** `jobs_retimed: []`
+   is "nothing needed re-timing" when it is true and "the scheduler was
+   never looked at" when it is false — `ports_checked`'s rule, one domain
+   over.
+
+Verified live against the real `config.yaml` and a real
+`BackgroundScheduler`, in-process: 999 s became `interval[0:16:39]`,
+`retention_purge` moved 03:00 → 04:00, a disabled `estate_judge` had its
+job removed and re-enabling added it back with the first-run delay, and
+`requires_restart` came back `[]` where Session 49 reported three leaves.
 
 Adding a **new agent** touches four places, not one: the Python wiring in
 `main.py`, a config class in `config.py`, the `chk_alert_agent` CHECK
 constraint on `sysadmin.alerts` (a migration — the database rejects an
 unknown agent name), and `self_monitor.AGENT_NAMES` (without which the
-agent runs unwatched). `tests/test_units_api.py` pins the last two together.
+agent runs unwatched). `tests/test_units_api.py` pins the last two
+together. If it is **scheduled**, that is two more: a `JobSpec` in
+`core/jobs.py` and an entry in `main.py`'s `JOB_TARGETS` — planned and
+unwired is a `KeyError` at startup, wired and unplanned never runs and
+looks exactly like one that does.
 
 
 Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in

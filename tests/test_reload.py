@@ -1,4 +1,4 @@
-"""The reload path — SNAG-UNITS-005's durable half.
+"""The reload path — SNAG-UNITS-005's durable half, and SNAG-RELOAD-001's.
 
 The test that earns its place is :func:`test_every_lifespan_config_read_is_classified`.
 :data:`sysadmin.reload.RESTART_ONLY` is a hand-written list, and a
@@ -7,6 +7,16 @@ parsed, plausible, and quietly wrong. This one decides what an operator is
 *told* about their own edit, so it rots in the direction nobody notices —
 a new scheduled job reading a new config field would silently be reported
 as live when it is not.
+
+Session 50 moved the schedule out of ``main.py``'s lifespan and into
+``sysadmin/core/jobs.py``, which would have hollowed that guard out
+completely: fifteen of the reads it was watching left the function it
+walks. So it walks both, and gains a second half —
+:func:`test_job_specs_declare_exactly_what_the_planner_reads`, which pins
+each ``JobSpec``'s declared ``config_paths`` to the paths ``plan_jobs``
+actually reads. The declaration is what the reload reports from; a
+declaration that has drifted from its own source is the same failure one
+level down.
 """
 
 import ast
@@ -21,25 +31,28 @@ from sysadmin.monitor import services as services_module
 from sysadmin.monitor.services import get_services
 from sysadmin.reload import (
     LIVE_AT_STARTUP,
+    LIVE_VIA_JOB_SYNC,
     RESTART_ONLY,
     ReloadReport,
+    changed_job_paths,
     changed_restart_only,
     diff_services,
     reload_configuration,
 )
 
 MAIN_PY = Path(__file__).resolve().parents[1] / "sysadmin" / "main.py"
+JOBS_PY = Path(__file__).resolve().parents[1] / "sysadmin" / "core" / "jobs.py"
 
 
 # ── the classification guard ─────────────────────────────────────────
 
 
-def _lifespan_node() -> ast.AsyncFunctionDef:
-    tree = ast.parse(MAIN_PY.read_text(encoding="utf-8"))
+def _function_node(path: Path, name: str) -> ast.AST:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
-        if isinstance(node, ast.AsyncFunctionDef) and node.name == "lifespan":
+        if isinstance(node, ast.AsyncFunctionDef | ast.FunctionDef) and node.name == name:
             return node
-    raise AssertionError("main.py has no `lifespan` — adjust this test")
+    raise AssertionError(f"{path.name} has no `{name}` — adjust this test")
 
 
 def _chain(node: ast.AST) -> list[str] | None:
@@ -54,37 +67,55 @@ def _chain(node: ast.AST) -> list[str] | None:
     return list(reversed(parts))
 
 
-def lifespan_config_paths() -> set[str]:
-    """Dotted config paths the lifespan reads, from its source.
+def config_paths_read(node: ast.AST) -> set[str]:
+    """Dotted config paths a function reads, from its source.
 
-    Only *maximal* chains count: ``config.agents`` appearing as the right
-    hand side of ``agents_config = config.agents`` is an alias, not a read,
-    and reporting it would demand that the whole ``agents`` subtree be
-    classified — which is the opposite of the point, since the thresholds
-    under it are re-read every run.
+    Only *maximal* chains count: ``config.agents`` on the right of
+    ``agents_config = config.agents`` is an alias, not a read, and
+    reporting it would demand that the whole ``agents`` subtree be
+    classified — the opposite of the point, since the thresholds under it
+    are re-read every run.
+
+    **An assignment is an alias only if the name is later used as an
+    attribute base.** ``delay = schedules.agent_first_run_delay_seconds``
+    looks identical to an alias and is a genuine read of a leaf; treating
+    it as an alias drops that leaf from the set silently, which is this
+    guard failing in exactly the direction it exists to catch.
     """
-    node = _lifespan_node()
-
-    # name -> dotted prefix. Seeded with the config object itself.
-    aliases = {"config": ""}
-    alias_rhs: set[int] = set()
+    assigns: list[tuple[str, list[str], ast.AST]] = []
     for stmt in ast.walk(node):
         if not isinstance(stmt, ast.Assign) or len(stmt.targets) != 1:
             continue
         target = stmt.targets[0]
         chain = _chain(stmt.value)
-        if not isinstance(target, ast.Name) or chain is None:
-            continue
-        if chain[0] in aliases:
+        if isinstance(target, ast.Name) and chain is not None:
+            assigns.append((target.id, chain, stmt.value))
+
+    # Names used as the base of an attribute access — the only ones that
+    # can be aliases, since nothing else resolves *through* them.
+    bases = {
+        chain[0]
+        for sub in ast.walk(node)
+        if isinstance(sub, ast.Attribute)
+        and (chain := _chain(sub)) is not None
+        and len(chain) > 1
+    }
+
+    aliases = {"config": ""}
+    changed = True
+    while changed:  # `agents = config.agents` may precede or follow its own use
+        changed = False
+        for name, chain, _ in assigns:
+            if name in aliases or name not in bases or chain[0] not in aliases:
+                continue
             prefix = aliases[chain[0]]
             rest = ".".join(chain[1:])
-            aliases[target.id] = f"{prefix}.{rest}" if prefix else rest
-            alias_rhs.add(id(stmt.value))
+            aliases[name] = f"{prefix}.{rest}" if prefix else rest
+            changed = True
+    alias_rhs = {id(value) for name, _, value in assigns if name in aliases}
 
     # Attribute nodes that are somebody else's `.value` are not maximal.
-    inner = {
-        id(sub.value) for sub in ast.walk(node) if isinstance(sub, ast.Attribute)
-    }
+    inner = {id(sub.value) for sub in ast.walk(node) if isinstance(sub, ast.Attribute)}
 
     paths: set[str] = set()
     for sub in ast.walk(node):
@@ -101,6 +132,18 @@ def lifespan_config_paths() -> set[str]:
     return paths
 
 
+def lifespan_config_paths() -> set[str]:
+    """What the lifespan reads directly, plus what the plan reads for it.
+
+    ``apply_jobs(scheduler, config, JOB_TARGETS)`` is a read of everything
+    ``plan_jobs`` touches; counting only the lifespan's own attribute
+    chains would let fifteen classified fields quietly leave the guard.
+    """
+    return config_paths_read(_function_node(MAIN_PY, "lifespan")) | config_paths_read(
+        _function_node(JOBS_PY, "plan_jobs")
+    )
+
+
 def test_lifespan_reads_are_actually_found():
     """Guard the guard: a parser that finds nothing passes vacuously."""
     paths = lifespan_config_paths()
@@ -112,14 +155,14 @@ def test_lifespan_reads_are_actually_found():
 def test_every_lifespan_config_read_is_classified():
     """Nothing read once at startup may go unclassified.
 
-    A field the lifespan reads is either restart-only or explicitly
-    recorded as read again later. Neither list is allowed to simply omit
-    it — an omission means ``requires_restart`` stays silent about a field
-    the running process is not obeying, which is the exact failure the
-    report exists to prevent.
+    A field the lifespan reads is either restart-only, explicitly recorded
+    as read again later, or delivered by the job sync. None of the three
+    is allowed to simply omit it — an omission means ``requires_restart``
+    stays silent about a field the running process is not obeying, which
+    is the exact failure the report exists to prevent.
     """
     restart_prefixes = tuple(path for path, _ in RESTART_ONLY)
-    live = {path for path, _ in LIVE_AT_STARTUP}
+    live = {path for path, _ in LIVE_AT_STARTUP} | set(LIVE_VIA_JOB_SYNC)
     unclassified = sorted(
         path
         for path in lifespan_config_paths()
@@ -132,34 +175,106 @@ def test_every_lifespan_config_read_is_classified():
     )
 
 
+def _resolves(path: str) -> bool:
+    node: object = AppConfig().model_dump(mode="json")
+    for part in path.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return False
+        node = node[part]
+    return True
+
+
 def test_classified_paths_exist_on_the_model():
     """A renamed field must break this list rather than drop out of it."""
-    dumped = AppConfig().model_dump(mode="json")
     for path, reason in RESTART_ONLY + LIVE_AT_STARTUP:
-        node = dumped
-        for part in path.split("."):
-            assert isinstance(node, dict) and part in node, (
-                f"{path} does not resolve against AppConfig"
-            )
-            node = node[part]
+        assert _resolves(path), f"{path} does not resolve against AppConfig"
         assert reason, f"{path} carries no reason"
+
+
+def test_job_declared_paths_exist_on_the_model():
+    """The derived classification gets the same treatment as the two lists.
+
+    It is derived from the plan, so it cannot fall *behind* the jobs — but
+    a ``JobSpec`` can still name a leaf that does not exist, and a path
+    that resolves against nothing silently matches nothing in the diff.
+    """
+    for path in sorted(LIVE_VIA_JOB_SYNC):
+        assert _resolves(path), f"{path} does not resolve against AppConfig"
+
+
+def test_job_specs_declare_exactly_what_the_planner_reads():
+    """The declaration and its own source, pinned together.
+
+    ``JobSpec.config_paths`` is what ``sysadmin/reload.py`` classifies and
+    reports from. Nothing else connects it to the code that produced it,
+    so a job re-timed off a field its spec does not name would be applied
+    live and reported as needing a restart — or, worse, the reverse.
+    """
+    from sysadmin.core.jobs import plan_jobs
+
+    declared = {path for spec in plan_jobs(AppConfig()) for path in spec.config_paths}
+    read = config_paths_read(_function_node(JOBS_PY, "plan_jobs"))
+    assert declared == read, (
+        "declared but not read: " + str(sorted(declared - read))
+        + "; read but not declared: " + str(sorted(read - declared))
+    )
 
 
 def test_no_path_is_classified_both_ways():
     restart = {path for path, _ in RESTART_ONLY}
     live = {path for path, _ in LIVE_AT_STARTUP}
     assert not restart & live
+    assert not restart & LIVE_VIA_JOB_SYNC
+    assert not live & LIVE_VIA_JOB_SYNC
+
+
+def test_a_leaf_read_into_a_local_is_not_mistaken_for_an_alias():
+    """Guard the guard, second edition.
+
+    ``delay = schedules.agent_first_run_delay_seconds`` is syntactically
+    identical to ``agents = config.agents`` and semantically the opposite.
+    The first draft of this helper dropped it, which would have let a real
+    read go unclassified while every test still passed.
+    """
+    module = ast.parse(
+        "def f(config):\n"
+        "    schedules = config.schedules\n"
+        "    delay = schedules.agent_first_run_delay_seconds\n"
+        "    return delay\n"
+    )
+    paths = config_paths_read(module.body[0])
+    assert paths == {"schedules.agent_first_run_delay_seconds"}
 
 
 # ── the diff ─────────────────────────────────────────────────────────
 
 
 def test_restart_only_diff_names_leaves_not_prefixes():
-    """`schedules` changed is not an answer — an operator still has to grep."""
+    """`service` changed is not an answer — an operator still has to grep."""
+    old = AppConfig()
+    new = AppConfig()
+    new.service.port = 8501
+    assert changed_restart_only(old, new) == ["service.port"]
+
+
+def test_the_scheduler_fields_left_restart_only():
+    """SNAG-RELOAD-001's shape, as a diff.
+
+    Every one of these was in ``RESTART_ONLY`` when Session 49 shipped,
+    and each is now delivered by the job sync. If one comes back to this
+    list, a reload has quietly stopped re-timing something.
+    """
     old = AppConfig()
     new = AppConfig()
     new.schedules.briefing_hour = 7
-    assert changed_restart_only(old, new) == ["schedules.briefing_hour"]
+    new.agents.sysadmin.health_check_interval_seconds = 999
+    new.agents.file_organiser.enabled = False
+    assert changed_restart_only(old, new) == []
+    assert changed_job_paths(old, new) == [
+        "agents.file_organiser.enabled",
+        "agents.sysadmin.health_check_interval_seconds",
+        "schedules.briefing_hour",
+    ]
 
 
 def test_threshold_change_needs_no_restart():
@@ -518,3 +633,208 @@ async def test_sighup_handler_installs_and_removes():
     loop = asyncio.get_running_loop()
     assert _install_sighup_handler(loop) is True
     loop.remove_signal_handler(signal.SIGHUP)
+
+
+# ── the job sync ─────────────────────────────────────────────────────
+#
+# SNAG-RELOAD-001. Session 49 installed the whole `AppConfig` and left the
+# running scheduler on triggers built at startup, so the config object read
+# 999 while the job kept firing every 300 s — named once, in
+# `requires_restart`, which is the warning-fires-once shape Session 39
+# spent itself removing. These pin the removal rather than the report.
+
+
+class _FakeSyncer:
+    """Stands in for ``main._sync_jobs``, recording what it was given."""
+
+    def __init__(self, report=None, raises=False):
+        from sysadmin.core.jobs import JobSyncReport
+
+        self.report = report if report is not None else JobSyncReport()
+        self.raises = raises
+        self.configs = []
+        self.services_at_call = []
+
+    def __call__(self, config):
+        self.configs.append(config)
+        self.services_at_call.append([s.name for s in get_services().services])
+        if self.raises:
+            raise RuntimeError("scheduler is gone")
+        return self.report
+
+
+def _bumped(files, **_):
+    """Install the baseline, then edit a live job field. The diff is against
+    what is *running*, not against pydantic's defaults."""
+    config, services = files
+    assert _reload((config, services)).ok
+    raw = yaml.safe_load(config.read_text())
+    raw["agents"]["sysadmin"] = {"health_check_interval_seconds": 999}
+    config.write_text(yaml.safe_dump(raw))
+
+
+def test_a_changed_interval_is_delivered_rather_than_reported(
+    files, restore_singletons
+):
+    """The snag, as a test.
+
+    Before Session 50 this same edit produced
+    ``requires_restart == ["agents.sysadmin.health_check_interval_seconds"]``
+    and a scheduler still on 300 s.
+    """
+    from sysadmin.core.jobs import JobSyncReport
+
+    config, services = files
+    _bumped(files)
+    syncer = _FakeSyncer(JobSyncReport(retimed=["sysadmin_health_check"]))
+
+    report = reload_configuration(
+        config_path=config, services_path=services, sync_jobs=syncer
+    )
+
+    assert report.ok
+    assert report.requires_restart == []
+    assert report.jobs_synced is True
+    assert report.jobs_retimed == ["sysadmin_health_check"]
+
+
+def test_without_a_syncer_every_job_leaf_that_moved_is_owed_a_restart(
+    files, restore_singletons
+):
+    """The honest fallback, and why ``jobs_synced`` exists.
+
+    An empty ``jobs_retimed`` means "nothing needed re-timing" in the test
+    above and "the scheduler was never looked at" here. Without the flag
+    the two are the same response — ``ports_checked``'s rule, one domain
+    over.
+    """
+    config, services = files
+    _bumped(files)
+
+    report = reload_configuration(config_path=config, services_path=services)
+
+    assert report.ok
+    assert report.jobs_synced is False
+    assert report.requires_restart == [
+        "agents.sysadmin.health_check_interval_seconds"
+    ]
+
+
+def test_a_syncer_that_blows_up_falls_back_to_reporting(files, restore_singletons):
+    """``apply_jobs`` catches per job, so this only fires if the host is
+    broken — in which case nothing was re-timed and the no-syncer answer is
+    the correct one, not a silent success."""
+    config, services = files
+    _bumped(files)
+    syncer = _FakeSyncer(raises=True)
+
+    report = reload_configuration(
+        config_path=config, services_path=services, sync_jobs=syncer
+    )
+
+    assert report.ok
+    assert report.jobs_synced is False
+    assert "agents.sysadmin.health_check_interval_seconds" in report.requires_restart
+
+
+def test_a_refused_job_is_reported_as_restart_only(files, restore_singletons):
+    """One job the host would not take, named per config leaf.
+
+    ``jobs_synced`` stays true: the scheduler *was* reconciled, and eight
+    of the nine jobs took. Reporting it as unsynced would owe a restart for
+    the whole schedule on one bad job.
+    """
+    from sysadmin.core.jobs import JobSyncReport
+
+    config, services = files
+    _bumped(files)
+    syncer = _FakeSyncer(
+        JobSyncReport(
+            failed={"sysadmin_health_check": "RuntimeError: no"},
+            failed_config_paths=["agents.sysadmin.health_check_interval_seconds"],
+        )
+    )
+
+    report = reload_configuration(
+        config_path=config, services_path=services, sync_jobs=syncer
+    )
+
+    assert report.jobs_synced is True
+    assert report.requires_restart == [
+        "agents.sysadmin.health_check_interval_seconds"
+    ]
+
+
+def test_the_syncer_runs_after_the_swap(files, restore_singletons):
+    """It must re-time against the configuration that was installed.
+
+    Handing it ``new_config`` while the singletons still held the old pair
+    would work by luck — the argument is right and the agents the jobs run
+    would read the old services. Both are installed first, inside the same
+    lock.
+    """
+    config, services = files
+    syncer = _FakeSyncer()
+
+    reload_configuration(
+        config_path=config, services_path=services, sync_jobs=syncer
+    )
+
+    assert syncer.configs == [get_config()]
+    assert syncer.services_at_call == [["alpha"]]
+
+
+def test_the_syncer_does_not_run_when_the_reload_is_refused(
+    tmp_path, files, restore_singletons
+):
+    """Nothing was installed, so there is nothing to re-time — and
+    re-timing against a config that was rejected is the half-success rule 1
+    exists to prevent, reaching the scheduler instead of the singletons."""
+    _, services = files
+    syncer = _FakeSyncer()
+
+    report = reload_configuration(
+        config_path=tmp_path / "gone.yaml",
+        services_path=services,
+        sync_jobs=syncer,
+    )
+
+    assert not report.ok
+    assert syncer.configs == []
+    assert report.jobs_synced is False
+
+
+def test_the_payload_carries_the_job_fields(files, restore_singletons):
+    from sysadmin.core.jobs import JobSyncReport
+
+    config, services = files
+    syncer = _FakeSyncer(
+        JobSyncReport(added=["a"], removed=["b"], retimed=["c"], unchanged=["d"])
+    )
+    payload = reload_configuration(
+        config_path=config, services_path=services, sync_jobs=syncer
+    ).to_payload()
+
+    assert payload["jobs_synced"] is True
+    assert payload["jobs_added"] == ["a"]
+    assert payload["jobs_removed"] == ["b"]
+    assert payload["jobs_retimed"] == ["c"]
+    # `unchanged` is deliberately not on the wire: it is nine ids on every
+    # reload, and `jobs_synced` already answers the question it would.
+    assert "jobs_unchanged" not in payload
+    assert ReloadResponse.model_validate(payload).jobs_retimed == ["c"]
+
+
+def test_main_hands_the_reload_a_real_syncer():
+    """The seam is only worth having if production actually uses it.
+
+    A default of ``None`` means a reload with no syncer is a valid call —
+    so nothing but this test stops the daemon from quietly making one and
+    reporting a restart it did not need.
+    """
+    import inspect
+
+    from sysadmin import main
+
+    assert "sync_jobs=_sync_jobs" in inspect.getsource(main._reload_configuration)
+    assert main._sync_jobs(get_config()) is not None

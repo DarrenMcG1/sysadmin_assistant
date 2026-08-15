@@ -2,9 +2,121 @@
 
 ## Next action
 
-Add `reschedule_job` to `sysadmin/core/scheduler.py` and call it from the reload path, which shrinks `RESTART_ONLY` from fifteen entries to three and closes `SNAG-RELOAD-001` by removing the divergence rather than reporting it better.
+Take `SNAG-DB-003` — the autogenerate exclusion list is hand-copied between `alembic/env.py` and `tests/test_schema_drift.py`, and an exclusion present only in the test leaves the guard green while the next `alembic revision --autogenerate` writes `op.drop_table('project_snapshots')` into someone else's migration.
 
-## This session — Session 49, the reload path
+## This session — Session 50, the reload re-times the scheduler
+
+`SNAG-RELOAD-001`, which Session 49 filed against itself yesterday and
+which is closed here by **removing** the divergence rather than reporting
+it better. The entry offered two mitigations and named a third option in
+its last line; the third is what shipped.
+
+Suite **1771 passed** (from 1733), ruff and mypy clean, **no migration**,
+**no new route**.
+
+### What the entry proposed, and why neither mitigation was built
+
+Storing the last `ReloadReport` and serving it is a field nobody polls —
+`SNAG-CFG-001`'s shape exactly. Raising it as an alert row is the right
+*shape* but needs a settled dedup and resolve lifecycle before it is
+written, which is a session of its own; and both still only **describe** a
+divergence this repository can simply not have. Before the reload existed,
+startup built the config object and the scheduler from one read and they
+could never disagree — so the honest fix restores that property rather
+than narrating its absence.
+
+### The obvious implementation is a line shorter and breaks the schedule
+
+`reschedule_job` recomputes the next fire from **now**. Re-applying every
+job on every reload therefore leaves a 24-hour job permanently 24 hours
+from the most recent reload — which on a box being poked at is never. That
+is `agent_first_run_delay_seconds`'s failure (SNAG-AGENT-003) with a reload
+standing in for a restart.
+
+So an unchanged trigger is left **untouched**, and "unchanged" is decided
+against the **live** job rather than a remembered plan. A remembered plan
+is a second statement of what the scheduler is doing, and two statements
+that can disagree is precisely what this snag was.
+
+### Three decisions taken, and what each rejected
+
+- **A plan in `core`, not a fourth composition root.**
+  `sysadmin/core/jobs.py` imports no domain and knows no agent — the
+  callables arrive as `JOB_TARGETS` from `main.py`. So that file owns
+  *what* runs and this one owns *when*, and `tests/test_jobs.py` asserts
+  the two sets match exactly: planned-and-unwired is a `KeyError` at
+  startup, wired-and-unplanned never runs and looks identical to one that
+  does. Rejected: a `sysadmin/jobs.py` beside `main.py` and `reload.py`,
+  which would have been a third composition root for a module that needs
+  none of the licence.
+- **Converging `sync_*` methods, with no separate "add" left.** A caller
+  holding both has a decision to take, and taking that decision away from
+  the two roots that schedule anything is the point. `schedule_interval`
+  and `schedule_cron` are gone rather than kept beside them.
+- **A job being *added* gets the first-run delay; a job being *re-timed*
+  does not.** Added means this process has never scheduled it — a cold
+  start or an agent just re-enabled — and `IntervalTrigger` alone puts the
+  first fire an interval out. Re-timed already has a next fire, and pulling
+  it forward turns an unrelated threshold edit into a 118-second
+  filesystem scan nobody asked for.
+
+### The guard test was rescued, and rescuing it found a defect in the guard
+
+`tests/test_reload.py` walks the lifespan by AST and requires every config
+path read there to be classified. Moving fifteen of those reads into
+`core/jobs.py` would have hollowed it out **silently** — the assertion
+would have gone on passing over a shrinking population. It now walks both
+functions, and gained a second half: each `JobSpec`'s declared
+`config_paths` must equal what `plan_jobs` actually reads.
+
+Writing that showed the walker treats `delay =
+schedules.agent_first_run_delay_seconds` as an alias assignment. It is
+syntactically identical to `agents = config.agents` and semantically the
+opposite, so a real leaf was being dropped without a word — the guard
+failing in exactly the direction it exists to catch. An assignment now
+counts as an alias only if the name is later used as an attribute base,
+and `test_a_leaf_read_into_a_local_is_not_mistaken_for_an_alias` pins it.
+
+Three source-grep tests elsewhere were converted to real assertions
+against the plan rather than substring matches on `main.py`:
+`test_scheduler`, `test_self_monitor` and `test_estate_judge_wiring`. All
+three would have kept passing while meaning nothing.
+
+### `RESTART_ONLY`: fifteen leaves to two prefixes
+
+`service` and `database`, covering the socket, the logging setup and the
+engine — genuinely immutable in-process, and the report still names them.
+The third classification is **derived**: `JOB_CONFIG_PATHS` comes from the
+plan, so the no-syncer fallback cannot fall behind the jobs it describes.
+`jobs_synced` carries the distinction `ports_checked` already encodes —
+`jobs_retimed: []` is "nothing needed re-timing" when true and "the
+scheduler was never looked at" when false.
+
+### Verified live, not only against fixtures
+
+In-process against the real `config.yaml` and a real
+`BackgroundScheduler`, touching neither the daemon on 8500 nor the file:
+
+- 999 s → `interval[0:16:39]`; `retention_purge` 03:00 → 04:00; a disabled
+  `estate_judge` had its job **removed**, and re-enabling **added it back
+  with the first-run delay**.
+- `requires_restart` came back `[]` where Session 49 reported three leaves.
+- The same reload run twice re-timed nothing — the idempotence the whole
+  design turns on.
+- With no syncer supplied, Session 49's behaviour exactly: `jobs_synced:
+  false` and all three leaves named.
+
+### The daemon is still two sessions behind, and it was measured
+
+`POST /api/sysadmin/reload` **404s** against PID 1410826 (started 14:32
+BST), so the running process predates Session 49 as well as this one. One
+restart deploys both. Until it is run, **do not send that HUP** — the
+running daemon has no handler and Python's default action is to die, with
+`Restart=always` making it look like a reload that worked.
+
+---
+
+## Previous session — Session 49, the reload path
 
 `SNAG-UNITS-005`'s durable half. Three sittings running had handed a
 restart forward because the daemon reads `services.yaml` once, in the
@@ -157,9 +269,7 @@ reaches it without `sudo`, or `curl -X POST localhost:8500/api/sysadmin/reload`
 for the report. Do **not** send that HUP before the restart: the running
 daemon has no handler and would take the default action, which is to die.
 
-### Open follow-up
+### Open follow-up — closed by Session 50
 
-`SNAG-RELOAD-001` (P3) — after a reload the config object can hold a
-scheduler setting the running scheduler does not obey, and
-`requires_restart` says so **once**. It is the only defect on the list that
-exists *because* of today's work, which is why it heads the ranking.
+`SNAG-RELOAD-001` (P3) was filed here and fixed the next sitting. See the
+top of this document.

@@ -37,12 +37,12 @@ def _job(scheduler: Scheduler, job_id: str):
 class TestFirstRunDelay:
     def test_long_interval_without_delay_waits_a_whole_interval(self, scheduler):
         """The old behaviour — kept as documentation of the bug."""
-        scheduler.schedule_interval(job_id="slow", func=_noop, hours=24)
+        scheduler.sync_interval(job_id="slow", func=_noop, hours=24)
         next_run = datetime.fromisoformat(_job(scheduler, "slow")["next_run"])
         assert next_run - datetime.now(next_run.tzinfo) > timedelta(hours=23)
 
     def test_first_run_delay_brings_the_first_fire_forward(self, scheduler):
-        scheduler.schedule_interval(
+        scheduler.sync_interval(
             job_id="slow", func=_noop, hours=24, first_run_delay_seconds=60
         )
         next_run = datetime.fromisoformat(_job(scheduler, "slow")["next_run"])
@@ -50,33 +50,52 @@ class TestFirstRunDelay:
         assert timedelta(seconds=0) < delta <= timedelta(seconds=61)
 
     def test_interval_is_still_honoured(self, scheduler):
-        scheduler.schedule_interval(
+        scheduler.sync_interval(
             job_id="slow", func=_noop, hours=24, first_run_delay_seconds=60
         )
         assert "interval[1 day, 0:00:00]" == _job(scheduler, "slow")["trigger"]
 
     def test_short_interval_jobs_unaffected(self, scheduler):
-        scheduler.schedule_interval(job_id="fast", func=_noop, seconds=60)
+        scheduler.sync_interval(job_id="fast", func=_noop, seconds=60)
         next_run = datetime.fromisoformat(_job(scheduler, "fast")["next_run"])
         delta = next_run - datetime.now(next_run.tzinfo)
         assert delta <= timedelta(seconds=61)
 
 
-class TestLifespanRegistration:
-    """The hours-scale agents must be registered with the delay."""
+class TestPlanRegistration:
+    """The hours-scale agents must be planned with the delay.
 
-    def test_organiser_agents_get_a_first_run_delay(self, monkeypatch):
-        """One job now: the project organiser left with the scanner in the
-        Session 4 cutover (ADR-0005); the estate runs it from its own
-        timer. The loop stays a loop so the next hours-scale agent is
-        covered by adding a name, not a test."""
-        import inspect
+    This used to read ``main.py``'s lifespan source for the string
+    ``first_run_delay_seconds`` near a job id. Session 50 moved the
+    registration into ``sysadmin/core/jobs.py``, so it now asks the plan
+    itself — which is both a real assertion and a total one: every
+    hours-scale interval job is covered, not the one name someone
+    remembered to list.
+    """
 
-        from sysadmin import main
+    def test_every_hours_scale_interval_job_gets_a_first_run_delay(self):
+        from sysadmin.core.config import AppConfig
+        from sysadmin.core.jobs import plan_jobs
 
-        source = inspect.getsource(main.lifespan)
-        for job in ("file_organiser_scan",):
-            block = source.split(job, 1)[1].split(")", 1)[0]
-            assert "first_run_delay_seconds" in block, (
-                f"{job} must pass first_run_delay_seconds or it may never run"
-            )
+        missing = [
+            spec.job_id
+            for spec in plan_jobs(AppConfig())
+            if spec.trigger == "interval"
+            and "hours" in spec.trigger_kwargs
+            and not spec.first_run_delay_seconds
+        ]
+        assert not missing, (
+            f"{missing} may never run: IntervalTrigger puts the first fire "
+            "at now + interval"
+        )
+
+    def test_seconds_scale_jobs_do_not_ask_for_one(self):
+        """Not decoration: a delay is only applied when a job is *added*,
+        and a job that fires every 60 s needs no help reaching its first
+        run. Asking for one anyway would be cargo."""
+        from sysadmin.core.config import AppConfig
+        from sysadmin.core.jobs import plan_jobs
+
+        for spec in plan_jobs(AppConfig()):
+            if spec.trigger == "interval" and "seconds" in spec.trigger_kwargs:
+                assert spec.first_run_delay_seconds is None

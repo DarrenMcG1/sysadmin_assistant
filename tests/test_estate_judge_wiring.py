@@ -49,9 +49,17 @@ class TestTheAgentIsWired:
         assert schedule.interval_seconds == 3600
 
     def test_main_registers_that_job_id(self):
-        source = (ROOT / "sysadmin" / "main.py").read_text()
-        assert 'job_id="estate_judge_poll"' in source
-        assert "estate_judge_agent.run" in source
+        """Planned *and* wired — the two halves live in different files now.
+
+        ``core/jobs.py`` says when it runs and ``main.py`` says what runs;
+        checking only one of them passes on an agent that is scheduled and
+        pointed at nothing (or wired and never scheduled).
+        """
+        from sysadmin.core.jobs import plan_jobs
+        from sysadmin.main import JOB_TARGETS, estate_judge_agent
+
+        assert "estate_judge_poll" in {s.job_id for s in plan_jobs(AppConfig())}
+        assert JOB_TARGETS["estate_judge_poll"] == estate_judge_agent.run
 
     def test_the_newest_constraint_migration_matches_agent_names(self):
         """The invariant, found rather than named.

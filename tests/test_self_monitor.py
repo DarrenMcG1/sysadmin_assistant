@@ -135,14 +135,19 @@ class TestAgentSchedules:
         assert schedules["log_aggregator"].interval_seconds == 90
 
     def test_job_ids_match_the_scheduler_registration(self):
-        """The ids here must match main.py's scheduler.schedule_interval calls."""
-        import inspect
+        """The ids here must be ids the scheduler is actually asked for.
 
-        from sysadmin import main
+        This used to grep ``main.py``'s lifespan for ``job_id="..."``,
+        which stopped meaning anything the moment Session 50 moved the
+        registration into ``core/jobs.py``. Against the plan it is a real
+        comparison rather than a substring one: a stall window computed
+        against a schedule nothing runs is the failure being prevented.
+        """
+        from sysadmin.core.jobs import plan_jobs
 
-        source = inspect.getsource(main.lifespan)
+        planned = {spec.job_id for spec in plan_jobs(AppConfig())}
         for schedule in agent_schedules(AppConfig()).values():
-            assert f'job_id="{schedule.job_id}"' in source
+            assert schedule.job_id in planned
 
     def test_disabled_agent_is_reported_as_disabled(self, mock_config):
         mock_config.agents.file_organiser.enabled = False

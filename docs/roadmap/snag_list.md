@@ -10,10 +10,10 @@
 
 ## Open Issues
 
-_Twelve open snags (`SNAG-RELOAD-001` added 2026-08-15), plus five found and fixed the same day or since and left in
+_Eleven open snags (`SNAG-RELOAD-001` was added **and fixed** on 2026-08-15), plus six found and fixed the same day or since and left in
 place for the write-up (`SNAG-SYSD-002` on 2026-08-08, `SNAG-DB-001` on
-2026-08-10, `SNAG-CFG-001` on 2026-08-11, and `SNAG-AGENT-003`/`-004` on
-2026-08-12) — the entries listed therefore exceed the
+2026-08-10, `SNAG-CFG-001` on 2026-08-11, `SNAG-AGENT-003`/`-004` on
+2026-08-12, and `SNAG-RELOAD-001` on 2026-08-15) — the entries listed therefore exceed the
 entries outstanding, which is itself an instance of `SNAG-ROADMAP-002`.
 **This used to claim `count_open_snags` reports 15. It reports 47**
 (measured 2026-08-14 against `estate_service/projects/roadmap.py`, which
@@ -64,13 +64,18 @@ found on 2026-08-07 by the consumer — Alfred now renders `briefing/preview`
 daily and is building a page on `/api/projects/board`, so producer-side content
 defects have a reader for the first time._
 
-- [P3] SNAG-RELOAD-001: **after a reload, the config object can hold a scheduler setting the running scheduler does not obey, and nothing says so twice** (2026-08-15)
+- [P3] SNAG-RELOAD-001: **after a reload, the config object can hold a scheduler setting the running scheduler does not obey, and nothing says so twice** (2026-08-15, **fixed same day**)
   - **Symptom**: `sysadmin/reload.py` installs the whole `AppConfig`, so `get_config().agents.sysadmin.health_check_interval_seconds` reads the new value while the APScheduler job keeps the trigger built at startup. Measured live this sitting: edited to 999, the config object returned 999 and the job stayed on 300 s
   - **Before the reload existed this divergence could not occur** — startup built the config object and the scheduler from one read, so the two always agreed. It is a cost the reload introduces, not a pre-existing fault it exposes
   - **It is reported, once.** `ReloadReport.requires_restart` names every such leaf in the response body and in a `WARNING` log line. That is the whole mitigation, and it is the shape Session 39 spent itself removing: a warning that fires once is indistinguishable from one that got fixed. An operator who reloads and walks away has nothing that still says the scheduler is not obeying config.yaml
   - **Two candidate fixes, neither costed.** Store the last `ReloadReport` and serve it (cheap; but a field nobody polls is the `SNAG-CFG-001` shape), or raise it as an alert row so it reaches the tray, the DND windows and `/api/sysadmin/alerts` through plumbing that exists. The second is the right shape and needs a settled dedup and resolve lifecycle before it is written — a family added without one is how 51,924 rows happened
   - **The real fix is upstream of both**: `Scheduler` exposes no `reschedule_job`, so nothing re-times a job. Adding it would shrink `RESTART_ONLY` to the socket, the engine and the logging setup and make this snag mostly disappear, rather than reporting it better
   - **Found**: 2026-08-15 by running the mixed edit against the live config.yaml — one live field and two restart-only ones in one file — which is the case the apply-and-name decision was taken for
+  - **Fixed 2026-08-15 (Session 50), by the third option.** Neither candidate mitigation was built: storing the report and raising an alert row both describe the divergence, and the entry's own last line says the divergence can be removed instead. `sysadmin/core/jobs.py` holds the plan (`plan_jobs`: an `AppConfig` -> the jobs it asks for) and `apply_jobs` reconciles a scheduler with it; `Scheduler` gained `sync_interval`/`sync_cron`/`remove_job`. The lifespan and the reload now call **the same function**, so the schedule at startup and the schedule after a reload cannot be produced differently. `RESTART_ONLY` went from **fifteen leaves to two prefixes** — `service` and `database`, covering the socket, the logging setup and the engine
+  - **The obvious implementation was wrong, and in the direction that matters.** Re-applying every job on every reload is one line shorter and breaks the schedule: `reschedule_job` recomputes the next fire from *now*, so a 24-hour job would sit permanently 24 hours from the most recent reload — which on a box being poked at is never. That is `agent_first_run_delay_seconds`'s failure (SNAG-AGENT-003) with a reload standing in for a restart. A job whose trigger has not moved is therefore left **untouched**, decided by comparing against the **live** trigger rather than a remembered plan: a remembered plan is a second statement about what the scheduler is doing, which is what this entry was
+  - **`jobs_synced` is the field that keeps the report honest.** `jobs_retimed: []` means "nothing needed re-timing" when it is true and "the scheduler was never looked at" when it is false — `UnitScanResponse.ports_checked`'s rule, one domain over. Without a syncer the reload falls back to Session 49's behaviour exactly, reporting every job leaf that moved, and that fallback reads its path list from the plan (`JOB_CONFIG_PATHS`) rather than restating it
+  - **Verified live** on 2026-08-15 against the real `config.yaml` and a real `BackgroundScheduler`, in-process and touching neither the daemon nor the file: 999 s became `interval[0:16:39]`, `retention_purge` moved 03:00 -> 04:00, a disabled `estate_judge` had its job **removed** and re-enabling **added it back with the first-run delay**, and `requires_restart` came back `[]` where Session 49 reported three leaves. Reloading the same file twice re-timed nothing
+  - **What it does not fix**: `RESTART_ONLY`'s two survivors are genuinely immutable in-process. A port or a database URL change still needs `sudo systemctl restart`, and the report still says so
 - [P0] SNAG-DB-001: the live database was a migration behind, and it caused a **39-hour monitoring blackout** nobody saw (2026-08-10, fixed same day)
   - **Symptom**: **Zero rows were written to `service_health` between 2026-08-08 17:34:54 and 2026-08-10 09:07:25.** Not degraded — absent. `/api/sysadmin/status`, the tray grid and reliability scoring were all serving from a table that had stopped receiving data a day and a half earlier
   - **Cause, in three parts, each individually survivable**:

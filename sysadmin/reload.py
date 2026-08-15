@@ -28,8 +28,7 @@ Four rules, three of them the opposite of the obvious implementation:
    Nearly everything an agent reads is already re-read per run — every
    ``_execute`` calls ``get_config()`` at its top, a consequence of
    SNAG-AGENT-003 forbidding agents a startup hook. What is genuinely read
-   once is small and enumerable (:data:`RESTART_ONLY`): the scheduler's
-   triggers, the engine, the socket, the logging setup. Refusing the whole
+   once is small and enumerable (:data:`RESTART_ONLY`). Refusing the whole
    reload when one of those changes would block a threshold fix on an
    unrelated edit in the same file — and the operator would then restart,
    so the refusal delivers nothing the restart did not. Half-success is
@@ -48,17 +47,37 @@ Four rules, three of them the opposite of the obvious implementation:
    three-poll degraded streak at the moment an operator is most likely to
    be poking at a failing service.
 
-What this deliberately does **not** do is reschedule jobs. APScheduler can
-``reschedule_job``, and doing so would shrink :data:`RESTART_ONLY` to the
-socket, the engine and the logging setup — but ``Scheduler`` exposes no
-such method today, and a reload that silently re-times the estate's cron
-jobs is a larger change than the one this session was scoped for. It is
-filed rather than assumed settled.
+**The scheduler is re-timed too, and that is what closes SNAG-RELOAD-001**
+(Session 50). Session 49 shipped this module without it, so a reload
+installed an interval the running scheduler did not obey and named it —
+once — in ``requires_restart``. A warning that fires once is
+indistinguishable from one that got fixed, which is the shape Session 39
+spent itself removing; and the divergence was a cost this module
+*introduced*, since before it existed the config object and the scheduler
+were built from one read and could never disagree.
+
+``sync_jobs`` is injected rather than imported: the scheduler lives in
+``main.py``, which imports this module, so reaching for it would be a
+cycle — and the seam is what lets the whole path be tested against a fake
+host. Two rules come with it:
+
+* **The sync runs after the swap and inside the lock**, so it re-times
+  against the configuration that was actually installed, and two reloads
+  cannot interleave a swap with someone else's sync.
+* **Without a syncer, every job leaf that moved is reported as
+  restart-only.** :data:`~sysadmin.core.jobs.JOB_CONFIG_PATHS` is derived
+  from the plan rather than restated, so that fallback cannot fall behind
+  the jobs it describes. ``jobs_synced`` says which of the two happened —
+  "re-timed nothing" and "never looked at the scheduler" are the same
+  empty list otherwise, which is ``ports_checked``'s rule again.
+
+:data:`RESTART_ONLY` is now **two** prefixes covering three genuinely
+immutable things: the socket, the logging setup and the engine.
 """
 
 import logging
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -67,6 +86,7 @@ from typing import Any, Protocol
 from estate.registry import load_registry
 
 from sysadmin.core.config import AppConfig, get_config, parse_config, set_config
+from sysadmin.core.jobs import JOB_CONFIG_PATHS, JobSyncReport
 from sysadmin.monitor.services import (
     ServicesFile,
     default_services_path,
@@ -94,24 +114,6 @@ RESTART_ONLY: tuple[tuple[str, str], ...] = (
         "lifespan; CORSMiddleware is built in create_app",
     ),
     ("database", "the async engine is created once, in the lifespan"),
-    ("schedules", "the daily cron jobs are registered once, at startup"),
-    # One entry per scheduled job. Not the whole `agents` subtree: the
-    # thresholds beside these fields ARE re-read every run, and sweeping
-    # them in here would tell an operator that a threshold change needs a
-    # restart when it does not — advice that is wrong in the direction
-    # nobody checks.
-    ("agents.sysadmin.enabled", "decides whether the health-check job exists"),
-    ("agents.sysadmin.health_check_interval_seconds", "the job's IntervalTrigger"),
-    ("agents.sysadmin.reliability.enabled", "decides whether the 02:00 cron job exists"),
-    ("agents.file_organiser.enabled", "decides whether the scan job exists"),
-    ("agents.file_organiser.scan_interval_hours", "the job's IntervalTrigger"),
-    ("agents.file_organiser.weekly_review", "decides whether the weekly cron job exists"),
-    ("agents.service_discovery.enabled", "decides whether the sweep job exists"),
-    ("agents.service_discovery.scan_interval_hours", "the job's IntervalTrigger"),
-    ("agents.estate_judge.enabled", "decides whether the poll job exists"),
-    ("agents.estate_judge.poll_interval_hours", "the job's IntervalTrigger"),
-    ("agents.log_aggregator.enabled", "decides whether the poll job exists"),
-    ("agents.log_aggregator.poll_interval_seconds", "the job's IntervalTrigger"),
 )
 
 #: Paths the lifespan reads that a reload nonetheless **does** deliver.
@@ -126,6 +128,16 @@ LIVE_AT_STARTUP: tuple[tuple[str, str], ...] = (
         "this module rebuilds the registry from it on every reload",
     ),
 )
+
+#: The third classification, and the only one that is **derived**.
+#:
+#: Every leaf deciding a job's existence or its timing is delivered by
+#: ``sync_jobs`` — fifteen of them, which is what used to make up the bulk
+#: of :data:`RESTART_ONLY`. Listing them here by hand would be a fourth
+#: copy of the schedule; ``sysadmin.core.jobs`` computes the set from the
+#: plan itself, and ``tests/test_reload.py`` requires the plan's
+#: declaration to match the config paths ``plan_jobs`` actually reads.
+LIVE_VIA_JOB_SYNC: frozenset[str] = JOB_CONFIG_PATHS
 
 
 class Prunable(Protocol):
@@ -157,6 +169,20 @@ class ReloadReport:
     #: Agent name -> the names whose in-memory state was dropped.
     pruned: dict[str, list[str]] = field(default_factory=dict)
     services_total: int = 0
+    #: Whether the running scheduler was reconciled against the new config.
+    #: ``False`` means no syncer was supplied, not that nothing changed —
+    #: the same distinction ``ports_checked`` draws for a sweep whose ``ss``
+    #: call failed. With it false, every job leaf that moved is in
+    #: ``requires_restart`` instead.
+    jobs_synced: bool = False
+    #: Jobs newly scheduled — an agent enabled since the last read.
+    jobs_added: list[str] = field(default_factory=list)
+    #: Jobs unscheduled — an agent disabled since the last read.
+    jobs_removed: list[str] = field(default_factory=list)
+    #: Jobs whose trigger moved. Unchanged jobs are deliberately absent
+    #: **and** untouched: ``reschedule_job`` recomputes the next fire from
+    #: now, so re-applying an identical trigger would postpone the job.
+    jobs_retimed: list[str] = field(default_factory=list)
 
     @property
     def config_unchanged(self) -> bool:
@@ -180,6 +206,10 @@ class ReloadReport:
             "services_removed": list(self.services_removed),
             "services_changed": list(self.services_changed),
             "pruned": {k: list(v) for k, v in self.pruned.items()},
+            "jobs_synced": self.jobs_synced,
+            "jobs_added": list(self.jobs_added),
+            "jobs_removed": list(self.jobs_removed),
+            "jobs_retimed": list(self.jobs_retimed),
         }
 
 
@@ -199,8 +229,10 @@ def _flatten(value: Any, prefix: str = "") -> dict[str, Any]:
     return leaves
 
 
-def changed_restart_only(old: AppConfig, new: AppConfig) -> list[str]:
-    """Restart-only leaves whose value differs between two configs.
+def changed_under(
+    old: AppConfig, new: AppConfig, prefixes: Sequence[str]
+) -> list[str]:
+    """Leaves under ``prefixes`` whose value differs between two configs.
 
     Reported per **leaf** rather than per prefix — an operator told
     ``schedules`` changed still has to diff the file to find out what, and
@@ -208,7 +240,6 @@ def changed_restart_only(old: AppConfig, new: AppConfig) -> list[str]:
     """
     old_leaves = _flatten(old.model_dump(mode="json"))
     new_leaves = _flatten(new.model_dump(mode="json"))
-    prefixes = tuple(path for path, _ in RESTART_ONLY)
     changed = []
     for path in sorted(set(old_leaves) | set(new_leaves)):
         if not any(path == p or path.startswith(f"{p}.") for p in prefixes):
@@ -216,6 +247,22 @@ def changed_restart_only(old: AppConfig, new: AppConfig) -> list[str]:
         if old_leaves.get(path) != new_leaves.get(path):
             changed.append(path)
     return changed
+
+
+def changed_restart_only(old: AppConfig, new: AppConfig) -> list[str]:
+    """Leaves that moved and are read once, at startup."""
+    return changed_under(old, new, [path for path, _ in RESTART_ONLY])
+
+
+def changed_job_paths(old: AppConfig, new: AppConfig) -> list[str]:
+    """Leaves that moved and decide a scheduled job's existence or timing.
+
+    Only reported when no syncer was supplied — with one, these are exactly
+    the fields the reload *does* deliver. Derived from the plan rather than
+    restated, so a job added to ``sysadmin.core.jobs`` cannot quietly stop
+    being reported here.
+    """
+    return changed_under(old, new, sorted(LIVE_VIA_JOB_SYNC))
 
 
 def diff_services(
@@ -240,11 +287,17 @@ def diff_services(
 _lock = threading.Lock()
 
 
+#: Reconciles the running scheduler with a new config. Injected, never
+#: imported — see the module docstring.
+SyncJobs = Callable[[AppConfig], JobSyncReport]
+
+
 def reload_configuration(
     *,
     config_path: Path | None = None,
     services_path: Path | None = None,
     prunable: Sequence[Prunable] = (),
+    sync_jobs: SyncJobs | None = None,
 ) -> ReloadReport:
     """Re-read both configuration files and install them, or neither.
 
@@ -291,6 +344,34 @@ def reload_configuration(
         # away cursors config.yaml still declares.
         pruned = {agent.name: agent.forget_unknown() for agent in prunable}
 
+        # Also after the swap, and still inside the lock: the scheduler is
+        # re-timed against the configuration that was actually installed,
+        # and two reloads cannot interleave one's swap with the other's
+        # sync. `apply_jobs` catches per job, so this only fires if the
+        # host itself is broken — in which case nothing was re-timed and
+        # every job leaf that moved is owed a restart, which is precisely
+        # the no-syncer answer below.
+        jobs = JobSyncReport()
+        jobs_synced = sync_jobs is not None
+        if sync_jobs is not None:
+            try:
+                jobs = sync_jobs(new_config)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("job_sync_unavailable", extra={"error": str(exc)})
+                jobs_synced = False
+
+    if jobs_synced:
+        # Only the jobs the host refused. In the ordinary case this is
+        # empty, which is the whole point of the change: the divergence is
+        # removed rather than described.
+        requires_restart = sorted(
+            set(requires_restart) | set(jobs.failed_config_paths)
+        )
+    else:
+        requires_restart = sorted(
+            set(requires_restart) | set(changed_job_paths(old_config, new_config))
+        )
+
     report = ReloadReport(
         ok=True,
         reloaded_at=now,
@@ -300,6 +381,10 @@ def reload_configuration(
         services_changed=changed,
         pruned={name: names for name, names in pruned.items() if names},
         services_total=len(new_services.services),
+        jobs_synced=jobs_synced,
+        jobs_added=jobs.added,
+        jobs_removed=jobs.removed,
+        jobs_retimed=jobs.retimed,
     )
     logger.info(
         "configuration_reloaded",
@@ -310,6 +395,11 @@ def reload_configuration(
             "changed": changed,
             "requires_restart": requires_restart,
             "pruned": report.pruned,
+            "jobs_synced": jobs_synced,
+            "jobs_added": jobs.added,
+            "jobs_removed": jobs.removed,
+            "jobs_retimed": jobs.retimed,
+            "jobs_failed": jobs.failed,
         },
     )
     if requires_restart:

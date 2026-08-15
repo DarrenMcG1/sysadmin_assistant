@@ -360,6 +360,89 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### ✅ Session 50: The reload re-times the scheduler (done 2026-08-15)
+
+**`SNAG-RELOAD-001`, closed by removing the divergence rather than
+reporting it better.** Session 49's own follow-up, and the only candidate
+on STATUS.md's runner-up list that was *worse for that session having
+happened*: before the reload existed, the config object and the running
+scheduler were built from one read and could never disagree.
+
+**The entry offered two mitigations and named a third option in its last
+line. The third is what shipped.** Storing the last `ReloadReport` and
+serving it is a field nobody polls (`SNAG-CFG-001`'s shape); raising it as
+an alert row needs a settled dedup and resolve lifecycle before it is
+written, which is a session of its own and would still be *describing* a
+divergence this repository can simply not have.
+
+**Shipped**:
+
+- `sysadmin/core/jobs.py` — `plan_jobs(config)` maps an `AppConfig` to the
+  nine jobs it asks for, and `apply_jobs(host, config, targets)`
+  reconciles a scheduler with that plan. `core` rather than a fourth
+  composition root: it imports no domain and knows no agent, because the
+  callables are handed in as `JOB_TARGETS` from `main.py`.
+- `Scheduler.sync_interval` / `sync_cron` / `remove_job` — **converging**
+  rather than additive. There is deliberately no separate "add" entry
+  point left: a caller with both has a decision to take, and taking that
+  decision away from the two composition roots is the point.
+- The lifespan and the reload now call the same function, so the schedule
+  at startup and the schedule after a reload cannot be produced
+  differently — the rule `_reload_configuration` already applied to its
+  two triggers, one layer down.
+- `RESTART_ONLY` went from **fifteen leaves to two prefixes**: `service`
+  and `database`, covering the socket, the logging setup and the engine.
+
+**The obvious implementation is wrong in the direction that matters.**
+Re-applying every job on every reload is a line shorter and breaks the
+schedule: `reschedule_job` recomputes the next fire from *now*, so a
+24-hour job would sit permanently 24 hours from the most recent reload —
+`agent_first_run_delay_seconds`'s failure with a reload standing in for a
+restart. An unchanged trigger is therefore left alone, decided by
+comparing against the **live** job rather than a remembered plan.
+
+**Two decisions with a stated cost:**
+
+- **A job being *added* gets the first-run delay; a job being *re-timed*
+  does not.** Added means this process has never scheduled it (a cold
+  start, or an agent just re-enabled) and `IntervalTrigger` alone would
+  put the first fire 24 hours out. Re-timed means it already has a next
+  fire, and pulling that forward would turn an unrelated threshold edit
+  into a 118-second filesystem scan nobody asked for.
+- **The plan is total — a disabled job is emitted disabled, never
+  omitted.** Only a plan that still names a job can *remove* it;
+  otherwise `enabled: false` is a restart-only field wearing a live
+  one's name. Rule 5 bounds the other side: only planned ids are removed,
+  so a job this module did not schedule is never swept.
+
+**The guard test was rescued rather than lost.** `tests/test_reload.py`
+walks the lifespan and requires every config path it reads to be
+classified; moving fifteen of those reads into `core/jobs.py` would have
+hollowed it out silently. It now walks both, and gained a second half —
+each `JobSpec`'s declared `config_paths` must equal the paths `plan_jobs`
+actually reads. Writing it found a real defect in the walker itself:
+`delay = schedules.agent_first_run_delay_seconds` is syntactically
+identical to an alias assignment and semantically the opposite, and the
+original helper dropped it, which is the guard failing in exactly the
+direction it exists to catch. Three source-grep tests elsewhere
+(`test_scheduler`, `test_self_monitor`, `test_estate_judge_wiring`) were
+converted from substring matching on `main.py` to real assertions
+against the plan.
+
+**1771 tests pass** (from 1733), ruff and mypy clean, no migration.
+
+**Verified live** against the real `config.yaml` and a real
+`BackgroundScheduler`, in-process, touching neither the daemon on 8500
+nor the file: 999 s became `interval[0:16:39]`, `retention_purge` moved
+03:00 -> 04:00, a disabled `estate_judge` had its job **removed** and
+re-enabling **added it back with the first-run delay**, and
+`requires_restart` came back `[]` where Session 49 reported three leaves.
+The same reload run twice re-timed nothing.
+
+**What it does not fix, and says so**: `service` and `database` are
+genuinely immutable in-process, so a port or database URL change still
+needs `sudo systemctl restart` — and the report still names it.
+
 ### ✅ Session 49: A reload path for services.yaml (done 2026-08-15)
 
 **`SNAG-UNITS-005`'s durable half.** STATUS.md had this as a runner-up,
@@ -409,6 +492,7 @@ object can hold a scheduler setting the running scheduler does not obey,
 and `requires_restart` says so once rather than continuing to. The real
 fix is a `reschedule_job` on `Scheduler`, which would shrink
 `RESTART_ONLY` to the socket, the engine and the logging setup.
+**Taken as Session 50 the same day** — see below.
 
 **Still owed, and not addressable by any reload**: the five system-scope
 orphan removals under `/etc/systemd/system`. `SNAG-UNITS-005` conflated a

@@ -503,11 +503,23 @@ class ReloadResponse(Contract):
     configuration untouched rather than half-replaced.
 
     ``requires_restart`` is the honest half: fields that changed in
-    config.yaml and are read once, at startup — the scheduler's triggers,
-    the engine, the socket, the logging setup. Everything an agent reads is
-    re-read per run and is live the moment this returns. A reader who
-    ignores this list is running a config.yaml the process is not fully
-    obeying, which is precisely what the field exists to prevent.
+    config.yaml and are read once, at startup — the socket, the logging
+    setup and the engine. Everything an agent reads is re-read per run and
+    is live the moment this returns. A reader who ignores this list is
+    running a config.yaml the process is not fully obeying, which is
+    precisely what the field exists to prevent.
+
+    The scheduler's triggers used to be on that list, and taking them off
+    it is Session 50 (``SNAG-RELOAD-001``): a reload now re-times the
+    running jobs rather than reporting, once, that it had not. ``ok: true``
+    with an empty ``requires_restart`` is therefore the ordinary outcome
+    rather than the lucky one.
+
+    ``jobs_synced`` is the field a reader must not skip past.
+    ``jobs_retimed: []`` means "nothing needed re-timing" when it is true
+    and "the scheduler was never looked at" when it is false — the same
+    distinction ``UnitScanResponse.ports_checked`` draws between
+    zero-because-clean and zero-because-blind.
     """
 
     ok: bool = False
@@ -522,6 +534,16 @@ class ReloadResponse(Contract):
     #: dropped. Names rather than a count: which one lost its resume
     #: cursor or its degraded streak is what decides whether it matters.
     pruned: dict[str, list[str]] = Field(default_factory=dict)
+    #: Whether the running scheduler was reconciled with the new config.
+    #: Read this before reading the three lists below.
+    jobs_synced: bool = False
+    #: Scheduled jobs added, unscheduled, and re-timed. A job whose trigger
+    #: did not move is in none of them, and was deliberately left alone:
+    #: re-timing recomputes the next fire from now, so re-applying an
+    #: identical trigger would postpone every job on every reload.
+    jobs_added: list[str] = Field(default_factory=list)
+    jobs_removed: list[str] = Field(default_factory=list)
+    jobs_retimed: list[str] = Field(default_factory=list)
 
 
 # ── /api/files/* mutating actions ────────────────────────────────────

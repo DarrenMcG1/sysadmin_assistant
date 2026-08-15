@@ -35,6 +35,7 @@ from sysadmin.core.event_bus import event_bus
 
 # Routers
 from sysadmin.core.health import router as health_router
+from sysadmin.core.jobs import JobSyncReport, JobTargets, apply_jobs
 from sysadmin.core.logging_setup import configure_logging
 from sysadmin.core.middleware import RequestLoggingMiddleware
 from sysadmin.core.retention import run_retention
@@ -81,6 +82,35 @@ estate_judge_agent = EstateJudgeAgent()
 #: contract.
 PRUNABLE: tuple = (sysadmin_agent, log_aggregator_agent)
 
+#: Job id -> what runs. ``sysadmin/core/jobs.py`` owns *when* each of these
+#: runs and knows nothing about agents; this file owns the instances and
+#: knows nothing about triggers. ``tests/test_jobs.py`` asserts the two
+#: sets match exactly, so a job planned there and unwired here fails a test
+#: rather than being planned, enabled, and silently absent.
+JOB_TARGETS: JobTargets = {
+    "sysadmin_health_check": sysadmin_agent.run,
+    "file_organiser_scan": file_organiser_agent.run,
+    "service_discovery_scan": service_discovery_agent.run,
+    "estate_judge_poll": estate_judge_agent.run,
+    "log_aggregator_poll": log_aggregator_agent.run,
+    "morning_briefing": send_morning_briefing,
+    "retention_purge": run_retention,
+    "weekly_disk_review": run_weekly_disk_review,
+    "reliability_snapshot": record_reliability_snapshot,
+}
+
+
+def _sync_jobs(config) -> JobSyncReport:
+    """Make the running scheduler match ``config``.
+
+    Handed to the reload rather than reached for by it: ``sysadmin/reload.py``
+    is a composition root and cannot import this one (this file imports it),
+    and a module-level scheduler is not something a reload should be
+    rummaging for anyway. Passing it also means the reload can be tested
+    against a fake host with no APScheduler in the way.
+    """
+    return apply_jobs(scheduler, config, JOB_TARGETS)
+
 
 async def _reload_configuration() -> ReloadReport:
     """Both triggers land here, so they cannot come to disagree.
@@ -89,7 +119,9 @@ async def _reload_configuration() -> ReloadReport:
     manifests are blocking I/O, and the API loop is the one serving
     ``/api/sysadmin/events`` to the tray.
     """
-    return await asyncio.to_thread(reload_configuration, prunable=PRUNABLE)
+    return await asyncio.to_thread(
+        reload_configuration, prunable=PRUNABLE, sync_jobs=_sync_jobs
+    )
 
 
 def _install_sighup_handler(loop: asyncio.AbstractEventLoop) -> bool:
@@ -213,102 +245,22 @@ async def lifespan(app: FastAPI):
     await notifier.startup()
 
     # --- Schedule jobs ---
-    agents_config = config.agents
-
-    # SysAdmin agent: health checks + resource snapshots
-    if agents_config.sysadmin.enabled:
-        scheduler.schedule_interval(
-            job_id="sysadmin_health_check",
-            func=sysadmin_agent.run,
-            seconds=agents_config.sysadmin.health_check_interval_seconds,
-        )
-
-    # Hours-scale agents also get an explicit first run shortly after
-    # startup. IntervalTrigger alone puts the first fire at now + interval,
-    # so the 24h file organiser never ran on a box that restarts daily.
-    first_run_delay = config.schedules.agent_first_run_delay_seconds
-
-    # File Organiser: filesystem audit
-    if agents_config.file_organiser.enabled:
-        scheduler.schedule_interval(
-            job_id="file_organiser_scan",
-            func=file_organiser_agent.run,
-            hours=agents_config.file_organiser.scan_interval_hours,
-            first_run_delay_seconds=first_run_delay,
-        )
-
-    # Service Discovery: installed units vs the wired estate (Session 26).
-    # Hours-scale like the other sweeps — unit files change when a project
-    # is installed or retired, which is a weekly event at most.
-    if agents_config.service_discovery.enabled:
-        scheduler.schedule_interval(
-            job_id="service_discovery_scan",
-            func=service_discovery_agent.run,
-            hours=agents_config.service_discovery.scan_interval_hours,
-            first_run_delay_seconds=first_run_delay,
-        )
-
-    # Estate Judge: the estate publishes, this judges (ADR-0005). Hourly
-    # rather than at the sysadmin agent's 300 s, because the producers
-    # change twice a day and `attention` re-walks ~26 manifests from disk
-    # on every request. It gets a first-run delay for the reason the
-    # hours-scale agents do — IntervalTrigger alone puts the first fire
-    # at now + interval, so a box that restarts daily never judges.
-    if agents_config.estate_judge.enabled:
-        scheduler.schedule_interval(
-            job_id="estate_judge_poll",
-            func=estate_judge_agent.run,
-            hours=agents_config.estate_judge.poll_interval_hours,
-            first_run_delay_seconds=first_run_delay,
-        )
-
-    # Log Aggregator: log polling
-    if agents_config.log_aggregator.enabled:
-        scheduler.schedule_interval(
-            job_id="log_aggregator_poll",
-            func=log_aggregator_agent.run,
-            seconds=agents_config.log_aggregator.poll_interval_seconds,
-        )
-
-    # Daily cron jobs — times from config.schedules (defaults 06:00 / 03:00)
-    schedules = config.schedules
-    scheduler.schedule_cron(
-        job_id="morning_briefing",
-        func=send_morning_briefing,
-        hour=schedules.briefing_hour,
-        minute=schedules.briefing_minute,
-    )
-    scheduler.schedule_cron(
-        job_id="retention_purge",
-        func=run_retention,
-        hour=schedules.retention_hour,
-        minute=schedules.retention_minute,
-    )
-    # Weekly disk review — the slot after the estate's portfolio review
-    # (now on 8400, estate ADR-0008 / our ADR-0005) so only one
-    # llama-server generation is in flight at a time
-    if agents_config.file_organiser.weekly_review:
-        scheduler.schedule_cron(
-            job_id="weekly_disk_review",
-            func=run_weekly_disk_review,
-            hour=schedules.disk_review_hour,
-            minute=schedules.disk_review_minute,
-            day_of_week=schedules.review_day_of_week,
-        )
-    # Daily reliability snapshot — an hour ahead of the 03:00 retention
-    # purge, so the day's score is written before the checks behind it can
-    # be deleted. Nothing serves these rows (the endpoint recomputes
-    # live); they exist so the score becomes trendable.
-    if agents_config.sysadmin.reliability.enabled:
-        scheduler.schedule_cron(
-            job_id="reliability_snapshot",
-            func=record_reliability_snapshot,
-            hour=schedules.reliability_hour,
-            minute=schedules.reliability_minute,
-        )
+    #
+    # One call, and the same one the reload makes. Registering these inline
+    # here is what SNAG-RELOAD-001 was: the config object moved and the
+    # scheduler did not, because the triggers were built from a read that
+    # happened once, in this function. The plan and the reasoning behind
+    # each job now live in `sysadmin/core/jobs.py`.
+    job_report = apply_jobs(scheduler, config, JOB_TARGETS)
+    if job_report.failed:
+        logger.error("jobs_not_scheduled", extra={"failed": job_report.failed})
 
     scheduler.start()
-    logger.info("scheduler started with %d jobs", len(scheduler.get_jobs()))
+    logger.info(
+        "scheduler started with %d jobs",
+        len(scheduler.get_jobs()),
+        extra={"added": job_report.added, "disabled": job_report.removed},
+    )
 
     # Expose shared services via app.state
     app.state.scheduler = scheduler
