@@ -1,0 +1,66 @@
+{
+  "_provenance": {
+    "captured_at": "2026-08-16T09:35:25.291159+00:00",
+    "box": "dbelter",
+    "dsn": "postgresql:///estate",
+    "method": "the producer's own route functions and ORM models, driven in this repository's venv against the live estate database inside transactions that were rolled back"
+  },
+  "live": {
+    "scans_total": 7,
+    "last_scan": {
+      "run_type": "scheduled",
+      "started_at": "2026-08-16T03:31:04.814670+00:00",
+      "finished_at": "2026-08-16T03:31:06.073457+00:00",
+      "age_seconds": 21860.5055,
+      "projects_scanned": 26,
+      "undeclared": 9,
+      "parse_failures": 0,
+      "repos_skipped": 0,
+      "sources_unreachable": [],
+      "estate_written": true,
+      "error": null
+    },
+    "generated_at": "2026-08-16T09:35:25.320170+00:00"
+  },
+  "degraded": {
+    "scans_total": 1,
+    "last_scan": {
+      "run_type": "scheduled",
+      "started_at": "2026-08-14T17:35:25.291159+00:00",
+      "finished_at": "2026-08-14T17:35:27.291159+00:00",
+      "age_seconds": 144000.041229,
+      "projects_scanned": 26,
+      "undeclared": 9,
+      "parse_failures": 3,
+      "repos_skipped": 2,
+      "sources_unreachable": [
+        "sysadmin services seam: ConnectError: All connection attempts failed"
+      ],
+      "estate_written": false,
+      "error": null
+    },
+    "generated_at": "2026-08-16T09:35:25.332388+00:00"
+  },
+  "failed": {
+    "scans_total": 1,
+    "last_scan": {
+      "run_type": "scheduled",
+      "started_at": "2026-08-16T09:15:25.291159+00:00",
+      "finished_at": "2026-08-16T09:15:26.291159+00:00",
+      "age_seconds": 1200.042727,
+      "projects_scanned": 0,
+      "undeclared": 0,
+      "parse_failures": 0,
+      "repos_skipped": 0,
+      "sources_unreachable": [],
+      "estate_written": false,
+      "error": "OperationalError: connection to server failed"
+    },
+    "generated_at": "2026-08-16T09:35:25.333886+00:00"
+  },
+  "never_ran": {
+    "scans_total": 0,
+    "last_scan": null,
+    "generated_at": "2026-08-16T09:35:25.334782+00:00"
+  }
+}

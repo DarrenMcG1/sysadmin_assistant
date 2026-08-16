@@ -3,79 +3,101 @@
 **Last Updated**: 2026-08-16
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **Three sub-session actions first, because none is a session and
+> **Two sub-session actions first, because neither is a session and
 > folding them into the ranking makes a two-minute job compete with a
-> day's work.** (0) **`systemctl --user restart sysadmin-tray.service`**
-> — added 2026-08-16 by Session 53 and the **only one of the three that
-> needs no `sudo`**. The tray is a *user* unit, running since 2026-08-12,
-> so it serves start-time code and `reminder_hours` is inert until it is
-> restarted. Expect the one open row to be re-announced as new on the
-> next poll: the policy state is in memory, which is the documented limit
-> rather than a fault. (1) **`sudo systemctl restart sysadmin.service`** —
-> re-measured 2026-08-16 at the close of Session 52 and **still owed**:
-> the running daemon is still PID 1410826, started 2026-08-15 14:32 BST,
-> and `POST /api/sysadmin/reload` still **404s**, so it predates Session
-> 49 as well as 50. Session 51 added nothing to it — that work is read by
-> alembic and the test suite, never by the daemon — but **Session 52
-> does**: `sysadmin/estate/` is agent code the running daemon serves from
-> its start-time copy, so the attention cap and the marked truncation
-> are not live until this restart happens. One restart deploys
-> both, and it is the **last one this class of blocker will need** — from
-> then on `kill -HUP <MainPID>` reaches the daemon without `sudo`, and
-> re-times the scheduler rather than merely reporting that it had not.
-> **Until that restart, do not send it a HUP**: Python's default SIGHUP
-> action terminates, and `Restart=always` would bring it back — a restart
-> wearing a reload's name. (2) The **five system-scope orphan removals**
-> under `/etc/systemd/system` (`SNAG-UNITS-005`), which no reload path can
-> ever reach and whose exact commands are in HANDOFF.md. A third, larger
-> ops action stands behind them: `SNAG-DB-002`'s remedy on the eight stale
+> day's work.** *(Was three — the tray restart is **done**, measured
+> 2026-08-16 10:29 BST, so `reminder_hours` is live.)* (1) **`sudo
+> systemctl restart sysadmin.service`** — re-measured 2026-08-16 at the
+> close of Session 54 and **still owed**: still PID 1410826, started
+> 2026-08-15 14:32 BST, and `POST /api/sysadmin/reload` still **404s**,
+> so it predates Sessions 49 and 50 as well. It now carries **two**
+> sittings' worth of agent code: Session 52's attention cap and marked
+> truncation, and Session 54's `estate_written` narrowing and
+> one-row-per-title guard. All of it is `sysadmin/estate/`, which the
+> daemon serves from its start-time copy. It is the **last restart this
+> class of blocker will need** — from then on `kill -HUP <MainPID>`
+> reaches the daemon without `sudo`, and re-times the scheduler rather
+> than merely reporting that it had not. **Until that restart, do not
+> send it a HUP**: Python's default SIGHUP action terminates, and
+> `Restart=always` would bring it back — a restart wearing a reload's
+> name. (2) The **five system-scope orphan removals** under
+> `/etc/systemd/system` (`SNAG-UNITS-005`), which no reload path can ever
+> reach and whose exact commands are in HANDOFF.md. A third, larger ops
+> action stands behind them: `SNAG-DB-002`'s remedy on the eight stale
 > databases, `REINDEX` **before** `ALTER DATABASE … REFRESH COLLATION
 > VERSION`, since the refresh alone asserts the versions match without
 > rebuilding anything and turns a loud known risk into a silent one.
 >
-> **Next up**: **exercise the estate judge's other three surfaces the way
-> Session 52 exercised `attention`** — `judge_projects_invariants`,
-> `judge_audit_*` and `judge_queue_invariants` against payloads made from
-> the producer's own code rather than from literals. Recommended
-> 2026-08-16 at the close of Session 53, and **it is Session 53 that
-> promotes it**: this is the same candidate Session 52 ranked *below*
-> `SNAG-ESTATE-003` on the honest ground that those literals are already
-> shaped from live payloads (`_scan()`, `_audit()`, `_queue()` carry real
-> numbers) and that none carries the `asdict`-drops-a-property seam which
-> made `attention` untrustworthy. That reasoning still stands; **what
-> moved is the cost of being wrong.** Until yesterday a mistaken
-> judgement in those families cost one toast, once, for ever — the very
-> silence Session 53 removed. With `reminder_hours` live, a family that
-> judges a healthy estate as broken now says so **every 24 hours**, and a
-> family that misreads a real fault stays silent just as durably. A
-> repeat mechanism raises the stake on every rule underneath it, and
-> three of the five surfaces have never been run against anything but
-> hand-written dicts. The technique is proven and cheap — Session 52 did
-> it in one sitting, and the producer's venv, the live estate database
-> and the forcing pattern are all recorded. **Runners-up.**
-> *`SNAG-TRAY-007`* (the desktop understudy shares none of the reminder
-> machinery) is the closest sibling and loses on population plus an
-> undecided question: the understudy is event-driven off `alert.raised`
-> with no poll of its own, so a reminder there is a second owner of a
-> lifecycle the tray holds whenever it is up, and `tray_grace_seconds`
-> would have to answer for the repeat path what it already answers for
-> the raise path. That is a decision, not a patch — and the tray has been
-> up 3 days, so nothing is costing anything meanwhile.
+> **Next up**: **`SNAG-TRAY-007` — the desktop understudy still speaks
+> once.** Recommended 2026-08-16 at the close of Session 54, promoted
+> from its own runner-up slot for a reason the sitting made concrete
+> rather than for its turn coming round. Sessions 39, 53 and 54 have now
+> closed the arc *while the tray is up*: a fault escalates, and a fault
+> that cannot escalate is restated every 24 hours. `monitor/desktop.py`
+> — the understudy that exists **only** for the case where the tray is
+> down — is event-driven off `alert.raised` and shares none of it, so in
+> exactly the situation the component was written for, a standing fault
+> is still announced once and then never again. That is Session 39's
+> original defect, surviving in the one place the two fixes for it do
+> not reach.
+> **It is a session and not a patch, which is why 53 deferred it and why
+> the deferral was right.** The understudy has no poll of its own, so it
+> has no clock to measure "when did I last speak" against, and adding one
+> makes it a second owner of a lifecycle the tray holds whenever it is
+> up. `tray_grace_seconds` answers that precedence question for the
+> *raise* path and would have to answer it for the *repeat* path too —
+> and the two answers are not obviously the same, because the grace
+> window measures whether the tray polled recently, not whether it
+> already said this. The deliverable is the decision.
+> **The honest weakness, stated first rather than discovered later**: the
+> population is zero today. The tray has been up almost continuously and
+> was restarted 15 minutes before this recommendation was written, so
+> nothing is costing anything right now. It wins on being the last
+> unclosed hole in a three-session arc, on being wholly local — no
+> `sudo`, no migration, no other repository — and on the decision being
+> the sort that gets harder to take once a second mechanism exists beside
+> it.
+> **Runners-up.**
+> *Session 27's Tier 1* (per-source error-rate trends, "new error class
+> this week") is the largest genuinely-unbuilt thing left and loses on
+> having no fault behind it: `SNAG-AGENT-002`'s root cause was fixed in
+> Session 42, and the aggregator has run 1,439 times in 24 hours with
+> **zero** unresolved rows, against 598,091 before. Additive work on a
+> quiet subsystem.
+> *An execution sitting on the standing `Unmonitored systemd units: 8
+> findings` row* — open since 2026-08-15 14:33 and exactly the shape
+> Session 48 turned into two defects — loses on a measurement taken this
+> sitting rather than on principle. Of the ten ranked recommendations,
+> **five** are the system-scope orphans blocked on `sudo`, and **four of
+> the remaining five are other repositories' unit files**:
+> estate-manager's `estate-manager-api` and
+> `estate-manager-searxng-shim`, Alfred's `alfred-inference`, and
+> `deadlock-api-ingest`. Rule 3 makes a unit file theirs to change, so
+> the sitting would produce delegation notes rather than work.
 > *`SNAG-AGENT-007`* (four unbounded `_active_alerts` reads per sysadmin
-> run) loses on the same measurement for the **fifth** sitting running,
-> and it got cheaper again: **one** unresolved row on the whole box.
-> *`SNAG-ROADMAP-001` and `SNAG-ROADMAP-002`* are **named as blocked, not
-> dropped** — both bit this sitting (the Open-Issues header claims ten
-> while fourteen entries carry no fixed marker), and both are the
-> **estate's** to fix: `count_open_snags` and the handoff parser have
-> lived in `estate_service/projects/roadmap.py` since the 2026-08-13
-> migration, so a fix here would be a cross-repo write of code, which the
-> estate rules forbid. The taxonomy half of `SNAG-ROADMAP-002` — this
-> document having more than one heading containing "open" — is local and
-> is a ten-minute edit rather than a session.
+> run) loses on the same measurement for the **sixth** sitting running:
+> **two** unresolved rows on the whole box.
+> **Named as blocked, not dropped.** `SNAG-ROADMAP-001`/`-002` and
+> `SNAG-PROJ-013` are other repositories' to fix — `roadmap.py` has lived
+> in `estate_service/projects/` since the 2026-08-13 migration, and
+> ImbaBots is its own repo. `SNAG-ESTATE-004`/`-005` and the two opened
+> today, **`SNAG-ESTATE-006`** (the audit publishes no finding `code`) and
+> **`SNAG-ESTATE-007`** (the queue stamps local time while three sibling
+> surfaces stamp UTC), are all delegated and none has a counterpart entry
+> in estate-manager yet — recording them there is a cross-repo write,
+> committed on its own and announced, and is **not** a sysadmin session.
 > *`SNAG-UNITS-003`* loses where it always does, on an empty population.
 > *Sessions 25b/25c* lose where they always do: no consumer beyond the
 > API.
+>
+> **Previously here — the estate judge's other three surfaces**,
+> recommended 2026-08-16 at the close of Session 53 and **done the same
+> day as Session 54**. The recommendation held completely, including its
+> central claim — that the cost of being wrong had moved, not the
+> evidence — and the sitting found the defect that framing predicted: a
+> failing scan raised two rows, one of them saying the scan "completed".
+> A literal could not have shown it, because a literal sets one field at
+> a time and the producer cannot. See Recently Completed.
 >
 > **Previously here — `SNAG-ESTATE-003` — the estate families raise once
 > and then stay silent**, recommended 2026-08-16 at the close of Session
@@ -121,7 +143,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **1792 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, smoke script |
+| Testing | 🟢 Complete | **1834 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -129,6 +151,54 @@
 ---
 
 ## Recently Completed
+
+### The other three estate surfaces, against data (2026-08-16)
+
+**Session 53's recommendation, taken as written, and it found what its
+framing predicted.** `judge_projects_invariants`, `judge_audit_*` and
+`judge_queue_invariants` had never been run against anything but
+hand-written dicts. Payloads were built by the producer's own code —
+estate-manager's route functions, ORM models, `_streak_starts` age walk,
+`CheckResult.as_summary`, `Arbiter.invariants` and `api._public` — driven
+in its venv against the live `estate` database inside transactions that
+were rolled back (verified after at 7 `scan_runs` / 22 `audit_runs` / 92
+`audit_findings`, unchanged). The `ports` breaches are real: listeners
+bound on 3900–3905 inside the registry's own audited range, through
+`ports.run_check` against the real `monitorable-project.md`.
+
+**The defect a literal is structurally unable to show.** Each rule was
+pinned one condition at a time, because that is what a keyword override
+produces. The producer cannot separate them: `ScanOutcome.estate_written`
+starts `False` and is set near the end of a run, so **every** failing
+scan carries `error` *and* `estate_written: False`, and the judge raised
+two rows for one fault — the second reading *"The last project scan
+completed without rewriting estate.json"* of a scan that did not
+complete. Under Session 53's `reminder_hours` that is a false sentence
+restated every 24 hours, which is what turned a redundancy into a fix.
+The rule is now narrowed to a scan that did not error, making the two
+families mutually exclusive by construction.
+
+**A second, latent defect, fixed because it is invisible either way**:
+`EstateJudgeAgent._execute` read `open_titles` once, so two judgements
+sharing a title in one run inserted two rows and deduplicated only from
+the second run. Reachable through `judge_audit_findings` rule 4, which
+keeps the `code` out of the title on purpose.
+
+**Two producer-side gaps delegated rather than worked around** —
+`SNAG-ESTATE-006` (`AuditFinding` has no `code` column, so
+`details['code']` is `None` on every payload the estate can serve, and
+the docstring said otherwise) and `SNAG-ESTATE-007` (the arbiter's pool
+omits the `-c timezone=utc` its sibling engine sets and documents). Both
+carry pre-staged tests or a stated cost rather than a parked task.
+
+**Two rules measured and recorded as unreachable rather than deleted**:
+the scan's `finished_at is None` and the audit's `error`, both of which
+the producer cannot currently write. Kept, and named in the docstrings so
+their silence is not read as health.
+
+Suite **1834** (from 1802), ruff and mypy clean, no migration and no
+route. Verified live on the real database in a rolled-back transaction:
+raise 7 → hold (0 raised, 0 resolved) → resolve 7, **0 rows of residue**.
 
 ### A fault that stands keeps speaking — SNAG-ESTATE-003 (2026-08-16)
 

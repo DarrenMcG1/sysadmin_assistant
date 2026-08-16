@@ -2,9 +2,131 @@
 
 ## Next action
 
-Exercise the estate judge's other three surfaces — `judge_projects_invariants`, `judge_audit_*` and `judge_queue_invariants` — against payloads built from the producer's own code the way Session 52 did for `attention`, because Session 53's reminder cadence turns a wrong judgement in any of them from one toast into a daily one.
+Take `SNAG-TRAY-007` and decide how `sysadmin/monitor/desktop.py` restates a standing fault while the tray is down, because Sessions 39, 53 and 54 have closed that arc everywhere except the one component that exists for the case where the tray is not running.
 
-## This session — Session 53, a fault that stands keeps speaking
+## This session — Session 54, the other three surfaces against data
+
+Session 53's recommendation, taken as written. Suite **1834 passed**
+(from 1802), ruff and mypy clean, **no migration**, **no route**, **no
+config change**. Both code changes are in `sysadmin/estate/`, which the
+daemon serves from its start-time copy, so they deploy on the restart
+already owed — no new blocker.
+
+### The method, and where it is weaker than Session 52's
+
+Session 52 forced two thresholds and pushed 26 real snapshots through
+the producer; its fixture is an observation. The unhappy states on these
+three surfaces have **never occurred** — 0 of 7 `scan_runs` and 0 of 22
+`audit_runs` carry an error, no `ports` finding has ever reached
+`breach`, the queue has never had a waiter — so the *rows* here are
+synthetic and the fixtures say so. What is borrowed is everything
+downstream: the ORM models (which reject a shape the estate cannot
+store), `scan_invariants`, `audit_invariants`, `findings` including its
+`_streak_starts` age walk, `CheckResult.as_summary`, `Arbiter.invariants`
+and `api._public`. Run in estate-manager's venv against the live `estate`
+database inside transactions that were rolled back; verified afterwards
+at 7 / 22 / 92 rows unchanged.
+
+The port breaches are not synthetic at all: real listeners on 3900–3905,
+inside the registry's own audited range, through the estate's
+`ports.run_check` against the real `monitorable-project.md`. Session
+26b-A's method, which is why `detail['port']` and `fingerprint` in the
+fixture are the producer's spelling rather than a guess at it.
+
+### The finding, which is exactly what the framing predicted
+
+Every rule was pinned one condition at a time, because a keyword
+override to `_scan(...)` produces one condition. **The producer cannot
+separate them.** `ScanOutcome.estate_written` starts `False` and is set
+near the end of a run, so every failing scan carries `error` *and*
+`estate_written: False` — and the judge raised two rows for one fault,
+the second reading *"The last project scan completed without rewriting
+estate.json"* of a scan that did not complete. One toast, once, before
+Session 53; a false sentence restated every 24 hours after it. That is
+the whole argument for the promotion, arriving as data.
+
+The `estate_written` rule is now narrowed to a scan that did not error,
+which makes the two mutually exclusive by construction —
+`failures.py`/`stalls.py`'s shape, one domain over. **Not deleted**: a
+scan that completed and skipped the write is the case its message
+actually describes, and a test pins both sides.
+
+### A second defect, fixed because it is invisible either way
+
+`EstateJudgeAgent._execute` read `open_titles` once and never updated it,
+so two judgements sharing a title in one run insert two rows and
+deduplicate only from the second run onwards. Reachable through
+`judge_audit_findings` rule 4, which keeps the finding's `code` out of
+the title *on purpose* — two `breach` codes for one port are two findings
+and one row. Unreachable on today's estate; pinned because a run that
+raises twice looks exactly like one that raises once until somebody
+counts the rows.
+
+### Decisions taken, and what each rejected
+
+- **The `estate_written` guard keys on `error`, not on a merged
+  family.** Rejected: folding the two rules into one row with a longer
+  message, which loses the distinction between "the scan broke" and "the
+  scan ran and skipped its output contract" — different remedies, and
+  the second is the case the wording was written for.
+- **`SNAG-ESTATE-006` is delegated, not worked around.** The producer's
+  `code` is recoverable from `fingerprint`'s last `:` segment, and
+  parsing it here is this repository building a format the estate owns —
+  `_port_of`'s rule 3 one field over. `judge_audit_findings` goes on
+  reading `code`, so the producer's fix lands with no change here, and a
+  test asserts the **absence** so the day it lands the suite says so.
+- **Two rules recorded as unreachable rather than deleted.** The scan's
+  `finished_at is None` (the row is written once, *after* the scan, so a
+  mid-flight death writes no row and surfaces as staleness) and the
+  audit's `error` (`_record` builds `AuditRun` with no `error=`).
+  Rejected: removing them, which leaves nothing to notice that they
+  went; their columns are nullable and the producer may yet fill them.
+  Both are now named in the docstrings so their silence is not read as
+  health.
+- **The fixtures are scenario-keyed with a `_provenance` block**, and a
+  test fails if a re-capture drops it. JSON carries no comment and these
+  rows are synthetic; the block is what stops a hand-edit passing for an
+  observation.
+
+### Also corrected
+
+`1 data sources were unreachable`, in a message that reaches a
+notification body verbatim. And a `"code"` key an existing agent-test
+literal had invented — the same defect this session was about, sitting
+in the fixtures rather than the code.
+
+### Verified live, as this family always is
+
+The whole agent path against the real database in a rolled-back
+transaction: raise 7 → hold (0 raised, 0 resolved — dedup holding) →
+resolve 7, **0 rows of residue**, and the failed-scan payload producing
+one row where it used to produce two.
+
+### Two gaps filed rather than assumed settled
+
+- **`SNAG-ESTATE-006`** — the audit publishes no finding `code`, so
+  `details['code']` is `None` on every payload the estate can serve.
+- **`SNAG-ESTATE-007`** — the arbiter's pool omits the `-c timezone=utc`
+  its sibling engine sets and documents, so `active_lease` stamps render
+  `+01:00` against three sibling surfaces' `+00:00`.
+
+Both are delegated and **neither has a counterpart entry in
+estate-manager yet**; recording them there is a cross-repo write,
+committed on its own and announced, and is not a sysadmin session.
+
+### State of the box, measured at the close
+
+The tray restart owed since Session 53 is **done** (2026-08-16 10:29
+BST), so `reminder_hours` is live. `sudo systemctl restart
+sysadmin.service` is **still owed** — PID 1410826 from 2026-08-15 14:32
+BST, `POST /api/sysadmin/reload` still 404s — and now carries Sessions 52
+and 54 both. Two unresolved alert rows on the whole box: a new
+`High VRAM usage on AMD Radeon RX 7900 XTX` (10:17 today) and
+`Unmonitored systemd units: 8 findings`, open since 2026-08-15 14:33.
+
+---
+
+## Previous session — Session 53, a fault that stands keeps speaking
 
 `SNAG-ESTATE-003`. Suite **1802 passed** (from 1792), ruff and mypy
 clean, **no migration**, **no route**, and **no backend behaviour
@@ -100,122 +222,3 @@ now record that the alternative was **measured and refused**, and say not
 to re-derive it — the failure mode this repository has already filed once
 (SNAG-AGENT-006's "a correct conclusion drawn from a premise that has
 since moved").
-
----
-
-## Previous session — Session 52, judge_attention against data
-
-`SNAG-ESTATE-002`'s half that needed nothing from estate-manager. Suite
-**1792 passed** (from 1776), ruff and mypy clean, **no migration**, **no
-new route**, and nothing the running daemon reads until it is restarted —
-this is agent code, so it deploys on the restart already owed.
-
-### The problem, stated as the entry left it
-
-`judge_attention` had never been run against a payload with anything in
-it. `GET :8400/api/projects/attention` has answered `{"health": [],
-"nudges": []}` on all four occasions anyone has looked — including once
-after an overnight scheduled scan of 26 projects with 0 parse failures,
-which is the precondition that made the negative result worth recording,
-and again today at the start of this sitting. So every rule in that
-function was pinned against dict literals **written by the same hand
-that wrote the consumer**, which is the strongest evidence available and
-is not the same as an observation.
-
-The failure mode that makes it matter: the consumer drops an entry whose
-identity key is missing (`if not name: continue`). A producer renaming
-`project_name` does not raise, does not log and does not half-work — it
-returns `[]`, which is the answer this seam already gives. **Absence of
-evidence and evidence of absence are the same string here.**
-
-### How a populated payload was made, since the wire cannot supply one
-
-The producer's own code, driven read-only in its own venv against the
-live estate database, with two thresholds forced so live rows qualify:
-`effective_threshold` → 101, and `nudges.evaluate(…, default_days=0)`.
-Everything else is the estate's — 26 real snapshots through
-`latest_snapshot_query`, 26 real manifests through `load_registry`, 5
-real streaks through `load_action_streaks`, and `dataclasses.asdict`
-over the producer's own `Nudge`, which is the point: the field names are
-exactly what an unforced payload would carry. Committed as
-`tests/fixtures/estate_projects_attention.json`; the two forced numbers
-are visible in the data (`threshold: 101`, `threshold: 0`) rather than
-hidden, and no assertion reads them as observations.
-
-### Two defects, and neither rule had to be invented
-
-- **31 rows from one poll** — 26 health breaches and 5 nudges, each its
-  own alert row and its own tray `{severity}:{title}` fingerprint. The
-  ports family has had `port_breach_max_rows` for exactly this since
-  Session 26b-A; this one had nothing. Now `attention_max_rows` (5).
-- **A 469-character message.** `alert.message` reaches a notification
-  body verbatim, so the daemon was cutting the live next actions at a
-  point nobody chose — `SNAG-BRIEF-002`, one domain over, in a repository
-  that already owns the marked-cut helper and was not using it here.
-
-### Decisions taken, and what each rejected
-
-- **The two families collapse independently**, on one knob. They have
-  separate producers inside the estate (a score against a threshold; a
-  streak against a schedule) and fail separately, so collapsing the
-  working half because the other broke would hide the half that still
-  names its projects. Rejected: one count over both lists, which is
-  simpler to write and makes 26 broken health rows swallow 5 real nudges.
-- **A roll-up takes the loudest rung it swallows.** Rejected: raising it
-  at `DEFAULT_SEVERITY` like the health roll-up. `info` is below
-  `tray.notify_min_severity` here, so an escalated `warning` nudge folded
-  into an `info` row would have made the fix for noise the reason the one
-  entry that had earned a toast never got one. The inverse is pinned too
-  — six `info` nudges stay `info`, because volume is not severity.
-- **Five, and it is measured rather than chosen.** 26 projects are
-  scored, 12 are `archived` and cannot breach at all (threshold 0 against
-  a clamped score), leaving 14; the eligible nudge population is 5. So
-  five sits just under "every project that could" for both families. The
-  recording then lands on **both sides of the cap without being made
-  to** — 26 collapses, 5 does not — which is the independence rule as
-  data rather than as an argument.
-- **The seam is guarded in `tests/test_estate_project_contracts.py`, not
-  a new file.** That file already holds the two other 8400 routes and the
-  two-half machinery (recorded for CI, live for producer drift). Its live
-  half can only assert the envelope here, so the per-entry assertions are
-  **pre-staged**: they start running by themselves the first day the
-  estate publishes anything, which is also the first day they could catch
-  anything. Rejected: an AST sweep over the producer's `nudges.py`, which
-  fires sooner and pins another repository's file layout — a red gate
-  reporting a fault in a repository that has none, which that file's own
-  docstring argues against.
-- **A test that fires when the estate fixes its half.**
-  `PRODUCER_DROPPED_NUDGE_KEYS` asserts `title`/`message`/`details` are
-  *absent* from a published nudge, with a failure message naming the next
-  move. The pre-staged-trigger shape rather than a task parked on
-  another repository.
-
-### Verified live, because the family has never had a row
-
-Three runs of the whole agent path against the real database in a rolled-
-back transaction: raise (1 roll-up + 5 nudges) → hold (dedup, 0 raised) →
-resolve (6 closed when the estate goes quiet), **0 rows of residue**.
-
-### Two observations, filed rather than acted on
-
-- The estate's `IdleNudgeConfig.days` has no lower bound, though its
-  per-project sibling `idle_nudge_days` is validated `>= 1`. A global
-  `days: 0` yields "unchanged for 0 days (nudges after 0)" — the
-  `standing_days: 0.0` artefact Session 26b-A found one surface over.
-  Noted in `SNAG-ESTATE-002` for the estate; this repository renders the
-  producer's numbers faithfully and does not launder them.
-- **The ports family has fired since Session 26b-A wrote that it never
-  had.** `sysadmin.alerts` holds two `estate_judge` rows, both
-  `Estate port … registry breach` raised 2026-08-15 11:21 and both since
-  resolved. `judge_audit_findings` has now been exercised live; only
-  `projects_invariants`, `audit_invariants` and `queue_invariants` remain
-  unexercised by real data.
-
-### Still owed, unchanged by this session
-
-`sudo systemctl restart sysadmin.service` — re-measured at the close:
-still PID 1410826, started 2026-08-15 14:32 BST, and
-`POST /api/sysadmin/reload` still 404s. This session's code is agent
-code, so it is on that restart too. **Do not send a HUP until it has
-happened**: the running daemon predates `sysadmin/reload.py`, and
-Python's default `SIGHUP` action terminates.

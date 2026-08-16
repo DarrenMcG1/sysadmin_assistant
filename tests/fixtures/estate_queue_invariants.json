@@ -1,0 +1,30 @@
+{
+  "_provenance": {
+    "captured_at": "2026-08-16T09:36:01.119476+00:00",
+    "box": "dbelter",
+    "dsn": "postgresql:///estate",
+    "method": "the arbiter's own invariants() SQL and api._public, driven against the live estate database on one pinned connection whose synthetic leases were rolled back"
+  },
+  "live": {
+    "depth": 0,
+    "oldest_waiting_seconds": null,
+    "dropped_total": 1,
+    "expired_total": 0,
+    "grants_total": 5,
+    "active_lease": null
+  },
+  "backlog": {
+    "depth": 5,
+    "oldest_waiting_seconds": 2880.0,
+    "dropped_total": 1,
+    "expired_total": 0,
+    "grants_total": 6,
+    "active_lease": {
+      "id": 7,
+      "profile": "large",
+      "requester": "venture-assistant",
+      "granted_at": "2026-08-16T09:31:01.121902+01:00",
+      "hold_deadline": "2026-08-16T10:31:01.121902+01:00"
+    }
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "_provenance": {
+    "captured_at": "2026-08-16T09:35:25.291159+00:00",
+    "box": "dbelter",
+    "dsn": "postgresql:///estate",
+    "method": "the producer's own route functions and ORM models, driven in this repository's venv against the live estate database inside transactions that were rolled back"
+  },
+  "live": {
+    "audits_total": 22,
+    "last_audit": {
+      "run_id": "e5dcf307-0924-4b12-b755-15536756d443",
+      "run_type": "scheduled",
+      "verdict": "findings",
+      "started_at": "2026-08-16T08:36:20.626245+00:00",
+      "finished_at": "2026-08-16T08:36:20.785545+00:00",
+      "age_seconds": 3544.709162,
+      "checks_run": 7,
+      "checks_errored": 0,
+      "findings_total": 3,
+      "checks": {
+        "docs": {
+          "error": null,
+          "status": "findings",
+          "findings": 2
+        },
+        "brief": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "ports": {
+          "error": null,
+          "status": "findings",
+          "findings": 1
+        },
+        "seams": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "markers": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "pointers": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "collation": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        }
+      },
+      "publish_error": null,
+      "error": null
+    },
+    "generated_at": "2026-08-16T09:35:25.335407+00:00"
+  },
+  "errored": {
+    "audits_total": 1,
+    "last_audit": {
+      "run_id": "fd6a0842-aa45-4038-ae3e-7ea52b114735",
+      "run_type": "scheduled",
+      "verdict": "error",
+      "started_at": "2026-08-15T03:35:25.291159+00:00",
+      "finished_at": "2026-08-15T03:35:26.291159+00:00",
+      "age_seconds": 108000.047336,
+      "checks_run": 7,
+      "checks_errored": 2,
+      "findings_total": 0,
+      "checks": {
+        "docs": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "brief": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "ports": {
+          "error": "could not read the port registry document",
+          "status": "error",
+          "findings": 0
+        },
+        "seams": {
+          "error": "ConnectError: 8500 refused the connection",
+          "status": "error",
+          "findings": 0
+        },
+        "markers": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "pointers": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "collation": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        }
+      },
+      "publish_error": "MqttError: not authorised",
+      "error": null
+    },
+    "generated_at": "2026-08-16T09:35:25.338495+00:00"
+  },
+  "never_ran": {
+    "audits_total": 0,
+    "last_audit": null,
+    "generated_at": "2026-08-16T09:35:25.339476+00:00"
+  }
+}

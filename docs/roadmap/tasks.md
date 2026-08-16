@@ -367,6 +367,87 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### ✅ Session 54: The other three surfaces, against data (done 2026-08-16)
+
+**Session 53's recommendation, taken as it was written.** The estate
+judge's remaining three surfaces — `judge_projects_invariants`,
+`judge_audit_invariants`/`judge_audit_findings` and
+`judge_queue_invariants` — driven against payloads made by the
+producer's own code the way Session 52 did for `attention`. Suite
+**1834 passed** (from 1802), ruff and mypy clean, **no migration**, **no
+route** and **no config change**; the two code changes are in
+`sysadmin/estate/`, which the daemon serves from its start-time copy, so
+they deploy on the restart already owed.
+
+**The method, and that it is one notch weaker than Session 52's.** There,
+26 real snapshots and 5 real streaks went through the producer with two
+thresholds forced, and the fixture was an observation. Here the unhappy
+states have never occurred — **0 of 7 `scan_runs` and 0 of 22
+`audit_runs` carry an error**, no `ports` finding has ever reached
+`breach`, and the queue has never had a waiter — so the *rows* are
+synthetic. What is borrowed is everything downstream of them: the ORM
+models (which reject a shape the estate cannot store), `scan_invariants`,
+`audit_invariants`, `findings` including its `_streak_starts` age walk,
+`CheckResult.as_summary`, `Arbiter.invariants` and `api._public`. Run in
+estate-manager's venv against the live `estate` database inside
+transactions that were rolled back, verified afterwards at 7/22/92 rows
+unchanged. The port breaches are **not** synthetic: real listeners on
+3900–3905, inside the registry's own audited range, through
+`ports.run_check` against the real `monitorable-project.md` — Session
+26b-A's method.
+
+**The defect, and it is exactly what a one-condition-at-a-time literal
+cannot show.** `_scan(error=...)` and `_scan(estate_written=False)` are
+two separate tests here and were never in one payload. The producer
+cannot separate them: `ScanOutcome.estate_written` starts `False` and is
+set near the end of a run, so **every failing scan carries both**, and
+the judge raised two rows for one fault — the second reading *"The last
+project scan completed without rewriting estate.json"* of a scan that
+did not complete. Under Session 53's `reminder_hours` that is a false
+sentence restated every 24 hours. The `estate_written` rule is now
+narrowed to a scan that did not error, which makes the two families
+mutually exclusive by construction — `failures.py`/`stalls.py`'s shape,
+one domain over.
+
+**A second, latent one, fixed because it is invisible either way.**
+`EstateJudgeAgent._execute` read `open_titles` once and never updated it,
+so two judgements sharing a title in one run insert two rows and
+deduplicate only from the second run onwards. Reachable through
+`judge_audit_findings` rule 4, which keeps the finding's `code` out of
+the title on purpose: two `breach` codes for one port are two findings
+and one row. Unreachable on today's estate, pinned because a run that
+raises twice looks exactly like one that raises once until somebody
+counts.
+
+**Two producer-side gaps found and delegated rather than worked around.**
+`SNAG-ESTATE-006` — `AuditFinding` has no `code` column, so
+`details['code']` is `None` on every payload the estate can serve, and
+`judge_audit_findings`' rule 4 claimed otherwise. Not fixed here: the
+only workaround is splitting `fingerprint`, which is parsing a format the
+estate owns. `SNAG-ESTATE-007` — the arbiter's pool omits the `-c
+timezone=utc` its sibling engine sets and documents, so `active_lease`
+stamps render `+01:00` against three surfaces' `+00:00`. Costs nothing
+here and is filed for whoever parses it next.
+
+**Two rules recorded as unreachable rather than deleted**, having been
+measured: the scan's `finished_at is None` (the producer writes its row
+once, *after* the scan, so a mid-flight death writes no row and surfaces
+as staleness) and the audit's `error` (`_record` builds `AuditRun` with
+no `error=`, and the path that sets one writes no row). Both kept —
+their columns are nullable and the producer may yet fill them — and
+named in the docstrings so their silence is not read as health.
+
+**Also corrected**: `1 data sources were unreachable`, in a message that
+reaches a notification body verbatim; and the `"code"` key an existing
+agent-test literal invented, which is the same defect this session was
+about, in the fixtures rather than the code.
+
+**Verified live**, as this family always is because it ships with almost
+no rows: the whole agent path against the real database in a rolled-back
+transaction, raise 7 → hold (0 raised, 0 resolved) → resolve 7, **0 rows
+of residue** — and the failed-scan payload producing one row where it
+used to produce two.
+
 ### ✅ Session 53: A fault that stands keeps speaking (done 2026-08-16)
 
 **`SNAG-ESTATE-003`, and the entry's own "what would settle it" was

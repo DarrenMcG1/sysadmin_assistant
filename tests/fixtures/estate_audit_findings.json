@@ -1,0 +1,274 @@
+{
+  "_provenance": {
+    "captured_at": "2026-08-16T09:35:25.291159+00:00",
+    "box": "dbelter",
+    "dsn": "postgresql:///estate",
+    "method": "the producer's own route functions and ORM models, driven in this repository's venv against the live estate database inside transactions that were rolled back"
+  },
+  "live": {
+    "run": {
+      "run_id": "e5dcf307-0924-4b12-b755-15536756d443",
+      "run_type": "scheduled",
+      "verdict": "findings",
+      "started_at": "2026-08-16T08:36:20.626245+00:00",
+      "finished_at": "2026-08-16T08:36:20.785545+00:00",
+      "age_seconds": 3544.713907,
+      "checks_run": 7,
+      "checks_errored": 0,
+      "findings_total": 3,
+      "checks": {
+        "docs": {
+          "error": null,
+          "status": "findings",
+          "findings": 2
+        },
+        "brief": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "ports": {
+          "error": null,
+          "status": "findings",
+          "findings": 1
+        },
+        "seams": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "markers": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "pointers": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        },
+        "collation": {
+          "error": null,
+          "status": "ok",
+          "findings": 0
+        }
+      },
+      "publish_error": null,
+      "error": null
+    },
+    "findings": [
+      {
+        "check": "docs",
+        "severity": "breach",
+        "subject": "apps/alfred-glance/HANDOFF.md",
+        "summary": "apps/alfred-glance is active and carries no HANDOFF.md; estate rule 2 requires it, and the estate parses it",
+        "fingerprint": "docs:apps/alfred-glance/HANDOFF.md:document_missing",
+        "detail": {
+          "project": "apps/alfred-glance",
+          "accepted": [
+            "HANDOFF.md",
+            "docs/sessions/handoff.md",
+            "docs/handoff.md",
+            "docs/roadmap/handoff.md"
+          ],
+          "document": "handoff",
+          "expected": "HANDOFF.md"
+        },
+        "observed_at": "2026-08-16T08:36:20.626245+00:00",
+        "first_seen_at": "2026-08-15T09:15:17.035843+00:00",
+        "standing_days": 1.0,
+        "runs_observed": 13,
+        "age_truncated": false
+      },
+      {
+        "check": "docs",
+        "severity": "info",
+        "subject": "ImbaBots",
+        "summary": "ImbaBots has no .project.yaml, so estate rule 2 does not reach it; a repository outside the registry is outside every rule keyed on status",
+        "fingerprint": "docs:ImbaBots:unregistered_repository",
+        "detail": {
+          "path": "/home/gaddi/projects/ImbaBots",
+          "project": "ImbaBots"
+        },
+        "observed_at": "2026-08-16T08:36:20.626245+00:00",
+        "first_seen_at": "2026-08-15T09:15:17.035843+00:00",
+        "standing_days": 1.0,
+        "runs_observed": 13,
+        "age_truncated": false
+      },
+      {
+        "check": "ports",
+        "severity": "warn",
+        "subject": "port 3300",
+        "summary": "port 3300 is claimed by venture-assistant but nothing is listening; the service is stopped, or the row should say dormant",
+        "fingerprint": "ports:port 3300:claimed_but_silent",
+        "detail": {
+          "port": 3300,
+          "role": "frontend (Nuxt 3 dashboard, dev server for now; unit to follow) \u2014 claimed 2026-08-10",
+          "project": "venture-assistant"
+        },
+        "observed_at": "2026-08-16T08:36:20.626245+00:00",
+        "first_seen_at": "2026-08-13T14:18:12.245695+00:00",
+        "standing_days": 2.8,
+        "runs_observed": 22,
+        "age_truncated": true
+      }
+    ],
+    "generated_at": "2026-08-16T09:35:25.340152+00:00"
+  },
+  "one_port_breach": {
+    "run": {
+      "run_id": "277100a6-a7a8-47a4-a4b3-db4965e12943",
+      "run_type": "scheduled",
+      "verdict": "findings",
+      "started_at": "2026-08-13T12:35:25.291159+00:00",
+      "finished_at": "2026-08-13T12:35:26.291159+00:00",
+      "age_seconds": 248400.068422,
+      "checks_run": 7,
+      "checks_errored": 0,
+      "findings_total": 1,
+      "checks": {
+        "ports": {
+          "error": null,
+          "status": "findings",
+          "findings": 1
+        }
+      },
+      "publish_error": null,
+      "error": null
+    },
+    "findings": [
+      {
+        "check": "ports",
+        "severity": "breach",
+        "subject": "port 3900",
+        "summary": "port 3900 is listening inside the registry's range but no row claims it; the next project to pick a port cannot see that this one is taken",
+        "fingerprint": "ports:port 3900:unclaimed_listener",
+        "detail": {
+          "port": 3900
+        },
+        "observed_at": "2026-08-13T12:35:25.291159+00:00",
+        "first_seen_at": "2026-08-13T09:35:25.291159+00:00",
+        "standing_days": 3.0,
+        "runs_observed": 4,
+        "age_truncated": true
+      }
+    ],
+    "generated_at": "2026-08-16T09:35:25.359581+00:00"
+  },
+  "six_port_breaches": {
+    "run": {
+      "run_id": "5054c1c2-01ac-4be8-b5a8-466e9e19391d",
+      "run_type": "scheduled",
+      "verdict": "findings",
+      "started_at": "2026-08-16T04:35:25.291159+00:00",
+      "finished_at": "2026-08-16T04:35:26.291159+00:00",
+      "age_seconds": 18000.073893,
+      "checks_run": 7,
+      "checks_errored": 0,
+      "findings_total": 6,
+      "checks": {
+        "ports": {
+          "error": null,
+          "status": "findings",
+          "findings": 6
+        }
+      },
+      "publish_error": null,
+      "error": null
+    },
+    "findings": [
+      {
+        "check": "ports",
+        "severity": "breach",
+        "subject": "port 3900",
+        "summary": "port 3900 is listening inside the registry's range but no row claims it; the next project to pick a port cannot see that this one is taken",
+        "fingerprint": "ports:port 3900:unclaimed_listener",
+        "detail": {
+          "port": 3900
+        },
+        "observed_at": "2026-08-16T04:35:25.291159+00:00",
+        "first_seen_at": "2026-08-16T03:35:25.291159+00:00",
+        "standing_days": 0.3,
+        "runs_observed": 2,
+        "age_truncated": true
+      },
+      {
+        "check": "ports",
+        "severity": "breach",
+        "subject": "port 3901",
+        "summary": "port 3901 is listening inside the registry's range but no row claims it; the next project to pick a port cannot see that this one is taken",
+        "fingerprint": "ports:port 3901:unclaimed_listener",
+        "detail": {
+          "port": 3901
+        },
+        "observed_at": "2026-08-16T04:35:25.291159+00:00",
+        "first_seen_at": "2026-08-16T03:35:25.291159+00:00",
+        "standing_days": 0.3,
+        "runs_observed": 2,
+        "age_truncated": true
+      },
+      {
+        "check": "ports",
+        "severity": "breach",
+        "subject": "port 3902",
+        "summary": "port 3902 is listening inside the registry's range but no row claims it; the next project to pick a port cannot see that this one is taken",
+        "fingerprint": "ports:port 3902:unclaimed_listener",
+        "detail": {
+          "port": 3902
+        },
+        "observed_at": "2026-08-16T04:35:25.291159+00:00",
+        "first_seen_at": "2026-08-16T03:35:25.291159+00:00",
+        "standing_days": 0.3,
+        "runs_observed": 2,
+        "age_truncated": true
+      },
+      {
+        "check": "ports",
+        "severity": "breach",
+        "subject": "port 3903",
+        "summary": "port 3903 is listening inside the registry's range but no row claims it; the next project to pick a port cannot see that this one is taken",
+        "fingerprint": "ports:port 3903:unclaimed_listener",
+        "detail": {
+          "port": 3903
+        },
+        "observed_at": "2026-08-16T04:35:25.291159+00:00",
+        "first_seen_at": "2026-08-16T03:35:25.291159+00:00",
+        "standing_days": 0.3,
+        "runs_observed": 2,
+        "age_truncated": true
+      },
+      {
+        "check": "ports",
+        "severity": "breach",
+        "subject": "port 3904",
+        "summary": "port 3904 is listening inside the registry's range but no row claims it; the next project to pick a port cannot see that this one is taken",
+        "fingerprint": "ports:port 3904:unclaimed_listener",
+        "detail": {
+          "port": 3904
+        },
+        "observed_at": "2026-08-16T04:35:25.291159+00:00",
+        "first_seen_at": "2026-08-16T03:35:25.291159+00:00",
+        "standing_days": 0.3,
+        "runs_observed": 2,
+        "age_truncated": true
+      },
+      {
+        "check": "ports",
+        "severity": "breach",
+        "subject": "port 3905",
+        "summary": "port 3905 is listening inside the registry's range but no row claims it; the next project to pick a port cannot see that this one is taken",
+        "fingerprint": "ports:port 3905:unclaimed_listener",
+        "detail": {
+          "port": 3905
+        },
+        "observed_at": "2026-08-16T04:35:25.291159+00:00",
+        "first_seen_at": "2026-08-16T03:35:25.291159+00:00",
+        "standing_days": 0.3,
+        "runs_observed": 2,
+        "age_truncated": true
+      }
+    ],
+    "generated_at": "2026-08-16T09:35:25.365052+00:00"
+  }
+}

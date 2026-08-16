@@ -191,6 +191,32 @@ def judge_projects_invariants(payload: dict[str, Any], max_age_hours: float) -> 
     design.  It is a standing description of the estate, not a breach,
     and a rule on it would open a row that stays open until somebody
     declares nine repositories they have chosen not to declare.
+
+    **``estate_written`` is judged only on a scan that did not error**,
+    and that guard was put there by running this function over a payload
+    the producer built rather than by reading the rule (Session 54).
+    ``ScanOutcome.estate_written`` starts ``False`` and is set when
+    ``estate.json`` is rewritten, near the end of a scan — so *every*
+    failing scan carries ``error`` and ``estate_written: False``
+    together, and this used to raise two rows for one fault.  The second
+    is worse than redundant: its message says the scan "completed
+    without rewriting estate.json", which is false of a scan that did
+    not complete.  With ``reminder_hours`` live (Session 53) a wrong row
+    is no longer one toast — it restates itself every 24 hours until
+    somebody closes it.  The two families are now mutually exclusive by
+    construction, the shape :mod:`sysadmin.monitor.failures` and
+    :mod:`sysadmin.monitor.stalls` already hold between them: report the
+    cause, never the cause and each of its consequences.
+
+    **``finished_at is None`` cannot happen against today's producer**,
+    and the branch is kept anyway.  ``ProjectOrganiser.run`` writes its
+    ``ScanRun`` **once, after the scan**, with ``finished_at`` a literal
+    ``datetime.now(UTC)`` — there is no insert-at-start/update-at-end
+    split, so a scan killed mid-flight writes no row at all and surfaces
+    through the *stale* rule instead.  Live: 0 of 7 rows unfinished.
+    Kept because the column is nullable and the producer may yet split
+    the write; recorded here so the next reader does not mistake a rule
+    that has never fired for one that is watching something.
     """
     out: list[Judgement] = []
     last = payload.get("last_scan")
@@ -313,15 +339,16 @@ def judge_projects_invariants(payload: dict[str, Any], max_age_hours: float) -> 
                 # `tests/test_estate_judgements.py` pins it.
                 title="Estate scan could not reach sources",
                 message=(
-                    f"{len(sources)} data sources were unreachable during the "
-                    "last scan, so it ran on degraded input. See "
+                    f"{len(sources)} data source{'' if len(sources) == 1 else 's'} "
+                    f"{'was' if len(sources) == 1 else 'were'} unreachable during "
+                    "the last scan, so it ran on degraded input. See "
                     "details.sources."
                 ),
                 details={"sources": list(sources), "count": len(sources)},
             )
         )
 
-    if last.get("estate_written") is False:
+    if last.get("estate_written") is False and not last.get("error"):
         out.append(
             Judgement(
                 surface="projects_invariants",
@@ -583,6 +610,17 @@ def judge_audit_invariants(payload: dict[str, Any], max_age_hours: float) -> lis
     finding, so the audit's clean-looking result for that dimension means
     nothing looked rather than nothing was wrong — the same distinction
     ``_resolve_recovered`` draws between ``error`` and ``skipped``.
+
+    **``error`` is unreachable against today's producer**, unlike the
+    scan's, and the asymmetry is worth stating because the two surfaces
+    otherwise read as the same shape.  ``audit_runs.error`` is a column
+    ``_record`` never populates: it builds ``AuditRun`` with no
+    ``error=``, and the one path that sets ``AuditOutcome.error`` is
+    ``_record`` itself raising, which writes no row at all.  Live: 0 of
+    22.  So an audit that cannot record is invisible on this surface and
+    arrives as staleness instead — kept for the same reason as the
+    scan's unfinished branch, and named so a reader does not read its
+    silence as health.
     """
     out: list[Judgement] = []
     last = payload.get("last_audit")
@@ -767,9 +805,31 @@ def judge_audit_findings(
     4. **The title carries no ``code``.**  ``unclaimed_listener`` is the
        only ``breach`` the ports check emits today, and a title built from
        the code would fork the row the day a second one is added for the
-       same port.  The code lives in ``details``; the producer's own
-       ``summary`` is the message, so its wording can change without
-       moving the identity.
+       same port.  The producer's own ``summary`` is the message, so its
+       wording can change without moving the identity.
+
+       ``details['code']`` is read for that day and is **``None`` on
+       every payload the estate can serve today** — measured, not
+       assumed (Session 54).  ``Finding.code`` is a real field on the
+       producer's dataclass, folded into ``fingerprint`` as its last
+       ``:``-separated segment, and then dropped: ``AuditFinding`` has no
+       ``code`` column and the findings route publishes none.  It is
+       ``SNAG-ESTATE-002``'s shape one surface over — a value the
+       producer computes and the wire discards — and it is filed as
+       ``SNAG-ESTATE-006`` rather than worked around here, because the
+       only workaround available is splitting ``fingerprint``, which is
+       this repository parsing a format the estate owns.  Meanwhile
+       ``details['fingerprint']`` carries it where a human can read it.
+       ``tests/test_estate_surface_payloads.py`` asserts the absence, so
+       the day the estate publishes ``code`` the suite says so and this
+       line stops being true by itself.
+
+       The two rules together also make a same-title collision possible
+       in principle: two ``breach`` codes for one port are two findings
+       and one title.  That is the *agent's* problem rather than this
+       module's — a judgement list is allowed to hold two rows the
+       lifecycle must merge — and ``EstateJudgeAgent._execute`` now
+       counts a title as taken the moment it raises it.
 
     **``attribution`` is Session 26c's half, and it is the answer to
     the question this family could not previously ask.**  The estate's

@@ -1030,6 +1030,44 @@ could catch anything. One of them asserts `title`/`message`/`details` are
 *absent* from a nudge, so the day estate-manager closes its side the
 suite says so and names the next move.
 
+**The other three surfaces went the same way, and the defect is the one
+a literal cannot hold** (Session 54). Every rule in
+`judge_projects_invariants`, `judge_audit_*` and `judge_queue_invariants`
+was pinned one condition at a time, because a keyword override to a test
+helper produces one condition. **The producer cannot separate them.**
+`ScanOutcome.estate_written` starts `False` and is set near the end of a
+run, so *every* failing scan carries `error` and `estate_written: False`
+together — two rows for one fault, the second reading "the last project
+scan **completed** without rewriting estate.json" of a scan that did not
+complete. The rule is now narrowed to a scan that did not error, which is
+`failures.py`/`stalls.py`'s mutual-exclusion-by-construction one domain
+over. What made a redundancy worth fixing is Session 53: a wrong row is
+no longer one toast, it is a daily restatement.
+
+The payloads are the producer's route functions, ORM models,
+`_streak_starts` and `CheckResult.as_summary`, driven in estate-manager's
+venv against the live `estate` database inside rolled-back transactions —
+**one notch weaker than Session 52's** and it says so in the fixtures: the
+unhappy *rows* are synthetic, because 0 of 7 `scan_runs` and 0 of 22
+`audit_runs` have ever carried an error. The `ports` breaches are not:
+real listeners on 3900–3905 through `ports.run_check` against the real
+registry document.
+
+Three further things it settled. **`EstateJudgeAgent._execute` claims a
+title as it raises it** — `open_titles` was read once, so two judgements
+sharing a title in one run inserted two rows, which
+`judge_audit_findings` rule 4 makes reachable by keeping the finding's
+`code` out of the title on purpose. **`details['code']` is `None` on
+every payload the estate can serve** (`SNAG-ESTATE-006`): `AuditFinding`
+has no `code` column, the value survives only inside `fingerprint`, and
+splitting that is this repository parsing a format the estate owns — so
+the field is still read, the absence is asserted, and the fix lands on
+the producer's side with no change here. **Two rules are unreachable
+against today's producer and are kept anyway** — the scan's
+`finished_at is None` (the row is written once, after the scan) and the
+audit's `error` (`_record` builds `AuditRun` without one) — named in the
+docstrings so their silence is not read as health.
+
 **Journal reads resume from a cursor, and it must advance over what the
 filter discards.** `read_journal` was called with `since="2m ago"` on a
 60-second poll, so every unit-journal event was stored **exactly twice**.

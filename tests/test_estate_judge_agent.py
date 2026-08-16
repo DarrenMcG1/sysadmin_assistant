@@ -106,7 +106,11 @@ def port_breach(port=8888):
                 "subject": f"port {port}",
                 "summary": f"port {port} is listening inside the registry's range",
                 "fingerprint": f"ports:port {port}:unclaimed_listener",
-                "code": "unclaimed_listener",
+                # No `code` key, deliberately: the producer computes one
+                # and `AuditFinding` has no column for it, so it never
+                # reaches the wire (SNAG-ESTATE-006). A literal that
+                # invents a field the producer drops is the thing
+                # `tests/test_estate_surface_payloads.py` exists to stop.
                 "detail": {"port": port},
                 "standing_days": 2.0,
                 "runs_observed": 12,
@@ -438,3 +442,55 @@ class TestTheHttpIsOutsideTheTransaction:
             module.client.pull_all = original
 
         assert seen == [0]
+
+
+# ---------------------------------------------------------------------------
+# 5. One row per title per run
+# ---------------------------------------------------------------------------
+
+
+class TestOneRowPerTitlePerRun:
+    """``open_titles`` is a set that the raise loop updates as it goes.
+
+    ``judged`` may legitimately hold two entries with one title, and the
+    module that produces them says so: ``judge_audit_findings`` rule 4
+    keeps the finding's ``code`` out of the title on purpose, so two
+    ``breach`` codes for one port are two findings and one row. Reading
+    ``open_titles`` once and never updating it inserted both, then
+    deduplicated from the second run onwards — bounded rather than a
+    pile-up, and still two unresolved rows for one fault, which is the
+    legibility half of ``SNAG-AGENT-006``.
+
+    Unreachable on today's estate, where ``unclaimed_listener`` is the
+    only ports breach. Pinned because the *fix* is invisible: a run that
+    raises twice looks exactly like a run that raises once until
+    somebody counts the rows.
+    """
+
+    async def test_two_findings_for_one_port_raise_one_row(self, agent):
+        payload = port_breach(8888)
+        second = {**payload["findings"][0], "fingerprint": "ports:port 8888:contended"}
+        payload = {"findings": [payload["findings"][0], second]}
+
+        session = _session([])
+        result = await _run(agent, session, results(findings=payload))
+
+        assert result.details["standing"] == 2
+        assert result.alerts_raised == 1
+        assert session.add.call_count == 1
+
+    async def test_two_distinct_ports_still_raise_two_rows(self, agent):
+        """The guard must not collapse what the family exists to name —
+        rule 1's one-row-per-port, which a title-keyed set could break in
+        the other direction."""
+        payload = {
+            "findings": [
+                port_breach(8888)["findings"][0],
+                port_breach(8889)["findings"][0],
+            ]
+        }
+        session = _session([])
+        result = await _run(agent, session, results(findings=payload))
+
+        assert result.alerts_raised == 2
+        assert session.add.call_count == 2

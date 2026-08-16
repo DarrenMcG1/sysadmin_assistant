@@ -159,6 +159,16 @@ class EstateJudgeAgent(BaseAgent):
                     SURFACE_DETAIL_KEY: judgement.surface,
                 },
             )
+            # A title is taken the moment it is raised, not on the next
+            # run. `judged` may legitimately hold two entries with one
+            # title — two `ports` breach codes for one port would be two
+            # findings and, by `judge_audit_findings` rule 4, one row —
+            # and without this the run inserts both, then deduplicates
+            # from the second run onwards. Bounded rather than a
+            # pile-up, and still two unresolved rows for one fault: the
+            # legibility half of SNAG-AGENT-006, arriving here through a
+            # set that was read once and never updated.
+            open_titles.add(judgement.title)
             raised += 1
 
         resolved = await self._resolve_gone(session, open_alerts, current, read)
