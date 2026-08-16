@@ -65,6 +65,14 @@ notifications:
     enabled: true
     min_severity: warning
     tray_grace_seconds: 180  # 3× the tray's alert_poll_seconds
+    # Hours a fault this daemon announced stays quiet before it is
+    # restated (SNAG-TRAY-007).  0 disables reminders.  The same 24 as
+    # the tray's notifications.tray.reminder_hours and derived the same
+    # way — it matches self_monitor.escalate_after_hours, so a family
+    # that owns a ladder reaches its loud rung as news before any
+    # reminder of its quiet rung is due.  The sweep that delivers it runs
+    # every tray_grace_seconds; it has no leaf of its own on purpose.
+    reminder_hours: 24
   pa_notify:
     enabled: true
     min_severity: critical

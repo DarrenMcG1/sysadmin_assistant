@@ -86,6 +86,12 @@ JobTargets = Mapping[str, JobFunc]
 #: What :meth:`JobHost.sync_interval` reports about one job.
 Outcome = Literal["added", "retimed", "unchanged"]
 
+#: Floor on the desktop reminder sweep's interval, in seconds. The sweep's
+#: cadence is derived from ``notifications.desktop.tray_grace_seconds``
+#: rather than configured; this stops a grace window tuned down to a few
+#: seconds from turning a derivation into a hot loop.
+MIN_REMINDER_SWEEP_SECONDS = 60
+
 
 @dataclass(frozen=True)
 class JobSpec:
@@ -153,6 +159,7 @@ def plan_jobs(config: AppConfig) -> tuple[JobSpec, ...]:
     """
     agents = config.agents
     schedules = config.schedules
+    desktop = config.notifications.desktop
 
     # Hours-scale interval jobs also get an explicit first run shortly
     # after startup. IntervalTrigger alone puts the first fire at
@@ -225,6 +232,32 @@ def plan_jobs(config: AppConfig) -> tuple[JobSpec, ...]:
             config_paths=(
                 "agents.log_aggregator.enabled",
                 "agents.log_aggregator.poll_interval_seconds",
+            ),
+        ),
+        # The tray's understudy restating a fault it announced that is
+        # still open (SNAG-TRAY-007). A job rather than a call at the end
+        # of an agent run, because an agent reminding on the notifier's
+        # behalf is a second owner of a lifecycle that module owns.
+        #
+        # The interval is *derived*: the sweep asks "is a reminder due"
+        # and "is the tray still absent", and `tray_grace_seconds` is
+        # already that section's answer to how long before the daemon
+        # decides the tray is not doing this. A second leaf would be a
+        # number invented to sit beside one that already means the right
+        # thing. Floored so a grace window tuned down to a few seconds
+        # cannot make a hot loop of it; a sweep with nothing announced
+        # issues no query and reads no further config, so the floor costs
+        # a dict lookup.
+        JobSpec(
+            job_id="desktop_reminder_sweep",
+            enabled=desktop.enabled,
+            trigger="interval",
+            trigger_kwargs={
+                "seconds": max(MIN_REMINDER_SWEEP_SECONDS, desktop.tray_grace_seconds)
+            },
+            config_paths=(
+                "notifications.desktop.enabled",
+                "notifications.desktop.tray_grace_seconds",
             ),
         ),
         # Daily cron jobs. Unconditional: the briefing and the retention

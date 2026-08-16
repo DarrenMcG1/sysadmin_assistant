@@ -468,6 +468,55 @@ re-announces every open fault as new. The third is `SNAG-TRAY-007`:
 of this, so while the tray is down — the only case the understudy exists
 for — a standing fault is still announced once.
 
+**The understudy has a clock now, and the precedence answer is the same
+window used the other way round** (Session 55, `SNAG-TRAY-007`).
+`monitor/desktop.py` speaks once per incident and is subscribed to
+`alert.raised`, so it had no moment at which it could notice that a
+fault it announced six hours ago was still open — Session 39's defect
+surviving in the one component that exists for the case where the tray
+is *down*, which is precisely where Session 53's `reminder_hours` cannot
+reach. `DesktopNotifier.sweep_reminders` is that moment, scheduled as
+`desktop_reminder_sweep` in `core/jobs.py`.
+
+It is a **job**, not a call at the end of `SysAdminAgent._execute`: an
+agent reminding on the notifier's behalf owns a lifecycle
+`monitor/desktop.py` holds, which is the second-owner defect this
+repository has now found at five scales.
+
+Four rules, three of them the opposite of the obvious implementation:
+
+1. **A watching tray stamps the clock forward; it does not skip the
+   sweep.** `tray_grace_seconds` decides precedence on both paths and
+   the *action* differs. Skipping leaves `last_spoken_at` at the opening
+   notification, so the first sweep after a tray outage restates a fault
+   the tray itself restated ten minutes earlier. While something polls
+   the route, the last thing said was said by it — and the difference is
+   observable **only** in the middle window, which is what the test pins
+   and where the first draft of that test had the arithmetic wrong.
+2. **The population is what this process announced, never the open
+   rows.** A sweep over `resolved IS false` adopts every fault the tray
+   was speaking for and announces the lot the moment the tray dies —
+   `SNAG-AGENT-005`'s unbounded `SELECT` wired to a notification each.
+   The spoken set is in memory, so the query is `title IN (:titles)` and
+   a sweep that has said nothing issues no query at all. The cost is
+   `SNAG-TRAY-008`, filed rather than implied: a fault raised while the
+   tray was up is never adopted, and a restart forgets everything.
+3. **Neither number is invented.** `reminder_hours` is the tray's 24 for
+   the tray's reason, and because two speakers with different cadences
+   make the interval depend on which happened to be running — the thing
+   the understudy exists to hide. The sweep's own cadence has **no leaf
+   at all**: `max(60, tray_grace_seconds)`, since the sweep asks the two
+   questions that window already answers.
+4. **A reminder that did not land does not move the clock**, and nothing
+   is recorded as spoken until the opening notification has actually
+   landed. `send` returns whether it reached a screen, so a missing
+   session bus delays a reminder by one sweep rather than by a full
+   interval.
+
+A roll-up folds at two and takes the **loudest** rung it swallows
+(Session 52's rule): `notify-send` has no `replaces_id`, so six due
+reminders would otherwise be six toasts.
+
 **Serving against a schema this code was not written for is worse than
 not starting** (Session 43, SNAG-DB-001). `sysadmin/core/schema_guard.py`
 compares `alembic_version` against the packaged head in the lifespan and

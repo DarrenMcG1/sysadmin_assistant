@@ -680,6 +680,17 @@ class DesktopNotificationsConfig(BaseModel):
     #: laptop resuming) does not produce a burst of daemon notifications
     #: for alerts the tray is about to show anyway.
     tray_grace_seconds: int = 180
+    #: Hours a fault this daemon announced stays quiet before being
+    #: restated (``SNAG-TRAY-007``).  ``0`` disables reminders entirely.
+    #:
+    #: The same 24 as ``sysadmin_tray``'s ``reminder_hours`` and derived
+    #: the same way — it matches ``self_monitor.escalate_after_hours``,
+    #: the only escalation gap configured on this box, so a family that
+    #: owns a ladder reaches its loud rung as *news* before any reminder
+    #: of its quiet rung is due.  Two speakers with different cadences
+    #: would make the interval depend on which of them happened to be
+    #: running, which is the thing the understudy exists to hide.
+    reminder_hours: float = 24.0
 
 
 class PaNotificationsConfig(BaseModel):

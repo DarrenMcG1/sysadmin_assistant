@@ -2,9 +2,100 @@
 
 ## Next action
 
-Take `SNAG-TRAY-007` and decide how `sysadmin/monitor/desktop.py` restates a standing fault while the tray is down, because Sessions 39, 53 and 54 have closed that arc everywhere except the one component that exists for the case where the tray is not running.
+Take `SNAG-DOCS-001` and move `CLAUDE.md`'s fifteen project-endpoint contracts and five `sysadmin/projects/*` narratives behind pointers to estate-manager, because the file loaded into context at the start of every session in this repository describes a domain that left it on 2026-08-13.
 
-## This session — Session 54, the other three surfaces against data
+## This session — Session 55, the understudy gets a clock
+
+Session 54's recommendation, taken as written. Suite **1854 passed**
+(from 1834), ruff and mypy clean, **no migration**, **no route**, one new
+config leaf and one new scheduled job. `SNAG-TRAY-007` is closed;
+`SNAG-TRAY-008` and `SNAG-DOCS-001` were opened.
+
+### What was decided, which was the deliverable
+
+The snag refused a patch and asked for a precedence ruling. It came in
+two halves, and the first is the one that would have been got wrong.
+
+**`tray_grace_seconds` is the same window on both paths, and the action
+differs.** The raise path *skips* — the tray is about to show this. The
+repeat path **stamps the clock forward**, because a skip leaves
+`last_spoken_at` at the opening notification, so the first sweep after a
+tray outage restates a fault the tray itself restated ten minutes
+earlier. Session 54's doubt — "the two answers are not obviously the
+same" — was right. The difference is observable **only** in the middle
+window, and the first draft of that test asserted the wrong arithmetic
+and passed for the wrong reason until the middle step was made 12 hours
+rather than 24.
+
+**The sweep is a `JobSpec`, not a call at the end of
+`SysAdminAgent._execute`.** The agent version is three lines cheaper and
+makes an agent responsible for a lifecycle `monitor/desktop.py` owns —
+the second-owner defect this repository has now found at five scales,
+and the reason the snag refused a patch in the first place.
+
+### Rejected, and why
+
+- **A leaf for the sweep's interval.** It is `max(60,
+  tray_grace_seconds)`. The sweep asks the two questions that window
+  already answers ("is a reminder due", "is the tray still absent"), so
+  a second number beside it would be invented rather than derived. The
+  floor exists so a grace window tuned to a few seconds cannot turn a
+  derivation into a hot loop.
+- **A different `reminder_hours` for the daemon.** It is the tray's 24,
+  for the tray's reason, and because two speakers with different
+  cadences make the interval depend on which happened to be running —
+  the thing the understudy exists to hide. A test pins the two equal.
+- **Adopting every open row.** That is `SNAG-AGENT-005`'s unbounded
+  `SELECT` wired to a notification each, and it announces every standing
+  fault at once the moment the tray dies. Filed as `SNAG-TRAY-008` with
+  the shape of a fix recorded — adopt only after a full `reminder_hours`
+  of tray absence, capped the way `attention_max_rows` caps the estate
+  judge — so it is not re-derived from scratch.
+
+### Verified live, because the unit tests mock every session
+
+The `title IN (:titles)` clause had never reached PostgreSQL. Against the
+real `alerts` table: `_still_open` selected the live title and refused
+one never raised; the sweep restated once and then held; a synthetic row
+was inserted, restated inside a roll-up of 2, resolved, and dropped from
+the spoken set; **residue 0** after rollback. Against a real
+`BackgroundScheduler` and the real config.yaml: added at
+`interval[0:03:00]`, re-apply retimed nothing, grace 600 retimed it to
+`interval[0:10:00]`, `enabled: false` removed it.
+
+### Found sideways — `SNAG-DOCS-001`, and it is the next session
+
+While reading the live state for the ranking rather than trusting the
+documents. `GET /openapi.json` serves **one** route under
+`/api/projects`; `CLAUDE.md`'s Contract Registry lists **fifteen**, each
+claiming `response_model` enforcement. `sysadmin/projects/` does not
+exist — the domain left on 2026-08-13 — and five of its modules are
+still named by path as the present-tense owners of rules the file
+states. `api/projects` appears 26 times. The estate section of that same
+file records the migration correctly, so the document simultaneously
+says the domain left and describes it as present.
+
+Also found stale while ranking: **Session 33's second checkbox** points
+at `~/projects/alfred/backend/tests/fixtures/briefing_producers/`, which
+does not exist on disk. That session is blocked on a question for
+Alfred's repository, not on judgement here.
+
+## Blocked / owed
+
+- **`sudo systemctl restart sysadmin.service`** — still PID 1410826 from
+  2026-08-15 14:32. It now carries three sittings, and Session 55's work
+  is the first that is **entirely** invisible until it lands:
+  `desktop_reminder_sweep` is a job the running scheduler has never been
+  told about. Until that restart, **do not send it a HUP** — Python's
+  default SIGHUP action terminates and `Restart=always` brings it back.
+- The five system-scope orphan removals under `/etc/systemd/system`
+  (`SNAG-UNITS-005`), and `SNAG-DB-002`'s `REINDEX`-before-`REFRESH`
+  remedy on the eight stale databases. Both need `sudo`.
+
+
+---
+
+## Previous session — Session 54, the other three surfaces against data
 
 Session 53's recommendation, taken as written. Suite **1834 passed**
 (from 1802), ruff and mypy clean, **no migration**, **no route**, **no

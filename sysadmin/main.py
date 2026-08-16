@@ -93,6 +93,7 @@ JOB_TARGETS: JobTargets = {
     "service_discovery_scan": service_discovery_agent.run,
     "estate_judge_poll": estate_judge_agent.run,
     "log_aggregator_poll": log_aggregator_agent.run,
+    "desktop_reminder_sweep": desktop_notifier.sweep_reminders,
     "morning_briefing": send_morning_briefing,
     "retention_purge": run_retention,
     "weekly_disk_review": run_weekly_disk_review,

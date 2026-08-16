@@ -367,6 +367,65 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### ✅ Session 55: The understudy gets a clock (done 2026-08-16)
+
+**Session 54's recommendation, taken as written**, and the last unclosed
+hole in the arc Sessions 39, 53 and 54 built. `SNAG-TRAY-007`:
+`monitor/desktop.py` is subscribed to `alert.raised`, speaks once per
+incident, and has no moment at which it could notice that a fault it
+announced six hours ago is still open — Session 39's original defect,
+surviving in the one component that exists for the case where the tray
+is down. Suite **1854 passed** (from 1834), ruff and mypy clean, **no
+migration**, **no route**, one new config leaf and one new scheduled job.
+
+- [x] `DesktopNotifier.sweep_reminders` — the clock the module never had
+- [x] `desktop_reminder_sweep` in `core/jobs.py` + `main.py`'s `JOB_TARGETS`
+- [x] `notifications.desktop.reminder_hours`, defaulted to the tray's 24
+- [x] 20 tests in `tests/test_desktop_notifier.py`
+- [x] Verified live against the real `alerts` table and a real scheduler
+- [x] `SNAG-TRAY-008` filed for what the fix deliberately does not cover
+
+**The deliverable was a decision, and it came out in two halves.**
+
+*Precedence.* `tray_grace_seconds` is the same window on both paths and
+the **action is different**. The raise path *skips*: the tray is about to
+show this. The repeat path **stamps the clock forward**, because a skip
+leaves `last_spoken_at` at the opening notification, and the first sweep
+after a tray outage would then restate a fault the tray itself restated
+ten minutes earlier. Session 54's doubt — "the two answers are not
+obviously the same" — was right, and the difference is only observable in
+the middle window, which is what the test pins. The first version of that
+test asserted the wrong arithmetic and passed for the wrong reason.
+
+*Ownership.* A `JobSpec`, not a call bolted to the end of
+`SysAdminAgent._execute`. The agent version is cheaper wiring and makes an
+agent responsible for a lifecycle `monitor/desktop.py` owns — the
+second-owner defect this repository has now found at four scales, and the
+reason the snag refused a patch in the first place.
+
+**Nothing here is a new number.** `reminder_hours` is the tray's, for the
+tray's reason, and because two speakers with different cadences make the
+interval depend on which of them was running — the thing the understudy
+exists to hide. The sweep's own cadence has no leaf at all: it is
+`max(60, tray_grace_seconds)`, since the sweep asks the two questions that
+window already answers.
+
+**The honest limit is filed rather than implied.** The population is what
+*this process* announced, so a fault raised while the tray was up is never
+adopted, and a daemon restart forgets everything. Widening it to
+`resolved IS false` is `SNAG-AGENT-005`'s unbounded `SELECT` wired to a
+notification each — that is `SNAG-TRAY-008`, with the shape of a fix
+recorded so it is not re-derived.
+
+**Live, because the unit tests mock every session.** The `title IN (…)`
+clause had never reached PostgreSQL. Driven against the real table: the
+query selected the live title and refused one never raised, the sweep
+restated once then held, a synthetic row was restated inside a roll-up of
+2, resolved, and dropped — residue **0** after rollback. `apply_jobs`
+against a real `BackgroundScheduler`: added at `interval[0:03:00]`,
+re-apply retimed nothing, grace 600 retimed it to ten minutes, and
+`enabled: false` removed it.
+
 ### ✅ Session 54: The other three surfaces, against data (done 2026-08-16)
 
 **Session 53's recommendation, taken as it was written.** The estate
