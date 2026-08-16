@@ -198,7 +198,7 @@ class EstateJudgeAgent(BaseAgent):
                 payload, config.scan_max_age_hours
             )
         if (payload := payloads.get("projects_attention")) is not None:
-            out += judgements.judge_attention(payload)
+            out += judgements.judge_attention(payload, config.attention_max_rows)
         if (payload := payloads.get("audit_invariants")) is not None:
             out += judgements.judge_audit_invariants(
                 payload, config.audit_max_age_hours

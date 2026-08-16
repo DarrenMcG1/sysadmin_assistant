@@ -1,0 +1,223 @@
+{
+  "health": [
+    {
+      "project": "PersonalAssistant-auto",
+      "score": 50,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "PersonalAssistant",
+      "score": 55,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "estate-manager",
+      "score": 70,
+      "threshold": 101,
+      "status": "active"
+    },
+    {
+      "project": "BudgetApp",
+      "score": 80,
+      "threshold": 101,
+      "status": "dormant"
+    },
+    {
+      "project": "DotaImprover",
+      "score": 80,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "Portfolio",
+      "score": 80,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "TeacherPlanner",
+      "score": 80,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "BSL-Translator",
+      "score": 85,
+      "threshold": 101,
+      "status": "dormant"
+    },
+    {
+      "project": "bsl-translator",
+      "score": 85,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "bsl-app",
+      "score": 90,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "bsl-translation-app",
+      "score": 90,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "customer-churn-model",
+      "score": 90,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "detection-system",
+      "score": 90,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "portfolio",
+      "score": 90,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "portfolionew",
+      "score": 90,
+      "threshold": 101,
+      "status": "dormant"
+    },
+    {
+      "project": "Alfred",
+      "score": 95,
+      "threshold": 101,
+      "status": "active"
+    },
+    {
+      "project": "SportsAnalyser",
+      "score": 95,
+      "threshold": 101,
+      "status": "dormant"
+    },
+    {
+      "project": "alfred-glance",
+      "score": 95,
+      "threshold": 101,
+      "status": "active"
+    },
+    {
+      "project": "sysadmin_assistant",
+      "score": 95,
+      "threshold": 101,
+      "status": "active"
+    },
+    {
+      "project": "Athenaeum",
+      "score": 100,
+      "threshold": 101,
+      "status": "active"
+    },
+    {
+      "project": "ImbaBots",
+      "score": 100,
+      "threshold": 101,
+      "status": "undeclared"
+    },
+    {
+      "project": "InvestingAssistant",
+      "score": 100,
+      "threshold": 101,
+      "status": "dormant"
+    },
+    {
+      "project": "PupilProgressTracker",
+      "score": 100,
+      "threshold": 101,
+      "status": "archived"
+    },
+    {
+      "project": "daiy",
+      "score": 100,
+      "threshold": 101,
+      "status": "dormant"
+    },
+    {
+      "project": "terrible",
+      "score": 100,
+      "threshold": 101,
+      "status": "dormant"
+    },
+    {
+      "project": "venture-assistant",
+      "score": 100,
+      "threshold": 101,
+      "status": "active"
+    }
+  ],
+  "nudges": [
+    {
+      "project_name": "Alfred",
+      "project_path": "/home/gaddi/projects/Alfred",
+      "next_action": "Implement row 141/EE — the projects page — against the four read routes ADR-0071 fixed as its scope (`board` plus `{name}/tasks|snags|handoff`), rendering Alfred's own null `open_tasks` as absent rather than as zero.",
+      "next_action_source": "handoff",
+      "days": 0,
+      "threshold": 0,
+      "severity": "info",
+      "since": "2026-08-16 03:31:04.983172+00:00",
+      "scans": 1,
+      "at_window_edge": false
+    },
+    {
+      "project_name": "Athenaeum",
+      "project_path": "/home/gaddi/projects/ml/Athenaeum",
+      "next_action": "Work through Day 1 of `athenaeum-course.md` alongside its companion entry in `athenaeum-concepts.md`, verifying that the already-committed skeleton runs and that `GET /api/health` answers 200 before moving on to Day 2.",
+      "next_action_source": "handoff",
+      "days": 0,
+      "threshold": 0,
+      "severity": "info",
+      "since": "2026-08-15 03:35:13.590060+00:00",
+      "scans": 4,
+      "at_window_edge": false
+    },
+    {
+      "project_name": "estate-manager",
+      "project_path": "/home/gaddi/projects/estate-manager",
+      "next_action": "Build the audit's seventh check — pointer integrity over `~/.claude/CLAUDE.md` against `docs/conventions/session-brief.md` — because that file is the most-read estate document on the box, it is the only canonical surface with no git history to recover from, and this session found ten stale rules by hand in the seven documents that already have a check while the global file still has none.",
+      "next_action_source": "handoff",
+      "days": 0,
+      "threshold": 0,
+      "severity": "info",
+      "since": "2026-08-16 03:31:04.983172+00:00",
+      "scans": 1,
+      "at_window_edge": false
+    },
+    {
+      "project_name": "sysadmin_assistant",
+      "project_path": "/home/gaddi/projects/sysadmin_assistant",
+      "next_action": "Take `SNAG-DB-003` — the autogenerate exclusion list is hand-copied between `alembic/env.py` and `tests/test_schema_drift.py`, and an exclusion present only in the test leaves the guard green while the next `alembic revision --autogenerate` writes `op.drop_table('project_snapshots')` into someone else's migration.",
+      "next_action_source": "handoff",
+      "days": 0,
+      "threshold": 0,
+      "severity": "info",
+      "since": "2026-08-16 03:31:04.983172+00:00",
+      "scans": 1,
+      "at_window_edge": false
+    },
+    {
+      "project_name": "venture-assistant",
+      "project_path": "/home/gaddi/projects/apps/venture-assistant",
+      "next_action": "Let the 02:00 nightly run unattended and read the drain log rather than `GET /compare/order-balance`, confirming the enrichment phase actually clears ~1095 jobs, because comparisons get no budget for roughly three nights and the run will now say `comparison=0/0h00m00s/starved` rather than leaving a flat order-balance to be misread as failure.",
+      "next_action_source": "handoff",
+      "days": 0,
+      "threshold": 0,
+      "severity": "info",
+      "since": "2026-08-16 03:31:04.983172+00:00",
+      "scans": 1,
+      "at_window_edge": false
+    }
+  ],
+  "generated_at": "2026-08-16T07:46:48.913631+00:00"
+}

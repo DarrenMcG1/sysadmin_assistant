@@ -86,6 +86,10 @@ FIXTURES = Path(__file__).parent / "fixtures"
 #: changed by hand.
 ESTATE_URL = "http://localhost:8400"
 
+#: See ``TestRecordedAttention`` for how this one was made — unlike its
+#: two neighbours it is not a response body.
+ATTENTION_FIXTURE = "estate_projects_attention.json"
+
 #: The tray's own call (``client.fetch_project_detail``) passes 30.  The
 #: fixture was recorded at 5 — the shape assertions are independent of
 #: the window, which is the point of asserting shape rather than length.
@@ -121,6 +125,41 @@ HISTORY_POINT_KEYS = frozenset({
     "next_action_source",
     "next_action_changed",
 })
+
+
+#: Every key :func:`sysadmin.estate.judgements.judge_attention` reads off
+#: a ``health`` entry and off a ``nudge``.  Hand-written, like
+#: ``OVERVIEW_ENTRY_KEYS`` above, and load-bearing in a way that set is
+#: not: the consumer drops an entry whose identity key is missing
+#: (``if not name: continue``), so a producer renaming ``project_name``
+#: does not raise, does not log, and does not half-work — it empties the
+#: surface, and an empty ``attention`` payload is the answer this seam
+#: has given on every occasion anyone has looked.  Absence of evidence
+#: and evidence of absence are the same string here, which is why the
+#: keys are asserted rather than the parse.
+ATTENTION_HEALTH_KEYS = frozenset({"project", "score", "threshold", "status"})
+
+ATTENTION_NUDGE_KEYS = frozenset({
+    "project_name",
+    "days",
+    "threshold",
+    "severity",
+    "next_action",
+    "next_action_source",
+    "since",
+    "scans",
+    "at_window_edge",
+})
+
+#: The three the producer computes and ``dataclasses.asdict`` drops,
+#: because ``Nudge.title``/``.message``/``.details`` are ``@property``
+#: (``SNAG-ESTATE-002``, delegated to estate-manager as its
+#: ``SNAG-ESTATE-010``).  Asserted **absent** rather than assumed absent:
+#: the day they appear, this repository is building a title the producer
+#: has started publishing, and the right move is to take theirs.  A test
+#: that goes red on somebody else's fix reads like a false alarm, so the
+#: failure message says what to do.
+PRODUCER_DROPPED_NUDGE_KEYS = frozenset({"title", "message", "details"})
 
 
 def _load(name: str) -> dict[str, Any]:
@@ -282,6 +321,50 @@ def _assert_size_is_numeric(current: dict[str, Any], *, name: str) -> None:
         )
 
 
+def _assert_attention_usable(
+    payload: dict[str, Any], *, require_populated: bool
+) -> None:
+    """``/api/projects/attention`` as :mod:`sysadmin.estate.judgements` consumes it.
+
+    ``require_populated`` is the whole difference between this route and
+    the two above, and it is not a convenience.  The live payload has
+    been ``{"health": [], "nudges": []}`` on every occasion anyone has
+    checked — including after an overnight scheduled scan of 26 projects
+    with no parse failures, which was the precondition that made the
+    negative result worth anything.  So the live half can only assert
+    the envelope, and the per-entry assertions are **pre-staged**: they
+    begin running by themselves on the first day the estate publishes a
+    breach or a nudge, which is also the first day they could catch
+    anything.  The recorded half passes ``True`` and does the real work
+    now.
+    """
+    assert isinstance(payload.get("health"), list), "no `health` list in the payload"
+    assert isinstance(payload.get("nudges"), list), "no `nudges` list in the payload"
+
+    if require_populated:
+        assert payload["health"], "the recording carries no health breaches"
+        assert payload["nudges"], "the recording carries no nudges"
+
+    for i, entry in enumerate(payload["health"]):
+        missing = ATTENTION_HEALTH_KEYS - set(entry)
+        assert not missing, f"health[{i}] ({entry.get('project')!r}) is missing {sorted(missing)}"
+
+    for i, nudge in enumerate(payload["nudges"]):
+        missing = ATTENTION_NUDGE_KEYS - set(nudge)
+        assert not missing, (
+            f"nudges[{i}] ({nudge.get('project_name')!r}) is missing {sorted(missing)} — "
+            "judge_attention drops an entry with no `project_name` silently, so a "
+            "rename empties the surface rather than breaking it"
+        )
+        published = PRODUCER_DROPPED_NUDGE_KEYS & set(nudge)
+        assert not published, (
+            f"the estate now publishes {sorted(published)} on a nudge. That is "
+            "SNAG-ESTATE-002 fixed on their side (their SNAG-ESTATE-010): stop "
+            "building the wording in sysadmin/estate/judgements.py and take the "
+            "producer's, then delete this assertion."
+        )
+
+
 # ── Recorded half — always runs ──────────────────────────────────────
 
 
@@ -323,6 +406,47 @@ class TestRecordedDetail:
         assert parsed.history[3].next_action == parsed.history[4].next_action
 
 
+class TestRecordedAttention:
+    """The populated payload, and how it had to be made.
+
+    Provenance, since JSON carries no comment — and it differs from the
+    other two fixtures in a way worth reading before trusting it.  Those
+    are response bodies; **this one is not**, because the response body
+    is empty and has been every time.  It was produced on 2026-08-16 by
+    driving the producer's own code, read-only, against the live estate
+    database, with the two thresholds forced so that live rows qualify::
+
+        # in ~/projects/estate-manager/service, its own venv
+        health:  effective_threshold(entry, config) -> max(…, 101)
+        nudges:  nudges.evaluate(…, default_days=0, escalation_gap=7)
+
+    Everything else is the estate's: 26 real snapshots through
+    ``latest_snapshot_query``, 26 real manifests through
+    ``load_registry``, 5 real streaks through ``load_action_streaks``,
+    and ``dataclasses.asdict`` over the producer's own ``Nudge`` — which
+    is the point, since the field names are exactly what an unforced
+    payload would carry.  What is *not* real is the two forced numbers,
+    and they are visible in the data as ``threshold: 101`` and
+    ``threshold: 0``; no assertion here reads them as observations.
+    """
+
+    def test_recorded_payload_is_usable(self):
+        _assert_attention_usable(_load(ATTENTION_FIXTURE), require_populated=True)
+
+    def test_the_recording_holds_both_families(self):
+        payload = _load(ATTENTION_FIXTURE)
+        assert len(payload["health"]) == 26
+        assert len(payload["nudges"]) == 5
+
+    def test_an_empty_payload_would_pass_every_shape_assertion(self):
+        """The vacuity pin, and here it is the *live* state rather than a
+        hypothetical: ``{"health": [], "nudges": []}`` satisfies every
+        loop above by having nothing to iterate.  That is exactly why
+        ``require_populated`` exists and why the live half is not the
+        test."""
+        _assert_attention_usable({"health": [], "nudges": []}, require_populated=False)
+
+
 # ── Live half — skipped when the estate is not running ───────────────
 
 
@@ -340,6 +464,17 @@ class TestLiveEstate:
         resp = httpx.get(f"{ESTATE_URL}/api/projects/overview", timeout=10.0)
         assert resp.status_code == 200
         _assert_overview_usable(resp.json())
+
+    def test_live_attention_is_usable(self):
+        """Envelope always; entries the day there are any.
+
+        See ``_assert_attention_usable``. This asserting nothing about
+        entries today is the finding, not the omission — it is the
+        observation ``SNAG-ESTATE-002`` records, made once more.
+        """
+        resp = httpx.get(f"{ESTATE_URL}/api/projects/attention", timeout=10.0)
+        assert resp.status_code == 200
+        _assert_attention_usable(resp.json(), require_populated=False)
 
     def test_live_detail_is_usable(self):
         """The project name comes from the live overview, never a constant.

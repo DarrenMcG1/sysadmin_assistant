@@ -575,6 +575,27 @@ class EstateJudgeConfig(BaseModel):
     #: more than the estate's whole check count and well under the
     #: fifteen ``SNAG-UNITS-002`` refused to ship as separate rows.
     port_breach_max_rows: int = 5
+    #: Above this many health breaches, or this many idle nudges, in one
+    #: poll, that family collapses to a single roll-up row.  The two are
+    #: counted separately: they have separate producers inside the estate
+    #: and fail separately, so one being broken must not hide the other.
+    #:
+    #: **Invented, and measured rather than guessed.**  The estate scores
+    #: 26 projects, of which 12 are ``archived`` and therefore
+    #: unreachable by construction (``effective_threshold`` returns 0 and
+    #: the condition is ``score < 0``), leaving 14 that can breach; the
+    #: eligible nudge population is 5.  Five therefore sits just under
+    #: "every project that could" for both families, which is the
+    #: question this number asks — not how many breaches are tolerable,
+    #: but how many at once stop being repositories and start being the
+    #: estate's arithmetic.  A fortnight away from the box makes every
+    #: eligible project idle at once, and one row naming five is a better
+    #: answer to that than five toasts.
+    #:
+    #: The same figure as ``port_breach_max_rows`` and for the same kind
+    #: of reason, kept as a separate knob because the populations it is
+    #: derived from are different and will move independently.
+    attention_max_rows: int = 5
 
 
 class LogSource(BaseModel):

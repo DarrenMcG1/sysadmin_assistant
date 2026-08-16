@@ -6,11 +6,14 @@
 > **Two sub-session actions first, because neither is a session and
 > folding them into the ranking makes a two-minute job compete with a
 > day's work.** (1) **`sudo systemctl restart sysadmin.service`** —
-> re-measured 2026-08-16 at the close of Session 51 and **still owed**:
+> re-measured 2026-08-16 at the close of Session 52 and **still owed**:
 > the running daemon is still PID 1410826, started 2026-08-15 14:32 BST,
 > and `POST /api/sysadmin/reload` still **404s**, so it predates Session
-> 49 as well as 50. Session 51 adds nothing to it — that work is read by
-> alembic and the test suite, never by the daemon. One restart deploys
+> 49 as well as 50. Session 51 added nothing to it — that work is read by
+> alembic and the test suite, never by the daemon — but **Session 52
+> does**: `sysadmin/estate/` is agent code the running daemon serves from
+> its start-time copy, so the attention cap and the marked truncation
+> are not live until this restart happens. One restart deploys
 > both, and it is the **last one this class of blocker will need** — from
 > then on `kill -HUP <MainPID>` reaches the daemon without `sudo`, and
 > re-times the scheduler rather than merely reporting that it had not.
@@ -24,56 +27,60 @@
 > VERSION`, since the refresh alone asserts the versions match without
 > rebuilding anything and turns a loud known risk into a silent one.
 >
-> **Next up**: **`SNAG-ESTATE-002` — `judge_attention` has never once
-> been run against a payload with anything in it**, recommended
-> 2026-08-16 at the close of Session 51. It wins on the claim this
-> repository keeps having to make about itself: **an alert family that
-> cannot be shown to work is indistinguishable from one that does**, and
-> this one has two independent reasons to be broken. The producer's
-> `Nudge.title` and `.message` are `@property`, so `asdict` drops them
-> and this side builds a shape the estate believes it owns; and both
-> lists have been empty every time anyone has looked — measured again
-> today, `GET localhost:8400/api/projects/attention` returns
-> `{"health": [], "nudges": []}`, so every judgement, severity mapping
-> and sweep in that half of `sysadmin/estate/` has run over nothing since
-> Session 45 shipped it. The producer's half is estate-manager's
-> (`SNAG-ESTATE-010`) and must be announced rather than reached into, but
-> this side's half needs nobody: drive `judge_attention` in-process
-> against a populated payload built from the producer's own dataclass and
-> pin it, the shape `SNAG-TRAY-006` already established here with
-> committed fixtures under `tests/fixtures/`. It is the same lesson
-> Session 51 spent two of its five tests on — a detector that cannot be
-> seen to fail proves nothing. **Runners-up.** *Dropping the frozen
-> project tables* is **named as blocked rather than ranked**: Session 51
-> measured the estate's copy at **3,713** rows against **3,739** here,
-> and the 26 missing are one per project from the final organiser run on
-> 2026-08-13, written after the copy was taken. The destination is the
-> estate's database, so the unblocking move is theirs to make and
-> announce; until then a drop loses a day of history. *`SNAG-AGENT-007`
-> (four unbounded `_active_alerts` reads per sysadmin run)* loses on the
-> same measurement for the third sitting running, and it got cheaper
-> again: `alerts` holds **one** unresolved row today (`Unmonitored
-> systemd units: 8 findings`), down from two. *Sessions 25b/25c
-> (reliability Tiers 2–3)* lose where they always do — `GET
-> /api/services/reliability` still has no consumer beyond the API, which
-> is what closed Session 30 unbuilt — and a family that has never fired
-> beats a feature nobody reads. *`SNAG-UNITS-003`* still loses on
-> population: all 12 units holding an audited port are `monitored`, so
-> the wrong guess reaches nobody. *`SNAG-ROADMAP-001`/`-002`* lose on
-> **ownership**, re-checked rather than assumed — `roadmap.py` lives at
-> `~/projects/estate-manager/service/estate_service/projects/roadmap.py`
-> and this repository holds no copy. **Blocked rather than dropped**:
-> `SNAG-ESTATE-003`, `SNAG-ESTATE-005`, `SNAG-DB-002`'s `REINDEX` and
-> `SNAG-UNITS-005`'s five removals — the last two waiting on `sudo`, not
-> on a decision. **Previously here — `SNAG-DB-003`**, recommended
-> 2026-08-15 at the close of Session 50 and **done the same day as
-> Session 51**; the recommendation held on the point it turned on (the
-> only open item whose failure mode is data loss, failing green), and the
-> sitting's finding was that the entry's open design question answers
-> itself once ownership is stated the right way round — `include_object`
-> is production configuration the test borrows, not test scaffolding in
-> the shipped package. It also widened: the comparison *flags* were
-> hand-copied too and fail the same silent way. See Recently Completed.
+> **Next up**: **`SNAG-ESTATE-003` — the estate families raise once and
+> then stay silent**, recommended 2026-08-16 at the close of Session 52.
+> It wins on the same claim this repository keeps making about itself,
+> one step past where Session 52 left it: an alert family that speaks
+> once at `warning` and goes quiet while the fault stands is
+> **indistinguishable from one that got fixed** — Session 39's sentence,
+> unchanged. Session 52 is what makes it live rather than theoretical.
+> Until yesterday these five surfaces had produced **two rows in their
+> whole life** (both `Estate port … registry breach`, 2026-08-15 11:21,
+> both since resolved); the attention family now produces a *roll-up*,
+> and the fault behind a roll-up — a threshold moved in the estate's
+> `config.yaml`, `effective_threshold` misreading a manifest — is
+> precisely the kind that stands for days. **The entry's own objection is
+> the session's shape, not an argument against it.** It says inventing a
+> rung to hold one family is wrong, and that if a repeat-without-`critical`
+> rung is right then `monitor/collation.py` and the service families want
+> it too. They do: all three deduplicate on an open row by design, so all
+> three ring once. So the session is a **third rung in
+> `sysadmin/core/escalation.py` with three callers**, which is the
+> Session 39 move (`Ladder` went to `core` *before* it had two users, so
+> "reuse rather than copy" was possible at all) rather than a fourth
+> ladder. **Named as blocked or dormant, honestly**: nothing costs
+> anything today — `alerts` holds **one** unresolved row on the whole box
+> (`Unmonitored systemd units: 8 findings`), so this is a de-risking
+> session, not a fix. **Runners-up.** *`SNAG-AGENT-007` (four unbounded
+> `_active_alerts` reads per sysadmin run)* loses on the same measurement
+> for the **fourth** sitting running, and it got cheaper again rather than
+> dearer: one unresolved row, down from two. *Exercising the other three
+> estate surfaces the way Session 52 exercised `attention`* is the closest
+> sibling and loses on evidence: their literals in
+> `tests/test_estate_judgements.py` are already shaped from the live
+> payloads (`_scan()`, `_audit()`, `_queue()` carry real numbers), and none
+> of the three has the `asdict`-drops-a-property seam that made
+> `attention` untrustworthy — the technique is available if
+> `SNAG-ESTATE-003` turns up a reason to want it. *Dropping the frozen
+> project tables* stays **named as blocked**: the destination is the
+> estate's database, the unblocking move is theirs to make and announce,
+> and until then a drop loses a day of history. *`SNAG-UNITS-003`* loses
+> where it always does — its population is empty, since all 12 units
+> holding an audited port are already `monitored`. *Sessions 25b/25c
+> (reliability Tiers 2–3)* lose where they always do: no consumer beyond
+> the API, which is what closed Session 30 unbuilt. *`SNAG-ESTATE-002`'s
+> remaining half* is **not a candidate at all** — it is estate-manager's
+> (`SNAG-ESTATE-010`), and Session 52 left a test that goes red the day
+> they close it, so it needs no watching from here.
+>
+> **Previously here — `SNAG-ESTATE-002`'s local half**, recommended
+> 2026-08-16 at the close of Session 51 and **done the same day as
+> Session 52**. The recommendation held on the point it turned on — the
+> family genuinely could not be shown to work — and the sitting found
+> two defects the literals were structurally unable to express: 31 alert
+> rows from one poll, and a 469-character message into a notification
+> body. Both were rules this repository had already written down for
+> other families and never applied here. See Recently Completed.
 > **Previously here —
 > `Scheduler.reschedule_job`**, recommended 2026-08-15 at the close of
 > Session 49 and **done the same day as Session 50**; the recommendation
@@ -95,7 +102,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **1776 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, smoke script |
+| Testing | 🟢 Complete | **1792 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -103,6 +110,36 @@
 ---
 
 ## Recently Completed
+
+### judge_attention, against data — SNAG-ESTATE-002's half (2026-08-16)
+
+**An alert family that could not be shown to work.**
+`GET :8400/api/projects/attention` has answered `{"health": [],
+"nudges": []}` on all four occasions anyone has looked, so every rule in
+`judge_attention` was pinned against dict literals written by the same
+hand that wrote the consumer. A literal cannot express volume or length,
+and both turned out to be wrong.
+
+A populated payload was made from the producer's own code — driven
+read-only in its own venv against the live estate database, with
+`effective_threshold` forced to 101 and `default_days` to 0 so live rows
+qualify, and `dataclasses.asdict` over the producer's own `Nudge`.
+Committed as a fixture with its provenance, the two forced numbers
+visible in the data.
+
+**Two defects, both rules already written down elsewhere here.** The
+family raised **31 rows from one poll** (26 health breaches + 5 nudges),
+where the ports family has had `port_breach_max_rows` since Session
+26b-A — now `attention_max_rows` (5), per family, since the two fail
+independently. And the message ran to **469 characters** into a
+notification body that a daemon cuts wherever it likes — now
+`truncate_at_word` at 120, marked, with the full text kept in `details`.
+
+`tests/test_estate_project_contracts.py` gains the route as its third,
+with the per-entry assertions **pre-staged** to start running the first
+day the estate publishes anything, and an assertion that fires when
+estate-manager closes its side. Verified live and rolled back: raise →
+hold → resolve across three runs, 0 rows of residue.
 
 ### One copy of the autogenerate rules — SNAG-DB-003 (2026-08-16)
 

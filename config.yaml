@@ -423,6 +423,20 @@ agents:
     # naming the ports in details, per SNAG-UNITS-002's refusal to ship
     # fifteen separate rows on a first run.
     port_breach_max_rows: 5
+    # INVENTED, and the same shape of guard one surface over: above this
+    # many health breaches, or this many idle nudges, in one poll, that
+    # family collapses to one roll-up row naming the projects in details.
+    # Counted separately per family — they have separate producers inside
+    # the estate and fail separately.
+    #
+    # Measured, not guessed: 26 projects are scored, 12 are archived and
+    # cannot breach at all (threshold 0 against a clamped score), leaving
+    # 14; the eligible nudge population is 5. So five is just under
+    # "every project that could", which is when the count stops being
+    # repositories and starts being the estate's arithmetic — a threshold
+    # moved in its config.yaml does that to all of them between two polls.
+    # Session 52 measured 26 + 5 = 31 rows from one forced-population run.
+    attention_max_rows: 5
     # There is deliberately no threshold for dropped_total, expired_total
     # or grants_total: they are lifetime count(*) values over gpu_leases,
     # so any rule on them raises a row no future state can clear. That is

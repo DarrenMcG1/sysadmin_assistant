@@ -26,12 +26,18 @@ Live values used below, read from 8400 on 2026-08-13:
 - ``/api/queue/invariants`` — depth 0, ``dropped_total`` 1, ``grants_total`` 2
 """
 
+import json
 import re
+from pathlib import Path
 
 import pytest
 
+from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.estate.judgements import (
     DEFAULT_SEVERITY,
+    HEALTH_ROLLUP_TITLE,
+    NEXT_ACTION_CHARS,
+    NUDGE_ROLLUP_TITLE,
     SURFACE_TITLE_PATTERNS,
     judge_attention,
     judge_audit_findings,
@@ -41,6 +47,49 @@ from sysadmin.estate.judgements import (
 )
 
 HOUR = 3600.0
+
+#: The live default for ``agents.estate_judge.attention_max_rows``.  Most
+#: rules below are about one row's wording and do not care, so they take
+#: it through :func:`attention`; the tests that *are* about the cap pass
+#: their own and say so.
+MAX_ROWS = 5
+
+
+def attention(payload, max_rows: int = MAX_ROWS):
+    return judge_attention(payload, max_rows)
+
+
+def _recorded_attention():
+    """The populated payload, produced by the producer's own dataclass.
+
+    Provenance and the two forced thresholds are documented on
+    ``tests/test_estate_project_contracts.py::TestRecordedAttention``,
+    which owns the recording; this file consumes it.
+    """
+    path = Path(__file__).parent / "fixtures" / "estate_projects_attention.json"
+    return json.loads(path.read_text())
+
+
+def _nudges(count: int, *, severity: str = "info", days: int = 9):
+    return [
+        {
+            "project_name": f"project-{n}",
+            "days": days,
+            "threshold": 7,
+            "severity": severity,
+            "next_action": "x",
+            "at_window_edge": False,
+        }
+        for n in range(count)
+    ]
+
+
+def _breaches(count: int):
+    return [
+        {"project": f"project-{n}", "score": 10, "threshold": 60, "status": "active"}
+        for n in range(count)
+    ]
+
 
 
 def _like(pattern: str, value: str) -> bool:
@@ -207,10 +256,10 @@ class TestTheScan:
 class TestAttention:
     def test_an_empty_payload_judges_nothing(self):
         """The live answer today, and the only one anyone has seen."""
-        assert judge_attention({"health": [], "nudges": []}) == []
+        assert attention({"health": [], "nudges": []}) == []
 
     def test_a_health_breach_is_one_warning_row(self):
-        out = judge_attention(
+        out = attention(
             {
                 "health": [
                     {
@@ -232,7 +281,7 @@ class TestAttention:
         and is the only severity the tray renders non-transient. A
         repository scoring low is a standing condition that can persist
         for weeks; it does not earn that."""
-        out = judge_attention(
+        out = attention(
             {"health": [{"project": "x", "score": 0, "threshold": 100}], "nudges": []}
         )
         assert out[0].severity != "critical"
@@ -243,7 +292,7 @@ class TestAttention:
         with the domain. Re-deriving it here would be two
         implementations of one ladder in two repositories — the
         copy-drift the estate manager exists to remove."""
-        out = judge_attention(
+        out = attention(
             {
                 "health": [],
                 "nudges": [
@@ -265,7 +314,7 @@ class TestAttention:
         """``alerts`` has a CHECK constraint on severity. A producer
         typo would otherwise be a CheckViolationError that takes the
         whole run's transaction with it."""
-        out = judge_attention(
+        out = attention(
             {
                 "health": [],
                 "nudges": [{"project_name": "a", "days": 9, "threshold": 7, "severity": "loud"}],
@@ -290,7 +339,7 @@ class TestAttention:
                 }
             ],
         }
-        assert "at least 10 days" in judge_attention(payload)[0].message
+        assert "at least 10 days" in attention(payload)[0].message
 
     def test_a_nudge_without_the_hedge_states_the_figure(self):
         payload = {
@@ -306,7 +355,7 @@ class TestAttention:
                 }
             ],
         }
-        message = judge_attention(payload)[0].message
+        message = attention(payload)[0].message
         assert "at least" not in message
         assert "10 days" in message
 
@@ -314,8 +363,137 @@ class TestAttention:
         """The producer's contract, not ours. A row titled
         ``Project None health breach`` deduplicates against every other
         malformed entry and names nothing."""
-        out = judge_attention({"health": [{"score": 1, "threshold": 2}], "nudges": [{"days": 1}]})
+        out = attention({"health": [{"score": 1, "threshold": 2}], "nudges": [{"days": 1}]})
         assert out == []
+
+
+class TestAttentionAgainstAPopulatedPayload:
+    """The first exercise of these rules against real data (Session 52).
+
+    ``SNAG-ESTATE-002``'s closing paragraph: every rule in ``TestAttention``
+    above is pinned against a dict literal written by the same hand that
+    wrote the consumer, because ``/api/projects/attention`` has answered
+    ``{"health": [], "nudges": []}`` on all four occasions anyone has
+    looked.  A literal cannot express volume or length, and both turned
+    out to be wrong.
+    """
+
+    def test_the_recording_lands_on_both_sides_of_the_cap(self):
+        """31 rows and 31 tray fingerprints from one hourly poll, before
+        the cap existed — and the recording splits them without being
+        made to.  26 breaches is the estate's whole scored population
+        arriving at once, which is the arithmetic being wrong; 5 nudges
+        is its whole *eligible* population, which is a fortnight away
+        from the box.  One collapses and the other does not, in the same
+        payload, which is the independence rule as data rather than as
+        an argument."""
+        payload = _recorded_attention()
+        assert len(payload["health"]) == 26
+        assert len(payload["nudges"]) == 5
+
+        out = attention(payload)
+        assert len(out) == 1 + 5
+        assert HEALTH_ROLLUP_TITLE in titles(out)
+        assert NUDGE_ROLLUP_TITLE not in titles(out)
+        assert "Project sysadmin_assistant next action idle" in titles(out)
+
+    def test_every_project_is_still_named_in_details(self):
+        """A roll-up is only defensible because nothing is lost — it
+        moves the names out of the titles, it does not drop them."""
+        rows = {j.title: j for j in attention(_recorded_attention())}
+        rollup = rows[HEALTH_ROLLUP_TITLE]
+        assert len(rollup.details["projects"]) == 26
+        assert "sysadmin_assistant" in rollup.details["projects"]
+        # Scalars per project, so two runs can be diffed — the block is
+        # evidence for the count, not a copy of the rows it replaced.
+        assert rollup.details["scores"]["PersonalAssistant-auto"] == 50
+
+    def test_no_recorded_message_runs_past_a_notification(self):
+        """Measured before the cut: the live actions on this estate reach
+        469 characters, and ``sysadmin_tray.notifications`` appends
+        ``alert.message`` to a notification body verbatim."""
+        out = attention(_recorded_attention(), max_rows=99)
+        longest = max(len(j.message) for j in out)
+        assert longest < 250, longest
+
+    def test_a_cut_action_is_marked_and_kept_whole_in_details(self):
+        """``SNAG-BRIEF-002``'s rule, which this family was not applying:
+        a cut nothing marks is indistinguishable from a sentence that
+        happened to end there."""
+        payload = _recorded_attention()
+        action = payload["nudges"][2]["next_action"]
+        assert len(action) > NEXT_ACTION_CHARS
+
+        row = next(j for j in attention(payload, max_rows=99) if "idle" in j.title)
+        assert TRUNCATION_MARKER in row.message
+        assert row.details["next_action"] in {n["next_action"] for n in payload["nudges"]}
+        assert len(row.details["next_action"]) > NEXT_ACTION_CHARS
+
+    def test_a_short_action_is_not_marked(self):
+        row = attention({"health": [], "nudges": _nudges(1)})[0]
+        assert TRUNCATION_MARKER not in row.message
+        assert row.message.endswith(": x")
+
+
+class TestTheAttentionCap:
+    """A shape guard, not a tolerance — ``judge_audit_findings`` rule 2
+    one surface over.  Twenty-six repositories do not go bad between two
+    hourly polls; a threshold moved in the estate's config.yaml does
+    exactly that to all of them at once."""
+
+    def test_at_the_cap_every_project_keeps_its_own_row(self):
+        """A roll-up cannot name anything (Session 46), so the individual
+        rows survive for as long as there are few enough of them."""
+        out = attention({"health": _breaches(MAX_ROWS), "nudges": []})
+        assert len(out) == MAX_ROWS
+        assert HEALTH_ROLLUP_TITLE not in titles(out)
+
+    def test_one_past_the_cap_collapses(self):
+        out = attention({"health": _breaches(MAX_ROWS + 1), "nudges": []})
+        assert titles(out) == {HEALTH_ROLLUP_TITLE}
+        assert out[0].details["breach_count"] == MAX_ROWS + 1
+        assert out[0].details["max_rows"] == MAX_ROWS
+
+    def test_the_two_families_collapse_independently(self):
+        """Separate producers inside the estate — a score against a
+        threshold, and a streak against a schedule.  They fail
+        separately, and collapsing the working half because the other
+        one broke would hide the half that still names its projects."""
+        out = attention({"health": _breaches(MAX_ROWS + 1), "nudges": _nudges(2)})
+        assert titles(out) == {
+            HEALTH_ROLLUP_TITLE,
+            "Project project-0 next action idle",
+            "Project project-1 next action idle",
+        }
+
+    def test_a_rollup_takes_the_loudest_rung_it_swallows(self):
+        """Collapsing rows must not also quieten them.  ``info`` is below
+        ``tray.notify_min_severity`` on this box, so an escalated nudge
+        folded into an ``info`` row would make the fix for noise the
+        reason the one entry that earned a toast never got one."""
+        nudges = _nudges(MAX_ROWS, severity="info") + _nudges(1, severity="warning")
+        out = attention({"health": [], "nudges": nudges})
+        assert titles(out) == {NUDGE_ROLLUP_TITLE}
+        assert out[0].severity == "warning"
+
+    def test_a_rollup_of_quiet_nudges_stays_quiet(self):
+        """The other half of the same rule: loudest-it-swallows, not
+        loud-because-there-are-many.  Volume is not severity."""
+        out = attention({"health": [], "nudges": _nudges(MAX_ROWS + 1, severity="info")})
+        assert out[0].severity == "info"
+
+    def test_the_health_rollup_is_one_rung_like_the_rows_it_replaces(self):
+        out = attention({"health": _breaches(MAX_ROWS + 1), "nudges": []})
+        assert out[0].severity == DEFAULT_SEVERITY != "critical"
+
+    def test_a_malformed_entry_is_dropped_before_the_count(self):
+        """Otherwise the producer serving one broken row is what tips a
+        family into collapsing — the count would be measuring the
+        payload's length rather than the number of faults."""
+        health = _breaches(MAX_ROWS) + [{"score": 1, "threshold": 2}]
+        out = attention({"health": health, "nudges": []})
+        assert len(out) == MAX_ROWS
+        assert HEALTH_ROLLUP_TITLE not in titles(out)
 
 
 # ---------------------------------------------------------------------------
@@ -618,7 +796,7 @@ def _every_title():
         26.0,
     )
     out += judge_projects_invariants({"scans_total": 0, "last_scan": None}, 26.0)
-    out += judge_attention(
+    out += attention(
         {
             "health": [{"project": "some-project", "score": 1, "threshold": 40}],
             "nudges": [
@@ -647,6 +825,13 @@ def _every_title():
     # that replaces them above `port_breach_max_rows`. The roll-up has a
     # title of its own and would otherwise never reach the partition
     # guard, which is exactly how a stray pattern gets shipped.
+    # Both shapes of the attention families too, for the same reason:
+    # the two roll-up titles are fixed strings that no `Project % …`
+    # pattern matches, so a missing pattern would go unnoticed until a
+    # roll-up row sat unresolvable in the table.
+    out += attention(
+        {"health": _breaches(MAX_ROWS + 1), "nudges": _nudges(MAX_ROWS + 1)}
+    )
     out += judge_audit_findings({"findings": [_breach(port=8888)]}, 5)
     out += judge_audit_findings({"findings": [_breach(port=8880 + n) for n in range(6)]}, 5)
     return out

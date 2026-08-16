@@ -928,12 +928,64 @@ artefact.
 
 Two gaps are filed rather than assumed settled: `SNAG-ESTATE-002` (the
 producer's `Nudge.title`/`.message` are `@property` and `asdict` drops
-them, so this repository builds a format the estate believes it owns —
-and `judge_attention` has therefore never been exercised against a
-populated payload, because both lists have been empty every time anyone
-has looked) and `SNAG-ESTATE-003` (no escalation; the loud rung would be
-`critical`, which is reserved for faults on this box, and the family most
-in need already arrives pre-escalated from the producer).
+them, so this repository builds a format the estate believes it owns) and
+`SNAG-ESTATE-003` (no escalation; the loud rung would be `critical`,
+which is reserved for faults on this box, and the family most in need
+already arrives pre-escalated from the producer).
+
+**`judge_attention` was written against literals and refuted by data the
+first hour it saw any** (Session 52). `GET :8400/api/projects/attention`
+has answered `{"health": [], "nudges": []}` on all four occasions anyone
+has looked, so every rule in that function was pinned against dict
+literals **written by the same hand that wrote the consumer** — which is
+the strongest evidence available and is not the same as an observation.
+A populated payload was made from the producer's own code, driven
+read-only in its own venv against the live estate database with
+`effective_threshold` forced to 101 and `nudges.evaluate(default_days=0)`
+so live rows qualify; everything else is the estate's, including
+`dataclasses.asdict` over the real `Nudge`, which is the point — the
+field names are what an unforced payload would carry.
+
+Two defects came out of it, and **neither is a rule this repository had
+to invent**; both were already written down for other families and never
+applied here.
+
+1. **The row count is capped, per family.** The run produced **31 rows
+   and 31 tray fingerprints from one hourly poll** — 26 health breaches
+   and 5 nudges. Every breach is worth its own row while there are few
+   of them, because a roll-up cannot name anything (Session 46); above
+   `attention_max_rows` the count *is* the news, since twenty-six
+   repositories do not go bad between two polls but a threshold moved in
+   the estate's `config.yaml` does exactly that to all of them at once.
+   The two families collapse **independently** — separate producers
+   inside the estate (a score against a threshold; a streak against a
+   schedule) that fail separately, and collapsing the working half
+   because the other broke hides the half still naming its projects. The
+   recording lands on both sides of the cap without being made to: 26
+   collapses, 5 (the whole eligible nudge population) does not.
+2. **A roll-up takes the loudest rung it swallows.** Collapsing rows
+   must not also quieten them: `info` is below `tray.notify_min_severity`
+   here, so an escalated `warning` nudge folded into an `info` row makes
+   the fix for noise the reason the one entry that earned a toast never
+   got one. Volume is not severity in the other direction either — a
+   roll-up of six `info` nudges stays `info`.
+
+The message is also cut with `truncate_at_word` at `NEXT_ACTION_CHARS`
+and the full action kept in `details['next_action']`. The live actions on
+this estate reach **469 characters** and `alert.message` reaches a
+notification body verbatim, so the daemon was cutting them at a point
+nobody chose — `SNAG-BRIEF-002` exactly, one domain over. That the
+producer independently reached 120 for the same destination is not a copy
+to deduplicate: its constant is private, behind a property `asdict` drops.
+
+The seam itself is guarded where the other two 8400 routes already were,
+in `tests/test_estate_project_contracts.py` rather than a new file. Its
+live half can only assert the envelope, so the per-entry assertions are
+**pre-staged** — they begin running by themselves the first day the
+estate publishes a breach or a nudge, which is also the first day they
+could catch anything. One of them asserts `title`/`message`/`details` are
+*absent* from a nudge, so the day estate-manager closes its side the
+suite says so and names the next move.
 
 **Journal reads resume from a cursor, and it must advance over what the
 filter discards.** `read_journal` was called with `since="2m ago"` on a

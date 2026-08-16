@@ -71,6 +71,33 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from sysadmin.core.escalation import SEVERITY_ORDER
+from sysadmin.core.text import truncate_at_word
+
+#: How much of a project's stated next action reaches a nudge's message.
+#:
+#: The message is a desktop notification body by the time anyone reads
+#: it (``sysadmin_tray.notifications`` appends ``alert.message``
+#: verbatim), and the live actions on this estate run to 469 characters
+#: — measured, not guessed, by driving this module against a populated
+#: payload for the first time.  A notification daemon truncates a body
+#: that long at a point nobody chose, which is ``SNAG-BRIEF-002``'s
+#: defect: *a cut that nothing marks is indistinguishable from a
+#: sentence that happened to end there*.  So the cut is
+#: :func:`~estate.text.truncate_at_word`'s, which always marks it, and
+#: the full text stays in ``details['next_action']`` — the place the
+#: producer's own ``Nudge.details`` docstring reserves for "everything
+#: the message had to compress".
+#:
+#: 120 is the producer's number for the same destination
+#: (``nudges._MESSAGE_ACTION_CHARS``), and reaching the same figure
+#: independently is not a copy to be deduplicated: it is unreachable
+#: from here (a private constant behind a property ``asdict`` drops —
+#: ``SNAG-ESTATE-002``), and this repository's prefix spends ~60
+#: characters the producer's does not, so the totals differ even where
+#: the budget for the action agrees.
+NEXT_ACTION_CHARS = 120
+
 #: Severity for every judgement this module makes, with one exception.
 #:
 #: ``warning`` and not ``critical``: ``critical`` breaks through the DND
@@ -86,6 +113,15 @@ from typing import Any
 #: computes and this repository takes verbatim — see :func:`judge_attention`.
 DEFAULT_SEVERITY = "warning"
 
+#: The two roll-up titles :func:`judge_attention` falls back to above
+#: ``attention_max_rows``.  Fixed strings rather than f-strings, which is
+#: rule 2 read the other way round: a roll-up exists *because* the
+#: individual subjects stopped being the identity, so there is nothing
+#: variable left to keep out of the title.  They are patterns in
+#: :data:`SURFACE_TITLE_PATTERNS` as they stand, with no ``%``.
+HEALTH_ROLLUP_TITLE = "Estate project health breaches"
+NUDGE_ROLLUP_TITLE = "Estate project next actions idle"
+
 #: Title patterns per surface, for the resolve sweep.
 #:
 #: The sweep is **scoped to the surfaces a run actually read** (see
@@ -97,7 +133,12 @@ DEFAULT_SEVERITY = "warning"
 #: the partition against every title this module can produce.
 SURFACE_TITLE_PATTERNS: dict[str, tuple[str, ...]] = {
     "projects_invariants": ("Estate scan %",),
-    "projects_attention": ("Project % health breach", "Project % next action idle"),
+    "projects_attention": (
+        "Project % health breach",
+        "Project % next action idle",
+        HEALTH_ROLLUP_TITLE,
+        NUDGE_ROLLUP_TITLE,
+    ),
     "audit_invariants": ("Estate audit %",),
     "audit_findings": ("Estate port %",),
     "queue_invariants": ("Estate queue %",),
@@ -300,7 +341,7 @@ def judge_projects_invariants(payload: dict[str, Any], max_age_hours: float) -> 
 # --- attention -----------------------------------------------------------
 
 
-def judge_attention(payload: dict[str, Any]) -> list[Judgement]:
+def judge_attention(payload: dict[str, Any], max_rows: int) -> list[Judgement]:
     """Health breaches and idle nudges, turned into rows.
 
     This is the half where **this repository is a delivery path and not
@@ -333,71 +374,194 @@ def judge_attention(payload: dict[str, Any]) -> list[Judgement]:
     defensible — the title is the identity key in *this* table — but it
     is a duplication to know about rather than to discover later, and it
     is filed as a snag.
+
+    **Session 52 ran this against a populated payload for the first
+    time**, which is the rest of that snag: ``/api/projects/attention``
+    has answered ``{"health": [], "nudges": []}`` on every one of the
+    four occasions anyone has looked, so every rule below had been
+    exercised only against literals written by the same hand that wrote
+    the consumer.  Two defects a literal cannot express came out of it,
+    and both are rules this repository had already written down
+    elsewhere and never applied here:
+
+    1. **The row count is capped, and the cap is a shape guard rather
+       than a tolerance** — :func:`judge_audit_findings` rule 2, one
+       surface over.  The forced-population drive produced **26 health
+       breaches and 5 nudges in a single run**: 31 rows, 31 tray
+       fingerprints, one poll.  Every breach is still worth a row while
+       there are few of them, because a roll-up cannot name anything
+       (Session 46); above ``max_rows`` the count *is* the news, since
+       twenty-six repositories do not go bad between two hourly polls —
+       a threshold moved in the estate's ``config.yaml``, or
+       ``effective_threshold`` misreading a manifest, does exactly that
+       to all of them at once.  The two families collapse
+       **independently**: they have separate producers inside the
+       estate (a score against a threshold; a streak against a
+       schedule), they fail separately, and collapsing one because the
+       other is broken would hide the half that still works.
+
+    2. **A roll-up takes the loudest rung it swallows.**  Collapsing
+       rows must not also quieten them: an escalated ``warning`` nudge
+       folded into a row raised at ``info`` would be **below**
+       ``tray.notify_min_severity`` on this box, so the fix for noise
+       would have silenced the one entry that had earned a toast.  The
+       health roll-up has nothing to take and stays at
+       :data:`DEFAULT_SEVERITY`, like the rows it replaces.
+
+    3. **The message is cut at a word boundary and the cut is marked.**
+       See :data:`NEXT_ACTION_CHARS`.
+
+    ``max_rows`` is passed rather than read here because this module
+    holds no configuration and no clock — the property that lets every
+    rule be tested against a dict literal, which is the only way these
+    rules could be tested at all before the drive.
     """
     out: list[Judgement] = []
 
-    for entry in payload.get("health") or []:
-        name = entry.get("project")
-        if not name:
-            continue
-        score, threshold = entry.get("score"), entry.get("threshold")
-        out.append(
-            Judgement(
-                surface="projects_attention",
-                title=f"Project {name} health breach",
-                message=(
-                    f"{name} scores {score} against a threshold of "
-                    f"{threshold} (status {entry.get('status', 'unknown')}). "
-                    "See the estate's project detail for the deductions."
-                ),
-                details={
-                    "project": name,
-                    "score": score,
-                    "threshold": threshold,
-                    "status": entry.get("status"),
-                },
-            )
-        )
+    health = [
+        entry
+        for entry in payload.get("health") or []
+        if isinstance(entry, dict) and entry.get("project")
+    ]
+    nudges = [
+        entry
+        for entry in payload.get("nudges") or []
+        if isinstance(entry, dict) and entry.get("project_name")
+    ]
 
-    for nudge in payload.get("nudges") or []:
-        name = nudge.get("project_name")
-        if not name:
-            continue
-        days, threshold = nudge.get("days"), nudge.get("threshold")
-        # `at_least` is the producer's hedge and is kept: a streak
-        # reaching the edge of the retention window has an unknown true
-        # length, and restating it as exact is the small dishonesty the
-        # estate's own Nudge.message docstring refuses to commit.
-        at_least = "at least " if nudge.get("at_window_edge") else ""
-        plural = "day" if days == 1 else "days"
-        severity = nudge.get("severity")
-        out.append(
-            Judgement(
-                surface="projects_attention",
-                title=f"Project {name} next action idle",
-                message=(
-                    f"{name}'s next action has stood unchanged for "
-                    f"{at_least}{days} {plural} (nudges after "
-                    f"{threshold}): {nudge.get('next_action', '')}"
-                ),
-                severity=(
-                    severity if severity in {"info", "warning", "critical"} else DEFAULT_SEVERITY
-                ),
-                details={
-                    "project": name,
-                    "days_unchanged": days,
-                    "threshold_days": threshold,
-                    "next_action": nudge.get("next_action"),
-                    "next_action_source": nudge.get("next_action_source"),
-                    "since": nudge.get("since"),
-                    "unchanged_scans": nudge.get("scans"),
-                    "at_window_edge": nudge.get("at_window_edge"),
-                    "severity_source": "estate",
-                },
-            )
-        )
+    if len(health) > max_rows:
+        out.append(_health_rollup(health, max_rows))
+    else:
+        out += [_health_row(entry) for entry in health]
+
+    if len(nudges) > max_rows:
+        out.append(_nudge_rollup(nudges, max_rows))
+    else:
+        out += [_nudge_row(entry) for entry in nudges]
 
     return out
+
+
+def _health_row(entry: dict[str, Any]) -> Judgement:
+    name = entry["project"]
+    score, threshold = entry.get("score"), entry.get("threshold")
+    return Judgement(
+        surface="projects_attention",
+        title=f"Project {name} health breach",
+        message=(
+            f"{name} scores {score} against a threshold of "
+            f"{threshold} (status {entry.get('status', 'unknown')}). "
+            "See the estate's project detail for the deductions."
+        ),
+        details={
+            "project": name,
+            "score": score,
+            "threshold": threshold,
+            "status": entry.get("status"),
+        },
+    )
+
+
+def _health_rollup(health: list[dict[str, Any]], max_rows: int) -> Judgement:
+    """One row for all of them, naming the projects in ``details``."""
+    projects = sorted(str(entry["project"]) for entry in health)
+    return Judgement(
+        surface="projects_attention",
+        title=HEALTH_ROLLUP_TITLE,
+        message=(
+            f"{len(health)} projects score below their attention threshold. "
+            "That many at once is the estate's scoring or its thresholds "
+            "rather than that many repositories — check :8400"
+            "/api/projects/attention against alert_threshold in the "
+            ".project.yaml manifests. See details.projects."
+        ),
+        details={
+            "projects": projects,
+            "breach_count": len(health),
+            "max_rows": max_rows,
+            # Scalars per project, so the block stays diffable between
+            # runs — `briefing/data.py` rule 3, and the reason the rows
+            # this replaces are not simply nested here.
+            "scores": {str(e["project"]): e.get("score") for e in health},
+        },
+    )
+
+
+def _nudge_row(nudge: dict[str, Any]) -> Judgement:
+    name = nudge["project_name"]
+    days, threshold = nudge.get("days"), nudge.get("threshold")
+    # `at_least` is the producer's hedge and is kept: a streak
+    # reaching the edge of the retention window has an unknown true
+    # length, and restating it as exact is the small dishonesty the
+    # estate's own Nudge.message docstring refuses to commit.
+    at_least = "at least " if nudge.get("at_window_edge") else ""
+    plural = "day" if days == 1 else "days"
+    action = truncate_at_word(str(nudge.get("next_action") or ""), NEXT_ACTION_CHARS)
+    return Judgement(
+        surface="projects_attention",
+        title=f"Project {name} next action idle",
+        message=(
+            f"{name}'s next action has stood unchanged for "
+            f"{at_least}{days} {plural} (nudges after "
+            f"{threshold}): {action}"
+        ),
+        severity=_nudge_severity(nudge),
+        details={
+            "project": name,
+            "days_unchanged": days,
+            "threshold_days": threshold,
+            # The full text, uncut: the message is what had to compress.
+            "next_action": nudge.get("next_action"),
+            "next_action_source": nudge.get("next_action_source"),
+            "since": nudge.get("since"),
+            "unchanged_scans": nudge.get("scans"),
+            "at_window_edge": nudge.get("at_window_edge"),
+            "severity_source": "estate",
+        },
+    )
+
+
+def _nudge_rollup(nudges: list[dict[str, Any]], max_rows: int) -> Judgement:
+    """One row for all of them, at the loudest rung it swallows."""
+    projects = sorted(str(nudge["project_name"]) for nudge in nudges)
+    severity = max(
+        (_nudge_severity(nudge) for nudge in nudges),
+        key=lambda level: SEVERITY_ORDER.get(level, 0),
+        default=DEFAULT_SEVERITY,
+    )
+    return Judgement(
+        surface="projects_attention",
+        title=NUDGE_ROLLUP_TITLE,
+        message=(
+            f"{len(nudges)} projects have a stated next action that has stood "
+            "past its nudge threshold. That many at once is the estate's "
+            "streak query or its idle_nudges settings rather than that many "
+            "abandoned commitments. See details.projects."
+        ),
+        severity=severity,
+        details={
+            "projects": projects,
+            "nudge_count": len(nudges),
+            "max_rows": max_rows,
+            "days_unchanged": {
+                str(n["project_name"]): n.get("days") for n in nudges
+            },
+            "severity_source": "estate",
+        },
+    )
+
+
+def _nudge_severity(nudge: dict[str, Any]) -> str:
+    """The producer's rung, or the default if it is not one of the three.
+
+    ``alerts`` has a CHECK constraint on severity, so a producer typo
+    reaching the insert is a ``CheckViolationError`` that takes the whole
+    run's transaction with it — the failure ``BaseAgent._execute``'s
+    per-service savepoints exist to contain, arriving here as data.
+    """
+    severity = nudge.get("severity")
+    return severity if severity in SEVERITY_ORDER else DEFAULT_SEVERITY
+
 
 
 # --- the audit -----------------------------------------------------------

@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-15
+> **Last Updated**: 2026-08-16
 
 ---
 
@@ -366,6 +366,70 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+### ✅ Session 52: judge_attention, against data (done 2026-08-16)
+
+**`SNAG-ESTATE-002`'s half that needed nothing from estate-manager.**
+The entry's closing paragraph: `judge_attention` had never been run
+against a payload with anything in it, so an entire alert family could
+not be shown to work. `GET :8400/api/projects/attention` has answered
+`{"health": [], "nudges": []}` on all four occasions anyone has looked —
+including once after an overnight scheduled scan of 26 projects with no
+parse failures, which is what made the negative result worth recording.
+
+**How a populated payload was made, since the wire cannot supply one.**
+The producer's own code, driven read-only in its own venv against the
+live estate database with two thresholds forced: `effective_threshold`
+raised to 101 so live scores breach, and `nudges.evaluate(…,
+default_days=0)` so live streaks qualify. Everything else is the
+estate's — 26 real snapshots, 26 real manifests, 5 real streaks, and
+`dataclasses.asdict` over the producer's own `Nudge`, which is the point:
+the field names are exactly what an unforced payload would carry.
+Committed as `tests/fixtures/estate_projects_attention.json` with its
+provenance on the test that owns it, and the two forced numbers are
+visible in the data (`threshold: 101`, `threshold: 0`) rather than
+hidden.
+
+**Two defects, both rules this repository had already written down
+elsewhere and never applied here.**
+
+- **31 rows from one poll.** 26 health breaches and 5 nudges, each its
+  own alert row and its own tray `{severity}:{title}` fingerprint.
+  `judge_audit_findings` has had `port_breach_max_rows` for exactly this
+  since Session 26b-A and `judge_attention` had nothing. Now
+  `attention_max_rows` (5), applied to **each family separately** —
+  they have separate producers inside the estate, fail separately, and
+  collapsing the working half because the other broke would hide the
+  half that still names its projects. The recording lands on both sides
+  of the cap without being made to: 26 collapses, 5 does not.
+- **A 469-character message.** The live next actions on this estate run
+  to 469 characters and `alert.message` reaches a notification body
+  verbatim, so the daemon cuts it at a point nobody chose — which is
+  `SNAG-BRIEF-002` exactly. Now cut with `truncate_at_word`, which
+  always marks it, at `NEXT_ACTION_CHARS = 120`; the full text stays in
+  `details['next_action']`.
+
+**A roll-up takes the loudest rung it swallows.** Collapsing rows must
+not also quieten them: `info` is below `tray.notify_min_severity` on
+this box, so an escalated `warning` nudge folded into an `info` row
+would have made the fix for noise the reason the one entry that earned a
+toast never got one.
+
+**The seam is now guarded where the two other 8400 routes already were.**
+`tests/test_estate_project_contracts.py` gains `/api/projects/attention`
+as its third route rather than a new file: recorded half asserts the
+keys the consumer reads are present in the populated payload, live half
+asserts the envelope and **pre-stages** the per-entry assertions, which
+begin running by themselves the first day the estate publishes anything.
+It also asserts `title`/`message`/`details` are *absent* from a nudge,
+so the day estate-manager closes its `SNAG-ESTATE-010` the suite says so
+and names the next move.
+
+Verified live and rolled back, the family having never had a row: three
+runs against the real database gave raise (1 roll-up + 5 nudges) → hold
+(dedup, 0 raised) → resolve (6 closed when the estate goes quiet), with
+**0 rows of residue**. Suite **1792** (from 1776), ruff and mypy clean,
+no migration, no new route.
 
 ### ✅ Session 51: One copy of the autogenerate rules (done 2026-08-16)
 
