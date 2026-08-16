@@ -94,14 +94,21 @@ debts that landing deliberately left behind._
     `estate_judge` catches an audit that runs and goes wrong. Neither
     sees the other's.
 - [ ] **Drop the frozen project tables** — `sysadmin.project_snapshots`
-      and `sysadmin.project_reviews`, their `FROZEN_TABLES` exclusions in
-      `alembic/env.py` **and** `tests/test_schema_drift.py` (both, or a
-      future `--autogenerate` writes a `drop_table` into an unrelated
-      migration), the `project_snapshots` retention entry, and the
-      `agents.project_organiser` config block. Their history was copied
-      into database `estate` on 2026-08-13; leave a settling period
-      before dropping, since a copy verified once is not a copy verified
-      twice
+      and `sysadmin.project_reviews`, the single `FROZEN_TABLES`
+      exclusion in `sysadmin/metadata.py` (one place since Session 51:
+      it was two, and `tests/test_autogenerate_config.py` now fails if a
+      second appears), the `project_snapshots` retention entry, and the
+      `agents.project_organiser` config block. **Blocked, with a
+      number.** Measured 2026-08-16: the estate's copy holds **3,713**
+      rows against **3,739** here in the same window, and the 26
+      missing are dated **2026-08-13** — one per project from the final
+      organiser run at 07:35, after the copy was taken. Dropping now
+      loses a day of history for 26 projects. The destination is the
+      estate's database, so copying them is estate-manager's call to
+      make and announce, not a write from this repository; the
+      alternative is a recorded decision that one day is disposable.
+      "A copy verified once is not a copy verified twice" is exactly
+      what this measurement was
 - [x] **Pin the tray's parse of the estate's responses.** The tray reads
       `/api/projects/overview` and `/{name}` from **8400** now but parses
       them with *this* repository's contract classes
@@ -359,6 +366,60 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+### ✅ Session 51: One copy of the autogenerate rules (done 2026-08-16)
+
+**`SNAG-DB-003`, closed by settling the placement question the entry
+deliberately left open.** Session 43 filed it with the design call
+unmade — `env.py` cannot import from `tests/`, and a shared constant in
+`sysadmin/` looked like pushing a testing concern into the shipped
+package. It is not, once the direction of ownership is stated the right
+way round: `include_object` is what `alembic revision --autogenerate`
+uses whether or not a test suite exists, so it is **production
+configuration the drift guard borrows**.
+
+**Where it went, and why not a new module.** `sysadmin/metadata.py`,
+beside `Base` — that file's docstring already argues this exact case for
+the *model set* ("a table missing from one copy and not the other is
+exactly the silent drift the drift test exists to catch"), and which of
+the live schema's tables the metadata is authoritative for is the same
+question one step further. `COMPARISON_OPTS` travels as one dict;
+`alembic/env.py` and `tests/test_schema_drift.py` splat it and configure
+nothing of their own.
+
+**Widened from the exclusion list to the whole comparison**, because the
+flags fail the same silent way: `compare_type` set in `env.py` and
+absent from the guard leaves the guard green *while blind to the drift it
+certifies*. Six option names, one statement.
+
+**Not moved, deliberately**: the `SET search_path TO public` both
+callers issue. It is connection setup rather than comparison — `env.py`
+pairs it with `CREATE SCHEMA`, DDL the guard must never run — and its
+drift fails **loudly** (double reflection, phantom diffs) rather than
+green.
+
+**`tests/test_autogenerate_config.py` (5) stops the copy coming back**:
+an AST sweep over every module for a second `include_object`,
+`include_name` or `FROZEN_TABLES`, and for any of the six option names
+passed by hand. Textual because `env.py` cannot be imported — it runs
+the migrations at module scope. Two of the five exist so the detector
+can be seen to fail: one runs the walker at the owner (which must trip
+every rule), one feeds it the deleted code. A third asserts both callers
+still *import* the options, since a file that configures nothing would
+pass an absence check while quietly taking alembic's defaults.
+
+**Verified live.** With the exclusion removed autogenerate proposes
+`remove_table` for both frozen tables against 3,739 and 4 rows; after
+the change `alembic check` reports no operations (exercising `env.py`
+itself), offline mode still renders, and re-adding a test-only exclusion
+makes the sweep fail by file and line. Suite **1776 passed** (from
+1771), ruff and mypy clean, **no migration**, **no new route**.
+
+**Found while measuring, and it blocks the drop task below**: the
+estate's copy of `project_snapshots` holds **3,713** rows in the window
+this repository's table covers, against **3,739** here — the **26 rows
+dated 2026-08-13**, one per project from the final organiser run at
+07:35, were written after the copy was taken.
 
 ### ✅ Session 50: The reload re-times the scheduler (done 2026-08-15)
 

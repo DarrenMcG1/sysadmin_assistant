@@ -6,7 +6,15 @@ database have not drifted apart.
 
 Connects to the real local postgres (peer auth). Skips gracefully when
 the database is unreachable so CI without postgres does not fail.
-Mirrors the autogenerate configuration in alembic/env.py.
+
+The comparison itself is **not** configured here. It arrives whole from
+``sysadmin.metadata.COMPARISON_OPTS``, the same object ``alembic/env.py``
+splats into ``context.configure`` — so this guard certifies the migration
+tool's actual comparison rather than a hand-copy of them that could be
+weaker. It used to mirror them (`SNAG-DB-003`), and a mirror that had
+lost an exclusion or a comparison flag would pass while blind. The one
+thing still issued by hand is the search_path, which each caller owns
+because ``env.py`` pairs it with DDL this test may not run.
 """
 
 import pytest
@@ -27,34 +35,6 @@ def _db_available() -> bool:
         return False
 
 
-# Frozen by estate-manager ADR-0005: the models moved to the 8400
-# service, the tables stay until the tasks.md drop entry ("drop the
-# frozen project tables") runs. Excluded so neither the drift guard
-# nor a future `--autogenerate` proposes dropping data this repo no
-# longer models.
-FROZEN_TABLES = {"project_snapshots", "project_reviews"}
-
-
-def _include_object(object, name, type_, reflected, compare_to):
-    """Mirror alembic/env.py: only sysadmin-schema tables, skip version table."""
-    if type_ == "table":
-        schema = getattr(object, "schema", None)
-        if schema != "sysadmin":
-            return False
-        if name == "alembic_version":
-            return False
-        if name in FROZEN_TABLES:
-            return False
-    return True
-
-
-def _include_name(name, type_, parent_names):
-    """Mirror alembic/env.py: only reflect the sysadmin schema."""
-    if type_ == "schema":
-        return name == "sysadmin"
-    return True
-
-
 @pytest.mark.skipif(
     not _db_available(),
     reason="local postgres (projects DB) not reachable — drift guard needs the real schema",
@@ -63,23 +43,13 @@ def test_models_match_migrated_schema():
     from alembic.autogenerate import compare_metadata
     from alembic.migration import MigrationContext
 
-    from sysadmin.metadata import Base
+    from sysadmin.metadata import COMPARISON_OPTS, Base
 
     engine = create_engine(SYNC_URL)
     try:
         with engine.connect() as conn:
             conn.execute(text("SET search_path TO public"))
-            context = MigrationContext.configure(
-                conn,
-                opts={
-                    "compare_type": True,
-                    "include_schemas": True,
-                    "include_object": _include_object,
-                    "include_name": _include_name,
-                    "version_table_schema": "sysadmin",
-                    "target_metadata": Base.metadata,
-                },
-            )
+            context = MigrationContext.configure(conn, opts=dict(COMPARISON_OPTS))
             diff = compare_metadata(context, Base.metadata)
     finally:
         engine.dispose()

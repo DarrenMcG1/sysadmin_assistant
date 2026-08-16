@@ -1,14 +1,16 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-08-15
+**Last Updated**: 2026-08-16
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **Two sub-session actions first, because neither is a session and
 > folding them into the ranking makes a two-minute job compete with a
 > day's work.** (1) **`sudo systemctl restart sysadmin.service`** —
-> measured 2026-08-15 at the close of Session 50: the running daemon is
-> PID 1410826, started 14:32 BST, and `POST /api/sysadmin/reload`
-> **404s**, so it predates Session 49 as well as 50. One restart deploys
+> re-measured 2026-08-16 at the close of Session 51 and **still owed**:
+> the running daemon is still PID 1410826, started 2026-08-15 14:32 BST,
+> and `POST /api/sysadmin/reload` still **404s**, so it predates Session
+> 49 as well as 50. Session 51 adds nothing to it — that work is read by
+> alembic and the test suite, never by the daemon. One restart deploys
 > both, and it is the **last one this class of blocker will need** — from
 > then on `kill -HUP <MainPID>` reaches the daemon without `sudo`, and
 > re-times the scheduler rather than merely reporting that it had not.
@@ -22,54 +24,57 @@
 > VERSION`, since the refresh alone asserts the versions match without
 > rebuilding anything and turns a loud known risk into a silent one.
 >
-> **Next up**: **`SNAG-DB-003` — the autogenerate exclusion list is
-> hand-copied across two files and only one of them is tested**,
-> recommended 2026-08-15 at the close of Session 50. It wins on the claim
-> none of the others can make: **it is the only open item in this
-> repository whose failure mode is data loss, and it fails green.** The
-> two functions fail in opposite directions — an exclusion present only in
-> `alembic/env.py` makes `tests/test_schema_drift.py` fail loudly and
-> announce itself, while one present only in the *test* is silent: the
-> guard stays green and the next `alembic revision --autogenerate` anyone
-> runs writes `op.drop_table('project_snapshots')` into a migration whose
-> author was doing something else entirely. Measured today rather than
-> taken from the entry: both copies of `FROZEN_TABLES` are still there
-> (`alembic/env.py:46`, `tests/test_schema_drift.py:35`) and both frozen
-> tables hold live rows in the `sysadmin` schema. It is session-sized
-> rather than an edit because the entry's own last bullet leaves the
-> design question open and Session 43 had no mandate to settle it:
-> `env.py` cannot import from `tests/`, and a shared constant in
-> `sysadmin/` puts autogenerate configuration into the shipped package —
-> arguably correct, since `include_object` *is* production configuration,
-> but it is a judgement call. And it is the family this sitting worked in
-> twice from the opposite side: Session 50 deleted two hand-maintained
-> classifications by **deriving** them (`JOB_CONFIG_PATHS` from the plan,
-> `JOB_TARGETS` pinned to it by a test), and found a real defect in the
-> guard walker while doing so. **Runners-up.** *`SNAG-AGENT-007` (four
-> unbounded `_active_alerts` reads per sysadmin run)* loses on the same
-> measurement that demoted it last sitting: `alerts` holds 2 unresolved
-> rows, so the query it warns about costs nothing today — a real risk, and
-> a dormant one waiting for a backlog to come back. *`SNAG-UNITS-003` (the
-> generated `kind: http` url guesses the health path, wrong for 7 of 11
-> declared entries)* loses on population: all 12 units holding an audited
-> port are already `monitored`, so `classify_units` drops them before they
-> become findings and the wrong guess currently reaches nobody — and the
-> trade was taken deliberately, a wrong url failing loudly within one poll
-> beating `kind: systemd` under-monitoring silently for ever. *Sessions
-> 25b/25c (reliability Tiers 2–3)* lose on the question this repository
-> keeps answering the hard way: `GET /api/services/reliability` still has
-> no consumer beyond the API, which is what closed Session 30 unbuilt.
-> *Session 27 (log aggregator tiers)* stays dead — scoped against 599,794
-> open rows, and the table holds two. *`SNAG-ROADMAP-001` and
-> `SNAG-ROADMAP-002`* lose on **ownership, not merit**, and the check was
-> run rather than assumed: `roadmap.py` now lives at
+> **Next up**: **`SNAG-ESTATE-002` — `judge_attention` has never once
+> been run against a payload with anything in it**, recommended
+> 2026-08-16 at the close of Session 51. It wins on the claim this
+> repository keeps having to make about itself: **an alert family that
+> cannot be shown to work is indistinguishable from one that does**, and
+> this one has two independent reasons to be broken. The producer's
+> `Nudge.title` and `.message` are `@property`, so `asdict` drops them
+> and this side builds a shape the estate believes it owns; and both
+> lists have been empty every time anyone has looked — measured again
+> today, `GET localhost:8400/api/projects/attention` returns
+> `{"health": [], "nudges": []}`, so every judgement, severity mapping
+> and sweep in that half of `sysadmin/estate/` has run over nothing since
+> Session 45 shipped it. The producer's half is estate-manager's
+> (`SNAG-ESTATE-010`) and must be announced rather than reached into, but
+> this side's half needs nobody: drive `judge_attention` in-process
+> against a populated payload built from the producer's own dataclass and
+> pin it, the shape `SNAG-TRAY-006` already established here with
+> committed fixtures under `tests/fixtures/`. It is the same lesson
+> Session 51 spent two of its five tests on — a detector that cannot be
+> seen to fail proves nothing. **Runners-up.** *Dropping the frozen
+> project tables* is **named as blocked rather than ranked**: Session 51
+> measured the estate's copy at **3,713** rows against **3,739** here,
+> and the 26 missing are one per project from the final organiser run on
+> 2026-08-13, written after the copy was taken. The destination is the
+> estate's database, so the unblocking move is theirs to make and
+> announce; until then a drop loses a day of history. *`SNAG-AGENT-007`
+> (four unbounded `_active_alerts` reads per sysadmin run)* loses on the
+> same measurement for the third sitting running, and it got cheaper
+> again: `alerts` holds **one** unresolved row today (`Unmonitored
+> systemd units: 8 findings`), down from two. *Sessions 25b/25c
+> (reliability Tiers 2–3)* lose where they always do — `GET
+> /api/services/reliability` still has no consumer beyond the API, which
+> is what closed Session 30 unbuilt — and a family that has never fired
+> beats a feature nobody reads. *`SNAG-UNITS-003`* still loses on
+> population: all 12 units holding an audited port are `monitored`, so
+> the wrong guess reaches nobody. *`SNAG-ROADMAP-001`/`-002`* lose on
+> **ownership**, re-checked rather than assumed — `roadmap.py` lives at
 > `~/projects/estate-manager/service/estate_service/projects/roadmap.py`
-> and this repository contains no copy, so both entries are stale pointers
-> at another repository's code. Filing that with the estate is a finding,
-> not a session. **Blocked rather than dropped**: `SNAG-ESTATE-002`'s
-> residual half (the producer's fix is estate-manager's
-> `SNAG-ESTATE-010`), `SNAG-ESTATE-003`, and `SNAG-ESTATE-005`, which is
-> their document and their fix. **Previously here —
+> and this repository holds no copy. **Blocked rather than dropped**:
+> `SNAG-ESTATE-003`, `SNAG-ESTATE-005`, `SNAG-DB-002`'s `REINDEX` and
+> `SNAG-UNITS-005`'s five removals — the last two waiting on `sudo`, not
+> on a decision. **Previously here — `SNAG-DB-003`**, recommended
+> 2026-08-15 at the close of Session 50 and **done the same day as
+> Session 51**; the recommendation held on the point it turned on (the
+> only open item whose failure mode is data loss, failing green), and the
+> sitting's finding was that the entry's open design question answers
+> itself once ownership is stated the right way round — `include_object`
+> is production configuration the test borrows, not test scaffolding in
+> the shipped package. It also widened: the comparison *flags* were
+> hand-copied too and fail the same silent way. See Recently Completed.
+> **Previously here —
 > `Scheduler.reschedule_job`**, recommended 2026-08-15 at the close of
 > Session 49 and **done the same day as Session 50**; the recommendation
 > held on the point it turned on, and the sitting's finding was that the
@@ -90,7 +95,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **1771 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, smoke script |
+| Testing | 🟢 Complete | **1776 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -98,6 +103,85 @@
 ---
 
 ## Recently Completed
+
+### One copy of the autogenerate rules — SNAG-DB-003 (2026-08-16)
+
+**The only open item in this repository whose failure mode was data
+loss, and it failed green.** `include_object()` in `alembic/env.py` and
+`_include_object()` in `tests/test_schema_drift.py` were hand-copies of
+each other. The two fail in opposite directions: an exclusion present
+only in `env.py` makes the drift guard fail loudly, while one present
+only in the *test* is silent — the guard stays green while the next
+`alembic revision --autogenerate` writes `op.drop_table` into a
+migration whose author was doing something else. Fired in a scratch
+script before the fix: with the exclusion removed, autogenerate proposes
+`remove_index`/`remove_table` for both frozen tables, against **3,739**
+and **4** live rows.
+
+**Session 43 filed it with the design question open, and it answers
+itself once ownership is stated the right way round.** `env.py` cannot
+import from `tests/`; a shared constant in `sysadmin/` looked like
+pushing a testing concern into the shipped package. It is not —
+`include_object` is what `alembic revision --autogenerate` uses whether
+or not a test suite exists, so this is **production configuration the
+drift guard borrows**, and the guard is the second caller.
+
+**It went beside `Base` in `sysadmin/metadata.py`**, not into a new
+module, because that file's docstring already argues this exact case for
+the *model set*: "a table missing from one copy and not the other is
+exactly the silent drift the drift test exists to catch". Which of the
+live schema's tables the metadata is authoritative for is the same
+question one step further. `COMPARISON_OPTS` travels as one dict, splat
+by `env.py` into `context.configure` and by the guard into
+`MigrationContext.configure(opts=…)`.
+
+**Widened from the exclusion list to the whole comparison.** The flags
+were hand-copied too, and they fail the same silent way: `compare_type`
+set in `env.py` and absent from the guard leaves the guard green *while
+blind to exactly the drift it certifies*. Six option names now have one
+statement between them.
+
+**Not moved, deliberately**: the `SET search_path TO public` both
+callers issue. It belongs to the connection rather than to the
+comparison — `env.py` pairs it with `CREATE SCHEMA IF NOT EXISTS`, DDL
+the guard must never run — and its drift fails in the **loud**
+direction, double reflection producing phantom diffs rather than a pass.
+
+**`tests/test_autogenerate_config.py` (5 tests) stops the copy coming
+back**, which is a live risk rather than a hypothetical one: the natural
+way to add a table to the exclusion list is to edit whichever file you
+are looking at. It is an AST sweep over every module — no second
+`include_object`/`include_name`, no second `FROZEN_TABLES`, none of the
+six option names passed by hand as a keyword or an `opts` key. Textual
+because `env.py` **cannot be imported**; it runs the migrations at
+module scope. This is the opposite of the assertion Session 43
+considered and rejected — not "the two bodies are identical" (which pins
+the copy) but "there is no second body".
+
+**Two of the five tests exist so the detector can be seen to fail**, the
+vacuity lesson `SNAG-TRAY-006` paid for: one runs the walker at the
+owner, which must trip every rule, so a green sweep cannot quietly mean
+the path was wrong; one feeds it the code this session deleted. A third
+asserts both callers still *import* `COMPARISON_OPTS`, because a file
+that configured nothing at all would pass an absence check while taking
+alembic's defaults in silence.
+
+**Verified live rather than only against literals.** `uv run alembic
+check` reports "No new upgrade operations detected" — which exercises
+`env.py` itself, the file no test can import — `alembic upgrade head
+--sql` still renders offline mode, and re-adding a test-only exclusion
+to the drift guard makes the new sweep fail naming file and line. Suite
+**1776 passed** (from 1771), ruff and mypy clean, **no migration**, **no
+new route**.
+
+**Found while measuring, and it blocks the frozen-table drop**: the
+estate's copy of `project_snapshots` holds **3,713** rows in the window
+this repository's table covers, against **3,739** here. The 26 missing
+are dated **2026-08-13** — one per project from the final organiser run
+at 07:35, after the copy was taken. Recorded on the tasks.md drop entry,
+whose own warning ("a copy verified once is not a copy verified twice")
+is precisely what this measurement was.
+
 
 ### The reload re-times the scheduler — SNAG-RELOAD-001 (2026-08-15)
 

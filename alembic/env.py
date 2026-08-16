@@ -1,9 +1,21 @@
 """Alembic environment configuration for the sysadmin schema.
 
-Uses a sync engine (psycopg2) for migrations. The search_path is set
-to 'sysadmin,public' so all operations target the correct schema.
-The version table is stored in the sysadmin schema to avoid collision
-with other services (e.g. PersonalAssistant) sharing the same database.
+Uses a sync engine (psycopg2) for migrations. The version table is
+stored in the sysadmin schema to avoid collision with other services
+(e.g. PersonalAssistant) sharing the same database.
+
+**What autogenerate compares is not decided here.** It lives in
+``sysadmin.metadata.COMPARISON_OPTS`` — the exclusions, the schema
+filter and the comparison flags — because ``tests/test_schema_drift.py``
+certifies this configuration and a second copy of it is `SNAG-DB-003`:
+an exclusion present only in the test leaves that guard green while this
+file goes on proposing ``op.drop_table`` for a live table. Importing the
+module is also what makes ``Base.metadata`` complete, so the models are
+detected by the same import that supplies the rules.
+
+What stays here is connection setup — the URL, the schema creation and
+the search_path — which the guard cannot share because it may not issue
+DDL, and whose drift fails loudly rather than silently.
 """
 
 import sys
@@ -20,16 +32,15 @@ from sqlalchemy.engine import Connection
 from alembic import context
 from sysadmin.core.config import get_config
 
-# Import all models so Alembic can detect them for autogenerate
-from sysadmin.metadata import Base
+# Importing this module imports every model (completing Base.metadata)
+# and carries the one copy of the autogenerate comparison rules.
+from sysadmin.metadata import COMPARISON_OPTS
 
 # Alembic Config object
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-
-target_metadata = Base.metadata
 
 
 def get_url() -> str:
@@ -38,56 +49,14 @@ def get_url() -> str:
     return app_config.database.sync_url
 
 
-# Frozen by estate-manager ADR-0005: the models moved to the 8400
-# service, the tables stay until the tasks.md drop entry ("drop the
-# frozen project tables") runs. Excluded so neither the drift guard
-# nor a future `--autogenerate` proposes dropping data this repo no
-# longer models.
-FROZEN_TABLES = {"project_snapshots", "project_reviews"}
-
-
-def include_object(object, name, type_, reflected, compare_to):
-    """Only include objects from the sysadmin schema in autogenerate."""
-    if type_ == "table":
-        # Skip tables not in our schema
-        schema = getattr(object, "schema", None)
-        if schema != "sysadmin":
-            return False
-        # Skip alembic's own version table
-        if name == "alembic_version":
-            return False
-        if name in FROZEN_TABLES:
-            return False
-    return True
-
-
-def include_name(name, type_, parent_names):
-    """Restrict schema reflection to the sysadmin schema.
-
-    The models' metadata carries an explicit ``schema="sysadmin"``, so
-    autogenerate must reflect sysadmin tables under that explicit name.
-    Without this (and with search_path pointed at sysadmin), the same
-    tables were reflected twice — once as ``sysadmin.x`` and once as
-    default-schema ``x`` — producing phantom add/remove diffs.
-    """
-    if type_ == "schema":
-        return name == "sysadmin"
-    return True
-
-
 def run_migrations_offline() -> None:
     """Run migrations in offline mode (generates SQL scripts)."""
     url = get_url()
     context.configure(
         url=url,
-        target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        version_table_schema="sysadmin",
-        include_schemas=True,
-        include_object=include_object,
-        include_name=include_name,
-        compare_type=True,
+        **COMPARISON_OPTS,
     )
 
     with context.begin_transaction():
@@ -98,19 +67,17 @@ def do_run_migrations(connection: Connection) -> None:
     """Run migrations with a connection."""
     # Ensure sysadmin schema exists before running migrations.
     # search_path stays on public so sysadmin tables reflect under their
-    # explicit schema name during autogenerate (see include_name).
+    # explicit schema name during autogenerate (see
+    # sysadmin.metadata.include_name). tests/test_schema_drift.py issues
+    # the same SET for the same reason, and deliberately does not share
+    # it: this half is DDL the guard must never run.
     connection.execute(text("CREATE SCHEMA IF NOT EXISTS sysadmin"))
     connection.execute(text("SET search_path TO public"))
     connection.commit()
 
     context.configure(
         connection=connection,
-        target_metadata=target_metadata,
-        version_table_schema="sysadmin",
-        include_schemas=True,
-        include_object=include_object,
-        include_name=include_name,
-        compare_type=True,
+        **COMPARISON_OPTS,
     )
 
     with context.begin_transaction():

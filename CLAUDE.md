@@ -457,6 +457,35 @@ told which. Note what could *not* have caught this: `verify_connection`
 proves the database answers, and the drift guard skips `alembic_version`
 and does not diff CHECK constraints.
 
+**What autogenerate compares has one statement, and it is production
+configuration the test borrows** (`SNAG-DB-003`). `sysadmin/metadata.py`
+owns `FROZEN_TABLES`, `include_object`, `include_name` and the
+`COMPARISON_OPTS` dict; `alembic/env.py` splats it into
+`context.configure` and `tests/test_schema_drift.py` into
+`MigrationContext.configure(opts=…)`. It sits beside `Base` because that
+module already makes the same argument for the *model set*, and which of
+the live schema's tables the metadata is authoritative for is that
+question one step further.
+
+The two copies it replaced failed in **opposite directions**: an
+exclusion present only in `env.py` makes the drift guard fail loudly,
+while one present only in the guard is silent — green test, and the next
+`alembic revision --autogenerate` writes `op.drop_table` into an
+unrelated migration. Measured with the exclusion removed: `remove_table`
+for both frozen tables, against 3,739 and 4 live rows.
+
+Three rules. **The flags travel with the exclusions**, because
+`compare_type` set in `env.py` and absent from the guard leaves the
+guard green while blind to the drift it certifies. **The search_path
+does not travel**: it belongs to the connection (`env.py` pairs it with
+`CREATE SCHEMA`, DDL the guard must never run) and its drift fails
+loudly as double reflection. **`tests/test_autogenerate_config.py` is an
+AST sweep, not an import** — `env.py` runs the migrations at module
+scope and cannot be imported — asserting there is no *second* body
+rather than that two bodies match, which would pin the copy instead of
+removing it. Two of its five tests exist so the detector can be seen to
+fail: one runs the walker at the owner, which must trip every rule.
+
 **One savepoint per service, and it works because leaving the block
 flushes.** `SysAdminAgent._execute` used to add all nineteen services'
 rows to one session and commit once, so one `CheckViolationError` aborted
