@@ -425,6 +425,49 @@ terminal and `sysadmin-failed.service` announces it, persistently
 not need anyone logged in. `tests/test_systemd_units.py` pins the two
 halves together, because either alone accomplishes nothing.
 
+**The ladder has two rungs and a third was measured and refused**
+(Session 53, `SNAG-ESTATE-003`). Five families deduplicate on an open
+row and own no ladder — the estate judge, `monitor/collation.py`, the
+unit sweep's roll-up and the two `_raise_judged` covers — so each rings
+once at the quiet severity and is silent while the fault stands, which
+is Session 39's defect one layer over. The obvious next move is a rung
+that repeats without reaching `critical`. **It cannot be heard.** The
+tray fingerprints on `{severity}:{title}` and clears
+`notified_this_episode` only when that pair is **absent from a poll**,
+which a resolve-and-re-raise inside one agent run never produces:
+measured against the real policy, a resolved row replaced by a fresh one
+carrying a new message produced **no notification at all**, where the
+same fault escalated to `critical` spoke and a forked title spoke. The
+title is the identity key, so the second is forbidden — leaving nothing
+for a third rung to be heard by.
+
+A repeat at an unchanged severity is therefore a **notification**
+decision, and it lives where notification policy already does:
+`reminder_hours` in `sysadmin_tray/notifications.py`. Four rules.
+**The clock runs from when the tray last spoke**, not from
+`alert.created_at` — `stalls.py`'s rule, the thing that failed being the
+*telling*, and it keeps the one injected clock that makes every window
+in that module testable without sleeping. **24 hours is derived, not
+picked**: it matches `self_monitor.escalate_after_hours`, the only
+escalation gap on this box, so a family that owns a ladder escalates to
+a different fingerprint — a new episode, spoken at once — before any
+reminder of its quiet rung is due; shorten it and the loud rung becomes
+the second thing you hear rather than news. **A reminder is never
+transient**, because the failure it fixes is a toast in an empty room
+and `transient=False` is what keeps it in the notification history
+(`flush_digest`'s rule). **Reminders fold apart from new alerts**, into
+`FP_REMINDER` with their own wording: a fault announced yesterday inside
+a summary headed "N new alerts" is the one thing a reminder is not.
+
+Two limits, both stated in the code. `digest_mode` never reminds below
+`critical` — that mode's contract is that warnings do not interrupt, and
+making the digest itself periodic is a separate question about a mode
+that is off here. And the policy state is in memory, so a tray restart
+re-announces every open fault as new. The third is `SNAG-TRAY-007`:
+`monitor/desktop.py` is event-driven off `alert.raised` and shares none
+of this, so while the tray is down — the only case the understudy exists
+for — a standing fault is still announced once.
+
 **Serving against a schema this code was not written for is worse than
 not starting** (Session 43, SNAG-DB-001). `sysadmin/core/schema_guard.py`
 compares `alembic_version` against the packaged head in the lifespan and

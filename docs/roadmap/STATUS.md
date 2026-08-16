@@ -3,9 +3,15 @@
 **Last Updated**: 2026-08-16
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **Two sub-session actions first, because neither is a session and
+> **Three sub-session actions first, because none is a session and
 > folding them into the ranking makes a two-minute job compete with a
-> day's work.** (1) **`sudo systemctl restart sysadmin.service`** —
+> day's work.** (0) **`systemctl --user restart sysadmin-tray.service`**
+> — added 2026-08-16 by Session 53 and the **only one of the three that
+> needs no `sudo`**. The tray is a *user* unit, running since 2026-08-12,
+> so it serves start-time code and `reminder_hours` is inert until it is
+> restarted. Expect the one open row to be re-announced as new on the
+> next poll: the policy state is in memory, which is the documented limit
+> rather than a fault. (1) **`sudo systemctl restart sysadmin.service`** —
 > re-measured 2026-08-16 at the close of Session 52 and **still owed**:
 > the running daemon is still PID 1410826, started 2026-08-15 14:32 BST,
 > and `POST /api/sysadmin/reload` still **404s**, so it predates Session
@@ -27,51 +33,64 @@
 > VERSION`, since the refresh alone asserts the versions match without
 > rebuilding anything and turns a loud known risk into a silent one.
 >
-> **Next up**: **`SNAG-ESTATE-003` — the estate families raise once and
-> then stay silent**, recommended 2026-08-16 at the close of Session 52.
-> It wins on the same claim this repository keeps making about itself,
-> one step past where Session 52 left it: an alert family that speaks
-> once at `warning` and goes quiet while the fault stands is
-> **indistinguishable from one that got fixed** — Session 39's sentence,
-> unchanged. Session 52 is what makes it live rather than theoretical.
-> Until yesterday these five surfaces had produced **two rows in their
-> whole life** (both `Estate port … registry breach`, 2026-08-15 11:21,
-> both since resolved); the attention family now produces a *roll-up*,
-> and the fault behind a roll-up — a threshold moved in the estate's
-> `config.yaml`, `effective_threshold` misreading a manifest — is
-> precisely the kind that stands for days. **The entry's own objection is
-> the session's shape, not an argument against it.** It says inventing a
-> rung to hold one family is wrong, and that if a repeat-without-`critical`
-> rung is right then `monitor/collation.py` and the service families want
-> it too. They do: all three deduplicate on an open row by design, so all
-> three ring once. So the session is a **third rung in
-> `sysadmin/core/escalation.py` with three callers**, which is the
-> Session 39 move (`Ladder` went to `core` *before* it had two users, so
-> "reuse rather than copy" was possible at all) rather than a fourth
-> ladder. **Named as blocked or dormant, honestly**: nothing costs
-> anything today — `alerts` holds **one** unresolved row on the whole box
-> (`Unmonitored systemd units: 8 findings`), so this is a de-risking
-> session, not a fix. **Runners-up.** *`SNAG-AGENT-007` (four unbounded
-> `_active_alerts` reads per sysadmin run)* loses on the same measurement
-> for the **fourth** sitting running, and it got cheaper again rather than
-> dearer: one unresolved row, down from two. *Exercising the other three
-> estate surfaces the way Session 52 exercised `attention`* is the closest
-> sibling and loses on evidence: their literals in
-> `tests/test_estate_judgements.py` are already shaped from the live
-> payloads (`_scan()`, `_audit()`, `_queue()` carry real numbers), and none
-> of the three has the `asdict`-drops-a-property seam that made
-> `attention` untrustworthy — the technique is available if
-> `SNAG-ESTATE-003` turns up a reason to want it. *Dropping the frozen
-> project tables* stays **named as blocked**: the destination is the
-> estate's database, the unblocking move is theirs to make and announce,
-> and until then a drop loses a day of history. *`SNAG-UNITS-003`* loses
-> where it always does — its population is empty, since all 12 units
-> holding an audited port are already `monitored`. *Sessions 25b/25c
-> (reliability Tiers 2–3)* lose where they always do: no consumer beyond
-> the API, which is what closed Session 30 unbuilt. *`SNAG-ESTATE-002`'s
-> remaining half* is **not a candidate at all** — it is estate-manager's
-> (`SNAG-ESTATE-010`), and Session 52 left a test that goes red the day
-> they close it, so it needs no watching from here.
+> **Next up**: **exercise the estate judge's other three surfaces the way
+> Session 52 exercised `attention`** — `judge_projects_invariants`,
+> `judge_audit_*` and `judge_queue_invariants` against payloads made from
+> the producer's own code rather than from literals. Recommended
+> 2026-08-16 at the close of Session 53, and **it is Session 53 that
+> promotes it**: this is the same candidate Session 52 ranked *below*
+> `SNAG-ESTATE-003` on the honest ground that those literals are already
+> shaped from live payloads (`_scan()`, `_audit()`, `_queue()` carry real
+> numbers) and that none carries the `asdict`-drops-a-property seam which
+> made `attention` untrustworthy. That reasoning still stands; **what
+> moved is the cost of being wrong.** Until yesterday a mistaken
+> judgement in those families cost one toast, once, for ever — the very
+> silence Session 53 removed. With `reminder_hours` live, a family that
+> judges a healthy estate as broken now says so **every 24 hours**, and a
+> family that misreads a real fault stays silent just as durably. A
+> repeat mechanism raises the stake on every rule underneath it, and
+> three of the five surfaces have never been run against anything but
+> hand-written dicts. The technique is proven and cheap — Session 52 did
+> it in one sitting, and the producer's venv, the live estate database
+> and the forcing pattern are all recorded. **Runners-up.**
+> *`SNAG-TRAY-007`* (the desktop understudy shares none of the reminder
+> machinery) is the closest sibling and loses on population plus an
+> undecided question: the understudy is event-driven off `alert.raised`
+> with no poll of its own, so a reminder there is a second owner of a
+> lifecycle the tray holds whenever it is up, and `tray_grace_seconds`
+> would have to answer for the repeat path what it already answers for
+> the raise path. That is a decision, not a patch — and the tray has been
+> up 3 days, so nothing is costing anything meanwhile.
+> *`SNAG-AGENT-007`* (four unbounded `_active_alerts` reads per sysadmin
+> run) loses on the same measurement for the **fifth** sitting running,
+> and it got cheaper again: **one** unresolved row on the whole box.
+> *`SNAG-ROADMAP-001` and `SNAG-ROADMAP-002`* are **named as blocked, not
+> dropped** — both bit this sitting (the Open-Issues header claims ten
+> while fourteen entries carry no fixed marker), and both are the
+> **estate's** to fix: `count_open_snags` and the handoff parser have
+> lived in `estate_service/projects/roadmap.py` since the 2026-08-13
+> migration, so a fix here would be a cross-repo write of code, which the
+> estate rules forbid. The taxonomy half of `SNAG-ROADMAP-002` — this
+> document having more than one heading containing "open" — is local and
+> is a ten-minute edit rather than a session.
+> *`SNAG-UNITS-003`* loses where it always does, on an empty population.
+> *Sessions 25b/25c* lose where they always do: no consumer beyond the
+> API.
+>
+> **Previously here — `SNAG-ESTATE-003` — the estate families raise once
+> and then stay silent**, recommended 2026-08-16 at the close of Session
+> 52 and **done the same day as Session 53**. The recommendation held on
+> the point it turned on — the families genuinely do ring once — but its
+> *proposed shape* was refuted in the first hour: the third rung it named
+> cannot be heard, so the fix moved to the tray and covers every
+> deduplicating family instead of the estate's five. See Recently
+> Completed. **Its framing is preserved in the Session 53 write-up
+> rather than repeated here**, including the part that was wrong: it
+> argued the fix must be a third rung in `core/escalation.py` because
+> `monitor/collation.py` and the service families want the same
+> mechanism. They do — and the mechanism is not a rung. Keeping the
+> superseded ranking below this line would leave two lists of
+> runners-up disagreeing about the same sitting.
 >
 > **Previously here — `SNAG-ESTATE-002`'s local half**, recommended
 > 2026-08-16 at the close of Session 51 and **done the same day as
@@ -110,6 +129,53 @@
 ---
 
 ## Recently Completed
+
+### A fault that stands keeps speaking — SNAG-ESTATE-003 (2026-08-16)
+
+**The snag asked for a third rung; the session's first deliverable is
+the measurement that a third rung cannot be heard.** Five families
+deduplicate on an open row and own no ladder, so each rings once at the
+quiet severity and is silent while the fault stands. STATUS.md
+recommended *a third rung in `sysadmin/core/escalation.py` with three
+callers*. Driven against the real `NotificationPolicy`: the tray
+fingerprints on `{severity}:{title}` and clears an episode only when
+that pair is **absent from a poll**, which a resolve-and-re-raise inside
+one agent run never produces — a resolved row replaced by a fresh one
+carrying a new message produced **no notification at all**, where the
+same fault escalated to `critical` spoke and a forked title spoke. Two
+audible repeats; the second is forbidden, the title being the identity
+key for dedup, for the resolve and for the tray.
+
+So a repeat at an unchanged severity is a **notification** decision and
+went where notification policy already lives: `reminder_hours` in
+`sysadmin_tray/notifications.py`, which covers every deduplicating
+family rather than the estate's five surfaces alone. That breadth is the
+point — `estate_judge` has produced **two rows in its life**, both
+resolved, while the live instance on the day was `service_discovery`'s
+`Unmonitored systemd units: 8 findings`, the **only** unresolved row on
+the box, open 24 hours and spoken once.
+
+**24 h is derived, not picked**: it matches
+`self_monitor.escalate_after_hours`, so a family that owns a ladder
+escalates to a different fingerprint — a new episode, spoken at once —
+before any reminder of its quiet rung is due. The clock runs from **when
+the tray last spoke**, not `alert.created_at` (`stalls.py`'s rule, and
+it keeps the one injected clock). A reminder is never transient, shares
+the fault's fingerprint and snooze key, and folds apart from new alerts
+into `FP_REMINDER`.
+
+**A defect the fixtures were structurally unable to catch**, found by a
+probe: `state.first_notified_at or state.last_notified_at` reads a
+monotonic `0.0` as absent and falls back to the field every reminder
+resets, so each reminder reported the interval ("24 hours") rather than
+the age of a fault that had stood three days. `FakeClock` starts at
+`1000.0`; the new test starts at zero on purpose.
+
+Both docstrings that had said the omission was deliberate — `estate/agent.py`
+and `core/escalation.py` — now say why the alternative was **refused**, so
+nobody re-derives the rung. Suite **1802** (from 1792), ruff and mypy clean,
+no migration, no route, no backend behaviour change. Follow-up opened:
+`SNAG-TRAY-007`.
 
 ### judge_attention, against data — SNAG-ESTATE-002's half (2026-08-16)
 

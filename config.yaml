@@ -87,6 +87,16 @@ notifications:
     digest_mode: false             # true → warnings only badge the icon, delivered as a digest
     digest_interval_minutes: 60
     respect_desktop_dnd: true
+    # Hours a still-open alert stays quiet before the tray restates it
+    # (0 disables). SNAG-ESTATE-003: five families deduplicate on an open
+    # row, so each rings once and is then silent while the fault stands —
+    # and a warning that fires once is indistinguishable from one that
+    # got fixed. DERIVED, not picked: it matches self_monitor's
+    # escalate_after_hours (~line 139) so that a family which owns a
+    # ladder reaches its loud rung as news rather than as a repeat it has
+    # already heard quietly. Shorten it and the escalation stops being
+    # the first thing you hear twice.
+    reminder_hours: 24
     # Services that are expected to be down — never worth a toast. Use the
     # monitored-service name, including the ones projects.yaml contributes
     # (e.g. alfred, alfred-frontend). A service declared below with

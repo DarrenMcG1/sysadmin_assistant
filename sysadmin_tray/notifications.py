@@ -42,6 +42,7 @@ from PyQt6.QtDBus import (
 )
 from PyQt6.QtWidgets import QSystemTrayIcon
 
+from sysadmin.core.escalation import humanise_hours
 from sysadmin_tray.models import AlertInfo, AlertsResponse
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ _INHIBIT_CACHE_SECONDS = 5.0
 # Stable fingerprints for the synthetic (non-alert) notifications
 FP_COALESCED = "sysadmin:new-alert-summary"
 FP_DIGEST = "sysadmin:warning-digest"
+FP_REMINDER = "sysadmin:still-open-summary"
 
 _MAX_LISTED_TITLES = 5
 
@@ -124,6 +126,11 @@ class NotificationRequest:
     snooze_key: str | None = None
     #: this replaces an existing popup in place — never fold into a summary
     escalation: bool = False
+    #: a restatement of a fault that was already announced and is still
+    #: open.  Kept apart from :attr:`escalation` because the two are
+    #: opposite claims: an escalation says the fault got louder, a
+    #: reminder says nothing has changed and that is the news.
+    reminder: bool = False
 
 
 # ── Policy configuration ─────────────────────────────────────────────
@@ -143,6 +150,10 @@ class NotificationSettings:
     digest_interval_minutes: int = 60
     respect_desktop_dnd: bool = True
     muted_services: tuple[str, ...] = ()
+    #: hours a still-open fingerprint stays quiet before being restated.
+    #: 0 disables reminders entirely.  See :meth:`NotificationPolicy._reminder`
+    #: for why the default is 24 and why it is derived rather than picked.
+    reminder_hours: float = 24.0
 
     @property
     def min_severity_level(self) -> int:
@@ -166,6 +177,14 @@ class _FingerprintState:
     escalated: bool = False
     #: monotonic timestamp of the last notification actually sent
     last_notified_at: float | None = None
+    #: monotonic timestamp of the episode's *opening* notification.  Kept
+    #: separately from :attr:`last_notified_at`, which every reminder
+    #: resets: the reminder's cadence runs from the last thing said, and
+    #: the sentence it says ("still open N later") measures the whole
+    #: episode.  One field cannot be both.
+    first_notified_at: float | None = None
+    #: reminders sent in the current episode (evidence, never ranked on)
+    reminders_sent: int = 0
     #: episodes swallowed by the flap cooldown since the last notification
     suppressed_episodes: int = 0
 
@@ -246,6 +265,7 @@ class NotificationPolicy:
 
         requests: list[NotificationRequest] = []
         fresh: list[NotificationRequest] = []
+        reminders: list[NotificationRequest] = []
         active: set[str] = set()
 
         for alert in alerts.alerts:
@@ -281,10 +301,21 @@ class NotificationPolicy:
                 continue
             if request.escalation:
                 requests.append(request)
+            elif request.reminder:
+                reminders.append(request)
             else:
                 fresh.append(request)
 
-        requests = self._coalesce(fresh) + requests
+        requests = (
+            self._coalesce(fresh)
+            + self._coalesce(
+                reminders,
+                label="alerts still open",
+                fingerprint=FP_REMINDER,
+                reminder=True,
+            )
+            + requests
+        )
 
         digest = self._maybe_flush_digest(now)
         if digest is not None:
@@ -404,7 +435,13 @@ class NotificationPolicy:
             return None
 
         if state.notified_this_episode:
-            return self._maybe_escalate(alert, state, now)
+            # Escalation first: it is the louder statement, and it resets
+            # the reminder clock, so a fault climbing a ladder is never
+            # also reminded about in the same poll.
+            escalated = self._maybe_escalate(alert, state, now)
+            if escalated is not None:
+                return escalated
+            return self._reminder(alert, state, now)
 
         # Still waiting out the flap cooldown from the previous episode?
         cooldown = settings.flap_cooldown_minutes * 60
@@ -444,6 +481,8 @@ class NotificationPolicy:
         state.notified_this_episode = True
         state.escalated = False
         state.last_notified_at = now
+        state.first_notified_at = now
+        state.reminders_sent = 0
 
         return NotificationRequest(
             summary=f"{severity.upper()}: sysadmin",
@@ -489,10 +528,124 @@ class NotificationPolicy:
             escalation=True,
         )
 
+    def _reminder(
+        self, alert: AlertInfo, state: _FingerprintState, now: float,
+    ) -> NotificationRequest | None:
+        """Restate a fault that was announced once and is still open.
+
+        **Why this lives here and not in the daemon** (SNAG-ESTATE-003).
+        Five families deduplicate on an open row by design — the estate
+        judge, ``monitor/collation``, the unit sweep's roll-up and the
+        two the sysadmin agent's ``_raise_judged`` covers — so each rings
+        **once, at the quietest severity, and is then silent while the
+        fault persists**.  That is Session 39's sentence, and the snag
+        proposed fixing it with a third rung in
+        :mod:`sysadmin.core.escalation`.  Measured, that rung cannot be
+        heard: :meth:`fingerprint` is ``"{severity}:{title}"`` and
+        :attr:`_FingerprintState.notified_this_episode` only clears when
+        that pair is **absent from a poll**, which a resolve-and-re-raise
+        inside one agent run never produces.  A repeat that keeps both
+        constant is silent whatever the daemon writes, so the only two
+        audible repeats are a severity change (``critical``, reserved for
+        faults on this box) or a forked title (which four separate rules
+        in this repository forbid, because the title is the identity
+        key).  A repeat that is neither is a *notification* decision, and
+        notification policy is this module's by construction.
+
+        Four rules:
+
+        1. **The clock runs from the last thing said, not from the row's
+           age.**  ``AlertInfo.created_at`` is available and is the wrong
+           anchor for the same reason :mod:`sysadmin.monitor.stalls`
+           gives — the thing that failed was the *telling*, so the
+           telling is what the clock measures.  It also keeps the single
+           injected clock that makes every window here testable without
+           sleeping.  The honest cost: this state is in memory, so a tray
+           restart re-announces every open fault as new and restarts the
+           cadence.
+        2. **The interval is derived, not picked.**  A family that owns a
+           ladder must reach its loud rung as *news*, never as a repeat
+           it has already heard at the quiet severity; the only
+           escalation gap configured on this box is
+           ``self_monitor.escalate_after_hours: 24``.  At 24 h the
+           laddered families escalate to a different fingerprint before
+           any reminder is due — a new episode, announced immediately —
+           so the reminder is what the families with **no** ladder get,
+           which is exactly the population the snag names.
+        3. **A reminder is never transient.**  The failure it exists to
+           fix is a toast in an empty room, so it must survive one:
+           :data:`_TIMEOUT_MAP` still expires it from the screen, and
+           ``transient=False`` is what keeps it in the notification
+           history — ``flush_digest``'s rule, for its reason.
+        4. **The fingerprint is unchanged.**  It is the same problem, so
+           it updates in place and shares one snooze key: snoozing a
+           fault silences its reminders without a second control.
+
+        Not reached in digest mode for anything below ``critical``, and
+        that is deliberate rather than missed: digest mode's contract is
+        that warnings never interrupt, and a reminder is an interrupt.
+        Making the digest itself periodic is a separate question about a
+        mode that is ``false`` on this host and has no live observations
+        behind it.
+        """
+        interval = self.settings.reminder_hours * 3600
+        if interval <= 0 or state.last_notified_at is None:
+            return None
+        if now - state.last_notified_at < interval:
+            return None
+
+        # `is None`, never `or`: a monotonic clock reading exactly 0.0 is
+        # falsy, and `or` would fall back to `last_notified_at` — which
+        # every reminder resets, so each one would report the interval
+        # rather than the age.  Caught by a probe whose clock starts at
+        # zero; the test fixtures start at 1000.0 and would not have.
+        opened = (
+            state.last_notified_at
+            if state.first_notified_at is None
+            else state.first_notified_at
+        )
+        state.last_notified_at = now
+        state.reminders_sent += 1
+
+        severity = alert.severity
+        lines = [
+            alert.title,
+            f"Still open {humanise_hours((now - opened) / 3600)} "
+            "after the first alert",
+        ]
+        if alert.message:
+            lines.append(alert.message)
+
+        return NotificationRequest(
+            summary=f"{severity.upper()}: sysadmin",
+            body="\n".join(lines),
+            severity=severity,
+            alert_severity=severity,
+            service_name=alert.service_name,
+            fingerprint=state.fingerprint,
+            transient=False,
+            snooze_key=self.snooze_key_for(alert, state.fingerprint),
+            reminder=True,
+        )
+
     def _coalesce(
-        self, fresh: list[NotificationRequest],
+        self,
+        fresh: list[NotificationRequest],
+        *,
+        label: str = "new alerts",
+        fingerprint: str = FP_COALESCED,
+        reminder: bool = False,
     ) -> list[NotificationRequest]:
-        """Fold several new alerts from one poll into a single summary."""
+        """Fold several notifications from one poll into a single summary.
+
+        Reminders are folded **separately** from new alerts, on the same
+        threshold and into their own fingerprint.  Mixing them would
+        report a fault announced yesterday inside a summary headed "N new
+        alerts", which is the one thing a reminder is not — and the
+        estate judge can put five idle-nudge rows on screen at once
+        (``attention_max_rows``), so the volume this exists to fold is
+        real rather than hypothetical.
+        """
         threshold = max(self.settings.coalesce_threshold, 2)
         if len(fresh) < threshold or len(fresh) < 2:
             return fresh
@@ -509,12 +662,15 @@ class NotificationPolicy:
 
         return [
             NotificationRequest(
-                summary=f"{len(fresh)} new alerts",
+                summary=f"{len(fresh)} {label}",
                 body="\n".join(lines),
                 severity=urgency,
                 alert_severity=_highest(reported),
-                fingerprint=FP_COALESCED,
-                transient=urgency != "critical",
+                fingerprint=fingerprint,
+                # A roll-up of reminders keeps rule 3: it is the same
+                # restatement, so it survives an empty room too.
+                transient=False if reminder else urgency != "critical",
+                reminder=reminder,
             )
         ]
 
@@ -536,6 +692,8 @@ class NotificationPolicy:
             state.polls_active = 0
             state.notified_this_episode = False
             state.escalated = False
+            state.first_notified_at = None
+            state.reminders_sent = 0
 
             if state.last_notified_at is None:
                 del self._states[fingerprint]

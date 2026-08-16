@@ -37,6 +37,27 @@ described in a comment at each call site:
    the per-entity knob moves when the clock starts, not how patient the
    escalation is.  A multiplier makes a relaxed entity doubly hard to
    hear from, which is the opposite of what relaxing it asks for.
+
+**Two rungs, and a third was measured and refused** (Session 53,
+``SNAG-ESTATE-003``).  The families that deduplicate but own no ladder —
+the estate judge, :mod:`sysadmin.monitor.collation`, the unit sweep's
+roll-up — have the same defect this module exists to fix, and the
+obvious next move is a rung that repeats without reaching ``critical``,
+which is reserved for a fault on this box.  It cannot work.  The tray
+fingerprints on ``"{severity}:{title}"`` and holds an episode open for
+as long as that pair keeps appearing in a poll, so a rung changing
+neither is **inaudible whatever the database records**: measured, a
+resolved row replaced by a fresh one carrying a new message produced no
+notification at all.  The two audible repeats are a severity change and
+a forked title — and a forked title is forbidden, the title being the
+identity key for dedup, for the resolve and for the tray alike.
+
+So a repeat at an unchanged severity is a *notification* decision, and
+it is implemented where notification policy already lives, as
+``reminder_hours`` in ``sysadmin_tray/notifications.py``.  Escalation
+stays what it is here: a small number of rungs, each a **louder**
+statement.  Anyone reaching for a third rung should read
+``NotificationPolicy._reminder`` first.
 """
 
 from __future__ import annotations

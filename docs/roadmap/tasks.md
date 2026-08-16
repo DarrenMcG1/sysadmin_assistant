@@ -367,6 +367,46 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### ✅ Session 53: A fault that stands keeps speaking (done 2026-08-16)
+
+**`SNAG-ESTATE-003`, and the entry's own "what would settle it" was
+answered in the negative before anything was built.** It asked for a
+third rung, or a `warning`-that-repeats mechanism that is not
+`critical`; STATUS.md sharpened that to *a third rung in
+`sysadmin/core/escalation.py` with three callers*.
+
+**The rung cannot be heard, and that measurement is the session's first
+deliverable.** `NotificationPolicy.fingerprint` is `{severity}:{title}`
+and an episode only closes when that pair is **absent from a poll** —
+which a resolve-and-re-raise inside one agent run never produces. Driven
+against the real policy: a resolved row replaced by a fresh one carrying
+a new message produced **no notification at all**; the same fault
+escalated to `critical` spoke; a forked title spoke. Two audible
+repeats, and a forked title is forbidden by four separate rules here.
+
+So the repeat is a **notification** decision and went where notification
+policy already lives: `reminder_hours` in
+`sysadmin_tray/notifications.py`, default **24 h, derived** from
+`self_monitor.escalate_after_hours` so a laddered family reaches its loud
+rung as news rather than as a repeat. It covers every deduplicating
+family, not the estate's five surfaces alone — which matters, because
+`estate_judge` has produced two rows in its life and the live instance
+was `service_discovery`'s, the only unresolved row on the box, open 24 h
+and spoken once.
+
+- [x] Measure whether a same-severity repeat can reach the desktop
+- [x] `reminder_hours` + `_reminder` + `FP_REMINDER`, reminders folded apart from new alerts
+- [x] Plumb the knob through `config.py` → `tray_icon.py` → `app.py` → `config.yaml`
+- [x] Correct `estate/agent.py` and `core/escalation.py`, whose docstrings said the omission was deliberate and now say why the alternative was refused
+- [x] 12 tests; suite 1802 green, ruff and mypy clean
+- [ ] Deploy: `systemctl --user restart sysadmin-tray.service` (no `sudo`; re-announces the open row as new, which is the in-memory-state limit working as documented)
+
+**Follow-up opened**: `SNAG-TRAY-007` — the desktop understudy
+(`monitor/desktop.py`) is event-driven off `alert.raised` and shares
+none of this, so on a box where the tray is down a standing fault is
+still announced once. Not patched here: it needs a decision about
+precedence, not a copy.
+
 ### ✅ Session 52: judge_attention, against data (done 2026-08-16)
 
 **`SNAG-ESTATE-002`'s half that needed nothing from estate-manager.**

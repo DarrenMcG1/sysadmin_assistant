@@ -220,6 +220,7 @@ class TrayIcon(QSystemTrayIcon):
         digest_mode: bool | None = None,
         digest_interval_minutes: int | None = None,
         respect_desktop_dnd: bool | None = None,
+        reminder_hours: float | None = None,
         muted_services: list[str] | None = None,
     ) -> None:
         """Configure desktop notification behaviour.
@@ -240,6 +241,7 @@ class TrayIcon(QSystemTrayIcon):
             "digest_mode": digest_mode,
             "digest_interval_minutes": digest_interval_minutes,
             "respect_desktop_dnd": respect_desktop_dnd,
+            "reminder_hours": reminder_hours,
         }
         for name, value in overrides.items():
             if value is not None:

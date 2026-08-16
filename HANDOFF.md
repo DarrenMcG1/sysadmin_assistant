@@ -2,9 +2,108 @@
 
 ## Next action
 
-Take `SNAG-ESTATE-003` — the five estate surfaces raise once at `warning` and then stay silent while the fault stands, and the session is a repeat-without-`critical` rung in `sysadmin/core/escalation.py` with three callers (the estate judge, `monitor/collation.py` and the service families), not a ladder invented to hold one family.
+Exercise the estate judge's other three surfaces — `judge_projects_invariants`, `judge_audit_*` and `judge_queue_invariants` — against payloads built from the producer's own code the way Session 52 did for `attention`, because Session 53's reminder cadence turns a wrong judgement in any of them from one toast into a daily one.
 
-## This session — Session 52, judge_attention against data
+## This session — Session 53, a fault that stands keeps speaking
+
+`SNAG-ESTATE-003`. Suite **1802 passed** (from 1792), ruff and mypy
+clean, **no migration**, **no route**, and **no backend behaviour
+change** — the fix is entirely in `sysadmin_tray/`, so it deploys on
+`systemctl --user restart sysadmin-tray.service`, which needs no `sudo`.
+
+### The finding, which came before the fix
+
+The entry asked for "a third rung, or a `warning`-that-repeats mechanism
+that is not `critical`", and STATUS.md sharpened that to *a third rung in
+`sysadmin/core/escalation.py` with three callers*. **That rung cannot be
+heard.** `NotificationPolicy.fingerprint` is `{severity}:{title}` and
+`_FingerprintState.notified_this_episode` clears only when that pair is
+absent from a poll — which a resolve-and-re-raise inside one agent run
+never produces, since the tray sees only unresolved rows and the swap
+happens between two of them.
+
+Driven against the real policy rather than reasoned about:
+
+| what the daemon writes | what the desktop does |
+|---|---|
+| same row, standing | speaks once, then silent (today) |
+| resolved row → **fresh row, new message** | **nothing at all** |
+| escalated to `critical` | speaks |
+| same severity, **forked title** | speaks |
+
+Two audible repeats, and a forked title is forbidden by four separate
+rules here — the title is the identity key for dedup, for the resolve
+and for the tray. So there is nothing for a third rung to be heard by.
+
+### What was built instead
+
+A repeat at an unchanged severity is a **notification** decision, so it
+went where notification policy already lives: `reminder_hours` in
+`sysadmin_tray/notifications.py`. It covers **every** deduplicating
+family, not the estate's five surfaces — which matters, because
+`estate_judge` has produced two rows in its life (both resolved) while
+the live instance was `service_discovery`'s `Unmonitored systemd units:
+8 findings`, the only unresolved row on the box, open 24 hours and
+spoken once.
+
+### Decisions taken, and what each rejected
+
+- **24 hours is derived, not picked.** It matches
+  `self_monitor.escalate_after_hours`, the only escalation gap on this
+  box, so a family that owns a ladder escalates to a *different*
+  fingerprint — a new episode, spoken at once — before any reminder of
+  its quiet rung falls due. Rejected: a shorter interval, which makes the
+  reminder the first thing you hear twice and demotes the loud rung from
+  news to repetition.
+- **The clock runs from when the tray last spoke**, not from
+  `alert.created_at`. `stalls.py`'s rule — the thing that failed was the
+  *telling* — and it keeps the single injected clock that makes every
+  window in that module testable without sleeping. Rejected: the row's
+  own age, which needs a second, uninjected wall clock.
+- **Reminders fold apart from new alerts**, into `FP_REMINDER` with
+  their own wording. Rejected: reusing `FP_COALESCED`, which would report
+  a fault announced yesterday under a heading reading "N new alerts".
+- **`humanise_hours` is imported from `sysadmin.core.escalation`** rather
+  than re-worded locally, so the reminder says "still open 1 day" in the
+  same words the stall escalation says "still stalled 1 day". Precedent:
+  the tray already imports `format_mb` from `sysadmin.files.forecast` for
+  exactly this reason, and that helper's own docstring asks for it.
+
+### The defect the fixtures could not have caught
+
+`state.first_notified_at or state.last_notified_at` reads a monotonic
+clock reading of exactly `0.0` as absent and falls back to the field
+every reminder resets — so each reminder reported the **interval** ("24
+hours") rather than the **age** of a fault standing three days. Every
+existing fixture uses `FakeClock`, which starts at `1000.0`. Found by a
+probe whose clock starts at zero; the regression test now does too.
+
+### Stated limits, not discovered later
+
+- `digest_mode` never reminds below `critical`: that mode's contract is
+  that warnings do not interrupt. Making the digest itself periodic is a
+  separate question about a mode that is `false` here.
+- Policy state is in memory, so a tray restart re-announces every open
+  fault as new and restarts the cadence.
+- **`SNAG-TRAY-007`** — `monitor/desktop.py`, the understudy that speaks
+  when the tray is down, is event-driven off `alert.raised` and shares
+  none of this. Not patched: a reminder there is a second owner of a
+  lifecycle the tray holds whenever it is up, so it needs a precedence
+  decision (`tray_grace_seconds` answers it for the raise path and would
+  have to answer it for the repeat path), not a copy.
+
+### Two docstrings corrected, because their premise had moved
+
+`sysadmin/estate/agent.py` and `sysadmin/core/escalation.py` both said
+the omission was deliberate and named `critical` as the obstacle. Both
+now record that the alternative was **measured and refused**, and say not
+to re-derive it — the failure mode this repository has already filed once
+(SNAG-AGENT-006's "a correct conclusion drawn from a premise that has
+since moved").
+
+---
+
+## Previous session — Session 52, judge_attention against data
 
 `SNAG-ESTATE-002`'s half that needed nothing from estate-manager. Suite
 **1792 passed** (from 1776), ruff and mypy clean, **no migration**, **no

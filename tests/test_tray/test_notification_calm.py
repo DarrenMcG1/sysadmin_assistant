@@ -20,6 +20,7 @@ from sysadmin_tray.models import AlertInfo, AlertsResponse
 from sysadmin_tray.notifications import (
     FP_COALESCED,
     FP_DIGEST,
+    FP_REMINDER,
     DbusNotifier,
     NotificationPolicy,
     NotificationSettings,
@@ -640,6 +641,178 @@ class TestEscalation:
 
 
 # ── 7. Desktop DND vs the app's own DND ──────────────────────────────
+
+
+class TestStillOpenReminders:
+    """SNAG-ESTATE-003 — a fault that stands must keep speaking.
+
+    Five backend families deduplicate on an open row, so each rings once
+    and is then silent for as long as the fault lasts.  The daemon cannot
+    fix that: :meth:`NotificationPolicy.fingerprint` is
+    ``"{severity}:{title}"`` and the episode only closes when that pair
+    is absent from a poll, which a resolve-and-re-raise inside one agent
+    run never produces.  ``test_a_daemon_side_repeat_is_inaudible``
+    pins that, because it is the measurement the whole design rests on.
+    """
+
+    def test_a_daemon_side_repeat_is_inaudible(self):
+        """A fresh DB row with a new message, same severity+title: silent.
+
+        The refutation of the snag's own proposed fix (a third rung in
+        ``sysadmin/core/escalation.py``).  If this ever starts returning
+        a request, the reminder machinery below is redundant and should
+        be deleted rather than kept alongside.
+        """
+        clock = FakeClock()
+        policy = _policy(clock, reminder_hours=0)   # reminders off
+        first = _alert("warning", "Estate scan stale", aid="a1",
+                       message="stale 2 hours")
+        assert len(policy.evaluate(_alerts(first))) == 1
+
+        clock.advance(60 * 6)
+        # The daemon resolves the quiet row and writes a new one.
+        repeat = _alert("warning", "Estate scan stale", aid="a2",
+                        message="STILL stale, 8 hours on")
+        assert policy.evaluate(_alerts(repeat)) == []
+
+    def test_restated_once_the_interval_has_passed(self):
+        clock = FakeClock()
+        policy = _policy(clock, reminder_hours=24)
+        alerts = _alerts(_alert("warning", "Estate scan stale"))
+
+        assert len(policy.evaluate(alerts)) == 1     # the opening alert
+        clock.advance(60 * 23)
+        assert policy.evaluate(alerts) == []         # not due yet
+        clock.advance(60 * 1)
+        requests = policy.evaluate(alerts)
+        assert len(requests) == 1
+        assert requests[0].reminder is True
+        assert requests[0].escalation is False
+        assert "Still open 24 hours after the first alert" in requests[0].body
+
+    def test_reminder_reports_the_episode_age_not_the_interval(self):
+        """The clock starts at zero, which is where the bug was.
+
+        ``state.first_notified_at or state.last_notified_at`` reads a
+        monotonic 0.0 as absent and falls back to the field every
+        reminder resets, so the second reminder reports "24 hours" for a
+        fault that has stood two days.  The other fixtures here start at
+        1000.0 and cannot see it.
+        """
+        clock = FakeClock(start=0.0)
+        policy = _policy(clock, reminder_hours=24)
+        alerts = _alerts(_alert("warning", "Estate scan stale"))
+
+        policy.evaluate(alerts)
+        ages = []
+        for _ in range(3):
+            clock.advance(60 * 24)
+            ages.append(policy.evaluate(alerts)[0].body.splitlines()[1])
+
+        assert ages == [
+            "Still open 24 hours after the first alert",
+            "Still open 2 days after the first alert",
+            "Still open 3 days after the first alert",
+        ]
+
+    def test_zero_hours_disables_reminders(self):
+        clock = FakeClock()
+        policy = _policy(clock, reminder_hours=0)
+        alerts = _alerts(_alert("warning", "Estate scan stale"))
+
+        policy.evaluate(alerts)
+        clock.advance(60 * 24 * 7)
+        assert policy.evaluate(alerts) == []
+
+    def test_a_reminder_is_never_transient(self):
+        """Rule 3 — the failure it fixes is a toast in an empty room."""
+        clock = FakeClock()
+        policy = _policy(clock, reminder_hours=24)
+        alerts = _alerts(_alert("warning", "Estate scan stale"))
+
+        policy.evaluate(alerts)
+        clock.advance(60 * 24)
+        assert policy.evaluate(alerts)[0].transient is False
+
+    def test_escalation_wins_over_a_reminder_and_resets_its_clock(self):
+        """A laddered fault reaches its loud rung as news, not as a repeat."""
+        clock = FakeClock()
+        policy = _policy(clock, reminder_hours=24, escalation_polls=2)
+        alerts = _alerts(_alert("critical", "Disk full"))
+
+        policy.evaluate(alerts)              # poll 1 — quiet opener
+        clock.advance(60 * 24)               # a reminder is now due...
+        requests = policy.evaluate(alerts)
+        assert len(requests) == 1
+        assert requests[0].escalation is True     # ...but escalation wins
+        assert requests[0].reminder is False
+
+        clock.advance(60 * 23)
+        assert policy.evaluate(alerts) == []      # clock restarted
+        clock.advance(60 * 1)
+        assert policy.evaluate(alerts)[0].reminder is True
+
+    def test_reminders_fold_separately_from_new_alerts(self):
+        clock = FakeClock()
+        policy = _policy(clock, reminder_hours=24, coalesce_threshold=2)
+        standing = _alerts(
+            _alert("warning", "Estate scan stale", aid="a1"),
+            _alert("warning", "Estate audit stale", aid="a2"),
+        )
+        policy.evaluate(standing)
+        clock.advance(60 * 24)
+
+        fresh = _alert("critical", "Disk full", aid="a3")
+        requests = policy.evaluate(
+            _alerts(*standing.alerts, fresh)
+        )
+        by_fp = {r.fingerprint: r for r in requests}
+
+        assert FP_REMINDER in by_fp
+        assert by_fp[FP_REMINDER].summary == "2 alerts still open"
+        assert by_fp[FP_REMINDER].reminder is True
+        assert by_fp[FP_REMINDER].transient is False
+        # the brand-new critical is announced on its own, not folded in
+        assert "Disk full" not in by_fp[FP_REMINDER].body
+        assert FP_COALESCED not in by_fp
+
+    def test_snoozing_silences_the_reminder_too(self):
+        clock = FakeClock()
+        policy = _policy(clock, reminder_hours=24)
+        alert = _alert("warning", "Estate scan stale")
+        request = policy.evaluate(_alerts(alert))[0]
+
+        policy.snooze(request.snooze_key, minutes=60 * 48)
+        clock.advance(60 * 24)
+        assert policy.evaluate(_alerts(alert)) == []
+
+    def test_digest_mode_does_not_remind_below_critical(self):
+        """Stated limit: digest mode's contract is that warnings never interrupt."""
+        clock = FakeClock()
+        policy = _policy(clock, reminder_hours=24, digest_mode=True,
+                         digest_interval_minutes=60)
+        alerts = _alerts(_alert("warning", "Estate scan stale"))
+
+        policy.evaluate(alerts)
+        policy.flush_digest()
+        clock.advance(60 * 24)
+        assert [r for r in policy.evaluate(alerts) if r.reminder] == []
+
+    def test_recovery_resets_the_cadence(self):
+        """A resolved fault that returns is new news, not a reminder."""
+        clock = FakeClock()
+        policy = _policy(clock, reminder_hours=24, flap_cooldown_minutes=30)
+        alerts = _alerts(_alert("warning", "Estate scan stale"))
+
+        policy.evaluate(alerts)
+        clock.advance(60 * 24)
+        assert policy.evaluate(alerts)[0].reminder is True
+
+        policy.evaluate(_alerts())              # resolved — episode closes
+        clock.advance(60 * 2)
+        request = policy.evaluate(alerts)[0]    # raised again
+        assert request.reminder is False
+        assert "Still open" not in request.body
 
 
 class TestDndInteraction:

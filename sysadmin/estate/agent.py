@@ -42,17 +42,30 @@ defect this repository has now found at three different scales.  So 8400
 being down costs a log line and ``details['unread_surfaces']``, and
 nothing else.
 
-**What this agent does not do is escalate**, and the omission is
-deliberate rather than forgotten.  Session 39's argument — a warning
-that fires once is indistinguishable from one that got fixed — applies
-to these families, and :mod:`sysadmin.core.escalation` is sitting in
-``core`` ready to be reused.  It is not wired here for two reasons: the
-loud rung is ``critical``, which breaks DND by configuration and is
-reserved for faults on this box rather than for the estate being a day
-behind on a scan; and the family most in need of escalation already has
-it, from the producer — an idle nudge arrives pre-escalated on the
-estate's own ladder (``info`` at 7 days, ``warning`` at 14), which this
-agent takes verbatim.  Filed as a snag rather than assumed settled.
+**What this agent does not do is escalate, and Session 53 settled why
+rather than leaving it deliberate-but-unexamined** (SNAG-ESTATE-003).
+Session 39's argument — a warning that fires once is indistinguishable
+from one that got fixed — does apply to these families, and
+:mod:`sysadmin.core.escalation` is sitting in ``core`` ready to be
+reused.  Two reasons stood against wiring it: the loud rung is
+``critical``, which breaks DND by configuration and is reserved for
+faults on this box rather than for the estate being a day behind on a
+scan; and the family most in need of escalation already arrives
+pre-escalated from the producer — an idle nudge carries the estate's own
+rung (``info`` at 7 days, ``warning`` at 14), which this agent takes
+verbatim.
+
+Both still hold, and the snag's proposed alternative — *a third,
+repeat-without-*``critical`` *rung here in* ``core`` — was **measured and
+refuted**.  The tray fingerprints on ``"{severity}:{title}"`` and only
+closes an episode when that pair is absent from a poll, which a
+resolve-and-re-raise inside one agent run never produces: a repeat that
+keeps both constant is silent whatever this agent writes.  So there is
+nothing for a third rung to be *heard* by, and restating a standing
+fault is a notification decision rather than a lifecycle one.  It lives
+in ``sysadmin_tray/notifications.py`` as ``reminder_hours``, which
+covers every deduplicating family at once instead of this one.  **Do not
+re-derive the rung** — the ladder here stays two-runged on purpose.
 """
 
 from __future__ import annotations

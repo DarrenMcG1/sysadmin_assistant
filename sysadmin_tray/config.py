@@ -50,6 +50,8 @@ class TrayConfig(BaseModel):
     digest_interval_minutes: int = 60
     #: honour the desktop's own DND (org.freedesktop.Notifications Inhibited)
     respect_desktop_dnd: bool = True
+    #: hours a still-open alert stays quiet before being restated; 0 = off
+    reminder_hours: float = 24.0
     #: services whose alerts are permanently silenced (expected-down)
     muted_services: list[str] = Field(default_factory=list)
 
@@ -149,7 +151,8 @@ def load_tray_config(
     notif_section = (raw.get("notifications", {}) or {}).get("tray", {}) or {}
     for key in ("flap_cooldown_minutes", "escalation_polls",
                 "coalesce_threshold", "snooze_minutes", "digest_mode",
-                "digest_interval_minutes", "respect_desktop_dnd"):
+                "digest_interval_minutes", "respect_desktop_dnd",
+                "reminder_hours"):
         if key in notif_section:
             kwargs[key] = notif_section[key]
 

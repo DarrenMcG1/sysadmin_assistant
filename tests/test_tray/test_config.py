@@ -48,6 +48,7 @@ class TestTrayConfig:
         assert cfg.digest_mode is False
         assert cfg.digest_interval_minutes == 60
         assert cfg.respect_desktop_dnd is True
+        assert cfg.reminder_hours == 24.0
         assert cfg.muted_services == []
 
     def test_custom_values(self):
@@ -158,6 +159,7 @@ class TestNotificationCalmConfig:
                 digest_mode: true
                 digest_interval_minutes: 120
                 respect_desktop_dnd: false
+                reminder_hours: 6
         """))
         cfg = load_tray_config(config_path=cfg_file)
         assert cfg.flap_cooldown_minutes == 45
@@ -167,6 +169,7 @@ class TestNotificationCalmConfig:
         assert cfg.digest_mode is True
         assert cfg.digest_interval_minutes == 120
         assert cfg.respect_desktop_dnd is False
+        assert cfg.reminder_hours == 6
 
     def test_partial_section_keeps_defaults(self, tmp_path: Path):
         cfg_file = tmp_path / "config.yaml"

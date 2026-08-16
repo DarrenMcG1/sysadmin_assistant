@@ -88,6 +88,7 @@ class TrayApp:
             digest_mode=config.digest_mode,
             digest_interval_minutes=config.digest_interval_minutes,
             respect_desktop_dnd=config.respect_desktop_dnd,
+            reminder_hours=config.reminder_hours,
             muted_services=config.muted_services,
         )
 
