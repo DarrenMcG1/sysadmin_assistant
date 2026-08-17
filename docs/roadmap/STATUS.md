@@ -93,7 +93,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2023 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
+| Testing | 🟢 Complete | **2031 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -101,6 +101,46 @@
 ---
 
 ## Recently Completed
+
+### Four shipped-unrun claims verified, and SNAG-LOG-007 found underneath them (2026-08-17)
+
+**Sessions 63, 64 and 65 shipped green and unrun; this sitting restarted
+the daemon and measured what they claimed.** All four hold:
+
+1. **`-p`'s read efficiency.** Reproduced against the real journal on the
+   2026-08-12 storm window: **122,531 raw kernel lines carrying 49,012
+   storable ones — 40.0 %**, so a 500-entry budget was carrying ~200
+   usable entries and now carries 500. The first catch-up read after each
+   of three restarts truncated **nothing**.
+2. **`SNAG-LOG-002`'s gate.** `GET /api/logs/actions` returns
+   `confidence: medium` and **2 `noise` rows** — the two Bluetooth
+   signatures at **39,921** apiece — where it had served zero for the
+   family's entire life. 25 recommendations total (18 `new_signature`,
+   5 `surge`, 2 `noise`).
+3. **`SNAG-LOG-003`'s declaration.** A new `log_entries` row reads as
+   prose against the 10 raw-JSON rows beside it, and the alert title from
+   a **700-character** JSON journal line is **46 characters**:
+   `Log error: sysadmin.service — agent_run_failed`.
+4. **`SNAG-LOG-005`'s `covered_by`.** Not observable from history — the
+   215 historic `agent_run_failed` lines are all `PRIORITY=6`, so the
+   reader's `-p 4` excludes them, and `agent_runs` held **0 failed rows
+   across 48,452 runs**. Driven by inducing a controlled
+   `service_discovery` failure: the row came back `severity: info` with
+   `details['covered_by']` naming `failures.py`, `noise_reason` correctly
+   `NULL`, and — the point of the fix — it fired on the **first** failure
+   and was quietened rather than announced.
+
+**`SNAG-LOG-007` was found by the verification rather than in it.** One
+mosquitto coredump from 2026-08-12 had been raised as a fresh `critical`
+three times, once per restart, and nothing in the four claims predicted
+that. `_resume_floor()` opens the catch-up window at the newest stored
+entry; `journalctl --since` is inclusive and `since_timestamp` truncates
+to whole seconds, so the boundary entry came back every restart —
+**339 duplicate groups, 497 surplus rows, worst case 19 copies of one
+entry**. Fixed by closing the boundary against the stored rows rather
+than by narrowing the window, because narrowing it trades a duplicate for
+a gap. Before/after on the same box: the 19:49 restart re-ingested 26
+entries reaching back five days; the 20:03 restart re-ingested **0**.
 
 ### SNAG-LOG-005 fixed — one owner for agent-run health (2026-08-17)
 

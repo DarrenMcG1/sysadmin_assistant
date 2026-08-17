@@ -367,6 +367,46 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 66 — the verification sitting (2026-08-17)
+
+Three consecutive sittings shipped green and unrun. This one restarted the
+daemon and measured the four claims, then fixed what the measuring found.
+
+- [x] Restart the daemon — **no `sudo` needed**, `kill -TERM` + `Restart=always`
+- [x] Pre-check `alembic current` against the packaged head before restarting,
+      because `schema_guard` refuses to boot on a mismatch and that is the one
+      failure mode a restart can introduce with no warning (`012 (head)`, clean)
+- [x] **Claim 1** — `-p` efficiency: **40.0 %** reproduced on the real
+      2026-08-12 storm window (122,531 raw → 49,012 storable)
+- [x] **Claim 2** — `GET /api/logs/actions` serves **2 `noise` rows** at
+      `confidence: medium`, the family's first in its life
+- [x] **Claim 3** — a 700-character JSON journal line yields a **46-character**
+      readable title; stored messages read as prose
+- [x] **Claim 4** — `covered_by` observed on an induced `service_discovery`
+      failure: `info`, `covered_by` naming `failures.py`, `noise_reason` `NULL`
+- [x] Resolve the two `Estate port % registry breach` rows owed since Session 63
+- [x] **`SNAG-LOG-007` found and fixed** — the resume boundary was re-read on
+      every restart; 339 duplicate groups / 497 surplus rows / 19 copies worst
+- [x] 8 new tests, each falsified against the old behaviour **and** against both
+      wrong fixes (the gap-creating one and the untruncated-comparison one)
+- [x] Full suite **2,031 passed**, ruff clean, mypy clean
+
+**Left undone, deliberately:**
+
+- [ ] **Purge the 497 historic surplus rows in `log_entries`.** The fix stops
+      new ones; it does not delete old ones. They inflate
+      `details['occurrences']` and the trend counts by up to 19× for the nine
+      affected signatures. A reversible `DELETE` keyed on
+      `(source, logged_at, message)` keeping the earliest `id` — nobody has
+      costed it and it was out of scope for a verification sitting
+- [ ] **Four permanent `running` rows in `agent_runs`.** Two from 2026-08-14
+      predate this sitting; two `file_organiser` rows were created *by* it, in
+      the documented Session 41 way — a process killed mid-run leaves the row
+      behind, and the file organiser's scan outlives a restart. Whether
+      `summarise_agent` mistakes a permanent `running` row for liveness is
+      **unmeasured**, which is why this is filed rather than dismissed
+
+
 ### Session 65 — SNAG-LOG-005, one owner for agent-run health (2026-08-17) ✅
 
 - [x] **Count the collision before choosing a fix, rather than reasoning
@@ -572,9 +612,11 @@ and no `sudo` either.
 - [x] Re-measure `SNAG-LOG-002`'s composition: **119 of 10,063 runs, across
       9 sources**, not the two Session 60 named
 - [x] Full suite **1,965 passed**, ruff clean, mypy clean
-- [ ] **`sudo systemctl restart sysadmin` is owed** — uvicorn serves
-      start-time code, so `log_entries` holds 0 rows for this source until
-      it runs. Both halves of `SNAG-AGENT-008` land on that one restart
+- [x] **Restart done 2026-08-17 by Session 66** — and it needed **no
+      `sudo`**: the unit runs `User=gaddi` with `Restart=always`, so
+      `kill -TERM <MainPID>` is a deploy the owner can perform and systemd
+      brings the daemon back on the new code in `RestartSec=10`. Both
+      halves of `SNAG-AGENT-008` verified live off that restart
 
 **What the fix will look like when it lands, measured in advance.** With
 the priority half in, `entry["message"]` is the whole formatted JSON line,
@@ -622,8 +664,10 @@ first half was worth doing. The second was wrong.
 - [x] Deploy the tray and measure: **`/details` = 0**
 - [x] Correct `SNAG-AGENT-008` (volume half fixed; three claims in it
       were wrong) and `SNAG-LOG-002` (its cause is the kernel)
-- [ ] **Backend restart is owed** — uvicorn serves start-time code and
-      the restart needs `sudo`, so the duplicate is still being written
+- [x] **Done 2026-08-17 by Session 66** — and "the restart needs `sudo`"
+      was wrong: `User=gaddi` + `Restart=always` makes `kill -TERM` a
+      no-sudo deploy path. `systemctl restart` needs `sudo`; a restart
+      does not
 
 **What the table said instead, and it is the more useful half.** The 118
 truncated runs are **kernel 103, sysadmin-service 14**, out of **10,064

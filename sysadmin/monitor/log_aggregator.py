@@ -9,6 +9,7 @@ Pipeline: parse → filter → store → alert → periodic LLM summarise
 
 import asyncio
 import logging
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,17 @@ logger = logging.getLogger(__name__)
 #: *number* answers one question, "what does the tray decline to say", and
 #: two constants holding one value is the fork ``SNAG-DB-003`` describes.
 NOISE_SEVERITY = "info"
+
+#: How much of a journal message ``log_entries.message`` retains.
+#:
+#: Named rather than repeated, because :meth:`~LogAggregatorAgent._is_unstored`
+#: compares an incoming line against a **stored** one to decide whether a
+#: restart has already ingested it.  Truncating at two different lengths
+#: would make every message longer than the smaller one compare unequal to
+#: itself and re-ingest on every restart — ``SNAG-LOG-007`` rebuilt by the
+#: fix for ``SNAG-LOG-007``.  ``raw_line`` keeps its own separate cap: it is
+#: retained as evidence and nothing compares against it.
+STORED_MESSAGE_CHARS = 5000
 
 #: Fault signatures a **different alert family already owns**, mapped to
 #: the family that owns them.  Keyed ``(source, signature)``.
@@ -140,7 +152,10 @@ class LogAggregatorAgent(BaseAgent):
         # Journal resume positions, one per source.  In memory, so a
         # restart falls back to _resume_floor(), which reads the highest
         # entry already stored for that source — the cursor removes the
-        # per-poll duplication, the floor removes the per-restart kind.
+        # per-poll duplication, the floor the per-restart kind.  The
+        # floor did **not** remove it until 2026-08-17 (SNAG-LOG-007):
+        # it narrowed the re-read from a 5-minute window to a 1-second
+        # one and the boundary entry came back every time.
         self._cursors: dict[str, str] = {}
         # Constructing an LLMClient opens no connections, and it manages
         # its own per-event-loop HTTP client — so there is deliberately no
@@ -288,7 +303,7 @@ class LogAggregatorAgent(BaseAgent):
                 log_entry = LogEntry(
                     source=entry["source"],
                     severity=entry["severity"],
-                    message=entry["message"][:5000],
+                    message=entry["message"][:STORED_MESSAGE_CHARS],
                     raw_line=entry.get("raw_line", "")[:2000],
                     metadata_=entry.get("metadata", {}),
                     logged_at=entry["logged_at"],
@@ -421,8 +436,10 @@ class LogAggregatorAgent(BaseAgent):
         """
         cursor = self._cursors.get(source.name)
         since = "5m ago"
+        floor: datetime | None = None
+        stored_at_floor: set[str] = set()
         if not cursor:
-            floor = await self._resume_floor(session, source.unit)
+            floor, stored_at_floor = await self._resume_floor(session, source.unit)
             if floor is not None:
                 since = since_timestamp(floor)
 
@@ -437,15 +454,81 @@ class LogAggregatorAgent(BaseAgent):
         )
         if read.cursor:
             self._cursors[source.name] = read.cursor
-        return read
+        if floor is None:
+            return read
+        # The window deliberately re-admits the boundary (see
+        # :meth:`_resume_floor`); this is where it is closed again.
+        # ``cursor`` and ``truncated`` are carried through untouched — the
+        # cursor is journalctl's answer to "where did this read stop",
+        # which is a fact about the read and not about what was kept, the
+        # same rule that takes it *before* the severity filter.
+        return replace(
+            read,
+            entries=[
+                entry
+                for entry in read.entries
+                if self._is_unstored(entry, floor, stored_at_floor)
+            ],
+        )
 
     @staticmethod
-    async def _resume_floor(session, unit: str) -> datetime | None:
-        """Newest stored ``logged_at`` for ``unit``, or ``None`` if never read."""
+    def _is_unstored(
+        entry: dict[str, Any], floor: datetime, stored_at_floor: set[str]
+    ) -> bool:
+        """Is ``entry`` newer than the resume floor, or new at it?
+
+        Strictly-newer is the common case and needs no message
+        comparison.  At the floor's own microsecond the timestamp cannot
+        decide, so the message does — truncated to
+        :data:`STORED_MESSAGE_CHARS` first, because that is the form the
+        row holds and comparing the untruncated line against a truncated
+        one would read every long message as new on every restart, which
+        is this defect wearing a longer name.
+        """
+        logged_at = entry["logged_at"]
+        if logged_at > floor:
+            return True
+        if logged_at < floor:
+            return False
+        return entry["message"][:STORED_MESSAGE_CHARS] not in stored_at_floor
+
+    @staticmethod
+    async def _resume_floor(session, unit: str) -> tuple[datetime | None, set[str]]:
+        """Newest stored ``logged_at`` for ``unit``, and the messages at it.
+
+        Two values rather than one, because the floor alone cannot say
+        whether the entry *at* it has been stored — and it always has.
+        ``journalctl --since`` is **inclusive** and
+        :func:`~sysadmin.monitor.journal.since_timestamp` truncates to
+        whole seconds, so a window opened at the newest stored entry
+        re-admits that entry and every other one sharing its second.
+
+        Widening the window is deliberate and must stay: the alternative
+        — opening at ``floor + 1s`` — trades the duplicate for a **gap**,
+        which is the worse failure for a monitor and the reason
+        :meth:`_read_journal_source` uses a cursor at all.  So the read
+        stays wide and the boundary is settled here instead, against the
+        stored rows themselves.
+
+        The message set is scoped to the floor's exact microsecond, which
+        is one row on every source measured on this box.  Comparing on
+        the message as well as the timestamp keeps a genuine second entry
+        stamped in the same microsecond — the Bluetooth pair sits 29 µs
+        apart, so a collision is possible — rather than assuming one
+        timestamp means one entry.
+        """
         result = await session.execute(
             select(func.max(LogEntry.logged_at)).where(LogEntry.source == unit)
         )
-        return result.scalar_one_or_none()
+        floor = result.scalar_one_or_none()
+        if floor is None:
+            return None, set()
+        stored = await session.execute(
+            select(LogEntry.message).where(
+                LogEntry.source == unit, LogEntry.logged_at == floor
+            )
+        )
+        return floor, set(stored.scalars().all())
 
     async def _open_alerts(self, session, titles: set[str]) -> dict[str, Alert]:
         """Unresolved alerts among ``titles``, keyed by title.
