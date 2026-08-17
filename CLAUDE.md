@@ -684,6 +684,91 @@ swallowing a genuine wiring failure, so the fixture constructs the real
 model instead — `UnitFinding.enabled`'s trap answered on the correct
 side.
 
+**Making the monitor able to see its own errors gave one fault two
+speakers, and the second-owner defect existed at a sixth scale by this
+repository's own hand** (Session 65, `SNAG-LOG-005`). `BaseAgent.run`
+states one fact twice, three lines apart: `logger.exception` writes
+`agent_run_failed` to the journal, then `_record_outcome` writes a
+`failed` row to `agent_runs`. Session 61's level prefix and Session 64's
+`format: json` are what let the first copy reach the log aggregator — so
+an agent failure raised a row here **and** a row from `failures.py`, two
+tray `{severity}:{title}` fingerprints, two toasts. Sharper than
+duplication: `failures.py` requires **two** consecutive failures and
+argues the rule out in writing (*"One failure resolves itself on the next
+run… which is noise"*), while the journal path raises on the **first**
+line. A deliberate threshold was not overridden, it was bypassed.
+
+`COVERED_SIGNATURES` maps `(source, signature)` to the family that owns
+the fault. Five rules, three of them the opposite of the obvious
+implementation and all five settled by counting the journal rather than
+by argument:
+
+1. **Quietened, never dropped** — `known_noise`'s rule 2 for its reason.
+   The row still counts occurrences, still reaches `GET /api/logs/trends`
+   and still resolves on silence; `details['covered_by']` **names** the
+   owning family, `details['truncated_sources']`'s rule. `noise_reason`
+   and `covered_by` are separate keys because an operator's judgement
+   that a fault is harmless and a structural fact that another family
+   owns it are different claims — one field holding both is
+   `UnitFinding.enabled`'s trap.
+2. **Both halves of the key are constants the producers already own.**
+   `OWN_UNIT` is the unit `read_journal` stamps into
+   `log_entries.source`; `AGENT_RUN_FAILED_EVENT` replaces the string
+   literal `BaseAgent.run` passed to `logger.exception`. Copying either
+   would be a second statement of somebody else's fact —
+   `max_priority_for` against `PRIORITY_MAP`, `chk_alert_agent` against
+   `AGENT_NAMES`. The signature is matched *after* normalisation, and
+   `signature()` maps digit runs to `N`, so a test pins that the event
+   name still survives it: the failure mode of a rename is silence, not
+   an error.
+3. **Scoped to the one signature, never to this daemon's unit.** The
+   obvious wider fix — excluding `OWN_UNIT` from the alert half — was
+   refused on measurement. 713 `ERROR`/`CRITICAL` lines resolve to **249
+   incidents**, and **34 carry no `agent_run_failed` at all**
+   (`file_organiser_scan` ×27, `retention_purge` ×7). `retention_purge`
+   is not an agent, so no family covers it anywhere; excluding the unit
+   deletes the only witness those have.
+4. **Quietening is safe because the case where `failures.py` is blind is
+   the case where a different signature is still loud.** That family
+   reads `agent_runs`, so it cannot see a failure `_record_outcome`
+   failed to record — but `_record_outcome` is awaited *outside*
+   `run()`'s `try`, so its failure propagates into APScheduler and raises
+   `scheduler_job_error`, still at `warning`. Measured: 215 of 215
+   historic incidents carry both lines in the same second, and
+   `agent_runs` holds **zero** `failed` rows across 7,816 sysadmin runs —
+   the same fact stated twice. `SNAG-LOG-006` is the one path it misses:
+   a manual run is started with `asyncio.create_task` and has no
+   scheduler listener behind it.
+5. **The quietening reaches a row raised by the previous release.**
+   `known_noise` arrives by a config edit the next poll re-reads; a
+   covered signature arrives at a **deploy**, so the open row it must
+   reach is one this daemon raised loudly under the old code — and this
+   family's rows do not resolve while the fault keeps firing. Session
+   39's ban on in-place severity changes is asymmetric, and this is the
+   direction it permits.
+
+**The entry understated its own symptom, which is the part worth
+carrying.** It said one fault produced two rows; the journal says
+**four** — 215 of 215 incidents fired `agent_run_failed`,
+`scheduler_job_error` and apscheduler's own `Job "…" raised an exception`
+in the same second. Only two of those can recur, because Session 41 made
+`_record_outcome` survive a failed run, so the entry was right by
+accident. It also quoted the title as `Log error: sysadmin-service — …`;
+`log_entries.source` is the **unit**, so it is `sysadmin.service`. A snag
+filed from reasoning about a mechanism rather than from counting its
+output is the failure `verify-ops-claims-live` names, one document over.
+
+The fix ships **untriggered**: all 215 lines fall on 2026-08-08 → 08-10,
+the `SNAG-DB-001` window, and there have been none since. So it was
+driven live rather than only against fixtures — real historic lines
+through the real `unwrap_json_message` and the real `_execute` against
+the live database in a rolled-back transaction, giving `info` +
+`covered_by` for one signature and `warning` for the other with **0 rows
+of residue**. Each of the six tests was falsified deliberately: emptying
+`COVERED_SIGNATURES` breaks five, and re-keying the lookup on the
+signature alone breaks the sixth — the one asserting a *negative*, which
+an empty set can never break.
+
 The other 86 % was the tray. `sysadmin_tray/dashboard/services_tab.py`
 is built eagerly at startup and wired to `status_updated`
 unconditionally, so it issued one `/details` per systemd-backed service

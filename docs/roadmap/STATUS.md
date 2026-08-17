@@ -5,8 +5,8 @@
 
 > **A restart is owed again, and a reload will not do it.** `sysadmin`
 > started **14:10:58** and Session 63's commit landed at **14:29:17**, so
-> the process is now **three commits behind**. Measured rather than
-> reasoned: the *running* daemon's `LogRef` forbids extra fields and has
+> the process is now **four commits behind** — Sessions 63, 64 and 65
+> have never run. Measured rather than reasoned: the *running* daemon's `LogRef` forbids extra fields and has
 > no `format`, and driving it against the new `services.yaml` rejects
 > the file — `services.13.log.format | Extra inputs are not permitted`.
 > Session 49's rule 1 means a SIGHUP installs neither file, so the
@@ -37,38 +37,46 @@
 > went live with the 14:10:58 restart, so **tonight's 03:00 is the first
 > run that will act**, and it happens by itself.
 >
-> **Next up**: **`SNAG-LOG-005` — one fault, two alert families.**
-> *Recommended at the close of Session 64.*
+> **Next up**: **Observe three unobserved sittings against live data.**
+> *Recommended at the close of Session 65.*
 >
-> **1. `SNAG-LOG-005`, and this session created it.** An agent failure now
-> raises `Log error: sysadmin-service — agent_run_failed` from the journal
-> *and* `<agent> agent failing` from `agent_runs`. The journal path fires
-> on the **first** failure; `failures.py` deliberately waits for **two**
-> and argues it out in its own docstring — *"One failure resolves itself
-> on the next run… which is noise."* So a second producer bypasses a
-> threshold the first one reasoned for, and the second-owner defect this
-> repository has found at five scales now exists at a sixth by its own
-> hand. It wins because it is fresh, bounded, and the three candidate
-> fixes each answer a different question about who owns agent-run health.
+> **1. The verification sitting — restart, then measure what Sessions 63,
+> 64 and 65 claim.** Session 62's ceiling fix (14:09:16) is the last one
+> the running process contains; everything since has shipped green and
+> unrun. Four claims are outstanding and every one is measurable within
+> an hour of a restart: `-p` takes read efficiency 40 % → 100 % and so
+> should drop `truncated_fraction` below `TRUNCATION_LOW_FRACTION`; a
+> `medium` report should make the two 39,921-occurrence signatures appear
+> as `noise` rows in `GET /api/logs/actions`, a family with an **empty
+> population on this box** for its whole life; `-a` plus `format: json`
+> should give `log_entries` readable messages for `sysadmin.service`
+> where it currently holds 10 rows of raw JSON; and `covered_by` should
+> appear the first time an agent fails. It wins because three consecutive
+> sittings have now built on foundations nobody has seen run, which is
+> precisely what `SNAG-ESTATE-002` was — and because it is the cheapest
+> thing on the list, the restart being owed anyway.
 >
 > **2. Session 27 Tier 3 — the log aggregator's LLM narrative.** The last
-> unbuilt tier in the area, and the family has never been in better shape
-> to carry it: signature dedup, trends, actions, correct priorities,
-> correct ceiling, readable titles, no crash. It loses because it adds a
-> surface to a subsystem that produced a P0 four hours ago and whose two
-> newest fixes have **not been seen against a single live error line**.
-> Building on unobserved foundations is what `SNAG-ESTATE-002` was.
+> unbuilt tier in the area, and the family is in better shape than it has
+> ever been: signature dedup, trends, actions, correct priorities,
+> correct ceiling, proportional confidence, readable titles, no crash, one
+> owner per fault. It loses for the same reason it lost last sitting and
+> by a wider margin — it would add a fifth layer to a stack whose bottom
+> three have not run. It wins outright the moment (1) lands.
 >
 > **3. `SNAG-LOG-001` — one mosquitto crash, four recommendations.** Real,
 > and the honest fix is a correlation rule nobody has measured. It loses
-> on evidence rather than on merit: it needs a live multi-line crash to
-> measure against, and the last one was days ago. That is the same reason
-> `SNAG-LOG-003` lost its previous two sittings, and the same reason it
-> then won.
+> on evidence rather than merit: it needs a live multi-line crash and the
+> last one was days ago. Third for the third sitting running, which is
+> itself the argument for leaving it there rather than forcing it.
 >
-> **Blocked or waiting on nothing.** `SNAG-ESTATE-002` and
+> **Blocked or waiting on another repository.** `SNAG-ESTATE-002` and
 > `SNAG-ESTATE-004` remain estate-manager's; `SNAG-ESTATE-006` and
-> `SNAG-ESTATE-007` are delegated and unchanged.
+> `SNAG-ESTATE-007` are delegated and unchanged. `SNAG-ESTATE-001`'s
+> remaining half is a **retirement checklist** — a process, and the entry
+> says in writing it is not this repository's to enforce, so it is named
+> rather than ranked. `SNAG-LOG-006`, opened today, has a **population of
+> zero**: a manual run must fail before it can be observed at all.
 
 
 ---
@@ -82,10 +90,10 @@
 | Database | 🟢 Complete | 13 tables in sysadmin schema, Alembic migrations (head **012**, applied 2026-08-13) |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
-| Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* |
+| Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2017 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
+| Testing | 🟢 Complete | **2023 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -93,6 +101,44 @@
 ---
 
 ## Recently Completed
+
+### SNAG-LOG-005 fixed — one owner for agent-run health (2026-08-17)
+
+**The fix that made the monitor able to see its own errors gave one fault
+two speakers.** `BaseAgent.run` states one fact twice, three lines apart:
+`logger.exception("agent_run_failed")` to the journal, then a `failed`
+row to `agent_runs`. Session 61's level prefix and Session 64's
+`format: json` are what let the first copy reach the log aggregator, so
+an agent failure raised a row here **and** a row from `failures.py` — two
+tray fingerprints. Sharper than duplication: `failures.py` requires
+**two** consecutive failures and argues the rule out in writing, while
+the journal path raises on the **first** line.
+
+`COVERED_SIGNATURES` maps `(source, signature)` to the family that owns
+the fault, quietening to `info` with `details['covered_by']` **naming**
+it. Both halves of the one entry are the producers' own constants —
+`OWN_UNIT`, and the new `AGENT_RUN_FAILED_EVENT` that replaces the string
+literal `BaseAgent.run` used to pass to `logger.exception`.
+
+**Three things the measurement settled that the entry had not.** The
+collision was **four** rows historically, not two — 215 of 215 incidents
+fired `agent_run_failed`, `scheduler_job_error` and apscheduler's own
+`Job "…" raised an exception` in the same second. The obvious wider fix
+(exclude this daemon's unit from the alert half) is refuted: **34 of 249
+error incidents carry no `agent_run_failed` at all**, and
+`retention_purge` is not an agent, so nothing else covers it. And
+quietening is safe because `_record_outcome` is awaited *outside*
+`run()`'s `try` — the case where `failures.py` is blind is the case where
+`scheduler_job_error` is still loud, which is why `agent_runs` holds
+**zero** `failed` rows across 7,816 sysadmin runs.
+
+Ships untriggered: all 215 lines fall in the 2026-08-08 → 08-10
+`SNAG-DB-001` window. Driven live instead — real journal lines through
+the real `unwrap_json_message` and `_execute` against the live database
+in a rolled-back transaction, **0 rows of residue**. Six tests, each
+falsified deliberately. `SNAG-LOG-006` filed for the one path the safety
+argument does not reach: a manual run started with `asyncio.create_task`
+has no scheduler listener behind it.
 
 ### SNAG-LOG-004 found and fixed, SNAG-LOG-003 closed — the line too long to read at all (2026-08-17)
 

@@ -2,36 +2,109 @@
 
 ## Next action
 
-Take `SNAG-LOG-005` and decide which single family owns "this daemon's agent failed", because the journal path now raises `Log error: sysadmin-service — agent_run_failed` on the **first** failure while `sysadmin/monitor/failures.py` deliberately waits for **two** and says so in writing, so one fault produces two rows with two tray fingerprints and the second producer silently bypasses a threshold the first one argued for.
+Restart `sysadmin` and spend the sitting observing what Sessions 63, 64 and 65 claim, because Session 62's ceiling fix at 14:09:16 is the last commit the running process contains and three consecutive sittings have now shipped green and unrun, so `-p`'s 40 % → 100 % efficiency, the `truncated_fraction` gate that should finally produce `noise` rows in `GET /api/logs/actions`, the readable titles from `format: json` and the new `covered_by` are four claims nobody has seen fire.
 
-## Two sub-session items, and the first is a restart rather than a reload
+## Two sub-session items, and the first is the same restart
 
-**`sudo systemctl restart sysadmin` — and a SIGHUP will not do it.**
-Measured rather than assumed: the running daemon started at 14:10:58 and
-Session 63's commit landed at 14:29:17, so it is now **three commits
-behind**. Its `LogRef` forbids extra fields and has no `format`, so
-driving the *running* parser against the new `services.yaml` rejects it
-outright — `services.13.log.format | Extra inputs are not permitted`.
-Session 49's rule 1 means neither file would be installed, so the reload
-fails safely and delivers nothing.
+**`sudo systemctl restart sysadmin` — and a SIGHUP still will not do it.**
+The daemon started **14:10:58** and is now **four commits behind**. Its
+`LogRef` forbids extra fields and has no `format`, so driving the
+*running* parser against the current `services.yaml` rejects it outright
+— `services.13.log.format | Extra inputs are not permitted`. Session 49's
+rule 1 means neither file would be installed, so the reload fails safely
+and delivers nothing.
 
-The restart is also what **disarms `SNAG-LOG-004`**. The running process
+The restart is also what **disarms `SNAG-LOG-004`**: the running process
 still crashes its whole `log_aggregator` run on the first `ERROR` line
-this daemon writes, and self-sustainingly: the failure it logs is itself a
-12.8 kB line that reproduces the read. It has not fired — 0 error lines
-and 146 clean runs since 14:10:58 — so the box is currently one traceback
+this daemon writes, self-sustainingly. Still untriggered — the journal
+holds no `ERROR` line since 14:10:58 — so the box remains one traceback
 away from a silent, permanent log blackout.
 
-**Still owed from Session 63, still two minutes.** The two `Estate port …
-registry breach` rows need resolving so Session 57's `info` rung can reach
-them (`SNAG-ESTATE-010`):
+**Still owed from Session 63, still two minutes.** Both rows are still
+open, checked this sitting. They need resolving so Session 57's `info`
+rung can reach them (`SNAG-ESTATE-010`):
 
 ```sql
 UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
 ```
 
-## This session — Session 64: the snag was cosmetic and the thing under it was not
+## This session — Session 65: one fault had two speakers, and the entry undercounted them
+
+The sitting was `SNAG-LOG-005` as the handoff named it: decide which
+single family owns "this daemon's agent failed". The answer is
+`sysadmin/monitor/failures.py`, and the log aggregator now defers to it
+by name.
+
+**The decision was made from the journal rather than from the entry**,
+which turned out to matter. 713 `ERROR`/`CRITICAL` lines from this daemon
+resolve to **249 incidents** and 5 signatures, and three facts came out
+of counting them:
+
+- **The collision was four rows, not two.** 215 of 215 incidents fired
+  `agent_run_failed`, `scheduler_job_error` **and** apscheduler's own
+  `Job "…" raised an exception` in the same second. Only two of those can
+  recur, because Session 41 made `_record_outcome` survive a failed run —
+  so the entry was right by accident.
+- **Candidate (b) is refuted.** Excluding this daemon's unit from the
+  alert half would delete the only witness **34 of the 249** incidents
+  have: `file_organiser_scan` ×27, where the run record died with the
+  run, and `retention_purge` ×7, which is not an agent at all and has no
+  owning family anywhere.
+- **The population is historic.** All 215 fall on 2026-08-08 → 08-10, the
+  `SNAG-DB-001` window, and `agent_runs` holds **zero** `failed` rows
+  across 7,816 sysadmin runs — which is the same fact stated twice, since
+  `run()` raised out and the record died with it.
+
+**What shipped is candidate (c), narrowed to one derived entry.**
+`COVERED_SIGNATURES` maps `(source, signature)` to the family that owns
+the fault. Both halves of the key are the producers' own constants —
+`OWN_UNIT`, and the new `AGENT_RUN_FAILED_EVENT` replacing the literal
+`BaseAgent.run` passed to `logger.exception` — so nothing is copied and
+nothing can drift.
+
+Options rejected, and why:
+
+- **Dropping the row** rebuilds `SNAG-CFG-001`'s shape: a decision taken
+  by a consumer with nothing recording that it was taken. It is quietened
+  to `info` instead, still counted, still in the trend, with
+  `details['covered_by']` **naming** the family that will speak.
+- **A `known_noise` YAML entry** would have cost ten minutes and recorded
+  a structural fact as an operator's judgement about harmlessness, in a
+  file an operator may edit without knowing the coupling exists.
+- **Demoting the log line to `WARNING`** at the producer would have
+  removed the duplicate with no reader-side special case, and was refused
+  because it puts agent failures back out of reach of
+  `journalctl -u sysadmin -p err` and any `OnFailure=` hook — the exact
+  artefact Session 61 existed to fix.
+
+**Why quietening is safe, and it is structural rather than careful.**
+`failures.py` reads `agent_runs`, so it cannot see a failure
+`_record_outcome` failed to record — but `_record_outcome` is awaited
+*outside* `run()`'s `try`, so its failure propagates into APScheduler and
+raises `scheduler_job_error`, which stays at `warning`. The case where
+the owning family is blind is the case where a different signature is
+still loud.
+
+**Verified live, because the fix ships untriggered.** Real historic
+`agent_run_failed` and `scheduler_job_error` lines were pulled from the
+journal, unwrapped by the real `unwrap_json_message`, and driven through
+the real `_execute` against the live database in a rolled-back
+transaction: `info` + `covered_by` for the first, `warning` for the
+second, occurrences counted on both, **0 rows of residue**. Six tests,
+2,023 total, all green; each new test falsified deliberately — emptying
+`COVERED_SIGNATURES` breaks five, re-keying the lookup on the signature
+alone breaks the sixth, which is the one asserting a negative.
+
+**Opened rather than bundled**: `SNAG-LOG-006`, the one path the safety
+argument above does not reach. `POST /api/sysadmin/scan-all` starts
+agents with `asyncio.create_task` and keeps no reference, so a manual run
+whose `_record_outcome` fails has no scheduler listener behind it and
+nothing speaks. Population zero on this box, and the residual signal
+(asyncio's `Task exception was never retrieved` on GC) is unmeasured,
+which is why it is filed rather than assumed away.
+
+## Previous session — Session 64: the snag was cosmetic and the thing under it was not
 
 The sitting was scoped to `SNAG-LOG-003` — a 252-character title made of
 JSON — and the first attempt to test it against the real rows the
@@ -198,36 +271,52 @@ Full suite **1,984 passed**, ruff clean, mypy clean.
 
 ## What was deliberately not done
 
+**The apscheduler duplicate is untouched.** `apscheduler.executors.default`
+logs `Job "…" raised an exception` with a traceback for every fault
+`Scheduler._on_job_error` already records as structured
+`scheduler_job_error` — 249 lines, the `uvicorn.access` shape one module
+over. Not fixed here because Session 60's own rule cuts against the easy
+version: that logger emits at **two** levels (the duplicate at `ERROR`,
+the genuine "maximum number of running instances reached" at `WARNING`),
+so `setLevel` cannot express it and disabling the logger loses real
+signal. It needs a filter or a decision, and it is a different module
+from the one this sitting was scoped to.
+
+**`SNAG-LOG-006` is filed rather than fixed**, because its honest remedy
+— retaining the task references and attaching a done-callback — touches
+two composition roots, and its cheap alternative would need the JSON
+unwrap to promote `run_type` into the identity the exclusion keys on,
+which is the coupling `SNAG-LOG-003`'s fix was chosen to avoid.
+
 **The name/unit seam is still open.** `details['truncated_sources']` keys
 on the `services.yaml` **name** and `log_entries.source` on the **unit**,
-and only `kernel` collides. Untouched because this gate is global by
-*run* rather than by source, so it never performs the join — but anything
-that later aggregates truncation per source must map first, and
-`_log_source_scopes` carries the same warning one function over.
-
-**`LOW_COVERAGE_FRACTION` still guards two branches that both return
-`MEDIUM`.** Pre-existing, and collapsing them would leave an exported
-constant nothing reads, which is `SNAG-CFG-001`'s shape. Left alone
-rather than tidied inside a sitting about a different rule.
+and only `kernel` collides. Untouched again this sitting, and worth
+noting that `COVERED_SIGNATURES` keys on the **unit** deliberately, which
+is the side `log_entries.source` is on.
 
 ## Next session — ranked
 
-1. **`SNAG-LOG-003`**, and it wins because the evidence arrived rather
-   than because it grew. It lost the last two sittings on being
-   unobservable; the restart made it observable and the rows exist now.
-   The honest fix is a per-source `format: json` declaration, so the
-   reader honours a *declaration* rather than recognises an application.
-2. **Session 27 Tier 3** — extend the overnight LLM log summary. Tier 1
-   produces the material it lacks, and as of today the `noise` family has
-   rows to summarise for the first time. Loses for the fourth sitting on
-   the same margin: additive work against a live gap.
+1. **The verification sitting.** Restart, then measure the four
+   outstanding claims from Sessions 63, 64 and 65 against the live table.
+   It wins because three consecutive sittings have now built on
+   foundations nobody has seen run — `SNAG-ESTATE-002`'s shape at three
+   times the depth — and because it is the cheapest item here: the
+   restart is owed anyway, and each claim is a query.
+2. **Session 27 Tier 3** — the log aggregator's LLM narrative. The last
+   unbuilt tier in the area and the family has never been in better
+   shape. Loses for the fifth sitting, and by a wider margin than last
+   time: it would add a fifth layer to a stack whose bottom three have
+   not run. Wins outright the moment (1) lands.
 3. **`SNAG-DOCS-002`** — eight project contract models with zero readers,
-   four re-exported to the tray. Runner-up for the fifth time, on the
+   four re-exported to the tray. Runner-up for the sixth time, on the
    same grounds: half an hour of deletion plus one decision about the
    tray's public surface.
 
 **Named as blocked rather than dropped**: `SNAG-LOG-001` needs a
 correlation rule nobody has measured, and the obvious cap rebuilds
-`SNAG-ESTATE-001`'s roll-up defect. `SNAG-ESTATE-002` and
-`SNAG-ESTATE-006` remain estate-manager's. `SNAG-ESTATE-009` waits on a
-second consumer of `PortAttribution`.
+`SNAG-ESTATE-001`'s roll-up defect. `SNAG-LOG-006` has a population of
+zero and needs a manual run to fail before it can be observed.
+`SNAG-ESTATE-001`'s remaining half is a retirement checklist, which the
+entry says in writing is not this repository's to enforce.
+`SNAG-ESTATE-002` and `SNAG-ESTATE-006` remain estate-manager's;
+`SNAG-ESTATE-009` waits on a second consumer of `PortAttribution`.

@@ -367,6 +367,49 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### Session 65 — SNAG-LOG-005, one owner for agent-run health (2026-08-17) ✅
+
+- [x] **Count the collision before choosing a fix, rather than reasoning
+      about the mechanism.** 713 `ERROR`/`CRITICAL` lines from this daemon
+      resolve to **249 incidents** and 5 signatures — and the entry's "one
+      fault, two rows" was **four**: 215 of 215 fired `agent_run_failed`,
+      `scheduler_job_error` and apscheduler's `Job "…" raised an exception`
+      in the same second
+- [x] Establish the population is **historic**: all 215 fall on 2026-08-08
+      → 08-10, the `SNAG-DB-001` window, and `agent_runs` holds **zero**
+      `failed` rows across 7,816 sysadmin runs — the same fact twice, since
+      `run()` raised out and `_record_outcome` died with it (Session 41)
+- [x] **Refute candidate (b) on measurement.** 34 of the 249 incidents
+      carry no `agent_run_failed` at all — `file_organiser_scan` ×27 and
+      `retention_purge` ×7 — and `retention_purge` is not an agent, so
+      excluding `OWN_UNIT` from the alert half deletes the only witness
+      those failures have
+- [x] Promote the literal in `BaseAgent.run` to
+      `core/agent.py::AGENT_RUN_FAILED_EVENT`, so the exclusion keys on
+      the producer's own constant rather than a copy of it
+- [x] Add `COVERED_SIGNATURES` to `log_aggregator.py`, keyed
+      `(OWN_UNIT, AGENT_RUN_FAILED_EVENT)` → the owning family, quietening
+      to `NOISE_SEVERITY` with `details['covered_by']` **naming** it
+- [x] Keep `noise_reason` and `covered_by` as **separate keys** — an
+      operator's judgement and a structural fact are different claims, and
+      one field holding both is `UnitFinding.enabled`'s trap
+- [x] Carry the quietening through `_record_recurrence` so a **deploy**
+      reaches a row the previous release raised loudly — the case
+      `known_noise` does not have, since its entries arrive by a config
+      edit the next poll re-reads
+- [x] Six tests, each falsified deliberately: emptying `COVERED_SIGNATURES`
+      breaks five, re-keying the lookup on the signature alone breaks the
+      sixth (the negative assertion, which an empty set cannot break)
+- [x] Pin the derivation end to end — a real failing `BaseAgent.run`, with
+      the assertion keyed on what the logger **emitted**, not on the
+      constant against itself
+- [x] Verified live: real historic journal lines through the real
+      `unwrap_json_message` and the real `_execute` against the live
+      database in a rolled-back transaction — `info` + `covered_by` for
+      `agent_run_failed`, `warning` for `scheduler_job_error`, **0 residue**
+- [x] File `SNAG-LOG-006` — the manual-run path, where `asyncio.create_task`
+      means no scheduler listener and so no loud fallback
+
 ### Session 64 — SNAG-LOG-003, and the P0 found underneath it (2026-08-17) ✅
 
 - [x] Drive `SNAG-LOG-003` against the **real rows** the 14:10:58 restart

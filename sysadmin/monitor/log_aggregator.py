@@ -15,7 +15,7 @@ from typing import Any
 
 from sqlalchemy import DateTime, func, select, update
 
-from sysadmin.core.agent import AgentResult, BaseAgent
+from sysadmin.core.agent import AGENT_RUN_FAILED_EVENT, AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 
 # Aliased, because this module already imports a *different*
@@ -27,6 +27,7 @@ from sysadmin.core.config import get_config
 from sysadmin.core.escalation import SEVERITY_ORDER as ALERT_SEVERITY_ORDER
 from sysadmin.core.llm_client import LLMClient
 from sysadmin.core.models.alert import Alert
+from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.journal import (
     SEVERITY_ORDER,
     JournalRead,
@@ -40,14 +41,86 @@ from sysadmin.monitor.services import get_services, log_sources
 
 logger = logging.getLogger(__name__)
 
-#: Severity for a signature listed in ``agents.log_aggregator.known_noise``.
+#: The loudest rung the tray will not speak.
 #:
 #: ``info`` because it is the only rung below ``tray.notify_min_severity``
 #: on this box — the same derivation, and the same one number, as
 #: ``judgements.TRANSIENT_HOLDER_SEVERITY``.  The row still exists, still
 #: counts occurrences and still appears in the trend; it simply stops
 #: interrupting.
+#:
+#: **One constant for both quietening paths, deliberately.**  A signature
+#: declared in ``agents.log_aggregator.known_noise`` and one listed in
+#: :data:`COVERED_SIGNATURES` are quiet for entirely different reasons —
+#: an operator's judgement that a fault is harmless, against a structural
+#: fact that another family owns the fault — and they are recorded under
+#: different ``details`` keys so a reader can tell them apart.  But the
+#: *number* answers one question, "what does the tray decline to say", and
+#: two constants holding one value is the fork ``SNAG-DB-003`` describes.
 NOISE_SEVERITY = "info"
+
+#: Fault signatures a **different alert family already owns**, mapped to
+#: the family that owns them.  Keyed ``(source, signature)``.
+#:
+#: ``SNAG-LOG-005``.  ``BaseAgent.run`` states one fact twice, three lines
+#: apart: it writes :data:`~sysadmin.core.agent.AGENT_RUN_FAILED_EVENT` to
+#: the journal and then a ``failed`` row to ``agent_runs``.  Since the
+#: level prefix (Session 61) and the ``format: json`` declaration (Session
+#: 64) the journal copy reaches this agent, so one agent failure produced
+#: a row here **and** a row from :mod:`sysadmin.monitor.failures` — two
+#: tray fingerprints, two toasts.  Worse than duplication: ``failures.py``
+#: requires **two** consecutive failures and argues that rule out in
+#: writing, and this family raises on the **first** line, so it announced
+#: exactly the event a sibling decided was not worth announcing.  A
+#: deliberate threshold was not overridden, it was bypassed.
+#:
+#: Five rules, three of them the opposite of the obvious implementation:
+#:
+#: 1. **Quietened, never dropped.**  ``known_noise``'s rule 2 for its
+#:    reason: a consumer that silently declines to judge is
+#:    ``SNAG-CFG-001``'s shape, a decision taken with nothing recording
+#:    that it was taken.  The row still carries its occurrence count into
+#:    ``GET /api/logs/trends``, and ``details['covered_by']`` names the
+#:    family that will speak — so a reader who finds the quiet row is told
+#:    where the loud one comes from rather than left to wonder why it is
+#:    ``info``.
+#: 2. **Both halves of the key are constants the producers already own**,
+#:    never strings written here.  ``OWN_UNIT`` is the unit
+#:    ``read_journal`` reads and stamps into ``log_entries.source``;
+#:    ``AGENT_RUN_FAILED_EVENT`` is the event ``BaseAgent.run`` emits.
+#:    Copying either would be a second statement of somebody else's fact —
+#:    the rule ``max_priority_for`` and ``chk_alert_agent`` already encode.
+#: 3. **The source is half the key, never the signature alone** —
+#:    ``known_noise``'s rule 1.  Another service logging the same word
+#:    has no ``failures.py`` row behind it, so quietening it on the
+#:    strength of this daemon's arrangement would silence a real fault.
+#: 4. **Scoped to the one signature, not to this daemon's unit.**  The
+#:    wider fix — excluding ``OWN_UNIT`` from the alert half entirely —
+#:    was refused on measurement: of 249 error incidents in this journal,
+#:    **34 carry no** ``agent_run_failed`` at all (``file_organiser_scan``
+#:    ×27, ``retention_purge`` ×7), and ``retention_purge`` is not an
+#:    agent, so no family covers it.  Excluding the unit deletes the only
+#:    witness those have.
+#: 5. **The case where ``failures.py`` is blind is the case where a
+#:    different signature is still loud**, which is what makes rule 1's
+#:    quietening safe rather than merely tidy.  ``failures.py`` reads
+#:    ``agent_runs``, so it cannot see a failure ``_record_outcome``
+#:    failed to record — but ``_record_outcome`` is awaited outside
+#:    ``run()``'s ``try``, so its failure propagates into APScheduler and
+#:    raises ``scheduler_job_error``, which this family still speaks at
+#:    ``warning``.  Measured on the live journal: 215 of 215 historic
+#:    ``agent_run_failed`` incidents carry ``scheduler_job_error`` in the
+#:    same second, and every one of them wrote **no** ``agent_runs`` row.
+#:    The net is stated rather than assumed — see ``SNAG-LOG-006`` for the
+#:    one path it does not cover.
+#:
+#: A hand-maintained set of this kind is the ``SNAG-CFG-001`` shape, so it
+#: is bounded rather than open: one entry, both halves derived, and a test
+#: pins that the emitter still emits what this keys on.
+COVERED_SIGNATURES: dict[tuple[str, str], str] = {
+    (OWN_UNIT, AGENT_RUN_FAILED_EVENT): "sysadmin/monitor/failures.py — "
+    "'<agent> agent failing', at two consecutive failures",
+}
 
 SUMMARISE_PROMPT_SYSTEM = (
     "You are a sysadmin reviewing logs. Summarise the following log entries. "
@@ -157,6 +230,11 @@ class LogAggregatorAgent(BaseAgent):
            ``details['occurrences']`` carries the count that used to be
            expressed as row volume, which is the same information at
            1/300,000th of the storage and is legible on one tray line.
+        2b. **A fault another family owns is quietened here rather than
+           raised** — :data:`COVERED_SIGNATURES`, ``SNAG-LOG-005``.  The
+           row is still written, still counted and still resolved on
+           silence; it simply stops being the second thing that speaks
+           about one fault.
         3. **Silence is the only recovery signal there is**, so the resolve
            is time-based (:meth:`_resolve_quiet`) rather than the
            "which open alerts would this run not raise?" inversion
@@ -227,11 +305,19 @@ class LogAggregatorAgent(BaseAgent):
                 fault = faults.get(title)
                 if fault is None:
                     sig = signature(entry["message"])
-                    noise = known_noise.get((entry["source"], sig))
+                    key = (entry["source"], sig)
+                    noise = known_noise.get(key)
+                    # Two independent reasons to be quiet, kept apart in
+                    # ``details`` because they answer different questions:
+                    # an operator said this is harmless, against another
+                    # family already owning it.  Either alone is enough to
+                    # drop the rung, and a signature carrying both is
+                    # over-determined rather than ambiguous.
+                    covered_by = COVERED_SIGNATURES.get(key)
                     faults[title] = {
                         "severity": (
                             NOISE_SEVERITY
-                            if noise is not None
+                            if noise is not None or covered_by is not None
                             else "critical"
                             if entry["severity"] == "critical"
                             else "warning"
@@ -241,6 +327,7 @@ class LogAggregatorAgent(BaseAgent):
                         "count": 1,
                         "signature": sig,
                         "noise_reason": noise.reason if noise else None,
+                        "covered_by": covered_by,
                     }
                 else:
                     # The newest line wins, so the verbatim example beside
@@ -274,6 +361,16 @@ class LogAggregatorAgent(BaseAgent):
                     **(
                         {"noise_reason": fault["noise_reason"]}
                         if fault["noise_reason"]
+                        else {}
+                    ),
+                    # Names the family rather than merely flagging that
+                    # one exists: a reader who finds an ``info`` row for
+                    # a genuine fault needs to know where the loud row
+                    # comes from, and ``details['truncated_sources']``'s
+                    # rule is that naming beats counting.
+                    **(
+                        {"covered_by": fault["covered_by"]}
+                        if fault["covered_by"]
                         else {}
                     ),
                 },
@@ -407,6 +504,14 @@ class LogAggregatorAgent(BaseAgent):
         objective, so the mechanism that makes escalation fail is what
         makes this work.
 
+        :data:`COVERED_SIGNATURES` rides the same path for the same
+        reason, and it needs it more rather than less: a ``known_noise``
+        entry appears when an operator edits config.yaml, which the next
+        poll re-reads, whereas a covered signature appears at a *deploy*
+        — so the open row it must reach is one this daemon raised loudly
+        under the previous release, which is exactly the row a restart
+        does not resolve.
+
         It is deliberately **one-directional**.  Raising severity in place
         here would be Session 39's defect verbatim, so a fault that has
         stopped matching a noise entry keeps its quiet row until silence
@@ -424,6 +529,10 @@ class LogAggregatorAgent(BaseAgent):
             details["noise_reason"] = fault["noise_reason"]
         else:
             details.pop("noise_reason", None)
+        if fault["covered_by"]:
+            details["covered_by"] = fault["covered_by"]
+        else:
+            details.pop("covered_by", None)
         alert.details = details
         alert.message = fault["message"][:500]
 

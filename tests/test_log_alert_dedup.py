@@ -37,11 +37,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.dialects import postgresql
 
+from sysadmin.core.agent import AGENT_RUN_FAILED_EVENT, BaseAgent
 from sysadmin.core.config import LogSource
 from sysadmin.core.models.alert import Alert
 from sysadmin.core.text import TRUNCATION_MARKER
+from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.journal import JournalRead
-from sysadmin.monitor.log_aggregator import NOISE_SEVERITY, LogAggregatorAgent
+from sysadmin.monitor.log_aggregator import (
+    COVERED_SIGNATURES,
+    NOISE_SEVERITY,
+    LogAggregatorAgent,
+)
 from sysadmin.monitor.log_signature import TITLE_MAX, alert_title, signature
 
 # The live 30-day kernel population, verbatim.  These are the messages the
@@ -531,3 +537,192 @@ async def test_the_signature_is_recorded_on_the_row():
     session = _Session()
     await _run(agent, session, [_entry(BLUETOOTH_A)])
     assert session.alerts[0].details["signature"] == signature(BLUETOOTH_A)
+
+
+# ---------------------------------------------------------------------------
+# COVERED_SIGNATURES — a fault another family owns (Session 65, SNAG-LOG-005)
+# ---------------------------------------------------------------------------
+#
+# The collision could not exist before 2026-08-17: ``log_entries`` held no
+# rows at all for ``sysadmin.service`` until Session 61 put a level prefix
+# on this daemon's JSON, and the message was an unreadable JSON document
+# until Session 64 made the source declare its format.  Two fixes that
+# widened what the monitor can see are what made a second producer for one
+# fault visible — which is the argument for them rather than against.
+
+#: The unwrapped message a failing agent leaves in the journal.  It is the
+#: event constant itself, because ``unwrap_json_message`` lifts
+#: ``"message"`` out of the envelope and that field carries exactly this.
+AGENT_FAILURE_LINE = AGENT_RUN_FAILED_EVENT
+
+#: An error this daemon writes that **no** other family covers, so it must
+#: stay loud.  Live counts behind the choice: of 249 error incidents in
+#: this journal, 34 carry ``scheduler_job_error`` and no
+#: ``agent_run_failed`` at all — ``file_organiser_scan`` ×27 (the run
+#: record died with the run) and ``retention_purge`` ×7, which is not an
+#: agent and has no owning family anywhere.
+UNCOVERED_LINE = "scheduler_job_error"
+
+OWN_SOURCE = LogSource(
+    name="sysadmin-service", type="journalctl", unit=OWN_UNIT,
+    severity_filter="warning", user=False, path=None, format="json",
+)
+
+
+async def _run_own(agent, session, entries, **kwargs):
+    """``_run`` against this daemon's own journal source."""
+    with patch.object(
+        LogAggregatorAgent, "_sources", staticmethod(lambda _c: [OWN_SOURCE])
+    ):
+        return await _run(agent, session, entries, **kwargs)
+
+
+@pytest.mark.asyncio
+async def test_a_covered_signature_is_quietened_not_dropped():
+    """``failures.py`` speaks; this family records and stays silent.
+
+    Dropping the row was candidate (a) in the snag and rebuilds
+    ``SNAG-CFG-001``'s shape — a decision taken by a consumer with nothing
+    recording that it was taken.  The row still counts occurrences, still
+    reaches ``GET /api/logs/trends``, and names the family that will
+    speak.
+    """
+    agent = LogAggregatorAgent()
+    session = _Session()
+    result, _ = await _run_own(
+        agent, session,
+        [_entry(AGENT_FAILURE_LINE, source=OWN_UNIT) for _ in range(4)],
+    )
+
+    assert len(session.alerts) == 1
+    row = session.alerts[0]
+    assert row.severity == NOISE_SEVERITY
+    assert row.details["occurrences"] == 4
+    assert result.findings_count == 4
+    # Named, never merely flagged — details['truncated_sources']'s rule.
+    assert "failures.py" in row.details["covered_by"]
+    # The two quietening reasons stay apart: this is not an operator's
+    # judgement that the fault is harmless.
+    assert "noise_reason" not in row.details
+
+
+@pytest.mark.asyncio
+async def test_another_service_logging_the_same_word_is_untouched():
+    """Rule 3 — the source is half the key.
+
+    ``agent_run_failed`` from anything but this unit has no
+    ``failures.py`` row behind it, so quietening it on the strength of
+    this daemon's arrangement silences a fault nothing else reports.
+    """
+    agent = LogAggregatorAgent()
+    session = _Session()
+    await _run(agent, session, [_entry(AGENT_FAILURE_LINE, source="kernel")])
+
+    assert session.alerts[0].severity == "warning"
+    assert "covered_by" not in session.alerts[0].details
+
+
+@pytest.mark.asyncio
+async def test_this_daemons_uncovered_errors_stay_loud():
+    """Rule 4 — scoped to the signature, never to the unit.
+
+    Candidate (b) in the snag was to exclude ``OWN_UNIT`` from the alert
+    half entirely.  Refused on measurement: ``retention_purge`` is not an
+    agent, so ``scheduler_job_error`` is the only witness its failures
+    have, and 7 live incidents are exactly that.
+    """
+    agent = LogAggregatorAgent()
+    session = _Session()
+    await _run_own(
+        agent, session,
+        [_entry(UNCOVERED_LINE, source=OWN_UNIT),
+         _entry(AGENT_FAILURE_LINE, source=OWN_UNIT)],
+    )
+
+    by_title = {a.title: a for a in session.alerts}
+    assert len(by_title) == 2
+    loud = by_title[alert_title("error", OWN_UNIT, UNCOVERED_LINE)]
+    quiet = by_title[alert_title("error", OWN_UNIT, AGENT_FAILURE_LINE)]
+    assert loud.severity == "warning"
+    assert "covered_by" not in loud.details
+    assert quiet.severity == NOISE_SEVERITY
+
+
+@pytest.mark.asyncio
+async def test_a_deploy_quietens_a_row_that_is_already_open():
+    """The in-place quietening reaches the row raised by the old release.
+
+    ``known_noise``'s entry arrives when an operator edits config.yaml,
+    which the next poll re-reads.  A covered signature arrives at a
+    *deploy*, so the open row it must reach was raised loudly by the
+    previous release — and this family's rows do not resolve themselves
+    while the fault keeps firing.  Session 39's ban on in-place severity
+    changes is asymmetric, and this is the direction it permits.
+    """
+    agent = LogAggregatorAgent()
+    open_row = Alert(
+        agent="log_aggregator",
+        severity="warning",
+        title=alert_title("error", OWN_UNIT, AGENT_FAILURE_LINE),
+        message=AGENT_FAILURE_LINE,
+        details={"source": OWN_UNIT, "occurrences": 9},
+    )
+    session = _Session(open_alerts=[open_row])
+    await _run_own(agent, session, [_entry(AGENT_FAILURE_LINE, source=OWN_UNIT)])
+
+    assert session.alerts == []
+    assert open_row.severity == NOISE_SEVERITY
+    assert "failures.py" in open_row.details["covered_by"]
+    assert open_row.details["occurrences"] == 10
+
+
+def test_the_key_survives_the_normalisation_it_is_matched_through():
+    """The exclusion is keyed on a *signature*, not on the raw message.
+
+    ``signature()`` maps digit runs to ``N``, so an event name carrying a
+    number would be normalised into something
+    :data:`COVERED_SIGNATURES` does not hold — and the failure mode is
+    silence, not an error: the entry would simply never match and the
+    duplicate toast would come back.
+    """
+    assert signature(AGENT_RUN_FAILED_EVENT) == AGENT_RUN_FAILED_EVENT
+    assert (OWN_UNIT, signature(AGENT_RUN_FAILED_EVENT)) in COVERED_SIGNATURES
+
+
+@pytest.mark.asyncio
+async def test_the_emitter_still_emits_what_the_exclusion_keys_on(caplog):
+    """The pin, driven through the real ``BaseAgent.run``.
+
+    Both halves of the key are somebody else's fact — ``OWN_UNIT`` is the
+    unit's, ``AGENT_RUN_FAILED_EVENT`` is ``BaseAgent``'s — and an
+    exclusion keyed on a stale copy fails *silently*, which is the
+    ``SNAG-DB-003`` shape.  Asserting the constant against itself proves
+    nothing, so this drives a real failing run and keys on what the
+    logger actually emitted.
+    """
+    from contextlib import asynccontextmanager
+
+    class _Boom(BaseAgent):
+        name = "log_aggregator"
+
+        async def _execute(self, session):
+            raise RuntimeError("check constraint violated")
+
+    @asynccontextmanager
+    async def _session():
+        session = MagicMock()
+        session.flush = AsyncMock()
+        session.execute = AsyncMock()
+        yield session
+
+    with (
+        caplog.at_level("ERROR", logger="sysadmin.core.agent"),
+        patch("sysadmin.core.agent.get_scheduler_session", _session),
+    ):
+        await _Boom().run()
+
+    emitted = [r.getMessage() for r in caplog.records if r.name == "sysadmin.core.agent"]
+    assert emitted, "the failing run wrote no ERROR line"
+    assert any((OWN_UNIT, signature(m)) in COVERED_SIGNATURES for m in emitted), (
+        f"nothing BaseAgent.run emitted matches COVERED_SIGNATURES: {emitted}"
+    )

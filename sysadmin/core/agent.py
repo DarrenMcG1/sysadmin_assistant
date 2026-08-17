@@ -21,6 +21,24 @@ from sysadmin.core.models.alert import Alert
 
 logger = logging.getLogger(__name__)
 
+#: The log event :meth:`BaseAgent.run` writes when ``_execute`` raises.
+#:
+#: A constant rather than a literal because it is read **twice** and the
+#: two readers must not be able to disagree: this module emits it, and
+#: :data:`sysadmin.monitor.log_aggregator.COVERED_SIGNATURES` keys on it
+#: to stop the journal family raising a second alert for a fault
+#: :mod:`sysadmin.monitor.failures` already owns (``SNAG-LOG-005``).
+#: ``max_priority_for`` against ``PRIORITY_MAP`` and ``chk_alert_agent``
+#: against ``AGENT_NAMES`` are the same rule: derive, never write beside.
+#:
+#: It is also the *signature* of that fault, not merely its text —
+#: :func:`~sysadmin.monitor.log_signature.signature` is the identity the
+#: journal family deduplicates on, and it maps digit runs to ``N``.  This
+#: string contains no digits, so the two coincide; a test pins that,
+#: because renaming this event to something with a number in it would
+#: silently unkey the exclusion rather than break it.
+AGENT_RUN_FAILED_EVENT = "agent_run_failed"
+
 
 class AgentResult:
     """Result from an agent execution."""
@@ -215,7 +233,7 @@ class BaseAgent(ABC):
             details = {"error": str(e)}
 
             logger.exception(
-                "agent_run_failed",
+                AGENT_RUN_FAILED_EVENT,
                 extra={"agent": self.name, "run_type": run_type, "error": str(e)},
             )
 
