@@ -367,6 +367,68 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### ✅ Session 58: The document catches up with the box (done 2026-08-17)
+
+**The recommendation, taken on the fourth attempt.** `SNAG-DOCS-001` was
+named at the close of Session 55, re-stated by 56 and displaced twice on
+merit; the argument that displaced it — a detector's first live data
+beats the document backlog — was spent, and no fourth such opportunity
+was queued.
+
+- [x] **Measure before editing.** `GET :8500/openapi.json` serves **one**
+      route under `/api/projects`. The Contract Registry held **twelve**
+      `/api/projects` rows, not the fifteen the snag claims, and the
+      population splits **three** ways rather than two — served here
+      (`/managed`), consumed from 8400 (`/overview`, `/{name}`), and
+      neither (nine). The entry's own remedy, applied literally, would
+      have deleted a live route's contract and relabelled a live seam
+- [x] **Nine narrative blocks, not the five the entry named** — found by
+      grepping the tree instead of counting the paths it lists:
+      `snapshots.py`, `build_narrative_history`, `/next`, `momentum.py`,
+      `nudges.py`, `/stale`, `status: archived`, the marker scan and
+      `branch_actions.py`
+- [x] **Six further sentences**, each correct in isolation and wrong
+      together: "the file-organiser mirror of `/api/projects/actions`",
+      "the third scorer, after the project organiser's repositories",
+      "the two weekly reviews" (there is one), "both project sections
+      read **one** snapshot query" (there are none), the retention
+      narrative's example route, and the manifest parser named as
+      `sysadmin/registry/`. That is the residue a block-level sweep
+      leaves
+- [x] **Two blocks rewritten rather than pointed away**, because the
+      argument is still this repository's: `SysAdminAgent._resolve_recovered`
+      (the project organiser made the case, we still run the statement),
+      and `core/escalation.py`'s placement, whose stated reason —
+      `monitor` may not import `projects` — **expired with the domain**
+      and has been replaced with the four climbers it actually has
+- [x] **ADR-0005 was not linked from `CLAUDE.md` at all**, nor 0003 nor
+      0004. The pointer target of the entire fix was missing from the
+      index the fix points through; all three are now listed, with 0001's
+      open question marked answered against this repository
+- [x] Suite **1866** green, `CLAUDE.md` 1,774 → 1,684 lines
+
+#### What measuring the box found on the way
+
+- [x] **`SNAG-AGENT-002` was fixed on 2026-08-12 and nobody closed it.**
+      Its stated fix — group by unit plus a normalised signature, one
+      alert carrying an occurrence count — is `log_signature.py`
+      verbatim. Live table: **8 unresolved rows**, five log signatures,
+      every one carrying `occurrences` and `last_seen_at`, against
+      547,814 for one title on 2026-08-11. **Session 27 is therefore not
+      "fix the pile-up then build the tiers"; it is only the tiers**
+- [x] **`SNAG-ESTATE-010` filed**: Session 57's quietening is live in the
+      daemon and cannot reach the two rows it was written for, because
+      the family dedups on an open title. Escalation has a path for
+      getting louder (resolve the quiet row, raise a loud one) and
+      nothing has the reverse
+- [x] **`SNAG-DOCS-002` filed**: eight project contract models with zero
+      readers, four of them re-exported to the tray — the `SNAG-CFG-001`
+      shape, left for a sitting that is allowed to touch code
+- [x] **The snag parser went 36 → 38** across a sitting that closed two
+      and opened two, because it cannot see a closure that stays in
+      place under "Open". `SNAG-ROADMAP-002` demonstrating itself, and
+      still filed here though the parser left on 2026-08-13
+
 ### ✅ Session 57: The holder decides how loud (done 2026-08-17)
 
 **Not the recommendation.** Session 56 named `SNAG-DOCS-001`; the sitting
@@ -1433,14 +1495,22 @@ judgement, not volume.
 ignore known bulk-commit subjects, or weight staleness by commits that
 touched source rather than by the last commit date.
 
-### Session 27: Log aggregator tiers — take with SNAG-AGENT-002
+### Session 27: Log aggregator tiers — the coupling is spent
 
-Thinnest of the four, and deliberately coupled to the open snag: error
-**signature fingerprinting** is the fix for both.
+Thinnest of the four, and it was deliberately coupled to `SNAG-AGENT-002`
+because error **signature fingerprinting** was the fix for both. **That
+half is done** and the session is now only the tiers — re-scoped
+2026-08-17 by Session 58, which is also when the snag was closed on
+paper.
 
-- [ ] Fix [SNAG-AGENT-002](snag_list.md) — group by unit + normalised
+- [x] Fix [SNAG-AGENT-002](snag_list.md) — group by unit + normalised
       message signature within a poll, raise one alert carrying an
-      occurrence count (mirroring Session 16's "X flapped N×")
+      occurrence count (mirroring Session 16's "X flapped N×").
+      **Shipped 2026-08-12** as `sysadmin/monitor/log_signature.py` under
+      `SNAG-AGENT-005`, against 598,091 rows. Measured 2026-08-17: eight
+      unresolved rows on the whole box, five of them signatures, each
+      carrying `occurrences` and `last_seen_at`. Everything below now has
+      the grouping it was scoped to need and did not have
 - [ ] **Tier 1** — per-source error-rate trends week-on-week; "new error
       signatures this week vs last" (falls out of the fingerprinting)
 - [ ] **Tier 2** — recommendations like "this warning appeared 400× — add

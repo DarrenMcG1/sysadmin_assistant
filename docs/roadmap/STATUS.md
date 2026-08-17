@@ -3,114 +3,114 @@
 **Last Updated**: 2026-08-17
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **No sub-session actions, for the first time — and that is a measured
-> claim, not an empty list.** All three that stood here at the close of
-> Session 55 were **already done when the block was written**, none of
-> them by the party recording it, and checking that is the whole of
-> Session 56. Measured 2026-08-16/17:
+> **One sub-session action, and it is two minutes.** Resolve the two
+> `Estate port … registry breach` rows so the judge re-raises them under
+> Session 57's code:
 >
-> 1. **`sudo systemctl restart sysadmin.service`** — **done
->    2026-08-16 12:06:09 BST**, seven minutes after Session 55's own
->    commit (`a330e31`, 11:59). PID 1410826 → **1914354**;
->    `POST /api/sysadmin/reload` returns **200** where this block said it
->    404s; and `desktop_reminder_sweep` is scheduled in the running
->    process at `interval[0:03:00]` — the one thing the block called
->    *entirely* invisible until the restart landed. Sessions 49, 50, 52,
->    54 and 55 are all live. **The HUP warning now applies in reverse**:
->    the running daemon has the handler, so `kill -HUP <MainPID>` is the
->    correct way to pick up a config edit and needs no `sudo`.
-> 2. **The five system-scope orphan removals** (`SNAG-UNITS-005`) —
->    `offline-agents-dashboard`, `personalassistant-backend`,
->    `personalassistant-frontend`, `ticktick-sync` (+ timer) and
->    `ticktick-sync-db` are **absent** from `/etc/systemd/system` and all
->    report `not-found`. Done by the owner.
-> 3. **`SNAG-DB-002`'s `REINDEX`-before-`REFRESH` remedy** — done
->    **2026-08-13** by **estate-manager**, in two passes that evening.
->    Verified here by `relfilenode`/`oid` rather than by reading anything:
->    **0 of 125** collation-sensitive user indexes across the eight
->    databases retains its original relfilenode. This application's own
->    eight alerts resolved at 18:01:48 that evening.
+> ```sql
+> UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
+>  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
+> ```
 >
-> **Three of three stale is not an oversight, it is the absence of a
-> check** — filed as `SNAG-ESTATE-008`. Two of the three were plain
-> `systemctl` state this service already reads every 300 seconds. Note
-> also that an **empty** block is itself a claim: "nothing owed" and
-> "nothing checked" must not render identically, which is
-> `UnitScanResponse.ports_checked`'s rule arriving in a document. The
-> date above is when it was last verified, and the three checks are the
-> ones to re-run.
+> **Why it is needed and why it is not a session.** Session 57's
+> `TRANSIENT_HOLDER_SEVERITY = "info"` is *live* — the daemon restarted
+> 2026-08-17 10:06:38, four minutes after that commit — but both rows
+> were raised 2026-08-16 12:07 and `EstateJudgeAgent._execute` skips any
+> judgement whose title is already open before it reads severity or
+> `details`. So the two rows Session 57 was written for are still
+> `warning` with a null `holder`, and the tray will restate them at
+> `warning` on its 24-hour reminder. Both dev servers are still bound
+> (`nuxt dev` on 3110, `uvicorn --reload` on 8110), so this does not
+> self-clear until the editor closes. Filed as **`SNAG-ESTATE-010`**
+> because the general case is not a one-off: escalation has a path for
+> getting *louder* and nothing has the reverse, so any fix that quietens
+> a family is silent on every fault standing when it ships. Left for the
+> owner rather than run here — it is a write to the live `alerts` table,
+> and the entry is worth more than the two rows.
 >
-> **Next up**: **`SNAG-DOCS-001` — `CLAUDE.md` documents fifteen project
-> endpoints this service has not served since 2026-08-13.** *Recommended
-> at the close of Session 56, deferred once by Session 57 and re-stated
-> unchanged.* The deferral was on merit and is now spent: the ports
-> family produced its first live rows and a detector's first data has
-> beaten the document backlog three sittings running. There is no fourth
-> such opportunity queued — the estate judge's five surfaces have all now
-> been driven against producer-built or live payloads — so the argument
-> that displaced this one does not recur. Found by reading the live route
-> table while ranking, not by reading a document. `GET /openapi.json` serves **one** route under
-> `/api/projects`; the Contract Registry lists fifteen, each with an
-> "Enforcement" column claiming `response_model`. `sysadmin/projects/`
-> does not exist, and five of its modules are named by path as the
-> present-tense owners of rules the file states. `api/projects` appears
-> 26 times.
-> **It wins on blast radius, which is the argument no other candidate
-> can make.** A stale roadmap document costs the session that reads it.
-> `CLAUDE.md` is loaded into context at the **start of every session in
-> this repository**, so this one costs every session by default — and it
-> costs them in the most expensive way, by being confidently specific.
-> A session that plans against fifteen documented contracts will find
-> one. That is `SNAG-ROADMAP-002`'s failure on the one surface where the
-> disagreement is read before anything else.
-> **The work is a move, not a delete, and that is what makes it a session
-> rather than an edit.** The narratives are good writing about real
-> decisions and several are cited by name from docstrings and from other
-> snag entries; they belong behind pointers to estate-manager the way
-> this file's estate section already does. Deciding *which* blocks are
-> this repository's (the three 8400 seams it still consumes, guarded by
-> `tests/test_estate_project_contracts.py`) and which left with the
-> domain is the judgement the sitting buys. **Wholly local, no `sudo`,
-> no migration, no other repository** — the pointers are written here,
-> and estate-manager is only read.
+> **Next up**: **Session 27 — the log-aggregator tiers — and the news is
+> that its blocker is gone.** *Recommended at the close of Session 58.*
+> `tasks.md` gates the session on `SNAG-AGENT-002` ("group by unit +
+> normalised message signature… raise one alert carrying an occurrence
+> count"). That is `sysadmin/monitor/log_signature.py` verbatim, shipped
+> on 2026-08-12 under `SNAG-AGENT-005`, and the entry stayed open for
+> five days. Measured 2026-08-17: **8 unresolved rows on the whole box**,
+> five of them log signatures — the two Bluetooth firmware messages, the
+> hci reset, `alfred-backend.service` and `estate-broker-provision.service`
+> — each carrying `occurrences` and `last_seen_at`, against **547,814**
+> rows for `Log error: kernel` alone on 2026-08-11.
+> **So the session changed shape rather than merely becoming eligible.**
+> It has been ranked all week as "fix the pile-up, then build the tiers";
+> it is only the tiers, and they are Tier 1 (per-source error-rate trends
+> week-on-week, "new error signature this week" as the thing worth
+> saying), Tier 2 (recommendations off that history) and a Tier 3 that is
+> half-built already in the overnight LLM summary. Every one of those
+> needs a `signature` column's worth of grouping that now exists and did
+> not when the tiers were scoped.
+> **It wins on the argument that has beaten it for three sittings, now
+> reversed.** It lost repeatedly for having no fault behind it — correct
+> then, and the fault it lacked has been replaced by a *capability* it
+> lacked. It also wins on what is left: every rival either self-clears,
+> is another repository's, or has an empty population.
+>
 > **Runners-up.**
-> *Session 27's Tier 1* (per-source error-rate trends) is still the
-> largest genuinely-unbuilt thing and loses where it has lost for three
-> sittings: no fault behind it. `SNAG-AGENT-002`'s root cause went in
-> Session 42 and the aggregator carries **zero** unresolved rows against
-> 598,091 before. It also loses on a point this sitting sharpened —
-> additive work on a quiet subsystem is exactly what a misleading
-> `CLAUDE.md` makes expensive.
+> *`SNAG-DOCS-002`* — eight project contract models with zero readers,
+> four re-exported to the tray — loses on size, not merit. It is a
+> half-hour of deletion plus one decision (delete, or keep them and
+> extend the seam test to whatever the tray means to parse), and folding
+> it into the front of Session 27 costs nothing.
 > *`SNAG-TRAY-008`* — the understudy forgetting what it announced —
-> loses **on ordering, not on merit**. It is the stated cost of the
-> narrowing that makes Session 55's fix safe, and widening the
-> population before the sweep has ever been observed running would be
-> choosing between two mechanisms with no observations of either. The
-> sweep does not exist in the running scheduler until the restart below.
-> *An execution sitting on the standing `Unmonitored systemd units: 8
-> findings` row* — the box's **only** unresolved alert, open since
-> 2026-08-15 14:33 — loses on the same measurement as last sitting, now
-> re-taken: 10 recommendations, of which five are the system-scope
-> orphans blocked on `sudo` and four are other repositories' unit files.
-> Rule 3 makes those theirs, so the sitting yields delegation notes.
+> loses on ordering for the second sitting, and the reason has improved
+> rather than repeated: `desktop_reminder_sweep` is now scheduled in the
+> running process, so the mechanism can finally be *observed* before its
+> population is widened. Wait for an observation rather than choosing
+> between two mechanisms blind.
+> *`SNAG-ESTATE-010`*, filed above, loses as a **session** for the reason
+> its own entry gives: the obvious fix (resolve-and-re-raise on a
+> severity mismatch) rebuilds `collation.py`'s flip-flop, and a real fix
+> needs a reason the new severity is durable, which nothing here has yet.
+> The sub-session action above buys the whole of today's value.
+> *An execution sitting on `GET /api/units/actions`* loses on a
+> measurement that moved under it: the `Unmonitored systemd units: 8
+> findings` row that stood since 2026-08-15 was **resolved 2026-08-16
+> 18:07** and no successor was raised, because today's sweep finds
+> **3** — 1 unmonitored, 2 host, **0 orphaned and 0 armed** — which is
+> below `alert_threshold` and correctly silent. So the sitting would open
+> on no standing fault at all, and two of its three items are other
+> repositories' unit files, which the estate rules make theirs.
 > *`SNAG-AGENT-007`* (four unbounded `_active_alerts` reads per run)
-> loses on the same measurement for the **seventh** sitting: **one**
-> unresolved row on the whole box.
+> loses on the same measurement for the **eighth** sitting: eight rows on
+> the whole box.
 > **Named as blocked, not dropped.** `SNAG-ROADMAP-001`/`-002` and
-> `SNAG-PROJ-013` are other repositories' to fix. `SNAG-ESTATE-004`
-> through `-007` are all delegated and none has a counterpart entry in
-> estate-manager yet — recording them there is a cross-repo write,
-> committed on its own and announced, and is **not** a sysadmin session.
-> *Session 33's seam-drift detection* is **blocked on a stale premise**
-> rather than on judgement: its second checkbox reads Alfred's fixture at
-> `backend/tests/fixtures/briefing_producers/`, and that directory does
-> not exist on disk today. Re-scoping it needs an answer about where
-> Alfred keeps its producer fixtures now, which is a question for that
-> repository.
+> `SNAG-PROJ-013` are other repositories' to fix — and `-002` earned a
+> live demonstration this sitting, going 36 → 38 across a session that
+> closed two snags and opened two, because it cannot see a closure that
+> stays in place under "Open". `SNAG-ESTATE-004` through `-007` are all
+> delegated with no counterpart entry in estate-manager yet; recording
+> them there is a cross-repo write, committed on its own and announced,
+> and is **not** a sysadmin session. **Dropping the frozen project
+> tables** stays blocked with a number: 3,713 rows in the estate's copy
+> against 3,739 here, the 26 missing all dated 2026-08-13, and copying
+> them is estate-manager's call.
+> *Session 33's seam-drift detection* is **blocked on a stale premise**:
+> its second checkbox reads an Alfred fixture directory that does not
+> exist on disk. Re-scoping it is a question for that repository.
 > *`SNAG-UNITS-003`* loses where it always does, on an empty population.
 > *Sessions 25b/25c* lose where they always do: no consumer beyond the
 > API.
 >
+> **Previously here — `SNAG-DOCS-001` — `CLAUDE.md` describing a domain
+> that left**, recommended at the close of Session 55, re-stated by 56,
+> displaced twice on merit and **done 2026-08-17 as Session 58**. The
+> recommendation held on its central claim and was **wrong on both of its
+> numbers**, which is the part worth keeping: the table held twelve
+> project rows rather than fifteen, and the narratives were nine blocks
+> rather than five. More usefully, the population split **three** ways
+> and not two — one route is still served here, two are consumed from
+> 8400 — so the remedy as written ("move them all behind pointers")
+> would have deleted a live contract. It also missed that ADR-0005, the
+> pointer target of the whole fix, was not linked from `CLAUDE.md` at
+> all. See Recently Completed.
 > **Previously here — `SNAG-TRAY-007` — the desktop understudy speaks
 > once**, recommended 2026-08-16 at the close of Session 54 and **done
 > the same day as Session 55**. The recommendation held, including the
@@ -183,6 +183,53 @@
 ---
 
 ## Recently Completed
+
+### The document catches up with the box — SNAG-DOCS-001 (2026-08-17)
+
+**The recommendation, taken on the fourth attempt, and wrong on both of
+its numbers in a way worth keeping.** `CLAUDE.md` is loaded at the start
+of every session here, and since 2026-08-13 it had described the project
+domain — gone to estate-manager that day — in the present tense. The
+entry said fifteen endpoints and five narratives. Measured: **twelve**
+table rows and **nine** narrative blocks, plus six loose sentences that
+each read correctly alone and wrongly together.
+
+**The population splits three ways, not two, and that is what a literal
+reading of the entry would have got wrong.** `GET /api/projects/managed`
+is still **served here** — live `service_health` joined to registry
+identity, relocated within this repository by ADR-0005 and keeping its
+path. `/overview` and `/{name}` are **consumed** from 8400, parsed with
+this repository's own tolerant models under
+`tests/test_estate_project_contracts.py`. Only the remaining **nine** are
+neither. "Move them all behind pointers" would have deleted a live
+route's contract and relabelled a live seam as absent.
+
+**Two blocks were rewritten rather than pointed away**, because the
+argument is still ours: `SysAdminAgent._resolve_recovered` (the project
+organiser made the case; we still run the statement), and
+`core/escalation.py`'s placement — whose stated reason, *`monitor` may
+not import `projects`*, **expired with the domain** and has been replaced
+by the four climbers it actually has. Leaving a correct conclusion
+resting on a dead premise is the trap `SNAG-AGENT-006` records; this is
+that trap in a document.
+
+**ADR-0005 was not linked from `CLAUDE.md` at all** — the pointer target
+of the whole fix, missing from the index the fix points through. Nor were
+0003 and 0004. All three are listed now, and ADR-0001's open question
+("who owns project state") is marked answered against this repository.
+1,774 lines → 1,684. Suite **1866** green.
+
+**Three things came out of measuring the box rather than the tree.**
+`SNAG-AGENT-002` was **fixed on 2026-08-12** and closed on paper here —
+its stated remedy is `log_signature.py` verbatim, and the live table
+holds 8 unresolved rows against 547,814 for one title six days ago, so
+**Session 27 is now only the tiers**. `SNAG-ESTATE-010`: Session 57's
+quietening is live and cannot reach the two rows it was written for,
+because the family dedups on an open title and only *escalation* has a
+resolve-and-re-raise path. `SNAG-DOCS-002`: eight project contract models
+with zero readers, four re-exported to the tray. Closed two, opened two;
+the snag parser reported 36 → 38, which is `SNAG-ROADMAP-002`
+demonstrating itself on the sitting that fixed a documentation snag.
 
 ### The holder decides how loud — the ports family's first live rows (2026-08-17)
 

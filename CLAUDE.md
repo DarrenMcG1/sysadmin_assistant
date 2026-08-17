@@ -161,7 +161,7 @@ Run `./scripts/claude-postflight.sh` to verify docs are updated.
 
 **Backend Port:** `8500`
 
-**Configuration source:** settings live in `config.yaml` (validated by Pydantic models in `sysadmin/core/config.py`); per-service topology lives in `services.yaml`, keyed by project id and resolved through the `.project.yaml` manifests via `sysadmin/registry/`. `projects.yaml` is retired — project state lives in each repository's `.project.yaml`, and the old file is kept as `docs/projects-registry-legacy.yaml` until its comments have all moved into `decisions:` blocks. **No environment variables are read** — there is no `.env` file. Database URLs are set under the `database:` section of `config.yaml`.
+**Configuration source:** settings live in `config.yaml` (validated by Pydantic models in `sysadmin/core/config.py`); per-service topology lives in `services.yaml`, keyed by project id and resolved through the `.project.yaml` manifests via `estate.registry` (the parse moved to `estate-lib` on 2026-08-13, ADR-0005; `sysadmin/registry/` no longer exists). `projects.yaml` is retired — project state lives in each repository's `.project.yaml`, and the old file is kept as `docs/projects-registry-legacy.yaml` until its comments have all moved into `decisions:` blocks. **No environment variables are read** — there is no `.env` file. Database URLs are set under the `database:` section of `config.yaml`.
 
 ---
 
@@ -191,10 +191,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/sysadmin/events` | `EventMessage` | serialise-side only (SSE stream — each `data:` line, not a JSON body) |
 | `GET /api/logs/recent` | `LogsResponse` / `LogEntryInfo` | response_model |
 | `GET /api/logs/stats` | `LogStatsResponse` | response_model |
-| `GET /api/projects/overview` | `ProjectOverviewResponse` | response_model |
-| `GET /api/projects/stale` | `StaleProjectsResponse` (+`StaleProjectEntry`) | response_model |
-| `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model |
-| `GET /api/projects/{name}` | `ProjectDetailResponse` (+`ProjectHistoryPoint`) | parse-side only (history newest-first; tray reverses for plotting; carries `next_action` per point — see below) |
+| `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model (the only `/api/projects` route this service serves — see below) |
 | `GET /api/files/status` | `FileStatusResponse` (+`FileAuditSummary`, `FileQuickWins`) | parse-side only (404 = "no scan yet" → empty state) |
 | `GET /api/files/duplicates` | `DuplicatesResponse` | parse-side only (404 = "no scan yet") |
 | `GET /api/files/misplaced` | `MisplacedFilesResponse` | parse-side only (404 = "no scan yet") |
@@ -207,144 +204,65 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `POST /api/files/organise` | `FileActionResponse` (+`FileOperation`, `FileFlag`) | response_model |
 | `POST /api/files/clean/duplicates` | `FileActionResponse` (+`FileOperation`) | response_model |
 | `POST /api/files/clean/downloads` | `FileActionResponse` (+`FileOperation`) | response_model |
-| `POST /api/projects/{name}/branches/prune` | `BranchCleanupResponse` (+`BranchInfo`) | response_model |
-| `GET /api/projects/{name}/recommendations` | `ProjectRecommendationsResponse` (+`RecommendationInfo`) | response_model |
-| `GET /api/projects/actions` | `PortfolioActionsResponse` (+`PortfolioAction`) | response_model |
-| `GET /api/projects/board` | `ProjectBoardResponse` (+`ProjectBoardEntry`) | response_model |
-| `GET /api/projects/next` | `NextProjectResponse` (+`NextProjectInfo`) | response_model (200 with `project: null` when nothing qualifies — never 404s) |
-| `GET /api/projects/momentum` | `ProjectMomentumResponse` (+`ProjectMomentumEntry`) | response_model (200 with `worst: null` when nothing is measurable — never 404s) |
-| `GET /api/projects/review` | `ProjectReviewResponse` | response_model |
-| `POST /api/projects/review/generate` | `ProjectReviewResponse` | response_model (auth; LLM optional — digest fallback) |
 | `GET /api/units/status` | `UnitScanResponse` (+`UnitScanSummary`, `UnitFindingInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/units/actions` | `UnitActionsResponse` (+`UnitRecommendationInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/services/reliability` | `ReliabilityResponse` (+`ReliabilitySummary`, `ServiceReliabilityInfo`, `ReliabilityDeduction`) | response_model (computed live — never 404s) |
 
-Every surface that reports on projects goes through
-**`sysadmin/projects/snapshots.py`**, which owns the latest-snapshot-per-name
-join *and* the `newest_scan − 1h` freshness cutoff. Before Session 34 the
-cutoff existed on `GET /api/projects/board` and nowhere else, so a project
-deleted from disk was dropped from the board and reported as live by the other
-eight surfaces — `PA-worktrees` held a row for two days after deletion, with a
-health score and a next action. The audit counted eight call sites and there
-were **nine**, which is the argument for a shared query rather than a repeated
-filter: a copy-pasted pattern cannot be counted reliably.
+**Consumed from estate-manager on 8400** — parsed here, served there:
 
-Two rules the module encodes:
+| Endpoint | Contract model | Enforcement |
+|----------|----------------|-------------|
+| `GET :8400/api/projects/overview` | `ProjectOverviewResponse` | parse-side only (tolerant parse; guarded by `tests/test_estate_project_contracts.py`) |
+| `GET :8400/api/projects/{name}` | `ProjectDetailResponse` (+`ProjectHistoryPoint`) | parse-side only (history newest-first; tray reverses for plotting) |
 
-1. **Freshness is anchored to the newest scan, never to `now()`.** Anchoring
-   to wall-clock would empty every project surface the moment the organiser's
-   timer stopped — a monitoring failure reported as an estate with no projects
-   in it.
-2. **`fresh=False` exists for questions about history**, such as a review's
-   week-ago baseline, where excluding projects that have since disappeared
-   would hide the change being measured. Every *reporting* caller uses the
-   default.
+**Project state left this repository on 2026-08-13, and what remains is a
+consumer.** [ADR-0005](docs/adr/0005-project-state-leaves.md) records the
+move and estate-manager's ADR-0004 and ADR-0008 hold the other side.
+`sysadmin/projects/` and `sysadmin/registry/` are **gone**: the scanner,
+the roadmap parse, the board, `/next`, momentum, the nudge arithmetic, the
+weekly project review, branch actions and estate.json emission are
+`estate_service/projects/` on port 8400, and the `.project.yaml` parse is
+`estate.registry` in `estate-lib`. The reasoning behind every rule those
+modules encode — the latest-snapshot-per-name join and its
+`newest_scan − 1h` cutoff, why `next_action_changed` is `None` and never
+`False` at the oldest point, why `/next` ranks in days rather than scans,
+why momentum matches a landing by date window rather than at the
+transition scan — **moved with them and is worth reading there.** It is
+not restated here, because a narrative describing another repository's
+code in the present tense is precisely what `SNAG-DOCS-001` was.
 
-`tests/test_project_snapshots_query.py` fails if any module outside
-`snapshots.py` builds `func.max(ProjectSnapshot.scanned_at)` for itself. Note
-what it cannot show: the suite mocks every session, so a `WHERE` clause is
-invisible to it and the filter's effect is asserted on compiled SQL, not a
-round trip.
+Three things stayed, and holding them apart is the point:
 
-**`ProjectHistoryPoint` carries the narrative, not just the score.** The
-organiser has written the whole roadmap findings block into
-`project_snapshots` since Session 28, and until Session 37 the history list
-exposed `health_score` and `scanned_at` only — ninety days of next actions
-sat in JSONB with no endpoint over them, which is why Session 32's
-start-versus-finish accounting was filed as blocked on a *document format*
-when the data already existed. `build_narrative_history` adds
-`next_action`, `next_action_source` and `next_action_changed`.
+1. **`GET /api/projects/managed` is still served here.** Its substance is
+   live `service_health` joined to registry identity the library supplies
+   — monitor data wearing a project-shaped path
+   (`sysadmin/monitor/routers/projects_managed.py`). The tray keeps its
+   URL. It is the only route under `/api/projects` this service serves;
+   `GET /openapi.json` is the check, and it disagreed with this document
+   from 2026-08-13 until this was written on 2026-08-17.
+2. **Two routes are *consumed*, not served.** The tray fetches
+   `/overview` and `/{name}` from **8400** and parses them with this
+   repository's models — two models for one payload deliberately, a
+   tolerant parse (`extra="ignore"`, every field defaulted) against a
+   producer's guarantee (`response_model=`). Collapsing them would make
+   the tray's defensiveness the producer's problem. The seam is guarded
+   by `tests/test_estate_project_contracts.py`, whose recorded half
+   catches consumer drift in CI and whose live half is the only thing
+   that can catch the producer's.
+3. **The estate's surfaces are judged here.** `/api/projects/invariants`
+   and `/api/projects/attention` on 8400, read by `sysadmin/estate/` —
+   the swap ADR-0005 records: the estate publishes and never acts, this
+   repository judges and never scans. Neither judges itself.
 
-Two rules it encodes. **The comparison runs against the older neighbour**
-(rows are newest-first, so index `i + 1`): `True` marks the scan where work
-moved on, and a run of `False` measures how long one action stayed open —
-ImbaBots' `M5-T05` shows 10 consecutive scans across 3 days. **The oldest
-point is `None`, never `False`**, because there is nothing older in the
-window to compare against; rendering that as "unchanged" invents a streak
-whose length moves with `limit` while the data does not. Snapshots from
-before 2026-08-06 carry `{}` and yield `None` — every `findings` access is
-defensive, since this runs over whatever 90 days of retention holds.
-
-**`GET /api/projects/next` ranks by stuckness, and the unit is days.**
-The board describes projects and lets the caller order them; `/next`
-chooses *for* the caller — alfred-glance shows one item, so the ranking is
-invisible and `reason` is the only place the choice is accountable. The
-rule, decided 2026-08-10, is **how long the stated next action has stood
-unchanged**, tie-broken by the most recent commit. Rejected: longest-idle
-(ranks by guilt, against the stated goal of momentum), nearest-to-finishing
-(`done_tasks`/`open_tasks` are `None` for three of five active projects, so
-it would be blind to most of the population while looking authoritative)
-and smallest-next-step (unmeasurable — nothing records the size of a step).
-
-**Days, not scans, because the cadence is irregular by construction**:
-6-hourly until Session 35, daily from the organiser's timer since, plus
-every manual `POST /api/projects/scan` — the live table holds two scans 17
-minutes apart on 2026-08-08. A run length in scans ranks by how often the
-organiser happened to run and calls it the owner's behaviour.
-`unchanged_scans` is reported as evidence for the number, never ranked on,
-and `at_window_edge` marks a run that reaches the oldest scan held, so
-`days_unchanged` is a lower bound.
-
-Three further rules. **Elapsed days come from the snapshot series, not
-`handoff_age_days`** — the document's self-reported date says what it
-claims about itself, the series says what was observed, and
-`handoff_age_days` already decides `stalled`. **A `git`-sourced action is
-not a candidate**: a commit subject is a record of the past, honest on the
-board where the source is rendered beside it, and not an instruction.
-**Nothing to do returns 200 with `project: null`**, never 404, which would
-collapse "every project is up to date" into "no scan has ever run";
-`skipped` breaks the ruled-out population down by reason, which is what
-made it legible that the eligible set is 2 of 23.
-
-**`GET /api/projects/momentum` counts events, not state.** The board and
-`/next` read the newest snapshot and the idle nudges read how long one
-action has stood — all three describe how things are *now*. This reads the
-series and asks how often a session starts here and nothing ships.
-
-The session record is a **side effect of a Stop hook**, not a log.
-`~/.claude/hooks/require-handoff.sh` blocks a session that changed code
-until `HANDOFF.md` carries today's date, and the organiser has stored that
-document's age on every scan since 2026-08-06 — so
-`scanned_at − handoff_age_days` reconstructs the date it was written, and a
-change in that value between two scans is an observed session. Session 32
-was filed as blocked on writing `docs/sessions/log.jsonl`; the log already
-existed, sideways, in JSONB.
-
-Three rules `sysadmin/projects/momentum.py` encodes, the first of which was
-written the obvious way and refuted by the live series the same hour:
-
-1. **A landing is matched by date window, never at the transition scan.**
-   Asking "had a commit been made by the time the scanner saw the new
-   handoff?" reads as common sense and is wrong, because the handoff is
-   written *before* the work is committed. The scan at `2026-08-10 09:06`
-   saw this repository's new handoff while `last_commit_at` still read
-   2026-08-08; the day's six commits arrived afterwards and a productive
-   day was reported as dropped. Scan timing was deciding the answer. A
-   commit dated in `[session_date, next_session_date)` is that session's
-   output.
-2. **"Landed nothing" and "landed no code" are separate counts.**
-   `dropped_code` versus `dropped`, with `docs_only` as the gap — a
-   session that wrote up what it decided is a better outcome than silence
-   and must not be summed with it. The any-commit date needs no scanner
-   change: `findings['git']` is written only when a housekeeping commit
-   was skipped (77 rows of 3,635), so its absence means the newest commit
-   *is* the newest code commit and the fallback to `last_commit_at` is
-   exact rather than approximate.
-3. **Every count is a lower bound and the fields say so.** A session that
-   changed no code never wrote a handoff; two sessions on one date
-   collapse into one; the oldest observation is a state rather than a
-   transition, so the session behind it is uncounted (the same rule
-   `build_narrative_history` applies to `next_action_changed`); and
-   `unverified` marks sessions dated by file mtime, which a clone or
-   checkout rewrites. `observed_from` reports the first **dated** scan,
-   not the first scan — this estate holds 198 snapshots of
-   `sysadmin_assistant` and 22 of them can carry a session.
-
-Its population is `ACTIVELY_SCORED` (`active` + `undeclared`), borrowed
-from the agent rather than restated, and deliberately **wider** than
-`/api/projects/next`: a commitment needs someone to have written one down,
-whereas a session that shipped nothing is a fact about a repository
-whether or not it has a plan.
+`sysadmin/core/contracts.py` still defines `StaleProjectsResponse`,
+`ProjectBoardResponse`, `NextProjectResponse`, `ProjectMomentumResponse`,
+`BranchCleanupResponse`, `PortfolioActionsResponse`,
+`ProjectRecommendationsResponse` and `ProjectReviewResponse`, and
+`sysadmin_tray/models.py` re-exports four of them. **Nothing reads any of
+them** — measured, not assumed. That is the `SNAG-CFG-001` shape: a model
+pydantic validates and no caller consumes. Filed as `SNAG-DOCS-002` and
+deliberately not deleted in a documentation sitting, because removing a
+re-exported name is a change to the tray's public surface.
 
 **Two things speak on this box, and only one of them at a time.** The tray
 polls `GET /api/sysadmin/alerts` and owns the notification policy (dedup,
@@ -374,11 +292,17 @@ match pattern (`"Project % health critical"`), not a subject.
 
 **A detected fault has to keep speaking, and the ladder that makes it do
 so lives in `core`** (Session 39). `sysadmin/core/escalation.py` owns
-`SEVERITY_ORDER`, `Ladder` and `step_for`; `sysadmin/projects/nudges.py`
-and `sysadmin/monitor/stalls.py` both climb it. It is in `core` for the
-reason `strip_markdown` is — `monitor` may not import `projects`
-(`tests/test_import_boundary.py`) — so "reuse rather than copy" required
-the move first.
+`SEVERITY_ORDER`, `Ladder` and `step_for`. It was put there for the reason
+`strip_markdown` was — the two climbers sat on opposite sides of the rule
+that `monitor` may not import `projects`
+(`tests/test_import_boundary.py`), so "reuse rather than copy" required
+the move first. **That reason has since expired and the placement gained
+better ones**: the projects domain left on 2026-08-13 and four domains
+climb the ladder now — `monitor/stalls.py`, `monitor/failures.py`,
+`units/agent.py` and `estate/judgements.py`, with `monitor/desktop.py`
+taking `humanise_hours`. The boundary test still names a package that
+cannot exist, which makes it a guard against bringing it back rather than
+a live constraint.
 
 The failure it fixes is **not** a detection failure.
 `self_monitor.build_self_report` caught SNAG-AGENT-003 correctly and
@@ -684,69 +608,35 @@ run. Note the rule already existed one layer up, in `files/review.py`
 ("commit the read transaction before calling the LLM") — learned for
 inference and never generalised to the framework beneath it.
 
-**Idle nudges have no endpoint, and that is the design** (Session 31). A
-nudge is an `alerts` row raised by the organiser — `Project <name> next
-action idle` — so it reaches the tray, the DND windows and
-`GET /api/sysadmin/alerts` through plumbing that already exists. What it
-asks is deliberately *not* the health score: an `active` project whose
-human-written next action has not changed for **7 days** (`info`), then
-**14** (`warning`), overridable per project as `idle_nudge_days` in
-`.project.yaml`. `venture-assistant` scores 100 and could still be sat on
-the same action for a fortnight, which is why the score is never
-consulted.
+**Idle nudges are raised by the estate now, and judged here.** The nudge
+— an `active` project whose human-written next action has not changed for
+N days — was this repository's from Session 31 until the domain left on
+2026-08-13 (ADR-0005). Its arithmetic, its per-project `idle_nudge_days`
+override and the rule that eligibility is *borrowed* from the
+next-project endpoint rather than restated are estate-manager's, and are
+worth reading there.
 
-Eligibility is **borrowed from `GET /api/projects/next`**, not restated:
-`next_action.eligible_candidates` is the one definition of a commitment
-(active, `handoff`/`tasks` source, not a "nothing queued" sentence) and
-both call it. Two copies drift in the direction nobody notices — the
-endpoint stops offering a project while the nudge goes on reminding you
-about it, and nothing reports the disagreement.
+What remains here is the consuming half, and it is the interesting half:
+the estate publishes nudges on `GET :8400/api/projects/attention` and
+**may not act on them**, so `judge_attention` turns them into alert rows
+— taking the producer's severity verbatim rather than recomputing a rung,
+because the ladder moved with the domain. Whether the quiet rung is
+audible at all is still decided by **`tray.notify_min_severity`** — *not*
+`notifications.desktop.min_severity`, which is parsed and read by nothing
+(SNAG-CFG-001).
 
-Three rules `sysadmin/projects/nudges.py` and `_nudge_idle_projects`
-encode, each the opposite of the obvious implementation:
-
-1. **Raised once per open nudge, not once per scan.** `raise_alert`
-   inserts unconditionally and the organiser runs daily, so the
-   health-alert pattern writes one row per day per stuck project — the
-   1,664-row pile-up expressed as a feature.
-2. **Escalation resolves the quiet row and raises a loud one**, never
-   updates severity in place: the tray fingerprints on
-   `"{severity}:{title}"`, so an in-place change keeps a fingerprint it
-   has already suppressed and the escalation is recorded but never spoken.
-3. **The escalation is a gap, not a multiplier.** A project relaxing its
-   own threshold to 21 days escalates at 28, not 42 — the per-project
-   knob moves when the clock starts, not how patient the escalation is.
-
-A nudge is never `critical`: criticals break through DND by configuration.
-Whether the `info` rung is audible at all is decided by
-**`tray.notify_min_severity`** — *not* `notifications.desktop.min_severity`,
-which is parsed and read by nothing (SNAG-CFG-001).
-
-`GET /api/projects/stale` answers **idleness, not ill health** — commits older
-than `days`, defaulting to 30. It spent its first life declaring `days` and
-filtering on `health_score < needs_attention_min` instead, which made it a
-duplicate of `/overview`: a well-kept repository untouched for a year scored 90
-and never appeared. `days_idle` is `None` for a project with no commit at all,
-which is distinct from `0` (committed today) and is deliberately *included*
-rather than dropped — "never" is the strongest form of the question being
-asked. The window is echoed back in the body so a cached response stays
-interpretable.
-
-**Both scoring agents resolve alerts set-based**, and the second one arrived
-by the first one's argument being reused rather than rediscovered.
-`ProjectOrganiserAgent._resolve_recovered` came first: a project deleted from
-disk never appears in a scan, so it can never be observed *recovering*, a
-per-project loop leaves its alert unresolved forever, and retention purges
-resolved rows only. That is how 1,664 rows accumulated by 2026-08-07, 326
-sharing one title. `_resolve_recovered` asks the inverse question — which open
-health alerts would this scan *not* raise — closing recovery, deletion, rename
-and re-declaration as `archived` in one statement. Raise and resolve both
-derive their title from `_alert_title`, because a hand-written resolve pattern
-that matches nothing is invisible.
-
-`SysAdminAgent._resolve_recovered` is the same statement on the service side
-(Session 41, SNAG-AGENT-004), where the same defect had reached **51,924
-rows** — twenty times the scale, and in two families rather than one:
+**`SysAdminAgent._resolve_recovered` resolves alerts set-based**, and it
+arrived by an argument being reused rather than rediscovered. The project
+organiser made it first: a project deleted from disk never appears in a
+scan, so it can never be observed *recovering*, a per-project loop leaves
+its alert unresolved for ever, and retention purges resolved rows only —
+which is how 1,664 rows accumulated by 2026-08-07, 326 of them sharing one
+title. The fix was to ask the inverse question: which open alerts would
+this run *not* raise. That agent left with the projects domain on
+2026-08-13 (ADR-0005) and its own account of the rule is estate-manager's;
+the statement it argued for is still here, on the service side (Session
+41, SNAG-AGENT-004), where the same defect had reached **51,924 rows** —
+twenty times the scale, and in two families rather than one:
 
 - **27,827 for five services that no longer exist** in either config file.
   Recovery was observed inside the loop over the *configured* services, so a
@@ -1170,32 +1060,25 @@ unavoidable — but hitting it is now `details['truncated_sources']`, which
 ceiling decides whether it matters. It was invisible before: `findings_count`
 sat at exactly 200 on every run.
 
-**`status: archived` waives exactly two deductions** — commit staleness and
-stale branches — and nothing else. It is *not* a general git-hygiene exemption:
-a leftover `.git/index.lock` still costs an archived project 5 points and a
-missing remote is still reported. Its **alert suppression, by contrast, is
-absolute**: `_effective_threshold` returns 0 and the score is clamped with
-`max(0, …)`, so the condition is `score < 0` — unreachable at any score, for
-any repository, unless a manifest sets an explicit `alert_threshold`.
+**The repository health score is the estate's.** `status: archived`'s two
+waived deductions, the marker scan that excludes `*.md` so a repository's
+own `snag_list.md` stops lowering its score, the whole-word `grep -w` and
+the per-project truncation cap — every rule that turns a repository into a
+number moved with `sysadmin/projects/` on 2026-08-13 (ADR-0005) and is
+argued for there. What this repository does with the result is judge it
+from outside: `judge_attention` reads the breaches the estate publishes
+and never recomputes a score.
 
-**The marker scan reads code, not documentation.** `*.md` is excluded because a
-repository's own `snag_list.md` counted towards its own penalty — writing up a
-defect lowered the score of the project writing it up. Patterns match whole
-words (`grep -w`), so `TODO_STATES` and `TodoList` are identifiers rather than
-markers, and the cap is a **project total** that records its own truncation in
-`findings['todo_scan_truncated']`; `-m` is grep's per-file limit and was
-documented as a global one. All configured patterns are penalised, so
-`findings['todos']` carries the full per-pattern mapping and the
-recommendation names the markers it charged for — a project penalised for 40
-`HACK` markers used to read "0 TODOs, 0 FIXMEs" beside an unexplained
-deduction.
+The weekly disk review is **figure-free by construction**, not by
+instruction, and uses `strip_markdown` from `sysadmin/core/text.py` —
+which now re-exports `estate.text`, the mechanism having gone to the
+library when the project review that shared it left. It lived in `core`
+because neither domain could import the other; it stays there because the
+signature stayed and every importer here is unchanged.
 
-Both weekly reviews are **figure-free by construction**, not by instruction,
-and share `strip_markdown` from `sysadmin/core/text.py` — it lives in `core`
-because neither domain may import the other.
-
-`GET /api/files/actions` is the file-organiser mirror of
-`GET /api/projects/actions`, with one deliberate difference: its currency is
+`GET /api/files/actions` was built as the file-organiser mirror of
+`/api/projects/actions` — estate-manager's route since 2026-08-13 — with
+one deliberate difference: its currency is
 **reclaimable megabytes**, not health-score points, so it uses its own
 `FileRecommendationInfo` rather than reusing `RecommendationInfo` — one
 `points` field meaning two units decided by the producer would be unreadable
@@ -1208,8 +1091,10 @@ inside 30 days outranks every byte total. Counts come from the audit row's
 columns, never from `findings` — the findings lists are truncated to 50–100
 entries before storage, so sizes summed from them are a lower bound and say so.
 
-`GET /api/files/review` is the disk equivalent of `GET /api/projects/review`,
-stored in its own `disk_reviews` table. Two rules govern any LLM-narrated
+`GET /api/files/review` is the weekly disk review, stored in its own
+`disk_reviews` table. It was built as the mirror of the project review
+that has since moved to 8400, and is now the only LLM-narrated review this
+service produces. Two rules govern any LLM-narrated
 review here, both learned from live runs:
 
 1. **Commit the read transaction before calling the LLM.** This host sets
@@ -1229,13 +1114,15 @@ The three `/api/files/*` action endpoints share one manifest shape and are
 `sysadmin/files/actions.py` for the safety rules (root confinement,
 no symlink following, no overwriting, trash instead of delete).
 
-`POST /api/projects/{name}/branches/prune` follows the same contract for git
-branches — see `sysadmin/projects/branch_actions.py`. Dry run by default;
-only branches **merged into the detected default branch** are eligible, and
-deleting an unmerged one needs `include_unmerged: true` on the request **and**
-`agents.project_organiser.branch_actions.allow_unmerged_delete` in config. The
-default/protected/checked-out/worktree branches and anything ahead of its
-upstream are never deleted, whatever the flags say.
+`POST /api/projects/{name}/branches/prune` applied the same contract to
+git branches and **moved with the domain** (ADR-0005). Its safety rules —
+merged-into-the-default-branch eligibility, `include_unmerged` gated on
+both the request and config, and the default/protected/checked-out/worktree
+branches that are never deleted whatever the flags say — are
+estate-manager's now. The `agents.project_organiser.branch_actions` block
+in `config.yaml` is still parsed here and read by nothing, recorded as
+knowingly untidy in ADR-0005 rather than trimmed in the same sitting:
+config classes fan out into defaults tests.
 
 `GET /api/units/*` is the service-discovery pair (Session 26): the sweep as
 measured, and the sweep as ranked advice. Both are **GET-only and always
@@ -1493,7 +1380,8 @@ Three rules the detector encodes, each learned from the live estate:
    tray tiles cannot share one label.
 
 `GET /api/services/reliability` (Session 25, Tier 1) scores the *services*
-— the third scorer, after the project organiser's repositories and the
+— the third scorer, after the repository scoring that moved to the estate
+on 2026-08-13 (ADR-0005) and the
 file organiser's disk. Score is `100 − downtime − instability`, both
 individually attributable:
 
@@ -1554,9 +1442,12 @@ looks each up in the map, so a table with one half is silently never purged
 the map. Review tables get **365 days**, not the 30 that check data gets: a
 weekly narrative kept for 30 days is four rows, too few to see a trend.
 `KEEP_LATEST_PER` protects the newest row per entity (`"true"` means "the
-whole table is one entity"), because a purge that emptied `project_reviews`
-would make `GET /api/projects/review` 404 — which reads as "never generated"
-rather than "none lately".
+whole table is one entity"), because a purge that emptied a review table
+would make its route 404 — which reads as "never generated" rather than
+"none lately". `project_reviews` and `project_snapshots` are still in both
+halves and are now **frozen**: nothing has written them since 2026-08-13,
+the purge thins them, and dropping them with their `metadata.py` rows and
+retention entries is the follow-up ADR-0005 records.
 
 **The briefing envelope is additive, and `sections` is the part Alfred
 owns.** `GET /api/sysadmin/briefing/preview` carries `schema`, `period`,
@@ -1585,18 +1476,23 @@ Four rules `sysadmin/briefing/data.py` encodes:
    never the rows the sections render. A facts block containing the whole
    payload cannot be diffed, which is the only reason it exists. A test
    asserts every list in it holds scalars.
-4. **`summary` is deterministic.** The two weekly reviews are LLM-narrated
-   and pay for it with a figure-free prompt and a markdown stripper; a
+4. **`summary` is deterministic.** The weekly disk review is LLM-narrated
+   and pays for it with a figure-free prompt and a markdown stripper; a
    summary made only of numbers gains nothing from that and would take the
    06:00 path down with llama-server.
 
-Both project sections read **one** snapshot query and one
-`status == "active"` filter (SNAG-BRIEF-001: they used to disagree inside
-one payload — 26 rows against 5). Health rows sort **ascending**, because
-descending plus a cap shows only the projects sitting on 100. `next` is
-capped at `NEXT_ACTION_CHARS` through `truncate_at_word`, which always
-marks the cut (SNAG-BRIEF-002); `GET /api/projects/board` deliberately
-serves the same field uncapped.
+The briefing's **project half is gone** (2026-08-13, ADR-0005). "Project
+Health", "Pick This Up" and "Weekly Project Review" come from the estate's
+own producer (`GET :8400/api/estate/briefing`), which Alfred pulls
+separately by its ADR-0070; `briefing/preview` keeps the machine sections
+— Infrastructure, Overnight Logs, Filesystem, Weekly Disk Review — **and
+the alert digest**, so the alerting path never routes through the estate.
+`SNAG-BRIEF-001` (the two project sections disagreeing inside one payload,
+26 rows against 5) and `SNAG-BRIEF-002` (a next action cut mid-word with
+no marker) were both fixed here before the move and are the estate's to
+keep fixed. `truncate_at_word`, which always marks the cut, went with them
+to `estate.text`; `NEXT_ACTION_CHARS` still governs the alert messages
+this service writes.
 
 **Configuration is re-read on demand, and the honest half is what it
 says it could not do** (Session 49, `SNAG-UNITS-005`). `sysadmin/reload.py`
@@ -1758,10 +1654,27 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
   them to estate-manager.
 - **[0001-project-registry.md](docs/adr/0001-project-registry.md)** — why
   project identity moved into the repositories as `.project.yaml`, why
-  `services.yaml` holds no paths, why persistence was deliberately
-  deferred, and the still-open question of who owns project state. Read it
-  before adding a table for project data or changing how projects are
-  identified.
+  `services.yaml` holds no paths, and why persistence was deliberately
+  deferred. Its open question — who owns project state — was **answered
+  against this repository** by ADR-0005 below. Read it before adding a
+  table for project data or changing how projects are identified.
+- **[0003-mqtt-credential-by-loadcredential.md](docs/adr/0003-mqtt-credential-by-loadcredential.md)**
+  — why the broker password reaches this process through `LoadCredential=`
+  and never through `config.yaml` or an `EnvironmentFile`.
+- **[0004-estate-lib-client-core.md](docs/adr/0004-estate-lib-client-core.md)**
+  — why `estate-lib` is a shared library rather than a copied client, and
+  what this repository is allowed to import from it.
+- **[0005-project-state-leaves.md](docs/adr/0005-project-state-leaves.md)**
+  — **read this before writing anything about projects here.** The
+  scanner, the board, `/next`, momentum, the nudge arithmetic, the weekly
+  project review, branch actions and the briefing's project half left for
+  estate-manager on 2026-08-13; `sysadmin/registry/` went to `estate-lib`
+  as `estate.registry`. It records what stayed, what this repository
+  gained (the judging swap), and what was left knowingly untidy —
+  including the frozen `project_snapshots` / `project_reviews` tables and
+  the `agents.project_organiser` config block that is still parsed and
+  mostly unread. Estate side: their ADR-0004 (the decision) and ADR-0008
+  (the migration's shape).
 
 Guides: only **api_auth.md** (bearer-token auth setup) still lives in
 this repository's `docs/guides/`. The four cross-repo guides —

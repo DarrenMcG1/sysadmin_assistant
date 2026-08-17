@@ -2,96 +2,119 @@
 
 ## Next action
 
-Take `SNAG-DOCS-001` and move `CLAUDE.md`'s fifteen project-endpoint contracts and five `sysadmin/projects/*` narratives behind pointers to estate-manager, because the file loaded into context at the start of every session describes a domain that left this repository on 2026-08-13 — and the argument that displaced it twice, that a detector's first live data beats the document backlog, is now spent with all five estate surfaces driven against real payloads.
+Take Session 27 — the log-aggregator tiers — because the snag it has been coupled to since 2026-08-05 was fixed on 2026-08-12 and closed on paper today, so the session is no longer "fix the pile-up, then build the tiers" but only the tiers, on an alerts table holding eight unresolved rows where one title held 547,814 six days ago.
 
-## This session — Session 57, the holder decides how loud
+## Two-minute job first, and it is not the session
 
-**Not the recommendation**, and the second consecutive sitting to
-displace `SNAG-DOCS-001`. The reason was live and time-limited: the
-ports family produced its first rows ever on 2026-08-16 12:07, one
-minute after the daemon last entered active, and Sessions 52 and 54 had
-each found a real defect on a detector's first data. This makes three
-for three.
+Resolve the two `Estate port … registry breach` rows so the judge
+re-raises them under Session 57's code:
 
-### What was open, and why the remedy did not apply
+```sql
+UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
+ WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
+```
 
-`Estate port 3110` and `Estate port 8110`, both `warning`, both
-standing. Both listeners are Alfred dev servers launched from VS Code —
-`nuxt dev` and `uvicorn --reload`, all three pids in
-`app-code-oss-26348.scope`. The estate's finding is **literally
-correct**: no registry row claims either port. Its remedy is the half
-that does not apply, because an editor's dev server is not a service the
-next project could collide with and it leaves when the window closes.
+Session 57's `TRANSIENT_HOLDER_SEVERITY = "info"` **is live** — the
+daemon restarted 2026-08-17 10:06:38, four minutes after that commit —
+but both rows were raised 2026-08-16 12:07 and
+`EstateJudgeAgent._execute` skips a judgement whose title is already open
+before it reads severity or `details`. Both dev servers are still bound,
+so this does not self-clear until the editor closes, and the tray will
+restate them at `warning` on its 24-hour reminder. Left for the owner
+rather than run from a documentation sitting: it is a write to the live
+`alerts` table. Filed as `SNAG-ESTATE-010`.
 
-### The defect was not a missing signal
+## This session — Session 58, the document catches up with the box
 
-`Listener.transient` has named these listeners since Session 26c. The
-signal was collected, named, and then dropped twice over:
-`PortReport.unit_ports` skips `attributed and transient` for
-`recommendations.py`'s correct reason (a session scope is nobody's
-service, and a `kind: http` snippet for one would invent a service), and
-`unattributed_ports` never held them because a session scope *is*
-attributed. The port fell out of the stored blob **entirely** — measured
-on the real 2026-08-17 output, `unattributed_ports` came back `[]` — so
-`details['holder']` was `None` and indistinguishable from 5432's genuine
-unattributability. `ports_checked`'s rule one layer down.
+**The recommendation, taken on the fourth attempt.** `SNAG-DOCS-001` was
+named at the close of Session 55, re-stated by 56 and displaced twice on
+merit by a detector's first live data. That argument was spent — all five
+estate surfaces have now been driven against real payloads — and no
+fourth such opportunity was queued.
+
+### The entry was right about the fault and wrong about its size
+
+Both numbers in the snag are wrong, and how they are wrong is the
+finding rather than an erratum:
+
+- The Contract Registry held **twelve** `/api/projects` rows, not
+  fifteen.
+- The narratives were **nine** blocks, not five — `snapshots.py`,
+  `build_narrative_history`, `/next`, `momentum.py`, `nudges.py`,
+  `/stale`, `status: archived`, the marker scan and `branch_actions.py`
+  — found by grepping the tree rather than counting the paths the entry
+  lists.
+- **Six further sentences** compared a live thing to a departed one and
+  each reads correctly in isolation: "the file-organiser mirror of
+  `/api/projects/actions`", "the third scorer, after the project
+  organiser's repositories", "the two weekly reviews" (there is one),
+  "both project sections read **one** snapshot query" (there are none),
+  the retention narrative's example route, and `sysadmin/registry/` named
+  as the manifest parser in the Database Configuration block. That
+  residue is what a block-level sweep leaves behind.
+
+### The population splits three ways, and the entry's own remedy would have broken it
+
+`GET /api/projects/managed` **is still served here** — ADR-0005 relocated
+it *within* this repository because its substance is live
+`service_health` wearing a project-shaped URL. `/overview` and `/{name}`
+are **consumed** from 8400 and parsed with this repository's tolerant
+models, guarded by `tests/test_estate_project_contracts.py`. Only the
+remaining nine are neither served nor consumed. Applied literally,
+"move each block behind a pointer to estate-manager" deletes a live
+route's contract and relabels a live seam as absent.
 
 ### Decisions taken, and what was rejected
 
-**Quietened, never suppressed.** `TRANSIENT_HOLDER_SEVERITY = "info"`.
-Dropping the row was the obvious implementation and was rejected because
-it rebuilds this family's founding defect — Session 26b-A exists because
-a ports breach was detected, correct, machine-readable and never said
-out loud — with the additional property that nothing records the
-decision, which is `SNAG-CFG-001`'s shape. The rung is **derived**: it
-is the only one below `tray.notify_min_severity` on this box, guarded by
-a test that reads the live `config.yaml`.
+- **Two blocks rewritten, not pointed away**, because the argument is
+  still this repository's. `SysAdminAgent._resolve_recovered` was the
+  second half of "both scoring agents resolve alerts set-based": the
+  project organiser made the case, we still run the statement, and
+  pointing the whole block away leaves a borrowed rule looking invented.
+- **`core/escalation.py`'s stated reason expired with the domain.** It
+  lived in `core` because `monitor` may not import `projects`; that
+  package cannot exist. Rejected: deleting the sentence, which leaves a
+  correct conclusion resting on a dead premise — `SNAG-AGENT-006`'s trap
+  arriving in a document. It now names the four climbers it has
+  (`monitor/stalls.py`, `monitor/failures.py`, `units/agent.py`,
+  `estate/judgements.py`) and says the boundary test guards against
+  bringing the package back rather than constraining anything live.
+- **The dead contract models were not deleted.** Eight have zero readers
+  and four are re-exported by `sysadmin_tray/models.py`. Removing a
+  re-exported name changes the tray's public surface, and this sitting
+  touched no code. Filed as `SNAG-DOCS-002` with the decision it needs
+  stated rather than taken.
+- **ADR-0005 was not linked from `CLAUDE.md` at all** — the pointer
+  target of the entire fix, missing from the index it points through.
+  0003 and 0004 were missing too. All three added; ADR-0001's open
+  question is marked answered against this repository.
 
-**A separate blob key, not a flag inside `unit_ports`.** One field whose
-two consumers want opposite safe defaults is Session 48's
-`UnitFinding.enabled` trap; this is the same shape caught before
-shipping rather than after.
+### Found by measuring the box, not the tree
 
-**Rejected — running `ss` inside the judge** to close the sweep-window
-gap. `EstateJudgeAgent._attribution` refuses it in writing: two calls at
-two moments give two answers to one question with neither surface saying
-which it used. **Rejected — an hourly sweep**, which narrows the same
-gap with one config line and pays six times the sweep cost across every
-consumer of `unit_ports` for one annotation. Filed as
-`SNAG-ESTATE-009` instead.
+- **`SNAG-AGENT-002` was fixed on 2026-08-12.** Its stated remedy —
+  group by unit plus a normalised signature, one alert carrying an
+  occurrence count — is `log_signature.py` verbatim, shipped under
+  `SNAG-AGENT-005`. `STATUS.md`'s runners-up had **already noticed** on
+  2026-08-16; the observation never reached the entry or `tasks.md`, so
+  the session stayed gated. The failure is a measurement that reached
+  the document nobody acts from.
+- **`SNAG-ESTATE-010`**: a judgement that gets *quieter* cannot reach an
+  open row. Escalation has resolve-and-re-raise; nothing has the
+  reverse, so any fix that quietens a family is silent on every fault
+  standing when it ships. Not fixed here — the obvious remedy
+  (resolve-and-re-raise on a severity mismatch) rebuilds
+  `collation.py`'s flip-flop.
+- **The snag parser went 36 → 38** across a sitting that closed two and
+  opened two, because it cannot see a closure that stays in place under
+  "Open". `SNAG-ROADMAP-002` demonstrating itself, and still filed here
+  though the parser left for estate-manager on 2026-08-13.
 
-### Blocked, and deliberately not fixed here
+### Verified
 
-**The two rows standing today stay `warning`.** The agent deduplicates
-on title, so a judgement that is now `info` is skipped while a `warning`
-row with that title is open. They quieten on their next full cycle —
-editor closes, rows resolve, editor opens, rows re-raise at `info`. A
-de-escalation path (resolve the loud row, raise the quiet one) is the
-inverse of `core/escalation.py`'s ladder, which `step_for` explicitly
-refuses in that direction, and it is a design question rather than this
-session's.
-
-**Nothing is live until the daemon restarts.** Both halves are code, not
-config, so `SIGHUP` does not deliver them. Order matters: restart, then
-let `service_discovery` write a sweep carrying `transient_ports`, and
-only then resolve the two standing rows — resolving them before the
-sweep lands re-raises them at `warning`.
-
-### Verified live, in-process
-
-The real `ss` (37 listeners; the editor scope holds 7 ports, of which
-only 3110 and 8110 are inside the audited ranges), the real
-`:8400/api/audit/findings` (2 breaches plus the standing 3300 `warn`,
-still correctly not judged), and the same two rows coming out `info`
-with `holder=app-code-oss-26348.scope` where they came out `warning`
-with `holder=None`.
-
-Also measured while ranking: the estate's `count_open_snags` reports
-**35 at HEAD → 36 now**, while `GET :8400/api/projects/board` said
-**34** at the same moment, because a board row is a stored snapshot that
-had not seen the last commit. The rule about not trusting a document's
-summary of itself applies to the API that would correct it.
-
-12 new tests (5 in `test_unit_ports.py` driving `ss` output → blob →
-attribution end to end, 7 in `test_estate_judgements.py`). 1866 green,
-ruff and mypy clean.
+`GET :8500/openapi.json` serves **one** route under `/api/projects`.
+Model readers measured by grep over `sysadmin/`, `sysadmin_tray/` and
+`tests/` with `contracts.py` excluded. Snag count measured either side of
+the edit by driving estate-manager's own `count_open_snags` over this
+file. `CLAUDE.md` 1,774 → 1,684 lines. Suite **1866** green — a
+documentation change cannot break it, which is the reason to run it
+rather than not to.
