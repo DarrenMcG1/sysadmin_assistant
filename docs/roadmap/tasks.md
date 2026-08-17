@@ -1495,7 +1495,7 @@ judgement, not volume.
 ignore known bulk-commit subjects, or weight staleness by commits that
 touched source rather than by the last commit date.
 
-### Session 27: Log aggregator tiers — the coupling is spent
+### ✅ Session 27: Log aggregator tiers — Tiers 1 and 2 done 2026-08-17
 
 Thinnest of the four, and it was deliberately coupled to `SNAG-AGENT-002`
 because error **signature fingerprinting** was the fix for both. **That
@@ -1511,12 +1511,55 @@ paper.
       unresolved rows on the whole box, five of them signatures, each
       carrying `occurrences` and `last_seen_at`. Everything below now has
       the grouping it was scoped to need and did not have
-- [ ] **Tier 1** — per-source error-rate trends week-on-week; "new error
-      signatures this week vs last" (falls out of the fingerprinting)
-- [ ] **Tier 2** — recommendations like "this warning appeared 400× — add
-      to known-noise or fix it"
+- [x] **Tier 1** — `GET /api/logs/trends`, computed live (88 ms) off a
+      pure `sysadmin/monitor/log_trends.py`. **The signature is applied in
+      Python over SQL-grouped rows**, never re-implemented in
+      `regexp_replace`: measured 2026-08-17, 626,906 rows collapse to
+      **44 distinct messages in 91 ms**, so the honest version is
+      affordable — and a second normaliser would drift from the identity
+      the alert family is keyed on
+- [x] **"New" is a first sighting, not an empty previous window.** The
+      obvious `previous == 0` test was refuted by the live table in one
+      row: the Bluetooth firmware signature reads `current=39,919,
+      previous=0` today and has been storming since 2026-07-15, so it
+      would have headed "new errors this week" on its fifth outbreak. It
+      comes out `returned`; the 8 genuinely-new signatures are a mosquitto
+      core dump, `estate-broker-provision` failing, and
+      `Bluetooth: hciN: failed to reset (-N)` — a *distinct* signature the
+      firmware storm would have masked under a source-level key
+- [x] **A gap lowers confidence and never becomes a trend** —
+      `reliability.py`'s rule 4 reused. But **truncation is the signal and
+      poll count only the proxy**, which is the opposite of the obvious
+      ordering: a missed poll is caught up by the journal cursor, so data
+      is lost only when a catch-up read hits `max_entries_per_read`. Live:
+      118 truncated runs across the window, so the real report is
+      `confidence: low` at 88 % poll coverage
+- [x] **Tier 2** — `GET /api/logs/actions`, ranked `new_signature` →
+      `surge` → `noise`, kind before volume with no invented number
+      merging them. 13 recommendations on live data
+- [x] **`known_noise` built rather than named** — Tier 2's scoped example
+      ("add to known-noise or fix it") named a mechanism that did not
+      exist, which is Session 48's defect in advance. It is
+      `agents.log_aggregator.known_noise`, keyed on **(source, signature)**
+      because `Failed with result 'exit-code'.` is logged by six services
+      here, and it **quietens rather than suppresses** (`info`, below
+      `tray.notify_min_severity`) per Session 57
+- [x] **The quietening reaches a row that is already open**, which
+      `SNAG-ESTATE-010` says nothing does. Session 39's ban on in-place
+      severity changes is **asymmetric** and that is what rescues it: an
+      escalation must be *heard*, so an in-place bump keeps a fingerprint
+      the tray has suppressed; a quietening must be *silenced*, and
+      `{severity}:{title}` becoming `info:…` is dropped by `_consider`
+      before it notifies. One-directional by construction
+- [x] **Three of the emitted commands did not work, and only a live run
+      said so** — `journalctl -u kernel` (the kernel is not a unit), no
+      `--user` for the **7 of 14** sources that are user units (measured:
+      2,170 lines with the flag, 1 without), and a `--grep` on the
+      normalised signature, whose `N` placeholders match no real line.
+      Fixed and re-verified by executing them
 - [ ] **Tier 3** is half-built: the overnight LLM log summary already runs
-      in the briefing. Extend rather than duplicate
+      in the briefing. Extend rather than duplicate — **deferred**, and it
+      is now the whole of what remains of Session 27
 
 ---
 

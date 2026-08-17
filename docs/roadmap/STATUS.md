@@ -3,163 +3,62 @@
 **Last Updated**: 2026-08-17
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **One sub-session action, and it is two minutes.** Resolve the two
-> `Estate port … registry breach` rows so the judge re-raises them under
-> Session 57's code:
+> **One sub-session action, and it is still two minutes.** Resolve the
+> two `Estate port … registry breach` rows so the judge re-raises them
+> under Session 57's code:
 >
 > ```sql
 > UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
 >  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
 > ```
 >
-> **Why it is needed and why it is not a session.** Session 57's
-> `TRANSIENT_HOLDER_SEVERITY = "info"` is *live* — the daemon restarted
-> 2026-08-17 10:06:38, four minutes after that commit — but both rows
-> were raised 2026-08-16 12:07 and `EstateJudgeAgent._execute` skips any
-> judgement whose title is already open before it reads severity or
-> `details`. So the two rows Session 57 was written for are still
-> `warning` with a null `holder`, and the tray will restate them at
-> `warning` on its 24-hour reminder. Both dev servers are still bound
-> (`nuxt dev` on 3110, `uvicorn --reload` on 8110), so this does not
-> self-clear until the editor closes. Filed as **`SNAG-ESTATE-010`**
-> because the general case is not a one-off: escalation has a path for
-> getting *louder* and nothing has the reverse, so any fix that quietens
-> a family is silent on every fault standing when it ships. Left for the
-> owner rather than run here — it is a write to the live `alerts` table,
-> and the entry is worth more than the two rows.
+> Unchanged from 2026-08-17's first sitting and still not run — it is a
+> write to the live `alerts` table. `SNAG-ESTATE-010`. Note that Session
+> 27 has now solved the *general* version of this problem for the log
+> family (an in-place quietening, legitimate because Session 39's ban is
+> asymmetric), so the entry is worth re-reading before anyone fixes the
+> estate judge the obvious way.
 >
-> **Next up**: **Session 27 — the log-aggregator tiers — and the news is
-> that its blocker is gone.** *Recommended at the close of Session 58.*
-> `tasks.md` gates the session on `SNAG-AGENT-002` ("group by unit +
-> normalised message signature… raise one alert carrying an occurrence
-> count"). That is `sysadmin/monitor/log_signature.py` verbatim, shipped
-> on 2026-08-12 under `SNAG-AGENT-005`, and the entry stayed open for
-> five days. Measured 2026-08-17: **8 unresolved rows on the whole box**,
-> five of them log signatures — the two Bluetooth firmware messages, the
-> hci reset, `alfred-backend.service` and `estate-broker-provision.service`
-> — each carrying `occurrences` and `last_seen_at`, against **547,814**
-> rows for `Log error: kernel` alone on 2026-08-11.
-> **So the session changed shape rather than merely becoming eligible.**
-> It has been ranked all week as "fix the pile-up, then build the tiers";
-> it is only the tiers, and they are Tier 1 (per-source error-rate trends
-> week-on-week, "new error signature this week" as the thing worth
-> saying), Tier 2 (recommendations off that history) and a Tier 3 that is
-> half-built already in the overnight LLM summary. Every one of those
-> needs a `signature` column's worth of grouping that now exists and did
-> not when the tiers were scoped.
-> **It wins on the argument that has beaten it for three sittings, now
-> reversed.** It lost repeatedly for having no fault behind it — correct
-> then, and the fault it lacked has been replaced by a *capability* it
-> lacked. It also wins on what is left: every rival either self-clears,
-> is another repository's, or has an empty population.
+> **A second one, and it happens by itself at 03:00.** The retention
+> purge will delete **207,566 rows** tonight — the first time it has
+> deleted anything since 2026-08-08. Nothing to do; it is here because
+> `log_entries` will drop 626,906 → 451,888 and anyone reading a row
+> count tomorrow should know why.
 >
-> **Runners-up.**
-> *`SNAG-DOCS-002`* — eight project contract models with zero readers,
-> four re-exported to the tray — loses on size, not merit. It is a
-> half-hour of deletion plus one decision (delete, or keep them and
-> extend the seam test to whatever the tray means to parse), and folding
-> it into the front of Session 27 costs nothing.
-> *`SNAG-TRAY-008`* — the understudy forgetting what it announced —
-> loses on ordering for the second sitting, and the reason has improved
-> rather than repeated: `desktop_reminder_sweep` is now scheduled in the
-> running process, so the mechanism can finally be *observed* before its
-> population is widened. Wait for an observation rather than choosing
-> between two mechanisms blind.
-> *`SNAG-ESTATE-010`*, filed above, loses as a **session** for the reason
-> its own entry gives: the obvious fix (resolve-and-re-raise on a
-> severity mismatch) rebuilds `collation.py`'s flip-flop, and a real fix
-> needs a reason the new severity is durable, which nothing here has yet.
-> The sub-session action above buys the whole of today's value.
-> *An execution sitting on `GET /api/units/actions`* loses on a
-> measurement that moved under it: the `Unmonitored systemd units: 8
-> findings` row that stood since 2026-08-15 was **resolved 2026-08-16
-> 18:07** and no successor was raised, because today's sweep finds
-> **3** — 1 unmonitored, 2 host, **0 orphaned and 0 armed** — which is
-> below `alert_threshold` and correctly silent. So the sitting would open
-> on no standing fault at all, and two of its three items are other
-> repositories' unit files, which the estate rules make theirs.
-> *`SNAG-AGENT-007`* (four unbounded `_active_alerts` reads per run)
-> loses on the same measurement for the **eighth** sitting: eight rows on
-> the whole box.
-> **Named as blocked, not dropped.** `SNAG-ROADMAP-001`/`-002` and
-> `SNAG-PROJ-013` are other repositories' to fix — and `-002` earned a
-> live demonstration this sitting, going 36 → 38 across a session that
-> closed two snags and opened two, because it cannot see a closure that
-> stays in place under "Open". `SNAG-ESTATE-004` through `-007` are all
-> delegated with no counterpart entry in estate-manager yet; recording
-> them there is a cross-repo write, committed on its own and announced,
-> and is **not** a sysadmin session. **Dropping the frozen project
-> tables** stays blocked with a number: 3,713 rows in the estate's copy
-> against 3,739 here, the 26 missing all dated 2026-08-13, and copying
-> them is estate-manager's call.
-> *Session 33's seam-drift detection* is **blocked on a stale premise**:
-> its second checkbox reads an Alfred fixture directory that does not
-> exist on disk. Re-scoping it is a question for that repository.
-> *`SNAG-UNITS-003`* loses where it always does, on an empty population.
-> *Sessions 25b/25c* lose where they always do: no consumer beyond the
-> API.
+> **Next up**: **Session 27's Tier 3 — extend the overnight LLM log
+> summary — or the volume half of `SNAG-AGENT-008`.** *Recommended at the
+> close of Session 59.* See the ranking below.
 >
-> **Previously here — `SNAG-DOCS-001` — `CLAUDE.md` describing a domain
-> that left**, recommended at the close of Session 55, re-stated by 56,
-> displaced twice on merit and **done 2026-08-17 as Session 58**. The
-> recommendation held on its central claim and was **wrong on both of its
-> numbers**, which is the part worth keeping: the table held twelve
-> project rows rather than fifteen, and the narratives were nine blocks
-> rather than five. More usefully, the population split **three** ways
-> and not two — one route is still served here, two are consumed from
-> 8400 — so the remedy as written ("move them all behind pointers")
-> would have deleted a live contract. It also missed that ADR-0005, the
-> pointer target of the whole fix, was not linked from `CLAUDE.md` at
-> all. See Recently Completed.
-> **Previously here — `SNAG-TRAY-007` — the desktop understudy speaks
-> once**, recommended 2026-08-16 at the close of Session 54 and **done
-> the same day as Session 55**. The recommendation held, including the
-> part it flagged as uncertain: it said the raise path's precedence
-> answer and the repeat path's "are not obviously the same", and they
-> are not — `tray_grace_seconds` is the same window on both and the
-> *action* differs, skipping on one and stamping the clock forward on the
-> other. Its stated weakness held too: the population is still zero, and
-> the sweep does not reach the running daemon until the restart above.
-> See Recently Completed.
+> **1. `SNAG-AGENT-008`, the volume half.** This service emits ~671
+> journal lines per 5 minutes and hits its own read ceiling on
+> essentially every poll, so **118 truncated runs** in the trend window
+> make `GET /api/logs/actions` report `confidence: low` and suppress the
+> entire `noise` recommendation family — for every other source, not just
+> its own. That is `SNAG-LOG-002`, and it means a feature shipped today
+> has an empty population *because of a defect in a different component*.
+> It also has the priority half behind it: every line this daemon writes
+> is journald `PRIORITY=6`, so nine nights of `ERROR` from the broken
+> retention purge produced **zero** alert rows. It wins on being the
+> thing standing between two shipped features and their data.
 >
-> **Previously here — the estate judge's other three surfaces**,
-> recommended 2026-08-16 at the close of Session 53 and **done the same
-> day as Session 54**. The recommendation held completely, including its
-> central claim — that the cost of being wrong had moved, not the
-> evidence — and the sitting found the defect that framing predicted: a
-> failing scan raised two rows, one of them saying the scan "completed".
-> A literal could not have shown it, because a literal sets one field at
-> a time and the producer cannot. See Recently Completed.
+> **2. Session 27 Tier 3.** The only part of Session 27 left, and it is
+> the smallest: the overnight LLM summary already runs in the briefing,
+> and Tier 1 now produces exactly the material it lacks — "8 new
+> signatures this week" is a sentence, not a table. It loses to
+> `SNAG-AGENT-008` narrowly and only because Tier 3 is *additive* while
+> the other is a live blindness. Take it if a short sitting is wanted.
 >
-> **Previously here — `SNAG-ESTATE-003` — the estate families raise once
-> and then stay silent**, recommended 2026-08-16 at the close of Session
-> 52 and **done the same day as Session 53**. The recommendation held on
-> the point it turned on — the families genuinely do ring once — but its
-> *proposed shape* was refuted in the first hour: the third rung it named
-> cannot be heard, so the fix moved to the tray and covers every
-> deduplicating family instead of the estate's five. See Recently
-> Completed. **Its framing is preserved in the Session 53 write-up
-> rather than repeated here**, including the part that was wrong: it
-> argued the fix must be a third rung in `core/escalation.py` because
-> `monitor/collation.py` and the service families want the same
-> mechanism. They do — and the mechanism is not a rung. Keeping the
-> superseded ranking below this line would leave two lists of
-> runners-up disagreeing about the same sitting.
+> **3. `SNAG-DOCS-002`** — eight project contract models with zero
+> readers, four re-exported to the tray. Unchanged from yesterday's
+> ranking and still loses on the same grounds: half an hour of deletion
+> plus one decision about the tray's public surface. It has now been the
+> runner-up twice.
 >
-> **Previously here — `SNAG-ESTATE-002`'s local half**, recommended
-> 2026-08-16 at the close of Session 51 and **done the same day as
-> Session 52**. The recommendation held on the point it turned on — the
-> family genuinely could not be shown to work — and the sitting found
-> two defects the literals were structurally unable to express: 31 alert
-> rows from one poll, and a 469-character message into a notification
-> body. Both were rules this repository had already written down for
-> other families and never applied here. See Recently Completed.
-> **Previously here —
-> `Scheduler.reschedule_job`**, recommended 2026-08-15 at the close of
-> Session 49 and **done the same day as Session 50**; the recommendation
-> held on the point it turned on, and the sitting's finding was that the
-> obvious implementation (re-apply every job on every reload) is a line
-> shorter and breaks the schedule. See Recently Completed. **Previously here — `SNAG-AGENT-006`**, recommended 2026-08-15 at the close of Session 48 and found on 2026-08-15 to have been **fixed on 2026-08-14**, before the sitting that recommended it: a recommendation published estate-wide and checked by nobody, caught by reading the live state rather than the document — the reason every ranking here now measures rather than quotes. **Previously here — a `SIGHUP` reload path for `services.yaml`** (`SNAG-UNITS-005`), demoted on 2026-08-15 as "a sub-task rather than a session" and **built the same day as Session 49**, where the demotion proved wrong on the point it turned on: the design question was real, its premise was false (agents re-read config every run, so config.yaml was reloadable all along), and settling it took three decisions. See Recently Completed. **Previously here — an execution sitting, work `GET /api/units/actions` end to end**, recommended 2026-08-15 and done the same day as Session 48; it found two defects by carrying out the advice that reading it had not, and removed the armed orphan `garmin-sync.service` with the endpoint's own command, verbatim. See Recently Completed. **Previously here — Session 26c — port collision detection**, recommended 2026-08-15 and done the same day; see Recently Completed. **Previously here — Session 39 — who watches the watchers**, scoped 2026-08-11 and carrying `SNAG-AGENT-003` inside it. The framing question was answered by measurement rather than design: **the watcher already existed and worked.** `self_monitor` detected the file organiser stall correctly and `SysAdminAgent._check_agent_stalls` raised one alert on 2026-08-10 — then nothing, because the raise is deduplicated by title while open (correct; it is what stopped the 1,664-row pile-up) and the tray fingerprints on `{severity}:{title}`. The alarm rings once, at the quietest severity, and is silent while the fault persists — and a warning that fires once and goes quiet is indistinguishable from one that got fixed. The owner's diagnosis, asked rather than assumed, was **"I never saw the toast"**: away from the machine, not ignoring it, which rules out severity tuning and means a louder D-Bus alarm repeats the miss on a longer timescale. **Two decisions taken**: MQTT is promoted from Alfred's private bus to an estate bus (estate-map.md reserved that decision in writing for exactly this moment, and must be amended with the *terms* rather than having the sentence deleted), and `WatchdogSec` over a polling timer for the wedge case, because the heartbeat proves the event loop is alive rather than just the process. **Two constraints found by checking the premises**: alfred-glance's topic registry is closed by construction (`SUBSCRIBED_TOPICS` derives from `RENDERERS.keys`), so publishing needs a Kotlin change and an Android release, not a `mosquitto_pub` one-liner; and `sysadmin.service` is `Type=simple` with `Restart=always`, so it rarely enters `failed` and an `OnFailure=` hook would seldom fire — the silence-reads-as-health shape sitting in the unit file. **`SNAG-AGENT-003`**: `agent_runs` holds **exactly one** `file_organiser` row, dated 2026-08-06, against `log_aggregator`'s 31,431 — a daily agent that has run once in its life, serving five-day-old disk figures through every `/api/files/*` route. Found by Session 36's own staleness field on its first live run. **Then Session 27.** **Session 27 — the log-aggregator tiers, taken with `SNAG-AGENT-002`**, whose case is now measured rather than argued: the live `alerts` table holds **599,794 open rows across 21 incidents**, 557,832 of them warnings, because the aggregator raises one alert per error line. Session 36's envelope had to group by incident to say anything sane about them, which is a workaround sitting on top of the defect. **Session 36 is done (2026-08-11)**: the briefing envelope ships — `schema`, `period`, `summary`, `alerts[]` and `facts{}` **added alongside** `sections` and `generated_at`, never replacing them, because Alfred's `adapt_sysadmin` reads both and the spec's literal shape would have turned its Infrastructure group red every morning. Half the session was already built (Session 35 Phase 5 landed `estate.json`, `last_code_commit` and the atomic write on 2026-08-08). **Checkbox 6's answer is the interesting one**: Alfred *does* enforce staleness on `generated_at`, correctly, and the check can never fire — this is a **pull** endpoint, so the stamp says when the request was answered, not how old the data in it is. Every `facts` block now carries `measured_at`, `facts.stale_sources` names anything over 26 hours old, and the first live run caught `filesystem` at five days, corroborated by an open `file_organiser agent stalled` alert in the same payload. Two P1 snags fixed underneath it, both in the functions the envelope wraps — `SNAG-BRIEF-001` (Project Health published 26 rows including work retired in July; now one query, one `active` filter, worst-first, capped at 5 → **26 rows became 5**) and `SNAG-BRIEF-002` (a bare `[:180]` slice became a word-boundary cut carrying `… (truncated)`, the same marker Alfred appends). **Session 32 is done (2026-08-11)**: `GET /api/projects/momentum` ships, and its recorded blocker turned out to name the wrong evidence — the handoff-date series it needed had been in `project_snapshots` since 2026-08-06, so no hook, writer or migration was involved. The measurement rule was written the obvious way and refuted by the live series the same hour: attributing a landing at the scan that first saw the new handoff let scan timing decide the answer, because the handoff is written *before* the work is committed. Landings are matched by date window instead. Live result — `alfred-glance` has opened 2 sessions and landed nothing since 2026-08-03, while this repo is 4 of 5 and `Alfred` 4 of 4. One follow-up filed as `SNAG-PROJ-013`, and **it has no consumer yet**: Session 30's fate says to ask before assuming alfred-glance wants it. **Session 31 is done (2026-08-11)**: idle nudges ship at 7 days quiet / 14 days loud, per-project override in `.project.yaml`, no new endpoint and no migration; the eligibility rules were extracted out of `/api/projects/next` rather than copied, and a wrong premise about which config knob gates a toast was caught and filed as `SNAG-CFG-001`. **Session 30 was closed unbuilt (2026-08-11)** — its consumer declined the whole arc in ADR-0064 behind two countable triggers, neither of which fires. **Session 29 is done (2026-08-10)**: `GET /api/projects/next` ships, and its open design question was decided rather than defaulted — the ranking is **stuckness** (how long the stated next action has stood unchanged), tie-broken by the most recent commit, measured in **elapsed days rather than scans** because the scan cadence is irregular. **Session 34 is done (2026-08-10)**: all twelve project-side defects fixed, 1,664 orphaned alert rows resolved live, and the marker scan corrected — see Recently Completed. **Session 35 is done (2026-08-08)** — all six phases landed: the registry, the module boundary, `services.yaml`, the retirement of `projects.yaml`, `estate.json`, and the organiser's own timer; reasoning is in [ADR-0001](../adr/0001-project-registry.md) and the entries below. **Considered and rejected 2026-08-06, still rejected**: extracting the project side into its own repo or service (migration 001 creates both sides' tables in one function — a data migration, not a directory move; Phase 2 was deliberately staged so that a later extraction becomes one), and pre-commit document hooks across forty mostly-dormant repos. **Rejected then, reversed since**: the module split, refused on 2026-08-06 on the grounds that it would duplicate `discover_projects`. It was re-briefed and landed as Phase 2, where that objection did not hold — `units/` imports the function from `projects/` rather than copying it, and the import is recorded as a flagged cross-domain edge for Phase 3 to remove. **Sessions 29–32 are the momentum track** (added 2026-08-06, directly requested) — 29 the one-thing endpoint (`GET /api/projects/next`, one project not six; its ranking policy is an open decision and is the whole feature), 30 next-action→Alfred work item (the write happens in Alfred, pulling, so sysadmin stays read-only), 31 idle nudges as broken commitments rather than repo hygiene, 32 start-versus-finish accounting. **The whole track is now resolved** — 29, 31 and 32 built, 30 declined by its consumer. Sessions 24–27 remain the monitoring track and are independent of these. Older context: Sessions 10–23 archived 2026-08-05; [tasks.md](tasks.md) now holds only live work. Of the monitoring track, **24 and 26 are done** and **25's Tier 1 landed 2026-08-07**; **25b/25c** (reliability Tiers 2–3) and **27** (log aggregator tiers, take with SNAG-AGENT-002) remain, plus **26b**, whose **Part A landed 2026-08-14** — and whose 2026-08-07 plan was found substantially overtaken by estate-manager's 2026-08-13 conformance audit: the registry-into-`config.yaml` item is **killed** (their audit parses the guide's markdown table as its source of truth), unregistered-listener detection was **already built there**, contended defaults were **delegated** as `SNAG-ESTATE-004`, and what shipped instead was the thing none of the four asked for — this repository now *judges* the audit's port findings, which had been detected, correct and unread since the audit's first run. The remainder is **Session 26c** (collision detection via `ss -ltnp` → `/proc/<pid>/cgroup`, the half the estate is structurally blocked from because it runs `ss` without `-p`). Smaller carried-forward follow-ups (wire the file actions into the Files tab, tray-consumes-SSE, `response_model=` on the files GETs, a real `api.auth_token`) are in the tasks.md Backlog. **Three pending ops actions**: `sudo systemctl restart sysadmin.service` (now safe — migration 009 was applied on 2026-08-10; before that it would have hit a CHECK constraint violation on every `skipped` health write, see SNAG-DB-001), `systemctl --user enable sportsanalyser-backend.service`, and the estate cleanup Session 26 surfaced — **11 orphaned systemd units** to remove and **7 host units** (including `pgbackrest-backup`, the only DB backup) to wire up, both with exact commands from `GET /api/units/actions`.
+> **Named as blocked rather than dropped**: `SNAG-LOG-001` (four
+> recommendations for one mosquitto crash) is real but needs a
+> correlation rule nobody has measured, and the obvious cap rebuilds
+> `SNAG-ESTATE-001`'s roll-up defect. `SNAG-ESTATE-002` and
+> `SNAG-ESTATE-006` remain estate-manager's.
 
 ---
 
@@ -168,14 +67,14 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Backend | 🟢 Complete | FastAPI + 5 agents + scheduler + DB |
-| API | 🟢 Complete | **44 routes** across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-15 — this cell claimed 57 and had done for some time; 43 before Session 49 added `POST /api/sysadmin/reload`* |
+| API | 🟢 Complete | **46 routes** across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
 | Database | 🟢 Complete | 13 tables in sysadmin schema, Alembic migrations (head **012**, applied 2026-08-13) |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **1866 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
+| Testing | 🟢 Complete | **1937 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -183,6 +82,35 @@
 ---
 
 ## Recently Completed
+
+### Session 27 — the log-aggregator tiers (2026-08-17)
+
+Tiers 1 and 2 built; Tier 3 deferred and is now all that remains.
+`GET /api/logs/trends` (88 ms, live) and `GET /api/logs/actions` (13
+recommendations on real data), off two pure modules. **626,906 rows
+collapse to 44 distinct messages in 91 ms**, which is what lets the
+signature be applied in Python rather than re-implemented in SQL.
+
+Three things the live data settled that fixtures could not: "new" is a
+first sighting and not `previous == 0` (the Bluetooth signature reads
+`39,919 / 0` and is a month old); truncation rather than poll count is
+the confidence signal, because the journal cursor catches a gap up; and
+three of the emitted `journalctl` commands did not work until they were
+actually run — the kernel is not a unit, and 7 of 14 sources are user
+units. `known_noise` was **built rather than named**, quietening rather
+than suppressing, and it reaches already-open rows because Session 39's
+ban on in-place severity changes is asymmetric. 71 new tests.
+
+### SNAG-DB-004 — the purge that logged success and rolled back (2026-08-17)
+
+The nightly retention job had deleted **nothing since 2026-08-08** while
+logging six successful purges a night: `ORDER BY true` is a syntax error
+to PostgreSQL, and one transaction over twelve tables meant the twelfth
+discarded the eleven before it. 1,866 green tests missed it because the
+session was mocked and one test pinned the broken literal exactly. Fixed
+with a sentinel taking its own branch, a pure `purge_statement()` that
+PostgreSQL parses in a test, and one savepoint per table. 207,566 rows
+due at the next 03:00.
 
 ### The document catches up with the box — SNAG-DOCS-001 (2026-08-17)
 

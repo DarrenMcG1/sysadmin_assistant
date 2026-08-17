@@ -191,6 +191,8 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/sysadmin/events` | `EventMessage` | serialise-side only (SSE stream — each `data:` line, not a JSON body) |
 | `GET /api/logs/recent` | `LogsResponse` / `LogEntryInfo` | response_model |
 | `GET /api/logs/stats` | `LogStatsResponse` | response_model |
+| `GET /api/logs/trends` | `LogTrendsResponse` (+`LogSignatureTrendInfo`, `LogSourceTrendInfo`, `LogTrendCoverageInfo`) | response_model (computed live — never 404s) |
+| `GET /api/logs/actions` | `LogActionsResponse` (+`LogRecommendationInfo`) | response_model (computed live) |
 | `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model (the only `/api/projects` route this service serves — see below) |
 | `GET /api/files/status` | `FileStatusResponse` (+`FileAuditSummary`, `FileQuickWins`) | parse-side only (404 = "no scan yet" → empty state) |
 | `GET /api/files/duplicates` | `DuplicatesResponse` | parse-side only (404 = "no scan yet") |
@@ -289,6 +291,112 @@ Three rules it encodes, each measured rather than assumed:
 
 Recovery is deliberately **not** announced: `alert.resolved` carries a
 match pattern (`"Project % health critical"`), not a subject.
+
+**A monitor that only speaks in the present tense makes every recurring
+fault look like today's news** (Session 27, Tier 1). `log_signature.py`
+gave the aggregator one open row per distinct fault and ended a
+598,091-row pile-up; what it could not say is whether a fault is *new*.
+`sysadmin/monitor/log_trends.py` is the pure module that can —
+`reliability.py`'s shape, for its reason — and `GET /api/logs/trends`
+computes it live in **88 ms**.
+
+Four rules, three of them the opposite of the obvious implementation and
+all four settled by the live table rather than by argument:
+
+1. **The signature is applied in Python, over rows the database has
+   already grouped.** Normalising in SQL with `regexp_replace` is a
+   second implementation of the identity the *alert* family is keyed on,
+   and it drifts exactly as a regex over `alembic/versions/*.py` drifts
+   from the revision graph. What makes the honest version affordable is
+   measured: **626,906 rows collapse to 44 distinct messages in 91 ms**.
+   The reduction is a property of this data, not a bound — a service
+   embedding a request id in every line has one group per line — so the
+   caller caps the set and reports `truncated`. Note the
+   anti-correlation: the messages that do *not* collapse under `GROUP BY
+   message` are the ones the signature helps most.
+2. **"New" is a first sighting, measured against all retained history.**
+   `previous == 0` was the obvious test and one live row refutes it: the
+   Bluetooth firmware signature reads `current=39,919, previous=0` and
+   has been storming since 2026-07-15, so it would have headed "new
+   errors this week" on its fifth outbreak. It comes out `returned`. The
+   8 genuinely-new signatures include `Bluetooth: hciN: failed to reset
+   (-N)` — a *distinct* signature a source-level key would have masked.
+3. **A gap lowers confidence and never becomes a trend** —
+   `reliability.py`'s rule 4 — but **truncation is the signal and poll
+   count only the proxy**, which is the reverse of the obvious ordering.
+   A missed poll is caught up by the journal cursor, so data is lost only
+   when a catch-up read hits `max_entries_per_read`, which the agent
+   already records as `details['truncated_sources']`. Counting polls
+   alone charges a fully-recovered gap as data loss.
+4. **Counts are never scaled by coverage.** The cursor makes ingestion
+   non-proportional to poll count, so a rate computed from observed time
+   looks precise and has a divisor wrong in an unknown direction.
+
+The population is **wider than the alert family's** — `warning` too,
+because Tier 2's whole question is about a warning.
+
+**Advice has to be executable, and this is the first sitting here to
+build the mechanism a recommendation names** (Session 27, Tier 2).
+`sysadmin/monitor/log_actions.py` ranks `new_signature` → `surge` →
+`noise`, kind before volume, with no invented number merging them —
+`FileRecommendationInfo`'s ordering, and its currency argument one step
+further: `occurrences` is a third unit, so it is a third model rather
+than a third meaning for `points`.
+
+Tier 2's scoped example — *"this warning appeared 400× — add to
+known-noise or fix it"* — named a list that did not exist, which is
+Session 48's defect in advance: a row saying "paste the snippet below"
+with no snippet is an item no execution sitting can close.
+`agents.log_aggregator.known_noise` is that list. Four rules:
+
+1. **Keyed on `(source, signature)`, never the signature alone.**
+   `Failed with result 'exit-code'.` is logged by six services on this
+   box; declaring it noise on the strength of one silences a genuine
+   failure in five.
+2. **Quietened, never suppressed** — `info`, the only rung below
+   `tray.notify_min_severity` here, the same derivation as
+   `judgements.TRANSIENT_HOLDER_SEVERITY`. The row still exists, still
+   counts occurrences, still appears in the trend. Dropping it rebuilds
+   `SNAG-CFG-001`'s shape: a decision taken by a consumer with nothing
+   recording that it was taken. `reason` is a required *field* rather
+   than a YAML comment, because an endpoint serves it back.
+3. **Nothing is recommended as noise on volume alone, and a `LOW`
+   confidence report recommends none at all.** Volume is what makes a
+   fault worth looking at, not evidence it is harmless — so a `noise`
+   row also requires the signature to be old and flat, or the endpoint
+   recommends silencing an outage on its second day. The confidence gate
+   is asymmetric: `new` rows survive a gappy series, because a gap can
+   hide a fault and never invent one.
+4. **The quietening reaches a row that is already open**, which
+   `SNAG-ESTATE-010` says nothing does — and this family cannot wait it
+   out, since a signature loud enough to declare is by definition one
+   that never goes quiet, so its row never resolves. Session 39's ban on
+   in-place severity changes is **asymmetric and that is what rescues
+   it**: an escalation must be *heard*, so an in-place bump keeps a
+   fingerprint the tray has suppressed; a quietening must be *silenced*,
+   and `{severity}:{title}` becoming `info:…` is dropped by `_consider`
+   before it can notify. The mechanism that makes escalation fail is what
+   makes this work, so it is one-directional by construction.
+
+**Three of the emitted commands did not work, and only a live run said
+so.** The draft emitted `journalctl -u kernel` (the kernel is not a
+unit — `read_journal` has always known that, so the same fact was stated
+twice and one was wrong), omitted `--user` for the **7 of 14** declared
+sources that are user units (measured by running both: 2,170 lines with
+the flag, 1 without), and grepped on the *normalised* signature, whose
+`N` placeholders match no real line and whose first token is usually the
+unit's own name. `journal_command` fixes all three and the docstring
+carries why, because the fixtures were green throughout.
+
+Two limits are filed rather than implied. `SNAG-LOG-001`: one mosquitto
+crash produces four recommendations, because systemd narrates it in four
+lines that are four genuine signatures — a cap would hide the fourth
+without saying the four were one thing, so the real fix is a correlation
+rule nobody has measured. `SNAG-LOG-002`: the `noise` family has an
+**empty population on this box**, because 118 truncated runs make
+confidence `LOW` — and those are overwhelmingly `sysadmin-service`
+itself flooding its own journal read, so one service's access-log volume
+suppresses a recommendation family for every other source.
 
 **A detected fault has to keep speaking, and the ladder that makes it do
 so lives in `core`** (Session 39). `sysadmin/core/escalation.py` owns

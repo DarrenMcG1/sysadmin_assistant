@@ -233,6 +233,180 @@ class LogStatsResponse(Contract):
     sources: dict[str, dict[str, int]] = Field(default_factory=dict)
 
 
+# ── /api/logs/trends ─────────────────────────────────────────────────
+
+
+class LogSignatureTrendInfo(Contract):
+    """One fault signature across the current and previous windows.
+
+    ``alert_title`` is carried so a reader can match this row against the
+    ``alerts`` table without re-deriving the identity — the signature
+    lives in the alert title by ``log_signature``'s rule 2, and repeating
+    the derivation here would be a second implementation of it.
+    """
+
+    signature: str = ""
+    alert_title: str = ""
+    source: str = ""
+    severity: str = "info"
+    sample: str = ""
+    current: int = 0
+    previous: int = 0
+    total: int = 0
+    first_seen: str | None = None
+    last_seen: str | None = None
+    # new | returned | surged | rising | steady | falling | gone
+    change: str = "steady"
+    #: ``None`` when either window is too thin for a ratio to mean
+    #: anything, which is a different statement from ``1.0``.
+    ratio: float | None = None
+
+    @field_validator("current", "previous", "total", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+
+class LogSourceTrendInfo(Contract):
+    """Per-source volume.
+
+    Errors and warnings stay separate: a source whose warnings doubled
+    while its errors vanished has not "got worse by 50 %", and one
+    number cannot say so.
+    """
+
+    source: str = ""
+    current_errors: int = 0
+    previous_errors: int = 0
+    current_warnings: int = 0
+    previous_warnings: int = 0
+    error_delta: int = 0
+    signatures: int = 0
+    new_signatures: int = 0
+
+    @field_validator(
+        "current_errors",
+        "previous_errors",
+        "current_warnings",
+        "previous_warnings",
+        "error_delta",
+        "signatures",
+        "new_signatures",
+        mode="before",
+    )
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+
+class LogTrendCoverageInfo(Contract):
+    """How much of the period the agent actually observed.
+
+    ``runs_truncated`` is the decisive field and ``runs_observed`` the
+    suspicious one — a missed poll normally costs nothing, because the
+    journal cursor resumes where it stopped.
+    """
+
+    runs_observed: int = 0
+    runs_expected: int = 0
+    runs_truncated: int = 0
+    fraction: float = 0.0
+
+
+class LogTrendsResponse(Contract):
+    """GET /api/logs/trends.
+
+    ``truncated`` says the grouped query hit its cap, so the rankings are
+    over a subset — ``ports_checked``'s rule, because zero new
+    signatures because clean must not read the same as zero because
+    blind.
+    """
+
+    window_days: int = 7
+    window_start: str | None = None
+    previous_start: str | None = None
+    generated_at: str | None = None
+    confidence: str = "low"
+    signatures: list[LogSignatureTrendInfo] = Field(default_factory=list)
+    sources: list[LogSourceTrendInfo] = Field(default_factory=list)
+    new_signatures: list[LogSignatureTrendInfo] = Field(default_factory=list)
+    coverage: LogTrendCoverageInfo = Field(default_factory=LogTrendCoverageInfo)
+    truncated: bool = False
+    groups_read: int = 0
+    count: int = 0
+
+    @field_validator("coverage", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "signatures")
+
+
+# ── /api/logs/actions ────────────────────────────────────────────────
+
+
+class LogRecommendationInfo(Contract):
+    """One ranked, executable piece of log advice.
+
+    A third sibling of ``RecommendationInfo`` (health-score points) and
+    ``FileRecommendationInfo`` (reclaimable megabytes), with its own
+    currency again: ``occurrences``.  One ``points`` field meaning three
+    units decided by the producer would be unreadable at the call site,
+    which is the argument ``FileRecommendationInfo`` already makes.
+
+    ``snippet`` is populated only for the kind whose remedy *is* a config
+    edit.  A row without one never tells the reader to paste anything —
+    Session 48's rule, learned from a row promising an absent snippet
+    that no execution sitting could close.
+    """
+
+    # new_signature | surge | noise
+    kind: str = ""
+    # risk | advice
+    severity: str = "advice"
+    title: str = ""
+    detail: str = ""
+    action: str = ""
+    source: str = ""
+    signature: str = ""
+    alert_title: str = ""
+    occurrences: int = 0
+    snippet: str | None = None
+
+    @field_validator("occurrences", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+
+class LogActionsResponse(Contract):
+    """GET /api/logs/actions.
+
+    ``confidence`` is echoed from the trend it was computed off, because
+    every ``noise`` row is an argument from a count and a consumer acting
+    on one needs to know how complete that count is.
+    """
+
+    recommendations: list[LogRecommendationInfo] = Field(default_factory=list)
+    count: int = 0
+    confidence: str = "low"
+    window_days: int = 7
+    generated_at: str | None = None
+    #: Pairs already declared in ``agents.log_aggregator.known_noise``,
+    #: reported so "nothing to do" can be told apart from "everything is
+    #: already silenced".
+    declared_noise: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "recommendations")
+
+
 # ── /api/projects/overview ───────────────────────────────────────────
 
 

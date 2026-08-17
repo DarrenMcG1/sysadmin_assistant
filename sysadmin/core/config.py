@@ -607,6 +607,42 @@ class LogSource(BaseModel):
     severity_filter: str = "warning"
 
 
+class LogNoiseEntry(BaseModel):
+    """One fault signature the operator has judged to be noise.
+
+    **Quietened, never suppressed** — Session 57's transient-holder rule,
+    verbatim and for its reason.  A match still ingests, still counts,
+    still appears in ``GET /api/logs/trends``, and still raises an alert
+    row; what changes is that the row is ``info``, which is below
+    ``tray.notify_min_severity`` on this box, so it stops interrupting.
+    Dropping it instead would rebuild the defect that produced
+    ``SNAG-CFG-001``: a decision taken by a consumer with nothing
+    recording that it was taken.
+
+    ``source`` **and** ``signature`` must both match, and the pair is the
+    key rather than the signature alone.  ``Failed with result
+    'exit-code'.`` is logged by six services on this box; marking it noise
+    on the strength of one of them would silence a genuine failure in the
+    other five.
+
+    ``reason`` is a required field rather than a YAML comment, so
+    ``GET /api/logs/actions`` can serve the operator's own justification
+    back beside the row it silences.  The unit sweep keeps its reasoning
+    in comments because nothing serves it; this is read by an endpoint,
+    and a reason nobody can see is a reason nobody can review.
+    """
+
+    source: str
+    #: The **normalised** signature, exactly as
+    #: ``GET /api/logs/trends`` reports it — digit runs as ``N``, hex as
+    #: ``0xN``.  Matching is exact and deliberately not a pattern: an
+    #: over-broad regex here silences faults nobody chose to silence, and
+    #: an exact match that stops matching because the wording changed
+    #: fails *loud*, which is the safe direction.
+    signature: str
+    reason: str
+
+
 class LogAggregatorConfig(BaseModel):
     enabled: bool = True
     poll_interval_seconds: int = 60
@@ -631,6 +667,33 @@ class LogAggregatorConfig(BaseModel):
     #: ``details['truncated_sources']`` rather than showing up as a
     #: findings count that never moves (``SNAG-AGENT-005``).
     max_entries_per_read: int = 500
+
+    #: Length of each half of ``GET /api/logs/trends``'s comparison, in
+    #: days.  Seven because the ask was week-on-week, and because a
+    #: 7 + 7 comparison fits inside ``retention_days`` (30) with room to
+    #: spare — the rule ``reliability.window_days`` states one section
+    #: down, that a window wider than retention silently narrows to
+    #: whatever survives the nightly purge.
+    trend_window_days: int = 7
+
+    #: Ceiling on the number of distinct ``(source, severity, message)``
+    #: groups the trend query returns.
+    #:
+    #: Measured on this box: 626,906 rows collapse to **44** groups, so
+    #: this never binds here.  It exists because that collapse is a
+    #: property of the data rather than a bound — a service embedding a
+    #: request id in every line produces one group per line — and an
+    #: unbounded ``SELECT`` over the table whose unboundedness is the
+    #: problem is ``SNAG-AGENT-005``'s ``_open_alerts`` defect exactly.
+    #: Hitting it is reported as ``truncated``, never inferred.
+    trend_max_groups: int = 2000
+
+    #: Signatures the operator has judged to be noise.  A match is raised
+    #: at ``info`` instead of ``warning``/``critical`` — see
+    #: :class:`LogNoiseEntry` for why quietening rather than dropping,
+    #: and why the key is ``(source, signature)`` rather than the
+    #: signature alone.
+    known_noise: list[LogNoiseEntry] = Field(default_factory=list)
 
 
 # projects.yaml was retired in Session 35 Phase 4.  Project identity,

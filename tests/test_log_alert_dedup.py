@@ -40,7 +40,7 @@ from sqlalchemy.dialects import postgresql
 from sysadmin.core.models.alert import Alert
 from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.monitor.journal import JournalRead
-from sysadmin.monitor.log_aggregator import LogAggregatorAgent
+from sysadmin.monitor.log_aggregator import NOISE_SEVERITY, LogAggregatorAgent
 from sysadmin.monitor.log_signature import TITLE_MAX, alert_title, signature
 
 # The live 30-day kernel population, verbatim.  These are the messages the
@@ -159,13 +159,19 @@ class _Session:
         return [a for a in self.added if isinstance(a, Alert)]
 
 
-def _config(quiet_minutes: int = 15, limit: int = 500):
+def _config(quiet_minutes: int = 15, limit: int = 500, known_noise=None):
     return SimpleNamespace(
         agents=SimpleNamespace(
             log_aggregator=SimpleNamespace(
                 sources=[],
                 alert_quiet_minutes=quiet_minutes,
                 max_entries_per_read=limit,
+                # Empty by default, and that is the *loud* default —
+                # absent evidence must mean "not noise". Session 48's
+                # ``UnitFinding.enabled`` trap is one field with two
+                # consumers wanting opposite safe defaults; this one has
+                # a single safe default and it is this one.
+                known_noise=known_noise or [],
             )
         )
     )
@@ -177,10 +183,12 @@ SOURCE = SimpleNamespace(
 )
 
 
-async def _run(agent, session, entries, *, truncated=False, cursor="c1"):
+async def _run(agent, session, entries, *, truncated=False, cursor="c1",
+               known_noise=None):
     read = JournalRead(entries=entries, cursor=cursor, truncated=truncated)
     with (
-        patch("sysadmin.monitor.log_aggregator.get_config", return_value=_config()),
+        patch("sysadmin.monitor.log_aggregator.get_config",
+              return_value=_config(known_noise=known_noise)),
         patch.object(LogAggregatorAgent, "_sources", staticmethod(lambda _c: [SOURCE])),
         patch("sysadmin.monitor.log_aggregator.read_journal",
               AsyncMock(return_value=read)) as reader,
@@ -370,3 +378,145 @@ async def test_quiet_window_is_the_configured_gap():
     now = datetime(2026, 8, 12, 16, 0, tzinfo=UTC)
     await agent._resolve_quiet(session, set(), 45, now)
     assert str(now - timedelta(minutes=45)) in _compiled(session.statements[-1])
+
+
+# ---------------------------------------------------------------------------
+# known_noise — quietened, never suppressed (Session 27, Tier 2)
+# ---------------------------------------------------------------------------
+
+
+def _noise(source, message, reason="measured harmless"):
+    from sysadmin.core.config import LogNoiseEntry
+
+    return LogNoiseEntry(
+        source=source, signature=signature(message), reason=reason
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_declared_signature_is_quietened_not_dropped():
+    """The row still exists, still counts, and stops interrupting.
+
+    Dropping it was the obvious implementation and rebuilds
+    ``SNAG-CFG-001``'s shape: a decision taken by a consumer with nothing
+    recording that it was taken. Session 57 settled this for the ports
+    family; this is the same argument one domain over.
+    """
+    agent = LogAggregatorAgent()
+    session = _Session()
+    result, _ = await _run(
+        agent, session, [_entry(BLUETOOTH_A) for _ in range(1000)],
+        known_noise=[_noise("kernel", BLUETOOTH_A)],
+    )
+
+    assert len(session.alerts) == 1
+    row = session.alerts[0]
+    assert row.severity == NOISE_SEVERITY
+    # Still counted, and still stored — quietened is not suppressed.
+    assert row.details["occurrences"] == 1000
+    assert result.findings_count == 1000
+    # The operator's own justification travels with the row.
+    assert row.details["noise_reason"] == "measured harmless"
+
+
+@pytest.mark.asyncio
+async def test_the_pair_is_the_key_not_the_signature_alone():
+    """A signature declared for one source must not silence another.
+
+    ``Failed with result 'exit-code'.`` is logged by six services on this
+    box; keying on the signature alone would silence a genuine failure in
+    five of them.
+    """
+    agent = LogAggregatorAgent()
+    session = _Session()
+    await _run(
+        agent, session,
+        [_entry(BLUETOOTH_A), _entry(BLUETOOTH_A, source="other")],
+        known_noise=[_noise("kernel", BLUETOOTH_A)],
+    )
+
+    by_source = {a.details["source"]: a.severity for a in session.alerts}
+    assert by_source["kernel"] == NOISE_SEVERITY
+    assert by_source["other"] == "warning"
+
+
+@pytest.mark.asyncio
+async def test_an_undeclared_signature_is_untouched():
+    """Absent evidence means "not noise", which is the loud default."""
+    agent = LogAggregatorAgent()
+    session = _Session()
+    await _run(agent, session, [_entry(RCU_STALL)],
+               known_noise=[_noise("kernel", BLUETOOTH_A)])
+
+    assert session.alerts[0].severity == "warning"
+    assert "noise_reason" not in session.alerts[0].details
+
+
+@pytest.mark.asyncio
+async def test_a_new_declaration_quietens_a_row_that_is_already_open():
+    """``SNAG-ESTATE-010``, and why this family cannot wait it out.
+
+    Dedup skips a judgement whose title is already open, so a change that
+    makes a family quieter normally reaches nothing standing when it
+    ships. Here that is fatal rather than untidy: a signature loud enough
+    to be worth declaring is by definition one that never goes quiet, so
+    its row never resolves and the operator's edit would take effect
+    approximately never.
+    """
+    agent = LogAggregatorAgent()
+    open_row = Alert(
+        agent="log_aggregator",
+        severity="warning",
+        title=alert_title("error", "kernel", BLUETOOTH_A),
+        message=BLUETOOTH_A,
+        details={"source": "kernel", "occurrences": 297_390},
+    )
+    session = _Session(open_alerts=[open_row])
+    result, _ = await _run(agent, session, [_entry(BLUETOOTH_A)],
+                           known_noise=[_noise("kernel", BLUETOOTH_A)])
+
+    # No second row: the identity did not move, only the volume did.
+    assert result.alerts_raised == 0
+    assert open_row.severity == NOISE_SEVERITY
+    assert open_row.details["occurrences"] == 297_391
+    assert open_row.details["noise_reason"] == "measured harmless"
+
+
+@pytest.mark.asyncio
+async def test_the_in_place_change_is_one_directional():
+    """Raising severity in place would be Session 39's defect verbatim.
+
+    The tray fingerprints on ``{severity}:{title}``, so an in-place bump
+    keeps a fingerprint it has already suppressed and the escalation is
+    recorded but never spoken. Going *down* wants exactly that outcome,
+    which is why the asymmetry is the point rather than an oversight: a
+    quietening must be silenced, an escalation must be heard.
+    """
+    agent = LogAggregatorAgent()
+    open_row = Alert(
+        agent="log_aggregator",
+        severity=NOISE_SEVERITY,
+        title=alert_title("error", "kernel", BLUETOOTH_A),
+        message=BLUETOOTH_A,
+        details={"source": "kernel", "occurrences": 5},
+    )
+    session = _Session(open_alerts=[open_row])
+    # No noise declaration now — the fault "wants" to be a warning again.
+    await _run(agent, session, [_entry(BLUETOOTH_A)])
+
+    assert open_row.severity == NOISE_SEVERITY
+    assert "noise_reason" not in open_row.details
+
+
+@pytest.mark.asyncio
+async def test_the_signature_is_recorded_on_the_row():
+    """``details['signature']`` is what ``known_noise`` is keyed on.
+
+    Without it the operator has to re-derive the normalisation by hand to
+    write the config entry — which is the second implementation
+    ``log_trends`` rule 1 exists to avoid, performed by a human.
+    """
+    agent = LogAggregatorAgent()
+    session = _Session()
+    await _run(agent, session, [_entry(BLUETOOTH_A)])
+    assert session.alerts[0].details["signature"] == signature(BLUETOOTH_A)

@@ -2,119 +2,151 @@
 
 ## Next action
 
-Take Session 27 — the log-aggregator tiers — because the snag it has been coupled to since 2026-08-05 was fixed on 2026-08-12 and closed on paper today, so the session is no longer "fix the pile-up, then build the tiers" but only the tiers, on an alerts table holding eight unresolved rows where one title held 547,814 six days ago.
+Take the volume half of `SNAG-AGENT-008` — stop `sysadmin-service` flooding its own journal read — because 118 truncated runs in the trend window make `GET /api/logs/actions` report `confidence: low` and suppress its entire `noise` recommendation family for every source on the box, so a feature shipped today has an empty population because of a defect in a different component.
 
-## Two-minute job first, and it is not the session
+## Two sub-session items, neither of them a session
 
-Resolve the two `Estate port … registry breach` rows so the judge
-re-raises them under Session 57's code:
+**One to run.** The two `Estate port … registry breach` rows still need
+resolving so Session 57's `info` rung can reach them
+(`SNAG-ESTATE-010`); unchanged from this morning, still a write to the
+live `alerts` table, still left for the owner:
 
 ```sql
 UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
 ```
 
-Session 57's `TRANSIENT_HOLDER_SEVERITY = "info"` **is live** — the
-daemon restarted 2026-08-17 10:06:38, four minutes after that commit —
-but both rows were raised 2026-08-16 12:07 and
-`EstateJudgeAgent._execute` skips a judgement whose title is already open
-before it reads severity or `details`. Both dev servers are still bound,
-so this does not self-clear until the editor closes, and the tray will
-restate them at `warning` on its 24-hour reminder. Left for the owner
-rather than run from a documentation sitting: it is a write to the live
-`alerts` table. Filed as `SNAG-ESTATE-010`.
+Worth re-reading that entry first: this session solved the *general*
+version of the problem for the log family, and the reasoning is not the
+obvious one.
 
-## This session — Session 58, the document catches up with the box
+**One that happens by itself.** The retention purge will delete
+**207,566 rows** at 03:00 — the first time it has deleted anything since
+2026-08-08. `log_entries` drops 626,906 → 451,888. Nothing to do; it is
+recorded so a row count read tomorrow is not a surprise.
 
-**The recommendation, taken on the fourth attempt.** `SNAG-DOCS-001` was
-named at the close of Session 55, re-stated by 56 and displaced twice on
-merit by a detector's first live data. That argument was spent — all five
-estate surfaces have now been driven against real payloads — and no
-fourth such opportunity was queued.
+## This session — Session 59: the tiers, and a purge that was lying
 
-### The entry was right about the fault and wrong about its size
+The handoff's own `## Next action` line stood, so Session 27 was taken
+as written. It grew a prefix, and the prefix was worth more than it
+looked.
 
-Both numbers in the snag are wrong, and how they are wrong is the
-finding rather than an erratum:
+### The retention purge had deleted nothing for nine days
 
-- The Contract Registry held **twelve** `/api/projects` rows, not
-  fifteen.
-- The narratives were **nine** blocks, not five — `snapshots.py`,
-  `build_narrative_history`, `/next`, `momentum.py`, `nudges.py`,
-  `/stale`, `status: archived`, the marker scan and `branch_actions.py`
-  — found by grepping the tree rather than counting the paths the entry
-  lists.
-- **Six further sentences** compared a live thing to a departed one and
-  each reads correctly in isolation: "the file-organiser mirror of
-  `/api/projects/actions`", "the third scorer, after the project
-  organiser's repositories", "the two weekly reviews" (there is one),
-  "both project sections read **one** snapshot query" (there are none),
-  the retention narrative's example route, and `sysadmin/registry/` named
-  as the manifest parser in the Database Configuration block. That
-  residue is what a block-level sweep leaves behind.
+Found by asking how far back `log_entries` reaches — a question about
+Session 27's window, not an audit. It reaches 2026-07-09, which is 39
+days into a declared 30-day retention.
 
-### The population splits three ways, and the entry's own remedy would have broken it
+`KEEP_LATEST_PER` used the literal `"true"` for "the whole table is one
+entity", building `SELECT DISTINCT ON (true) … ORDER BY true`.
+PostgreSQL reads a bare constant in `ORDER BY` as an **ordinal
+position**, so this is a parse error rather than a runtime one, and
+parenthesising does not help — the parser strips it.
 
-`GET /api/projects/managed` **is still served here** — ADR-0005 relocated
-it *within* this repository because its substance is live
-`service_health` wearing a project-shaped URL. `/overview` and `/{name}`
-are **consumed** from 8400 and parsed with this repository's tolerant
-models, guarded by `tests/test_estate_project_contracts.py`. Only the
-remaining nine are neither served nor consumed. Applied literally,
-"move each block behind a pointer to estate-manager" deletes a live
-route's contract and relabels a live seam as absent.
+Two things made it survive nine days, and either alone would have been
+enough to catch it:
+
+- **The failure was quieter than the success.** `run_retention` was one
+  transaction over twelve tables, and each logs its rowcount *before*
+  the commit — so the journal carried `deleted: 175018` for
+  `log_entries` every night, none of which happened. The one honest
+  signal was `last_purged_at` frozen at 2026-08-08, a column nothing
+  reads.
+- **1,866 green tests could not see it.** `tests/test_retention.py`
+  mocked the session, so every statement was asserted as a *string*.
+  One test asserted `KEEP_LATEST_PER["project_reviews"] == "true"` — it
+  pinned the broken literal exactly. No stronger string assertion could
+  have helped; what was wrong was SQL validity.
+
+Fixed with three changes that are only jointly sufficient: `WHOLE_TABLE
+= None` as a sentinel taking its own `ORDER BY … LIMIT 1` branch
+(removing the construct rather than repairing it), statement
+construction extracted to a pure `purge_statement()` so PostgreSQL can
+`EXPLAIN` every statement in a test, and **one savepoint per table** —
+`SysAdminAgent._execute`'s rule, one domain over — with `last_purged_at`
+stamped inside it so a failed table keeps its old stamp and the column
+finally means what its name says.
+
+Both new guards were falsified against the restored pre-fix code path
+before being trusted; both fail with production's exact message.
+
+### Session 27, and what the live data refuted
+
+Tiers 1 and 2. **Tier 3 is deferred and is now all that remains of
+Session 27.**
+
+The decision that shaped everything was measured rather than argued:
+**626,906 rows collapse to 44 distinct messages in 91 ms.** That is what
+makes it affordable to apply `log_signature.signature()` in Python over
+SQL-grouped rows instead of re-implementing normalisation in
+`regexp_replace` — a second implementation would drift from the identity
+the *alert* family is keyed on, and the trend would name signatures the
+`alerts` table has never heard of.
+
+Three rules the live table settled and fixtures could not:
+
+1. **"New" is a first sighting, not `previous == 0`.** One row refutes
+   the obvious test: the Bluetooth firmware signature reads
+   `current=39,919, previous=0` and has been storming since 2026-07-15.
+   It comes out `returned`. The 8 genuinely-new signatures include
+   `Bluetooth: hciN: failed to reset (-N)`, a distinct signature a
+   source-level key would have masked.
+2. **Truncation is the confidence signal; poll count is only the
+   proxy.** A missed poll is caught up by the journal cursor, so data is
+   lost only when a catch-up read hits `max_entries_per_read`. Counting
+   polls would charge a fully-recovered gap as data loss.
+3. **Three emitted `journalctl` commands did not work.** `-u kernel`
+   (the kernel is not a unit — `read_journal` has always known this, so
+   the same fact was stated twice and one was wrong), no `--user` for
+   the **7 of 14** sources that are user units, and a `--grep` on the
+   normalised signature whose `N` placeholders match no real line. Found
+   by running them: 2,170 lines with `--user`, 1 without. The fixtures
+   were green throughout.
 
 ### Decisions taken, and what was rejected
 
-- **Two blocks rewritten, not pointed away**, because the argument is
-  still this repository's. `SysAdminAgent._resolve_recovered` was the
-  second half of "both scoring agents resolve alerts set-based": the
-  project organiser made the case, we still run the statement, and
-  pointing the whole block away leaves a borrowed rule looking invented.
-- **`core/escalation.py`'s stated reason expired with the domain.** It
-  lived in `core` because `monitor` may not import `projects`; that
-  package cannot exist. Rejected: deleting the sentence, which leaves a
-  correct conclusion resting on a dead premise — `SNAG-AGENT-006`'s trap
-  arriving in a document. It now names the four climbers it has
-  (`monitor/stalls.py`, `monitor/failures.py`, `units/agent.py`,
-  `estate/judgements.py`) and says the boundary test guards against
-  bringing the package back rather than constraining anything live.
-- **The dead contract models were not deleted.** Eight have zero readers
-  and four are re-exported by `sysadmin_tray/models.py`. Removing a
-  re-exported name changes the tray's public surface, and this sitting
-  touched no code. Filed as `SNAG-DOCS-002` with the decision it needs
-  stated rather than taken.
-- **ADR-0005 was not linked from `CLAUDE.md` at all** — the pointer
-  target of the entire fix, missing from the index it points through.
-  0003 and 0004 were missing too. All three added; ADR-0001's open
-  question is marked answered against this repository.
+- **`known_noise` was built, not named.** Tier 2's scoped example said
+  "add to known-noise or fix it" and no such mechanism existed — Session
+  48's defect in advance. Rejected: making the recommendation anyway.
+- **Quietened, never suppressed** (`info`, below
+  `tray.notify_min_severity`), per Session 57. Rejected: dropping the
+  row, which rebuilds `SNAG-CFG-001`'s shape.
+- **Keyed on `(source, signature)`.** `Failed with result 'exit-code'.`
+  is logged by six services here; the signature alone would silence a
+  genuine failure in five of them.
+- **The quietening changes an open row's severity in place**, which
+  `SNAG-ESTATE-010` says nothing can do. Session 39's ban is
+  **asymmetric**: an escalation must be *heard*, so an in-place bump
+  keeps a fingerprint the tray has suppressed; a quietening must be
+  *silenced*, and `info:…` is dropped before `_consider` notifies. The
+  mechanism that makes escalation fail is what makes this work, so it is
+  one-directional by construction. This family cannot wait for a resolve
+  — a signature loud enough to declare never goes quiet.
+- **Rule 4 was not relaxed to make the demo work.** `confidence: low`
+  suppresses every `noise` row on this box today, including both
+  Bluetooth signatures, which are Tier 2's headline case. Serving a
+  volume argument off a count known to be incomplete is the opposite of
+  what the gate is for. Filed as `SNAG-LOG-002` and it is the next
+  session.
 
-### Found by measuring the box, not the tree
+### Verified live, not only against fixtures
 
-- **`SNAG-AGENT-002` was fixed on 2026-08-12.** Its stated remedy —
-  group by unit plus a normalised signature, one alert carrying an
-  occurrence count — is `log_signature.py` verbatim, shipped under
-  `SNAG-AGENT-005`. `STATUS.md`'s runners-up had **already noticed** on
-  2026-08-16; the observation never reached the entry or `tasks.md`, so
-  the session stayed gated. The failure is a measurement that reached
-  the document nobody acts from.
-- **`SNAG-ESTATE-010`**: a judgement that gets *quieter* cannot reach an
-  open row. Escalation has resolve-and-re-raise; nothing has the
-  reverse, so any fix that quietens a family is silent on every fault
-  standing when it ships. Not fixed here — the obvious remedy
-  (resolve-and-re-raise on a severity mismatch) rebuilds
-  `collation.py`'s flip-flop.
-- **The snag parser went 36 → 38** across a sitting that closed two and
-  opened two, because it cannot see a closure that stays in place under
-  "Open". `SNAG-ROADMAP-002` demonstrating itself, and still filed here
-  though the parser left for estate-manager on 2026-08-13.
+Retention: real statements against the real database inside a rolled-back
+transaction — all twelve tables purge, 207,566 rows due, row counts
+re-read after rollback unchanged; the keep-latest semantic forced
+separately with `cutoff = now()` (4 rows, 3 deleted, survivor is the
+newest, both tables). Session 27: both endpoints driven in-process
+against the live DB (88 ms / 83 ms, 34 signatures, 8 new, 13
+recommendations); the emitted commands executed; the noise loop closed
+end to end — endpoint emits YAML → real `LogNoiseEntry` parses it → the
+pair matches what the agent keys on → the signature is still counted in
+the trend at 39,919. **1937 green** (from 1866), ruff and mypy clean, 46
+application routes counted off `create_app()`.
 
-### Verified
+### Filed rather than implied
 
-`GET :8500/openapi.json` serves **one** route under `/api/projects`.
-Model readers measured by grep over `sysadmin/`, `sysadmin_tray/` and
-`tests/` with `contracts.py` excluded. Snag count measured either side of
-the edit by driving estate-manager's own `count_open_snags` over this
-file. `CLAUDE.md` 1,774 → 1,684 lines. Suite **1866** green — a
-documentation change cannot break it, which is the reason to run it
-rather than not to.
+`SNAG-DB-004` (fixed), `SNAG-AGENT-008` (this daemon cannot see its own
+errors — every line is journald `PRIORITY=6`, so nine nights of `ERROR`
+raised zero alerts), `SNAG-LOG-001` (one crash, four recommendations),
+`SNAG-LOG-002` (the noise family's population is empty because of
+`SNAG-AGENT-008`).

@@ -484,6 +484,18 @@ agents:
     # details['truncated_sources'] instead of showing up as a findings
     # count that never moves.
     max_entries_per_read: 500
+    # GET /api/logs/trends compares two windows of this many days each.
+    # Seven because the ask was week-on-week, and because 7 + 7 sits well
+    # inside retention_days above — a window wider than retention narrows
+    # itself to whatever survives the nightly purge without saying so.
+    trend_window_days: 7
+    # Ceiling on distinct (source, severity, message) groups the trend
+    # query returns. Measured 2026-08-17: 626,906 rows collapse to 44
+    # groups, so this does not bind on this box. It is here because that
+    # collapse is a property of the data, not a bound — a service that
+    # embeds a request id in every line has one group per line — and
+    # hitting it is reported as `truncated` rather than inferred.
+    trend_max_groups: 2000
 
 tray:
   status_poll_seconds: 30

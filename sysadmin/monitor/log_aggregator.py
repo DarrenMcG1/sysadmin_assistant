@@ -17,6 +17,14 @@ from sqlalchemy import DateTime, func, select, update
 
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
+
+# Aliased, because this module already imports a *different*
+# ``SEVERITY_ORDER`` from ``journal``: that one ranks the five log
+# severities a journal entry can carry (debug…critical), this one the
+# three an ``alerts`` row may hold (``chk_alert_severity``).  Letting
+# the names collide would compare a log level against an alert level
+# and be wrong only for ``error``, which has no alert rung at all.
+from sysadmin.core.escalation import SEVERITY_ORDER as ALERT_SEVERITY_ORDER
 from sysadmin.core.llm_client import LLMClient
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.journal import (
@@ -25,12 +33,21 @@ from sysadmin.monitor.journal import (
     read_journal,
     since_timestamp,
 )
-from sysadmin.monitor.log_signature import alert_title
+from sysadmin.monitor.log_signature import alert_title, signature
 from sysadmin.monitor.models.log_entry import LogEntry
 from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.services import get_services, log_sources
 
 logger = logging.getLogger(__name__)
+
+#: Severity for a signature listed in ``agents.log_aggregator.known_noise``.
+#:
+#: ``info`` because it is the only rung below ``tray.notify_min_severity``
+#: on this box — the same derivation, and the same one number, as
+#: ``judgements.TRANSIENT_HOLDER_SEVERITY``.  The row still exists, still
+#: counts occurrences and still appears in the trend; it simply stops
+#: interrupting.
+NOISE_SEVERITY = "info"
 
 SUMMARISE_PROMPT_SYSTEM = (
     "You are a sysadmin reviewing logs. Summarise the following log entries. "
@@ -150,6 +167,15 @@ class LogAggregatorAgent(BaseAgent):
         """
         config = get_config()
         agent_config = config.agents.log_aggregator
+        # Rebuilt every run rather than cached, which is free and is what
+        # makes an edit to config.yaml take effect on the next poll — the
+        # per-run configuration SNAG-AGENT-003 bought by forbidding agents
+        # a startup hook.  ``GET /api/logs/actions`` tells the operator to
+        # make that edit, so it had better land without a restart.
+        known_noise = {
+            (entry.source, entry.signature): entry
+            for entry in agent_config.known_noise
+        }
         total_ingested = 0
         alerts_raised = 0
         truncated: list[str] = []
@@ -200,13 +226,21 @@ class LogAggregatorAgent(BaseAgent):
                 )
                 fault = faults.get(title)
                 if fault is None:
+                    sig = signature(entry["message"])
+                    noise = known_noise.get((entry["source"], sig))
                     faults[title] = {
                         "severity": (
-                            "critical" if entry["severity"] == "critical" else "warning"
+                            NOISE_SEVERITY
+                            if noise is not None
+                            else "critical"
+                            if entry["severity"] == "critical"
+                            else "warning"
                         ),
                         "source": entry["source"],
                         "message": entry["message"],
                         "count": 1,
+                        "signature": sig,
+                        "noise_reason": noise.reason if noise else None,
                     }
                 else:
                     # The newest line wins, so the verbatim example beside
@@ -229,9 +263,19 @@ class LogAggregatorAgent(BaseAgent):
                 message=fault["message"][:500],
                 details={
                     "source": fault["source"],
+                    "signature": fault["signature"],
                     "first_seen_at": now.isoformat(),
                     "last_seen_at": now.isoformat(),
                     "occurrences": fault["count"],
+                    # Present only when config.yaml says so, so a reader
+                    # of the row can see *why* it is quiet without going
+                    # to look — the reason SNAG-CFG-001 was a defect
+                    # rather than a tidy-up.
+                    **(
+                        {"noise_reason": fault["noise_reason"]}
+                        if fault["noise_reason"]
+                        else {}
+                    ),
                 },
             )
             alerts_raised += 1
@@ -340,14 +384,53 @@ class LogAggregatorAgent(BaseAgent):
         does not track mutation inside a plain JSONB dict, so an in-place
         update would look like it worked and write nothing — and the whole
         resolve depends on ``last_seen_at`` moving.
+
+        **A newly-declared noise entry quietens the open row in place, and
+        that is legitimate precisely because it is going down.**
+        ``SNAG-ESTATE-010`` records the general fault: dedup skips a
+        judgement whose title is already open, so a change that makes a
+        family *quieter* never reaches anything standing when it ships.
+        This family is the worst case for it — a signature loud enough to
+        be worth marking as noise is by definition one that never goes
+        quiet, so its row never resolves and the operator's edit would
+        take effect approximately never.
+
+        Session 39 forbids in-place severity changes, and the ban is
+        **asymmetric**.  Its reason is that an escalation must be *heard*:
+        the tray fingerprints on ``{severity}:{title}``, so bumping
+        severity in place keeps a fingerprint it has already suppressed
+        and the escalation is recorded but never spoken.  A quietening
+        wants the opposite outcome.  Writing ``info`` in place hands the
+        tray a fingerprint that ``_consider`` drops below
+        ``notify_min_severity`` before it can notify — which is the entire
+        objective, so the mechanism that makes escalation fail is what
+        makes this work.
+
+        It is deliberately **one-directional**.  Raising severity in place
+        here would be Session 39's defect verbatim, so a fault that has
+        stopped matching a noise entry keeps its quiet row until silence
+        resolves it and the next occurrence raises a loud one — the
+        resolve-and-re-raise the ladder does explicitly, arriving by the
+        route this family already has.
         """
         details = dict(alert.details or {})
         details["last_seen_at"] = now.isoformat()
         details["occurrences"] = int(details.get("occurrences") or 0) + fault["count"]
         details.setdefault("first_seen_at", details["last_seen_at"])
         details.setdefault("source", fault["source"])
+        details["signature"] = fault["signature"]
+        if fault["noise_reason"]:
+            details["noise_reason"] = fault["noise_reason"]
+        else:
+            details.pop("noise_reason", None)
         alert.details = details
         alert.message = fault["message"][:500]
+
+        wanted = fault["severity"]
+        if ALERT_SEVERITY_ORDER.get(wanted, 0) < ALERT_SEVERITY_ORDER.get(
+            alert.severity, 0
+        ):
+            alert.severity = wanted
 
     async def _resolve_quiet(
         self, session, seen: set[str], quiet_minutes: int, now: datetime
