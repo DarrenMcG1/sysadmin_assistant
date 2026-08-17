@@ -156,3 +156,94 @@ class TestRequestLoggingMiddleware:
             await client.get("/nonexistent")
             _, kwargs = mock_logger.info.call_args
             assert kwargs["extra"]["status"] == 404
+
+
+# --- uvicorn's own access logger (SNAG-AGENT-008, volume half) ---
+
+
+class TestUvicornAccessLogIsSilenced:
+    """``configure_logging`` must reach uvicorn's access logger too.
+
+    Every request was written to the journal twice: once as plain text by
+    ``uvicorn.access`` and once as JSON by
+    :mod:`sysadmin.core.middleware`. Clearing the *root* handlers does not
+    reach it, because uvicorn's default dictConfig attaches a handler to
+    that logger directly and sets ``propagate = False``.
+
+    Note what could **not** have caught this.
+    ``TestRequestLoggingMiddleware.test_excludes_health_endpoint`` above
+    asserts ``/health`` is not logged — by patching the *middleware's*
+    logger, which is the one that was already excluding it. The path went
+    on being logged 22 times per ten minutes by the emitter that test does
+    not look at. So the fixture asserted the decision and the box kept
+    disagreeing with it, which is why the test below reconstructs
+    uvicorn's logger rather than trusting ours.
+    """
+
+    @pytest.fixture
+    def uvicorn_access(self):
+        """``uvicorn.access`` configured the way uvicorn configures it.
+
+        Own handler, ``propagate = False``, level INFO — rebuilt here
+        rather than imported so the test states the shape it defends
+        against, and restored afterwards because this is a global logger
+        and the suite shares it.
+        """
+        logger = logging.getLogger("uvicorn.access")
+        saved = (logger.handlers[:], logger.propagate, logger.level, logger.disabled)
+
+        buf = StringIO()
+        handler = logging.StreamHandler(buf)
+        logger.handlers = [handler]
+        logger.propagate = False
+        logger.setLevel(logging.INFO)
+        logger.disabled = False
+
+        yield logger, buf
+
+        logger.handlers, logger.propagate, logger.level, logger.disabled = saved
+
+    def test_access_line_is_not_emitted(self, uvicorn_access):
+        """The guard — fails against the pre-fix ``configure_logging``."""
+        logger, buf = uvicorn_access
+        configure_logging(ServiceConfig(log_format="json"))
+        logger.info('%s - "%s %s" %d', "127.0.0.1:53994", "GET", "/health", 200)
+        assert buf.getvalue() == ""
+
+    def test_the_record_is_not_rerouted_to_root_instead(self, uvicorn_access):
+        """Silenced, not redirected.
+
+        Removing the handler and letting the record propagate would keep
+        the duplicate and merely re-dress it as JSON — the same line count
+        in the journal, which is the number this change exists to move.
+        """
+        logger, _ = uvicorn_access
+        configure_logging(ServiceConfig(log_format="json"))
+        root = logging.getLogger()
+        root_buf = StringIO()
+        root.handlers[0].stream = root_buf
+        logger.info("GET /api/sysadmin/status 200")
+        assert root_buf.getvalue() == ""
+
+    def test_only_the_access_logger_is_silenced(self, uvicorn_access):
+        """``uvicorn.error`` carries startup failures and must survive."""
+        configure_logging(ServiceConfig(log_format="json"))
+        root = logging.getLogger()
+        buf = StringIO()
+        root.handlers[0].stream = buf
+        logging.getLogger("uvicorn.error").warning("address already in use")
+        assert "address already in use" in buf.getvalue()
+
+    def test_the_middleware_logger_is_untouched(self, uvicorn_access):
+        """The copy that is kept is the one with the structured fields."""
+        configure_logging(ServiceConfig(log_format="json"))
+        root = logging.getLogger()
+        buf = StringIO()
+        root.handlers[0].stream = buf
+        logging.getLogger("sysadmin.access").info(
+            "GET /api/sysadmin/status 200 4.1ms",
+            extra={"path": "/api/sysadmin/status", "status": 200},
+        )
+        parsed = json.loads(buf.getvalue())
+        assert parsed["path"] == "/api/sysadmin/status"
+        assert parsed["status"] == 200

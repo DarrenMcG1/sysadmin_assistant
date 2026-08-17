@@ -194,6 +194,18 @@ class ServiceCard(QFrame):
     def service_name(self) -> str:
         return self._service.name
 
+    @property
+    def has_systemd_unit(self) -> bool:
+        """Whether ``/details`` has anything to say about this service.
+
+        Read off the card's *current* status rather than the one it was
+        built from, so a service that gains or loses a unit declaration
+        across a ``services.yaml`` reload is answered correctly without the
+        card being rebuilt.  It is the same test ``update_status`` uses to
+        decide whether the lifecycle buttons are shown.
+        """
+        return bool(self._service.systemd_unit)
+
 
 class ServicesTab(QWidget):
     """Dashboard tab displaying service cards with lifecycle controls."""
@@ -244,8 +256,15 @@ class ServicesTab(QWidget):
         self._client.scan_complete.connect(self._on_scan_complete)
 
     def _on_status(self, status: StatusResponse) -> None:
-        """Create/update service cards from the status response."""
+        """Create/update service cards from the status response.
+
+        The cards themselves are always updated — they are in memory and
+        the window may be shown at any moment — but the per-service
+        ``/details`` fan-out is gated on this tab being visible.  See
+        :meth:`_fetch_details` for why.
+        """
         seen: set[str] = set()
+        visible = self.isVisible()
 
         for svc in status.services:
             seen.add(svc.name)
@@ -259,8 +278,10 @@ class ServicesTab(QWidget):
             else:
                 self._cards[svc.name].update_status(svc)
 
-            # Request details for services with systemd units
-            if svc.systemd_unit:
+            # Request details for services with systemd units — but only
+            # while something is actually looking at them.  See
+            # :meth:`_fetch_details`.
+            if visible and svc.systemd_unit:
                 self._client.request_service_details(svc.name)
 
         # Remove cards for services no longer present
@@ -297,5 +318,45 @@ class ServicesTab(QWidget):
         self._scan_btn.setText("Scan All")
 
     def refresh(self) -> None:
-        """Request fresh status data."""
+        """Called when this tab becomes visible — fetch what it shows.
+
+        Both halves are needed and they cover different cases.  The status
+        request covers a cold tab, where there are no cards yet: the reply
+        arrives with this tab already visible, so :meth:`_on_status` fans
+        the details out itself.  :meth:`_fetch_details` covers a warm one,
+        where cards were built from status polls taken while the window was
+        hidden and carry no systemd detail — without it those cards would
+        sit blank until the next poll, up to ``tray.status_poll_seconds``
+        later, which is the visible cost of the gate and the reason it is
+        paid here rather than by widening the gate.
+        """
         self._client.request_status()
+        self._fetch_details()
+
+    def _fetch_details(self) -> None:
+        """Request ``/details`` for every card holding a systemd unit.
+
+        **SNAG-AGENT-008, volume half.** This tab is constructed eagerly at
+        tray startup and wired to ``status_updated`` unconditionally, so it
+        used to issue one ``/details`` request per service on every status
+        poll whether or not the dashboard had ever been opened — 32
+        services every ``tray.status_poll_seconds``.  Measured 2026-08-17:
+        1,160 of the 1,347 journal lines ``sysadmin.service`` wrote in ten
+        minutes, **86 %**, were that fan-out answering itself.
+
+        ``DashboardWindow``'s own docstring already promised the opposite —
+        *"no background polling when hidden"* — and every other tab keeps
+        it; ``LogsTab`` stops its timer in ``hideEvent`` and this one had
+        no timer to stop, which is how it escaped notice.  The polling was
+        not scheduled here, it was inherited from a signal that fires
+        anyway.
+
+        ``isVisible()`` is false both when the window is hidden and when a
+        different tab is selected, and both are cases where nobody is
+        looking — so the widget's own answer is the right one and no
+        separate flag is kept.  A second flag would be a second statement
+        of the same fact, free to disagree with Qt about it.
+        """
+        for name, card in self._cards.items():
+            if card.has_systemd_unit:
+                self._client.request_service_details(name)

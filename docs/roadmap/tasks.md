@@ -367,6 +367,67 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### ✅ Session 60: The volume half, and what the table said instead (done 2026-08-17)
+
+**The handoff's `## Next action` line was taken as written, and the live
+table refuted its justification within twenty minutes.** The line said
+to stop `sysadmin-service` flooding its own journal read *because* 118
+truncated runs suppress `GET /api/logs/actions`'s `noise` family. The
+first half was worth doing. The second was wrong.
+
+- [x] Measure the composition of `sysadmin.service`'s journal before
+      changing anything — **673 lines per 5 minutes**, 676 over a
+      30-minute sample, steady rather than bursty
+- [x] **Cause 1: every request was logged twice.** `configure_logging`
+      clears the *root* handlers, which does not reach `uvicorn.access`
+      — uvicorn's dictConfig attaches a handler to it directly with
+      `propagate = False`. 662 plain lines against 640 JSON access lines
+      in ten minutes, and 662 − 640 is exactly the 22 `/health` polls
+      the middleware excludes. So `SNAG-API-002`'s exclusion **has never
+      worked**, and the test that guards it patches the middleware's
+      logger — the one that was already honouring it
+- [x] **Cause 2: the tray fanned out `/details` for a tab nobody was
+      looking at.** `ServicesTab` is built eagerly at tray startup and
+      wired to `status_updated` unconditionally: one request per
+      systemd-backed service per poll, dashboard open or not. **1,160 of
+      1,347 lines, 86 %.** `DashboardWindow`'s own docstring promised
+      *"no background polling when hidden"*
+- [x] Fix both: `uvicorn.access` disabled in `configure_logging`;
+      `_on_status` gated on `isVisible()` with `refresh()` covering the
+      warm tab so it does not sit blank for a poll interval
+- [x] Falsify both guards against the restored pre-fix code — 1 logging
+      test and 4 of 7 tray tests fail, with production's exact line
+- [x] Drive the logging half against uvicorn's **real** `LOGGING_CONFIG`
+      rather than a reconstruction of it
+- [x] Deploy the tray and measure: **`/details` = 0**
+- [x] Correct `SNAG-AGENT-008` (volume half fixed; three claims in it
+      were wrong) and `SNAG-LOG-002` (its cause is the kernel)
+- [ ] **Backend restart is owed** — uvicorn serves start-time code and
+      the restart needs `sudo`, so the duplicate is still being written
+
+**What the table said instead, and it is the more useful half.** The 118
+truncated runs are **kernel 103, sysadmin-service 14**, out of **10,064
+runs — 1.2 %**, not "essentially every read"; and **104 of the 118
+landed on one day**, 2026-08-12. `log_trends._confidence` is
+`runs_truncated > 0`, i.e. **binary**, so taking this service to zero
+leaves 103 kernel runs and `SNAG-LOG-002` does not close. It will clear
+by itself around 2026-08-19 when 08-12 leaves the window, and return on
+the next kernel storm.
+
+**The two halves of `SNAG-AGENT-008` turned out to be multiplicative,
+not independent.** `_read_journal_source` falls back to a five-minute
+window only when there is no cursor *and* `_resume_floor` is `None`. For
+this service the floor is *always* `None`, because the priority half
+means no rows are ever stored — so the durable resume mechanism is
+permanently off, every restart re-reads five minutes, and five minutes
+at 673 lines overflows a 500-line ceiling. Fixing either half stops the
+truncation.
+
+**Checked for a pattern rather than assuming one.** `ServicesTab` is the
+only tab that issues a request from a client signal handler; every other
+one confines them to `refresh()` or a user action. One instance, so it
+is fixed in place rather than given an abstraction.
+
 ### ✅ Session 58: The document catches up with the box (done 2026-08-17)
 
 **The recommendation, taken on the fourth attempt.** `SNAG-DOCS-001` was

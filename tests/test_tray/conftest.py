@@ -54,6 +54,7 @@ class FakeClient(QObject):
     connection_restored = pyqtSignal()
     scan_complete = pyqtSignal(bool, str)
     service_action_complete = pyqtSignal(str, str, bool, str)
+    service_detail_updated = pyqtSignal(str, object)
     resource_history_updated = pyqtSignal(object)
     managed_projects_updated = pyqtSignal(object)
     project_overview_updated = pyqtSignal(object)
@@ -115,6 +116,12 @@ class FakeClient(QObject):
 
     def trigger_scan(self) -> None:
         self._record("trigger_scan")
+
+    def request_status(self) -> None:
+        self._record("request_status")
+
+    def request_service_details(self, name: str) -> None:
+        self._record("request_service_details", name)
 
     def trigger_service_action(self, name: str, action: str) -> None:
         self._record("trigger_service_action", name, action)

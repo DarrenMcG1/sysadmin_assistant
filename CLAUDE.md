@@ -394,9 +394,66 @@ lines that are four genuine signatures — a cap would hide the fourth
 without saying the four were one thing, so the real fix is a correlation
 rule nobody has measured. `SNAG-LOG-002`: the `noise` family has an
 **empty population on this box**, because 118 truncated runs make
-confidence `LOW` — and those are overwhelmingly `sysadmin-service`
-itself flooding its own journal read, so one service's access-log volume
-suppresses a recommendation family for every other source.
+confidence `LOW`.
+
+*That entry named the wrong culprit and Session 60 corrected it against
+`agent_runs`: the 118 are **kernel 103, sysadmin-service 14** out of
+**10,064 runs**, and **104 of them fell on one day**, 2026-08-12. Since
+`_confidence` is `runs_truncated > 0` — binary, not proportional — the
+family is available only between kernel storms, and the volume fix below
+did not close it.*
+
+**A logger that is not the one you configured writes the line anyway**
+(Session 60, `SNAG-AGENT-008` volume half). `configure_logging` clears
+the **root** handlers, which does not reach `uvicorn.access`: uvicorn's
+dictConfig attaches a handler to that logger *directly* and sets
+`propagate = False`, so it sat outside every switch this module throws
+and wrote a plain-text copy of every request beside the middleware's
+JSON one. Measured over ten minutes: **662 plain against 640 JSON**, and
+662 − 640 is exactly the **22 `/health` polls** `_EXCLUDED_PATHS`
+suppresses — so `SNAG-API-002`'s fix had never once worked. Note what
+could not have caught it: `test_excludes_health_endpoint` patches
+`sysadmin.core.middleware.logger`, the emitter that was already
+honouring the exclusion.
+
+Three rules. **The structured copy is the one kept** — only it carries
+`method`/`path`/`status`/`duration_ms` as fields rather than prose to be
+parsed back. **Disabled, not re-levelled**: uvicorn logs access at INFO
+and nothing else, so `setLevel(WARNING)` is silence spelled indirectly
+and starts emitting again the day uvicorn adds a warning-level access
+line. **Silenced, not redirected** — removing the handler and letting
+the record propagate keeps the duplicate and merely re-dresses it as
+JSON, which is the same line count in the journal and the line count is
+the number being moved. A test drives uvicorn's real `LOGGING_CONFIG`
+rather than a reconstruction of it.
+
+The other 86 % was the tray. `sysadmin_tray/dashboard/services_tab.py`
+is built eagerly at startup and wired to `status_updated`
+unconditionally, so it issued one `/details` per systemd-backed service
+on **every** status poll, dashboard open or not — **1,160 of 1,347
+lines** in ten minutes, against `DashboardWindow`'s own docstring
+promising *"no background polling when hidden"*. `LogsTab` stops its
+timer in `hideEvent`; this tab had no timer to stop, so the polling was
+never scheduled, it was inherited from a signal that fires anyway.
+`isVisible()` is false both when the window is hidden and when another
+tab is selected — both cases where nobody is looking — so the widget's
+own answer is used and no second flag is kept, a flag being free to
+disagree with Qt about the same fact. `refresh()` fetches details for
+cards already held, because the gate's visible cost is a warm tab
+opening blank for a poll interval and it is paid there rather than by
+widening the gate. `ServicesTab` was the **only** tab issuing a request
+from a client signal handler, so it is fixed in place rather than
+abstracted.
+
+**The two halves of `SNAG-AGENT-008` are multiplicative, not
+independent**, which is the part worth carrying forward.
+`_read_journal_source` falls back to a five-minute window only when
+there is no cursor **and** `_resume_floor` is `None`. For
+`sysadmin-service` the floor is *always* `None` — the priority half
+means no rows are ever stored — so the durable resume mechanism is
+permanently disabled, every restart re-reads five minutes, and five
+minutes at 673 lines overflows the 500-line ceiling. Fixing **either**
+half stops the truncation; only the priority half stops the re-read.
 
 **A detected fault has to keep speaking, and the ladder that makes it do
 so lives in `core`** (Session 39). `sysadmin/core/escalation.py` owns

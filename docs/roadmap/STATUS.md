@@ -19,46 +19,68 @@
 > asymmetric), so the entry is worth re-reading before anyone fixes the
 > estate judge the obvious way.
 >
-> **A second one, and it happens by itself at 03:00.** The retention
-> purge will delete **207,566 rows** tonight — the first time it has
-> deleted anything since 2026-08-08. Nothing to do; it is here because
+> **A second one, and it is the only thing Session 60 could not do.**
+> `sudo systemctl restart sysadmin` — uvicorn serves start-time code, so
+> the duplicate access line is still being written until the daemon is
+> restarted. The tray half is already deployed and measured. Two minutes,
+> and it needs `sudo`, which is why it is here rather than done.
+>
+> **A third, and it happens by itself at 03:00.** The retention purge
+> will delete **207,566 rows** tonight — the first time it has deleted
+> anything since 2026-08-08. Nothing to do; it is here because
 > `log_entries` will drop 626,906 → 451,888 and anyone reading a row
 > count tomorrow should know why.
 >
-> **Next up**: **Session 27's Tier 3 — extend the overnight LLM log
-> summary — or the volume half of `SNAG-AGENT-008`.** *Recommended at the
-> close of Session 59.* See the ranking below.
+> **Next up**: **`SNAG-AGENT-008`, the priority half — this daemon
+> cannot see its own errors.** *Recommended at the close of Session 60.*
 >
-> **1. `SNAG-AGENT-008`, the volume half.** This service emits ~671
-> journal lines per 5 minutes and hits its own read ceiling on
-> essentially every poll, so **118 truncated runs** in the trend window
-> make `GET /api/logs/actions` report `confidence: low` and suppress the
-> entire `noise` recommendation family — for every other source, not just
-> its own. That is `SNAG-LOG-002`, and it means a feature shipped today
-> has an empty population *because of a defect in a different component*.
-> It also has the priority half behind it: every line this daemon writes
-> is journald `PRIORITY=6`, so nine nights of `ERROR` from the broken
-> retention purge produced **zero** alert rows. It wins on being the
-> thing standing between two shipped features and their data.
+> **1. `SNAG-AGENT-008`, the priority half.** Every line this service
+> writes goes to stdout, and systemd stamps captured stdout `PRIORITY=6`
+> whatever the `"level"` inside the JSON says — so `read_journal`'s
+> severity filter discards the lot and `log_entries` holds **0 rows** for
+> `sysadmin.service`. Nine consecutive nights of `ERROR` from the broken
+> retention purge raised **zero** alerts. It wins for three reasons, and
+> the third only became visible today. It is a live blindness in the one
+> component that is supposed to notice blindness. Session 60 built all
+> the context for it. And it is what keeps `_resume_floor` returning
+> `None` for this source for ever — no stored rows means no durable
+> resume point, so every restart still re-reads a five-minute window; the
+> volume fix stopped that window overflowing, and this is what would stop
+> it being re-read at all. **The choice of remedy is the session**, and
+> it is not obvious: `SyslogLevelPrefix=` plus a prefixing handler, or
+> `systemd.journal.JournalHandler`, both need a unit-file edit and
+> therefore `sudo`; reading the `"level"` key out of the JSON in
+> `read_journal` needs neither, and is the only one that couples the
+> journal reader to *this* application's log format.
 >
-> **2. Session 27 Tier 3.** The only part of Session 27 left, and it is
-> the smallest: the overnight LLM summary already runs in the briefing,
-> and Tier 1 now produces exactly the material it lacks — "8 new
-> signatures this week" is a sentence, not a table. It loses to
-> `SNAG-AGENT-008` narrowly and only because Tier 3 is *additive* while
-> the other is a live blindness. Take it if a short sitting is wanted.
+> **2. Session 27 Tier 3** — extend the overnight LLM log summary. The
+> last part of Session 27 and the smallest: Tier 1 now produces exactly
+> the material it lacks, since "8 new signatures this week" is a sentence
+> rather than a table. It loses because it is *additive* against a live
+> blindness, which is the same margin it lost by yesterday. Take it if a
+> short sitting is wanted.
 >
-> **3. `SNAG-DOCS-002`** — eight project contract models with zero
-> readers, four re-exported to the tray. Unchanged from yesterday's
-> ranking and still loses on the same grounds: half an hour of deletion
-> plus one decision about the tray's public surface. It has now been the
-> runner-up twice.
+> **3. `SNAG-LOG-002`, now that its cause is known.** Session 60
+> corrected it: the 118 truncated runs are **kernel 103,
+> sysadmin-service 14** out of 10,064, and 104 of them fell on
+> 2026-08-12. `_confidence` is binary (`runs_truncated > 0`), so the
+> `noise` family is available only between kernel storms. Per-source
+> confidence is now the only fix that reaches it. It loses on timing
+> rather than merit: the 08-12 spike leaves the window around
+> **2026-08-19** and confidence recovers by itself, so a sitting this
+> week would be measuring against a state about to change anyway.
+>
+> **4. `SNAG-DOCS-002`** — eight project contract models with zero
+> readers, four re-exported to the tray. Runner-up for the third time,
+> on the same grounds each time: half an hour of deletion plus one
+> decision about the tray's public surface.
 >
 > **Named as blocked rather than dropped**: `SNAG-LOG-001` (four
-> recommendations for one mosquitto crash) is real but needs a
-> correlation rule nobody has measured, and the obvious cap rebuilds
-> `SNAG-ESTATE-001`'s roll-up defect. `SNAG-ESTATE-002` and
-> `SNAG-ESTATE-006` remain estate-manager's.
+> recommendations for one mosquitto crash) needs a correlation rule
+> nobody has measured, and the obvious cap rebuilds `SNAG-ESTATE-001`'s
+> roll-up defect. `SNAG-ESTATE-002` and `SNAG-ESTATE-006` remain
+> estate-manager's. `SNAG-ESTATE-009` waits on a second consumer of
+> `PortAttribution` before its ranking changes.
 
 ---
 
@@ -71,10 +93,10 @@
 | Database | 🟢 Complete | 13 tables in sysadmin schema, Alembic migrations (head **012**, applied 2026-08-13) |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
-| Observability | 🟢 Complete | Structured JSON logging + request access logs |
+| Observability | 🟢 Complete | Structured JSON logging + request access logs. *uvicorn's duplicate access logger silenced 2026-08-17 (`SNAG-AGENT-008`); the daemon still cannot see its own `ERROR`s — every line is journald `PRIORITY=6`* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **1937 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
+| Testing | 🟢 Complete | **1948 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -82,6 +104,32 @@
 ---
 
 ## Recently Completed
+
+### SNAG-AGENT-008, volume half — the line that was written twice (2026-08-17)
+
+`sysadmin.service` wrote **673 journal lines per 5 minutes**, and the two
+causes were both invisible to the tests that existed. Every request was
+logged **twice** — `configure_logging` clears the *root* handlers, which
+never reaches `uvicorn.access`, because uvicorn attaches a handler to it
+directly with `propagate = False`. 662 plain lines against 640 JSON in
+ten minutes, and the difference is exactly the 22 `/health` polls the
+middleware excludes: **`SNAG-API-002`'s exclusion has never worked**, and
+its test patches the middleware's own logger. Separately, `ServicesTab`
+fanned out one `/details` request per service on every status poll
+whether or not the dashboard had ever been opened — **86 % of all
+lines**, against its own window's promise of *"no background polling
+when hidden"*.
+
+Both fixed and both guards falsified against the pre-fix code; the
+logging half additionally driven against uvicorn's real `LOGGING_CONFIG`.
+The tray is deployed and measured at **`/details` = 0**; the backend
+restart needs `sudo` and is owed.
+
+**The justification for doing it was refuted in the same sitting.** The
+118 truncated runs blocking `GET /api/logs/actions` are **kernel 103,
+sysadmin-service 14** out of 10,064 — 1.2 %, with 104 on a single day —
+and `_confidence` is binary, so `SNAG-LOG-002` did not close with this
+and its cause has been corrected in place.
 
 ### Session 27 — the log-aggregator tiers (2026-08-17)
 
