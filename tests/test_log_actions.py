@@ -271,13 +271,16 @@ class TestNoiseCandidacy:
 
 class TestConfidenceGate:
     def test_low_confidence_suppresses_noise(self):
-        """Live on this box today: 118 truncated runs make it LOW.
+        """A window that is mostly storm still refuses to argue.
 
-        Every noise row is an argument from a count, and LOW means the
-        count is missing an unknown amount of data.
+        The 2026-08-12 kernel storm on its own day: 104 truncated reads
+        of 1,434 instrumented, 7.3 %, above
+        :data:`~sysadmin.monitor.log_trends.TRUNCATION_LOW_FRACTION`.
+        Every noise row is an argument from a count, and here the count
+        is missing an unbounded amount of data.
         """
-        gappy = WindowCoverage(runs_observed=17_731, runs_expected=20_160,
-                               runs_truncated=118)
+        gappy = WindowCoverage(runs_observed=1_434, runs_expected=1_440,
+                               runs_truncated=104, runs_instrumented=1_434)
         report = build_report(
             [BLUETOOTH], window_days=7, window_start=WINDOW_START,
             previous_start=PREVIOUS_START, generated_at=NOW, coverage=gappy,
@@ -302,6 +305,30 @@ class TestConfidenceGate:
         )
         assert report.confidence is Confidence.LOW
         assert recommend(report)[0].kind is RecommendationKind.NEW
+
+    def test_bounded_truncation_lets_a_noise_row_through(self):
+        """The 2026-08-17 reading, and the falsification for that sitting.
+
+        120 truncated reads of 7,000 instrumented is 1.7 %, and under the
+        binary flag it suppressed this row for fourteen days.  Driven
+        against the live database the same day, the real report produced
+        exactly this: two ``noise`` rows, both Bluetooth firmware
+        signatures at 39,921 occurrences.
+
+        Safe because truncation is one-directional — it drops entries, so
+        the true count is *higher* than 39,919 and "this is loud" is a
+        floor the missing data cannot undercut.
+        """
+        bounded = WindowCoverage(runs_observed=17_730, runs_expected=20_160,
+                                 runs_truncated=120, runs_instrumented=7_000)
+        report = build_report(
+            [BLUETOOTH], window_days=7, window_start=WINDOW_START,
+            previous_start=PREVIOUS_START, generated_at=NOW, coverage=bounded,
+        )
+        assert report.confidence is Confidence.MEDIUM
+        rows = recommend(report)
+        assert [r.kind for r in rows] == [RecommendationKind.NOISE]
+        assert rows[0].occurrences == 39_919
 
     def test_low_confidence_does_not_suppress_a_surge(self):
         gappy = WindowCoverage(runs_observed=1, runs_expected=20_160,

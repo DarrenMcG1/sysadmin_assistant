@@ -2,122 +2,157 @@
 
 ## Next action
 
-Take the remaining half of `SNAG-LOG-002` and make `log_trends._confidence` proportional rather than binary, because after today's ceiling fix the only truncation left is the post-restart catch-up read — `_resume_floor()` sets the window to how long the daemon was down, so no ceiling can reach it — and a single such read still pins the whole report `LOW` for fourteen days, which is now the one thing standing between the `noise` family and the two live rows it was written to produce.
+Take `SNAG-LOG-003` and add a per-source `format: json` declaration to `services.yaml` so `read_journal` parses this daemon's own lines out of their JSON envelope, because the 14:10:58 restart made Session 61's priority half live and `log_entries` now holds real `warning` rows for `sysadmin.service` whose `MESSAGE` is the whole JSON document — so `alert_title` builds a 252-character title out of JSON that reaches a notification body verbatim, and this is the first sitting at which the fix can be tested against real rows rather than a reconstruction.
 
-## Two sub-session items, neither of them a session
+## One sub-session item, and the restart is no longer owed
 
-**One to run, and it is now owed for two sittings rather than one.**
+**The restart happened at 14:10:58**, after Session 62's commit at
+14:09:16, so all of Sessions 60/61/62 are live. Verified rather than
+assumed: `log_entries` holds **10 `warning` rows for `sysadmin.service`**
+since 14:11, against 0 across the previous nine nights, and the first
+post-restart journal poll (14:12:00) truncated **nothing** where the
+13:17:05 restart's poll truncated four sources.
 
-```bash
-sudo systemctl restart sysadmin
-```
-
-The daemon started **13:17:05** today, which is after Session 60's
-volume half (13:11) and **before** Session 61's priority half (13:34).
-So the duplicate access line is already gone — the journal shows JSON
-`sysadmin.access` lines with no plain-text twin — and the level prefix
-is not: every line is still `PRIORITY=6` and `log_entries` holds **0
-rows** for `sysadmin-service`. Session 62's `-p` change is waiting on the
-same restart. Two minutes, and it needs `sudo`.
-
-**One still outstanding from yesterday morning.** The two `Estate port …
-registry breach` rows still need resolving so Session 57's `info` rung
-can reach them (`SNAG-ESTATE-010`) — both confirmed still open today:
+**Still outstanding, still two minutes.** The two `Estate port … registry
+breach` rows still need resolving so Session 57's `info` rung can reach
+them (`SNAG-ESTATE-010`) — both confirmed still open at 14:20:
 
 ```sql
 UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
 ```
 
-The 03:00 retention purge still has not deleted anything —
-`log_entries` reads **626,917** with a floor of 2026-07-09, 39 days
-back. `SNAG-DB-004`'s fix is live as of the 13:17 start, so tomorrow's
-03:00 is the first run that will act, and it happens by itself.
+`SNAG-DB-004`'s fix went live with the same restart, so **tonight's 03:00
+is the first purge that will delete anything** since 2026-08-08, and it
+happens by itself.
 
-## This session — Session 62: the plan was refuted before it was written
+## This session — Session 63: the change was right and its stated reason was not
 
-The handoff's `## Next action` line named per-source confidence. **It was
-measured and it produces zero rows**, so the session went elsewhere and
-the entry now says so.
+The handoff's `## Next action` line named proportional confidence and it
+was the right change. **It was wrong about the mechanism**, and measuring
+that before writing the gate is what turned a permitted change into a
+safe one.
 
-Driven through the real `_build_trend_report` → `recommend()` against
-the live database: the entire noise-eligible population on this box is
-**two kernel signatures at 39,920 apiece**, and kernel carries **103 of
-the 120** truncated runs. Per-source confidence gates the only
-candidates on the only heavily-truncating source. The eight sources it
-liberates have a loudest signature of **54**, against
-`NOISE_MIN_OCCURRENCES = 100` — under the gate across the whole 40-day
-retained history.
+`log_trends._confidence` was `if coverage.runs_truncated > 0: return
+LOW` — binary, so one catch-up read pinned the whole report for fourteen
+days and `GET /api/logs/actions` served **zero** `noise` rows against two
+signatures at 39,921 occurrences apiece. It now gates on
+`truncated_fraction > TRUNCATION_LOW_FRACTION` (0.05) over the
+**instrumented** reads. Driven against the live database after the
+change: confidence **`medium`**, **25 recommendations including the 2
+`noise` rows** — the falsification the sitting was set up around.
 
-It would also have failed **silently**, on a seam this repository has
-already written down one function over.
-`agent_runs.details['truncated_sources']` keys on the `services.yaml`
-**name** (`alfred`, `sports_analyser`); `log_entries.source` and
-`SignatureTrend.source` key on the **unit**
-(`alfred-backend.service`). `kernel` is the only string in both, so the
-obvious join reads all eight non-kernel sources as untruncated and
-kernel as truncated — wrong in both directions, and green.
+### Three things the measurement corrected
 
-**The denominator was wrong as well.** `details['truncated_sources']`
-first appears on the run at **2026-08-12 17:31**; 33,090 earlier runs
-have no such key. It is 120 truncated of **6,974 instrumented** runs,
-not 119 of 10,063, and "kernel truncated in only one week" is an
-artefact of when the field landed rather than a fact about kernel.
+**`_resume_floor()` does not size the catch-up read by daemon downtime.**
+It returns the newest stored `logged_at` **for that unit**, so it sizes
+by *how long since that source last stored a row* — days for a quiet
+source, against the two seconds a `systemctl restart` takes. That is why
+16 of the 120 truncations each name **four or five sources at once**:
+every one of them is the first `log_aggregator` poll after a restart,
+~62 s after `Started SysAdmin…`. A source logging one warning a week is
+read a week back on every restart.
 
-### What was actually wrong
+**So Session 62's `-p` does reach the catch-up read**, against that
+session's own expectation that no ceiling could. With `-p` the 500-entry
+budget is spent on *storable* entries, and a week-long window on a quiet
+source holds about one. Proof on the same box within one hour: the
+13:17:05 restart's poll truncated 4 sources; the 14:10:58 restart's poll
+truncated nothing. The population this gate was written for is therefore
+smaller than either the entry or the handoff supposed — what the gate
+now does is stop the *history* of it suppressing the family for a
+fortnight.
 
-`read_journal` bounded the read with `-n 500` and then applied
-`severity_filter` in **Python, over lines the ceiling had already
-counted**. Across the 2026-08-12 storm (12:33–19:11): **203,042 raw
-kernel lines carrying 81,216 storable ones — 40 %**. Per minute, a
-median of **510 raw against a ceiling of 500**, so **208 of 210 storm
-minutes truncated**, and the 100 instrumented storm minutes produced
-**103 truncated reads — one per poll**, which is the 103 exactly.
+**The denominator was wrong.** `_trend_coverage` counted the numerator
+over runs carrying `details['truncated_sources']` and the denominator
+over every run in the window. That field first appears 2026-08-12 17:31,
+so 10,724 of the window's 17,730 runs could not have reported truncation:
+**120 of 7,006 (1.71 %)**, not 120 of 17,730 (0.68 %). The artefact is
+2.5x and self-correcting, which is exactly why it had to be fixed rather
+than waited out — a number wrong today and right next week is one nobody
+re-checks.
 
-Passing `-p` to journalctl makes the same 500 carry 500 storable
-entries. Verified against the real journal rather than a fixture: the
-stored multiset is **identical** (81,216 either way, compared message by
-message), efficiency goes **40 % → 100 %**, and steady kernel polling
-drops **510 → 204** lines a minute.
+### Why a threshold is legitimate here and is not a lowered gate
 
-`max_entries_per_read` is **unchanged**, deliberately. Raising it would
-have bought the same headroom at 2.5× the memory and left the waste in
-place — and it cannot reach the catch-up path at any value.
+The entry forbids lowering the gate "to unblock a demo", and that was
+right. What makes this different is that **truncation is
+one-directional**: a truncated read *drops* entries, so it can only make
+a count too **low**, and a `noise` row argues that a signature is loud —
+a floor the missing data cannot undercut. That is rule 4's own `NEW`
+asymmetry ("a gap can hide a fault, never invent one") one step further.
 
-`max_priority_for` derives the `-p` number from `PRIORITY_MAP` rather
-than restating it, the rule `syslog_priority` already follows. The
-Python filter **stays** and is still the authority; `-p` bounds the
-ceiling, it does not decide what is stored.
+What the threshold actually bounds is narrower and worth carrying
+forward: a depressed *current* window can move a genuine `SURGED`
+signature into the noise-eligible `STEADY` band. Both live rows are
+`RETURNED` with `previous = 0`, so no ratio is computed for either and
+nothing is distorted today — but that is the failure mode the number
+exists for, not volume error.
 
-### What this leaves
+`HIGH` is deliberately **untouched**: it still means nothing was lost and
+nothing was missed. Only the floor beneath it moved, and `MEDIUM` was
+already good enough for `_is_noise_candidate`, which only ever tested for
+`LOW`.
 
-`read_journal` had **no direct tests** — every existing test patches it
-out, or asserts `journal_command`, which is the invocation a
-recommendation tells a *human* to run. That is how the ceiling came to
-bound raw lines for the life of the module. `tests/test_journal.py` is
-its first, 14 of them, and the suite is **1,979 passed**, ruff clean,
-mypy clean.
+### What made the guards suspect, and what was done about it
 
-`SNAG-LOG-002` stays open on its binary flag, which is the next action
-above. `SNAG-LOG-003` (a 252-character JSON title reaching a
-notification body) is untouched and becomes visible the moment the
-restart lands, but detection is unaffected and it is legibility only.
+`truncated_fraction` **fails closed** — `schema_guard`'s posture rather
+than `collation.py`'s — so a caller reporting truncation with no
+`runs_instrumented` gets `1.0` and the binary behaviour back. That is
+correct, and it meant **all 1,984 tests passed on the first run after the
+change**, because every existing fixture sets no denominator. So the four
+new tests were falsified deliberately: setting
+`TRUNCATION_LOW_FRACTION = 0.0` restores the binary rule **exactly** —
+it is the limit case, not a replacement — and breaks precisely those four
+and nothing else.
 
-### Next session, ranked
+### Files
 
-1. **`SNAG-LOG-002`, proportional confidence.** It wins because today
-   changed what it means. The entry says the gate must not be lowered
-   "to unblock a demo", and while 99 % of storm minutes were genuinely
-   truncating that was right. They are not any more, so a proportional
-   gate is no longer papering over missing data — it is recognising that
-   the data is now complete except for a bounded, nameable, post-restart
-   case. Small, measurable: two noise rows appear or the reasoning was
-   wrong.
-2. **`SNAG-LOG-003`.** Loses on being legibility-only with detection
-   proven unaffected, and because its honest fix is a `format: json`
-   declaration per source in `services.yaml` — a change to the reader's
-   contract, which is a design question rather than a fix.
-3. **`SNAG-LOG-001`.** Loses because it needs a correlation rule nobody
-   has measured: one mosquitto crash yields four recommendations because
-   systemd narrates it in four genuine signatures, and a cap would hide
-   the fourth without saying the four were one thing.
+- `sysadmin/monitor/log_trends.py` — `TRUNCATION_LOW_FRACTION`,
+  `WindowCoverage.runs_instrumented` / `.truncated_fraction`, rewritten
+  `_confidence`, rule 3 and the `Confidence` docstring
+- `sysadmin/monitor/routers/logs.py` — `_trend_coverage` counts
+  instrumented runs via `has_key`; both new fields serialised
+- `sysadmin/core/contracts.py` — `LogTrendCoverageInfo` gains both,
+  additive and defaulted
+- `tests/test_log_trends.py` — five confidence tests; the old binary one
+  kept as the not-knowing case
+- `tests/test_log_actions.py` — the falsification pinned; the LOW gate
+  test re-based on the storm day's real 7.3 %
+
+Full suite **1,984 passed**, ruff clean, mypy clean.
+
+## What was deliberately not done
+
+**The name/unit seam is still open.** `details['truncated_sources']` keys
+on the `services.yaml` **name** and `log_entries.source` on the **unit**,
+and only `kernel` collides. Untouched because this gate is global by
+*run* rather than by source, so it never performs the join — but anything
+that later aggregates truncation per source must map first, and
+`_log_source_scopes` carries the same warning one function over.
+
+**`LOW_COVERAGE_FRACTION` still guards two branches that both return
+`MEDIUM`.** Pre-existing, and collapsing them would leave an exported
+constant nothing reads, which is `SNAG-CFG-001`'s shape. Left alone
+rather than tidied inside a sitting about a different rule.
+
+## Next session — ranked
+
+1. **`SNAG-LOG-003`**, and it wins because the evidence arrived rather
+   than because it grew. It lost the last two sittings on being
+   unobservable; the restart made it observable and the rows exist now.
+   The honest fix is a per-source `format: json` declaration, so the
+   reader honours a *declaration* rather than recognises an application.
+2. **Session 27 Tier 3** — extend the overnight LLM log summary. Tier 1
+   produces the material it lacks, and as of today the `noise` family has
+   rows to summarise for the first time. Loses for the fourth sitting on
+   the same margin: additive work against a live gap.
+3. **`SNAG-DOCS-002`** — eight project contract models with zero readers,
+   four re-exported to the tray. Runner-up for the fifth time, on the
+   same grounds: half an hour of deletion plus one decision about the
+   tray's public surface.
+
+**Named as blocked rather than dropped**: `SNAG-LOG-001` needs a
+correlation rule nobody has measured, and the obvious cap rebuilds
+`SNAG-ESTATE-001`'s roll-up defect. `SNAG-ESTATE-002` and
+`SNAG-ESTATE-006` remain estate-manager's. `SNAG-ESTATE-009` waits on a
+second consumer of `PortAttribution`.

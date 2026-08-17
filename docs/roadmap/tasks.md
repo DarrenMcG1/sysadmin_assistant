@@ -367,6 +367,47 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### Session 63 — SNAG-LOG-002, proportional confidence (2026-08-17) ✅
+
+**The handoff's `## Next action` line stood and named the right change.
+It was wrong about the mechanism, and measuring that is what made the
+change safe rather than merely permitted.**
+
+- [x] Measure what the 120 truncations actually are before touching the
+      gate: **103** are the 2026-08-12 kernel storm (one source, one per
+      60 s poll); **16** are the first poll after a restart, each naming
+      **four or five sources at once**
+- [x] Correct the stated mechanism. The handoff said `_resume_floor()`
+      "sizes by daemon downtime"; it returns the newest stored `logged_at`
+      **for that unit**, so it sizes by *how long since that source last
+      stored a row* — days for a quiet source, against the two seconds a
+      restart takes. That is why four sources truncate together
+- [x] Verify the consequence: Session 62's `-p` **does** reach the
+      catch-up read, against the expectation that no ceiling could.
+      Same box, same day — **13:17:05 restart → 13:18:08 poll truncated 4
+      sources**; **14:10:58 restart → 14:12:00 poll clean**
+- [x] Fix the denominator in `_trend_coverage`: count runs carrying
+      `details['truncated_sources']` (`has_key`), not every run. **120 of
+      7,006 (1.71 %)**, not 120 of 17,730 (0.68 %)
+- [x] `WindowCoverage` gains `runs_instrumented` and `truncated_fraction`,
+      which **fails closed** — no denominator returns `1.0`, so every
+      un-migrated caller keeps the binary behaviour
+- [x] `_confidence` gates on `truncated_fraction > TRUNCATION_LOW_FRACTION`
+      (0.05, invented and saying so). **`HIGH` untouched** — only the floor
+      beneath it moved
+- [x] `LogTrendCoverageInfo` gains both fields, additive and defaulted
+- [x] Falsify the guards: `TRUNCATION_LOW_FRACTION = 0.0` restores the
+      binary rule **exactly** and breaks precisely the four new tests
+- [x] Live run against the real database: confidence **`medium`**, **25
+      recommendations including the 2 `noise` rows** — both Bluetooth
+      firmware signatures at 39,921. `SNAG-LOG-002` closed
+- [x] Full suite **1,984 passed**, ruff clean, mypy clean
+- [ ] **The name/unit seam is still open** — `details['truncated_sources']`
+      keys on the `services.yaml` name while `log_entries.source` keys on
+      the unit, and only `kernel` collides. Anything joining the two must
+      map first. Untouched here because the gate is global by run, not by
+      source, so it never needs the join
+
 ### Session 62 — SNAG-LOG-002, the ceiling half (2026-08-17) ✅
 
 - [x] Refute the handoff's per-source-confidence plan **by measurement**,
@@ -385,10 +426,11 @@ debts that landing deliberately left behind._
       way) and efficiency goes **40 % → 100 %**
 - [x] `tests/test_journal.py` — `read_journal`'s **first direct tests** (14)
 - [x] Full suite **1,979 passed**, ruff clean, mypy clean
-- [ ] **Proportional confidence** — `_confidence` is `runs_truncated > 0`
-      over 14 days, so one post-restart catch-up read still pins the report
-      `LOW` for a fortnight. This is the remaining half of `SNAG-LOG-002`
-      and is a change to a rule about honesty, so it wants its own sitting
+- [x] **Proportional confidence** — `_confidence` was `runs_truncated > 0`
+      over 14 days, so one post-restart catch-up read pinned the report
+      `LOW` for a fortnight. **Done by Session 63 above**, which also found
+      that this session's `-p` already removes the catch-up truncation
+      itself, leaving only its history to gate against
 - [ ] **The name/unit seam** — `details['truncated_sources']` keys on the
       `services.yaml` name while `log_entries.source` keys on the unit, and
       only `kernel` collides. Anything joining the two must map first

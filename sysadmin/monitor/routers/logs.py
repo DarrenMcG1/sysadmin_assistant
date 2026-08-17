@@ -385,6 +385,17 @@ async def _trend_coverage(
     ceiling.  That is the field that decides confidence, because it is
     the only one that means data was actually lost: a merely missed poll
     is caught up by the journal cursor on the next one.
+
+    ``runs_instrumented`` counts the runs that *could* have said so, and
+    it is the denominator rather than ``runs_observed``.
+    ``details['truncated_sources']`` first appears on the run at
+    2026-08-12 17:31; runs before it have no such key, so
+    ``details->>'truncated_sources'`` is NULL and ``NULL <> '[]'`` is
+    NULL — they are correctly excluded from the numerator and would be
+    wrongly included in the denominator.  Measured 2026-08-17 that is
+    120 of 7,000 rather than 120 of 17,730, and the two differ by 2.5x.
+    ``.has_key`` rather than ``IS NOT NULL`` because a stored JSON
+    ``null`` is still a run that reported.
     """
     agent_config = get_config().agents.log_aggregator
     result = await session.execute(
@@ -395,6 +406,9 @@ async def _trend_coverage(
                 AgentRun.details["truncated_sources"].as_string() != "[]",
             )
             .label("truncated"),
+            func.count()
+            .filter(AgentRun.details.has_key("truncated_sources"))
+            .label("instrumented"),
         ).where(
             AgentRun.agent == "log_aggregator",
             AgentRun.started_at >= since,
@@ -407,6 +421,7 @@ async def _trend_coverage(
         runs_observed=row.runs or 0,
         runs_expected=expected,
         runs_truncated=row.truncated or 0,
+        runs_instrumented=row.instrumented or 0,
     )
 
 
@@ -472,6 +487,8 @@ def _serialise_report(report) -> dict:
             "runs_observed": report.coverage.runs_observed,
             "runs_expected": report.coverage.runs_expected,
             "runs_truncated": report.coverage.runs_truncated,
+            "runs_instrumented": report.coverage.runs_instrumented,
+            "truncated_fraction": round(report.coverage.truncated_fraction, 4),
             "fraction": round(report.coverage.fraction, 3),
         },
         "truncated": report.truncated,

@@ -13,6 +13,7 @@ from sysadmin.monitor.log_trends import (
     LOW_COVERAGE_FRACTION,
     RATIO_MIN_COUNT,
     SURGE_RATIO,
+    TRUNCATION_LOW_FRACTION,
     ChangeKind,
     Confidence,
     MessageGroup,
@@ -269,16 +270,82 @@ class TestClassification:
 
 
 class TestConfidence:
-    def test_truncation_alone_makes_it_low(self):
-        """Data was definitely dropped, whatever the poll count says.
+    def test_truncation_without_a_denominator_fails_closed(self):
+        """No ``runs_instrumented`` means the caller cannot say, so LOW.
 
-        Live on 2026-08-17: 118 truncated runs across the 14-day window,
-        against 17,731 observed polls of 20,160 expected — a coverage
-        fraction of 0.88, which on its own would read as fine.
+        This is the binary behaviour the proportional gate replaced, kept
+        as the not-knowing case rather than deleted: a caller reporting
+        truncation with no denominator has not measured completeness, and
+        serving a volume argument off that is what rule 4 refuses.
         """
         report = _report([_group("x", current=5)], coverage=WindowCoverage(
             runs_observed=17_731, runs_expected=20_160, runs_truncated=118))
+        assert report.coverage.truncated_fraction == 1.0
         assert report.confidence is Confidence.LOW
+
+    def test_a_bounded_share_of_truncation_is_medium(self):
+        """The live 2026-08-17 reading, and the whole point of the change.
+
+        120 truncated reads of 7,000 instrumented is 1.7 %: 103 of them
+        one kernel storm on 08-12, 16 of them the first poll after a
+        restart.  Under the binary flag this was LOW for fourteen days
+        and suppressed every ``noise`` recommendation on the box.
+        """
+        report = _report([_group("x", current=5)], coverage=WindowCoverage(
+            runs_observed=17_730, runs_expected=20_160,
+            runs_truncated=120, runs_instrumented=7_000))
+        assert report.coverage.truncated_fraction < TRUNCATION_LOW_FRACTION
+        assert report.confidence is Confidence.MEDIUM
+
+    def test_a_dominant_share_of_truncation_is_still_low(self):
+        """Lowering the gate is not the same as removing it.
+
+        The 2026-08-12 storm on its own day: 104 truncated of 1,434
+        instrumented, 7.3 %.  A window that is mostly storm must still
+        refuse to argue from a count, or this change is the "unblock the
+        demo" fix the snag forbids.
+        """
+        report = _report([_group("x", current=5)], coverage=WindowCoverage(
+            runs_observed=1_434, runs_expected=1_440,
+            runs_truncated=104, runs_instrumented=1_434))
+        assert report.confidence is Confidence.LOW
+
+    def test_the_denominator_is_instrumented_runs_not_observed_ones(self):
+        """The same truncation count, two divisors, opposite verdicts.
+
+        ``details['truncated_sources']`` first appears 2026-08-12 17:31,
+        so 10,730 of the window's 17,730 runs cannot report truncation.
+        Dividing by all of them reads 0.68 % against a true 1.71 % — the
+        artefact is 2.5x and it self-corrects as those runs age out,
+        which is exactly why it must not be left in.
+        """
+        honest = WindowCoverage(runs_observed=17_730, runs_expected=20_160,
+                                runs_truncated=350, runs_instrumented=7_000)
+        flattering = WindowCoverage(runs_observed=17_730, runs_expected=20_160,
+                                    runs_truncated=350, runs_instrumented=17_730)
+        assert honest.truncated_fraction == 0.05
+        assert flattering.truncated_fraction < TRUNCATION_LOW_FRACTION
+        assert _report([_group("x", current=5)],
+                       coverage=flattering).confidence is Confidence.MEDIUM
+        # 0.05 is not *above* 0.05, so this one sits on the boundary and
+        # stays MEDIUM; one more truncated read tips it.
+        assert _report([_group("x", current=5)],
+                       coverage=honest).confidence is Confidence.MEDIUM
+        tipped = WindowCoverage(runs_observed=17_730, runs_expected=20_160,
+                                runs_truncated=351, runs_instrumented=7_000)
+        assert _report([_group("x", current=5)],
+                       coverage=tipped).confidence is Confidence.LOW
+
+    def test_any_truncation_at_all_costs_high(self):
+        """HIGH has never meant "nearly complete" and does not start now.
+
+        Only the floor beneath it moved.  A fully-polled window with one
+        truncated read is MEDIUM, not HIGH.
+        """
+        report = _report([_group("x", current=5)], coverage=WindowCoverage(
+            runs_observed=20_160, runs_expected=20_160,
+            runs_truncated=1, runs_instrumented=20_160))
+        assert report.confidence is Confidence.MEDIUM
 
     def test_a_gap_without_truncation_is_only_medium(self):
         """A missed poll normally costs nothing — the cursor resumes.

@@ -3,23 +3,17 @@
 **Last Updated**: 2026-08-17
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **Two sub-session actions, and the first is what makes today's work
-> real.**
+> **One sub-session action, and the restart that was owed has been
+> done.** `sysadmin` started **14:10:58** today, after Session 62's
+> commit at 14:09:16 — so all three of Sessions 60/61/62 are live.
+> Verified rather than assumed: `log_entries` now holds **10 `warning`
+> rows for `sysadmin.service`** since 14:11, where it held 0 across nine
+> nights, and the first post-restart journal poll (14:12:00) truncated
+> **nothing** where the 13:17:05 restart's poll truncated four sources.
 >
-> ```bash
-> sudo systemctl restart sysadmin
-> ```
->
-> uvicorn serves start-time code, so **both halves of `SNAG-AGENT-008`
-> are waiting on this one restart** — the duplicate access line from
-> Session 60, and Session 61's level prefix. Until it runs,
-> `log_entries` holds **0 rows** for `sysadmin-service` (verified again
-> today) and this daemon still cannot see its own `ERROR`s. Two minutes,
-> and it needs `sudo`, which is why it is here rather than done.
->
-> **The second, unchanged and still two minutes.** Resolve the two
-> `Estate port … registry breach` rows so the judge re-raises them under
-> Session 57's code (both still open, checked today):
+> **What is still outstanding, unchanged and still two minutes.** Resolve
+> the two `Estate port … registry breach` rows so the judge re-raises
+> them under Session 57's code (both still open, checked at 14:20):
 >
 > ```sql
 > UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
@@ -31,47 +25,32 @@
 > Session 39's ban is asymmetric), so the entry is worth re-reading
 > before anyone fixes the estate judge the obvious way.
 >
-> **The 03:00 purge is no longer pending** — it ran, or it has not yet;
-> `log_entries` read **626,917** at 13:30 today, so tonight's run is
-> still the first that will delete anything since 2026-08-08.
+> **The 03:00 purge has still not deleted anything.** `SNAG-DB-004`'s fix
+> went live with the 14:10:58 restart, so **tonight's 03:00 is the first
+> run that will act**, and it happens by itself.
 >
-> **Next up**: **`SNAG-LOG-002` — per-source truncation confidence.**
-> *Recommended at the close of Session 61.*
+> **Next up**: **`SNAG-LOG-003` — the 252-character JSON title.**
+> *Recommended at the close of Session 63.*
 >
-> **1. `SNAG-LOG-002`, and the measurement moved it from third to
-> first.** Session 60 recorded its cause as "kernel 103,
-> sysadmin-service 14", which reads as a two-service problem. Re-measured
-> today: **119 runs truncated of 10,063, across 9 sources** — kernel 103,
-> mosquitto 15, sysadmin-service 14, sports_analyser 13,
-> venture-assistant 11, estate-manager-api 3, alfred 3, postgresql 1,
-> alfred-frontend 1. That is 164 source-truncations across 119 runs, and
-> **eight of the nine sources truncate**. `_confidence` is binary
-> (`runs_truncated > 0`), so `GET /api/logs/trends` and the entire
-> `noise` recommendation family are `LOW` far more reliably than any one
-> storm explains — which kills the reason this lost last time. "Wait for
-> the 08-12 spike to leave the window around 2026-08-19" does **not**
-> recover it, and Session 61's fix does not either: taking
-> `sysadmin-service` to 0 leaves 105 runs truncated by eight other
-> sources. `details['truncated_sources']` already names the source per
-> run and nothing aggregates it; that aggregation is the whole fix. A
-> shipped feature with a permanently empty population beats every other
-> open item.
+> **1. `SNAG-LOG-003`, and it is now observable for the first time.** It
+> lost the last two sittings on evidence — it could not be seen until the
+> restart. That restart happened at 14:10:58 and the rows exist: 10
+> `warning` rows for `sysadmin.service`, each with the whole JSON line as
+> `MESSAGE`, so `alert_title` yields a title made of JSON that reaches a
+> notification body verbatim. The honest fix is a `format: json`
+> declaration per source in `services.yaml` — the reader honouring a
+> *declaration* rather than recognising an application — and it is now
+> testable against real rows rather than a reconstruction. It wins
+> because the evidence arrived, not because it grew.
 >
 > **2. Session 27 Tier 3** — extend the overnight LLM log summary. Tier 1
 > produces exactly the material it lacks, since "8 new signatures this
-> week" is a sentence rather than a table. It loses for the third sitting
-> running on the same margin: additive work against a live gap. Take it
-> if a short sitting is wanted.
+> week" is a sentence rather than a table, and as of today the `noise`
+> family has rows to summarise for the first time. It loses for the
+> fourth sitting running on the same margin: additive work against a live
+> gap. Take it if a short sitting is wanted.
 >
-> **3. `SNAG-LOG-003`, opened today.** The errors this daemon can finally
-> see will arrive with a JSON document where the message should be — a
-> 252-character title that reaches a notification body verbatim. It loses
-> on **evidence, not size**: it cannot be observed at all until the
-> restart above, and the first live instance is the only honest test of
-> whether the declared-`format: json` fix in `services.yaml` is worth a
-> schema change. Do it after a deploy, not before.
->
-> **4. `SNAG-DOCS-002`** — eight project contract models with zero
+> **3. `SNAG-DOCS-002`** — eight project contract models with zero
 > readers, four re-exported to the tray. Runner-up for the fourth time,
 > on the same grounds each time: half an hour of deletion plus one
 > decision about the tray's public surface.
@@ -99,10 +78,10 @@
 | Database | 🟢 Complete | 13 tables in sysadmin schema, Alembic migrations (head **012**, applied 2026-08-13) |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
-| Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Pending `sudo systemctl restart sysadmin`** — until then every line is still journald `PRIORITY=6`* |
+| Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **1965 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
+| Testing | 🟢 Complete | **1984 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -110,6 +89,37 @@
 ---
 
 ## Recently Completed
+
+### SNAG-LOG-002 closed — the gate was binary, and one read pinned a fortnight (2026-08-17)
+
+`log_trends._confidence` returned `LOW` on `runs_truncated > 0`, so a
+single catch-up read suppressed every volume argument for fourteen days
+and `GET /api/logs/actions` served **zero** `noise` rows against two
+signatures at 39,921 occurrences apiece. It now gates on
+`truncated_fraction > TRUNCATION_LOW_FRACTION` (0.05) over the
+**instrumented** reads. Live after the change: confidence `medium`, **25
+recommendations including the 2 `noise` rows**.
+
+Three things the measurement settled that the plan had wrong.
+**`_resume_floor()` does not size the catch-up read by daemon downtime** —
+it returns the newest stored `logged_at` for that unit, so a source
+logging one warning a week is read a week back on every restart, which is
+why the 16 non-storm truncations each name four or five sources at once.
+**Session 62's `-p` therefore does reach them**, against the expectation
+that no ceiling could: the 13:17:05 restart's poll truncated 4 sources,
+the 14:10:58 restart's poll truncated nothing. And **the denominator was
+wrong** — 120 of 7,006 instrumented runs (1.71 %), not 120 of 17,730
+(0.68 %), a 2.5x artefact that would have self-corrected and so would
+never have been re-checked.
+
+The threshold is legitimate because **truncation is one-directional**: it
+drops entries, so it can only make a count too low, and "this is loud" is
+a floor missing data cannot undercut — rule 4's `NEW` asymmetry one step
+further. What it bounds is a depressed *current* window moving a
+`SURGED` signature into the noise-eligible `STEADY` band. `HIGH` is
+untouched; only the floor beneath it moved. Falsified before being
+trusted: `TRUNCATION_LOW_FRACTION = 0.0` restores the binary rule exactly
+and breaks precisely the four new tests.
 
 ### SNAG-LOG-002, the ceiling half — the budget was 40 % useful (2026-08-17)
 

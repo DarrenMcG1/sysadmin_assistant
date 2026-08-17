@@ -65,6 +65,19 @@ about it.
    thin poll series is merely suspicious, and counting polls alone would
    charge a fully-recovered gap as data loss.
 
+   **Decisive in proportion, not as a flag** (2026-08-17).  The first
+   version returned ``LOW`` on ``runs_truncated > 0``, which made one
+   catch-up read after one restart suppress every volume argument for
+   fourteen days — measured, 16 of the 120 truncations in the window are
+   exactly that, one per restart, each naming four or five sources at
+   once because ``_resume_floor()`` sizes a source's catch-up window by
+   *how long since it last stored a row* rather than by how long the
+   daemon was down.  A source that logs one warning a week is read a
+   week back on every restart.  The gate is now
+   :data:`TRUNCATION_LOW_FRACTION` over the **instrumented** reads, and
+   it is safe to have one because truncation is one-directional: it
+   drops entries, so it can only make a count too low.
+
 4. **Counts are never scaled by coverage.**  Dividing by observed time
    would produce a rate that looks precise and is not: the cursor makes
    ingestion non-proportional to poll count (rule 3), so the divisor is
@@ -91,6 +104,7 @@ __all__ = [
     "LOW_COVERAGE_FRACTION",
     "RATIO_MIN_COUNT",
     "SURGE_RATIO",
+    "TRUNCATION_LOW_FRACTION",
     "ChangeKind",
     "Confidence",
     "LogTrendReport",
@@ -126,19 +140,48 @@ SURGE_RATIO = 2.0
 #: other.
 LOW_COVERAGE_FRACTION = 0.5
 
+#: Fraction of *instrumented* reads that may have hit their ceiling before
+#: the report stops supporting an argument from a count.  Above this the
+#: report is ``LOW``; at or below it truncation costs ``HIGH`` but not
+#: ``MEDIUM``.
+#:
+#: What this bounds is **not** the error in a count.  A truncated read
+#: drops entries, so it can only make a count too *low* — and a ``NOISE``
+#: row argues that a signature is loud, which a floor already
+#: establishes.  What it bounds is the chance that a depressed *current*
+#: window moves a signature across a kind boundary: a genuine
+#: :attr:`ChangeKind.SURGED` reading as :attr:`ChangeKind.STEADY` is
+#: noise-eligible, and that is the failure rule 4 exists to prevent.
+#:
+#: **Invented, on :data:`RATIO_MIN_COUNT`'s terms**, but with the live
+#: numbers to hand.  Measured 2026-08-17: **120 truncated of 7,000
+#: instrumented reads across the 14-day window — 1.7 %** — of which 103
+#: are one kernel storm on 2026-08-12 and 16 are the first poll after a
+#: restart.  The storm's own day is 104 of 1,434, **7.3 %**.  So 5 % puts
+#: a fortnight containing one bounded storm at ``MEDIUM`` and a window
+#: that is mostly storm at ``LOW``, which is the discrimination the
+#: binary flag could not make.  Revisit once a post-``-p`` fortnight has
+#: been observed.
+TRUNCATION_LOW_FRACTION = 0.05
+
 
 class Confidence(StrEnum):
     """How much of the window was actually observed.
 
     ``LOW``
-        Something was definitely dropped, or the series is too thin to
-        compare.  Anything acting on this report must read it —
-        ``reliability.py``'s rule, and for the same reason.
+        More than :data:`TRUNCATION_LOW_FRACTION` of the instrumented
+        reads dropped data, or nothing was observed at all.  Anything
+        acting on this report must read it — ``reliability.py``'s rule,
+        and for the same reason.
     ``MEDIUM``
-        The poll series has gaps but nothing reported truncation, so the
-        cursor probably caught up and nothing was lost.
+        The poll series has gaps, or a bounded share of reads truncated.
+        Either way what is missing is small enough that a count still
+        supports an argument — and since truncation only ever *lowers* a
+        count, the argument it supports is a floor.
     ``HIGH``
-        Both windows fully polled, no truncation.
+        Both windows fully polled, no truncation at all.  Unchanged by
+        the move to a proportional gate: ``HIGH`` has never meant
+        "nearly complete" and does not start now.
     """
 
     LOW = "low"
@@ -194,17 +237,50 @@ class WindowCoverage:
     ``runs_expected`` is derived from the poll interval rather than
     passed in as a judgement, so a config change moves it without anyone
     remembering to.
+
+    ``runs_instrumented`` is the denominator :attr:`truncated_fraction`
+    divides by, and it is **not** ``runs_observed``.  A run can only
+    report truncation if it recorded ``details['truncated_sources']`` at
+    all, and that field first appears on the run at 2026-08-12 17:31 —
+    10,730 of the 17,730 runs in today's window predate it.  Dividing by
+    every observed run reads **0.68 %** where the truth is **1.71 %**: a
+    rate that looks precise with a divisor wrong in a known direction,
+    which is rule 4's own objection turned on the confidence calculation
+    itself.  The dilution self-corrects as those runs age out of the
+    window, and that is exactly why it must not be left — a number that
+    is wrong today and right next week is one nobody re-checks.
     """
 
     runs_observed: int = 0
     runs_expected: int = 0
     runs_truncated: int = 0
+    #: Runs that *could* have reported truncation.  Zero means the caller
+    #: does not know, which is a different thing from zero truncation —
+    #: see :attr:`truncated_fraction`.
+    runs_instrumented: int = 0
 
     @property
     def fraction(self) -> float:
         if self.runs_expected <= 0:
             return 0.0
         return min(1.0, self.runs_observed / self.runs_expected)
+
+    @property
+    def truncated_fraction(self) -> float:
+        """Share of instrumented reads that hit their ceiling.
+
+        **Fails closed on not-knowing**, ``schema_guard``'s posture
+        rather than ``collation.py``'s: a caller that reports truncation
+        without a denominator gets ``1.0`` and therefore the binary
+        behaviour this property replaced.  Serving a volume argument off
+        a report whose completeness is unmeasured is the thing rule 4
+        exists to refuse, so the safe answer is the pessimistic one.
+        """
+        if self.runs_truncated <= 0:
+            return 0.0
+        if self.runs_instrumented <= 0:
+            return 1.0
+        return min(1.0, self.runs_truncated / self.runs_instrumented)
 
 
 @dataclass(frozen=True)
@@ -315,15 +391,42 @@ def _classify(
 
 
 def _confidence(coverage: WindowCoverage) -> Confidence:
-    """Truncation is decisive; a thin poll series is only suspicious.
+    """Truncation is decisive in proportion; a thin poll series is only suspicious.
 
     See rule 3.  A missed poll normally costs nothing because the cursor
     resumes, so poll count alone cannot demote a window past ``MEDIUM``.
+
+    Truncation used to be binary — ``runs_truncated > 0`` returned
+    ``LOW``, so **one** catch-up read pinned the whole report for
+    fourteen days.  Three things make that the wrong shape, and the
+    third is why the constant can exist at all:
+
+    1. It cannot distinguish 1.7 % of reads from 100 % of them, and
+       those are not the same evidential state.
+    2. The remaining population is bounded and nameable.  After the
+       2026-08-17 ceiling fix the only reads that lose data are ones
+       where a source produced more than ``max_entries_per_read``
+       *storable* entries since it last stored one — which is a
+       sustained fault, not a busy journal.
+    3. **A truncated read can only depress a count.**  So a volume
+       argument survives it, exactly as a first sighting survives a gap
+       (rule 4's asymmetry, one step further).  What does *not* survive
+       is a ratio, because a depressed current window can move a
+       ``SURGED`` signature into the noise-eligible ``STEADY`` band —
+       and bounding that is what :data:`TRUNCATION_LOW_FRACTION` is for.
+
+    ``HIGH`` is deliberately untouched: it still means nothing was lost
+    and nothing was missed.  All that moved is the floor beneath it, so
+    a report that loses a little is ``MEDIUM`` rather than ``LOW`` — and
+    ``MEDIUM`` is what :func:`~sysadmin.monitor.log_actions.recommend`
+    already treats as good enough for a count.
     """
-    if coverage.runs_truncated > 0:
-        return Confidence.LOW
     if coverage.runs_expected <= 0:
         return Confidence.LOW
+    if coverage.truncated_fraction > TRUNCATION_LOW_FRACTION:
+        return Confidence.LOW
+    if coverage.runs_truncated > 0:
+        return Confidence.MEDIUM
     if coverage.fraction < LOW_COVERAGE_FRACTION:
         return Confidence.MEDIUM
     if coverage.fraction < 1.0:

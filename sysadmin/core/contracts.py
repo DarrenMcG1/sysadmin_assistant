@@ -305,12 +305,21 @@ class LogTrendCoverageInfo(Contract):
     ``runs_truncated`` is the decisive field and ``runs_observed`` the
     suspicious one — a missed poll normally costs nothing, because the
     journal cursor resumes where it stopped.
+
+    ``truncated_fraction`` is ``runs_truncated / runs_instrumented``, and
+    the second denominator is carried beside it because it is **not**
+    ``runs_observed``: only runs that recorded
+    ``details['truncated_sources']`` could have reported truncation, and
+    on this box that field starts on 2026-08-12.  A consumer computing
+    the ratio from ``runs_observed`` gets a number 2.5x too small.
     """
 
     runs_observed: int = 0
     runs_expected: int = 0
     runs_truncated: int = 0
+    runs_instrumented: int = 0
     fraction: float = 0.0
+    truncated_fraction: float = 0.0
 
 
 class LogTrendsResponse(Contract):

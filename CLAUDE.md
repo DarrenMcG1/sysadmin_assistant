@@ -327,7 +327,12 @@ all four settled by the live table rather than by argument:
    A missed poll is caught up by the journal cursor, so data is lost only
    when a catch-up read hits `max_entries_per_read`, which the agent
    already records as `details['truncated_sources']`. Counting polls
-   alone charges a fully-recovered gap as data loss.
+   alone charges a fully-recovered gap as data loss. **Decisive in
+   proportion, not as a flag** (Session 63): the gate is
+   `TRUNCATION_LOW_FRACTION` over the *instrumented* reads, and it can
+   exist at all because truncation is **one-directional** — it drops
+   entries, so it only ever makes a count too low. `HIGH` is untouched
+   and still means nothing was lost; only the floor beneath it moved.
 4. **Counts are never scaled by coverage.** The cursor makes ingestion
    non-proportional to poll count, so a rate computed from observed time
    looks precise and has a divisor wrong in an unknown direction.
@@ -453,8 +458,53 @@ on the `services.yaml` **name** and `log_entries.source` on the **unit**,
 and `kernel` is the only string in both — so the obvious join reads the
 eight as untruncated and kernel as truncated, wrong in both directions
 and green. `_log_source_scopes` carries that same warning one function
-over. What remains is the **binary** flag, not the global one: one
-catch-up read pins the report `LOW` for fourteen days.
+over. What remained was the **binary** flag, not the global one.
+
+**That flag is gone, and the mechanism everyone had written down for it
+was wrong** (Session 63, `SNAG-LOG-002` closed). One catch-up read pinned
+the report `LOW` for fourteen days, so `GET /api/logs/actions` served
+zero `noise` rows against two signatures at 39,921 apiece.
+`_confidence` now gates on `truncated_fraction >
+TRUNCATION_LOW_FRACTION` (0.05) over the **instrumented** reads; live,
+that is 120 of 7,006 — `medium`, and the two rows appear.
+
+Four rules, three of them corrections to what was believed before the
+measurement:
+
+1. **`_resume_floor()` sizes a catch-up read by how long since that
+   source last *stored* a row, not by daemon downtime.** A source
+   logging one warning a week is read a week back on every restart,
+   which is why 16 of the 120 truncations each name four or five sources
+   at once — every one of them the first poll after a restart, ~62 s
+   after `Started SysAdmin…`.
+2. **So the ceiling fix does reach them**, against the entry's claim
+   that no ceiling could: `-p` spends the 500-entry budget on storable
+   entries, and a week-long window on a quiet source holds about one.
+   Measured on one box in one hour — the 13:17:05 restart's poll
+   truncated 4 sources, the 14:10:58 restart's poll truncated nothing.
+3. **The denominator is the instrumented runs, never the observed
+   ones.** `details['truncated_sources']` first appears 2026-08-12
+   17:31, so 10,724 of the window's 17,730 runs could not have reported
+   truncation; dividing by all of them reads 0.68 % against a true
+   1.71 %. It self-corrects as those runs age out, which is precisely
+   why leaving it was not an option — a number wrong today and right
+   next week is one nobody re-checks.
+4. **A threshold is legitimate because truncation is
+   one-directional.** It drops entries, so a `noise` row's "this is
+   loud" is a floor the missing data cannot undercut — rule 4's `NEW`
+   asymmetry one step further. What the threshold bounds is not the
+   volume error but the chance a depressed *current* window moves a
+   `SURGED` signature into the noise-eligible `STEADY` band. Both live
+   rows are `RETURNED` with `previous = 0`, so no ratio is computed for
+   either.
+
+`truncated_fraction` **fails closed** — `schema_guard`'s posture, not
+`collation.py`'s — so a caller with no denominator gets `1.0` and the
+binary behaviour back. That is why all 1,984 tests passed on the first
+run after the change, and why the guards were falsified deliberately:
+`TRUNCATION_LOW_FRACTION = 0.0` restores the old rule *exactly* (it is
+the limit case, not a replacement) and breaks precisely the four new
+tests.
 
 `read_journal` also gained its **first direct tests**. Every existing
 test patches it out, or asserts `journal_command` — the invocation a
