@@ -49,6 +49,31 @@ PRIORITY_MAP = {
 SEVERITY_ORDER = {"debug": 0, "info": 1, "warning": 2, "error": 3, "critical": 4}
 
 
+def max_priority_for(severity_filter: str) -> int:
+    """The journalctl ``-p`` ceiling that admits exactly ``severity_filter``.
+
+    **Derived from :data:`PRIORITY_MAP`, never written down beside it.**
+    A second table mapping severity to a priority number is two statements
+    of one fact that can disagree — the shape ``chk_alert_agent`` against
+    ``AGENT_NAMES`` has, and the reason ``syslog_priority`` is pinned to
+    this same map by a round-trip test rather than asserted on each side.
+
+    ``journalctl -p N`` admits priorities ``0..N`` inclusive, which is the
+    same "this rung and every louder one" that :data:`SEVERITY_ORDER`
+    expresses in the other direction, so the two compose without a
+    conversion rule anybody has to remember.
+    """
+    floor = SEVERITY_ORDER.get(severity_filter, 0)
+    admitted = [
+        int(code)
+        for code, name in PRIORITY_MAP.items()
+        if SEVERITY_ORDER.get(name, 0) >= floor
+    ]
+    # An unknown filter admits everything, matching the Python filter's own
+    # ``.get(severity_filter, 0)`` above rather than failing differently.
+    return max(admitted) if admitted else max(int(c) for c in PRIORITY_MAP)
+
+
 def since_timestamp(moment: datetime) -> str:
     """Format ``moment`` as a journalctl ``--since`` argument.
 
@@ -100,6 +125,23 @@ async def read_journal(
         "-o", "json",
         "--no-pager",
         "-n", str(limit),
+        # The severity filter is applied **server-side as well**, because
+        # ``limit`` bounds the lines journalctl returns and the Python
+        # filter below runs after they have already been counted against
+        # it.  Measured on the 2026-08-12 kernel storm: 107,353 raw lines
+        # over four hours of which 42,298 (39 %) survive kernel's
+        # ``severity_filter: error``, so a 500-line budget was carrying
+        # ~195 usable entries.  Per minute that is a median of 510 raw
+        # against a ceiling of 500 — 208 of 210 storm minutes truncated,
+        # and 100 instrumented storm minutes produced 103 truncated reads,
+        # one per poll.  With ``-p`` the same window peaks at 206.
+        #
+        # This does **not** replace the Python filter.  ``-p`` exists to
+        # make the ceiling count the entries that matter; the filter below
+        # stays the authority on what is stored, so the two cannot
+        # disagree about a record journalctl admits and this module would
+        # not.
+        "-p", str(max_priority_for(severity_filter)),
     ]
     # Kernel messages use -k/--dmesg rather than -u
     if unit == "kernel":
@@ -137,6 +179,13 @@ async def read_journal(
         # entries would leave the resume point behind a run of info-level
         # noise, and the next read would parse it all again — the
         # duplicate-ingest defect rebuilt one layer down.
+        #
+        # Since ``-p`` was added the noise is no longer *returned*, so the
+        # two sets coincide and this line cannot currently fall behind.
+        # It is kept as written rather than simplified to the filtered
+        # set, because the rule is about what was read and the pre-filter
+        # is an optimisation on the ceiling — collapsing them would make
+        # dropping ``-p`` silently reintroduce the defect.
         cursor = data.get("__CURSOR") or cursor
 
         try:
@@ -176,6 +225,15 @@ async def read_journal(
         # past them. Staying current matters more than completeness for a
         # monitor, but the skip must be reported rather than inferred from
         # a findings count that never moves.
+        #
+        # Since ``-p`` was added this counts entries **at or above the
+        # filter severity**, so it now means relevant data was lost rather
+        # than "the read was busy" — the weaker reading it carried while
+        # 61 % of the budget went on lines that were about to be
+        # discarded.  What it still cannot express is a *catch-up* read:
+        # ``_resume_floor()`` sets the window to how long the daemon was
+        # down, so one restart behind a backlog truncates however high the
+        # ceiling is, and that is inherent rather than a ceiling to tune.
         truncated=len(lines) >= limit,
     )
 

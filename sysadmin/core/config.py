@@ -666,6 +666,16 @@ class LogAggregatorConfig(BaseModel):
     #: for days); what was missing is that hitting it is now reported as
     #: ``details['truncated_sources']`` rather than showing up as a
     #: findings count that never moves (``SNAG-AGENT-005``).
+    #:
+    #: **Unchanged at 500 deliberately, because the number was never the
+    #: problem.**  ``read_journal`` applied ``severity_filter`` in Python
+    #: over lines this ceiling had already counted, so the budget was
+    #: spent on entries about to be discarded: across the 2026-08-12
+    #: kernel storm, 203,042 raw lines carried 81,216 storable ones —
+    #: **40 %**.  Passing ``-p`` to journalctl makes it 100 % and stores
+    #: an identical multiset, so the effective ceiling rose 2.5× with no
+    #: edit here.  Raising it instead would have bought the same headroom
+    #: at 2.5× the memory and left the waste in place.
     max_entries_per_read: int = 500
 
     #: Length of each half of ``GET /api/logs/trends``'s comparison, in

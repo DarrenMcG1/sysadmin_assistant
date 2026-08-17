@@ -367,6 +367,32 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### Session 62 — SNAG-LOG-002, the ceiling half (2026-08-17) ✅
+
+- [x] Refute the handoff's per-source-confidence plan **by measurement**,
+      driving the real `_build_trend_report` → `recommend()` against the
+      live database: it produces **zero** noise rows, because kernel holds
+      both noise-eligible signatures and 103 of the 120 truncations
+- [x] Correct the denominator: `details['truncated_sources']` first appears
+      **2026-08-12 17:31**, so it is 120 of **6,974 instrumented** runs, not
+      119 of 10,063 — 33,090 earlier runs have no such key
+- [x] Find the real defect: `-n 500` bounds **raw** journalctl output while
+      `severity_filter` runs in Python afterwards — **40 %** of the budget
+      useful across the storm, 208 of 210 storm minutes truncated
+- [x] Pass `-p` to journalctl, derived from `PRIORITY_MAP` by
+      `max_priority_for` rather than restated beside it
+- [x] Verify live that the stored multiset is **identical** (81,216 either
+      way) and efficiency goes **40 % → 100 %**
+- [x] `tests/test_journal.py` — `read_journal`'s **first direct tests** (14)
+- [x] Full suite **1,979 passed**, ruff clean, mypy clean
+- [ ] **Proportional confidence** — `_confidence` is `runs_truncated > 0`
+      over 14 days, so one post-restart catch-up read still pins the report
+      `LOW` for a fortnight. This is the remaining half of `SNAG-LOG-002`
+      and is a change to a rule about honesty, so it wants its own sitting
+- [ ] **The name/unit seam** — `details['truncated_sources']` keys on the
+      `services.yaml` name while `log_entries.source` keys on the unit, and
+      only `kernel` collides. Anything joining the two must map first
+
 ### ✅ Session 61: The priority half, and a premise settled by one `systemctl show` (done 2026-08-17)
 
 **The handoff's `## Next action` line stood and was taken as written.** It

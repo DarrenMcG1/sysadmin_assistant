@@ -483,6 +483,13 @@ agents:
     # days); what changed is that hitting it is reported as
     # details['truncated_sources'] instead of showing up as a findings
     # count that never moves.
+    #
+    # Left at 500: the severity filter is now passed to journalctl as -p,
+    # so this bounds storable entries rather than raw lines. Across the
+    # 2026-08-12 storm that is 81,216 of 203,042 lines the old read spent
+    # its budget on — 40% useful, now 100%, for the same 500 and the same
+    # rows stored. Steady kernel polling went from 510 raw lines a minute
+    # against this ceiling to 204.
     max_entries_per_read: 500
     # GET /api/logs/trends compares two windows of this many days each.
     # Seven because the ask was week-on-week, and because 7 + 7 sits well

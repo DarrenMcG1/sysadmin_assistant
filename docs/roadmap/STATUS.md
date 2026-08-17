@@ -111,6 +111,34 @@
 
 ## Recently Completed
 
+### SNAG-LOG-002, the ceiling half — the budget was 40 % useful (2026-08-17)
+
+`read_journal` bounded the read with `-n 500` and then applied
+`severity_filter` in **Python, over lines the ceiling had already
+counted**. Across the 2026-08-12 kernel storm that is **203,042 raw
+lines carrying 81,216 storable ones — 40 %**, a median of **510 raw a
+minute against a ceiling of 500**, and **208 of 210 storm minutes
+truncated**. The 100 instrumented storm minutes produced **103 truncated
+reads: one per poll.**
+
+Passing `-p` to journalctl, derived from `PRIORITY_MAP` rather than
+written down beside it, makes the same 500 carry 500 storable entries.
+Verified against the real journal: the stored multiset is **identical**,
+budget efficiency **40 % → 100 %**, steady kernel polling **510 → 204**
+lines a minute. `max_entries_per_read` is unchanged — raising it would
+have bought the same headroom at 2.5× the memory and left the waste.
+
+`read_journal` gained its **first direct tests** (`tests/test_journal.py`,
+14): every existing test patches it out, which is how the ceiling came to
+bound raw lines unasserted.
+
+**It does not close `SNAG-LOG-002`.** Catch-up reads still truncate —
+`_resume_floor()` sets the window to how long the daemon was down — and
+`_confidence` is binary, so one such read pins the report `LOW` for
+fourteen days. The **per-source** confidence fix the handoff named was
+measured and **refuted**: it produces zero noise rows, because kernel
+holds the only noise-eligible signatures and 103 of the 120 truncations.
+
 ### SNAG-AGENT-008, priority half — the daemon can see its own errors (2026-08-17)
 
 Every line this service writes went to stdout, and systemd stamps

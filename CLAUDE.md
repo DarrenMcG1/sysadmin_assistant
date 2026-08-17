@@ -403,6 +403,65 @@ confidence `LOW`.
 family is available only between kernel storms, and the volume fix below
 did not close it.*
 
+**The ceiling counted the wrong lines, and the number was never the
+problem** (Session 62, `SNAG-LOG-002` ceiling half). `read_journal`
+bounded the read with `-n 500` and then applied `severity_filter` in
+**Python, over lines the ceiling had already counted**. Across the
+2026-08-12 storm: **203,042 raw kernel lines carrying 81,216 storable
+ones — 40 %**, a median of **510 raw a minute against a ceiling of
+500**, so **208 of 210 storm minutes truncated** and the 100
+instrumented storm minutes produced **103 truncated reads, one per
+poll**. Passing `-p` to journalctl makes the same 500 carry 500 storable
+entries: verified against the real journal, the stored multiset is
+**identical** and efficiency goes 40 % → 100 %, so the effective ceiling
+rose 2.5× with **no edit to `max_entries_per_read`** — raising it would
+have bought the same headroom at 2.5× the memory and left the waste.
+
+Four rules, three of them the opposite of the obvious implementation:
+
+1. **`max_priority_for` is derived from `PRIORITY_MAP`**, never written
+   beside it — `syslog_priority`'s rule and `chk_alert_agent` against
+   `AGENT_NAMES`. `journalctl -p N` admits `0..N`, which is
+   `SEVERITY_ORDER`'s "this rung and every louder one" read the other
+   way, so the two compose with no conversion anyone has to remember.
+2. **The Python filter stays and is still the authority.** `-p` exists
+   to make the *ceiling* count entries that matter; deleting the filter
+   would make journalctl's reading of a record the only one, and an
+   unknown filter string must narrow both sides identically or a typo in
+   `services.yaml` silences a source for a reason nothing reports.
+3. **The cursor rule is kept as written although `-p` dissolves it.**
+   Advancing over every entry *read* now coincides with advancing over
+   every entry kept, because the noise is no longer returned — so
+   collapsing them would make dropping `-p` silently rebuild the
+   duplicate-ingest defect.
+4. **The ceiling was not raised.** The catch-up path is what remains,
+   and no ceiling reaches it: `_resume_floor()` sets the window to how
+   long the daemon was down, so one restart behind a backlog truncates
+   at any limit. `truncated` now means *relevant* data was lost rather
+   than "the read was busy", which is the stronger signal it was
+   claiming to be.
+
+**This does not close `SNAG-LOG-002`, and the fix that was going to was
+refuted by measurement.** Per-source confidence produces **zero** noise
+rows — driven through the real `_build_trend_report` → `recommend()`
+against the live database — because the entire noise-eligible population
+is two kernel signatures at 39,920 apiece and kernel holds **103 of the
+120** truncated runs, while the eight sources it liberates have a
+loudest signature of **54** against `NOISE_MIN_OCCURRENCES = 100`. It
+would also have failed **silently**: `details['truncated_sources']` keys
+on the `services.yaml` **name** and `log_entries.source` on the **unit**,
+and `kernel` is the only string in both — so the obvious join reads the
+eight as untruncated and kernel as truncated, wrong in both directions
+and green. `_log_source_scopes` carries that same warning one function
+over. What remains is the **binary** flag, not the global one: one
+catch-up read pins the report `LOW` for fourteen days.
+
+`read_journal` also gained its **first direct tests**. Every existing
+test patches it out, or asserts `journal_command` — the invocation a
+recommendation tells a *human* to run — so the command this module
+actually executes was unasserted, which is how the ceiling came to bound
+raw lines for the life of the module.
+
 **A logger that is not the one you configured writes the line anyway**
 (Session 60, `SNAG-AGENT-008` volume half). `configure_logging` clears
 the **root** handlers, which does not reach `uvicorn.access`: uvicorn's
