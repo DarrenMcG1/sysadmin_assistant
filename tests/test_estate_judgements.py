@@ -39,6 +39,7 @@ from sysadmin.estate.judgements import (
     NEXT_ACTION_CHARS,
     NUDGE_ROLLUP_TITLE,
     SURFACE_TITLE_PATTERNS,
+    TRANSIENT_HOLDER_SEVERITY,
     judge_attention,
     judge_audit_findings,
     judge_audit_invariants,
@@ -698,6 +699,99 @@ class TestAuditFindings:
         judged = judge_audit_findings({"findings": [_breach(port=8880 + n) for n in range(5)]}, 5)
         assert len(judged) == 5
 
+    # ── Session 57: the holder decides how loud, never who ───────────
+
+    def test_a_dev_servers_breach_is_quietened_and_still_recorded(self):
+        """The first two live rows this family ever produced.
+
+        3110 and 8110 on 2026-08-16, both Alfred dev servers inside
+        ``app-code-oss-26348.scope``. The estate's finding is literally
+        correct — no registry row claims either port — and its remedy is
+        the half that does not apply. Dropping the row was the obvious
+        implementation and rebuilds this family's founding defect: a
+        ports breach detected, correct, machine-readable and never said
+        out loud.
+        """
+        [judgement] = judge_audit_findings(
+            {"findings": [_breach(port=3110)]}, 5, _attribution(3110, transient=True)
+        )
+        assert judgement.severity == TRANSIENT_HOLDER_SEVERITY
+        assert judgement.title == "Estate port 3110 registry breach"
+        assert judgement.details["holder"]["unit"] == "app-code-oss-26348.scope"
+
+    def test_the_quiet_rung_changes_nothing_a_reader_keys_on(self):
+        """Severity moves; identity does not.
+
+        The scope number changes on every login, which is why
+        ``Listener.transient`` exists at all, so nothing derived from the
+        holder may reach the title or the message.
+        """
+        [quiet] = judge_audit_findings(
+            {"findings": [_breach(port=3110)]}, 5, _attribution(3110, transient=True)
+        )
+        [loud] = judge_audit_findings({"findings": [_breach(port=3110)]}, 5)
+        assert quiet.title == loud.title
+        assert quiet.message == loud.message
+        assert "code-oss" not in quiet.title
+        assert "code-oss" not in quiet.message
+
+    def test_a_real_unit_holding_the_port_still_speaks(self):
+        """A holder that is a service is not a reason to be quiet — the
+        annotation only ever changes the rung for a *transient* one."""
+        [judgement] = judge_audit_findings(
+            {"findings": [_breach(port=8888)]}, 5, _attribution(8888, transient=False)
+        )
+        assert judgement.severity == DEFAULT_SEVERITY
+
+    def test_an_unattributed_breach_is_unchanged(self):
+        """The six-hourly sweep against this agent's hourly poll: a dev
+        server started inside a sweep window has no attribution, reads as
+        an ordinary breach, and is raised at ``warning``. Accepted and
+        named rather than fixed by a second ``ss`` call — SNAG-ESTATE-009.
+        """
+        [judgement] = judge_audit_findings({"findings": [_breach(port=3110)]}, 5)
+        assert judgement.severity == DEFAULT_SEVERITY
+        assert judgement.details["holder"] is None
+
+    def test_the_roll_up_takes_the_loudest_rung_it_swallows(self):
+        """Session 52's rule. Six dev servers and one genuine unclaimed
+        listener is one row that still has to be heard; collapsing rows
+        must not also quieten them."""
+        findings = [_breach(port=8880 + n) for n in range(6)]
+        attribution = _MixedAttribution(
+            transient={8880, 8881, 8882, 8883, 8884}, real={8885}
+        )
+        [judgement] = judge_audit_findings({"findings": findings}, 5, attribution)
+        assert judgement.severity == DEFAULT_SEVERITY
+
+    def test_a_roll_up_of_only_dev_servers_stays_quiet(self):
+        """Volume is not severity in the other direction either."""
+        findings = [_breach(port=8880 + n) for n in range(6)]
+        attribution = _MixedAttribution(transient=set(range(8880, 8886)), real=set())
+        [judgement] = judge_audit_findings({"findings": findings}, 5, attribution)
+        assert judgement.severity == TRANSIENT_HOLDER_SEVERITY
+        assert set(judgement.details["holders"]) == {
+            str(port) for port in range(8880, 8886)
+        }
+
+    def test_the_quiet_rung_is_derived_from_the_trays_threshold(self):
+        """Not picked. The requirement is "stays in
+        ``GET /api/sysadmin/alerts``, leaves the notification path", and
+        ``tray.notify_min_severity`` is the only thing on this box that
+        decides the second half. A number chosen independently of it
+        would be a threshold nothing obeys — ``SNAG-CFG-001``'s shape.
+        """
+        import yaml
+
+        from sysadmin.core.escalation import SEVERITY_ORDER
+
+        live = yaml.safe_load(Path("config.yaml").read_text())
+        # Top-level ``tray:``, not ``notifications.tray:`` — the latter is
+        # ``mute_services`` and nothing else. Read from the live file so
+        # the day the owner raises the threshold this test says so.
+        threshold = live["tray"]["notify_min_severity"]
+        assert SEVERITY_ORDER[TRANSIENT_HOLDER_SEVERITY] < SEVERITY_ORDER[threshold]
+
     @pytest.mark.parametrize("check", ["collation", "pointers", "seams"])
     def test_other_checks_are_never_judged_even_at_breach(self, check):
         """The reason ``JUDGED_AUDIT_CHECK`` is a check name and not a
@@ -874,3 +968,41 @@ class TestTheSurfacePartition:
         for judgement in _every_title():
             for pattern in RESOLVABLE_TITLE_PATTERNS:
                 assert not _like(pattern, judgement.title), judgement.title
+
+
+class _MixedAttribution:
+    """Stands in for ``PortAttribution`` where a run holds both kinds.
+
+    Deliberately not the real class: the roll-up rule is about what
+    ``judge_audit_findings`` does with a mixture, and building the
+    mixture out of a stored blob would test ``attribution_from_blob``
+    again — which ``tests/test_unit_ports.py`` already drives end to end
+    from real ``ss`` output.
+    """
+
+    def __init__(self, transient: set[int], real: set[int]):
+        self._transient = transient
+        self._real = real
+
+    def of(self, port: int):
+        if port in self._transient:
+            return _holder("app-code-oss-26348.scope", transient=True)
+        if port in self._real:
+            return _holder("alfred-backend.service", transient=False)
+        return None
+
+
+def _holder(unit: str, *, transient: bool):
+    return {
+        "unit": unit,
+        "scope": "user",
+        "transient": transient,
+        "observed_at": "2026-08-17T06:07:11+01:00",
+    }
+
+
+def _attribution(port: int, *, transient: bool):
+    return _MixedAttribution(
+        transient={port} if transient else set(),
+        real=set() if transient else {port},
+    )

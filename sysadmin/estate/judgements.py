@@ -68,6 +68,7 @@ Three rules run through everything below.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -748,6 +749,20 @@ JUDGED_AUDIT_CHECK = "ports"
 #: the overlap arrives on the day that unit ships.
 JUDGED_AUDIT_SEVERITY = "breach"
 
+#: The rung a breach gets when the sweep attributes its port to a
+#: transient session scope — an editor's dev server rather than a
+#: service.
+#:
+#: **Derived, not picked.**  ``info`` is the only rung below
+#: ``tray.notify_min_severity`` on this box, which is the whole
+#: requirement: the row must stay in ``GET /api/sysadmin/alerts`` and
+#: leave the notification path.  It is the same lever
+#: :mod:`sysadmin.projects.nudges` documents for its 7-day rung and for
+#: the same reason — audibility is the tray's decision and this module
+#: only chooses which side of it to sit on.  A second knob here would be
+#: a threshold nothing else on the box obeys.
+TRANSIENT_HOLDER_SEVERITY = "info"
+
 
 def judge_audit_findings(
     payload: dict[str, Any],
@@ -773,7 +788,10 @@ def judge_audit_findings(
     46 spent itself removing, and an audit that files into a surface
     nothing judges reproduces it one layer up.
 
-    Four rules, three of them the opposite of the first draft:
+    Five rules, three of them the opposite of the first draft.  The
+    fifth sits after the ``attribution`` paragraph rather than before
+    it, because it is the first rule in this module that *reads* the
+    attribution instead of merely carrying it:
 
     1. **One row per port, with the port in the title.**  Session 46's
        rule: ``Unmonitored systemd units: 17 findings`` was open, accurate
@@ -845,7 +863,58 @@ def judge_audit_findings(
     ``observed_at``, since the sweep runs six-hourly and the judge
     hourly, so the attribution can legitimately be five hours older
     than the breach it annotates.  Absent attribution changes nothing —
-    the family behaves exactly as it did before.
+    the family behaves exactly as it did before, at ``warning``.
+
+    5. **A transient holder is quietened, never suppressed.**  The only
+       two rows this family has ever produced are Alfred dev servers
+       launched from an editor — ``uvicorn --reload`` on 8110 and
+       ``nuxt dev`` on 3110, both in ``app-code-oss-26348.scope``,
+       standing since 2026-08-16.  The estate's finding is *literally
+       correct*: no registry row claims either port.  The remedy is the
+       half that does not apply, because an editor's dev server is not
+       a service the next project could collide with and it leaves when
+       the window closes.
+
+       So such a breach is raised at :data:`TRANSIENT_HOLDER_SEVERITY`
+       rather than dropped.  **Dropping it was the obvious
+       implementation and is wrong for this family's founding reason**:
+       Session 26b-A exists because a ports breach was detected,
+       correct, machine-readable and never said out loud, and a
+       consumer that silently declines to judge a published finding
+       rebuilds precisely that — with the extra property that nothing
+       records the decision, which is ``SNAG-CFG-001``'s shape.
+       Quietening keeps the row in ``GET /api/sysadmin/alerts`` and
+       takes it out of the notification path; the roll-up takes the
+       loudest rung it swallows (Session 52's rule), so one real breach
+       among six dev servers still speaks.
+
+       What this removes is a *recurrence*, not a single toast.  The
+       tray clears ``notified_this_episode`` only when a
+       ``{severity}:{title}`` pair is absent from a poll, so closing the
+       editor resolved both rows and re-opening it raised two fresh
+       ``warning`` rows with fresh fingerprints — two toasts per
+       development session, indefinitely, and one restatement per row
+       per day in between since ``reminder_hours`` landed in Session 53.
+
+       **The quietening is only as good as the attribution's age, and it
+       says so.**  The sweep runs six-hourly and this agent hourly, so a
+       dev server started inside a sweep window is unattributed, reads
+       as an ordinary breach and is raised at ``warning``.  Accepted
+       rather than fixed: the alternative is running ``ss`` here, which
+       ``EstateJudgeAgent._attribution`` refuses for the reason it
+       states — two answers to one question at two moments, with neither
+       surface saying which it used.  Filed as ``SNAG-ESTATE-009``.
+
+       Note the shape of the defect this fixed, which was **not** that
+       the signal was missing.  :attr:`Listener.transient` has named
+       these listeners since Session 26c; ``PortReport.unit_ports``
+       dropped them for its own consumer's correct reason and
+       ``unattributed_ports`` never held them (a session scope *is*
+       attributed), so the port fell out of the stored blob entirely and
+       ``holder`` came back ``None`` — indistinguishable here from
+       5432's genuine unattributability.  That is ``ports_checked``'s
+       rule one layer down: zero-because-clean must not be served as
+       zero-because-blind.
 
     ``standing_days`` and ``runs_observed`` are carried through because
     the estate computes them and this module owns no clock — the same
@@ -876,12 +945,20 @@ def judge_audit_findings(
 
     breaches.sort(key=lambda pair: pair[0])
     ports = [port for port, _ in breaches]
+    # Looked up once and shared by both branches: the roll-up needs the
+    # same holders the per-port rows would have carried, and computing
+    # them twice is two statements about one observation.
+    holders = {
+        port: (attribution.of(port) if attribution is not None else None)
+        for port in ports
+    }
 
     if len(breaches) > max_rows:
         return [
             Judgement(
                 surface="audit_findings",
                 title="Estate port registry breach",
+                severity=_rollup_severity(holders.values()),
                 message=(
                     f"{len(breaches)} ports are listening with no row in the "
                     "estate's port registry. That many at once is the registry "
@@ -894,7 +971,17 @@ def judge_audit_findings(
                     "ports": ports,
                     "breach_count": len(breaches),
                     "max_rows": max_rows,
-                    "holders": _holders_for(ports, attribution),
+                    # Keyed by the port *as a string*. JSONB keys are
+                    # strings, so an int-keyed dict comes back from the
+                    # database with string keys and a consumer comparing
+                    # against ``details['ports']`` would silently miss
+                    # every one. Written that way here rather than
+                    # discovered on a read.
+                    "holders": {
+                        str(port): holder
+                        for port, holder in holders.items()
+                        if holder is not None
+                    },
                 },
             )
         ]
@@ -913,28 +1000,42 @@ def judge_audit_findings(
                 "age_truncated": finding.get("age_truncated"),
                 "first_seen_at": finding.get("first_seen_at"),
                 "audit_summary": finding.get("summary"),
-                "holder": attribution.of(port) if attribution is not None else None,
+                "holder": holders[port],
             },
+            severity=_breach_severity(holders[port]),
         )
         for port, finding in breaches
     ]
 
 
-def _holders_for(ports: list[int], attribution: Any) -> dict[str, Any]:
-    """Holders for the roll-up row, keyed by port as a string.
+def _breach_severity(holder: Any) -> str:
+    """``info`` for a breach held by a session scope, else ``warning``.
 
-    JSONB keys are strings, so an int-keyed dict comes back from the
-    database with string keys and a consumer comparing against
-    ``details['ports']`` would silently miss every one.  Written that
-    way here rather than discovered on a read.
+    Reads the holder dict rather than re-deriving transience from the
+    unit name here.  A second ``endswith(".scope")`` test in this module
+    would be a second definition of what "transient" means, and the two
+    would drift in the direction nobody notices — the argument
+    ``COLLISION_KINDS`` makes for living in :mod:`sysadmin.units.ports`
+    rather than in its agent.
     """
-    if attribution is None:
-        return {}
-    return {
-        str(port): holder
-        for port in ports
-        if (holder := attribution.of(port)) is not None
-    }
+    if isinstance(holder, dict) and holder.get("transient"):
+        return TRANSIENT_HOLDER_SEVERITY
+    return DEFAULT_SEVERITY
+
+
+def _rollup_severity(holders: Iterable[Any]) -> str:
+    """The loudest rung the roll-up swallows — Session 52's rule.
+
+    Collapsing rows must not also quieten them: six dev servers and one
+    genuine unclaimed listener is one row that still has to be heard,
+    and taking the quietest (or the first) would make the fix for noise
+    the reason the one entry that earned a toast never got one.
+    """
+    return max(
+        (_breach_severity(holder) for holder in holders),
+        key=lambda level: SEVERITY_ORDER.get(level, 0),
+        default=DEFAULT_SEVERITY,
+    )
 
 
 def _port_of(finding: dict[str, Any]) -> int | None:

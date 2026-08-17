@@ -367,6 +367,83 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### ✅ Session 57: The holder decides how loud (done 2026-08-17)
+
+**Not the recommendation.** Session 56 named `SNAG-DOCS-001`; the sitting
+opened on the ports family's first live rows instead, which is the third
+consecutive time a detector's first real data has been worth more than
+the document backlog — and, like Sessions 52 and 54, it found a defect no
+hand-written fixture held.
+
+- [x] Measure the two open rows rather than read about them —
+      `Estate port 3110` and `Estate port 8110`, `warning`, open since
+      2026-08-16 12:07, one minute after the daemon last entered active.
+      Both listeners still up: `nuxt dev` and `uvicorn --reload`, all
+      three pids in `app-code-oss-26348.scope`
+- [x] Find why `details['holder']` is `null` when
+      `Listener.transient` has named these listeners since Session 26c.
+      **The signal was collected, named, and then dropped**:
+      `PortReport.unit_ports` skips `attributed and transient` for
+      `recommendations.py`'s correct reason, and `unattributed_ports`
+      never held them because a session scope *is* attributed. The port
+      fell out of the stored blob entirely
+- [x] `PortReport.transient_ports()` — a **separate blob key**, not a
+      flag inside `unit_ports`. One field whose two consumers want
+      opposite safe defaults is Session 48's `UnitFinding.enabled` trap,
+      caught this time before it shipped
+- [x] `PortAttribution.transient_holders` + `of()` returning
+      `transient` as a bool that is **always present**, so
+      `holder.get("transient")` cannot read every service on the box as
+      non-transient by accident
+- [x] The ambiguity rule spans both maps: a port held by a dev server
+      *and* a real service is attributed to neither, because naming one
+      would answer here a question `judge_ports` reports as a
+      disagreement
+- [x] `judge_audit_findings` rule 5 — a transient holder is **quietened,
+      never suppressed**. `TRANSIENT_HOLDER_SEVERITY = "info"`, derived
+      from `tray.notify_min_severity` and guarded by a test that reads
+      the live `config.yaml`
+- [x] The roll-up takes the loudest rung it swallows (Session 52's
+      rule), so six dev servers plus one genuine unclaimed listener
+      still speaks at `warning`
+- [x] 12 tests: 5 in `test_unit_ports.py` driving `ss` output → blob →
+      attribution end to end off the real 2026-08-17 lines, 7 in
+      `test_estate_judgements.py`. 1866 green, ruff and mypy clean
+- [x] Verified **live, in-process**: the real `ss` (37 listeners), the
+      real `:8400/api/audit/findings` (2 breaches + the standing 3300
+      `warn`), and the same two rows coming out `info` with
+      `holder=app-code-oss-26348.scope` where they had come out
+      `warning` with `holder=None`
+- [x] `SNAG-ESTATE-009` filed for what this does **not** cover: the
+      sweep is six-hourly and the judge hourly, so a dev server started
+      inside a sweep window is unattributed and speaks at `warning`
+
+**Rejected: dropping the row.** It is the obvious implementation and it
+rebuilds this family's founding defect — Session 26b-A exists because a
+ports breach was detected, correct, machine-readable and never said out
+loud. A consumer that silently declines to judge a published finding is
+that shape one layer over, with the extra property that nothing records
+the decision, which is `SNAG-CFG-001`'s.
+
+**Rejected: running `ss` in the judge** to close the sweep-window gap.
+`EstateJudgeAgent._attribution` refuses it in writing — two answers to
+one question at two moments, with neither surface saying which it used —
+and the gap is a lower bound of the kind this repository already
+publishes (`at_window_edge`, `observed_from`, `standing_days`).
+
+**Rejected: raising the sweep cadence** from six-hourly to hourly. It
+narrows the same gap with one config line, and pays six times the
+sweep's cost across every consumer of `unit_ports` for the benefit of
+one annotation.
+
+**Known and not fixed here.** The two rows standing today were raised at
+`warning` and the agent deduplicates on title, so they are *not*
+re-raised at `info` — they stay loud until they resolve, which happens
+when the editor closes. A de-escalation path (resolve the loud row,
+raise the quiet one) is the inverse of the ladder in
+`core/escalation.py`, which `step_for` explicitly refuses in that
+direction, and it is a design question rather than this session's.
+
 ### ✅ Session 56: The snag that was already fixed (done 2026-08-17)
 
 **Not the recommendation.** Session 55 named `SNAG-DOCS-001`; the sitting

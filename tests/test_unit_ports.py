@@ -761,6 +761,11 @@ def test_attribution_inverts_the_stored_map():
     assert attribution.of(8100) == {
         "unit": "alfred-backend.service",
         "scope": "user",
+        # Present and False, never absent. A consumer reading
+        # ``holder.get("transient")`` against a dict that omitted the key
+        # for real units would read every service on the box as
+        # non-transient by accident rather than by observation.
+        "transient": False,
         "observed_at": "2026-08-15T09:21:06",
     }
     assert attribution.of(9999) is None
@@ -821,6 +826,123 @@ def test_the_estate_breach_is_unchanged_without_a_sweep_to_read():
     judged = judgements.judge_audit_findings(payload, 5)
     assert len(judged) == 1
     assert judged[0].details["holder"] is None
+
+
+# ── Session 57: a session scope is attributed, and was invisible ─────
+
+#: Measured on 2026-08-17, the first live rows this family ever produced.
+#: Both are Alfred dev servers launched from VS Code — ``uvicorn
+#: --reload`` on 8110 (which prints two pid groups, the reloader and the
+#: worker) and ``nuxt dev`` on 3110, bound v6-only.
+DEV_SERVER_SS = (
+    'LISTEN 0      4096     0.0.0.0:8100 0.0.0.0:* users:(("uvicorn",pid=1057804,fd=15))\n'
+    # Split for the line limit only. The column padding and *both* pid
+    # groups are exactly as ``ss`` printed them: ``uvicorn --reload``
+    # runs a reloader and a worker, and the parser takes one pid per
+    # group rather than one per line because of it.
+    'LISTEN 0      2048     127.0.0.1:8110 0.0.0.0:* '
+    'users:(("python",pid=1959174,fd=3),("uvicorn",pid=1897721,fd=3))\n'
+    'LISTEN 0      511      [::1]:3110 [::]:* users:(("node",pid=1897728,fd=24))\n'
+)
+
+EDITOR_SCOPE = (
+    "0::/user.slice/user-1000.slice/user@1000.service/app.slice/"
+    "app-code-oss-26348.scope\n"
+)
+
+DEV_SERVER_CGROUPS = {
+    1057804: LIVE_CGROUPS[1057804],
+    1959174: EDITOR_SCOPE,
+    1897721: EDITOR_SCOPE,
+    1897728: EDITOR_SCOPE,
+}
+
+
+def _dev_blob():
+    report = _observe(stdout=DEV_SERVER_SS, cgroups=DEV_SERVER_CGROUPS)
+    return P.judge_ports(report, [], [], {}, {}).as_blob()
+
+
+def test_a_session_scope_used_to_fall_out_of_the_blob_entirely():
+    """The defect, stated as the two keys that could not hold it.
+
+    ``unit_ports`` skips a transient listener for its own consumer's
+    correct reason, and ``unattributed_ports`` never held one because a
+    session scope *is* attributed.  So the port appeared in neither, the
+    estate judge's ``attribution.of(3110)`` returned ``None``, and
+    "nobody is attributable" (5432, root-owned) was indistinguishable
+    from "attributable, and to something we chose not to write down".
+    """
+    blob = _dev_blob()
+    assert blob["unit_ports"] == {"user:alfred-backend.service": [8100]}
+    assert blob["unattributed_ports"] == []
+    assert blob["transient_ports"] == {"user:app-code-oss-26348.scope": [3110, 8110]}
+
+
+def test_the_snippet_consumers_map_is_untouched_by_the_new_key():
+    """One field, two consumers, opposite safe defaults — Session 48.
+
+    ``recommendations.py`` reads ``unit_ports`` to decide whether a unit
+    can be advised as ``kind: http``.  A session scope is nobody's
+    service, and widening that map rather than adding a second key would
+    have made the snippet gate learn about transience in order to keep
+    behaving exactly as it already does.
+    """
+    blob = _dev_blob()
+    assert "app-code-oss-26348.scope" not in str(blob["unit_ports"])
+    assert "app-code-oss-26348.scope" not in str(blob["unit_audited_ports"])
+
+
+def test_the_judge_can_now_name_the_editor_holding_the_port():
+    """The round trip, driven rather than asserted a piece at a time.
+
+    Session 52's lesson: every rule pinned against a literal written by
+    the same hand that wrote the consumer is the strongest evidence
+    available and is not an observation.  This one goes ``ss`` output →
+    listeners → report → blob → attribution, so a break anywhere in that
+    chain fails here.
+    """
+    attribution = P.attribution_from_blob(_dev_blob(), "2026-08-17T06:07:11+01:00")
+    for port in (3110, 8110):
+        holder = attribution.of(port)
+        assert holder["unit"] == "app-code-oss-26348.scope"
+        assert holder["scope"] == "user"
+        assert holder["transient"] is True
+        # Six-hourly sweep, hourly judge: the annotation may legitimately
+        # be five hours older than the row it lands on, so it carries its
+        # own stamp rather than implying now.
+        assert holder["observed_at"] == "2026-08-17T06:07:11+01:00"
+    assert attribution.of(8100)["transient"] is False
+
+
+def test_a_port_held_by_a_scope_and_a_unit_is_attributed_to_neither():
+    """The ambiguity rule spans both maps, not each one separately.
+
+    A dev server bound to a port a real service also holds is exactly the
+    state a reader needs told, and naming either as *the* holder would
+    answer here a question ``judge_ports`` reports as a disagreement.
+    """
+    attribution = P.attribution_from_blob(
+        {
+            "unit_ports": {"user:alfred-backend.service": [8100]},
+            "transient_ports": {"user:app-code-oss-26348.scope": [8100]},
+        }
+    )
+    assert attribution.of(8100) is None
+
+
+def test_a_sweep_written_before_this_change_still_attributes():
+    """Every stored sweep before Session 57 has no ``transient_ports``.
+
+    60 of them today.  The key's absence must read as "no transient
+    holders were recorded", never as a reason to stop attributing the
+    ones that were.
+    """
+    attribution = P.attribution_from_blob(
+        {"unit_ports": {"user:alfred-backend.service": [8100]}}
+    )
+    assert attribution.of(8100)["unit"] == "alfred-backend.service"
+    assert attribution.of(3110) is None
 
 
 # ── Conformance with the producer this check reads ───────────────────

@@ -521,6 +521,40 @@ class PortReport:
             held.setdefault(key, set()).add(listener.port)
         return {key: sorted(ports) for key, ports in sorted(held.items())}
 
+    def transient_ports(self) -> dict[str, list[int]]:
+        """``"scope:unit"`` → the ports a *session scope* holds, ascending.
+
+        The complement of :meth:`unit_ports`, and it exists because that
+        method's exclusion is correct for its consumer and blinding for
+        another.  :mod:`sysadmin.units.recommendations` reads
+        ``unit_ports`` to decide whether a unit can be advised as ``kind:
+        http``; a session scope is nobody's service and emitting a health
+        check for one would be this module inventing the thing it exists
+        to verify.  The estate judge reads the same map to answer *who
+        holds a breached port*, and there "an editor's dev server" is the
+        single most useful thing that can be said about it.
+
+        **A separate key rather than a flag inside ``unit_ports``.**  One
+        field whose two consumers want opposite safe defaults is Session
+        48's ``UnitFinding.enabled`` trap — absent evidence must read as
+        "not armed" for one and "suppress the advice" for the other — and
+        widening ``unit_ports`` would make the snippet gate learn about
+        transience in order to keep behaving exactly as it does now.
+
+        The holder key is stored **as observed**, scope number and all
+        (``user:app-code-oss-26348.scope``).  That is evidence and never
+        an identity: :attr:`Listener.transient` exists precisely because
+        the number changes on every login, so nothing downstream may
+        dedup, title or resolve on it.
+        """
+        held: dict[str, set[int]] = {}
+        for listener in self.listeners:
+            if not listener.attributed or not listener.transient:
+                continue
+            key = f"{listener.scope}:{listener.unit}"
+            held.setdefault(key, set()).add(listener.port)
+        return {key: sorted(ports) for key, ports in sorted(held.items())}
+
     def as_blob(self, limit: int = 200) -> dict[str, Any]:
         """The JSONB payload stored under ``findings['ports']``.
 
@@ -546,6 +580,14 @@ class PortReport:
             "findings": [f.as_dict() for f in self.findings][:limit],
             "unit_ports": self.unit_ports(),
             "unit_audited_ports": self.unit_ports(audited_only=True),
+            # Neither ``unit_ports`` nor ``unattributed_ports`` could
+            # hold these: a session scope *is* attributed, so it fell
+            # out of both and the port vanished from the record
+            # entirely. A consumer then could not tell "nobody is
+            # attributable" (5432, 8601 — root-owned, containerised)
+            # from "attributable, and to something we chose not to write
+            # down", which is ``ports_checked``'s rule one layer down.
+            "transient_ports": self.transient_ports(),
         }
 
 
@@ -566,44 +608,81 @@ class PortAttribution:
     """
 
     holders: Mapping[int, str] = field(default_factory=dict)
+    #: Ports whose holder is a session scope, kept in their own map
+    #: rather than flagged inside ``holders`` so that a consumer which
+    #: never asks about transience cannot silently start receiving it.
+    transient_holders: Mapping[int, str] = field(default_factory=dict)
     observed_at: str | None = None
 
     def of(self, port: int) -> dict[str, Any] | None:
-        """``{"unit", "scope", "observed_at"}`` for a port, or ``None``."""
+        """``{"unit", "scope", "transient", "observed_at"}``, or ``None``.
+
+        ``transient`` is always present and always a bool, never absent
+        on the common path: a caller writing ``holder.get("transient")``
+        against a dict that omits the key on real units would read
+        every service on the box as non-transient *by accident* rather
+        than by observation, which is the distinction this field was
+        added to make.
+        """
         holder = self.holders.get(port)
+        transient = False
+        if not holder:
+            holder = self.transient_holders.get(port)
+            transient = bool(holder)
         if not holder:
             return None
         scope, _, unit = holder.partition(":")
-        return {"unit": unit, "scope": scope, "observed_at": self.observed_at}
+        return {
+            "unit": unit,
+            "scope": scope,
+            "transient": transient,
+            "observed_at": self.observed_at,
+        }
 
 
 def attribution_from_blob(
     blob: Mapping[str, Any] | None, observed_at: str | None = None
 ) -> PortAttribution:
-    """Invert a stored sweep's ``unit_ports`` into port → holder.
+    """Invert a stored sweep's holder maps into port → holder.
 
-    Defensive throughout: the blob is absent on every sweep written
-    before Session 26c, and a port held by two units is dropped rather
+    Defensive throughout: both keys are absent on every sweep written
+    before Session 26c, ``transient_ports`` on every sweep written
+    before Session 57, and a port held by two units is dropped rather
     than attributed to whichever sorted first — that case has its own
     finding (``port_shared``) and a guess here would contradict it.
+
+    **The ambiguity rule spans both maps.**  A dev server and a real
+    service on one port is exactly the state a reader needs told, and
+    naming either one of them as *the* holder would be this function
+    answering a question :func:`judge_ports` deliberately reports as a
+    disagreement.  So the count is taken across the union and a port
+    with two names is dropped whichever map each name came from.
     """
     if not blob:
         return PortAttribution(observed_at=observed_at)
-    raw = blob.get("unit_ports")
-    if not isinstance(raw, dict):
-        return PortAttribution(observed_at=observed_at)
 
     counts: dict[int, list[str]] = {}
-    for holder, held in raw.items():
-        if not isinstance(held, list):
+    transient: set[int] = set()
+    for key, is_transient in (("unit_ports", False), ("transient_ports", True)):
+        raw = blob.get(key)
+        if not isinstance(raw, dict):
             continue
-        for port in held:
-            try:
-                counts.setdefault(int(port), []).append(str(holder))
-            except (TypeError, ValueError):
+        for holder, held in raw.items():
+            if not isinstance(held, list):
                 continue
+            for port in held:
+                try:
+                    number = int(port)
+                except (TypeError, ValueError):
+                    continue
+                counts.setdefault(number, []).append(str(holder))
+                if is_transient:
+                    transient.add(number)
+
+    unique = {port: names[0] for port, names in counts.items() if len(names) == 1}
     return PortAttribution(
-        holders={port: names[0] for port, names in counts.items() if len(names) == 1},
+        holders={p: n for p, n in unique.items() if p not in transient},
+        transient_holders={p: n for p, n in unique.items() if p in transient},
         observed_at=observed_at,
     )
 

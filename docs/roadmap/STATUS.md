@@ -41,9 +41,15 @@
 > ones to re-run.
 >
 > **Next up**: **`SNAG-DOCS-001` — `CLAUDE.md` documents fifteen project
-> endpoints this service has not served since 2026-08-13.** Found this
-> sitting by reading the live route table while ranking, not by reading a
-> document. `GET /openapi.json` serves **one** route under
+> endpoints this service has not served since 2026-08-13.** *Recommended
+> at the close of Session 56, deferred once by Session 57 and re-stated
+> unchanged.* The deferral was on merit and is now spent: the ports
+> family produced its first live rows and a detector's first data has
+> beaten the document backlog three sittings running. There is no fourth
+> such opportunity queued — the estate judge's five surfaces have all now
+> been driven against producer-built or live payloads — so the argument
+> that displaced this one does not recur. Found by reading the live route
+> table while ranking, not by reading a document. `GET /openapi.json` serves **one** route under
 > `/api/projects`; the Contract Registry lists fifteen, each with an
 > "Enforcement" column claiming `response_model`. `sysadmin/projects/`
 > does not exist, and five of its modules are named by path as the
@@ -169,7 +175,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **1854 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
+| Testing | 🟢 Complete | **1866 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -177,6 +183,66 @@
 ---
 
 ## Recently Completed
+
+### The holder decides how loud — the ports family's first live rows (2026-08-17)
+
+**The third detector in a row to be corrected by its own first data**,
+after `judge_attention` (Session 52) and the other three estate surfaces
+(Session 54). `Estate port 3110` and `Estate port 8110` had stood at
+`warning` since 2026-08-16 12:07 — one minute after the daemon last
+entered active, which is this family's first run ever to raise anything.
+`CLAUDE.md` still described it as shipping with zero rows.
+
+Both listeners are Alfred dev servers launched from VS Code —
+`nuxt dev` and `uvicorn --reload`, all three pids in
+`app-code-oss-26348.scope`. **The estate's finding is literally
+correct** (no registry row claims either port) and its remedy is the
+half that does not apply: an editor's dev server is not a service the
+next project could collide with.
+
+**The defect was not a missing signal.** `Listener.transient` has named
+these listeners since Session 26c. `PortReport.unit_ports` skips
+`attributed and transient` for `recommendations.py`'s correct reason — a
+session scope is nobody's service and a `kind: http` snippet for one
+would invent a service — and `unattributed_ports` never held them,
+because a session scope *is* attributed. So the port fell out of the
+stored blob entirely and `details['holder']` came back `None`,
+indistinguishable from 5432's genuine unattributability. That is
+`ports_checked`'s rule one layer down: zero-because-clean served as
+zero-because-blind.
+
+`transient_ports` is a **separate blob key**, not a flag inside
+`unit_ports` — one field whose two consumers want opposite safe defaults
+is Session 48's `UnitFinding.enabled` trap, caught this time before it
+shipped rather than after.
+
+**Quietened, never suppressed.** `TRANSIENT_HOLDER_SEVERITY = "info"`,
+which is the only rung below `tray.notify_min_severity` here, so the row
+stays in `GET /api/sysadmin/alerts` and leaves the notification path.
+Dropping it was the obvious implementation and rebuilds this family's
+founding defect — Session 26b-A exists because a ports breach was
+detected, correct, machine-readable and never said out loud. The roll-up
+takes the loudest rung it swallows, so six dev servers plus one genuine
+unclaimed listener still speaks.
+
+What it removes is a *recurrence*: the tray clears
+`notified_this_episode` only on a `{severity}:{title}` pair being absent
+from a poll, so closing the editor resolved both rows and re-opening it
+raised two fresh `warning` rows with fresh fingerprints — two toasts per
+dev session indefinitely, plus one restatement per row per day since
+Session 53's `reminder_hours`.
+
+Verified live in-process against the real `ss` (37 listeners) and the
+real `:8400/api/audit/findings` (2 breaches, plus the standing 3300
+`warn` that is still correctly not judged): the same two rows come out
+`info` with `holder=app-code-oss-26348.scope` where they came out
+`warning` with `holder=None`. 12 new tests, 1866 green.
+
+`SNAG-ESTATE-009` filed for what it cannot reach — the sweep is
+six-hourly and the judge hourly, so a dev server started inside a sweep
+window is unattributed and speaks at `warning`. Fixing that means either
+a second `ss` caller (which `_attribution` refuses in writing) or six
+times the sweep cost for one annotation.
 
 ### The snag that was already fixed — SNAG-DB-002 (2026-08-17)
 

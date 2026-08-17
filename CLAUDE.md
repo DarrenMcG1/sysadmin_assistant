@@ -976,7 +976,7 @@ producer) and pull in `pointers`/`seams`, which are other repositories'
 conformance. Neither reason reaches a port, because **no repository owns
 one**.
 
-Five rules, three of them the opposite of the first draft:
+Six rules, four of them the opposite of the first draft:
 
 1. **Only `breach`, taking the producer's severity as the filter** — the
    deference `judge_attention` already gives a nudge's rung. `warn` is
@@ -1009,14 +1009,51 @@ fail independently, and the sweep is scoped per surface — sharing an id
 would let a successful read of "did the audit complete" close every port
 row raised off a findings payload nobody received.
 
-Verified live rather than only against literals, because this family
-ships with **zero rows today** and that is exactly `SNAG-ESTATE-002`'s
+6. **A transient holder is quietened, never suppressed** (Session 57).
+The family's first two live rows are Alfred dev servers launched from an
+editor — `nuxt dev` on 3110, `uvicorn --reload` on 8110, all three pids
+in `app-code-oss-26348.scope`. The estate's finding is *literally
+correct* and its remedy does not apply, so the row is raised at
+`TRANSIENT_HOLDER_SEVERITY` (`info`, the only rung below
+`tray.notify_min_severity` here) rather than dropped. **Dropping was the
+obvious implementation and rebuilds this family's founding defect** —
+Session 26b-A exists because a ports breach was detected, correct,
+machine-readable and never said out loud, and a consumer that silently
+declines to judge a published finding is that shape with nothing
+recording the decision, which is `SNAG-CFG-001`'s. The roll-up takes the
+loudest rung it swallows, so one genuine breach among six dev servers
+still speaks.
+
+The defect was **not a missing signal**. `Listener.transient` has named
+these listeners since Session 26c; `PortReport.unit_ports` drops them for
+`recommendations.py`'s correct reason and `unattributed_ports` never held
+them, because a session scope *is* attributed — so the port fell out of
+the stored blob entirely and `holder` came back `None`,
+indistinguishable from 5432's genuine unattributability. That is
+`ports_checked`'s rule one layer down. `transient_ports` is a **separate
+blob key**, not a flag inside `unit_ports`: one field whose two consumers
+want opposite safe defaults is Session 48's `UnitFinding.enabled` trap,
+caught before shipping this time. `PortAttribution.of()` returns
+`transient` as a bool that is always present, so
+`holder.get("transient")` cannot read every service on the box as
+non-transient by accident, and the ambiguity rule spans both maps — a
+port held by a dev server *and* a real service is attributed to neither.
+
+`SNAG-ESTATE-009` is the gap: the sweep is six-hourly and the judge
+hourly, so a dev server started inside a sweep window is unattributed and
+speaks at `warning`. Both closures were refused — a second `ss` caller
+(which `_attribution` forbids in writing) and an hourly sweep (six times
+the cost, for one annotation).
+
+Verified live rather than only against literals. This family **shipped
+with zero rows until 2026-08-16**, which was exactly `SNAG-ESTATE-002`'s
 starting position: the estate's own `run_check` was driven in-process
 against the real registry document with a listener bound on 8888, giving
 clean → `breach` → clean, with no write to the estate's database. It
 caught one defect no literal would have — the estate stamps a first
 sighting `standing_days: 0.0`, and "Standing 0 days" reads as a rounding
-artefact.
+artefact. Session 57 then re-drove the whole path against the real `ss`
+and the real findings payload, which is what caught rule 6.
 
 Two gaps are filed rather than assumed settled: `SNAG-ESTATE-002` (the
 producer's `Nudge.title`/`.message` are `@property` and `asdict` drops
