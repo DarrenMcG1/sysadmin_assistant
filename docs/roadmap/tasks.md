@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-16
+> **Last Updated**: 2026-08-17
 
 ---
 
@@ -366,6 +366,66 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+### ✅ Session 56: The snag that was already fixed (done 2026-08-17)
+
+**Not the recommendation.** Session 55 named `SNAG-DOCS-001`; the sitting
+opened on `SNAG-DB-002` instead, and closed it without changing a line of
+code — because the box had closed it three days earlier and nothing here
+had noticed.
+
+**What the session actually was**: `SNAG-DB-002`'s remedy half —
+`REINDEX` then `REFRESH COLLATION VERSION` across the stale databases —
+was carried out by **estate-manager** on 2026-08-13, in two passes
+(`eb51ff6` at 18:03, `52b312c` at 20:29). The remedy is their
+`scripts/refresh-collations.sh`, and it encodes this entry's own trap:
+never `REFRESH` unless that database's `REINDEX` has just succeeded.
+
+**The verification is the deliverable, and the first method was
+insufficient.** Index file mtimes show the two bursts and prove nothing
+about an actively-written index, whose file carries a recent mtime
+regardless of whether its contents were rebuilt. The exact test is
+`pg_class.relfilenode` against `pg_class.oid` — a rebuild draws a fresh
+relfilenode from the cluster-wide counter, so an index never rewritten
+retains `relfilenode = oid`. **0 of 125 collation-sensitive user indexes
+across all eight databases** retains its original. Filtering on
+`indcollation NOT IN (0, 950, 951)` is what makes the count mean
+anything: `0` is not collatable, `950`/`951` are `C`/`POSIX` and are
+byte-order, so immune to a glibc change.
+
+**Four numbers in the entry were corrected, three of them having been
+true when written.** 16 GB (real, and mostly index bloat the reindex
+reclaimed, before the estate dropped `personal_assistant` on 2026-08-14
+taking it to 1,094 MB); eight databases (the estate audits eleven); "25
+indexes, several on text" (58 collation-sensitive in `projects`, 125
+across the cluster, **0** in `pg_catalog`); and a quiet window of hours
+that was 30 seconds, because `REINDEX` rebuilds indexes and the database
+size was never the governing figure.
+
+**The durable finding is `SNAG-ESTATE-008`, and it is not the estate's
+fault.** This application *observed* the remedy land — the eight alerts
+resolved at `18:01:48` on the next five-minute poll — and recorded it
+where nothing reads back. Meanwhile `snag_list.md`, `tasks.md`,
+`STATUS.md` and `HANDOFF.md` each independently restated the action as
+pending for three days and five sittings, `STATUS.md` as a standing
+sub-session item at the top of the block that opens every sitting. An
+unread fault is a missed alarm; an unread **recovery** is an instruction
+to redo finished work on a live 16 GB database, which is the worse
+polarity. The cause is structural: `EstateJudgeAgent` is narrowed to
+`check == "ports"` for two good reasons, neither of which anticipated
+shared infrastructure remedied by the estate.
+
+**Also corrected**: this file's sibling header claimed
+`count_open_snags` reports 47, measured 2026-08-14. Driven against the
+current parser it reports **35** — the function was rewritten around
+`read_snags` since, so the number went stale because the code that
+measures it moved. `SNAG-ESTATE-008` in miniature.
+
+**No code changed. No tests were added, and that is a finding rather than
+an omission** — there is nothing here to test. The gap is that no
+document or script reconciles an ops action against the alert row behind
+it, and the candidate fix is one `psql` query in
+`scripts/claude-preflight.sh`, deliberately left unpriced in the snag.
 
 ### ✅ Session 55: The understudy gets a clock (done 2026-08-16)
 
@@ -2726,9 +2786,17 @@ narrowed as if 2 reindexed + 1 dropped:
       together — dedup without removing the family from
       `RESOLVABLE_TITLE_PATTERNS` makes the rows flip-flop, and those are
       the families carrying `critical`
-- [ ] **The `REINDEX` half of `SNAG-DB-002` stays open**, and stays
+- [x] **The `REINDEX` half of `SNAG-DB-002` stays open**, and stays
       manual. Eight databases, two of them another application's, one of
       them 16 GB. It wants a quiet window and a human
+      — *carried out by **estate-manager** on 2026-08-13, hours after this
+      line was written, and verified here 2026-08-16 (Session 56). Every
+      clause above is wrong in an instructive way: it was **eleven**
+      databases not eight, the estate owns it precisely **because** two of
+      them are another application's, the 16 GB was index bloat that the
+      reindex itself reclaimed, and the quiet window was **30 seconds**.
+      Only "a human" held. The three days this line spent asking for
+      finished work are `SNAG-ESTATE-008`.*
 
 ---
 

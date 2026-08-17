@@ -1,10 +1,104 @@
-# Handoff — 2026-08-16
+# Handoff — 2026-08-17
 
 ## Next action
 
-Take `SNAG-DOCS-001` and move `CLAUDE.md`'s fifteen project-endpoint contracts and five `sysadmin/projects/*` narratives behind pointers to estate-manager, because the file loaded into context at the start of every session in this repository describes a domain that left it on 2026-08-13.
+Take `SNAG-DOCS-001` and move `CLAUDE.md`'s fifteen project-endpoint contracts and five `sysadmin/projects/*` narratives behind pointers to estate-manager, because the file loaded into context at the start of every session describes a domain that left this repository on 2026-08-13 — and this sitting is the second consecutive demonstration that a document nothing checks is read as fact.
 
-## This session — Session 55, the understudy gets a clock
+## This session — Session 56, the snag that was already fixed
+
+**Not the recommendation, and no code changed.** The sitting opened on
+`SNAG-DB-002` and closed it by measuring the box before reading the
+entry. The remedy half had been carried out by **estate-manager** on
+2026-08-13 in two passes (`eb51ff6` 18:03, `52b312c` 20:29), via their
+`scripts/refresh-collations.sh` — which encodes this entry's own trap:
+never `REFRESH` unless that database's `REINDEX` has just succeeded.
+
+### The verification is the deliverable, and the first method was wrong
+
+Index file mtimes show the two bursts and prove **nothing** about an
+actively-written index, whose file carries a recent mtime whether or not
+its contents were rebuilt. The exact test is `pg_class.relfilenode`
+against `pg_class.oid`: a rebuild draws a fresh relfilenode from the
+cluster-wide counter, so an index never rewritten since creation retains
+`relfilenode = oid`. **0 of 125** collation-sensitive user indexes across
+the eight databases retains its original; `projects`' 58 sit in one band,
+3,882,764–3,886,294, against creation OIDs from 46,010.
+
+"Collation-sensitive" is `indcollation NOT IN (0, 950, 951)` and is the
+filter the entry lacked — `0` is not collatable, `950`/`951` are
+`C`/`POSIX`, byte-order, immune to a glibc change. The entry's "25
+indexes in the `sysadmin` schema, several on text" overstated it; the
+live figures are 58 in `projects`, 125 cluster-wide, **0** in
+`pg_catalog`.
+
+### What was found by not stopping at the item the session came in for
+
+`SNAG-ESTATE-008` was filed for one stale ops action and **measured at
+three of three within the hour**. Every item in the block that opens
+every sitting had already been carried out, and none by the party
+recording it:
+
+1. **The restart** — done 2026-08-16 12:06:09, **seven minutes after
+   Session 55's own commit** (`a330e31`, 11:59). PID 1410826 →
+   1914354, `POST /api/sysadmin/reload` returns 200 where the block said
+   404, and `desktop_reminder_sweep` is live at `interval[0:03:00]`.
+2. **The five system-scope orphans** — all absent, all `not-found`.
+3. **`SNAG-DB-002`'s remedy** — estate-manager, 2026-08-13.
+
+That reframes the snag from a cross-repo seam to **the absence of a
+check**, and widens it usefully: two of the three were plain `systemctl`
+state this service already reads every 300 seconds. The narrow framing
+came from the first item measured happening to be the cross-repo one.
+
+### Decisions taken
+
+**No fix was built, and the snag says why.** Three candidates: widen
+`EstateJudgeAgent` to `check == "collation"` (re-imports this service's
+own alerts through a second producer — precisely what rule 3 prevents);
+have a document check read the estate's audit (a new consumer of a
+surface that may 500); or **give this repository's own resolve a
+reader**, since the collation case generated the right signal already.
+The third adds no cross-repo dependency and is the one to price first —
+but each of the three items above had its evidence in a *different*
+place, so the real shape is a convention (every ops action names the
+check that closes it), not one query.
+
+**`STATUS.md`'s block is now empty and says so as a measurement.**
+"Nothing owed" and "nothing checked" must not render identically —
+`UnitScanResponse.ports_checked`'s rule arriving in a document.
+
+### Also corrected while in the files
+
+`snag_list.md`'s header claimed `count_open_snags` reports 47 (measured
+2026-08-14). Driven against the current parser it reports **35** — the
+function was rewritten around `read_snags` since, returning a detected
+format and a per-row `is_open`. The number went stale because the code
+that measures it moved: `SNAG-ESTATE-008` in miniature, and the third
+time that header has been wrong.
+
+## Blocked / owed
+
+**Nothing, and this is the first handoff able to say so.** Verified
+2026-08-16/17, not carried forward:
+
+- **The restart is done** — PID 1914354 since 2026-08-16 12:06:09;
+  Sessions 49, 50, 52, 54 and 55 are all live in the running process.
+  **The HUP warning now applies in reverse**: the daemon has the handler,
+  so `kill -HUP <MainPID>` picks up a `config.yaml` edit, re-times the
+  scheduler, and needs no `sudo`. Do not ask for another restart without
+  re-measuring `MainPID` first — that is how the last one came to be
+  requested after it had happened.
+- **The five system-scope orphan removals are done** — files absent from
+  `/etc/systemd/system`, all `not-found`.
+- **`SNAG-DB-002`'s remedy is done** — estate-manager, 2026-08-13.
+
+Still genuinely open, but neither is owed *to* anything: `SNAG-TRAY-008`
+(a fault raised while the tray was up is never adopted by the
+understudy, and a restart forgets what it spoke) and the two delegated
+estate entries `SNAG-ESTATE-006`/`-007`, which need an estate-manager
+sitting to record and are not this repository's to fix.
+
+## Previous session — Session 55, the understudy gets a clock
 
 Session 54's recommendation, taken as written. Suite **1854 passed**
 (from 1834), ruff and mypy clean, **no migration**, **no route**, one new
@@ -79,21 +173,6 @@ Also found stale while ranking: **Session 33's second checkbox** points
 at `~/projects/alfred/backend/tests/fixtures/briefing_producers/`, which
 does not exist on disk. That session is blocked on a question for
 Alfred's repository, not on judgement here.
-
-## Blocked / owed
-
-- **`sudo systemctl restart sysadmin.service`** — still PID 1410826 from
-  2026-08-15 14:32. It now carries three sittings, and Session 55's work
-  is the first that is **entirely** invisible until it lands:
-  `desktop_reminder_sweep` is a job the running scheduler has never been
-  told about. Until that restart, **do not send it a HUP** — Python's
-  default SIGHUP action terminates and `Restart=always` brings it back.
-- The five system-scope orphan removals under `/etc/systemd/system`
-  (`SNAG-UNITS-005`), and `SNAG-DB-002`'s `REINDEX`-before-`REFRESH`
-  remedy on the eight stale databases. Both need `sudo`.
-
-
----
 
 ## Previous session — Session 54, the other three surfaces against data
 

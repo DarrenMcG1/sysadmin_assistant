@@ -1,35 +1,44 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-08-16
+**Last Updated**: 2026-08-17
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **Two sub-session actions first, because neither is a session and
-> folding them into the ranking makes a two-minute job compete with a
-> day's work.** *(Was three — the tray restart is **done**, measured
-> 2026-08-16 10:29 BST, so `reminder_hours` is live.)* (1) **`sudo
-> systemctl restart sysadmin.service`** — re-measured 2026-08-16 at the
-> close of Session 54 and **still owed**: still PID 1410826, started
-> 2026-08-15 14:32 BST, and `POST /api/sysadmin/reload` still **404s**,
-> so it predates Sessions 49 and 50 as well. It now carries **three**
-> sittings' worth of code: Session 52's attention cap and marked
-> truncation, Session 54's `estate_written` narrowing and
-> one-row-per-title guard, and Session 55's whole reminder sweep — which
-> is the first of the three that is **entirely** invisible until the
-> restart, because `desktop_reminder_sweep` is a job the running
-> scheduler has never been told about. The daemon serves all of it from
-> its start-time copy. It is the **last restart this
-> class of blocker will need** — from then on `kill -HUP <MainPID>`
-> reaches the daemon without `sudo`, and re-times the scheduler rather
-> than merely reporting that it had not. **Until that restart, do not
-> send it a HUP**: Python's default SIGHUP action terminates, and
-> `Restart=always` would bring it back — a restart wearing a reload's
-> name. (2) The **five system-scope orphan removals** under
-> `/etc/systemd/system` (`SNAG-UNITS-005`), which no reload path can ever
-> reach and whose exact commands are in HANDOFF.md. A third, larger ops
-> action stands behind them: `SNAG-DB-002`'s remedy on the eight stale
-> databases, `REINDEX` **before** `ALTER DATABASE … REFRESH COLLATION
-> VERSION`, since the refresh alone asserts the versions match without
-> rebuilding anything and turns a loud known risk into a silent one.
+> **No sub-session actions, for the first time — and that is a measured
+> claim, not an empty list.** All three that stood here at the close of
+> Session 55 were **already done when the block was written**, none of
+> them by the party recording it, and checking that is the whole of
+> Session 56. Measured 2026-08-16/17:
+>
+> 1. **`sudo systemctl restart sysadmin.service`** — **done
+>    2026-08-16 12:06:09 BST**, seven minutes after Session 55's own
+>    commit (`a330e31`, 11:59). PID 1410826 → **1914354**;
+>    `POST /api/sysadmin/reload` returns **200** where this block said it
+>    404s; and `desktop_reminder_sweep` is scheduled in the running
+>    process at `interval[0:03:00]` — the one thing the block called
+>    *entirely* invisible until the restart landed. Sessions 49, 50, 52,
+>    54 and 55 are all live. **The HUP warning now applies in reverse**:
+>    the running daemon has the handler, so `kill -HUP <MainPID>` is the
+>    correct way to pick up a config edit and needs no `sudo`.
+> 2. **The five system-scope orphan removals** (`SNAG-UNITS-005`) —
+>    `offline-agents-dashboard`, `personalassistant-backend`,
+>    `personalassistant-frontend`, `ticktick-sync` (+ timer) and
+>    `ticktick-sync-db` are **absent** from `/etc/systemd/system` and all
+>    report `not-found`. Done by the owner.
+> 3. **`SNAG-DB-002`'s `REINDEX`-before-`REFRESH` remedy** — done
+>    **2026-08-13** by **estate-manager**, in two passes that evening.
+>    Verified here by `relfilenode`/`oid` rather than by reading anything:
+>    **0 of 125** collation-sensitive user indexes across the eight
+>    databases retains its original relfilenode. This application's own
+>    eight alerts resolved at 18:01:48 that evening.
+>
+> **Three of three stale is not an oversight, it is the absence of a
+> check** — filed as `SNAG-ESTATE-008`. Two of the three were plain
+> `systemctl` state this service already reads every 300 seconds. Note
+> also that an **empty** block is itself a claim: "nothing owed" and
+> "nothing checked" must not render identically, which is
+> `UnitScanResponse.ports_checked`'s rule arriving in a document. The
+> date above is when it was last verified, and the three checks are the
+> ones to re-run.
 >
 > **Next up**: **`SNAG-DOCS-001` — `CLAUDE.md` documents fifteen project
 > endpoints this service has not served since 2026-08-13.** Found this
@@ -168,6 +177,49 @@
 ---
 
 ## Recently Completed
+
+### The snag that was already fixed — SNAG-DB-002 (2026-08-17)
+
+**Closed without a line of code, by measuring the box before reading the
+entry.** `SNAG-DB-002`'s remedy half was carried out by **estate-manager**
+on 2026-08-13 (`eb51ff6` 18:03, `52b312c` 20:29) using their
+`scripts/refresh-collations.sh`, which encodes this entry's own trap:
+never `REFRESH` unless that database's `REINDEX` has just succeeded.
+
+**The verification, not the closure, is the content.** Index file mtimes
+show the two bursts and prove nothing about an actively-written index,
+whose file carries a recent mtime whether or not its contents were
+rebuilt. The exact test is `pg_class.relfilenode` against
+`pg_class.oid` — a rebuild draws a fresh relfilenode from the
+cluster-wide counter, so an index never rewritten retains
+`relfilenode = oid`. **0 of 125** collation-sensitive user indexes across
+the eight databases retains its original; `projects`' 58 sit in one band,
+3,882,764–3,886,294, against creation OIDs from 46,010. "Collation
+sensitive" is `indcollation NOT IN (0, 950, 951)`, and it is the filter
+the entry lacked — `950`/`951` are `C`/`POSIX`, byte-order, immune to a
+glibc change.
+
+**Four of the entry's numbers corrected, three of which were true when
+written**: 16 GB (real, largely index bloat the reindex reclaimed, before
+the estate dropped `personal_assistant` on 2026-08-14 taking the database
+to 1,094 MB — so today's 1098 MB is a deletion, not a mistake); eight
+databases (the estate audits eleven); 25 indexes "several on text" (58 in
+`projects`, 125 cluster-wide, **0** in `pg_catalog`, whose text columns
+are `name`); and a quiet window of hours that was **30 seconds**, because
+`REINDEX` rebuilds indexes and 3,123 MB of them was the governing figure,
+never the 16 GB.
+
+**Filed on the way: `SNAG-ESTATE-008`** — four documents here restated a
+finished ops action for three days and five sittings while this
+application's own alert table had resolved all eight rows at 18:01:48 on
+2026-08-13. An unread fault is a missed alarm; an unread **recovery** is
+an instruction to redo finished work. The cause is structural rather than
+careless: `EstateJudgeAgent` is narrowed to `check == "ports"` for two
+sound reasons, and shared infrastructure remedied by the estate is the
+case neither anticipated. Also corrected: `snag_list.md`'s header claimed
+`count_open_snags` reports 47 (measured 2026-08-14); driven against the
+current parser it reports **35**, the function having been rewritten
+around `read_snags` since — the same defect, one document over.
 
 ### The understudy gets a clock — SNAG-TRAY-007 (2026-08-16)
 
@@ -1018,7 +1070,10 @@ repository builds a format the estate believes it owns) and
   mutually exclusive, and combining them makes a row flip-flop, clearing
   the tray fingerprint on every flip. The `REINDEX` remedy is
   deliberately not automated and the alert names it **before** `REFRESH`,
-  which alone would silence the warning without rebuilding anything.
+  which alone would silence the warning without rebuilding anything —
+  *and estate-manager automated exactly that ordering in
+  `scripts/refresh-collations.sh` and ran it the same evening, which is
+  where the remedy half of `SNAG-DB-002` actually closed.*
   Verified live in rolled-back transactions, both raise and resolve,
   residue 0. Filed on the way: `SNAG-AGENT-006`, the raise-side twin of
   `SNAG-AGENT-004` — 60 rows for one dead timer in five hours.
