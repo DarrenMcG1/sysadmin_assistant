@@ -2,158 +2,148 @@
 
 ## Next action
 
-Take the priority half of `SNAG-AGENT-008` — every line this daemon writes is journald `PRIORITY=6` regardless of the `"level"` inside the JSON, so `read_journal`'s severity filter discards the lot, `log_entries` holds zero rows for `sysadmin.service`, nine consecutive nights of `ERROR` raised no alert, and it is also what keeps `_resume_floor` returning `None` for this source for ever.
+Take `SNAG-LOG-002` and give `log_trends._confidence` a per-source truncation reading in place of the binary global flag it has now, because 119 of 10,063 log-aggregator runs truncated across **nine** different sources in the last seven days rather than the two Session 60 recorded, so `GET /api/logs/trends` and the entire `noise` recommendation family report `confidence: low` far more reliably than any single kernel storm explains, and neither waiting for the 2026-08-12 spike to leave the window nor Session 61's fix to this service's own volume can recover it.
 
 ## Two sub-session items, neither of them a session
 
-**One to run, and it needs `sudo`.**
+**One to run, and it is what makes today's work real.**
 
 ```bash
 sudo systemctl restart sysadmin
 ```
 
-uvicorn serves start-time code, so the duplicate access line is still
-being written. The tray half is already deployed and measured; this is
-the other half of the same fix. Two minutes.
+uvicorn serves start-time code, so **both halves of `SNAG-AGENT-008` are
+waiting on this one restart** — Session 60's duplicate access line and
+Session 61's level prefix. Until it runs, `log_entries` holds **0 rows**
+for `sysadmin-service` (checked again at 13:30 today) and this daemon
+still cannot see its own `ERROR`s. Two minutes, and it needs `sudo`.
 
-**One still outstanding from this morning.** The two `Estate port …
+**One still outstanding from yesterday morning.** The two `Estate port …
 registry breach` rows still need resolving so Session 57's `info` rung
-can reach them (`SNAG-ESTATE-010`) — a write to the live `alerts` table,
-still left for the owner:
+can reach them (`SNAG-ESTATE-010`) — both confirmed still open today:
 
 ```sql
 UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
 ```
 
-The 03:00 retention purge item from the last handoff is unchanged and
-happens by itself: **207,566 rows**, `log_entries` 626,906 → 451,888.
+The 03:00 retention purge has still not deleted anything —
+`log_entries` read **626,917** at 13:30. Tonight's run is the first that
+will, and it happens by itself.
 
-## This session — Session 60: the volume half, and what the table said instead
+## This session — Session 61: the priority half, and a premise that did not survive one command
 
 The handoff's `## Next action` line stood and was taken as written. It
-named a fix and a reason. The fix was worth doing. **The reason was
-wrong, and finding that out cost twenty minutes of measuring.**
+named the fault correctly. **The snag entry it came from named the
+trade-off incorrectly, and one `systemctl show` settled it before any
+code was written.**
 
-### The volume, measured before anything was changed
+### The premise, checked first
 
-`sysadmin.service` wrote **673 journal lines per 5 minutes** — 676 over a
-30-minute sample, so steady rather than bursty. Two causes, neither of
-them the one the snag named.
+The entry said `SyslogLevelPrefix=` and `JournalHandler` "both need a
+unit edit and sudo", leaving the reader-side hack as the only cheap
+option. `SyslogLevelPrefix=` **defaults to true** in systemd:
 
-**Every request was logged twice.** `configure_logging` clears the
-**root** handlers, and that does not reach `uvicorn.access`: uvicorn's
-default dictConfig attaches a handler to that logger *directly* and sets
-`propagate = False`, so it sat outside every switch the module throws.
-Over ten minutes, **662 plain lines against 640 JSON access lines** — and
-662 − 640 is exactly the **22 `/health` polls** the middleware excludes
-and uvicorn's did not.
+```
+$ systemctl show sysadmin.service -p SyslogLevelPrefix
+SyslogLevelPrefix=yes
+```
 
-That second clause is the part worth keeping. `_EXCLUDED_PATHS` is
-`SNAG-API-002`'s fix and **it has never worked**. The test that guards it
-patches `sysadmin.core.middleware.logger` — the emitter that was already
-honouring the exclusion — so no amount of strengthening it could have
-caught the one that was not. An exclusion a second emitter ignores is not
-a quieter log; it is a decision with nothing enforcing it.
+So the prefix remedy needs no unit edit and no `sudo` either — the same
+footing the entry credited only to the option that couples a fourteen-
+source reader to this one application's log format. Two of the three
+clauses in that sentence were wrong. A trade-off written from
+documentation rather than from the box had sent the choice toward the
+weakest of the three.
 
-**The tray was polling a tab nobody was looking at.** `ServicesTab` is
-constructed eagerly at tray startup and wired to `status_updated`
-unconditionally, so it issued one `GET …/details` per systemd-backed
-service on every status poll whether or not the dashboard had ever been
-opened — **1,160 of the 1,347 lines, 86 %**. `DashboardWindow`'s own
-docstring promised the opposite: *"no background polling when hidden"*.
-Every other tab keeps that promise; `LogsTab` stops its timer in
-`hideEvent`, and this tab had no timer to stop, which is how it escaped
-notice. The polling was never scheduled — it was inherited from a signal
-that fires anyway.
+Verified end to end against a transient unit rather than read off the
+manual: `<4>{…}` on stdout arrives as `PRIORITY=4`, and journald
+**strips the prefix**, so `MESSAGE` is byte-identical and
+`log_signature`, `alert_title` and the stored `raw_line` need no change.
 
-### What the live table said about the justification
+### What was built
 
-The handoff's reason was that 118 truncated runs make
-`GET /api/logs/actions` report `confidence: low`, and that those runs are
-overwhelmingly this service. Measured over the same 7-day window in
-`agent_runs`:
+`JournalLevelPrefixFormatter` in `sysadmin/core/logging_setup.py`
+prefixes each JSON line with `<N>`, gated on `log_format == "json"`.
+That gate is a **precondition, not a proxy for the destination**: a
+level prefix marks one line, and only the JSON formatter guarantees one
+line per record. Under the text formatter a traceback's first line would
+be stamped `ERROR` and its body left at `info` — one fault across two
+priorities, worse than the uniform `6` because it looks fixed.
 
-| source | truncated runs |
-|---|---:|
-| kernel | **103** |
-| mosquitto | 14 |
-| **sysadmin-service** | **14** |
-| sports_analyser | 12 |
-| venture-assistant | 11 |
+`syslog_priority` is a module-level function rather than formatter
+internals so a test can drive it against `journal.PRIORITY_MAP` directly.
+Two maps that can disagree about one fact is this repository's recurring
+defect, and the round trip is pinned for all five levels.
 
-118 out of **10,064 runs — 1.2 %**, not "essentially every read". And
-**104 of the 118 landed on one day**, 2026-08-12, as kernel reads.
+**The second emitter was the one carrying the errors.** `uvicorn.error`
+has no handler and propagates only as far as `uvicorn`, which keeps a
+plain-text stderr handler with `propagate = False` — `uvicorn.access`'s
+shape exactly, one logger over. So `Exception in ASGI application` and
+the traceback of every unhandled 500 went out as plain text at
+`PRIORITY=6`, and no prefix on *this application's* logger could have
+reached them. It is **rerouted, not silenced**, deliberately the
+opposite verb from its sibling three lines up in the same function: the
+access line duplicates a structured line the middleware already writes,
+so the second copy is waste; uvicorn's error line has no second copy
+anywhere, so silencing it would delete the only record an ASGI crash
+leaves.
 
-`log_trends._confidence` is `if coverage.runs_truncated > 0: return LOW`
-— **binary, not proportional**. So taking this service to zero leaves 103
-kernel runs and `SNAG-LOG-002` does not close. It will clear by itself
-around **2026-08-19** when 08-12 leaves the window, and return on the
-next kernel storm. Both snag entries have been corrected in place.
+### Session 60's own guard was asserting the opposite, and passing
 
-### The finding worth carrying forward
+`test_only_the_access_logger_is_silenced` claims `uvicorn.error` reaches
+the root handler. Its fixture rebuilds `uvicorn.access` and **not** its
+parent, so `uvicorn` was left with no handler and `propagate = True` and
+the record fell through. Driven against uvicorn's real `LOGGING_CONFIG`:
 
-**The two halves of `SNAG-AGENT-008` are multiplicative, not
-independent.** `_read_journal_source` falls back to a five-minute window
-only when there is no cursor **and** `_resume_floor` is `None`. For
-`sysadmin-service` the floor is *always* `None`, because the priority
-half means no rows are ever stored — so the durable resume mechanism is
-permanently disabled, every restart re-reads five minutes, and five
-minutes at 673 lines overflows a 500-line ceiling. Fixing **either** half
-stops the truncation; only the priority half stops the re-read. That is
-why it is the next action.
+```
+test env  (no uvicorn dictConfig): root='{"timestamp":…,"level":"ERROR",…'  uvicorn_own=''
+production (uvicorn dictConfig)  : root=''                                  uvicorn_own='ERROR:    address already in use'
+```
+
+True in CI, false on the box. That is `test_excludes_health_endpoint`'s
+defect one logger over, shipped by the session that found it. The new
+class drives the real `dictConfig`; the old test is kept as a cheap
+guard with its docstring now saying what it does not cover.
+
+### Verified live, without the sudo the deploy needs
+
+A transient user unit ran the real `configure_logging` and emitted four
+records. journald recorded `INFO→6`, `WARNING→4`, `ERROR`+traceback→`3`,
+`uvicorn.error→3`; the **real `read_journal`** at `severity_filter:
+warning` returned **3 entries where it has always returned 0**, prefix
+stripped, cursor set. Both new guards were falsified against restored
+pre-fix code: reverting the formatter fails 12 tests, removing the
+reroute fails exactly the two that name it.
+
+Full suite **1,965 passed**, ruff clean, mypy clean.
 
 ### Decisions taken, and what was rejected
 
-- **The middleware is the copy kept**, not uvicorn's — only it carries
-  `method`/`path`/`status`/`duration_ms` as structured fields. Rejected:
-  deleting the middleware, which loses the fields *and* the exclusion.
-- **Disabled, not re-levelled.** uvicorn logs access at INFO and nothing
-  else, so `setLevel(WARNING)` is silence spelled indirectly and would
-  start emitting again the day uvicorn adds a warning-level access line.
-- **Silenced, not redirected.** Removing the handler and letting the
-  record propagate keeps the duplicate and re-dresses it as JSON — the
-  same line count, which is the number being moved. A test asserts it.
-- **In code rather than `--no-access-log` on `ExecStart`** — the owner's
-  choice. No `sudo`, and it keeps logging configuration in one file.
-- **Rejected: raising `max_entries_per_read`**, the snag's third
-  candidate. It treats the ceiling rather than the volume, and the
-  volume turned out to be two defects.
-- **`isVisible()` rather than a flag.** It is false both when the window
-  is hidden and when another tab is selected — both cases where nobody
-  is looking — so a second flag would be a second statement of the same
-  fact, free to disagree with Qt about it.
-- **Fixed in place, not abstracted.** `ServicesTab` is the *only* tab
-  that issues a request from a client signal handler; every other one
-  confines them to `refresh()` or a user action. Checked rather than
-  assumed.
+- **Producer over reader.** Parsing `"level"` in `read_journal` fixes
+  this repository's view and leaves the artefact lying — and puts a
+  special case for one source into a reader serving fourteen.
+  `sysadmin.service` is the only JSON-writing journal source on this box,
+  measured, so the branch could never pay for itself.
+- **`systemd.journal` rejected on measurement**, not argument:
+  `ImportError` in the venv, so it is a new native dependency, and it
+  replaces stdout-JSON rather than repairing it.
+- **The JSON-blob message was measured and deliberately not fixed.**
+  `alert_title` will produce a 252-character title made of JSON. Filed as
+  `SNAG-LOG-003` because the obvious remedy is the coupling just
+  rejected, and the honest one — `format: json` declared per source in
+  `services.yaml` — is a schema change that deserves its own sitting.
+  Detection is unaffected: two distinct faults gave two distinct titles.
 
-### Verified live, not only against fixtures
+### Filed and corrected
 
-Both guards were **falsified against the restored pre-fix code** before
-being trusted: `test_access_line_is_not_emitted` fails with production's
-exact line, `127.0.0.1:53994 - "GET /health" 200`, and 4 of the 7
-`test_services_tab.py` tests fail with the whole service list.
-
-The logging half was additionally driven against uvicorn's **real**
-`LOGGING_CONFIG` rather than a reconstruction of it — `dictConfig` then
-`configure_logging` gives `INFO:     127.0.0.1:53994 - "GET /health
-HTTP/1.1" 200 OK` before and `''` after, with nothing rerouted to root.
-
-The tray was deployed and the journal measured over a five-minute window
-six minutes after the restart: **673 → 93 lines per 5 minutes, an 86 %
-reduction, `details = 0`.** The residual 41 plain lines are uvicorn's
-duplicate, still being written until the backend restart above; removing
-them leaves ~52, against a 500-line ceiling.
-
-**1948 green** (from 1937), ruff and mypy clean.
-
-### Filed rather than implied
-
-Nothing new opened. Two entries **corrected**: `SNAG-AGENT-008`'s volume
-half is fixed and three of its claims were wrong (the ceiling is hit on
-the first read after a restart and at no other moment; the cause was a
-duplicated line and a tray fan-out, not "an access-log line per request
-nobody revisited"; the composition was never measured before being
-asserted). `SNAG-LOG-002`'s cause is the kernel, its gate is binary, and
-per-source confidence is now the only fix that reaches it.
+- **`SNAG-AGENT-008` closed**, both halves.
+- **`SNAG-LOG-003` opened** — the JSON document where the message should
+  be. Not observable until the restart.
+- **`SNAG-LOG-002` re-measured.** Session 60's "kernel 103,
+  sysadmin-service 14" is 2 of **9** sources: 119 runs of 10,063, 164
+  source-truncations, eight of the nine sources affected. This is what
+  moved it from third to first in the recommendation.
+- **`SNAG-ESTATE-001`'s units confirmed gone** from the box; its
+  remaining half is a retirement checklist, a process rather than code.
+- Live parser **42 → 43**, measured either side of the edit.

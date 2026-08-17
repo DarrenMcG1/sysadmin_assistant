@@ -427,6 +427,69 @@ JSON, which is the same line count in the journal and the line count is
 the number being moved. A test drives uvicorn's real `LOGGING_CONFIG`
 rather than a reconstruction of it.
 
+**The other half of the same blindness is the level, and the trade-off
+this repository had written down was wrong** (Session 61,
+`SNAG-AGENT-008` priority half). systemd stamps captured stdout
+`PRIORITY=6` whatever the `"level"` inside the JSON says, so
+`read_journal`'s `severity_filter: warning` discarded every line this
+daemon has ever written and `log_entries` held **0 rows** for
+`sysadmin.service` across nine nights of `ERROR`. The snag said the two
+unit-file remedies both need `sudo`, leaving a reader-side parse as the
+only cheap option. `SyslogLevelPrefix=` **defaults to true** in systemd
+and already read `yes` here — so the prefix costs no unit edit and no
+`sudo` either. A trade-off written from documentation rather than from
+the box had sent the choice toward the weakest of three.
+
+`JournalLevelPrefixFormatter` prefixes each JSON line with `<N>`.
+Journald strips it, so `MESSAGE` is byte-identical and `log_signature`,
+`alert_title` and `raw_line` need no change — verified against a
+transient unit before the code was written.
+
+Four rules, three of them the opposite of the obvious implementation:
+
+1. **The producer, not the reader.** Parsing `"level"` in
+   `read_journal` fixes this repository's view and leaves the artefact
+   lying: `journalctl -u sysadmin -p err` still prints nothing, and so
+   does any `OnFailure=` hook. It also puts a special case for **one**
+   source into a reader serving fourteen — and `sysadmin.service` is the
+   only JSON-writing journal source on this box, measured, so the branch
+   could never pay for itself.
+2. **The JSON gate is a precondition, not a proxy for the destination.**
+   A level prefix marks one line, and only the JSON formatter guarantees
+   one line per record. Under the text formatter a traceback's first
+   line would be stamped `ERROR` and its body left at `info` — one fault
+   across two priorities, worse than the uniform `6` because it *looks*
+   fixed.
+3. **`uvicorn.error` is rerouted, not silenced** — deliberately the
+   opposite verb from `uvicorn.access` three lines up in the same
+   function. It has no handler and propagates only as far as `uvicorn`,
+   which keeps a plain-text handler with `propagate = False`: the access
+   logger's shape exactly, carrying `Exception in ASGI application` and
+   every unhandled 500. The access line duplicates a structured line the
+   middleware already writes, so the second copy is waste; uvicorn's
+   error line has no second copy anywhere, so silencing it would delete
+   the only record an ASGI crash leaves.
+4. **`syslog_priority` is pinned to `journal.PRIORITY_MAP` by a
+   round-trip test**, not asserted alone on each side — two maps that
+   can disagree about one fact is `SNAG-DB-003`'s shape and
+   `chk_alert_agent` against `AGENT_NAMES`.
+
+Note what was asserting the opposite and passing.
+`test_only_the_access_logger_is_silenced` (Session 60) claims
+`uvicorn.error` reaches the root handler; its fixture rebuilds
+`uvicorn.access` and **not** its parent, so the record fell through to
+root in the test and went to uvicorn's own handler on the box. True in
+CI, false in production — `test_excludes_health_endpoint`'s defect one
+logger over, shipped by the session that found it.
+
+`SNAG-LOG-003` is the cost, filed rather than bundled: `MESSAGE` for
+this source is the whole JSON line, so `alert_title` yields a
+252-character title made of JSON that reaches a notification body
+verbatim. Detection is unaffected — two distinct faults gave two
+distinct titles — and the honest fix is a `format: json` declaration per
+source in `services.yaml`, which makes the reader honour a *declaration*
+rather than recognise an application.
+
 The other 86 % was the tray. `sysadmin_tray/dashboard/services_tab.py`
 is built eagerly at startup and wired to `status_updated`
 unconditionally, so it issued one `/details` per systemd-backed service

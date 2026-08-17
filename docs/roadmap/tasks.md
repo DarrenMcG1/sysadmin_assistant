@@ -367,6 +367,71 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### ✅ Session 61: The priority half, and a premise settled by one `systemctl show` (done 2026-08-17)
+
+**The handoff's `## Next action` line stood and was taken as written.** It
+named the priority half of `SNAG-AGENT-008` and it was right about the
+fault. It was wrong about the choice — and so was the snag entry it came
+from, which said the two unit-file remedies both need `sudo` and that
+reading the `"level"` key in `read_journal` is *"the only one needing no
+unit-file edit"*. `SyslogLevelPrefix=` **defaults to true in systemd** and
+already reads `yes` on this unit, so the prefix remedy needs no unit edit
+and no `sudo` either.
+
+- [x] Check the premise before choosing: `systemctl show sysadmin.service
+      -p SyslogLevelPrefix` → **`yes`**. Two of the trade-off's three
+      clauses were wrong, and one command settled both
+- [x] Verify the mechanism against a **transient unit** rather than the
+      documentation — `<4>{…}` arrives as `PRIORITY=4` and journald
+      **strips the prefix**, so `MESSAGE` is byte-identical and
+      `log_signature` / `alert_title` / `raw_line` need no change
+- [x] Rule out `systemd.journal` on measurement: `ImportError` in the
+      venv, so it is a new native dependency
+- [x] Rule out the reader-side fix on measurement too: `sysadmin.service`
+      is the **only** JSON-writing journal source of the 14 declared, so a
+      special case in a reader serving fourteen could never pay for itself
+      — and `journalctl -u sysadmin -p err` would still print nothing
+- [x] `JournalLevelPrefixFormatter` in `sysadmin/core/logging_setup.py`,
+      gated on `log_format == "json"` — a **precondition**, not a proxy:
+      only JSON guarantees one line per record, so a traceback travels on
+      the line whose level describes it
+- [x] **The second emitter, and it is the one carrying the errors.**
+      `uvicorn.error` propagates only as far as `uvicorn`, which keeps a
+      plain-text handler with `propagate = False` — `uvicorn.access`'s
+      shape exactly. **Rerouted, not silenced**, the opposite verb from
+      its sibling three lines up: the access line duplicates a structured
+      line, uvicorn's error line has no second copy anywhere
+- [x] **Session 60's own guard was asserting the opposite and passing.**
+      `test_only_the_access_logger_is_silenced` rebuilds `uvicorn.access`
+      and not its parent; driven against the real `LOGGING_CONFIG` the
+      record went to uvicorn's own handler and root stayed **empty**. The
+      new class drives the real `dictConfig`; the old test's docstring now
+      says what it does not cover
+- [x] Falsify both guards against restored pre-fix code — reverting the
+      formatter fails 12 tests, removing the reroute fails exactly the two
+      that name it
+- [x] **Drive the whole loop live without the `sudo` the deploy needs**: a
+      transient user unit running the real `configure_logging`, read back
+      by the real `read_journal` at `severity_filter: warning` — **3
+      entries where it has always returned 0**
+- [x] Re-measure `SNAG-LOG-002`'s composition: **119 of 10,063 runs, across
+      9 sources**, not the two Session 60 named
+- [x] Full suite **1,965 passed**, ruff clean, mypy clean
+- [ ] **`sudo systemctl restart sysadmin` is owed** — uvicorn serves
+      start-time code, so `log_entries` holds 0 rows for this source until
+      it runs. Both halves of `SNAG-AGENT-008` land on that one restart
+
+**What the fix will look like when it lands, measured in advance.** With
+the priority half in, `entry["message"]` is the whole formatted JSON line,
+so `alert_title` produces `Log error: sysadmin-service — {"timestamp":
+"N-N-N N:N:N,N", "level": "ERROR", "logger": "sysadmin.core.retention",
+"message": "retention_purge_failed", …` at 252 of 255 characters, and that
+reaches a notification body verbatim. **Detection is unaffected** — two
+distinct faults gave two distinct titles — so it is filed as
+`SNAG-LOG-003` rather than fixed here, because the obvious remedy is the
+very coupling this session rejected and the honest one is a `format: json`
+declaration in `services.yaml`.
+
 ### ✅ Session 60: The volume half, and what the table said instead (done 2026-08-17)
 
 **The handoff's `## Next action` line was taken as written, and the live
