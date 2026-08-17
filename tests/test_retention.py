@@ -1,15 +1,35 @@
 """Tests for the retention service — purge logic and downsampling."""
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import ProgrammingError
 
 from sysadmin.core.retention import (
     KEEP_LATEST_PER,
     TABLE_TIMESTAMP_MAP,
+    WHOLE_TABLE,
     _downsample_resources,
+    purge_statement,
     run_retention,
 )
+
+
+def _savepoint_session() -> AsyncMock:
+    """An AsyncMock session that can also be used as ``begin_nested()``.
+
+    ``run_retention`` wraps each table in ``async with
+    session.begin_nested()``, so the mock needs a *synchronous* callable
+    returning an async context manager — ``AsyncMock().begin_nested()``
+    returns a coroutine, which ``async with`` cannot take.
+    """
+    session = AsyncMock()
+    savepoint = AsyncMock()
+    savepoint.__aenter__ = AsyncMock(return_value=savepoint)
+    savepoint.__aexit__ = AsyncMock(return_value=False)
+    session.begin_nested = MagicMock(return_value=savepoint)
+    return session
 
 
 @pytest.fixture
@@ -57,8 +77,8 @@ class TestTableTimestampMap:
         A portfolio left unreviewed for longer than the retention window
         must still serve its last review rather than the empty state.
         """
-        assert KEEP_LATEST_PER["project_reviews"] == "true"
-        assert KEEP_LATEST_PER["disk_reviews"] == "true"
+        assert KEEP_LATEST_PER["project_reviews"] is WHOLE_TABLE
+        assert KEEP_LATEST_PER["disk_reviews"] is WHOLE_TABLE
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +90,7 @@ class TestRunRetention:
     @pytest.mark.asyncio
     async def test_purges_each_configured_table(self, mock_retention_configs):
         """run_retention should execute a DELETE for each configured table."""
-        mock_session = AsyncMock()
+        mock_session = _savepoint_session()
 
         # First call: SELECT retention_config → returns configs
         # Subsequent calls: DELETE + UPDATE for each table
@@ -121,7 +141,7 @@ class TestRunRetention:
         unknown_config.table_name = "nonexistent_table"
         unknown_config.retention_days = 30
 
-        mock_session = AsyncMock()
+        mock_session = _savepoint_session()
         config_result = MagicMock()
         config_result.scalars.return_value.all.return_value = [unknown_config]
 
@@ -150,7 +170,7 @@ class TestRunRetention:
     @pytest.mark.asyncio
     async def test_empty_configs_still_downsamples(self):
         """With no retention configs, downsampling should still run."""
-        mock_session = AsyncMock()
+        mock_session = _savepoint_session()
         config_result = MagicMock()
         config_result.scalars.return_value.all.return_value = []
 
@@ -226,3 +246,205 @@ class TestDownsampleResources:
 
         await _downsample_resources(mock_session)
         mock_session.execute.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Statement construction — and PostgreSQL as the judge of it
+# ---------------------------------------------------------------------------
+
+
+class TestPurgeStatement:
+    """The three branches of :func:`purge_statement`, by shape.
+
+    These assert *text*, which is exactly what could not catch
+    ``SNAG-RETENTION-001``: the broken statement was a perfectly good
+    string. They are here to pin intent; the guard is
+    ``test_purge_statements_parse`` below.
+    """
+
+    def test_alerts_purges_only_resolved(self):
+        sql = purge_statement("alerts", "created_at")
+        assert "resolved = TRUE" in sql
+        # An open alert is a live fault whatever its age.
+        assert "NOT IN" not in sql
+
+    def test_whole_table_entity_takes_the_limit_branch(self):
+        """No ``DISTINCT ON`` over a constant — that is the construct that broke."""
+        sql = purge_statement("disk_reviews", "generated_at")
+        assert "DISTINCT ON" not in sql
+        assert "ORDER BY generated_at DESC LIMIT 1" in sql
+        assert "NOT IN" in sql
+
+    def test_per_entity_table_keeps_distinct_on(self):
+        sql = purge_statement("reliability_scores", "computed_at")
+        assert "DISTINCT ON (service_name)" in sql
+        assert "ORDER BY service_name, computed_at DESC" in sql
+
+    def test_plain_table_is_a_bare_cutoff(self):
+        sql = purge_statement("log_entries", "ingested_at")
+        assert sql == (
+            "DELETE FROM sysadmin.log_entries WHERE ingested_at < :cutoff"
+        )
+
+    def test_no_bare_constant_reaches_an_order_by(self):
+        """The specific regression, stated in the terms PostgreSQL uses.
+
+        A bare constant in ``ORDER BY`` is read as an ordinal position, so
+        ``ORDER BY true`` is ``non-integer constant in ORDER BY``.  This is
+        a weaker check than the parser and is kept only because it names
+        the fault; it runs everywhere, including a CI box with no database.
+        """
+        for table, ts_col in TABLE_TIMESTAMP_MAP.items():
+            sql = purge_statement(table, ts_col)
+            for clause in sql.split("ORDER BY ")[1:]:
+                first_term = clause.split(",")[0].split(")")[0].strip()
+                assert first_term.lower() not in ("true", "false"), (
+                    f"{table}: ORDER BY {first_term} is an ordinal reference "
+                    "to PostgreSQL, not a constant expression"
+                )
+
+
+def _db_available() -> bool:
+    from sqlalchemy import create_engine
+
+    try:
+        engine = create_engine(
+            "postgresql+psycopg2://gaddi@localhost:5432/projects",
+            connect_args={"connect_timeout": 2},
+        )
+        try:
+            with engine.connect():
+                return True
+        finally:
+            engine.dispose()
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(
+    not _db_available(),
+    reason="local postgres (projects DB) not reachable — the parse guard needs the real schema",
+)
+def test_purge_statements_parse():
+    """Hand every statement ``run_retention`` builds to PostgreSQL.
+
+    **This is the guard, and its absence is why a nightly job raised for
+    nine days behind 1,866 green tests.**  Every other test in this file
+    mocks the session, so the statements were asserted as strings and
+    never parsed.  ``project_reviews`` built
+    ``SELECT DISTINCT ON (true) … ORDER BY true``, which is valid Python,
+    a plausible-looking string, and a syntax error — and because the purge
+    ran as one transaction, it silently rolled back the six purges it had
+    already logged as successful.
+
+    ``EXPLAIN`` parses and plans without executing, so this deletes
+    nothing and costs milliseconds.  It covers the whole map rather than
+    the one table that broke: the next bad statement will be a different
+    one.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy import text as sql_text
+
+    engine = create_engine("postgresql+psycopg2://gaddi@localhost:5432/projects")
+    try:
+        with engine.connect() as conn:
+            for table, ts_col in TABLE_TIMESTAMP_MAP.items():
+                stmt = purge_statement(table, ts_col)
+                conn.execute(
+                    sql_text(f"EXPLAIN {stmt}"),
+                    {"cutoff": datetime(2000, 1, 1, tzinfo=UTC)},
+                )
+    finally:
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# One bad table costs only itself
+# ---------------------------------------------------------------------------
+
+
+class TestPurgeIsolation:
+    @pytest.mark.asyncio
+    async def test_one_failing_table_does_not_abort_the_others(self):
+        """``SysAdminAgent._execute``'s savepoint rule, one domain over.
+
+        The whole run used to be a single transaction, so the twelfth
+        table's syntax error discarded the first eleven tables' deletes
+        *and* their ``last_purged_at`` stamps.  Nine days of that was
+        invisible because each table logs its rowcount before the commit.
+        """
+        configs = []
+        for table in ("log_entries", "project_reviews", "agent_runs"):
+            cfg = MagicMock()
+            cfg.table_name = table
+            cfg.retention_days = 30
+            configs.append(cfg)
+
+        session = _savepoint_session()
+        config_result = MagicMock()
+        config_result.scalars.return_value.all.return_value = configs
+
+        delete_result = MagicMock()
+        delete_result.rowcount = 7
+        purged: list[str] = []
+
+        async def execute(stmt, params=None):
+            sql = str(stmt)
+            if sql.startswith("SELECT") and "retention_config" in sql:
+                return config_result
+            if "project_reviews" in sql and sql.startswith("DELETE"):
+                raise ProgrammingError("DELETE ...", {}, Exception("boom"))
+            if sql.startswith("DELETE"):
+                purged.append(sql.split("sysadmin.")[1].split(" ")[0])
+            return delete_result
+
+        session.execute = AsyncMock(side_effect=execute)
+
+        with patch("sysadmin.core.retention.get_scheduler_session") as ctx:
+            ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            await run_retention()
+
+        # The two healthy tables were purged despite the one in between.
+        assert purged == ["log_entries", "agent_runs"]
+
+    @pytest.mark.asyncio
+    async def test_a_failed_table_is_not_stamped_as_purged(self):
+        """``last_purged_at`` must mean what its name says.
+
+        The stamp lives inside the savepoint, so it rolls back with the
+        delete it records.  A table stamped on a run that deleted nothing
+        turns the one honest staleness signal into a lie — which is what
+        the single-transaction version did in reverse, rolling back
+        stamps for tables that had genuinely succeeded.
+        """
+        cfg = MagicMock()
+        cfg.table_name = "project_reviews"
+        cfg.retention_days = 365
+
+        session = _savepoint_session()
+        config_result = MagicMock()
+        config_result.scalars.return_value.all.return_value = [cfg]
+
+        stamped: list[str] = []
+
+        async def execute(stmt, params=None):
+            sql = str(stmt)
+            if sql.startswith("SELECT") and "retention_config" in sql:
+                return config_result
+            if sql.startswith("DELETE") and "project_reviews" in sql:
+                raise ProgrammingError("DELETE ...", {}, Exception("boom"))
+            if sql.startswith("UPDATE"):
+                stamped.append(sql)
+            result = MagicMock()
+            result.rowcount = 0
+            return result
+
+        session.execute = AsyncMock(side_effect=execute)
+
+        with patch("sysadmin.core.retention.get_scheduler_session") as ctx:
+            ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            await run_retention()
+
+        assert stamped == []

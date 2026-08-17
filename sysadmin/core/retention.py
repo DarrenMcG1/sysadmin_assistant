@@ -8,6 +8,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, text, update
+from sqlalchemy.exc import SQLAlchemyError
 
 from sysadmin.core.database import get_scheduler_session
 from sysadmin.core.models.retention_config import RetentionConfig
@@ -36,16 +37,28 @@ TABLE_TIMESTAMP_MAP = {
     "disk_reviews": "generated_at",
 }
 
+#: The entity for a table with no per-entity dimension: the whole table
+#: is one entity, so exactly one row survives.
+#:
+#: It is a **sentinel taking its own branch**, not a SQL expression, and
+#: that is the whole point.  It used to be the literal string ``"true"``,
+#: spliced into ``SELECT DISTINCT ON (true) … ORDER BY true`` — which
+#: PostgreSQL rejects, because a bare constant in ``ORDER BY`` is read as
+#: an ordinal position and ``true`` is not an integer.  Parenthesising
+#: does not help; the parser strips it.  See :func:`purge_statement`.
+WHOLE_TABLE = None
+
 # Tables whose newest row per entity survives the purge regardless of age.
-# The value is the SQL expression identifying the entity.
+# The value is the SQL expression identifying the entity, or
+# :data:`WHOLE_TABLE`.
 #
-# ``true`` means "the whole table is one entity" — the review tables hold
-# an estate-wide narrative with no per-entity dimension, so this keeps
-# exactly the latest one. Without it a portfolio left unreviewed for
-# longer than its window would purge its last review and make
-# ``GET /api/projects/review`` start 404ing, which reads to a consumer as
-# "no review has ever been generated" rather than "none lately".
-KEEP_LATEST_PER = {
+# The review tables hold an estate-wide narrative with no per-entity
+# dimension, so :data:`WHOLE_TABLE` keeps exactly the latest one. Without
+# it a portfolio left unreviewed for longer than its window would purge
+# its last review and make ``GET /api/files/review`` start 404ing, which
+# reads to a consumer as "no review has ever been generated" rather than
+# "none lately".
+KEEP_LATEST_PER: dict[str, str | None] = {
     "project_snapshots": "project_name",
     # Keep the newest score per service, so a service that stopped being
     # checked still shows its last verdict rather than silently vanishing
@@ -56,19 +69,107 @@ KEEP_LATEST_PER = {
     # keeps the latest sweep.
     "unit_audits": "system_unit_dir",
     "filesystem_audits": "scan_root",
-    "project_reviews": "true",
-    "disk_reviews": "true",
+    "project_reviews": WHOLE_TABLE,
+    "disk_reviews": WHOLE_TABLE,
 }
 
 
+def purge_statement(table_name: str, ts_col: str) -> str:
+    """Build the DELETE for one table.  Pure, so it can be parsed in a test.
+
+    Extracted from :func:`run_retention` for one reason: the statement it
+    used to build for a :data:`WHOLE_TABLE` entity was **invalid SQL**,
+    and the suite could not see it.  ``tests/test_retention.py`` mocked
+    the session, so every statement was asserted as a *string* and none
+    was ever handed to a parser — 1,866 green tests beside a nightly job
+    that raised ``non-integer constant in ORDER BY`` every night from
+    2026-08-08, aborting the whole transaction and silently rolling back
+    six successful purges it had already logged.
+
+    So the guard that matters is not a stricter assertion about this
+    text; it is PostgreSQL reading it (``test_purge_statements_parse``).
+    Building the string here is what lets that test exist without a
+    scheduler, a clock or a row.
+
+    Three shapes:
+
+    ``alerts``
+        Resolved rows only.  An open alert is a live fault whatever its
+        age, and purging one loses the incident rather than the history.
+
+    A :data:`KEEP_LATEST_PER` table
+        The newest row per entity survives regardless of age.  With
+        :data:`WHOLE_TABLE` there is no entity to distinguish, so this
+        takes the ``ORDER BY … LIMIT 1`` branch rather than a
+        ``DISTINCT ON`` over a constant — the construct that broke.
+        ``NOT IN`` over an empty subquery is ``TRUE``, so a table with no
+        rows at all needs no special case.
+
+    Anything else
+        Straight age cutoff.
+    """
+    if table_name == "alerts":
+        return (
+            f"DELETE FROM sysadmin.{table_name} "
+            f"WHERE {ts_col} < :cutoff AND resolved = TRUE"
+        )
+
+    if table_name in KEEP_LATEST_PER:
+        entity = KEEP_LATEST_PER[table_name]
+        if entity is WHOLE_TABLE:
+            keep = (
+                f"SELECT id FROM sysadmin.{table_name} "
+                f"ORDER BY {ts_col} DESC LIMIT 1"
+            )
+        else:
+            keep = (
+                f"SELECT DISTINCT ON ({entity}) id "
+                f"FROM sysadmin.{table_name} "
+                f"ORDER BY {entity}, {ts_col} DESC"
+            )
+        return (
+            f"DELETE FROM sysadmin.{table_name} "
+            f"WHERE {ts_col} < :cutoff AND id NOT IN ({keep})"
+        )
+
+    return f"DELETE FROM sysadmin.{table_name} WHERE {ts_col} < :cutoff"
+
+
 async def run_retention() -> None:
-    """Purge old data according to retention_config. Called by scheduler."""
+    """Purge old data according to retention_config. Called by scheduler.
+
+    **One savepoint per table, for the reason ``SysAdminAgent._execute``
+    has one per service.**  This ran as a single transaction over twelve
+    tables, so one rejected statement took the other eleven with it — and
+    it did, nightly, from 2026-08-08: ``project_reviews`` raised
+    ``non-integer constant in ORDER BY`` (see :func:`purge_statement`),
+    the transaction aborted, and every DELETE *and* every
+    ``last_purged_at`` update rolled back with it.
+
+    What made it survive nine days is that the failure was **quieter than
+    success**.  Each table logs ``retention_purged`` with a rowcount
+    before the commit, so the journal carried six lines a night reporting
+    175,018 rows deleted from ``log_entries`` — none of which happened.
+    The one honest signal was ``last_purged_at`` frozen at 2026-08-08,
+    which is a column nobody reads, and the ``scheduler_job_error`` line
+    that nothing alerts on (``SNAG-RETENTION-002``).
+
+    So two things change together, and either alone is insufficient: the
+    savepoint means a bad table costs only itself, and a table that fails
+    keeps its **old** ``last_purged_at`` rather than being stamped as
+    done.  That column now means what its name says — the last time this
+    table was actually purged — and a stale one is the fault showing.
+    ``details``-style naming applies to the summary too: failures are
+    **named**, never counted, because which table is stuck decides
+    whether it matters.
+    """
     async with get_scheduler_session() as session:
         # Read retention config
         result = await session.execute(select(RetentionConfig))
         configs = result.scalars().all()
 
         total_deleted = 0
+        failed: list[str] = []
 
         for config in configs:
             table_name = config.table_name
@@ -77,34 +178,32 @@ async def run_retention() -> None:
                 continue
 
             cutoff = datetime.now(UTC) - timedelta(days=config.retention_days)
+            stmt = text(purge_statement(table_name, ts_col))
 
-            # Special handling for alerts — only purge resolved ones
-            if table_name == "alerts":
-                stmt = text(
-                    f"DELETE FROM sysadmin.{table_name} "
-                    f"WHERE {ts_col} < :cutoff AND resolved = TRUE"
-                )
-            # Keep latest per entity for snapshot and review tables
-            elif table_name in KEEP_LATEST_PER:
-                entity_col = KEEP_LATEST_PER[table_name]
-                stmt = text(
-                    f"DELETE FROM sysadmin.{table_name} "
-                    f"WHERE {ts_col} < :cutoff "
-                    f"AND id NOT IN ("
-                    f"  SELECT DISTINCT ON ({entity_col}) id "
-                    f"  FROM sysadmin.{table_name} "
-                    f"  ORDER BY {entity_col}, {ts_col} DESC"
-                    f")"
-                )
-            else:
-                stmt = text(
-                    f"DELETE FROM sysadmin.{table_name} "
-                    f"WHERE {ts_col} < :cutoff"
-                )
+            try:
+                # Leaving the block flushes, so a rejection surfaces while
+                # this table's savepoint is still the innermost one.
+                async with session.begin_nested():
+                    result = await session.execute(stmt, {"cutoff": cutoff})
+                    # DML executes return a CursorResult at runtime, which
+                    # has rowcount
+                    deleted = result.rowcount  # type: ignore[attr-defined]
 
-            result = await session.execute(stmt, {"cutoff": cutoff})
-            # DML executes return a CursorResult at runtime, which has rowcount
-            deleted = result.rowcount  # type: ignore[attr-defined]
+                    # Stamped inside the savepoint, so it rolls back with
+                    # the delete it records rather than outliving it.
+                    await session.execute(
+                        update(RetentionConfig)
+                        .where(RetentionConfig.table_name == table_name)
+                        .values(last_purged_at=datetime.now(UTC))
+                    )
+            except SQLAlchemyError as exc:
+                failed.append(table_name)
+                logger.error(
+                    "retention_purge_failed",
+                    extra={"table": table_name, "error": str(exc)},
+                )
+                continue
+
             total_deleted += deleted
 
             if deleted > 0:
@@ -117,17 +216,23 @@ async def run_retention() -> None:
                     },
                 )
 
-            # Update last_purged_at
-            await session.execute(
-                update(RetentionConfig)
-                .where(RetentionConfig.table_name == table_name)
-                .values(last_purged_at=datetime.now(UTC))
+        # Downsample resource_snapshots (hourly after 7 days).  Isolated
+        # for the same reason: it is the one step with no config row, so a
+        # failure here used to discard every purge above it.
+        try:
+            async with session.begin_nested():
+                await _downsample_resources(session)
+        except SQLAlchemyError as exc:
+            failed.append("resource_snapshots:downsample")
+            logger.error(
+                "retention_downsample_failed",
+                extra={"error": str(exc)},
             )
 
-        # Downsample resource_snapshots (hourly after 7 days)
-        await _downsample_resources(session)
-
-        logger.info("retention_run_complete", extra={"total_deleted": total_deleted})
+        logger.info(
+            "retention_run_complete",
+            extra={"total_deleted": total_deleted, "failed_tables": failed},
+        )
 
 
 async def _downsample_resources(session) -> None:
