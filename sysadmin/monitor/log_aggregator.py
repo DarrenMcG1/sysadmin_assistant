@@ -336,6 +336,7 @@ class LogAggregatorAgent(BaseAgent):
             user=source.user,
             after_cursor=cursor,
             limit=limit,
+            log_format=source.format,
         )
         if read.cursor:
             self._cursors[source.name] = read.cursor

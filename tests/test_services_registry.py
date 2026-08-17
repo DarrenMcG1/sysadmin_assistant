@@ -5,7 +5,10 @@ from pathlib import Path
 import pytest
 import yaml
 from estate.registry import UnknownProjectError, load_registry
+from pydantic import ValidationError
 
+from sysadmin.core.config import get_config
+from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.services import (
     SKIPPED,
     CheckPlan,
@@ -14,6 +17,7 @@ from sysadmin.monitor.services import (
     ServicesFile,
     check_plan,
     load_services,
+    log_sources,
     parse_services,
 )
 
@@ -93,6 +97,50 @@ class TestServiceEntry:
     def test_log_unit_can_be_overridden(self):
         svc = entry(log={"type": "journalctl", "unit": "other.service"})
         assert svc.log_unit == "other.service"
+
+    def test_log_format_defaults_to_text(self):
+        """Fourteen of fifteen sources emit plain lines, so the reader
+        keeps reading them exactly as it did before the field existed."""
+        assert entry(log={"type": "journalctl"}).log.format == "text"
+
+    def test_log_format_can_be_declared_json(self):
+        assert entry(log={"type": "journalctl", "format": "json"}).log.format == "json"
+
+    def test_unknown_log_format_rejected(self):
+        """A typo fails at load — the property services.yaml was built
+        around, and the reason this is a ``Literal`` rather than a string.
+        A silently-ignored ``format: jsn`` leaves SNAG-LOG-003 standing
+        with a line in the file saying it does not."""
+        with pytest.raises(ValidationError):
+            entry(log={"type": "journalctl", "format": "jsn"})
+
+    def test_the_declaration_reaches_the_reader(self):
+        """``LogRef.format`` is useless unless ``log_sources`` carries it:
+        the field would be validated, documented and read by nothing,
+        which is ``SNAG-CFG-001``'s shape exactly."""
+        parsed = parse_services(
+            {
+                "schema": 1,
+                "services": [
+                    {
+                        "name": "structured",
+                        "kind": "systemd",
+                        "systemd": {"unit": "structured.service"},
+                        "log": {"type": "journalctl", "format": "json"},
+                    },
+                    {
+                        "name": "plain",
+                        "kind": "systemd",
+                        "systemd": {"unit": "plain.service"},
+                        "log": {"type": "journalctl"},
+                    },
+                ],
+            }
+        )
+        assert {s.name: s.format for s in log_sources(parsed)} == {
+            "structured": "json",
+            "plain": "text",
+        }
 
     def test_no_log_means_no_log_unit(self):
         assert entry().log_unit is None
@@ -283,6 +331,38 @@ class TestLiveServicesYaml:
 
     def test_it_parses(self, services: ServicesFile):
         assert len(services.services) >= 17
+
+    def test_this_daemons_own_entry_declares_the_format_it_writes_in(self):
+        """The two statements of one fact, pinned rather than restated.
+
+        ``service.log_format`` in config.yaml decides what this process
+        emits; ``log.format`` in services.yaml decides how the reader
+        parses it. They are set in different files by different hands and
+        nothing connected them, so a switch to text logging would leave a
+        ``format: json`` declaration reading a format that no longer
+        exists — and removing the declaration would let ``SNAG-LOG-003``
+        back with a line in the file claiming otherwise.
+
+        Keyed on :data:`~sysadmin.core.unit_failure.OWN_UNIT` rather than
+        on the service ``name``, because the unit is what the journal is
+        read by and ``name`` is a historical label
+        (``sysadmin-service``) that services.yaml's own header warns
+        against treating as identity.
+        """
+        services = load_services(LIVE_SERVICES_YAML)
+        own = [e for e in services.services if e.log and e.log_unit == OWN_UNIT]
+        assert len(own) == 1, f"expected exactly one log source for {OWN_UNIT}"
+        assert own[0].log.format == get_config().service.log_format
+
+    def test_no_other_source_declares_a_format(self):
+        """Measured, not assumed: this daemon is the only JSON-writing
+        journal source on this box, which is the whole reason the fix went
+        to a per-source declaration rather than into the reader."""
+        services = load_services(LIVE_SERVICES_YAML)
+        declared = {
+            e.name for e in services.services if e.log and e.log.format != "text"
+        }
+        assert declared == {"sysadmin-service"}
 
     def test_it_contains_no_paths(self):
         """The property that makes a dead-path entry impossible."""

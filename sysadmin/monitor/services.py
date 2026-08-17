@@ -28,7 +28,7 @@ import yaml
 from estate.registry import Registry
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from sysadmin.core.config import LogSource
+from sysadmin.core.config import LogFormat, LogSource
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +68,28 @@ class SystemdRef(BaseModel):
 
 
 class LogRef(BaseModel):
-    """Where this service's logs come from.
+    """Where this service's logs come from, and how they are encoded.
 
     ``unit`` is optional: a journalctl source almost always reads the
     journal of the unit the service already names, so leaving it unset
     inherits ``systemd.unit`` rather than repeating it.
+
+    ``format`` is the other half and is **a declaration, not a guess**
+    (``SNAG-LOG-003``).  This daemon logs one JSON document per record, so
+    journald's ``MESSAGE`` is the whole document and ``alert_title`` built
+    a 252-character title out of it that reached a notification body
+    verbatim.  The obvious fix — sniff a leading ``{`` in
+    :func:`~sysadmin.monitor.journal.read_journal` — puts a special case
+    for one source into a reader serving fifteen, keyed on this
+    application's own log format; that is precisely the coupling
+    ``SNAG-AGENT-008``'s priority half was sent to the producer to avoid.
+    Declaring it here makes the reader honour a statement the source has
+    made about itself, which is the shape ``kind`` already has two fields
+    up.
+
+    The vocabulary lives on :data:`~sysadmin.core.config.LogFormat`, not
+    beside this field, because config.yaml's ``LogSource`` carries the
+    same one.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -81,6 +98,7 @@ class LogRef(BaseModel):
     unit: str | None = None
     path: str | None = None
     severity_filter: str = "warning"
+    format: LogFormat = "text"
 
 
 class ServiceEntry(BaseModel):
@@ -323,6 +341,7 @@ def log_sources(services: ServicesFile) -> list[LogSource]:
                 user=entry.user,
                 path=entry.log.path,
                 severity_filter=entry.log.severity_filter,
+                format=entry.log.format,
             )
         )
     return sources

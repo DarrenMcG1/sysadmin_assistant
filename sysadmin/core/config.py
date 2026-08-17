@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from estate.gpu import DEFAULT_BUSY_THRESHOLD, DGPU_PCI_SLOT
@@ -598,6 +599,23 @@ class EstateJudgeConfig(BaseModel):
     attention_max_rows: int = 5
 
 
+#: How a source's log records are encoded on the wire.
+#:
+#: ``text`` is one human-readable line and is the default, because it is
+#: what fourteen of this box's fifteen journal sources emit.  ``json``
+#: says the record is a JSON document whose ``message`` key holds the
+#: human-readable part — a **declaration by the source**, never a guess
+#: by the reader.
+#:
+#: A ``Literal`` rather than a free string so a typo fails at load, which
+#: is the property ``services.yaml`` was built around: an id that names
+#: nothing fails loudly, a path that names nothing fails silently.  It is
+#: stated here rather than beside ``LogRef`` because both files funnel
+#: into :class:`LogSource`, and a vocabulary written twice is the
+#: ``chk_alert_agent``-against-``AGENT_NAMES`` shape.
+LogFormat = Literal["text", "json"]
+
+
 class LogSource(BaseModel):
     name: str
     type: str  # journalctl | file
@@ -605,6 +623,7 @@ class LogSource(BaseModel):
     user: bool = False  # journal of a *user* unit (journalctl --user)
     path: str | None = None
     severity_filter: str = "warning"
+    format: LogFormat = "text"
 
 
 class LogNoiseEntry(BaseModel):

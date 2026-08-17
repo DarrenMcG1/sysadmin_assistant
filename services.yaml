@@ -175,7 +175,13 @@ services:
     url: http://localhost:8500/health
     port: 8500
     systemd: { unit: sysadmin.service, scope: system }
-    log: { type: journalctl, severity_filter: warning }
+    # `format: json` because this daemon logs one JSON document per record,
+    # so journald's MESSAGE is the whole document. Without it `alert_title`
+    # builds a 252-character title out of JSON that reaches a notification
+    # body verbatim (SNAG-LOG-003). It is the only source on this box that
+    # declares it, and the reader defaults to `text` — a declaration by the
+    # source, never a guess by the reader.
+    log: { type: journalctl, severity_filter: warning, format: json }
 
   # The tray, given a unit on 2026-08-11 after it was found not running:
   # nothing had ever started it. No autostart entry, no unit — it had only

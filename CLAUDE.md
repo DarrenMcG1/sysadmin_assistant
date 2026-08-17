@@ -591,13 +591,98 @@ root in the test and went to uvicorn's own handler on the box. True in
 CI, false in production — `test_excludes_health_endpoint`'s defect one
 logger over, shipped by the session that found it.
 
-`SNAG-LOG-003` is the cost, filed rather than bundled: `MESSAGE` for
-this source is the whole JSON line, so `alert_title` yields a
+`SNAG-LOG-003` was the cost, filed rather than bundled: `MESSAGE` for
+this source is the whole JSON line, so `alert_title` yielded a
 252-character title made of JSON that reaches a notification body
-verbatim. Detection is unaffected — two distinct faults gave two
-distinct titles — and the honest fix is a `format: json` declaration per
-source in `services.yaml`, which makes the reader honour a *declaration*
-rather than recognise an application.
+verbatim.
+
+**Trying to test that fix against real rows found a P0 underneath it**
+(Session 64, `SNAG-LOG-004`). `journalctl -o json` substitutes `null`
+for any field over ~4096 bytes unless **`-a`** is passed, and
+`read_journal` never passed it — so `MESSAGE` came back `None`,
+`entry["message"][:5000]` raised `TypeError`, and the whole
+`log_aggregator` run died, every source in it. **Self-sustaining**: the
+failure is written by `logger.exception`, itself a >4096-byte line at
+`ERROR`, so the next poll reads *that* and crashes again. All **215
+historic `agent_run_failed` lines are 12,837–12,845 bytes**.
+
+Four things worth carrying forward:
+
+1. **The previous fix armed it.** These lines were `PRIORITY=6` until
+   the 14:10:58 restart, so `-p 4` excluded them and 40,228 runs had
+   never failed. Measured at the moment of the fix: **0 error lines and
+   146 clean runs since the restart** — live and untriggered. A fix that
+   widens what a monitor can see is a regression surface for whatever
+   consumes it.
+2. **Reachable only for a source that puts a long record on one line.**
+   A Python traceback from any other service arrives as many short
+   journal entries; `JsonFormatter` folds `exc_info` into a single
+   `MESSAGE`. Same "only JSON-writing journal source on this box" fact
+   Session 61 used, read the other way.
+3. **It is the JSON serialiser's cap, not journalctl's reading.** The
+   same records print in full under the default text output (11,572 and
+   12,164 characters), so `journal_command` — the invocation a
+   recommendation hands a human — needed no change, and that was checked
+   rather than assumed.
+4. **No fixture could have caught it.** Every existing test patches
+   `_run` with a stub returning hand-written JSON, so `MESSAGE` was
+   always a string somebody had typed. `test_excludes_health_endpoint`'s
+   defect one module over.
+
+`message_text()` sits behind `-a` for the one shape `-a` introduces — a
+non-UTF-8 field, rendered as an array of byte values rather than as
+`null`. Empty population here (205,298 kernel records over seven days,
+all `str`), kept because the shape is journalctl's to choose.
+
+**Then the declaration, which is the reader honouring a statement rather
+than recognising an application.** `LogFormat = Literal["text", "json"]`
+sits on `sysadmin/core/config.py`'s `LogSource` — one vocabulary, since
+both files funnel into it — and `read_journal` applies
+`unwrap_json_message` only where a source declares it. Measured over the
+**723 real `ERROR` lines**: 6 distinct titles of 242–253 characters of
+JSON become **5 of 46–151 readable characters**.
+
+Four rules, three of them the opposite of the obvious implementation:
+
+1. **It fails open at every step, and the reason is measured rather
+   than cautious.** systemd writes its **own** plain-text lines into a
+   unit's journal at error level — `Failed to start SportsAnalyser -
+   Frontend (Next.js).` appears **668 times** live, nine distinct such
+   messages exist — so a declaration that discarded non-JSON would
+   silence exactly the line saying the service died. A declaration
+   describes what the *application* writes; it can never describe
+   everything in the journal it writes to.
+2. **Severity is not taken from the envelope.** `"level": "ERROR"` sits
+   beside the message and is ignored, because the level prefix already
+   put it in `PRIORITY` — two statements of one fact that can disagree,
+   `max_priority_for`'s rule — and only the prefix reaches `journalctl
+   -p err` and `OnFailure=`.
+3. **`logger` goes to metadata, never into the title.** The old key's
+   sixth title was a *fork*, not a distinction: `sysadmin.core.scheduler`
+   and `sysadmin.services.scheduler` emit the same
+   `scheduler_job_error` and were split only because the module path
+   fell inside the 252 characters truncation left. Putting `logger` back
+   in the title would rebuild that by design.
+4. **The two declarations are pinned, not restated.**
+   `service.log_format` decides what this process emits and
+   `log.format` how the reader parses it; they live in different files,
+   so a test asserts they agree — keyed on `OWN_UNIT` rather than the
+   historical `name`, and paired with one asserting no other source
+   declares a format, which is the measured claim the whole design rests
+   on.
+
+`raw_line` still holds the journalctl record verbatim, so the unwrap
+moves what identity is built from and never what is retained. The stated
+limit: `agent_run_failed` is written by all five agents, so five
+failures share one signature — not a regression, since the truncated
+JSON title cut at `"servic` and never reached the `agent` field either.
+
+The fixture was the thing that had to change. Twelve tests built a
+`SimpleNamespace` stand-in for `LogSource` and broke on `source.format`;
+`getattr(source, "format", "text")` would have made them pass while
+swallowing a genuine wiring failure, so the fixture constructs the real
+model instead — `UnitFinding.enabled`'s trap answered on the correct
+side.
 
 The other 86 % was the tray. `sysadmin_tray/dashboard/services_tab.py`
 is built eagerly at startup and wired to `status_updated`

@@ -19,6 +19,7 @@ from sysadmin.monitor.journal import (
     max_priority_for,
     message_text,
     read_journal,
+    unwrap_json_message,
 )
 
 
@@ -311,3 +312,170 @@ class TestATruncatedFieldNoLongerPoisonsTheRun:
             read = await read_journal("sysadmin.service", severity_filter="error")
 
         assert [type(e["message"]) for e in read.entries] == [str] * 4
+
+
+class TestUnwrapJsonMessage:
+    """``format: json`` — the declaration, and what it must never swallow."""
+
+    def test_the_message_is_lifted_out_of_the_envelope(self) -> None:
+        line = json.dumps(
+            {
+                "timestamp": "2026-08-17 15:02:11,004",
+                "level": "ERROR",
+                "logger": "sysadmin.core.scheduler",
+                "message": "scheduler_job_error",
+                "service": "sysadmin-service",
+            }
+        )
+        assert unwrap_json_message(line) == (
+            "scheduler_job_error",
+            {"logger": "sysadmin.core.scheduler"},
+        )
+
+    def test_plain_text_survives_a_json_declaration(self) -> None:
+        """The load-bearing case, and the reason this fails open.
+
+        systemd writes its **own** lines into a unit's journal at error
+        level — ``Failed to start SportsAnalyser - Frontend (Next.js).``
+        appears 668 times live. A declaration that discarded non-JSON
+        would silence exactly the line saying the service died.
+        """
+        text = "Failed to start SportsAnalyser - Frontend (Next.js)."
+        assert unwrap_json_message(text) == (text, {})
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            '{"message": "unterminated',        # looks like JSON, is not
+            "[1, 2, 3]",                        # JSON, but not an object
+            '{"level": "ERROR"}',               # object, but no message
+            '{"message": 42}',                  # message, but not a string
+            '{"message": ""}',                  # message, but empty
+        ],
+    )
+    def test_anything_it_cannot_read_is_returned_unchanged(self, text: str) -> None:
+        assert unwrap_json_message(text) == (text, {})
+
+    def test_a_missing_logger_is_absent_rather_than_none(self) -> None:
+        """An absent key beats a null value: ``metadata`` is served back,
+        and a ``logger: null`` reads as "we looked and there was none"."""
+        assert unwrap_json_message('{"message": "boom"}') == ("boom", {})
+
+    def test_a_non_string_logger_is_dropped(self) -> None:
+        assert unwrap_json_message('{"message": "boom", "logger": 7}') == ("boom", {})
+
+
+class TestDeclaredFormatIsHonouredByReadJournal:
+    @staticmethod
+    def _record(priority: str, message: str) -> str:
+        return json.dumps(
+            {
+                "PRIORITY": priority,
+                "MESSAGE": message,
+                "__CURSOR": "c1",
+                "__REALTIME_TIMESTAMP": "1755000000000000",
+            }
+        )
+
+    ENVELOPE = json.dumps(
+        {
+            "timestamp": "2026-08-17 15:02:11,004",
+            "level": "ERROR",
+            "logger": "sysadmin.core.scheduler",
+            "message": "scheduler_job_error",
+        }
+    )
+
+    @pytest.mark.asyncio
+    async def test_text_is_the_default_and_leaves_the_envelope_alone(self) -> None:
+        """A source that declares nothing reads exactly as it did before
+        the field existed — the whole of the compatibility claim."""
+        with patch(
+            "sysadmin.monitor.journal._run",
+            new=AsyncMock(return_value=self._record("3", self.ENVELOPE)),
+        ):
+            read = await read_journal("sysadmin.service", severity_filter="error")
+
+        assert read.entries[0]["message"] == self.ENVELOPE
+        assert "logger" not in read.entries[0]["metadata"]
+
+    @pytest.mark.asyncio
+    async def test_json_unwraps_and_carries_the_logger_into_metadata(self) -> None:
+        with patch(
+            "sysadmin.monitor.journal._run",
+            new=AsyncMock(return_value=self._record("3", self.ENVELOPE)),
+        ):
+            read = await read_journal(
+                "sysadmin.service", severity_filter="error", log_format="json"
+            )
+
+        entry = read.entries[0]
+        assert entry["message"] == "scheduler_job_error"
+        assert entry["metadata"]["logger"] == "sysadmin.core.scheduler"
+
+    @pytest.mark.asyncio
+    async def test_severity_comes_from_priority_and_never_from_the_envelope(
+        self,
+    ) -> None:
+        """``"level": "ERROR"`` sits right beside the message and is
+        ignored on purpose.
+
+        ``JournalLevelPrefixFormatter`` already puts the level in
+        ``PRIORITY``, so reading it here too would be two statements of
+        one fact that can disagree — and only the prefix is visible to
+        ``journalctl -p err`` and ``OnFailure=``. This record says
+        ``PRIORITY=4`` and ``level: ERROR``; the answer must be
+        ``warning``.
+        """
+        with patch(
+            "sysadmin.monitor.journal._run",
+            new=AsyncMock(return_value=self._record("4", self.ENVELOPE)),
+        ):
+            read = await read_journal(
+                "sysadmin.service", severity_filter="warning", log_format="json"
+            )
+
+        assert read.entries[0]["severity"] == "warning"
+
+    @pytest.mark.asyncio
+    async def test_raw_line_keeps_the_envelope_the_message_dropped(self) -> None:
+        """The unwrap moves what identity is built from, not what is kept.
+
+        Asserted by *recovering* the envelope rather than by substring:
+        ``raw_line`` is the journalctl record, so the envelope is nested
+        inside it JSON-escaped, and a naive ``in`` test passes for the
+        wrong reasons or fails for none. It also pins the truncation —
+        an envelope past ``raw_line``'s 2000 characters is not recoverable
+        and this asserts the case where it is.
+        """
+        with patch(
+            "sysadmin.monitor.journal._run",
+            new=AsyncMock(return_value=self._record("3", self.ENVELOPE)),
+        ):
+            read = await read_journal(
+                "sysadmin.service", severity_filter="error", log_format="json"
+            )
+
+        recovered = json.loads(read.entries[0]["raw_line"])["MESSAGE"]
+        assert json.loads(recovered)["logger"] == "sysadmin.core.scheduler"
+        assert json.loads(recovered)["level"] == "ERROR"
+
+    @pytest.mark.asyncio
+    async def test_a_systemd_line_in_a_declared_json_journal_is_untouched(self) -> None:
+        """Driven live against ``sportsanalyser-frontend`` before it was
+        written down: six real entries, all plain text, all preserved."""
+        stdout = "\n".join(
+            [
+                self._record("3", "Failed to start SysAdmin Monitoring Service."),
+                self._record("3", self.ENVELOPE),
+            ]
+        )
+        with patch("sysadmin.monitor.journal._run", new=AsyncMock(return_value=stdout)):
+            read = await read_journal(
+                "sysadmin.service", severity_filter="error", log_format="json"
+            )
+
+        assert [e["message"] for e in read.entries] == [
+            "Failed to start SysAdmin Monitoring Service.",
+            "scheduler_job_error",
+        ]

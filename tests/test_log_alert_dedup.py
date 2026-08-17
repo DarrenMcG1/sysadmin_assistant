@@ -37,6 +37,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.dialects import postgresql
 
+from sysadmin.core.config import LogSource
 from sysadmin.core.models.alert import Alert
 from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.monitor.journal import JournalRead
@@ -177,7 +178,17 @@ def _config(quiet_minutes: int = 15, limit: int = 500, known_noise=None):
     )
 
 
-SOURCE = SimpleNamespace(
+#: The real model rather than a ``SimpleNamespace`` stand-in.
+#:
+#: A hand-built namespace is a second declaration of ``LogSource``'s
+#: fields that nothing keeps in step, and it drifted the moment ``format``
+#: was added: the agent read ``source.format``, the box was fine and
+#: twelve tests raised ``AttributeError``. Constructing the model makes
+#: the fixture inherit every future field with its production default —
+#: ``UnitFinding.enabled``'s trap answered in the fixture rather than by
+#: softening the read, since ``getattr(source, "format", "text")`` would
+#: swallow a genuine wiring failure.
+SOURCE = LogSource(
     name="kernel", type="journalctl", unit="kernel",
     severity_filter="error", user=False, path=None,
 )

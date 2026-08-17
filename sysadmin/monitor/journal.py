@@ -108,6 +108,71 @@ def message_text(value: Any) -> str:
     return ""
 
 
+def unwrap_json_message(text: str) -> tuple[str, dict[str, str]]:
+    """Lift the human-readable part out of a record declared ``format: json``.
+
+    Returns the message and whatever metadata the envelope gave up for
+    free.  Applied **only where a source declares it** — the reader is
+    honouring a statement, not recognising an application
+    (``SNAG-LOG-003``).
+
+    Four rules, three of them the opposite of the obvious implementation:
+
+    1. **It fails open at every step.**  A line that is not JSON, is not
+       an object, or carries no ``message`` string is returned unchanged.
+       This is not defensive habit: systemd writes its **own** plain-text
+       lines into a unit's journal at error level — ``Failed to start
+       SportsAnalyser - Frontend (Next.js).`` appears 668 times in the
+       live journal, and nine distinct such messages exist — so a
+       declaration that discarded non-JSON would silence exactly the line
+       saying the service died.  A declaration describes what the
+       *application* writes; it can never describe everything in the
+       journal it writes to.
+    2. **Severity is not taken from the envelope.**  ``"level": "ERROR"``
+       sits right beside the message and is deliberately ignored: since
+       :class:`~sysadmin.core.logging_config.JournalLevelPrefixFormatter`
+       the record's ``PRIORITY`` already carries it, and two statements of
+       one fact that can disagree is the defect
+       :func:`max_priority_for` exists to avoid.  The prefix is also the
+       half that works for ``journalctl -p err`` and ``OnFailure=``,
+       which a reader-side parse never reaches.
+    3. **The envelope is not lost.**  ``raw_line`` still holds the
+       journalctl record verbatim, so ``exc_info`` and every other field
+       stays one query away.  The unwrap changes what the *identity* is
+       built from, not what is kept.
+    4. **``logger`` is carried into metadata and not into the title.**
+       Measured over the 723 real ``ERROR`` lines this daemon has
+       written: the title goes from 6 distinct values of 242–253
+       characters of JSON to **5** of 46–151 readable characters.  The
+       one merge is ``sysadmin.core.scheduler`` and
+       ``sysadmin.services.scheduler`` both emitting
+       ``scheduler_job_error`` — one fault under a renamed module, which
+       the old key forked only because the module path happened to fall
+       inside the 252 characters that survived truncation.  Putting
+       ``logger`` back in the title would restore that fork by design.
+
+    The limit this leaves is stated rather than implied: ``agent_run_failed``
+    is written by all five agents, so five different failures share one
+    signature.  That is **not a regression** — the truncated JSON title cut
+    at ``"servic`` and never reached the ``agent`` field either — and
+    closing it means choosing which further envelope fields join the
+    identity, which is recognising this application again.
+    """
+    if not text.startswith("{"):
+        return text, {}
+    try:
+        payload = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return text, {}
+    if not isinstance(payload, dict):
+        return text, {}
+    message = payload.get("message")
+    if not isinstance(message, str) or not message:
+        return text, {}
+    logger_name = payload.get("logger")
+    return message, {"logger": logger_name} if isinstance(logger_name, str) else {}
+
+
 def since_timestamp(moment: datetime) -> str:
     """Format ``moment`` as a journalctl ``--since`` argument.
 
@@ -126,6 +191,7 @@ async def read_journal(
     user: bool = False,
     after_cursor: str | None = None,
     limit: int = DEFAULT_READ_LIMIT,
+    log_format: str = "text",
 ) -> JournalRead:
     """Read journal entries for a systemd unit.
 
@@ -150,6 +216,10 @@ async def read_journal(
         user: read a *user* unit's journal (journalctl --user).
         after_cursor: resume position from the previous read.
         limit: maximum entries to take from one read.
+        log_format: the source's declared encoding — ``json`` unwraps each
+            record through :func:`unwrap_json_message`. Defaults to
+            ``text``, so a source that declares nothing is read exactly as
+            it was before the field existed.
 
     Returns:
         A :class:`JournalRead`.
@@ -259,16 +329,25 @@ async def read_journal(
             else:
                 ts = datetime.now(UTC)
 
+            message = message_text(data.get("MESSAGE"))
+            envelope: dict[str, str] = {}
+            if log_format == "json":
+                message, envelope = unwrap_json_message(message)
+
             entries.append({
                 "source": unit,
                 "severity": severity,
-                "message": message_text(data.get("MESSAGE")),
+                "message": message,
                 "logged_at": ts,
+                # The journalctl record verbatim, envelope and all — so the
+                # unwrap above changes what the identity is built from and
+                # never what is retained.
                 "raw_line": line[:2000],
                 "metadata": {
                     "pid": data.get("_PID"),
                     "hostname": data.get("_HOSTNAME"),
                     "syslog_identifier": data.get("SYSLOG_IDENTIFIER"),
+                    **envelope,
                 },
             })
         except (json.JSONDecodeError, ValueError):

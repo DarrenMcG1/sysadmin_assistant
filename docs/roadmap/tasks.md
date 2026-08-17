@@ -367,6 +367,50 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+### Session 64 — SNAG-LOG-003, and the P0 found underneath it (2026-08-17) ✅
+
+- [x] Drive `SNAG-LOG-003` against the **real rows** the 14:10:58 restart
+      made available, rather than against a reconstruction — which is what
+      found the rest of this session
+- [x] **`SNAG-LOG-004`, unplanned and the larger half.** `read_journal`
+      passed no `-a`, so `journalctl -o json` returned `MESSAGE: null` for
+      every record over ~4096 bytes; `entry["message"][:5000]` raised
+      `TypeError` and took the whole run down. Self-sustaining, because
+      the failure it logs is itself a 12.8 kB line — all 215 historic
+      `agent_run_failed` lines are 12,837–12,845 bytes
+- [x] Establish it was **armed and not sprung**: 0 error lines and 146
+      clean `log_aggregator` runs since the restart, against 40,228 runs
+      that have never failed because `-p 4` excluded these lines until
+      Session 61's level prefix
+- [x] `message_text()` behind `-a` for the one shape `-a` introduces — a
+      non-UTF-8 field rendered as an array of byte values. **Empty
+      population** measured (205,298 kernel records over seven days, all
+      `str`), kept because the shape is journalctl's to choose
+- [x] Check rather than assume that `journal_command` needed no change:
+      the field cap is the **JSON serialiser's**, and the same records
+      print in full under the default text output at 11,572 and 12,164
+      characters
+- [x] `LogFormat = Literal["text", "json"]` on `LogSource` and `LogRef`,
+      `log_format` through `read_journal` → `unwrap_json_message`, and
+      `format: json` declared on this daemon's entry in `services.yaml`
+- [x] Measure the title change over the **723 real `ERROR` lines**: 6
+      distinct titles of 242–253 characters of JSON → 5 of 46–151
+      readable characters
+- [x] Decide `logger` goes to `metadata` and **not** into the title, on
+      the evidence that the old key's sixth title was a fork produced by
+      truncation (`sysadmin.core.scheduler` vs `sysadmin.services.scheduler`,
+      one fault under a renamed module)
+- [x] Establish the fail-open rule from the box rather than from caution:
+      systemd's own plain-text error lines live in a unit's journal, 668
+      of them for one unit — verified by reading `sportsanalyser-frontend`
+      with `format: json` forced on
+- [x] Pin `service.log_format` and `log.format` together by test, keyed on
+      `OWN_UNIT`, plus a test that no other source declares a format
+- [x] Fix the **fixture** rather than soften the read when twelve tests
+      broke on `source.format`: `SimpleNamespace` → the real `LogSource`
+- [x] Falsify all four guards independently; 2017 tests green, ruff and
+      mypy clean
+
 ### Session 63 — SNAG-LOG-002, proportional confidence (2026-08-17) ✅
 
 **The handoff's `## Next action` line stood and named the right change.

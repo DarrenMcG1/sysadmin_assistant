@@ -2,31 +2,106 @@
 
 ## Next action
 
-Take `SNAG-LOG-003` and add a per-source `format: json` declaration to `services.yaml` so `read_journal` parses this daemon's own lines out of their JSON envelope, because the 14:10:58 restart made Session 61's priority half live and `log_entries` now holds real `warning` rows for `sysadmin.service` whose `MESSAGE` is the whole JSON document — so `alert_title` builds a 252-character title out of JSON that reaches a notification body verbatim, and this is the first sitting at which the fix can be tested against real rows rather than a reconstruction.
+Take `SNAG-LOG-005` and decide which single family owns "this daemon's agent failed", because the journal path now raises `Log error: sysadmin-service — agent_run_failed` on the **first** failure while `sysadmin/monitor/failures.py` deliberately waits for **two** and says so in writing, so one fault produces two rows with two tray fingerprints and the second producer silently bypasses a threshold the first one argued for.
 
-## One sub-session item, and the restart is no longer owed
+## Two sub-session items, and the first is a restart rather than a reload
 
-**The restart happened at 14:10:58**, after Session 62's commit at
-14:09:16, so all of Sessions 60/61/62 are live. Verified rather than
-assumed: `log_entries` holds **10 `warning` rows for `sysadmin.service`**
-since 14:11, against 0 across the previous nine nights, and the first
-post-restart journal poll (14:12:00) truncated **nothing** where the
-13:17:05 restart's poll truncated four sources.
+**`sudo systemctl restart sysadmin` — and a SIGHUP will not do it.**
+Measured rather than assumed: the running daemon started at 14:10:58 and
+Session 63's commit landed at 14:29:17, so it is now **three commits
+behind**. Its `LogRef` forbids extra fields and has no `format`, so
+driving the *running* parser against the new `services.yaml` rejects it
+outright — `services.13.log.format | Extra inputs are not permitted`.
+Session 49's rule 1 means neither file would be installed, so the reload
+fails safely and delivers nothing.
 
-**Still outstanding, still two minutes.** The two `Estate port … registry
-breach` rows still need resolving so Session 57's `info` rung can reach
-them (`SNAG-ESTATE-010`) — both confirmed still open at 14:20:
+The restart is also what **disarms `SNAG-LOG-004`**. The running process
+still crashes its whole `log_aggregator` run on the first `ERROR` line
+this daemon writes, and self-sustainingly: the failure it logs is itself a
+12.8 kB line that reproduces the read. It has not fired — 0 error lines
+and 146 clean runs since 14:10:58 — so the box is currently one traceback
+away from a silent, permanent log blackout.
+
+**Still owed from Session 63, still two minutes.** The two `Estate port …
+registry breach` rows need resolving so Session 57's `info` rung can reach
+them (`SNAG-ESTATE-010`):
 
 ```sql
 UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
 ```
 
-`SNAG-DB-004`'s fix went live with the same restart, so **tonight's 03:00
-is the first purge that will delete anything** since 2026-08-08, and it
-happens by itself.
+## This session — Session 64: the snag was cosmetic and the thing under it was not
 
-## This session — Session 63: the change was right and its stated reason was not
+The sitting was scoped to `SNAG-LOG-003` — a 252-character title made of
+JSON — and the first attempt to test it against the real rows the
+14:10:58 restart had made available found that `read_journal` never
+receives those rows at all.
+
+**`SNAG-LOG-004`, found rather than looked for, and a P0 under a P2.**
+`journalctl -o json` substitutes `null` for any field over ~4096 bytes
+unless `-a` is passed. `MESSAGE` came back `None`,
+`entry["message"][:5000]` raised `TypeError`, and the whole run died —
+every source in it. Self-sustaining, because `logger.exception` writes a
+>4096-byte line at `ERROR`, so the next poll reads that and crashes
+again. All **215 historic `agent_run_failed` lines are 12,837–12,845
+bytes**.
+
+Four things the measurement settled:
+
+- **The previous fix armed it.** These lines were `PRIORITY=6` until the
+  restart, so `-p 4` excluded them and 40,228 runs had never failed. A fix
+  that widens what a monitor sees is a regression surface for whatever
+  consumes it.
+- **Only a single-line structured source can reach it.** Other services'
+  tracebacks arrive as many short entries; `JsonFormatter` folds
+  `exc_info` into one `MESSAGE`.
+- **It is the JSON serialiser's cap, not journalctl's reading** — the same
+  records print in full under the default text output (11,572 and 12,164
+  characters), so `journal_command` needed no change and that was checked
+  rather than assumed.
+- **No fixture could have caught it.** Every existing test patches `_run`
+  with a stub returning hand-written JSON, so `MESSAGE` was always a
+  string somebody had typed.
+
+**Then `SNAG-LOG-003` itself, by the candidate the entry named.**
+`LogFormat = Literal["text", "json"]` on `LogSource` and `LogRef`;
+`read_journal` takes `log_format` and unwraps only where declared. Over
+the **723 real `ERROR` lines**: 6 distinct titles of 242–253 characters of
+JSON become **5 of 46–151 readable characters**.
+
+Decisions taken, and what they cost:
+
+- **`logger` goes to metadata, not into the title.** The old key's sixth
+  title was a *fork*: `sysadmin.core.scheduler` and
+  `sysadmin.services.scheduler` emit the same `scheduler_job_error` and
+  were split only because the module path fell inside the 252 characters
+  truncation left. Restoring it would rebuild that by design.
+- **It fails open at every step**, decided from the box rather than from
+  caution: systemd writes its own plain-text error lines into a unit's
+  journal — 668 of them for `sportsanalyser-frontend` — so a declaration
+  that discarded non-JSON would silence the line saying the service died.
+  Verified by reading that unit with `format: json` forced on.
+- **Severity is not read from the envelope**, although `"level": "ERROR"`
+  sits beside the message. The level prefix already put it in `PRIORITY`,
+  and only the prefix reaches `journalctl -p err` and `OnFailure=`.
+- **Rejected: sniffing a leading `{`.** That is the coupling the priority
+  half was sent to the producer to avoid — a special case for one source
+  in a reader serving fifteen.
+- **Rejected: `getattr(source, "format", "text")`** when twelve tests
+  broke on `source.format`. It would have made them pass while swallowing
+  a genuine wiring failure, so the fixture now builds the real
+  `LogSource` instead.
+
+**What is blocked**: nothing. **What is unobserved**: both fixes ship with
+an empty live population — there have been no `ERROR` lines since the
+restart, so the first real instance is still the first chance to see a
+notification body.
+
+2017 tests (was 1984), ruff and mypy clean. All four guards falsified
+independently.
+
+## Previous session — Session 63: the change was right and its stated reason was not
 
 The handoff's `## Next action` line named proportional confidence and it
 was the right change. **It was wrong about the mechanism**, and measuring
