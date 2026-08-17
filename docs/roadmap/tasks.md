@@ -367,6 +367,94 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 67 — the purge (2026-08-17)
+
+Session 66's fix stopped new duplicates and deleted none of the old ones.
+This sitting deleted them, reversibly, and measured the two endpoints
+either side.
+
+- [x] **Prove the identity before deleting anything.** `raw_line` differs
+      in **all 339** duplicate groups, which reads as evidence they are
+      distinct journal entries. It is journalctl's JSON key ordering
+      varying between reads. Settled against journald's own identity:
+      **338 of 339 groups carry exactly one distinct `__CURSOR`, and none
+      carries more than one**
+- [x] The 339th is the mosquitto coredump, whose `raw_line` is truncated at
+      2000 characters so the cursor fell off the end — its three
+      `ingested_at` stamps (12:34:14, 14:12:00, 19:50:19) are the three
+      restarts, which is the same evidence by another route
+- [x] **Key the purge on `(source, logged_at, message)`** — exactly what
+      `_is_unstored()` uses to decide an entry is already stored, so the
+      surviving table holds no shape the running code refuses to re-create
+- [x] **Keep the earliest `ingested_at`, not the earliest `id`.** Session
+      66's plan said `id`; `UUIDPrimaryKeyMixin` is `uuid.uuid4` /
+      `gen_random_uuid()`, so ordering by it is arbitrary and would have
+      kept a random copy — falsifying when the service first observed the
+      entry while leaving `logged_at` correct, a row disagreeing with itself
+- [x] **Assert no source's resume floor moves.** Deleting the last
+      surviving row at a floor moves `_resume_floor()` backwards and the
+      next poll re-reads the window — the purge re-opening `SNAG-LOG-007`
+      by hand. Measured 0 before the delete, and asserted inside the
+      transaction
+- [x] Back up first: `raw_line` is truncated at 2000 characters and these
+      entries may have rotated out of the journal, so a wrong delete is not
+      recoverable from source
+- [x] **Rehearse with `ROLLBACK`, then falsify both guards** — the count
+      guard and the floor guard each abort, and the `DELETE` never executes
+      in either falsified run
+- [x] Purge: **497 rows deleted**, 626,976 → **626,479**, duplicate groups
+      339 → **0**
+- [x] **Verify the restore path rather than claiming it.** Re-inserting the
+      CSV inside a transaction gives back 626,976 rows and all 339 groups,
+      then rolls back
+- [x] **Re-read both endpoints.** `GET /api/logs/actions` **28 → 24**
+      recommendations, `confidence: medium` unchanged, **no new
+      recommendations**; `GET /api/logs/trends` 47 signatures unchanged,
+      `truncated: false`
+- [x] **Four recommendations were fabricated, not inflated** — both
+      `alfred-backend` surges (21 vs 5, ratio 4.2; genuine **4 vs 5**) and
+      both `sportsanalyser-frontend` surges (19 vs 6, ratio 3.17; genuine
+      **1 vs 3**). The second pair is a **decline that was being reported
+      as a surge**: duplication inverted the direction, which "counts are
+      overstated by up to 19×" does not predict
+- [x] Worst surviving inflation: `estate-broker-provision` **18 → 1**,
+      `kernel` "failed to reset" **17 → 1**, `estate-manager-api`
+      **23 → 11**, `venture-assistant-backend` surge **48 → 27**, the
+      mosquitto coredump **3 → 1**. The two `noise` rows moved
+      39,922 → **39,885** — tens of thousands of genuine occurrences, 37
+      duplicates
+- [x] **Confirm the aggregator is alive before claiming no re-ingestion.**
+      91 completed `log_aggregator` runs since the restart, latest
+      21:16:38, and **0 rows stored since 20:06:38** — a dead agent would
+      have produced the same zero
+- [x] Full suite **2,031 passed**; no code changed
+
+**Left undone, deliberately:**
+
+- [x] **Four permanent `running` rows in `agent_runs` — measured, and
+      benign.** Carried forward from Session 66 as "unmeasured", answered
+      here while ranking rather than as a session. `summarise_agent` takes
+      `last_run_at` from `runs[0].started_at` **regardless of status**, so a
+      permanent `running` row is the newest row only when the agent
+      genuinely has not started one since — in which case flagging it
+      stalled is correct, not a false negative. `_failure_streak` *skips*
+      `running` rows rather than letting them break a streak, and says why
+      in its docstring: a run still going has not failed yet. `durations`
+      filters on `duration_seconds IS NOT NULL`, which they are. The rows
+      are cosmetic; the two from 2026-08-14 and the two the Session 66
+      restart created are all superseded by newer completed runs
+- [ ] **Ten `sysadmin.service` signatures still read as raw JSON**
+      (`SNAG-LOG-008`) in
+      `GET /api/logs/trends` (`{"timestamp": "N-N-N ...", "level":
+      "WARNING", ...}`). `unwrap_json_message` applies at *read* time, so
+      rows stored before the Session 64 declaration keep the **raw** form
+      for ever. **Historic, and measured rather than assumed**: all 10 were
+      ingested 14:12–14:22, and the 17 readable rows for that source begin
+      at 19:50:19 — nothing is creating new ones. Found by reading the
+      purge's before/after, not looked for; filed rather than fixed because
+      a backfill is a second data migration and this sitting had already
+      made one
+
 ## Session 66 — the verification sitting (2026-08-17)
 
 Three consecutive sittings shipped green and unrun. This one restarted the
@@ -393,12 +481,10 @@ daemon and measured the four claims, then fixed what the measuring found.
 
 **Left undone, deliberately:**
 
-- [ ] **Purge the 497 historic surplus rows in `log_entries`.** The fix stops
-      new ones; it does not delete old ones. They inflate
-      `details['occurrences']` and the trend counts by up to 19× for the nine
-      affected signatures. A reversible `DELETE` keyed on
-      `(source, logged_at, message)` keeping the earliest `id` — nobody has
-      costed it and it was out of scope for a verification sitting
+- [x] **Purge the 497 historic surplus rows in `log_entries`** — done
+      2026-08-17 by Session 67. The key it proposed was right and its
+      tie-break was wrong: `id` is `gen_random_uuid()`, so "keeping the
+      earliest `id`" keeps an arbitrary copy. See Session 67 below
 - [ ] **Four permanent `running` rows in `agent_runs`.** Two from 2026-08-14
       predate this sitting; two `file_organiser` rows were created *by* it, in
       the documented Session 41 way — a process killed mid-run leaves the row

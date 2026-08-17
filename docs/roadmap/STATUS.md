@@ -102,6 +102,62 @@
 
 ## Recently Completed
 
+### The 497 surplus log rows purged, and the cost was understated (2026-08-17)
+
+**Session 66's fix stopped new duplicates and deleted none of the old
+ones.** This sitting deleted them — reversibly, backed up, with the restore
+path verified rather than claimed — and measured both endpoints either side.
+
+**The identity was proved before anything was deleted, and the obvious
+evidence pointed the wrong way.** `raw_line` differs in **all 339**
+duplicate groups, which reads as proof they are distinct journal entries; it
+is journalctl's JSON key ordering varying between reads. Settled against
+journald's own identity instead: **338 of 339 groups carry exactly one
+distinct `__CURSOR`, and none carries more than one.** The 339th is the
+mosquitto coredump, whose `raw_line` is truncated at 2000 characters so the
+cursor fell off the end — its three `ingested_at` stamps are the three
+restarts, the same evidence by another route.
+
+Two rules the purge itself needed, neither of them in the filed plan:
+
+1. **The purge key must be the fix's key.** `(source, logged_at, message)`
+   is what `_is_unstored()` uses to decide an entry is already stored, so
+   the surviving table holds no shape the running code refuses to
+   re-create. The plan's tie-break was wrong, though: it said "keep the
+   earliest `id`", and `UUIDPrimaryKeyMixin` is `uuid.uuid4`, so ordering
+   by `id` is arbitrary. The earliest `ingested_at` is kept instead —
+   keeping a random copy falsifies when the service first observed the
+   entry while leaving `logged_at` correct.
+2. **A purge can re-open the defect it cleans up after.** `_resume_floor()`
+   reads `max(logged_at)` per source and the message set at it; deleting
+   the last surviving row there moves the floor backwards and the next
+   poll re-reads the window. Asserted 0 inside the transaction, and both
+   guards falsified deliberately — each aborts, and the `DELETE` never
+   executes in either falsified run.
+
+**497 rows deleted**, 626,976 → 626,479, duplicate groups 339 → **0**.
+`GET /api/logs/actions` went **28 → 24** recommendations at unchanged
+`confidence: medium` with **no new rows**; `GET /api/logs/trends` holds 47
+signatures, `truncated: false`.
+
+**The entry understated its own cost, which is the part worth carrying.**
+It said counts were overstated by up to 19×; four recommendations were
+**fabricated rather than inflated**. Both `alfred-backend` surges read 21
+vs 5 (ratio 4.2) against a genuine **4 vs 5**, and both
+`sportsanalyser-frontend` surges read 19 vs 6 (ratio 3.17) against a
+genuine **1 vs 3** — a **decline that was being reported as a surge**.
+Duplication inverted the direction, which a claim about magnitude does not
+predict. Worst surviving inflation: `estate-broker-provision` **18 → 1**,
+`kernel` "failed to reset" **17 → 1**, `estate-manager-api` **23 → 11**,
+`venture-assistant-backend` surge **48 → 27**. The two `noise` rows moved
+39,922 → **39,885** — so the family this month's work unblocked was the
+least distorted of them.
+
+`SNAG-LOG-008` opened: ten `sysadmin.service` rows are frozen as raw JSON
+because `unwrap_json_message` applies at read time and cannot reach rows
+stored before the Session 64 declaration. Historic and measured — all ten
+ingested 14:12–14:22, the readable ones begin at the 19:50:19 restart.
+
 ### Four shipped-unrun claims verified, and SNAG-LOG-007 found underneath them (2026-08-17)
 
 **Sessions 63, 64 and 65 shipped green and unrun; this sitting restarted
