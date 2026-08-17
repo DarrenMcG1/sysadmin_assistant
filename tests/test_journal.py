@@ -17,6 +17,7 @@ from sysadmin.monitor.journal import (
     PRIORITY_MAP,
     SEVERITY_ORDER,
     max_priority_for,
+    message_text,
     read_journal,
 )
 
@@ -180,3 +181,133 @@ class TestTruncationNowCountsRelevantEntries:
             read = await read_journal("kernel", severity_filter="error", limit=5)
 
         assert read.truncated is False
+
+
+class TestLongFieldsAreReadInFull:
+    """``-a``, and why its absence was a crash rather than a lost detail.
+
+    ``journalctl -o json`` substitutes ``null`` for any field over ~4096
+    bytes unless ``-a`` is passed.  ``MESSAGE`` therefore arrived as
+    ``None`` for every record this daemon writes with a traceback in it,
+    and the aggregator's ``entry["message"][:5000]`` raised ``TypeError``
+    (``SNAG-LOG-004``).
+    """
+
+    @pytest.mark.parametrize(
+        ("unit", "user"),
+        [("kernel", False), ("sysadmin.service", False), ("alfred.service", True)],
+    )
+    @pytest.mark.asyncio
+    async def test_all_is_passed_for_every_source_shape(
+        self, unit: str, user: bool
+    ) -> None:
+        """Every branch of the command builder, because ``-a`` is inserted
+        before the ``-k``/``-u``/``--user`` edits and an index slip would
+        drop it from exactly one of them."""
+        with patch(
+            "sysadmin.monitor.journal._run", new=AsyncMock(return_value="")
+        ) as run:
+            await read_journal(unit, severity_filter="warning", user=user)
+
+        assert "-a" in run.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_all_travels_with_the_ceiling_and_the_priority(self) -> None:
+        """The three flags are one mechanism and must not drift apart.
+
+        ``-n`` bounds the read, ``-p`` makes the bound count entries that
+        matter, and ``-a`` makes the entries themselves readable.  A
+        command carrying two of the three has been shipped twice now.
+        """
+        with patch(
+            "sysadmin.monitor.journal._run", new=AsyncMock(return_value="")
+        ) as run:
+            await read_journal("kernel", severity_filter="error", limit=250)
+
+        cmd = run.call_args[0][0]
+        assert "-a" in cmd
+        assert cmd[cmd.index("-n") + 1] == "250"
+        assert cmd[cmd.index("-p") + 1] == "3"
+
+
+class TestMessageText:
+    """The guard behind ``-a``, for the shapes journalctl may still return."""
+
+    def test_a_string_is_itself(self) -> None:
+        assert message_text("kernel: it broke") == "kernel: it broke"
+
+    def test_a_byte_array_is_decoded(self) -> None:
+        """``-a`` renders a non-UTF-8 field as an array of byte values.
+
+        The one new shape ``-a`` introduces — without it the same field is
+        ``null``, so this branch could not previously be reached.
+        """
+        assert message_text([104, 105]) == "hi"
+
+    def test_invalid_utf8_bytes_are_replaced_not_raised(self) -> None:
+        assert message_text([0xFF, 105]) == "�i"
+
+    def test_a_nonsense_array_is_empty_rather_than_fatal(self) -> None:
+        assert message_text([1, "two", None]) == ""
+
+    @pytest.mark.parametrize("value", [None, 42, {"a": 1}])
+    def test_anything_else_is_empty_string(self, value: object) -> None:
+        """``""`` and never ``None``: a caller slicing the result is the
+        whole defect, so the fallback must be sliceable."""
+        assert message_text(value) == ""
+
+
+class TestATruncatedFieldNoLongerPoisonsTheRun:
+    """The end-to-end shape of ``SNAG-LOG-004``, asserted at this module's
+    boundary — the aggregator slices what comes out of here."""
+
+    @pytest.mark.asyncio
+    async def test_null_message_yields_a_sliceable_entry(self) -> None:
+        """Stands in for journalctl truncating despite ``-a``.
+
+        ``-a`` is the fix, and this is the belt to its braces: the
+        ``-p``/Python-filter pairing is written the same way and for the
+        same reason.  A record journald declines to return in full must
+        cost that record's text and nothing else.
+        """
+        stdout = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "PRIORITY": "3",
+                        "MESSAGE": None,
+                        "__CURSOR": "c1",
+                        "__REALTIME_TIMESTAMP": "1755000000000000",
+                    }
+                ),
+                _entry("3", "a readable error", "c2"),
+            ]
+        )
+        with patch("sysadmin.monitor.journal._run", new=AsyncMock(return_value=stdout)):
+            read = await read_journal("sysadmin.service", severity_filter="error")
+
+        assert len(read.entries) == 2
+        # What the aggregator does next, verbatim — this raised TypeError.
+        assert [e["message"][:5000] for e in read.entries] == ["", "a readable error"]
+        assert read.cursor == "c2"
+
+    @pytest.mark.asyncio
+    async def test_every_entry_carries_a_string_message(self) -> None:
+        """The invariant, rather than the instance.
+
+        Whatever shapes journald returns, nothing leaves this module with
+        a ``message`` a caller cannot slice.
+        """
+        stdout = "\n".join(
+            [
+                json.dumps(
+                    {"PRIORITY": "3", "MESSAGE": m, "__CURSOR": f"c{i}",
+                     "__REALTIME_TIMESTAMP": "1755000000000000"}
+                )
+                for i, m in enumerate([None, [104, 105], "plain", 7])
+            ]
+        )
+        with patch("sysadmin.monitor.journal._run", new=AsyncMock(return_value=stdout)):
+            read = await read_journal("sysadmin.service", severity_filter="error")
+
+        assert [type(e["message"]) for e in read.entries] == [str] * 4

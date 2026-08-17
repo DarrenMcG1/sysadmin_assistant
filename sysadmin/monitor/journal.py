@@ -74,6 +74,40 @@ def max_priority_for(severity_filter: str) -> int:
     return max(admitted) if admitted else max(int(c) for c in PRIORITY_MAP)
 
 
+def message_text(value: Any) -> str:
+    """``MESSAGE`` as text, whatever shape journald handed it back in.
+
+    Three shapes reach here and only the first is the common case.
+
+    A **string** is an ordinary record.  A **list of integers** is a field
+    holding bytes that are not valid UTF-8, which ``-a`` renders as an
+    array of byte values rather than as a string — the one new shape ``-a``
+    introduces, since without it such a field is simply ``null``.  And
+    **absent or null** is what remains: a field journald did not return.
+
+    The fallback is ``""`` rather than ``None`` because a caller slicing
+    the result is the whole of ``SNAG-LOG-004``.  It is deliberately not a
+    raise: one unreadable record must not cost the other 499 in the read,
+    which is ``collation.py``'s fail-open posture rather than
+    ``schema_guard``'s — nothing is served against a wrong schema here, a
+    single line is simply blank and the entry still carries its severity,
+    timestamp and ``raw_line``.
+
+    Measured before being written: 205,298 kernel records over seven days
+    returned ``str`` for every one, with and without ``-a``.  So the list
+    branch has an empty population on this box and exists because the
+    shape is journalctl's to choose, not because it has been seen.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        try:
+            return bytes(value).decode("utf-8", errors="replace")
+        except (TypeError, ValueError):
+            return ""
+    return ""
+
+
 def since_timestamp(moment: datetime) -> str:
     """Format ``moment`` as a journalctl ``--since`` argument.
 
@@ -124,6 +158,29 @@ async def read_journal(
         "journalctl",
         "-o", "json",
         "--no-pager",
+        # ``-a`` is load-bearing and its absence was a crash, not a
+        # cosmetic loss.  ``-o json`` replaces any field over ~4096 bytes
+        # with ``null`` unless it is passed, so ``MESSAGE`` came back
+        # ``None`` and ``entry["message"][:5000]`` in the aggregator raised
+        # ``TypeError`` — taking the whole run down, every source in it,
+        # once a minute for ever, because the failure it logs is itself a
+        # 12.8 kB line that reproduces the read (``SNAG-LOG-004``).
+        #
+        # Reachable only for a source that puts a long record on **one**
+        # line, which on this box is this daemon alone: a Python traceback
+        # from any other service arrives as many short journal entries,
+        # while ``JsonFormatter`` folds ``exc_info`` into a single
+        # ``MESSAGE``.  Measured: all 215 historic ``agent_run_failed``
+        # lines are 12,837–12,845 bytes and every one exceeds the cap.
+        # It could not fire before 2026-08-17 because those lines were
+        # stamped ``PRIORITY=6`` and ``-p`` excluded them; Session 61's
+        # level prefix is what armed it.
+        #
+        # Note this is a property of the **JSON serialiser**, not of
+        # journalctl's reading: the same records print in full under the
+        # default text output, which is why ``journal_command`` — the
+        # invocation a recommendation hands a human — needed no change.
+        "-a",
         "-n", str(limit),
         # The severity filter is applied **server-side as well**, because
         # ``limit`` bounds the lines journalctl returns and the Python
@@ -205,7 +262,7 @@ async def read_journal(
             entries.append({
                 "source": unit,
                 "severity": severity,
-                "message": data.get("MESSAGE", ""),
+                "message": message_text(data.get("MESSAGE")),
                 "logged_at": ts,
                 "raw_line": line[:2000],
                 "metadata": {
