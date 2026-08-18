@@ -63,7 +63,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 # Categories.  Strings rather than an enum because they cross a JSONB
 # column and an HTTP boundary, and both ends already speak strings.
@@ -363,6 +363,66 @@ def _exec_paths(exec_line: str, home: str) -> list[str]:
     return paths
 
 
+class UnitRelation(NamedTuple):
+    """One ``[Unit]`` relation, as declared.
+
+    A :class:`~typing.NamedTuple` rather than a dataclass so a
+    :class:`UnitFile` stays hashable and a relation can be compared
+    against a plain ``(directive, unit)`` tuple in a test without
+    importing this class.
+    """
+
+    #: The directive verbatim — ``After``, ``Requires``, ``OnFailure``…
+    directive: str
+    #: The unit named, qualified to a full unit name.
+    unit: str
+
+
+#: ``[Unit]`` directives that assert one unit has something to do with
+#: another, and which this module records.
+#:
+#: All nine express a relation systemd acts on when a unit starts, stops
+#: or fails, which is the only property :func:`declared_relations` needs:
+#: it answers "is there a declared reason these two units would fail in
+#: the same breath", never "what exactly would systemd do".  Grading them
+#: — treating ``Requires=`` as stronger evidence than ``Wants=`` — was
+#: refused on measurement rather than on principle: the one live relation
+#: on this box declares **both** (``estate-broker-provision.service``
+#: carries ``After=mosquitto.service`` and ``Wants=mosquitto.service``),
+#: so a grading would have no case that distinguishes it and would be a
+#: rule tuned against zero observations, which is
+#: ``units/ports.py`` rule 6's objection.
+#:
+#: ``Conflicts=`` is deliberately absent.  It is the one relation that is
+#: *negative* — it says two units may not run together, so systemd stops
+#: one to start the other — and a stop it performed on purpose is the
+#: opposite of a fault propagating.  Including it would correlate a
+#: successful handover with a crash.
+RELATION_DIRECTIVES = (
+    "After",
+    "Before",
+    "Requires",
+    "Requisite",
+    "Wants",
+    "BindsTo",
+    "PartOf",
+    "Upholds",
+    "OnFailure",
+)
+
+
+def qualify_unit(name: str) -> str:
+    """A dependency name as systemd would resolve it.
+
+    Bare stems are qualified to ``.service``, systemd's own default for
+    an unsuffixed unit name.  Being wrong here is cheap in one direction
+    only, which is why it is done at all: a name that resolves to
+    nothing simply yields no relation, where leaving it unqualified
+    would miss a real one.
+    """
+    return name if "." in name else f"{name}.service"
+
+
 @dataclass(frozen=True)
 class UnitFile:
     """One parsed unit file.
@@ -405,6 +465,17 @@ class UnitFile:
     #: would otherwise read as declaring no limit at all.
     start_limit_interval: float | None = None
     start_limit_burst: int | None = None
+    #: Every ``[Unit]`` relation this file declares, as
+    #: ``(directive, unit name)`` pairs in the order read — see
+    #: :data:`RELATION_DIRECTIVES`.  Pairs rather than one flat set of
+    #: names because the directive is what a reader needs to see: being
+    #: told two units are related is worth much less than being told one
+    #: declares ``Requires=`` on the other.
+    #:
+    #: Read from ``[Unit]`` only, unlike ``StartLimit*`` two fields up.
+    #: systemd has never accepted these anywhere else, so widening the
+    #: read would invent a placement to be tolerant of.
+    relations: tuple[UnitRelation, ...] = ()
 
     @property
     def restart_bounded(self) -> bool:
@@ -500,6 +571,24 @@ def load_unit(path: Path, scope: str, home: str) -> UnitFile:
     if name.endswith(".timer"):
         triggers = first("Timer", "Unit") or f"{name.rsplit('.', 1)[0]}.service"
 
+    # An *empty* assignment resets the list systemd has accumulated so
+    # far, so it is honoured rather than read as "declares nothing".  It
+    # cannot matter with one file and no drop-ins, and it is two lines;
+    # dropping it would make this parse quietly wrong the day a drop-in
+    # is read, which is the direction this module's other blind spots
+    # already fail in.
+    relations: list[UnitRelation] = []
+    for key, value in sections.get("Unit", []):
+        if key not in RELATION_DIRECTIVES:
+            continue
+        if not value.strip():
+            relations = [r for r in relations if r.directive != key]
+            continue
+        for named in value.split():
+            relation = UnitRelation(key, qualify_unit(named))
+            if relation not in relations:
+                relations.append(relation)
+
     return UnitFile(
         name=name,
         scope=scope,
@@ -518,6 +607,7 @@ def load_unit(path: Path, scope: str, home: str) -> UnitFile:
             either("StartLimitIntervalSec") or either("StartLimitInterval")
         ),
         start_limit_burst=burst,
+        relations=tuple(relations),
     )
 
 
@@ -597,6 +687,77 @@ def discover_units(
             units.append(replace(unit, enabled=entry.name in enabled))
 
     return units, excluded
+
+
+def declared_relations(
+    units: Iterable[UnitFile],
+) -> dict[tuple[str, str], frozenset[str]]:
+    """The declared dependency graph, ``(scope, unit) -> related units``.
+
+    Built for ``GET /api/logs/actions``, which uses it to decide that two
+    units failing in the same breath are one incident rather than two
+    (``SNAG-LOG-001``).  It reads nothing this module does not already
+    open: :func:`discover_units` parses these files for ``ExecStart`` and
+    ``Restart=`` on every sweep, so the graph costs one more pass over
+    text already in memory and :func:`scan_units`'s no-subprocess promise
+    is untouched.
+
+    Four rules, three of them the opposite of the obvious implementation
+    and all four settled against this box rather than by argument:
+
+    1. **Both ends need not be readable, so reading only the sweep's own
+       directories is enough.**  A relation is declared by the unit that
+       *depends*, and on this estate that unit is always the
+       hand-written one: ``estate-broker-provision.service`` in
+       ``/etc/systemd/system`` carries ``After=mosquitto.service``, while
+       ``mosquitto.service`` itself is a packaged file in
+       ``/usr/lib/systemd/system`` that :func:`discover_units` excludes
+       as distro-owned.  Measured 2026-08-18: parsing ``/usr/lib``
+       as well reads **629 further unit files and yields zero further
+       relations** between the fourteen declared log sources.  The
+       obvious implementation widens the walk, pays 16x the file reads
+       and learns nothing.
+
+    2. **The map is symmetric, because only one side ever declares.**
+       Nothing in ``mosquitto.service`` mentions the provisioner, so a
+       lookup keyed on the *declaring* unit alone answers "what is
+       mosquitto related to" with nothing — which is the direction an
+       incident is actually read in, since the dependency is what fails
+       first.  Each pair is therefore recorded from both ends.
+
+    3. **The relation takes the scope of the unit that declares it, and
+       never crosses.**  systemd does not order across managers — a user
+       unit naming a system unit in ``After=`` is inert, which
+       ``alfred-backend.service``'s own comment on this box records
+       ("alfred-backend is a *user* unit and systemd never orders across
+       managers").  So a declaration in a user unit can only mean the
+       user-scope unit of that name, and the key carries the scope
+       rather than resolving it: ``deadlock-api-ingest.service`` is
+       installed in **both** scopes here running two different binaries,
+       and a name-only key would silently merge them.
+
+    4. **A unit is never related to itself.**  ``PartOf=`` a target and
+       an ``OnFailure=`` pointing back at the same unit are both legal
+       and would make every signature in one unit correlate through a
+       self-edge — true, useless, and it would hide that same-source
+       grouping is a separate rule with a separate justification.
+
+    Its one honest limit is **drop-ins**: ``/etc/systemd/system/foo.service.d/``
+    can add relations and :func:`discover_units` does not read those
+    directories.  Measured on this box, both existing drop-in
+    directories declare only ``Restart``/``StartLimit`` keys and **no
+    relation at all**, so the population is empty today — but the gap is
+    real and shared with ``restart_bounded``, and is filed as
+    ``SNAG-UNITS-006`` rather than left implied.
+    """
+    by_scope: dict[tuple[str, str], set[str]] = {}
+    for unit in units:
+        for relation in unit.relations:
+            if relation.unit == unit.name:
+                continue  # Rule 4.
+            by_scope.setdefault((unit.scope, unit.name), set()).add(relation.unit)
+            by_scope.setdefault((unit.scope, relation.unit), set()).add(unit.name)
+    return {key: frozenset(value) for key, value in by_scope.items()}
 
 
 # --------------------------------------------------------------------------

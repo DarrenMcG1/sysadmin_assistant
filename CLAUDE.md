@@ -192,7 +192,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/logs/recent` | `LogsResponse` / `LogEntryInfo` | response_model |
 | `GET /api/logs/stats` | `LogStatsResponse` | response_model |
 | `GET /api/logs/trends` | `LogTrendsResponse` (+`LogSignatureTrendInfo`, `LogSourceTrendInfo`, `LogTrendCoverageInfo`) | response_model (computed live — never 404s) |
-| `GET /api/logs/actions` | `LogActionsResponse` (+`LogRecommendationInfo`) | response_model (computed live) |
+| `GET /api/logs/actions` | `LogActionsResponse` (+`LogRecommendationInfo`, `LogIncidentMemberInfo`) | response_model (computed live) |
 | `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model (the only `/api/projects` route this service serves — see below) |
 | `GET /api/files/status` | `FileStatusResponse` (+`FileAuditSummary`, `FileQuickWins`) | parse-side only (404 = "no scan yet" → empty state) |
 | `GET /api/files/duplicates` | `DuplicatesResponse` | parse-side only (404 = "no scan yet") |
@@ -393,13 +393,101 @@ the flag, 1 without), and grepped on the *normalised* signature, whose
 unit's own name. `journal_command` fixes all three and the docstring
 carries why, because the fixtures were green throughout.
 
-Two limits are filed rather than implied. `SNAG-LOG-001`: one mosquitto
-crash produces four recommendations, because systemd narrates it in four
+Two limits were filed rather than implied. `SNAG-LOG-001`: one mosquitto
+crash produced four recommendations, because systemd narrates it in four
 lines that are four genuine signatures — a cap would hide the fourth
-without saying the four were one thing, so the real fix is a correlation
-rule nobody has measured. `SNAG-LOG-002`: the `noise` family has an
-**empty population on this box**, because 118 truncated runs make
+without saying the four were one thing, so the real fix was a correlation
+rule nobody had measured. `SNAG-LOG-002`: the `noise` family had an
+**empty population on this box**, because 118 truncated runs made
 confidence `LOW`.
+
+**The correlation rule exists now, and the relation it keys on is
+systemd's, not the clock's** (Session 68, `SNAG-LOG-001` closed).
+`log_actions.group_incidents` collapses first sightings that share a unit
+**or a declared systemd dependency** inside `INCIDENT_WINDOW_SECONDS`,
+and `units/scan.py` supplies the graph: `UnitFile.relations` and
+`declared_relations()`, off the same files the sweep already opens. Live,
+`GET /api/logs/actions` went **24 → 11** and the specimen's six rows
+became one, naming all six signatures and emitting one `journalctl -u … -u …`
+that was run and works.
+
+Five rules, four of them the opposite of the obvious implementation and
+every one settled against the live box rather than by argument:
+
+1. **The declared graph is enough, and the interesting measurement was
+   *which directories*.** `mosquitto.service` is packaged, so
+   `discover_units` excludes it as distro-owned and its file sits in
+   `/usr/lib/systemd/system`, which the sweep never walks — so the
+   obvious move was to widen the walk. **Parsing `/usr/lib` as well reads
+   629 further unit files and yields zero further relations** between the
+   fourteen declared log sources, because a relation is declared by the
+   unit that *depends* and on this estate that unit is always the
+   hand-written one. `scan.py`'s no-subprocess promise was never in
+   question; the effective graph `systemctl list-dependencies` resolves
+   was not needed.
+2. **The graph is the filter and the window only bounds it.**
+   `alfred-backend.service` failed **1.2036 s** after the crash — inside
+   any usable window — because PostgreSQL was still starting up, and
+   `sportsanalyser-backend.service` failed **2.9 s before** it. Neither
+   is reachable by a clock and both are excluded by the graph. Driven as
+   a counterfactual rather than asserted: forging one edge admits
+   alfred-backend, and removing the graph reproduces the entry's own
+   proposal exactly.
+3. **One hop, never transitive closure.** Six user units here declare
+   `After=network-online.target`, so a second hop makes every
+   network-using service one incident and the rule degenerates into
+   "same window", which rule 2 has just refused.
+4. **Every member is measured against the anchor, never the group.**
+   Single-linkage lets a chain walk arbitrarily far from where it
+   started, so a service retrying every 5 s would grow one incident
+   across a whole outage. The anchor is the earliest first sighting,
+   which is also what an incident *is*.
+5. **First sightings only, so the roll-up's rung arithmetic is
+   vacuous and says so.** `first_seen` is an incident moment only for a
+   first sighting; a `SURGED` signature's is weeks old, and grouping
+   surges on `last_seen` instead would put every active surge in one
+   "incident". Every member therefore shares one kind, so
+   `judge_attention`'s "take the loudest rung you swallow" has nothing to
+   decide — absent because vacuous, not because forgotten. The rule is
+   observable only at the window's edge, and that is where it is tested.
+
+`INCIDENT_WINDOW_SECONDS = 5.0` is **derived, and what was derived is a
+gap rather than a number**. Across the 21 live first sightings the
+separations are bimodal with nothing between them: every
+genuinely-one-incident pair lands inside **349 ms**, and the nearest
+genuinely-two-incidents pair is **64.4 s** apart. Every value between
+produces identical output, so the geometric midpoint sits three orders of
+magnitude from anything it could get wrong — unlike
+`NOISE_MIN_OCCURRENCES`, which is invented and says so.
+
+The roll-up **names every signature it swallows** and truncates each to
+`SIGNATURE_DETAIL_CHARS` instead — `SNAG-ESTATE-001`'s rule, since
+dropping a member rebuilds the count that cannot name anything, while
+shortening one does not. `LogRecommendationInfo.source`/`.signature` stay
+the **anchor's** rather than becoming lists, so a consumer ignoring
+`members` still gets a correct row about the fault that happened first.
+
+Three things the sitting corrected in what was written down. The entry's
+stated **mechanism was backwards**: systemd started the oneshot **2 ms
+after** mosquitto had already failed, because the relation is `Wants=`,
+which does not propagate failure — the provisioner then failed on its own
+connect. The whole window is a **boot** beginning twelve seconds earlier,
+which nothing in three sittings had noticed and which is exactly why a
+same-window rule is dangerous here. And the rule collapses
+`sysadmin.service`'s raw-JSON rows from **10 recommendations to 3**
+(`SNAG-LOG-008`), seven of them one agent run's alerts inside 1.7 ms —
+a byproduct that does not close that entry, which is about the signatures
+being unreadable rather than about how many rows they occupy.
+
+Two costs are filed rather than implied. `SNAG-LOG-009`: `journal_command`
+formats a UTC-rendered timestamp into a `--since` journalctl reads as
+**local**, so every command is an hour early here and would be five hours
+*late* — missing the incident entirely — west of Greenwich; found by
+running what the new row emits, Session 27's rule catching a fourth
+command. `SNAG-UNITS-006`: `discover_units` skips `*.service.d/`
+directories, so a relation added by drop-in would silently fail to
+correlate — empty population today, measured, since neither of this box's
+two drop-in directories belongs to a unit the sweep sees.
 
 *That entry named the wrong culprit and Session 60 corrected it against
 `agent_runs`: the 118 are **kernel 103, sysadmin-service 14** out of

@@ -11,8 +11,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from sysadmin.monitor.log_actions import (
+    INCIDENT_WINDOW_SECONDS,
     NOISE_MIN_OCCURRENCES,
     RecommendationKind,
+    group_incidents,
     journal_command,
     recommend,
 )
@@ -43,12 +45,13 @@ def _group(message, *, source="kernel", severity="error", current=0, previous=0,
     )
 
 
-def _recommend(groups, *, coverage=CLEAN, declared=None, scopes=None):
+def _recommend(groups, *, coverage=CLEAN, declared=None, scopes=None,
+               related=None):
     report = build_report(
         groups, window_days=7, window_start=WINDOW_START,
         previous_start=PREVIOUS_START, generated_at=NOW, coverage=coverage,
     )
-    return recommend(report, declared, scopes)
+    return recommend(report, declared, scopes, related)
 
 
 BLUETOOTH = _group(
@@ -405,3 +408,289 @@ class TestSnippet:
 class TestEmptyPopulation:
     def test_a_clean_report_recommends_nothing(self):
         assert _recommend([]) == []
+
+
+# ──────────────────────────────────────────────────────────────────────
+# SNAG-LOG-001 — one incident, one recommendation
+# ──────────────────────────────────────────────────────────────────────
+
+#: The live 2026-08-12 specimen, to the microsecond, from
+#: ``sysadmin.log_entries`` on the purged table.  The whole family exists
+#: because of these six rows, so they are the fixture rather than
+#: something shaped like them.
+CRASH = datetime(2026, 8, 12, 11, 32, 51, 283926, tzinfo=UTC)
+
+MOSQ = "mosquitto.service"
+PROV = "estate-broker-provision.service"
+
+SPECIMEN = [
+    (MOSQ, "Process 1705 (mosquitto) of user 950 dumped core.", 0.000000),
+    (MOSQ, f"{MOSQ}: Main process exited, code=dumped, status=11/SEGV", 0.000748),
+    (MOSQ, f"{MOSQ}: Failed with result 'core-dump'.", 0.032978),
+    (MOSQ, "Failed to start Mosquitto MQTT Broker daemon.", 0.033180),
+    (PROV, f"{PROV}: Failed with result 'exit-code'.", 0.348495),
+    (PROV, "Failed to start Assert the estate MQTT dynsec schema "
+           "(roles, ACLs, static clients).", 0.348682),
+]
+
+#: What ``declared_relations`` returns for these two units off the real
+#: ``/etc/systemd/system`` — ``estate-broker-provision.service`` carries
+#: ``After=mosquitto.service`` and ``Wants=mosquitto.service``, and the
+#: map is symmetric because only that side declares anything.
+BROKER_GRAPH = {
+    "mosquitto.service": frozenset({"estate-broker-provision.service"}),
+    "estate-broker-provision.service": frozenset({"mosquitto.service"}),
+}
+
+
+def _trends(groups):
+    """The ``SignatureTrend`` rows ``build_report`` makes of ``groups``."""
+    return build_report(
+        groups, window_days=7, window_start=WINDOW_START,
+        previous_start=PREVIOUS_START, generated_at=NOW, coverage=CLEAN,
+    ).signatures
+
+
+def _incident_at(groups, when):
+    """The group anchored at ``when``, for asserting membership."""
+    return next(g for g in groups if g[0].first_seen == when)
+
+
+def _specimen_groups(extra=()):
+    """The six live rows as first sightings, plus anything given."""
+    groups = [
+        _group(message, source=source, current=1, previous=0, total=1,
+               first_seen=CRASH + timedelta(seconds=offset),
+               last_seen=CRASH + timedelta(seconds=offset))
+        for source, message, offset in SPECIMEN
+    ]
+    groups.extend(extra)
+    return groups
+
+
+class TestIncidentGrouping:
+    """The correlation rule, against the specimen that motivated it."""
+
+    def test_the_six_live_rows_become_one_recommendation(self):
+        rows = _recommend(_specimen_groups(), related=BROKER_GRAPH)
+        assert len(rows) == 1
+        assert len(rows[0].members) == 6
+        assert rows[0].kind is RecommendationKind.NEW
+
+    def test_the_entrys_own_proposal_leaves_a_phantom_second_fault(self):
+        """``SNAG-LOG-001`` proposed "same unit, same window".
+
+        Passing no graph *is* that rule, and it is why this session
+        did not implement what the entry asked for: mosquitto's four
+        collapse and the provisioner's two stand alone, so the reader is
+        told a dependency failed **and separately** that a broker
+        crashed.  Two rows is worse than six, not better.
+        """
+        rows = _recommend(_specimen_groups(), related=None)
+        assert len(rows) == 2
+        assert {r.source for r in rows} == {
+            "mosquitto.service", "estate-broker-provision.service"
+        }
+
+    def test_the_anchor_is_the_unit_that_failed_first(self):
+        rows = _recommend(_specimen_groups(), related=BROKER_GRAPH)
+        assert rows[0].source == "mosquitto.service"
+        assert rows[0].units == (
+            "mosquitto.service", "estate-broker-provision.service"
+        )
+        assert "mosquitto.service failed first" in rows[0].detail
+
+    def test_the_rollup_names_every_signature_it_swallows(self):
+        """``SNAG-ESTATE-001``'s rule: a count cannot name anything."""
+        rows = _recommend(_specimen_groups(), related=BROKER_GRAPH)
+        for _, message, _ in SPECIMEN:
+            # Signatures are normalised, so match on a stable prefix
+            # rather than the raw line.
+            assert message.split(" ")[0][:12] in rows[0].detail
+
+    def test_one_command_reads_every_unit_in_the_incident(self):
+        rows = _recommend(_specimen_groups(), related=BROKER_GRAPH)
+        assert "-u mosquitto.service" in rows[0].action
+        assert "-u estate-broker-provision.service" in rows[0].action
+
+    def test_occurrences_are_summed_across_the_incident(self):
+        rows = _recommend(_specimen_groups(), related=BROKER_GRAPH)
+        assert rows[0].occurrences == 6
+
+    def test_a_lone_signature_is_unchanged_and_carries_no_members(self):
+        """The overwhelming majority of rows must not move."""
+        rows = _recommend(
+            [_group("something new happened", current=1, previous=0, total=1,
+                    first_seen=NOW - timedelta(hours=1))],
+            related=BROKER_GRAPH,
+        )
+        assert len(rows) == 1
+        assert rows[0].members == ()
+        assert rows[0].title.startswith("New fault from")
+
+
+class TestIncidentRules:
+    """One test per rule in :func:`group_incidents`, each falsifiable."""
+
+    def test_rule_1_the_graph_excludes_what_the_window_admits(self):
+        """The live false positive, to the millisecond.
+
+        ``alfred-backend.service`` failed **1.2036 s** after the
+        mosquitto crash — comfortably inside the window — because
+        PostgreSQL was still starting up.  Nothing declares a relation
+        between them, and nothing could: alfred-backend is a *user* unit
+        and mosquitto a *system* one, so systemd would ignore the
+        declaration anyway.
+        """
+        intruder = _group(
+            "alfred-backend.service: Failed with result 'exit-code'.",
+            source="alfred-backend.service", current=1, previous=0, total=1,
+            first_seen=CRASH + timedelta(seconds=1.2036),
+            last_seen=CRASH + timedelta(seconds=1.2036),
+        )
+        groups = group_incidents(
+            _trends(_specimen_groups([intruder])), BROKER_GRAPH
+        )
+        incident = _incident_at(groups, CRASH)
+        assert len(incident) == 6
+        assert "alfred-backend.service" not in {t.source for t in incident}
+
+    def test_rule_1_forging_the_edge_admits_it(self):
+        """Proves the exclusion above is the graph, not the clock."""
+        intruder = _group(
+            "alfred-backend.service: Failed with result 'exit-code'.",
+            source="alfred-backend.service", current=1, previous=0, total=1,
+            first_seen=CRASH + timedelta(seconds=1.2036),
+            last_seen=CRASH + timedelta(seconds=1.2036),
+        )
+        forged = dict(BROKER_GRAPH)
+        forged["mosquitto.service"] = frozenset(
+            {"estate-broker-provision.service", "alfred-backend.service"}
+        )
+        groups = group_incidents(
+            _trends(_specimen_groups([intruder])), forged
+        )
+        assert len(_incident_at(groups, CRASH)) == 7
+
+    def test_rule_2_a_relation_must_be_direct_not_transitive(self):
+        """``.target`` units are hubs; two hops relates everything.
+
+        Six user units on this box declare
+        ``After=network-online.target``.  If a shared neighbour counted,
+        every network-using service on the estate would be one incident.
+        """
+        graph = {
+            "a.service": frozenset({"hub.target"}),
+            "b.service": frozenset({"hub.target"}),
+            "hub.target": frozenset({"a.service", "b.service"}),
+        }
+        groups = group_incidents(_trends([
+            _group("a failed", source="a.service", current=1, total=1,
+                   first_seen=CRASH, last_seen=CRASH),
+            _group("b failed", source="b.service", current=1, total=1,
+                   first_seen=CRASH + timedelta(seconds=0.1),
+                   last_seen=CRASH + timedelta(seconds=0.1)),
+        ]), graph)
+        assert [len(g) for g in groups] == [1, 1]
+
+    def test_rule_3_the_window_is_measured_from_the_anchor(self):
+        """Not single-linkage: a chain must not walk away from its start.
+
+        Three signatures 4 s apart are each within the 5 s window of
+        their predecessor, and the third is 8 s from the first.  It must
+        not join.
+        """
+        step = INCIDENT_WINDOW_SECONDS - 1
+        # Distinct *and* non-numeric: ``signature()`` maps digit runs to
+        # ``N``, so "line 0/1/2" would be one signature and this test
+        # would pass for the wrong reason.  It did, on the first run.
+        groups = group_incidents(_trends([
+            _group(word, source="one.service", current=1, total=1,
+                   first_seen=CRASH + timedelta(seconds=step * n),
+                   last_seen=CRASH + timedelta(seconds=step * n))
+            for n, word in enumerate(("alpha broke", "beta broke", "gamma broke"))
+        ]))
+        assert [len(g) for g in groups] == [2, 1]
+
+    def test_rule_4_only_first_sightings_are_grouped(self):
+        """``first_seen`` is an incident moment only for a first sighting.
+
+        The case is reachable only at the window's edge, and that is
+        where it is tested.  A signature first seen just *before*
+        ``window_start`` is established — ``STEADY`` here — so its
+        ``first_seen`` is the day it was born rather than the moment
+        anything happened; a first sighting 2.5 s later is inside the
+        5 s window and would be swallowed by it.  Dropping the
+        first-sighting filter makes the established row the anchor and
+        this assertion fail, which is the only way to observe the rule:
+        anywhere else in the window, being established already implies
+        being too old to reach.
+        """
+        established = _group(
+            "postgres restarting", source="one.service",
+            current=5, previous=5, total=10,
+            first_seen=WINDOW_START - timedelta(seconds=2),
+            last_seen=NOW,
+        )
+        sighting = _group(
+            "brand new fault", source="one.service",
+            current=1, previous=0, total=1,
+            first_seen=WINDOW_START + timedelta(seconds=0.5),
+            last_seen=WINDOW_START + timedelta(seconds=0.5),
+        )
+        groups = group_incidents(_trends([established, sighting]))
+        assert [len(g) for g in groups] == [1]
+        assert groups[0][0].signature == "brand new fault"
+
+    def test_rule_5_a_tie_on_first_seen_still_has_one_anchor(self):
+        """Seven live ``sysadmin.service`` rows share a millisecond."""
+        tied = _trends([
+            _group(f"zzz {n}" if n else "aaa first", source="one.service",
+                   current=1, total=1, first_seen=CRASH, last_seen=CRASH)
+            for n in range(5)
+        ])
+        first = group_incidents(tied)[0][0].signature
+        assert group_incidents(list(reversed(tied)))[0][0].signature == first
+
+    def test_it_fails_open_with_no_graph_at_all(self):
+        """Not knowing means not collapsing — never a false merge."""
+        groups = group_incidents(_trends(_specimen_groups()), None)
+        assert [len(g) for g in groups] == [4, 2]
+
+    def test_a_declared_noise_signature_never_joins_an_incident(self):
+        """Already judged is not work, and not somebody else's member."""
+        declared = {("mosquitto.service",
+                     "Failed to start Mosquitto MQTT Broker daemon.")}
+        rows = _recommend(_specimen_groups(), declared=declared,
+                          related=BROKER_GRAPH)
+        assert len(rows) == 1
+        assert len(rows[0].members) == 5
+        assert all("Failed to start Mosquitto" not in m.signature
+                   for m in rows[0].members)
+
+
+class TestIncidentJournalCommand:
+    def test_others_are_folded_into_one_invocation(self):
+        assert journal_command(
+            "mosquitto.service", "2026-08-12 11:32", {},
+            ("estate-broker-provision.service",),
+        ) == (
+            "journalctl -u mosquitto.service "
+            "-u estate-broker-provision.service --since '2026-08-12 11:32'"
+        )
+
+    def test_the_scope_flag_is_emitted_once_for_the_whole_group(self):
+        command = journal_command(
+            "alfred-backend.service", "2026-08-12 11:32",
+            {"alfred-backend.service": True, "alfred-frontend.service": True},
+            ("alfred-frontend.service",),
+        )
+        assert command.count("--user") == 1
+        assert command.startswith("journalctl --user -u alfred-backend.service")
+
+    def test_kernel_never_gains_company(self):
+        """It has no unit file, so it declares no relation."""
+        assert journal_command("kernel", "2026-08-12 11:32", {},
+                               ("mosquitto.service",)) == (
+            "journalctl -k --since '2026-08-12 11:32'"
+        )

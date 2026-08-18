@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-17
+> **Last Updated**: 2026-08-18
 
 ---
 
@@ -366,6 +366,82 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+## Session 68 — SNAG-LOG-001, the correlation rule (2026-08-18)
+
+Session 67 named this session and named the specimen to measure against.
+The specimen refuted the entry's proposed rule, as predicted — and then
+refuted two things the entry stated as fact.
+
+- [x] **Measure whether the declared graph suffices.** It does, and the
+      framing was wrong: the risk was never declared-versus-effective
+      (which would cost `scan.py`'s no-subprocess promise), it was
+      *which directories*. **Parsing `/usr/lib/systemd/system` reads 629
+      further unit files and yields zero further relations** among the
+      fourteen declared log sources, because the unit that *depends* is
+      always the hand-written one. The sweep's own two directories are
+      enough
+- [x] **`sysadmin/units/scan.py`** — `UnitRelation`, `RELATION_DIRECTIVES`,
+      `UnitFile.relations`, `qualify_unit()`, `declared_relations()`.
+      Symmetric map keyed on `(scope, unit)`; `Conflicts=` excluded as the
+      one *negative* relation; self-edges refused
+- [x] **`sysadmin/monitor/log_actions.py`** — `group_incidents()`,
+      `INCIDENT_WINDOW_SECONDS`, `SIGNATURE_DETAIL_CHARS`,
+      `IncidentMember`, `_incident_recommendation()`; `journal_command()`
+      gains `others` so one command reads the whole incident
+- [x] **`sysadmin/monitor/routers/logs.py`** — `_unit_relations()`, which
+      resolves scope per declared log source *before* flattening.
+      `deadlock-api-ingest.service` exists in both scopes here running two
+      different binaries, so a name-only key would merge them
+- [x] **`sysadmin/core/contracts.py`** — `LogIncidentMemberInfo`, and
+      `members` on `LogRecommendationInfo`. Additive; `source`/`signature`
+      stay the **anchor's**, so a consumer ignoring `members` still reads
+      a correct row about the fault that happened first
+- [x] **Tests** — `tests/test_unit_relations.py` (18, new) and 26 more in
+      `tests/test_log_actions.py`. **2067 green**, ruff and mypy clean
+- [x] **Ten guards falsified deliberately.** Ignoring the graph reproduces
+      the entry's own proposal and breaks 8; single-linkage breaks the
+      anchor test; dropping the first-sighting filter breaks 16; dropping
+      the tie-break breaks 1; bypassing the noise filter breaks 2; and
+      five on the graph builder (asymmetry, self-edges, scope, empty-reset,
+      `Conflicts`) break one each
+- [x] **Driven live, not only against fixtures** — the real trend report
+      from the real database, the real unit files, and the **emitted
+      `journalctl` command actually run**. 24 recommendations → 11
+
+**What the specimen refuted, beyond the rule.**
+
+- **The entry's mechanism was backwards.** It said mosquitto "took the
+  `estate-broker-provision` oneshot with it". systemd started the oneshot
+  **2 ms after** mosquitto had already failed (`12:32:51.284877` then
+  `.286928`), because the declared relation is `Wants=`, which does not
+  propagate failure; the provisioner failed on its own connect
+  (`mosquitto_ctrl dynsec listClients: Error: Bad file descriptor.`)
+- **The window is a boot.** Boot `0` begins **12:32:39**, twelve seconds
+  before the crash. Nothing in three sittings had noticed, and it is
+  exactly why a same-window rule is dangerous here
+- **The false positive is real and 1.2 s away.** `alfred-backend.service`
+  failed at `12:32:52.487` because PostgreSQL was still starting up
+  (`asyncpg.exceptions.CannotConnectNowError`). It is a **user** unit and
+  mosquitto a **system** one, so systemd could not order them even if
+  someone declared it
+
+**Left undone deliberately, and named.**
+
+- **`SNAG-LOG-009`** — every emitted `journalctl --since` is an hour early
+  here and would be five hours *late* west of Greenwich. One
+  `astimezone()`, but every existing `TestJournalCommand` assertion pins
+  the current rendering, so it changes what the tests call correct rather
+  than what is underneath them
+- **`SNAG-UNITS-006`** — drop-in directories are invisible to
+  `discover_units`, so `restart_bounded` and now `declared_relations`
+  share one blind spot. Empty population today: **zero** of the 38 units
+  the sweep sees has a drop-in
+- **`SNAG-LOG-008` is not closed**, though the rule collapses its ten rows
+  to three. That entry is about the signatures being unreadable, not about
+  how many rows they occupy
+
+---
 
 ## Session 67 — the purge (2026-08-17)
 

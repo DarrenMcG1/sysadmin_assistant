@@ -358,6 +358,24 @@ class LogTrendsResponse(Contract):
 # ── /api/logs/actions ────────────────────────────────────────────────
 
 
+class LogIncidentMemberInfo(Contract):
+    """One signature an incident row stands for.
+
+    Present only on the roll-up rows ``SNAG-LOG-001`` introduced, and it
+    is what keeps that roll-up legitimate: a collapsed row must **name**
+    every signature it swallowed, never merely count them
+    (``SNAG-ESTATE-001``).  A consumer that ignores this field still sees
+    a correct row about the fault that happened first, because
+    ``LogRecommendationInfo``'s own ``source``/``signature`` stay the
+    anchor's.
+    """
+
+    source: str = ""
+    signature: str = ""
+    alert_title: str = ""
+    occurrences: int = 0
+
+
 class LogRecommendationInfo(Contract):
     """One ranked, executable piece of log advice.
 
@@ -385,6 +403,10 @@ class LogRecommendationInfo(Contract):
     alert_title: str = ""
     occurrences: int = 0
     snippet: str | None = None
+    #: Every signature this row covers when it is an incident roll-up,
+    #: ordered by first sighting so the anchor is first.  Empty on the
+    #: ordinary one-signature rows.
+    members: list[LogIncidentMemberInfo] = Field(default_factory=list)
 
     @field_validator("occurrences", mode="before")
     @classmethod

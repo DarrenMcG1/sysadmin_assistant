@@ -1,6 +1,7 @@
 """Log Aggregator API endpoints — log viewing, filtering, summaries."""
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import desc, func, select
@@ -24,6 +25,7 @@ from sysadmin.monitor.log_trends import (
 from sysadmin.monitor.models.log_entry import LogEntry
 from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.services import get_services, log_sources
+from sysadmin.units.scan import declared_relations, discover_units
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
 
@@ -362,8 +364,19 @@ async def get_log_actions(
                 "alert_title": r.alert_title,
                 "occurrences": r.occurrences,
                 "snippet": r.snippet,
+                "members": [
+                    {
+                        "source": m.source,
+                        "signature": m.signature,
+                        "alert_title": m.alert_title,
+                        "occurrences": m.occurrences,
+                    }
+                    for m in r.members
+                ],
             }
-            for r in recommend(report, declared, _log_source_scopes())
+            for r in recommend(
+                report, declared, _log_source_scopes(), _unit_relations()
+            )
         ],
         "confidence": str(report.confidence),
         "window_days": report.window_days,
@@ -439,6 +452,61 @@ def _log_source_scopes() -> dict[str, bool]:
         source.unit: bool(source.user)
         for source in log_sources(get_services())
         if source.unit
+    }
+
+
+def _unit_relations() -> dict[str, frozenset[str]]:
+    """Source unit -> the units systemd declares it is related to.
+
+    The declared dependency graph ``GET /api/logs/actions`` uses to tell
+    one incident from two (``SNAG-LOG-001``).  Read here for the reason
+    :func:`_log_source_scopes` is read here — the pure module must not
+    open files — and read **per request** for the reason that function
+    already re-reads ``services.yaml`` per request: this endpoint is
+    computed live and never served from storage, so its inputs are read
+    live too.
+
+    Three rules:
+
+    1. **The scope resolution happens here, because this is where scope
+       is known.**  ``log_entries.source`` is a bare unit name with no
+       scope in it, and ``deadlock-api-ingest.service`` is installed in
+       **both** scopes on this box running two different binaries.
+       ``services.yaml`` is the only thing that says which one a log
+       source means, so the graph is flattened to plain names *after*
+       being filtered to each source's own scope — never before.
+
+    2. **It reads unit files rather than the stored sweep, deliberately
+       departing from ``estate/agent.py``'s precedent.**  That module
+       reads the sweep's port attribution instead of running ``ss``
+       itself, because two ``ss`` calls at two moments give two answers
+       about live kernel state with neither surface saying which it
+       used.  A unit file is not live state — it is a document that
+       changes when someone edits it — so re-reading it is not a second
+       observation of a moving target.  Taking the six-hourly sweep's
+       copy would instead mean a unit installed this morning does not
+       correlate until this evening, and fails *silently* when it
+       doesn't.
+
+    3. **Every failure is empty, never partial-and-unreported.**  An
+       unreadable directory yields no relations, which costs
+       cross-unit grouping and leaves same-unit grouping working —
+       today's behaviour, which is the safe direction.
+    """
+    config = get_config().agents.service_discovery
+    units, _ = discover_units(
+        config.user_unit_dir, config.system_unit_dir, str(Path.home())
+    )
+    graph = declared_relations(units)
+    scopes = {
+        source.unit: ("user" if source.user else "system")
+        for source in log_sources(get_services())
+        if source.unit
+    }
+    return {
+        unit: graph[(scope, unit)]
+        for unit, scope in scopes.items()
+        if (scope, unit) in graph
     }
 
 

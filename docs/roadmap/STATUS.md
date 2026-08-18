@@ -1,83 +1,73 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-08-17
+**Last Updated**: 2026-08-18
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **A restart is owed again, and a reload will not do it.** `sysadmin`
-> started **14:10:58** and Session 63's commit landed at **14:29:17**, so
-> the process is now **four commits behind** — Sessions 63, 64 and 65
-> have never run. Measured rather than reasoned: the *running* daemon's `LogRef` forbids extra fields and has
-> no `format`, and driving it against the new `services.yaml` rejects
-> the file — `services.13.log.format | Extra inputs are not permitted`.
-> Session 49's rule 1 means a SIGHUP installs neither file, so the
-> reload fails safely and delivers nothing. `sudo systemctl restart
-> sysadmin`.
+> **No deploy is owed — Session 68's restart was done and verified.**
+> `sysadmin` restarted at **2026-08-18 06:17:53** (NRestarts 3 → 4),
+> `/health` answers, and `GET /api/logs/actions` serves **11**
+> recommendations against 24 before, with the 2026-08-12 mosquitto
+> incident as one row. `alembic current` reads **012 (head)**, checked
+> rather than assumed, so nothing was pending.
 >
-> **It is also what disarms `SNAG-LOG-004`.** The running process still
-> crashes its whole `log_aggregator` run on the first `ERROR` line this
-> daemon writes, self-sustainingly. It has not fired — **0 error lines
-> and 146 clean runs** since 14:10:58 — so the box is one traceback away
-> from a silent, permanent log blackout.
+> **The recorded restart method needed one correction.**
+> `systemctl kill -s TERM sysadmin` needs polkit authorisation and times
+> out in a non-interactive shell. The raw signal does not, because
+> `sysadmin.service` is a system unit running `User=gaddi` — the fact
+> `sysadmin/reload.py` already relies on for SIGHUP:
+> `kill -TERM "$(systemctl show sysadmin --property=MainPID --value)"`.
 >
-> **What is still outstanding, unchanged and still two minutes.** Resolve
-> the two `Estate port … registry breach` rows so the judge re-raises
-> them under Session 57's code (both still open, checked at 14:20):
+> **Still outstanding, unchanged, and still two minutes.** The two
+> `Estate port … registry breach` rows are **still open** — re-checked
+> live during this sitting, not copied forward. Resolving them lets the
+> judge re-raise them under Session 57's code:
 >
 > ```sql
 > UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
 >  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
 > ```
 >
-> `SNAG-ESTATE-010`. Session 27 has since solved the *general* version
-> of this for the log family (an in-place quietening, legitimate because
+> `SNAG-ESTATE-010`. Session 27 has since solved the *general* version of
+> this for the log family (an in-place quietening, legitimate because
 > Session 39's ban is asymmetric), so the entry is worth re-reading
 > before anyone fixes the estate judge the obvious way.
 >
-> **The 03:00 purge has still not deleted anything.** `SNAG-DB-004`'s fix
-> went live with the 14:10:58 restart, so **tonight's 03:00 is the first
-> run that will act**, and it happens by itself.
+> **Next up**: **Session 27 Tier 3 — the log aggregator's LLM
+> narrative.** *Recommended at the close of Session 68.*
 >
-> **Next up**: **Observe three unobserved sittings against live data.**
-> *Recommended at the close of Session 65.*
+> **1. Tier 3, the last unbuilt tier in the area.** It has lost three
+> sittings running to "the stack beneath it has not been observed", and
+> that objection is now **spent**: Session 66 verified the four
+> shipped-unrun claims, Session 67 purged the data that was distorting
+> them, and Session 68 removed the last structural distortion on the
+> page. The endpoint it would narrate serves 11 rows rather than 24, and
+> every one of them is now a distinct thing. A narrative built on the
+> old page would have described one crash six times.
 >
-> **1. The verification sitting — restart, then measure what Sessions 63,
-> 64 and 65 claim.** Session 62's ceiling fix (14:09:16) is the last one
-> the running process contains; everything since has shipped green and
-> unrun. Four claims are outstanding and every one is measurable within
-> an hour of a restart: `-p` takes read efficiency 40 % → 100 % and so
-> should drop `truncated_fraction` below `TRUNCATION_LOW_FRACTION`; a
-> `medium` report should make the two 39,921-occurrence signatures appear
-> as `noise` rows in `GET /api/logs/actions`, a family with an **empty
-> population on this box** for its whole life; `-a` plus `format: json`
-> should give `log_entries` readable messages for `sysadmin.service`
-> where it currently holds 10 rows of raw JSON; and `covered_by` should
-> appear the first time an agent fails. It wins because three consecutive
-> sittings have now built on foundations nobody has seen run, which is
-> precisely what `SNAG-ESTATE-002` was — and because it is the cheapest
-> thing on the list, the restart being owed anyway.
+> **2. `SNAG-LOG-009` — every emitted `journalctl` command is an hour
+> out.** Opened today by running what the new row emits. Real, cheap
+> (one `astimezone()`), and it loses on *consequence*: the error widens
+> the read in this timezone, so nothing is missed here. It becomes
+> first-ranked the day this code runs anywhere west of Greenwich, where
+> the same arithmetic points five hours late and returns nothing — which
+> is why it is filed at P2 rather than P3 despite being latent.
 >
-> **2. Session 27 Tier 3 — the log aggregator's LLM narrative.** The last
-> unbuilt tier in the area, and the family is in better shape than it has
-> ever been: signature dedup, trends, actions, correct priorities,
-> correct ceiling, proportional confidence, readable titles, no crash, one
-> owner per fault. It loses for the same reason it lost last sitting and
-> by a wider margin — it would add a fifth layer to a stack whose bottom
-> three have not run. It wins outright the moment (1) lands.
->
-> **3. `SNAG-LOG-001` — one mosquitto crash, four recommendations.** Real,
-> and the honest fix is a correlation rule nobody has measured. It loses
-> on evidence rather than merit: it needs a live multi-line crash and the
-> last one was days ago. Third for the third sitting running, which is
-> itself the argument for leaving it there rather than forcing it.
+> **3. `SNAG-LOG-008` — the ten raw-JSON signatures.** Loses again, and
+> by more than last sitting: Session 68 collapsed them from 10 rows to 3
+> without touching the data, and their `logged_at` is 2026-08-17, so the
+> 7-day trend window drops them by **2026-08-24** whatever anyone does.
+> Spending a sitting on something that is both shrinking and expiring
+> ranks below both of the above.
 >
 > **Blocked or waiting on another repository.** `SNAG-ESTATE-002` and
 > `SNAG-ESTATE-004` remain estate-manager's; `SNAG-ESTATE-006` and
 > `SNAG-ESTATE-007` are delegated and unchanged. `SNAG-ESTATE-001`'s
 > remaining half is a **retirement checklist** — a process, and the entry
 > says in writing it is not this repository's to enforce, so it is named
-> rather than ranked. `SNAG-LOG-006`, opened today, has a **population of
-> zero**: a manual run must fail before it can be observed at all.
-
+> rather than ranked. `SNAG-LOG-006` still has a **population of zero**:
+> a manual run must fail before it can be observed at all.
+> `SNAG-UNITS-006`, opened today, is the same shape — no unit the sweep
+> sees has a drop-in, so there is nothing to verify a fix against.
 
 ---
 
@@ -93,7 +83,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2031 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, smoke script |
+| Testing | 🟢 Complete | **2067 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -101,6 +91,70 @@
 ---
 
 ## Recently Completed
+
+### One incident, one recommendation — SNAG-LOG-001 closed (2026-08-18)
+
+**The entry asked for a correlation rule and proposed the wrong one; the
+purge had already produced the specimen that refutes it.** Session 68
+built the rule the specimen supports: first sightings are one incident
+when they share a unit **or a declared systemd dependency** inside
+`INCIDENT_WINDOW_SECONDS`.
+
+Live, `GET /api/logs/actions` went **24 → 11**. The 2026-08-12 mosquitto
+core dump is now one row — *"New incident: mosquitto.service then
+estate-broker-provision.service"* — naming all six signatures and
+emitting one `journalctl -u … -u …` that was **run and works**.
+
+**The measurement the session existed to make came out cheaper than the
+question assumed.** The choice was framed as declared-versus-effective
+graph, with `scan.py`'s no-subprocess promise at risk. The real question
+was *which directories*: `mosquitto.service` is packaged and its file
+lives in `/usr/lib/systemd/system`, which the sweep never walks — so the
+obvious move was to widen the walk. **Parsing `/usr/lib` reads 629
+further unit files and yields zero further relations** among the fourteen
+declared log sources, because a relation is declared by the unit that
+*depends* and here that unit is always the hand-written one. The sweep's
+existing two directories suffice, at 16x less I/O.
+
+**The graph is the filter; the clock only bounds it** — and the live
+window proves it needs to be. `alfred-backend.service` failed **1.2036 s**
+after the crash for an unrelated reason (PostgreSQL still starting up)
+and `sportsanalyser-backend.service` failed **2.9 s before** it. Driven
+as a counterfactual rather than argued: forging one edge admits
+alfred-backend, and removing the graph reproduces the entry's own
+proposal — mosquitto's four collapsed, the provisioner's two left
+standing as a phantom second fault.
+
+`INCIDENT_WINDOW_SECONDS = 5.0` is **derived from a gap, not picked**:
+every genuinely-one-incident pair lands inside **349 ms** and the nearest
+genuinely-two-incidents pair is **64.4 s** away, so every value between
+gives identical output.
+
+**Three things it corrected in what had been written down.** The entry's
+mechanism was backwards — systemd started the oneshot **2 ms after**
+mosquitto had already failed, because the relation is `Wants=`, which
+does not propagate failure. The whole window is a **boot** beginning
+twelve seconds earlier, which three sittings had not noticed. And a
+fixture of the session's own walked into `log_signature`'s trap: `line
+0/1/2` normalise to one signature, so the first version of the
+anti-single-linkage test passed for the wrong reason.
+
+**Byproduct**: the same rule collapses `sysadmin.service`'s raw-JSON rows
+(`SNAG-LOG-008`) from **10 recommendations to 3** — seven of them one
+agent run's alerts inside 1.7 ms. It does not close that entry, which is
+about the signatures being unreadable rather than how many rows they fill.
+
+**2067 tests green** (+36), ruff and mypy clean. Ten guards were each
+falsified deliberately — ignoring the graph, single-linkage, dropping the
+first-sighting filter, dropping the tie-break, bypassing the noise
+filter, and five more on the graph builder — and each broke precisely the
+tests written for it.
+
+**Two costs filed rather than bundled**: `SNAG-LOG-009` (every emitted
+`journalctl --since` is an hour early here and would be five hours *late*
+west of Greenwich — found by running what the new row emits) and
+`SNAG-UNITS-006` (drop-in directories are invisible to the sweep; empty
+population today, measured).
 
 ### The 497 surplus log rows purged, and the cost was understated (2026-08-17)
 
