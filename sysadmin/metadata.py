@@ -60,6 +60,7 @@ from sysadmin.core.models.retention_config import RetentionConfig
 from sysadmin.files.models.disk_review import DiskReview
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.monitor.models.log_entry import LogEntry
+from sysadmin.monitor.models.log_review import LogReview
 from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.models.reliability_score import ReliabilityScore
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
@@ -72,6 +73,7 @@ ALL_MODELS = (
     DiskReview,
     FilesystemAudit,
     LogEntry,
+    LogReview,
     LogSummary,
     ReliabilityScore,
     ResourceSnapshot,

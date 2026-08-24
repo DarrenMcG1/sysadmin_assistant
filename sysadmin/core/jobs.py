@@ -283,6 +283,26 @@ def plan_jobs(config: AppConfig) -> tuple[JobSpec, ...]:
             },
             config_paths=("schedules.retention_hour", "schedules.retention_minute"),
         ),
+        # Weekly log review — Session 27, Tier 3. First in the Monday
+        # chain rather than last: the briefing at 06:00 is fixed, the
+        # estate's portfolio review holds 05:30 and the disk review
+        # 05:45, so the free 15-minute slot is the one before them.
+        JobSpec(
+            job_id="weekly_log_review",
+            enabled=agents.log_aggregator.weekly_review,
+            trigger="cron",
+            trigger_kwargs={
+                "hour": schedules.log_review_hour,
+                "minute": schedules.log_review_minute,
+                "day_of_week": schedules.review_day_of_week,
+            },
+            config_paths=(
+                "agents.log_aggregator.weekly_review",
+                "schedules.log_review_hour",
+                "schedules.log_review_minute",
+                "schedules.review_day_of_week",
+            ),
+        ),
         # Weekly disk review — the slot after the estate's portfolio review
         # (now on 8400, estate ADR-0008 / our ADR-0005) so only one
         # llama-server generation is in flight at a time.

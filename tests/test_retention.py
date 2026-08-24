@@ -59,6 +59,10 @@ class TestTableTimestampMap:
             # SNAG-PROJ-010: added by migrations 004 and 005 and left out
             # of retention entirely, so they grew one row per week forever.
             "project_reviews", "disk_reviews",
+            # Session 69: the weekly log review's table, added with both
+            # halves at once — a table in one half and not the other is
+            # silently never purged, which is what this test exists for.
+            "log_reviews",
         }
         assert set(TABLE_TIMESTAMP_MAP.keys()) == expected_tables
 

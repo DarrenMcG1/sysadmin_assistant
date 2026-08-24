@@ -667,7 +667,14 @@ class LogAggregatorConfig(BaseModel):
     poll_interval_seconds: int = 60
     sources: list[LogSource] = Field(default_factory=list)
     retention_days: int = 30
-    summarise_with_llm: bool = True
+    #: Whether the weekly LLM-narrated log review runs (Session 27,
+    #: Tier 3).  Replaces ``summarise_with_llm``, which gated
+    #: ``LogAggregatorAgent.summarise()`` — a method with no caller in
+    #: production, in the scheduler or in a test, so the flag was parsed
+    #: by pydantic and read by nothing.  That is ``SNAG-CFG-001``'s
+    #: shape, and this one is wired to a ``JobSpec`` whose presence a
+    #: test asserts.
+    weekly_review: bool = True
 
     #: How long a fault must go unobserved before its open alert is
     #: resolved.  This is the knob that makes a log alert a *state*: one
@@ -838,6 +845,14 @@ class SchedulesConfig(BaseModel):
     # the 06:00 briefing, which carries both narratives.
     disk_review_hour: int = 5
     disk_review_minute: int = 45
+    # Weekly log review — *ahead* of the other two rather than after
+    # them, because the briefing at 06:00 is the fixed end of the chain
+    # and 05:45 → 06:00 is the only gap left. The spacing is the one the
+    # existing pair already assumes is enough for one generation: 15
+    # minutes, 05:15 → 05:30 → 05:45 → 06:00, one llama-server
+    # generation in flight at a time on a single shared card.
+    log_review_hour: int = 5
+    log_review_minute: int = 15
     # Daily reliability snapshot — 02:00, an hour ahead of the 03:00
     # retention purge so the day's score is written before anything is
     # deleted from under it. Nothing reads these rows to serve a request

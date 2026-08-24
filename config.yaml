@@ -472,7 +472,10 @@ agents:
         unit: kernel
         severity_filter: error
     retention_days: 30
-    summarise_with_llm: true
+    # Session 27, Tier 3 — the weekly LLM-narrated log review at
+    # GET /api/logs/review. Replaces summarise_with_llm, which gated a
+    # method nothing called.
+    weekly_review: true
     # SNAG-AGENT-005. One alert row is raised per distinct *fault
     # signature*, not per log line, and it stays open while the fault keeps
     # being logged — so silence is the only recovery signal there is, and

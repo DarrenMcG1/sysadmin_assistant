@@ -384,11 +384,24 @@ Uses the daytime model (14B) for periodic summaries. Night Worker can run deeper
 ```
 GET  /api/logs/recent                  → Last N log entries (filterable by source, severity)
 GET  /api/logs/errors                  → Errors/criticals only
-GET  /api/logs/summary                 → Latest LLM-generated summary
-GET  /api/logs/summary/history         → Past summaries
 GET  /api/logs/{source}                → Logs for specific service
 GET  /api/logs/stats                   → Error rates, volume by source
+GET  /api/logs/trends                  → Week-on-week trends by fault signature (Tier 1)
+GET  /api/logs/actions                 → Ranked, executable advice (Tier 2)
+GET  /api/logs/review                  → Latest weekly LLM-narrated review (Tier 3)
+POST /api/logs/review/generate         → Generate a review now (auth)
 ```
+
+`GET /api/logs/summary` and `/api/logs/summary/history` were **removed in
+Session 69** with the producer behind them — `LogAggregatorAgent.summarise()`
+had no caller anywhere and left one row, dated 2026-07-24, covering 29
+seconds. `GET /api/logs/review` replaces them.
+
+Note the removal is *shadowed rather than clean*: `GET /api/logs/{source}`
+is a catch-all, so `/api/logs/summary` still answers `200` with
+`{"source": "summary", "entries": [], "count": 0}` rather than `404`. No
+consumer calls it (the tray never did), but a caller that does gets "no
+summaries" where it should get "gone" — `SNAG-LOG-011`.
 
 ---
 

@@ -26,7 +26,6 @@ from sysadmin.core.config import get_config
 # the names collide would compare a log level against an alert level
 # and be wrong only for ``error``, which has no alert rung at all.
 from sysadmin.core.escalation import SEVERITY_ORDER as ALERT_SEVERITY_ORDER
-from sysadmin.core.llm_client import LLMClient
 from sysadmin.core.models.alert import Alert
 from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.journal import (
@@ -37,7 +36,6 @@ from sysadmin.monitor.journal import (
 )
 from sysadmin.monitor.log_signature import alert_title, signature
 from sysadmin.monitor.models.log_entry import LogEntry
-from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.services import get_services, log_sources
 
 logger = logging.getLogger(__name__)
@@ -134,13 +132,6 @@ COVERED_SIGNATURES: dict[tuple[str, str], str] = {
     "'<agent> agent failing', at two consecutive failures",
 }
 
-SUMMARISE_PROMPT_SYSTEM = (
-    "You are a sysadmin reviewing logs. Summarise the following log entries. "
-    "Group by service. Highlight: recurring errors, new errors not seen before, "
-    "patterns suggesting degradation, and anything requiring immediate attention. "
-    "Be concise and direct."
-)
-
 
 class LogAggregatorAgent(BaseAgent):
     """Collects and summarises logs from configured sources."""
@@ -157,12 +148,6 @@ class LogAggregatorAgent(BaseAgent):
         # it narrowed the re-read from a 5-minute window to a 1-second
         # one and the boundary entry came back every time.
         self._cursors: dict[str, str] = {}
-        # Constructing an LLMClient opens no connections, and it manages
-        # its own per-event-loop HTTP client — so there is deliberately no
-        # startup()/shutdown() here.  Opening one on the API loop would
-        # only hand this agent, which runs on scheduler threads, a client
-        # belonging to somebody else's loop (SNAG-AGENT-003).
-        self._llm = LLMClient()
 
     def forget_unknown(self) -> list[str]:
         """Drop resume state for sources no longer declared.
@@ -670,67 +655,6 @@ class LogAggregatorAgent(BaseAgent):
                 {"agent": self.name, "match": "went quiet", "count": resolved},
             )
         return resolved
-
-    async def summarise(self, session) -> str | None:
-        """Generate an LLM summary of recent warnings/errors. Called on a separate schedule."""
-        config = get_config()
-        agent_config = config.agents.log_aggregator
-
-        if not agent_config.summarise_with_llm:
-            return None
-
-        # Get recent warning/error/critical entries
-        since = datetime.now(UTC) - timedelta(minutes=30)
-        query = (
-            select(LogEntry)
-            .where(
-                LogEntry.ingested_at >= since,
-                LogEntry.severity.in_(["warning", "error", "critical"]),
-            )
-            .order_by(LogEntry.logged_at)
-            .limit(100)
-        )
-        result = await session.execute(query)
-        entries = result.scalars().all()
-
-        if len(entries) < 3:
-            return None
-
-        # Build prompt
-        log_text = "\n".join(
-            f"[{e.logged_at.strftime('%H:%M:%S')}] [{e.severity.upper()}] "
-            f"[{e.source}] {e.message[:200]}"
-            for e in entries
-        )
-        prompt = f"Here are the recent log entries:\n\n{log_text}\n\nProvide a concise summary."
-
-        summary_text = await self._llm.generate(
-            prompt=prompt,
-            system=SUMMARISE_PROMPT_SYSTEM,
-        )
-
-        if summary_text:
-            # Store summary
-            sources_list = list({e.source for e in entries})
-            error_count = sum(1 for e in entries if e.severity in ("error", "critical"))
-
-            log_summary = LogSummary(
-                period_start=entries[0].logged_at,
-                period_end=entries[-1].logged_at,
-                model_used=config.llm.model,
-                summary=summary_text,
-                entry_count=len(entries),
-                error_count=error_count,
-                sources=sources_list,
-            )
-            session.add(log_summary)
-
-            logger.info(
-                "log_summary_generated",
-                extra={"entries": len(entries), "model": config.llm.model},
-            )
-
-        return summary_text
 
     def _read_log_file(
         self, source_name: str, path: str, severity_filter: str, limit: int

@@ -54,6 +54,7 @@ from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.desktop import desktop_notifier
 from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.log_aggregator import LogAggregatorAgent
+from sysadmin.monitor.log_review import run_weekly_review as run_weekly_log_review
 from sysadmin.monitor.notifier import Notifier
 from sysadmin.monitor.reliability_history import record_reliability_snapshot
 from sysadmin.monitor.routers.logs import router as logs_router
@@ -97,6 +98,7 @@ JOB_TARGETS: JobTargets = {
     "morning_briefing": send_morning_briefing,
     "retention_purge": run_retention,
     "weekly_disk_review": run_weekly_disk_review,
+    "weekly_log_review": run_weekly_log_review,
     "reliability_snapshot": record_reliability_snapshot,
 }
 

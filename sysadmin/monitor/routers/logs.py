@@ -1,39 +1,32 @@
-"""Log Aggregator API endpoints — log viewing, filtering, summaries."""
+"""Log Aggregator API endpoints — log viewing, filtering, trends, advice, review."""
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sysadmin.core.auth import require_auth
 from sysadmin.core.config import get_config
 from sysadmin.core.contracts import (
     LogActionsResponse,
+    LogReviewResponse,
     LogsResponse,
     LogStatsResponse,
     LogTrendsResponse,
 )
 from sysadmin.core.database import get_db_session
-from sysadmin.core.models.agent_run import AgentRun
+from sysadmin.monitor import log_review as log_review_module
 from sysadmin.monitor.log_actions import recommend
-from sysadmin.monitor.log_trends import (
-    MessageGroup,
-    WindowCoverage,
-    build_report,
+from sysadmin.monitor.log_query import (
+    build_trend_report,
+    log_source_scopes,
+    unit_relations,
 )
 from sysadmin.monitor.models.log_entry import LogEntry
-from sysadmin.monitor.models.log_summary import LogSummary
-from sysadmin.monitor.services import get_services, log_sources
-from sysadmin.units.scan import declared_relations, discover_units
+from sysadmin.monitor.models.log_review import LogReview
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
-
-#: The severities the trend covers.  Wider than the alert family's
-#: ``error``/``critical``, because Tier 2's question is "this *warning*
-#: appeared 400x — noise or fault?", and a severity the trend cannot see
-#: is a question it cannot answer.
-TREND_SEVERITIES = ("warning", "error", "critical")
 
 
 @router.get("/recent", response_model=LogsResponse)
@@ -120,62 +113,6 @@ async def get_errors(
     }
 
 
-@router.get("/summary")
-async def get_latest_summary(session: AsyncSession = Depends(get_db_session)):
-    """Get the latest LLM-generated log summary."""
-    query = (
-        select(LogSummary)
-        .order_by(desc(LogSummary.created_at))
-        .limit(1)
-    )
-    result = await session.execute(query)
-    summary = result.scalar_one_or_none()
-
-    if not summary:
-        return {"message": "No log summaries yet"}
-
-    return {
-        "summary": summary.summary,
-        "period_start": summary.period_start.isoformat() if summary.period_start else None,
-        "period_end": summary.period_end.isoformat() if summary.period_end else None,
-        "model_used": summary.model_used,
-        "entry_count": summary.entry_count,
-        "error_count": summary.error_count,
-        "sources": summary.sources,
-        "created_at": summary.created_at.isoformat() if summary.created_at else None,
-    }
-
-
-@router.get("/summary/history")
-async def get_summary_history(
-    limit: int = Query(default=10, le=50),
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Get past log summaries."""
-    query = (
-        select(LogSummary)
-        .order_by(desc(LogSummary.created_at))
-        .limit(limit)
-    )
-    result = await session.execute(query)
-    rows = result.scalars().all()
-
-    return {
-        "summaries": [
-            {
-                "id": str(r.id),
-                "period_start": r.period_start.isoformat() if r.period_start else None,
-                "period_end": r.period_end.isoformat() if r.period_end else None,
-                "summary": r.summary[:200] + "..." if len(r.summary) > 200 else r.summary,
-                "entry_count": r.entry_count,
-                "error_count": r.error_count,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in rows
-        ],
-        "count": len(rows),
-    }
-
 
 @router.get("/stats", response_model=LogStatsResponse)
 async def get_log_stats(
@@ -253,78 +190,8 @@ async def get_log_trends(
     cannot happen on this box — 44 groups against a cap of 2000 — and
     ``truncated`` says so rather than leaving it to be inferred.
     """
-    report = await _build_trend_report(session, days)
+    report = await build_trend_report(session, days)
     return _serialise_report(report)
-
-
-async def _build_trend_report(session: AsyncSession, days: int | None):
-    """The grouped query and the fold, shared by ``/trends`` and ``/actions``.
-
-    Factored out rather than duplicated because the advice must be
-    computed off *the same* report the trend serves — two callers running
-    two queries a moment apart could rank a signature as new on one
-    surface and established on the other, which is the kind of
-    disagreement ``COLLISION_KINDS`` lives in ``ports.py`` to prevent.
-    """
-    config = get_config().agents.log_aggregator
-    window_days = days or config.trend_window_days
-    cap = config.trend_max_groups
-
-    now = datetime.now(UTC)
-    window_start = now - timedelta(days=window_days)
-    previous_start = now - timedelta(days=window_days * 2)
-
-    grouped = await session.execute(
-        select(
-            LogEntry.source,
-            LogEntry.severity,
-            LogEntry.message,
-            func.count()
-            .filter(LogEntry.logged_at >= window_start)
-            .label("current"),
-            func.count()
-            .filter(
-                LogEntry.logged_at >= previous_start,
-                LogEntry.logged_at < window_start,
-            )
-            .label("previous"),
-            func.count().label("total"),
-            func.min(LogEntry.logged_at).label("first_seen"),
-            func.max(LogEntry.logged_at).label("last_seen"),
-        )
-        .where(LogEntry.severity.in_(TREND_SEVERITIES))
-        .group_by(LogEntry.source, LogEntry.severity, LogEntry.message)
-        .order_by(desc(func.count()))
-        # One over the cap, so hitting it is observed rather than assumed
-        # from a length that happens to equal the limit.
-        .limit(cap + 1)
-    )
-    rows = grouped.all()
-    truncated = len(rows) > cap
-
-    groups = [
-        MessageGroup(
-            source=r.source,
-            severity=r.severity,
-            message=r.message,
-            current=r.current,
-            previous=r.previous,
-            total=r.total,
-            first_seen=r.first_seen,
-            last_seen=r.last_seen,
-        )
-        for r in rows[:cap]
-    ]
-
-    return build_report(
-        groups,
-        window_days=window_days,
-        window_start=window_start,
-        previous_start=previous_start,
-        generated_at=now,
-        coverage=await _trend_coverage(session, previous_start, window_days),
-        truncated=truncated,
-    )
 
 
 @router.get("/actions", response_model=LogActionsResponse)
@@ -348,7 +215,7 @@ async def get_log_actions(
     third outing.
     """
     config = get_config().agents.log_aggregator
-    report = await _build_trend_report(session, days)
+    report = await build_trend_report(session, days)
     declared = {(n.source, n.signature) for n in config.known_noise}
 
     return {
@@ -375,138 +242,13 @@ async def get_log_actions(
                 ],
             }
             for r in recommend(
-                report, declared, _log_source_scopes(), _unit_relations()
+                report, declared, log_source_scopes(), unit_relations()
             )
         ],
         "confidence": str(report.confidence),
         "window_days": report.window_days,
         "generated_at": report.generated_at.isoformat(),
         "declared_noise": len(declared),
-    }
-
-
-async def _trend_coverage(
-    session: AsyncSession, since: datetime, window_days: int
-) -> WindowCoverage:
-    """How thoroughly the agent polled across both windows.
-
-    ``runs_expected`` is derived from the live poll interval rather than
-    written down, so changing the interval moves it without anyone having
-    to remember — ``JOB_CONFIG_PATHS``'s rule, one domain over.
-
-    A run counts as truncated when it reported any source at its read
-    ceiling.  That is the field that decides confidence, because it is
-    the only one that means data was actually lost: a merely missed poll
-    is caught up by the journal cursor on the next one.
-
-    ``runs_instrumented`` counts the runs that *could* have said so, and
-    it is the denominator rather than ``runs_observed``.
-    ``details['truncated_sources']`` first appears on the run at
-    2026-08-12 17:31; runs before it have no such key, so
-    ``details->>'truncated_sources'`` is NULL and ``NULL <> '[]'`` is
-    NULL — they are correctly excluded from the numerator and would be
-    wrongly included in the denominator.  Measured 2026-08-17 that is
-    120 of 7,000 rather than 120 of 17,730, and the two differ by 2.5x.
-    ``.has_key`` rather than ``IS NOT NULL`` because a stored JSON
-    ``null`` is still a run that reported.
-    """
-    agent_config = get_config().agents.log_aggregator
-    result = await session.execute(
-        select(
-            func.count().label("runs"),
-            func.count()
-            .filter(
-                AgentRun.details["truncated_sources"].as_string() != "[]",
-            )
-            .label("truncated"),
-            func.count()
-            .filter(AgentRun.details.has_key("truncated_sources"))
-            .label("instrumented"),
-        ).where(
-            AgentRun.agent == "log_aggregator",
-            AgentRun.started_at >= since,
-        )
-    )
-    row = result.one()
-    interval = max(1, agent_config.poll_interval_seconds)
-    expected = int(window_days * 2 * 86400 / interval)
-    return WindowCoverage(
-        runs_observed=row.runs or 0,
-        runs_expected=expected,
-        runs_truncated=row.truncated or 0,
-        runs_instrumented=row.instrumented or 0,
-    )
-
-
-def _log_source_scopes() -> dict[str, bool]:
-    """Unit name -> is it a user unit, from ``services.yaml``.
-
-    Read here rather than in :mod:`sysadmin.monitor.log_actions` so that
-    module stays pure.  Keyed on ``unit`` rather than the source's
-    ``name``, because ``log_entries.source`` stores the unit — the two
-    differ for most entries (``alfred`` vs ``alfred-backend.service``)
-    and keying on the wrong one silently yields an empty map, which reads
-    as "every source is a system unit".
-    """
-    return {
-        source.unit: bool(source.user)
-        for source in log_sources(get_services())
-        if source.unit
-    }
-
-
-def _unit_relations() -> dict[str, frozenset[str]]:
-    """Source unit -> the units systemd declares it is related to.
-
-    The declared dependency graph ``GET /api/logs/actions`` uses to tell
-    one incident from two (``SNAG-LOG-001``).  Read here for the reason
-    :func:`_log_source_scopes` is read here — the pure module must not
-    open files — and read **per request** for the reason that function
-    already re-reads ``services.yaml`` per request: this endpoint is
-    computed live and never served from storage, so its inputs are read
-    live too.
-
-    Three rules:
-
-    1. **The scope resolution happens here, because this is where scope
-       is known.**  ``log_entries.source`` is a bare unit name with no
-       scope in it, and ``deadlock-api-ingest.service`` is installed in
-       **both** scopes on this box running two different binaries.
-       ``services.yaml`` is the only thing that says which one a log
-       source means, so the graph is flattened to plain names *after*
-       being filtered to each source's own scope — never before.
-
-    2. **It reads unit files rather than the stored sweep, deliberately
-       departing from ``estate/agent.py``'s precedent.**  That module
-       reads the sweep's port attribution instead of running ``ss``
-       itself, because two ``ss`` calls at two moments give two answers
-       about live kernel state with neither surface saying which it
-       used.  A unit file is not live state — it is a document that
-       changes when someone edits it — so re-reading it is not a second
-       observation of a moving target.  Taking the six-hourly sweep's
-       copy would instead mean a unit installed this morning does not
-       correlate until this evening, and fails *silently* when it
-       doesn't.
-
-    3. **Every failure is empty, never partial-and-unreported.**  An
-       unreadable directory yields no relations, which costs
-       cross-unit grouping and leaves same-unit grouping working —
-       today's behaviour, which is the safe direction.
-    """
-    config = get_config().agents.service_discovery
-    units, _ = discover_units(
-        config.user_unit_dir, config.system_unit_dir, str(Path.home())
-    )
-    graph = declared_relations(units)
-    scopes = {
-        source.unit: ("user" if source.user else "system")
-        for source in log_sources(get_services())
-        if source.unit
-    }
-    return {
-        unit: graph[(scope, unit)]
-        for unit, scope in scopes.items()
-        if (scope, unit) in graph
     }
 
 
@@ -562,6 +304,65 @@ def _serialise_report(report) -> dict:
         "truncated": report.truncated,
         "groups_read": report.groups_read,
     }
+
+
+def _review_payload(review: LogReview) -> dict:
+    return {
+        "generated_at": (
+            review.generated_at.isoformat() if review.generated_at else None
+        ),
+        "period_days": review.period_days,
+        "narrative": review.narrative,
+        "llm_used": review.llm_used,
+        "model_used": review.model_used,
+        "confidence": review.confidence,
+        "stats": review.stats,
+    }
+
+
+@router.get("/review", response_model=LogReviewResponse)
+async def get_log_review(session: AsyncSession = Depends(get_db_session)):
+    """The latest stored weekly log review (Session 27, Tier 3).
+
+    **Read back rather than computed live**, which is the opposite call
+    from its two neighbours on this router and is the right one for the
+    opposite reason.  ``/trends`` and ``/actions`` recompute because a
+    stored answer would be stale and because the computation is 91 ms.
+    A narrative costs a GPU generation measured in minutes, cannot be
+    produced inside a request, and is *about* a period rather than about
+    now — so it is written weekly and served as written.
+
+    404 is "no review has been generated yet", which is why
+    ``log_reviews`` is in ``KEEP_LATEST_PER``: a purge that emptied the
+    table would turn "none lately" into "none ever".
+    """
+    result = await session.execute(
+        select(LogReview).order_by(desc(LogReview.generated_at)).limit(1)
+    )
+    review = result.scalars().first()
+    if review is None:
+        raise HTTPException(status_code=404, detail="No log review generated yet")
+    return _review_payload(review)
+
+
+@router.post(
+    "/review/generate",
+    response_model=LogReviewResponse,
+    dependencies=[Depends(require_auth)],
+)
+async def generate_log_review(session: AsyncSession = Depends(get_db_session)):
+    """Generate a log review now.  Authenticated; the LLM is optional.
+
+    Returns 404 when the trend holds no signatures at all — nothing was
+    observed, which is not the same as nothing happening and must not be
+    served as an empty review.
+    """
+    review = await log_review_module.generate_review(session)
+    if review is None:
+        raise HTTPException(status_code=404, detail="No log data to review")
+    payload = _review_payload(review)
+    await session.commit()
+    return payload
 
 
 @router.get("/{source}")

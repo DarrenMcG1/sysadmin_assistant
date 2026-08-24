@@ -64,7 +64,7 @@ from sysadmin.core.config import get_config
 from sysadmin.core.database import get_scheduler_session
 from sysadmin.core.models.alert import Alert
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
-from sysadmin.monitor.models.log_summary import LogSummary
+from sysadmin.monitor.models.log_entry import LogEntry
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.services import SKIPPED
 
@@ -110,12 +110,14 @@ async def generate_briefing_data(session: AsyncSession) -> dict[str, Any]:
     }
 
 
-def _period(now: datetime) -> dict[str, str]:
-    """The span this briefing reports on: since the previous scheduled one.
+def _period_start(now: datetime) -> datetime:
+    """The most recent scheduled briefing boundary at or before ``now``.
 
-    ``anchor`` is in the payload because the alternative reading — since
-    the previous *pull* — is the one a consumer would otherwise assume,
-    and the two differ by however often it happens to poll.
+    Extracted from :func:`_period` when ``_gather_logs`` began counting
+    over the same span the envelope declares.  A second boundary
+    computed beside this one is two statements of one fact that can
+    disagree, and the disagreement would be invisible: the payload would
+    declare a window and carry a count taken over a different one.
     """
     schedules = get_config().schedules
     local = now.astimezone()
@@ -127,9 +129,18 @@ def _period(now: datetime) -> dict[str, str]:
     )
     if boundary > local:
         boundary -= timedelta(days=1)
+    return boundary.astimezone(UTC)
 
+
+def _period(now: datetime) -> dict[str, str]:
+    """The span this briefing reports on: since the previous scheduled one.
+
+    ``anchor`` is in the payload because the alternative reading — since
+    the previous *pull* — is the one a consumer would otherwise assume,
+    and the two differ by however often it happens to poll.
+    """
     return {
-        "from": boundary.astimezone(UTC).isoformat(),
+        "from": _period_start(now).isoformat(),
         "to": now.isoformat(),
         "anchor": "schedule",
     }
@@ -143,6 +154,7 @@ def _period(now: datetime) -> dict[str, str]:
 async def _gather(session: AsyncSession, now: datetime) -> dict[str, Any]:
     """Run every query the briefing needs, once each."""
     from sysadmin.files.models.disk_review import DiskReview
+    from sysadmin.monitor.models.log_review import LogReview
 
     return {
         "services": await _gather_services(session),
@@ -150,6 +162,7 @@ async def _gather(session: AsyncSession, now: datetime) -> dict[str, Any]:
         "filesystem": await _gather_filesystem(session),
         "alerts": await _gather_alerts(session),
         "disk_review": await _gather_review(session, now, DiskReview),
+        "log_review": await _gather_review(session, now, LogReview),
     }
 
 
@@ -190,16 +203,60 @@ async def _gather_services(session: AsyncSession) -> dict[str, Any] | None:
     }
 
 
-async def _gather_logs(session: AsyncSession, now: datetime) -> LogSummary | None:
-    """The most recent overnight log summary, if one was written."""
-    query = (
-        select(LogSummary)
-        .where(LogSummary.created_at >= now - timedelta(hours=12))
-        .order_by(desc(LogSummary.created_at))
-        .limit(1)
+async def _gather_logs(session: AsyncSession, now: datetime) -> dict[str, Any]:
+    """Overnight error volume, counted live over the briefing's own period.
+
+    **It used to read the newest ``log_summaries`` row**, which was the
+    output of ``LogAggregatorAgent.summarise()`` — a method with no
+    caller anywhere.  The table has held exactly one row since
+    2026-07-24 and the twelve-hour freshness window meant this block was
+    absent from every briefing for the twenty-five days before Session
+    69, silently: ``_logs_clause`` returns ``None`` for a missing block
+    and the summary simply had one sentence fewer.
+
+    Counting here rather than restoring a producer keeps the daily and
+    the weekly halves apart, which is the split that makes both honest.
+    Volume is a *count* — cheap, exact, and meaningful every morning.
+    The narrative is a *weekly* judgement and is the "Weekly Log Review"
+    section, generated Monday off a seven-day window; asking a 3B model
+    to say something new about one night, six mornings out of seven,
+    is prose about nothing.
+
+    The window is the briefing's own period rather than a fixed twelve
+    hours, so the count and the ``period`` block in the same payload
+    cannot describe different spans.
+
+    **It never returns ``None``, and that is the half that matters.**  A
+    count query always yields a row, so the block is always present and
+    the section always renders — including at zero.  The old version
+    returned ``None`` when no summary row existed, ``_logs_clause``
+    returns ``None`` for a missing block, and the summary simply lost a
+    sentence: a quiet night and a dead producer rendered *identically*,
+    as nothing at all.  That is precisely how twenty-five days of
+    absence went unremarked.  ``ports_checked``'s rule — zero because
+    clean must never be served as the same answer as zero because
+    blind — and here the two are told apart by ``entries``.
+    """
+    since = _period_start(now)
+    result = await session.execute(
+        select(
+            func.count().label("entries"),
+            func.count()
+            .filter(LogEntry.severity.in_(("error", "critical")))
+            .label("errors"),
+            func.count(func.distinct(LogEntry.source)).label("sources"),
+        ).where(LogEntry.logged_at >= since)
     )
-    result = await session.execute(query)
-    return result.scalar_one_or_none()
+    row = result.one()
+    return {
+        "entries": row.entries or 0,
+        "errors": row.errors or 0,
+        "sources": row.sources or 0,
+        # Counted at request time over a declared window, so the honest
+        # stamp is now: unlike an audit row, there is no earlier moment
+        # at which this was measured.
+        "measured_at": _iso(now),
+    }
 
 
 async def _gather_filesystem(session: AsyncSession) -> dict[str, Any] | None:
@@ -332,14 +389,7 @@ def build_facts(gathered: dict[str, Any], now: datetime) -> dict[str, Any]:
             "measured_at": services["measured_at"],
         }
 
-    logs = gathered["logs"]
-    if logs is not None:
-        facts["logs"] = {
-            "entries": logs.entry_count,
-            "errors": logs.error_count,
-            "sources": len(logs.sources or []),
-            "measured_at": _iso(logs.created_at),
-        }
+    facts["logs"] = dict(gathered["logs"])
 
     filesystem = gathered["filesystem"]
     if filesystem:
@@ -353,8 +403,13 @@ def build_facts(gathered: dict[str, Any], now: datetime) -> dict[str, Any]:
         "by_severity": alerts["by_severity"],
     }
 
+    # Reviews sit outside the staleness check on purpose: they are
+    # weekly, so "older than 26 hours" is their normal state for six
+    # mornings out of seven and flagging it would train the reader to
+    # ignore the one line that means something.
     facts["reviews"] = {
         "disk": _iso(getattr(gathered["disk_review"], "generated_at", None)),
+        "logs": _iso(getattr(gathered["log_review"], "generated_at", None)),
     }
 
     facts["stale_sources"] = _stale_sources(facts, now)
@@ -460,8 +515,18 @@ def _filesystem_clause(facts: dict[str, Any] | None) -> str | None:
 
 
 def _logs_clause(facts: dict[str, Any] | None) -> str | None:
+    """Say what the night held — and say when nothing was read at all.
+
+    Three outcomes, not two.  No entries is a statement about the
+    *aggregator*, not about the box: a night that produced no log line
+    on a machine running fourteen declared sources means the ingest
+    stopped, and reporting it as "no errors" is the reassuring version
+    of a fault.
+    """
     if not facts or facts.get("errors") is None:
         return None
+    if not facts.get("entries"):
+        return "No log entries were ingested overnight — the aggregator read nothing."
     errors = facts["errors"]
     if not errors:
         return "No errors in the overnight logs."
@@ -517,11 +582,20 @@ def render_sections(gathered: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
 
+    # Unconditional, unlike every other section here: a count is always
+    # available and zero is an answer.  See :func:`_gather_logs`.
     logs = gathered["logs"]
-    if logs is not None:
-        sections.append(
-            {"title": "Overnight Log Summary", "type": "text", "data": logs.summary}
-        )
+    sections.append(
+        {
+            "title": "Overnight Logs",
+            "type": "metrics",
+            "data": {
+                "Entries": logs["entries"],
+                "Errors": logs["errors"],
+                "Sources": logs["sources"],
+            },
+        }
+    )
 
     filesystem = gathered["filesystem"]
     if filesystem:
@@ -535,6 +609,12 @@ def render_sections(gathered: dict[str, Any]) -> list[dict[str, Any]]:
                     if key != "measured_at"
                 },
             }
+        )
+
+    log_review = gathered["log_review"]
+    if log_review is not None:
+        sections.append(
+            {"title": "Weekly Log Review", "type": "text", "data": log_review.narrative}
         )
 
     disk_review = gathered["disk_review"]

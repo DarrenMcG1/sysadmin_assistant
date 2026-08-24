@@ -27,6 +27,7 @@ TABLE_TIMESTAMP_MAP = {
     "resource_snapshots": "recorded_at",
     "log_entries": "ingested_at",
     "log_summaries": "created_at",
+    "log_reviews": "generated_at",
     "alerts": "created_at",
     "project_snapshots": "scanned_at",
     "filesystem_audits": "scanned_at",
@@ -71,6 +72,7 @@ KEEP_LATEST_PER: dict[str, str | None] = {
     "filesystem_audits": "scan_root",
     "project_reviews": WHOLE_TABLE,
     "disk_reviews": WHOLE_TABLE,
+    "log_reviews": WHOLE_TABLE,
 }
 
 

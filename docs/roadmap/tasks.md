@@ -1982,7 +1982,7 @@ judgement, not volume.
 ignore known bulk-commit subjects, or weight staleness by commits that
 touched source rather than by the last commit date.
 
-### ✅ Session 27: Log aggregator tiers — Tiers 1 and 2 done 2026-08-17
+### ✅ Session 27: Log aggregator tiers — complete 2026-08-24 (all three)
 
 Thinnest of the four, and it was deliberately coupled to `SNAG-AGENT-002`
 because error **signature fingerprinting** was the fix for both. **That
@@ -2044,9 +2044,89 @@ paper.
       2,170 lines with the flag, 1 without), and a `--grep` on the
       normalised signature, whose `N` placeholders match no real line.
       Fixed and re-verified by executing them
-- [ ] **Tier 3** is half-built: the overnight LLM log summary already runs
-      in the briefing. Extend rather than duplicate — **deferred**, and it
-      is now the whole of what remains of Session 27
+- [x] **Tier 3** — `GET /api/logs/review`, `POST /api/logs/review/generate`,
+      a Monday 05:15 job and a "Weekly Log Review" briefing section, off a
+      new `log_reviews` table (migration 013). **Done 2026-08-24 by
+      Session 69, and this row's own premise was false.** It said the
+      overnight LLM summary "already runs in the briefing"; measured,
+      `LogAggregatorAgent.summarise()` had **no caller anywhere** — not in
+      production, the scheduler or a test — `log_summaries` held **one
+      row** dated 2026-07-24, and the briefing's 12-hour freshness window
+      meant the section had been absent from every briefing for 25 days.
+      So "extend rather than duplicate" was not available: there was
+      nothing running to extend
+- [x] **The dead producer is the argument against extending it.** Its one
+      row covered **29 seconds** (13:16:47 → 13:17:16), because its window
+      was the newest 100 rows and the box was mid-Bluetooth-storm, and it
+      reported `entry_count = error_count = 100` — both the query's own
+      `LIMIT`. Handed a hundred raw timestamped lines it answered "1.
+      Repeated failures 2. Pattern of failures" plus the invented rate
+      "every 1-2 seconds". There is no edit that makes that a Tier 3,
+      because the direction of flow *is* the design. `summarise()`,
+      `SUMMARISE_PROMPT_SYSTEM`, `summarise_with_llm` and the two
+      `/api/logs/summary*` routes are gone; `log_summaries` is left
+      **frozen** rather than dropped, the treatment ADR-0005 gave
+      `project_snapshots`
+- [x] **Built on the recommendations, not the trend** — Session 23's
+      choice, for a sharper reason here: until 2026-08-17 one mosquitto
+      crash was **six** recommendations, so a narrative written then would
+      have described one crash six times. That is what three sittings of
+      deferral were waiting for, and it is why this tier could not have
+      been built before Session 68
+- [x] **Rule 3, which the other two Tier 3s could not have found: the
+      normalised signature may go into the prompt verbatim, because
+      normalisation is the operation that makes it figure-free.**
+      `signature()` maps every digit run to `N` — measured 2026-08-18,
+      **0 of 46 live signatures contain a digit**. The disk review had to
+      invent `KIND_PHRASES` to keep numbers away from the model; here the
+      safe form already existed and is the same string the reader matches
+      against `GET /api/logs/actions`. Still filtered through
+      `figure_free`, because `_HEX` produces `0xN` and that `0` is a
+      digit by construction — empty population today, reachable the
+      moment a driver logs an address
+- [x] **Two band edges borrowed, one invented and saying so.**
+      `RATIO_MIN_COUNT` (10) and `NOISE_MIN_OCCURRENCES` (100) are
+      already Tier 1's and Tier 2's own thresholds, so the narrative's
+      sense of "loud" cannot drift from the ranking's. `STORM_OCCURRENCES`
+      (10,000) is invented: the live counts are `1, 1, 2, 4, 6, 7, 11,
+      16, 26, 39885, 39885` — bimodal with a **1,534× gap** and nothing
+      inside it, so every value between 27 and 39,884 gives identical
+      output, which makes it safe rather than derived
+- [x] **`direction_phrase` is asymmetric, and that is the new rule.**
+      Truncation is one-directional — it drops entries, so it can only
+      make a count too low — so a *rise* is trustworthy at any
+      confidence and a *fall* is not, because a source that went quiet
+      and a source whose reads truncated produce the same smaller
+      number. Session 63 used one-directionality to justify a threshold
+      on the input; this decides what the narrative may claim on the way
+      out. Verified reaching the reader: the live generation wrote "the
+      kernel service was reported less frequently, which could be due to
+      the reading rather than the actual fault"
+- [x] **Two defects only the live LLM run found, both fixed and
+      re-verified live.** The model **invented `kernel.service`** —
+      reproducing in prose the exact `journalctl -u kernel` error Tier 2
+      removed from the emitted commands — and it nominated
+      `alfred-backend.service` and `kernel` for "look at first" although
+      neither had a recommendation, having merged the faults list with
+      the movement list. Labelling the two lists `OUTSTANDING FAULTS` and
+      `VOLUME CHANGES` and scoping each instruction to one fixed both.
+      Every fixture was green throughout
+- [x] **The overnight block is now a live count, and that is what closes
+      the mechanism that hid the defect.** `_gather_logs` counted no
+      rows; it read the newest `log_summaries` row, and `_logs_clause`
+      returns `None` for a missing block — so a quiet night and a dead
+      producer rendered *identically*, as nothing at all. It now counts
+      `log_entries` over the briefing's own period (via a `_period_start`
+      extracted so the count and the declared window cannot disagree),
+      is **unconditional**, and distinguishes three outcomes: no entries
+      at all is a statement about the aggregator, not about the box
+- [x] **2101 tests green** (+34), ruff and mypy clean. Six guards
+      falsified deliberately and **two of them failed to fail**: the band
+      test asserted `NOISE_MIN_OCCURRENCES in thresholds`, which a
+      hardcoded `100` satisfies, and the prompt-label test asserted
+      `label in prompt`, which the instructions satisfy by quoting
+      themselves. Replaced by an AST sweep and a facts-half scope
+      respectively, then re-falsified
 
 ---
 

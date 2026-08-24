@@ -1127,6 +1127,40 @@ class DiskReviewResponse(Contract):
         return {} if v is None else v
 
 
+class LogReviewResponse(Contract):
+    """GET /api/logs/review — the latest stored weekly log review.
+
+    A distinct model matching a distinct table, the call
+    :class:`DiskReviewResponse` already made for the same reason: the
+    three reviews answer different questions and their ``stats`` blobs
+    share no keys.
+
+    It carries one field its two siblings do not.  ``confidence`` is the
+    trend report's own verdict on how much of the window was actually
+    read, and it is promoted out of ``stats`` because a consumer decides
+    whether to *show* the review on it — a narrative written across a
+    truncated window reads exactly like one that was not, so the
+    qualifier must be as reachable as the prose.  ``ports_checked``'s
+    rule, fourth outing.
+
+    ``llm_used`` False means llama-server was unavailable and
+    ``narrative`` is the deterministic digest, not prose.
+    """
+
+    generated_at: str | None = None
+    period_days: int = 7
+    narrative: str = ""
+    llm_used: bool = False
+    model_used: str | None = None
+    confidence: str = "high"
+    stats: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("stats", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+
 class ProjectHistoryPoint(Contract):
     """One point of the ``history`` list from GET /api/projects/{name}.
 

@@ -32,42 +32,74 @@
 > Session 39's ban is asymmetric), so the entry is worth re-reading
 > before anyone fixes the estate judge the obvious way.
 >
-> **Next up**: **Session 27 Tier 3 — the log aggregator's LLM
-> narrative.** *Recommended at the close of Session 68.*
+> **Sub-session items owed before any session starts.**
+> `SNAG-LOG-010`'s two indistinguishable `noise` rows have a population
+> of zero today (both kernel signatures classify `GONE` as of
+> 2026-08-24), so nothing is pending there. The two
+> `Estate port … registry breach` rows are **still open and now `info`**
+> — re-raised 2026-08-17 20:04, below `tray.notify_min_severity`, so
+> they are silent and closing them is tidiness rather than noise
+> removal. Two minutes:
 >
-> **1. Tier 3, the last unbuilt tier in the area.** It has lost three
-> sittings running to "the stack beneath it has not been observed", and
-> that objection is now **spent**: Session 66 verified the four
-> shipped-unrun claims, Session 67 purged the data that was distorting
-> them, and Session 68 removed the last structural distortion on the
-> page. The endpoint it would narrate serves 11 rows rather than 24, and
-> every one of them is now a distinct thing. A narrative built on the
-> old page would have described one crash six times.
+> ```sql
+> UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
+>  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
+> ```
+>
+> **Next up**: **`SNAG-DB-005` — nothing applies migrations.**
+> *Recommended at the close of Session 69.*
+>
+> **1. `SNAG-DB-005`, because it has already cost an outage and will
+> again on the next sitting that writes a migration.** Session 69 found
+> `sysadmin.service` `failed` with `start-limit-hit`, dead since
+> 2026-08-23 08:39 — **23 hours** — because migration 013 was written and
+> not applied and `schema_guard` correctly refused to serve. This is
+> `SNAG-DB-001`'s cause with the guard now in the way, so the silent
+> 39-hour blackout has become a loud 23-hour outage: the better half of
+> the trade, and still an outage. It wins on *recurrence* rather than
+> severity — every future migration reproduces it, and Session 69's own
+> migration would have done so again had the restart not been attempted.
+> The work is small and the design question is real: a postflight check
+> is cheap and honest, an `ExecStartPre=` needs `sudo`, and an
+> `ExecStartPre` that *applies* rather than compares must be refused,
+> because applying a migration unattended at boot is how a bad one
+> reaches production with nobody watching.
 >
 > **2. `SNAG-LOG-009` — every emitted `journalctl` command is an hour
-> out.** Opened today by running what the new row emits. Real, cheap
-> (one `astimezone()`), and it loses on *consequence*: the error widens
-> the read in this timezone, so nothing is missed here. It becomes
-> first-ranked the day this code runs anywhere west of Greenwich, where
-> the same arithmetic points five hours late and returns nothing — which
-> is why it is filed at P2 rather than P3 despite being latent.
+> out.** Unchanged in substance and it has risen by one place because
+> Tier 3 is done. Real, cheap (one `astimezone()`), and it still loses on
+> *consequence*: in BST the error widens the read, so nothing is missed
+> on this box. It also now affects the **fallback narrative**, which
+> quotes the same commands — a second surface for the same defect, which
+> strengthens it slightly without changing its consequence. First-ranked
+> the day this code runs west of Greenwich.
 >
-> **3. `SNAG-LOG-008` — the ten raw-JSON signatures.** Loses again, and
-> by more than last sitting: Session 68 collapsed them from 10 rows to 3
-> without touching the data, and their `logged_at` is 2026-08-17, so the
-> 7-day trend window drops them by **2026-08-24** whatever anyone does.
-> Spending a sitting on something that is both shrinking and expiring
-> ranks below both of the above.
+> **3. `SNAG-LOG-010` — two identical `noise` titles.** New today, and it
+> loses on population: both eligible signatures went `GONE` on
+> 2026-08-24 as the Bluetooth storm ended, so the endpoint serves no
+> `noise` rows at all and a fix could not be verified against anything.
+> It returns with the next storm. Note this is `SNAG-AGENT-005`'s own
+> rule left unapplied one module over — the signature was moved *into*
+> the alert title for exactly this reason and the advice endpoint never
+> got the same treatment.
 >
-> **Blocked or waiting on another repository.** `SNAG-ESTATE-002` and
+> **`SNAG-LOG-008` has expired rather than been fixed.** Its rows'
+> `logged_at` is 2026-08-17 and the 7-day trend window reached them
+> today, so they are out of the population — which Session 68 predicted
+> to the day. It is *not* closed: the underlying fact (this daemon writes
+> one-line JSON records, so its signatures are ~250 characters) recurs
+> the next time it logs an error. Session 69 bounded the consequence
+> rather than the cause, capping the signature at
+> `SIGNATURE_DETAIL_CHARS` where it reaches a prompt.
+>
+> **Blocked or waiting on another repository.** `SNAG-LOG-012` is new and
+> **delegated** — `strip_markdown` lives in `estate-lib`, and patching it
+> from here would be the copy that drifts. `SNAG-ESTATE-002` and
 > `SNAG-ESTATE-004` remain estate-manager's; `SNAG-ESTATE-006` and
 > `SNAG-ESTATE-007` are delegated and unchanged. `SNAG-ESTATE-001`'s
-> remaining half is a **retirement checklist** — a process, and the entry
-> says in writing it is not this repository's to enforce, so it is named
-> rather than ranked. `SNAG-LOG-006` still has a **population of zero**:
-> a manual run must fail before it can be observed at all.
-> `SNAG-UNITS-006`, opened today, is the same shape — no unit the sweep
-> sees has a drop-in, so there is nothing to verify a fix against.
+> remaining half is a retirement checklist the entry says in writing is
+> not this repository's to enforce. `SNAG-LOG-006` and `SNAG-UNITS-006`
+> both still have a **population of zero**.
 
 ---
 
@@ -76,14 +108,14 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Backend | 🟢 Complete | FastAPI + 5 agents + scheduler + DB |
-| API | 🟢 Complete | **46 routes** across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
-| Database | 🟢 Complete | 13 tables in sysadmin schema, Alembic migrations (head **012**, applied 2026-08-13) |
+| API | 🟢 Complete | **46 routes** *(re-counted live 2026-08-24: unchanged, because Session 69 removed `/api/logs/summary` and `/summary/history` and added `/api/logs/review` and `/review/generate`)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
+| Database | 🟢 Complete | **14 tables** in sysadmin schema (15 counting `alembic_version`; counted live 2026-08-24), Alembic migrations (head **013**, applied 2026-08-24 — `log_reviews`). *Three of the 14 are **frozen**: `project_snapshots` and `project_reviews` since ADR-0005, and `log_summaries` since Session 69 deleted its producer. Dropping all three is one follow-up migration* |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2067 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, smoke script |
+| Testing | 🟢 Complete | **2101 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -91,6 +123,72 @@
 ---
 
 ## Recently Completed
+
+### The weekly log review, and a premise that was false (2026-08-24)
+
+**Session 27 is complete.** Tier 3 is `sysadmin/monitor/log_review.py`,
+`GET /api/logs/review`, `POST /api/logs/review/generate`, a Monday 05:15
+job, a "Weekly Log Review" briefing section and a `log_reviews` table
+(migration 013). The first review is stored: `llm_used: true`,
+`confidence: medium`, all ten input keys in `stats`, and **zero figures
+produced by the model**.
+
+**The row that described this tier was wrong, which is the finding.** It
+said the overnight LLM summary "already runs in the briefing — extend
+rather than duplicate". Measured: `LogAggregatorAgent.summarise()` had
+**no caller anywhere**, `log_summaries` held **one row** dated
+2026-07-24, and the 12-hour freshness window meant the section had been
+absent from every briefing for **25 days**. There was nothing to extend.
+The single row is the argument: it covered **29 seconds**, reported
+`entry_count = error_count = 100` (both the query's `LIMIT`), and
+answered a hundred raw log lines with "1. Repeated failures 2. Pattern of
+failures" plus the invented rate "every 1-2 seconds".
+
+**Rule 3 is this tier's own, and the other two Tier 3s could not have
+found it: the normalised signature may go into the prompt verbatim,
+because normalisation is the operation that makes it figure-free.**
+`signature()` maps every digit run to `N` — **0 of 46 live signatures
+contain a digit**. The disk review had to invent `KIND_PHRASES`; here the
+safe form already existed and is the same string the reader matches
+against `GET /api/logs/actions`. `_HEX` produces `0xN`, whose `0` is a
+digit by construction, so it is still filtered.
+
+**`direction_phrase` is asymmetric.** Truncation only ever lowers a
+count, so a rise is trustworthy at any confidence and a fall is not —
+Session 63's one-directionality argument deciding what the narrative may
+*claim* rather than what the input threshold may be. Verified reaching
+the reader: the live generation wrote "the kernel service was reported
+less frequently, which could be due to the reading rather than the actual
+fault".
+
+**Two defects only the live LLM run found**, both fixed and re-verified:
+the model **invented `kernel.service`**, reproducing in prose the exact
+`journalctl -u kernel` error Tier 2 removed from the emitted commands;
+and it nominated two services for "look at first" that had no
+recommendation, having merged the faults list with the movement list.
+Every fixture was green throughout.
+
+**The briefing's overnight block is a live count now**, and that closes
+the mechanism that hid the defect: `_logs_clause` returns `None` for a
+missing block, so a quiet night and a dead producer rendered identically
+as nothing at all. It is unconditional and tells three outcomes apart —
+no entries at all is a statement about the aggregator, not the box.
+
+**2101 tests green** (+34). Six guards falsified deliberately and **two
+failed to fail**: a band test asserting `NOISE_MIN_OCCURRENCES in
+thresholds`, which a hardcoded `100` satisfies, and a prompt-label test
+asserting `label in prompt`, which the instructions satisfy by quoting
+themselves. Replaced by an AST sweep and a facts-half scope, then
+re-falsified.
+
+**Four snags opened, and one is a P1 that had already cost an outage.**
+`SNAG-DB-005`: the daemon was `failed` with `start-limit-hit`, dead since
+2026-08-23 08:39 — 23 hours — because a migration was written and not
+applied. `schema_guard` did its job; nothing on this box applies
+migrations. Also `SNAG-LOG-010` (two `noise` titles indistinguishable),
+`SNAG-LOG-011` (a deleted route still answering 200 behind the
+`/{source}` catch-all) and `SNAG-LOG-012` (`strip_markdown` leaves inline
+backticks — estate-lib's, delegated).
 
 ### One incident, one recommendation — SNAG-LOG-001 closed (2026-08-18)
 

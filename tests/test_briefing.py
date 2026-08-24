@@ -3,14 +3,20 @@
 DB access is mocked at the session level (same pattern as
 tests/test_routers.py); psutil and the notifier are patched.  ``_gather``
 runs its queries in a fixed order — services, logs, filesystem, alerts,
-then the disk review — so ``session.execute`` uses ``side_effect`` to
-feed each one its result.
+then the disk review and the log review — so ``session.execute`` uses
+``side_effect`` to feed each one its result.
 
 The project sections left with the scanner at the Session 4 cutover
 (ADR-0005): "Project Health", "Pick This Up" and "Weekly Project Review"
 are the estate producer's to test now.  What remains here is the machine
 half — Infrastructure, Overnight Logs, Filesystem, Weekly Disk Review —
-and the alert digest.
+and the alert digest, which gained a "Weekly Log Review" alongside the
+disk one in Session 69.
+
+The overnight log block changed shape in the same sitting.  It used to
+be the newest ``log_summaries`` row — the output of a producer nothing
+called — and is now a live count over the briefing's own period, so its
+fixture is a grouped row rather than an ORM object.
 """
 
 from contextlib import asynccontextmanager
@@ -28,12 +34,21 @@ from sysadmin.briefing.data import (
     summarise,
 )
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
-from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.models.service_health import ServiceHealth
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _section(briefing, title):
+    """Pick a section by title.
+
+    Positional unpacking was fine while every section was conditional on
+    its own data.  Session 69 made "Overnight Logs" unconditional, so a
+    test that wants the infrastructure block has to say so.
+    """
+    return next(s for s in briefing["sections"] if s["title"] == title)
 
 
 def _result_all(rows):
@@ -48,16 +63,22 @@ def _result_one(row):
     return result
 
 
+def _result_row(row):
+    """A single grouped row — ``.one()``, not ``.scalar_one_or_none()``."""
+    result = MagicMock()
+    result.one.return_value = row
+    return result
+
+
 def _service(name: str, status: str = "ok", details: dict | None = None) -> ServiceHealth:
     row = ServiceHealth(service_name=name, status=status, details=details or {})
     row.checked_at = datetime.now(UTC)
     return row
 
 
-def _log_summary(text: str = "All quiet overnight.") -> LogSummary:
-    row = LogSummary(summary=text)
-    row.created_at = datetime.now(UTC)
-    return row
+def _log_counts(entries: int = 12, errors: int = 3, sources: int = 2):
+    """The grouped row ``_gather_logs`` counts, not an ORM object."""
+    return SimpleNamespace(entries=entries, errors=errors, sources=sources)
 
 
 def _audit(days_old: int = 0) -> FilesystemAudit:
@@ -80,6 +101,16 @@ def _disk_review(narrative: str = "Disk held steady.", days_old: int = 0):
     from sysadmin.files.models.disk_review import DiskReview
 
     row = DiskReview(period_days=7, narrative=narrative, llm_used=True)
+    row.generated_at = datetime.now(UTC) - timedelta(days=days_old)
+    return row
+
+
+def _log_review(narrative: str = "Nothing new broke.", days_old: int = 0):
+    from sysadmin.monitor.models.log_review import LogReview
+
+    row = LogReview(
+        period_days=7, narrative=narrative, llm_used=True, confidence="high"
+    )
     row.generated_at = datetime.now(UTC) - timedelta(days=days_old)
     return row
 
@@ -110,6 +141,7 @@ def _session_returning(
     filesystem,
     disk_review=None,
     alerts=None,
+    log_review=None,
 ):
     """Mock session whose execute() feeds each gather step in order.
 
@@ -124,10 +156,11 @@ def _session_returning(
     session.execute = AsyncMock(
         side_effect=[
             _result_all(infra),
-            _result_one(log),
+            _result_row(log if log is not None else _log_counts(0, 0, 0)),
             _result_one(filesystem),
             _result_rows(alerts or []),
             _result_first(disk_review),
+            _result_first(log_review),
         ]
     )
     return session
@@ -143,7 +176,7 @@ class TestGenerateBriefingData:
     async def test_all_sections_present_when_data_exists(self):
         session = _session_returning(
             infra=[_service("postgres"), _service("redis")],
-            log=_log_summary(),
+            log=_log_counts(),
             filesystem=_audit(),
         )
 
@@ -156,15 +189,25 @@ class TestGenerateBriefingData:
         titles = [s["title"] for s in briefing["sections"]]
         assert titles == [
             "Infrastructure Status",
-            "Overnight Log Summary",
+            "Overnight Logs",
             "Filesystem",
         ]
 
     @pytest.mark.asyncio
-    async def test_empty_database_yields_no_sections(self):
+    async def test_empty_database_yields_only_the_log_count(self):
+        """Zero is an answer, and it is the one that was going missing.
+
+        Every other section is conditional on its source having data.
+        The log block is not: a count query always returns a row, so a
+        night that ingested nothing renders as nothing-ingested rather
+        than as no section at all.  The old behaviour is what let this
+        block vanish from every briefing for twenty-five days without
+        anybody noticing.
+        """
         session = _session_returning(infra=[], log=None, filesystem=None)
         briefing = await generate_briefing_data(session)
-        assert briefing["sections"] == []
+        assert [s["title"] for s in briefing["sections"]] == ["Overnight Logs"]
+        assert briefing["sections"][0]["data"]["Entries"] == 0
 
     @pytest.mark.asyncio
     async def test_infrastructure_section_flags_unhealthy(self):
@@ -178,22 +221,22 @@ class TestGenerateBriefingData:
         )
         briefing = await generate_briefing_data(session)
 
-        (infra,) = briefing["sections"]
+        infra = _section(briefing, "Infrastructure Status")
         assert infra["type"] == "status_grid"
         assert infra["data"]["all_services_healthy"] is False
         pa = next(s for s in infra["data"]["services"] if s["name"] == "pa")
         assert pa["note"] == "Connection refused"
 
     @pytest.mark.asyncio
-    async def test_log_section_carries_summary_text(self):
+    async def test_log_section_carries_the_counts(self):
         session = _session_returning(
-            infra=[], log=_log_summary("Two errors from redis."), filesystem=None
+            infra=[], log=_log_counts(entries=40, errors=2, sources=3), filesystem=None
         )
         briefing = await generate_briefing_data(session)
 
-        (log_section,) = briefing["sections"]
-        assert log_section["type"] == "text"
-        assert log_section["data"] == "Two errors from redis."
+        log_section = _section(briefing, "Overnight Logs")
+        assert log_section["type"] == "metrics"
+        assert log_section["data"] == {"Entries": 40, "Errors": 2, "Sources": 3}
 
     @pytest.mark.asyncio
     async def test_filesystem_section_metrics(self):
@@ -203,7 +246,7 @@ class TestGenerateBriefingData:
             mock_disk.return_value = MagicMock(percent=89.0)
             briefing = await generate_briefing_data(session)
 
-        (fs,) = briefing["sections"]
+        fs = _section(briefing, "Filesystem")
         assert fs["type"] == "metrics"
         assert fs["data"]["disk_used_percent"] == 89.0
         assert fs["data"]["reclaimable_mb"] == 1234
@@ -218,7 +261,7 @@ class TestGenerateBriefingData:
         ):
             briefing = await generate_briefing_data(session)
 
-        (fs,) = briefing["sections"]
+        fs = _section(briefing, "Filesystem")
         assert fs["data"]["disk_used_percent"] is None
 
 
@@ -529,7 +572,7 @@ class TestBuildFacts:
                 "items": [{"name": "a", "status": "ok"}, {"name": "b", "status": "down"}],
                 "measured_at": datetime.now(UTC).isoformat(),
             },
-            "logs": None,
+            "logs": {"entries": 0, "errors": 0, "sources": 0, "measured_at": None},
             "filesystem": None,
             "alerts": {
                 "items": [],
@@ -539,6 +582,7 @@ class TestBuildFacts:
                 "by_severity": {"critical": 0, "warning": 0, "info": 0},
             },
             "disk_review": None,
+            "log_review": None,
         }
         facts = build_facts(gathered, datetime.now(UTC))
 
@@ -591,6 +635,6 @@ class TestSkippedServices:
         )
         briefing = await generate_briefing_data(session)
 
-        (infra,) = briefing["sections"]
+        infra = _section(briefing, "Infrastructure Status")
         assert infra["data"]["all_services_healthy"] is True
         assert briefing["summary"].startswith("All 1 services healthy.")
