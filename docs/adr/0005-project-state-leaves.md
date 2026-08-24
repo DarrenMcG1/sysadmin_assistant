@@ -37,10 +37,23 @@
   the estate.
 - **`project_snapshots` and `project_reviews` history** — copied once
   into database `estate` so streak and momentum series survived the
-  cutover. The tables here are **frozen**: nothing writes them, the
-  retention purge will thin them, and dropping them (plus their
-  `metadata.py` rows, the retention entry, and migration references) is
-  this repository's follow-up once the estate side has settled.
+  cutover. The tables here were **frozen**, and the follow-up this
+  paragraph named was **carried out on 2026-08-24 by migration 014**,
+  which dropped both (and `log_summaries`) with their `metadata.py`
+  exclusions, their retention rows and their `TABLE_TIMESTAMP_MAP`
+  entries.
+
+  Two things the follow-up settled that this ADR had left open. The copy
+  was verified before the drop rather than trusted: compared on
+  `(project_name, scanned_at)`, the estate holds **4,155** snapshots
+  reaching back to **2026-05-10** against this schema's 3,447 from
+  2026-05-20, and the only 26 rows it lacked — the final sweep at
+  `2026-08-13 07:35:03` — are superseded by the estate's own next scan
+  **43 seconds later**, in which all 26 projects appear. And *"the
+  retention purge will thin them"* turned out to be the argument against
+  waiting rather than for it: the purge deleted 292 of these rows
+  between 2026-08-16 and the drop, so every sitting that deferred this
+  lost history it believed it was preserving.
 - **`sysadmin-organiser`** (console script, service, timer) — retired;
   `estate-manager-scan.timer` holds the 04:30 slot now. The weekly
   project review cron in `main.py` went with it; the disk review stays.

@@ -4,8 +4,8 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and one sub-session action is.** `sysadmin` was
-> restarted at **2026-08-24 21:52:06**, `/health` answers `200`,
-> `alembic current` reads **013 (head)**, and `alerts` holds **2**
+> restarted at **2026-08-24 22:15:09**, `/health` answers `200`,
+> `alembic current` reads **014 (head)**, and `alerts` holds **2**
 > unresolved rows. **This block is now re-measured rather than re-read**:
 > `./scripts/check-ops-claims.sh` re-checks every figure in it, and
 > `claude-preflight.sh` runs it at the top of every sitting. Do not
@@ -27,41 +27,36 @@
 > `tray.notify_min_severity`. Do not reach into the estate to force a
 > rescan — its scan is its own.
 >
-> **Next up**: **drop the three frozen tables — one migration, and the
-> first debt this repository can now verify by machine.**
-> *Recommended at the close of Session 73.*
+> **Next up**: **`SNAG-LOG-011` — a deleted route still answers `200`.**
+> *Recommended at the close of Session 74.*
 >
-> **1. `project_snapshots`, `project_reviews` and `log_summaries`, in one
-> migration.** Unblocked, bounded, and the only ranked item whose cost is
-> being paid *today* rather than on the day something goes wrong: four
-> mechanisms carry those three tables — a `retention_config` row, a
-> `TABLE_TIMESTAMP_MAP` entry, `metadata.py`'s `FROZEN_TABLES` exclusion
-> and the drift guard that borrows it — and nothing has written any of
-> them since 2026-08-13 (the first two) or Session 69 (the third).
-> ADR-0005 names the migration as the follow-up. It also forces
-> `SNAG-DOCS-002`'s decision at the moment it is cheapest, since the
-> contract models nothing reads are the same domain's. And it is the
-> first structural change this repository can check rather than assert:
-> the table count moves **14 → 11**, `sysadmin-check-claims` says whether
-> the Quick Status row followed, and `sysadmin-check-schema` blocks the
-> commit if the migration is written and not applied — the two failures
-> `SNAG-DB-001` and `SNAG-DB-005` are made of.
->
-> **2. `SNAG-LOG-011` — a deleted route still answers `200`.**
-> Re-measured tonight and unchanged: `GET /api/logs/summary` returns
+> **1. `SNAG-LOG-011`.** `GET /api/logs/summary` returns
 > `{"source":"summary","entries":[],"count":0}` through the `/{source}`
 > catch-all, so a caller is told "no summaries" where it should be told
-> "gone" — `ports_checked`'s rule from the wrong side, which is this
-> sitting's whole argument arriving one router over. It loses on
-> cost-of-not-doing-it: measured, it has **no consumer**, so it is a
-> regression detector rather than a repair.
+> "gone" — `ports_checked`'s rule from the wrong side. It has been ranked
+> second for two sittings on the grounds that it has **no consumer**, and
+> that argument is weaker now than it was: Session 74 destroyed the table
+> that route was named for, so the last thing that could make its empty
+> answer look truthful is gone, and the route now describes a schema
+> object that does not exist. It wins on being the only remaining item
+> whose fix is bounded, unblocked and in one router.
 >
-> **3. `SNAG-ESTATE-011` — the block's remaining claims are prose.**
-> Opened by this sitting and **ranked third by its own argument**: the
+> **2. `SNAG-ESTATE-011` — the block's remaining claims are prose.**
+> Opened by Session 73 and **ranked below `SNAG-LOG-011` by its own
+> argument**: the
 > next move is a shape for a self-checking claim, and a marker beside the
 > prose is a second statement of one fact that can disagree with it. That
 > trade is only worth taking once somebody has written the block twice
 > under the new rule, which is two sittings away.
+>
+> **3. Trim the `agents.project_organiser` config block.** The last limb
+> of the drop task Session 74 closed, deliberately left out of it: a
+> config block pydantic validates and nothing reads, which is
+> `SNAG-CFG-001`'s shape at the size of a section. It loses to both of
+> the above because a config change fans out into the defaults tests and
+> has no live consequence at all — nothing behaves differently either
+> way, where `SNAG-LOG-011` is a live route telling a caller something
+> untrue.
 >
 > **Runners-up that lost, and why.** `SNAG-LOG-013`'s population is
 > **measured empty tonight** — `GET /api/logs/actions` serves 5 rows with
@@ -94,7 +89,7 @@
 |------|--------|-------|
 | Backend | 🟢 Complete | FastAPI + 5 agents + scheduler + DB |
 | API | 🟢 Complete | **46 routes** *(re-counted live 2026-08-24: unchanged, because Session 69 removed `/api/logs/summary` and `/summary/history` and added `/api/logs/review` and `/review/generate`)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
-| Database | 🟢 Complete | **14 tables** in sysadmin schema (15 counting `alembic_version`; counted live 2026-08-24), Alembic migrations (head **013**, applied 2026-08-24 — `log_reviews`). *Three of the 14 are **frozen**: `project_snapshots` and `project_reviews` since ADR-0005, and `log_summaries` since Session 69 deleted its producer. Dropping all three is one follow-up migration* |
+| Database | 🟢 Complete | **11 tables** in sysadmin schema (12 counting `alembic_version`; counted live 2026-08-24), Alembic migrations (head **014**, applied 2026-08-24 — dropped the three frozen tables). *Was 14. `project_snapshots`, `project_reviews` and `log_summaries` had no writer since ADR-0005 or Session 69 and are gone with their retention rows, their `TABLE_TIMESTAMP_MAP` entries and the `LogSummary` model. `FROZEN_TABLES` is now empty and deliberately kept — an entry there is a blindfold over the drift guard, so emptying it is what proves the drop rather than a new test* |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
@@ -108,6 +103,57 @@
 ---
 
 ## Recently Completed
+
+### Session 74 — the three frozen tables dropped (2026-08-24)
+
+**Migration 014.** `project_snapshots` (3,447 rows), `project_reviews`
+(4) and `log_summaries` (1) are gone, with the four mechanisms that
+carried each of them: a `retention_config` row, a
+`TABLE_TIMESTAMP_MAP` entry, the `FROZEN_TABLES` exclusion and — for
+the third — a mapped model. Table count **14 → 11**, head **013 → 014**,
+suite **2195** green, `check-ops-claims` re-run and clean.
+
+- **The blocker in `tasks.md` was wrong by four orders of magnitude.**
+  It said the 26 rows the estate's copy lacks cost "a day of history for
+  26 projects". Compared on `(project_name, scanned_at)` across both
+  databases: this schema's final sweep is `2026-08-13 07:35:03` and the
+  estate's next scan is **07:35:46** — 43 seconds — and **all 26
+  projects appear in it**. Nothing was ever missing from the estate's
+  series, so no copy was requested and none was needed.
+- **Waiting was costing the history the entry was protecting.** The same
+  entry counted 3,739 rows on 2026-08-16 against 3,447 today: the
+  `retention_config` row was thinning a frozen table on a 90-day window
+  every night. The estate holds **4,155** snapshots back to
+  **2026-05-10** against this schema's 2026-05-20 — a superset at both
+  ends.
+- **Emptying `FROZEN_TABLES` is the proof, not a tidy-up.** An entry
+  there is a *blindfold*: the drift guard compares whatever
+  `include_object` admits, so the three tables were exempt from the one
+  test that would have noticed them. Dropping them needed the set
+  emptied, not a new guard — and the constant is kept, because deleting
+  it would take `test_autogenerate_config.py`'s single-copy guard with
+  it at the moment nothing is exercising it.
+- **One new test, and one written then deleted for being a second
+  statement of one fact.** Retention's two halves fail in opposite
+  directions and only one was uncovered: a `TABLE_TIMESTAMP_MAP` entry
+  for a dropped table is **loud** and `test_purge_statements_parse`
+  already refuses it (more strongly — it also catches a wrong column), so
+  the existence check written beside it was measured against that guard
+  and removed. A `retention_config` row the map cannot resolve is
+  **silent** — skipped with no log line, purging nothing — and nothing in
+  the suite read that table at all. Falsified before the migration ran:
+  it named all three.
+- **The downgrade reproduces the schema byte for byte and cannot
+  reproduce the rows**, which the docstring says rather than leaving to
+  be discovered. Round-tripped against the live database and diffed
+  against a `pg_dump -s` taken before the drop: identical. The names are
+  interpolated rather than bound, migration 013's rule — verified by
+  rendering `alembic upgrade --sql 013:014`, where a bindparam would
+  have become `WHERE table_name = NULL` and deleted nothing.
+- **The restart was required, not cosmetic.** The daemon booted at
+  21:52:06 held the old map in memory, so its 03:00 purge would have
+  raised for three tables that no longer exist.
+
 
 ### The block that opens a sitting gets a reader (2026-08-24)
 

@@ -1355,6 +1355,17 @@ while one present only in the guard is silent — green test, and the next
 unrelated migration. Measured with the exclusion removed: `remove_table`
 for both frozen tables, against 3,739 and 4 live rows.
 
+**`FROZEN_TABLES` is empty since migration 014 and is deliberately
+kept.** An entry there is a *blindfold* over the drift guard, which
+compares whatever `include_object` admits — so dropping the three tables
+needed the set emptied rather than a new test to prove them gone, and
+every live table is mapped again. Deleting the constant with its last
+member would take this guard against the copy coming back with it, at
+the moment nothing is exercising it. A domain leaving and stranding its
+tables is a shape this estate has produced once; an entry added here must
+be paired with a *drop* entry on the roadmap, because frozen is a stage
+and not a destination.
+
 Three rules. **The flags travel with the exclusions**, because
 `compare_type` set in `env.py` and absent from the guard leaves the
 guard green while blind to the drift it certifies. **The search_path
@@ -2309,10 +2320,21 @@ weekly narrative kept for 30 days is four rows, too few to see a trend.
 `KEEP_LATEST_PER` protects the newest row per entity (`"true"` means "the
 whole table is one entity"), because a purge that emptied a review table
 would make its route 404 — which reads as "never generated" rather than
-"none lately". `project_reviews` and `project_snapshots` are still in both
-halves and are now **frozen**: nothing has written them since 2026-08-13,
-the purge thins them, and dropping them with their `metadata.py` rows and
-retention entries is the follow-up ADR-0005 records.
+"none lately".
+
+**The two halves fail in opposite directions, which is what decided how
+migration 014 dropped the three frozen tables.** A `retention_config`
+row the map cannot resolve is **silent** — `run_retention` iterates
+config rows and looks each up, so a miss is skipped with no log line and
+nothing is purged. A map entry for a table that no longer exists is
+**loud**: its `DELETE` raises every night, contained to that table by its
+savepoint. Both halves therefore move with the migration, and only the
+silent one needed a new guard — `test_purge_statements_parse` already
+refuses a map entry PostgreSQL cannot plan, and more strongly than an
+existence check, so the existence check written beside it was measured
+against the stronger guard and deleted rather than shipped as a second
+statement of one fact. Nothing in the suite had ever read
+`retention_config` itself.
 
 **The briefing envelope is additive, and `sections` is the part Alfred
 owns.** `GET /api/sysadmin/briefing/preview` carries `schema`, `period`,
@@ -2536,9 +2558,11 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
   estate-manager on 2026-08-13; `sysadmin/registry/` went to `estate-lib`
   as `estate.registry`. It records what stayed, what this repository
   gained (the judging swap), and what was left knowingly untidy —
-  including the frozen `project_snapshots` / `project_reviews` tables and
-  the `agents.project_organiser` config block that is still parsed and
-  mostly unread. Estate side: their ADR-0004 (the decision) and ADR-0008
+  including the frozen `project_snapshots` / `project_reviews` tables —
+  **dropped by migration 014 on 2026-08-24 together with
+  `log_summaries`**, the estate's copy having been verified a superset
+  first — and the `agents.project_organiser` config block that is still
+  parsed and mostly unread. Estate side: their ADR-0004 (the decision) and ADR-0008
   (the migration's shape).
 
 Guides: only **api_auth.md** (bearer-token auth setup) still lives in

@@ -2,27 +2,114 @@
 
 ## Next action
 
-Drop `project_snapshots`, `project_reviews` and `log_summaries` in one Alembic migration, removing their `retention_config` rows, their `TABLE_TIMESTAMP_MAP` entries and their `metadata.py` `FROZEN_TABLES` exclusions with them, and take `SNAG-DOCS-002`'s decision about the contract models nothing reads in the same sitting — because nothing has written any of those three tables since 2026-08-13 or Session 69, four mechanisms still carry them, and it is the first structural change this repository can verify by machine rather than assert.
+Take `SNAG-LOG-011` — `GET /api/logs/summary` still answers `200` with `{"source":"summary","entries":[],"count":0}` through the `/{source}` catch-all, telling a caller "no summaries" where it should tell them "gone", and its ranking argument is stronger than it was for two sittings because migration 014 has now destroyed the table that route was named for, so the route describes a schema object that does not exist.
 
 ## Sub-session items
 
 **One is owed, and it is a question rather than a change.** Session 33
-(seam drift detection) has been named as blocked in two consecutive
+(seam drift detection) has been named as blocked in three consecutive
 rankings without the blocking question being asked. Its second task reads
 another repository's fixture off the same disk, and cross-repo concerns
 have had an owner since 2026-08-13, so **ask estate-manager** before
 ranking it. That is a sub-hour action, not a session.
 
-**Nothing else is owed, and this is the first handoff whose ops claims are
-machine-checked.** `sysadmin` was restarted at **2026-08-24 21:52:06**,
-`/health` answers `200`, `alembic current` reads **013 (head)**, and
-`alerts` holds **2** unresolved rows — both expected (`Estate scan could
-not reach sources` clears at 03:32 when the estate's daily timer runs;
-`Weekly disk review ready` is below `tray.notify_min_severity`). Do not
-re-verify these by hand: run `./scripts/check-ops-claims.sh`, which
-`claude-preflight.sh` now runs for you at the top of every sitting.
+**Nothing else is owed.** `sysadmin` was restarted at
+**2026-08-24 22:15:09** (required, not cosmetic — see below), `/health`
+answers `200`, `alembic current` reads **014 (head)**, the sysadmin
+schema holds **11** tables, and `alerts` holds **2** unresolved rows,
+both expected. Do not re-verify these by hand: run
+`./scripts/check-ops-claims.sh`, which `claude-preflight.sh` runs for you
+at the top of every sitting, and which reported all seven checks green
+after this session's document edits.
 
-## This session — Session 73: the block that opens a sitting gets a reader
+## This session — Session 74: the three frozen tables dropped
+
+**Migration 014.** `project_snapshots` (3,447 rows), `project_reviews`
+(4) and `log_summaries` (1) are gone, together with the four mechanisms
+that carried each of them: a `retention_config` row, a
+`TABLE_TIMESTAMP_MAP` entry, the `FROZEN_TABLES` exclusion in
+`sysadmin/metadata.py`, and — for the third — the `LogSummary` model.
+Table count **14 → 11**, head **013 → 014**, suite **2195** green, ruff
+and mypy clean.
+
+### Decisions taken, and what they were taken against
+
+- **The blocker recorded in `tasks.md` was wrong by four orders of
+  magnitude, and measuring it is what unblocked this.** That entry said
+  the 26 rows the estate's copy lacks cost "a day of history for 26
+  projects", and it had held this task since 2026-08-16. Compared on
+  `(project_name, scanned_at)` across both databases: this schema's
+  final sweep is `2026-08-13 07:35:03`, the estate's next scan is
+  **07:35:46** — **43 seconds** — and **all 26 projects appear in it**.
+  Nothing was ever missing from the estate's series.
+- **Waiting was destroying the history the entry was protecting.** The
+  same entry counted **3,739** rows on 2026-08-16 and there were
+  **3,447** today: the `retention_config` row was thinning a frozen
+  table on a 90-day window every night. The estate holds **4,155**
+  snapshots back to **2026-05-10** against this schema's 2026-05-20 —
+  a superset at both ends.
+- **No copy was requested from estate-manager**, which the ADR had left
+  as the likely next step. The measurement showed there was nothing to
+  copy, so the cross-repo write never became necessary.
+- **The estate's database was read once, by hand, and never from code.**
+  That comparison is the first estate rule's business, so it was done
+  from a shell by a human deciding whether to destroy data, and recorded
+  in the migration's docstring rather than left to be re-derived. The
+  migration itself performs no cross-database read.
+
+### Options rejected
+
+- **A new test asserting every mapped table still exists.** Written,
+  then measured against `test_purge_statements_parse`, which hands every
+  `TABLE_TIMESTAMP_MAP` entry to PostgreSQL as `EXPLAIN` and so already
+  refuses a dropped table — and more strongly, since it also catches a
+  wrong column and invalid SQL. Two guards for one fact is the shape
+  `sysadmin/metadata.py` exists to remove, so it was deleted. What
+  shipped is the half nothing covered: a `retention_config` row the map
+  cannot resolve is skipped **in silence**, purging nothing and saying
+  nothing, and no test in the suite had ever read that table. Falsified
+  before the migration ran — it named all three.
+- **Deleting `FROZEN_TABLES` along with its last member.** An entry
+  there is a *blindfold* over the drift guard, which compares whatever
+  `include_object` admits — so emptying it is what proves the three
+  tables are gone, and no new test was needed. Deleting the constant
+  would take `tests/test_autogenerate_config.py`'s guard against a
+  second copy with it, at exactly the moment nothing is exercising it.
+  It stays, empty, with the rule that an entry must be paired with a
+  *drop* entry on the roadmap: frozen is a stage, not a destination.
+- **Taking `SNAG-DOCS-002` in the same sitting**, which the previous
+  handoff proposed. It is a change to the tray's public surface (four of
+  the eight unread models are re-exported by `sysadmin_tray/models.py`)
+  and shares nothing mechanical with a migration. It stays open.
+
+### What is blocked or left
+
+- **The `agents.project_organiser` config block** is the last limb of
+  the drop task and was deliberately not taken with it — it is a config
+  change that fans out into the defaults tests, with no live
+  consequence either way. Added to `tasks.md` as its own entry and
+  ranked third.
+- **Nothing was found and left unfixed**, so no SNAG entry was opened
+  and none closed.
+
+### Verification, and the one thing that was required rather than tidy
+
+- **The downgrade reproduces the schema byte for byte and cannot
+  reproduce the rows**, stated in the docstring rather than left to be
+  discovered. Round-tripped against the live database and diffed against
+  a `pg_dump -s` taken before the drop: identical, including both
+  indexes, all three primary keys and all three retention rows with
+  their original windows.
+- **The names are interpolated, never bound** — migration 013's rule,
+  verified by rendering `alembic upgrade --sql 013:014`, where a
+  bindparam becomes `WHERE table_name = NULL` and deletes nothing.
+- **The restart was required.** The daemon booted at 21:52:06 held the
+  old `TABLE_TIMESTAMP_MAP` in memory, so its 03:00 purge would have
+  raised for three tables that no longer exist. `kill -TERM`, back
+  healthy in 3 s, no `sudo`, nothing above `INFO` in the journal since
+  beyond the standing `api.auth_token` warning.
+
+## Previous session — Session 73: the block that opens a sitting gets a reader
 
 **`SNAG-ESTATE-008`'s machine-checkable half fixed.** Six consecutive
 sittings had been spent on claims that had stopped being true. The
@@ -47,7 +134,7 @@ prose, with nothing between the document and the reader.
   enforcement point yet and by its own argument should wait until the
   block has been written twice under the new rule.
 
-## What the sitting found that nobody had written down
+### Session 73 — what the sitting found that nobody had written down
 
 - **The entry understated its own defect by a whole surface.** Preflight
   was not failing to *check* the sub-session block — it had never
@@ -77,39 +164,11 @@ prose, with nothing between the document and the reader.
 - **A *fall* in the alert count is the founding case**, and it is the
   direction nobody writes a rule for.
 
-## Next session — ranked
+### Session 73's ranking, kept for the record
 
-1. **Drop the three frozen tables.** Unblocked, bounded, and the only
-   ranked item whose cost is being paid today: `retention_config`,
-   `TABLE_TIMESTAMP_MAP`, `FROZEN_TABLES` and the drift guard all carry
-   tables nothing has written for eleven days or more. ADR-0005 names
-   the migration as the follow-up. The table count moves **14 → 11**,
-   which `sysadmin-check-claims` will check and `sysadmin-check-schema`
-   will block the commit over if the migration is written and not
-   applied — the two failures `SNAG-DB-001` and `SNAG-DB-005` are made
-   of, now with machinery in the way of both.
-2. **`SNAG-LOG-011` — a deleted route still answers `200`.** Re-measured
-   tonight and unchanged: `GET /api/logs/summary` returns
-   `{"source":"summary","entries":[],"count":0}` through the `/{source}`
-   catch-all. Loses on cost-of-not-doing-it — measured, it has no
-   consumer, so it is a regression detector rather than a repair.
-3. **`SNAG-ESTATE-011`.** Loses by its own argument: a marker beside the
-   prose is a second statement of one fact that can disagree with it,
-   and that trade is only worth taking once the block has been written
-   twice under the new rule.
-
-**Runners-up.** `SNAG-LOG-013`'s population is **measured empty tonight**
-— `GET /api/logs/actions` serves 5 rows with 0 colliding capped prefixes,
-its historic raw-JSON signatures having left the 7-day window at about
-14:11 as the entry predicted. It is **not** closed on that: "the
-population is zero" is the reasoning that mis-ranked its own parent one
-sitting ago. `SNAG-UNITS-006` and `SNAG-LOG-006` are empty too. The four
-permanent `running` rows in `agent_runs` stay filed rather than ranked —
-the measurement *is* the task, so it is an hour.
-
-**Blocked or delegated.** Session 33 on the question above.
-`SNAG-ROADMAP-002` has now published wrong board movement for six
-consecutive sittings (57 → 58 entries for a sitting that closed one and
-opened one), and the parser is estate-manager's, so what is owed from
-here is a report. `SNAG-LOG-012` is delegated to `estate-lib`;
-`SNAG-ESTATE-002`, `-004`, `-006` and `-007` remain estate-manager's.
+Its first-ranked item — *drop the three frozen tables* — is what Session
+74 carried out above, and its estimate of the blocker is the thing worth
+carrying: it repeated the "loses a day of history for 26 projects"
+figure from `tasks.md` without re-measuring it, and the figure was 43
+seconds. The live ranking for the next sitting is at the top of
+`docs/roadmap/STATUS.md`, not here.

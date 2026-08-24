@@ -19,8 +19,12 @@ test is silent — the guard stays green while the next ``alembic
 revision --autogenerate`` still sees the frozen tables as
 live-but-unmodelled and writes ``op.drop_table('project_snapshots')``
 into a migration whose author was doing something else entirely.
-Measured on 2026-08-16 with the exclusion removed: autogenerate proposes
-``remove_table`` for both, against 3,739 and 4 live rows.
+Measured on 2026-08-16 with the exclusion removed: autogenerate proposed
+``remove_table`` for both, against 3,739 and 4 live rows. Migration 014
+has since dropped both deliberately, so ``FROZEN_TABLES`` is empty and
+that risk has no population today — the guard against the copy coming
+back is what remains, and see the constant for why it outlives its
+members.
 
 The options travel as one dict rather than as loose constants because
 the flags fail the same silent way the exclusions do. A ``compare_type``
@@ -61,7 +65,6 @@ from sysadmin.files.models.disk_review import DiskReview
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.monitor.models.log_entry import LogEntry
 from sysadmin.monitor.models.log_review import LogReview
-from sysadmin.monitor.models.log_summary import LogSummary
 from sysadmin.monitor.models.reliability_score import ReliabilityScore
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
@@ -74,7 +77,6 @@ ALL_MODELS = (
     FilesystemAudit,
     LogEntry,
     LogReview,
-    LogSummary,
     ReliabilityScore,
     ResourceSnapshot,
     RetentionConfig,
@@ -85,14 +87,31 @@ ALL_MODELS = (
 
 SCHEMA = "sysadmin"
 
-# Frozen by estate-manager ADR-0005: the models moved to the 8400
-# service, the tables stay until the tasks.md drop entry ("drop the
-# frozen project tables") runs. Excluded so neither the drift guard
-# nor a future `--autogenerate` proposes dropping data this repo no
-# longer models. One copy — see the module docstring; both consumers
-# read it from here, and tests/test_autogenerate_config.py fails if a
-# second one appears.
-FROZEN_TABLES = {"project_snapshots", "project_reviews"}
+#: Live tables this repository deliberately does not model, excluded so
+#: neither the drift guard nor a future ``--autogenerate`` proposes
+#: dropping data nothing here owns. One copy — see the module docstring;
+#: both consumers read it from here, and
+#: ``tests/test_autogenerate_config.py`` fails if a second one appears.
+#:
+#: **The population is empty, and the mechanism outlives it.** It held
+#: ``project_snapshots`` and ``project_reviews`` from estate-manager
+#: ADR-0005 until migration 014 dropped them, so every table in the live
+#: schema is mapped again. Emptying it is not a tidy-up: an entry here is
+#: a *blindfold* over the drift guard, which compares whatever
+#: ``include_object`` admits — so migration 014 did not need a new test to
+#: prove the three tables are gone, it needed this set to stop hiding
+#: them. That is also why the constant stays rather than being deleted
+#: with its last member. A domain leaving and stranding its tables is a
+#: shape this estate has produced once and will again; deleting the set
+#: would take ``test_autogenerate_config.py``'s guard against a second
+#: copy with it, which is retiring a check in silence at the moment
+#: nothing is exercising it.
+#:
+#: An entry added here must be paired with a *drop* entry on the roadmap.
+#: Frozen is a stage, not a destination — a table left frozen indefinitely
+#: costs a nightly purge, a line in every count of the schema, and this
+#: exclusion, which is what migration 014 was reclaiming.
+FROZEN_TABLES: set[str] = set()
 
 
 def include_object(
@@ -108,7 +127,9 @@ def include_object(
     schema's tables are not ours to model — the ``projects`` database
     also holds PersonalAssistant's. ``alembic_version`` is alembic's own
     bookkeeping. ``FROZEN_TABLES`` are ours, live, and deliberately
-    unmodelled, which is the one an autogenerate run would act on.
+    unmodelled, which is the one an autogenerate run would act on — and
+    the one that is empty since migration 014, so the third branch is a
+    mechanism with no members rather than a rule with no reader.
 
     Alembic calls this positionally, so the leading parameter is named
     ``obj`` rather than shadowing the builtin its own documentation uses.

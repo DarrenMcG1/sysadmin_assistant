@@ -93,22 +93,49 @@ debts that landing deliberately left behind._
     `services.yaml` entry catches a timer that stops firing, and
     `estate_judge` catches an audit that runs and goes wrong. Neither
     sees the other's.
-- [ ] **Drop the frozen project tables** — `sysadmin.project_snapshots`
-      and `sysadmin.project_reviews`, the single `FROZEN_TABLES`
-      exclusion in `sysadmin/metadata.py` (one place since Session 51:
-      it was two, and `tests/test_autogenerate_config.py` now fails if a
-      second appears), the `project_snapshots` retention entry, and the
-      `agents.project_organiser` config block. **Blocked, with a
-      number.** Measured 2026-08-16: the estate's copy holds **3,713**
-      rows against **3,739** here in the same window, and the 26
-      missing are dated **2026-08-13** — one per project from the final
-      organiser run at 07:35, after the copy was taken. Dropping now
-      loses a day of history for 26 projects. The destination is the
-      estate's database, so copying them is estate-manager's call to
-      make and announce, not a write from this repository; the
-      alternative is a recorded decision that one day is disposable.
-      "A copy verified once is not a copy verified twice" is exactly
-      what this measurement was
+- [x] **Drop the frozen tables** — `sysadmin.project_snapshots`,
+      `sysadmin.project_reviews` and `log_summaries`, in migration
+      **014** (Session 74, 2026-08-24). With them went their
+      `retention_config` rows, their `TABLE_TIMESTAMP_MAP` and
+      `KEEP_LATEST_PER` entries, the `FROZEN_TABLES` exclusion in
+      `sysadmin/metadata.py` (now empty, and kept — see the constant)
+      and the `LogSummary` model. Table count **14 → 11**, verified by
+      `sysadmin-check-claims` rather than asserted.
+  - **This entry was marked blocked, and the number it was blocked on
+    was wrong by four orders of magnitude.** It said the 26 rows the
+    estate's copy lacks — the final organiser sweep at
+    `2026-08-13 07:35:03` — cost "a day of history for 26 projects".
+    Re-measured 2026-08-24 by comparing `(project_name, scanned_at)`
+    across both databases: the estate's own **first scan lands at
+    07:35:46**, forty-three seconds later, and **all 26 projects appear
+    in it**. The gap is 43 seconds, not a day, and nothing was ever
+    missing from the estate's series.
+  - **The history it was protecting was being deleted nightly by the
+    row this migration removed.** The entry counted **3,739** rows here
+    on 2026-08-16 and there were **3,447** on 2026-08-24 — the
+    `retention_config` row thinning a frozen table on a 90-day window,
+    so waiting cost history rather than preserving it. The estate now
+    holds **4,155** snapshots reaching back to **2026-05-10** against
+    this schema's **2026-05-20**: a superset in both directions.
+  - **`log_summaries` was one row describing 29 seconds**, its
+    `entry_count` and `error_count` both **100** and both the retired
+    query's own `LIMIT`. Migration 013 recorded why its shape could not
+    be carried into `log_reviews`, and left the note this migration
+    acts on: *a table is destroyed once.*
+  - **The estate's database was read once, by hand, and never from
+    code.** The comparison above is the first estate rule's business
+    ("no application reads or writes another application's database"),
+    so it was done from a shell by a human deciding whether to destroy
+    data and recorded in the migration's docstring rather than left to
+    be re-derived. No copy was requested from estate-manager because
+    the measurement showed there was nothing to copy
+- [ ] **Trim the `agents.project_organiser` config block.** The last
+      limb of the entry above, deliberately not taken with it: it is
+      parsed by pydantic here and read by nothing since ADR-0005, which
+      records it as knowingly untidy. It is `SNAG-CFG-001`'s shape and
+      is a config change rather than a schema one — config classes fan
+      out into defaults tests, so it is its own sitting's edit and does
+      not belong in a migration
 - [x] **Pin the tray's parse of the estate's responses.** The tray reads
       `/api/projects/overview` and `/{name}` from **8400** now but parses
       them with *this* repository's contract classes

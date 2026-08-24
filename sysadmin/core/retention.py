@@ -22,19 +22,24 @@ logger = logging.getLogger(__name__)
 # all — the loop below iterates config rows, not this map. Both halves
 # are needed, which is how ``project_reviews`` grew unbounded from
 # migration 004 and ``unit_audits`` from 006: each had one half.
+#
+# The two halves also fail in **opposite directions**, which is why
+# migration 014 moved both at once when it dropped the three frozen
+# tables. A config row for a table that no longer exists is skipped in
+# silence — dead config, no purge, no error. An entry *here* for a table
+# that no longer exists makes the nightly ``DELETE`` raise, every night,
+# for as long as it stands: contained to one table by the savepoint, and
+# never quiet. Leaving the loud half behind is the one this map decides.
 TABLE_TIMESTAMP_MAP = {
     "service_health": "checked_at",
     "resource_snapshots": "recorded_at",
     "log_entries": "ingested_at",
-    "log_summaries": "created_at",
     "log_reviews": "generated_at",
     "alerts": "created_at",
-    "project_snapshots": "scanned_at",
     "filesystem_audits": "scanned_at",
     "unit_audits": "scanned_at",
     "reliability_scores": "computed_at",
     "agent_runs": "started_at",
-    "project_reviews": "generated_at",
     "disk_reviews": "generated_at",
 }
 
@@ -60,7 +65,6 @@ WHOLE_TABLE = None
 # reads to a consumer as "no review has ever been generated" rather than
 # "none lately".
 KEEP_LATEST_PER: dict[str, str | None] = {
-    "project_snapshots": "project_name",
     # Keep the newest score per service, so a service that stopped being
     # checked still shows its last verdict rather than silently vanishing
     # from the history.
@@ -70,7 +74,6 @@ KEEP_LATEST_PER: dict[str, str | None] = {
     # keeps the latest sweep.
     "unit_audits": "system_unit_dir",
     "filesystem_audits": "scan_root",
-    "project_reviews": WHOLE_TABLE,
     "disk_reviews": WHOLE_TABLE,
     "log_reviews": WHOLE_TABLE,
 }

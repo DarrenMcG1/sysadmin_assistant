@@ -53,12 +53,12 @@ class TestTableTimestampMap:
     def test_all_tables_have_entries(self):
         expected_tables = {
             "service_health", "resource_snapshots", "log_entries",
-            "log_summaries", "alerts", "project_snapshots",
+            "alerts",
             "filesystem_audits", "unit_audits", "reliability_scores",
             "agent_runs",
-            # SNAG-PROJ-010: added by migrations 004 and 005 and left out
-            # of retention entirely, so they grew one row per week forever.
-            "project_reviews", "disk_reviews",
+            # SNAG-PROJ-010: added by migration 005 and left out of
+            # retention entirely, so it grew one row per week forever.
+            "disk_reviews",
             # Session 69: the weekly log review's table, added with both
             # halves at once — a table in one half and not the other is
             # silently never purged, which is what this test exists for.
@@ -78,11 +78,15 @@ class TestTableTimestampMap:
     def test_review_tables_keep_their_newest_row(self):
         """Emptying them would make /api/*/review 404 — read as "never run".
 
-        A portfolio left unreviewed for longer than the retention window
-        must still serve its last review rather than the empty state.
+        A disk left unreviewed for longer than the retention window must
+        still serve its last review rather than the empty state.
+
+        ``project_reviews`` was the third of these until migration 014
+        dropped it; the rule is the table's, not the estate's, so the
+        two that remain assert it unchanged.
         """
-        assert KEEP_LATEST_PER["project_reviews"] is WHOLE_TABLE
         assert KEEP_LATEST_PER["disk_reviews"] is WHOLE_TABLE
+        assert KEEP_LATEST_PER["log_reviews"] is WHOLE_TABLE
 
 
 # ---------------------------------------------------------------------------
@@ -214,9 +218,11 @@ class TestRetentionSqlLogic:
         assert TABLE_TIMESTAMP_MAP["alerts"] == "created_at"
 
     def test_snapshot_tables_keep_latest(self):
-        """project_snapshots and filesystem_audits should keep latest per entity."""
-        assert "project_snapshots" in TABLE_TIMESTAMP_MAP
+        """A periodic sweep keeps its newest row per entity."""
         assert "filesystem_audits" in TABLE_TIMESTAMP_MAP
+        assert KEEP_LATEST_PER["filesystem_audits"] == "scan_root"
+        assert "unit_audits" in TABLE_TIMESTAMP_MAP
+        assert KEEP_LATEST_PER["unit_audits"] == "system_unit_dir"
 
 
 # ---------------------------------------------------------------------------
@@ -378,7 +384,7 @@ class TestPurgeIsolation:
         invisible because each table logs its rowcount before the commit.
         """
         configs = []
-        for table in ("log_entries", "project_reviews", "agent_runs"):
+        for table in ("log_entries", "disk_reviews", "agent_runs"):
             cfg = MagicMock()
             cfg.table_name = table
             cfg.retention_days = 30
@@ -396,7 +402,7 @@ class TestPurgeIsolation:
             sql = str(stmt)
             if sql.startswith("SELECT") and "retention_config" in sql:
                 return config_result
-            if "project_reviews" in sql and sql.startswith("DELETE"):
+            if "disk_reviews" in sql and sql.startswith("DELETE"):
                 raise ProgrammingError("DELETE ...", {}, Exception("boom"))
             if sql.startswith("DELETE"):
                 purged.append(sql.split("sysadmin.")[1].split(" ")[0])
@@ -423,7 +429,7 @@ class TestPurgeIsolation:
         stamps for tables that had genuinely succeeded.
         """
         cfg = MagicMock()
-        cfg.table_name = "project_reviews"
+        cfg.table_name = "disk_reviews"
         cfg.retention_days = 365
 
         session = _savepoint_session()
@@ -436,7 +442,7 @@ class TestPurgeIsolation:
             sql = str(stmt)
             if sql.startswith("SELECT") and "retention_config" in sql:
                 return config_result
-            if sql.startswith("DELETE") and "project_reviews" in sql:
+            if sql.startswith("DELETE") and "disk_reviews" in sql:
                 raise ProgrammingError("DELETE ...", {}, Exception("boom"))
             if sql.startswith("UPDATE"):
                 stamped.append(sql)
@@ -452,3 +458,63 @@ class TestPurgeIsolation:
             await run_retention()
 
         assert stamped == []
+
+
+# ---------------------------------------------------------------------------
+# The half nothing else reads
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    not _db_available(),
+    reason="local postgres (projects DB) not reachable — the pairing guard needs the real schema",
+)
+def test_every_configured_table_can_be_purged():
+    """A ``retention_config`` row the map cannot resolve purges nothing, silently.
+
+    The module docstring has said since migration 006 that retention
+    needs **both** halves, and until migration 014 nothing checked the
+    *config* half against anything.  ``test_all_tables_have_entries``
+    pins the map against a hand-written literal, and
+    :func:`test_purge_statements_parse` hands the map to PostgreSQL —
+    both read the map, neither reads the table.
+
+    The two halves fail in opposite directions, and only one of them is
+    uncovered.  A map entry for a table that no longer exists is **loud**:
+    its ``DELETE`` raises every night, contained to that table by its
+    savepoint, and ``test_purge_statements_parse`` already refuses it —
+    more strongly than an existence check would, since that test also
+    catches a wrong column and invalid SQL.  Asserting it again here
+    would be a second statement of one fact, which is what
+    ``sysadmin/metadata.py`` exists to stop; it was written, measured
+    against the stronger guard, and deleted.
+
+    A config row naming a table the map has dropped is **silent**:
+    ``run_retention`` iterates config rows and looks each one up, so a
+    miss is skipped with no log line.  Nothing is purged and nothing says
+    so — the shape ``SNAG-CFG-001`` names, arriving as a database row.
+    Migration 014 removed three of these by hand; this is the assertion
+    it was making.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy import text as sql_text
+
+    from sysadmin.metadata import SCHEMA
+
+    engine = create_engine("postgresql+psycopg2://gaddi@localhost:5432/projects")
+    try:
+        with engine.connect() as conn:
+            configured = {
+                row[0]
+                for row in conn.execute(
+                    sql_text(f"SELECT table_name FROM {SCHEMA}.retention_config")
+                )
+            }
+    finally:
+        engine.dispose()
+
+    assert configured <= set(TABLE_TIMESTAMP_MAP), (
+        "retention_config names tables absent from TABLE_TIMESTAMP_MAP: "
+        f"{sorted(configured - set(TABLE_TIMESTAMP_MAP))} — run_retention "
+        "skips them in silence, so they are never purged and nothing says so"
+    )
