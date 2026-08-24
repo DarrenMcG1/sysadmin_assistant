@@ -347,6 +347,75 @@ def log_sources(services: ServicesFile) -> list[LogSource]:
     return sources
 
 
+def composed_log_sources(agent_config) -> list[LogSource]:
+    """Every journal source this daemon ingests — both files, one list.
+
+    services.yaml first, then the config.yaml entries that belong to no
+    service (the kernel journal has no unit to hang off).  A config.yaml
+    entry duplicating a service is dropped and logged, because a journal
+    read twice costs nothing but shows up as doubled error counts.
+
+    Lifted out of ``LogAggregatorAgent._sources`` in Session 75, when
+    ``GET /api/logs/{source}`` gained a validator and became the second
+    caller.  It is one function rather than two because the set the route
+    admits must equal the set the agent ingests — a route validating
+    against a set built from one file would 404 ``kernel``, which is
+    451,319 of the 451,569 rows in ``log_entries`` on this box.
+    """
+    sources = log_sources(get_services())
+    seen = {s.name for s in sources}
+    by_unit = {(s.unit, s.user) for s in sources if s.unit}
+    for extra in agent_config.sources:
+        if extra.name in seen:
+            logger.warning(
+                "duplicate_log_source_name",
+                extra={"source": extra.name, "kept": "services.yaml"},
+            )
+            continue
+        if extra.unit and (extra.unit, extra.user) in by_unit:
+            logger.warning(
+                "duplicate_log_source_unit",
+                extra={"source": extra.name, "unit": extra.unit,
+                       "kept": "services.yaml"},
+            )
+            continue
+        sources.append(extra)
+        seen.add(extra.name)
+    return sources
+
+
+def stored_source_name(source: LogSource) -> str | None:
+    """What a source's rows carry in ``log_entries.source``, or ``None``.
+
+    **One column, two producers, two identities** — which is why this is
+    a function and not an attribute read.  A journal source is stamped
+    with its **unit** (``_read_journal_source`` -> ``journal.py``, where
+    ``entry["source"]`` is the unit name); a file source is stamped with
+    its **name**, because ``_read_log_file`` is handed ``source.name``
+    and has no unit to use.  ``log_source_scopes`` already records the
+    first half of this trap from the other side: keying on ``name`` where
+    the column holds the unit yields an empty map that reads as "every
+    source is a system unit".
+
+    The branch structure mirrors ``LogAggregatorAgent._execute``'s
+    dispatch exactly, including the ``else: continue`` — a source that
+    declares neither a unit nor a path is never read, so it can produce
+    no rows and must not be admitted as though it could.  ``None`` is
+    that case, distinct from a name, so a caller cannot silently union it
+    into a set.
+
+    Written from the producer rather than from the data on purpose: every
+    declared source on this box is ``type: journalctl`` today, so a rule
+    derived from the live table would omit the file branch and be green
+    in every test until the first file source was declared.
+    """
+    if source.type == "journalctl" and source.unit:
+        return source.unit
+    if source.type == "file" and source.path:
+        return source.name
+    return None
+
+
 _services: ServicesFile | None = None
 
 

@@ -36,7 +36,7 @@ from sysadmin.monitor.journal import (
 )
 from sysadmin.monitor.log_signature import alert_title, signature
 from sysadmin.monitor.models.log_entry import LogEntry
-from sysadmin.monitor.services import get_services, log_sources
+from sysadmin.monitor.services import composed_log_sources
 
 logger = logging.getLogger(__name__)
 
@@ -176,35 +176,14 @@ class LogAggregatorAgent(BaseAgent):
     def _sources(agent_config) -> list:
         """Journal sources, services.yaml first, config.yaml for the rest.
 
-        A service and its logs used to be described in two files that had
-        to agree by hand, and they did not: ``sysadmin.service`` was
-        ingested twice, as ``sysadmin`` from config.yaml and as
-        ``sysadmin-service`` from projects.yaml. Declaring the source
-        beside the service removes the second name; a config.yaml entry
-        that still duplicates one is dropped here and logged, because a
-        journal read twice costs nothing but shows up as doubled error
-        counts in the summaries.
+        The composition itself moved to
+        :func:`sysadmin.monitor.services.composed_log_sources` in Session
+        75, when ``GET /api/logs/{source}`` gained a validator and became
+        its second caller.  This wrapper stays because it is the seam the
+        tests patch, and because the ingestion loop below reads it as the
+        agent's own answer to "what do I read".
         """
-        sources = log_sources(get_services())
-        seen = {s.name for s in sources}
-        by_unit = {(s.unit, s.user) for s in sources if s.unit}
-        for extra in agent_config.sources:
-            if extra.name in seen:
-                logger.warning(
-                    "duplicate_log_source_name",
-                    extra={"source": extra.name, "kept": "services.yaml"},
-                )
-                continue
-            if extra.unit and (extra.unit, extra.user) in by_unit:
-                logger.warning(
-                    "duplicate_log_source_unit",
-                    extra={"source": extra.name, "unit": extra.unit,
-                           "kept": "services.yaml"},
-                )
-                continue
-            sources.append(extra)
-            seen.add(extra.name)
-        return sources
+        return composed_log_sources(agent_config)
 
     async def _execute(self, session) -> AgentResult:
         """Ingest every source, then raise **one alert per distinct fault**.

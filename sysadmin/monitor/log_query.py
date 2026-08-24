@@ -42,7 +42,12 @@ from sysadmin.monitor.log_trends import (
     build_report,
 )
 from sysadmin.monitor.models.log_entry import LogEntry
-from sysadmin.monitor.services import get_services, log_sources
+from sysadmin.monitor.services import (
+    composed_log_sources,
+    get_services,
+    log_sources,
+    stored_source_name,
+)
 from sysadmin.units.scan import declared_relations, discover_units
 
 #: The severities the trend covers.  Wider than the alert family's
@@ -192,6 +197,47 @@ def log_source_scopes() -> dict[str, bool]:
         for source in log_sources(get_services())
         if source.unit
     }
+
+
+def declared_source_names() -> frozenset[str]:
+    """Every value that can legitimately appear in ``log_entries.source``.
+
+    Read here for the reason :func:`log_source_scopes` is read here, and
+    per request for the reason :func:`unit_relations` is read per
+    request — both underlying singletons are refreshed by
+    :mod:`sysadmin.reload`, so a source added to either file is admitted
+    without a restart.
+
+    Two things it is deliberately **not**:
+
+    1. **Not the source ``name``.**  The column holds a unit for every
+       journal source, so a set of names would reject
+       ``alfred-backend.service`` — the string that is actually stored —
+       and admit ``alfred``, which never is.  The composition is
+       :func:`~sysadmin.monitor.services.stored_source_name`'s, which
+       mirrors the ingestion loop's own dispatch rather than restating it
+       from the live table.
+    2. **Not the distinct sources present in the table.**  A widened
+       "declared or present" set would keep a retired source readable
+       until retention purged it, at the cost of a query per request and
+       of a route whose meaning drifts with the data underneath it.  The
+       rows do not become unreachable — ``GET /api/logs/recent?source=``
+       has no validator and is the surface for reading history — so the
+       cost is bounded and stated rather than paid for.
+
+    Both files, never one: ``kernel`` is declared in config.yaml because
+    it belongs to no service, and it is 451,319 of the 451,569 rows in
+    ``log_entries`` on this box.  A set built from services.yaml alone
+    would be green in every fixture and 404 almost the whole table.
+    """
+    return frozenset(
+        name
+        for name in (
+            stored_source_name(source)
+            for source in composed_log_sources(get_config().agents.log_aggregator)
+        )
+        if name
+    )
 
 
 def unit_relations() -> dict[str, frozenset[str]]:

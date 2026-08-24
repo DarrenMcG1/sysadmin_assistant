@@ -2,27 +2,131 @@
 
 ## Next action
 
-Take `SNAG-LOG-011` — `GET /api/logs/summary` still answers `200` with `{"source":"summary","entries":[],"count":0}` through the `/{source}` catch-all, telling a caller "no summaries" where it should tell them "gone", and its ranking argument is stronger than it was for two sittings because migration 014 has now destroyed the table that route was named for, so the route describes a schema object that does not exist.
+Take `SNAG-ESTATE-011` — the ops block that opens every sitting still carries its two most consequential claims ("no deploy is owed" and the sub-session item) as prose no pattern can reach, and the argument that deferred it has expired: it was ranked below `SNAG-LOG-011` on the grounds that a self-checking claim needs the block written twice under Session 73's rule before its shape is knowable, and Session 74 and Session 75 have now written it twice.
 
 ## Sub-session items
 
 **One is owed, and it is a question rather than a change.** Session 33
-(seam drift detection) has been named as blocked in three consecutive
-rankings without the blocking question being asked. Its second task reads
-another repository's fixture off the same disk, and cross-repo concerns
-have had an owner since 2026-08-13, so **ask estate-manager** before
-ranking it. That is a sub-hour action, not a session.
+(seam drift detection) has now been named as blocked in **four**
+consecutive rankings without the blocking question being asked. Its
+second task reads another repository's fixture off the same disk, and
+cross-repo concerns have had an owner since 2026-08-13, so **ask
+estate-manager** before ranking it. That is a sub-hour action, not a
+session.
 
-**Nothing else is owed.** `sysadmin` was restarted at
-**2026-08-24 22:15:09** (required, not cosmetic — see below), `/health`
-answers `200`, `alembic current` reads **014 (head)**, the sysadmin
-schema holds **11** tables, and `alerts` holds **2** unresolved rows,
-both expected. Do not re-verify these by hand: run
-`./scripts/check-ops-claims.sh`, which `claude-preflight.sh` runs for you
-at the top of every sitting, and which reported all seven checks green
-after this session's document edits.
+**Nothing else is owed.** `sysadmin` was restarted at **2026-08-24
+23:01:23** (required — the two new routes are start-time code), `/health`
+answers `200`, `alembic current` reads **014 (head)**, and `alerts` holds
+**2** unresolved rows, both expected. Do not re-verify these by hand: run
+`./scripts/check-ops-claims.sh`, which `claude-preflight.sh` runs at the
+top of every sitting, and which reported **all seven checks green** after
+this session's edits — including the route count it caught moving, 46 →
+48.
 
-## This session — Session 74: the three frozen tables dropped
+## This session — Session 75: a deleted route stops answering 200
+
+**`SNAG-LOG-011` fixed, and the class it belonged to removed with it.**
+`GET /api/logs/summary` answered `200` with `{"source":"summary",
+"entries":[],"count":0}` through the `/{source}` catch-all — telling a
+caller "no summaries" about a table migration 014 had destroyed the
+sitting before. Two `410 Gone` tombstones now sit above the catch-all and
+`/{source}` validates its argument. Suite **2195 → 2206** green, routes
+**46 → 48**, ruff and mypy clean, driven live after a restart.
+
+### Decisions taken, and what they were taken against
+
+- **The entry's own split between its two halves was right, and its
+  ranking of them was not.** It called `410` "the cheap fix" and named
+  the general property in the next clause. The validator that removes the
+  class turned out to be the *same size* as the tombstones that patch two
+  paths, so there was no cheapness to buy — both were built, and the
+  question put to the owner was which, not whether.
+- **The validator's key is not one field, and no reading of the route
+  would have said so.** `log_entries.source` holds the **unit** for a
+  journal source and the **name** for a file source, because
+  `_read_journal_source` and `_read_log_file` stamp different things. The
+  rule lives in `services.stored_source_name`, mirroring the ingestion
+  loop's dispatch including its `else: continue`, which becomes `None`
+  so a caller cannot union a never-read source into the set.
+- **Written from the producer rather than from the data, deliberately.**
+  Every declared source on this box is `type: journalctl`, so a rule
+  derived from the live table would have omitted the file branch, been
+  green in every test, and 404'd the first file source's own rows. The
+  file-branch test therefore guards an empty population and says so.
+- **Both configuration files, and the number decided it.** `kernel` is
+  declared in config.yaml because it belongs to no service, and it is
+  **451,319 of the 451,569 rows** in `log_entries`. A services.yaml-only
+  set passes every fixture on this box and rejects 99.9 % of the data —
+  so `LogAggregatorAgent._sources` was lifted to
+  `services.composed_log_sources` and *shared*, because the set the route
+  admits must be the set the agent ingests rather than agree with it.
+  `_sources` stays as a delegating wrapper, since it is the seam two test
+  files patch.
+- **`410` rather than `404` for the two retired paths.** "Was a route and
+  was removed" and "never was a route" are different states a caller
+  cannot otherwise tell apart — `ports_checked`'s rule one status code
+  up. `/summary/history` already 404'd and is named anyway, so the pair
+  cannot answer with two voices.
+- **The tombstones are out of the schema.** Their audience is a caller
+  holding a stale client, who reads a status code and not `/docs`;
+  listing a dead path would advertise it to everyone else. They still
+  count as `APIRoute`s, which is why the documented figure is 48 while
+  `/docs` shows 46 — `measure_routes()` counts declarations, and that is
+  the honest number.
+
+### Options rejected
+
+- **Tombstones alone**, the entry's "cheap fix". It closes what was
+  measured and leaves the property: the next single-segment path added
+  and later removed acquires the same `200`. Refused because the second
+  half cost the same as the first.
+- **Validation alone.** Honest, and it cannot say a route once existed.
+  `/summary` would 404 like any typo.
+- **Widening the set to "declared or present in `log_entries`"**, so a
+  retired source stays readable until retention purges it. Refused: a
+  query per request, and a route whose meaning drifts with the data
+  underneath it. The rows are not unreachable —
+  `GET /api/logs/recent?source=` has no validator, because its job is
+  history rather than a live source's tail. The cost is stated in the
+  route's docstring instead of paid for.
+- **Accepting the source *name* as an alias for its unit.** That is a
+  second identity for one thing, which is the defect one level down
+  rather than a convenience. `/api/logs/alfred` now 404s with the fifteen
+  declared units in the detail, so the caller learns the real name.
+
+### What was found rather than fixed
+
+- **The route had no tests at all.** Nothing in the suite asserted
+  `/{source}` before this sitting, which is how a route describing a
+  dropped table stayed green through the sitting that dropped it —
+  `TestJournalCommand`'s defect one router over. Eleven added.
+- **The ordering falsification is the one that matters.** Declaring the
+  tombstone *below* the catch-all produces exactly the same `200` as
+  deleting it, and leaves code that reads as though the fix is in place.
+  A future alphabetical sort of this file would reintroduce
+  `SNAG-LOG-011` with no diff that looks wrong; only the behavioural
+  test sees it.
+- **A stale present-tense claim in Session 69's task record** — it says
+  `log_summaries` "is left frozen rather than dropped", which Session 74
+  made false. Corrected in place with a dated parenthetical rather than
+  rewritten, since the bullet records what Session 69 decided.
+- **Gating a restart on `/health` races.** The old process answers `200`
+  while it is shutting down, so a health-poll loop can return "up" and
+  the next request still reaches the dying daemon — observed once here,
+  serving the previous build's string. Gate on `MainPID` changing
+  instead; it is an identity check where `/health` is an availability
+  one, which is this sitting's own subject arriving in the deploy path.
+
+### Left alone deliberately
+
+`SNAG-LOG-013` (9 of 55 signatures sharing a capped prefix) is untouched
+and its population is still empty. The `agents.project_organiser` config
+trim is untouched. Nothing in `sysadmin_tray/` needed changing — the
+route has no consumer there, which is what made this bounded.
+
+---
+
+## Previous session — Session 74: the three frozen tables dropped
 
 **Migration 014.** `project_snapshots` (3,447 rows), `project_reviews`
 (4) and `log_summaries` (1) are gone, together with the four mechanisms

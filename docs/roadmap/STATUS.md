@@ -4,7 +4,7 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and one sub-session action is.** `sysadmin` was
-> restarted at **2026-08-24 22:15:09**, `/health` answers `200`,
+> restarted at **2026-08-24 23:01:23**, `/health` answers `200`,
 > `alembic current` reads **014 (head)**, and `alerts` holds **2**
 > unresolved rows. **This block is now re-measured rather than re-read**:
 > `./scripts/check-ops-claims.sh` re-checks every figure in it, and
@@ -27,36 +27,35 @@
 > `tray.notify_min_severity`. Do not reach into the estate to force a
 > rescan — its scan is its own.
 >
-> **Next up**: **`SNAG-LOG-011` — a deleted route still answers `200`.**
-> *Recommended at the close of Session 74.*
+> **Next up**: **`SNAG-ESTATE-011` — the ops block's remaining claims
+> are still prose.** *Recommended at the close of Session 75.*
 >
-> **1. `SNAG-LOG-011`.** `GET /api/logs/summary` returns
-> `{"source":"summary","entries":[],"count":0}` through the `/{source}`
-> catch-all, so a caller is told "no summaries" where it should be told
-> "gone" — `ports_checked`'s rule from the wrong side. It has been ranked
-> second for two sittings on the grounds that it has **no consumer**, and
-> that argument is weaker now than it was: Session 74 destroyed the table
-> that route was named for, so the last thing that could make its empty
-> answer look truthful is gone, and the route now describes a schema
-> object that does not exist. It wins on being the only remaining item
-> whose fix is bounded, unblocked and in one router.
+> **1. `SNAG-ESTATE-011`.** Session 73 made five figures in this block
+> machine-checkable and left the rest as sentences no pattern can reach —
+> including the two that decide what a sitting does first: "no deploy is
+> owed" and the sub-session item. It was ranked below `SNAG-LOG-011` on
+> the argument that a self-checking claim needs the block written twice
+> under the new rule before its shape is knowable, and **it has now been
+> written twice** — Session 74 and this sitting — so the blocker that
+> deferred it has expired rather than been argued away. It also wins on
+> evidence this sitting produced: the route-count claim was the one check
+> that caught a real change here (46 → 48), and it caught it because it
+> is a number; the restart stamp beside it was corrected by hand, which
+> is the thing that goes stale.
 >
-> **2. `SNAG-ESTATE-011` — the block's remaining claims are prose.**
-> Opened by Session 73 and **ranked below `SNAG-LOG-011` by its own
-> argument**: the
-> next move is a shape for a self-checking claim, and a marker beside the
-> prose is a second statement of one fact that can disagree with it. That
-> trade is only worth taking once somebody has written the block twice
-> under the new rule, which is two sittings away.
+> **2. Ask estate-manager the Session 33 question.** Still owed, still
+> sub-hour, and it is above the config trim because it is the only item
+> that **unblocks** anything: seam drift detection cannot be ranked at
+> all until the owner answers. It is not a session, which is why it sits
+> in the sub-session line above rather than winning this list.
 >
-> **3. Trim the `agents.project_organiser` config block.** The last limb
-> of the drop task Session 74 closed, deliberately left out of it: a
-> config block pydantic validates and nothing reads, which is
-> `SNAG-CFG-001`'s shape at the size of a section. It loses to both of
-> the above because a config change fans out into the defaults tests and
-> has no live consequence at all — nothing behaves differently either
-> way, where `SNAG-LOG-011` is a live route telling a caller something
-> untrue.
+> **3. Trim the `agents.project_organiser` config block.** Unchanged
+> from Session 74's ranking and unchanged in its reasoning: a config
+> block pydantic validates and nothing reads, `SNAG-CFG-001`'s shape at
+> the size of a section. It loses to both of the above for the same
+> reason it lost last time — a config change fans out into the defaults
+> tests and has no live consequence at all. What has changed is that the
+> item above it got *cheaper* rather than this one getting dearer.
 >
 > **Runners-up that lost, and why.** `SNAG-LOG-013`'s population is
 > **measured empty tonight** — `GET /api/logs/actions` serves 5 rows with
@@ -72,8 +71,9 @@
 >
 > **Blocked or waiting on another repository.** Session 33 is blocked on
 > the question above. `SNAG-ROADMAP-002` has now published wrong board
-> movement for **six consecutive sittings** — 57 → 58 entries for a
-> sitting that closed one and opened one — and the parser moved to
+> movement for **seven consecutive sittings** — unmoved at 58 entries /
+> 56 open for a sitting that closed one and opened none, measured either
+> side of the edit — and the parser moved to
 > estate-manager on 2026-08-13, so what is owed from here is a report,
 > not a fix. `SNAG-LOG-012` is **delegated**: `strip_markdown` lives in
 > `estate-lib`, and patching it from here would be the copy that drifts.
@@ -88,7 +88,7 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Backend | 🟢 Complete | FastAPI + 5 agents + scheduler + DB |
-| API | 🟢 Complete | **46 routes** *(re-counted live 2026-08-24: unchanged, because Session 69 removed `/api/logs/summary` and `/summary/history` and added `/api/logs/review` and `/review/generate`)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
+| API | 🟢 Complete | **48 routes** *(re-counted live 2026-08-24 after Session 75: 46 → 48, the two `410 Gone` tombstones for `/api/logs/summary` and `/summary/history`. They are `include_in_schema=False`, so `/docs` lists 46 — `measure_routes()` counts `APIRoute` objects rather than schema entries, which is the honest figure and the one that moves when a route is declared)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
 | Database | 🟢 Complete | **11 tables** in sysadmin schema (12 counting `alembic_version`; counted live 2026-08-24), Alembic migrations (head **014**, applied 2026-08-24 — dropped the three frozen tables). *Was 14. `project_snapshots`, `project_reviews` and `log_summaries` had no writer since ADR-0005 or Session 69 and are gone with their retention rows, their `TABLE_TIMESTAMP_MAP` entries and the `LogSummary` model. `FROZEN_TABLES` is now empty and deliberately kept — an entry there is a blindfold over the drift guard, so emptying it is what proves the drop rather than a new test* |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
@@ -103,6 +103,64 @@
 ---
 
 ## Recently Completed
+
+### Session 75 — a deleted route stops answering 200 (2026-08-24)
+
+**`SNAG-LOG-011` fixed, and the class it belonged to removed with it.**
+`GET /api/logs/summary` answered `200` with `{"source":"summary",
+"entries":[],"count":0}` through the `/{source}` catch-all — telling a
+caller "no summaries" about a table migration 014 had destroyed the
+sitting before. Two `410 Gone` tombstones now sit above the catch-all,
+and `/{source}` validates its argument against the declared sources.
+Suite **2195 → 2206** green, ruff and mypy clean, routes **46 → 48**.
+
+- **The validator's key was the whole design, and it is not one field.**
+  `log_entries.source` holds the **unit** for a journal source and the
+  **name** for a file source, because `_read_journal_source` and
+  `_read_log_file` stamp different things. The rule therefore lives in
+  `services.stored_source_name`, written from the ingestion loop's own
+  dispatch rather than from the live table — every declared source on
+  this box is `type: journalctl`, so a rule derived from the data would
+  have omitted the file branch and stayed green until the first file
+  source was declared, at which point the route would 404 its own rows.
+- **Both configuration files, and the measurement says why.** `kernel`
+  is declared in `config.yaml` because it belongs to no service, and it
+  is **451,319 of the 451,569 rows** in `log_entries`. A set built from
+  `services.yaml` alone passes every fixture and rejects 99.9 % of the
+  data. So the composition was lifted out of
+  `LogAggregatorAgent._sources` into `services.composed_log_sources`
+  rather than restated — the set the route admits must *be* the set the
+  agent ingests, not merely agree with it.
+- **`410` rather than `404` for the two retired paths**, because "was a
+  route and was removed" and "never was a route" are different states
+  and a caller cannot tell them apart otherwise — `ports_checked`'s rule
+  one status code up. `/summary/history` already 404'd (the catch-all
+  takes one segment) and is named anyway, so the pair answers with one
+  voice; a client told `410` by one and `404` by the other would
+  reasonably read the second as a typo.
+- **The tombstones patch two paths; the validator removes the class.**
+  Any single-segment path under `/api/logs` added and later removed
+  acquired this behaviour, and `/{source}` has been last in the router
+  since it was written — which is what makes it work at all, so it
+  cannot simply move. An unknown segment is now a 404, so the next
+  removal needs a tombstone only to be *specific*, never to be honest.
+- **Passing a source *name* was the same defect one level down.**
+  `/api/logs/alfred` used to return an empty list, indistinguishable
+  from a quiet service; it now 404s and the detail names the fifteen
+  declared units, so the caller learns to ask for
+  `alfred-backend.service`.
+- **The route had no tests at all before this sitting.** Nothing in the
+  suite asserted `/{source}`'s behaviour, which is how a route
+  describing a dropped table stayed green through the sitting that
+  dropped it. All eleven new tests were falsified against the behaviour
+  they replace; the one worth naming is the **ordering** falsification —
+  declaring the tombstone *below* the catch-all produces the same `200`
+  as deleting it, and only the behavioural test can see the difference.
+- **Stated cost, empty population today.** A source removed from
+  `services.yaml` keeps 30 days of rows this route will no longer serve.
+  All 9 distinct values in `log_entries.source` are declared (measured),
+  and the rows stay reachable through `GET /api/logs/recent?source=`,
+  which has no validator because its job is history.
 
 ### Session 74 — the three frozen tables dropped (2026-08-24)
 

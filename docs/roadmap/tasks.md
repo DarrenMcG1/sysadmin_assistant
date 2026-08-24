@@ -394,6 +394,63 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 75 — SNAG-LOG-011, a deleted route stops answering 200 (2026-08-24) ✅
+
+Session 69 removed `GET /api/logs/summary` and `/summary/history` with
+the producer behind them, and Session 74 dropped the table. The path went
+on answering `200` with `{"source":"summary","entries":[],"count":0}`,
+because `GET /api/logs/{source}` matched `summary` as though it were a
+log source. Suite **2195 → 2206**, routes **46 → 48**, ruff and mypy
+clean, verified live after a restart.
+
+- [x] **Two `410 Gone` tombstones above the catch-all.** `410` rather
+      than `404` because "was a route and was removed" and "never was a
+      route" are different states a caller cannot otherwise tell apart —
+      `ports_checked`'s rule one status code up. `/summary/history`
+      already 404'd (the catch-all takes one segment) and is named
+      anyway, so the pair answers with one voice
+- [x] **`/{source}` validates its argument, which is what removes the
+      class.** The tombstones patch two paths; any single-segment path
+      added and later removed acquired the same behaviour, and
+      `/{source}` has been last in the router since it was written —
+      which is what makes it work at all, so it cannot simply move. An
+      unknown segment is now a 404
+- [x] **The key is not one field, and this is the part reading the route
+      could not have given.** `log_entries.source` holds the **unit** for
+      a journal source and the **name** for a file source, because
+      `_read_journal_source` and `_read_log_file` stamp different things.
+      `services.stored_source_name` mirrors the ingestion loop's dispatch
+      rather than restating it from the data — every declared source here
+      is `type: journalctl`, so a rule derived from the live table would
+      have omitted the file branch, stayed green in every test, and
+      404'd the first file source's own rows
+- [x] **Both configuration files, measured.** `kernel` is declared in
+      config.yaml because it belongs to no service, and it is **451,319
+      of the 451,569 rows** in `log_entries`. A services.yaml-only set
+      passes every fixture and rejects 99.9 % of the data. So
+      `LogAggregatorAgent._sources` was lifted to
+      `services.composed_log_sources` and shared — the set the route
+      admits must *be* the set the agent ingests, not merely agree with
+      it. `_sources` stays as the seam the tests patch
+- [x] **Passing a source *name* was the same defect one level down**, and
+      the entry did not name it: `/api/logs/alfred` returned an empty
+      list, indistinguishable from a quiet service. It now 404s with the
+      fifteen declared units in the detail
+- [x] **Eleven tests, where there were none.** Nothing asserted
+      `/{source}` before this sitting, which is how a route describing a
+      dropped table stayed green through the sitting that dropped it.
+      Each was falsified against the behaviour it replaces; the one worth
+      naming is **ordering** — declaring the tombstone *below* the
+      catch-all produces the same `200` as deleting it, so only a
+      behavioural test separates a future alphabetical sort from a
+      working fix. The live half is skipped when postgres is unreachable,
+      `test_schema_drift.py`'s shape
+- [x] **Cost stated rather than implied.** A source removed from
+      services.yaml keeps 30 days of rows this route no longer serves.
+      Empty population today — all 9 distinct values in
+      `log_entries.source` are declared — and
+      `GET /api/logs/recent?source=` still reaches them
+
 ## Session 73 — SNAG-ESTATE-008, the block that opens a sitting gets a reader (2026-08-24) ✅
 
 Six consecutive sittings were spent on claims that had stopped being
@@ -2307,7 +2364,9 @@ paper.
       `SUMMARISE_PROMPT_SYSTEM`, `summarise_with_llm` and the two
       `/api/logs/summary*` routes are gone; `log_summaries` is left
       **frozen** rather than dropped, the treatment ADR-0005 gave
-      `project_snapshots`
+      `project_snapshots` — *dropped by migration 014 on 2026-08-24
+      (Session 74); the routes went on answering `200` until Session 75,
+      which is `SNAG-LOG-011`*
 - [x] **Built on the recommendations, not the trend** — Session 23's
       choice, for a sharper reason here: until 2026-08-17 one mosquitto
       crash was **six** recommendations, so a narrative written then would

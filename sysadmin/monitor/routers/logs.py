@@ -20,6 +20,7 @@ from sysadmin.monitor import log_review as log_review_module
 from sysadmin.monitor.log_actions import recommend
 from sysadmin.monitor.log_query import (
     build_trend_report,
+    declared_source_names,
     log_source_scopes,
     unit_relations,
 )
@@ -365,6 +366,50 @@ async def generate_log_review(session: AsyncSession = Depends(get_db_session)):
     return payload
 
 
+#: What a retired single-segment path is told.  Named rather than
+#: inlined because both tombstones below say the same thing and a second
+#: wording would let them disagree about one fact.
+_SUMMARY_GONE = (
+    "GET /api/logs/summary and /api/logs/summary/history were removed in "
+    "Session 69, and the table behind them, sysadmin.log_summaries, was "
+    "dropped by migration 014. The weekly narrative is GET /api/logs/review; "
+    "the counts are GET /api/logs/stats."
+)
+
+
+@router.get("/summary", include_in_schema=False)
+@router.get("/summary/history", include_in_schema=False)
+async def _summary_gone():
+    """410 for the two paths Session 69 removed (``SNAG-LOG-011``).
+
+    **Declared above the catch-all, and that ordering is the whole
+    mechanism** — FastAPI matches in declaration order, so a tombstone
+    below ``/{source}`` would never be reached.
+
+    410 rather than 404 because the two states are different and a
+    caller cannot tell them apart otherwise: ``/summary`` *was* a route
+    and was deliberately removed, while ``/nonsense`` never was.  That
+    is ``ports_checked``'s rule — zero-because-clean must not be served
+    as zero-because-blind — one status code up.  Before this existed the
+    answer was worse than either: ``200`` with an empty list, the
+    catch-all matching ``summary`` as though it were a log source, so a
+    caller was told "no summaries" about a schema object that no longer
+    exists.
+
+    ``/summary/history`` already 404'd, because the catch-all takes one
+    path segment.  It is named here anyway so the pair answers with one
+    voice — a client that gets ``410`` from one and ``404`` from the
+    other would reasonably conclude the second is a typo.
+
+    Out of the schema deliberately.  The audience is a caller holding a
+    stale client, who reads the status code and not ``/docs``; listing a
+    dead path in the schema would advertise it to everyone else.  These
+    are debt with a date on them — delete both once no stale client can
+    exist, which is a judgement about consumers rather than about time.
+    """
+    raise HTTPException(status_code=410, detail=_SUMMARY_GONE)
+
+
 @router.get("/{source}")
 async def get_logs_by_source(
     source: str,
@@ -372,7 +417,50 @@ async def get_logs_by_source(
     limit: int = Query(default=100, le=500),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get log entries for a specific source."""
+    """Log entries for one declared source.  404 if it is not one.
+
+    **The validator is what removes the class the tombstones above only
+    patch** (``SNAG-LOG-011``).  Without it, any single-segment path
+    under ``/api/logs`` that is added and later removed silently
+    acquires a ``200`` with an empty list — the route has been last in
+    this router since it was written, which is what makes it work at all
+    and is exactly why it cannot simply move.  An unknown segment is now
+    a 404, so the next removal needs no tombstone to be honest, only to
+    be *specific*.
+
+    Two things the validated set is keyed on, both measured rather than
+    assumed:
+
+    1. **Units, not source names**, because that is what
+       ``log_entries.source`` holds — and for a ``type: file`` source it
+       is the name instead, which is why the rule lives in
+       :func:`~sysadmin.monitor.services.stored_source_name` beside the
+       loop that stamps it.  Passing ``alfred`` used to return an empty
+       list; it now 404s and the detail names the units, which is the
+       same defect one level down being answered rather than inherited.
+    2. **Both configuration files.**  ``kernel`` is declared in
+       config.yaml because it belongs to no service, and it is 451,319
+       of the 451,569 rows in this table.  A set built from
+       services.yaml alone passes every fixture on this box and rejects
+       99.9 % of the data.
+
+    The stated cost: a source removed from ``services.yaml`` keeps 30
+    days of rows this route will no longer serve.  Empty population
+    today — all 9 distinct values in ``log_entries.source`` are declared
+    — and the rows stay reachable through
+    ``GET /api/logs/recent?source=``, which has no validator because its
+    job is history rather than a live source's tail.
+    """
+    declared = declared_source_names()
+    if source not in declared:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Unknown log source {source!r}. "
+                f"Declared sources: {', '.join(sorted(declared))}"
+            ),
+        )
+
     since = datetime.now(UTC) - timedelta(hours=hours)
 
     query = (
