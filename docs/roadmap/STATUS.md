@@ -1,14 +1,19 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-08-18
+**Last Updated**: 2026-08-24
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **No deploy is owed — Session 68's restart was done and verified.**
-> `sysadmin` restarted at **2026-08-18 06:17:53** (NRestarts 3 → 4),
-> `/health` answers, and `GET /api/logs/actions` serves **11**
-> recommendations against 24 before, with the 2026-08-12 mosquitto
-> incident as one row. `alembic current` reads **012 (head)**, checked
-> rather than assumed, so nothing was pending.
+> **No deploy is owed — Session 70's restart was done and verified.**
+> `sysadmin` restarted at **2026-08-24 08:50:53**, `/health` answers, and
+> the guard logged `schema_revision_verified: 013` — which is the point,
+> because this sitting changed the boot path. `alembic current` reads
+> **013 (head)**, checked rather than assumed.
+>
+> **An unapplied migration is now hard to leave.** `git commit` runs
+> `scripts/check-migrations.sh` and **blocks** on a mismatch (driven live:
+> exit 1, HEAD unmoved); `claude-postflight.sh` warns; and if it is
+> bypassed anyway, the `sysadmin-failed.service` toast names the revision
+> and the remedy instead of `result=exit-code, restarts=5`. `SNAG-DB-005`.
 >
 > **The recorded restart method needed one correction.**
 > `systemctl kill -s TERM sysadmin` needs polkit authorisation and times
@@ -115,7 +120,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2101 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, smoke script |
+| Testing | 🟢 Complete | **2146 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -123,6 +128,45 @@
 ---
 
 ## Recently Completed
+
+### Nothing applied migrations, so the guard's refusal was an outage (2026-08-24)
+
+**`SNAG-DB-005` fixed.** Migration 013 was written, committed and never
+applied; the daemon was restarted to serve a new route, `schema_guard`
+refused (correctly), `StartLimitBurst=5` made the loop terminal, and
+`sysadmin.service` stayed dead **23 hours**.
+
+`sysadmin-check-schema` is a console script over the guard's own
+`packaged_head()` and a new `live_revision_sync()`, wrapped by
+`scripts/check-migrations.sh` and called **blocking** from
+`claude-precommit.sh` and advisory from `claude-postflight.sh`. The commit
+is the last scripted moment before the hand-typed `kill -TERM` — there is
+no deploy script on this box.
+
+**The snag's own ranking of its three candidates was wrong in two places,
+and both errors are the same shape: cost weighed without asking what the
+option buys.** `ExecStartPre=` was ranked cheapest-that-works and buys
+nothing — a check there is the lifespan guard relocated one process
+earlier, with the same refusal and the same 23 hours. Postflight alone
+would not have caught *this* outage, because Session 69's restart happened
+mid-sitting.
+
+**And prevention owns almost none of the 23 hours.** The failure *was*
+announced — a persistent critical toast reading `result=exit-code, exit=1,
+restarts=5`, pointing at `systemctl status`. The cause was one revision
+number and the remedy one command, both held in `schema_guard._REMEDY` and
+written only to the journal. `unit_failure._schema_diagnosis()` now puts
+the verdict in the alert row and `notify-unit-failed.sh` in the toast —
+`collation.py`'s rule 4 applied to the fault that needed it most. A healthy
+schema adds nothing to the message and is *still* recorded, because
+"checked, and it was not this" is not "never checked".
+
+Three verdicts and three exit statuses: `unknown` (exit 2) **warns and
+never blocks**, the one place this family fails open, because a commit
+refused by an unrelated PostgreSQL outage teaches the operator to reach for
+`--no-verify`. **2146 tests** (+45); the counterfactual was driven by
+adding a temporary migration file rather than stamping the database, so the
+box was never put into the state the snag describes.
 
 ### The weekly log review, and a premise that was false (2026-08-24)
 

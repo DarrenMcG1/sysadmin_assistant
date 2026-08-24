@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-18
+> **Last Updated**: 2026-08-24
 
 ---
 
@@ -366,6 +366,67 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+## Session 70 — SNAG-DB-005, the migration that nothing applies (2026-08-24) ✅
+
+Session 69 restarted the daemon to serve a new route and found it had
+already been dead 23 hours: migration 013 was written, committed and never
+applied, `schema_guard` refused to serve (correctly), and
+`StartLimitBurst=5` made the restart loop terminal. Nothing on this box
+applies migrations and nothing checked either.
+
+- [x] **`sysadmin-check-schema`** — a console script over
+      `schema_guard.packaged_head()` and a new `live_revision_sync()`,
+      wrapped by `scripts/check-migrations.sh`
+- [x] **Blocking in `claude-precommit.sh`, advisory in
+      `claude-postflight.sh`** — the commit is the last scripted moment
+      before the hand-typed `kill -TERM`; there is no deploy script
+- [x] **The failure names its own remedy** —
+      `unit_failure._schema_diagnosis()` into `details['schema']` and the
+      alert message, and `notify-unit-failed.sh` into the toast
+- [x] **`sudo systemctl status` corrected to `systemctl status`** in the
+      toast, measured as `gaddi` (wheel): both it and `journalctl -u` exit 0
+- [x] **45 tests** (2101 → 2146), each falsified against the behaviour it
+      replaces; ruff and mypy clean
+
+**What the sitting found that was not written down.**
+
+- **The entry ranked its own candidates by cost and never asked what each
+  buys.** `ExecStartPre=` was ranked cheapest-that-works and buys
+  **nothing** — a check there fails identically to the lifespan guard, one
+  process earlier: same refusal, same `failed`, same 23 hours. And
+  postflight alone would **not have caught this outage**, because Session
+  69's restart happened *mid-sitting*; a session-end check runs after the
+  box is already down. Both errors are the same shape.
+- **Prevention owns almost none of the 23 hours.** `sysadmin-failed.service`
+  fired *correctly*, with a persistent critical toast, and said only
+  `result=exit-code, exit=1, restarts=5`. The cause was one revision number
+  and the remedy one command — both sitting in `schema_guard._REMEDY`,
+  reaching the journal and nothing else. The entry named three candidates
+  and none of them shortens this.
+- **The one duplication accepted is the connection, never the rule.** Both
+  new callers run outside a running application, so `get_engine()` would
+  raise and a sync reader is unavoidable. The schema-qualified table name,
+  the none/one/many interpretation and the mismatch wording moved into
+  `_qualified`, `_interpret_version_rows` and `describe_mismatch`, and a
+  live test drives **both** readers against the real `alembic_version`.
+  Falsified by pointing the sync one at `public.alembic_version` — the
+  stranger's copy `schema_guard`'s rule 2 exists to keep out — and it fires.
+- **This is the one place the guard family fails _open_.** Exit 2 (the
+  comparison could not be made) warns and never blocks: a commit refused
+  because PostgreSQL happens to be down teaches the operator to reach for
+  `--no-verify`, which disarms the check for the case it exists for. Three
+  verdicts, three exit statuses, because a check that could not look must
+  not report what a clean check reports.
+- **The counterfactual was driven by moving the checkout, not the
+  database.** A temporary migration file raises the packaged head and
+  leaves `alembic_version` untouched, so a crash mid-test cannot leave the
+  box in the state the snag describes. Stamping down would have.
+- **`uv sync` prunes this repository's extras.** `dev` and `tray` are
+  `[project.optional-dependencies]`, not dependency groups, so a bare
+  `uv sync` removed pytest, ruff, mypy and PyQt6 — and `uv run pytest` then
+  silently fell through to `/usr/bin/pytest`, which fails on `import
+  estate`. `uv sync --all-extras` is the command.
 
 ## Session 68 — SNAG-LOG-001, the correlation rule (2026-08-18)
 

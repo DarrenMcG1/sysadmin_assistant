@@ -68,7 +68,50 @@ else
     echo -e "  ${GREEN}✓ No code files - lint skipped${NC}"
 fi
 
-# Check 2: Docs updated (ENFORCED for 5+ code files)
+# Check 2: Alembic head applied (BLOCKS on a mismatch)
+#
+# SNAG-DB-005. A migration written and never applied took the daemon down
+# for 23 hours: `schema_guard` refused to serve, StartLimitBurst made the
+# restart loop terminal, and nothing on this box applies migrations. The
+# commit is the last scripted moment before the hand-typed restart — there
+# is no deploy script between them — so the check lands here.
+#
+# It blocks whatever is staged, not only a migration file, because the
+# question is about the state of the box rather than the content of the
+# commit: a database behind the checkout means the daemon is already dead
+# or dies at its next restart, and a docs commit does not make that less
+# true.
+#
+# Exit 2 (the comparison could not be made) WARNS rather than blocks. A
+# commit refused because PostgreSQL happens to be down teaches the operator
+# to reach for --no-verify, which disarms this check for the mismatch it
+# exists to catch — and a commit is not what breaks the box, the restart
+# is. See rule 5 in sysadmin/core/schema_guard.py.
+echo -e "\n${BLUE}🗄️  Schema check:${NC}"
+# `|| SCHEMA_STATUS=$?` rather than a bare call: this script runs under
+# `set -e`, which would abort here on any non-zero and skip the messages
+# below — including the one that decides 2 must not block.
+SCHEMA_STATUS=0
+SCHEMA_OUT=$(./scripts/check-migrations.sh --quiet 2>&1) || SCHEMA_STATUS=$?
+if [ "$SCHEMA_STATUS" -eq 0 ]; then
+    echo -e "  ${GREEN}✓ Database is at this checkout's Alembic head${NC}"
+elif [ "$SCHEMA_STATUS" -eq 1 ]; then
+    echo -e "  ${RED}✗ BLOCKED: an Alembic migration is unapplied${NC}"
+    echo -e "  ${RED}  $SCHEMA_OUT${NC}"
+    echo -e ""
+    echo -e "  ${BOLD}Required action:${NC}"
+    echo -e "    uv run alembic upgrade head"
+    echo -e "    systemctl reset-failed sysadmin && systemctl start sysadmin"
+    echo -e ""
+    echo -e "  ${YELLOW}⚠️  This is SNAG-DB-005: the same omission cost 23 hours of${NC}"
+    echo -e "  ${YELLOW}   monitoring on 2026-08-23. Do not bypass with --no-verify.${NC}"
+    exit 1
+else
+    echo -e "  ${YELLOW}⚠️  Could not check the schema (not the same as 'it is fine')${NC}"
+    echo -e "  ${YELLOW}  $SCHEMA_OUT${NC}"
+fi
+
+# Check 3: Docs updated (ENFORCED for 5+ code files)
 echo -e "\n${BLUE}📝 Documentation check:${NC}"
 
 STAGED_TASKS=$(git diff --cached --name-only | grep -E "tasks\.md$" | wc -l)
@@ -105,7 +148,7 @@ else
     fi
 fi
 
-# Check 3: Active refactor progress check
+# Check 4: Active refactor progress check
 if [ -d "docs/refactors" ] && [ "$STAGED_CODE" -gt 0 ]; then
     ACTIVE_REFACTORS=$(find docs/refactors -name "*.md" -exec grep -l "🔴 Planning\|🟡 In Progress" {} \; 2>/dev/null | wc -l)
     if [ "$ACTIVE_REFACTORS" -gt 0 ] && [ "$STAGED_REFACTORS" -eq 0 ]; then

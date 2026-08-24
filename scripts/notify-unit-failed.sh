@@ -22,6 +22,13 @@
 # failing is the honest outcome, and it is visible as
 # `systemctl status sysadmin-failed`.
 #
+# **It names the cause when the cause is knowable.** SNAG-DB-005: on
+# 2026-08-23 this handler fired correctly and said only
+# `result=exit-code, restarts=5`. The fault was an unapplied migration and
+# the remedy was one command, both of which `sysadmin/core/schema_guard.py`
+# knew and wrote only to the journal. The daemon stayed dead 23 hours. The
+# schema check below is asked first and its answer goes into the toast.
+#
 # Off-box notification is the known gap, recorded in tasks.md rather than
 # pretended closed: nothing here survives the machine being off.
 
@@ -42,11 +49,42 @@ result=$(printf '%s\n' "$props" | sed -n 's/^Result=//p')
 restarts=$(printf '%s\n' "$props" | sed -n 's/^NRestarts=//p')
 status=$(printf '%s\n' "$props" | sed -n 's/^ExecMainStatus=//p')
 
+# The most common cause this handler has ever had, asked before anything
+# is written, so every destination below carries the same answer.
+#
+# Three outcomes, and only two of them say anything: a mismatch names the
+# remedy, an unreachable database says it could not look (which is itself
+# a candidate cause of the failure), and a healthy schema adds nothing —
+# a critical toast is not the place to rule things out one at a time.
+#
+# `|| schema_rc=$?` because `set -u -o pipefail` is in effect without
+# `-e`; the explicit capture is so a future `-e` cannot silently turn a
+# mismatch into a handler that never speaks.
+schema_rc=0
+schema_out=$("$(dirname "$0")/check-migrations.sh" --quiet 2>&1) || schema_rc=$?
+schema_note=""
+case "$schema_rc" in
+0) ;;
+1) schema_note="
+
+CAUSE: ${schema_out#mismatch: }
+  uv run alembic upgrade head
+  systemctl reset-failed ${unit} && systemctl start ${unit}" ;;
+*) schema_note="
+
+The schema revision could not be checked, which may itself be why it died:
+  ${schema_out}" ;;
+esac
+
+# `systemctl status` and `journalctl -u` are unprivileged here — verified
+# as gaddi, exit 0 for both. The `sudo` this line used to carry was wrong
+# and is the same defect as the missing remedy: a next step the reader
+# cannot take, or can take more easily than they were told.
 summary="FAILED: ${unit}"
 body="systemd gave up restarting it (result=${result:-unknown}, exit=${status:-?}, restarts=${restarts:-?}).
 Monitoring and all agents are DOWN until it is started.
-  sudo systemctl status ${unit}
-  journalctl -u ${unit} -n 50 --no-pager"
+  systemctl status ${unit}
+  journalctl -u ${unit} -n 50 --no-pager${schema_note}"
 
 # Journald first, and unconditionally. It is the one destination that does
 # not depend on a graphical session existing, so the record survives even

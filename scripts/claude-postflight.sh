@@ -50,6 +50,31 @@ else
     echo -e "  ${GREEN}✓ No additional worktrees${NC}"
 fi
 
+# 3.5. Alembic head applied
+#
+# SNAG-DB-005. Advisory here and blocking in claude-precommit.sh, and the
+# split is deliberate: the pre-commit hook is what makes an unapplied
+# migration hard to leave, while this catches the case a commit cannot —
+# a migration applied earlier and since rolled back, or a database
+# restored from a backup mid-sitting. Session 69's outage began *during*
+# the sitting, at a restart, so a session-end check alone would have been
+# too late; it is the second line, not the first.
+echo -e "\n${BLUE}🗄️  Schema revision:${NC}"
+SCHEMA_STATUS=0
+SCHEMA_OUT=$(./scripts/check-migrations.sh --quiet 2>&1) || SCHEMA_STATUS=$?
+if [ "$SCHEMA_STATUS" -eq 0 ]; then
+    echo -e "  ${GREEN}✓ Database is at this checkout's Alembic head${NC}"
+elif [ "$SCHEMA_STATUS" -eq 1 ]; then
+    echo -e "  ${RED}${BOLD}✗ An Alembic migration is unapplied${NC}"
+    echo -e "  ${RED}  $SCHEMA_OUT${NC}"
+    echo -e "  ${BOLD}  Run: uv run alembic upgrade head${NC}"
+    echo -e "  ${RED}  Leaving it costs the daemon its next restart (SNAG-DB-005)${NC}"
+    ISSUES=$((ISSUES + 1))
+else
+    echo -e "  ${YELLOW}⚠️  Could not check (not the same as 'it is fine')${NC}"
+    echo -e "  ${YELLOW}  $SCHEMA_OUT${NC}"
+fi
+
 # 4. DOCUMENTATION ENFORCEMENT - Critical check
 echo -e "\n${BLUE}${BOLD}📋 DOCUMENTATION ENFORCEMENT CHECK${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"

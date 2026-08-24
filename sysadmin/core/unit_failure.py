@@ -33,6 +33,23 @@ that names a script rather than an agent would also make
 `self_monitor.AGENT_NAMES` wrong, and that list is pinned to the
 constraint by `tests/test_units_api.py`.
 
+**The row names the cause when the cause is knowable.**  ``SNAG-DB-005``:
+on 2026-08-23 this handler fired correctly and said only
+``result=exit-code, restarts=5``.  The actual fault was an unapplied
+migration, the remedy was one command, and both were sitting in
+:mod:`sysadmin.core.schema_guard` — reaching the journal and nothing
+else.  The daemon then stayed dead for 23 hours.  So
+:func:`_schema_diagnosis` asks the guard, and a mismatch is written into
+the message and into ``details['schema']``.  That is
+:mod:`sysadmin.monitor.collation`'s rule 4 — the remedy's trap is carried
+in the alert — and it is why the check fails soft: a diagnosis that could
+not be made must never suppress the row it was meant to annotate.
+
+A matching schema adds nothing to the message and is still recorded in
+``details``, because "checked, and it was not this" is a different fact
+from "never checked" and the reader of a stale row cannot tell them apart
+otherwise — ``ports_checked``'s rule.
+
 **The row is resolved by the daemon coming back**, in
 :func:`resolve_unit_failures`, called from the lifespan. Without that half
 this row is unresolvable by construction — nothing else knows it exists —
@@ -55,6 +72,7 @@ from sqlalchemy.orm import Session
 from sysadmin.core.config import get_config
 from sysadmin.core.database import _configure_search_path
 from sysadmin.core.models.alert import Alert
+from sysadmin.core.schema_guard import schema_status
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +120,40 @@ def _sync_session() -> Session:
     return Session(engine)
 
 
+def _schema_diagnosis() -> tuple[str, dict[str, Any]]:
+    """Ask the schema guard why the daemon might have refused to start.
+
+    Returns the sentence to append to the alert message — empty when
+    there is nothing to say — and the block to file under
+    ``details['schema']``.
+
+    **It cannot raise.** :func:`schema_status` is already fail-soft, and
+    the belt-and-braces ``except`` around it exists because this function
+    annotates a row whose whole purpose is to survive the application
+    being dead: an annotation that suppressed the row would be strictly
+    worse than no annotation. ``SNAG-DB-005``.
+    """
+    try:
+        status = schema_status()
+    except Exception as exc:  # noqa: BLE001 — an annotation must never win
+        logger.warning("could not determine the schema revision: %s", exc)
+        return "", {"verdict": "unknown", "problem": str(exc)}
+
+    block: dict[str, Any] = {
+        "verdict": status.verdict,
+        "head": status.head,
+        "current": status.current,
+        "problem": status.problem,
+    }
+    if status.verdict == "mismatch":
+        return f" CAUSE: {status.problem}", block
+    if status.verdict == "unknown":
+        # Named, not silent: the database being unreadable is itself a
+        # candidate cause of the failure being recorded.
+        return " The schema revision could not be checked.", block
+    return "", block
+
+
 def record_unit_failure(
     unit: str,
     *,
@@ -136,6 +188,7 @@ def record_unit_failure(
                 logger.info("unit failure already open for %s — not duplicating", unit)
                 return False
 
+            diagnosis, schema_block = _schema_diagnosis()
             session.add(Alert(
                 agent=FILED_UNDER,
                 severity="critical",
@@ -144,9 +197,9 @@ def record_unit_failure(
                     f"systemd gave up restarting {unit} "
                     f"(result={result or 'unknown'}, exit={exit_status or '?'}, "
                     f"restarts={restarts or '?'}). Monitoring is down until it "
-                    "is started."
+                    f"is started.{diagnosis}"
                 ),
-                details=_details(unit, result, exit_status, restarts),
+                details=_details(unit, result, exit_status, restarts, schema_block),
             ))
             session.commit()
     except Exception as exc:  # noqa: BLE001 — a handler must not raise
@@ -158,13 +211,23 @@ def record_unit_failure(
 
 
 def _details(
-    unit: str, result: str | None, exit_status: str | None, restarts: str | None
+    unit: str,
+    result: str | None,
+    exit_status: str | None,
+    restarts: str | None,
+    schema: dict[str, Any],
 ) -> dict[str, Any]:
     """The provenance `agent` cannot carry, plus the systemd verdict.
 
     ``result`` distinguishes an exit code from a timeout from an OOM kill,
     and ``restarts`` says whether the unit thrashed or died once — the two
     questions asked first when reading this row later.
+
+    ``schema`` is always present and always carries a ``verdict``, so a
+    reader can tell "checked, and the schema was fine" from "never
+    checked" — the distinction ``ports_checked`` exists to make one domain
+    over. It is a nested block rather than flattened keys because the
+    verdict and the revisions are one statement about one question.
     """
     return {
         "kind": "unit_failure",
@@ -175,6 +238,7 @@ def _details(
         "systemd_result": result,
         "exit_status": exit_status,
         "restarts": restarts,
+        "schema": schema,
     }
 
 

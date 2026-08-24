@@ -42,6 +42,12 @@ sysadmin-tray = "sysadmin_tray.app:main"
 # A console script rather than inline psql: the alert row must satisfy the
 # same model and CHECK constraint the application writes through.
 sysadmin-record-failure = "sysadmin.core.unit_failure:main"
+# Called by scripts/check-migrations.sh, which the pre-commit hook and the
+# postflight script both run. A console script rather than a shell `psql`
+# so the comparison is alembic's own ScriptDirectory against a
+# schema-qualified alembic_version — the two rules schema_guard exists to
+# state once. SNAG-DB-005.
+sysadmin-check-schema = "sysadmin.core.schema_guard:main"
 
 [tool.uv.sources]
 # Editable relative path, deliberately unversioned: one box, one committer,
