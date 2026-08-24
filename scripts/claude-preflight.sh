@@ -90,6 +90,53 @@ else
     echo -e "  ${YELLOW}STATUS.md not found${NC}"
 fi
 
+# 6.5. The sub-session block, which the global rules say to read first
+#
+# STATUS.md's opening blockquote is where "what is owed" is written — a
+# restart, a migration, an alert row waiting on somebody. This script has
+# printed the Quick Status table since it was written and never printed
+# that, which is how five sittings re-read a stale one. Bounded at 30
+# lines and stopped at the ranked recommendation, which is prose for the
+# reader rather than a claim about the box.
+echo -e "\n${BLUE}📌 Sub-session block (STATUS.md):${NC}"
+SUBSESSION=$(awk '/^> \*\*Next up\*\*/ {exit} /^>/ {print}' docs/roadmap/STATUS.md 2>/dev/null | head -30)
+if [ -z "$SUBSESSION" ]; then
+    echo -e "  ${YELLOW}No opening blockquote found — not the same as 'nothing owed'${NC}"
+else
+    echo "$SUBSESSION" | sed 's/^/  /'
+fi
+
+# 6.6. ...and the claims in it, re-measured
+#
+# SNAG-ESTATE-008. Everything above this line is prose being repeated;
+# this is the only part of the banner that has looked at the box. Six
+# consecutive sittings were spent on claims that had stopped being true —
+# an ops action done three days earlier, a restart that needed no sudo, a
+# retention boundary asserted three hours before it happened.
+#
+# Advisory, never blocking, and it must not take the banner down with it:
+# `set -e` is on, so the exit status is captured rather than allowed to
+# propagate. A check that can end the session it opens would be worse
+# than the drift it reports.
+echo -e "\n${BLUE}🔎 Ops claims, re-measured:${NC}"
+CLAIMS_STATUS=0
+CLAIMS_OUT=$(./scripts/check-ops-claims.sh 2>&1) || CLAIMS_STATUS=$?
+while IFS= read -r line; do
+    case "$line" in
+        "ok "*) echo -e "  ${GREEN}✓${NC} ${line#ok }" ;;
+        "no "*) echo -e "  ${RED}${BOLD}✗ ${line#no }${NC}" ;;
+        "?? "*) echo -e "  ${YELLOW}? ${line#?? }${NC}" ;;
+        *)      echo -e "  ${BLUE}${line}${NC}" ;;
+    esac
+done <<< "$CLAIMS_OUT"
+if [ "$CLAIMS_STATUS" -eq 1 ]; then
+    echo -e "  ${BOLD}A claim above is false. Fix the artefact it names —${NC}"
+    echo -e "  ${BOLD}a 'block says' line means the document is stale;${NC}"
+    echo -e "  ${BOLD}a state line means the box is.${NC}"
+elif [ "$CLAIMS_STATUS" -ne 0 ]; then
+    echo -e "  ${YELLOW}Something could not be measured — not the same as 'it holds'${NC}"
+fi
+
 # 7. Check running servers
 echo -e "\n${BLUE}🖥️  Running servers:${NC}"
 BACKEND=$(pgrep -fa "uvicorn\|run_api" 2>/dev/null || true)

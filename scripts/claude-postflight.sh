@@ -75,6 +75,38 @@ else
     echo -e "  ${YELLOW}  $SCHEMA_OUT${NC}"
 fi
 
+# 3.6. Do the claims the session is about to write still hold?
+#
+# SNAG-ESTATE-008. Preflight runs the same check at the start of a sitting,
+# which is where a stale claim is caught; this is where one is *made*. The
+# numbers in STATUS.md's opening block are written at the close, so a wrong
+# one caught here is caught before it is committed rather than one sitting
+# later — the same split as the schema check above, in the other direction.
+#
+# A red "serves the code on disk" line at the close is the check working:
+# the session changed code and the daemon is still running the old copy, so
+# the sitting owes either a `kill -TERM` or a sub-session line saying it is
+# owed. Both are honest; saying nothing is not.
+echo -e "\n${BLUE}🔎 Ops claims (STATUS.md against the box):${NC}"
+CLAIMS_STATUS=0
+CLAIMS_OUT=$(./scripts/check-ops-claims.sh 2>&1) || CLAIMS_STATUS=$?
+while IFS= read -r line; do
+    case "$line" in
+        "ok "*) echo -e "  ${GREEN}✓${NC} ${line#ok }" ;;
+        "no "*) echo -e "  ${RED}${BOLD}✗ ${line#no }${NC}" ;;
+        "?? "*) echo -e "  ${YELLOW}? ${line#?? }${NC}" ;;
+        *)      echo -e "  ${BLUE}${line}${NC}" ;;
+    esac
+done <<< "$CLAIMS_OUT"
+if [ "$CLAIMS_STATUS" -eq 1 ]; then
+    echo -e "  ${BOLD}Correct the artefact named, not the check:${NC}"
+    echo -e "  ${BOLD}a 'block says' line means STATUS.md is stale;${NC}"
+    echo -e "  ${BOLD}a state line means the box is${NC}"
+    ISSUES=$((ISSUES + 1))
+elif [ "$CLAIMS_STATUS" -ne 0 ]; then
+    echo -e "  ${YELLOW}⚠️  Something could not be measured (not the same as 'it holds')${NC}"
+fi
+
 # 4. DOCUMENTATION ENFORCEMENT - Critical check
 echo -e "\n${BLUE}${BOLD}📋 DOCUMENTATION ENFORCEMENT CHECK${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"

@@ -367,6 +367,74 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 73 — SNAG-ESTATE-008, the block that opens a sitting gets a reader (2026-08-24) ✅
+
+Six consecutive sittings were spent on claims that had stopped being
+true: an ops action done three days earlier by another repository, a
+restart method that needed no `sudo`, and — the day before this one —
+this file asserting a retention boundary three hours before it happened.
+The previous ranking demoted the fix for having "no obvious enforcement
+point, since these claims live in prose". `claude-preflight.sh` already
+runs at the start of every sitting and already prints those claims; it
+just prints them *from the prose*.
+
+- [x] **`sysadmin/ops_claims.py`, `sysadmin-check-claims` and
+      `scripts/check-ops-claims.sh`**, wired into preflight (where a
+      stale claim is *caught*) and postflight (where one is *made* —
+      the numbers are written at the close, so a wrong one is caught
+      before it is committed rather than one sitting later)
+- [x] **Seven checks in two kinds, and conflating them would have you
+      edit the wrong artefact.** Five *claims* parsed out of the block
+      itself — routes, tables, the documented Alembic head, unresolved
+      alerts, the daemon's start time — where a mismatch means the
+      **document** is stale; and two *state* checks — the live schema
+      against the packaged head, and whether the daemon is serving the
+      code on disk — where a mismatch means the **box** is
+- [x] **The entry understated its own defect by a whole surface.** It
+      says preflight prints the priorities "without checking either
+      against `sysadmin.alerts`"; measured, the banner never printed the
+      sub-session block at all, because the blockquote sits *above* the
+      `## Quick Status` heading its extract is anchored on. The one
+      surface the global rules require to be read first was the one it
+      omitted. It prints now, bounded and stopped at the ranked
+      recommendation
+- [x] **The obvious deploy check is wrong on this box, and was wrong
+      today.** Daemon start 09:58:28 against the newest commit touching
+      `sysadmin/` at 10:05:22 reports a restart owed on identical
+      content — this repository restarts to verify and commits
+      afterwards. The newest `.py` on disk, **09:57:46**, answers it
+      correctly. Measured both ways before either was written down
+- [x] **`systemctl show` answers for a unit that does not exist**, exits
+      `0`, and prints `ActiveState=inactive` — this snag's own shape
+      found inside its own fix. `LoadState` is the gate, pinned by a
+      test that drives the real binary rather than a stub
+- [x] **A *fall* in the alert count is the founding case.** Equality or
+      a rise is the rule anyone would write; this entry exists because
+      eight collation rows resolved themselves and four documents went
+      on asking for the `REINDEX` for three days. Both directions
+      reported, worded differently, open titles named rather than
+      counted
+- [x] **35 tests, six falsified against the behaviour they replace** —
+      first-match parsing, `len(app.routes)` (which is 50 against the
+      documented 46, FastAPI's four docs routes), no `LoadState` gate,
+      `max()` over the exit map, an unbounded parse region, and the
+      missing `flatten()`. All six fired. Suite 2159 → 2194
+- [x] **The check refuted its author within a minute of being wired up.**
+      The first rewrite of the block under it wrapped `holds **2**` and
+      `unresolved` across two lines with a `>` between them, and the
+      claim came back `unknown` — correct by the rule that not-knowing
+      is never agreement, and useless, because a paragraph reflow must
+      not be able to retire a claim. `flatten()` matches against prose
+      rather than markdown
+- [x] **Driven against a document made false on purpose.** All five
+      claims in today's real block hold; a copy with the route count set
+      to 44, the alerts to 9 and the restart backdated produces three
+      `no` lines and reproduces the founding case from the outside
+- [x] **`SNAG-ESTATE-011` filed for what is left** — the block's other
+      claims are prose no pattern can reach, and the *convention* the
+      entry proposed (every ops action names the check that closes it)
+      has no enforcement point yet
+
 ## Session 72 — SNAG-LOG-010, a row's identity is the fault (2026-08-24) ✅
 
 `GET /api/logs/actions` served two rows reading exactly

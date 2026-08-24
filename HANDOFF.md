@@ -2,121 +2,114 @@
 
 ## Next action
 
-Take `SNAG-ESTATE-008` and give `scripts/claude-preflight.sh` a block that re-measures the four machine-checkable ops claims this repository keeps carrying forward wrong — `sysadmin-check-schema` for the schema head, the unresolved-alert count, the daemon's `ActiveEnterTimestamp`, and the live route count off `create_app()` — because the previous ranking demoted it for having "no obvious enforcement point" and preflight already runs at the start of every sitting and already prints priorities, just from prose.
+Drop `project_snapshots`, `project_reviews` and `log_summaries` in one Alembic migration, removing their `retention_config` rows, their `TABLE_TIMESTAMP_MAP` entries and their `metadata.py` `FROZEN_TABLES` exclusions with them, and take `SNAG-DOCS-002`'s decision about the contract models nothing reads in the same sitting — because nothing has written any of those three tables since 2026-08-13 or Session 69, four mechanisms still carry them, and it is the first structural change this repository can verify by machine rather than assert.
 
 ## Sub-session items
 
-**None owed.** `sysadmin` was restarted at **2026-08-24 09:58:28** to
-serve this sitting's change, `/health` answers, `alembic current` reads
-**013 (head)**, and `GET /api/logs/actions` serves **9 rows with 0
-colliding titles** where the same route served 7 collisions among 9 one
-minute earlier — checked on the route either side of the restart.
+**One is owed, and it is a question rather than a change.** Session 33
+(seam drift detection) has been named as blocked in two consecutive
+rankings without the blocking question being asked. Its second task reads
+another repository's fixture off the same disk, and cross-repo concerns
+have had an owner since 2026-08-13, so **ask estate-manager** before
+ranking it. That is a sub-hour action, not a session.
 
-**One alert row is open and it is the artefact Session 71 named
-correctly.** `Estate scan could not reach sources` (`warning`, 07:54:54)
-reports the estate's *stored* scan of 03:32 today, taken inside the
-23-hour outage; 8400 answers `200` now. The estate's scan timer is daily,
-so the row clears at 03:32 tomorrow with nothing done. Do not reach into
-the estate to force a rescan — its scan is its own. `alerts` holds **2**
-unresolved rows in total, measured at 10:05.
+**Nothing else is owed, and this is the first handoff whose ops claims are
+machine-checked.** `sysadmin` was restarted at **2026-08-24 21:52:06**,
+`/health` answers `200`, `alembic current` reads **013 (head)**, and
+`alerts` holds **2** unresolved rows — both expected (`Estate scan could
+not reach sources` clears at 03:32 when the estate's daily timer runs;
+`Weekly disk review ready` is below `tray.notify_min_severity`). Do not
+re-verify these by hand: run `./scripts/check-ops-claims.sh`, which
+`claude-preflight.sh` now runs for you at the top of every sitting.
 
-## This session — Session 72: a row's identity is the fault
+## This session — Session 73: the block that opens a sitting gets a reader
 
-**`SNAG-LOG-010` fixed.** `GET /api/logs/actions` served two rows reading
-exactly `kernel: 39885 occurrences, unchanged` — same source, same count,
-same severity, same kind, two genuinely distinct signatures, because one
-kernel retry loop emits both Bluetooth firmware messages at equal volume.
+**`SNAG-ESTATE-008`'s machine-checkable half fixed.** Six consecutive
+sittings had been spent on claims that had stopped being true. The
+previous ranking demoted the fix for having "no obvious enforcement
+point, since these claims live in prose" — and `claude-preflight.sh`
+already ran every sitting and already printed those claims, from the
+prose, with nothing between the document and the reader.
 
-- **`quoted_signature()` on all four title builders**, not just the one
-  the entry filed against. `capped_signature()` bounds the signature at
-  `SIGNATURE_DETAIL_CHARS` with `truncate_at_word`;
-  `log_review._quoted_signature` keeps only its `figure_free` gate and
-  borrows cap, marker and quoting.
-- **The entry's scope was wrong in both halves.** It filed against
-  `noise` and ranked it last on "population is currently zero". Driven
-  through the real `recommend()` against the live table: **14 of 21 rows
-  collided in five groups** at the 2026-08-12 anchor, and **7 of 9** at
-  the live anchor — where the `noise` population genuinely is zero and
-  every colliding row is `severity: risk`.
-- **12 member signatures per request were sliced mid-word with no
-  marker**, one ending `"message": "alert_raised", "service"` — the
-  unmarked cut `log_review._quoted_signature`'s own docstring calls
-  `SNAG-BRIEF-002` and calls *worse* on a signature, in the module that
-  lent it the constant. `SAMPLE_DETAIL_CHARS` names the second bare
-  slice, which had been written twice.
-- **The noise title no longer claims a direction.** `unchanged` was
-  asserted for all four change kinds `_is_noise_candidate` admits, and
-  the live pair classifies **`FALLING` — 39,885 this window against
-  77,496 last**, contradicted by the row's own `detail`.
-- **Nine tests, each falsified against the behaviour it replaces**, and
-  one strengthened before it could be: it compared the two modules'
-  quoting on a *short* signature, where a slice and a marked cut agree.
-- Full suite **2,159 passed**, ruff clean, mypy clean.
+- **`sysadmin/ops_claims.py`, `sysadmin-check-claims`,
+  `scripts/check-ops-claims.sh`**, wired into preflight (where a stale
+  claim is caught) and postflight (where one is made). Seven checks:
+  five *claims* parsed out of the block — routes, tables, the documented
+  Alembic head, unresolved alerts, the daemon's start time — and two
+  *state* checks, the live schema against the packaged head and whether
+  the daemon serves the code on disk. A mismatch on the first kind means
+  the document is stale; on the second, the box is.
+- **Nothing blocks and nothing edits a document.** A check that corrects
+  the file it reads becomes a second author of the claim.
+- **`SNAG-ESTATE-011` opened** for what no pattern can reach: `/health`
+  answers, "9 rows with 0 colliding titles", "clears at 03:32
+  tomorrow" — the convention the entry proposed, which has no
+  enforcement point yet and by its own argument should wait until the
+  block has been written twice under the new rule.
 
 ## What the sitting found that nobody had written down
 
-**Reading the entry would have confirmed it; running the producer
-refuted it.** The defect was filed from one live payload and scoped to
-the family that payload happened to show. Every rule in it was correct
-about `noise` and wrong about the endpoint.
-
-**A claim in `STATUS.md` was written ahead of the fact and was false when
-checked.** It said `SNAG-LOG-008`'s rows "aged out of the 7-day trend
-window on 2026-08-24". All 10 were ingested **2026-08-17
-14:11:00–14:21:03**, so they leave that window at about **14:11 today** —
-and at 09:58 four of them were still producing live titles.
-`SNAG-ESTATE-008`, and the first instance of it this repository has
-produced about its own dashboard.
-
-**`SNAG-LOG-013` is filed with its own expiry in it.** 9 of 55 signatures
-share their capped prefix and one live incident row lists **7 members
-identical after capping** — the roll-up naming nothing, one level below
-the titles. All nine are `SNAG-LOG-008`'s historic raw-JSON rows, so the
-population empties by retention this afternoon and the cause cannot
-recur, because the Session 64 declaration unwraps every row written
-since. The entry says so, because "population is zero" is exactly what
-mis-ranked its parent.
+- **The entry understated its own defect by a whole surface.** Preflight
+  was not failing to *check* the sub-session block — it had never
+  *printed* it, because its extract is anchored on `## Quick Status` and
+  the block is a blockquote above that heading. The one surface the
+  global rules require to be read first was the one the banner omitted.
+- **The obvious "is a restart owed" rule is wrong on this box, today.**
+  Daemon start 09:58:28 against the newest commit touching `sysadmin/`
+  at 10:05:22 reports a restart owed on identical content: this
+  repository restarts to verify and commits afterwards. The newest `.py`
+  on disk, 09:57:46, answers it correctly. Both were run before either
+  was written down.
+- **`systemctl show` answers for a unit that does not exist** — exit
+  `0`, `ActiveState=inactive`, an empty timestamp read as epoch zero.
+  "Nobody looked" rendered as a measurement, which is this snag's own
+  shape found inside its own fix.
+- **The check refuted its author within a minute of being wired up.**
+  The first rewrite of the block under it wrapped `holds **2**` and
+  `unresolved` across two lines with a `>` between, and the claim came
+  back `unknown` — correct, and useless, because a paragraph reflow must
+  not be able to retire a claim. The region is flattened to prose before
+  matching. Nothing but running it would have found that.
+- **`len(app.routes)` is 50, not 46.** FastAPI adds `/openapi.json`,
+  `/docs`, `/docs/oauth2-redirect` and `/redoc` as routes of its own, so
+  a sitting re-counting "live off `create_app()`" the obvious way would
+  have declared the Quick Status table stale on its first run.
+- **A *fall* in the alert count is the founding case**, and it is the
+  direction nobody writes a rule for.
 
 ## Next session — ranked
 
-**1. `SNAG-ESTATE-008` — make preflight re-measure the ops claims it
-prints.** It has now cost six consecutive sittings: a stale `UPDATE`, a
-restart method that needed no `sudo`, and today a retention boundary
-asserted three hours before it happens. The previous ranking demoted it
-for having "no obvious enforcement point, since these claims live in
-prose" — and that is the part that is no longer true. `claude-preflight.sh`
-runs at the start of every sitting; the machine-checkable subset is one
-command each. Half a day, and it pays every sitting rather than once.
+1. **Drop the three frozen tables.** Unblocked, bounded, and the only
+   ranked item whose cost is being paid today: `retention_config`,
+   `TABLE_TIMESTAMP_MAP`, `FROZEN_TABLES` and the drift guard all carry
+   tables nothing has written for eleven days or more. ADR-0005 names
+   the migration as the follow-up. The table count moves **14 → 11**,
+   which `sysadmin-check-claims` will check and `sysadmin-check-schema`
+   will block the commit over if the migration is written and not
+   applied — the two failures `SNAG-DB-001` and `SNAG-DB-005` are made
+   of, now with machinery in the way of both.
+2. **`SNAG-LOG-011` — a deleted route still answers `200`.** Re-measured
+   tonight and unchanged: `GET /api/logs/summary` returns
+   `{"source":"summary","entries":[],"count":0}` through the `/{source}`
+   catch-all. Loses on cost-of-not-doing-it — measured, it has no
+   consumer, so it is a regression detector rather than a repair.
+3. **`SNAG-ESTATE-011`.** Loses by its own argument: a marker beside the
+   prose is a second statement of one fact that can disagree with it,
+   and that trade is only worth taking once the block has been written
+   twice under the new rule.
 
-**2. Session 33 — seam drift detection. Blocked, and named as blocked
-rather than dropped.** Still the largest genuinely-open roadmap session,
-and this sitting is another argument for it: the module's titles were
-pinned by one `startswith` that the defect passes intact. It cannot start
-here — its second task reads another repository's fixture off the same
-disk, and cross-repo concerns have had an owner since 2026-08-13, so the
-first move is a **question to estate-manager**, which is a sub-hour
-action rather than a session. Rank it first the day it is answered.
+**Runners-up.** `SNAG-LOG-013`'s population is **measured empty tonight**
+— `GET /api/logs/actions` serves 5 rows with 0 colliding capped prefixes,
+its historic raw-JSON signatures having left the 7-day window at about
+14:11 as the entry predicted. It is **not** closed on that: "the
+population is zero" is the reasoning that mis-ranked its own parent one
+sitting ago. `SNAG-UNITS-006` and `SNAG-LOG-006` are empty too. The four
+permanent `running` rows in `agent_runs` stay filed rather than ranked —
+the measurement *is* the task, so it is an hour.
 
-**3. `SNAG-LOG-011` — a deleted route still answers `200`.**
-`GET /api/logs/summary` returns an empty payload through the `/{source}`
-catch-all, so a caller is told "no summaries" where it should be told
-"gone". Real and cheap; it loses because it has **no consumer**, so today
-it costs nobody anything.
-
-**Lost, and why.** `SNAG-LOG-013` **self-expires at about 14:11 today**
-and its cause cannot recur. `SNAG-LOG-008` loses from the other side: the
-remedy is a backfill of 10 rows that leave the window today and the table
-on 2026-09-16, so the work outlives the data. `SNAG-UNITS-006` still has
-an empty population. The **four permanent `running` rows in `agent_runs`**
-stay filed rather than ranked — whether `summarise_agent` mistakes one
-for liveness is unmeasured, and the measurement *is* the task, so it is
-an hour rather than a session.
-
-**Blocked on another repository.** `SNAG-ROADMAP-002` has now published
-wrong board movement for **five consecutive sittings** (56 → 57 entries
-for a sitting that closed one and opened one) and the parser moved to
-estate-manager on 2026-08-13, so what is owed from here is a report, not
-a fix. `SNAG-LOG-012` (`strip_markdown` is `estate-lib`'s),
-`SNAG-ESTATE-002`, `-004`, `-006`, `-007` remain delegated.
-`SNAG-ESTATE-001`'s remaining half is a retirement checklist the entry
-says in writing is not this repository's to enforce.
+**Blocked or delegated.** Session 33 on the question above.
+`SNAG-ROADMAP-002` has now published wrong board movement for six
+consecutive sittings (57 → 58 entries for a sitting that closed one and
+opened one), and the parser is estate-manager's, so what is owed from
+here is a report. `SNAG-LOG-012` is delegated to `estate-lib`;
+`SNAG-ESTATE-002`, `-004`, `-006` and `-007` remain estate-manager's.

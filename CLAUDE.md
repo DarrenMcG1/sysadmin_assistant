@@ -1268,6 +1268,70 @@ raises the packaged head and leaves `alembic_version` untouched: stamping
 the database down would have put the box into the state the snag
 describes for the duration of the test.
 
+
+**A document that states what is owed has to be re-measured, and the
+place to do it is the script that already prints it** (Session 73,
+`SNAG-ESTATE-008`). `docs/roadmap/STATUS.md` opens with the block a
+sitting reads before deciding anything. Measured 2026-08-16, **all three
+ops actions it carried had already been done**, two of them by a party
+that never touched the document, and it went on asking for five sittings.
+`sysadmin/ops_claims.py` is the reader; `sysadmin-check-claims` and
+`scripts/check-ops-claims.sh` are how `claude-preflight.sh` (start of a
+sitting) and `claude-postflight.sh` (the close, where the numbers are
+*written*) run it. It sits beside `main.py` for `reload.py`'s reason —
+the route count comes from `create_app()`, so it imports every domain.
+
+Six rules, three of them the opposite of the obvious implementation:
+
+1. **The parsed region is exactly the region preflight prints**, and the
+   parse runs over `flatten()`ed prose rather than markdown. Not the
+   whole file, which restates old figures on purpose (*"44 before Session
+   27"*), and not a machine-readable marker beside the sentence, which is
+   a second statement of one fact that can disagree with the first —
+   `SNAG-DB-003`'s shape arriving in a document.
+2. **Every way of not-knowing is `unknown`, never `match`** —
+   `ports_checked`'s rule, and the verdicts and exit statuses are
+   `schema_guard`'s three, imported rather than restated. Four
+   distinguishable faults: a pattern that finds nothing, a block stating
+   one figure two ways (drift with both halves inside one file), a
+   database that will not answer, and a unit systemd has never heard of.
+3. **Two kinds of check, because the remedies are opposites.** A `claim`
+   compares the document against the box, so a mismatch means the
+   *document* is stale; a `state` check compares the box against this
+   checkout, so a mismatch means the *box* is, and no wording would fix
+   it. The state checks run even when STATUS.md cannot be read at all.
+4. **The deploy check compares file mtimes, never commit times**, and the
+   obvious version was wrong on the day it was written: the daemon
+   entered active at 09:58:28 and the newest commit touching `sysadmin/`
+   landed at 10:05:22 with identical content, because this repository
+   restarts to verify and commits afterwards. The newest `.py` on disk —
+   09:57:46, 42 s *before* the start — answers the question actually
+   being asked. The cost is stated: a rebase, or a file the daemon never
+   imports, reports a restart owed, and that fails in the direction that
+   costs a needless `kill -TERM`.
+5. **A *fall* in the unresolved-alert count is the founding case.**
+   Equality, or a rise, is the rule anyone would write. This snag exists
+   because `SNAG-DB-002`'s eight collation rows resolved themselves at
+   18:01:48 when estate-manager ran the `REINDEX` and four documents went
+   on asking for it — so a fall is the signal that already existed and
+   had no reader. Open titles are named, never counted.
+6. **Nothing here writes to a document**, and there is no `--quiet`: a
+   check that corrects the file it reads becomes a second author of the
+   claim, and a flag nothing passes is `SNAG-CFG-001` at the size of a
+   flag.
+
+Three things only running it could have said. `systemctl show` **answers
+for a unit that does not exist** — exit `0`, `ActiveState=inactive` —
+which is this snag's own shape inside its own fix, so `LoadState` is the
+gate and its test drives the real binary. `len(app.routes)` is **50**
+against the documented **46**, because FastAPI adds `/openapi.json`,
+`/docs`, `/docs/oauth2-redirect` and `/redoc` itself. And the check
+**refuted its author within a minute**: the first rewrite of the block
+wrapped `holds **2**` and `unresolved` across two lines with a `>`
+between them and the claim came back `unknown`, which is why the region
+is flattened before matching. `SNAG-ESTATE-011` is what remains — the
+block's other claims are prose no pattern can reach.
+
 `dev` and `tray` are `[project.optional-dependencies]` here rather than
 dependency groups, so **a bare `uv sync` prunes them** — pytest, ruff,
 mypy and PyQt6 all go, and `uv run pytest` then falls through to

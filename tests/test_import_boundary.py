@@ -62,7 +62,7 @@ def test_core_and_registry_do_not_import_domains():
 
 
 def test_no_domain_imports_a_composition_root():
-    """``main``, ``metadata`` and ``reload`` are imported by nothing below them.
+    """``main``, ``metadata``, ``reload`` and ``ops_claims`` are imported by nothing below them.
 
     ``sysadmin/metadata.py`` states the rule — *"both are composition
     roots: they are allowed to import every domain, and no domain imports
@@ -75,14 +75,21 @@ def test_no_domain_imports_a_composition_root():
     It is also load-bearing for the reload path specifically. ``reload``
     composes ``core.config`` with ``monitor.services``, so a router that
     imported it would give ``monitor`` an import edge to every domain
-    ``reload`` may grow.
+    ``reload`` may grow. ``ops_claims`` joined them for the same reason
+    read the other way: it counts the routes ``create_app`` declares, so
+    it imports every domain transitively and belongs nowhere below.
     """
-    roots = ("sysadmin.main", "sysadmin.metadata", "sysadmin.reload")
+    roots = (
+        "sysadmin.main",
+        "sysadmin.metadata",
+        "sysadmin.reload",
+        "sysadmin.ops_claims",
+    )
     package = PACKAGE.parent
     offenders = []
     for path in package.rglob("*.py"):
         if path.parent == package and path.stem in {
-            "main", "metadata", "reload", "__init__"
+            "main", "metadata", "reload", "ops_claims", "__init__"
         }:
             continue
         for module in imported_modules(path):

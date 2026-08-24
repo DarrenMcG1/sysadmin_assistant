@@ -48,6 +48,12 @@ sysadmin-record-failure = "sysadmin.core.unit_failure:main"
 # schema-qualified alembic_version — the two rules schema_guard exists to
 # state once. SNAG-DB-005.
 sysadmin-check-schema = "sysadmin.core.schema_guard:main"
+# Called by scripts/check-ops-claims.sh, which claude-preflight.sh and
+# claude-postflight.sh both run. A console script rather than shell because
+# the comparison needs create_app(), the packaged Alembic head and a
+# database connection — three facts sysadmin/ops_claims.py states once.
+# SNAG-ESTATE-008.
+sysadmin-check-claims = "sysadmin.ops_claims:main"
 
 [tool.uv.sources]
 # Editable relative path, deliberately unversioned: one box, one committer,
