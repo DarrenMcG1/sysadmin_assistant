@@ -180,7 +180,21 @@ def since_timestamp(moment: datetime) -> str:
     journalctl reads a bare ``YYYY-MM-DD HH:MM:SS`` in **local** time while
     everything stored here is UTC — a one-hour window silently shifted by
     the BST offset is the kind of gap that only shows up in winter.
+
+    **A naive ``moment`` is refused rather than converted**
+    (``SNAG-LOG-009``).  ``datetime.timestamp()`` reads a naive value as
+    *local*, which is the very reading this function exists to avoid — so
+    accepting one would rebuild the defect inside its own fix, silently
+    and with the right-looking type.  Every caller reads
+    ``log_entries.logged_at``, a ``timestamp with time zone``, so the
+    guard has an empty population by construction and exists to keep it
+    that way.  Loud beats silent: ``SNAG-UNITS-003``'s trade.
     """
+    if moment.tzinfo is None:
+        raise ValueError(
+            "since_timestamp needs an aware datetime: a naive one is read "
+            "as local time, which is the ambiguity this function removes"
+        )
     return f"@{int(moment.timestamp())}"
 
 

@@ -67,6 +67,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from sysadmin.monitor.journal import since_timestamp
 from sysadmin.monitor.log_trends import (
     ChangeKind,
     Confidence,
@@ -417,7 +418,7 @@ def _is_noise_candidate(trend: SignatureTrend, confidence: Confidence) -> bool:
 
 def journal_command(
     source: str,
-    since: str,
+    since: datetime,
     scopes: dict[str, bool] | None = None,
     others: Sequence[str] = (),
 ) -> str:
@@ -452,12 +453,31 @@ def journal_command(
     anchor's journal.  ``kernel`` takes ``-k`` and can never have
     company: it has no unit file, so it declares no relation and groups
     only with itself.
+
+    **``since`` is a ``datetime``, not a rendered string, and that is the
+    fix rather than a tidying** (``SNAG-LOG-009``).  Three callers each
+    formatted ``f"{first_seen:%Y-%m-%d %H:%M}"`` and journalctl reads a
+    bare datetime as **local** while every timestamp here is UTC, so all
+    nine live rows pointed an hour early on this box — and *late* west of
+    Greenwich, where the sign flips and the command misses the incident
+    it exists to explain.  It works in BST, which is the trap: the error
+    widens the window here and narrows it there, so the box that would
+    notice is the one that never runs the command.
+
+    Taking the ``datetime`` is what stops a fourth caller re-deriving it:
+    the rendering is
+    :func:`~sysadmin.monitor.journal.since_timestamp`'s alone, and it has
+    said why since the module was written — the same fact stated twice
+    with one of them wrong, which is what the ``-k`` bullet above is
+    already about.  ``@<epoch>`` carries no zone at all, so it is
+    unambiguous rather than merely correct here.
     """
+    stamp = since_timestamp(since)
     if source == "kernel":
-        return f"journalctl -k --since '{since}'"
+        return f"journalctl -k --since '{stamp}'"
     scope = "--user " if (scopes or {}).get(source) else ""
     units = " ".join(f"-u {unit}" for unit in (source, *others))
-    return f"journalctl {scope}{units} --since '{since}'"
+    return f"journalctl {scope}{units} --since '{stamp}'"
 
 
 def _new_recommendation(
@@ -468,12 +488,12 @@ def _new_recommendation(
         severity="risk",
         title=f"New fault from {trend.source}",
         detail=(
-            f"First seen {trend.first_seen:%Y-%m-%d %H:%M}, "
+            f"First seen {trend.first_seen:%Y-%m-%d %H:%M} UTC, "
             f"{trend.current} occurrence(s) since. "
             f"Latest line: {trend.sample[:200]}"
         ),
         action="Read the source: " + journal_command(
-            trend.source, f"{trend.first_seen:%Y-%m-%d %H:%M}", scopes
+            trend.source, trend.first_seen, scopes
         ),
         source=trend.source,
         signature=trend.signature,
@@ -536,7 +556,7 @@ def _incident_recommendation(
 
     lines = [
         f"{len(group)} new signature(s) across {len(units)} unit(s) within "
-        f"{span:.3f}s of {anchor.first_seen:%Y-%m-%d %H:%M:%S}, "
+        f"{span:.3f}s of {anchor.first_seen:%Y-%m-%d %H:%M:%S} UTC, "
         f"{occurrences} occurrence(s) in total. "
         f"Grouped because they share a unit or a declared systemd "
         f"dependency; {anchor.source} failed first."
@@ -553,7 +573,7 @@ def _incident_recommendation(
         detail="\n".join(lines),
         action="Read the whole incident: " + journal_command(
             anchor.source,
-            f"{anchor.first_seen:%Y-%m-%d %H:%M}",
+            anchor.first_seen,
             scopes,
             others,
         ),
@@ -593,7 +613,7 @@ def _surge_recommendation(
         # own journal. The window plus the sample in ``detail`` is what a
         # reader actually needs.
         action="Compare the two windows: " + journal_command(
-            trend.source, f"{previous_start:%Y-%m-%d %H:%M}", scopes
+            trend.source, previous_start, scopes
         ),
         source=trend.source,
         signature=trend.signature,

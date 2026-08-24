@@ -367,6 +367,43 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 71 — SNAG-LOG-009, the window journalctl actually opens (2026-08-24) ✅
+
+Nine of nine rows `GET /api/logs/actions` served carried
+`--since '2026-08-22 17:10'` for an event stored at
+`2026-08-22 18:10:16.115268+01`. journalctl reads a bare datetime as
+**local**, so the window opened an hour early here — and past the
+incident west of Greenwich, where the row loses its whole purpose.
+
+- [x] **`journal_command` takes a `datetime`, not a rendered string.**
+      The rendering belongs to `journal.since_timestamp`, which has
+      emitted `@<epoch>` and stated this reason since the module was
+      written. Three callers were each implementing a fact a fourth
+      function already owned — the `-k` bullet in `journal_command`'s own
+      docstring, met from a third direction
+- [x] **The entry's remedy was the weaker of two and is recorded as
+      such.** `astimezone()` renders a local wall clock: correct on this
+      box, verifiable, green, and still ambiguous — it holds only while
+      the writer and the reader share a zone, and an autumn-fold local
+      time names two instants
+- [x] **`since_timestamp` refuses a naive datetime.** `timestamp()` reads
+      one as local, which is the reading being removed, so accepting it
+      would rebuild the defect inside its own fix with the right-looking
+      type. Empty population by construction
+- [x] **Prose labelled `UTC`** in `detail` and the incident line, so the
+      fix leaves no row disagreeing with its own command. Not converted
+      to local: the command had a timezone taken *out* of it
+- [x] **Tests model the consumer, not the rendering.**
+      `TestTheWindowJournalctlOpens` resolves the emitted `--since` the
+      way journalctl does in London, New York and UTC. The old
+      assertions pinned the string, which is how a wrong command stayed
+      green across three sittings. All four falsified; the
+      truncation-direction one needed `int` → `math.ceil`
+- [x] **Verified by running both forms at two timezones.** Epoch form
+      opens on the event; the old form lost one line here and **8,749**
+      under `TZ=America/New_York`, where it opens four hours past the
+      incident
+
 ## Session 70 — SNAG-DB-005, the migration that nothing applies (2026-08-24) ✅
 
 Session 69 restarted the daemon to serve a new route and found it had
@@ -493,7 +530,11 @@ refuted two things the entry stated as fact.
   here and would be five hours *late* west of Greenwich. One
   `astimezone()`, but every existing `TestJournalCommand` assertion pins
   the current rendering, so it changes what the tests call correct rather
-  than what is underneath them
+  than what is underneath them. **Fixed 2026-08-24 (Session 71)** — and
+  the `astimezone()` named here was the weaker of two fixes: it renders a
+  local wall clock, correct on this box and still ambiguous. The
+  assertion problem was real and the answer was to assert what the
+  command *means* rather than what it renders
 - **`SNAG-UNITS-006`** — drop-in directories are invisible to
   `discover_units`, so `restart_bounded` and now `declared_relations`
   share one blind spot. Empty population today: **zero** of the 38 units

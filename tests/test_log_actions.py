@@ -7,6 +7,7 @@ minutes by the first run against real data — the commands in
 """
 
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -32,6 +33,18 @@ PREVIOUS_START = NOW - timedelta(days=14)
 #: A coverage that yields ``HIGH``, so a test about ranking is not
 #: silently testing rule 4 instead.
 CLEAN = WindowCoverage(runs_observed=20_160, runs_expected=20_160, runs_truncated=0)
+
+#: The two moments the ``journal_command`` tests read, with the epoch
+#: journalctl resolves them to written out rather than computed.
+#:
+#: Computing ``int(dt.timestamp())`` in the assertion would be a second
+#: implementation of the thing under test, and it would agree with a
+#: broken one — ``max_priority_for``'s rule.  These literals were checked
+#: against ``date -d @<n> -u`` on 2026-08-24.
+KERNEL_WINDOW = datetime(2026, 8, 12, 18, 11, tzinfo=UTC)
+KERNEL_WINDOW_EPOCH = "@1786558260"
+CRASH_WINDOW = datetime(2026, 8, 12, 11, 32, tzinfo=UTC)
+CRASH_WINDOW_EPOCH = "@1786534320"
 
 
 def _group(message, *, source="kernel", severity="error", current=0, previous=0,
@@ -75,8 +88,8 @@ class TestJournalCommand:
         was wrong. Verified by running it: ``journalctl -k`` over the
         window returns 31,151 lines.
         """
-        assert journal_command("kernel", "2026-08-12 18:11") == (
-            "journalctl -k --since '2026-08-12 18:11'"
+        assert journal_command("kernel", KERNEL_WINDOW) == (
+            f"journalctl -k --since '{KERNEL_WINDOW_EPOCH}'"
         )
 
     def test_a_user_unit_gets_dash_dash_user(self):
@@ -87,17 +100,17 @@ class TestJournalCommand:
         the same command without ``--user`` returns one — "No entries".
         """
         cmd = journal_command(
-            "alfred-backend.service", "2026-08-03 10:34",
+            "alfred-backend.service", datetime(2026, 8, 3, 10, 34, tzinfo=UTC),
             {"alfred-backend.service": True},
         )
         assert cmd == (
             "journalctl --user -u alfred-backend.service "
-            "--since '2026-08-03 10:34'"
+            "--since '@1785753240'"
         )
 
     def test_a_system_unit_gets_no_scope_flag(self):
         cmd = journal_command(
-            "mosquitto.service", "2026-08-12 11:32",
+            "mosquitto.service", CRASH_WINDOW,
             {"mosquitto.service": False},
         )
         assert "--user" not in cmd
@@ -110,8 +123,9 @@ class TestJournalCommand:
         would quietly read a different journal. ``SNAG-UNITS-003``'s
         trade — loud beats misleading.
         """
-        assert "--user" not in journal_command("who.service", "2026-08-01", {})
-        assert "--user" not in journal_command("who.service", "2026-08-01", None)
+        moment = datetime(2026, 8, 1, tzinfo=UTC)
+        assert "--user" not in journal_command("who.service", moment, {})
+        assert "--user" not in journal_command("who.service", moment, None)
 
     def test_the_emitted_command_never_greps_the_signature(self):
         """The normalised signature matches no real line.
@@ -127,6 +141,98 @@ class TestJournalCommand:
         ])
         assert recs[0].kind is RecommendationKind.SURGE
         assert "--grep" not in recs[0].action
+
+
+# ---------------------------------------------------------------------------
+# SNAG-LOG-009 — the window journalctl actually opens
+# ---------------------------------------------------------------------------
+
+
+def _journalctl_reads(stamp: str, zone: ZoneInfo) -> datetime:
+    """Resolve a ``--since`` argument the way journalctl resolves it.
+
+    Two readings, and the whole defect is which one applies.  ``@<n>`` is
+    an instant and carries no zone; anything else is a wall clock read in
+    the **reader's local** time.  Modelling the consumer is what makes
+    these tests able to fail — asserting the string alone pins today's
+    rendering rather than what it means, which is exactly how the old
+    form survived three sittings of green tests.
+    """
+    if stamp.startswith("@"):
+        return datetime.fromtimestamp(int(stamp[1:]), tz=UTC)
+    return (
+        datetime.strptime(stamp, "%Y-%m-%d %H:%M")
+        .replace(tzinfo=zone)
+        .astimezone(UTC)
+    )
+
+
+def _since_argument(command: str) -> str:
+    _, _, tail = command.partition("--since '")
+    return tail.rstrip("'")
+
+
+class TestTheWindowJournalctlOpens:
+    """``SNAG-LOG-009``: all nine live rows pointed at the wrong hour.
+
+    Measured on this box on 2026-08-24 before the fix: the mosquitto
+    entry is stored ``2026-08-22 18:10:16.115268+01`` and the emitted
+    command read ``--since '2026-08-22 17:10'``, which journalctl takes
+    as *local* — an hour early here, and five hours **late** at UTC−5,
+    where the window opens after the incident and returns nothing.
+    """
+
+    def test_the_window_opens_at_the_event_in_every_timezone(self):
+        """The property the string assertions above cannot state.
+
+        Falsified against the old rendering: substituting
+        ``f"{moment:%Y-%m-%d %H:%M}"`` gives 17:11 UTC in London (an hour
+        early) and 22:11 UTC in New York (five hours late, past the
+        event) — the two failures the entry was filed for, in one test.
+        """
+        stamp = _since_argument(journal_command("kernel", KERNEL_WINDOW))
+        for zone in ("Europe/London", "America/New_York", "UTC"):
+            assert _journalctl_reads(stamp, ZoneInfo(zone)) == KERNEL_WINDOW
+
+    def test_no_row_the_endpoint_serves_carries_a_wall_clock_since(self):
+        """The population, not one call.
+
+        Three builders format the same field, so a fix applied to one is
+        the shape this repository keeps finding.  Driven through
+        ``recommend`` over the specimen groups rather than through
+        ``journal_command``, because that is what the route serves.
+        """
+        rows = _recommend(_specimen_groups(), related=BROKER_GRAPH)
+        commands = [r.action for r in rows if "--since" in r.action]
+        assert commands
+        assert all(
+            _since_argument(command).startswith("@") for command in commands
+        )
+
+    def test_the_epoch_never_opens_after_the_event(self):
+        """``int()`` truncates, so the window can only widen.
+
+        Sub-second precision is dropped — ``SNAG-LOG-007``'s observation
+        about the same renderer, read from the other side: there it made
+        a resume floor re-admit its own boundary, here it is the safe
+        direction, because a read that starts a fraction early still
+        contains the line and one that starts late does not.
+        """
+        moment = CRASH.replace(microsecond=999_999)
+        stamp = _since_argument(journal_command("mosquitto.service", moment))
+        assert _journalctl_reads(stamp, ZoneInfo("UTC")) <= moment
+
+    def test_a_naive_moment_is_refused_rather_than_read_as_local(self):
+        """The defect cannot come back in through the fix.
+
+        ``datetime.timestamp()`` reads a naive value as local time, which
+        is the reading being removed — so accepting one would rebuild
+        ``SNAG-LOG-009`` inside its own fix with the right-looking type.
+        Empty population by construction: ``logged_at`` is
+        ``timestamp with time zone``.
+        """
+        with pytest.raises(ValueError, match="aware datetime"):
+            journal_command("kernel", KERNEL_WINDOW.replace(tzinfo=None))
 
 
 # ---------------------------------------------------------------------------
@@ -672,16 +778,16 @@ class TestIncidentRules:
 class TestIncidentJournalCommand:
     def test_others_are_folded_into_one_invocation(self):
         assert journal_command(
-            "mosquitto.service", "2026-08-12 11:32", {},
+            "mosquitto.service", CRASH_WINDOW, {},
             ("estate-broker-provision.service",),
         ) == (
             "journalctl -u mosquitto.service "
-            "-u estate-broker-provision.service --since '2026-08-12 11:32'"
+            f"-u estate-broker-provision.service --since '{CRASH_WINDOW_EPOCH}'"
         )
 
     def test_the_scope_flag_is_emitted_once_for_the_whole_group(self):
         command = journal_command(
-            "alfred-backend.service", "2026-08-12 11:32",
+            "alfred-backend.service", CRASH_WINDOW,
             {"alfred-backend.service": True, "alfred-frontend.service": True},
             ("alfred-frontend.service",),
         )
@@ -690,7 +796,7 @@ class TestIncidentJournalCommand:
 
     def test_kernel_never_gains_company(self):
         """It has no unit file, so it declares no relation."""
-        assert journal_command("kernel", "2026-08-12 11:32", {},
+        assert journal_command("kernel", CRASH_WINDOW, {},
                                ("mosquitto.service",)) == (
-            "journalctl -k --since '2026-08-12 11:32'"
+            f"journalctl -k --since '{CRASH_WINDOW_EPOCH}'"
         )

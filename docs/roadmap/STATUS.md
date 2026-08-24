@@ -3,108 +3,82 @@
 **Last Updated**: 2026-08-24
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **No deploy is owed — Session 70's restart was done and verified.**
-> `sysadmin` restarted at **2026-08-24 08:50:53**, `/health` answers, and
-> the guard logged `schema_revision_verified: 013` — which is the point,
-> because this sitting changed the boot path. `alembic current` reads
-> **013 (head)**, checked rather than assumed.
+> **No deploy is owed, and no sub-session action is either.** `sysadmin`
+> was restarted at **2026-08-24 09:29:28** to serve this sitting's change,
+> `/health` answers, `alembic current` reads **013 (head)**, and
+> `GET /api/logs/actions` serves all nine rows with `@<epoch>` commands —
+> checked by running one of them, not by reading the payload.
 >
-> **An unapplied migration is now hard to leave.** `git commit` runs
-> `scripts/check-migrations.sh` and **blocks** on a mismatch (driven live:
-> exit 1, HEAD unmoved); `claude-postflight.sh` warns; and if it is
-> bypassed anyway, the `sysadmin-failed.service` toast names the revision
-> and the remedy instead of `result=exit-code, restarts=5`. `SNAG-DB-005`.
+> **The two-minute SQL that has opened every sitting since 2026-08-16 is
+> no longer owed.** The two `Estate port … registry breach` rows are
+> **gone**: `alerts` holds **3** unresolved rows in total and **0**
+> matching that title, measured at 09:35 rather than copied forward. That
+> is `SNAG-ESTATE-008` demonstrating itself for at least the fourth time
+> — a documented ops action carried forward across five sittings, already
+> done, and only a query said so.
 >
-> **The recorded restart method needed one correction.**
-> `systemctl kill -s TERM sysadmin` needs polkit authorisation and times
-> out in a non-interactive shell. The raw signal does not, because
-> `sysadmin.service` is a system unit running `User=gaddi` — the fact
-> `sysadmin/reload.py` already relies on for SIGHUP:
-> `kill -TERM "$(systemctl show sysadmin --property=MainPID --value)"`.
+> **Next up**: **`SNAG-LOG-010` — the signature belongs in the noise
+> title, and the window to verify it closes on 2026-09-11.**
+> *Recommended at the close of Session 71.*
 >
-> **Still outstanding, unchanged, and still two minutes.** The two
-> `Estate port … registry breach` rows are **still open** — re-checked
-> live during this sitting, not copied forward. Resolving them lets the
-> judge re-raise them under Session 57's code:
+> **1. `SNAG-LOG-010`, because it is the only open item with a
+> deadline.** It is the last unapplied instance of a rule this repository
+> argued for at scale: `SNAG-AGENT-005` moved the signature *into* the
+> alert title precisely because four rows reading `Log error: kernel` are
+> indistinguishable, and the advice endpoint never got the same
+> treatment — two rows reading `kernel: 39885 occurrences, unchanged`,
+> correct and impossible to tell apart, which is worse than a long title
+> because a reader who assumes a duplicate acts on one and leaves the
+> other. The known trap is already solved one module over
+> (`log_review._quoted_signature`, `SIGNATURE_DETAIL_CHARS`,
+> `truncate_at_word`). **Session 69 ranked it last on "population is
+> zero" and that is true of the live endpoint, not of the data**:
+> `log_entries` still holds **451,154** kernel rows for the pair, spanning
+> 2026-07-24 → **2026-08-12**, so driving `build_report` over a window
+> containing the storm reproduces both rows through the real trend code
+> against real rows today. Retention on `log_entries` is **30 days**, so
+> the last of them ages out on **2026-09-11** and after that the fix can
+> only be verified against fixtures — which is what this sitting spent
+> itself demonstrating is not the same thing. Half a day.
 >
-> ```sql
-> UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
->  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
-> ```
+> **2. Session 33 — seam drift detection.** The largest genuinely-open
+> roadmap session, and its premise is exactly what this sitting hit at
+> small scale: Alfred's consumer fixture was two sections behind on the
+> day it was captured **with its contract test green the whole time**,
+> which is `TestJournalCommand` pinning a rendering while the command was
+> wrong, one repository over. It loses on *readiness* rather than value:
+> its second task reads another repository's fixture off the same disk,
+> and cross-repo concerns have had an owner since 2026-08-13 — so the
+> first move is a question for estate-manager, not code here. Rank it
+> first once that is answered.
 >
-> `SNAG-ESTATE-010`. Session 27 has since solved the *general* version of
-> this for the log family (an in-place quietening, legitimate because
-> Session 39's ban is asymmetric), so the entry is worth re-reading
-> before anyone fixes the estate judge the obvious way.
+> **3. `SNAG-ESTATE-008` — nothing checks a documented ops action against
+> the box.** It cost this sitting something real and measurable, twice
+> over: the block above asserted two open alert rows that are zero, and
+> Session 70 found the same about its own restart method. It loses
+> because the cheap version of the fix is what the global convention
+> already demands — re-measure at session start — and that is what caught
+> it today; the expensive version is a mechanism with no obvious
+> enforcement point, since these claims live in prose.
 >
-> **Sub-session items owed before any session starts.**
-> `SNAG-LOG-010`'s two indistinguishable `noise` rows have a population
-> of zero today (both kernel signatures classify `GONE` as of
-> 2026-08-24), so nothing is pending there. The two
-> `Estate port … registry breach` rows are **still open and now `info`**
-> — re-raised 2026-08-17 20:04, below `tray.notify_min_severity`, so
-> they are silent and closing them is tidiness rather than noise
-> removal. Two minutes:
+> **Runners-up that lost, and why.** `SNAG-LOG-011` (P3, a deleted route
+> still answering 200 through the `/api/logs/{source}` catch-all) is real
+> and cheap and has **no consumer**, so it costs nothing today.
+> `SNAG-UNITS-006` (P3) has an empty population — zero of the 38 units the
+> sweep sees has a drop-in — and its fix is a sweep-wide change to
+> `discover_units` made on the strength of a log-correlation sitting.
+> `SNAG-LOG-008` remains **expired rather than fixed**: its rows aged out
+> of the 7-day trend window on 2026-08-24, and the underlying fact recurs
+> the next time this daemon logs an error.
 >
-> ```sql
-> UPDATE sysadmin.alerts SET resolved = true, resolved_at = now()
->  WHERE resolved IS false AND title LIKE 'Estate port %registry breach';
-> ```
->
-> **Next up**: **`SNAG-DB-005` — nothing applies migrations.**
-> *Recommended at the close of Session 69.*
->
-> **1. `SNAG-DB-005`, because it has already cost an outage and will
-> again on the next sitting that writes a migration.** Session 69 found
-> `sysadmin.service` `failed` with `start-limit-hit`, dead since
-> 2026-08-23 08:39 — **23 hours** — because migration 013 was written and
-> not applied and `schema_guard` correctly refused to serve. This is
-> `SNAG-DB-001`'s cause with the guard now in the way, so the silent
-> 39-hour blackout has become a loud 23-hour outage: the better half of
-> the trade, and still an outage. It wins on *recurrence* rather than
-> severity — every future migration reproduces it, and Session 69's own
-> migration would have done so again had the restart not been attempted.
-> The work is small and the design question is real: a postflight check
-> is cheap and honest, an `ExecStartPre=` needs `sudo`, and an
-> `ExecStartPre` that *applies* rather than compares must be refused,
-> because applying a migration unattended at boot is how a bad one
-> reaches production with nobody watching.
->
-> **2. `SNAG-LOG-009` — every emitted `journalctl` command is an hour
-> out.** Unchanged in substance and it has risen by one place because
-> Tier 3 is done. Real, cheap (one `astimezone()`), and it still loses on
-> *consequence*: in BST the error widens the read, so nothing is missed
-> on this box. It also now affects the **fallback narrative**, which
-> quotes the same commands — a second surface for the same defect, which
-> strengthens it slightly without changing its consequence. First-ranked
-> the day this code runs west of Greenwich.
->
-> **3. `SNAG-LOG-010` — two identical `noise` titles.** New today, and it
-> loses on population: both eligible signatures went `GONE` on
-> 2026-08-24 as the Bluetooth storm ended, so the endpoint serves no
-> `noise` rows at all and a fix could not be verified against anything.
-> It returns with the next storm. Note this is `SNAG-AGENT-005`'s own
-> rule left unapplied one module over — the signature was moved *into*
-> the alert title for exactly this reason and the advice endpoint never
-> got the same treatment.
->
-> **`SNAG-LOG-008` has expired rather than been fixed.** Its rows'
-> `logged_at` is 2026-08-17 and the 7-day trend window reached them
-> today, so they are out of the population — which Session 68 predicted
-> to the day. It is *not* closed: the underlying fact (this daemon writes
-> one-line JSON records, so its signatures are ~250 characters) recurs
-> the next time it logs an error. Session 69 bounded the consequence
-> rather than the cause, capping the signature at
-> `SIGNATURE_DETAIL_CHARS` where it reaches a prompt.
->
-> **Blocked or waiting on another repository.** `SNAG-LOG-012` is new and
+> **Blocked or waiting on another repository.** `SNAG-LOG-012` is
 > **delegated** — `strip_markdown` lives in `estate-lib`, and patching it
 > from here would be the copy that drifts. `SNAG-ESTATE-002` and
 > `SNAG-ESTATE-004` remain estate-manager's; `SNAG-ESTATE-006` and
 > `SNAG-ESTATE-007` are delegated and unchanged. `SNAG-ESTATE-001`'s
 > remaining half is a retirement checklist the entry says in writing is
-> not this repository's to enforce. `SNAG-LOG-006` and `SNAG-UNITS-006`
-> both still have a **population of zero**.
+> not this repository's to enforce. `SNAG-LOG-006` still has a
+> **population of zero**.
 
 ---
 
@@ -120,7 +94,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2146 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, smoke script |
+| Testing | 🟢 Complete | **2150 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -128,6 +102,61 @@
 ---
 
 ## Recently Completed
+
+### The advice pointed at the wrong hour, and the fix was already in the repository (2026-08-24)
+
+**`SNAG-LOG-009` fixed.** Every `journalctl` command
+`GET /api/logs/actions` emitted carried a UTC-rendered wall clock —
+`--since '2026-08-22 17:10'` for an event stored at
+`2026-08-22 18:10:16.115268+01` — and journalctl reads a bare datetime as
+**local**. Nine of nine live rows. On this box the window opened an hour
+early, which is the trap: BST makes the error *widen* the read, so the
+box that would notice is the one that never runs the command.
+
+**Measured at two timezones rather than reasoned about.** The emitted
+`--since '@1787418616'` resolves to exactly the stored moment and the
+read opens on that line; the old form lost exactly **one** line here
+(`Starting Mosquitto MQTT Broker daemon.` at 18:10:15). Re-run under
+`TZ=America/New_York`, the epoch form is unmoved at **57,695 lines** and
+the wall-clock form returns **48,946**, opening at `17:10:00 -04:00` —
+**four hours past** the incident, which is absent from the output. The
+rule is *N* hours late at UTC−*N*, so the entry's "five hours" is EST and
+four is EDT; either way the row's whole purpose is lost.
+
+**The entry's proposed remedy was the weaker of two, and this is a shape
+not recorded here before.** It called the fix "one `astimezone()`", which
+renders a **local wall clock** — correct on this box, verifiable, green,
+and still ambiguous, because it holds only while the process writing the
+command and the human running it share a zone, and an autumn-fold local
+time names two instants. `journal_command` now takes a **`datetime`** and
+the rendering belongs to `journal.since_timestamp`, which has emitted
+`@<epoch>` and stated this exact reason since the module was written. So
+the defect was never a missing conversion: it was three callers each
+implementing a fact a fourth function already owned — the same shape as
+the `-k` bullet in `journal_command`'s own docstring, met from a third
+direction. Taking the type is what makes a fourth caller impossible
+rather than merely unlikely.
+
+**The tests were the thing hiding it.** `TestJournalCommand` pinned the
+*rendering*, so a wrong command stayed green across three sittings.
+`TestTheWindowJournalctlOpens` models the **consumer** instead —
+`_journalctl_reads` resolves the emitted argument the way journalctl
+does, in London, New York and UTC, and asserts it lands on the event. All
+four new tests were falsified against the behaviour they replace; the
+truncation-direction one needed its own falsification (`int` →
+`math.ceil`, which opens the window 1 s *after* the event).
+`since_timestamp` now **refuses a naive datetime** — `timestamp()` reads
+one as local, which is the reading being removed, so accepting it would
+rebuild the defect inside its own fix with the right-looking type. Empty
+population by construction; the guard exists to keep it that way.
+
+**The prose was labelled in the same sitting** so the fix does not leave
+a row disagreeing with itself. `detail`'s "First seen …" and the incident
+line's "within Ns of …" now say `UTC`. Deliberately *not* converted to
+local: `@<epoch>` takes a timezone out of the command, and putting one
+back into the prose beside it is the opposite direction — and the label
+agrees with `GET /api/logs/trends`, which serialises `first_seen` with a
+`+00:00` offset.
 
 ### Nothing applied migrations, so the guard's refusal was an outage (2026-08-24)
 

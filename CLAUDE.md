@@ -489,6 +489,60 @@ directories, so a relation added by drop-in would silently fail to
 correlate — empty population today, measured, since neither of this box's
 two drop-in directories belongs to a unit the sweep sees.
 
+**The first of those is fixed, and the fix was already in the repository
+one module over** (Session 71, `SNAG-LOG-009`). `journal_command` now
+takes a **`datetime`** rather than a rendered string, and
+`journal.since_timestamp` — which has emitted `@<epoch>` and stated this
+exact reason since the module was written — owns the rendering. So the
+defect was never a missing conversion: three callers each formatted
+`f"{first_seen:%Y-%m-%d %H:%M}"`, implementing a fact a fourth function
+already owned, which is the `-k` bullet in `journal_command`'s own
+docstring met from a third direction. Taking the *type* is what makes a
+fourth caller impossible rather than merely unlikely.
+
+Four rules, three of them corrections to what the entry proposed:
+
+1. **`astimezone()` was the weaker fix and would have shipped green.**
+   It renders a *local* wall clock — correct on this box, verifiable,
+   and still ambiguous: right only while the process writing the command
+   and the human running it share a zone, and an autumn-fold local time
+   names two instants. `@<epoch>` carries no zone at all, so it is
+   unambiguous rather than merely correct here.
+2. **The tests were what hid it, so they now model the consumer.**
+   `TestJournalCommand` pinned the *rendering*, which is how a wrong
+   command stayed green across three sittings; `_journalctl_reads`
+   resolves the emitted argument the way journalctl does — `@<n>` as an
+   instant, anything else as the reader's local clock — and the same
+   assertion runs in London, New York and UTC. All four new tests were
+   falsified against the behaviour they replace, the truncation-direction
+   one needing its own (`int` → `math.ceil`, which opens the window 1 s
+   *after* the event).
+3. **`since_timestamp` refuses a naive datetime.** `timestamp()` reads
+   one as local, which is precisely the reading being removed, so
+   accepting it would rebuild the defect inside its own fix with the
+   right-looking type — `schema_guard`'s fail-closed posture, not
+   `collation.py`'s. Empty population by construction: every caller
+   reads `logged_at`, a `timestamp with time zone`.
+4. **The prose is labelled, never converted.** `detail`'s "First seen …"
+   and the incident line's "within Ns of …" render the same instant the
+   command points at and now say `UTC`, so the fix leaves no row
+   disagreeing with itself. Rendering them *local* was refused: the
+   command had a timezone taken out of it, and putting one back beside it
+   is the opposite direction — and the label agrees with
+   `GET /api/logs/trends`, which serialises `first_seen` with a `+00:00`
+   offset.
+
+Measured at two timezones rather than reasoned about. The specimen is
+stored `2026-08-22 18:10:16.115268+01`; the emitted `--since
+'@1787418616'` resolves to exactly that. On this box the old form lost
+**one** line, which is the trap stated precisely — BST makes the error
+*widen* the read, so the box that would notice is the one that never runs
+the command. Re-run under `TZ=America/New_York` the epoch form is unmoved
+at **57,695 lines** and the wall-clock form returns **48,946**, opening
+`17:10:00 -04:00`, four hours past the incident and without it. The rule
+is *N* hours late at UTC−*N*, so the entry's "five hours" is EST and four
+is EDT.
+
 *That entry named the wrong culprit and Session 60 corrected it against
 `agent_runs`: the 118 are **kernel 103, sysadmin-service 14** out of
 **10,064 runs**, and **104 of them fell on one day**, 2026-08-12. Since
