@@ -24,15 +24,21 @@ from fastapi.routing import APIRoute
 from sysadmin.core.config import REPO_ROOT
 from sysadmin.core.schema_guard import EXIT_STATUS
 from sysadmin.ops_claims import (
+    CHECK_KEYS,
     CLAIM_PATTERNS,
+    KEYLESS_CHECKS,
     MAX_NAMED_ALERTS,
     STATUS_PATH,
     Claim,
     DatabaseFacts,
+    Marker,
     UnitState,
     check_alerts,
     check_all,
     check_deploy,
+    check_expiry,
+    check_markers,
+    check_open_titles,
     compare_claim,
     load_region,
     main,
@@ -41,6 +47,7 @@ from sysadmin.ops_claims import (
     overall,
     printed_region,
     read_claim,
+    read_markers,
 )
 
 DOCUMENT = """# Project Status Dashboard
@@ -392,3 +399,259 @@ class TestProseWraps:
         """
         stamp, _ = read_claim("restarted at **2026-08-24 21:46:11**", "daemon_start")
         assert stamp is not None and "\n" not in stamp
+
+
+# ---------------------------------------------------------------------------
+# SNAG-ESTATE-011 — the convention
+# ---------------------------------------------------------------------------
+
+
+class TestMarkers:
+    """A marker names a check and never a value — rule 7.
+
+    That distinction is the whole design.  ``<!-- routes=46 -->`` beside a
+    sentence is a second statement of one fact that can agree with the box
+    while the prose disagrees, and nothing notices; ``<!--check:routes-->``
+    states no fact at all, so there is nothing for it to drift from.
+    """
+
+    def test_a_marker_wrapped_onto_its_own_quoted_line_is_still_read(self):
+        """Falsified by matching against the region rather than :func:`flatten`.
+
+        The same failure :class:`TestProseWraps` pins one level down: a
+        paragraph reflow must not be able to retire a claim, and it would
+        be perverse for the mechanism that makes claims explicit to be the
+        one thing a reflow can switch off.
+        """
+        wrapped = "> `alerts` holds **2** unresolved rows\n> <!--check:alerts-->"
+        assert [marker.key for marker in read_markers(wrapped)] == ["alerts"]
+
+    def test_the_argument_is_carried_and_is_empty_for_a_plain_marker(self):
+        markers = read_markers(
+            "<!--check:expires 2026-08-25T03:32 the estate row--> <!--check:alerts-->"
+        )
+        assert markers[0] == Marker("expires", "2026-08-25T03:32 the estate row")
+        assert markers[1] == Marker("alerts", "")
+
+    def test_the_known_names_are_derived_not_written_beside_the_patterns(self):
+        """``max_priority_for`` against ``PRIORITY_MAP``'s rule.
+
+        Falsified by hand-writing :data:`CHECK_KEYS`: adding a pattern
+        without adding its name would then make the new figure
+        unmarkable, and the report would tell a sitting to add a marker
+        it goes on to reject.
+        """
+        assert CHECK_KEYS == frozenset(CLAIM_PATTERNS) | KEYLESS_CHECKS
+        assert "routes" in CHECK_KEYS and "expires" in CHECK_KEYS
+
+
+class TestTheConventionsTwoFailures:
+    BLOCK = (
+        "> `alerts` holds **2** unresolved rows <!--check:alerts-->\n"
+        "> and **46 routes** exist.\n"
+    )
+
+    def test_a_marker_naming_a_check_nobody_implements_is_reported(self):
+        """Falsified by ignoring an unknown name.
+
+        A typo, a rename or a deleted check all end the same way: the
+        sentence looks verified and is not, which is worse than prose —
+        prose never claimed to have been checked.
+        """
+        findings = check_markers(self.BLOCK, [Marker("helth", "")])
+        assert [claim.key for claim in findings][0] == "marker:helth"
+        assert findings[0].verdict == "unknown"
+        assert "nothing implements 'helth'" in findings[0].note
+
+    def test_a_figure_no_line_claims_is_reported(self):
+        """The enforcement point SNAG-ESTATE-008 asked for and could not have."""
+        findings = check_markers(self.BLOCK, read_markers(self.BLOCK))
+        keys = [claim.key for claim in findings]
+        assert "unclaimed:routes" in keys
+        assert "unclaimed:alerts" not in keys, "the marker on that line claims it"
+
+    def test_a_figure_the_block_does_not_state_is_not_reported_as_unclaimed(self):
+        """Absence of a claim is not an unclaimed claim.
+
+        Falsified by iterating :data:`CLAIM_PATTERNS` without testing the
+        prose: every block would then owe a marker for every check,
+        including ones about sentences it does not contain.
+        """
+        findings = check_markers(self.BLOCK, read_markers(self.BLOCK))
+        assert "unclaimed:daemon_start" not in [claim.key for claim in findings]
+
+    def test_the_marker_is_additive_and_cannot_switch_a_check_off(self):
+        """Rule 7's second half, and the one that keeps rule 2 true.
+
+        ``**46 routes**`` carries no marker in :attr:`BLOCK`, and the
+        routes claim is still compared — so deleting a marker can never
+        be a way to retire a check, only a way to be told about it.
+        """
+        claims = {claim.key: claim for claim in check_all(Path("/nonexistent"))}
+        assert "routes" in claims
+        assert claims["routes"].kind == "claim"
+
+    def test_convention_findings_carry_no_sides_to_compare(self):
+        """Rule 3's third kind: the remedy is a marker, not a reword or a restart."""
+        finding = check_markers(self.BLOCK, [Marker("nope", "")])[0]
+        assert finding.kind == "convention"
+        assert finding.documented is None and finding.measured is None
+
+
+class TestExpiry:
+    """A prediction is timed, not measured — rules 8 and 9.
+
+    The instance that opened SNAG-ESTATE-011: "the row clears at 03:32
+    with nothing done", written at 00:30 and true of nothing yet.
+    """
+
+    BLOCK = (
+        "> the estate row clears at 03:32 with nothing done "
+        "<!--check:expires 2026-08-25T03:32 estate scan row-->"
+    )
+    MARKER = Marker("expires", "2026-08-25T03:32 estate scan row")
+
+    def test_before_its_moment_the_prediction_stands(self):
+        claim = check_expiry(self.MARKER, self.BLOCK, datetime(2026, 8, 25, 0, 30))
+        assert claim.verdict == "match"
+        assert "to run" in (claim.measured or "")
+        assert claim.subject.endswith("estate scan row")
+
+    def test_after_its_moment_it_is_unknown_rather_than_false(self):
+        """Falsified by returning ``mismatch``.
+
+        A passed boundary does not make the sentence wrong — the
+        prediction may well have come true.  What nobody did is look, and
+        rule 2 reserves ``unknown`` for exactly that.
+        """
+        claim = check_expiry(self.MARKER, self.BLOCK, datetime(2026, 8, 25, 6, 32))
+        assert claim.verdict == "unknown"
+        assert "nobody re-measured it" in claim.note
+
+    def test_the_instant_is_pinned_to_the_prose_rather_than_trusted(self):
+        """Rule 9.  Falsified by skipping the pin.
+
+        The instant is the single fact this document states twice — the
+        marker needs a date the prose has no room for — so it is handled
+        the way ``syslog_priority`` is handled against ``PRIORITY_MAP``:
+        pinned by a check, not asserted on each side.
+        """
+        drifted = "> the estate row clears at 04:15 with nothing done"
+        claim = check_expiry(self.MARKER, drifted, datetime(2026, 8, 25, 0, 30))
+        assert claim.verdict == "unknown"
+        assert "03:32" in claim.note and "does not" in claim.note
+
+    def test_the_pin_does_not_read_the_markers_own_copy_of_the_instant(self):
+        """Found by running it, not by a fixture — and the fixture was green.
+
+        The first implementation searched the flattened region, which
+        contains the marker, so ``03:32`` matched the marker's own text
+        and the pin passed whatever the sentence said.  A pin that
+        searches text containing the thing it is pinning is the check
+        agreeing with itself by construction.  Falsified by dropping
+        :func:`prose_without_markers`: this is the only test of the four
+        pin assertions that fails, because the other fixtures happen not
+        to carry a marker.
+        """
+        only_in_the_marker = (
+            "> the estate row clears at 04:15 with nothing done "
+            "<!--check:expires 2026-08-25T03:32 estate scan row-->"
+        )
+        claim = check_expiry(self.MARKER, only_in_the_marker, datetime(2026, 8, 25, 0, 30))
+        assert claim.verdict == "unknown"
+        assert "the block's prose does not" in claim.note
+
+    def test_a_marker_with_no_instant_is_a_convention_finding(self):
+        claim = check_expiry(Marker("expires", ""), self.BLOCK, datetime(2026, 8, 25, 0, 30))
+        assert claim.kind == "convention"
+        assert "carries no instant" in claim.note
+
+    def test_an_unparseable_instant_names_the_form_it_wanted(self):
+        claim = check_expiry(
+            Marker("expires", "tomorrow-ish"), self.BLOCK, datetime(2026, 8, 25, 0, 30)
+        )
+        assert claim.kind == "convention"
+        assert "tomorrow-ish" in claim.note
+
+    def test_two_predictions_are_two_claims(self):
+        """The family's members are declared by the document, not by this module."""
+        block = (
+            "> one clears at 03:32 <!--check:expires 2026-08-25T03:32 estate row-->\n"
+            "> another leaves the window at 14:11 <!--check:expires 2026-08-25T14:11 log rows-->"
+        )
+        markers = [m for m in read_markers(block) if m.key == "expires"]
+        claims = [check_expiry(m, block, datetime(2026, 8, 25, 0, 30)) for m in markers]
+        assert [claim.key for claim in claims] == [
+            "expires:2026-08-25T03:32",
+            "expires:2026-08-25T14:11",
+        ]
+        assert all(claim.verdict == "match" for claim in claims)
+
+
+class TestOpenTitlesAreNamed:
+    """The count cannot see a swap; this can.
+
+    One row resolving as another opens holds the total still while the
+    block's sentence about *which* rows are open goes silently wrong.
+    """
+
+    BLOCK = "> `Estate scan could not reach sources` is expected."
+
+    def test_a_row_the_block_never_mentions_is_named(self):
+        facts = DatabaseFacts(
+            11, 2, ("warning: Estate scan could not reach sources", "critical: Disk full on /")
+        )
+        claim = check_open_titles(self.BLOCK, "", facts)
+        assert claim.verdict == "mismatch"
+        assert claim.detail == ("unnamed: critical: Disk full on /",)
+
+    def test_every_row_named_is_a_match(self):
+        facts = DatabaseFacts(11, 1, ("warning: Estate scan could not reach sources",))
+        assert check_open_titles(self.BLOCK, "", facts).verdict == "match"
+
+    def test_the_severity_prefix_is_dropped_before_the_substring_test(self):
+        """Falsified by matching the rendered ``severity: title`` string.
+
+        The block quotes the title alone; requiring the severity beside it
+        would make every row unnamed and the check permanently loud, which
+        is how a check gets ignored.
+        """
+        facts = DatabaseFacts(11, 1, ("warning: Estate scan could not reach sources",))
+        assert check_open_titles(self.BLOCK, "", facts).verdict == "match"
+
+    def test_an_unreadable_database_is_unknown_not_a_clean_block(self):
+        facts = DatabaseFacts(None, None, (), "the database did not answer (OperationalError)")
+        claim = check_open_titles(self.BLOCK, "", facts)
+        assert claim.verdict == "unknown"
+
+
+class TestTheConventionAgainstTheRealDocument:
+    """The live half — these fire the day the block gains an unmarked figure."""
+
+    def test_the_real_block_leaves_no_figure_unclaimed(self):
+        region, problem = load_region()
+        assert region is not None, problem
+        findings = check_markers(region, read_markers(region))
+        unclaimed = [claim.key for claim in findings if claim.key.startswith("unclaimed:")]
+        assert not unclaimed, f"STATUS.md states these and no line claims them: {unclaimed}"
+
+    def test_every_marker_in_the_real_block_names_a_check_that_exists(self):
+        region, problem = load_region()
+        assert region is not None, problem
+        unknown = sorted({m.key for m in read_markers(region)} - CHECK_KEYS)
+        assert not unknown, f"STATUS.md names checks nobody implements: {unknown}"
+
+    def test_every_prediction_in_the_real_block_is_pinned_to_its_sentence(self):
+        """Rule 9 against the document rather than a fixture.
+
+        A marker whose wall clock has drifted out of the prose is the one
+        way the expiry family can go quiet, so it is asserted here as well
+        as in :class:`TestExpiry`.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        for marker in read_markers(region):
+            if marker.key != "expires":
+                continue
+            claim = check_expiry(marker, region, datetime.now())
+            assert "does not" not in claim.note, f"unpinned: {marker.argument}"

@@ -77,6 +77,49 @@ Six rules, three of them the opposite of the obvious implementation:
    asking for it, this has none, and an option nothing passes is the
    ``SNAG-CFG-001`` shape at the size of a flag.
 
+``SNAG-ESTATE-011`` added three more, and the first is the one that
+decides whether a marker beside prose is a defect or a convention:
+
+7. **A marker names a check; it never restates a value.**  Rule 1 refuses
+   ``<!-- routes=46 -->`` beside a sentence, and it is right to: a marker
+   holding a *figure* can agree with the box while the prose beside it
+   says something else, and nothing notices — ``SNAG-DB-003``'s two
+   statements of one fact, arriving in a document.  ``<!--check:routes-->``
+   is not that.  There is still exactly one figure in the document, the
+   one in the prose, and the named check reads it from there.  So the two
+   can never disagree about a fact, because the marker states none.  It
+   buys the enforcement point the convention had no way to have: a figure
+   this module can test that no line claims is reported, which is
+   ``SNAG-ESTATE-008``'s *"every ops action names the check that closes
+   it"* with something behind it.  The marker is **additive and cannot
+   subtract** — every pattern-bearing claim runs whether or not a marker
+   names it — because a marker that gated a check would make "delete the
+   marker" a way to retire one, which is rule 2's silent retirement
+   wearing the fix for it.
+
+8. **A prediction is timed, not measured.**  ``SNAG-ESTATE-011`` was
+   opened by a block asserting a retention boundary three hours before it
+   happened.  Nothing about that sentence was wrong when written and
+   nothing about it was measurable when written, so no amount of pattern
+   reaches it; ``<!--check:expires …-->`` is the one family whose members
+   the *document* declares rather than this module.  Before its moment the
+   claim stands; after its moment it is ``unknown``, never ``mismatch`` —
+   the prediction may well have come true, and "nobody went back" is
+   exactly what rule 2 reserves ``unknown`` for.
+
+9. **The one fact stated twice is pinned rather than trusted.**  An
+   ``expires`` marker must carry a *date*, because the prose does not —
+   "clears at 03:32" names a wall clock and no day, and a pattern that
+   guessed the day would be wrong once per prediction.  That makes the
+   instant the single exception to rule 7, so it is handled the way
+   :func:`sysadmin.core.logging_setup.syslog_priority` is handled against
+   ``journal.PRIORITY_MAP``: not asserted on each side, *pinned* — the
+   wall clock the marker renders must appear in the block, or the claim is
+   ``unknown`` and says which two moments disagree.  The pin is against
+   the whole region rather than the marker's own sentence, which is the
+   weaker half and is stated rather than hidden: a block naming ``03:32``
+   twice for two different reasons would satisfy it.
+
 **This module sits beside main.py** for the reason :mod:`sysadmin.reload`
 and :mod:`sysadmin.metadata` do: it composes ``core`` with every domain
 (the route count comes from :func:`sysadmin.main.create_app`, which
@@ -95,9 +138,11 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 from sqlalchemy import create_engine, text
 
 from sysadmin.core.config import REPO_ROOT, get_config
+from sysadmin.core.escalation import humanise_hours
 from sysadmin.core.schema_guard import (
     EXIT_STATUS,
     SchemaVerdict,
@@ -130,7 +175,41 @@ CLAIM_PATTERNS: dict[str, str] = {
     "migration_head": r"head \*\*(\d+)\*\*",
     "alerts": r"holds \*\*(\d+)\*\* unresolved",
     "daemon_start": r"restarted at \*\*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\*\*",
+    "health": r"`/health` answers \*\*(\d+)\*\*",
 }
+
+#: Checks a marker may name that carry no pattern of their own, and why
+#: each one has none.  ``schema`` and ``deploy`` test the box against this
+#: checkout, so there is no sentence to read (rule 3).  ``open_titles`` is
+#: answered from the alert table against the whole block rather than from
+#: one figure.  ``expires`` is the one family whose *members* are declared
+#: by the marker rather than by this module — rule 8.
+KEYLESS_CHECKS: frozenset[str] = frozenset({"schema", "deploy", "open_titles", "expires"})
+
+#: Every name a marker may carry, **derived** from the two sets above
+#: rather than written beside them — ``max_priority_for`` against
+#: ``PRIORITY_MAP``'s rule, and for its reason: a third list is a third
+#: thing to forget.  A marker naming anything else is reported rather than
+#: ignored, because a check nobody implements is silence wearing a
+#: convention's clothes.
+CHECK_KEYS: frozenset[str] = frozenset(CLAIM_PATTERNS) | KEYLESS_CHECKS
+
+#: ``<!--check:key-->``, optionally with an argument: ``<!--check:expires
+#: 2026-08-25T03:32 the estate scan row-->``.  An HTML comment because it
+#: must not render — the document is read by people first — and matched
+#: after :func:`flatten`, so a marker may wrap onto its own line.
+MARKER_RE = re.compile(r"<!--\s*check:\s*([a-z_]+)\s*([^>]*?)\s*-->")
+
+#: The instant an ``expires`` marker carries.  Local, minute resolution,
+#: and unambiguous about the *date* — which is the whole reason the marker
+#: carries an instant the prose does not: "clears at 03:32" names a wall
+#: clock and no day, and a pattern that guessed the day would be wrong
+#: exactly once per prediction.
+EXPIRY_FORMAT = "%Y-%m-%dT%H:%M"
+
+#: How the pinned wall clock is rendered back out of an ``expires``
+#: instant, to be looked for in the prose.  Rule 9.
+EXPIRY_CLOCK_FORMAT = "%H:%M"
 
 
 @dataclass(frozen=True)
@@ -229,6 +308,49 @@ def read_claim(region: str, key: str) -> tuple[str | None, str]:
         stated = ", ".join(sorted(found))
         return None, f"the block states {len(found)} different figures ({stated})"
     return found.pop(), ""
+
+
+@dataclass(frozen=True)
+class Marker:
+    """One ``<!--check:…-->`` the block carries.
+
+    Attributes:
+        key: the check the sentence stands behind.  A name, never a value
+            — see rule 7 for why that distinction is the whole design.
+        argument: whatever followed it, empty for every check but
+            ``expires``.
+    """
+
+    key: str
+    argument: str
+
+
+def read_markers(region: str) -> list[Marker]:
+    """Every marker in the printed region, in the order it states them.
+
+    Read off the *flattened* region for :func:`flatten`'s reason: a marker
+    that wrapped onto its own line behind a ``>`` would otherwise stop
+    being a marker, which is the silent retirement rule 2 exists to
+    prevent, arriving through the mechanism meant to prevent it.
+    """
+    return [
+        Marker(match.group(1), match.group(2).strip())
+        for match in MARKER_RE.finditer(flatten(region))
+    ]
+
+
+def prose_without_markers(region: str) -> str:
+    """The flattened region with every marker removed.
+
+    Rule 9 pins an ``expires`` instant against the sentence beside it, and
+    a pin that searches text *containing the marker* matches the marker's
+    own copy of the instant — so it passes whatever the prose says, which
+    is the check agreeing with itself by construction.  Found by driving
+    a reworded block through the real script rather than a fixture: the
+    fixture in :class:`TestExpiry` happens to strip the marker and so was
+    green throughout.
+    """
+    return MARKER_RE.sub(" ", flatten(region))
 
 
 def load_region(path: Path | None = None) -> tuple[str | None, str]:
@@ -332,6 +454,28 @@ def measure_routes() -> tuple[int | None, str]:
     except Exception as exc:  # noqa: BLE001 — any import-time fault is "unknown"
         return None, f"create_app() raised {exc.__class__.__name__}"
     return len([route for route in app.routes if isinstance(route, APIRoute)]), ""
+
+
+def measure_health() -> tuple[str | None, str]:
+    """The status code ``GET /health`` answers with, as a string.
+
+    A different fact from :func:`check_deploy`'s, and the pair is why both
+    are worth having: systemd reporting ``active`` says the *process* is
+    up, and this says the *application* is serving.  ``SNAG-DB-005`` is
+    the case where they part company — the daemon was dead for 23 hours
+    while ``systemctl`` had plenty to say about it, and the block's own
+    sentence is about the route rather than the unit.
+
+    Loopback rather than ``service.host``, which is ``0.0.0.0`` here and
+    is a bind address rather than somewhere to send a request.
+    """
+    config = get_config()
+    url = f"http://127.0.0.1:{config.service.port}/health"
+    try:
+        response = httpx.get(url, timeout=5.0)
+    except Exception as exc:  # noqa: BLE001 — a daemon that will not answer is "unknown"
+        return None, f"{url} did not answer ({exc.__class__.__name__})"
+    return str(response.status_code), ""
 
 
 @dataclass(frozen=True)
@@ -621,7 +765,185 @@ def check_deploy(unit: UnitState) -> Claim:
     )
 
 
-def check_all(path: Path | None = None) -> list[Claim]:
+def check_health(region: str, region_problem: str) -> Claim:
+    """The status code the block says ``/health`` answers with."""
+    documented, doc_problem = (None, region_problem) if not region else read_claim(region, "health")
+    measured, measure_problem = measure_health()
+    note = ""
+    if documented is not None and measured is not None and documented != measured:
+        note = (
+            f"GET /health answers {measured}, not {documented} — the daemon is "
+            "up enough for systemd and not serving"
+        )
+    return compare_claim(
+        "health", "/health answers", documented, doc_problem, measured, measure_problem, note
+    )
+
+
+def check_open_titles(region: str, region_problem: str, facts: DatabaseFacts) -> Claim:
+    """Is every unresolved row named somewhere in the block?
+
+    :func:`check_alerts` compares the *count*, which is what moves when a
+    row opens or closes.  This asks the finer question the count cannot:
+    a swap — one row resolving as another opens — holds the total still
+    while the block's sentence about *which* rows are open goes silently
+    wrong.  Today's block names both of its two and explains why each is
+    expected; the count alone would agree with a block naming neither.
+
+    **One direction only, and the other has an owner.**  A row the block
+    names that has since resolved is ``SNAG-ESTATE-008``'s founding case
+    and is already reported, by :func:`check_alerts`'s *fall* note.  What
+    that note cannot say is that a row nobody wrote about is open, so this
+    is the direction taken here — and a title is matched as a substring
+    because the block quotes it inside backticks and prose around it.
+    """
+    if facts.open_titles is None or facts.unresolved is None:
+        return Claim(
+            "open_titles", "Open rows named in the block", "claim", None, None, "unknown",
+            facts.problem,
+        )
+    if not region:
+        return Claim(
+            "open_titles", "Open rows named in the block", "claim", None,
+            f"{facts.unresolved} open", "unknown", region_problem,
+        )
+    prose = flatten(region)
+    # ``open_titles`` are rendered "severity: title" for the alert report;
+    # the block quotes the title alone, so the severity is dropped before
+    # the substring test rather than being written into the document.
+    unnamed = tuple(
+        entry for entry in facts.open_titles if entry.split(": ", 1)[-1] not in prose
+    )
+    documented = f"{len(facts.open_titles) - len(unnamed)} named"
+    measured = f"{len(facts.open_titles)} open"
+    if not unnamed:
+        return Claim(
+            "open_titles", "Open rows named in the block", "claim", documented, measured, "match"
+        )
+    return Claim(
+        "open_titles",
+        "Open rows named in the block",
+        "claim",
+        documented,
+        measured,
+        "mismatch",
+        f"{len(unnamed)} unresolved row(s) the block does not mention — a row "
+        "nobody wrote about is the one a sitting will not account for",
+        tuple(f"unnamed: {title}" for title in unnamed),
+    )
+
+
+def _convention(key: str, subject: str, note: str) -> Claim:
+    """A finding about the block's own bookkeeping — rule 7's third kind.
+
+    Neither the document's figures nor the box are wrong; what is wrong is
+    the pairing between them, and the remedy is a marker rather than a
+    reworded sentence or a ``kill -TERM``.  Rule 3 keeps ``claim`` and
+    ``state`` apart because their remedies are opposites; this is a third
+    remedy, so it is a third kind rather than a flavour of either.
+    """
+    return Claim(key, subject, "convention", None, None, "unknown", note)
+
+
+def check_markers(region: str, markers: list[Marker]) -> list[Claim]:
+    """The convention's two failure modes — rule 7.
+
+    **A marker naming a check nobody implements** is a typo, a rename, or
+    a check deleted out from under the sentence that relies on it.  Each
+    of the three ends the same way: the sentence looks verified and is
+    not, which is worse than prose, because prose does not claim to have
+    been checked.
+
+    **A figure this module can test that no marker claims** is the
+    convention's whole point — ``SNAG-ESTATE-008`` asked for *"every ops
+    action names the check that closes it"*, and this is the only place
+    that can be enforced.  Note the asymmetry with the checks themselves:
+    every pattern-bearing claim still runs whether or not a marker names
+    it, so the marker can never make a check quieter.  It exists to make
+    an *unmarked* claim loud, never to gate a marked one — a convention
+    that could switch a check off would be a way to retire one by
+    editing a document, which is precisely what rule 2 refuses.
+    """
+    named = {marker.key for marker in markers}
+    findings = [
+        _convention(
+            f"marker:{key}",
+            f"Block names check '{key}'",
+            f"nothing implements '{key}' — the sentence relying on it is unchecked "
+            f"(known: {', '.join(sorted(CHECK_KEYS))})",
+        )
+        for key in sorted(named - CHECK_KEYS)
+    ]
+    if not region:
+        return findings
+    findings.extend(
+        _convention(
+            f"unclaimed:{key}",
+            f"Unclaimed figure '{key}'",
+            "the block states a figure this check can test and no line names it — "
+            f"add <!--check:{key}--> beside the sentence",
+        )
+        for key in sorted(CLAIM_PATTERNS)
+        if key not in named and read_claim(region, key)[0] is not None
+    )
+    return findings
+
+
+def check_expiry(marker: Marker, region: str, now: datetime) -> Claim:
+    """One prediction, against the clock — rules 8 and 9.
+
+    ``SNAG-ESTATE-011`` was opened by a block asserting a retention
+    boundary **three hours before it happened**: "the row clears at 03:32
+    with nothing done", written at 00:30.  Nothing about that sentence was
+    wrong, and nothing about it could be measured either — which is why it
+    is a different class from every other claim here and needs a different
+    mechanism.  A prediction is not checked, it is *timed*: before its
+    moment it stands, and after its moment it is ``unknown`` until a human
+    has looked, because "the prediction came true" and "nobody went back"
+    are the two readings and only one of them is health.
+
+    ``unknown`` rather than ``mismatch`` deliberately.  A passed boundary
+    does not make the sentence false — rule 2's whole point is that a
+    claim nobody managed to test is its own verdict.
+    """
+    parts = marker.argument.split(None, 1)
+    label = parts[1] if len(parts) > 1 else "prediction"
+    subject = f"Block predicts: {label}"
+    if not parts:
+        return _convention(
+            "expires:?", subject, "the marker carries no instant — expected "
+            f"<!--check:expires {now.strftime(EXPIRY_FORMAT)} what it is about-->",
+        )
+    try:
+        moment = datetime.strptime(parts[0], EXPIRY_FORMAT)
+    except ValueError:
+        return _convention(
+            f"expires:{parts[0]}", subject,
+            f"'{parts[0]}' is not an instant of the form {EXPIRY_FORMAT}",
+        )
+
+    key = f"expires:{parts[0]}"
+    clock = moment.strftime(EXPIRY_CLOCK_FORMAT)
+    if region and clock not in prose_without_markers(region):
+        return Claim(
+            key, subject, "claim", parts[0], _local(moment.timestamp()), "unknown",
+            f"the marker names {clock} and the block's prose does not — pinned rather "
+            "than trusted, because the instant is the one fact stated twice here",
+        )
+
+    hours = (moment - now).total_seconds() / 3600
+    if hours > 0:
+        return Claim(
+            key, subject, "claim", parts[0], f"{humanise_hours(hours)} to run", "match"
+        )
+    return Claim(
+        key, subject, "claim", parts[0], f"passed {humanise_hours(-hours)} ago", "unknown",
+        "the block predicts a moment that has passed and nobody re-measured it — "
+        "measure it or reword the sentence",
+    )
+
+
+def check_all(path: Path | None = None, now: datetime | None = None) -> list[Claim]:
     """Every check, measured once each, state checks first.
 
     The state checks run even when STATUS.md cannot be read at all: a
@@ -633,6 +955,8 @@ def check_all(path: Path | None = None) -> list[Claim]:
     unit = measure_unit()
     status = schema_status()
     region_text = region or ""
+    markers = read_markers(region_text)
+    moment = now or datetime.now()
 
     return [
         check_schema(status.verdict, status.current, status.problem),
@@ -642,6 +966,14 @@ def check_all(path: Path | None = None) -> list[Claim]:
         check_migration_head(region_text, region_problem, status.head),
         check_alerts(region_text, region_problem, facts),
         check_daemon_start(region_text, region_problem, unit),
+        check_health(region_text, region_problem),
+        check_open_titles(region_text, region_problem, facts),
+        *(
+            check_expiry(marker, region_text, moment)
+            for marker in markers
+            if marker.key == "expires"
+        ),
+        *check_markers(region_text, markers),
     ]
 
 
@@ -670,8 +1002,11 @@ def render(claims: list[Claim]) -> list[str]:
         sides = []
         if claim.kind == "claim":
             sides.append(f"block says {claim.documented or '—'}")
-        sides.append(f"measured {claim.measured or '—'}")
-        line = f"{MARKERS[claim.verdict]} {claim.subject}: {', '.join(sides)}"
+        if claim.kind != "convention":
+            sides.append(f"measured {claim.measured or '—'}")
+        line = f"{MARKERS[claim.verdict]} {claim.subject}"
+        if sides:
+            line += f": {', '.join(sides)}"
         if claim.note:
             line += f" — {claim.note}"
         lines.append(line)

@@ -2,28 +2,144 @@
 
 ## Next action
 
-Take `SNAG-ESTATE-011` — the ops block that opens every sitting still carries its two most consequential claims ("no deploy is owed" and the sub-session item) as prose no pattern can reach, and the argument that deferred it has expired: it was ranked below `SNAG-LOG-011` on the grounds that a self-checking claim needs the block written twice under Session 73's rule before its shape is knowable, and Session 74 and Session 75 have now written it twice.
+Take `SNAG-DOCS-002` — `sysadmin/core/contracts.py` still defines eight project response models that pydantic validates and nothing reads, three of them re-exported to the tray and at least three further helper models in the same state, which is `SNAG-CFG-001`'s shape at the largest scale left in this repository and is the same defect in a different material as the unchecked claim this sitting spent itself removing.
 
 ## Sub-session items
 
-**One is owed, and it is a question rather than a change.** Session 33
-(seam drift detection) has now been named as blocked in **four**
-consecutive rankings without the blocking question being asked. Its
-second task reads another repository's fixture off the same disk, and
-cross-repo concerns have had an owner since 2026-08-13, so **ask
-estate-manager** before ranking it. That is a sub-hour action, not a
-session.
+**Two are owed, both cross-repo asks and neither a session.** (1) **Ask
+estate-manager the Session 33 question** — seam drift detection's second
+task reads another repository's fixture off the same disk, and cross-repo
+concerns have had an owner since 2026-08-13, so the question comes before
+the ranking. Named as blocked in **five** consecutive rankings without
+being asked. (2) **Report `SNAG-ROADMAP-002`'s eighth consecutive
+misreport** — the parser is estate-manager's since 2026-08-13, so what is
+owed from here is a report and not a fix, and the board has now published
+wrong movement about this repository for eight sittings running. Both are
+cross-repo writes: committed on their own and announced.
 
-**Nothing else is owed.** `sysadmin` was restarted at **2026-08-24
-23:01:23** (required — the two new routes are start-time code), `/health`
-answers `200`, `alembic current` reads **014 (head)**, and `alerts` holds
-**2** unresolved rows, both expected. Do not re-verify these by hand: run
+**Not owed here, and named because the next sitting will see it:**
+`venture-chat unreachable` (`critical`) has been open since 23:36:08.
+`venture-chat.service` — venture-assistant's llama.cpp on 8080 — was
+stopped **cleanly** at 23:34:38 and declares `Restart=on-failure`, so
+systemd will not bring it back; it was `ok` on 182 of 184 checks today.
+The estate rule is explicit: this repository monitors and alerts and does
+not fix what it monitors, so the row stands until its owner restarts it.
+**Do not start it from here.** `ListAgents` shows a `venture-assistant`
+session opened 34 minutes before the stop, which is the likeliest
+explanation and is another reason the remedy belongs there.
+
+**`uv.lock` is modified and is not this sitting's**, so it was left
+uncommitted: it predates the session (preflight showed it dirty) and adds
+`mypy`, `ruff` and `types-pyyaml` to the dev metadata. A second
+`sysadmin_assistant` session has been open in this tree for 16 hours;
+everything here was committed by explicit pathspec.
+
+**Nothing else is owed, and this is the first handoff not to restate the
+figures.** `sysadmin` was restarted twice during this sitting (the second
+time at 23:31:05, after the final edit to `ops_claims.py`) and the block
+in `docs/roadmap/STATUS.md` carries the current numbers with a
+`<!--check:…-->` beside each. Do not re-verify any of them by hand: run
 `./scripts/check-ops-claims.sh`, which `claude-preflight.sh` runs at the
-top of every sitting, and which reported **all seven checks green** after
-this session's edits — including the route count it caught moving, 46 →
-48.
+top of every sitting. It reported **eleven checks green and exit 0** after
+this session's edits — including the two new ones and the prediction,
+which reads "4 hours to run".
 
-## This session — Session 75: a deleted route stops answering 200
+## This session — Session 76: every claim names the check that closes it
+
+**`SNAG-ESTATE-011` fixed, and the entry's own contradiction was the
+fix.** It named `<!-- check: … -->` as the cheap next move and refused a
+marker in the very next clause. Both are right about **different
+markers**: one holding a *value* can agree with the box while the prose
+beside it disagrees and nothing notices (`ops_claims.py` rule 1,
+`SNAG-DB-003` in a document); one holding a *check's name* states no fact
+to drift from, so the figure in the prose stays the only statement of
+itself. Suite **2194 → 2229** green, ruff and mypy clean, driven live.
+
+### Decisions taken, and what they were taken against
+
+- **The marker is additive and cannot subtract**, which is what keeps
+  rule 2 true. Every pattern-bearing claim runs whether or not a line
+  names it, so deleting a marker is a way to be *told*, never a way to
+  retire a check. The rejected alternative was the obvious one — let the
+  marker decide which checks run — and it would have made "edit the
+  document" a switch for turning a check off, which is exactly the silent
+  retirement rule 2 exists to prevent, arriving inside the fix for it.
+- **`check_markers` reports a figure no line claims.** That is the
+  enforcement point `SNAG-ESTATE-008` asked for (*"every ops action names
+  the check that closes it"*) and shipped without, because the convention
+  half had nothing behind it. First run against the real block: **five
+  unclaimed figures**, every one a sentence checked for a sitting and
+  never claimed.
+- **A prediction is timed, not measured, and comes out `unknown` rather
+  than `mismatch`.** `mismatch` was considered and refused: a passed
+  boundary does not make the sentence false — the prediction may well have
+  come true — and "nobody went back" is precisely what rule 2 reserves
+  `unknown` for.
+- **The `expires` instant is pinned rather than trusted.** It is the one
+  fact this document states twice, because the marker needs a date the
+  prose has no room for ("at 03:32" names a wall clock and no day). The
+  rejected alternative was parsing the day out of the sentence, which is
+  wrong once per prediction. Pinning is `syslog_priority` against
+  `PRIORITY_MAP`'s treatment: not asserted on each side, checked.
+- **8400 is deliberately unchecked**, though the block asserts it answers
+  `200`. `estate/judgements.py` rule 3 declines to judge estate-manager's
+  reachability here — a second owner of one lifecycle closes rows the
+  first still holds true — and a claims-checker that alerted on it would
+  re-import that. The reason now sits in the block's own prose rather
+  than being left as a silence a reader would take for an oversight.
+
+### What only running it could say
+
+- **The pin was broken and three fixture tests were green either side of
+  the fix.** It searched the flattened region, *which contains the
+  marker*, so `03:32` matched the marker's own copy and the pin passed
+  whatever the sentence said — a check agreeing with itself by
+  construction. Found by driving a reworded block through the real script,
+  not by a fixture; the fixtures happen not to carry a marker.
+- **It caught a real fault mid-sitting, from both directions.** A
+  `critical` row for `venture-chat` opened at 23:36:08 while the checks
+  were being written. `check_alerts` said the count had moved; the new
+  `check_open_titles` said **which** row nobody had written about. The
+  count alone reports "one more row" — only the finer check names it, and
+  that is the difference the swap case was built for.
+- **A typo fires from both sides.** `<!--check:helth-->` produced the
+  unknown name *and* the now-unclaimed `health` figure beside it. Not
+  designed, and the better property: a rename that misses one end is
+  caught at the other.
+- **The derived-`CHECK_KEYS` falsification fired twice**, having
+  forgotten `health` — the derived rule demonstrating the failure it
+  prevents while being tested.
+- **`SNAG-DOCS-002` was re-measured before being ranked, and it is wrong
+  in both directions.** Three of the eight response models are re-exported
+  to the tray, not four; and the population is wider than eight —
+  `PortfolioAction`, `RecommendationInfo` and `ProjectHealthInfo` have no
+  reader either. Finding that out before ranking rather than after is the
+  correction `SNAG-LOG-010` demonstrated one sitting over.
+- **The four permanent `running` rows were measured and the measurement
+  demoted them.** Two `file_organiser` (2026-08-17), one `log_aggregator`
+  and one `sysadmin` (both 2026-08-14). `summarise_agent` takes
+  `runs[0].started_at`, and a row ten days old is never the newest for a
+  300-second agent, so **the stall path is unaffected**. What is left is
+  `last_status: "running"` on `GET /api/sysadmin/self` — an hour, not a
+  session, and it is ranked second on that basis rather than on the
+  entry's own framing.
+
+### Blocked, or left deliberately
+
+- **`SNAG-ESTATE-012`** was filed rather than fixed: a sentence with no
+  pattern *and* no marker is still invisible. Two mechanisms were
+  considered and both refused — requiring a marker per blockquote
+  paragraph turns the ranked recommendation into a claim it is not, and a
+  `<!--check:none reason-->` marker is one whose absence is
+  indistinguishable from forgetting it, which is the thing it would exist
+  to detect.
+- **The cost is stated rather than implied.** The markers are HTML
+  comments and do not render, but `claude-preflight.sh` prints the block
+  as raw text, so the session-opening banner is now slightly noisier in
+  exchange for every figure in it carrying the name of what would refute
+  it.
+
+## Previous session — Session 75: a deleted route stops answering 200
 
 **`SNAG-LOG-011` fixed, and the class it belonged to removed with it.**
 `GET /api/logs/summary` answered `200` with `{"source":"summary",

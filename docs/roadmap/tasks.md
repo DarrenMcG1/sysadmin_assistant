@@ -394,6 +394,66 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 76 — SNAG-ESTATE-011, every claim names the check that closes it (2026-08-24) ✅
+
+`SNAG-ESTATE-008` shipped the query half of its own proposal and left the
+convention — *"every ops action names the check that closes it"* — unbuilt,
+because that half had no enforcement point. The entry that recorded the
+gap contained its own contradiction: it named `<!-- check: … -->` as the
+cheap next move and refused a marker in the next clause. Both are right
+about **different markers**, and the distinction is the fix. Suite
+**2194 → 2229**, ruff and mypy clean, verified live at exit 0 on the real
+document and exit 1 on a copy broken four ways.
+
+- [x] **A marker names a check, never a value.** `<!-- routes=46 -->` can
+      agree with the box while the prose beside it disagrees and nothing
+      notices — `SNAG-DB-003` in a document, which is `ops_claims.py` rule
+      1. `<!--check:routes-->` states no fact, so the figure in the prose
+      stays the only statement of itself and there is nothing to drift
+      from
+- [x] **The marker is additive and cannot subtract.** Every
+      pattern-bearing claim runs whether or not a line names it, so
+      deleting a marker is a way to be *told*, never a way to retire a
+      check — a gating marker would make "edit the document" a switch,
+      which is rule 2's silent retirement inside the fix for it
+- [x] **`check_markers` is the enforcement point**: a figure this module
+      can test that no line claims, and a marker naming a check nobody
+      implements. First run against the real block reported **five
+      unclaimed figures**. A typo fires from **both** sides —
+      `<!--check:helth-->` gave the unknown name *and* the now-unclaimed
+      `health` beside it, which was not designed
+- [x] **`expires` — a prediction is timed, not measured.** The founding
+      instance ("the row clears at 03:32", written at 00:30) was not wrong
+      when written and not measurable when written. It is the one family
+      whose members the **document** declares; after its moment the claim
+      is `unknown`, never `mismatch`, because the prediction may have come
+      true and "nobody went back" is what rule 2 reserves `unknown` for
+- [x] **The instant is pinned, being the one fact stated twice.** The
+      marker carries a date the prose has no room for, so the wall clock
+      it renders must appear in the block. **The pin was broken and only a
+      live run said so**: it searched the flattened region, which contains
+      the marker, so it matched the marker's own copy and passed whatever
+      the sentence said. Three fixture tests of that pin were green either
+      side of the fix
+- [x] **`check_open_titles` and `check_health`.** The first is the finer
+      half of the alert count, which holds still through a swap; one
+      direction only, the other being `check_alerts`'s *fall* note. The
+      second is a different fact from the deploy check's — `active` says
+      the process is up, `/health` says it is serving, and `SNAG-DB-005`
+      is the 23 hours where those parted company
+- [x] **8400 deliberately unchecked**, with the reason in the block's own
+      prose: `estate/judgements.py` rule 3 declines to judge its
+      reachability here, and a claims-checker that alerted on it would
+      re-import the second owner that rule prevents
+- [x] **19 new tests, five falsified** — the unclaimed half removed,
+      `mismatch` for a passed prediction, a hand-written `CHECK_KEYS` (which
+      fired **twice**, having forgotten `health`), the pin without
+      `prose_without_markers`, and the marker read unflattened. All five
+      fired
+- [x] **Filed on the way**: `SNAG-ESTATE-012` — a sentence with no pattern
+      *and* no marker is still invisible, because deciding that an English
+      sentence is a claim is a human's job. Today's block carries three
+
 ## Session 75 — SNAG-LOG-011, a deleted route stops answering 200 (2026-08-24) ✅
 
 Session 69 removed `GET /api/logs/summary` and `/summary/history` with

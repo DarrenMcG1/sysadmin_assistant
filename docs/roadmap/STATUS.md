@@ -3,80 +3,125 @@
 **Last Updated**: 2026-08-24
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **No deploy is owed, and one sub-session action is.** `sysadmin` was
-> restarted at **2026-08-24 23:01:23**, `/health` answers `200`,
-> `alembic current` reads **014 (head)**, and `alerts` holds **2**
-> unresolved rows. **This block is now re-measured rather than re-read**:
-> `./scripts/check-ops-claims.sh` re-checks every figure in it, and
+> **No deploy is owed, and one sub-session action is.**
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-24 23:31:05**
+> <!--check:daemon_start-->, `/health` answers **200** <!--check:health-->,
+> `alembic current` reads 014 at the packaged head <!--check:schema-->, and
+> `alerts` holds **3** unresolved rows <!--check:alerts-->.
+>
+> **Every claim above names the check that closes it**, and that is what
+> `<!--check:…-->` is: the name of a check, never a copy of the figure
+> beside it. So the number in the prose stays the only statement of
+> itself, and `./scripts/check-ops-claims.sh` reports any figure it can
+> test that **no line claims** — which is the half that was missing when a
+> sentence could go unchecked without anyone noticing.
 > `claude-preflight.sh` runs it at the top of every sitting. Do not
-> hand-verify these five — run the script, and correct whichever artefact
-> it names.
+> hand-verify these — run the script, and correct whichever artefact it
+> names.
 >
-> **Owed: ask estate-manager the Session 33 question.** Seam drift
-> detection cannot start here because its second task reads another
-> repository's fixture off the same disk, and cross-repo concerns have
-> had an owner since 2026-08-13. That question is a sub-hour action, not
-> a session, and it has been named as the blocker in two consecutive
-> rankings without being asked.
+> **Owed: two sub-hour asks of estate-manager, neither of them a
+> session.** (1) **The Session 33 question** — seam drift detection
+> cannot start here because its second task reads another repository's
+> fixture off the same disk, and cross-repo concerns have had an owner
+> since 2026-08-13. Named as the blocker in three consecutive rankings
+> without being asked. (2) **Report `SNAG-ROADMAP-002`'s eighth
+> consecutive misreport** — the parser moved to estate-manager on
+> 2026-08-13, so what is owed from here is a report and not a fix, and it
+> is now eight sittings of wrong board movement published about this
+> repository. Both are cross-repo writes: committed on their own and
+> announced, per the estate rules.
 >
-> **The two open alert rows are both expected.** `Estate scan could not
-> reach sources` (`warning`) is the estate's **stored** scan of 03:32
-> today, taken inside the 23-hour outage; 8400 answers `200` now and the
-> estate's scan timer is daily, so the row clears at 03:32 with nothing
-> done. `Weekly disk review ready` (`info`) is below
-> `tray.notify_min_severity`. Do not reach into the estate to force a
-> rescan — its scan is its own.
+> **Three open alert rows, each named here rather than counted — and the
+> third opened during this sitting, caught by the check that was being
+> built.** <!--check:open_titles-->
 >
-> **Next up**: **`SNAG-ESTATE-011` — the ops block's remaining claims
-> are still prose.** *Recommended at the close of Session 75.*
+> - **`venture-chat unreachable` (`critical`), raised 23:36:08 — real,
+>   another repository's, and not this one's to fix.**
+>   `venture-chat.service` (venture-assistant, llama.cpp on 8080) was
+>   stopped **cleanly** at 23:34:38 and declares `Restart=on-failure`, so
+>   systemd will not bring it back; nothing is listening on 8080 and the
+>   service was `ok` on 182 of 184 checks today. The estate rule is
+>   explicit — this repository monitors and alerts, and does not fix what
+>   it monitors — so the row stands, correctly, until venture-assistant's
+>   owner restarts it. **No prediction is attached**, because there is no
+>   schedule this repository knows of that brings it back.
+> - **`Estate scan could not reach sources` (`warning`)** is the estate's
+>   **stored** scan of 03:32 today, taken inside the 23-hour outage; 8400
+>   answers `200` now and the estate's scan timer is daily, so the row
+>   clears at 03:32 tomorrow with nothing done
+>   <!--check:expires 2026-08-25T03:32 the estate scan row clears-->. Do
+>   not reach into the estate to force a rescan — its scan is its own.
+> - **`Weekly disk review ready` (`info`)** is below
+>   `tray.notify_min_severity`.
 >
-> **1. `SNAG-ESTATE-011`.** Session 73 made five figures in this block
-> machine-checkable and left the rest as sentences no pattern can reach —
-> including the two that decide what a sitting does first: "no deploy is
-> owed" and the sub-session item. It was ranked below `SNAG-LOG-011` on
-> the argument that a self-checking claim needs the block written twice
-> under the new rule before its shape is knowable, and **it has now been
-> written twice** — Session 74 and this sitting — so the blocker that
-> deferred it has expired rather than been argued away. It also wins on
-> evidence this sitting produced: the route-count claim was the one check
-> that caught a real change here (46 → 48), and it caught it because it
-> is a number; the restart stamp beside it was corrected by hand, which
-> is the thing that goes stale.
+> **"8400 answers 200" is deliberately unchecked here**: this repository
+> declines to judge 8400's reachability at all (`estate/judgements.py`
+> rule 3 — a second owner of one lifecycle closes rows the first still
+> holds true), and a claims-checker that alerted on it would re-import
+> exactly that.
 >
-> **2. Ask estate-manager the Session 33 question.** Still owed, still
-> sub-hour, and it is above the config trim because it is the only item
-> that **unblocks** anything: seam drift detection cannot be ranked at
-> all until the owner answers. It is not a session, which is why it sits
-> in the sub-session line above rather than winning this list.
+> **Next up**: **`SNAG-DOCS-002` — eight contract models validated by
+> pydantic and read by nothing.** *Recommended at the close of Session
+> 76.*
 >
-> **3. Trim the `agents.project_organiser` config block.** Unchanged
-> from Session 74's ranking and unchanged in its reasoning: a config
-> block pydantic validates and nothing reads, `SNAG-CFG-001`'s shape at
-> the size of a section. It loses to both of the above for the same
-> reason it lost last time — a config change fans out into the defaults
-> tests and has no live consequence at all. What has changed is that the
-> item above it got *cheaper* rather than this one getting dearer.
+> **1. `SNAG-DOCS-002`.** `contracts.py` still defines eight project
+> response models — `StaleProjectsResponse`, `ProjectBoardResponse`,
+> `NextProjectResponse`, `ProjectMomentumResponse`, `BranchCleanupResponse`,
+> `PortfolioActionsResponse`, `ProjectRecommendationsResponse`,
+> `ProjectReviewResponse` — and nothing reads any of them. It wins
+> because it is `SNAG-CFG-001`'s shape at the largest scale left here, and
+> because **this sitting spent itself on that same failure one level up**:
+> a claim nobody checks and a model nobody consumes are the same defect in
+> two materials. **Re-measured before ranking, and the entry is wrong in
+> both directions**: `sysadmin_tray/models.py` re-exports *three* of the
+> eight, not four, and the population is *wider* than eight —
+> `PortfolioAction`, `RecommendationInfo` and `ProjectHealthInfo` have no
+> reader either, `RecommendationInfo`'s only mention outside `contracts.py`
+> being a docstring contrasting it with `UnitRecommendationInfo`. So it is
+> a *session* rather than an hour, and for a slightly larger reason than
+> the entry gives: removing a re-exported name changes the tray's public
+> surface, so the three need separating from the rest before anything is
+> deleted.
 >
-> **Runners-up that lost, and why.** `SNAG-LOG-013`'s population is
-> **measured empty tonight** — `GET /api/logs/actions` serves 5 rows with
-> 0 colliding capped prefixes, its 9 historic raw-JSON signatures having
-> left the 7-day window at about 14:11 as the entry predicted. It is
-> **not closed on that**: "the population is zero" is the reasoning that
-> mis-ranked its own parent one sitting ago, and the capping that can
-> collide is still in the code. `SNAG-UNITS-006` and `SNAG-LOG-006` have
-> empty populations too. The **four permanent `running` rows in
-> `agent_runs`** stay filed rather than ranked: whether `summarise_agent`
-> mistakes one for liveness is unmeasured, and the measurement *is* the
-> task, so it is an hour rather than a session.
+> **2. The four permanent `running` rows in `agent_runs`.** Two
+> `file_organiser` (2026-08-17), one `log_aggregator` and one `sysadmin`
+> (both 2026-08-14) — measured tonight. **This sitting demoted it by
+> measuring rather than by arguing**: `summarise_agent` takes
+> `runs[0].started_at`, and a `running` row from ten days ago is never the
+> newest for a 300-second agent, so the stall path is unaffected and the
+> ladder still fires. What is left is `last_status: "running"` reaching
+> `GET /api/sysadmin/self` and the tray, where a dead agent reads as busy
+> — real, and an hour rather than a session.
+>
+> **3. Trim the `agents.project_organiser` config block.** Unchanged from
+> the last two rankings and unchanged in its reasoning: a config block
+> pydantic validates and nothing reads. It loses for the third time for
+> the same reason — a config change fans out into the defaults tests and
+> has no live consequence at all. What changed is that the item above it
+> was measured smaller, not that this one grew.
+>
+> **Runners-up that lost, and why.** `SNAG-ESTATE-012` was **filed by
+> this sitting** and its own entry ranks it P3: the classes that drift
+> silently are now covered, and the one it names drifts in front of a
+> reader. Taking it immediately is the treadmill this document warns
+> about. `SNAG-LOG-013`'s population is **measured empty again** —
+> `GET /api/logs/actions` serves 5 rows with 0 colliding capped prefixes
+> — and it is still not closed on that, because "the population is zero"
+> is the reasoning that mis-ranked its own parent. `SNAG-AGENT-007` is
+> **dormant by arithmetic**: `_active_alerts` loads whole ORM rows four
+> times a sysadmin run, and the table holds two unresolved rows, so its
+> cost today is nil *because* the pile-ups were fixed — it comes back the
+> day one returns. `SNAG-UNITS-006` and `SNAG-LOG-006` have empty
+> populations too.
 >
 > **Blocked or waiting on another repository.** Session 33 is blocked on
-> the question above. `SNAG-ROADMAP-002` has now published wrong board
-> movement for **seven consecutive sittings** — unmoved at 58 entries /
-> 56 open for a sitting that closed one and opened none, measured either
-> side of the edit — and the parser moved to
-> estate-manager on 2026-08-13, so what is owed from here is a report,
-> not a fix. `SNAG-LOG-012` is **delegated**: `strip_markdown` lives in
-> `estate-lib`, and patching it from here would be the copy that drifts.
+> the question in the sub-session line above. `SNAG-ROADMAP-002` has now
+> published wrong board movement for **eight consecutive sittings** — 58
+> → 59 entries / 56 → 57 open for a sitting that closed one and opened
+> one, measured either side of the edit — and the parser is
+> estate-manager's, so what is owed from here is the report named above.
+> `SNAG-LOG-012` is **delegated**: `strip_markdown` lives in `estate-lib`,
+> and patching it from here would be the copy that drifts.
 > `SNAG-ESTATE-002` and `SNAG-ESTATE-004` remain estate-manager's;
 > `SNAG-ESTATE-006` and `SNAG-ESTATE-007` are delegated and unchanged.
 > `SNAG-ESTATE-001`'s remaining half is a retirement checklist the entry
@@ -88,14 +133,14 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Backend | 🟢 Complete | FastAPI + 5 agents + scheduler + DB |
-| API | 🟢 Complete | **48 routes** *(re-counted live 2026-08-24 after Session 75: 46 → 48, the two `410 Gone` tombstones for `/api/logs/summary` and `/summary/history`. They are `include_in_schema=False`, so `/docs` lists 46 — `measure_routes()` counts `APIRoute` objects rather than schema entries, which is the honest figure and the one that moves when a route is declared)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
-| Database | 🟢 Complete | **11 tables** in sysadmin schema (12 counting `alembic_version`; counted live 2026-08-24), Alembic migrations (head **014**, applied 2026-08-24 — dropped the three frozen tables). *Was 14. `project_snapshots`, `project_reviews` and `log_summaries` had no writer since ADR-0005 or Session 69 and are gone with their retention rows, their `TABLE_TIMESTAMP_MAP` entries and the `LogSummary` model. `FROZEN_TABLES` is now empty and deliberately kept — an entry there is a blindfold over the drift guard, so emptying it is what proves the drop rather than a new test* |
+| API | 🟢 Complete | <!--check:routes-->**48 routes** *(re-counted live 2026-08-24 after Session 75: 46 → 48, the two `410 Gone` tombstones for `/api/logs/summary` and `/summary/history`. They are `include_in_schema=False`, so `/docs` lists 46 — `measure_routes()` counts `APIRoute` objects rather than schema entries, which is the honest figure and the one that moves when a route is declared)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
+| Database | 🟢 Complete | <!--check:tables-->**11 tables** in sysadmin schema (12 counting `alembic_version`; counted live 2026-08-24), Alembic migrations (head **014**<!--check:migration_head-->, applied 2026-08-24 — dropped the three frozen tables). *Was 14. `project_snapshots`, `project_reviews` and `log_summaries` had no writer since ADR-0005 or Session 69 and are gone with their retention rows, their `TABLE_TIMESTAMP_MAP` entries and the `LogSummary` model. `FROZEN_TABLES` is now empty and deliberately kept — an entry there is a blindfold over the drift guard, so emptying it is what proves the drop rather than a new test* |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2194 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (35 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; five falsified against the behaviour they replace)**, smoke script |
+| Testing | 🟢 Complete | **2229 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -103,6 +148,60 @@
 ---
 
 ## Recently Completed
+
+### Session 76 — every claim names the check that closes it (2026-08-24)
+
+**`SNAG-ESTATE-011` fixed, and the entry's own contradiction was the
+fix.** Session 73 made five figures in this block machine-checkable and
+left the rest as prose; its follow-up entry named `<!-- check: … -->` as
+the cheap next move and refused a marker in the very next clause. Both
+are right about **different markers**. `<!-- routes=46 -->` can agree
+with the box while the prose beside it disagrees and nothing notices —
+`ops_claims.py` rule 1, `SNAG-DB-003` arriving in a document.
+`<!--check:routes-->` states no fact at all, so the figure in the prose
+stays the only statement of itself and there is nothing to drift from.
+Suite **2194 → 2229**, ruff and mypy clean, verified live.
+
+- **The marker is additive and cannot subtract.** Every pattern-bearing
+  claim runs whether or not a line names it, so deleting a marker is a
+  way to be *told*, never a way to retire a check — a gating marker would
+  make "edit the document" a switch, which is rule 2's silent retirement
+  arriving inside the fix for it.
+- **`check_markers` is the enforcement point `SNAG-ESTATE-008` asked for
+  and had no way to have.** A figure this module can test that no line
+  claims is reported; so is a marker naming a check nobody implements. On
+  its first run against the real block **five figures came back
+  unclaimed**, every one a sentence that had been checked for a sitting
+  and never claimed. A typo fires from **both** sides —
+  `<!--check:helth-->` gave the unknown name *and* the now-unclaimed
+  `health` beside it, which was not designed.
+- **A prediction is timed, not measured.** The instance that opened the
+  entry — "the row clears at 03:32", written at 00:30 — was not wrong
+  when written and not measurable when written, so no pattern reaches it.
+  `expires` is the one family whose members the **document** declares.
+  After its moment the claim is `unknown`, never `mismatch`: the
+  prediction may well have come true, and "nobody went back" is what rule
+  2 reserves `unknown` for.
+- **The pin was broken and only a live run said so.** The `expires`
+  instant is the single fact stated twice, so it is pinned to its
+  sentence rather than trusted. The first implementation searched the
+  flattened region, **which contains the marker**, so `03:32` matched the
+  marker's own copy and the pin passed whatever the prose said — a check
+  agreeing with itself by construction. Three fixture tests of that pin
+  were green either side of the fix.
+- **`/health` is checked and 8400 deliberately is not**, with the reason
+  in the block's own prose: `estate/judgements.py` rule 3 declines to
+  judge estate-manager's reachability here, and a claims-checker that
+  alerted on it would re-import the second owner that rule prevents.
+- **19 new tests, five falsified** against the behaviour they replace —
+  and the hand-written-`CHECK_KEYS` falsification fired **twice**, having
+  forgotten `health`, which is the derived rule demonstrating itself.
+  The whole check was then driven against a copy of the real document
+  broken four ways at once: **four faults and exit 1**, against eleven
+  `ok` and exit 0 on the real one.
+- **Filed on the way**: `SNAG-ESTATE-012` — a sentence with no pattern
+  *and* no marker is still invisible, because deciding that an English
+  sentence is a claim is a human's job and always was.
 
 ### Session 75 — a deleted route stops answering 200 (2026-08-24)
 

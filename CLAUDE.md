@@ -260,8 +260,15 @@ Three things stayed, and holding them apart is the point:
 `ProjectBoardResponse`, `NextProjectResponse`, `ProjectMomentumResponse`,
 `BranchCleanupResponse`, `PortfolioActionsResponse`,
 `ProjectRecommendationsResponse` and `ProjectReviewResponse`, and
-`sysadmin_tray/models.py` re-exports four of them. **Nothing reads any of
-them** — measured, not assumed. That is the `SNAG-CFG-001` shape: a model
+`sysadmin_tray/models.py` re-exports **three** of them — *corrected
+2026-08-24 by Session 76, which counted four and found
+`PortfolioActionsResponse`, `ProjectRecommendationsResponse` and
+`ProjectReviewResponse`.* **Nothing reads any of the eight** —
+measured, not assumed — and the population is **wider than the eight**:
+`PortfolioAction`, `RecommendationInfo` and `ProjectHealthInfo` have no
+reader either, `RecommendationInfo`'s only mention outside `contracts.py`
+being a docstring in `units/recommendations.py` that contrasts it with
+`UnitRecommendationInfo`. That is the `SNAG-CFG-001` shape: a model
 pydantic validates and no caller consumes. Filed as `SNAG-DOCS-002` and
 deliberately not deleted in a documentation sitting, because removing a
 re-exported name is a change to the tray's public surface.
@@ -1331,6 +1338,73 @@ wrapped `holds **2**` and `unresolved` across two lines with a `>`
 between them and the claim came back `unknown`, which is why the region
 is flattened before matching. `SNAG-ESTATE-011` is what remains — the
 block's other claims are prose no pattern can reach.
+
+**The other claims name the check that closes them, and the marker that
+works is the one that states no fact** (Session 76, `SNAG-ESTATE-011`).
+Five figures were machine-checkable and the rest of the block was prose;
+the entry proposed `<!-- check: … -->` and refused a marker in the next
+clause, which is `ops_claims.py` rule 1 — `<!-- routes=46 -->` beside a
+sentence can agree with the box while the prose disagrees, and nothing
+notices. **`<!--check:routes-->` is not that.** It names a *check*, never
+a value, so the figure in the prose stays the only statement of itself
+and the two cannot disagree about a fact, because one of them states
+none. Live, the first run against the real block reported **five
+unclaimed figures** — every one a sentence checked for a sitting and
+never claimed.
+
+Four rules, three of them the opposite of the obvious implementation:
+
+1. **The marker is additive and cannot subtract.** Every pattern-bearing
+   claim runs whether or not a line names it, so deleting a marker is a
+   way to be *told*, never a way to retire a check. A marker that gated
+   one would make "edit the document" a switch, which is rule 2's silent
+   retirement arriving inside the fix for it. What the marker buys is
+   `check_markers`: a figure this module can test that no line claims,
+   and a marker naming a check nobody implements. A typo fires from
+   **both** sides — `<!--check:helth-->` produced the unknown name *and*
+   the now-unclaimed `health` beside it, which was not designed.
+2. **A prediction is timed, not measured.** The entry was opened by *"the
+   row clears at 03:32 with nothing done"*, written at 00:30 — not wrong
+   when written and not measurable when written, so no pattern reaches
+   it. `expires` is the one family whose **members the document
+   declares**. After its moment the claim is `unknown`, never `mismatch`:
+   the prediction may well have come true, and "nobody went back" is what
+   rule 2 reserves `unknown` for.
+3. **The instant is the one fact stated twice, so it is pinned rather
+   than trusted.** The marker must carry a date the prose has no room for
+   — "at 03:32" names a wall clock and no day — so the wall clock it
+   renders must appear in the block or the claim is `unknown` naming both
+   moments. `syslog_priority` against `PRIORITY_MAP`'s treatment. **The
+   pin was broken and only a live run said so**: it searched the
+   flattened region, *which contains the marker*, so it matched the
+   marker's own copy and passed whatever the sentence said — a check
+   agreeing with itself by construction. Three fixture tests of that pin
+   were green either side of the fix, because their fixtures happen not
+   to carry a marker.
+4. **`check_open_titles` is the finer half of the alert count**, which
+   holds still through a **swap** — one row resolving as another opens —
+   while the sentence about *which* rows are open goes wrong. One
+   direction only: a row the block names that has resolved is already
+   `check_alerts`'s *fall* note, and what that note cannot say is that a
+   row nobody wrote about is open.
+
+`/health` is checked and **8400 deliberately is not**, though the block
+asserts both. The first is a different fact from the deploy check's —
+`systemctl` reporting `active` says the process is up, `/health` says the
+application is serving, and `SNAG-DB-005` is the 23 hours where those
+parted company. The second is estate-manager's availability, which
+`estate/judgements.py` rule 3 declines to judge here; a claims-checker
+that alerted on it would re-import the second owner that rule exists to
+prevent. The block says so in its own prose rather than leaving the
+silence to be read as an oversight — which is the cheapest form of the
+convention for a claim no pattern reaches, and is `SNAG-ESTATE-012`: a
+sentence with **no pattern and no marker** is still invisible, because
+deciding that an English sentence is a claim is a human's job.
+
+The cost is stated rather than implied: the markers are HTML comments and
+do not render, but `claude-preflight.sh` prints the block as raw text, so
+the session-opening banner is slightly noisier and every figure in it now
+carries the name of the thing that would refute it.
 
 `dev` and `tray` are `[project.optional-dependencies]` here rather than
 dependency groups, so **a bare `uv sync` prunes them** — pytest, ruff,
