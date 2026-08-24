@@ -70,12 +70,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sysadmin.core.config import get_config
 from sysadmin.core.database import get_scheduler_session
 from sysadmin.core.models.alert import Alert
-from sysadmin.core.text import strip_markdown, truncate_at_word
+from sysadmin.core.text import strip_markdown
 from sysadmin.monitor.log_actions import (
     NOISE_MIN_OCCURRENCES,
-    SIGNATURE_DETAIL_CHARS,
     LogRecommendation,
     RecommendationKind,
+    quoted_signature,
     recommend,
 )
 from sysadmin.monitor.log_query import (
@@ -133,8 +133,11 @@ OCCURRENCE_BANDS: tuple[tuple[int, str], ...] = (
 )
 
 #: Number-free names for the three recommendation kinds.  Tier 2's own
-#: titles carry counts ("kernel: 39885 occurrences, unchanged") and so
-#: cannot go in the prompt; these say the same thing without a figure.
+#: titles carry figures — a surge's ratio, an incident's unit count, a
+#: noise row's occurrences — and so cannot go in the prompt; these say
+#: the same thing without one.  (The example this comment used to give,
+#: ``"kernel: 39885 occurrences, unchanged"``, stopped being a real
+#: title with ``SNAG-LOG-010``; the leak path it names did not.)
 KIND_PHRASES = {
     RecommendationKind.NEW.value: "a fault seen for the first time",
     RecommendationKind.SURGE.value: "an established fault getting louder",
@@ -191,17 +194,22 @@ def _quoted_signature(signature: str) -> str:
     model is asked for 150 words and handed a paragraph of serialised
     logger metadata to write them about.
 
-    :data:`~sysadmin.monitor.log_actions.SIGNATURE_DETAIL_CHARS` is
-    reused rather than a second cap invented, because it was chosen
-    against these same rows for this same reason one module over, and
-    ``truncate_at_word`` always marks the cut — an unmarked truncation
-    is ``SNAG-BRIEF-002``, and a *silently* shortened signature is worse
-    here than in a briefing, because a reader may try to match it
-    against ``GET /api/logs/actions``.
+    The cap and the marked cut are
+    :func:`~sysadmin.monitor.log_actions.quoted_signature`'s, borrowed
+    whole rather than restated: it was chosen against these same rows
+    for this same reason one module over, and since ``SNAG-LOG-010``
+    that function writes the titles of the very rows this line
+    describes.  A review naming a signature one way and
+    ``GET /api/logs/actions`` naming it another is the disagreement
+    ``log_query``'s docstring exists to prevent, in the one form a
+    reader cannot check.
+
+    What stays here is the ``figure_free`` gate alone, because it is
+    about what may reach a *model* and applies to no other caller.
     """
     if not figure_free(signature):
         return ""
-    return f' — "{truncate_at_word(signature, SIGNATURE_DETAIL_CHARS)}"'
+    return quoted_signature(signature)
 
 
 def occurrence_band(count: int) -> str:

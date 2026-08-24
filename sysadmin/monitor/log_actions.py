@@ -67,6 +67,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from sysadmin.core.text import truncate_at_word
 from sysadmin.monitor.journal import since_timestamp
 from sysadmin.monitor.log_trends import (
     ChangeKind,
@@ -79,9 +80,12 @@ __all__ = [
     "INCIDENT_WINDOW_SECONDS",
     "NOISE_MIN_OCCURRENCES",
     "LogRecommendation",
+    "SAMPLE_DETAIL_CHARS",
     "SIGNATURE_DETAIL_CHARS",
+    "capped_signature",
     "group_incidents",
     "journal_command",
+    "quoted_signature",
     "RecommendationKind",
     "recommend",
 ]
@@ -140,6 +144,71 @@ INCIDENT_WINDOW_SECONDS = 5.0
 #: is a detail string no reader gets to the end of.  Truncating a
 #: signature still names it; omitting one does not.
 SIGNATURE_DETAIL_CHARS = 120
+
+#: How much of the latest verbatim line a ``detail`` quotes.
+#:
+#: A second constant rather than a reuse of
+#: :data:`SIGNATURE_DETAIL_CHARS`, because the two bound different
+#: things: a signature is an *identity* a reader may carry to another
+#: surface and match against it, and a sample is one example line
+#: offered as colour.  The value is unchanged — it was written twice as
+#: a bare ``[:200]`` slice until it was named here.
+SAMPLE_DETAIL_CHARS = 200
+
+
+def capped_signature(signature: str) -> str:
+    """A signature bounded at :data:`SIGNATURE_DETAIL_CHARS`, cut marked.
+
+    ``truncate_at_word`` rather than a slice, and that is a fix rather
+    than a tidying.
+    :func:`~sysadmin.monitor.log_review._quoted_signature` already says
+    in writing that an unmarked cut is ``SNAG-BRIEF-002``, and that it
+    is *worse* on a signature than in a briefing because a reader may
+    try to match the signature against ``GET /api/logs/actions`` — and
+    this module, which is the surface that route serves and the one that
+    lent ``log_review`` the constant, was slicing.  Measured on the
+    2026-08-12 window before the change: **12 member signatures cut
+    mid-word at exactly 120 characters**, one ending ``"message":
+    "alert_raised", "service"`` with nothing to say it had been cut.
+    """
+    return truncate_at_word(signature, SIGNATURE_DETAIL_CHARS)
+
+
+def quoted_signature(signature: str) -> str:
+    """The signature as a *title* carries it (``SNAG-LOG-010``).
+
+    **A row's identity is the fault, not the source** — ``SNAG-AGENT-005``'s
+    rule, unapplied one module over until now.  That entry moved the
+    signature into ``alert_title`` precisely because four open rows all
+    reading ``Log error: kernel`` are indistinguishable to whoever is
+    looking at them.  Every title here was built from ``source`` and a
+    number, and sibling rows share both.
+
+    The entry filed this against ``noise`` alone and ranked it last on a
+    population of zero.  Driven through the real :func:`recommend`
+    against the live table, **the family it names is the smallest of the
+    three affected**: at the 2026-08-12 anchor 14 of 21 rows collided in
+    five groups — ``New incident on sysadmin.service`` four times, ``New
+    incident on kernel`` three, ``New fault from sysadmin.service``
+    three, ``New fault from sportsanalyser-frontend.service`` twice, and
+    the entry's own ``kernel: 39885 occurrences, unchanged`` twice.  At
+    the 2026-08-24 anchor the ``noise`` population really is zero and
+    **7 of 9 rows still collide**.  So the rule goes to every builder
+    rather than to the one that was noticed.
+
+    The cost is stated rather than hidden: ``sysadmin.service``'s
+    signatures are whole JSON records (``SNAG-LOG-008``), so those
+    titles now open with ``{"timestamp": "N-N-N …``.  It is the trade
+    ``alert_title`` already made and ``SNAG-LOG-003`` already paid for —
+    an ugly title a reader can tell apart beats a tidy one they cannot.
+
+    The format lives here rather than at each call site so a title and a
+    review line naming one signature read the same way.
+    ``log_review._quoted_signature`` keeps only its ``figure_free``
+    gate, which is about what may reach a *model* and applies nowhere
+    else.
+    """
+    return f' — "{capped_signature(signature)}"'
 
 
 class RecommendationKind(StrEnum):
@@ -486,11 +555,14 @@ def _new_recommendation(
     return LogRecommendation(
         kind=RecommendationKind.NEW,
         severity="risk",
-        title=f"New fault from {trend.source}",
+        title=(
+            f"New fault from {trend.source}"
+            f"{quoted_signature(trend.signature)}"
+        ),
         detail=(
             f"First seen {trend.first_seen:%Y-%m-%d %H:%M} UTC, "
             f"{trend.current} occurrence(s) since. "
-            f"Latest line: {trend.sample[:200]}"
+            f"Latest line: {truncate_at_word(trend.sample, SAMPLE_DETAIL_CHARS)}"
         ),
         action="Read the source: " + journal_command(
             trend.source, trend.first_seen, scopes
@@ -553,6 +625,14 @@ def _incident_recommendation(
             f"New incident: {anchor.source} then "
             f"{len(others)} related units"
         )
+    # Rule 4: the anchor's signature, for ``quoted_signature``'s reason.
+    # The unit names above are shared — ``sysadmin.service`` anchored
+    # four separate incidents in the 2026-08-12 window and produced four
+    # identical titles — and the anchor's signature is what the row is
+    # already *about*: rule 3 says naming the anchor is what makes this
+    # row better than the six it replaces, and until now it named only
+    # the anchor's unit.
+    title += quoted_signature(anchor.signature)
 
     lines = [
         f"{len(group)} new signature(s) across {len(units)} unit(s) within "
@@ -562,7 +642,7 @@ def _incident_recommendation(
         f"dependency; {anchor.source} failed first."
     ]
     lines.extend(
-        f"  - {trend.source}: {trend.signature[:SIGNATURE_DETAIL_CHARS]}"
+        f"  - {trend.source}: {capped_signature(trend.signature)}"
         for trend in group
     )
 
@@ -602,10 +682,13 @@ def _surge_recommendation(
     return LogRecommendation(
         kind=RecommendationKind.SURGE,
         severity="risk",
-        title=f"{trend.source} fault up {ratio}",
+        title=(
+            f"{trend.source} fault up {ratio}"
+            f"{quoted_signature(trend.signature)}"
+        ),
         detail=(
             f"{trend.previous} occurrence(s) last window, {trend.current} this one. "
-            f"Latest line: {trend.sample[:200]}"
+            f"Latest line: {truncate_at_word(trend.sample, SAMPLE_DETAIL_CHARS)}"
         ),
         # No ``--grep``: the draft grepped on the *normalised* signature,
         # whose ``N`` placeholders match no real line, and its first token
@@ -623,10 +706,29 @@ def _surge_recommendation(
 
 
 def _noise_recommendation(trend: SignatureTrend) -> LogRecommendation:
+    """Loud, old and flat — and the title no longer claims the last of those.
+
+    ``unchanged`` was asserted for every change kind
+    :func:`_is_noise_candidate` admits, and it admits four:
+    ``STEADY``, ``RISING``, ``FALLING`` and ``RETURNED``.  Measured at
+    the 2026-08-12 anchor, both live rows are ``FALLING`` — **39,885
+    this window against 77,496 last** — so the title asserted flatness
+    about a signature that had halved, while the row's own ``detail``
+    printed the two numbers contradicting it.
+
+    The count stays, because Tier 2's question is literally "this
+    warning appeared 400x — add to known-noise or fix it" and the volume
+    is the reason to act.  The direction goes, because ``detail`` states
+    it, ``change`` decides it, and a title is not the place to restate a
+    fact a row already carries — twice, in this case, and wrongly.
+    """
     return LogRecommendation(
         kind=RecommendationKind.NOISE,
         severity="advice",
-        title=f"{trend.source}: {trend.current} occurrences, unchanged",
+        title=(
+            f"{trend.source}: {trend.current} occurrences"
+            f"{quoted_signature(trend.signature)}"
+        ),
         detail=(
             f"{trend.current} this window against {trend.previous} last, "
             f"{trend.total} in all retained history since "

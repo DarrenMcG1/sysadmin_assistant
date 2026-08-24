@@ -367,6 +367,50 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 72 — SNAG-LOG-010, a row's identity is the fault (2026-08-24) ✅
+
+`GET /api/logs/actions` served two rows reading exactly
+`kernel: 39885 occurrences, unchanged`, correct and impossible to tell
+apart. `SNAG-AGENT-005` moved the signature *into* `alert_title` for that
+reason in 2026-08-12; the advice endpoint never got the same treatment.
+
+- [x] **Every title builder names the signature, not just the one the
+      entry filed against.** `quoted_signature()` on all four; the entry
+      scoped this to `noise` and ranked it last on a population of zero,
+      and driving the real `recommend()` against the live table put
+      **14 of 21 rows in five collision groups** at the 2026-08-12 anchor
+      and **7 of 9** at the live one — where the `noise` population is
+      genuinely zero and every colliding row is `severity: risk`
+- [x] **`capped_signature()` bounds at `SIGNATURE_DETAIL_CHARS` with
+      `truncate_at_word`.** It was a bare slice, so **12 member
+      signatures per request** were cut mid-word with no marker — one
+      ending `"message": "alert_raised", "service"`. That is the
+      unmarked cut `log_review._quoted_signature`'s docstring calls
+      `SNAG-BRIEF-002`, and calls *worse* on a signature, in the module
+      that lent it the constant
+- [x] **`log_review._quoted_signature` keeps only its `figure_free`
+      gate** and borrows cap, marker and quoting, so a review line and a
+      title name one signature one way. `SAMPLE_DETAIL_CHARS` names the
+      other bare slice, which was written twice
+- [x] **The noise title no longer claims a direction.** `unchanged` was
+      asserted for all four change kinds `_is_noise_candidate` admits,
+      and both live rows classify **`FALLING` — 39,885 this window
+      against 77,496 last**, contradicted by the row's own `detail`. The
+      count stays: volume is the reason to act
+- [x] **Nine tests, all falsified against the behaviour they replace**,
+      and one strengthened before it could be — it compared the two
+      modules' quoting on a *short* signature, where a slice and a
+      marked cut agree, so it passed against the broken code. The whole
+      module's titles had been pinned by one `startswith`
+- [x] **Verified on the route.** 7 collisions among 9 rows at 09:57, **0
+      among 9** after the restart at 09:58; the specimen pair driven
+      through the real `build_report` → `recommend()` over the storm
+      window, 18 days before those rows age out
+- [x] **`SNAG-LOG-013` filed for what the cap leaves.** 9 of 55
+      signatures share their capped prefix, and one live incident row
+      already lists **7 members that are identical after capping** — the
+      roll-up naming nothing, one level below the titles
+
 ## Session 71 — SNAG-LOG-009, the window journalctl actually opens (2026-08-24) ✅
 
 Nine of nine rows `GET /api/logs/actions` served carried

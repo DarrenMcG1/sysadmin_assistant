@@ -2,115 +2,121 @@
 
 ## Next action
 
-Take `SNAG-LOG-010` — put the signature into the `noise` recommendation's title, truncated with `truncate_at_word` at `SIGNATURE_DETAIL_CHARS` the way `log_review._quoted_signature` already does it — and do it before **2026-09-11**, because the two kernel signatures that make the pair indistinguishable stop at `logged_at` 2026-08-12 and `log_entries` has a 30-day retention, so that is the last day the fix can be driven through the real trend code against the 451,154 real rows rather than against a fixture.
+Take `SNAG-ESTATE-008` and give `scripts/claude-preflight.sh` a block that re-measures the four machine-checkable ops claims this repository keeps carrying forward wrong — `sysadmin-check-schema` for the schema head, the unresolved-alert count, the daemon's `ActiveEnterTimestamp`, and the live route count off `create_app()` — because the previous ranking demoted it for having "no obvious enforcement point" and preflight already runs at the start of every sitting and already prints priorities, just from prose.
 
 ## Sub-session items
 
-**None owed.** `sysadmin` restarted at **2026-08-24 09:29:28** to serve
-this sitting's change, `/health` answers, `alembic current` reads **013
-(head)**, and `GET /api/logs/actions` serves all nine rows with `@<epoch>`
-commands — checked by running one of them against the real journal, not
-by reading the payload.
+**None owed.** `sysadmin` was restarted at **2026-08-24 09:58:28** to
+serve this sitting's change, `/health` answers, `alembic current` reads
+**013 (head)**, and `GET /api/logs/actions` serves **9 rows with 0
+colliding titles** where the same route served 7 collisions among 9 one
+minute earlier — checked on the route either side of the restart.
 
-**The two-minute `UPDATE` that has opened every sitting since 2026-08-16
-is finally out of the documents.** `alerts` holds **3** unresolved rows
-and **0** matching `Estate port %registry breach`. Session 70's handoff
-said this and `STATUS.md`'s block said the opposite in the same
-repository on the same day; the query settled it. `SNAG-ESTATE-008`, at
-least the fourth instance.
+**One alert row is open and it is the artefact Session 71 named
+correctly.** `Estate scan could not reach sources` (`warning`, 07:54:54)
+reports the estate's *stored* scan of 03:32 today, taken inside the
+23-hour outage; 8400 answers `200` now. The estate's scan timer is daily,
+so the row clears at 03:32 tomorrow with nothing done. Do not reach into
+the estate to force a rescan — its scan is its own. `alerts` holds **2**
+unresolved rows in total, measured at 10:05.
 
-**One row is open and is an artefact, and the last handoff's test for it
-was the wrong test.** `Estate scan could not reach sources` (`warning`,
-07:54:54) names `services endpoint unreachable: ConnectError` under
-`projects_invariants`. That handoff said "if it is still open next
-sitting, it is a real finding rather than an artefact" — it is still open
-and it is still an artefact. 8400 answers `200` **now**, but the judge
-reads the estate's *last stored scan*, and that scan ran at **03:32
-today**, inside the 23-hour outage. The estate's scan timer is daily, so
-the row clears at 03:32 tomorrow with nothing done. Do not reach into the
-estate to force a rescan — its scan is its own.
+## This session — Session 72: a row's identity is the fault
 
-## This session — Session 71: the window journalctl actually opens
+**`SNAG-LOG-010` fixed.** `GET /api/logs/actions` served two rows reading
+exactly `kernel: 39885 occurrences, unchanged` — same source, same count,
+same severity, same kind, two genuinely distinct signatures, because one
+kernel retry loop emits both Bluetooth firmware messages at equal volume.
 
-**`SNAG-LOG-009` fixed.** Nine of nine rows carried a UTC-rendered wall
-clock into a `--since` journalctl reads as **local**.
-
-- `journal_command` now takes a **`datetime`**, not a rendered string,
-  and `journal.since_timestamp` owns the rendering — it has emitted
-  `@<epoch>` and stated this exact reason since the module was written.
-  The defect was never a missing conversion: three callers were each
-  implementing a fact a fourth function already owned.
-- `since_timestamp` **refuses a naive datetime**, because `timestamp()`
-  reads one as local — the reading being removed — so accepting it would
-  rebuild the defect inside its own fix with the right-looking type.
-- The prose is **labelled `UTC`**, not converted to local, so the row no
-  longer disagrees with its own command; the label agrees with
-  `GET /api/logs/trends`, which serialises `first_seen` with a `+00:00`
-  offset.
-- Four new tests model the **consumer**: `_journalctl_reads` resolves the
-  emitted argument the way journalctl does, in London, New York and UTC.
-  All four falsified; the truncation-direction one needed `int` →
-  `math.ceil` to break.
-- 2150 tests green, ruff clean, mypy clean.
+- **`quoted_signature()` on all four title builders**, not just the one
+  the entry filed against. `capped_signature()` bounds the signature at
+  `SIGNATURE_DETAIL_CHARS` with `truncate_at_word`;
+  `log_review._quoted_signature` keeps only its `figure_free` gate and
+  borrows cap, marker and quoting.
+- **The entry's scope was wrong in both halves.** It filed against
+  `noise` and ranked it last on "population is currently zero". Driven
+  through the real `recommend()` against the live table: **14 of 21 rows
+  collided in five groups** at the 2026-08-12 anchor, and **7 of 9** at
+  the live anchor — where the `noise` population genuinely is zero and
+  every colliding row is `severity: risk`.
+- **12 member signatures per request were sliced mid-word with no
+  marker**, one ending `"message": "alert_raised", "service"` — the
+  unmarked cut `log_review._quoted_signature`'s own docstring calls
+  `SNAG-BRIEF-002` and calls *worse* on a signature, in the module that
+  lent it the constant. `SAMPLE_DETAIL_CHARS` names the second bare
+  slice, which had been written twice.
+- **The noise title no longer claims a direction.** `unchanged` was
+  asserted for all four change kinds `_is_noise_candidate` admits, and
+  the live pair classifies **`FALLING` — 39,885 this window against
+  77,496 last**, contradicted by the row's own `detail`.
+- **Nine tests, each falsified against the behaviour it replaces**, and
+  one strengthened before it could be: it compared the two modules'
+  quoting on a *short* signature, where a slice and a marked cut agree.
+- Full suite **2,159 passed**, ruff clean, mypy clean.
 
 ## What the sitting found that nobody had written down
 
-**The entry's own proposed remedy was the weaker of two, and it would
-have shipped green.** It called the fix "one `astimezone()`". That
-renders a *local* wall clock: correct on this box, verifiable, and still
-ambiguous — right only while the process writing the command and the
-human running it share a zone, and an autumn-fold local time names two
-instants. This document has recorded remedies being refuted before; it
-has not recorded one that would have passed every check and still been
-wrong in winter.
+**Reading the entry would have confirmed it; running the producer
+refuted it.** The defect was filed from one live payload and scoped to
+the family that payload happened to show. Every rule in it was correct
+about `noise` and wrong about the endpoint.
 
-**The tests were what hid it for three sittings.** `TestJournalCommand`
-asserted the *rendering* — the exact string — so a command that pointed
-at the wrong hour was pinned as correct by the suite that existed to
-protect it. Asserting what a thing renders is not asserting what it
-means, and the fix is to model the consumer.
+**A claim in `STATUS.md` was written ahead of the fact and was false when
+checked.** It said `SNAG-LOG-008`'s rows "aged out of the 7-day trend
+window on 2026-08-24". All 10 were ingested **2026-08-17
+14:11:00–14:21:03**, so they leave that window at about **14:11 today** —
+and at 09:58 four of them were still producing live titles.
+`SNAG-ESTATE-008`, and the first instance of it this repository has
+produced about its own dashboard.
 
-**The trap, measured rather than reasoned.** On this box the old command
-lost exactly **one** line. Under `TZ=America/New_York` the same command
-returns 48,946 lines against the epoch form's 57,695, opening `17:10:00
--04:00` — four hours past the incident, which is absent entirely. BST
-makes the error benign, so the box that would notice is the one that
-never runs the command. The entry's "five hours" is EST; the rule is *N*
-hours late at UTC−*N*.
+**`SNAG-LOG-013` is filed with its own expiry in it.** 9 of 55 signatures
+share their capped prefix and one live incident row lists **7 members
+identical after capping** — the roll-up naming nothing, one level below
+the titles. All nine are `SNAG-LOG-008`'s historic raw-JSON rows, so the
+population empties by retention this afternoon and the cause cannot
+recur, because the Session 64 declaration unwraps every row written
+since. The entry says so, because "population is zero" is exactly what
+mis-ranked its parent.
 
 ## Next session — ranked
 
-**1. `SNAG-LOG-010` — the signature belongs in the noise title.** The
-last unapplied instance of `SNAG-AGENT-005`'s rule, and the only open
-item with a **deadline**. Session 69 ranked it last on "population is
-zero", which is true of the live endpoint and false of the data:
-`log_entries` holds 451,154 kernel rows for the pair through 2026-08-12,
-retention is 30 days, so **2026-09-11** is the last day it can be
-verified against real rows. Half a day.
+**1. `SNAG-ESTATE-008` — make preflight re-measure the ops claims it
+prints.** It has now cost six consecutive sittings: a stale `UPDATE`, a
+restart method that needed no `sudo`, and today a retention boundary
+asserted three hours before it happens. The previous ranking demoted it
+for having "no obvious enforcement point, since these claims live in
+prose" — and that is the part that is no longer true. `claude-preflight.sh`
+runs at the start of every sitting; the machine-checkable subset is one
+command each. Half a day, and it pays every sitting rather than once.
 
-**2. Session 33 — seam drift detection.** The largest genuinely-open
-roadmap session, and its premise is this sitting's defect one repository
-over: Alfred's consumer fixture was two sections behind on the day it was
-captured with its contract test green throughout. It loses on
-*readiness* — its second task reads another repository's fixture off the
-same disk, and cross-repo concerns have had an owner since 2026-08-13, so
-the first move is a question for estate-manager rather than code here.
-Rank it first once that is answered.
+**2. Session 33 — seam drift detection. Blocked, and named as blocked
+rather than dropped.** Still the largest genuinely-open roadmap session,
+and this sitting is another argument for it: the module's titles were
+pinned by one `startswith` that the defect passes intact. It cannot start
+here — its second task reads another repository's fixture off the same
+disk, and cross-repo concerns have had an owner since 2026-08-13, so the
+first move is a **question to estate-manager**, which is a sub-hour
+action rather than a session. Rank it first the day it is answered.
 
-**3. `SNAG-ESTATE-008` — nothing checks a documented ops action against
-the box.** It cost this sitting real time and it cost Session 70 real
-time. It loses because the cheap fix is what the global convention
-already demands (re-measure at session start) and that is what caught it
-today; the expensive one is a mechanism with no enforcement point,
-because these claims live in prose.
+**3. `SNAG-LOG-011` — a deleted route still answers `200`.**
+`GET /api/logs/summary` returns an empty payload through the `/{source}`
+catch-all, so a caller is told "no summaries" where it should be told
+"gone". Real and cheap; it loses because it has **no consumer**, so today
+it costs nobody anything.
 
-**Lost, and why.** `SNAG-LOG-011` (P3) — a deleted route still answers
-`200` through the `/api/logs/{source}` catch-all; real, cheap, and it has
-**no consumer**. `SNAG-UNITS-006` (P3) — empty population, and its fix is
-a sweep-wide change to `discover_units` on the strength of a
-log-correlation sitting. `SNAG-LOG-008` is **expired, not fixed**.
+**Lost, and why.** `SNAG-LOG-013` **self-expires at about 14:11 today**
+and its cause cannot recur. `SNAG-LOG-008` loses from the other side: the
+remedy is a backfill of 10 rows that leave the window today and the table
+on 2026-09-16, so the work outlives the data. `SNAG-UNITS-006` still has
+an empty population. The **four permanent `running` rows in `agent_runs`**
+stay filed rather than ranked — whether `summarise_agent` mistakes one
+for liveness is unmeasured, and the measurement *is* the task, so it is
+an hour rather than a session.
 
-**Blocked on another repository.** `SNAG-LOG-012` (`strip_markdown` is
-`estate-lib`'s), `SNAG-ESTATE-002`, `-004`, `-006`, `-007`.
+**Blocked on another repository.** `SNAG-ROADMAP-002` has now published
+wrong board movement for **five consecutive sittings** (56 → 57 entries
+for a sitting that closed one and opened one) and the parser moved to
+estate-manager on 2026-08-13, so what is owed from here is a report, not
+a fix. `SNAG-LOG-012` (`strip_markdown` is `estate-lib`'s),
+`SNAG-ESTATE-002`, `-004`, `-006`, `-007` remain delegated.
 `SNAG-ESTATE-001`'s remaining half is a retirement checklist the entry
 says in writing is not this repository's to enforce.

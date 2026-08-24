@@ -11,14 +11,19 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.monitor.log_actions import (
     INCIDENT_WINDOW_SECONDS,
     NOISE_MIN_OCCURRENCES,
+    SAMPLE_DETAIL_CHARS,
+    SIGNATURE_DETAIL_CHARS,
     RecommendationKind,
     group_incidents,
     journal_command,
+    quoted_signature,
     recommend,
 )
+from sysadmin.monitor.log_review import _quoted_signature
 from sysadmin.monitor.log_trends import (
     Confidence,
     MessageGroup,
@@ -800,3 +805,179 @@ class TestIncidentJournalCommand:
                                ("mosquitto.service",)) == (
             f"journalctl -k --since '{CRASH_WINDOW_EPOCH}'"
         )
+
+
+# ---------------------------------------------------------------------------
+# SNAG-LOG-010 — a row's identity is the fault, not the source
+# ---------------------------------------------------------------------------
+
+
+#: The two Bluetooth firmware messages, verbatim.  One kernel retry loop
+#: emits both, so they sit at *equal* volume — which is what makes them
+#: the specimen: source, severity, occurrences and kind are all shared,
+#: and the signature is the only field that differs.
+FIRMWARE_PAIR = (
+    "Bluetooth: hci0: Failed to set up firmware (-2)",
+    "Bluetooth: hci0: Failed to load firmware file (-2)",
+)
+
+#: A ``sysadmin.service`` JSON record, which is what ``SNAG-LOG-008``
+#: leaves in the signature for this box's only JSON-writing source.
+LONG_SIGNATURE = (
+    '{"timestamp": "2026-08-24 07:12:03,441", "level": "WARNING", '
+    '"logger": "sysadmin.core.agent", "message": "alert_raised", '
+    '"service": "venture-assistant", "severity": "critical", '
+    '"title": "venture-assistant unreachable", "agent": "sysadmin"}'
+)
+
+
+def _two_incidents_on(source):
+    """Two clusters on one unit, far enough apart to be two incidents."""
+    early = NOW - timedelta(hours=6)
+    late = NOW - timedelta(hours=1)
+    return [
+        _group("first fault of the morning", source=source, current=1,
+               first_seen=early, last_seen=early),
+        _group("second line about the morning", source=source, current=1,
+               first_seen=early + timedelta(milliseconds=40),
+               last_seen=early),
+        _group("first fault of the afternoon", source=source, current=1,
+               first_seen=late, last_seen=late),
+        _group("second line about the afternoon", source=source, current=1,
+               first_seen=late + timedelta(milliseconds=40), last_seen=late),
+    ]
+
+
+class TestTitlesNameTheSignature:
+    """One test per family, each falsified against the old titles.
+
+    Every one of these fails on the code as it stood on 2026-08-24:
+    the first four assert a distinction the old titles could not make,
+    and the rest assert the cut is marked where it was a bare slice.
+    """
+
+    def test_the_live_noise_pair_is_two_distinguishable_rows(self):
+        """The entry's own specimen, at the volume it was seen at.
+
+        Both rows read ``kernel: 39885 occurrences, unchanged`` before
+        the fix — same source, same count, same severity, same kind.
+        """
+        rows = _recommend([
+            _group(message, current=39_885, previous=77_496,
+                   total=225_577, first_seen=PREVIOUS_START)
+            for message in FIRMWARE_PAIR
+        ])
+        assert [r.kind for r in rows] == [RecommendationKind.NOISE] * 2
+        assert len({r.title for r in rows}) == 2
+        assert "Failed to set up firmware" in " ".join(r.title for r in rows)
+        assert "Failed to load firmware file" in " ".join(r.title for r in rows)
+
+    def test_two_incidents_on_one_unit_are_distinguishable(self):
+        """Four rows read ``New incident on sysadmin.service`` live."""
+        rows = _recommend(_two_incidents_on("sysadmin.service"))
+        incidents = [r for r in rows if r.is_incident]
+        assert len(incidents) == 2
+        assert len({r.title for r in incidents}) == 2
+
+    def test_two_new_faults_from_one_source_are_distinguishable(self):
+        """Three rows read ``New fault from sysadmin.service`` live."""
+        rows = _recommend([
+            _group("api.auth_token is not set", source="sysadmin.service",
+                   current=17, first_seen=NOW - timedelta(hours=5),
+                   last_seen=NOW - timedelta(hours=5)),
+            _group("agent_run_failed", source="sysadmin.service",
+                   current=2, first_seen=NOW - timedelta(hours=1),
+                   last_seen=NOW - timedelta(hours=1)),
+        ])
+        assert [r.members for r in rows] == [(), ()]
+        assert len({r.title for r in rows}) == 2
+
+    def test_a_surge_title_names_the_signature(self):
+        """Empty population on this box, and collidable by construction.
+
+        Two surging signatures from one source that round to the same
+        ratio produce one title; nothing on this box has ever surged
+        twice at once, so the rule is applied rather than demonstrated.
+        """
+        rows = _recommend([
+            _group("device not accepting address 9, error -71",
+                   current=52, previous=8, first_seen=PREVIOUS_START),
+        ])
+        assert rows[0].kind is RecommendationKind.SURGE
+        assert "device not accepting address N, error -N" in rows[0].title
+
+    def test_the_noise_title_no_longer_claims_a_direction(self):
+        """A ``FALLING`` row was titled ``unchanged`` while it halved."""
+        rows = _recommend([
+            _group("steady drone", source="a.service",
+                   current=150, previous=400, first_seen=PREVIOUS_START),
+        ])
+        assert "unchanged" not in rows[0].title
+        assert "150 this window against 400 last" in rows[0].detail
+
+    def test_a_long_signature_in_a_title_is_cut_and_the_cut_is_marked(self):
+        rows = _recommend([
+            _group(LONG_SIGNATURE, source="sysadmin.service", current=1,
+                   first_seen=NOW - timedelta(hours=1)),
+        ])
+        assert TRUNCATION_MARKER in rows[0].title
+        assert rows[0].signature not in rows[0].title
+        assert rows[0].signature.startswith('{"timestamp"')
+
+    def test_a_swallowed_signature_is_cut_at_a_word_boundary(self):
+        """Live, 12 member lines were sliced mid-word with no marker.
+
+        ``log_review._quoted_signature`` says in writing that this is
+        worse than an unmarked cut in a briefing, because a reader may
+        try to match the signature against ``GET /api/logs/actions`` —
+        which is this row.
+        """
+        anchor = NOW - timedelta(hours=2)
+        rows = _recommend([
+            _group(LONG_SIGNATURE, source="sysadmin.service", current=1,
+                   first_seen=anchor, last_seen=anchor),
+            _group("sysadmin.service: Start request repeated too quickly.",
+                   source="sysadmin.service", current=1,
+                   first_seen=anchor + timedelta(milliseconds=30),
+                   last_seen=anchor),
+        ])
+        member_lines = [
+            line for line in rows[0].detail.splitlines()
+            if line.startswith("  - ")
+        ]
+        assert len(member_lines) == 2
+        cut = next(line for line in member_lines if TRUNCATION_MARKER in line)
+        assert not cut.endswith('"service"')
+
+    def test_a_long_sample_is_cut_and_the_cut_is_marked(self):
+        """``SAMPLE_DETAIL_CHARS``, which was a bare ``[:200]`` twice."""
+        rows = _recommend([
+            _group(LONG_SIGNATURE, source="sysadmin.service", current=1,
+                   first_seen=NOW - timedelta(hours=1)),
+        ])
+        latest = rows[0].detail.split("Latest line: ", 1)[1]
+        assert TRUNCATION_MARKER in latest
+        assert len(latest) <= SAMPLE_DETAIL_CHARS + len(TRUNCATION_MARKER) + 1
+
+    def test_the_review_and_the_advice_write_a_signature_one_way(self):
+        """Two surfaces naming one signature must name it identically.
+
+        ``log_review`` keeps only the ``figure_free`` gate; the cap, the
+        marker and the quoting are this module's.
+        """
+        short = "Bluetooth: hciN: Failed to set up firmware (-N)"
+        assert _quoted_signature(short) == quoted_signature(short)
+        # Long enough that a slice and a marked cut can disagree — with
+        # a short one this assertion holds however either side is
+        # implemented, which is a guard that cannot fail.
+        long = (
+            "cannot allocate memory for the incoming request because the "
+            "pool is exhausted and no further connection may be accepted "
+            "until something releases one"
+        )
+        assert len(long) > SIGNATURE_DETAIL_CHARS
+        assert _quoted_signature(long) == quoted_signature(long)
+        assert TRUNCATION_MARKER in quoted_signature(long)
+        # …and the gate is still the review's alone.
+        assert _quoted_signature("cannot reserve 0xN") == ""
+        assert quoted_signature("cannot reserve 0xN") != ""

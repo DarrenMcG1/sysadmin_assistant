@@ -543,6 +543,63 @@ at **57,695 lines** and the wall-clock form returns **48,946**, opening
 is *N* hours late at UTC−*N*, so the entry's "five hours" is EST and four
 is EDT.
 
+**A row's identity is the fault, not the source — and the advice endpoint
+was the last surface where it was not** (Session 72, `SNAG-LOG-010`).
+`SNAG-AGENT-005` moved the signature *into* `alert_title` because four
+open rows reading `Log error: kernel` are indistinguishable to whoever is
+looking at them. Every title in `log_actions.py` was still built from
+`source` and a number, and sibling rows share both: live, `GET
+/api/logs/actions` served two rows reading exactly `kernel: 39885
+occurrences, unchanged`. `quoted_signature()` now appends the signature
+to all four, bounded by `capped_signature()` at `SIGNATURE_DETAIL_CHARS`
+with `truncate_at_word`, and `log_review._quoted_signature` keeps only
+its `figure_free` gate and borrows the rest — so a review line and an
+advice title cannot write one signature two ways.
+
+Four things settled by driving the producer rather than reading it:
+
+1. **The family the entry named is the smallest of the three affected.**
+   It scoped the defect to `noise` and ranked it last on "population is
+   currently zero". At the 2026-08-12 anchor **14 of 21 rows collided in
+   five groups**; at the live anchor the `noise` population genuinely
+   *is* zero and **7 of 9 rows still collided**, all `severity: risk`.
+   Reading the code confirms the entry; running `recommend()` against
+   the live table refutes it.
+2. **The cut is marked now, and it was the module lending the constant
+   that was slicing.** `log_review._quoted_signature`'s docstring says
+   an unmarked cut is `SNAG-BRIEF-002` and is *worse* on a signature,
+   because a reader may try to match it against `GET /api/logs/actions`
+   — which is this module, which was cutting **12 member signatures
+   per request** mid-word, one ending `"message": "alert_raised",
+   "service"`. `SAMPLE_DETAIL_CHARS` names the second bare slice, which
+   had been written twice.
+3. **The noise title claimed a direction it could not know.**
+   `unchanged` was asserted for all four change kinds
+   `_is_noise_candidate` admits, and the live pair classifies `FALLING`
+   — 39,885 this window against 77,496 last — so the title asserted
+   flatness about a signature that had halved while its own `detail`
+   printed the contradiction. The count stays, because Tier 2's question
+   is about volume; the direction goes, because `detail` states it and
+   `change` decides it.
+4. **The cost is `SNAG-LOG-008` becoming visible, and it is the trade
+   `alert_title` already made.** Four of the nine live titles now open
+   with `{"timestamp": "N-N-N …`, and an ugly title a reader can tell
+   apart beats a tidy one they cannot — `SNAG-LOG-003` paid this exact
+   price for the alert family. What the cap leaves is `SNAG-LOG-013`: 9
+   of 55 signatures share their capped prefix and one live incident row
+   lists **7 members identical after capping**, which is the roll-up
+   naming nothing one level below the titles. Its population empties by
+   retention the same afternoon it was filed, and the entry says so —
+   because "population is zero" is what mis-ranked its parent.
+
+Note what was pinning the titles: one assertion,
+`rows[0].title.startswith("New fault from")`, which the defect passes
+intact — `TestJournalCommand` one sitting over. All nine new tests were
+falsified against the behaviour they replace, and one had to be
+strengthened before it could be: it compared the two modules' quoting on
+a *short* signature, where a slice and a marked cut agree, so it passed
+against the broken code.
+
 *That entry named the wrong culprit and Session 60 corrected it against
 `agent_runs`: the 118 are **kernel 103, sysadmin-service 14** out of
 **10,064 runs**, and **104 of them fell on one day**, 2026-08-12. Since
@@ -637,8 +694,14 @@ measurement:
    asymmetry one step further. What the threshold bounds is not the
    volume error but the chance a depressed *current* window moves a
    `SURGED` signature into the noise-eligible `STEADY` band. Both live
-   rows are `RETURNED` with `previous = 0`, so no ratio is computed for
-   either.
+   rows were `RETURNED` with `previous = 0` when this was written, so no
+   ratio was computed for either. **That is a property of the window,
+   not of the pair, and it has already moved**: at a window covering the
+   2026-08-12 storm they are `FALLING`, 39,885 against 77,496 (measured
+   2026-08-24). The argument is unaffected — a `FALLING` row is
+   noise-eligible too — but a sentence in the present tense about which
+   rung two live rows sit on goes stale faster than the rule it
+   supports.
 
 `truncated_fraction` **fails closed** — `schema_guard`'s posture, not
 `collation.py`'s — so a caller with no denominator gets `1.0` and the

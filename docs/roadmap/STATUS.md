@@ -4,81 +4,92 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and no sub-session action is either.** `sysadmin`
-> was restarted at **2026-08-24 09:29:28** to serve this sitting's change,
+> was restarted at **2026-08-24 09:58:28** to serve this sitting's change,
 > `/health` answers, `alembic current` reads **013 (head)**, and
-> `GET /api/logs/actions` serves all nine rows with `@<epoch>` commands —
-> checked by running one of them, not by reading the payload.
+> `GET /api/logs/actions` serves **9 rows with 0 colliding titles** where
+> the same route served 7 collisions among 9 at 09:57 — checked on the
+> route either side of the restart, not by reading the diff.
 >
-> **The two-minute SQL that has opened every sitting since 2026-08-16 is
-> no longer owed.** The two `Estate port … registry breach` rows are
-> **gone**: `alerts` holds **3** unresolved rows in total and **0**
-> matching that title, measured at 09:35 rather than copied forward. That
-> is `SNAG-ESTATE-008` demonstrating itself for at least the fourth time
-> — a documented ops action carried forward across five sittings, already
-> done, and only a query said so.
+> **One alert row is open and is the artefact Session 71 named.** `Estate
+> scan could not reach sources` (`warning`, 07:54:54) is the estate's
+> **stored** scan of 03:32 today, taken inside the 23-hour outage; 8400
+> answers `200` now. The estate's scan timer is daily, so the row clears
+> at 03:32 tomorrow with nothing done. Do not reach into the estate to
+> force a rescan — its scan is its own. `alerts` holds **2** unresolved
+> rows in total, measured at 10:05.
 >
-> **Next up**: **`SNAG-LOG-010` — the signature belongs in the noise
-> title, and the window to verify it closes on 2026-09-11.**
-> *Recommended at the close of Session 71.*
+> **A dated claim in this file was written ahead of the fact and was
+> false when checked.** The block below used to say `SNAG-LOG-008`'s rows
+> "aged out of the 7-day trend window on 2026-08-24". All 10 were
+> ingested **2026-08-17 14:11:00–14:21:03**, so they leave that window at
+> about **14:11 today** — and at 09:58 four of them were still producing
+> live titles on `/api/logs/actions`. `SNAG-ESTATE-008` again, and the
+> first instance of it this file has produced about *itself*.
 >
-> **1. `SNAG-LOG-010`, because it is the only open item with a
-> deadline.** It is the last unapplied instance of a rule this repository
-> argued for at scale: `SNAG-AGENT-005` moved the signature *into* the
-> alert title precisely because four rows reading `Log error: kernel` are
-> indistinguishable, and the advice endpoint never got the same
-> treatment — two rows reading `kernel: 39885 occurrences, unchanged`,
-> correct and impossible to tell apart, which is worse than a long title
-> because a reader who assumes a duplicate acts on one and leaves the
-> other. The known trap is already solved one module over
-> (`log_review._quoted_signature`, `SIGNATURE_DETAIL_CHARS`,
-> `truncate_at_word`). **Session 69 ranked it last on "population is
-> zero" and that is true of the live endpoint, not of the data**:
-> `log_entries` still holds **451,154** kernel rows for the pair, spanning
-> 2026-07-24 → **2026-08-12**, so driving `build_report` over a window
-> containing the storm reproduces both rows through the real trend code
-> against real rows today. Retention on `log_entries` is **30 days**, so
-> the last of them ages out on **2026-09-11** and after that the fix can
-> only be verified against fixtures — which is what this sitting spent
-> itself demonstrating is not the same thing. Half a day.
+> **Next up**: **`SNAG-ESTATE-008` — make `claude-preflight.sh`
+> re-measure the ops claims it prints.**
+> *Recommended at the close of Session 72.*
 >
-> **2. Session 33 — seam drift detection.** The largest genuinely-open
-> roadmap session, and its premise is exactly what this sitting hit at
-> small scale: Alfred's consumer fixture was two sections behind on the
-> day it was captured **with its contract test green the whole time**,
-> which is `TestJournalCommand` pinning a rendering while the command was
-> wrong, one repository over. It loses on *readiness* rather than value:
-> its second task reads another repository's fixture off the same disk,
-> and cross-repo concerns have had an owner since 2026-08-13 — so the
-> first move is a question for estate-manager, not code here. Rank it
-> first once that is answered.
+> **1. `SNAG-ESTATE-008`, because it has now cost six consecutive
+> sittings and the cheap half finally has an enforcement point.** Three
+> sittings ago it was a stale `UPDATE`; two ago it was a restart method
+> that needed no `sudo`; this sitting it was this file asserting a
+> retention boundary three hours before it happens, and the previous
+> ranking's own reason for demoting it — "a mechanism with no obvious
+> enforcement point, since these claims live in prose" — is what is no
+> longer true. `claude-preflight.sh` already runs at the start of every
+> sitting and already prints priorities; it prints them *from prose*. The
+> machine-checkable subset is small and each item is one command:
+> `alembic current` against the packaged head (`sysadmin-check-schema`
+> exists and exits 0/1/2), the unresolved-alert count, the daemon's
+> `ActiveEnterTimestamp`, and the live route count. Everything that
+> re-measures at session start stops being carried forward wrong. Half a
+> day, and it pays at every sitting rather than once.
 >
-> **3. `SNAG-ESTATE-008` — nothing checks a documented ops action against
-> the box.** It cost this sitting something real and measurable, twice
-> over: the block above asserted two open alert rows that are zero, and
-> Session 70 found the same about its own restart method. It loses
-> because the cheap version of the fix is what the global convention
-> already demands — re-measure at session start — and that is what caught
-> it today; the expensive version is a mechanism with no obvious
-> enforcement point, since these claims live in prose.
+> **2. Session 33 — seam drift detection. Blocked, and named as blocked
+> rather than dropped.** Still the largest genuinely-open roadmap
+> session, and this sitting is another argument for it: the module's
+> titles were pinned by one `startswith` assertion that the defect passes
+> intact, which is a contract green while the thing it certifies is
+> wrong — `TestJournalCommand` one sitting over, and Alfred's two-section
+> drift one repository over. It cannot start here: its second task reads
+> another repository's fixture off the same disk, and cross-repo concerns
+> have had an owner since 2026-08-13, so **the first move is a question
+> to estate-manager, not code**. That question is a sub-hour action, not
+> a session. Rank this first the day it is answered.
 >
-> **Runners-up that lost, and why.** `SNAG-LOG-011` (P3, a deleted route
-> still answering 200 through the `/api/logs/{source}` catch-all) is real
-> and cheap and has **no consumer**, so it costs nothing today.
-> `SNAG-UNITS-006` (P3) has an empty population — zero of the 38 units the
-> sweep sees has a drop-in — and its fix is a sweep-wide change to
-> `discover_units` made on the strength of a log-correlation sitting.
-> `SNAG-LOG-008` remains **expired rather than fixed**: its rows aged out
-> of the 7-day trend window on 2026-08-24, and the underlying fact recurs
-> the next time this daemon logs an error.
+> **3. `SNAG-LOG-011` — a deleted route still answers `200`.**
+> `GET /api/logs/summary` returns `{"source": "summary", "entries": [],
+> "count": 0}` through the `/{source}` catch-all, so a caller is told "no
+> summaries" where it should be told "gone" — `ports_checked`'s rule from
+> the wrong side. Real, cheap, and it loses on cost-of-not-doing-it:
+> **measured, it has no consumer**, so today it costs nobody anything.
 >
-> **Blocked or waiting on another repository.** `SNAG-LOG-012` is
-> **delegated** — `strip_markdown` lives in `estate-lib`, and patching it
-> from here would be the copy that drifts. `SNAG-ESTATE-002` and
-> `SNAG-ESTATE-004` remain estate-manager's; `SNAG-ESTATE-006` and
-> `SNAG-ESTATE-007` are delegated and unchanged. `SNAG-ESTATE-001`'s
-> remaining half is a retirement checklist the entry says in writing is
-> not this repository's to enforce. `SNAG-LOG-006` still has a
-> **population of zero**.
+> **Runners-up that lost, and why.** `SNAG-LOG-013`, opened by this
+> sitting, **self-expires at about 14:11 today**: its 9 colliding
+> capped signatures are all `SNAG-LOG-008`'s historic raw-JSON rows,
+> which leave the 7-day window this afternoon, and its cause cannot
+> recur because the Session 64 declaration unwraps every row written
+> since. `SNAG-LOG-008` itself loses for the same reason from the other
+> side — the remedy is a backfill of 10 rows that leave the window today
+> and the table on **2026-09-16**, so the work outlives the data.
+> `SNAG-UNITS-006` still has an empty population — zero of the 38 units
+> the sweep sees has a drop-in. The **four permanent `running` rows in
+> `agent_runs`** stay filed rather than ranked: whether `summarise_agent`
+> mistakes one for liveness is unmeasured, and the measurement *is* the
+> task, so it is an hour rather than a session.
+>
+> **Blocked or waiting on another repository.** `SNAG-ROADMAP-002` has
+> now published wrong board movement for **five consecutive sittings** —
+> 56 → 57 entries for a sitting that closed one and opened one — and the
+> parser moved to estate-manager on 2026-08-13, so what is owed from here
+> is a report, not a fix. `SNAG-LOG-012` is **delegated**:
+> `strip_markdown` lives in `estate-lib`, and patching it from here would
+> be the copy that drifts. `SNAG-ESTATE-002` and `SNAG-ESTATE-004` remain
+> estate-manager's; `SNAG-ESTATE-006` and `SNAG-ESTATE-007` are delegated
+> and unchanged. `SNAG-ESTATE-001`'s remaining half is a retirement
+> checklist the entry says in writing is not this repository's to
+> enforce. `SNAG-LOG-006` still has a **population of zero**.
 
 ---
 
@@ -94,7 +105,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2150 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, smoke script |
+| Testing | 🟢 Complete | **2159 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -102,6 +113,65 @@
 ---
 
 ## Recently Completed
+
+### Two rows said the same thing about two different faults (2026-08-24)
+
+**`SNAG-LOG-010` fixed.** `GET /api/logs/actions` served two rows reading
+exactly `kernel: 39885 occurrences, unchanged` — same source, same count,
+same severity, same kind, and two genuinely distinct signatures, because
+one kernel retry loop emits both Bluetooth firmware messages at equal
+volume. `SNAG-AGENT-005` moved the signature *into* `alert_title` on
+2026-08-12 for precisely this reason; the advice endpoint never got the
+same treatment.
+
+**The entry's own account of its scope was wrong in both halves, and only
+running the producer said so.** It filed the defect against `noise` and
+ranked it last on "population is currently zero". Driven through the real
+`recommend()` against the live table at the 2026-08-12 anchor: **14 of 21
+rows collided, in five groups** — `New incident on sysadmin.service` ×4,
+`New incident on kernel` ×3, `New fault from sysadmin.service` ×3,
+`New fault from sportsanalyser-frontend.service` ×2, and the entry's own
+pair ×2. At the live anchor the `noise` population *is* zero and **7 of 9
+rows still collided**, every one of them `severity: risk`. So the rule
+went to all four title builders, not to the one that had been noticed.
+
+- **`quoted_signature()` / `capped_signature()`** in `log_actions.py`:
+  bounded at `SIGNATURE_DETAIL_CHARS` with `truncate_at_word`, so the cut
+  is marked. `log_review._quoted_signature` keeps only its `figure_free`
+  gate and borrows the rest — one signature written one way on both
+  surfaces.
+- **12 member signatures per request were being sliced mid-word with no
+  marker**, one ending `"message": "alert_raised", "service"`. That is
+  the unmarked cut `log_review._quoted_signature`'s docstring calls
+  `SNAG-BRIEF-002` and calls *worse* on a signature — in the module that
+  lent it the constant. `SAMPLE_DETAIL_CHARS` names the other bare slice,
+  which had been written twice.
+- **The noise title no longer claims a direction.** `unchanged` was
+  asserted for all four change kinds `_is_noise_candidate` admits, and
+  both live rows classify **`FALLING` — 39,885 this window against
+  77,496 last** — flatness asserted about a signature that had halved,
+  contradicted by the row's own `detail`. The count stays: volume is the
+  reason to act.
+- **The cost is stated rather than hidden.** `sysadmin.service`'s
+  signatures are whole JSON records (`SNAG-LOG-008`), so four of the nine
+  live titles now open with `{"timestamp": "N-N-N …`. It is the trade
+  `alert_title` already made and `SNAG-LOG-003` already paid for — an
+  ugly title a reader can tell apart beats a tidy one they cannot.
+- **The tests were what hid it.** Every title in the module was pinned by
+  one assertion, `rows[0].title.startswith("New fault from")`, which the
+  defect passes intact. Nine new tests, each falsified against the
+  behaviour it replaces — and one had to be strengthened before it could
+  be, because it compared the two modules' quoting on a *short*
+  signature, where a slice and a marked cut agree.
+- **Verified on the route**: 7 collisions among 9 rows at 09:57, **0
+  among 9** after the restart at 09:58; the specimen pair reproduced
+  through the real `build_report` → `recommend()` over the storm window,
+  18 days before those rows age out.
+- **`SNAG-LOG-013` filed** for what the cap leaves: 9 of 55 signatures
+  share their capped prefix, and one live incident row already lists
+  **7 members identical after capping** — the roll-up naming nothing, one
+  level below the titles. Its population empties by retention at about
+  14:11 today, which the entry says so nobody re-ranks it on a zero.
 
 ### The advice pointed at the wrong hour, and the fix was already in the repository (2026-08-24)
 
