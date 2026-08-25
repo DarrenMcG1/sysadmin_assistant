@@ -19,7 +19,9 @@ and the pure ``compute_icon_state`` function.
 
 from __future__ import annotations
 
+import warnings
 from enum import Enum
+from typing import Any
 
 # Re-exported shared contracts (imported by client, dashboard, widgets, tests)
 from sysadmin.core.contracts import (  # noqa: F401
@@ -48,17 +50,12 @@ from sysadmin.core.contracts import (  # noqa: F401
     ManagedProjectsResponse,
     ManagedServiceInfo,
     MisplacedFilesResponse,
-    PortfolioAction,
-    PortfolioActionsResponse,
     ProjectDetailResponse,
     ProjectHealthInfo,
     ProjectHistoryPoint,
     ProjectOverviewEntry,
     ProjectOverviewResponse,
-    ProjectRecommendationsResponse,
-    ProjectReviewResponse,
     RamInfo,
-    RecommendationInfo,
     ReliabilityDeduction,
     ReliabilityResponse,
     ReliabilitySummary,
@@ -75,6 +72,43 @@ from sysadmin.core.contracts import (  # noqa: F401
     UnitScanResponse,
     UnitScanSummary,
 )
+
+# ── Deprecated re-exports (SNAG-DOCS-002) ────────────────────────────
+#
+# Five names still resolve from this module and are read by nothing.
+# They describe estate-manager's routes on 8400, which project state
+# moved to on 2026-08-13 (ADR-0005); ten sibling models were deleted
+# outright on 2026-08-25 and these five survive only because this
+# package ships in the wheel, so the import list is a published surface.
+#
+# The lookup is lazy on purpose.  Importing them eagerly would warn on
+# every tray start whether or not anything touched a deprecated name,
+# which teaches the reader to filter the category rather than to act on
+# it — ``judge_audit_findings`` rule 3, one package over.  PEP 562's
+# module ``__getattr__`` runs only after normal lookup has failed, so
+# the live re-exports above pay nothing for this.
+#
+# Removal is owed: SNAG-DOCS-003.
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve a deprecated contract name, once, with a warning."""
+    from sysadmin_tray._deprecated_contracts import DEPRECATED_NAMES
+
+    if name in DEPRECATED_NAMES:
+        import sysadmin_tray._deprecated_contracts as _dep
+
+        warnings.warn(
+            f"sysadmin_tray.models.{name} is deprecated and unread: it "
+            "describes an estate-manager route on 8400, not one this "
+            "service serves or parses. It will be removed "
+            "(SNAG-DOCS-003).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return getattr(_dep, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # ── Icon states ──────────────────────────────────────────────────────
 

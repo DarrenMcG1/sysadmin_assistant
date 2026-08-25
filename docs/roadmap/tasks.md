@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-24
+> **Last Updated**: 2026-08-25
 
 ---
 
@@ -393,6 +393,71 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+## Session 77 — SNAG-DOCS-002, the registry describes only what it serves (2026-08-25) ✅
+
+`sysadmin/core/contracts.py` carried eight project response models
+describing routes that left for estate-manager on 2026-08-13 (ADR-0005) —
+a pydantic model that validates and no caller consumes, which is
+`SNAG-CFG-001`'s shape in the file `CLAUDE.md` calls the contract
+registry. The entry had been measured twice and was wrong three times,
+always with the same instrument.
+
+- [x] **Measure it a third way, and stop using a grep.** A grep answers
+      "does anything mention this". The question is whether anything
+      *reaches* it, and the two differ in both directions at once: **17**
+      models have no mention anywhere and are field types of a served
+      payload, while `RecommendationInfo` looked alive off one line of
+      prose in `units/recommendations.py`. Session 76 put
+      `ProjectHealthInfo` in the dead set on the first kind of evidence;
+      it is a field of `ManagedProjectInfo`, the `response_model` of the
+      one `/api/projects` route this service still serves. **15**
+      classes are unreachable — the 8 responses plus exactly their 7
+      exclusive members — and the re-export count is **five**
+- [x] **Take the decision the entry deliberately left open**, which is
+      the owner's and was put to them: delete from the registry,
+      deprecate on the tray. Ten classes go outright; the five
+      `sysadmin_tray/models.py` re-exports move to
+      `sysadmin_tray/_deprecated_contracts.py`, because `sysadmin_tray`
+      ships in the wheel and an import list is a published surface
+- [x] **Resolve them lazily, warning on access and never at import.** A
+      PEP 562 module `__getattr__` runs only after normal lookup fails,
+      so the live re-exports pay nothing; warning at import would fire on
+      every tray start whether or not anything touched a deprecated name,
+      which teaches the reader to filter the category rather than act on
+      it — `judge_audit_findings` rule 3, one package over
+- [x] **Make membership a property a test computes**, not a claim a
+      document makes. `tests/test_contract_reachability.py` walks field
+      annotations and base classes from every root, where a root is a
+      name **used** and never a name **imported** — the distinction
+      Session 58 stated in prose and then measured with a tool that
+      cannot draw it. Skipping `ast.Import`/`ast.ImportFrom` draws it;
+      docstrings are `ast.Constant` and fall out for free;
+      `response_model=` needs no special case, being an `ast.Name` in a
+      keyword already
+- [x] **Falsify it at the real pre-fix file, not only at a synthetic
+      one.** A fresh unreachable model trips the guard and is reported
+      exactly. Driven at the pre-fix registry it reports **12** of the
+      15: `tests` is a consumer package on purpose, so the shim's own
+      annotations and `models.PortfolioActionsResponse` in the new test
+      make three of them roots. Stated in the file, and covered by
+      `test_none_of_them_are_defined_in_contracts` — two tests composing
+      rather than one doing both. The synthetic falsification passes
+      cleanly, which is how that would have shipped unseen
+- [x] **Verified on the box.** 83 classes → 68, 1,846 lines → 1,460.
+      Suite **2238** green, `ruff` clean, `mypy sysadmin` clean;
+      `create_app()` serves 52 routes with `/api/projects/managed` still
+      the only one under `/api/projects`; daemon restarted 07:58:56,
+      `/health` 200, 11 jobs scheduled
+- [x] **Two costs filed rather than implied.** `SNAG-DOCS-003`: the five
+      deprecated names are removable only once someone confirms nothing
+      outside this repository imports them, which is an operational fact
+      rather than a code question. `SNAG-ESTATE-013`: found by *running*
+      `check-ops-claims.sh` at the top of the sitting — `check:expires`
+      takes a naive instant, the block copied `03:32` off a producer that
+      publishes `+00:00`, and the row cleared at 05:32 local. The check
+      correctly said `unknown`; what it cannot notice is a marker written
+      in the wrong zone. `SNAG-LOG-009` one document over
 
 ## Session 76 — SNAG-ESTATE-011, every claim names the check that closes it (2026-08-24) ✅
 

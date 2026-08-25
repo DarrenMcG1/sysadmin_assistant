@@ -256,22 +256,55 @@ Three things stayed, and holding them apart is the point:
    the swap ADR-0005 records: the estate publishes and never acts, this
    repository judges and never scans. Neither judges itself.
 
-`sysadmin/core/contracts.py` still defines `StaleProjectsResponse`,
-`ProjectBoardResponse`, `NextProjectResponse`, `ProjectMomentumResponse`,
-`BranchCleanupResponse`, `PortfolioActionsResponse`,
-`ProjectRecommendationsResponse` and `ProjectReviewResponse`, and
-`sysadmin_tray/models.py` re-exports **three** of them — *corrected
-2026-08-24 by Session 76, which counted four and found
-`PortfolioActionsResponse`, `ProjectRecommendationsResponse` and
-`ProjectReviewResponse`.* **Nothing reads any of the eight** —
-measured, not assumed — and the population is **wider than the eight**:
-`PortfolioAction`, `RecommendationInfo` and `ProjectHealthInfo` have no
-reader either, `RecommendationInfo`'s only mention outside `contracts.py`
-being a docstring in `units/recommendations.py` that contrasts it with
-`UnitRecommendationInfo`. That is the `SNAG-CFG-001` shape: a model
-pydantic validates and no caller consumes. Filed as `SNAG-DOCS-002` and
-deliberately not deleted in a documentation sitting, because removing a
-re-exported name is a change to the tray's public surface.
+**The registry describes only what this service serves or parses, and
+membership is a property a test computes** (Session 77, `SNAG-DOCS-002`
+closed). It carried eight project response models describing routes that
+left on 2026-08-13 (ADR-0005) — the `SNAG-CFG-001` shape in the file this
+document calls the contract registry. **Fifteen** models went, not eight:
+`tests/test_contract_reachability.py` walks field annotations and base
+classes from every root, and the eight dragged exactly seven members
+reachable from nothing else. 83 classes became 68, 1,846 lines 1,460.
+
+Four rules, three of them corrections to how the entry was measured:
+
+1. **The property is reachability, never reference count, and the entry
+   was measured three times by grep and wrong three times.** A member of
+   a served payload has **no mention anywhere** and is load-bearing —
+   grep reports 32 models with no external reader and **17** of them are
+   that. Session 76 put `ProjectHealthInfo` in the dead set on exactly
+   that evidence; it is a field of `ManagedProjectInfo`, the
+   `response_model` of `/api/projects/managed`. Session 58 counted four
+   re-exports and Session 76 three; it is **five**.
+2. **A root is a name *used*, never a name *imported*** — the
+   distinction Session 58 stated in prose ("a name in an import list and
+   not a caller") and then measured with a tool that cannot draw it. So
+   the detector is an **AST walk**: `ast.Import`/`ast.ImportFrom` are
+   skipped, docstrings are `ast.Constant` and fall out for free (which is
+   what made `RecommendationInfo` look alive off one line of prose in
+   `units/recommendations.py`), and `response_model=` needs no special
+   case because it is already an `ast.Name` in a keyword.
+3. **Five names left the registry without leaving the wheel.**
+   `sysadmin_tray` ships in it, so removing a name from
+   `sysadmin_tray/models.py` is a change to a published surface;
+   `sysadmin_tray/_deprecated_contracts.py` holds
+   `RecommendationInfo`, `ProjectRecommendationsResponse`,
+   `PortfolioAction`, `PortfolioActionsResponse` and
+   `ProjectReviewResponse`, resolved by a PEP 562 module `__getattr__`
+   that warns on **access** rather than at import — warning at import
+   fires on every tray start whether or not anything touched a
+   deprecated name, which teaches the reader to filter the category.
+   The set is closed under its own references, so the move cannot strand
+   a served payload. Removal is `SNAG-DOCS-003`.
+4. **The guard's own blind spot is measured and stated rather than
+   implied.** `tests` is a consumer package on purpose — a model
+   exercised only by its round-trip test is consumed — so a name this
+   suite mentions is a root by that mention alone. Driven at the
+   **pre-fix** registry the walker reports **12** of the 15: three leak
+   in from the shim's own annotations and from `models.PortfolioActionsResponse`
+   in the new test. `test_none_of_them_are_defined_in_contracts` is what
+   covers those three — two tests composing rather than one doing both,
+   and visible only because the falsification was driven at the real
+   pre-fix file instead of a synthetic name, which passes cleanly.
 
 **Two things speak on this box, and only one of them at a time.** The tray
 polls `GET /api/sysadmin/alerts` and owns the notification policy (dedup,

@@ -1,13 +1,13 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-08-24
+**Last Updated**: 2026-08-25
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and one sub-session action is.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-24 23:31:05**
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 07:58:56**
 > <!--check:daemon_start-->, `/health` answers **200** <!--check:health-->,
 > `alembic current` reads 014 at the packaged head <!--check:schema-->, and
-> `alerts` holds **3** unresolved rows <!--check:alerts-->.
+> `alerts` holds **1** unresolved row <!--check:alerts-->.
 >
 > **Every claim above names the check that closes it**, and that is what
 > `<!--check:…-->` is: the name of a check, never a copy of the figure
@@ -23,36 +23,37 @@
 > session.** (1) **The Session 33 question** — seam drift detection
 > cannot start here because its second task reads another repository's
 > fixture off the same disk, and cross-repo concerns have had an owner
-> since 2026-08-13. Named as the blocker in three consecutive rankings
-> without being asked. (2) **Report `SNAG-ROADMAP-002`'s eighth
+> since 2026-08-13. Named as the blocker in four consecutive rankings
+> without being asked. (2) **Report `SNAG-ROADMAP-002`'s ninth
 > consecutive misreport** — the parser moved to estate-manager on
 > 2026-08-13, so what is owed from here is a report and not a fix, and it
-> is now eight sittings of wrong board movement published about this
+> is now nine sittings of wrong board movement published about this
 > repository. Both are cross-repo writes: committed on their own and
 > announced, per the estate rules.
 >
-> **Three open alert rows, each named here rather than counted — and the
-> third opened during this sitting, caught by the check that was being
-> built.** <!--check:open_titles-->
+> **One open alert row, named here rather than counted, and two closed
+> themselves overnight.** <!--check:open_titles-->
 >
-> - **`venture-chat unreachable` (`critical`), raised 23:36:08 — real,
->   another repository's, and not this one's to fix.**
->   `venture-chat.service` (venture-assistant, llama.cpp on 8080) was
->   stopped **cleanly** at 23:34:38 and declares `Restart=on-failure`, so
->   systemd will not bring it back; nothing is listening on 8080 and the
->   service was `ok` on 182 of 184 checks today. The estate rule is
->   explicit — this repository monitors and alerts, and does not fix what
->   it monitors — so the row stands, correctly, until venture-assistant's
->   owner restarts it. **No prediction is attached**, because there is no
->   schedule this repository knows of that brings it back.
-> - **`Estate scan could not reach sources` (`warning`)** is the estate's
->   **stored** scan of 03:32 today, taken inside the 23-hour outage; 8400
->   answers `200` now and the estate's scan timer is daily, so the row
->   clears at 03:32 tomorrow with nothing done
->   <!--check:expires 2026-08-25T03:32 the estate scan row clears-->. Do
->   not reach into the estate to force a rescan — its scan is its own.
 > - **`Weekly disk review ready` (`info`)** is below
->   `tray.notify_min_severity`.
+>   `tray.notify_min_severity`. Open since 2026-08-17.
+> - **Closed with nothing done, both of them.** `venture-chat
+>   unreachable` (`critical`) resolved **05:31:10** — venture-assistant's
+>   owner restarted their own service, which is the estate rule working
+>   rather than a coincidence. `Estate scan could not reach sources`
+>   (`warning`) resolved **05:32:07** on the first judge poll after the
+>   estate's daily scan.
+> - **That second one is why `SNAG-ESTATE-013` exists, and it is the
+>   `expires` marker's first live test.** The block predicted it would
+>   clear "at 03:32 tomorrow with nothing done". It cleared with nothing
+>   done, **two hours later than named**: the estate publishes
+>   `started_at: 2026-08-25T03:32:17+00:00` — UTC, with the offset right
+>   there — and the block rendered it as a local wall clock. Local is
+>   04:32:17 BST, which is when `estate-manager-scan.timer` actually
+>   fired, and the judge is hourly. `SNAG-LOG-009`'s defect one document
+>   over. **The check was right and could not have been righter**: it
+>   reported `unknown`, never `mismatch`, which is what its rule 2
+>   reserves `unknown` for. What it cannot see is a marker written in the
+>   wrong zone, because a naive instant carries nothing to disagree with.
 >
 > **"8400 answers 200" is deliberately unchecked here**: this repository
 > declines to judge 8400's reachability at all (`estate/judgements.py`
@@ -60,65 +61,65 @@
 > holds true), and a claims-checker that alerted on it would re-import
 > exactly that.
 >
-> **Next up**: **`SNAG-DOCS-002` — eight contract models validated by
-> pydantic and read by nothing.** *Recommended at the close of Session
-> 76.*
+> **Next up**: **the four permanent `running` rows in `agent_runs`** —
+> a dead agent reading as busy on `GET /api/sysadmin/self`. *Recommended
+> at the close of Session 77.*
 >
-> **1. `SNAG-DOCS-002`.** `contracts.py` still defines eight project
-> response models — `StaleProjectsResponse`, `ProjectBoardResponse`,
-> `NextProjectResponse`, `ProjectMomentumResponse`, `BranchCleanupResponse`,
-> `PortfolioActionsResponse`, `ProjectRecommendationsResponse`,
-> `ProjectReviewResponse` — and nothing reads any of them. It wins
-> because it is `SNAG-CFG-001`'s shape at the largest scale left here, and
-> because **this sitting spent itself on that same failure one level up**:
-> a claim nobody checks and a model nobody consumes are the same defect in
-> two materials. **Re-measured before ranking, and the entry is wrong in
-> both directions**: `sysadmin_tray/models.py` re-exports *three* of the
-> eight, not four, and the population is *wider* than eight —
-> `PortfolioAction`, `RecommendationInfo` and `ProjectHealthInfo` have no
-> reader either, `RecommendationInfo`'s only mention outside `contracts.py`
-> being a docstring contrasting it with `UnitRecommendationInfo`. So it is
-> a *session* rather than an hour, and for a slightly larger reason than
-> the entry gives: removing a re-exported name changes the tray's public
-> surface, so the three need separating from the rest before anything is
-> deleted.
+> **1. The four permanent `running` rows.** Two `file_organiser`
+> (2026-08-17), one `log_aggregator` and one `sysadmin` (both
+> 2026-08-14). It wins by **default and by being honest about its size**:
+> Session 76 demoted it by measurement and that demotion still holds —
+> `summarise_agent` reads `runs[0].started_at`, and a ten-day-old
+> `running` row is never newest for a 300-second agent, so the stall path
+> is unaffected and the ladder still fires. What is left is real and
+> narrow: `last_status: "running"` reaches `/api/sysadmin/self` and the
+> tray, where a dead agent reads as busy. **It is an hour, not a
+> session**, and it is ranked first because nothing larger is unblocked —
+> which is information, not enthusiasm. The interesting half is *why the
+> rows are permanent*: Session 41 made a process killed mid-run leave a
+> `running` row where it used to leave none, deliberately, because
+> absence of a row cannot be told from absence of a run. So these are
+> that decision working, and the fix is a **reader** rule rather than a
+> writer one — which is the same shape as this sitting's, one table over.
 >
-> **2. The four permanent `running` rows in `agent_runs`.** Two
-> `file_organiser` (2026-08-17), one `log_aggregator` and one `sysadmin`
-> (both 2026-08-14) — measured tonight. **This sitting demoted it by
-> measuring rather than by arguing**: `summarise_agent` takes
-> `runs[0].started_at`, and a `running` row from ten days ago is never the
-> newest for a 300-second agent, so the stall path is unaffected and the
-> ladder still fires. What is left is `last_status: "running"` reaching
-> `GET /api/sysadmin/self` and the tray, where a dead agent reads as busy
-> — real, and an hour rather than a session.
+> **2. `SNAG-ESTATE-013` — the `expires` marker's naive instant.** Filed
+> by this sitting, and it loses to the item above for the reason
+> `SNAG-ESTATE-012` lost to it last time: taking a snag the same sitting
+> filed it is the treadmill this document warns about, and its live cost
+> was two hours on a prediction that came true anyway. It rises the
+> moment a second `expires` marker is written, because the next one
+> copied off an estate surface is wrong the same way and nothing would
+> say so.
 >
-> **3. Trim the `agents.project_organiser` config block.** Unchanged from
-> the last two rankings and unchanged in its reasoning: a config block
-> pydantic validates and nothing reads. It loses for the third time for
-> the same reason — a config change fans out into the defaults tests and
-> has no live consequence at all. What changed is that the item above it
-> was measured smaller, not that this one grew.
+> **3. Trim the `agents.project_organiser` config block.** Losing for the
+> fourth time, and now for a slightly better reason than "no live
+> consequence": this sitting deleted 15 models that were the same shape
+> in a different material, and the argument that closed them —
+> reachability computed by a test rather than claimed by a document —
+> **does not transfer**. A config leaf is reached through a string key at
+> runtime, so no AST walk finds its readers, and the guard that makes the
+> contract registry self-checking has no counterpart here. That is worth
+> knowing before someone ranks it as "the same job again".
 >
-> **Runners-up that lost, and why.** `SNAG-ESTATE-012` was **filed by
-> this sitting** and its own entry ranks it P3: the classes that drift
-> silently are now covered, and the one it names drifts in front of a
-> reader. Taking it immediately is the treadmill this document warns
-> about. `SNAG-LOG-013`'s population is **measured empty again** —
-> `GET /api/logs/actions` serves 5 rows with 0 colliding capped prefixes
-> — and it is still not closed on that, because "the population is zero"
-> is the reasoning that mis-ranked its own parent. `SNAG-AGENT-007` is
-> **dormant by arithmetic**: `_active_alerts` loads whole ORM rows four
-> times a sysadmin run, and the table holds two unresolved rows, so its
-> cost today is nil *because* the pile-ups were fixed — it comes back the
-> day one returns. `SNAG-UNITS-006` and `SNAG-LOG-006` have empty
+> **Runners-up that lost, and why.** `SNAG-DOCS-003` is **this sitting's
+> own cost** and is blocked on an operational fact rather than on code —
+> it needs someone to confirm where the wheel went, not an hour of
+> editing. `SNAG-ESTATE-012` is unchanged: deciding an English sentence
+> is a claim is a human's job, and its own entry ranks it P3.
+> `SNAG-LOG-013`'s population empties by retention and is **not**
+> re-measured here, because "the population is zero" is the reasoning
+> that mis-ranked its own parent and this sitting has just watched that
+> failure repeat a third time. `SNAG-AGENT-007` is dormant by arithmetic
+> — `_active_alerts` loads whole ORM rows four times a sysadmin run
+> against **one** unresolved row today, so its cost is nil *because* the
+> pile-ups were fixed. `SNAG-UNITS-006` and `SNAG-LOG-006` have empty
 > populations too.
 >
 > **Blocked or waiting on another repository.** Session 33 is blocked on
 > the question in the sub-session line above. `SNAG-ROADMAP-002` has now
-> published wrong board movement for **eight consecutive sittings** — 58
-> → 59 entries / 56 → 57 open for a sitting that closed one and opened
-> one, measured either side of the edit — and the parser is
+> published wrong board movement for **nine consecutive sittings** — 59
+> → 61 entries / 57 → 59 open for a sitting that closed one and opened
+> two, measured either side of the edit — and the parser is
 > estate-manager's, so what is owed from here is the report named above.
 > `SNAG-LOG-012` is **delegated**: `strip_markdown` lives in `estate-lib`,
 > and patching it from here would be the copy that drifts.
@@ -140,7 +141,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2229 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, smoke script |
+| Testing | 🟢 Complete | **2238 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -148,6 +149,63 @@
 ---
 
 ## Recently Completed
+
+### Session 77 — the registry describes only what it serves (2026-08-25)
+
+**`SNAG-DOCS-002` fixed, and the entry was wrong a third time in a third
+direction.** `contracts.py` carried eight project response models for
+routes that left on 2026-08-13 (ADR-0005). It had been measured twice,
+both times with a grep for the model's name — which answers "does
+anything mention this", and that is not the question. The property is
+**reachability from a reader**, and computing it moves the count in both
+directions at once. **15** classes were unreachable, not eight: the 8
+responses plus exactly their 7 exclusive members, sitting in two
+contiguous regions. 83 classes → 68, 1,846 lines → 1,460. Suite **2229 →
+2238**, ruff and mypy clean, restarted and verified live.
+
+- **17 models have no mention anywhere and are load-bearing.** `RamInfo`
+  is a field of `ResourceResponse`; nothing outside the file names it. A
+  grep reports 32 models with no external reader and more than half are
+  that shape. Session 76 put `ProjectHealthInfo` in the dead set on
+  exactly that evidence — it is a field of `ManagedProjectInfo`, the
+  `response_model` of the one `/api/projects` route this service still
+  serves. In the other direction, `RecommendationInfo` looked alive off a
+  single line of *prose* in `units/recommendations.py`.
+- **A root is a name used, never a name imported** — the distinction
+  Session 58 stated in prose ("a name in an import list and not a
+  caller") and then measured with a tool that cannot draw it. So the
+  detector is an **AST walk**: skipping `ast.Import`/`ast.ImportFrom`
+  draws it exactly, docstrings are `ast.Constant` and fall out for free
+  needing no prose heuristic, and `response_model=` needs no special case
+  because it is already an `ast.Name` in a keyword — no second statement
+  of one fact.
+- **Five names left the registry without leaving the wheel.**
+  `sysadmin_tray` ships in it, so removing a name from
+  `sysadmin_tray/models.py` is a change to a published surface. They live
+  in `_deprecated_contracts.py` behind a PEP 562 module `__getattr__`
+  that warns on **access**, never at import — warning at import fires on
+  every tray start whether or not anything touched a deprecated name,
+  which teaches the reader to filter the category rather than act on it.
+  The set is closed under its own field references, so the move cannot
+  strand a served payload, and a test asserts that rather than a
+  docstring claiming it.
+- **Falsified at the real pre-fix file, which is the only way the guard's
+  blind spot was visible.** A fresh unreachable model is reported
+  exactly. Driven at the pre-fix registry the walker reports **12** of the
+  15: `tests` is a consumer package on purpose, so the shim's own
+  annotations and `models.PortfolioActionsResponse` in the new test make
+  three of them roots. Those three are covered by
+  `test_none_of_them_are_defined_in_contracts` instead — two tests
+  composing rather than one doing both. The synthetic falsification
+  passes cleanly and would have shipped the gap unseen.
+- **Two costs filed rather than implied.** `SNAG-DOCS-003`: the five
+  deprecated names are removable only once someone confirms nothing
+  outside this repository imports them — an operational fact, not a code
+  question. `SNAG-ESTATE-013`: found by **running** the sitting's opening
+  check rather than reading it. `check:expires` takes a naive instant,
+  the block copied `03:32` off a producer publishing `+00:00`, and the
+  row cleared at 05:32 local. The check said `unknown`, correctly; what
+  it cannot notice is a marker written in the wrong zone.
 
 ### Session 76 — every claim names the check that closes it (2026-08-24)
 
