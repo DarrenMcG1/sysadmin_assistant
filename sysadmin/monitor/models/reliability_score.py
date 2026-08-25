@@ -58,6 +58,12 @@ class ReliabilityScore(UUIDPrimaryKeyMixin, Base):
     checks_measured: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     failed_checks: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     error_checks: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    #: Checks ``services.yaml`` declared away with ``monitor: false``.
+    #: Excluded from every rate, and counted apart from
+    #: ``error_checks`` because the remedies are opposites — a
+    #: failing check needs fixing, a declared-unmonitored service
+    #: needs nothing. Migration 015.
+    skipped_checks: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     #: Runs of consecutive failing checks, not failing checks. One outage
     #: writes one episode however long it lasts.
     outage_episodes: Mapped[int] = mapped_column(Integer, server_default=text("0"))

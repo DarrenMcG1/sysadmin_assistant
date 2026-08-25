@@ -4,10 +4,10 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and one sub-session action is.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 07:58:56**
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 10:10:49**
 > <!--check:daemon_start-->, `/health` answers **200** <!--check:health-->,
-> `alembic current` reads 014 at the packaged head <!--check:schema-->, and
-> `alerts` holds **1** unresolved row <!--check:alerts-->.
+> `alembic current` reads 015 at the packaged head <!--check:schema-->, and
+> `alerts` holds **2** unresolved rows <!--check:alerts-->.
 >
 > **Every claim above names the check that closes it**, and that is what
 > `<!--check:…-->` is: the name of a check, never a copy of the figure
@@ -19,23 +19,39 @@
 > hand-verify these — run the script, and correct whichever artefact it
 > names.
 >
-> **Owed: two sub-hour asks of estate-manager, neither of them a
-> session.** (1) **The Session 33 question** — seam drift detection
-> cannot start here because its second task reads another repository's
-> fixture off the same disk, and cross-repo concerns have had an owner
-> since 2026-08-13. Named as the blocker in four consecutive rankings
-> without being asked. (2) **Report `SNAG-ROADMAP-002`'s ninth
-> consecutive misreport** — the parser moved to estate-manager on
-> 2026-08-13, so what is owed from here is a report and not a fix, and it
-> is now nine sittings of wrong board movement published about this
-> repository. Both are cross-repo writes: committed on their own and
-> announced, per the estate rules.
+> **Owed: one sub-hour ask of estate-manager, and it is not a session.**
+> **The Session 33 question** — seam drift detection cannot start here
+> because its second task reads another repository's fixture off the same
+> disk, and cross-repo concerns have had an owner since 2026-08-13. Named
+> as the blocker in **seven** consecutive rankings without being asked. A
+> cross-repo write: committed on its own and announced, per the estate
+> rules.
 >
-> **One open alert row, named here rather than counted, and two closed
+> **The second ask is retired, and the owner got there first.**
+> `SNAG-ROADMAP-002` — nine sittings of wrong board movement — was
+> **fixed by estate-manager at 09:12:22 on 2026-08-25**, an hour into
+> Session 78, as their `SNAG-ESTATE-048`. Verified here by driving the
+> new `read_snags` over `snag_list.md` rather than by being told: every
+> known-fixed entry now reads `is_open=False` and every known-open one
+> `True`, and the open count for this file drops **59 → 27** on a
+> document nobody had edited. So the report that was owed describes a
+> defect that no longer exists, and nothing is owed in its place.
+>
+> **Two open alert rows, named here rather than counted, and two closed
 > themselves overnight.** <!--check:open_titles-->
 >
 > - **`Weekly disk review ready` (`info`)** is below
 >   `tray.notify_min_severity`. Open since 2026-08-17.
+> - **`High VRAM usage on AMD Radeon RX 7900 XTX` (`warning`)** opened
+>   **10:08:22 today**, during Session 78, and was **true when the
+>   sitting closed**: 23,114 MB of 24,560 used (94.1 %), `gpu_percent`
+>   100, 340 W. Named rather than counted because it is the shared card
+>   the estate map warns about — one 24 GB device behind four services —
+>   so which process holds it decides whether this is work or a leak, and
+>   this repository monitors the card without owning anything on it.
+>   Nothing was done about it here: it is a live reading, not a
+>   diagnosis, and attributing it needs `~/.local/bin/wait-for-dgpu`'s
+>   neighbourhood rather than a monitoring change.
 > - **Closed with nothing done, both of them.** `venture-chat
 >   unreachable` (`critical`) resolved **05:31:10** — venture-assistant's
 >   owner restarted their own service, which is the estate rule working
@@ -61,73 +77,75 @@
 > holds true), and a claims-checker that alerted on it would re-import
 > exactly that.
 >
-> **Next up**: **Session 25's Tier 2 — `GET /api/services/actions`, the
-> missing fourth advice endpoint.** *Recommended at the close of Session
-> 77, after its first-ranked candidate was refuted by one curl.*
+> **Next up**: **Session 25's Tier 3 — the weekly system health
+> review.** *Recommended at the close of Session 78, which shipped Tier
+> 2 and made Tier 3's inputs exist.*
 >
-> **The item this replaces was demoted by measurement, and the correction
-> is the part worth reading.** Session 76 ranked the four permanent
-> `running` rows in `agent_runs` first and Session 77's handoff inherited
-> it. `GET /api/sysadmin/self` reports `last_status: completed` and
-> `stalled: false` for **all five** agents: the rows reach nothing,
-> because `runs[0]` is the *newest* run and a ten-day-old row is never
-> newest for an agent that ran ninety seconds ago. Session 76 had already
-> demoted it once on the stall path and kept a residual — *"only
-> `last_status` is wrong"* — reasoned from the same fact that refutes it.
-> `tasks.md`'s own entry said the cost was **unmeasured**, and it was
-> ranked first anyway. Now ticked, with the answer recorded.
->
-> **1. Tier 2 — `GET /api/services/actions`.** `/api/files/actions`,
-> `/api/logs/actions` and `/api/units/actions` all exist; the services
-> scorer is the one with no advice half, though `reliability.py` already
-> computes the episodes it would rank. It wins because it is the only
-> **unblocked, session-sized** item left — every remaining snag is P3 or
-> P4 with a population measured empty or a cost measured nil, and ranking
-> one of those first is what this correction just cost a sitting. The
-> design call is live: its natural currency is recoverable score points,
-> which is what `RecommendationInfo` carried — **the model Session 77
-> deleted**. Correctly deleted, since it described estate-manager's
-> route, so Tier 2 needs its own `ServiceRecommendationInfo` rather than
-> the one that fits. That is `FileRecommendationInfo`'s argument
-> unchanged: one `points` field meaning two units, decided by the
-> producer, is unreadable at the call site.
->
-> **2. `SNAG-ESTATE-013` — the `expires` marker's naive instant.** One to
-> two hours. Filed by Session 77 and losing for the reason
-> `SNAG-ESTATE-012` lost to `SNAG-DOCS-002`: taking a snag the sitting
-> that filed it is the treadmill this document warns about, and its live
-> cost was two hours on a prediction that came true anyway. It rises the
-> moment a second `expires` marker is written.
->
-> **3. Tier 3 — the weekly system health review.** A session, and **read
-> it before pricing it**: the written design says it *"reuses the
+> **1. Tier 3 — the weekly system health review.** A session. It wins
+> because it is the only item on the board that is both **session-sized
+> and newly unblocked**: its stated inputs are flappiest services, alert
+> volume delta, anomaly summary and resource trend direction, and the
+> first of those became computable this morning — `reliability.py` had
+> the episodes and nothing ranked them until Tier 2. It also completes
+> Session 25, which has been two-thirds done since 2026-08-07.
+> **Read it before pricing it**: the written design says it *"reuses the
 > `project_reviews` table design"*, and migration 014 dropped that table
 > on 2026-08-24. `disk_reviews` and `log_reviews` are the surviving
-> mirrors, so the pattern stands and the pointer is dead — which is the
-> `SNAG-DOCS-001` shape arriving in a roadmap entry rather than a
-> contract registry. It also wants Tier 2's data, so the order is not
-> arbitrary.
+> mirrors, so the pattern stands and only the pointer is dead — the
+> `SNAG-DOCS-001` shape in a roadmap entry rather than a contract
+> registry. And it is LLM-narrated, so both of `files/review.py`'s
+> hard-won rules apply: commit the read transaction before calling the
+> model, and give it no numbers rather than instructing it not to use
+> them.
 >
-> **Runners-up that lost, and why.** `SNAG-DOCS-003` is Session 77's own
-> cost and is blocked on an **operational** fact — where the wheel went —
-> rather than on code. `SNAG-ESTATE-049` is now estate-manager's and was
-> routed there on 2026-08-25 with a recommendation and no ruling; nothing
-> is owed from here. `SNAG-AGENT-007` is dormant by arithmetic against
-> **one** unresolved row. `SNAG-ESTATE-012` is unchanged — deciding an
-> English sentence is a claim is a human's job. `SNAG-LOG-013`,
+> **2. Audit the other readers of `service_health.status` for the
+> `skipped` blind spot.** Two to three hours, and it is a *generalisation
+> of a defect measured today* rather than a new idea, which is why it
+> ranks above two older snags. `score_service` read `skipped` as an
+> outage for eighteen days; the question nobody has asked is which other
+> consumers of that column share the assumption. Known-correct:
+> `_resolve_recovered` (rule 4 states it explicitly). Unexamined: the
+> anomaly path, the briefing's `facts` projection, and
+> `reliability_history`'s stored rows — **which hold known-wrong scores
+> for three services back to 2026-08-07** and are deliberately not being
+> recomputed, since a migration that recomputed history would invent
+> measurements it never took. That last one needs a decision, not code.
+>
+> **3. `SNAG-ESTATE-013` — the `expires` marker's naive instant.** One
+> to two hours, unchanged from Session 77's ranking and losing for the
+> same reason it lost then: its live cost was two hours on a prediction
+> that came true anyway. It rises the moment a second `expires` marker
+> is written, and none was written today.
+>
+> **Runners-up that lost, and why.** `SNAG-SVC-001` and `SNAG-SVC-002`
+> are **this sitting's own cost** and both have populations measured
+> empty today — taking a snag the sitting that filed it is the treadmill
+> this document warns about, and neither can be settled without the
+> owner's call on a question already put once. `SNAG-DOCS-003` is
+> blocked on an **operational** fact — where the wheel went — rather
+> than on code. `SNAG-AGENT-007` is dormant by arithmetic against two
+> unresolved rows. `SNAG-ESTATE-012` is unchanged: deciding an English
+> sentence is a claim is a human's job. `SNAG-LOG-013`,
 > `SNAG-UNITS-006` and `SNAG-LOG-006` have populations measured empty,
 > and this ranking deliberately does **not** re-measure them to promote
-> one, because "the population is zero" is the reasoning that mis-ranked
-> `SNAG-DOCS-002` three times.
+> one — "the population is zero" is the reasoning that mis-ranked
+> `SNAG-DOCS-002` three times, and it is also what nearly buried today's
+> `skipped` defect, which sat behind a score nobody had reason to doubt.
+>
+> **Not a session, and not this repository's.** The
+> `High VRAM usage` row opened at 10:08 today and was still true at the
+> close — 94.1 % of one 24 GB card, `gpu_percent` 100, 340 W. Four
+> services share that device and this repository monitors it without
+> owning anything on it, so attributing the hold is estate-manager's
+> arbitration question (`~/.local/bin/wait-for-dgpu`'s neighbourhood),
+> not a monitoring change here. Named rather than left in the count.
 >
 > **Blocked or waiting on another repository.** Session 33 is blocked on
-> the question in the sub-session line above. `SNAG-ROADMAP-002` has now
-> published wrong board movement for **nine consecutive sittings** — 59
-> → 61 entries / 57 → 59 open for a sitting that closed one and opened
-> two, measured either side of the edit — and the parser is
-> estate-manager's, so what is owed from here is the report named above.
-> `SNAG-LOG-012` is **delegated**: `strip_markdown` lives in `estate-lib`,
-> and patching it from here would be the copy that drifts.
+> the question in the sub-session line above, now unasked for **seven**
+> consecutive rankings. `SNAG-LOG-012` is **delegated**:
+> `strip_markdown` lives in `estate-lib`, and patching it from here
+> would be the copy that drifts. `SNAG-ROADMAP-002` is **no longer on
+> this list** — estate-manager fixed it mid-sitting today.
 > `SNAG-ESTATE-002` and `SNAG-ESTATE-004` remain estate-manager's;
 > `SNAG-ESTATE-006` and `SNAG-ESTATE-007` are delegated and unchanged.
 > `SNAG-ESTATE-001`'s remaining half is a retirement checklist the entry
@@ -139,8 +157,8 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Backend | 🟢 Complete | FastAPI + 5 agents + scheduler + DB |
-| API | 🟢 Complete | <!--check:routes-->**48 routes** *(re-counted live 2026-08-24 after Session 75: 46 → 48, the two `410 Gone` tombstones for `/api/logs/summary` and `/summary/history`. They are `include_in_schema=False`, so `/docs` lists 46 — `measure_routes()` counts `APIRoute` objects rather than schema entries, which is the honest figure and the one that moves when a route is declared)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
-| Database | 🟢 Complete | <!--check:tables-->**11 tables** in sysadmin schema (12 counting `alembic_version`; counted live 2026-08-24), Alembic migrations (head **014**<!--check:migration_head-->, applied 2026-08-24 — dropped the three frozen tables). *Was 14. `project_snapshots`, `project_reviews` and `log_summaries` had no writer since ADR-0005 or Session 69 and are gone with their retention rows, their `TABLE_TIMESTAMP_MAP` entries and the `LogSummary` model. `FROZEN_TABLES` is now empty and deliberately kept — an entry there is a blindfold over the drift guard, so emptying it is what proves the drop rather than a new test* |
+| API | 🟢 Complete | <!--check:routes-->**49 routes** *(re-counted live 2026-08-25 after Session 78 added `GET /api/services/actions`: 48 → 49. Previously 46 → 48 on 2026-08-24 after Session 75, the two `410 Gone` tombstones for `/api/logs/summary` and `/summary/history`. They are `include_in_schema=False`, so `/docs` lists 46 — `measure_routes()` counts `APIRoute` objects rather than schema entries, which is the honest figure and the one that moves when a route is declared)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
+| Database | 🟢 Complete | <!--check:tables-->**11 tables** in sysadmin schema (12 counting `alembic_version`; counted live 2026-08-24), Alembic migrations (head **015**<!--check:migration_head-->, applied 2026-08-25 — `reliability_scores.skipped_checks`, the persisted half of the fix that stopped `score_service` scoring a declared-unmonitored check as an outage). *014 on 2026-08-24 dropped the three frozen tables.* *Was 14. `project_snapshots`, `project_reviews` and `log_summaries` had no writer since ADR-0005 or Session 69 and are gone with their retention rows, their `TABLE_TIMESTAMP_MAP` entries and the `LogSummary` model. `FROZEN_TABLES` is now empty and deliberately kept — an entry there is a blindfold over the drift guard, so emptying it is what proves the drop rather than a new test* |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
@@ -154,6 +172,96 @@
 ---
 
 ## Recently Completed
+
+### Session 78 — the fourth advice endpoint, and the score it consumes was wrong (2026-08-25)
+
+**Session 25's Tier 2 shipped as `GET /api/services/actions`**, the
+missing sibling of `/api/files/actions`, `/api/logs/actions` and
+`/api/units/actions`. `sysadmin/monitor/service_recommendations.py` is
+the pure module; `ServiceRecommendationInfo` is its own model rather than
+a reuse of the `RecommendationInfo` Session 77 deleted the day before.
+Suite **2,238 → 2,299**, ruff and mypy clean, routes **48 → 49**, head
+**014 → 015**.
+
+- **The endpoint found a defect in the scorer it reads, and it was 60
+  points a service.** `services.yaml` declares `monitor: false` on three
+  services that are inactive by design — `venture-chat-large` (pulled up
+  by `venture-enrich-nightly` for the 02:00 drain and stopped by its
+  `ExecStopPost`), `sysadmin-tray` and `searxng-upstream` — and the agent
+  writes those checks as `skipped`. `score_service` excluded only
+  `error` from its rates, so a `skipped` row counted as
+  measured-and-not-`ok`: **all three scored 35 and graded `failing` off
+  307 checks nobody had taken.** Live before and after: **6 rows / 213
+  points → 3 rows / 33 points**, `failing` 3 → 0, mean score 92.1 → 98.6.
+- **It survived from Session 25 because a wrong score is a number on a
+  page.** Tier 2 turned each into a `risk` recommendation, which is what
+  made it loud enough to find — and 180 of the endpoint's 213 headline
+  points were fabricated, all three of its `risk` rows among them.
+- **Neither obvious reading was right, and the sibling rule does not
+  transfer.** `_resolve_recovered` treats `skipped` as *healthy*,
+  correctly, because an open critical nobody will look at again is a
+  pile-up wearing a declaration as an excuse — but that decides whether
+  to close an alert, and importing it here fabricates a **100** exactly
+  as scoring it down fabricated a **35**. `skipped` joins `error` in the
+  unmeasured set and `confidence` carries the truth: `ports_checked`'s
+  rule, zero-because-blind never served as zero-because-clean. Counted
+  apart from `error_checks` because "the check failed" and "nobody
+  looked, by choice" are different claims — `UnitFinding.enabled`'s trap,
+  paid for once already.
+- **The whole suite passed either side of that fix**, which is the part
+  worth carrying: nothing pinned the behaviour in *either* direction, so
+  a wrong score was not merely undetected, it was untestable-by-omission.
+  Six tests now cover it and all six were falsified — one of them twice,
+  because the episode-count assertion passes against the broken scorer
+  for the wrong reason (a `skipped` row also failed to split an episode,
+  by counting as *down*).
+- **The confidence gate is asymmetric or the endpoint ships empty.** All
+  30 services read `confidence: low` on the build day — the box was off
+  08-18 → 08-22 and `SNAG-DB-005` killed the daemon a further 22 h on
+  08-23, leaving `observed_days: 1.07` at `coverage_percent: 15.13`. A
+  `confidence == "high"` gate is the obvious implementation and is
+  `SNAG-LOG-002`'s measured-empty population for the **third** time.
+  What rescues it is that a gap is one-directional — it can hide an
+  outage and never invent one — so `outage`/`flapping`/`timer_failed`
+  are floors and survive it, while `check_interval`/`timer_stale` argue
+  from a rate or an absence and do not. Driven as a counterfactual
+  against the live population: 7 rows / 1 suppressed at low confidence,
+  8 / 0 with confidence forced high.
+- **Timer staleness parses no clock, and the obvious approach rebuilds
+  `SNAG-LOG-009`.** `details['last_run']` is `LastTriggerUSec` rendered
+  as a local wall clock with a zone abbreviation. The token is treated
+  as **opaque** and compared only for inequality, with `checked_at` as
+  the clock — which derives **24.0 h** for all five daily timers live,
+  `alfred-evaluate-timer` included despite 15 holes in its series. Both
+  weekly timers correctly derive `None` at 2 firings each, and
+  `timer_lookback_days` is 30 rather than the 7-day scoring window
+  precisely because 7 days cannot hold a weekly cadence.
+- **Two of eight guards passed against deliberately broken code**, both
+  the failure the `falsify-guards-in-both-directions` memory names: the
+  `waived` test set `muted=True` so the muted skip returned first, and
+  the cadence test passed one firing where it claimed two. Both
+  repaired, plus an invariant test pinning `reliability._deductions`'
+  `waived=muted` at its owner, since this module leans on it.
+- **`tasks.md`'s two scoped examples were built as written, at the
+  owner's direction, with both conflicts filed rather than decided** —
+  `SNAG-SVC-001` (advising a longer check interval is advising that a
+  fault be seen less often, `known_noise` rule 3's opposite) and
+  `SNAG-SVC-002` (`timer_stale` asks `stalls.py`'s question about a
+  different subject, with no ladder and no cross-reference).
+- **A module rename the test namespace forced.** `service_actions` was
+  the first choice, by `log_actions`' convention — and
+  `tests/test_service_actions.py` has covered `POST
+  /api/sysadmin/services/{name}/{action}` since the tray's Phase 3.
+  "Service action" already meant start/stop/restart here. Two of the
+  three siblings are named `recommendations` anyway, so the name that
+  avoids the collision is also the commoner one; only the module moved,
+  the route keeps `/actions`.
+- **`SNAG-ROADMAP-002` closed, by the owner, mid-sitting.**
+  estate-manager fixed it at **09:12:22** as their `SNAG-ESTATE-048` —
+  `read_snags` now reads an entry's own closure marker — and it was
+  verified here by driving the new parser rather than by being told. The
+  open count for `snag_list.md` drops **59 → 27** on an unchanged
+  document. Nine sittings of owed report retired without being written.
 
 ### Session 77 — the registry describes only what it serves (2026-08-25)
 

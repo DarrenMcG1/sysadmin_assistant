@@ -209,6 +209,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/units/status` | `UnitScanResponse` (+`UnitScanSummary`, `UnitFindingInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/units/actions` | `UnitActionsResponse` (+`UnitRecommendationInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/services/reliability` | `ReliabilityResponse` (+`ReliabilitySummary`, `ServiceReliabilityInfo`, `ReliabilityDeduction`) | response_model (computed live — never 404s) |
+| `GET /api/services/actions` | `ServiceActionsResponse` (+`ServiceRecommendationInfo`) | response_model (computed live off the same call `/reliability` serves) |
 
 **Consumed from estate-manager on 8400** — parsed here, served there:
 
@@ -2417,6 +2418,119 @@ than omitted. An expected-down service (`mute: true`, **or** listed in
 `notifications.tray.mute_services` — the only way to mark one contributed
 by projects.yaml, since those entries have no `mute` field) has its
 deductions computed and reported with `waived: true` but not applied.
+
+**The services scorer had an advice half at last, and building it found
+the score itself wrong by 60 points a service** (Session 78, Tier 2).
+`GET /api/services/actions` is the fourth sibling of `/api/files/actions`,
+`/api/logs/actions` and `/api/units/actions`, and
+`sysadmin/monitor/service_recommendations.py` is its pure module. The
+currency is **recoverable points**, straight off `Deduction.points` —
+which is why this endpoint has a real one where `UnitRecommendationInfo`
+deliberately has none.
+
+**`skipped` was being scored as an outage, and only the advice endpoint
+made it loud.** `services.yaml` declares `monitor: false` on three
+services that are inactive by design; the agent writes those checks as
+`skipped`; `score_service` excluded only `error` from its rates, so a
+`skipped` row counted as measured-and-not-`ok`. All three scored **35**
+and graded `failing` off 307 checks nobody had taken, from Session 25
+(2026-08-07) until 2026-08-25. Live either side of the fix: **6 rows and
+213 points → 3 and 33**, `failing` 3 → 0, mean 92.1 → 98.6, with 180 of
+those points and every one of the endpoint's `risk` rows fabricated.
+
+Five rules, four of them the opposite of the obvious implementation:
+
+1. **Neither obvious reading of `skipped` is right, and the sibling rule
+   does not transfer.** `SysAdminAgent._resolve_recovered` treats it as
+   *healthy* — correctly, because an open critical nobody will look at
+   again is a pile-up wearing a declaration as an excuse — but that
+   decides whether to close an alert. Importing it here fabricates a
+   **100** exactly as scoring it down fabricated a **35**. It joins
+   `error` in `UNMEASURED_STATUSES` and `confidence` carries the truth:
+   `ports_checked`'s rule, zero-because-blind never served as
+   zero-because-clean. `skipped_checks` is counted apart from
+   `error_checks` (migration 015) because "the check failed" and "nobody
+   looked, by choice" are different claims with opposite remedies —
+   `UnitFinding.enabled`'s trap, already paid for once.
+2. **The confidence gate is asymmetric, or the endpoint ships empty.**
+   All 30 services read `confidence: low` on the build day: the box was
+   off 2026-08-18 → 08-22 and `SNAG-DB-005` killed the daemon a further
+   22 h on 08-23, leaving `observed_days: 1.07` at `coverage_percent:
+   15.13`. A `confidence == "high"` gate is the obvious implementation
+   and is `SNAG-LOG-002`'s measured-empty population for the **third**
+   time. The way out is what each row *argues from*, because a gap is
+   one-directional — it can hide an outage and never invent one. So
+   `outage`/`flapping`/`timer_failed` are floors under their own claims
+   and survive a thin window; `check_interval`/`timer_stale` argue from
+   a rate or an absence and require `high`. `log_trends.py` rule 4's
+   `NEW` asymmetry, one domain over. `suppressed_by_confidence` counts
+   what was withheld, so "nothing to do" and "we could not tell" stay
+   distinguishable.
+3. **The currency differs from its siblings in *tense*, and that is said
+   on every row.** Reclaimable megabytes are freed when the duplicate is
+   deleted; reliability points are charged for failures already inside
+   the window and lapse only as those age out. So `recoverable_points`
+   is a forecast — "what stops being deducted once the fix has held for
+   `window_days`" — and each points-bearing `detail` says so in words.
+   `FileRecommendationInfo`'s argument extended: a field whose *unit* is
+   decided by the producer is unreadable at the call site, and so is one
+   whose tense is.
+4. **Timer staleness parses no clock**, because the obvious approach
+   rebuilds `SNAG-LOG-009`. `service_health.details['last_run']` is
+   systemd's `LastTriggerUSec` rendered as a **local wall clock with a
+   zone abbreviation** — ambiguous between zones, two instants at an
+   autumn fold. The token is treated as **opaque** and compared only for
+   inequality; the clock is `checked_at`, a `timestamp with time zone`
+   this application wrote itself. Live, that derives **24.0 h** for all
+   five daily timers, `alfred-evaluate-timer` included despite 15 holes
+   in its series. A hole under-reports staleness rather than
+   over-reporting it — a fire before a gap is observed at the first check
+   after it — so the failure direction is silence.
+5. **The cadence has its own lookback and a 7-day window cannot hold
+   one.** `timer_lookback_days` is 30 and deliberately not
+   `reliability.window_days`: `estate-manager-review-timer` is weekly, so
+   the scoring window observes **one** firing and therefore zero
+   intervals, and a staleness rule built on it would be structurally
+   blind to every weekly timer here. A gap-spanning interval is never a
+   cadence sample — it measures the outage, not the schedule.
+
+`timer_stale_multiplier` is **derived by reuse**: it is
+`self_monitor.stall_grace_multiplier`'s 3.0, for that field's own
+argument — a schedule that has missed one firing is merely late and
+clears on the next tick. `flap_min_episodes` is **invented and says so**,
+`NOISE_MIN_OCCURRENCES`'s status stated the same way.
+
+The module is named `service_recommendations` rather than
+`service_actions` because **the collision was real**: "service action"
+already means start/stop/restart here, and `tests/test_service_actions.py`
+has covered `POST /api/sysadmin/services/{name}/{action}` since the
+tray's Phase 3. Two of the three siblings use `recommendations` anyway.
+The route keeps `/actions`; only the module moved. GET-only and always
+will be, asserted by a test, for `units/router.py`'s reason.
+
+Two costs filed rather than implied, both at the owner's explicit
+direction to build `tasks.md`'s scoped examples as written and record the
+conflict rather than decide it. `SNAG-SVC-001`: advising a longer check
+interval is advising that a fault be *seen* less often, which is
+`known_noise` rule 3's opposite — narrowed so it can only fire when every
+episode lasted a single check, and worded to refuse a remedy, which is a
+narrowing and not a fix. `SNAG-SVC-002`: `timer_stale` asks `stalls.py`'s
+"has it run?" about a timer rather than an agent, with no ladder and no
+cross-reference — disjoint populations today only because no agent on
+this box is a systemd timer, which is a property of the box and not of
+the design.
+
+**What the tests were doing is the part worth carrying.** The whole suite
+passed either side of the `skipped` fix, so a wrong score was not merely
+undetected but untestable-by-omission. And **two of eight falsifications
+passed against deliberately broken code**: the `waived` test set
+`muted=True`, so the muted skip returned before the filter it named was
+ever reached, and the cadence test passed one firing where it claimed to
+test two. A third — the episode-count assertion — passes against the
+broken scorer for the wrong reason, since a `skipped` row also failed to
+split an episode by counting as *down*. All three repaired, plus an
+invariant test pinning `reliability._deductions`' `waived=muted` at its
+owner, since this module leans on a fact another module holds.
 
 Retention needs **both halves**: a row in the `retention_config` table and
 an entry in `TABLE_TIMESTAMP_MAP`. `run_retention` iterates config rows and

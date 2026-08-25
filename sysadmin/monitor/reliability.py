@@ -82,8 +82,42 @@ INSTABILITY_PER_EPISODE = 5
 #: Ceiling on the instability deduction (five episodes).
 INSTABILITY_CAP = 25
 
-#: A check whose status is this means the *check* failed, not the service.
+#: Statuses that record **no evidence about the service**, so they are
+#: excluded from every rate here.  Both mean nothing was measured and the
+#: difference is *who decided*, which is why they are counted separately
+#: on the result rather than summed into one field.
+#:
+#: ``error``
+#:     The check itself failed — the service's state is unknown.
+#: ``skipped``
+#:     ``services.yaml`` declares ``monitor: false``.  Nobody looked, by
+#:     choice.
+#:
+#: **``skipped`` was missing until 2026-08-25 and the cost was 60 points
+#: a service** (Session 78).  Only ``error`` was excluded, so a
+#: ``skipped`` row counted as measured-and-not-``ok`` — i.e. as an
+#: outage — and this box's three declared-unmonitored services
+#: (``venture-chat-large``, ``sysadmin-tray``, ``searxng-upstream``)
+#: each scored **35** and graded ``failing`` off 307 checks nobody had
+#: taken.  It sat unnoticed as a number on a page from Session 25 until
+#: ``GET /api/services/actions`` turned each one into a ``risk`` row.
+#:
+#: Note that neither obvious reading is right and the sibling rule does
+#: not transfer.  ``SysAdminAgent._resolve_recovered`` treats ``skipped``
+#: as *healthy*, correctly — an open critical nobody will look at again
+#: is a pile-up wearing a declaration as an excuse — but that is a
+#: question about closing an alert, and importing it here would fabricate
+#: a **100**.  Scoring it as down fabricates a **35**.  A score with no
+#: evidence behind it is ``ports_checked``'s rule: zero-because-blind
+#: must never be served as zero-because-clean, so the row is excluded and
+#: ``confidence`` carries the truth.
+UNMEASURED_STATUSES = ("error", "skipped")
+
+#: Kept for readers that only care about the check-failed case.
 UNMEASURED_STATUS = "error"
+
+#: The declared-unmonitored half of :data:`UNMEASURED_STATUSES`.
+SKIPPED_STATUS = "skipped"
 
 #: Below this fraction of expected checks, the window is too gappy to
 #: trust — the monitor was down, so the sample is not representative.
@@ -135,6 +169,12 @@ class ReliabilityScore:
     checks_measured: int = 0  # recorded minus unmeasurable ('error') checks
     failed_checks: int = 0
     error_checks: int = 0
+    #: Checks ``services.yaml`` declared away with ``monitor: false``.
+    #: Separate from ``error_checks`` because "the check failed" and
+    #: "nobody looked, by choice" are different claims about the same
+    #: absence, and one field holding both is ``UnitFinding.enabled``'s
+    #: trap.
+    skipped_checks: int = 0
     outage_episodes: int = 0
     longest_outage_minutes: float = 0.0
     #: Mean gap between the *starts* of consecutive outage episodes.
@@ -223,13 +263,25 @@ def score_service(
         100.0 * result.checks_recorded / result.checks_expected, 2
     )
 
-    measured = [p for p in inside if p.status != UNMEASURED_STATUS]
-    result.error_checks = len(inside) - len(measured)
+    measured = [p for p in inside if p.status not in UNMEASURED_STATUSES]
+    result.error_checks = sum(1 for p in inside if p.status == UNMEASURED_STATUS)
+    result.skipped_checks = sum(1 for p in inside if p.status == SKIPPED_STATUS)
     result.checks_measured = len(measured)
 
     if not measured:
         result.confidence = "low"
-        result.confidence_reason = "every check in the window was unmeasurable"
+        # The two absences are reported apart, because the remedies are
+        # opposite: a service that is all-``error`` needs its check
+        # fixed, and one that is all-``skipped`` is behaving exactly as
+        # declared and needs nothing at all.
+        if result.skipped_checks and not result.error_checks:
+            result.confidence_reason = (
+                f"not monitored — services.yaml declares monitor: false, so all "
+                f"{result.skipped_checks} checks in the window recorded no "
+                "evidence either way"
+            )
+        else:
+            result.confidence_reason = "every check in the window was unmeasurable"
         result.grade = _grade(result.score, grade_bands)
         return result
 

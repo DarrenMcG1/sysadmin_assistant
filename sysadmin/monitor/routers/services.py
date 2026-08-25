@@ -31,11 +31,16 @@ from sysadmin.core.contracts import (
     ReliabilityDeduction,
     ReliabilityResponse,
     ReliabilitySummary,
+    ServiceActionsResponse,
     ServiceReliabilityInfo,
 )
 from sysadmin.core.database import get_db_session
 from sysadmin.monitor.reliability import ReliabilityScore
-from sysadmin.monitor.reliability_history import compute_reliability
+from sysadmin.monitor.reliability_history import (
+    compute_reliability,
+    fetch_timer_series,
+)
+from sysadmin.monitor.service_recommendations import recommend, total_recoverable_points
 from sysadmin.monitor.services import get_services, services_by_project
 
 logger = logging.getLogger(__name__)
@@ -129,4 +134,67 @@ async def get_reliability(
         summary=summary,
         services=[to_contract(s) for s in shown],
         count=len(shown),
+    )
+
+
+@router.get("/actions", response_model=ServiceActionsResponse)
+async def get_service_actions(
+    limit: int | None = Query(
+        None, ge=1, le=200, description="Rows to return; config default otherwise"
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> ServiceActionsResponse:
+    """Ranked service advice — Session 25, Tier 2.
+
+    The fourth advice endpoint, beside ``/api/files/actions``,
+    ``/api/logs/actions`` and ``/api/units/actions``.  **GET-only and
+    always will be**, for ``/api/units/*``'s reason: the remedy for an
+    unreliable service is a fix in the service or an edit to a
+    hand-curated file, and restarting one already has its own endpoint.
+    A test asserts no non-GET route exists here.
+
+    Computed off the same live ``compute_reliability`` call that
+    ``/reliability`` serves rather than off ``reliability_scores``, so
+    the advice and the score cannot disagree about the window they
+    describe — and so this route never 404s before the first nightly
+    job, which is the trade Tier 1 already made and argued for.
+
+    ``limit`` cuts the list; ``total_available`` reports what existed
+    before the cut, because a saturated list that cannot say so reads as
+    "that is all there is" — the failure ``/api/projects/actions`` hit
+    in Session 28 and ``UnitActionsResponse.dropped_by_kind`` was added
+    for.
+    """
+    config = get_config()
+    settings = config.agents.sysadmin.service_actions
+    now = datetime.now(UTC)
+
+    scores = await compute_reliability(session, config, now=now)
+    timers = await fetch_timer_series(session, config, now=now)
+
+    report = recommend(
+        scores,
+        settings,
+        timers=timers,
+        check_interval_seconds=config.agents.sysadmin.health_check_interval_seconds,
+        now=now,
+    )
+
+    cut = limit if limit is not None else settings.limit
+    shown = report.recommendations[:cut]
+
+    return ServiceActionsResponse(
+        computed_at=now.isoformat(),
+        window_days=config.agents.sysadmin.reliability.window_days,
+        recommendations=shown,
+        count=len(shown),
+        total_available=len(report.recommendations),
+        # Summed over everything the run produced, never over the page.
+        # A total that moved with ``limit`` would make "42 points
+        # available" mean something different on every request —
+        # ``summarise``'s rule three routes up in this same file.
+        total_recoverable_points=total_recoverable_points(report.recommendations),
+        muted_skipped=report.muted_skipped,
+        suppressed_by_confidence=report.suppressed_by_confidence,
+        services_considered=report.services_considered,
     )

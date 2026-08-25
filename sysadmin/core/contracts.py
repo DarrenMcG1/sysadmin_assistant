@@ -1405,6 +1405,13 @@ class ServiceReliabilityInfo(Contract):
     checks_measured: int = 0
     failed_checks: int = 0
     error_checks: int = 0
+    #: Checks ``services.yaml`` declared away with ``monitor: false``.
+    #: Excluded from every rate here alongside ``error_checks`` and
+    #: counted apart from them, because "the check failed" and "nobody
+    #: looked, by choice" are different claims about the same absence.
+    #: Until 2026-08-25 these were scored as **outages**, which put three
+    #: declared-unmonitored services on this box at ``failing`` / 35.
+    skipped_checks: int = 0
     #: Runs of consecutive failing checks, not failing checks.  One
     #: outage is one episode however long it lasts.
     outage_episodes: int = 0
@@ -1458,3 +1465,117 @@ class ReliabilityResponse(Contract):
     summary: ReliabilitySummary = Field(default_factory=ReliabilitySummary)
     services: list[ServiceReliabilityInfo] = Field(default_factory=list)
     count: int = 0
+
+
+# ── /api/services/actions (Session 25, Tier 2) ────────────────────────
+
+
+class ServiceRecommendationInfo(Contract):
+    """One ranked, executable piece of service-reliability advice.
+
+    The **fourth** sibling, and the fourth currency.  ``points`` in the
+    project recommendations meant health score, ``reclaimable_mb`` means
+    megabytes, ``occurrences`` means log lines, and this means
+    reliability points.  One field whose unit is decided by the producer
+    is unreadable at the call site — the argument
+    ``FileRecommendationInfo`` made and ``LogRecommendationInfo``
+    repeated — so this is its own model rather than a reuse of the
+    ``RecommendationInfo`` that was deleted with the project routes on
+    2026-08-25 (``SNAG-DOCS-002``).
+
+    ``recoverable_points`` differs from its siblings in **tense**, which
+    is the thing most likely to be misread.  Reclaimable megabytes are
+    freed the moment the duplicate is deleted; reliability points are
+    charged for failures already inside the window and lapse only as
+    those failures age out of it.  So this is what stops being deducted
+    once a fix has held for ``window_days`` — a forecast, not a payoff —
+    and every ``detail`` on a points-bearing row says so in words rather
+    than leaving the reader to infer the tense from a number.
+
+    Rows that map to no deduction carry ``0`` and rank beneath anything
+    with real points, exactly as tidiness items rank beneath reclaimable
+    megabytes.  No figure is invented to make the two tiers comparable.
+
+    ``evidence`` is the field the confidence gate turns on, and it is
+    reported rather than kept private because a consumer needs to know
+    which kind of claim it is reading:
+
+    ``event``
+        An observed failure.  A gap in the check series can only have
+        hidden more of them, so the count is a floor and the row is
+        produced at any ``confidence``.
+    ``rate`` / ``absence``
+        A per-window rate, or a thing not happening.  A gappy window
+        makes the first meaningless and the second indistinguishable
+        from nobody looking, so these rows appear only at
+        ``confidence: high``.
+
+    ``confidence`` is echoed from the score this row was computed off,
+    for the reason ``LogActionsResponse`` echoes its own: every row here
+    is an argument from recorded checks, and a consumer acting on one
+    needs to know how complete that record is.  ``ServiceReliabilityInfo``
+    says in writing that anything recommending action off it must read
+    ``confidence``; this is that field, carried through.
+    """
+
+    # outage | flapping | timer_failed | timer_stale | check_interval
+    kind: str = ""
+    # risk | advice
+    severity: str = "advice"
+    service: str = ""
+    title: str = ""
+    detail: str = ""
+    action: str = ""
+    #: Deduction points that lapse once the fix has held for a full
+    #: window.  0 for rows that map to no deduction.
+    recoverable_points: int = 0
+    #: The scorer's own band for this service — never a second threshold
+    #: computed here, so a service is judged unreliable in one place.
+    grade: str = "reliable"
+    confidence: str = "high"  # high | low
+    outage_episodes: int = 0
+    # event | rate | absence
+    evidence: str = "event"
+
+    @field_validator("recoverable_points", "outage_episodes", mode="before")
+    @classmethod
+    def _none_to_zero(cls, v: Any) -> Any:
+        return 0 if v is None else v
+
+
+class ServiceActionsResponse(Contract):
+    """GET /api/services/actions — ranked service-reliability advice.
+
+    Three counts sit beside the list because an empty one is ambiguous
+    in three directions, and a consumer that cannot tell them apart will
+    read the worst case as the best.  ``muted_skipped`` is
+    ``LogActionsResponse.declared_noise``'s rule — "nothing to do" must
+    be distinguishable from "everything is already declared expected-down".
+    ``suppressed_by_confidence`` is ``ports_checked``'s — a window too
+    gappy to support a rate must not serve zero rows as though it had
+    looked and found nothing.
+
+    ``window_days`` and ``computed_at`` come from the same live
+    computation ``GET /api/services/reliability`` serves; nothing is read
+    back from ``reliability_scores``, so the advice and the score can
+    never disagree about the window they describe.
+    """
+
+    computed_at: str | None = None
+    window_days: int = 7
+    recommendations: list[ServiceRecommendationInfo] = Field(default_factory=list)
+    count: int = 0
+    total_available: int = 0
+    total_recoverable_points: int = 0
+    #: Services scored but declared expected-down, so never advised on.
+    muted_skipped: int = 0
+    #: Rate- and absence-argued rows withheld because their service's
+    #: window was too gappy to support the claim.
+    suppressed_by_confidence: int = 0
+    #: Services actually considered — scored, minus muted.
+    services_considered: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_count(cls, data: Any) -> Any:
+        return _fill_count(data, "recommendations")

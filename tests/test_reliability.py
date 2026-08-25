@@ -362,3 +362,142 @@ def test_as_dict_leaves_absent_timestamps_as_none():
 
     assert payload["first_check_at"] is None
     assert payload["last_check_at"] is None
+
+
+# ── skipped checks (Session 78) ──────────────────────────────────────
+#
+# ``services.yaml`` can declare ``monitor: false`` on a service that is
+# inactive by design, and the agent writes those checks as ``skipped``.
+# Until 2026-08-25 only ``error`` was excluded from the rates here, so a
+# ``skipped`` row counted as measured-and-not-``ok`` — an outage — and
+# this box's three declared-unmonitored services each scored **35** and
+# graded ``failing`` off 307 checks nobody had taken.
+#
+# Every test below fails against the pre-fix scorer.  None existed
+# before, which is why a wrong score survived from Session 25: the whole
+# suite passed either side of the fix, so nothing pinned the behaviour in
+# *either* direction.
+
+
+def test_skipped_checks_are_excluded_from_every_rate():
+    """Nobody looked, so there is no evidence to rate.
+
+    The sibling rule does not transfer.
+    ``SysAdminAgent._resolve_recovered`` treats ``skipped`` as *healthy*
+    — correctly, since an open critical nobody will look at again is a
+    pile-up wearing a declaration as an excuse — but that decides whether
+    to close an alert.  Importing it here would fabricate a 100 exactly
+    as the old behaviour fabricated a 35.
+    """
+    result = score_service(
+        "declared-unmonitored",
+        series(["ok"] * 10 + ["skipped"] * 10),
+        now=NOW,
+        check_interval_seconds=INTERVAL,
+    )
+    assert result.skipped_checks == 10
+    assert result.checks_measured == 10
+    assert result.uptime_percent == 100.0
+    assert result.failed_checks == 0
+    assert result.score == 100
+
+
+def test_a_window_of_only_skipped_checks_scores_100_at_low_confidence():
+    """The live shape: ``venture-chat-large``, 307 of 307 skipped.
+
+    Before the fix this scored 35 (60 downtime capped + 5 instability)
+    and graded ``failing``.
+    """
+    result = score_service(
+        "venture-chat-large",
+        full_week("skipped"),
+        now=NOW,
+        check_interval_seconds=INTERVAL,
+    )
+    assert result.score == 100
+    assert result.grade == "reliable"
+    assert result.outage_episodes == 0
+    assert result.deductions == []
+    assert result.confidence == "low"
+
+
+def test_the_all_skipped_reason_names_the_declaration_not_a_failure():
+    """"Nobody looked, by choice" and "the check broke" need different words.
+
+    The remedies are opposites: an all-``error`` service needs its check
+    fixed, and an all-``skipped`` one is behaving exactly as declared and
+    needs nothing at all.
+    """
+    result = score_service(
+        "s", full_week("skipped"), now=NOW, check_interval_seconds=INTERVAL
+    )
+    assert result.confidence_reason is not None
+    assert "monitor: false" in result.confidence_reason
+
+    errored = score_service(
+        "s", full_week("error"), now=NOW, check_interval_seconds=INTERVAL
+    )
+    assert errored.confidence_reason == "every check in the window was unmeasurable"
+
+
+def test_skipped_and_error_are_counted_apart():
+    """One field holding two claims is ``UnitFinding.enabled``'s trap.
+
+    Both mean nothing was measured; the difference is who decided, and a
+    reader cannot recover it from a sum.
+    """
+    result = score_service(
+        "s",
+        series(["ok"] * 5 + ["error"] * 3 + ["skipped"] * 2),
+        now=NOW,
+        check_interval_seconds=INTERVAL,
+    )
+    assert result.error_checks == 3
+    assert result.skipped_checks == 2
+    assert result.checks_measured == 5
+
+
+def test_skipped_checks_do_not_split_an_outage_into_two_episodes():
+    """A declared gap is not a recovery.
+
+    ``error`` already had this rule; ``skipped`` reaches
+    ``_outage_episodes`` through the same filter, so the two cannot
+    disagree about what interrupts an episode.
+    """
+    result = score_service(
+        "s",
+        series(["ok", "critical", "skipped", "critical", "ok"]),
+        now=NOW,
+        check_interval_seconds=INTERVAL,
+    )
+    assert result.outage_episodes == 1
+    # The episode count alone passes against the pre-fix scorer too, for
+    # the wrong reason: a ``skipped`` row counted as *down*, so it joined
+    # the outage rather than being dropped from it.  The counts are what
+    # tell the two apart — 2 failures out of 4 measured, not 3 out of 5.
+    assert result.failed_checks == 2
+    assert result.checks_measured == 4
+    assert result.skipped_checks == 1
+
+
+def test_a_skipped_service_produces_no_advice():
+    """The end-to-end consequence, asserted where it was actually felt.
+
+    ``GET /api/services/actions`` served three ``risk`` rows worth 60
+    recoverable points each — 180 of its 213 total — for services nobody
+    was monitoring.  That is what made a wrong number on a page loud
+    enough to find.
+    """
+    from sysadmin.core.config import ServiceActionsConfig
+    from sysadmin.monitor.service_recommendations import recommend
+
+    result = score_service(
+        "venture-chat-large",
+        full_week("skipped"),
+        now=NOW,
+        check_interval_seconds=INTERVAL,
+    )
+    report = recommend(
+        [result], ServiceActionsConfig(), check_interval_seconds=INTERVAL, now=NOW
+    )
+    assert report.recommendations == []

@@ -2120,12 +2120,62 @@ config.yaml with **zero health checks ever** (both added 2026-08-07,
 backend not yet restarted). They score 100 at low confidence rather than
 vanishing — "configured but never checked" is a finding, not an absence.
 
-- [ ] **Tier 2** — recommendations tied to alert-history facts
-      ("llama-server flapped 6× this week — likely GPU contention,
-      consider raising its check interval"; "alfred-evaluate.timer
-      inactive 3 days — the schedule has stopped"). Few safe executors
-      exist beyond service restart, so most items name a config change —
-      Session 22's established fallback convention
+- [x] **Tier 2 — complete 2026-08-25** (Session 78).
+      `sysadmin/monitor/service_recommendations.py` (pure) +
+      `GET /api/services/actions` + `ServiceRecommendationInfo` /
+      `ServiceActionsResponse` + `ServiceActionsConfig`. 55 new tests
+      (2,238 → 2,293). Live on first run: **6 rows, 213 recoverable
+      points** across 30 services. Both scoped examples were built as
+      written and both conflicts filed rather than decided —
+      `SNAG-SVC-001` (the interval advice) and `SNAG-SVC-002` (the timer
+      staleness question `stalls.py` already owns for agents)
+- [x] Its own `ServiceRecommendationInfo`, **not** a reuse of the
+      `RecommendationInfo` deleted the day before by `SNAG-DOCS-002` —
+      `FileRecommendationInfo`'s argument for the third time, plus a
+      fourth twist the siblings do not have: the currency differs in
+      **tense**. Megabytes are freed when the duplicate is deleted;
+      reliability points are charged for failures already inside the
+      window and lapse only as those age out. So `recoverable_points`
+      is a forecast, and every points-bearing `detail` says so in words
+
+**Four things the live data settled that no fixture could**, which is
+Session 24's lesson arriving in the fourth advice endpoint:
+
+1. **The confidence gate had to be asymmetric or the endpoint shipped
+   empty.** All 30 services were `confidence: low` on the build day — the
+   box was off 08-18 → 08-22 and `SNAG-DB-005` killed the daemon a
+   further 22 h on 08-23, so a 7-day window held `observed_days: 1.07` at
+   `coverage_percent: 15.13`. A `confidence == "high"` gate is the
+   obvious implementation and would have been `SNAG-LOG-002`'s
+   measured-empty population for the **third** time. What rescues it is
+   that a gap is **one-directional**: it can hide an outage and never
+   invent one, so `outage`/`flapping`/`timer_failed` are floors and
+   survive it, while `check_interval`/`timer_stale` argue from a rate or
+   an absence and do not. `log_trends.py` rule 4's `NEW` asymmetry, one
+   domain over
+2. **Timer staleness needed no clock parsing, and the obvious approach
+   would have rebuilt `SNAG-LOG-009`.** `service_health.details['last_run']`
+   is systemd's `LastTriggerUSec` rendered as a **local wall clock with a
+   zone abbreviation** (`"Tue 2026-08-25 08:00:00 BST"`) — ambiguous
+   between zones, and two instants at an autumn fold. The token is
+   instead treated as **opaque** and compared only for inequality, with
+   `checked_at` as the clock. Live, that derives **24.0 h** for all five
+   daily timers, `alfred-evaluate-timer` included despite 15 holes in its
+   series
+3. **A 7-day window cannot observe a weekly cadence**, so
+   `timer_lookback_days` is 30 and deliberately not
+   `reliability.window_days`. `estate-manager-review-timer` fires once
+   inside 7 days — zero intervals, no cadence — and a staleness rule
+   built on the scoring window would be structurally blind to every
+   weekly timer on the box. Both weekly timers correctly derive `None`
+   today at 2 observed firings each
+4. **Two of eight guards passed against deliberately broken code**, and
+   both were the memory's own warning. The `waived` test set `muted=True`
+   as well, so the muted skip returned before the filter it named was
+   reached; the cadence test passed one firing where it claimed to test
+   two. Both repaired, plus an invariant test pinning
+   `reliability._deductions`' `waived=muted` at its owner, since this
+   module leans on it
 - [ ] **Tier 3** — weekly system health review: flappiest services, alert
       volume delta, anomaly summary, resource trend direction. Sits beside
       the project review in Monday's briefing and reuses the

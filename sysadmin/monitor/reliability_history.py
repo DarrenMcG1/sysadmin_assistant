@@ -27,6 +27,7 @@ from sysadmin.monitor.reliability import (
     ReliabilityScore,
     score_services,
 )
+from sysadmin.monitor.service_recommendations import TimerPoint, TimerSeries
 from sysadmin.monitor.services import get_services
 
 logger = logging.getLogger(__name__)
@@ -108,6 +109,89 @@ async def compute_reliability(
     )
 
 
+async def fetch_timer_series(
+    session: AsyncSession,
+    config: AppConfig,
+    *,
+    now: datetime | None = None,
+) -> list[TimerSeries]:
+    """Observations of every ``kind: timer`` service, oldest first.
+
+    The adapter half of :mod:`sysadmin.monitor.service_recommendations`, which is
+    pure and parses no clock.  Two things this pulls that
+    :func:`compute_reliability` deliberately does not:
+
+    **``details``, for its ``last_run`` token only.**  The scorer needs a
+    status and a timestamp and nothing else in the row changes a score;
+    timer staleness needs the one field that says whether the schedule
+    fired.  The token is passed through verbatim and is never parsed —
+    ``systemctl show`` renders ``LastTriggerUSec`` as a local wall clock
+    with a zone abbreviation, so its only sound operation is inequality
+    between two observations.  The clock is ``checked_at``, which this
+    application wrote itself as a ``timestamp with time zone``.
+
+    **A wider window.**  ``timer_lookback_days`` rather than
+    ``reliability.window_days``, because a 7-day window observes exactly
+    one firing of a weekly timer and therefore cannot measure its
+    cadence at all.  See :class:`~sysadmin.core.config.ServiceActionsConfig`.
+
+    A timer with no rows in the lookback yields an empty series rather
+    than being dropped, so the caller can tell "never observed" from
+    "not a timer" — the distinction ``compute_reliability`` makes for
+    services with no checks.
+    """
+    settings = config.agents.sysadmin.service_actions
+    now = now or datetime.now(UTC)
+    window_start = now - timedelta(days=settings.timer_lookback_days)
+
+    timers = [s for s in get_services().services if s.kind == "timer"]
+    if not timers:
+        return []
+
+    # ``systemd_unit`` is the alias every consumer here already uses,
+    # and ``services.py`` validates that a ``kind: timer`` entry names a
+    # ``.timer`` unit — so the fallback is unreachable and exists only
+    # so a series can still be built if that validation is ever relaxed.
+    units = {s.name: (s.systemd_unit or s.name) for s in timers}
+    by_name: dict[str, list[TimerPoint]] = {s.name: [] for s in timers}
+
+    rows = (
+        await session.execute(
+            select(
+                ServiceHealth.service_name,
+                ServiceHealth.checked_at,
+                ServiceHealth.details,
+            )
+            .where(ServiceHealth.checked_at >= window_start)
+            .where(ServiceHealth.service_name.in_(list(by_name)))
+            .order_by(ServiceHealth.checked_at)
+        )
+    ).all()
+
+    for service_name, checked_at, details in rows:
+        if service_name not in by_name:
+            continue
+        blob = details or {}
+        by_name[service_name].append(
+            TimerPoint(
+                checked_at=checked_at,
+                last_run=blob.get("last_run"),
+                last_result=blob.get("last_result"),
+                # Absent means the check could not say, and an armed
+                # timer is the default reading — the *inactive* case is
+                # already a failing check the outage family owns, so
+                # guessing "inactive" here would duplicate it rather
+                # than catch anything.
+                is_active=bool(blob.get("is_active", True)),
+            )
+        )
+
+    return [
+        TimerSeries(service=name, unit=units[name], points=points)
+        for name, points in by_name.items()
+    ]
+
+
 async def record_reliability_snapshot() -> int:
     """Persist today's score for every configured service. Cron entry point.
 
@@ -135,6 +219,7 @@ async def record_reliability_snapshot() -> int:
                 checks_measured=score.checks_measured,
                 failed_checks=score.failed_checks,
                 error_checks=score.error_checks,
+                skipped_checks=score.skipped_checks,
                 outage_episodes=score.outage_episodes,
                 longest_outage_minutes=score.longest_outage_minutes,
                 mean_hours_between_incidents=score.mean_hours_between_incidents,

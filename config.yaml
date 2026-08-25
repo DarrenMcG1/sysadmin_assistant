@@ -229,6 +229,29 @@ agents:
         degraded_min: 85
         unreliable_min: 60
 
+    # Session 25 Tier 2 — GET /api/services/actions, the advice half of
+    # the score above. Advice only; the endpoint is GET-only and a test
+    # asserts it.
+    service_actions:
+      enabled: true
+      # Invented, and the class docstring says so. One outage is an
+      # outage and two could be one fault with a brief recovery in the
+      # middle; nothing here measures where the line actually falls.
+      flap_min_episodes: 3
+      # NOT invented — this is self_monitor.stall_grace_multiplier's 3.0
+      # for its own reason: a schedule that has missed one firing is
+      # merely late and clears itself on the next tick. Two misses is a
+      # pattern. Changing one of these two without the other makes a
+      # single judgement disagree with itself.
+      timer_stale_multiplier: 3.0
+      # Deliberately wider than reliability.window_days above. A cadence
+      # belongs to the schedule, not to the scoring window:
+      # estate-manager-review-timer is weekly, so 7 days holds one firing
+      # and therefore zero intervals. Capped by service_health retention
+      # exactly as window_days is.
+      timer_lookback_days: 30
+      limit: 20
+
 
   project_organiser:
     # The organiser lives in the estate's 8400 service since Session 4

@@ -146,6 +146,59 @@ class ReliabilityConfig(BaseModel):
     grade_bands: ReliabilityGradeBands = Field(default_factory=ReliabilityGradeBands)
 
 
+class ServiceActionsConfig(BaseModel):
+    """Ranked service advice (Session 25, Tier 2) — ``GET /api/services/actions``.
+
+    Advice only.  Nothing here restarts, re-times or edits anything; the
+    endpoint is GET-only and a test asserts it, for the reason
+    ``/api/units/*`` is — the remedy for an unreliable service is a fix
+    in the service or an edit to a hand-curated file.
+
+    **``flap_min_episodes`` is invented and says so**, unlike
+    ``timer_stale_multiplier`` below.  One outage is an outage and two
+    could be one fault with a brief recovery in the middle, so three is
+    where a repeat starts looking like a pattern — but nothing on this
+    box measures where that line actually falls, and the honest
+    comparison would need a labelled set of "this was one fault" against
+    "these were separate".  It is ``NOISE_MIN_OCCURRENCES``'s status,
+    stated the same way: a number picked to be defensible rather than one
+    derived from anything.
+
+    **``timer_stale_multiplier`` is derived, and derived by reuse.**  It
+    is :attr:`SelfMonitorConfig.stall_grace_multiplier`'s 3.0, for that
+    field's own argument: a schedule that has missed *one* firing is
+    merely late and clears itself on the next tick, so flagging at 2x
+    charges faults that were about to fix themselves, and an alarm that
+    cries wolf stops being read.  Two misses is a pattern.  Writing a
+    second number here would be a second statement of one judgement that
+    can drift from the first — ``max_priority_for`` against
+    ``PRIORITY_MAP``'s rule, one config section over.
+
+    **``timer_lookback_days`` is deliberately not
+    ``ReliabilityConfig.window_days``**, and the two genuinely disagree.
+    A cadence is a property of the schedule rather than of the scoring
+    window: ``estate-manager-review-timer`` is weekly, so a 7-day window
+    observes one firing and therefore *zero* intervals, and a staleness
+    rule built on the scoring window would be structurally blind to every
+    weekly timer on this box.  Capped in practice by ``service_health``
+    retention exactly as ``window_days`` is.
+    """
+
+    enabled: bool = True
+    #: Separate outages before a service is called flapping.  Invented.
+    flap_min_episodes: int = 3
+    #: Multiples of the observed cadence before an armed timer that has
+    #: stopped firing is reported.  ``stall_grace_multiplier``'s number.
+    timer_stale_multiplier: float = 3.0
+    #: How far back to observe timer firings.  Wider than the scoring
+    #: window on purpose — see the class docstring.
+    timer_lookback_days: int = 30
+    #: Rows returned by default.  ``total_available`` reports what
+    #: existed before the cut, so a saturated list cannot read as
+    #: "that is all there is".
+    limit: int = 20
+
+
 class CollationCheckConfig(BaseModel):
     """Stale-collation detection (``SNAG-DB-002``).
 
@@ -182,6 +235,9 @@ class SysAdminAgentConfig(BaseModel):
     thresholds: Thresholds = Field(default_factory=Thresholds)
     anomaly: AnomalyConfig = Field(default_factory=AnomalyConfig)
     reliability: ReliabilityConfig = Field(default_factory=ReliabilityConfig)
+    service_actions: ServiceActionsConfig = Field(
+        default_factory=ServiceActionsConfig
+    )
     collation: CollationCheckConfig = Field(default_factory=CollationCheckConfig)
 
 
