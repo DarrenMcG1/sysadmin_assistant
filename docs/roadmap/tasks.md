@@ -394,6 +394,36 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 83 — the call Session 82 deferred, and the rule that decides it (2026-08-25) ✅
+
+- [x] Decide `SNAG-ESTATE-008` rather than measure it — **closed**; parser reads **25 → 24 open**, entries unmoved at **67**
+- [x] Establish the residue by driving the entry's **own three founding instances** through the live machinery, not by reading the chain
+- [x] Record the general rule the sweep needed: an empty **residue** is a closure, an empty **population** is not
+- [x] Mark Session 82's deferral as taken in place, leaving its reasoning intact rather than rewriting it
+
+**Result**: `SNAG-ESTATE-008` closed on its own residue, not on
+`SNAG-ESTATE-011` being fixed. Two of three founding instances are caught
+by `ops_claims.py` — falsified live, and `check_alerts`'s note **ends
+`(SNAG-ESTATE-008's founding case)`**, so the running code cites the entry
+it closes. The third is uncovered and is `SNAG-ESTATE-012`'s class
+verbatim: `measure_unit(unit: str = OWN_UNIT)` has **one** caller and it
+passes the default, so no arbitrary unit is ever resolved — but the
+sentence carrying that action has no figure and no marker, which is
+ESTATE-012's symptom, so the residue has an owner and a narrower
+statement.
+
+**The argument that decides a judgement when no measurement will.** The
+entry's `P2` was kept for the cost of *"sittings of ranking attention
+spent on settled items at the top of the document that sets the agenda"*.
+Named by eight consecutive rankings with nothing of its own to do, an open
+`P2` whose work is done **is that cost**. Leaving it open was an instance
+of itself, and it ranked its own residue two rungs louder than
+`SNAG-ESTATE-012` ranks it.
+
+**No code changed.** Nothing in `sysadmin/` was touched, so no restart is
+owed and no test was added — the sitting's whole output is a judgement and
+the evidence for it.
+
 ## Session 82 — the closure-marker sweep, and what "the body mentions a fix" is worth (2026-08-25) ✅
 
 - [x] Measure **all 30** entries the parser reads as open against the live box, not against their own bodies
@@ -402,7 +432,7 @@ debts that landing deliberately left behind._
 - [x] Re-measure and keep open everything that still holds; record the three that were checked and stayed
 - [x] File `SNAG-ROADMAP-001`'s reproduction at estate-manager rather than working around it (message `e0461fe9`)
 - [x] Correct `STATUS.md`'s false verification claim
-- [ ] **Decide `SNAG-ESTATE-008`** — deliberately not taken; it is a judgement about a chain, not a measurement
+- [x] **Decide `SNAG-ESTATE-008`** — deliberately not taken here; it is a judgement about a chain, not a measurement. **Taken by Session 83 below**
 
 **Result**: parser reads **30 → 25 open**, entries unmoved at **67**, and
 **no P1 published for this repository** for the first time.

@@ -3,7 +3,7 @@
 **Last Updated**: 2026-08-25
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **No deploy is owed, and one sub-session action is.**
+> **No deploy is owed, and no sub-session action is either.**
 > <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 16:21:01**
 > <!--check:daemon_start--> — by Session 81, whose only production change
 > was three docstrings, so nothing a caller can observe moved. The
@@ -25,13 +25,24 @@
 > hand-verify these — run the script, and correct whichever artefact it
 > names.
 >
-> **Owed: one sub-hour ask of estate-manager, and it is not a session.**
-> **The Session 33 question** — seam drift detection cannot start here
-> because its second task reads another repository's fixture off the same
-> disk, and cross-repo concerns have had an owner since 2026-08-13. Named
-> as the blocker in **seven** consecutive rankings without being asked. A
-> cross-repo write: committed on its own and announced, per the estate
-> rules.
+> **Nothing is owed, and the last thing that was is asked.** **The
+> Session 33 question** — seam drift detection cannot start here because
+> its second task reads another repository's fixture off the same disk —
+> was filed at the estate register on 2026-08-25 as message
+> `6a330427`, `sysadmin-assistant → estate-manager`. It now awaits an
+> answer, which is the receiver's move and not a sitting's.
+>
+> **This paragraph asked for it again after it had been asked, which is
+> `SNAG-ESTATE-008`'s founding defect inside the block that entry is
+> about — found on the day it was closed.** It read *"Owed … Named as the
+> blocker in seven consecutive rankings without being asked"*, while the
+> sub-session list below and the blocked paragraph both already recorded
+> the filing: one block, one fact, two ways, and the stale half is the one
+> `claude-preflight.sh` prints first. No pattern reaches it — the sentence
+> carries no figure and no marker — so it is **`SNAG-ESTATE-012`'s class
+> exactly**, which is the residue argument demonstrating itself rather
+> than being asserted. Corrected by hand, because that is what
+> ESTATE-012 says this class costs.
 >
 > **The second ask is retired, and the owner got there first.**
 > `SNAG-ROADMAP-002` — nine sittings of wrong board movement — was
@@ -85,22 +96,29 @@
 > holds true), and a claims-checker that alerted on it would re-import
 > exactly that.
 >
-> **Next up**: **`SNAG-ESTATE-008` — decide it, do not measure it.**
-> *Recommended at the close of Session 82, whose closure sweep measured
-> all 30 open entries and left exactly this one undecided.* Its narrow
-> half is fixed, its general case became `SNAG-ESTATE-011` which is
-> fixed, and what is left of that is `SNAG-ESTATE-012`, which is filed
-> and open — so nothing of ESTATE-008's own remains and closing it is a
-> judgement about a chain rather than a measurement of the box. Ten
-> minutes, and the only sitting-scale work behind it is the general
-> question the sweep raises: **nothing checks that a snag's claim still
-> holds**, which is `SNAG-ESTATE-008` one document over.
+> **Next up**: **nothing checks that a snag's claim still holds — give
+> `snag_list.md` the reader `STATUS.md` already has.**
+> *Recommended at the close of Session 83, and named by the recommendation
+> it replaces.* Session 82 measured all 30 open entries by hand and found
+> **five dead on the box**, three of them P1 and three of them fixed for
+> nine to thirteen days; the board published all five. That is
+> `SNAG-ESTATE-008` one document over, and its fix is the convention that
+> closed it: an entry's claim names the check that would refute it, and
+> something runs the check. `ops_claims.py` is the shape and its rules
+> transfer — verdicts `match`/`mismatch`/`unknown`, every way of
+> not-knowing `unknown`, additive markers that cannot retire a check, and
+> nothing that edits the document it reads. A sitting, and the honest half
+> is deciding which claims are even patternable, since the sweep's five
+> were each measured a different way. **Read `SNAG-ESTATE-012` first**: it
+> is the standing statement of what this class cannot mechanise, and it
+> would gain the population it currently lacks.
 >
-> *Previously*: `SNAG-API-004` and the `skipped` audit it came out of —
-> **fixed by Session 80**.
+> *Previously*: `SNAG-ESTATE-008` — **decided and closed by Session 83**
+> on an empty residue rather than on its chain.
 >
-> **One sub-session action, and the other was done at the owner's
-> direction after the close.**
+> **No sub-session action is owed. Both are done**, and the header
+> paragraph above went on asking for the first of them until Session 83 —
+> recorded there rather than quietly corrected.
 >
 > - **The Session 33 question is asked.** Filed at the estate register as
 >   message `6a330427` on 2026-08-25, `sysadmin-assistant → estate-manager`,
@@ -220,6 +238,51 @@
 ---
 
 ## Recently Completed
+
+### Session 83 — the call Session 82 deferred, and the rule that decides it (2026-08-25)
+
+**`SNAG-ESTATE-008` is closed, and it is closed on its own residue rather
+than on its chain.** Session 82 measured thirty entries and left this one
+deliberately, because its narrow half was fixed by Session 73, its general
+case became `SNAG-ESTATE-011` (fixed by Session 76), and what remains of
+*that* is `SNAG-ESTATE-012` — filed and open. Parser reads **25 → 24
+open**, entries unmoved at **67**.
+
+**The rule the sweep needed and did not have: an empty *residue* is a
+closure, an empty *population* is not.** `SNAG-LOG-013` stays open on an
+empty population, because its claim holds again the moment the population
+refills. A residue cannot refill. So **closing a chain is not a closure** —
+what closes an entry is having nothing left that it *uniquely* names and
+nothing owns.
+
+**The test is the entry's own three founding instances, driven live rather
+than read off the docstrings.** Backdating the block's restart to
+`2026-08-22 09:00:00` makes `check_daemon_start` fire; raising `holds
+**2**` to `**9**` makes `check_alerts` fire with a note that **ends
+`(SNAG-ESTATE-008's founding case)`** — the running code cites the entry it
+closes. The third instance, the five orphan removals, is genuinely
+uncovered: `measure_unit(unit: str = OWN_UNIT)` has **one** caller and it
+passes the default, so no arbitrary unit is ever resolved. But that
+sentence carries no figure and no marker, which is `SNAG-ESTATE-012`'s
+symptom verbatim — so the residue has an owner and a narrower statement.
+
+**Leaving it open had become an instance of itself.** The `P2` was kept for
+the cost of *"sittings of ranking attention spent on settled items at the
+top of the document that sets the agenda"*; named by eight consecutive
+rankings with nothing of its own to do, it was paying that cost, and
+ranking its own residue two rungs louder than `SNAG-ESTATE-012` ranks it.
+
+**And the block demonstrated the residue while the entry was being
+closed.** The sub-session header still read *"Owed … Named as the blocker
+in seven consecutive rankings without being asked"* for the Session 33
+question, which had been filed as message `6a330427` earlier the same day
+and was already recorded as asked twice further down the same document.
+One block, one fact, two ways, with the stale half the one
+`claude-preflight.sh` prints first — and no pattern reaches it, because the
+sentence carries no figure and no marker. Corrected by hand, which is what
+ESTATE-012 says this class costs.
+
+**No code changed**, so no restart is owed and no test was added.
 
 ### Session 82 — the closure-marker sweep: five entries dead on the box, and no P1 left (2026-08-25)
 
