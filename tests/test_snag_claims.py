@@ -845,3 +845,163 @@ class TestAgainstTheOwningParser:
         assert theirs["open"] == sorted(
             entry.snag_id for entry in load_entries()[0] if entry.is_open and entry.snag_id
         )
+
+
+class TestTheHandoffApologyCheck:
+    """``SNAG-ROADMAP-001``'s check — the first with a cross-repo instrument.
+
+    Every other check in the registry can answer from this checkout or
+    from a file another repository leaves lying about.  This one has to
+    *run* estate-manager's parser, which fails for reasons the claim
+    knows nothing about, so the tests are about the three verdicts and
+    about the one coupling that would silently disarm it.
+
+    The producer is stubbed rather than mocked out.  A stub package on
+    disk driven by this interpreter exercises :func:`estate_probe`'s
+    subprocess, its JSON contract and the verdict logic together — and it
+    runs where estate-manager is not installed, which is CI.
+    """
+
+    APOLOGY = "_No unchecked task found — set one before the next session._"
+
+    def _stub(self, tmp_path: Path, *, returns: str | None, placeholder: bool = True) -> Path:
+        """A minimal ``estate_service.projects.roadmap`` on disk."""
+        pkg = tmp_path / "estate_service" / "projects"
+        pkg.mkdir(parents=True)
+        (tmp_path / "estate_service" / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "roadmap.py").write_text(
+            f"def is_placeholder(text):\n"
+            f"    return {placeholder!r}\n\n"
+            f"def next_action_from_handoff(text):\n"
+            f"    return {returns!r}\n",
+            encoding="utf-8",
+        )
+        return tmp_path
+
+    def _drive(self, tmp_path, monkeypatch, **kwargs):
+        import sys as _sys
+
+        monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", self._stub(tmp_path, **kwargs))
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", Path(_sys.executable))
+        return snag_claims.check_handoff_apology_published()
+
+    def test_the_producer_returning_the_apology_is_the_claim_holding(
+        self, tmp_path, monkeypatch
+    ):
+        """What Session 82 measured, and what the committed code still does."""
+        found = self._drive(tmp_path, monkeypatch, returns=self.APOLOGY.strip("_"))
+        assert found.verdict == "match"
+
+    def test_the_producer_returning_nothing_is_a_candidate_for_closure(
+        self, tmp_path, monkeypatch
+    ):
+        """Rule 2 — refuted is a candidate, and the check must be able to say it.
+
+        Driven at estate-manager's real in-flight fix on 2026-08-25 as
+        well as at this stub, which is how the coupling below was found.
+        """
+        found = self._drive(tmp_path, monkeypatch, returns=None)
+        assert found.verdict == "mismatch"
+        assert "omitted" in found.note
+
+    def test_a_detector_that_stops_seeing_a_placeholder_is_unknown(
+        self, tmp_path, monkeypatch
+    ):
+        """The probe's own isolation guard.
+
+        ``check_dropin_blind_spot``'s "the sweep did not return the probe
+        unit at all" and ``check_capped_signature_collides``' "the
+        probe's signatures come back uncapped", a third time: a fixture
+        that no longer isolates the question must say so rather than
+        answer it.
+        """
+        found = self._drive(
+            tmp_path, monkeypatch, returns=self.APOLOGY.strip("_"), placeholder=False
+        )
+        assert found.verdict == "unknown"
+        assert "placeholder" in found.note
+
+    def test_an_absent_interpreter_is_unknown_and_never_a_skip(self, tmp_path, monkeypatch):
+        """The question the handoff posed, settled by rule 5.
+
+        A test may ``skip`` when estate-manager is not on the box —
+        :class:`TestAgainstTheOwningParser` does, because it asserts two
+        readers agree and has nothing to assert with one.  A *check*
+        reports on a claim, so not being able to test it is the third
+        verdict rather than a fourth thing.
+        """
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", tmp_path / "nowhere" / "python")
+        found = snag_claims.check_handoff_apology_published()
+        assert found.verdict == "unknown"
+        assert "interpreter" in found.note
+
+    def test_a_producer_that_will_not_import_is_unknown_naming_why(
+        self, tmp_path, monkeypatch
+    ):
+        """The state estate-manager's tree was actually in mid-sitting.
+
+        A half-applied rename is neither a claim holding nor a claim
+        refuted, and the sentence naming the import failure is what a
+        sitting needs at that moment.
+        """
+        import sys as _sys
+
+        pkg = tmp_path / "estate_service" / "projects"
+        pkg.mkdir(parents=True)
+        (tmp_path / "estate_service" / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "roadmap.py").write_text("raise ImportError('half-applied')\n", encoding="utf-8")
+        monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", tmp_path)
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", Path(_sys.executable))
+        found = snag_claims.check_handoff_apology_published()
+        assert found.verdict == "unknown"
+        assert "would not import or run" in found.note
+
+    def test_the_probe_touches_nothing_private(self):
+        """**The guard for the defect the falsification found.**
+
+        The first draft called ``roadmap._first_meaningful`` to evidence
+        the strip — a private helper whose *name* is what estate-manager's
+        fix renames — so driven at the real fix it reported ``unknown``
+        and would have gone on reporting it for ever, structurally unable
+        to witness the closure it exists to notice.  A check coupled to
+        the implementation it measures is the shape of the bug it
+        measures, and nothing else here would catch it coming back: the
+        stub above defines only public names, so a probe reaching for a
+        private one fails the same way against every fixture and reads as
+        an environment problem.
+        """
+        import ast
+
+        probe = snag_claims.APOLOGY_PROBE.format(service="/x", apology="_y_")
+        private = {
+            node.attr
+            for node in ast.walk(ast.parse(probe))
+            if isinstance(node, ast.Attribute) and node.attr.startswith("_")
+        }
+        assert private == set()
+
+    def test_the_hook_still_writes_the_line_the_entry_is_about(self):
+        """Rule 7's instrument, and the reason the probe is read not typed.
+
+        The entry's impact turns on the wording being emitted by a hook
+        this box controls.  A literal copied into the module would go on
+        measuring a sentence nothing writes.
+        """
+        apology, problem = snag_claims.hook_apology()
+        assert problem == ""
+        assert apology.startswith("_") and apology.endswith("_")
+
+    def test_a_hook_without_the_assignment_is_a_problem_not_a_match(self, tmp_path):
+        """The failure direction, falsified against the alternative.
+
+        Reading nothing and answering ``match`` would report the entry
+        holding on the strength of a file that no longer says anything.
+        """
+        empty = tmp_path / "generate-handoff.sh"
+        empty.write_text("#!/bin/bash\necho nothing\n", encoding="utf-8")
+        with patch.object(snag_claims, "HANDOFF_HOOK", empty):
+            apology, problem = snag_claims.hook_apology()
+        assert apology == ""
+        assert "italic fallback" in problem

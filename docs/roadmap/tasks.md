@@ -394,6 +394,62 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 86 — the tenth check, and the first that had to run another repository's code (2026-08-25) ✅
+
+- [x] `check_handoff_apology_published` in `sysadmin/snag_claims.py` — the tenth check, and the first whose instrument is another repository's *code path* rather than its document
+- [x] `estate_probe()` runs estate-manager's own interpreter, read-only in both directions, with every way of not running reported as `unknown` naming why — rule 5, not a fourth verdict
+- [x] `hook_apology()` reads the probe off `~/.claude/hooks/generate-handoff.sh` rather than holding a literal, so a reworded hook cannot leave the check measuring a sentence nothing writes
+- [x] `estate_module_state()` names whether the measurement was taken against a released fix or an edit in flight — opposite remedies, close versus wait
+- [x] Driven at **three real states** of estate-manager's tree: committed `roadmap.py` → `match`, their uncommitted in-flight fix → `mismatch`, no venv → `unknown`
+- [x] `<!--check:handoff_apology_published-->` into `SNAG-ROADMAP-001`'s body; estate-manager's `read_snags` reads 69 entries and 26 open either side
+- [x] 8 tests (2457 → 2465), seven falsifications driven, one of them twice
+- [x] Checked entries 9 → 10, unchecked 17 → 16; nine of the ten claims still hold
+- [x] Entry left **open** deliberately — rule 2, and the fix is not released
+
+**The question the handoff posed, answered by importing rather than
+inventing.** It asked whether a check that skips when estate-manager's
+venv is absent is a check at all or a fourth way of reporting `unknown`.
+Neither: it is the **third** verdict used for its stated purpose. The
+`pytest.skip` precedent in `TestAgainstTheOwningParser` does not transfer,
+and the reason is what the two things *are* — a test asserting two readers
+agree has nothing to assert when one is absent, while a check reports on a
+claim and "nobody managed to test it" is an answer `schema_guard` already
+defines. Rule 5 had settled this before the sitting started; what the
+sitting had to do was notice that it applied.
+
+**The box answered it within the hour, which no amount of arguing would
+have.** estate-manager had an uncommitted edit in flight in the exact file
+— `roadmap.py` at 22:34, under their `SNAG-ESTATE-056` — so the module was
+measured twice four minutes apart and came back as two different modules,
+the second refusing to import. `unknown` naming the import failure is a
+better sentence for a sitting to read at that moment than any silence, and
+it is a state a fixture would never have produced.
+
+**The falsification caught a defect in the check, and it was the shape of
+the bug the check measures.** The first draft called
+`roadmap._first_meaningful` to evidence the strip — a private helper whose
+*name* is what their fix renames — so driven at the real fix it reported
+`unknown` and would have gone on reporting it for ever, unable to witness
+the closure it exists to notice. The repair states the mechanism more
+sharply than the entry ever did: `is_placeholder` says placeholder and the
+producer publishes it anyway. No private symbol, and it survives a rename.
+
+**The obvious wider reading would already have reported this refuted.**
+`looks_like_no_action` exists in that module today and matches this exact
+wording — wired into `/next`, and **not** into `briefing._next_action_rows`,
+which is the surface the entry names. A check asking *does any guard reject
+this line* answers "yes" while the producer goes on returning it: rule 1's
+trap in a new dress, measuring that a remedy exists rather than that the
+fault is gone.
+
+**Why this entry, and what it costs to be wrong.** It was the only
+unchecked entry whose wrong answer is *published* — an unfilled handoff
+placeholder reaching the estate board as a real next action, where every
+other unchecked claim costs a reader a glance. It is also delegated, so
+the check answers *does the producer still do this* and never *should it*:
+`check_estate_port_8500`'s refusal in writing, one claim over, and the
+second owner the estate rules exist to prevent.
+
 ## Session 85 — the ninth check, for the entry the mechanism rule was named after (2026-08-25) ✅
 
 - [x] `check_capped_signature_collides` in `sysadmin/snag_claims.py` — the ninth check, and rule 1's second case

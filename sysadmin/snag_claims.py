@@ -102,8 +102,9 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
 import re
-import subprocess  # noqa: S404 — one read-only `systemctl show`
+import subprocess  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
 import sys
 import tempfile
 from collections.abc import Callable, Iterable
@@ -569,6 +570,26 @@ DEPRECATED_NAMES = frozenset(
 #: ``SNAG-ESTATE-005``'s row and the name it gives the port.
 ESTATE_PORT = "8500"
 ESTATE_PORT_CLAIMANT = "sysadmin-service"
+
+#: ``SNAG-ROADMAP-001``'s subject: estate-manager's roadmap parser, which
+#: left this repository on 2026-08-13 (ADR-0005) and is reachable only by
+#: running it.  ``estate_service`` is not installed here and is not in
+#: ``estate-lib``, so the instrument is their interpreter, the same one
+#: ``tests/test_snag_claims.py`` already drives ``read_snags`` with.
+ESTATE_SERVICE = Path.home() / "projects" / "estate-manager" / "service"
+ESTATE_PYTHON = ESTATE_SERVICE / ".venv" / "bin" / "python"
+ESTATE_PROBE_TIMEOUT = 60
+
+#: The hook that writes the line the entry is about, and the assignment
+#: that holds it.  **Read rather than typed**, which is
+#: :func:`check_capped_signature_collides`'s rule about deriving a probe
+#: from its producer: the entry's own impact bullet turns on the wording
+#: being "emitted by a hook this box controls", so a literal copied into
+#: this module would go on measuring a sentence nothing writes the day
+#: the hook is reworded — and would report the entry holding on the
+#: strength of a string only this file still contains.
+HANDOFF_HOOK = Path.home() / ".claude" / "hooks" / "generate-handoff.sh"
+HOOK_APOLOGY_RE = re.compile(r'NEXT="(_[^"]*_)"')
 
 
 def check_sysd_ollama_ordering() -> Measurement:
@@ -1073,6 +1094,228 @@ def check_capped_signature_collides() -> Measurement:
     )
 
 
+def hook_apology() -> tuple[str, str]:
+    """The line the handoff hook writes when a sitting queued nothing.
+
+    Returns the line as the hook writes it and a problem sentence, one of
+    which is always empty.  Read from the hook rather than held here for
+    the reason stated at :data:`HANDOFF_HOOK`.
+    """
+    try:
+        text = HANDOFF_HOOK.read_text(encoding="utf-8")
+    except OSError as exc:
+        return "", f"{HANDOFF_HOOK} could not be read ({exc.__class__.__name__})"
+    found = HOOK_APOLOGY_RE.search(text)
+    if not found:
+        return "", (
+            f"{_rel(HANDOFF_HOOK)} no longer assigns an italic fallback to NEXT — the "
+            "line this entry is about is not the line the hook writes any more"
+        )
+    return found.group(1), ""
+
+
+def estate_module_state() -> str:
+    """Whether the module the probe just ran is committed over there.
+
+    ``ports_checked``'s rule applied to somebody else's repository.  A
+    ``mismatch`` measured against a **released** fix means close the
+    entry; one measured against an edit in flight means wait, and the two
+    have opposite remedies — so the verdict alone is not enough and the
+    difference is carried as evidence rather than left for the reader to
+    go and find.
+
+    The sitting that wrote this check needed it within the hour:
+    estate-manager was mid-fix in that exact file, so the first
+    ``mismatch`` this check ever produced was off an uncommitted edit.
+    Read-only, and never a reason to fail — an unanswerable question
+    yields a sentence saying so.
+    """
+    module = ESTATE_SERVICE / "estate_service" / "projects" / "roadmap.py"
+    try:
+        result = subprocess.run(  # noqa: S603 — a read-only `git status` over there
+            ["git", "-C", str(ESTATE_SERVICE), "status", "--porcelain", "--", str(module)],
+            capture_output=True,
+            text=True,
+            timeout=ESTATE_PROBE_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "estate-manager's checkout state could not be read"
+    if result.returncode != 0:
+        return "estate-manager's checkout state could not be read"
+    return (
+        "measured against an uncommitted edit in estate-manager's tree — not released"
+        if result.stdout.strip()
+        else "measured against estate-manager's committed roadmap.py"
+    )
+
+
+def estate_probe(script: str) -> tuple[dict[str, object] | None, str]:
+    """Run ``script`` in estate-manager's interpreter and read its JSON.
+
+    Returns the payload and a problem sentence, one of which is always
+    empty.  **Every way of not running is a problem rather than an
+    answer** — rule 5, and this is the one instrument in the registry
+    that can fail for reasons having nothing to do with the claim.
+
+    The interpreter is theirs because ``estate_service`` is neither
+    installed here nor in ``estate-lib``, which is the same wall
+    :data:`tests.test_snag_claims` hits driving ``read_snags`` and the
+    same one rule 8 files as cross-repo friction rather than absorbing.
+    Read-only in both directions: nothing is written into their tree, and
+    the script is handed on ``-c`` rather than left in it.
+    """
+    if not ESTATE_PYTHON.exists():
+        return None, (
+            f"estate-manager's interpreter is not at {ESTATE_PYTHON} — the module this "
+            "entry is about cannot be run from here"
+        )
+    try:
+        result = subprocess.run(  # noqa: S603 — a fixed interpreter, a literal script
+            [str(ESTATE_PYTHON), "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=ESTATE_PROBE_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"estate-manager's interpreter would not run ({exc.__class__.__name__})"
+    if result.returncode != 0:
+        tail = " ".join(result.stderr.split())[-200:]
+        return None, f"estate-manager's parser would not import or run: {tail}"
+    try:
+        payload = json.loads(result.stdout)
+    except ValueError:
+        return None, "estate-manager's parser answered something that is not JSON"
+    if not isinstance(payload, dict):
+        return None, "estate-manager's parser answered JSON that is not an object"
+    return payload, ""
+
+
+#: The probe handed to :func:`estate_probe`.  It drives
+#: ``next_action_from_handoff`` over a handoff whose ``## Next action``
+#: section holds exactly what the hook writes.
+#:
+#: **It touches nothing private, and the first draft did.**  That draft
+#: called ``_first_meaningful`` to evidence the strip the entry turns on
+#: — a helper whose *name* is what estate-manager's fix renames — so it
+#: reported ``unknown`` when driven at their in-flight fix and would have
+#: gone on reporting it for ever, unable to witness the closure it exists
+#: to notice.  A check coupled to the implementation it measures is the
+#: shape of the bug it is measuring.  What is asked instead is public and
+#: named in the entry: ``is_placeholder`` says placeholder, and the
+#: producer publishes it anyway.
+APOLOGY_PROBE = """\
+import json, sys
+sys.path.insert(0, {service!r})
+from estate_service.projects import roadmap
+apology = {apology!r}
+handoff = "# Handoff — 2026-08-25\\n\\n## Next action\\n\\n" + apology + "\\n"
+print(json.dumps({{
+    "returned": roadmap.next_action_from_handoff(handoff),
+    "raw_placeholder": roadmap.is_placeholder(apology),
+}}))
+"""
+
+
+def check_handoff_apology_published() -> Measurement:
+    """``SNAG-ROADMAP-001`` — the detector strips the marks it keys on.
+
+    **The first check whose instrument is another repository's code path
+    rather than its document**, and the question that forces was settled
+    by rule 5 rather than by a new verdict.
+    :func:`check_estate_port_8500` reads a file estate-manager owns and
+    can always answer; this one has to *run* code estate-manager owns,
+    which fails for reasons the claim knows nothing about — no checkout,
+    no venv, a renamed symbol, a tree caught mid-edit.  A test may
+    ``skip`` there, because a test asserting two readers agree has
+    nothing to assert when one is absent.  A check may not: it reports on
+    a claim, and "nobody managed to test it" is the third verdict this
+    module already imports from :mod:`sysadmin.core.schema_guard`.  So
+    every one of those is ``unknown`` with the reason named, and none of
+    them is a fourth thing.
+
+    That is not hypothetical.  The sitting that wrote this check measured
+    the module twice four minutes apart and got two different modules:
+    estate-manager had an uncommitted edit in flight renaming
+    ``_first_meaningful`` to ``_meaningful_lines`` — which is this
+    entry's own proposed fix, *"have ``_first_meaningful`` return both raw
+    and cleaned"* — and the tree would not import in between.
+    ``unknown`` naming the import failure is a better sentence for a
+    sitting to read at that moment than any silence.
+
+    **What is measured is the producer, not the publication.**  The entry
+    is delegated and its title says *published*, but a consumer's wiring
+    is estate-manager's design and judging it here is the second owner
+    the estate rules exist to prevent — :func:`check_estate_port_8500`'s
+    refusal in writing, one claim over.  What their fix must move is
+    ``next_action_from_handoff`` returning the apology, so that is the
+    question asked.
+
+    **And the obvious wider reading would already report this refuted.**
+    ``looks_like_no_action`` exists in that module today, matches this
+    exact wording, and is wired into ``/next``; a check that asked *does
+    any guard reject this line* answers "yes" while the producer goes on
+    returning it.  That is rule 1's trap in a new dress — measuring that
+    a remedy *exists* rather than that the fault is *gone* — so the
+    reading is narrowed to what the producer returns, and what is carried
+    beside it is the contradiction rather than the implementation:
+    ``is_placeholder`` says placeholder, and the row is published anyway.
+
+    The verdict is not the whole report.  A ``mismatch`` off a released
+    fix and one off an edit in flight have opposite remedies, so
+    :func:`estate_module_state` names which was measured — rule 2 needs a
+    sitting to *judge*, and a verdict it cannot act on is not enough to
+    judge from.
+    """
+    apology, problem = hook_apology()
+    if problem:
+        return Measurement("unknown", problem)
+
+    payload, problem = estate_probe(
+        APOLOGY_PROBE.format(service=str(ESTATE_SERVICE), apology=apology)
+    )
+    if payload is None:
+        return Measurement("unknown", problem)
+
+    returned = payload.get("returned")
+    raw_placeholder = payload.get("raw_placeholder")
+    detail = (
+        f"hook writes {apology!r}",
+        f"is_placeholder says placeholder={raw_placeholder}",
+        f"next_action_from_handoff returned {returned!r}",
+        estate_module_state(),
+    )
+
+    if raw_placeholder is not True:
+        return Measurement(
+            "unknown",
+            "the detector no longer reads the hook's line as a placeholder at all, so the "
+            "probe stops isolating the contradiction the entry is about",
+            detail,
+        )
+    if returned is None:
+        return Measurement(
+            "mismatch",
+            "next_action_from_handoff now returns nothing for a line its own detector "
+            "calls a placeholder — the row is omitted, which is the outcome the entry asks "
+            "for",
+            detail,
+        )
+    #: The hook's own marks, read off the hook rather than off their
+    #: parser: reimplementing the strip here would make this module a
+    #: second author of estate-manager's normalisation, which is the
+    #: thing rule 8 refuses.
+    if isinstance(returned, str) and returned.strip() in {apology, apology.strip("_")}:
+        return Measurement("match", "", detail)
+    return Measurement(
+        "unknown",
+        f"the producer returned {returned!r}, which is neither the hook's line nor "
+        "nothing — the parser has moved and this probe no longer isolates the question",
+        detail,
+    )
+
+
 # ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
@@ -1155,6 +1398,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-LOG-013",
             "a capped signature can name two faults at once",
             check_capped_signature_collides,
+        ),
+        Check(
+            "handoff_apology_published",
+            "SNAG-ROADMAP-001",
+            "the handoff placeholder survives the detector",
+            check_handoff_apology_published,
         ),
     )
 }
