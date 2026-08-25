@@ -15,8 +15,15 @@ being asked. (2) **Report `SNAG-ROADMAP-002`'s ninth consecutive
 misreport** — 59 → 61 entries / 57 → 59 open for a sitting that closed
 one and opened two, measured either side of the edit by driving
 `read_snags` over the file. The parser is estate-manager's since
-2026-08-13, so what is owed from here is a report and not a fix. Both are
-cross-repo writes: committed on their own and announced.
+2026-08-13, so what is owed from here is a report and not a fix.
+**Partially discharged and deliberately not ticked**: the figures were
+put to the live `estate-manager-48` session in the announcement of
+`SNAG-ESTATE-049`, and that session had `roadmap.py` and
+`test_snags_format.py` open at the time — but **a message to a session is
+ephemeral and no document over there records it**, so if that session
+ends without acting the report leaves no trace. What is still owed is the
+durable form. Ask (1) is untouched. Both are cross-repo writes: committed
+on their own and announced, which `SNAG-ESTATE-049` now demonstrates.
 
 ## What this sitting decided, and what it rejected
 
@@ -93,15 +100,44 @@ rather than assumed before committing: `uv lock` regenerates the file
 byte-identically and `uv lock --check` exits 0, so it is a real
 resolution and not a hand-edit or a stale artefact.
 
-**A question for the owner rather than a finding, because answering it
-differently changes what another repository does.** That pin exists so
-one gate means one thing, and this repository is **outside** it: its own
-`[project.optional-dependencies]` carry `ruff>=0.5.0` and `mypy>=1.10.0`,
-and the venv runs **ruff 0.15.0** and **mypy 2.3.0** — so Session 77's
-green gate was run at versions the estate has deliberately moved off.
-Nothing is broken by it today. Whether `sysadmin_assistant` is meant to
-be inside that pin is estate-manager's call, not this repository's, so it
-is recorded here and **not** filed as a snag against either side.
+**That question was routed to the owner and is now `SNAG-ESTATE-049`**
+in `estate-manager/docs/roadmap/snag_list.md`, commit `e60b589` — written
+from here, **committed on its own** and announced, with a recommendation
+and **no ruling** (their ADR-0011 §1). Nothing else in that file was
+touched and its preamble carries no count to restate.
+
+**Measuring it before filing changed what the question is, which is why
+it was worth doing.** The lock line was the symptom, not the mechanism.
+`estate-lib` is an editable path dependency carrying `estate/py.typed`,
+so `mypy sysadmin` **resolves `estate.*` to that repository's real source
+files** — `estate.gpu`, `estate.llama`, `estate.text`, `estate.registry`
+and `estate.registry.discovery` all came back as
+`/home/gaddi/projects/estate-manager/lib/estate/…` under
+`mypy --verbose`. So this library's code is analysed by two checkers: its
+own pinned `mypy==2.3.1` with `types-pyyaml`, and this tree's **2.3.0
+without it**, under `ignore_missing_imports = true`. The version gap was
+the visible half; the **stub set** is the half that could bite, since
+`estate.registry` parses YAML.
+
+**The `ruff` half is probably not a question at all**, and the entry says
+so as a recommendation rather than a ruling: a consumer's `ruff check .`
+never opens a file in `lib/`, so this tree running 0.15.0 cannot make the
+estate's gate mean two things — which is that pin's whole stated purpose.
+The `mypy` half is different because the analysis genuinely crosses the
+boundary, and `py.typed` is what invites it.
+
+**It lands beside `SNAG-ESTATE-047` and does not duplicate it.** That
+entry asks which `ruff` a venv *runs* against what its file *declares*,
+within estate-manager's two trees, and explicitly rejected reading a
+`uv.lock` as "a resolution rather than an installation" — this reading is
+an installation. It also counted five `ruff`s on this box including
+**0.15.0**, which is the one this venv runs, so one of the five now has
+an address.
+
+**Nothing was changed on this side, deliberately.** Pinning `mypy` here
+to match would be this repository answering another's question by acting
+on it, and would bind Alfred and venture-assistant by precedent without
+either being asked. Neither of those two consumers was measured.
 
 ## State of the box
 
