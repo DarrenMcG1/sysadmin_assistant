@@ -394,6 +394,36 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 82 — the closure-marker sweep, and what "the body mentions a fix" is worth (2026-08-25) ✅
+
+- [x] Measure **all 30** entries the parser reads as open against the live box, not against their own bodies
+- [x] Close the five that are dead, with the measurement in the entry: `SNAG-AGENT-003`, `SNAG-AGENT-004`, `SNAG-ESTATE-001`, `SNAG-DB-002`, `SNAG-PROJ-013`
+- [x] Put the closure where `read_snags` reads it — the **title parenthetical**, as a clause that *starts* with a done word
+- [x] Re-measure and keep open everything that still holds; record the three that were checked and stayed
+- [x] File `SNAG-ROADMAP-001`'s reproduction at estate-manager rather than working around it (message `e0461fe9`)
+- [x] Correct `STATUS.md`'s false verification claim
+- [ ] **Decide `SNAG-ESTATE-008`** — deliberately not taken; it is a judgement about a chain, not a measurement
+
+**Result**: parser reads **30 → 25 open**, entries unmoved at **67**, and
+**no P1 published for this repository** for the first time.
+
+**What the sitting corrected in its own ranking.** Session 81 called five
+a floor because twelve of thirty bodies mention a fix. There are **14**,
+and **eight are alive** — this repository names a new entry *by the fix
+that created it*, so the fix-word usually points at the parent. Five was
+the population, not a floor.
+
+**Three re-measured open, which is the half that makes the five
+credible.** `SNAG-SYSD-003` holds verbatim; `SNAG-ROADMAP-001` was
+reproduced and its stated cause refuted (the detector is wired in and
+cannot fire, because normalisation strips what it keys on);
+`SNAG-LOG-013`'s population is empty and it stays open, because an empty
+population is what mis-ranked its parent.
+
+**Left for the next sitting**: nothing checks that a snag's claim still
+holds. `ops_claims.py` does exactly this for `STATUS.md`'s block, and the
+five entries closed here are the same defect one document over.
+
 ## Session 81 — SNAG-DOCS-004, one rule, three modules, three ways of writing it (2026-08-25) ✅
 
 Two Tier 3 docstrings claimed their prompt "contains no digit by

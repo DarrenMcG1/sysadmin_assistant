@@ -37,10 +37,20 @@
 > `SNAG-ROADMAP-002` — nine sittings of wrong board movement — was
 > **fixed by estate-manager at 09:12:22 on 2026-08-25**, an hour into
 > Session 78, as their `SNAG-ESTATE-048`. Verified here by driving the
-> new `read_snags` over `snag_list.md` rather than by being told: every
-> known-fixed entry now reads `is_open=False` and every known-open one
-> `True`, and the open count for this file drops **59 → 27** on a
-> document nobody had edited. So the report that was owed describes a
+> new `read_snags` over `snag_list.md` rather than by being told, and
+> the open count for this file dropped **59 → 27** on a document nobody
+> had edited.
+>
+> **That verification was corrected on 2026-08-25 by Session 82 and the
+> sentence it replaced was false.** It read *"every known-fixed entry
+> now reads `is_open=False`"*, which tested the **mechanism** and not
+> the **document**: the parser was right and five entries were still
+> publishing claims that are dead on the box, three of them P1. What the
+> run actually established is that a closure the document expresses in
+> its **title parenthetical** is now read — and every one of the five
+> expressed its closure somewhere else, or not at all. Measuring a
+> parser against entries you already believe are fixed cannot find the
+> entries you believe are open and are not. So the report that was owed describes a
 > defect that no longer exists, and nothing is owed in its place.
 >
 > **Two open alert rows, named here rather than counted, and two have
@@ -75,9 +85,19 @@
 > holds true), and a claims-checker that alerted on it would re-import
 > exactly that.
 >
-> **Next up**: **`SNAG-API-004` and the `skipped` audit it came out
-> of.** *Recommended at the close of Session 79, which shipped Session
-> 25's Tier 3 and completed the session.*
+> **Next up**: **`SNAG-ESTATE-008` — decide it, do not measure it.**
+> *Recommended at the close of Session 82, whose closure sweep measured
+> all 30 open entries and left exactly this one undecided.* Its narrow
+> half is fixed, its general case became `SNAG-ESTATE-011` which is
+> fixed, and what is left of that is `SNAG-ESTATE-012`, which is filed
+> and open — so nothing of ESTATE-008's own remains and closing it is a
+> judgement about a chain rather than a measurement of the box. Ten
+> minutes, and the only sitting-scale work behind it is the general
+> question the sweep raises: **nothing checks that a snag's claim still
+> holds**, which is `SNAG-ESTATE-008` one document over.
+>
+> *Previously*: `SNAG-API-004` and the `skipped` audit it came out of —
+> **fixed by Session 80**.
 >
 > **One sub-session action, and the other was done at the owner's
 > direction after the close.**
@@ -200,6 +220,54 @@
 ---
 
 ## Recently Completed
+
+### Session 82 — the closure-marker sweep: five entries dead on the box, and no P1 left (2026-08-25)
+
+**The estate board was publishing three P1s and two P2s for this
+repository that do not exist.** All 30 open entries were measured
+against the box, not read: `SNAG-AGENT-003` (**45** file-organiser runs,
+latest 16:22:03, against *"once in its life"*), `SNAG-AGENT-004` (**2**
+unresolved alert rows against **26,270**, with `redis unreachable` at
+2,017 rows / 0 open and `Critical disk usage on /` at 13,968 / 0),
+`SNAG-ESTATE-001` (**0** `personalassistant*` unit files in either unit
+directory), `SNAG-DB-002` (**11 of 12** databases at 2.44 = 2.44, the
+twelfth `template0` with no recorded version and excluded by the check's
+own non-NULL rule — **0 stale**) and `SNAG-PROJ-013` (ImbaBots heads
+`# Handoff — 2026-08-24`). The live parser reads **30 → 25 open** with
+the entry count unmoved at **67**, and **no P1 is published for this
+repository for the first time**. Three of the five had been fixed for
+between nine and thirteen days.
+
+**The predictor that ranked this sitting was wrong, and the sweep came
+out at exactly the number it called a floor.** Session 81 reasoned that
+twelve of thirty bodies mention a fix, so five must be a floor.
+Measured: **14** bodies mention one and **eight of the fourteen are
+alive**, because this repository's convention is that a new entry is
+*named by the fix that created it* — so a fix-word in a body usually
+points at the entry's **parent**. Grepping for the word answers "does
+this entry discuss a fix"; only the box answers whether *this* entry's
+claim still holds. Second time a ranking here has been built on a grep
+answering the adjacent question (`SNAG-DOCS-002` was the first).
+
+**Three entries were re-measured and stay open, which is what makes the
+five worth anything.** `SNAG-SYSD-003` holds as written
+(`ollama.service` is `LoadState=not-found` and still in
+`sysadmin.service`'s `After=`). `SNAG-ROADMAP-001` was **reproduced**,
+and the reproduction refutes its own stated cause — the detector *is*
+wired into the "next" heading path now and **cannot fire**, because
+`_first_meaningful` strips the italics `is_placeholder` keys on before
+testing (`is_placeholder(raw)` **True**, `is_placeholder(naked)`
+**False**); the module is estate-manager's since ADR-0005, so it was
+**filed** to their register as message `e0461fe9` rather than fixed
+here. And `SNAG-LOG-013`'s population is **empty** at the live endpoint
+and it **stays open**, because "population is currently zero" is exactly
+what mis-ranked its parent `SNAG-LOG-010`.
+
+`SNAG-DB-002` is the mechanical note worth keeping: it carried **three**
+closure statements in its title and read open, because `read_snags`
+needs a done word at the **start** of a clause and `check half **fixed
+2026-08-13**` starts with "check". It is the named example in the
+parser's own docstring — documented drift, not a parser defect.
 
 ### Session 81 — SNAG-DOCS-004, the rule three modules state and the three ways it was written (2026-08-25)
 
