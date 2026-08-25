@@ -1113,6 +1113,43 @@ class LogReviewResponse(Contract):
         return {} if v is None else v
 
 
+class HealthReviewResponse(Contract):
+    """GET /api/sysadmin/review — the latest stored weekly system health review.
+
+    The **third** review model matching the third review table, the call
+    :class:`DiskReviewResponse` and :class:`LogReviewResponse` already
+    made for the same reason: the reviews answer different questions and
+    their ``stats`` blobs share no keys.
+
+    It carries ``confidence`` for :class:`LogReviewResponse`'s reason,
+    sharpened by what this review is made of.  Every headline figure here
+    is a comparison of two windows, and ``confidence`` says whether the
+    monitor watched enough of *this* one to describe it at all.  The
+    companion fact — whether the two windows were watched *equally*, and
+    so whether the week-on-week figures mean anything — lives at
+    ``stats["comparable"]`` rather than being promoted alongside it,
+    because a consumer that shows or hides the review decides on the
+    first and a consumer reading the prose is already told the second in
+    words.
+
+    ``llm_used`` False means llama-server was unavailable and
+    ``narrative`` is the deterministic digest, not prose.
+    """
+
+    generated_at: str | None = None
+    period_days: int = 7
+    narrative: str = ""
+    llm_used: bool = False
+    model_used: str | None = None
+    confidence: str = "high"
+    stats: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("stats", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v: Any) -> Any:
+        return {} if v is None else v
+
+
 class ProjectHistoryPoint(Contract):
     """One point of the ``history`` list from GET /api/projects/{name}.
 

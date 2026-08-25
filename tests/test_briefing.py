@@ -142,6 +142,7 @@ def _session_returning(
     disk_review=None,
     alerts=None,
     log_review=None,
+    health_review=None,
 ):
     """Mock session whose execute() feeds each gather step in order.
 
@@ -150,7 +151,12 @@ def _session_returning(
     this file fails at once.  (It did, when "Pick This Up" was added, and
     again when the envelope added alerts — the docstring was right twice.
     The Session 4 cutover then *removed* the two project reads, which
-    broke every test the other way.)
+    broke every test the other way.  Session 25's Tier 3 then added a
+    third review read and broke them all again, which is this
+    docstring's fourth outing and the reason the helper is positional
+    rather than keyword-matched: a mismatch here is a loud failure in
+    every test at once, and a lenient mock would let a missing read pass
+    silently.)
     """
     session = AsyncMock()
     session.execute = AsyncMock(
@@ -161,6 +167,7 @@ def _session_returning(
             _result_rows(alerts or []),
             _result_first(disk_review),
             _result_first(log_review),
+            _result_first(health_review),
         ]
     )
     return session
@@ -583,6 +590,7 @@ class TestBuildFacts:
             },
             "disk_review": None,
             "log_review": None,
+            "health_review": None,
         }
         facts = build_facts(gathered, datetime.now(UTC))
 

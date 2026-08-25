@@ -4,10 +4,10 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and one sub-session action is.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 10:10:49**
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 13:11:35**
 > <!--check:daemon_start-->, `/health` answers **200** <!--check:health-->,
-> `alembic current` reads 015 at the packaged head <!--check:schema-->, and
-> `alerts` holds **2** unresolved rows <!--check:alerts-->.
+> `alembic current` reads 016 at the packaged head <!--check:schema-->, and
+> `alerts` holds **3** unresolved rows <!--check:alerts-->.
 >
 > **Every claim above names the check that closes it**, and that is what
 > `<!--check:…-->` is: the name of a check, never a copy of the figure
@@ -37,39 +37,26 @@
 > document nobody had edited. So the report that was owed describes a
 > defect that no longer exists, and nothing is owed in its place.
 >
-> **Two open alert rows, named here rather than counted, and two closed
-> themselves overnight.** <!--check:open_titles-->
+> **Three open alert rows, named here rather than counted, and the one
+> the last block named has closed itself.** <!--check:open_titles-->
 >
 > - **`Weekly disk review ready` (`info`)** is below
 >   `tray.notify_min_severity`. Open since 2026-08-17.
-> - **`High VRAM usage on AMD Radeon RX 7900 XTX` (`warning`)** opened
->   **10:08:22 today**, during Session 78, and was **true when the
->   sitting closed**: 23,114 MB of 24,560 used (94.1 %), `gpu_percent`
->   100, 340 W. Named rather than counted because it is the shared card
->   the estate map warns about — one 24 GB device behind four services —
->   so which process holds it decides whether this is work or a leak, and
->   this repository monitors the card without owning anything on it.
->   Nothing was done about it here: it is a live reading, not a
->   diagnosis, and attributing it needs `~/.local/bin/wait-for-dgpu`'s
->   neighbourhood rather than a monitoring change.
-> - **Closed with nothing done, both of them.** `venture-chat
->   unreachable` (`critical`) resolved **05:31:10** — venture-assistant's
->   owner restarted their own service, which is the estate rule working
->   rather than a coincidence. `Estate scan could not reach sources`
->   (`warning`) resolved **05:32:07** on the first judge poll after the
->   estate's daily scan.
-> - **That second one is why `SNAG-ESTATE-013` exists, and it is the
->   `expires` marker's first live test.** The block predicted it would
->   clear "at 03:32 tomorrow with nothing done". It cleared with nothing
->   done, **two hours later than named**: the estate publishes
->   `started_at: 2026-08-25T03:32:17+00:00` — UTC, with the offset right
->   there — and the block rendered it as a local wall clock. Local is
->   04:32:17 BST, which is when `estate-manager-scan.timer` actually
->   fired, and the judge is hourly. `SNAG-LOG-009`'s defect one document
->   over. **The check was right and could not have been righter**: it
->   reported `unknown`, never `mismatch`, which is what its rule 2
->   reserves `unknown` for. What it cannot see is a marker written in the
->   wrong zone, because a naive instant carries nothing to disagree with.
+> - **`venture-chat unreachable` (`critical`)** re-opened after closing
+>   itself at 05:31:10 this morning. It is the same service Tier 3's
+>   first live run ranks flappiest — **4 outage episodes, 84.59 %
+>   uptime, score 69** — so the alert row and the review agree, which is
+>   the first time two surfaces here have described one service from
+>   different tables and said the same thing.
+> - **`alfred-frontend unreachable` (`critical`)** — 1 episode, 91.57 %
+>   uptime, score 90, graded degraded. Named because the last block did
+>   not name it and the claims checker said so.
+> - **`High VRAM usage on AMD Radeon RX 7900 XTX` resolved.** It was
+>   open at Session 78's close at 94.1 % of the shared card; the row has
+>   since closed. The card was still busy during this sitting — the
+>   review's own LLM call was declined by the ADR-0004 idle-gate at
+>   **98 % against a 25 % threshold** — so the gate is doing what the
+>   VRAM row was warning about, one layer down and without an alert.
 >
 > **"8400 answers 200" is deliberately unchecked here**: this repository
 > declines to judge 8400's reachability at all (`estate/judgements.py`
@@ -77,79 +64,99 @@
 > holds true), and a claims-checker that alerted on it would re-import
 > exactly that.
 >
-> **Next up**: **Session 25's Tier 3 — the weekly system health
-> review.** *Recommended at the close of Session 78, which shipped Tier
-> 2 and made Tier 3's inputs exist.*
+> **Next up**: **`SNAG-API-004` and the `skipped` audit it came out
+> of.** *Recommended at the close of Session 79, which shipped Session
+> 25's Tier 3 and completed the session.*
 >
-> **1. Tier 3 — the weekly system health review.** A session. It wins
-> because it is the only item on the board that is both **session-sized
-> and newly unblocked**: its stated inputs are flappiest services, alert
-> volume delta, anomaly summary and resource trend direction, and the
-> first of those became computable this morning — `reliability.py` had
-> the episodes and nothing ranked them until Tier 2. It also completes
-> Session 25, which has been two-thirds done since 2026-08-07.
-> **Read it before pricing it**: the written design says it *"reuses the
-> `project_reviews` table design"*, and migration 014 dropped that table
-> on 2026-08-24. `disk_reviews` and `log_reviews` are the surviving
-> mirrors, so the pattern stands and only the pointer is dead — the
-> `SNAG-DOCS-001` shape in a roadmap entry rather than a contract
-> registry. And it is LLM-narrated, so both of `files/review.py`'s
-> hard-won rules apply: commit the read transaction before calling the
-> model, and give it no numbers rather than instructing it not to use
-> them.
+> **Two sub-session actions first, and neither is a session.**
 >
-> **2. Audit the other readers of `service_health.status` for the
-> `skipped` blind spot.** Two to three hours, and it is a *generalisation
-> of a defect measured today* rather than a new idea, which is why it
-> ranks above two older snags. `score_service` read `skipped` as an
-> outage for eighteen days; the question nobody has asked is which other
-> consumers of that column share the assumption. Known-correct:
-> `_resolve_recovered` (rule 4 states it explicitly). Unexamined: the
-> anomaly path, the briefing's `facts` projection, and
-> `reliability_history`'s stored rows — **which hold known-wrong scores
-> for three services back to 2026-08-07** and are deliberately not being
-> recomputed, since a migration that recomputed history would invent
-> measurements it never took. That last one needs a decision, not code.
+> - **The Session 33 question**, unasked for an **eighth** consecutive
+>   ranking. Seam drift detection cannot start here because its second
+>   task reads another repository's fixture off the same disk, and
+>   cross-repo concerns have had an owner since 2026-08-13. Sub-hour. A
+>   cross-repo write: committed on its own and announced, per the estate
+>   rules.
+> - **`SNAG-DOCS-004` — reword two docstrings.** Minutes. `log_review`
+>   and `files.review` both document their prompt as *"contains no digit
+>   by construction"* and both contain `1`, `2`, `3` and `150` from
+>   their own instruction block. The behaviour is right; the sentence is
+>   not, and the correct narrow claim is now **tested for all three
+>   modules** in `tests/test_health_review.py::TestPromptIsFigureFree`.
+>   So this is a documentation edit against a property already pinned,
+>   which is why it is not a session.
 >
-> **3. `SNAG-ESTATE-013` — the `expires` marker's naive instant.** One
-> to two hours, unchanged from Session 77's ranking and losing for the
-> same reason it lost then: its live cost was two hours on a prediction
-> that came true anyway. It rises the moment a second `expires` marker
-> is written, and none was written today.
+> **1. `SNAG-API-004`, and the `skipped` audit around it.** Half a day,
+> and it wins because Session 78 ranked this second **on a hypothesis**
+> and pricing that recommendation honestly turned the hypothesis into a
+> measurement. `GET /api/sysadmin/status` computes
+> `all_healthy = all(r.status == "ok")`, and `services.yaml` declares
+> `monitor: false` on three services that are inactive by design — so
+> the flag has been false on every healthy day this box has had. It is
+> masked right now, which is exactly why it survived: two services
+> genuinely *are* down, so today it is false for the right reason.
+> **This is the third instance of one defect in one column.**
+> `score_service` read `skipped` as an outage for eighteen days and cost
+> 60 points a service; `briefing/data.py` fixed it locally and wrote
+> down why — *"four units on this estate are skipped by design, so
+> Alfred's grid could never read healthy however well the box was
+> running"* — and the fix was never generalised. The population is small
+> and enumerable, which is what makes this a session rather than a
+> patch: `self_monitor.py` reads `agent_runs.status` and
+> `files/actions.py` a file-operation field, so the audit terminates.
+> Doing it as a one-line patch is what produced the third instance.
+>
+> **2. `SNAG-ESTATE-013` — the `expires` marker's naive instant.** One
+> to two hours, unchanged from Sessions 77 and 78 and losing for the
+> same reason: its live cost was two hours on a prediction that came
+> true anyway. It rises the moment a second `expires` marker is written,
+> and this sitting wrote none.
+>
+> **3. `SNAG-CFG-002` — two schedule leaves parsed and read by
+> nothing.** Under an hour. `schedules.review_hour`/`review_minute` have
+> driven nothing since the projects domain left on 2026-08-13, and they
+> sit among `disk_review_*` and `log_review_*`, which do. It is
+> `SNAG-CFG-001`'s shape and it loses because it costs nothing at
+> runtime — it misleads a reader, and the reader it would mislead most
+> is the one adding a fourth review, which nobody is. **Worth reading
+> before dismissing it**: the guard that exists to catch unclassified
+> config paths cannot see a path nothing reads, so the mechanism that
+> should have caught this is blind to it by construction.
 >
 > **Runners-up that lost, and why.** `SNAG-SVC-001` and `SNAG-SVC-002`
-> are **this sitting's own cost** and both have populations measured
-> empty today — taking a snag the sitting that filed it is the treadmill
-> this document warns about, and neither can be settled without the
-> owner's call on a question already put once. `SNAG-DOCS-003` is
-> blocked on an **operational** fact — where the wheel went — rather
-> than on code. `SNAG-AGENT-007` is dormant by arithmetic against two
-> unresolved rows. `SNAG-ESTATE-012` is unchanged: deciding an English
-> sentence is a claim is a human's job. `SNAG-LOG-013`,
-> `SNAG-UNITS-006` and `SNAG-LOG-006` have populations measured empty,
-> and this ranking deliberately does **not** re-measure them to promote
-> one — "the population is zero" is the reasoning that mis-ranked
-> `SNAG-DOCS-002` three times, and it is also what nearly buried today's
-> `skipped` defect, which sat behind a score nobody had reason to doubt.
+> are Session 78's own cost with populations measured empty, and both
+> need the owner's call on a question already put once — unchanged.
+> `SNAG-DOCS-003` is blocked on an **operational** fact (where the wheel
+> went) rather than on code. `SNAG-AGENT-007` is dormant by arithmetic
+> against three unresolved rows. `SNAG-ESTATE-012` is unchanged:
+> deciding an English sentence is a claim is a human's job.
+> `SNAG-LOG-013`, `SNAG-UNITS-006` and `SNAG-LOG-006` have populations
+> measured empty, and this ranking deliberately does **not** re-measure
+> them to promote one — "the population is zero" is the reasoning that
+> mis-ranked `SNAG-DOCS-002` three times, and it is what nearly buried
+> both `skipped` defects.
 >
-> **Not a session, and not this repository's.** The
-> `High VRAM usage` row opened at 10:08 today and was still true at the
-> close — 94.1 % of one 24 GB card, `gpu_percent` 100, 340 W. Four
-> services share that device and this repository monitors it without
-> owning anything on it, so attributing the hold is estate-manager's
-> arbitration question (`~/.local/bin/wait-for-dgpu`'s neighbourhood),
-> not a monitoring change here. Named rather than left in the count.
+> **Not a session, and not this repository's.** The shared 24 GB card
+> was at **98 % busy against a 25 % threshold** when Tier 3's first live
+> generation ran, so the review was written by its deterministic
+> fallback rather than by the model — the ADR-0004 idle-gate working as
+> designed, and the same contention the `High VRAM usage` row was
+> warning about before it resolved. Attributing the hold is
+> estate-manager's arbitration question, not a monitoring change here.
+> **What it does mean for this repository**: every Tier 3 on this box
+> now competes for one card in a 45-minute Monday window, and nothing
+> measures how often the gate declines. That is an *idea*, not a
+> session, and it is not on the roadmap yet.
 >
 > **Blocked or waiting on another repository.** Session 33 is blocked on
-> the question in the sub-session line above, now unasked for **seven**
+> the question in the sub-session line above, now unasked for **eight**
 > consecutive rankings. `SNAG-LOG-012` is **delegated**:
 > `strip_markdown` lives in `estate-lib`, and patching it from here
-> would be the copy that drifts. `SNAG-ROADMAP-002` is **no longer on
-> this list** — estate-manager fixed it mid-sitting today.
-> `SNAG-ESTATE-002` and `SNAG-ESTATE-004` remain estate-manager's;
-> `SNAG-ESTATE-006` and `SNAG-ESTATE-007` are delegated and unchanged.
-> `SNAG-ESTATE-001`'s remaining half is a retirement checklist the entry
-> says in writing is not this repository's to enforce.
+> would be the copy that drifts. `SNAG-ESTATE-002` and `SNAG-ESTATE-004`
+> remain estate-manager's; `SNAG-ESTATE-006` and `SNAG-ESTATE-007` are
+> delegated and unchanged. `SNAG-ESTATE-001`'s remaining half is a
+> retirement checklist the entry says in writing is not this
+> repository's to enforce.
+
 ---
 
 ## Quick Status
@@ -157,14 +164,14 @@
 | Area | Status | Notes |
 |------|--------|-------|
 | Backend | 🟢 Complete | FastAPI + 5 agents + scheduler + DB |
-| API | 🟢 Complete | <!--check:routes-->**49 routes** *(re-counted live 2026-08-25 after Session 78 added `GET /api/services/actions`: 48 → 49. Previously 46 → 48 on 2026-08-24 after Session 75, the two `410 Gone` tombstones for `/api/logs/summary` and `/summary/history`. They are `include_in_schema=False`, so `/docs` lists 46 — `measure_routes()` counts `APIRoute` objects rather than schema entries, which is the honest figure and the one that moves when a route is declared)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
-| Database | 🟢 Complete | <!--check:tables-->**11 tables** in sysadmin schema (12 counting `alembic_version`; counted live 2026-08-24), Alembic migrations (head **015**<!--check:migration_head-->, applied 2026-08-25 — `reliability_scores.skipped_checks`, the persisted half of the fix that stopped `score_service` scoring a declared-unmonitored check as an outage). *014 on 2026-08-24 dropped the three frozen tables.* *Was 14. `project_snapshots`, `project_reviews` and `log_summaries` had no writer since ADR-0005 or Session 69 and are gone with their retention rows, their `TABLE_TIMESTAMP_MAP` entries and the `LogSummary` model. `FROZEN_TABLES` is now empty and deliberately kept — an entry there is a blindfold over the drift guard, so emptying it is what proves the drop rather than a new test* |
+| API | 🟢 Complete | <!--check:routes-->**51 routes** *(re-counted live 2026-08-25 after Session 79 added `GET /api/sysadmin/review` and `POST /api/sysadmin/review/generate`: 49 → 51. Session 78 took 48 → 49 with `GET /api/services/actions`. Previously 46 → 48 on 2026-08-24 after Session 75, the two `410 Gone` tombstones for `/api/logs/summary` and `/summary/history`. They are `include_in_schema=False`, so `/docs` lists 46 — `measure_routes()` counts `APIRoute` objects rather than schema entries, which is the honest figure and the one that moves when a route is declared)* across 8 routers plus 2 defined in `create_app` (`scan-all` and `reload`, which need `app.state`); bearer-token auth on mutating endpoints (GETs open). *Counted live 2026-08-17 off `create_app()`; 44 before Session 27 added `GET /api/logs/trends` and `GET /api/logs/actions`* |
+| Database | 🟢 Complete | <!--check:tables-->**12 tables** in sysadmin schema (13 counting `alembic_version`; counted live 2026-08-25), Alembic migrations (head **016**<!--check:migration_head-->, applied 2026-08-25 — `health_reviews`, the weekly system health review's own table, with its `retention_config` row in the same migration because the two halves fail in opposite directions. *015 the same day added `reliability_scores.skipped_checks`.*) *014 on 2026-08-24 dropped the three frozen tables.* *Was 14. `project_snapshots`, `project_reviews` and `log_summaries` had no writer since ADR-0005 or Session 69 and are gone with their retention rows, their `TABLE_TIMESTAMP_MAP` entries and the `LogSummary` model. `FROZEN_TABLES` is now empty and deliberately kept — an entry there is a blindfold over the drift guard, so emptying it is what proves the drop rather than a new test* |
 | Agents | 🟢 Complete | SysAdmin, File Organiser, Log Aggregator, Service Discovery, **Estate Judge** (2026-08-13). Project Organiser left for the estate's 8400 service on 2026-08-13 and stays in `AGENT_NAMES` only because the constraint is add-only |
 | GPU Monitoring | 🟢 Complete | AMD via rocm-smi + sysfs fallback, temp/VRAM alerts |
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2238 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, smoke script |
+| Testing | 🟢 Complete | **2362 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -172,6 +179,74 @@
 ---
 
 ## Recently Completed
+
+### Session 79 — the fourth Tier 3, and the delta it reports was nearly the wrong number (2026-08-25)
+
+**Session 25's Tier 3 shipped as `GET /api/sysadmin/review`**, completing
+Session 25 two and a half weeks after Tier 1.
+`sysadmin/monitor/health_review.py` + `health_reviews` (migration 016) +
+`HealthReviewResponse` + a Monday 05:00 job + a "Weekly System Health
+Review" briefing section. Suite **2,299 → 2,362**, ruff and mypy clean,
+routes **49 → 51**, head **015 → 016**. All four named inputs built:
+flappiest services, alert volume delta, anomaly summary, resource trend
+direction.
+
+- **The alert delta counts distinct titles, and the row count would have
+  been the most misleading figure this review could publish.** Across
+  the two live comparison windows the `alerts` table holds **24 rows
+  against 59,650** — a 2,485x fall — of which **59,200 share a single
+  title** and fell on one day. The same windows hold **17 distinct
+  titles against 39**. This repository has written down four times that
+  the table records one row *per failed check* rather than one per
+  incident and had never applied it to a *count* of alerts, because
+  nothing counted them. Rows are kept in `stats` as evidence and never
+  phrased.
+- **A fall is refused when the monitor's own coverage fell.**
+  `log_review.direction_phrase`'s asymmetry against a different
+  mechanism: there a truncated read drops entries, here a monitor that
+  was not running records none, and both can hide a fault and never
+  invent one. The two windows were observed at **17.01 %** and
+  **96.33 %** of expected agent runs, so this is load-bearing rather
+  than theoretical. Both windows are measured, because checking only the
+  current one reports poor coverage and still lets every delta through
+  unqualified.
+- **Two defects only the live LLM run found, both fixed and re-verified
+  live.** Handed "The monitor was down for much of this period",
+  dria-agent-a-3b published **"The machine was down for much of the
+  week"** — an outage report about a box that was merely unwatched. And
+  it opened with a conversational preamble that `strip_markdown` would
+  not have removed, since that function strips formatting rather than
+  prose. Naming the *monitoring service* and denying the inference in
+  the next clause fixed the first; one clause in the instructions fixed
+  the second; the re-run produced neither.
+- **A third defect the fixtures could not have caught.** The prompt's
+  first draft named only `unreliable`/`failing` services and fell back
+  to the whole list when there were none — so it dropped `searxng` and
+  `alfred-frontend`, both degraded with real outages, at the exact
+  moment `venture-chat` went unreliable. Replaced by naming every
+  service that dropped out and letting the grade rank them.
+- **Disk is deferred to the disk review by name.** `GET /api/files/review`
+  narrates occupancy into the same 06:00 briefing, so this narrates CPU,
+  RAM, swap and load — which nothing else on this box narrates — and the
+  fallback digest points at the review that does cover disk.
+- **The route is under `/api/sysadmin` rather than `/api/services`**, the
+  one departure from the three siblings' naming. `/api/services` promises
+  no non-GET route beneath it and a test asserts it; a
+  `POST .../review/generate` there could only ship by narrowing that
+  guard to admit the route being added.
+- **Nine falsifications driven, and one guard passed against the code it
+  was written to break** — it asserted a string absent from both the
+  pre-fix and the fixed wording, testing the model's output through a
+  fixture that never contains it. Session 78's `waived`/cadence shape a
+  third time; repaired to assert the property that actually
+  distinguishes the two.
+- **Three snags opened, two of them found while not building.**
+  `SNAG-API-004` came out of *pricing the next session's recommendation*
+  — `GET /api/sysadmin/status` reads `all_healthy = all(status == "ok")`,
+  which is the `skipped` defect's **third** instance in one column.
+  `SNAG-CFG-002` came out of looking for a free Monday slot.
+  `SNAG-DOCS-004` came from printing the digits in a prompt rather than
+  reading the docstring describing it.
 
 ### Session 78 — the fourth advice endpoint, and the score it consumes was wrong (2026-08-25)
 

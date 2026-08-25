@@ -53,6 +53,7 @@ from sysadmin.files.router import router as files_router
 from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.desktop import desktop_notifier
 from sysadmin.monitor.dnd import dnd_manager
+from sysadmin.monitor.health_review import run_weekly_review as run_weekly_health_review
 from sysadmin.monitor.log_aggregator import LogAggregatorAgent
 from sysadmin.monitor.log_review import run_weekly_review as run_weekly_log_review
 from sysadmin.monitor.notifier import Notifier
@@ -99,6 +100,7 @@ JOB_TARGETS: JobTargets = {
     "retention_purge": run_retention,
     "weekly_disk_review": run_weekly_disk_review,
     "weekly_log_review": run_weekly_log_review,
+    "weekly_health_review": run_weekly_health_review,
     "reliability_snapshot": record_reliability_snapshot,
 }
 

@@ -16,6 +16,7 @@ from sysadmin.core.contracts import (
     AlertAckResponse,
     AlertsResponse,
     DndStatusResponse,
+    HealthReviewResponse,
     ResourceHistoryResponse,
     SelfMonitorResponse,
     ServiceActionResponse,
@@ -23,9 +24,11 @@ from sysadmin.core.contracts import (
 )
 from sysadmin.core.database import get_db_session
 from sysadmin.core.models.alert import Alert
+from sysadmin.monitor import health_review as health_review_module
 from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.desktop import tray_presence
 from sysadmin.monitor.dnd import dnd_manager
+from sysadmin.monitor.models.health_review import HealthReview
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.self_monitor import build_self_report
@@ -407,3 +410,73 @@ async def get_ports():
     """Get current listening port usage map."""
     ports = await asyncio.to_thread(SysAdminAgent.get_port_usage)
     return {"ports": ports, "count": len(ports)}
+
+
+# ── Weekly system health review (Session 25, Tier 3) ──────────────────
+
+
+def _health_review_payload(review: HealthReview) -> dict:
+    return {
+        "generated_at": (
+            review.generated_at.isoformat() if review.generated_at else None
+        ),
+        "period_days": review.period_days,
+        "narrative": review.narrative,
+        "llm_used": review.llm_used,
+        "model_used": review.model_used,
+        "confidence": review.confidence,
+        "stats": review.stats,
+    }
+
+
+@router.get("/review", response_model=HealthReviewResponse)
+async def get_health_review(session: AsyncSession = Depends(get_db_session)):
+    """The latest stored weekly system health review (Session 25, Tier 3).
+
+    **It lives here rather than under ``/api/services``**, which is the
+    one place this tier departs from its three siblings' naming, and the
+    departure is what keeps a guard honest.  ``/api/services`` carries a
+    test asserting that no non-GET route exists anywhere beneath it —
+    the promise that the reliability score is not a control surface — and
+    a ``POST .../review/generate`` there could only ship by narrowing
+    that test to admit the route being added.  The content agrees with
+    the move: three of this review's four inputs are alert volume,
+    resource anomalies and resource trend, all of which are already
+    served from this prefix, and only the fourth is service reliability.
+
+    **Read back rather than computed live**, the call
+    ``GET /api/logs/review`` makes for its reason: a narrative costs a
+    GPU generation measured in minutes, cannot be produced inside a
+    request, and is *about* a period rather than about now.
+
+    404 is "no review has been generated yet", which is why
+    ``health_reviews`` is in ``KEEP_LATEST_PER``: a purge that emptied
+    the table would turn "none lately" into "none ever".
+    """
+    result = await session.execute(
+        select(HealthReview).order_by(desc(HealthReview.generated_at)).limit(1)
+    )
+    review = result.scalars().first()
+    if review is None:
+        raise HTTPException(status_code=404, detail="No health review generated yet")
+    return _health_review_payload(review)
+
+
+@router.post(
+    "/review/generate",
+    response_model=HealthReviewResponse,
+    dependencies=[Depends(require_auth)],
+)
+async def generate_health_review(session: AsyncSession = Depends(get_db_session)):
+    """Generate a system health review now.  Authenticated; the LLM is optional.
+
+    Returns 404 when the monitor recorded no runs in either period —
+    nothing was observed, which is not the same as nothing happening and
+    must not be served as an empty review.
+    """
+    review = await health_review_module.generate_review(session)
+    if review is None:
+        raise HTTPException(status_code=404, detail="No monitoring data to review")
+    payload = _health_review_payload(review)
+    await session.commit()
+    return payload

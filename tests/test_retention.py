@@ -63,6 +63,9 @@ class TestTableTimestampMap:
             # halves at once — a table in one half and not the other is
             # silently never purged, which is what this test exists for.
             "log_reviews",
+            # Session 79: the weekly system health review's table, same
+            # treatment.  Both halves land in migration 016 together.
+            "health_reviews",
         }
         assert set(TABLE_TIMESTAMP_MAP.keys()) == expected_tables
 

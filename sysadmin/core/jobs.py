@@ -322,6 +322,28 @@ def plan_jobs(config: AppConfig) -> tuple[JobSpec, ...]:
                 "schedules.review_day_of_week",
             ),
         ),
+        # Weekly system health review — Session 25, Tier 3. At the *front*
+        # of the Monday chain, which is the only free slot: 06:00 is the
+        # briefing, 05:45 the disk review, 05:15 the log review, and 05:30
+        # is estate-manager-review.timer — another repository's generation
+        # on the same card, verified on the box rather than assumed from
+        # the comment that used to say so.
+        JobSpec(
+            job_id="weekly_health_review",
+            enabled=agents.sysadmin.weekly_review,
+            trigger="cron",
+            trigger_kwargs={
+                "hour": schedules.health_review_hour,
+                "minute": schedules.health_review_minute,
+                "day_of_week": schedules.review_day_of_week,
+            },
+            config_paths=(
+                "agents.sysadmin.weekly_review",
+                "schedules.health_review_hour",
+                "schedules.health_review_minute",
+                "schedules.review_day_of_week",
+            ),
+        ),
         # Daily reliability snapshot — an hour ahead of the 03:00 retention
         # purge, so the day's score is written before the checks behind it
         # can be deleted. Nothing serves these rows (the endpoint recomputes

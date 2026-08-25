@@ -154,6 +154,7 @@ def _period(now: datetime) -> dict[str, str]:
 async def _gather(session: AsyncSession, now: datetime) -> dict[str, Any]:
     """Run every query the briefing needs, once each."""
     from sysadmin.files.models.disk_review import DiskReview
+    from sysadmin.monitor.models.health_review import HealthReview
     from sysadmin.monitor.models.log_review import LogReview
 
     return {
@@ -163,6 +164,7 @@ async def _gather(session: AsyncSession, now: datetime) -> dict[str, Any]:
         "alerts": await _gather_alerts(session),
         "disk_review": await _gather_review(session, now, DiskReview),
         "log_review": await _gather_review(session, now, LogReview),
+        "health_review": await _gather_review(session, now, HealthReview),
     }
 
 
@@ -410,6 +412,7 @@ def build_facts(gathered: dict[str, Any], now: datetime) -> dict[str, Any]:
     facts["reviews"] = {
         "disk": _iso(getattr(gathered["disk_review"], "generated_at", None)),
         "logs": _iso(getattr(gathered["log_review"], "generated_at", None)),
+        "health": _iso(getattr(gathered["health_review"], "generated_at", None)),
     }
 
     facts["stale_sources"] = _stale_sources(facts, now)
@@ -621,6 +624,21 @@ def render_sections(gathered: dict[str, Any]) -> list[dict[str, Any]]:
     if disk_review is not None:
         sections.append(
             {"title": "Weekly Disk Review", "type": "text", "data": disk_review.narrative}
+        )
+
+    # Last of the three narratives, and deliberately after the disk
+    # review rather than before it.  It is the only one that declines to
+    # discuss a subject another section covers (disk occupancy, rule 5 in
+    # ``health_review``), so a reader reaching it has already been told
+    # what it leaves out.
+    health_review = gathered["health_review"]
+    if health_review is not None:
+        sections.append(
+            {
+                "title": "Weekly System Health Review",
+                "type": "text",
+                "data": health_review.narrative,
+            }
         )
 
     return sections

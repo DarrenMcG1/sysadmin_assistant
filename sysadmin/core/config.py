@@ -239,6 +239,14 @@ class SysAdminAgentConfig(BaseModel):
         default_factory=ServiceActionsConfig
     )
     collation: CollationCheckConfig = Field(default_factory=CollationCheckConfig)
+    #: Weekly LLM-narrated system health review (Session 25, Tier 3) —
+    #: ``GET /api/sysadmin/review``.  Named on this agent rather than in
+    #: ``schedules`` beside its clock because that is where the other two
+    #: reviews' enable flags live (``agents.file_organiser.weekly_review``,
+    #: ``agents.log_aggregator.weekly_review``), and a third convention
+    #: for one kind of switch is a reader's problem rather than a
+    #: writer's.
+    weekly_review: bool = True
 
 
 class HealthGradeBands(BaseModel):
@@ -909,6 +917,17 @@ class SchedulesConfig(BaseModel):
     # generation in flight at a time on a single shared card.
     log_review_hour: int = 5
     log_review_minute: int = 15
+    # Weekly system health review — Session 25, Tier 3. At the *front* of
+    # the chain, which is the only direction left. The 06:00 briefing is
+    # the fixed end, 05:45 is the disk review, 05:15 is the log review,
+    # and 05:30 is not free either: estate-manager-review.timer fires
+    # `Mon *-*-* 05:30:00` on this box (verified 2026-08-25), and that is
+    # another repository's llama-server generation on the same 24 GB
+    # card. So the chain grows backwards and keeps the 15-minute spacing
+    # the existing three already assume is enough for one generation:
+    # 05:00 → 05:15 → 05:30 → 05:45 → 06:00.
+    health_review_hour: int = 5
+    health_review_minute: int = 0
     # Daily reliability snapshot — 02:00, an hour ahead of the 03:00
     # retention purge so the day's score is written before anything is
     # deleted from under it. Nothing reads these rows to serve a request

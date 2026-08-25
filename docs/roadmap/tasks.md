@@ -2057,13 +2057,13 @@ Still open:
       fit over a fixed window; a shorter secondary window, or fitting
       only since the last sharp drop, would catch a resumption sooner
 
-### Session 25: Service reliability scoring
+### ✅ Session 25: Service reliability scoring (done 2026-08-25)
 
 Nothing scores *services*, yet the history is already in the DB:
 `health_checks` streaks, `alerts`, `resource_snapshots`, `agent_runs`.
 
-**Tier 1 complete 2026-08-07.** Tiers 2 and 3 remain — take them as
-Sessions 25b and 25c.
+**Complete 2026-08-25 (all three tiers).** Tier 1 landed 2026-08-07,
+Tier 2 on 2026-08-25 (Session 78) and Tier 3 the same day (Session 79).
 
 - [x] **Tier 1** — `sysadmin/services/reliability.py` (pure, scores a list
       of `HealthPoint`) + `reliability_history.py` (the DB adapter) +
@@ -2176,10 +2176,94 @@ Session 24's lesson arriving in the fourth advice endpoint:
    two. Both repaired, plus an invariant test pinning
    `reliability._deductions`' `waived=muted` at its owner, since this
    module leans on it
-- [ ] **Tier 3** — weekly system health review: flappiest services, alert
-      volume delta, anomaly summary, resource trend direction. Sits beside
-      the project review in Monday's briefing and reuses the
-      `project_reviews` table design (facts in `stats`, hybrid narrative)
+- [x] **Tier 3 — complete 2026-08-25** (Session 79).
+      `sysadmin/monitor/health_review.py` + `health_reviews` (migration
+      016) + `GET /api/sysadmin/review` + `POST /api/sysadmin/review/generate`
+      + `HealthReviewResponse` + a Monday 05:00 job and a "Weekly System
+      Health Review" briefing section. 63 new tests (2,299 → 2,362),
+      routes **49 → 51**, head **015 → 016**. All four named inputs
+      built. **Session 25 is complete**, two and a half weeks after Tier 1
+- [x] **It does not reuse the `project_reviews` table this row named**,
+      because that table left with the projects domain on 2026-08-13
+      (ADR-0005) and migration 014 dropped it on 2026-08-24. What the row
+      meant — facts in `stats`, hybrid narrative — survives in
+      `disk_reviews` and `log_reviews`, and this is a third table beside
+      them for the reason Session 24 gave when it declined to share one:
+      the reviews answer different questions and no migration should be
+      able to disturb another's rows
+
+**Five things the live data settled that no fixture could**, which is the
+fourth Tier 3 and the fourth time this has been the write-up's headline:
+
+1. **The alert delta had to count distinct titles, and the row count is
+   the most misleading number this review could have published.** This
+   repository has written down four times that `alerts` holds one row
+   *per failed check* — `reliability.py`'s "123 rows for one internet
+   outage", `SNAG-AGENT-002`, `SNAG-AGENT-005`'s 598,091 rows,
+   `judgements.py` rule 1 — and had never applied it to a *count of
+   alerts*, because nothing counted them. Measured across the two live
+   comparison windows: **24 rows against 59,650**, a 2,485x fall, of
+   which **59,200 share one title** and fell on a single day. The same
+   windows hold **17 distinct titles against 39**. Rows are kept in
+   `stats` as evidence and never phrased
+2. **The refusal rule transferred from `log_review` and the mechanism
+   did not.** There a fall is untrustworthy because a truncated *read*
+   drops entries; here because a *monitor that was not running* records
+   none. Both are one-directional in the same way — they can hide a
+   fault and never invent one — so a rise is trustworthy at any coverage
+   and a fall is not. Not hypothetical: the two windows were observed at
+   **17.01 %** and **96.33 %** of expected agent runs, so an unqualified
+   headline would have sent a reader away from a box that was switched
+   off. Both windows' coverage is measured, because checking only the
+   current one reports poor coverage and still lets every delta through
+3. **The prompt's first draft dropped two faults the instant a third
+   appeared.** It named only `unreliable`/`failing` services and fell
+   back to the whole list when there were none. Driven against the live
+   table it dropped `searxng` and `alfred-frontend` — both degraded,
+   both with real outages — at the exact moment `venture-chat` went
+   unreliable. Replaced by naming every service that dropped out and
+   letting the *grade* rank them, which is what the model reads anyway
+4. **The model inverted the one sentence that must not invert.** Handed
+   "The monitor was down for much of this period", dria-agent-a-3b
+   published **"The machine was down for much of the week"** — an outage
+   report about a box that was merely unwatched, in a review whose other
+   sections describe genuine outages. Fixed by naming the *monitoring
+   service* and denying the inference in the next clause, and re-driven
+   live to confirm. The same run opened with a conversational preamble
+   that would have reached the briefing verbatim, since `strip_markdown`
+   removes formatting and not prose; one clause in the instructions
+   fixed it and the re-run opened directly with the first section
+5. **Disk is deferred to the disk review by name.** `GET /api/files/review`
+   already narrates occupancy, its direction and its threshold crossings
+   into the *same* 06:00 briefing, so narrating it here would be the
+   second-owner defect this repository has found at six scales. The
+   figures stay in `stats` as evidence and the fallback digest names the
+   review that does cover them, because an omission a reader has to
+   infer is one they will not infer
+
+- [x] **The route is under `/api/sysadmin`, not `/api/services`**, which
+      is the one departure from the three siblings' naming. `/api/services`
+      carries a test asserting no non-GET route exists beneath it — the
+      promise that the reliability score is not a control surface — and a
+      `POST .../review/generate` there could only ship by narrowing that
+      guard to admit the route being added. The content agrees with the
+      move: three of the four inputs are alert volume, anomalies and
+      resource trend, all already served from that prefix
+- [x] **The Monday chain grows at the front.** 06:00 is the briefing,
+      05:45 the disk review, 05:15 the log review, and 05:30 is **not**
+      free — `estate-manager-review.timer` fires `Mon *-*-* 05:30:00`,
+      verified on the box rather than taken from the comment that said
+      so, and that is another repository's generation on the same 24 GB
+      card. So 05:00, keeping the 15-minute spacing the existing three
+      already assume is enough for one generation
+- [x] **Nine falsifications driven, and one guard passed against the
+      code it was written to break.** `test_the_low_phrase_never_says_the_machine_was_down`
+      asserted a string absent from the pre-fix wording *and* the fixed
+      one — it was testing the model's output through a fixture that
+      never contains it, which is Session 78's `waived`/cadence shape a
+      third time. Repaired to assert the property that actually
+      distinguishes them: every clause naming the machine must be denying
+      rather than asserting
 
 ### ✅ Session 26: Service discovery — the unmonitored-unit detector (done 2026-08-07)
 
