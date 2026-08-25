@@ -2973,6 +2973,42 @@ Requested 2026-08-06. Found by checking rather than assuming: Alfred's
 consumer fixture was **two sections behind** the same day it was captured,
 with its contract test green the whole time.
 
+**Blocked, and the blocker is now routed rather than merely named**
+(2026-08-25, Session 79). Task 2 reads another repository's fixture off
+the shared disk *and* judges that repository's conformance, which are two
+different estate rules rather than one — the database rule's shape
+extended to a private artefact, and "the monitor must not own the things
+it monitors", under which a stale-consumer finding is the audit's
+sentence. Filed at the estate register as message **`6a330427`**
+(`sysadmin-assistant → estate-manager`, `GET :8400/api/estate/messages`),
+this repository's first use of it. **Do not build task 2 before the
+answer arrives**; tasks 1, 3, 4 and 5 are unblocked and task 1 is the one
+that makes the rest cheap.
+
+Two things measured 2026-08-25 that the tasks below do not know:
+
+- **The drift is live and runs in both directions.** Alfred's fixture
+  (written 2026-08-07) carries `Project Health`, `Pick This Up` and
+  `Weekly Project Review` — all three moved to estate-manager on
+  2026-08-13 (ADR-0005) and are pulled by Alfred from 8400 now — while
+  this service serves `Overnight Logs`, `Weekly Log Review` and
+  `Weekly System Health Review`, none of which the fixture has. The
+  envelope drifted too: 3 top-level keys in the fixture against 8 live.
+- **So task 2's stated test would not fire.** "A subset of what this
+  service now serves" detects a consumer that has fallen behind an
+  additive producer and misses one pinned to sections the producer has
+  *dropped* — which is the live case, and the worse of the two, since a
+  consumer rendering a section nobody produces shows an empty panel
+  rather than a missing one. The comparison wanted is the symmetric
+  difference with its two directions named apart. **Recorded here and
+  deliberately not written into the task**, because if task 2 moves to
+  the estate the correction belongs to whoever builds it, and editing
+  the task to describe a check this repository may not own would be a
+  ruling wearing a task edit.
+
+- [ ] **`docs/contracts/briefing_preview.sample.json` does not exist yet**
+      — measured 2026-08-25. Task 1 below is unblocked and unstarted
+
 - [ ] **Producer publishes the sample.** A test here regenerates
       `docs/contracts/briefing_preview.sample.json` from
       `generate_briefing_data` and fails when it differs from the committed

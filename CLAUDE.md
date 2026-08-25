@@ -2865,6 +2865,40 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 
 ## Detailed Documentation
 
+## Cross-repo friction is filed, not absorbed — a pointer
+
+**The rule is estate-manager's and its canonical body is
+`~/projects/estate-manager/docs/conventions/session-brief.md`**, section
+"Cross-repo friction is filed, not absorbed" (owner's ruling 2026-08-25,
+estate ADR-0041 and ADR-0042). It is deliberately **not** in the global
+`~/.claude/CLAUDE.md`, whose estate section is a pointer and says in
+writing not to re-expand it — so this is a pointer too, and the headline
+is all that belongs here.
+
+Headline: when a sitting hits friction crossing a repository boundary —
+another repository's state it could not read, a decision it could not
+find, a filing that collided, work it duplicated — it files a message
+rather than working around it:
+
+    POST http://127.0.0.1:8400/api/estate/messages
+    {"sender": "sysadmin_assistant", "receiver": "<owner of the thing>",
+     "summary": "one sentence", "detail": "optional"}
+
+Default the receiver to `estate-manager`. **It is a message, not a
+finding**: no severity, no deadline, no ageing, and the receiver is not
+non-conformant for having caused it. The receiver closes it; the sender
+may withdraw it. `~/.claude/hooks/inbox-notice.sh` is wired to
+`SessionStart` and tells a sitting when something is waiting, so an
+unread inbox is not a failure mode a session has to remember to check.
+
+**This repository's first use was 2026-08-25**, message `6a330427`,
+routing Session 33's blocker. The eight rankings that named that blocker
+before then are not a record of neglect — the register did not exist
+until that day, and it is worth knowing that the *route* is one day older
+than this paragraph.
+
+---
+
 **Decision records** live in `docs/adr/`:
 
 - **0002-estate-manager.md** — **moved 2026-08-11** to

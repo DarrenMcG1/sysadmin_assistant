@@ -7,7 +7,7 @@
 > <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 13:11:35**
 > <!--check:daemon_start-->, `/health` answers **200** <!--check:health-->,
 > `alembic current` reads 016 at the packaged head <!--check:schema-->, and
-> `alerts` holds **3** unresolved rows <!--check:alerts-->.
+> `alerts` holds **2** unresolved rows <!--check:alerts-->.
 >
 > **Every claim above names the check that closes it**, and that is what
 > `<!--check:…-->` is: the name of a check, never a copy of the figure
@@ -37,17 +37,22 @@
 > document nobody had edited. So the report that was owed describes a
 > defect that no longer exists, and nothing is owed in its place.
 >
-> **Three open alert rows, named here rather than counted, and the one
-> the last block named has closed itself.** <!--check:open_titles-->
+> **Two open alert rows, named here rather than counted, and two have
+> closed themselves since this sitting began.** <!--check:open_titles-->
 >
 > - **`Weekly disk review ready` (`info`)** is below
 >   `tray.notify_min_severity`. Open since 2026-08-17.
-> - **`venture-chat unreachable` (`critical`)** re-opened after closing
->   itself at 05:31:10 this morning. It is the same service Tier 3's
->   first live run ranks flappiest — **4 outage episodes, 84.59 %
->   uptime, score 69** — so the alert row and the review agree, which is
->   the first time two surfaces here have described one service from
->   different tables and said the same thing.
+> - **`venture-chat unreachable` (`critical`) opened and closed again
+>   inside this sitting**, having already done so once at 05:31:10 —
+>   which is what Tier 3's first live run ranks it flappiest for: **4
+>   outage episodes, 84.59 % uptime, score 69**. The alert row and the
+>   review agreed while it was open, the first time two surfaces here
+>   have described one service from different tables and said the same
+>   thing. **Its closure is `SNAG-ESTATE-008`'s founding case demonstrating
+>   itself**: the count *fell* between the block being written and
+>   `check-ops-claims.sh` being re-run at the close, which is the
+>   direction that check exists for and the one four documents once
+>   missed.
 > - **`alfred-frontend unreachable` (`critical`)** — 1 episode, 91.57 %
 >   uptime, score 90, graded degraded. Named because the last block did
 >   not name it and the claims checker said so.
@@ -68,14 +73,22 @@
 > of.** *Recommended at the close of Session 79, which shipped Session
 > 25's Tier 3 and completed the session.*
 >
-> **Two sub-session actions first, and neither is a session.**
+> **One sub-session action, and the other was done at the owner's
+> direction after the close.**
 >
-> - **The Session 33 question**, unasked for an **eighth** consecutive
->   ranking. Seam drift detection cannot start here because its second
->   task reads another repository's fixture off the same disk, and
->   cross-repo concerns have had an owner since 2026-08-13. Sub-hour. A
->   cross-repo write: committed on its own and announced, per the estate
->   rules.
+> - **The Session 33 question is asked.** Filed at the estate register as
+>   message `6a330427` on 2026-08-25, `sysadmin-assistant → estate-manager`,
+>   this repository's **first** use of `POST :8400/api/estate/messages`.
+>   **The "unasked for eight rankings" line those rankings carried was
+>   unfair to them**: the register was ruled and built *today*
+>   (estate ADR-0041/0042, owner 2026-08-25), so before today there was
+>   no route to put the question on — what the eight rankings actually
+>   record is a blocker correctly named and correctly not acted on. The
+>   route is canonical in estate-manager's
+>   `docs/conventions/session-brief.md` § "Cross-repo friction is filed,
+>   not absorbed"; it is deliberately **not** in the global `CLAUDE.md`,
+>   whose estate section is a pointer and says so. Nothing here is
+>   blocked on the reply and the message is closable without action.
 > - **`SNAG-DOCS-004` — reword two docstrings.** Minutes. `log_review`
 >   and `files.review` both document their prompt as *"contains no digit
 >   by construction"* and both contain `1`, `2`, `3` and `150` from
@@ -148,8 +161,10 @@
 > session, and it is not on the roadmap yet.
 >
 > **Blocked or waiting on another repository.** Session 33 is blocked on
-> the question in the sub-session line above, now unasked for **eight**
-> consecutive rankings. `SNAG-LOG-012` is **delegated**:
+> the question in the sub-session line above, which is now **asked** and
+> awaiting the estate's answer — the first item to leave this paragraph
+> by being routed rather than by being built. `SNAG-LOG-012` is
+> **delegated**:
 > `strip_markdown` lives in `estate-lib`, and patching it from here
 > would be the copy that drifts. `SNAG-ESTATE-002` and `SNAG-ESTATE-004`
 > remain estate-manager's; `SNAG-ESTATE-006` and `SNAG-ESTATE-007` are

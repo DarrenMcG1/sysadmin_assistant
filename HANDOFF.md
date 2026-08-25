@@ -91,10 +91,53 @@ no digit when both do). Parser measured either side: **63 → 66 entries,
 28 → 31 open**. Two of the three were found while *not* building — one
 while ranking the next session, one while looking for a free slot.
 
+## The Session 33 question is asked, at the owner's direction after the close
+
+Filed at the estate register as message **`6a330427`**,
+`sysadmin-assistant → estate-manager` — this repository's **first** use of
+`POST :8400/api/estate/messages`. It asks two things: may this service
+read another repository's test fixture directly off the shared disk, and
+if not, does seam-drift detection belong in the estate's audit rather
+than in the monitor at all. A recommendation is offered (task 1 stays
+here, task 2 goes to the audit if the estate wants it) and no ruling is
+recorded. Nothing is blocked on the reply and it is closable without
+action.
+
+**Three corrections came out of doing it**, and they matter more than the
+filing:
+
+1. **"Unasked for eight consecutive rankings" was unfair to those
+   rankings.** The register was ruled and built on **2026-08-25** (estate
+   ADR-0041/0042). Before that day there was no route, so what the eight
+   rankings record is a blocker correctly named and correctly not acted
+   on. STATUS.md now says that instead.
+2. **The mechanism was never missing from anywhere it should have been.**
+   It is canonical in `estate-manager/docs/conventions/session-brief.md`
+   § "Cross-repo friction is filed, not absorbed", and
+   `~/.claude/hooks/inbox-notice.sh` is already wired to `SessionStart`
+   in the owner's `settings.json`. It is absent from the global
+   `CLAUDE.md` **by design** — that file's estate section is a pointer
+   and says not to re-expand it. This repository's `CLAUDE.md` now
+   carries a pointer of its own.
+3. **Session 33's task 2 would not have worked as written.** Its test is
+   "raise a finding when the consumer's section set is a *subset* of what
+   this service serves". Driven against the two real files, that does not
+   fire: Alfred's fixture carries three sections this producer no longer
+   serves (they moved to 8400 on 2026-08-13) while missing three it does.
+   A subset test misses a consumer pinned to *dropped* sections, which is
+   the live case and the worse one — an empty panel rather than a missing
+   one. Recorded in `tasks.md` and deliberately **not** written into the
+   task, because if task 2 moves to the estate the correction belongs to
+   whoever builds it.
+
 ## The state of the box
 
 Restarted 13:11:35, schema at 016, `/health` 200, all nine ops claims
-`ok`. Three unresolved alert rows, all named in STATUS.md.
+`ok`. **Two** unresolved alert rows, both named in STATUS.md —
+`venture-chat unreachable` opened and closed again inside the sitting,
+and its closure is `SNAG-ESTATE-008`'s founding case demonstrating
+itself: the count *fell* between the block being written and the checker
+being re-run, which is the direction that check exists for.
 
 ---
 
