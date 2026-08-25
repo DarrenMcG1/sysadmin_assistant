@@ -42,6 +42,7 @@ from sysadmin.snag_claims import (
     Measurement,
     check_active_alerts_reads,
     check_all,
+    check_capped_signature_collides,
     check_convention,
     check_deprecated_contracts,
     check_dropin_blind_spot,
@@ -56,6 +57,7 @@ from sysadmin.snag_claims import (
     main,
     method_calls,
     overall,
+    probe_signatures,
     read_entries,
     render,
     run_check,
@@ -495,6 +497,194 @@ class TestChecksAgainstTheLiveBox:
             measurement = check_dropin_blind_spot()
         assert measurement.verdict == "mismatch"
         assert "now reads drop-in directories" in measurement.note
+
+    def test_capped_signature_collides_is_reproduced_and_not_counted(self):
+        """Rule 1's second case, and the entry the rule was written for.
+
+        ``SNAG-LOG-013``'s population is empty at the live endpoint — its
+        own last bullet says the ten raw-JSON rows leave the seven-day
+        window the afternoon it was filed — so a check that asked *does
+        any pair collide today* would refute it for exactly the reason
+        that mis-ranked its parent ``SNAG-LOG-010``.  What is driven
+        instead is the mechanism, through the real ``recommend()``.
+        """
+        measurement = check_capped_signature_collides()
+        assert measurement.verdict == "match"
+        assert "roll-up member lines identical: True" in measurement.detail
+        assert "separate rows' titles identical: True" in measurement.detail
+
+    def test_raising_the_cap_is_not_read_as_a_fix(self):
+        """The probe is derived from the constant, and this is why.
+
+        The entry says in writing that raising the cap is not the fix —
+        *any bound is defeated by two records that differ past it, and a
+        larger number only moves where*.  A probe with a hard-coded
+        prefix reports a fix the day somebody moves the constant, which
+        would make this check argue against the entry it measures.
+        """
+        import sysadmin.monitor.log_actions as log_actions
+
+        with patch.object(log_actions, "SIGNATURE_DETAIL_CHARS", 400):
+            measurement = check_capped_signature_collides()
+        assert measurement.verdict == "match"
+        assert measurement.detail[0].startswith("cap 400;")
+
+    def test_a_divergence_aware_cap_refutes_both_halves(self):
+        """The entry's second candidate fix, landed everywhere.
+
+        ``quoted_signature`` delegates to ``capped_signature``, so the two
+        halves are **not** independent in this direction: one fix to the
+        shared function closes both, and the note says so rather than
+        naming a half.
+        """
+        import sysadmin.monitor.log_actions as log_actions
+
+        real = log_actions.capped_signature
+        with patch.object(
+            log_actions, "capped_signature", lambda s: f"{real(s)} [{hash(s) % 997}]"
+        ):
+            measurement = check_capped_signature_collides()
+        assert measurement.verdict == "mismatch"
+        assert "neither half collides" in measurement.note
+
+    def test_a_disambiguated_title_refutes_the_headline_half_alone(self):
+        """A fix in ``quoted_signature`` closes the title clause only.
+
+        The roll-up goes on naming none of its members, so the entry
+        wants narrowing rather than closing — which is a judgement, and
+        rule 2 is why the check states the direction and stops.
+        """
+        import sysadmin.monitor.log_actions as log_actions
+
+        real = log_actions.capped_signature
+        with patch.object(
+            log_actions,
+            "quoted_signature",
+            lambda s: f' — "{real(s)}" [{hash(s) % 997}]',
+        ):
+            measurement = check_capped_signature_collides()
+        assert measurement.verdict == "mismatch"
+        assert "headline half is closed" in measurement.note
+        assert "roll-up member lines identical: True" in measurement.detail
+
+    def test_a_sibling_aware_roll_up_refutes_the_detail_half_alone(self):
+        """The one shape that separates the halves is the entry's own fix.
+
+        It proposes capping *from the first character at which the
+        group's members diverge*, which needs the sibling set and so
+        cannot live in the per-row pure function the titles are built
+        from.  That is what this patch stands in for, and it is the only
+        reason reporting the halves apart is worth the code.
+        """
+        import sysadmin.monitor.log_actions as log_actions
+
+        real = log_actions.capped_signature
+        with (
+            patch.object(
+                log_actions, "capped_signature", lambda s: f"{real(s)} [{hash(s) % 997}]"
+            ),
+            patch.object(log_actions, "quoted_signature", lambda s: f' — "{real(s)}"'),
+        ):
+            measurement = check_capped_signature_collides()
+        assert measurement.verdict == "mismatch"
+        assert "second candidate fix" in measurement.note
+        assert "separate rows' titles identical: True" in measurement.detail
+
+    def test_a_probe_that_is_never_truncated_is_unknown_not_refuted(self):
+        """Rule 5, at the one input that would otherwise read as a fix.
+
+        With the cap removed altogether the two signatures render apart —
+        and not because anything learned to tell them apart.  The
+        mechanism under test is gone, so there is nothing to measure, and
+        ``unknown`` is the difference between *we looked* and *we could
+        not*.
+        """
+        import sysadmin.monitor.log_actions as log_actions
+
+        with patch.object(log_actions, "capped_signature", lambda s: s):
+            measurement = check_capped_signature_collides()
+        assert measurement.verdict == "unknown"
+        assert "uncapped" in measurement.note
+
+    def test_the_probe_isolates_the_signature_and_nothing_else(self):
+        """The false negative the first draft of this check shipped with.
+
+        Its ``apart`` half used two *different* sources, and the two
+        titles came apart — ``_new_recommendation`` opens a title with the
+        source name, so the fixture reported the claim refuted for a
+        reason with nothing to do with the cap.  Measured here rather
+        than asserted: the same pair, capped identically, yields one
+        title from one source and two from two.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        from sysadmin.monitor.log_actions import (
+            INCIDENT_WINDOW_SECONDS,
+            SIGNATURE_DETAIL_CHARS,
+            quoted_signature,
+            recommend,
+        )
+        from sysadmin.monitor.log_trends import (
+            ChangeKind,
+            Confidence,
+            LogTrendReport,
+            SignatureTrend,
+        )
+
+        first, second = probe_signatures(SIGNATURE_DETAIL_CHARS)
+        assert first != second
+        assert quoted_signature(first) == quoted_signature(second)
+
+        anchor = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+
+        def rows(second_source):
+            pair = [
+                SignatureTrend(
+                    signature=signature,
+                    alert_title="Log error: probe",
+                    source=source,
+                    severity="error",
+                    sample=signature,
+                    current=1,
+                    previous=0,
+                    total=1,
+                    first_seen=anchor + timedelta(seconds=offset),
+                    last_seen=anchor + timedelta(seconds=offset),
+                    change=ChangeKind.NEW,
+                )
+                for signature, source, offset in (
+                    (first, "one.service", 0.0),
+                    (second, second_source, INCIDENT_WINDOW_SECONDS * 2),
+                )
+            ]
+            return recommend(
+                LogTrendReport(
+                    window_days=7,
+                    window_start=anchor - timedelta(days=7),
+                    previous_start=anchor - timedelta(days=14),
+                    generated_at=anchor,
+                    confidence=Confidence.HIGH,
+                    signatures=pair,
+                )
+            )
+
+        same = rows("one.service")
+        different = rows("two.service")
+        assert same[0].title == same[1].title
+        assert different[0].title != different[1].title
+
+    def test_probe_signatures_agree_past_the_cap_at_any_cap(self):
+        """The derivation, at three caps rather than at the live one.
+
+        A probe that only agrees past *today's* constant is a hard-coded
+        prefix with an extra step, so the property is asserted where it
+        would fail if the arithmetic were wrong.
+        """
+        for cap in (40, 120, 400):
+            first, second = probe_signatures(cap)
+            assert first[:cap] == second[:cap]
+            assert len(first) > cap
+            assert first != second
 
 
 # ---------------------------------------------------------------------------

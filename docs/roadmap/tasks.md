@@ -394,6 +394,46 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 85 — the ninth check, for the entry the mechanism rule was named after (2026-08-25) ✅
+
+- [x] `check_capped_signature_collides` in `sysadmin/snag_claims.py` — the ninth check, and rule 1's second case
+- [x] `probe_signatures()` derives its shared prefix from `SIGNATURE_DETAIL_CHARS`, so raising the cap cannot read as a fix
+- [x] Two halves driven through the real `recommend()` — grouped (the roll-up's member lines) and apart (two rows' titles) — reported separately because they close to different fixes
+- [x] `<!--check:capped_signature_collides-->` into `SNAG-LOG-013`'s body; estate-manager's `read_snags` reads 69 entries and 26 open either side
+- [x] 8 tests (2449 → 2457), three falsifications driven: a hard-coded prefix, a dropped guard clause, and the two halves collapsed into one `or`
+- [x] Checked entries 8 → 9, unchecked 18 → 17; all nine claims still hold
+
+**Why this entry first.** It is the one the rule was written for.
+`SNAG-LOG-013`'s population is empty at the live endpoint by its own last
+bullet — the ten raw-JSON rows left the seven-day `current` window the
+afternoon it was filed — and Session 82 measured that emptiness and kept
+the entry **open**, because "population is currently zero" is precisely
+what mis-ranked its parent `SNAG-LOG-010`. So it is the entry where a
+population-shaped check does the most damage: it closes the one claim two
+sittings argued must stay open.
+
+**The derivation is the design.** The entry says in writing that raising
+the cap is not the fix — *any bound is defeated by two records that differ
+past it, and a larger number only moves where*. A probe with a hard-coded
+prefix reports a fix the day somebody moves the constant, which is a check
+arguing against the entry it measures. Driven both ways: pinned at 240 it
+breaks two of the eight new tests; derived, it reports *still holds* at
+`SIGNATURE_DETAIL_CHARS = 400` over a 540-character agreement.
+
+**The halves separate only where the entry's own fix would land.**
+`quoted_signature` delegates to `capped_signature`, so a fix to the shared
+function closes both and the check says so instead of naming a half. The
+one shape that closes the detail half alone is a cap taken *from where the
+group's members diverge* — which needs the sibling set and so cannot live
+in the per-row pure function the titles are built from. That is the
+entry's second candidate fix, and it is a test.
+
+**What it cannot reach is stated.** The entry's first candidate fix is
+`SNAG-LOG-008`'s — make the signature readable at the producer — which
+removes the population and leaves the mechanism untouched, so this check
+would go on reporting *still holds*. Rule 1 rather than a gap, and the
+reason the live table is not consulted here at all.
+
 ## Session 84 — `snag_list.md` gets the reader `STATUS.md` has (2026-08-25) ✅
 
 - [x] `sysadmin/snag_claims.py` — the fifth composition root: an entry names the check that would refute it, and `sysadmin-check-snags` runs it

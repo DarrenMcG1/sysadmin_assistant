@@ -2,101 +2,97 @@
 
 ## Next action
 
-Write the next `snag_claims` check and pick it by what a wrong answer costs — `SNAG-LOG-013` first, because it is the entry whose whole argument is that an empty population is not a closure and so it is the one whose check most needs the mechanism rule applied, and because eighteen of twenty-six open entries still carry none.
+Give `SNAG-ROADMAP-001` a check and settle the question it forces — its subject is another repository's code path rather than a document, so decide before writing whether a check that skips when estate-manager's venv is absent is a check at all or a fourth way of reporting `unknown`.
 
-## Session 84 is complete, and `snag_list.md` has the reader `STATUS.md` has
+## Session 85 is complete — the ninth check, for the entry the mechanism rule was named after
 
-`sysadmin/snag_claims.py` is the fifth composition root. An open entry
-names the check that would refute it — `check:<key>` as an HTML comment in
-the entry's **body** — and `sysadmin-check-snags` runs it at the start and
-the close of every sitting, beside the ops claims.
+`sysadmin/snag_claims.py` gains `check_capped_signature_collides` and
+`SNAG-LOG-013`'s body carries `<!--check:capped_signature_collides-->`.
+Checked entries go **8 → 9**, unchecked **18 → 17**, and **all nine
+claims still hold**. estate-manager's `read_snags` reads **69 entries, 26
+open, dialect `bullet`** either side of the edit, so the marker moved
+nothing the board publishes.
 
-Measured live: **8 of 26** open entries are checked, **all eight claims
-still hold**, and the other **18** are named and counted rather than left
-silent. estate-manager's parser reads **69 entries, 26 open, dialect
-`bullet`** either side of the edit, so the markers moved nothing the board
-publishes.
-
-**2449 tests pass** (2398 + 51). Ruff clean, mypy clean. The daemon was
-restarted at **21:42:24** and `/health` answers 200 — nothing it imports
-changed, and the restart was taken rather than argued with because
-`check-ops-claims.sh` cannot know that.
+**2457 tests pass** (2449 + 8). Ruff clean, mypy clean. The daemon was
+restarted at **22:14:04** and `/health` answers 200 — nothing it imports
+changed, and the restart was taken rather than argued with for the reason
+Sessions 81 and 84 took theirs.
 
 ## What was decided, and on what evidence
 
-**A check tests the entry's *mechanism*, never its *population*.** This is
-Session 83's residue/population rule read as an instruction to the check
-author, and getting it wrong would have made the machinery close the one
-entry the last two sittings argued must stay open. `SNAG-UNITS-006`'s
-population is measured empty — zero of the 38 swept units carries a
-drop-in — so a check that looked for one refutes it on the day it was
-filed. `check_dropin_blind_spot` **builds** a synthetic unit whose drop-in
-overrides `RestartSec=`, sweeps it, and compares: reproduced rather than
-counted, which is Session 82's `SNAG-ROADMAP-001` treatment.
+**This entry first, because a population-shaped check does the most
+damage here.** `SNAG-LOG-013`'s own last bullet says its ten raw-JSON
+rows left the seven-day `current` window the afternoon it was filed;
+Session 82 measured that emptiness and kept the entry **open**, because
+"population is currently zero" is exactly what mis-ranked its parent
+`SNAG-LOG-010`. So the check drives the mechanism through the real
+`recommend()` and never asks what the live table holds today.
 
-**A refuted claim is a candidate for closure and never a closure**, so
-nothing in this family writes to a document and neither script blocks on
-it. Session 83 spent a whole sitting on one such judgement; a check that
-made it automatically would be the second author the convention exists to
-keep out.
+**The probe's shared prefix is derived from `SIGNATURE_DETAIL_CHARS`, and
+that is the load-bearing line.** The entry argues in writing that raising
+the cap is not the fix — any bound is defeated by two records that differ
+past it — so a hard-coded prefix would report that remedy as a fix and
+have the check arguing against the entry it measures. Driven both ways:
+pinned at 240 it breaks two of the eight new tests; derived, it still
+reports *still holds* at `SIGNATURE_DETAIL_CHARS = 400` over a
+540-character agreement.
 
-**The marker lives in the body and never in the title**, because the title
-is estate-manager's input: `_trailing_parenthetical` requires it to end in
-`)` before it will look for a closure clause at all. Verified rather than
-argued — the board's parse is identical either side.
+**Two halves, because the entry's title is a conjunction** — capping
+*can* put two rows back where `SNAG-LOG-010` found them, and inside one
+roll-up it *already has*. The pair is driven inside
+`INCIDENT_WINDOW_SECONDS`, where the roll-up's member lines are compared,
+and outside it, where two rows' titles are.
 
-**The marker names a check and the check names its entry, pinned rather
-than derived.** Before the eight markers were added, the pin reported all
-eight checks orphaned, which is its falsification.
+**They are not independent in one direction, and the direction that
+separates them is the entry's own fix.** `quoted_signature` delegates to
+`capped_signature`, so one fix to the shared function closes both and the
+note says so rather than naming a half. What closes the detail half alone
+is a cap taken from where the group's members diverge — which needs the
+sibling set and cannot live in the per-row pure function the titles are
+built from. That is the entry's second candidate fix, and it is a test.
 
-**The instrument decides more than the rule does.** `grep review_hour`
-matches `log_review_hour`, `disk_review_hour` and `health_review_hour`,
-all three of which *are* read, so a grep-shaped check reports
-`SNAG-CFG-002` refuted on its first run. `ast.Attribute.attr` is the exact
-final segment. The falsification points the same walk at `log_review_hour`
-deliberately, where it finds the two real readers — third time here that a
-substring has stood in for a measurement.
+**The first draft of the second half was a false negative.** It used two
+different sources, so the titles came apart because
+`_new_recommendation` opens a title with the source name — the claim
+reported refuted for a reason with nothing to do with the cap. A fixture
+that moves two things at once cannot say which one it measured.
 
-**The open set is read here and pinned against its owner.** `read_snags`
-is in `estate_service` rather than `estate-lib`, so the closure rule is a
-second implementation. Narrowed to under-report closure, so the error
-direction is *more* entries reported unchecked; pinned by a test that
-shells out to estate-manager's venv and skips when it is absent.
+**Removing the cap altogether is `unknown`, never `mismatch`.** The two
+signatures render apart and not because anything learned to tell them
+apart; the mechanism under test is gone. Falsified by deleting the guard,
+which turns that input into a reported fix.
 
-## What the live run found that no fixture would have
+**What the check cannot reach is stated rather than implied.** The
+entry's first candidate fix is `SNAG-LOG-008`'s — readable signatures at
+the producer — which removes the population and leaves the mechanism
+untouched, so this check would go on reporting *still holds*. Rule 1
+rather than a gap, and the reason the live table is not read here at all:
+a database read would make the check `unknown` whenever PostgreSQL is
+down, for a claim that has nothing to do with the database.
 
-- **Two checks nobody implements, `helth` and `routes`**, both "named by
-  `SNAG-ESTATE-011`" — an entry that names neither and merely **quotes**
-  them, one deliberately misspelled. This document is the one place on the
-  box that writes *about* markers. `strip_code_spans` is the fix;
-  `SNAG-DOCS-005` is `ops_claims`' latent copy, measured empty (9 markers
-  in its region, none quoted) and deliberately not fixed there.
-- **The doubled fence.** `SNAG-DOCS-005`'s own body quotes a marker inside
-  a two-backtick span, and a pattern closing on any backtick run stops at
-  the inner single one. Markdown's same-length rule, learned by watching
-  the check report the marker it was describing.
-- **A marker used to state an absence.** `SNAG-ESTATE-014` was first filed
-  with `check:none_yet`, refused within a minute: a marker names a check,
-  and "there is no check" is not one.
-- **The sitting's own defect.** The board pin was first written `assert
-  theirs["total"] == 67` — a measured figure inside a test, stale the
-  moment this sitting filed two entries, which is `SNAG-ESTATE-008`'s
-  shape inside the guard built to answer it. It now pins the agreement
-  between two readers instead.
+## Rejected, and why
 
-## Filed rather than absorbed
+- **A live-table population check.** The obvious implementation, and it
+  closes the one entry two sittings argued must stay open.
+- **A hard-coded probe prefix.** Simpler, and it reports the entry's own
+  refused remedy as a fix.
+- **One boolean over the two halves.** Cheaper, and it cannot tell the
+  entry's second candidate fix from a title disambiguator — which is the
+  only distinction worth reporting.
+- **Rewriting `SNAG-ESTATE-014`'s title figure from eighteen to
+  seventeen.** The title records what was true when the entry was opened
+  and the live count is `convention:unchecked`'s to publish, which is
+  that entry's whole argument. A dated progress bullet instead.
 
-- `SNAG-ESTATE-014` — eighteen of twenty-six open entries carry no check.
-  Measured on every run by `convention:unchecked`, which is the thing it
-  is about. Four are delegated and several are judgements rather than
-  measurements, so the shape of a fix is one check per sitting.
-- `SNAG-DOCS-005` — `ops_claims` would read a quoted marker as a real one.
-  Empty population today, and stated in `STATUS.md`'s own block, which is
-  why that block deliberately does not quote its own syntax.
-- Estate message **`3986f323`** — `read_snags` is not importable.
+## Blocked / carried
 
-## Blocked or waiting on another repository
-
-Unchanged plus one. Session 33 is asked (`6a330427`) and awaits an answer;
-`3986f323` is new and awaits one too. `SNAG-LOG-012` is delegated;
-`SNAG-ESTATE-002`, `-004`, `-006` and `-007` remain estate-manager's.
+- **Nothing is blocked.** 17 open entries still carry no check; the order
+  is by what a wrong answer costs, which is what picked
+  `SNAG-ROADMAP-001` next — the only unchecked entry whose wrong answer
+  is *published* to the estate board.
+- **A cross-repo slip worth not repeating.** A `git stash` intended for
+  this repository ran in `~/projects/estate-manager` because a compound
+  command left the shell in their tree; it stashed three uncommitted
+  files and was popped within the minute, their tree verified back to the
+  same three modifications. Another session may share that tree. Address
+  another repository by absolute path, never by leaving `cd` behind.

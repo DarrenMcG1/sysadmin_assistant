@@ -4,13 +4,14 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and no sub-session action is either.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 21:42:24**
-> <!--check:daemon_start--> — by Session 84, which added
-> `sysadmin/snag_claims.py`, a **composition root the daemon does not
-> import**, so again nothing a caller can observe moved. The restart was
-> taken rather than argued with, for the reason Session 81 took its own:
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 22:14:04**
+> <!--check:daemon_start--> — by Session 85, which edited
+> `sysadmin/snag_claims.py`, the **composition root the daemon does not
+> import**, so for the second sitting running nothing a caller can
+> observe moved. The restart was taken rather than argued with, for the
+> reason Sessions 81 and 84 took theirs:
 > `check-ops-claims.sh` compares the daemon's start against the newest
-> source mtime and cannot know that the new file is one nothing loads —
+> source mtime and cannot know that the edited file is one nothing loads —
 > which its rule 4 states as the cost in advance — and correcting the
 > artefact the script names beats hand-verifying that it is wrong.
 > `/health` answers **200**
@@ -115,25 +116,30 @@
 > holds true), and a claims-checker that alerted on it would re-import
 > exactly that.
 >
-> **Next up**: **nothing checks that a snag's claim still holds — give
-> `snag_list.md` the reader `STATUS.md` already has.**
-> *Recommended at the close of Session 83, and named by the recommendation
-> it replaces.* Session 82 measured all 30 open entries by hand and found
-> **five dead on the box**, three of them P1 and three of them fixed for
-> nine to thirteen days; the board published all five. That is
-> `SNAG-ESTATE-008` one document over, and its fix is the convention that
-> closed it: an entry's claim names the check that would refute it, and
-> something runs the check. `ops_claims.py` is the shape and its rules
-> transfer — verdicts `match`/`mismatch`/`unknown`, every way of
-> not-knowing `unknown`, additive markers that cannot retire a check, and
-> nothing that edits the document it reads. A sitting, and the honest half
-> is deciding which claims are even patternable, since the sweep's five
-> were each measured a different way. **Read `SNAG-ESTATE-012` first**: it
-> is the standing statement of what this class cannot mechanise, and it
-> would gain the population it currently lacks.
+> **Next up**: **give `SNAG-ROADMAP-001` a check, and accept that its
+> instrument lives in another repository.**
+> *Recommended at the close of Session 85, and picked the way that sitting
+> was asked to pick: by what a wrong answer costs.* It is one of the two
+> `P2`s among the seventeen unchecked entries, and it is the only entry on
+> the list whose wrong answer is **published** — an unfilled handoff
+> placeholder reaching the estate board as a real next action, where every
+> other unchecked claim costs a reader a glance. Session 82 already
+> reproduced it and the reproduction **refuted its stated cause**: the
+> detector is wired in and cannot fire, because `_first_meaningful` strips
+> the italics `is_placeholder` keys on before it is tested
+> (`is_placeholder(raw)` **True**, `is_placeholder(naked)` **False**). So
+> the mechanism is known and the honest half is the instrument — the
+> detector is `estate_service`'s, not importable from here, and the
+> precedent for reaching it already exists in
+> `TestAgainstTheOwningParser`, which shells out to their venv to pin the
+> closure rule. That makes this the **first check whose subject is another
+> repository's code path** rather than its document, and the question to
+> settle before writing it is whether a check that skips when the venv is
+> absent is a check at all or a fourth way of reporting `unknown`.
 >
-> *Previously*: `SNAG-ESTATE-008` — **decided and closed by Session 83**
-> on an empty residue rather than on its chain.
+> *Previously*: the ninth check, `SNAG-LOG-013` — **written by Session 85**,
+> and before it `SNAG-ESTATE-008`, decided and closed by Session 83 on an
+> empty residue rather than on its chain.
 >
 > **No sub-session action is owed. Both are done**, and the header
 > paragraph above went on asking for the first of them until Session 83 —
@@ -249,7 +255,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2449 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, **snag-claim guard (51 tests: eight open-entry claims each driven at the live box *and* at a box that moved, plus the closure rule pinned against estate-manager's own `read_snags` by shelling out to their venv — three of the guards falsified by breaking the code they guard)**, **shared figure-free guard (9 tests over the one statement of rule 2 the three Tier 3 reviews share, each driven at something that must break it — a shared assertion that never refuses anything is worth less than the three copies it replaced)**, smoke script |
+| Testing | 🟢 Complete | **2457 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, **snag-claim guard (59 tests: **nine** open-entry claims each driven at the live box *and* at a box that moved, plus the closure rule pinned against estate-manager's own `read_snags` by shelling out to their venv — six of the guards falsified by breaking the code they guard, the newest three by hard-coding a probe prefix, dropping a guard clause and collapsing two halves into one `or`)**, **shared figure-free guard (9 tests over the one statement of rule 2 the three Tier 3 reviews share, each driven at something that must break it — a shared assertion that never refuses anything is worth less than the three copies it replaced)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -257,6 +263,77 @@
 ---
 
 ## Recently Completed
+
+### Session 85 — the ninth check, and the entry the mechanism rule was written for (2026-08-25)
+
+**`SNAG-LOG-013` names a check now, and it is rule 1's second case.**
+`sysadmin/snag_claims.py` gains `check_capped_signature_collides`; the
+entry's body carries `<!--check:capped_signature_collides-->`. Checked
+entries go **8 → 9** and unchecked **18 → 17**; all nine still hold, and
+estate-manager's `read_snags` reads **69 entries and 26 open either side
+of the edit**, so the marker moved nothing the board publishes.
+**2457 tests pass** (2449 + 8). Ruff clean, mypy clean. The daemon was
+restarted at **22:14:04** and `/health` answers 200.
+
+- **The population was the trap, and this is the entry the trap was named
+  after.** `SNAG-LOG-013`'s own last bullet says its ten raw-JSON rows
+  left the seven-day `current` window the afternoon it was filed, and
+  Session 82 measured that population **empty** and kept the entry open.
+  So the check never asks *does any pair collide today* — it drives the
+  real `recommend()` over two signatures built to agree past the cap.
+  `check_dropin_blind_spot`'s treatment, applied to the entry that
+  taught it.
+- **The probe's shared prefix is derived from `SIGNATURE_DETAIL_CHARS`,
+  and that is the design's load-bearing line.** The entry argues in
+  writing that raising the cap is *not* the fix — any bound is defeated
+  by two records that differ past it. A hard-coded prefix would
+  therefore report a fix the day somebody moved the constant to 400,
+  which is the check arguing against the entry it measures. Falsified
+  exactly that way: pinning the prefix at 240 breaks two of the eight
+  new tests, and at `SIGNATURE_DETAIL_CHARS = 400` the derived probe
+  still reports *still holds* over a 540-character agreement.
+- **Two halves, because the entry's title is a conjunction** — capping
+  *can* put two rows back where `SNAG-LOG-010` found them, and inside one
+  roll-up it *already has*. The check drives the pair twice: inside
+  `INCIDENT_WINDOW_SECONDS`, where the roll-up's own member lines are
+  compared, and outside it, where two rows' titles are.
+- **The halves are not independent in one direction, and the direction
+  that separates them is the entry's own fix.** `quoted_signature`
+  delegates to `capped_signature`, so a fix to the shared function closes
+  both and the note says so rather than naming a half. What separates
+  them is capping *from where the group's members diverge* — which needs
+  the sibling set and so cannot live in the per-row pure function the
+  titles are built from, which is precisely the entry's second candidate
+  fix. That is the only reason reporting the halves apart is worth the
+  code, and it is a test.
+- **The first draft of the second half was a false negative, and it
+  shipped green in the scratch run.** It used two *different* sources, so
+  the two titles came apart — `_new_recommendation` opens a title with the
+  source name — and the probe reported the claim refuted for a reason with
+  nothing to do with the cap. A fixture that moves two things at once
+  cannot say which one it measured. The repaired test now drives both
+  fixtures and asserts the difference is the fixture.
+- **Removing the cap altogether is `unknown`, never `mismatch`.** With
+  `capped_signature` a no-op the two signatures render apart, and not
+  because anything learned to tell them apart — the mechanism under test
+  is simply gone. Falsified by deleting the guard clause, which turns
+  that input into a reported fix.
+- **What the check cannot reach is stated rather than implied.** The
+  entry's *first* candidate fix — making the signature readable at the
+  producer, which is `SNAG-LOG-008` — removes the population and leaves
+  the mechanism exactly as it is, so this check would go on reporting
+  *still holds*. That is rule 1 rather than a gap, and it is why the live
+  table is deliberately not consulted here at all: a database read would
+  make the check `unknown` whenever PostgreSQL is down, for a claim that
+  has nothing to do with the database.
+- **A cross-repo slip, recorded rather than quietly undone.** A `git
+  stash` intended for this repository ran in `~/projects/estate-manager`
+  because a compound command left the shell in their tree, and stashed
+  three uncommitted files (an ADR and two roadmap documents). Popped
+  within the minute and their tree verified back to the same three
+  modifications — but another session may share that tree, and the
+  lesson is the one already recorded for commits: address another
+  repository by absolute path, never by leaving `cd` behind.
 
 ### Session 84 — `snag_list.md` gets the reader `STATUS.md` has (2026-08-25)
 
