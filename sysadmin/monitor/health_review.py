@@ -854,15 +854,14 @@ def build_review_prompt(data: dict[str, Any]) -> str:
     """Deterministic, figure-free prompt from the gathered facts.
 
     **No digit reaches this prompt from the data**, which is the precise
-    form of rule 2 and is narrower than what the two sibling modules'
-    docstrings claim.  Measured 2026-08-25: ``log_review`` and
-    ``files.review`` both say their prompt "contains no digit by
-    construction" and both prompts contain ``1``, ``2``, ``3`` and
-    ``150`` — the section numbers and the word limit in their own
-    ``REVIEW_INSTRUCTIONS``.  The claim was always about the *data* half
-    and the instruction half was never in scope, so the two are asserted
-    apart here and :func:`tests.test_health_review` drives all three
-    modules rather than only this one.
+    form of rule 2.  It is narrower than what the two sibling modules'
+    docstrings claimed until 2026-08-25 — both said "contains no digit
+    by construction" while their prompts carried ``1``, ``2``, ``3`` and
+    ``150``, the section numbers and word limit in their own
+    ``REVIEW_INSTRUCTIONS`` (``SNAG-DOCS-004``, fixed).  The claim was
+    always about the *data* half, so the two halves are asserted apart
+    and the rule is stated once in :mod:`tests.review_prompts`; each of
+    the three modules drives its own prompt against it.
 
     Every count above becomes a band, a direction or a grade name.  The
     one field carrying free text is a **service name**, which is

@@ -18,8 +18,10 @@ against the real tables rather than before:
 * the model opened with a conversational preamble that would have
   reached the briefing verbatim (:class:`TestPromptStructure`).
 
-And one pins a claim **all three** Tier 3 modules make and only the
-data half of which is true (:class:`TestPromptIsFigureFree`).
+And one pins the claim **all three** Tier 3 modules make, in the narrow
+form that is true of all three (:class:`TestPromptIsFigureFree`).  The
+rule itself is stated once, in :mod:`tests.review_prompts`; each module
+asserts its own prompt against it.
 """
 
 from datetime import UTC, datetime
@@ -44,6 +46,10 @@ from sysadmin.monitor.health_review import (
     movement_phrase,
 )
 from sysadmin.monitor.reliability import LOW_COVERAGE_FRACTION
+from tests.review_prompts import (
+    assert_no_figure_reaches_the_model,
+    assert_the_digits_are_in_the_instructions,
+)
 
 MOD = "sysadmin.monitor.health_review"
 
@@ -414,42 +420,23 @@ class TestDiskIsDeferred:
 
 
 class TestPromptIsFigureFree:
-    """The precise claim, which is narrower than all three modules say.
+    """The precise claim, asserted through the shared statement of it.
 
-    ``log_review`` and ``files.review`` both document their prompt as
-    "contains no digit by construction"; measured 2026-08-25, both
-    prompts contain ``1``, ``2``, ``3`` and ``150`` — the section numbers
-    and the word limit in their own ``REVIEW_INSTRUCTIONS``.  The claim
-    was always about the *data* half.  Asserting it that way makes it
-    true for all three rather than aspirational for all three, so this
-    drives the siblings too.
+    Session 79 stated the narrow form here and drove the two siblings
+    from this module, because their docstrings claimed something wider
+    than they held.  Both are reworded now (``SNAG-DOCS-004``), so each
+    module asserts its own prompt and the rule itself lives once, in
+    :mod:`tests.review_prompts` — which also records why the instruction
+    half is out of scope and why an API path may carry a digit.
     """
 
-    @staticmethod
-    def _data_half(prompt: str, instructions: str) -> str:
-        head, marker, _ = prompt.partition(instructions)
-        assert marker, "the instruction block must be present and separable"
-        return head
-
     def test_no_digit_reaches_the_data_half(self):
-        head = self._data_half(build_review_prompt(DATA), REVIEW_INSTRUCTIONS)
-        assert not any(c.isdigit() for c in head), head
+        assert_no_figure_reaches_the_model(
+            build_review_prompt(DATA), REVIEW_INSTRUCTIONS
+        )
 
     def test_the_instruction_block_is_where_the_digits_are(self):
-        """Stated rather than implied: a future reader comparing this
-        module's docstring against the prompt will find digits, and the
-        reason must be recorded where they look."""
-        assert any(c.isdigit() for c in REVIEW_INSTRUCTIONS)
-
-    def test_the_sibling_tier_threes_hold_the_same_property(self):
-        """The claim the two siblings make in prose, asserted for real."""
-        from sysadmin.files import review as disk_review
-        from sysadmin.monitor import log_review
-
-        for module in (log_review, disk_review):
-            assert any(
-                c.isdigit() for c in module.REVIEW_INSTRUCTIONS
-            ), f"{module.__name__} instructions are expected to carry digits"
+        assert_the_digits_are_in_the_instructions(REVIEW_INSTRUCTIONS)
 
     def test_a_service_name_is_not_filtered_the_way_a_signature_is(self):
         """A name is not a measurement.

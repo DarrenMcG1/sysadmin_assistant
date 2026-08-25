@@ -4,8 +4,14 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and one sub-session action is.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 15:59:58**
-> <!--check:daemon_start-->, `/health` answers **200** <!--check:health-->,
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 16:21:01**
+> <!--check:daemon_start--> — by Session 81, whose only production change
+> was three docstrings, so nothing a caller can observe moved. The
+> restart was taken rather than argued with: `check-ops-claims.sh`
+> compares the daemon's start against the newest source mtime and cannot
+> know a diff is prose, and correcting the artefact the script names
+> beats hand-verifying that it is wrong. `/health` answers **200**
+> <!--check:health-->,
 > `alembic current` reads 016 at the packaged head <!--check:schema-->, and
 > `alerts` holds **2** unresolved rows <!--check:alerts-->.
 >
@@ -186,7 +192,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2388 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, smoke script |
+| Testing | 🟢 Complete | **2398 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, **shared figure-free guard (9 tests over the one statement of rule 2 the three Tier 3 reviews share, each driven at something that must break it — a shared assertion that never refuses anything is worth less than the three copies it replaced)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -194,6 +200,60 @@
 ---
 
 ## Recently Completed
+
+### Session 81 — SNAG-DOCS-004, the rule three modules state and the three ways it was written (2026-08-25)
+
+**Two docstrings claimed their prompt "contains no digit by
+construction" and both prompts contain `1`, `2`, `3` and `150`.** The
+behaviour was right and the sentence was not: rule 2 was always about
+the *data* half, and the section numbers and word cap in each module's
+own `REVIEW_INSTRUCTIONS` are instructions to the model rather than
+measurements about the box. `log_review` and `files.review` now state
+the narrow claim and name the half they do not cover; `health_review`'s
+was reworded too, because it carried a present-tense description of the
+siblings' defect that would have gone stale the moment the defect did.
+
+**The entry asked for *the* partition helper to be shared, and there
+was no such thing.** The rule was written three times and the three had
+diverged, in two places, each with a right side:
+
+| | strips API paths | asserts the boundary was found |
+|---|---|---|
+| `test_disk_review._data_lines` | ✅ | ❌ |
+| `test_log_review._data_lines` | ✅ | ❌ |
+| `test_health_review._data_half` | ❌ | ✅ |
+
+So `tests/review_prompts.py` is the **union**, not any one of them —
+deduplicating onto whichever copy a reader opened first would have
+silently dropped a live guard. Two things it settled:
+
+- **The API-path strip is a no-op today and is kept as policy.**
+  Measured across all three live fixtures: exactly one data half
+  contains an API path at all (`POST /api/files/clean/downloads`) and it
+  is digit-free. It earns its place the day a route is versioned.
+- **`split(instructions)[0]` was not a false green**, and saying so is
+  the point. With no instruction block there are no instruction digits
+  to exclude, so the digit test passes for a *stricter* reason. What it
+  did was return the whole prompt while being called "the facts half" —
+  `ports_checked`'s rule one directory over.
+
+**Nine tests exist so the shared assertion can be seen to fail**, one
+per rule plus two boundary cases, each driven at something that must
+break it before it was written down. A shared guard that never refuses
+anything is worth less than the three copies it replaced, because a copy
+at least had a reader.
+
+**One correction the sitting made to itself, and it is this entry's own
+defect in miniature.** The note explaining why the strip is left greedy
+first read *"no route on this service takes a query string"*, written
+from plausibility. One `grep Query(` refuted it — `/api/logs/recent`
+alone takes five. The note now states what was measured: the executors
+that reach a prompt are hand-written literals in
+`files/recommendations.py`, every one a bare path followed by a space.
+`CLAUDE.md` carried the wider claim too and was corrected in the same
+sitting.
+
+Suite **2388 → 2398**, routes unmoved at 51, head unmoved at 016.
 
 ### Session 80 — SNAG-API-004, one classification of a column read four ways (2026-08-25)
 

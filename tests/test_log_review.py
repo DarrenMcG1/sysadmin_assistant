@@ -11,7 +11,6 @@ reach the model, *and* the signature — which is the one string this tier
 hands over verbatim — must be excluded the moment it carries one.
 """
 
-import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -32,6 +31,10 @@ from sysadmin.monitor.log_review import (
     occurrence_band,
 )
 from sysadmin.monitor.log_trends import RATIO_MIN_COUNT, Confidence
+from tests.review_prompts import (
+    assert_no_figure_reaches_the_model,
+    assert_the_digits_are_in_the_instructions,
+)
 
 MOD = "sysadmin.monitor.log_review"
 
@@ -243,20 +246,28 @@ class TestDirectionIsAsymmetric:
 
 
 class TestPromptIsFigureFree:
-    """The prompt must contain no digit outside the fixed instructions.
+    """No digit reaches the prompt **from the data**.
 
     Session 23 and Session 24 both paid a live debugging session for
     this: handed figures and told not to restate them, dria-agent-a-3b
     restated them and derived a new one.
+
+    The rule and its two exclusions — the instruction block, an API
+    path — are stated once in :mod:`tests.review_prompts` rather than
+    here, in ``test_disk_review`` and in ``test_health_review``, where
+    the three copies had quietly diverged (``SNAG-DOCS-004``).
     """
 
-    def _data_lines(self, prompt: str) -> list[str]:
-        facts = prompt.split(REVIEW_INSTRUCTIONS)[0]
-        return [re.sub(r"/api/\S+", "", line) for line in facts.splitlines()]
-
     def test_no_digits_reach_the_model(self):
-        for line in self._data_lines(build_review_prompt(DATA)):
-            assert not re.search(r"\d", line), f"figure leaked into prompt: {line!r}"
+        assert_no_figure_reaches_the_model(
+            build_review_prompt(DATA), REVIEW_INSTRUCTIONS
+        )
+
+    def test_the_instruction_block_is_where_the_digits_are(self):
+        """The half the claim above deliberately does not cover: the
+        three numbered sections and the word cap this module asks the
+        model for."""
+        assert_the_digits_are_in_the_instructions(REVIEW_INSTRUCTIONS)
 
     def test_occurrences_become_bands(self):
         prompt = build_review_prompt(DATA)

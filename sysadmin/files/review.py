@@ -422,8 +422,17 @@ def occupancy_phrase(disk: dict[str, Any]) -> str:
 def build_review_prompt(data: dict[str, Any]) -> str:
     """Deterministic, figure-free prompt from the gathered facts.
 
-    Contains no numbers by construction — see the note above
+    **No digit reaches this prompt from the data** — see the note above
     :data:`REVIEW_INSTRUCTIONS` for the live failure that motivated it.
+
+    This said "contains no numbers by construction" until 2026-08-25 and
+    was false in a half that note never covered (``SNAG-DOCS-004``): the
+    instruction block numbers its three sections and carries "Hard limit
+    150 words".  A digit inside an API path is likewise not a leak — an
+    executor is a string the model must be able to quote back.  All
+    three exclusions are asserted, apart, in
+    :mod:`tests.review_prompts`, which owns the distinction for the
+    three Tier 3 reviews.
     """
     actions = data["actions"]
     lines = [

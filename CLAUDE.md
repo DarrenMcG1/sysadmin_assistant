@@ -2091,8 +2091,15 @@ review here, both learned from live runs:
    published the quotient as "each consuming 5GB". `build_review_prompt` is
    now figure-free by construction (sizes → bands, categories → phrases,
    occupancy → a direction), guarded by a test asserting no digit reaches
-   the model. Every real figure lives in `build_facts_section`, which is
-   prepended to the narrative deterministically. `strip_markdown` removes
+   the model **from the data** — the narrow form, because every
+   `REVIEW_INSTRUCTIONS` block numbers its sections and caps the model at
+   150 words, and those digits are instructions to the model rather than
+   measurements about the box. Two of the three Tier 3 docstrings claimed
+   the wider "contains no digit by construction" until 2026-08-25
+   (`SNAG-DOCS-004`); the rule is stated once now, in
+   `tests/review_prompts.py`, and each of the three modules drives its own
+   prompt against it. Every real figure lives in `build_facts_section`,
+   which is prepended to the narrative deterministically. `strip_markdown` removes
    the headings and lists the model emits despite being told not to.
 
 The three `/api/files/*` action endpoints share one manifest shape and are

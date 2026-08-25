@@ -428,9 +428,17 @@ def build_facts_section(data: dict[str, Any]) -> str:
 def build_review_prompt(data: dict[str, Any]) -> str:
     """Deterministic, figure-free prompt from the gathered facts.
 
-    Contains no digit by construction — see rules 2 and 3 in the module
-    docstring, and :func:`figure_free` for the one shape that has to be
-    filtered rather than trusted.
+    **No digit reaches this prompt from the data** — see rules 2 and 3
+    in the module docstring, and :func:`figure_free` for the one shape
+    that has to be filtered rather than trusted.
+
+    This said "contains no digit by construction" until 2026-08-25 and
+    was false in a half rule 2 never covered (``SNAG-DOCS-004``):
+    :data:`REVIEW_INSTRUCTIONS` numbers its sections and caps the model
+    at 150 words, and those digits are instructions *to* the model
+    rather than measurements *about* the box.  Both halves are asserted,
+    apart, in :mod:`tests.review_prompts`, which owns the distinction
+    for all three Tier 3 reviews.
     """
     actions = data["actions"]
     lines = [

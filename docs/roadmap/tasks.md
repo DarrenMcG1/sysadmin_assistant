@@ -394,6 +394,58 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 81 — SNAG-DOCS-004, one rule, three modules, three ways of writing it (2026-08-25) ✅
+
+Two Tier 3 docstrings claimed their prompt "contains no digit by
+construction" and both prompts carry `1`, `2`, `3` and `150`. The
+behaviour was right; the sentence was not.
+
+- [x] **State the narrow claim in both siblings** — *no digit reaches
+      this prompt **from the data*** — and name the half it does not
+      cover, so a reader who checks finds the digits already accounted
+      for. `health_review`'s docstring went with them: it carried a
+      present-tense description of the siblings' defect, which becomes a
+      stale sentence the moment the defect goes away
+- [x] **Find out how many helpers there actually were before sharing
+      one.** The entry says "move the partition helper"; there was no
+      *the*. `test_disk_review` and `test_log_review` held `_data_lines`
+      (split, then strip API paths) and `test_health_review` held
+      `_data_half` (partition, and assert the marker was found). **Each
+      disagreement has a right side**, so `tests/review_prompts.py` is
+      the **union** — deduplicating onto either copy would have silently
+      dropped a live guard
+- [x] **Measure the exclusion before keeping it.** Across all three live
+      fixtures exactly one data half contains an API path at all
+      (`POST /api/files/clean/downloads`) and it is digit-free, so the
+      strip is a no-op today. Kept as policy for the day a route is
+      versioned, and said to be untriggered rather than implied to fire
+- [x] **Say why the old form was wrong, since it was not a false
+      green.** `split(instructions)[0]` returns the whole prompt when
+      the boundary is absent; with no instruction block there are no
+      instruction digits to exclude, so the digit test passes for a
+      *stricter* reason. The defect is a helper returning something
+      other than what its name says — `ports_checked`'s rule one
+      directory over
+- [x] **Make the shared assertion falsifiable.** `tests/test_review_prompts.py`
+      drives all three rules at something that must break them, plus the
+      old form's behaviour pinned beside the new one. A shared guard
+      that never refuses anything is worth less than the three copies it
+      replaced, because a copy at least had a reader
+- [x] **Do not strip digits from any `REVIEW_INSTRUCTIONS`.** The model
+      needs the section numbers to produce sections and the word limit
+      to stop — the entry's own instruction, and still right
+- [x] **Correct `CLAUDE.md`**, which carried the same wider claim one
+      document up: "a test asserting no digit reaches the model"
+
+**One correction the sitting made to itself.** The note explaining why
+the strip is left greedy first read *"no route on this service takes a
+query string"* — written from plausibility, refuted by one
+`grep Query(` (`/api/logs/recent` alone takes five). That is
+`SNAG-DOCS-004` reproduced inside its own fix: a sentence about
+behaviour written without measuring it. The note now states the
+executors that reach a prompt are hand-written literals in
+`files/recommendations.py`, every one a bare path followed by a space.
+
 ## Session 80 — SNAG-API-004, one classification of `service_health.status` (2026-08-25) ✅
 
 `status != "ok"` was written in four readers and was wrong in three of

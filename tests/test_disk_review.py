@@ -12,7 +12,6 @@ different prompts, so the prompt is asserted to forbid figures and the
 narrative is asserted to carry the deterministic block regardless.
 """
 
-import re
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -33,6 +32,10 @@ from sysadmin.files.review import (
     run_weekly_review,
     size_band,
     strip_markdown,
+)
+from tests.review_prompts import (
+    assert_no_figure_reaches_the_model,
+    assert_the_digits_are_in_the_instructions,
 )
 
 MOD = "sysadmin.files.review"
@@ -311,7 +314,7 @@ class TestFactsSection:
 
 
 class TestPromptIsFigureFree:
-    """The prompt must contain no digits outside API paths.
+    """No digit reaches the prompt **from the data**.
 
     Found live 2026-08-06: given a prompt carrying "25.0 GB across 50
     directories" and an instruction not to restate figures,
@@ -319,22 +322,25 @@ class TestPromptIsFigureFree:
     "each consuming 5GB". Instructing a model not to use a number it can
     see is a request; not showing it one is a constraint. These tests
     guard the constraint.
+
+    This module's copy of the rule owned the API-path exclusion — an
+    executor like ``POST /api/files/clean/downloads`` is a string the
+    model must be able to quote verbatim — and the copy in
+    ``test_health_review`` owned the boundary assertion the other two
+    lacked. Both survive in :mod:`tests.review_prompts`, which is the
+    union of the three rather than any one of them
+    (``SNAG-DOCS-004``).
     """
 
-    def _data_lines(self, prompt: str) -> list[str]:
-        """The facts half of the prompt, with API paths stripped.
-
-        The instructions are excluded: they legitimately carry digits
-        ("Hard limit 150 words") and are fixed text, not data. API paths
-        are stripped because an executor like ``/api/files/clean`` is
-        something the model must be able to quote verbatim.
-        """
-        facts = prompt.split(REVIEW_INSTRUCTIONS)[0]
-        return [re.sub(r"/api/\S+", "", line) for line in facts.splitlines()]
-
     def test_no_digits_reach_the_model(self):
-        for line in self._data_lines(build_review_prompt(DATA)):
-            assert not re.search(r"\d", line), f"figure leaked into prompt: {line!r}"
+        assert_no_figure_reaches_the_model(
+            build_review_prompt(DATA), REVIEW_INSTRUCTIONS
+        )
+
+    def test_the_instruction_block_is_where_the_digits_are(self):
+        """The half the claim above deliberately does not cover: three
+        numbered sections and "Hard limit 150 words"."""
+        assert_the_digits_are_in_the_instructions(REVIEW_INSTRUCTIONS)
 
     def test_sizes_become_bands_not_megabytes(self):
         prompt = build_review_prompt(DATA)

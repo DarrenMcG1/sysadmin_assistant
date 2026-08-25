@@ -2,106 +2,121 @@
 
 ## Next action
 
-Close `SNAG-DOCS-004` by rewording the two sibling docstrings in `log_review.build_review_prompt` and `files/review.build_review_prompt` to the narrow claim Session 79 already stated correctly in `health_review` — no digit reaches the prompt *from the data* — and move `tests/test_health_review.py::TestPromptIsFigureFree`'s partition helper somewhere all three test modules can share it, because it is the same one-rule-stated-three-ways shape Session 80 has just spent itself removing from a database column and the pin that makes it checkable already exists.
+Sweep all 30 entries the parser now reads as open in `docs/roadmap/snag_list.md` against the live box and add the machine-readable closure marker to every one already fixed, because five were measured dead in ten minutes this sitting — `SNAG-AGENT-003` (44 file-organiser runs, latest 16:01 today, against "run once in its life"), `SNAG-AGENT-004` (2 unresolved alert rows in the whole table, against 26,270), `SNAG-ESTATE-001` (zero `personalassistant*` unit files on the box), `SNAG-DB-002` (zero stale collations) and `SNAG-PROJ-013` (ImbaBots' handoff now heads `# Handoff — 2026-08-24`) — so the estate board is publishing three P1s and two P2s for this repository that do not exist, and `STATUS.md`'s own claim that "every known-fixed entry now reads `is_open=False`" is false for five entries it never checked.
 
-## Session 80 is complete, and the entry it closed understated its own population by two
+## Session 81 is complete, and the entry it closed undercounted the thing it asked to be deduplicated
 
-`SNAG-API-004` is **fixed**. `status != "ok"` was written in four readers
-of `service_health.status` and was wrong in three of them from the day
-migration 009 added `skipped` to `chk_health_status`. The snag named one
-route and recommended an audit; the audit is the whole of what mattered.
-
-- `GET /api/sysadmin/status` — the route the entry names
-- `GET /api/summary` — the identical phrasing, never named by anyone
-- `GET /api/projects/managed` — **the sharpest, and the only one not
-  masked.** Measured 2026-08-25 it reported `venture-assistant` and
-  `sysadmin_assistant` unhealthy with every real service `ok`
-
-The two the entry reasoned about were both false-for-the-right-reason on
-the day it was written, because something was genuinely down. The one it
-never looked for was wrong on the page. Reading the code would have found
-the phrasing; only running the three routes ranked them.
-
-`STATUS_READINGS` on `monitor/models/service_health.py` is the one
-statement now — all seven admitted values classified `well`/`fault`/
-`unwatched`, read through `is_fault()`/`is_unwatched()`, and asserted
-**exactly total** over the CHECK constraint's own `sqltext` rather than
-over a list re-typed beside it. Suite **2362 → 2388**, routes unmoved at
-51, head unmoved at 016.
+`SNAG-DOCS-004` is **fixed**. Two Tier 3 docstrings claimed their prompt
+"contains no digit by construction" and both prompts carry `1`, `2`, `3`
+and `150` — the section numbers and word cap in their own
+`REVIEW_INSTRUCTIONS`. The behaviour was right and the sentence was not:
+rule 2 was always about the *data* half, so both now state the narrow
+claim and name the half they do not cover. `health_review`'s was
+reworded too — it carried a present-tense description of the siblings'
+defect, which becomes a stale sentence the moment the defect goes away.
 
 ## What was decided, and why
 
-**`reliability.py` is pinned rather than imported.** Its docstring
-promises purity ("no DB access, no FastAPI") and the vocabulary's owner
-is an ORM model, so importing would have bought one-statement-of-a-fact
-at the price of a property the module advertises. A round-trip test
-drives both sides against the constraint instead — `syslog_priority`
-against `journal.PRIORITY_MAP`. It also stopped negating `ok`:
-`DOWN_STATUSES` names the four measured faults positively, which changes
-no number today and changes the failure mode.
+**The entry asked for *the* partition helper to be shared and there was
+no such thing.** The rule was written three times and the three had
+diverged, in two places, each with a right side:
 
-**A missing health row is deliberately still not healthy.** On
-`/api/projects/managed` a `skipped` row is a recorded decision not to
-look and an absent row is nobody having decided anything, so the fix was
-not generalised to absence. Empty population today, pinned by a test.
+| | strips API paths | asserts the boundary was found |
+|---|---|---|
+| `test_disk_review._data_lines` | ✅ | ❌ |
+| `test_log_review._data_lines` | ✅ | ❌ |
+| `test_health_review._data_half` | ❌ | ✅ |
 
-**Rejected**: adding `SKIPPED` to each of the three comparisons. Three
-copies of one rule agreeing is what the last two sittings shipped, and it
-is why this was the third instance.
+So `tests/review_prompts.py` is the **union**, not any one of them.
+Deduplicating onto whichever copy a reader opened first would have
+silently dropped a live guard — which is the part of this shape the
+handoff's framing could not see, because it had only looked at two of
+the three.
 
-## Two things the sitting found that no reading would have
+**The API-path strip is a no-op today and is kept as policy.** Measured
+across all three live fixtures: exactly one data half contains an API
+path at all (`POST /api/files/clean/downloads`) and it is digit-free. It
+earns its place the day a route is versioned. Stated as untriggered
+rather than implied to fire.
 
-**The suite was green either side of all three defects.** The tests
-covered a healthy box and an unhealthy one and never a healthy box with a
-declaration on it, and `/api/projects/managed` had **no test at all** —
-which is exactly why its version of the defect was the visible one. Every
-route now carries three cases, and all were falsified against the pre-fix
-code.
+**`split(instructions)[0]` was not a false green, and saying so is the
+point.** With no instruction block there are no instruction digits to
+exclude, so the digit test passes for a *stricter* reason. What it did
+was return the whole prompt while being called "the facts half" —
+`ports_checked`'s rule one directory over, where zero-because-clean must
+not be served as zero-because-blind. `data_half` asserts the marker
+instead, and `tests/test_review_prompts.py` pins the old form's
+behaviour beside the new one so the reason survives the copy that
+carried it.
 
-**One falsification passed against deliberately broken code.** `assert
-SERVICES_SKIPPED is SKIPPED` was meant to prove `services.py` re-exports
-the literal rather than restating it, and CPython interns short string
-literals, so it is True either way — a guard asserting a *value* where it
-means *provenance*, for the third time in this repository. It is an AST
-check now and was re-falsified.
+**Nine tests exist so the shared assertion can be seen to fail**, one
+per rule plus two boundary cases, each driven at something that must
+break it before it was written down. A shared guard that never refuses
+anything is worth less than the three copies it replaced, because a copy
+at least had a reader.
 
-## Verified live, and the counterfactual is what proves it
+**Deliberately not done**: no digit was stripped from any
+`REVIEW_INSTRUCTIONS`. The model needs the section numbers to produce
+sections and the word limit to stop — the entry's own instruction, and
+still right.
 
-`/api/sysadmin/status` still reads `False` today and correctly:
-`alfred-frontend` is genuinely unreachable, which is the masking the
-entry describes. So the fix was driven over the live row set with that
-one service removed — old `all(status == "ok")` → `False`, new
-`not any(is_fault(...))` → `True`, across 29 services of which 3 are
-declared. Over real HTTP after the restart, `/api/projects/managed` moved
-two projects `False` → `True` with their `skipped` rows still in the
-grid, and `Alfred` stayed `False` on the genuine outage.
+## The correction this sitting made to itself
 
-The daemon was restarted at **15:59:58** and `./scripts/check-ops-claims.sh`
-reports every claim in STATUS.md green.
+The note explaining why the API-path strip is left greedy first read
+*"no route on this service takes a query string"*, written from
+plausibility. One `grep Query(` refuted it — `/api/logs/recent` alone
+takes five. That is `SNAG-DOCS-004` reproduced inside its own fix: a
+sentence about behaviour written without measuring it. The note now
+states what was measured — the executors that reach a prompt are
+hand-written literals in `files/recommendations.py`, every one a bare
+path followed by a space. `CLAUDE.md` carried the same wider claim one
+document up and was corrected in the same sitting.
 
-## What opened, and the answer that was worth measuring
+## Numbers, measured rather than carried forward
 
-`SNAG-DB-006`: `chk_run_status` admits `cancelled` and **nothing has ever
-written one** — 34,362 `completed`, 5 `running`, 2 `failed`, 0
-`cancelled`. Found while pricing this handoff rather than while building:
-the audit was extended one column over to see whether the defect
-repeated, and **it does not**. `self_monitor._failure_streak` is written
-positively, so an unexpected value ends a streak rather than being
-charged as a failure — the allow-list shape, and a property of how that
-function happens to be written rather than a guarantee. A recommendation
-that says "I checked and there is nothing there" is what Session 78's
-hypothesis cost Session 79 to establish.
+- Suite **2388 → 2398**, all green. Routes unmoved at 51, head unmoved
+  at 016, ruff and mypy clean.
+- Snag parser: **67 entries, 31 → 30 open**, measured either side of the
+  edit by driving estate-manager's `read_snags` over the file. **Second
+  consecutive sitting whose closure the parser can see**, the first two
+  since estate-manager fixed `SNAG-ROADMAP-002` on 2026-08-24.
+- Production diff is **docstrings only** across three files, so nothing
+  a caller can observe moved. The daemon was restarted anyway at
+  **16:21:01** — `check-ops-claims.sh` compares the daemon's start
+  against the newest source mtime and cannot know a diff is prose, and
+  the rule in `STATUS.md`'s own block is to correct whichever artefact
+  the script names rather than hand-verify that it is wrong. All nine
+  ops claims pass.
 
-## Ranked, if the next action is not taken
+## What is blocked
 
-1. `SNAG-DOCS-004` (P3) — the next action above. Cheap, and closes a
-   false sentence three modules rest on
-2. `SNAG-DOCS-003` — remove `sysadmin_tray/_deprecated_contracts.py`.
-   Named by Session 77's fix; it is a change to a published surface, so
-   it wants a sitting of its own
-3. `SNAG-DB-006` (P3) — needs a decision rather than a fix: drop
-   `cancelled` from the constraint, or find the path that should write
-   it. A run killed mid-execute leaves a permanent `running` row
-   (Session 41's stated cost), and `cancelled` is plausibly what that row
-   was meant to carry. Those are opposite fixes and nothing records which
-   was intended
+**The Session 33 question is routed and unanswered.** Seam drift
+detection cannot start here because its second task reads another
+repository's fixture off the same disk. The question was written into
+estate-manager on 2026-08-24 (commit `7171788` here); their roadmap
+carries no answer as of this sitting, and they have committed five times
+since. Named as blocked rather than dropped — this is the eighth
+consecutive ranking it has appeared in.
+
+## Next session, ranked
+
+1. **The closure-marker sweep** (above). Cheap, and it is the only item
+   whose cost is being paid by a *different* repository's published
+   board every day it stands. Four confirmed dead in ten minutes of
+   `psql`, `systemctl` and one `head -1`; twelve of the thirty have a
+   body that already mentions a fix, so the five found are a floor and
+   not the population. Note the fifth was found **by measuring something
+   else** — checking item (2)'s population meant opening every handoff
+   on the box, and one of them refuted a P2.
+2. **`SNAG-ROADMAP-001`** — an unfilled handoff placeholder is published
+   as a real next action. Same family as (1) and the same consumer, but
+   **its population is zero today, measured rather than assumed**: all
+   nine handoffs under `~/projects` were opened this sitting and every
+   one carries a real heading and a real next action. It loses to (1) on
+   being dormant, and the measurement is what makes that a ranking
+   rather than a guess.
+3. **`SNAG-ESTATE-002`** — the estate's `Nudge.title`/`.message` are
+   `@property` and `asdict` drops them, so this repository builds a
+   format the estate believes it owns. Loses to both because the fix is
+   estate-manager's and the ask has to be routed, which is the position
+   item (1)'s blocker is already in.
