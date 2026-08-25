@@ -29,6 +29,7 @@ from estate.registry import Registry
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from sysadmin.core.config import LogFormat, LogSource
+from sysadmin.monitor.models.service_health import SKIPPED as _SKIPPED
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,12 @@ QUIET_KINDS: frozenset[str] = frozenset({"oneshot", "static"})
 #: Status recorded for a service the configuration says not to check.
 #: Distinct from ``error`` (the check failed) and from ``critical``
 #: (the service is down) — see migration 009.
-SKIPPED = "skipped"
+#:
+#: Re-exported rather than restated (``SNAG-API-004``).  The one
+#: statement of this vocabulary is the ``chk_health_status`` CHECK
+#: constraint, so the string is owned beside it and the classification
+#: that reads it cannot fall behind the writers that produce it.
+SKIPPED = _SKIPPED
 
 
 class ServicesError(Exception):

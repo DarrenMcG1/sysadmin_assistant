@@ -394,6 +394,66 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 80 — SNAG-API-004, one classification of `service_health.status` (2026-08-25) ✅
+
+`status != "ok"` was written in four readers and was wrong in three of
+them from the day migration 009 added `skipped` to the CHECK constraint.
+The entry named one route and recommended an audit; the audit is the
+point, because the population was **three** and two of them had never
+been counted.
+
+- [x] **Count the population before fixing the instance you were
+      handed.** `GET /api/sysadmin/status` is the route the entry names.
+      `GET /api/summary` carries the identical `!= "ok"` and was never
+      named by anyone. `GET /api/projects/managed` carries it too and is
+      the sharpest of the three: unlike its siblings it was **not
+      masked**, and reported `venture-assistant` and `sysadmin_assistant`
+      unhealthy on 2026-08-25 with every real service `ok`, because each
+      has exactly one `monitor: false` service beside its live ones
+- [x] **Give the vocabulary one statement, beside the constraint that
+      defines it.** `STATUS_READINGS` on `models/service_health.py`
+      classifies all seven admitted values as `well`/`fault`/`unwatched`,
+      with `is_fault()` and `is_unwatched()` as the readers. It lives
+      there for `max_priority_for`'s reason — derived from the map,
+      never written beside it — and `tests/test_service_health_status.py`
+      asserts it is **exactly total** over the constraint's own
+      `sqltext`, parsed out rather than re-typed
+- [x] **Re-point the two sites that were already right.**
+      `briefing/data.py` fixed this locally on 2026-08-07 and wrote down
+      why; its `in ("ok", SKIPPED)` was correct and was a second
+      statement of a classification three other readers were getting
+      wrong at the same moment. `monitor/services.py` now re-exports
+      `SKIPPED` rather than restating the literal
+- [x] **`reliability.py` is pinned, not imported.** Its docstring
+      promises purity ("no DB access, no FastAPI") and the vocabulary's
+      owner is an ORM model, so its two strings stay typed and a test
+      drives both sides against the constraint — `syslog_priority`
+      against `journal.PRIORITY_MAP`. It also stops negating `ok`:
+      `DOWN_STATUSES` names the four measured faults positively, which
+      changes no number today (both readers run over `measured`, which
+      has already dropped the unmeasurable rows) and changes the failure
+      mode, since a status added to the constraint would otherwise land
+      in `measured` and be charged as an outage exactly as `skipped` was
+- [x] **Keep the audit running.** `TestNoReaderNegatesOkByHand` is an
+      AST sweep over every module that reads `ServiceHealth`, refusing a
+      hand-written comparison of a health status to `"ok"`. What makes
+      this the *third* instance rather than the first is that the two
+      earlier fixes each stopped at the instance somebody had noticed
+- [x] **Verified live, and the counterfactual is what proves it.**
+      `/api/sysadmin/status` still reads `False` today and correctly —
+      `alfred-frontend` is genuinely unreachable, which is the masking
+      the entry describes. Driven over the live rows with that one
+      service removed: old `False`, new `True`. `/api/projects/managed`
+      moved two projects `False` → `True` over real HTTP after the
+      restart, with their `skipped` rows still in the grid
+
+**Left for a later sitting**: a service with *no* health row still reads
+unhealthy on `/api/projects/managed`, deliberately — a missing row and a
+`skipped` row are both absences of a measurement and only one of them is
+a decision, so there is no evidence to claim health from. Empty
+population today; pinned by a test so the distinction is not generalised
+away.
+
 ## Session 77 — SNAG-DOCS-002, the registry describes only what it serves (2026-08-25) ✅
 
 `sysadmin/core/contracts.py` carried eight project response models

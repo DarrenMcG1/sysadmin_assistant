@@ -26,7 +26,7 @@ from sysadmin.core.database import get_db_session
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
-from sysadmin.monitor.models.service_health import ServiceHealth
+from sysadmin.monitor.models.service_health import ServiceHealth, is_fault
 from sysadmin.monitor.services import get_services
 
 router = APIRouter(prefix="/api", tags=["integration"])
@@ -76,7 +76,12 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
             "status": r.status,
             "response_time_ms": r.response_time_ms,
         }
-        if r.status != "ok":
+        # ``!= "ok"`` counted a declared non-check as a failure
+        # (``SNAG-API-004``) — the same defect as the sibling flag on
+        # ``GET /api/sysadmin/status``, and it was never named separately
+        # because nobody counted the population before fixing the one
+        # they had noticed.
+        if is_fault(r.status):
             all_healthy = False
         services.append(entry)
 

@@ -2,267 +2,106 @@
 
 ## Next action
 
-Fix `SNAG-API-004` — `GET /api/sysadmin/status` computes `all_healthy` as `all(r.status == "ok")`, which reads false on every healthy day because three services are declared `monitor: false` and stored as `skipped` — and audit the remaining readers of `service_health.status` in the same pass, because this is the third instance of that defect in one column and the first two were each fixed only where they were noticed.
+Close `SNAG-DOCS-004` by rewording the two sibling docstrings in `log_review.build_review_prompt` and `files/review.build_review_prompt` to the narrow claim Session 79 already stated correctly in `health_review` — no digit reaches the prompt *from the data* — and move `tests/test_health_review.py::TestPromptIsFigureFree`'s partition helper somewhere all three test modules can share it, because it is the same one-rule-stated-three-ways shape Session 80 has just spent itself removing from a database column and the pin that makes it checkable already exists.
 
-## Session 25 is complete, and the number its last tier nearly published was off by three orders of magnitude
+## Session 80 is complete, and the entry it closed understated its own population by two
 
-Tier 3 shipped as `GET /api/sysadmin/review` —
-`sysadmin/monitor/health_review.py`, `health_reviews` (migration 016),
-`HealthReviewResponse`, a Monday 05:00 job and a "Weekly System Health
-Review" briefing section. 63 new tests, suite **2,299 → 2,362**, routes
-**49 → 51**, head **015 → 016**. All four named inputs built: flappiest
-services, alert volume delta, anomaly summary, resource trend direction.
-Session 25 has been two-thirds done since 2026-08-07 and is now closed.
+`SNAG-API-004` is **fixed**. `status != "ok"` was written in four readers
+of `service_health.status` and was wrong in three of them from the day
+migration 009 added `skipped` to `chk_health_status`. The snag named one
+route and recommended an audit; the audit is the whole of what mattered.
 
-**The alert delta counts distinct titles, not rows, and the difference is
-2,485x against 2.3x.** Across the two live comparison windows `alerts`
-holds **24 rows against 59,650** — of which **59,200 share one title**
-and fell on a single day — and **17 distinct titles against 39**. This
-repository has written that its `alerts` table records one row *per
-failed check* four separate times and had never applied it to a *count*
-of alerts, because nothing counted them until now. Rows stay in `stats`
-as evidence; no sentence is written from them.
+- `GET /api/sysadmin/status` — the route the entry names
+- `GET /api/summary` — the identical phrasing, never named by anyone
+- `GET /api/projects/managed` — **the sharpest, and the only one not
+  masked.** Measured 2026-08-25 it reported `venture-assistant` and
+  `sysadmin_assistant` unhealthy with every real service `ok`
 
-**A fall is refused when the monitor's own coverage fell.** The two
-windows were observed at **17.01 %** and **96.33 %** of expected agent
-runs, so an unqualified headline would have described a box that was
-merely switched off. This is `log_review.direction_phrase`'s asymmetry
-against a different mechanism — read truncation there, monitor downtime
-here, both able to hide a fault and neither able to invent one. Both
-windows are measured, because checking only the current one reports poor
-coverage on this box and still lets every delta through.
+The two the entry reasoned about were both false-for-the-right-reason on
+the day it was written, because something was genuinely down. The one it
+never looked for was wrong on the page. Reading the code would have found
+the phrasing; only running the three routes ranked them.
 
-## What was decided, and by whom
+`STATUS_READINGS` on `monitor/models/service_health.py` is the one
+statement now — all seven admitted values classified `well`/`fault`/
+`unwatched`, read through `is_fault()`/`is_unwatched()`, and asserted
+**exactly total** over the CHECK constraint's own `sqltext` rather than
+over a list re-typed beside it. Suite **2362 → 2388**, routes unmoved at
+51, head unmoved at 016.
 
-The three design calls were put to the owner before any code was written
-and all three recommendations were taken: the route under
-`/api/sysadmin` rather than `/api/services` (so the GET-only guard
-beneath `/api/services` is not narrowed to admit the route being added),
-the resource half narrating CPU/RAM/swap/load with **disk deferred by
-name** to `GET /api/files/review`, and the coverage question answered
-with a refusal phrase rather than a suppression gate.
+## What was decided, and why
 
-## Three defects only the live run found
+**`reliability.py` is pinned rather than imported.** Its docstring
+promises purity ("no DB access, no FastAPI") and the vocabulary's owner
+is an ORM model, so importing would have bought one-statement-of-a-fact
+at the price of a property the module advertises. A round-trip test
+drives both sides against the constraint instead — `syslog_priority`
+against `journal.PRIORITY_MAP`. It also stopped negating `ok`:
+`DOWN_STATUSES` names the four measured faults positively, which changes
+no number today and changes the failure mode.
 
-Handed "The monitor was down for much of this period", dria-agent-a-3b
-published **"The machine was down for much of the week"** — the exact
-inversion the rule exists to prevent. It also opened with a
-conversational preamble `strip_markdown` would not have removed, since
-that function strips formatting rather than prose. And the prompt's first
-draft named only `unreliable`/`failing` services, so it dropped `searxng`
-and `alfred-frontend` — both degraded with real outages — at the moment
-`venture-chat` went unreliable. All three fixed and re-driven live.
+**A missing health row is deliberately still not healthy.** On
+`/api/projects/managed` a `skipped` row is a recorded decision not to
+look and an absent row is nobody having decided anything, so the fix was
+not generalised to absence. Empty population today, pinned by a test.
 
-**Nine falsifications were driven and one guard passed against the code
-it was written to break**: it asserted a string absent from both the
-pre-fix and the fixed wording, testing the model's output through a
-fixture that never contains it. Session 78's `waived`/cadence shape a
-third time, repaired to assert the property that actually distinguishes
-the two wordings.
+**Rejected**: adding `SKIPPED` to each of the three comparisons. Three
+copies of one rule agreeing is what the last two sittings shipped, and it
+is why this was the third instance.
 
-## What the docs did not know
+## Two things the sitting found that no reading would have
 
-**The `skipped` audit Session 78 recommended on a hypothesis has a
-measured population, and it is not empty.** Pricing that recommendation
-honestly meant measuring it: `GET /api/sysadmin/status` reads
-`all_healthy = all(r.status == "ok")` and `briefing/data.py` fixed the
-identical defect one router over, with a comment explaining why. That is
-the third instance in one column and the reason it is ranked first.
+**The suite was green either side of all three defects.** The tests
+covered a healthy box and an unhealthy one and never a healthy box with a
+declaration on it, and `/api/projects/managed` had **no test at all** —
+which is exactly why its version of the defect was the visible one. Every
+route now carries three cases, and all were falsified against the pre-fix
+code.
 
-**05:30 is not a free Monday slot**, though `jobs.py`'s own comment
-implies the estate's review holds it elsewhere.
-`systemctl --user cat estate-manager-review.timer` reads
-`OnCalendar=Mon *-*-* 05:30:00` on this box — another repository's
-llama-server generation on the same 24 GB card — so the chain grew at the
-front to 05:00 rather than filling a gap that was not there.
+**One falsification passed against deliberately broken code.** `assert
+SERVICES_SKIPPED is SKIPPED` was meant to prove `services.py` re-exports
+the literal rather than restating it, and CPython interns short string
+literals, so it is True either way — a guard asserting a *value* where it
+means *provenance*, for the third time in this repository. It is an AST
+check now and was re-falsified.
 
-**The card was at 98 % against a 25 % threshold** when the first live
-generation ran, so the review was written by its deterministic fallback.
-The ADR-0004 idle-gate working as designed, and worth knowing: four Tier
-3-class generations now compete for one card inside a 45-minute Monday
-window and nothing measures how often the gate declines.
+## Verified live, and the counterfactual is what proves it
 
-## Three snags opened, none closed
+`/api/sysadmin/status` still reads `False` today and correctly:
+`alfred-frontend` is genuinely unreachable, which is the masking the
+entry describes. So the fix was driven over the live row set with that
+one service removed — old `all(status == "ok")` → `False`, new
+`not any(is_fault(...))` → `True`, across 29 services of which 3 are
+declared. Over real HTTP after the restart, `/api/projects/managed` moved
+two projects `False` → `True` with their `skipped` rows still in the
+grid, and `Alfred` stayed `False` on the genuine outage.
 
-`SNAG-API-004` (P2, the `all_healthy` blind spot), `SNAG-CFG-002` (P3,
-two schedule leaves parsed and read by nothing since ADR-0005) and
-`SNAG-DOCS-004` (P3, two Tier 3 docstrings claiming their prompt carries
-no digit when both do). Parser measured either side: **63 → 66 entries,
-28 → 31 open**. Two of the three were found while *not* building — one
-while ranking the next session, one while looking for a free slot.
+The daemon was restarted at **15:59:58** and `./scripts/check-ops-claims.sh`
+reports every claim in STATUS.md green.
 
-## The Session 33 question is asked, at the owner's direction after the close
+## What opened, and the answer that was worth measuring
 
-Filed at the estate register as message **`6a330427`**,
-`sysadmin-assistant → estate-manager` — this repository's **first** use of
-`POST :8400/api/estate/messages`. It asks two things: may this service
-read another repository's test fixture directly off the shared disk, and
-if not, does seam-drift detection belong in the estate's audit rather
-than in the monitor at all. A recommendation is offered (task 1 stays
-here, task 2 goes to the audit if the estate wants it) and no ruling is
-recorded. Nothing is blocked on the reply and it is closable without
-action.
+`SNAG-DB-006`: `chk_run_status` admits `cancelled` and **nothing has ever
+written one** — 34,362 `completed`, 5 `running`, 2 `failed`, 0
+`cancelled`. Found while pricing this handoff rather than while building:
+the audit was extended one column over to see whether the defect
+repeated, and **it does not**. `self_monitor._failure_streak` is written
+positively, so an unexpected value ends a streak rather than being
+charged as a failure — the allow-list shape, and a property of how that
+function happens to be written rather than a guarantee. A recommendation
+that says "I checked and there is nothing there" is what Session 78's
+hypothesis cost Session 79 to establish.
 
-**Three corrections came out of doing it**, and they matter more than the
-filing:
+## Ranked, if the next action is not taken
 
-1. **"Unasked for eight consecutive rankings" was unfair to those
-   rankings.** The register was ruled and built on **2026-08-25** (estate
-   ADR-0041/0042). Before that day there was no route, so what the eight
-   rankings record is a blocker correctly named and correctly not acted
-   on. STATUS.md now says that instead.
-2. **The mechanism was never missing from anywhere it should have been.**
-   It is canonical in `estate-manager/docs/conventions/session-brief.md`
-   § "Cross-repo friction is filed, not absorbed", and
-   `~/.claude/hooks/inbox-notice.sh` is already wired to `SessionStart`
-   in the owner's `settings.json`. It is absent from the global
-   `CLAUDE.md` **by design** — that file's estate section is a pointer
-   and says not to re-expand it. This repository's `CLAUDE.md` now
-   carries a pointer of its own.
-3. **Session 33's task 2 would not have worked as written.** Its test is
-   "raise a finding when the consumer's section set is a *subset* of what
-   this service serves". Driven against the two real files, that does not
-   fire: Alfred's fixture carries three sections this producer no longer
-   serves (they moved to 8400 on 2026-08-13) while missing three it does.
-   A subset test misses a consumer pinned to *dropped* sections, which is
-   the live case and the worse one — an empty panel rather than a missing
-   one. Recorded in `tasks.md` and deliberately **not** written into the
-   task, because if task 2 moves to the estate the correction belongs to
-   whoever builds it.
-
-## The state of the box
-
-Restarted 13:11:35, schema at 016, `/health` 200, all nine ops claims
-`ok`. **Two** unresolved alert rows, both named in STATUS.md —
-`venture-chat unreachable` opened and closed again inside the sitting,
-and its closure is `SNAG-ESTATE-008`'s founding case demonstrating
-itself: the count *fell* between the block being written and the checker
-being re-run, which is the direction that check exists for.
-
----
-
-
-## Next action (Session 78's, superseded)
-
-Build Session 25's Tier 3 as the weekly system health review — flappiest services, alert volume delta, anomaly summary and resource trend direction — reading `GET /api/services/actions` for the first of those now that Tier 2 exists, and mirroring `disk_reviews`/`log_reviews` rather than the `project_reviews` table its written design names, which migration 014 dropped on 2026-08-24.
-
-## The endpoint found the score it reads to be wrong, and that is the sitting
-
-Tier 2 shipped as `GET /api/services/actions` —
-`sysadmin/monitor/service_recommendations.py`, `ServiceRecommendationInfo`,
-`ServiceActionsConfig`, 61 new tests, suite **2,238 → 2,299**, routes
-**48 → 49**, head **014 → 015**. Live on first run it served **6 rows and
-213 recoverable points**; after the fix below it serves **3 and 33**.
-
-**Three of those six rows were false and all three were `risk`.**
-`services.yaml` declares `monitor: false` on `venture-chat-large`,
-`sysadmin-tray` and `searxng-upstream` — all inactive by design — and the
-agent stores those checks as `skipped`. `score_service` excluded only
-`error` from its rates, so a `skipped` row counted as
-measured-and-not-`ok`: each scored **35** and graded `failing` off 307
-checks nobody had taken. That has been true since Session 25 on
-2026-08-07 and nothing noticed, because **a wrong score is a number on a
-page**. Tier 2 turned each into a 60-point `risk` recommendation, which
-is what made it loud enough to find. `failing` 3 → 0, mean score
-92.1 → 98.6.
-
-**The fix was not the sibling rule, and importing it would have been just
-as wrong in the other direction.** `_resolve_recovered` reads `skipped`
-as *healthy* — correctly, for alert closure — and that fabricates a 100
-here exactly as scoring it down fabricated a 35. `skipped` joins `error`
-in `UNMEASURED_STATUSES`, counted apart as `skipped_checks` (migration
-015) because "the check failed" and "nobody looked, by choice" are
-different claims with opposite remedies.
-
-**The whole suite passed either side of that fix**, which is the finding
-under the finding: nothing pinned the behaviour in *either* direction.
-
-## What was decided, and by whom
-
-The three design calls were put to the owner before any code was written.
-**Asymmetric confidence gate** and **forecast-framed `recoverable_points`**
-were the recommendations and were taken. On the third — `tasks.md`'s two
-scoped examples, both of which look like rules this repository would
-refuse — the concern was raised, the request was **reaffirmed as written**,
-and both were built with the conflicts filed rather than decided:
-`SNAG-SVC-001` (a longer check interval is a fault seen less often) and
-`SNAG-SVC-002` (`timer_stale` asks `stalls.py`'s question about a
-different subject). Neither is this repository's to settle alone.
-
-## Two things measured that the documents did not know
-
-**`SNAG-ROADMAP-002` is fixed, by estate-manager, at 09:12:22 this
-morning** — an hour into this sitting, as their `SNAG-ESTATE-048`.
-`read_snags` now reads an entry's own closure marker. Verified here by
-driving the new parser rather than by being told: every known-fixed entry
-reads `is_open=False`, every known-open one `True`, and the open count for
-`snag_list.md` drops **59 → 27** on a document nobody had edited. Nine
-sittings of owed report retired without being written, and the entry's
-own two proposed fixes were both parser-*shape* fixes that would not have
-helped — the miscount was that a closure this document states in prose had
-no machine-readable form, and the owner added the form.
-
-**The 7-day window currently holds a six-day hole and every service reads
-`confidence: low`.** The box was powered off 2026-08-18 08:09 → 08-22
-18:10, and `SNAG-DB-005` kept the daemon dead a further 22 hours on
-08-23. Both are the *monitor* being down, so `reliability.py` correctly
-charges nothing for it — but it means the endpoint would have shipped a
-measured-empty population under the obvious confidence gate, which is why
-the gate is asymmetric. Coverage should cross 50 % around 2026-08-28 and
-the rate-argued rows begin appearing then; nothing needs doing.
-
-## Sub-session items
-
-**One is owed, and it is a cross-repo ask rather than a session.** Ask
-estate-manager the **Session 33 question** — seam drift detection's second
-task reads another repository's fixture off the same disk, and cross-repo
-concerns have had an owner since 2026-08-13. Now unasked for **seven**
-consecutive rankings, and it is the reason Session 33 cannot be ranked at
-all. Committed on its own and announced, per the estate rules.
-
-**Not owed, and not this repository's.** `High VRAM usage on AMD Radeon
-RX 7900 XTX` opened at 10:08 today and was still true at the close —
-23,114 MB of 24,560 (94.1 %), `gpu_percent` 100, 340 W. Four services
-share that one card and this repository monitors it without owning
-anything on it, so attributing the hold is estate-manager's arbitration
-question, not a monitoring change here. Named rather than left in a count.
-
-## What was deliberately not done
-
-**The stored `reliability_scores` history was not recomputed.** Every
-nightly snapshot since 2026-08-07 holds a 35 for those three services. A
-migration that corrected them would invent measurements never taken, so
-the rows stand and migration 015's docstring says why. Whether that is
-right is a decision for a later sitting, and it is ranked second on the
-board as part of auditing the other readers of `service_health.status`
-for the same `skipped` blind spot — `_resolve_recovered` is known
-correct, the anomaly path and the briefing's `facts` projection are
-unexamined.
-
-**`sysadmin/services/` is gone, and it went by accident.** The modules it
-held moved to `sysadmin/monitor/` in Session 35 Phase 2, leaving an empty
-untracked directory that git did not know about — it is why the first two
-commands of this sitting failed while locating `reliability.py`. It was
-removed mid-sitting as a side effect of a `git stash push
---include-untracked` / `pop` round-trip run to diff test counts, because
-git does not restore empty directories. Nothing referenced it and nothing
-broke; recorded because an unintended deletion should be stated even when
-it is the outcome someone would have chosen.
-
-*Two claims in earlier drafts of this paragraph were wrong and are
-corrected here rather than quietly dropped*, since both are the failure
-this sitting spent itself on. It claimed `CLAUDE.md` points at
-`sysadmin/services/reliability.py` — it does not; every
-`/api/services/…` string in that file is a route path. And it claimed the
-directory still existed — it did not, by then. Both were inferred rather
-than measured.
-
-**One file was clobbered and restored.** `tests/test_service_actions.py`
-already existed, covering `POST /api/sysadmin/services/{name}/{action}`,
-and was overwritten by a `cat >` before the collision was noticed. It was
-restored from `HEAD` intact and the new tests went to
-`tests/test_service_recommendations.py`; the module was renamed to match.
-The way it surfaced is worth keeping: the suite total came out **+45**
-where 55 tests had been added, and the ten missing were the ten
-destroyed. An arithmetic check on a number nobody had asked for is what
-caught it.
+1. `SNAG-DOCS-004` (P3) — the next action above. Cheap, and closes a
+   false sentence three modules rest on
+2. `SNAG-DOCS-003` — remove `sysadmin_tray/_deprecated_contracts.py`.
+   Named by Session 77's fix; it is a change to a published surface, so
+   it wants a sitting of its own
+3. `SNAG-DB-006` (P3) — needs a decision rather than a fix: drop
+   `cancelled` from the constraint, or find the path that should write
+   it. A run killed mid-execute leaves a permanent `running` row
+   (Session 41's stated cost), and `cancelled` is plausibly what that row
+   was meant to carry. Those are opposite fixes and nothing records which
+   was intended

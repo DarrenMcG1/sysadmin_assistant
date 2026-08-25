@@ -106,6 +106,47 @@ class TestSummaryEndpoint:
         assert len(data["services"]["items"]) == 2
 
     @pytest.mark.asyncio
+    async def test_declared_unmonitored_service_is_not_unhealthy(
+        self, test_client, mock_session
+    ):
+        """``SNAG-API-004``, the sibling nobody had counted.
+
+        This flag carried the identical ``!= "ok"`` defect as
+        ``GET /api/sysadmin/status``.  The snag named one route; the
+        population was three, and this was found by auditing rather than
+        by anything failing.
+        """
+        _mock_multi_queries(mock_session, [
+            [_make_health("api", "ok"), _make_health("tray", "skipped")],
+            [],
+            None,
+        ])
+
+        with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:
+            mock_dnd.get_status.return_value = {"active": False}
+            resp = await test_client.get("/api/summary")
+
+        data = resp.json()
+        assert data["services"]["all_healthy"] is True
+        assert len(data["services"]["items"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_a_real_fault_still_speaks_beside_a_skipped_row(
+        self, test_client, mock_session
+    ):
+        _mock_multi_queries(mock_session, [
+            [_make_health("tray", "skipped"), _make_health("api", "unreachable")],
+            [],
+            None,
+        ])
+
+        with patch("sysadmin.briefing.router.dnd_manager") as mock_dnd:
+            mock_dnd.get_status.return_value = {"active": False}
+            resp = await test_client.get("/api/summary")
+
+        assert resp.json()["services"]["all_healthy"] is False
+
+    @pytest.mark.asyncio
     async def test_empty_state(self, test_client, mock_session):
         _mock_multi_queries(mock_session, [[], [], None])
 

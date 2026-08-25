@@ -4,7 +4,7 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and one sub-session action is.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 13:11:35**
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 15:59:58**
 > <!--check:daemon_start-->, `/health` answers **200** <!--check:health-->,
 > `alembic current` reads 016 at the packaged head <!--check:schema-->, and
 > `alerts` holds **2** unresolved rows <!--check:alerts-->.
@@ -186,7 +186,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2362 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, smoke script |
+| Testing | 🟢 Complete | **2388 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -194,6 +194,58 @@
 ---
 
 ## Recently Completed
+
+### Session 80 — SNAG-API-004, one classification of a column read four ways (2026-08-25)
+
+**`status != "ok"` was written in four readers and was wrong in three of
+them**, from the day migration 009 added `skipped` to
+`chk_health_status`. The snag named one route and recommended an audit;
+the audit is what mattered, because the population was **three** and two
+of them had never been counted.
+
+- `GET /api/sysadmin/status` — the route the entry names
+- `GET /api/summary` — the identical `!= "ok"`, never named by anyone
+- `GET /api/projects/managed` — **the sharpest, and the only one not
+  masked**. Measured 2026-08-25, it reported `venture-assistant` and
+  `sysadmin_assistant` unhealthy with every real service `ok`, because
+  each has one `monitor: false` service beside its live ones. The other
+  two were false-for-the-right-reason on the day the entry was written
+
+**The vocabulary has one statement now, beside the constraint that
+defines it.** `STATUS_READINGS` on `models/service_health.py` classifies
+all seven admitted values as `well`/`fault`/`unwatched`, read through
+`is_fault()` and `is_unwatched()`; `tests/test_service_health_status.py`
+asserts it is **exactly total** over the constraint's own `sqltext`,
+parsed out rather than re-typed. `briefing/data.py`, which fixed this
+locally on 2026-08-07 and wrote down why, now asks the owner instead of
+restating the rule; `monitor/services.py` re-exports `SKIPPED` rather
+than typing the literal a fifth time.
+
+**`reliability.py` is pinned rather than imported** — its docstring
+promises purity and the owner is an ORM model, so a test drives both
+sides against the constraint (`syslog_priority` against
+`journal.PRIORITY_MAP`). It also stopped negating `ok`: `DOWN_STATUSES`
+names the four measured faults positively, which changes no number today
+and changes the failure mode.
+
+**Verified live, and the counterfactual is what proves it.**
+`/api/sysadmin/status` still reads `False` and correctly —
+`alfred-frontend` is genuinely unreachable, which is the masking the
+entry describes — so it was driven over the live rows with that one
+service removed: old `False`, new `True`, across 29 services of which 3
+are declared. Over real HTTP after the restart, `/api/projects/managed`
+moved two projects `False` → `True` with their `skipped` rows still in
+the grid.
+
+**Two things worth carrying.** The suite was green either side of all
+three defects, so the wrong flags were untestable by omission — the
+tests covered a healthy box and an unhealthy one and never a healthy box
+with a declaration on it, and `/api/projects/managed` had no test at
+all. And one falsification **passed against deliberately broken code**:
+`assert SERVICES_SKIPPED is SKIPPED` is True whether the literal is
+re-exported or retyped, because CPython interns short strings — a guard
+asserting a *value* where it means *provenance*, for the third time
+here, now an AST check.
 
 ### Session 79 — the fourth Tier 3, and the delta it reports was nearly the wrong number (2026-08-25)
 

@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sysadmin.core.config import get_config
 from sysadmin.core.contracts import ManagedProjectsResponse
 from sysadmin.core.database import get_db_session
-from sysadmin.monitor.models.service_health import ServiceHealth
+from sysadmin.monitor.models.service_health import ServiceHealth, is_fault
 from sysadmin.monitor.services import get_services
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -65,7 +65,18 @@ async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
             if h and h.response_time_ms is not None:
                 entry["response_time_ms"] = h.response_time_ms
             services.append(entry)
-            if not h or h.status != "ok":
+            # Two different absences, and only one of them is a fault.
+            # A ``skipped`` row is a *recorded decision* not to look, so
+            # it cannot make a project unhealthy — ``!= "ok"`` said it
+            # could, and this route reported ``venture-assistant`` and
+            # ``sysadmin_assistant`` unhealthy with every real service
+            # ``ok`` (``SNAG-API-004``; unlike its two siblings this one
+            # was never masked, it was simply wrong on the page).  A
+            # *missing* row is the other case and stays unhealthy on
+            # purpose: nobody declared anything, so there is no evidence
+            # to claim health from.  Empty population today — every
+            # managed service has a row.
+            if h is None or is_fault(h.status):
                 all_healthy = False
 
         projects_out.append({

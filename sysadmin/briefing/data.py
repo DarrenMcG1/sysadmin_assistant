@@ -65,8 +65,7 @@ from sysadmin.core.database import get_scheduler_session
 from sysadmin.core.models.alert import Alert
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.monitor.models.log_entry import LogEntry
-from sysadmin.monitor.models.service_health import ServiceHealth
-from sysadmin.monitor.services import SKIPPED
+from sysadmin.monitor.models.service_health import ServiceHealth, is_fault, is_unwatched
 
 logger = logging.getLogger(__name__)
 
@@ -381,8 +380,8 @@ def build_facts(gathered: dict[str, Any], now: datetime) -> dict[str, Any]:
         # a reason.  Counting it as failing reports a *decision* as a
         # fault, and names units as "down" that are running.  Four of the
         # estate's 40 live rows are skipped.
-        watched = [s for s in items if s["status"] != SKIPPED]
-        failing = [s["name"] for s in watched if s["status"] != "ok"]
+        watched = [s for s in items if not is_unwatched(s["status"])]
+        failing = [s["name"] for s in watched if is_fault(s["status"])]
         facts["services"] = {
             "total": len(watched),
             "healthy": len(watched) - len(failing),
@@ -577,8 +576,15 @@ def render_sections(gathered: dict[str, Any]) -> list[dict[str, Any]]:
                     # permanently false: four units on this estate are
                     # skipped by design, so Alfred's grid could never
                     # read healthy however well the box was running.
-                    "all_services_healthy": all(
-                        s["status"] in ("ok", SKIPPED) for s in items
+                    #
+                    # This was the first site to get that right and the
+                    # only one, for eighteen days.  It used to spell the
+                    # rule out as ``in ("ok", SKIPPED)`` — correct, and a
+                    # second statement of a classification three other
+                    # readers were getting wrong at the same moment
+                    # (``SNAG-API-004``).  It now asks the owner.
+                    "all_services_healthy": not any(
+                        is_fault(s["status"]) for s in items
                     ),
                     "services": items,
                 },

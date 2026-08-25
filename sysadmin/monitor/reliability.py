@@ -111,13 +111,40 @@ INSTABILITY_CAP = 25
 #: evidence behind it is ``ports_checked``'s rule: zero-because-blind
 #: must never be served as zero-because-clean, so the row is excluded and
 #: ``confidence`` carries the truth.
+#:
+#: The strings are **typed here and pinned by a test**, not imported
+#: (``SNAG-API-004``).  Importing them would cost this module the purity
+#: its own docstring promises — the vocabulary is owned beside the CHECK
+#: constraint, which lives on an ORM model.  So
+#: ``tests/test_service_health_status.py`` drives both sides against the
+#: constraint's ``sqltext``, which is ``syslog_priority``'s treatment
+#: against ``journal.PRIORITY_MAP``: two maps that can disagree about one
+#: fact is ``SNAG-DB-003``'s shape, and a round-trip test is what removes
+#: it when an import cannot.
 UNMEASURED_STATUSES = ("error", "skipped")
 
 #: Kept for readers that only care about the check-failed case.
-UNMEASURED_STATUS = "error"
+UNMEASURED_STATUS = UNMEASURED_STATUSES[0]
 
 #: The declared-unmonitored half of :data:`UNMEASURED_STATUSES`.
-SKIPPED_STATUS = "skipped"
+SKIPPED_STATUS = UNMEASURED_STATUSES[1]
+
+#: Statuses that count as *down* for the two rates below.
+#:
+#: Named positively rather than as ``!= "ok"``, which is the phrasing
+#: ``SNAG-API-004`` is about.  It is currently *correct* here — both
+#: readers run over ``measured``, which has already dropped
+#: :data:`UNMEASURED_STATUSES` — so this changes no number today.  What
+#: it changes is the failure mode: a status added to
+#: ``chk_health_status`` that is neither a fault nor unmeasurable would
+#: land in ``measured`` and be charged as an outage, silently, exactly
+#: as ``skipped`` was for eighteen days.  Now it fails a test instead.
+#:
+#: Together with :data:`UNMEASURED_STATUSES` and ``ok`` this partitions
+#: the whole vocabulary, and ``tests/test_service_health_status.py``
+#: asserts the three parts are exhaustive and disjoint against the CHECK
+#: constraint itself.
+DOWN_STATUSES = ("degraded", "warning", "critical", "unreachable")
 
 #: Below this fraction of expected checks, the window is too gappy to
 #: trust — the monitor was down, so the sample is not representative.
@@ -285,7 +312,7 @@ def score_service(
         result.grade = _grade(result.score, grade_bands)
         return result
 
-    result.failed_checks = sum(1 for p in measured if p.status != "ok")
+    result.failed_checks = sum(1 for p in measured if p.status in DOWN_STATUSES)
     result.uptime_percent = round(
         100.0 * (len(measured) - result.failed_checks) / len(measured), 2
     )
@@ -367,7 +394,7 @@ def _outage_episodes(
     last_bad: datetime | None = None
 
     for point in measured:
-        if point.status != "ok":
+        if point.status in DOWN_STATUSES:
             if start is None:
                 start = point.checked_at
             last_bad = point.checked_at

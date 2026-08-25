@@ -2650,6 +2650,72 @@ a gate that cannot tell the two apart. Empty population — 0 of 30
 configured names carry a digit — so the rule is stated as policy rather
 than dressed up as a measurement.
 
+**A column read four ways has one classification, and it lives beside the
+CHECK constraint** (Session 80, `SNAG-API-004`). `status != "ok"` was
+written in four readers of `service_health.status` and was wrong in three
+of them from the day migration 009 added `skipped` — a *declaration* not
+to check, which every "not ok" reader silently reclassified as a fault on
+the same day. `STATUS_READINGS` on `monitor/models/service_health.py`
+classifies all seven admitted values as `well`/`fault`/`unwatched`, and
+`is_fault()` / `is_unwatched()` are the readers.
+
+Five rules, three of them the opposite of the obvious implementation and
+all five settled against the live box:
+
+1. **The population was three, and the entry named one.** `GET
+   /api/sysadmin/status` is the route the snag names; `GET /api/summary`
+   carries the identical phrasing and was never named by anyone; `GET
+   /api/projects/managed` carries it too and is **the only one that was
+   not masked** — measured 2026-08-25 it reported `venture-assistant` and
+   `sysadmin_assistant` unhealthy with every real service `ok`, each
+   having one `monitor: false` service beside its live ones. Reading the
+   code finds the phrasing; only running the three routes ranks them.
+2. **The classification sits beside the constraint, not beside a
+   reader** — `max_priority_for` against `PRIORITY_MAP`. A test asserts
+   it is **exactly total** over the constraint's own `sqltext`, parsed
+   out rather than re-typed, so a status added by a migration fails the
+   suite instead of falling silently to one side.
+3. **`is_fault` fails closed and the totality guard is what makes that
+   branch unreachable.** An unrecognised value reads as a fault, because
+   a monitor going quiet about a state it does not understand is worse
+   than a false alarm — `schema_guard`'s posture, not `collation.py`'s.
+   The two guards are kept apart deliberately: one decides the direction,
+   the other removes the case.
+4. **`reliability.py` is pinned, never imported.** Its docstring promises
+   purity ("no DB access, no FastAPI") and the vocabulary's owner is an
+   ORM model, so its two status strings stay typed and a test drives both
+   sides against the constraint — `syslog_priority` against
+   `journal.PRIORITY_MAP`. Import where you can, pin where you cannot;
+   the failure mode of neither is drift. It also stopped negating `ok`:
+   `DOWN_STATUSES` names the four measured faults positively, which
+   changes **no number today** — both readers run over `measured`, which
+   has already dropped the unmeasurable rows — and changes the failure
+   mode, since a newly-admitted status would otherwise be charged as an
+   outage exactly as `skipped` was for eighteen days.
+5. **A missing row is deliberately not a declaration.** On
+   `/api/projects/managed` a service with no health row still reads
+   unhealthy: a `skipped` row is a recorded *decision* not to look, and
+   an absent row is nobody having decided anything, so there is no
+   evidence to claim health from. Empty population today, pinned by a
+   test so the fix is not generalised one step too far.
+
+**The suite was green either side of all three defects**, which is the
+part worth carrying: the tests covered a healthy box and an unhealthy one
+and never a healthy box with a declaration on it, and
+`/api/projects/managed` had **no test at all**, which is why its version
+was the visible one. `TestNoReaderNegatesOkByHand` is an AST sweep over
+every module that reads `ServiceHealth`, refusing a hand-written
+comparison of a health status to `"ok"` — what made this the *third*
+instance rather than the first is that the two earlier fixes each stopped
+where somebody had noticed.
+
+One falsification **passed against deliberately broken code**: `assert
+SERVICES_SKIPPED is SKIPPED` is True whether `services.py` re-exports the
+literal or retypes it, because CPython interns short strings. It asserts
+a *value* where it means *provenance*, which is the shape recorded after
+Session 59's guards, and only the source can answer provenance — it is an
+AST check now.
+
 Retention needs **both halves**: a row in the `retention_config` table and
 an entry in `TABLE_TIMESTAMP_MAP`. `run_retention` iterates config rows and
 looks each up in the map, so a table with one half is silently never purged

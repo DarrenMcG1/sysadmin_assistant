@@ -122,6 +122,61 @@ class TestStatusEndpoint:
         data = resp.json()
         assert data["all_healthy"] is False
 
+    @pytest.mark.asyncio
+    async def test_declared_unmonitored_service_is_not_unhealthy(
+        self, test_client, mock_session
+    ):
+        """``SNAG-API-004``.
+
+        Three services on this box are ``monitor: false`` and stored
+        ``skipped``, so ``all(r.status == "ok")`` read False on every
+        healthy day from migration 009 until 2026-08-25.  It was masked
+        the whole time by something genuinely being down, which is why
+        nothing here caught it: the suite tested a healthy box and an
+        unhealthy one, and never a healthy box with a declaration on it.
+        """
+        rows = [
+            _make_service_health("test-api", "ok"),
+            _make_service_health("test-tray", "skipped"),
+        ]
+        _mock_scalars_all(mock_session, rows)
+
+        resp = await test_client.get("/api/sysadmin/status")
+        data = resp.json()
+        assert data["all_healthy"] is True
+        # The row itself is still served — quietened in the flag, never
+        # dropped from the grid.
+        assert [s["status"] for s in data["services"]] == ["ok", "skipped"]
+
+    @pytest.mark.asyncio
+    async def test_a_real_fault_still_speaks_beside_a_skipped_row(
+        self, test_client, mock_session
+    ):
+        # The direction the fix could most easily have broken: a flag
+        # that reads healthy whatever happens is worse than one that
+        # reads unhealthy whatever happens.
+        rows = [
+            _make_service_health("test-tray", "skipped"),
+            _make_service_health("test-api", "unreachable"),
+        ]
+        _mock_scalars_all(mock_session, rows)
+
+        resp = await test_client.get("/api/sysadmin/status")
+        assert resp.json()["all_healthy"] is False
+
+    @pytest.mark.asyncio
+    async def test_a_failed_check_is_a_fault_not_a_declaration(
+        self, test_client, mock_session
+    ):
+        # ``error`` and ``skipped`` both mean nothing was measured, and
+        # only one of them was decided.  Reading them alike is how a
+        # broken check would become silence.
+        rows = [_make_service_health("test-api", "error")]
+        _mock_scalars_all(mock_session, rows)
+
+        resp = await test_client.get("/api/sysadmin/status")
+        assert resp.json()["all_healthy"] is False
+
 
 class TestServiceStatusHistory:
     @pytest.mark.asyncio
@@ -326,6 +381,105 @@ class TestPortsEndpoint:
 
 # Kept from that section: the disk-review tests below share this helper,
 # and it says nothing about projects.
+
+
+class TestManagedProjectsHealth:
+    """``SNAG-API-004``'s third instance, and the one nobody had counted.
+
+    This route had **no test at all**, which is why its version of the
+    defect was the only one visible on the page: ``GET
+    /api/sysadmin/status`` and ``GET /api/summary`` were both masked by
+    something genuinely being down, and this one reported
+    ``venture-assistant`` and ``sysadmin_assistant`` unhealthy on
+    2026-08-25 with every real service ``ok`` — because each has exactly
+    one ``monitor: false`` service beside its live ones.
+    """
+
+    @staticmethod
+    def _patch(monkeypatch, health_rows, service_names):
+        from types import SimpleNamespace
+
+        from sysadmin.monitor.routers import projects_managed as module
+
+        registry = SimpleNamespace(
+            declared=[SimpleNamespace(id="proj", name="Proj", path="/tmp/proj")]
+        )
+        monkeypatch.setattr(module, "load_registry", lambda _root: registry)
+        monkeypatch.setattr(
+            module,
+            "get_services",
+            lambda: SimpleNamespace(
+                for_project=lambda _id: [
+                    SimpleNamespace(name=n) for n in service_names
+                ]
+            ),
+        )
+        return health_rows
+
+    @pytest.mark.asyncio
+    async def test_a_skipped_service_does_not_make_a_project_unhealthy(
+        self, test_client, mock_session, monkeypatch
+    ):
+        rows = self._patch(
+            monkeypatch,
+            [
+                _make_service_health("live", "ok"),
+                _make_service_health("declared-off", "skipped"),
+            ],
+            ["live", "declared-off"],
+        )
+        _mock_scalars_all(mock_session, rows)
+
+        resp = await test_client.get("/api/projects/managed")
+        assert resp.status_code == 200
+        project = resp.json()["projects"][0]
+        assert project["all_services_healthy"] is True
+        assert {s["name"]: s["status"] for s in project["services"]} == {
+            "live": "ok",
+            "declared-off": "skipped",
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_real_fault_still_makes_a_project_unhealthy(
+        self, test_client, mock_session, monkeypatch
+    ):
+        rows = self._patch(
+            monkeypatch,
+            [
+                _make_service_health("live", "unreachable"),
+                _make_service_health("declared-off", "skipped"),
+            ],
+            ["live", "declared-off"],
+        )
+        _mock_scalars_all(mock_session, rows)
+
+        resp = await test_client.get("/api/projects/managed")
+        assert resp.json()["projects"][0]["all_services_healthy"] is False
+
+    @pytest.mark.asyncio
+    async def test_a_service_with_no_row_is_still_not_claimed_healthy(
+        self, test_client, mock_session, monkeypatch
+    ):
+        """The half deliberately left alone.
+
+        A missing row and a ``skipped`` row are both absences of a
+        measurement, and only one of them is a *decision*.  Nobody
+        declared anything about a service with no row, so there is no
+        evidence to claim health from and it stays unhealthy — pinned so
+        a later reading of this fix does not generalise it one step too
+        far.  Empty population on this box today.
+        """
+        rows = self._patch(
+            monkeypatch, [_make_service_health("live", "ok")], ["live", "never-checked"]
+        )
+        _mock_scalars_all(mock_session, rows)
+
+        resp = await test_client.get("/api/projects/managed")
+        project = resp.json()["projects"][0]
+        assert project["all_services_healthy"] is False
+        assert {s["name"]: s["status"] for s in project["services"]}[
+            "never-checked"
+        ] == "unknown"
 
 
 def _mock_scalars_first(mock_session, row):

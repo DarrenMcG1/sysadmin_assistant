@@ -30,7 +30,7 @@ from sysadmin.monitor.desktop import tray_presence
 from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.models.health_review import HealthReview
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
-from sysadmin.monitor.models.service_health import ServiceHealth
+from sysadmin.monitor.models.service_health import ServiceHealth, is_fault
 from sysadmin.monitor.self_monitor import build_self_report
 from sysadmin.monitor.services import get_services
 from sysadmin.monitor.sse import event_broadcaster, event_stream
@@ -98,7 +98,13 @@ async def get_all_statuses(session: AsyncSession = Depends(get_db_session)):
             }
             for r in rows
         ],
-        "all_healthy": all(r.status == "ok" for r in rows),
+        # Not ``== "ok"``: three of this box's services are declared
+        # ``monitor: false`` and stored ``skipped``, so that phrasing
+        # read False on every healthy day from migration 009 until
+        # 2026-08-25 (``SNAG-API-004``).  It was masked throughout by
+        # something genuinely being down.  ``is_fault`` is the one
+        # statement of which statuses are faults.
+        "all_healthy": not any(is_fault(r.status) for r in rows),
     }
 
 
