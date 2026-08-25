@@ -61,59 +61,64 @@
 > holds true), and a claims-checker that alerted on it would re-import
 > exactly that.
 >
-> **Next up**: **the four permanent `running` rows in `agent_runs`** —
-> a dead agent reading as busy on `GET /api/sysadmin/self`. *Recommended
-> at the close of Session 77.*
+> **Next up**: **Session 25's Tier 2 — `GET /api/services/actions`, the
+> missing fourth advice endpoint.** *Recommended at the close of Session
+> 77, after its first-ranked candidate was refuted by one curl.*
 >
-> **1. The four permanent `running` rows.** Two `file_organiser`
-> (2026-08-17), one `log_aggregator` and one `sysadmin` (both
-> 2026-08-14). It wins by **default and by being honest about its size**:
-> Session 76 demoted it by measurement and that demotion still holds —
-> `summarise_agent` reads `runs[0].started_at`, and a ten-day-old
-> `running` row is never newest for a 300-second agent, so the stall path
-> is unaffected and the ladder still fires. What is left is real and
-> narrow: `last_status: "running"` reaches `/api/sysadmin/self` and the
-> tray, where a dead agent reads as busy. **It is an hour, not a
-> session**, and it is ranked first because nothing larger is unblocked —
-> which is information, not enthusiasm. The interesting half is *why the
-> rows are permanent*: Session 41 made a process killed mid-run leave a
-> `running` row where it used to leave none, deliberately, because
-> absence of a row cannot be told from absence of a run. So these are
-> that decision working, and the fix is a **reader** rule rather than a
-> writer one — which is the same shape as this sitting's, one table over.
+> **The item this replaces was demoted by measurement, and the correction
+> is the part worth reading.** Session 76 ranked the four permanent
+> `running` rows in `agent_runs` first and Session 77's handoff inherited
+> it. `GET /api/sysadmin/self` reports `last_status: completed` and
+> `stalled: false` for **all five** agents: the rows reach nothing,
+> because `runs[0]` is the *newest* run and a ten-day-old row is never
+> newest for an agent that ran ninety seconds ago. Session 76 had already
+> demoted it once on the stall path and kept a residual — *"only
+> `last_status` is wrong"* — reasoned from the same fact that refutes it.
+> `tasks.md`'s own entry said the cost was **unmeasured**, and it was
+> ranked first anyway. Now ticked, with the answer recorded.
 >
-> **2. `SNAG-ESTATE-013` — the `expires` marker's naive instant.** Filed
-> by this sitting, and it loses to the item above for the reason
-> `SNAG-ESTATE-012` lost to it last time: taking a snag the same sitting
-> filed it is the treadmill this document warns about, and its live cost
-> was two hours on a prediction that came true anyway. It rises the
-> moment a second `expires` marker is written, because the next one
-> copied off an estate surface is wrong the same way and nothing would
-> say so.
+> **1. Tier 2 — `GET /api/services/actions`.** `/api/files/actions`,
+> `/api/logs/actions` and `/api/units/actions` all exist; the services
+> scorer is the one with no advice half, though `reliability.py` already
+> computes the episodes it would rank. It wins because it is the only
+> **unblocked, session-sized** item left — every remaining snag is P3 or
+> P4 with a population measured empty or a cost measured nil, and ranking
+> one of those first is what this correction just cost a sitting. The
+> design call is live: its natural currency is recoverable score points,
+> which is what `RecommendationInfo` carried — **the model Session 77
+> deleted**. Correctly deleted, since it described estate-manager's
+> route, so Tier 2 needs its own `ServiceRecommendationInfo` rather than
+> the one that fits. That is `FileRecommendationInfo`'s argument
+> unchanged: one `points` field meaning two units, decided by the
+> producer, is unreadable at the call site.
 >
-> **3. Trim the `agents.project_organiser` config block.** Losing for the
-> fourth time, and now for a slightly better reason than "no live
-> consequence": this sitting deleted 15 models that were the same shape
-> in a different material, and the argument that closed them —
-> reachability computed by a test rather than claimed by a document —
-> **does not transfer**. A config leaf is reached through a string key at
-> runtime, so no AST walk finds its readers, and the guard that makes the
-> contract registry self-checking has no counterpart here. That is worth
-> knowing before someone ranks it as "the same job again".
+> **2. `SNAG-ESTATE-013` — the `expires` marker's naive instant.** One to
+> two hours. Filed by Session 77 and losing for the reason
+> `SNAG-ESTATE-012` lost to `SNAG-DOCS-002`: taking a snag the sitting
+> that filed it is the treadmill this document warns about, and its live
+> cost was two hours on a prediction that came true anyway. It rises the
+> moment a second `expires` marker is written.
 >
-> **Runners-up that lost, and why.** `SNAG-DOCS-003` is **this sitting's
-> own cost** and is blocked on an operational fact rather than on code —
-> it needs someone to confirm where the wheel went, not an hour of
-> editing. `SNAG-ESTATE-012` is unchanged: deciding an English sentence
-> is a claim is a human's job, and its own entry ranks it P3.
-> `SNAG-LOG-013`'s population empties by retention and is **not**
-> re-measured here, because "the population is zero" is the reasoning
-> that mis-ranked its own parent and this sitting has just watched that
-> failure repeat a third time. `SNAG-AGENT-007` is dormant by arithmetic
-> — `_active_alerts` loads whole ORM rows four times a sysadmin run
-> against **one** unresolved row today, so its cost is nil *because* the
-> pile-ups were fixed. `SNAG-UNITS-006` and `SNAG-LOG-006` have empty
-> populations too.
+> **3. Tier 3 — the weekly system health review.** A session, and **read
+> it before pricing it**: the written design says it *"reuses the
+> `project_reviews` table design"*, and migration 014 dropped that table
+> on 2026-08-24. `disk_reviews` and `log_reviews` are the surviving
+> mirrors, so the pattern stands and the pointer is dead — which is the
+> `SNAG-DOCS-001` shape arriving in a roadmap entry rather than a
+> contract registry. It also wants Tier 2's data, so the order is not
+> arbitrary.
+>
+> **Runners-up that lost, and why.** `SNAG-DOCS-003` is Session 77's own
+> cost and is blocked on an **operational** fact — where the wheel went —
+> rather than on code. `SNAG-ESTATE-049` is now estate-manager's and was
+> routed there on 2026-08-25 with a recommendation and no ruling; nothing
+> is owed from here. `SNAG-AGENT-007` is dormant by arithmetic against
+> **one** unresolved row. `SNAG-ESTATE-012` is unchanged — deciding an
+> English sentence is a claim is a human's job. `SNAG-LOG-013`,
+> `SNAG-UNITS-006` and `SNAG-LOG-006` have populations measured empty,
+> and this ranking deliberately does **not** re-measure them to promote
+> one, because "the population is zero" is the reasoning that mis-ranked
+> `SNAG-DOCS-002` three times.
 >
 > **Blocked or waiting on another repository.** Session 33 is blocked on
 > the question in the sub-session line above. `SNAG-ROADMAP-002` has now

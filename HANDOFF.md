@@ -2,7 +2,34 @@
 
 ## Next action
 
-Take the four permanent `running` rows in `agent_runs` — two `file_organiser` from 2026-08-17, one `log_aggregator` and one `sysadmin` from 2026-08-14 — which reach `GET /api/sysadmin/self` and the tray as `last_status: "running"` so a dead agent reads as busy, and which are Session 41's deliberate decision working rather than a defect in it, so the fix is a reader rule and not a writer one.
+Build Session 25's Tier 2 as `GET /api/services/actions` — the missing fourth advice endpoint beside files, logs and units, ranking the outage episodes `reliability.py` already computes — and give it its own `ServiceRecommendationInfo` rather than reaching for the `RecommendationInfo` this sitting deleted, because a `points` field meaning two units decided by the producer is unreadable at the call site.
+
+## The first ranking was wrong, and one curl said so
+
+**This handoff originally named the four permanent `running` rows in
+`agent_runs`, and that recommendation is withdrawn.** `GET
+/api/sysadmin/self` reports `last_status: completed` and `stalled: false`
+for **all five** agents. The rows reach nothing — not `last_status`, not
+the stall path — because `runs[0]` is the *newest* run and a ten-day-old
+row is never newest for an agent that ran ninety seconds ago. What they
+cost is four table rows that retention clears. `tasks.md`'s item is now
+ticked with the answer recorded.
+
+**The interesting part is how the claim survived three documents.**
+Session 76 demoted the item by measuring the stall path, and kept a
+residual — *"only `last_status` is wrong"* — which is reasoned from the
+same `runs[0]` fact that refutes it. That residual was inherited verbatim
+into this handoff's `## Next action` line, into `STATUS.md`'s ranking and
+into the sitting's closing summary, so three documents agreed and none
+had run the endpoint. `tasks.md`'s own entry said in writing that the
+cost was **unmeasured** — and it was ranked first anyway.
+
+**So this is `SNAG-DOCS-002`'s lesson arriving in the ranking rather than
+in the code**, on the same day: a stated cost inherited rather than
+measured, agreed to by documents one hand wrote. The check is one
+command, and the rule is the repository's own — measure the live surface
+before repeating a claim about it, including a claim about what to do
+next.
 
 ## Sub-session items
 

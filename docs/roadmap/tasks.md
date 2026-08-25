@@ -984,12 +984,29 @@ daemon and measured the four claims, then fixed what the measuring found.
       2026-08-17 by Session 67. The key it proposed was right and its
       tie-break was wrong: `id` is `gen_random_uuid()`, so "keeping the
       earliest `id`" keeps an arbitrary copy. See Session 67 below
-- [ ] **Four permanent `running` rows in `agent_runs`.** Two from 2026-08-14
-      predate this sitting; two `file_organiser` rows were created *by* it, in
-      the documented Session 41 way — a process killed mid-run leaves the row
-      behind, and the file organiser's scan outlives a restart. Whether
-      `summarise_agent` mistakes a permanent `running` row for liveness is
-      **unmeasured**, which is why this is filed rather than dismissed
+- [x] **Four permanent `running` rows in `agent_runs`** — **measured
+      2026-08-25 (Session 77) and dismissed, with the answer recorded.** Two
+      from 2026-08-14 predate the sitting that filed this; two
+      `file_organiser` rows were created *by* it, in the documented Session
+      41 way — a process killed mid-run leaves the row behind, and the file
+      organiser's scan outlives a restart. The open question was whether
+      `summarise_agent` mistakes such a row for liveness, and the item was
+      **honest that it was unmeasured**. It is now measured against the live
+      endpoint: `GET /api/sysadmin/self` reports `last_status: completed` for
+      **all five** agents, and `stalled: false` for all five. The rows reach
+      nothing — not `last_status`, not the stall path — because `runs[0]` is
+      the *newest* run and a ten-day-old row is never newest for an agent
+      that ran ninety seconds ago. Cost is four table rows that retention
+      clears.
+      **What is worth carrying is what happened to the claim in between.**
+      Session 76 demoted this by measuring the stall path and then kept a
+      residual — *"only `last_status` is wrong"* — which was reasoned from
+      the same `runs[0]` fact that refutes it, and it was inherited verbatim
+      into a `## Next action` line and a STATUS.md ranking. So an item filed
+      as **unmeasured** was ranked first on a cost nobody had measured, which
+      is the failure this repository names one document over: a stated cost
+      inherited rather than measured. Curling the endpoint settles it in one
+      command and nobody had
 
 
 ### Session 65 — SNAG-LOG-005, one owner for agent-run health (2026-08-17) ✅
