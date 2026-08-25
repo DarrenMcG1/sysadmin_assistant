@@ -81,10 +81,27 @@ true and was named two hours early, since the block rendered the estate's
 document over. The check reported `unknown` rather than `mismatch`,
 correctly — what it cannot see is a marker written in the wrong zone.
 
-**`uv.lock` is modified and is still not this sitting's** — it predates
-it, as it predated the last one, and adds `mypy`, `ruff` and
-`types-pyyaml` to the dev metadata. Left uncommitted; everything here was
-committed by explicit pathspec.
+**`uv.lock` was committed on its own (`405146c`) after the session
+commit, and the three lines are not this repository's tooling.** They sit
+under `[package.metadata.requires-dev]` for **`estate-lib`**, which is an
+editable path source here (`[tool.uv.sources]` →
+`../estate-manager/lib`), so that library's `[dependency-groups] dev`
+reaches this lock: `mypy==2.3.1`, `ruff==0.16.2`, `types-pyyaml`.
+estate-manager pinned them under its own `SNAG-ESTATE-020` — *"both
+projects move together or the gate means two things at once"*. Measured
+rather than assumed before committing: `uv lock` regenerates the file
+byte-identically and `uv lock --check` exits 0, so it is a real
+resolution and not a hand-edit or a stale artefact.
+
+**A question for the owner rather than a finding, because answering it
+differently changes what another repository does.** That pin exists so
+one gate means one thing, and this repository is **outside** it: its own
+`[project.optional-dependencies]` carry `ruff>=0.5.0` and `mypy>=1.10.0`,
+and the venv runs **ruff 0.15.0** and **mypy 2.3.0** — so Session 77's
+green gate was run at versions the estate has deliberately moved off.
+Nothing is broken by it today. Whether `sysadmin_assistant` is meant to
+be inside that pin is estate-manager's call, not this repository's, so it
+is recorded here and **not** filed as a snag against either side.
 
 ## State of the box
 
