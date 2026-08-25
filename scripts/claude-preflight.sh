@@ -137,6 +137,31 @@ elif [ "$CLAIMS_STATUS" -ne 0 ]; then
     echo -e "  ${YELLOW}Something could not be measured — not the same as 'it holds'${NC}"
 fi
 
+# The same question one document over, and the one the
+# ops-claims check cannot ask: `snag_list.md` sets the agenda for what gets
+# fixed, and Session 82 measured five of its thirty open entries dead on the
+# box — three P1, three of them fixed for between nine and thirteen days.
+#
+# A red line here is *news*, not a fault: the entry may be closeable, which
+# is a judgement rather than a correction. Advisory for that reason as well
+# as for its sibling's — `set -e` is on, so the status is captured.
+echo -e "\n${BLUE}🔎 Snag claims, re-measured:${NC}"
+SNAGS_STATUS=0
+SNAGS_OUT=$(./scripts/check-snag-claims.sh 2>&1) || SNAGS_STATUS=$?
+while IFS= read -r line; do
+    case "$line" in
+        "ok "*) echo -e "  ${GREEN}✓${NC} ${line#ok }" ;;
+        "no "*) echo -e "  ${RED}${BOLD}✗ ${line#no }${NC}" ;;
+        "?? "*) echo -e "  ${YELLOW}? ${line#?? }${NC}" ;;
+        *)      echo -e "  ${BLUE}${line}${NC}" ;;
+    esac
+done <<< "$SNAGS_OUT"
+if [ "$SNAGS_STATUS" -eq 1 ]; then
+    echo -e "  ${BOLD}An entry above no longer describes this box. Measure it and${NC}"
+    echo -e "  ${BOLD}judge it — a refuted claim is a candidate for closure,${NC}"
+    echo -e "  ${BOLD}never a closure. Nothing here edits the document.${NC}"
+fi
+
 # 7. Check running servers
 echo -e "\n${BLUE}🖥️  Running servers:${NC}"
 BACKEND=$(pgrep -fa "uvicorn\|run_api" 2>/dev/null || true)

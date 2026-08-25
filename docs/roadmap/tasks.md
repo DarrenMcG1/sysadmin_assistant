@@ -394,6 +394,84 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 84 — `snag_list.md` gets the reader `STATUS.md` has (2026-08-25) ✅
+
+- [x] `sysadmin/snag_claims.py` — the fifth composition root: an entry names the check that would refute it, and `sysadmin-check-snags` runs it
+- [x] Eight checks, each driven against the live box **and** against a box that moved; all eight claims still hold
+- [x] Eight markers into the entries' **bodies**, verified not to move estate-manager's parse (69 entries, 26 open, dialect `bullet`, either side)
+- [x] `scripts/check-snag-claims.sh`, wired advisory into `claude-preflight.sh` and `claude-postflight.sh` beside the ops claims
+- [x] 51 tests, three of the guards falsified by breaking the code they guard
+- [x] Filed `SNAG-ESTATE-014` (the 18 unchecked entries) and `SNAG-DOCS-005` (`ops_claims`' latent quoted-marker hazard), plus one cross-repo message
+
+**Why it was owed.** Session 82 measured all thirty open entries by hand
+and found **five dead on the box** — three of them `P1`, three fixed for
+between nine and thirteen days. That is `SNAG-ESTATE-008` one document
+over and at five times the size, and the sweep that found it cost a whole
+sitting and was stale the moment the next fix landed.
+
+**The rule that decides what a check may test, and it is Session 83's read
+as an instruction to the author: a check tests the entry's *mechanism*,
+never its *population*.** `SNAG-UNITS-006` is the founding case — its
+population is measured empty (zero of 38 swept units carries a drop-in),
+so a check that looked for one would have refuted it on the day it was
+filed, which is precisely the reading Session 83 refused for
+`SNAG-LOG-013`. `check_dropin_blind_spot` **builds** a unit with an
+overriding `RestartSec=`, sweeps it and compares — Session 82's
+`SNAG-ROADMAP-001` treatment, reproduced rather than reasoned about.
+
+**The instrument decides more than the rule does.** `grep review_hour`
+matches `log_review_hour`, `disk_review_hour` and `health_review_hour`,
+all three of which **are** read, so a grep-shaped check reports
+`SNAG-CFG-002` refuted on its first run. `ast.Attribute.attr` is the exact
+final segment and matches none of them — and the falsification points the
+same walk at `log_review_hour` deliberately, where it finds the two real
+readers. Third time a substring has stood in for a measurement here, after
+`SNAG-DOCS-002` and Session 81's fix-word predictor.
+
+**Four rules the machinery encodes, three of them the opposite of the
+obvious implementation.** A refuted claim is a *candidate* for closure and
+never a closure, so nothing here writes to a document — Session 83 spent a
+whole sitting on one such judgement. The marker lives in the **body**,
+because the title is estate-manager's input: `_trailing_parenthetical`
+requires it to end in `)` before it will look for a closure clause at all.
+The marker names a check and the check names its entry, **pinned** against
+each other rather than derived — a copy-pasted body bullet is what comes
+apart, and before the eight markers were added the pin reported all eight
+checks orphaned. And an open entry with no check is *counted and named*
+rather than omitted, which is `SNAG-ESTATE-012`'s lesson: the fix for
+invisibility is to be counted.
+
+**Three defects the live run found and no fixture would have.** The first
+run reported two checks nobody implements, `helth` and `routes`, both
+"named by `SNAG-ESTATE-011`" — an entry that names neither and merely
+**quotes** them, one deliberately misspelled. This document is the one
+place on the box that writes *about* markers, so a marker syntax with no
+way to be quoted cannot be used in it; `strip_code_spans` is the fix and
+`SNAG-DOCS-005` is `ops_claims`' latent copy of the same hazard, measured
+empty (9 markers in its region, none quoted). Then the doubled fence:
+`SNAG-DOCS-005`'s own body writes ` ``the `<!--check:routes-->` marker`` `
+and a pattern closing on *any* backtick run stops at the inner single one,
+so the rule is markdown's — a run of the same length. And the entry filed
+for the unchecked residue was first written with `<!--check:none_yet-->`,
+which the machinery refused within a minute: a marker names a check, and
+"there is no check" is not one.
+
+**The sitting's own defect, in miniature.** The board pin was first
+written `assert theirs["total"] == 67` — a measured figure written into a
+test, which went stale the moment this sitting filed two entries. That is
+`SNAG-ESTATE-008`'s shape arriving *inside the guard built to answer it*.
+What is pinned now is the **agreement between two readers**, which no
+amount of filing can invalidate.
+
+**Cross-repo friction filed rather than absorbed** (`3986f323`):
+`read_snags` lives in `estate_service` rather than `estate-lib`, so the
+closure rule — the trailing-parenthetical scan plus the clause-initial
+done word, with `SNAG-AGENT-004` and `SNAG-DB-002` as its two live
+counterexamples — is written a second time here. Narrowed to under-report
+closure, so the error direction is *more* entries reported unchecked, and
+pinned against the owner by a test that shells out to their venv and skips
+when it is absent. Both readers agree: 26 open of 69.
+
 ## Session 83 — the call Session 82 deferred, and the rule that decides it (2026-08-25) ✅
 
 - [x] Decide `SNAG-ESTATE-008` rather than measure it — **closed**; parser reads **25 → 24 open**, entries unmoved at **67**

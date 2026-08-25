@@ -54,6 +54,13 @@ sysadmin-check-schema = "sysadmin.core.schema_guard:main"
 # database connection — three facts sysadmin/ops_claims.py states once.
 # SNAG-ESTATE-008.
 sysadmin-check-claims = "sysadmin.ops_claims:main"
+# Called by scripts/check-snag-claims.sh, which claude-preflight.sh and
+# claude-postflight.sh both run beside the ops claims. The snag list is the
+# second document a sitting reads and was the only one nothing checked:
+# Session 82 measured all thirty open entries by hand and found five dead
+# on the box, three of them P1. The residue — the open entries no
+# check yet names — is SNAG-ESTATE-014.
+sysadmin-check-snags = "sysadmin.snag_claims:main"
 
 [tool.uv.sources]
 # Editable relative path, deliberately unversioned: one box, one committer,

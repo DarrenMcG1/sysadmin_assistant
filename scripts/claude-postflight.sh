@@ -107,6 +107,31 @@ elif [ "$CLAIMS_STATUS" -ne 0 ]; then
     echo -e "  ${YELLOW}⚠️  Something could not be measured (not the same as 'it holds')${NC}"
 fi
 
+# Preflight asks this at the start of a sitting, which is
+# where a dead entry is *found*; this is where one is made — a sitting that
+# fixed something has just refuted an entry it may not have thought to
+# close, and the close is the last moment before the docs are committed.
+#
+# It never raises ISSUES. A refuted claim is an entry to judge and the
+# judgement may legitimately be "leave it open" — Session 83's residue rule
+# — so blocking the close on it would make the check an author of the
+# document, which is the one thing this family does not do.
+echo -e "\n${BLUE}🔎 Snag claims (open entries against the box):${NC}"
+SNAGS_STATUS=0
+SNAGS_OUT=$(./scripts/check-snag-claims.sh 2>&1) || SNAGS_STATUS=$?
+while IFS= read -r line; do
+    case "$line" in
+        "ok "*) echo -e "  ${GREEN}✓${NC} ${line#ok }" ;;
+        "no "*) echo -e "  ${RED}${BOLD}✗ ${line#no }${NC}" ;;
+        "?? "*) echo -e "  ${YELLOW}? ${line#?? }${NC}" ;;
+        *)      echo -e "  ${BLUE}${line}${NC}" ;;
+    esac
+done <<< "$SNAGS_OUT"
+if [ "$SNAGS_STATUS" -eq 1 ]; then
+    echo -e "  ${BOLD}Did this sitting kill one of those? Measure it and say so${NC}"
+    echo -e "  ${BOLD}in the entry — a refuted claim is a candidate for closure${NC}"
+fi
+
 # 4. DOCUMENTATION ENFORCEMENT - Critical check
 echo -e "\n${BLUE}${BOLD}📋 DOCUMENTATION ENFORCEMENT CHECK${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"

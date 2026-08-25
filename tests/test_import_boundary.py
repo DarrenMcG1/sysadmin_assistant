@@ -62,7 +62,9 @@ def test_core_and_registry_do_not_import_domains():
 
 
 def test_no_domain_imports_a_composition_root():
-    """``main``, ``metadata``, ``reload`` and ``ops_claims`` are imported by nothing below them.
+    """The five composition roots are imported by nothing below them.
+
+    ``main``, ``metadata``, ``reload``, ``ops_claims`` and ``snag_claims``.
 
     ``sysadmin/metadata.py`` states the rule — *"both are composition
     roots: they are allowed to import every domain, and no domain imports
@@ -78,18 +80,24 @@ def test_no_domain_imports_a_composition_root():
     ``reload`` may grow. ``ops_claims`` joined them for the same reason
     read the other way: it counts the routes ``create_app`` declares, so
     it imports every domain transitively and belongs nowhere below.
+    ``snag_claims`` joined them on 2026-08-25 for a third reason again: it
+    *drives* a domain to reproduce a claim — ``units.scan.discover_units``,
+    over a synthetic unit tree — and the next check written will drive
+    another, so it would break this rule the first time anyone extended it
+    from ``core``.
     """
     roots = (
         "sysadmin.main",
         "sysadmin.metadata",
         "sysadmin.reload",
         "sysadmin.ops_claims",
+        "sysadmin.snag_claims",
     )
     package = PACKAGE.parent
     offenders = []
     for path in package.rglob("*.py"):
         if path.parent == package and path.stem in {
-            "main", "metadata", "reload", "ops_claims", "__init__"
+            "main", "metadata", "reload", "ops_claims", "snag_claims", "__init__"
         }:
             continue
         for module in imported_modules(path):
