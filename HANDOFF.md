@@ -2,97 +2,104 @@
 
 ## Next action
 
-Write the fifteenth check against `SNAG-ESTATE-013` — the `check:expires` claim that takes a naive instant — because it is the only unchecked entry whose subject is this repository's own claims machinery, so its instrument is `ops_claims.read_markers` and it needs no cross-repo read at all, and drive it at both an aware and a naive producer stamp so the hour it is out by is measured rather than argued, exactly as `SNAG-LOG-009` was.
+Write the sixteenth check against `SNAG-UNITS-003` — the generated `kind: http` url that guesses the health path — because its claim is a counted population against a file that changes (`/api/health` correct for 4 of 11 entries and wrong for 7, measured once on 2026-08-15 and never since, by an author whose first draft said "two of twelve"), and because it needs a fourth instrument nothing here has yet: an outbound request that asks whether a path actually answers, with the pure half — driving `_services_yaml_snippet` and asserting what path it emits — kept separate so the check degrades to `unknown` rather than to nothing when the box is offline.
 
-## Session 92 is complete — the flake was `hash()`, and the loop could not have found it
+## Session 93 is complete — the fifteenth check, and the straddle that was hemisphere-blind
 
-`SNAG-TEST-001` is **reproduced deterministically and closed**. Open
-entries **25 → 24** (one closed, none opened), unchecked **13 → 12**,
-checked unmoved at **12**; 70 entries either side, measured with
-estate-manager's `read_snags`. **2514 tests pass** (2511 + 3). Ruff
-clean, mypy clean. Nothing under `sysadmin/` was edited — the fix is
-`tests/test_snag_claims.py` and four documents — so **no restart is
-owed** and `check-ops-claims.sh` reads all nine claims green.
+`SNAG-ESTATE-013` is **checked and stays open**. Checked entries
+**12 → 13**, unchecked **12 → 11**, open unmoved at **24**; 70 entries
+either side, measured with the reader — which has itself moved, see
+below. **2532 tests pass, 0 skipped** (2514 + 15 + 1, plus the 2 that
+had been skipping). Ruff clean, mypy clean. `sysadmin/snag_claims.py`
+was edited, so the daemon was restarted at **20:30:36** and all nine ops
+claims read green.
 
-### The cause, and why it is upstream of the path the entry read
+### The first check whose subject is this repository's own claims machinery
 
-Three falsification guards in `TestChecksAgainstTheLiveBox` patch in a
-hypothetical fix whose only job is to render two signatures that agree
-past `SIGNATURE_DETAIL_CHARS` **apart**, and all three built that
-disambiguator as `` hash(s) % 997 ``. CPython seeds `str` hashing from
-`PYTHONHASHSEED`, so the marker is stable inside a process and different
-between them. When the probe pair collides mod 997 the stand-in
-disambiguates nothing, `check_capped_signature_collides` correctly
-reports the entry **unrefuted**, and all three guards fail together —
-having measured the stand-in's luck rather than the check's sensitivity.
+`check_expiry_naive_instant` imports `sysadmin.ops_claims` and drives
+`read_markers` into `check_expiry` — one composition root driving
+another, which the import-boundary test permits because neither is
+*below* the other. No database, no subprocess, no cross-repo read. The
+module is imported and driven rather than reimplemented: the claim *is*
+what `check_expiry` does with a marker.
 
-Both of the entry's exclusions are **correct**. The probe *is* pure — a
-fixed anchor, no database, no unit files — and there *is* no randomising
-plugin, so collection order *is* stable. The secret `hash` reads is
-established before the interpreter imports anything, so it sits upstream
-of the code path being read. That is the transferable half: **a defect
-whose input is the process cannot be excluded by reading the process's
-code.**
+`STATUS.md` carries no live `expires` marker, so rule 1 applies and the
+mechanism is built. The synthetic block names **both** wall clocks, so
+rule 9's pin passes whichever a zone-aware fix would render back out and
+a landed fix cannot come back as a pin failure.
 
-### The third name is recoverable, because the population is closed
+### The hour, measured
 
-Builtin `hash(` occurs **exactly three times in the repository**, at
-`tests/test_snag_claims.py:618`, `:637` and `:657`, all inside one class
-— so the third guard the tail dropped is
-`test_a_divergence_aware_cap_refutes_both_halves`, adjacent to the two
-the entry names. `PYTHONHASHSEED=282` reproduces **`3 failed, 104
-passed`** and those three names: the entry's own symptom to the digit.
+One producer stamp — the one the entry quotes — rendered naive and
+offset-bearing. At `Europe/London`: **`1 minute to run`** a minute
+before the marker's own instant; **`passed 59 minutes ago`** a minute
+before the predicted event actually happens; **`passed 1 hour ago`** at
+the event itself. The offset-bearing form is not understood, and not as
+an unsupported form but as a **malformed marker**.
 
-### The recommended method was run, as the control
+The entry's title is truer than it states. A mis-timed prediction and an
+unparsable marker are **both `unknown`**, so the report prints `??`
+either way; only `Claim.measured` separates them, which is why the probe
+classifies on that field and never on the verdict.
 
-40 whole-file runs under `-p no:cacheprovider`, **all green** — which is
-what 1/997 predicts. Even odds need ~690 runs and 99 % confidence
-~4,600, over seven hours at 6 s a run; the seed scan hit its first
-collision at 282 in under a minute. **A per-process defect is hunted per
-process, not per run**, because the thing that differs between two runs
-is the one input a loop cannot vary.
+### Two things a run refuted about the draft
 
-The rate is **19 collisions over 20,000 seeds** — 1 in 1,053,
-indistinguishable from the modulus — so the entry's own "once in twenty
-runs" was **50x too high**. That makes the nuisance smaller and the
-diagnostic worse: the fifteen green runs were never evidence, and
-neither would the next nine hundred have been.
+**The obvious single straddle holds only east of Greenwich.** At
+`America/New_York` the same marker names an instant four hours *after*
+its subject, so the prediction outlives what it predicted and an
+early-expiry test reports the module correct. `SNAG-LOG-009`'s *"N hours
+late at UTC−N"* one document over — in the entry that names
+`SNAG-LOG-009` as its own parent. What is measured now is the
+**displacement of the boundary**, whose sign the offset decides and
+whose existence it does not.
 
-### The counter-intuitive result, and it decided what shipped
+**A control a landed fix breaks is not a control.** The draft asserted
+the timer flips at the marker's own text; a stand-in reading the
+zoneless stamp as the moment it was *stamped* moves the boundary onto
+the event, fails that control, and returns `unknown` where `mismatch` is
+right. The boundary is located rather than assumed, so three states get
+three verdicts.
 
-Driven at the old behaviour in **both** directions. At seed 282 all six
-guards fire. At seed 0 **the three original guards are green** and only
-the AST sweep and the purity pin fire. So
-`test_it_separates_the_probe_pair` — which asserts the property directly
-— inherits the same 1/997 and is green at 996 seeds in 997, while
-`test_no_guard_here_reaches_for_the_randomised_builtin`, which merely
-refuses the builtin, is red at **every** seed.
+It reports `unknown` at `UTC+00:00`, where the two stamps name one
+instant and a zone-blind reading is indistinguishable from a correct
+one — `ports_checked`'s rule. CI runs there, so the check is honest by
+construction and the tests nominate their own zones.
 
-**Banning the instrument beats measuring the property**, and only
-because the property is the thing being randomised. The sweep is AST
-rather than textual because the docstrings around it are full of the
-word — `RecommendationInfo`'s prose-in-a-docstring trap, answered on the
-correct side.
+### One falsification passed against the broken code
 
-`_marker()` is `blake2s(text.encode(), digest_size=4).hexdigest()`: the
-same short marker with the randomisation removed, behind one helper
-rather than three copies of an expression — `journal_command`'s three
-callers formatting one fact, one file over.
+Seven breaks driven, six fired. The seventh — rendering the naive stamp
+with the module's own `EXPIRY_FORMAT` — passed, because `snag_claims`
+imports that name into its own namespace and the test patched only the
+owner: the module's *behaviour* moved while the probe's rendering did
+not. A guard asserting a **value** where it means **provenance**, the
+third time here. Repaired twice: the patch moves both names, and an
+`ast` sweep refuses `EXPIRY_FORMAT` as an argument to any `strftime` in
+the check. The coupling was the draft's real defect —
+`EXPIRY_NAIVE_FORMAT` is owned locally now, because what the *document*
+wrote is not the same fact as what the module accepts.
 
-### What was deliberately not written
+### The unplanned find: a guard that had gone silent rather than red
 
-**No registry check.** `SNAG-TEST-001`'s claim is about *this suite's own
-instrument*, so a `sysadmin-check-snags` entry would read its own output
-— `SNAG-ESTATE-014`'s stated reason for having none. The guard is a test
-because the thing guarded is a test.
+Measuring the entry count found `read_snags` gone — estate-manager moved
+it into `estate.snags` in `estate-lib` at **17:06:27** today
+(`a5c1834`). `TestAgainstTheOwningParser` shelled into their venv and
+read the resulting `ImportError` as *"their parser would not run"*, a
+property of the box. **Inert for 3h45m, across the whole of Session
+92**, which shipped `2514 passed, 2 skipped` against a Testing row
+saying nothing skips here — and which had filed a message about that
+very move. Repaired: `estate.snags` imported first (editable install, no
+subprocess), **absence is a skip and a moved symbol is a failure**, one
+`pytest.skip` pinned by an `ast` sweep. Filed as friction `2822dad4`
+with the cost, separately from the two already open about the entry
+count.
 
-It nonetheless sat in `convention:unchecked` for a day as though a check
-were owed. That finding counts entries with no check and **cannot tell
-"not yet" from "never"** — `ports_checked`'s rule at the level of the
-register rather than the reading. Recorded against `SNAG-ESTATE-014`,
-together with the third way its number moves: an *unchecked* entry
-closing moves it for the same reason a check does and buys nothing, so
-the pair of counts still does not separate the three cases.
+### Two corrections to STATUS.md, both found rather than reported
+
+The sub-session block claimed 10 checked and 14 unchecked against a live
+12 and 12 — neither figure carries a pattern or a marker, so
+`SNAG-ESTATE-012`'s class and no run could have said so. And "Next up"
+asked for `SNAG-TEST-001` throughout Session 92, which closed it; that
+sitting also left no `### Session 92` section.
 
 ### Blocked
 

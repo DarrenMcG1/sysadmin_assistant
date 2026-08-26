@@ -117,8 +117,10 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 
 from sysadmin.core.config import REPO_ROOT, get_config
+from sysadmin.core.escalation import humanise_hours
 from sysadmin.core.schema_guard import EXIT_STATUS, SchemaVerdict
 from sysadmin.core.text import strip_markdown
+from sysadmin.ops_claims import EXPIRY_FORMAT, check_expiry, read_markers
 
 #: The same three words and the same exit map as the schema check and the
 #: ops claims, imported rather than restated.  ``mismatch`` is a claim the
@@ -2023,6 +2025,349 @@ def check_code_spans_survive() -> Measurement:
     )
 
 
+#: The producer stamp ``SNAG-ESTATE-013`` quotes, verbatim from its own
+#: body — ``started_at: "2026-08-25T03:32:17.538288+00:00"``.  The entry's
+#: specimen rather than an invented one, because the defect is a *copy*: a
+#: human reads an estate surface, takes the wall clock out of it and
+#: writes that into the marker.  Both stamps this check drives are
+#: rendered from this one value, so the naive form and the aware form
+#: cannot come to name two different instants the way two typed literals
+#: would.
+EXPIRY_PRODUCER_STAMP = "2026-08-25T03:32:17.538288+00:00"
+
+#: How the block has rendered every ``expires`` instant it has ever
+#: written: a wall clock with no offset.  **Owned here rather than
+#: imported from :mod:`sysadmin.ops_claims`, and only a falsification said
+#: it had to be.**  The first draft rendered the naive stamp with that
+#: module's ``EXPIRY_FORMAT``; driven against a fix that moves it to
+#: ``%Y-%m-%dT%H:%M%z``, the "naive" drive silently starts rendering an
+#: *offset-bearing* stamp and the probe's own control moves with the thing
+#: it is controlling for — so the landed fix comes back looking like no
+#: fix at all.  This is a fact about what the *document* wrote, which is
+#: not the same fact as what the module accepts, and keeping them apart is
+#: what lets the two be compared.  The module's constant is still read,
+#: for the evidence line: a change to it is the offset half arriving and
+#: should be visible rather than inferred from four drives.
+EXPIRY_NAIVE_FORMAT = "%Y-%m-%dT%H:%M"
+
+#: What the marker says it is about, after the instant.  ``check_expiry``
+#: splits the argument once, so this is the label that reaches the
+#: report's subject line.
+EXPIRY_SUBJECT = "the estate scan row clears"
+
+#: A block carrying one prediction, in the shape ``STATUS.md``'s
+#: sub-session blockquote actually writes them.
+#:
+#: **It names both wall clocks on purpose, and that is not padding.**
+#: Rule 9 of :mod:`sysadmin.ops_claims` pins the marker's instant against
+#: the prose beside it, and a fix that taught the marker an offset would
+#: have to choose which clock to render back out — ``03:32`` if it keeps
+#: rendering UTC, ``04:32`` if it renders local.  The pin is not the thing
+#: being measured here, so the region satisfies it in advance for *both*
+#: readings; otherwise a landed fix would come back as a pin failure and
+#: this check would report the wrong limb moved.
+EXPIRY_REGION = (
+    "> **The estate scan row is the one thing outstanding.**\n"
+    "> {marker} The producer's stored scan started at 03:32 today, so the\n"
+    "> row clears with nothing done; the timer itself fired at 04:32.\n"
+)
+
+
+@dataclass(frozen=True)
+class ExpiryReading:
+    """What :func:`sysadmin.ops_claims.check_expiry` made of one marker.
+
+    Attributes:
+        label: which drive this is, for the note.
+        argument: the marker argument, as the block would carry it.
+        now: the wall clock the module was asked to judge it against.
+        verdict: what it returned.
+        measured: what it says of the prediction, or ``None`` when it got
+            no instant out of the marker at all.
+        note: its sentence, empty on a standing prediction.
+    """
+
+    label: str
+    argument: str
+    now: str
+    verdict: str
+    measured: str | None
+    note: str
+    aware_clock: bool = False
+
+    @property
+    def parsed(self) -> bool:
+        """Whether an instant came out of the marker.
+
+        **Deliberately not the verdict**, and that distinction is the
+        entry's own title read as an instruction to its checker.  A naive
+        stamp read an hour early and an aware stamp the module cannot
+        parse at all are *both* ``unknown``, so both print ``??`` and the
+        report cannot tell a mis-timed prediction from a rejected marker.
+        ``measured`` is the field that separates them: the timing paths
+        fill it and :func:`sysadmin.ops_claims._convention` leaves it
+        ``None``.
+        """
+        return self.measured is not None
+
+    def line(self) -> str:
+        """One evidence row."""
+        clock = " (aware clock)" if self.aware_clock else ""
+        return (
+            f"{self.label}: <!--check:expires {self.argument} …--> at {self.now}{clock} "
+            f"-> {self.verdict}, {self.measured or self.note}"
+        )
+
+
+def expiry_reading(label: str, argument: str, now: datetime) -> tuple[ExpiryReading | None, str]:
+    """Drive one marker through the real reader and the real timer.
+
+    ``read_markers`` first rather than handing :func:`check_expiry` a
+    :class:`~sysadmin.ops_claims.Marker` built here — the argument is the
+    part of the convention this entry is about, and a check that
+    constructed the parsed form would be measuring its own split rather
+    than the module's.  It also keeps the offset-bearing form honest:
+    ``MARKER_RE``'s argument group stops at ``>``, and ``+00:00`` survives
+    that today, which is a fact about the reader and not one to assume.
+
+    **The naive clock is retried aware, and that retry is what keeps this
+    probe alive through the fix it watches for.**  The entry's proposed
+    remedy has two halves and the natural way to land them is together:
+    teach the marker an offset, and make ``now`` an aware instant so the
+    two can be subtracted.  A probe that passed only a naive ``now`` would
+    then hit ``TypeError`` on the *offset-bearing* drive — the one drive
+    that had just started working — and report the fix as a crash.  So a
+    refusal of the naive clock is recorded and the drive is repeated,
+    which turns the module's own fail-closed step into evidence instead of
+    a dead end.  :func:`check_code_spans_survive`'s pre-staging, arrived at
+    from the other side: there the fix lands in a tree nothing here
+    watches, here it lands in the function being called.
+    """
+    region = EXPIRY_REGION.format(
+        marker=f"<!--check:expires {argument} {EXPIRY_SUBJECT}-->"
+    )
+    markers = [marker for marker in read_markers(region) if marker.key == "expires"]
+    if not markers:
+        return None, (
+            f"the {label} marker '{argument}' is not read as an expires marker at all — "
+            "ops_claims.read_markers no longer sees the form the block writes"
+        )
+    aware_clock = False
+    try:
+        claim = check_expiry(markers[0], region, now)
+    except TypeError:
+        aware_clock = True
+        try:
+            claim = check_expiry(markers[0], region, now.astimezone())
+        except Exception as exc:  # noqa: BLE001 — a drive that will not run is not a verdict
+            return None, (
+                f"check_expiry refused the {label} drive at both a naive and an aware clock "
+                f"({exc.__class__.__name__}: {exc}) — it no longer judges a prediction the "
+                "way this entry describes, and this probe can no longer reach it"
+            )
+    except ValueError as exc:
+        return None, (
+            f"check_expiry raised on the {label} drive ({exc.__class__.__name__}: {exc}) — "
+            "a malformed instant is reported rather than raised today, so the parse has "
+            "stopped failing the way rule 8 requires"
+        )
+    return (
+        ExpiryReading(
+            label, argument, now.strftime("%Y-%m-%d %H:%M:%S"),
+            claim.verdict, claim.measured, claim.note, aware_clock,
+        ),
+        "",
+    )
+
+
+def check_expiry_naive_instant() -> Measurement:
+    """``SNAG-ESTATE-013`` — an ``expires`` marker takes a zoneless instant.
+
+    **The fifteenth check, and the first whose subject is this
+    repository's own claims machinery.**  Every other entry in this
+    registry is measured against the box, against another repository's
+    tree, or against a domain module; this one drives
+    :mod:`sysadmin.ops_claims`, the sibling composition root that reads
+    ``STATUS.md`` at both ends of a sitting.  It needs no database, no
+    subprocess and no cross-repo read — which is why it was written before
+    the entries that need all three.
+
+    The module is **imported and driven**, never reimplemented.  Rule 7's
+    second half, and here it is not a preference: the claim *is* what
+    ``check_expiry`` does with a marker, so a copy of the parse would
+    measure the copy.  Same argument :func:`check_code_spans_survive`
+    makes for resolving ``strip_markdown`` through the re-export rather
+    than pinning a literal.
+
+    **The population is empty and the mechanism is built.**  ``STATUS.md``
+    carries no live ``expires`` marker today — the one that ever existed
+    is the block that opened this entry, since reworded.  Rule 1 forbids
+    reading that as health, so the check writes a block in the shape the
+    sub-session blockquote uses, the way
+    :func:`check_dropin_blind_spot` builds the drop-in it needs.
+
+    **The instrument is a pair of straddles, and the obvious single one is
+    wrong in half the world.**  Written first as *"judged a minute before
+    the event, does it already say expired"* — which is the defect as
+    ``SNAG-ESTATE-013`` observed it here, and it holds only east of
+    Greenwich.  Driven at ``America/New_York`` the same marker names an
+    instant four hours *after* its subject, so the prediction **outlives**
+    what it predicted and the early-expiry test reports the module
+    correct.  That is ``SNAG-LOG-009``'s own asymmetry — *"the rule is N
+    hours late at UTC−N"* — arriving one document over, and it was found
+    by running the probe in three zones rather than by reasoning about it.
+
+    So what is measured is the **displacement of the boundary**, whose
+    sign the offset decides and whose existence it does not:
+
+    * ``at the marker`` — one minute either side of the instant the
+      marker's own text names, read as local.
+    * ``at the event`` — one minute either side of the instant the
+      producer actually stamped.
+    * ``at the event`` itself — the error in the module's own words
+      rather than in this check's.
+    * ``aware`` — the stamp the entry's proposed fix would write,
+      ``+00:00`` and all.  Not understood today, and not understood as a
+      *malformed marker* rather than as an unsupported one.
+
+    **The magnitude is this box's UTC offset, so a box at zero cannot
+    demonstrate the fault and must say so.**  At UTC+00:00 the two stamps
+    name one instant, both straddles collapse onto the same pair of wall
+    clocks, and a zone-blind reading is indistinguishable from a correct
+    one — a false refutation of a mechanism that is still there.
+    ``unknown``, ``ports_checked``'s rule: zero-because-blind is never
+    served as zero-because-clean.
+
+    **Which straddle the timer flips across is the whole verdict, and
+    neither straddle is a control for the other.**  The first draft made
+    the marker pair a control — *must give to run then passed, or the
+    probe has stopped isolating the question* — and a stand-in modelling
+    the fix refuted that too: a timer that read the zoneless stamp as the
+    moment it was **stamped** moves its boundary onto the event, fails the
+    control, and comes back ``unknown`` when it should come back
+    ``mismatch``.  A control that a landed fix breaks is not a control, it
+    is the unfixed behaviour asserted twice.  So the boundary is
+    *located* rather than assumed: flipping at the producer's instant is
+    the defect gone by a route neither half of the entry's fix names,
+    flipping at the marker's text is the defect standing, and flipping at
+    neither is the only reading this probe declines.
+
+    Either half of the entry's proposed fix refutes it, and the note names
+    which landed, because they can land apart: teaching the marker an
+    offset makes the ``aware`` drive parse, and refusing a zoneless
+    instant makes the rest stop parsing.  A partial fix is ``mismatch``
+    with the residue named — the eleventh check's treatment, and the
+    fourteenth's.
+    """
+    producer = datetime.fromisoformat(EXPIRY_PRODUCER_STAMP)
+    here = producer.astimezone()
+    offset = here.utcoffset() or timedelta(0)
+    naive_arg = producer.strftime(EXPIRY_NAIVE_FORMAT)
+    aware_arg = producer.isoformat(timespec="minutes")
+    # Where the module puts the boundary, and where the event actually is.
+    read_as_local = producer.replace(tzinfo=None, second=0, microsecond=0)
+    true_local = here.replace(tzinfo=None)
+    minute = timedelta(minutes=1)
+
+    zone = (
+        f"this box is {here.tzname()} (UTC{here:%z}) at the producer's stamp; "
+        f"{EXPIRY_PRODUCER_STAMP} is {true_local:%m-%d %H:%M:%S} here, the marker says "
+        f"{read_as_local:%m-%d %H:%M}, and ops_claims accepts {EXPIRY_FORMAT!r}"
+    )
+    if not offset:
+        return Measurement(
+            "unknown",
+            "this box is at UTC+00:00, so a zoneless instant and an offset-bearing one "
+            "name the same moment here and the two stamps cannot be told apart — the "
+            "mechanism is untouched and this probe cannot demonstrate it",
+            (zone,),
+        )
+
+    drives = (
+        ("before the marker", naive_arg, read_as_local - minute),
+        ("after the marker", naive_arg, read_as_local + minute),
+        ("before the event", naive_arg, true_local - minute),
+        ("after the event", naive_arg, true_local + minute),
+        ("at the event", naive_arg, true_local),
+        ("aware", aware_arg, true_local),
+    )
+    readings: list[ExpiryReading] = []
+    for label, argument, now in drives:
+        reading, problem = expiry_reading(label, argument, now)
+        if reading is None:
+            return Measurement("mismatch", problem, (zone, *(r.line() for r in readings)))
+        readings.append(reading)
+
+    by_label = {reading.label: reading for reading in readings}
+    at_event, aware = by_label["at the event"], by_label["aware"]
+    evidence = (zone, *(reading.line() for reading in readings))
+
+    moved = []
+    if aware.parsed:
+        moved.append(
+            f"an offset-bearing instant now parses ({aware.measured}) — the marker has "
+            "learned a zone, which is the first half of the entry's proposed fix"
+        )
+    if not at_event.parsed:
+        moved.append(
+            "a zoneless instant is no longer read as a moment — the parse fails closed, "
+            "which is the second half of the entry's proposed fix"
+        )
+    elif any(reading.aware_clock for reading in readings):
+        moved.append(
+            "a zoneless instant still parses, and the module now refuses to judge one "
+            "against a naive wall clock — half of the fail-closed half, and the residue "
+            "is that the marker itself may still be written without an offset"
+        )
+    if moved:
+        return Measurement("mismatch", "; ".join(moved), evidence)
+
+    def flips_at(pair: str) -> bool:
+        """Whether the timer changes its answer across this straddle."""
+        return (
+            by_label[f"before the {pair}"].verdict == "match"
+            and by_label[f"after the {pair}"].verdict != "match"
+        )
+
+    at_marker, at_producer = flips_at("marker"), flips_at("event")
+    if at_producer:
+        return Measurement(
+            "mismatch",
+            "the boundary straddles the producer's instant rather than the marker's own "
+            "text — the timer reads the zoneless stamp as the moment it was stamped, and "
+            "the entry's defect is gone by a route neither half of its fix names",
+            evidence,
+        )
+    if not at_marker:
+        return Measurement(
+            "unknown",
+            "the timer flips at neither straddle "
+            f"(before/after the marker: {by_label['before the marker'].verdict}/"
+            f"{by_label['after the marker'].verdict}) — its boundary cannot be located, so "
+            "where the producer's instant falls relative to it says nothing and this probe "
+            "has stopped isolating the question",
+            evidence,
+        )
+
+    early = offset > timedelta(0)
+    displacement = humanise_hours(abs(offset.total_seconds()) / 3600)
+    direction = (
+        f"expires {displacement} before its subject occurs"
+        if early
+        else f"outlives its subject by {displacement}"
+    )
+    return Measurement(
+        "match",
+        "",
+        (
+            *evidence,
+            f"the prediction {direction} — the boundary sits at the marker's text read as "
+            f"local, {displacement} from the instant the producer stamped",
+            "both readings report `unknown`, so the report prints ?? whether the "
+            "prediction was mis-timed or the marker could not be parsed at all",
+        ),
+    )
+
 # ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
@@ -2123,6 +2468,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-LOG-012",
             "strip_markdown leaves the model's inline code spans",
             check_code_spans_survive,
+        ),
+        Check(
+            "expiry_naive_instant",
+            "SNAG-ESTATE-013",
+            "check:expires reads a zoneless instant as local",
+            check_expiry_naive_instant,
         ),
     )
 }
