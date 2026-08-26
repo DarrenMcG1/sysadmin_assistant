@@ -61,14 +61,29 @@ The same run refuted the entry: it says "**Both** consumers here" and
 there are **three** — `monitor/health_review.py` was written on
 2026-08-25, the day *after* the entry was filed.
 
-### A figure this repository has published wrong for four sittings
+### A figure that went stale 52 minutes ago, and a wrong duration on it
 
-`67 entries` against a live **69**. The instrument moved, not the
-document: the reader became `estate.snags` in estate-lib and now counts
-the two `### Session NN write-up` headings under `## Fixed Issues`. Both
-come back `is_open: False`, which is why the open count never moved and
-why the drift stayed invisible — the figure the board publishes was right
-throughout. Two test docstrings corrected.
+`67 entries` against a live **69**. `estate.snags` landed in estate-lib
+at **17:06:27** today — *after* Session 90's 16:14:24 commit — and counts
+the two `### Session NN write-up` headings under `## Fixed Issues` that
+the old reader did not.
+
+**The first draft of this section said "stale for at least four
+sittings"**, on the strength of driving **today's** reader over four past
+commits of this document. That measures the *instrument* and says nothing
+about what was published at the time — the exact error this repository
+files snags about, made inside the sitting that files them, and caught
+only by looking at the commit clock while filing the friction. The old
+reader is gone from the box (`estate_service.snags` no longer imports),
+so the historical figures cannot be re-checked at all.
+
+Both new rows are `is_open: False`, so the open count never moved and the
+figure the board publishes was right throughout. Two test docstrings
+corrected, and the friction filed at 8400 as `1feea3c3` — the **second**
+attempt. The first (`6ac95fa6`) stated the old reader's count as a
+measurement when it is an inference, `estate_service.snags` having gone
+with the move, which is the message's own second half. Withdrawn by the
+sender and re-filed with the figure labelled.
 
 ### `SNAG-TEST-001` opened, offering no diagnosis on purpose
 

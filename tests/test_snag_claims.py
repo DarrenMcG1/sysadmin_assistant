@@ -126,14 +126,17 @@ class TestReadingEntries:
         template section holds a worked example whose id would otherwise
         be swept as a real open entry.
 
-        *Re-measured 2026-08-26 by Session 91: 43 of 67 was stale by two
-        for at least four sittings, and the instrument moved rather than
-        the document — the reader became ``estate.snags`` in estate-lib
-        and now reads the two ``### Session NN write-up`` headings under
-        ``## Fixed Issues`` as entries.  Both come back ``is_open``
-        ``False``, which is why the open count never moved and why this
-        drift stayed invisible: the figure the board publishes was right
-        throughout.*
+        *Re-measured 2026-08-26 by Session 91: 43 of 67 was stale by two,
+        and the instrument moved rather than the document — the reader
+        became ``estate.snags`` in estate-lib at 17:06:27 that day, after
+        the previous sitting's commit, and now reads the two ``### Session
+        NN write-up`` headings under ``## Fixed Issues`` as entries.  Both
+        come back ``is_open`` ``False``, which is why the open count never
+        moved and why this drift stayed invisible: the figure the board
+        publishes was right throughout.  Note what cannot be checked — the
+        old reader is gone from the box, so what any past sitting actually
+        measured is unrecoverable, and driving today's reader over past
+        commits answers a question about the instrument instead.*
         """
         ids = {entry.snag_id for entry in _entries()}
         assert ids == {"SNAG-FAKE-001", "SNAG-FAKE-002", "SNAG-FAKE-003"}

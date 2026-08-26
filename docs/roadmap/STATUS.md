@@ -331,13 +331,20 @@ quietly.** The entry says "**Both** consumers here" and there are
 callers, two of them the probe itself, which inflated the count *and*
 made the "nothing calls it" limb unreachable — a probe counting itself is
 `ops_claims` rule 3's pin searching a region containing its own marker,
-reached from the other side. And this repository has published **67
-entries** for at least four sittings against a live **69**: the reader
-became `estate.snags` in estate-lib and now counts the two
-`### Session NN write-up` headings under `## Fixed Issues`. Both are
-`is_open: False`, which is why the open count never moved and why the
-drift stayed invisible — the figure the board publishes was right
-throughout.
+reached from the other side. And this repository's **67 entries**
+went stale **52 minutes** before this commit, not over four sittings —
+which is the correction this sitting had to make to itself. `estate.snags`
+landed in estate-lib at **17:06:27** today, *after* Session 90's 16:14:24
+commit, and the new reader counts the two `### Session NN write-up`
+headings under `## Fixed Issues` that the old one did not. The first
+draft said "stale for at least four sittings" on the strength of driving
+**today's** reader over four of this document's past commits — which
+measures the instrument and says nothing about what was published at the
+time, the exact shape of error this repository files snags about. The
+old reader is gone from the box (`estate_service.snags` no longer
+imports), so the historical figures cannot be re-checked at all. Both new
+rows are `is_open: False`, so the open count never moved and the figure
+the board publishes was right throughout.
 
 **`SNAG-TEST-001` opened**: three guards in `test_snag_claims.py` failed
 once and have not failed in fifteen runs since. Both obvious causes are
