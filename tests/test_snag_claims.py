@@ -28,6 +28,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import tempfile
 import textwrap
 import time
@@ -35,6 +36,7 @@ from datetime import UTC, datetime
 from hashlib import blake2s
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -71,6 +73,7 @@ from sysadmin.snag_claims import (
     check_dropin_blind_spot,
     check_estate_port_8500,
     check_expiry_naive_instant,
+    check_health_path_guess,
     check_manual_run_unawaited,
     check_review_schedule_unread,
     check_run_status_cancelled,
@@ -2136,3 +2139,392 @@ class TestTheExpiryCheck:
         assert mistimed.verdict == unparsed.verdict == "unknown"
         assert mistimed.parsed is True
         assert unparsed.parsed is False
+
+
+class TestTheHealthPathCheck:
+    """``SNAG-UNITS-003``'s check — the first here that sends a request.
+
+    The entry is the registry's first whose headline is a **counted
+    population**: *"wrong more often than right"*, at 4 right and 7 wrong
+    of 11, measured once on 2026-08-15 by an author whose first draft
+    said "two of twelve".  So the fixtures below are taken from the box
+    on every run rather than written down — a test naming
+    ``venture-chat`` as a wrong one would fossilise exactly the way the
+    entry did, and would go on passing after the service moved.
+
+    Every falsification is driven at a stand-in **modelling the change**
+    rather than at a literal saying it happened: a generator that decides
+    the path per port is the entry's own candidate fix, and a box where
+    the guess answers everywhere is the premise dying with the generator
+    untouched.
+    """
+
+    _MEASURED: dict[str, object] = {}
+
+    @classmethod
+    def _live(cls) -> dict[str, object]:
+        """The box, partitioned once: right, wrong, witnesses, bare.
+
+        Cached across the class because it is 22 loopback requests and
+        every verdict test narrows the same partition.  It is also the
+        check's own instruments, driven — so a test that narrows the
+        population to "the ones the guess answers" is using the same
+        measurement the check would.
+        """
+        if cls._MEASURED:
+            return cls._MEASURED
+        population, problem = snag_claims.health_path_population()
+        assert not problem, problem
+        emitted = {
+            entry.port: snag_claims.generated_health_url(entry.port) for entry in population
+        }
+        probes, problem = snag_claims.probe_health_paths(population, emitted)
+        assert not problem, problem
+        by_name = {probe.name: probe for probe in probes}
+        cls._MEASURED = {
+            "population": population,
+            "probes": by_name,
+            "right": [e for e in population if by_name[e.name].guess_right],
+            "wrong": [e for e in population if by_name[e.name].guess_wrong],
+            "witness": [e for e in population if by_name[e.name].is_witness],
+            # Derived from the declared path, never from ``is_witness``:
+            # the two tests below break that property deliberately, and a
+            # partition computed from it would empty itself and fail on
+            # its own precondition instead of on the property.
+            "bare": [
+                e
+                for e in population
+                if by_name[e.name].guess_wrong
+                and not by_name[e.name].declared_path.strip("/")
+            ],
+        }
+        return cls._MEASURED
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _population(entries):
+        with patch.object(
+            snag_claims, "health_path_population", return_value=(list(entries), "")
+        ):
+            yield
+
+    @staticmethod
+    def _closed_port() -> int:
+        """A port nothing is listening on, taken and released."""
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            return int(sock.getsockname()[1])
+
+    @staticmethod
+    def _entry(name: str, port: int, path: str):
+        from sysadmin.monitor.services import ServiceEntry, SystemdRef
+
+        return ServiceEntry(
+            name=name,
+            kind="http",
+            url=f"http://localhost:{port}{path}",
+            port=port,
+            systemd=SystemdRef(unit=f"{name}.service", scope="user"),
+        )
+
+    # -- the instruments -------------------------------------------------
+
+    def test_the_population_is_the_entrys_own_filter(self):
+        """"Declaring a port and a unit", read off the file.
+
+        The ``internet`` entry is the one this filter has to exclude: it
+        is the only off-box url in ``services.yaml``, and it declares
+        neither a port nor a unit, which is why the loopback guard is a
+        second line of defence rather than the first.
+        """
+        population, problem = snag_claims.health_path_population()
+        assert not problem
+        assert population, "no services.yaml entry declares both a port and a unit"
+        for entry in population:
+            assert entry.port is not None and entry.unit is not None, entry.name
+        assert "internet" not in {entry.name for entry in population}
+
+    def test_the_pure_half_makes_no_request(self):
+        """The mechanism claim itself, driven at a port nothing answers.
+
+        If the generator probed before emitting, a closed port could not
+        produce a url — and this is the assertion a landed fix breaks
+        first, which is what makes it the entry's mechanism rather than
+        a restatement of its wording.
+        """
+        url = snag_claims.generated_health_url(self._closed_port())
+        assert url is not None
+        assert url.endswith("/api/health")
+
+    def test_the_emitted_url_is_the_one_the_snippet_would_have_a_reader_paste(self):
+        """Read out of the advice, never rebuilt beside it.
+
+        A check that assembled ``http://localhost:{port}/api/health``
+        itself would go on probing that path for ever after the
+        generator started emitting another one, and would report the
+        entry holding against a fix that had landed.
+        """
+        from sysadmin.units.recommendations import recommendations_for_scan
+        from sysadmin.units.scan import UNMONITORED, UnitFinding
+
+        port = self._closed_port()
+        finding = UnitFinding(
+            unit=snag_claims.HEALTH_PROBE_UNIT,
+            scope=snag_claims.HEALTH_PROBE_SCOPE,
+            category=UNMONITORED,
+            path=f"/nonexistent/{snag_claims.HEALTH_PROBE_UNIT}",
+            monitor_unit=snag_claims.HEALTH_PROBE_UNIT,
+            enabled=True,
+        )
+        blob = {
+            "unit_audited_ports": {
+                f"{snag_claims.HEALTH_PROBE_SCOPE}:{snag_claims.HEALTH_PROBE_UNIT}": [port]
+            }
+        }
+        snippet = recommendations_for_scan([finding], None, blob)[0].snippet
+        assert snag_claims.generated_health_url(port) in snippet
+
+    def test_the_probe_never_leaves_this_machine(self):
+        """Every url the check sends a request to, recorded and asserted.
+
+        **Its population is measured empty and the guard it covers is
+        one layer down**, which is stated rather than left to be read as
+        coverage.  ``services.yaml``'s only off-box url is ``internet``,
+        which declares neither a port nor a unit, so removing
+        :func:`_loopback` entirely leaves this test green — the
+        falsification that fires is
+        :meth:`test_an_off_box_declared_url_is_unmeasured_rather_than_probed`,
+        which drives a remote entry through the prober directly.  What
+        this one pins is the property the sitting actually cares about:
+        a check running at both ends of every sitting does not reach off
+        the box today.
+        """
+        from sysadmin.monitor.agent import SysAdminAgent
+
+        seen: list[str] = []
+        real = SysAdminAgent._check_http
+
+        async def recording(self, svc):
+            seen.append(svc.url)
+            return await real(self, svc)
+
+        with patch.object(SysAdminAgent, "_check_http", recording):
+            check_health_path_guess()
+        assert seen
+        for url in seen:
+            assert urlsplit(url).hostname in snag_claims.LOOPBACK_HOSTS, url
+
+    def test_an_off_box_declared_url_is_unmeasured_rather_than_probed(self):
+        from sysadmin.monitor.services import ServiceEntry, SystemdRef
+
+        remote = ServiceEntry(
+            name="elsewhere",
+            kind="http",
+            url="https://1.1.1.1/cdn-cgi/trace",
+            port=443,
+            systemd=SystemdRef(unit="elsewhere.service", scope="user"),
+        )
+        probes, problem = snag_claims.probe_health_paths(
+            [remote], {443: "http://localhost:443/api/health"}
+        )
+        assert not problem
+        assert probes[0].measured is False
+        assert "no url on this machine" in probes[0].problem
+
+    def test_a_bare_path_service_is_never_a_witness(self):
+        """The distinction the witness rule turns on, pinned at the box.
+
+        A frontend declaring ``http://localhost:3100`` counts in the
+        population and is a *wrong* guess, but no implementation that
+        probed would have emitted a bare url either — so it cannot
+        separate a guessing generator from a probing one that fell
+        back.
+        """
+        live = self._live()
+        for entry in live["bare"]:
+            probe = live["probes"][entry.name]
+            assert probe.guess_wrong is True
+            assert probe.is_witness is False
+            assert probe.declared_path.strip("/") == ""
+        for entry in live["witness"]:
+            probe = live["probes"][entry.name]
+            assert probe.guess_wrong is True
+            assert probe.declared_path.strip("/")
+
+    # -- the verdicts ----------------------------------------------------
+
+    def test_the_check_holds_on_this_box(self):
+        measurement = check_health_path_guess()
+        assert measurement.verdict == "match"
+        assert any("witness port(s)" in line for line in measurement.detail)
+        assert any("measured services answer it" in line for line in measurement.detail)
+
+    def test_the_recount_follows_the_box_and_is_not_a_constant(self):
+        """The entry's 4, 7 and 11 appear nowhere in the module.
+
+        Driven rather than grepped: narrow the population and the
+        reported figures move with it.  A check carrying the document's
+        own numbers as constants would report the same three whatever
+        ``services.yaml`` said, which is the fossil this entry is.
+        """
+        live = self._live()
+        narrowed = live["right"][:1] + live["witness"][:2]
+        with self._population(narrowed):
+            measurement = check_health_path_guess()
+        assert any(f"all {len(narrowed)} ports" in line for line in measurement.detail)
+        assert any(f"1 of {len(narrowed)} measured" in line for line in measurement.detail)
+
+    def test_a_generator_that_decides_the_path_per_port_is_a_mismatch(self):
+        """The entry's own candidate fix, driven as the behaviour it is.
+
+        *"Probe /api/health, /health and /api/v1/health once when a
+        snippet is generated, and emit the one that answers"* — modelled
+        by emitting each service's own declared url, which is what such
+        a probe would find.
+        """
+        live = self._live()
+        answering = {entry.port: entry.url for entry in live["population"]}
+        with patch.object(snag_claims, "generated_health_url", answering.get):
+            measurement = check_health_path_guess()
+        assert measurement.verdict == "mismatch"
+        assert "deciding the path per port" in measurement.note
+
+    def test_an_empty_path_is_named_rather_than_joined_away(self):
+        """A note saying four paths must name four.
+
+        Two services here declare a url with no path at all — the entry
+        counts them as exactly that — and ``", ".join`` renders an empty
+        path as nothing, so the first draft of the per-port note read
+        ``(, /api/health, /api/v1/health, /health)`` and left the reader
+        to notice a gap where a measurement was.  ``SNAG-BRIEF-002``'s
+        rule at the size of a list separator.
+        """
+        live = self._live()
+        answering = {entry.port: entry.url for entry in live["population"]}
+        assert any(not urlsplit(url).path for url in answering.values()), (
+            "no service declares a bare url any more, so this test no longer "
+            "reaches the rendering it pins"
+        )
+        with patch.object(snag_claims, "generated_health_url", answering.get):
+            measurement = check_health_path_guess()
+        # Parsed with the closing context, not on the first ``)``: the
+        # marker this test is about carries brackets of its own, and a
+        # naive split reads ``(no path`` and fails for the wrong reason.
+        listed = re.search(r"ports \((.*)\) — it is deciding", measurement.note)
+        assert listed, measurement.note
+        items = [item.strip() for item in listed.group(1).split(",")]
+        assert "(no path)" in items
+        assert "" not in items
+
+    def test_a_box_where_the_guess_answers_everywhere_is_a_mismatch(self):
+        """The premise dying with the generator untouched.
+
+        Narrowed to the services the guess already answers, which is the
+        box this entry would describe if every service adopted the
+        contract's path.  The generator is the real one throughout.
+        """
+        live = self._live()
+        with self._population(live["right"]):
+            measurement = check_health_path_guess()
+        assert measurement.verdict == "mismatch"
+        assert "no longer describes this box" in measurement.note
+
+    def test_a_tie_no_longer_reads_as_wrong_more_often_than_right(self):
+        """The boundary the title's claim sits on, driven at it.
+
+        ``wrong <= right`` and not ``<``: an even split is not "wrong
+        more often than right", and an off-by-one here would keep the
+        entry alive through the exact state that retires it.
+        """
+        live = self._live()
+        count = min(len(live["right"]), len(live["witness"]))
+        assert count, "the box has no right/wrong pair to balance"
+        with self._population(live["right"][:count] + live["witness"][:count]):
+            measurement = check_health_path_guess()
+        assert measurement.verdict == "mismatch"
+        assert "no longer wrong more often than right" in measurement.note
+
+    def test_no_witness_is_unknown_and_never_a_match(self):
+        """A constant path with nowhere else to go proves nothing.
+
+        The population is one service the guess answers and every
+        bare-path one it does not, so the guess is wrong more often than
+        right and *still* cannot be told from an implementation that
+        probed, found nothing and fell back.
+        """
+        live = self._live()
+        assert live["bare"], "the box has no bare-path service to build this on"
+        with self._population(live["right"][:1] + live["bare"]):
+            measurement = check_health_path_guess()
+        assert measurement.verdict == "unknown"
+        assert "declares a bare path of its own" in measurement.note
+
+    def test_a_box_where_nothing_answers_its_own_url_is_unknown(self):
+        """The control, and the reading it refuses.
+
+        Without it a stopped estate reports every path wrong and this
+        entry holds hardest on the morning the box came up — the
+        strongest confirmation the check could give, from the one state
+        that is no evidence at all.
+        """
+        port = self._closed_port()
+        with self._population([self._entry("dead", port, "/health")]):
+            measurement = check_health_path_guess()
+        assert measurement.verdict == "unknown"
+        assert "evidence about the box, not about the path" in measurement.note
+
+    def test_a_generator_emitting_no_url_is_unknown(self):
+        with patch.object(snag_claims, "generated_health_url", return_value=None):
+            measurement = check_health_path_guess()
+        assert measurement.verdict == "unknown"
+        assert "the snippet's shape has moved" in measurement.note
+
+    def test_an_unloadable_services_file_is_unknown(self):
+        with patch.object(
+            snag_claims, "health_path_population", return_value=([], "services.yaml would not load")
+        ):
+            assert check_health_path_guess().verdict == "unknown"
+
+    def test_an_empty_population_is_unknown_and_never_a_match(self):
+        with self._population([]):
+            measurement = check_health_path_guess()
+        assert measurement.verdict == "unknown"
+        assert "the population the entry counted is gone" in measurement.note
+
+    def test_a_probe_that_will_not_run_is_unknown(self):
+        """A check that raises is a check that did not run — rule 5.
+
+        Caught inside the prober rather than by :func:`run_check`, so
+        the emitted path is still reported: an offline box should say
+        what the advice emits even when it cannot say whether it works.
+        """
+        from sysadmin.monitor.agent import SysAdminAgent
+
+        with patch.object(SysAdminAgent, "_check_http", side_effect=OSError("no network")):
+            measurement = check_health_path_guess()
+        assert measurement.verdict == "unknown"
+        assert "the health probe would not run" in measurement.note
+        assert any("the advice emits" in line for line in measurement.detail)
+
+    # -- the reading -----------------------------------------------------
+
+    def test_nothing_here_compares_a_health_status_to_ok_by_hand(self):
+        """``SNAG-API-004``'s guard, applied to the module that just gained a reader.
+
+        ``!= "ok"`` was written three times and was wrong three times the
+        day migration 009 admitted ``skipped``.  This module now reads a
+        status ``_check_http`` produced, so it is the fourth place that
+        rule has to hold, and the classification is imported from beside
+        the CHECK constraint rather than restated here.
+        """
+        tree = ast.parse((REPO_ROOT / "sysadmin" / "snag_claims.py").read_text(encoding="utf-8"))
+        offenders = [
+            node.lineno
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Compare)
+            and any(
+                isinstance(other, ast.Constant) and other.value == "ok"
+                for other in node.comparators
+            )
+        ]
+        assert not offenders, f"a health status compared to 'ok' by hand at {offenders}"

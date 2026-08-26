@@ -2,104 +2,90 @@
 
 ## Next action
 
-Write the sixteenth check against `SNAG-UNITS-003` — the generated `kind: http` url that guesses the health path — because its claim is a counted population against a file that changes (`/api/health` correct for 4 of 11 entries and wrong for 7, measured once on 2026-08-15 and never since, by an author whose first draft said "two of twelve"), and because it needs a fourth instrument nothing here has yet: an outbound request that asks whether a path actually answers, with the pure half — driving `_services_yaml_snippet` and asserting what path it emits — kept separate so the check degrades to `unknown` rather than to nothing when the box is offline.
+Write the seventeenth check against `SNAG-ESTATE-010` — a judgement that gets quieter cannot reach a row that is already open — because its claim is a mechanism whose stated population (two dev-server port rows) has since resolved, so a check that looked for those rows would report the entry refuted by somebody closing an editor, and because the mechanism is drivable with an instrument this repository already owns: open a `warning` row against the live database in a rolled-back transaction, judge the same title at `info`, and assert the row's severity and `holder` are unmoved — asserting the **reach** rather than the rung, since the entry's own fourth bullet records that resolve-and-re-raise on a severity mismatch is the obvious fix and rebuilds `monitor/collation.py`'s flip-flop.
 
-## Session 93 is complete — the fifteenth check, and the straddle that was hemisphere-blind
+## Session 94 is complete — the sixteenth check, and the first that sends a request
 
-`SNAG-ESTATE-013` is **checked and stays open**. Checked entries
-**12 → 13**, unchecked **12 → 11**, open unmoved at **24**; 70 entries
-either side, measured with the reader — which has itself moved, see
-below. **2532 tests pass, 0 skipped** (2514 + 15 + 1, plus the 2 that
-had been skipping). Ruff clean, mypy clean. `sysadmin/snag_claims.py`
-was edited, so the daemon was restarted at **20:30:36** and all nine ops
-claims read green.
+`SNAG-UNITS-003` is **checked and stays open**. Checked entries
+**13 → 14**, unchecked **11 → 10**, open unmoved at **24**. **2551 tests
+pass, 0 skipped** (2532 + 19). Ruff clean, mypy clean.
+`sysadmin/snag_claims.py` was edited, so the daemon was restarted at
+**21:20:50** and all nine ops claims read green.
 
-### The first check whose subject is this repository's own claims machinery
+### Both claims are measured, because only one of them is a mechanism
 
-`check_expiry_naive_instant` imports `sysadmin.ops_claims` and drives
-`read_markers` into `check_expiry` — one composition root driving
-another, which the import-boundary test permits because neither is
-*below* the other. No database, no subprocess, no cross-repo read. The
-module is imported and driven rather than reimplemented: the claim *is*
-what `check_expiry` does with a marker.
+The entry's body claims `_services_yaml_snippet` emits a health path it
+never fetched; its **title** claims that on this box the guess is "wrong
+more often than right", counted at 4 right and 7 wrong of 11 on
+2026-08-15 by an author whose first draft said "two of twelve". Rule 1
+says a check tests the mechanism rather than the population — and here
+the population *is* the sentence in the title. The two refute the entry
+for opposite reasons and the notes say which: the generator learning to
+look is the **fix**; the box converging on the contract's path is the
+**premise** dying with the generator unchanged.
+`check_sysd_ollama_ordering`'s split, one entry over.
 
-`STATUS.md` carries no live `expires` marker, so rule 1 applies and the
-mechanism is built. The synthetic block names **both** wall clocks, so
-rule 9's pin passes whichever a zone-aware fix would render back out and
-a landed fix cannot come back as a pin failure.
+### The recount, and why the agreement is a measurement
 
-### The hour, measured
+Live, by outbound probe: **4 right, 7 wrong of 11, 0 unmeasured**. The
+entry counted *declared urls in `services.yaml`*; this counts *what
+answers on the port*. A service serving both paths would have separated
+them and none does, so the two agreeing is a result rather than a
+tautology — and the ranking could not have assumed it either way. None
+of 4, 7 or 11 appears in the module; the recount is printed in `detail`
+at both ends of every sitting, and a drift that keeps the direction is
+deliberately not a mismatch.
 
-One producer stamp — the one the entry quotes — rendered naive and
-offset-bearing. At `Europe/London`: **`1 minute to run`** a minute
-before the marker's own instant; **`passed 59 minutes ago`** a minute
-before the predicted event actually happens; **`passed 1 hour ago`** at
-the event itself. The offset-bearing form is not understood, and not as
-an unsupported form but as a **malformed marker**.
+### The two things a draft had to be talked out of
 
-The entry's title is truer than it states. A mis-timed prediction and an
-unparsable marker are **both `unknown`**, so the report prints `??`
-either way; only `Claim.measured` separates them, which is why the probe
-classifies on that field and never on the verdict.
+**The private function the recommendation named was the wrong target.**
+The entry's candidate fix is "probe once when the snippet is generated",
+which is a moment on the whole path — a probe in the *caller* fixes it
+and leaves `_services_yaml_snippet` emitting the same literal, so a check
+bound to it would report a landed fix as no change. The public
+`recommendations_for_scan` is driven instead.
 
-### Two things a run refuted about the draft
+**A constant emitted path is not by itself evidence that nothing looked.**
+An implementation that probed, found nothing and fell back emits the same
+constant, which is exactly what the two frontends declaring no path at
+all would produce. So the refutation needs a **witness**: a port where
+the emitted path fails and the service's own answers. Five today; with
+none the verdict is `unknown`, which is also how the check degrades
+offline — the offline behaviour is a case of the rule rather than a
+special case bolted onto it.
 
-**The obvious single straddle holds only east of Greenwich.** At
-`America/New_York` the same marker names an instant four hours *after*
-its subject, so the prediction outlives what it predicted and an
-early-expiry test reports the module correct. `SNAG-LOG-009`'s *"N hours
-late at UTC−N"* one document over — in the entry that names
-`SNAG-LOG-009` as its own parent. What is measured now is the
-**displacement of the boundary**, whose sign the offset decides and
-whose existence it does not.
+### The control that carries the whole verdict
 
-**A control a landed fix breaks is not a control.** The draft asserted
-the timer flips at the marker's own text; a stand-in reading the
-zoneless stamp as the moment it was *stamped* moves the boundary onto
-the event, fails that control, and returns `unknown` where `mismatch` is
-right. The boundary is located rather than assumed, so three states get
-three verdicts.
+Every guess-probe is paired with a probe of the service's own declared
+url. A stopped service reports every path wrong, so without the control
+this entry would read as **holding hardest on the morning the box came
+up**. A service failing its own url is `unmeasured` and named, never
+counted as evidence — `ports_checked`'s rule. The reading is the
+monitor's own: `SysAdminAgent._check_http` under `_http.scoped()`,
+classified by `is_fault` off the CHECK constraint's map, with an `ast`
+sweep now refusing a hand-written comparison to `"ok"` here too.
 
-It reports `unknown` at `UTC+00:00`, where the two stamps name one
-instant and a zone-blind reading is indistinguishable from a correct
-one — `ports_checked`'s rule. CI runs there, so the check is honest by
-construction and the tests nominate their own zones.
+### Nine falsifications, nine fired — and one found a report defect
 
-### One falsification passed against the broken code
+The last break, joining the empty path away, exposed a note reading
+`ports (, /api/health, /api/v1/health, /health)` — four paths named as
+three, because two services declare a url with no path. `(no path)` now,
+with a test that fails against the join. One control has a
+**measured-empty population and says so**:
+`test_the_probe_never_leaves_this_machine` stays green with `_loopback`
+deleted, because the only off-box url in `services.yaml` declares neither
+a port nor a unit; the falsification that fires drives a remote entry
+through the prober directly, and the docstring names it.
 
-Seven breaks driven, six fired. The seventh — rendering the naive stamp
-with the module's own `EXPIRY_FORMAT` — passed, because `snag_claims`
-imports that name into its own namespace and the test patched only the
-owner: the module's *behaviour* moved while the probe's rendering did
-not. A guard asserting a **value** where it means **provenance**, the
-third time here. Repaired twice: the patch moves both names, and an
-`ast` sweep refuses `EXPIRY_FORMAT` as an argument to any `strftime` in
-the check. The coupling was the draft's real defect —
-`EXPIRY_NAIVE_FORMAT` is owned locally now, because what the *document*
-wrote is not the same fact as what the module accepts.
+### The unplanned find: two readers, two totals, one open count
 
-### The unplanned find: a guard that had gone silent rather than red
-
-Measuring the entry count found `read_snags` gone — estate-manager moved
-it into `estate.snags` in `estate-lib` at **17:06:27** today
-(`a5c1834`). `TestAgainstTheOwningParser` shelled into their venv and
-read the resulting `ImportError` as *"their parser would not run"*, a
-property of the box. **Inert for 3h45m, across the whole of Session
-92**, which shipped `2514 passed, 2 skipped` against a Testing row
-saying nothing skips here — and which had filed a message about that
-very move. Repaired: `estate.snags` imported first (editable install, no
-subprocess), **absence is a skip and a moved symbol is a failure**, one
-`pytest.skip` pinned by an `ast` sweep. Filed as friction `2822dad4`
-with the cost, separately from the two already open about the entry
-count.
-
-### Two corrections to STATUS.md, both found rather than reported
-
-The sub-session block claimed 10 checked and 14 unchecked against a live
-12 and 12 — neither figure carries a pattern or a marker, so
-`SNAG-ESTATE-012`'s class and no run could have said so. And "Next up"
-asked for `SNAG-TEST-001` throughout Session 92, which closed it; that
-sitting also left no `### Session 92` section.
+`load_entries` reports **68** entries for `snag_list.md` where
+estate-manager's `read_snags` reports **70** — measured either side of
+this sitting's edit, so neither moved. Both report **24 open**, the
+figure the banner and the report use; the difference is the local reader
+skipping closed and template sections by construction. Session 93's
+handoff published 70, which was the owning parser's number. Recorded so a
+next sitting does not read 68 as a regression.
 
 ### Blocked
 

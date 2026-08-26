@@ -113,6 +113,8 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from sqlalchemy import create_engine, text
 
@@ -121,6 +123,9 @@ from sysadmin.core.escalation import humanise_hours
 from sysadmin.core.schema_guard import EXIT_STATUS, SchemaVerdict
 from sysadmin.core.text import strip_markdown
 from sysadmin.ops_claims import EXPIRY_FORMAT, check_expiry, read_markers
+
+if TYPE_CHECKING:  # pragma: no cover — annotations only
+    from sysadmin.monitor.services import ServiceEntry
 
 #: The same three words and the same exit map as the schema check and the
 #: ops claims, imported rather than restated.  ``mismatch`` is a claim the
@@ -2369,6 +2374,433 @@ def check_expiry_naive_instant() -> Measurement:
     )
 
 # ---------------------------------------------------------------------------
+# SNAG-UNITS-003 — the emitted health path is a guess, not an observation
+# ---------------------------------------------------------------------------
+
+#: The synthetic unit the snippet generator is driven at.  A name no unit
+#: on this box carries and a path that does not exist: nothing is swept,
+#: read or written, because the ranker takes a finding rather than a
+#: directory.  :func:`check_dropin_blind_spot` has to build a unit tree
+#: because the sweep is what it measures; here the sweep's *output* is
+#: the input, so the tree would be scenery.
+HEALTH_PROBE_UNIT = "snagcheck-health.service"
+HEALTH_PROBE_SCOPE = "user"
+
+#: Where a probe may send a request.  The population below is filtered to
+#: entries carrying a port **and** a unit, which already excludes the one
+#: off-box url in ``services.yaml`` — ``internet``, which declares
+#: neither — so this guard is not what keeps today's run local.  It is
+#: what keeps it local on the day somebody adds a remote entry that does
+#: carry both.  A check that runs at the start and the close of every
+#: sitting must not be *able* to reach off this machine, and "it happens
+#: not to today" is not that guarantee.
+LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+#: ``    url: <url>   # comment`` in a generated services.yaml entry.
+#: ``\S+`` stops at the whitespace before the trailing comment, which is
+#: the shape the generator emits and the only shape this reads.
+SNIPPET_URL_RE = re.compile(r"(?m)^\s*url:\s*(\S+)")
+
+
+@dataclass(frozen=True)
+class PathProbe:
+    """One declared service, and what answered on its port.
+
+    ``emitted`` is the url the unit sweep's advice would have a reader
+    paste for this port; ``declared`` is the url ``services.yaml``
+    already carries.  Both are read through the **same** production
+    check, so the pair is a comparison rather than two measurements
+    taken different ways — the difference between them is the only thing
+    this check draws a conclusion from.
+    """
+
+    name: str
+    port: int
+    emitted: str
+    emitted_well: bool
+    emitted_status: str
+    declared: str | None
+    declared_well: bool
+    declared_status: str
+    problem: str = ""
+
+    @property
+    def measured(self) -> bool:
+        """Did something answer at the url this service's own entry declares?
+
+        The control.  A guess that does not answer says nothing about
+        the *path* when nothing answers on that port at all, so a
+        service that fails its own declared url is evidence about
+        neither.
+        """
+        return not self.problem and bool(self.declared) and self.declared_well
+
+    @property
+    def guess_right(self) -> bool:
+        return self.measured and self.emitted_well
+
+    @property
+    def guess_wrong(self) -> bool:
+        return self.measured and not self.emitted_well
+
+    @property
+    def declared_path(self) -> str:
+        return urlsplit(self.declared).path if self.declared else ""
+
+    @property
+    def is_witness(self) -> bool:
+        """A port at which a generator that *looked* could not have emitted this.
+
+        The emitted path does not answer here and the service's own
+        declared path does — so an implementation that probed before
+        emitting had somewhere else to go and did not take it.  Without
+        at least one of these, a constant emitted path is
+        indistinguishable from an implementation that probed, found
+        nothing, and fell back to the same default: the two frontends that
+        declare no path at all are exactly that case, which is why they
+        are excluded from the witnesses while still counting in the
+        population.
+        """
+        return self.guess_wrong and bool(self.declared_path.strip("/"))
+
+    @property
+    def reading(self) -> str:
+        declared = _render_path(self.declared_path)
+        return (
+            f"{self.name}:{self.port} declares {declared} ({self.declared_status}); "
+            f"the emitted url reads {self.emitted_status}"
+        )
+
+
+def _render_path(path: str) -> str:
+    """A url path as a reader can see it.
+
+    An empty path is a real answer and two services here declare one —
+    the entry counts them as *"both frontends with no path at all"*.
+    Joined into a list it renders as nothing, so a note saying four
+    paths names three and the reader is left to notice the gap.
+    ``SNAG-BRIEF-002``'s rule at the size of a list separator.
+    """
+    return path or "(no path)"
+
+
+def health_path_population() -> tuple[list[ServiceEntry], str]:
+    """The ``services.yaml`` entries ``SNAG-UNITS-003`` counted.
+
+    "Declaring a port and a unit", in the entry's own words, and read
+    off the file rather than restated: the entry's **11** appears
+    nowhere in this module, because a constant here would be a second
+    statement of the document's own sentence and free to agree with the
+    box while the entry disagrees with both.
+    :mod:`sysadmin.ops_claims`' rule 7, one document over.
+    """
+    from sysadmin.monitor.services import default_services_path, load_services
+
+    try:
+        services = load_services(default_services_path())
+    except Exception as exc:  # noqa: BLE001 — an unreadable services.yaml is "unknown"
+        return [], f"services.yaml would not load ({exc.__class__.__name__}: {exc})"
+    return [
+        entry
+        for entry in services.services
+        if entry.port is not None and entry.unit is not None
+    ], ""
+
+
+def generated_health_url(port: int) -> str | None:
+    """The url the sweep's advice would have a reader paste for ``port``.
+
+    Driven through the **public** :func:`recommendations_for_scan`
+    rather than the private ``_services_yaml_snippet`` it ends in.  The
+    entry's own candidate fix is *"probe once when the snippet is
+    generated"*, and "when it is generated" is a moment on that whole
+    path — a probe in the caller, passing the answering path down, fixes
+    the entry and leaves the innermost function emitting the same
+    literal.  A check bound to that function would report such a fix as
+    no change at all, which is
+    ``a-control-a-fix-breaks-is-not-a-control`` met from its other side.
+    """
+    from sysadmin.units.recommendations import recommendations_for_scan
+    from sysadmin.units.scan import UNMONITORED, UnitFinding
+
+    finding = UnitFinding(
+        unit=HEALTH_PROBE_UNIT,
+        scope=HEALTH_PROBE_SCOPE,
+        category=UNMONITORED,
+        path=f"/nonexistent/{HEALTH_PROBE_UNIT}",
+        description="health path probe",
+        monitor_unit=HEALTH_PROBE_UNIT,
+        enabled=True,
+    )
+    blob = {
+        "unit_audited_ports": {f"{HEALTH_PROBE_SCOPE}:{HEALTH_PROBE_UNIT}": [port]}
+    }
+    for recommendation in recommendations_for_scan([finding], None, blob):
+        match = SNIPPET_URL_RE.search(recommendation.snippet or "")
+        if match:
+            return match.group(1)
+    return None
+
+
+def _loopback(url: str) -> bool:
+    return urlsplit(url).hostname in LOOPBACK_HOSTS
+
+
+def probe_health_paths(
+    population: list[ServiceEntry], emitted: dict[int, str]
+) -> tuple[list[PathProbe], str]:
+    """Ask each port whether the emitted url and its own declared url answer.
+
+    **The fourth instrument, and what makes it a measurement rather than
+    a fetch.**  The three before it are an ``ast`` walk, a driven
+    function and another repository's interpreter; this one sends a
+    request, and the answer it needs is not a status code but *would a
+    monitor pasting this url report the service well* — which is a
+    reading :mod:`sysadmin.monitor.agent` already owns.  So the probe
+    **is** ``SysAdminAgent._check_http``, under ``_http.scoped()`` as a
+    real run does, and its verdict is classified by
+    :func:`~sysadmin.monitor.models.service_health.is_fault` off the
+    CHECK constraint's own map.  Nothing here compares a status to
+    ``"ok"`` by hand: ``SNAG-API-004`` is what that costs, and this is
+    the fourth module to be told.
+
+    The one limit worth stating: a 200 that takes over five seconds
+    reads as a fault, ``_check_http``'s own rule.  It applies to both
+    halves of the pair, so a loaded box makes services *unmeasured*
+    rather than *wrong* — the direction that under-reports the entry
+    rather than confirming it by accident.
+    """
+    from sysadmin.monitor.agent import SysAdminAgent
+    from sysadmin.monitor.models.service_health import is_fault
+
+    async def drive() -> list[PathProbe]:
+        agent = SysAdminAgent()
+        probes: list[PathProbe] = []
+        async with agent._http.scoped():  # noqa: SLF001 — the production shape, driven
+            for entry in population:
+                assert entry.port is not None  # the population filter guarantees it
+                guess = emitted[entry.port]
+                if not _loopback(guess):
+                    probes.append(
+                        PathProbe(
+                            entry.name, entry.port, guess, False, "not-probed",
+                            entry.url, False, "not-probed",
+                            f"the emitted url {guess} is not on this machine",
+                        )
+                    )
+                    continue
+                guess_status, _, _ = await agent._check_http(  # noqa: SLF001
+                    entry.model_copy(update={"url": guess})
+                )
+                if not entry.url or not _loopback(entry.url):
+                    probes.append(
+                        PathProbe(
+                            entry.name, entry.port, guess,
+                            not is_fault(guess_status), guess_status,
+                            entry.url, False, "not-probed",
+                            "declares no url on this machine to compare against",
+                        )
+                    )
+                    continue
+                declared_status, _, _ = await agent._check_http(entry)  # noqa: SLF001
+                probes.append(
+                    PathProbe(
+                        entry.name,
+                        entry.port,
+                        guess,
+                        not is_fault(guess_status),
+                        guess_status,
+                        entry.url,
+                        not is_fault(declared_status),
+                        declared_status,
+                    )
+                )
+        return probes
+
+    try:
+        return asyncio.run(drive()), ""
+    except Exception as exc:  # noqa: BLE001 — a probe that would not run is "unknown"
+        return [], f"the health probe would not run ({exc.__class__.__name__}: {exc})"
+
+
+def _named(items: Iterable[str]) -> tuple[str, ...]:
+    """Up to :data:`MAX_NAMED_ENTRIES` of them, with the rest counted.
+
+    ``SNAG-ESTATE-001``'s rule, the same overflow
+    :func:`check_convention` applies to the unchecked entries.
+    """
+    listed = list(items)
+    named = tuple(listed[:MAX_NAMED_ENTRIES])
+    if len(listed) > MAX_NAMED_ENTRIES:
+        named = (*named, f"… and {len(listed) - MAX_NAMED_ENTRIES} more")
+    return named
+
+
+def check_health_path_guess() -> Measurement:
+    """``SNAG-UNITS-003`` — the generated ``kind: http`` url guesses the path.
+
+    **The entry makes two claims and only one of them is a mechanism,
+    which is why both are measured.**  Its body claims that
+    ``_services_yaml_snippet`` emits a health path it never fetched; its
+    *title* claims that on this box the guess is "wrong more often than
+    right", counted at 4 right and 7 wrong of 11 on 2026-08-15 by an
+    author whose first draft said "two of twelve".  Rule 1 says a check
+    tests the mechanism rather than the population — and here the
+    population is the sentence in the title, so it is a claim like any
+    other.  The two refute the entry for opposite reasons and the notes
+    say which: the generator learning to *look* is the **fix**, while
+    the box's services converging on the contract's path is the claim's
+    **premise** dying with the generator unchanged.
+    :func:`check_sysd_ollama_ordering`'s split, one entry over.
+
+    **The counted figures are re-measured and never restated.**  4, 7
+    and 11 appear nowhere here.  What stops the entry's figure
+    fossilising is not a constant to compare against but the recount
+    printed in ``detail`` at both ends of every sitting — and a drift
+    that keeps the *direction* is deliberately **not** a mismatch, or
+    adding one service to ``services.yaml`` would send a sitting to
+    judge an entry whose substance nothing had touched.
+
+    Four rules, three of them the opposite of the obvious
+    implementation:
+
+    1. **The guess is read off the generator, never written down here.**
+       The check probes the url the advice would have a human paste, so
+       a rename of the default path moves the probe with it instead of
+       leaving a check measuring a path nothing emits.  It also settles
+       part of the mechanism half with no network at all: a generator
+       emitting *different* paths for different ports is observing
+       something, whatever those paths are.
+    2. **Every probe is paired with a control, and the control is the
+       service's own declared url.**  A guess that does not answer says
+       nothing about the path when nothing answers on that port — a
+       stopped service reports every path wrong, so a check without the
+       control would report this entry holding hardest on the morning
+       the box came up.  A service failing its own url is *unmeasured*
+       and named, never counted as evidence: ``ports_checked``'s rule,
+       and the reason "wrong" here is a claim about a path rather than
+       about a service.
+    3. **A constant path is not by itself evidence that nothing looked,
+       so the refutation needs a witness.**  An implementation that
+       probed, found nothing answering and fell back to the same default
+       emits the same constant — and the two frontends that declare no
+       path at all are exactly that case, since no probing
+       implementation would emit a bare url either.  A **witness** is a port where the emitted path
+       fails and the service's own declared path answers: somewhere else
+       to go, not taken.  With no witness the verdict is ``unknown``
+       rather than ``match``, which is also how this degrades when the
+       box is offline — so the offline behaviour is a case of the rule
+       and not a special case bolted onto it.
+    4. **The population half is decided on the direction, the mechanism
+       half on the paths.**  ``wrong <= right`` refutes the title
+       whatever the generator does; a moved path refutes the body
+       whatever the box answers.  Reported in that order — a landed fix
+       is the larger news — with the recount carried on both.
+    """
+    population, problem = health_path_population()
+    if problem:
+        return Measurement("unknown", problem)
+    if not population:
+        return Measurement(
+            "unknown",
+            "no services.yaml entry declares both a port and a unit — the population the "
+            "entry counted is gone, and this check no longer measures what it claims to",
+        )
+
+    emitted: dict[int, str] = {}
+    for entry in population:
+        assert entry.port is not None  # the population filter guarantees it
+        url = generated_health_url(entry.port)
+        if url is None:
+            return Measurement(
+                "unknown",
+                f"the sweep's advice emits no kind: http url for a unit holding one port "
+                f"({entry.port}) — the snippet's shape has moved, so this check is reading "
+                "a different function from the one the entry is about",
+            )
+        emitted[entry.port] = url
+
+    paths = sorted({urlsplit(url).path for url in emitted.values()})
+    port_detail = tuple(f"port {port} → {url}" for port, url in sorted(emitted.items()))
+    if len(paths) > 1:
+        return Measurement(
+            "mismatch",
+            f"the advice emits {len(paths)} different health paths across the declared "
+            f"ports ({', '.join(_render_path(path) for path in paths)}) — it is deciding "
+            "the path per port rather than "
+            "emitting the contract's default, which is the fix the entry names",
+            _named(port_detail),
+        )
+    guess = paths[0]
+    shown = _render_path(guess)
+
+    probes, problem = probe_health_paths(population, emitted)
+    if problem:
+        return Measurement("unknown", problem, (f"the advice emits {shown} for every port",))
+
+    right = [probe for probe in probes if probe.guess_right]
+    wrong = [probe for probe in probes if probe.guess_wrong]
+    unmeasured = [probe for probe in probes if not probe.measured]
+    measured = len(right) + len(wrong)
+    detail = (
+        f"the advice emits {shown} for all {len(population)} ports declared with a unit",
+        f"{len(right)} of {measured} measured services answer it, {len(wrong)} do not"
+        + (f"; {len(unmeasured)} unmeasured" if unmeasured else ""),
+        *_named(probe.reading for probe in wrong),
+        *_named(
+            f"{probe.name}:{probe.port} unmeasured — {probe.problem or probe.declared_status}"
+            for probe in unmeasured
+        ),
+    )
+
+    if not measured:
+        return Measurement(
+            "unknown",
+            "no service answered the url its own services.yaml entry declares, so nothing "
+            f"here can tell a wrong path from a stopped service — {shown} failing "
+            "everywhere is evidence about the box, not about the path",
+            detail,
+        )
+    if not wrong:
+        return Measurement(
+            "mismatch",
+            f"{shown} answers on all {measured} services this could measure — the entry's "
+            "'wrong more often than right' no longer describes this box, and the guess it "
+            "calls a guess is now right everywhere it was checked",
+            detail,
+        )
+    if len(wrong) <= len(right):
+        return Measurement(
+            "mismatch",
+            f"{shown} is right for {len(right)} of {measured} and wrong for {len(wrong)} — "
+            "still a guess, but no longer wrong more often than right, which is what the "
+            "entry's title claims",
+            detail,
+        )
+
+    witnesses = [probe for probe in wrong if probe.is_witness]
+    witness_ports = sorted(probe.port for probe in witnesses)
+    if not witnesses:
+        return Measurement(
+            "unknown",
+            f"{shown} is wrong for {len(wrong)} of {measured}, but every one of them "
+            "declares a bare path of its own — so an implementation that probed, found "
+            "nothing and fell back to the default would emit exactly what this one does, "
+            "and the constant path proves nothing",
+            detail,
+        )
+    return Measurement(
+        "match",
+        "",
+        (
+            *detail,
+            f"{len(witnesses)} witness port(s) where {shown} fails and the service's own "
+            f"path answers: {', '.join(str(port) for port in sorted(witness_ports))}",
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
 
@@ -2468,6 +2900,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-LOG-012",
             "strip_markdown leaves the model's inline code spans",
             check_code_spans_survive,
+        ),
+        Check(
+            "health_path_guess",
+            "SNAG-UNITS-003",
+            "the emitted kind: http url guesses the health path",
+            check_health_path_guess,
         ),
         Check(
             "expiry_naive_instant",
