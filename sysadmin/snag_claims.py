@@ -102,6 +102,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import asyncio
 import json
 import re
 import subprocess  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
@@ -487,6 +488,59 @@ def discarded_tasks(path: Path, coroutine: str) -> list[int]:
             lines.append(node.lineno)
     return sorted(lines)
 
+
+def _called_name(node: ast.Call) -> str | None:
+    """The final segment of a call's callee, for a ``Name`` or an ``Attribute``.
+
+    ``unwrap_json_message(...)`` and ``journal.unwrap_json_message(...)``
+    are the same call site under two import styles, and a check that saw
+    only one of them would report a backfill absent because whoever wrote
+    it imported the module rather than the name.
+    """
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return None
+
+
+def call_sites(name: str, roots: Iterable[Path]) -> list[tuple[str, str]]:
+    """Every call to ``name``, as ``(file:line, enclosing def)``.
+
+    The **enclosing function is the half that carries the claim**, and it
+    is why this is not :func:`method_calls` with a wider net.
+    ``SNAG-LOG-008`` says the unwrap happens at read time; a call that
+    moved out of ``read_journal`` into a query path or a migration is the
+    same count of call sites and a different mechanism, so a check
+    counting them alone would report a landed fix as unchanged.
+
+    ``<module>`` names a call at module scope — a one-off backfill's
+    likeliest shape outside ``alembic/`` — so it is a value the caller can
+    act on rather than an absence.  Nested definitions take the innermost
+    name, which falls out of descending rather than walking.
+    """
+    found: list[tuple[str, int, str]] = []
+    for path in _python_files(roots):
+        tree = _parse(path)
+        if tree is None:
+            continue
+        rel = _rel(path)
+
+        def descend(node: ast.AST, enclosing: str, rel: str = rel) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+                    descend(child, child.name)
+                    continue
+                if isinstance(child, ast.Call) and _called_name(child) == name:
+                    found.append((rel, child.lineno, enclosing))
+                descend(child, enclosing)
+
+        descend(tree, "<module>")
+    # Sorted on the line *number*, not on the rendered ``file:line`` — a
+    # string sort files line 10 before line 9, which is a report that
+    # reads as unordered rather than as ordered by something else.
+    return [(f"{rel}:{line}", enclosing) for rel, line, enclosing in sorted(found)]
 
 def _rel(path: Path) -> str:
     try:
@@ -1440,6 +1494,278 @@ def check_nudge_wording_unpublished() -> Measurement:
     return Measurement("match", "", detail)
 
 
+#: ``SNAG-LOG-008``'s subject.  The entry is about the one JSON-writing
+#: journal source on this box — the fact Sessions 61 and 64 both leant on,
+#: read here a third way: it is the only source whose records the two
+#: declarations can disagree about, so it is the only source at which the
+#: entry's mechanism is observable at all.
+UNWRAP_UNIT = "sysadmin.service"
+
+#: The window and floor the probe reads at.  ``info`` rather than the
+#: source's declared ``warning`` because the population wanted is *any*
+#: record this daemon wrote, and its access log is the only line it emits
+#: reliably; a floor matching the declaration would make the probe depend
+#: on the daemon having had a bad day.
+UNWRAP_PROBE_SINCE = "1 day ago"
+UNWRAP_PROBE_SEVERITY = "info"
+UNWRAP_PROBE_LIMIT = 50
+
+#: The two declarations that bracket the defect: what ``services.yaml``
+#: said before the Session 64 deploy, and what it says now.  Passed to the
+#: same function in the same process, minutes apart, so the *only*
+#: variable between the two reads is the declaration.
+UNWRAP_BEFORE = "text"
+UNWRAP_AFTER = "json"
+
+#: Where a backfill could land.  ``alembic/`` because this repository puts
+#: data migrations there and Session 67 already ran one, and ``sysadmin/``
+#: because a serve-time unwrap in ``log_query`` or ``log_trends`` would
+#: answer the entry just as well.  ``tests/`` is deliberately absent: the
+#: five direct calls there exercise the function and reshape nothing.
+UNWRAP_FUNCTION = "unwrap_json_message"
+UNWRAP_READER = "read_journal"
+UNWRAP_BACKFILL_ROOTS = (REPO_ROOT / "sysadmin", REPO_ROOT / "alembic")
+
+
+def envelope_message(raw_message: str) -> str | None:
+    """The ``message`` a record's envelope carries, or ``None``.
+
+    ``raw_message`` is journald's own ``MESSAGE``, taken from the verbatim
+    record rather than from either read, so the population this decides is
+    the same one under both declarations.
+
+    **Deliberately this module's own reading of "an envelope" rather than
+    a call to** :func:`~sysadmin.monitor.journal.unwrap_json_message`,
+    which is the function under test.  Using it to decide the population
+    would make the probe agree with the code under test by construction —
+    a check that cannot fail is the defect
+    :mod:`sysadmin.ops_claims`' third rule recorded one day before this
+    was written, where a pin searched a region containing its own marker
+    and passed whatever the sentence said.
+
+    So it is a second implementation of somebody else's fact, which this
+    repository refuses everywhere it can, and it is admitted here for the
+    one reason that survives: the two must be able to **disagree**.  It is
+    narrowed to under-report — an envelope counts only when the whole
+    record parses and yields a non-empty string ``message`` — so its error
+    direction is a smaller population and never a false one.
+    """
+    if not raw_message.startswith("{"):
+        return None
+    try:
+        payload = json.loads(raw_message)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    inner = payload.get("message")
+    return inner if isinstance(inner, str) and inner else None
+
+
+def record_identity(raw_line: str) -> tuple[str, str] | None:
+    """A journal record's own identity, from the verbatim line, or ``None``.
+
+    **Not ``raw_line`` itself, and that correction is the one thing about
+    this check a live run had to supply.**  The first draft paired the two
+    reads on ``raw_line`` and argued for it well: it is the field
+    :func:`~sysadmin.monitor.journal.unwrap_json_message`'s own rule 3
+    promises is kept *verbatim*, so the code under test guarantees the
+    key.  Driven at the real journal it paired **0 of 50** records —
+    ``journalctl -o json`` emits a record's fields in an order that is not
+    stable between invocations, so two reads of one record return two
+    byte-different lines that parse to the identical dict.  The rule
+    promises the record's *content* survives the unwrap; the draft read a
+    content guarantee as an identity guarantee.
+
+    ``__REALTIME_TIMESTAMP`` and ``MESSAGE`` are journald's own, are
+    unmoved by the declaration, and separate the eight ``alert_raised``
+    records this daemon can write inside one millisecond, which a
+    timestamp alone does not.  ``__CURSOR`` would be the single-field
+    answer and is refused: ``raw_line`` is capped at 2000 characters and
+    the field order that broke the first draft decides whether the cursor
+    falls inside it — ``SNAG-LOG-008``'s own body records that truncation
+    hiding a ``__CURSOR`` once already.
+    """
+    try:
+        record = json.loads(raw_line)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(record, dict):
+        return None
+    stamp, message = record.get("__REALTIME_TIMESTAMP"), record.get("MESSAGE")
+    if not isinstance(stamp, str) or not isinstance(message, str):
+        return None
+    return stamp, message
+
+
+def read_at_both_declarations() -> tuple[list[tuple[str, str, str]], str]:
+    """The same journal records read twice, paired by record identity.
+
+    Returns ``(paired, problem)``, each pair being the record's own
+    ``MESSAGE`` and the two reads' ``message`` fields.
+
+    Two reads a moment apart are two journalctl invocations and need not
+    return the same set — a line arrives, the newest ``-n`` window slides
+    — so "the same record" needs a key, and :func:`record_identity`
+    carries both the key and why it is not the obvious one.
+
+    The population is decided from that verbatim ``MESSAGE`` rather than
+    from either read's output, so what counts as an envelope does not
+    depend on the declaration being tested.
+    """
+    from sysadmin.monitor.journal import read_journal
+
+    async def both() -> tuple[list[dict], list[dict]]:
+        reads = []
+        for declaration in (UNWRAP_BEFORE, UNWRAP_AFTER):
+            read = await read_journal(
+                UNWRAP_UNIT,
+                since=UNWRAP_PROBE_SINCE,
+                severity_filter=UNWRAP_PROBE_SEVERITY,
+                user=False,
+                limit=UNWRAP_PROBE_LIMIT,
+                log_format=declaration,
+            )
+            reads.append(read.entries)
+        return reads[0], reads[1]
+
+    try:
+        before, after = asyncio.run(both())
+    except Exception as exc:  # noqa: BLE001 — a read that would not run is "unknown"
+        return [], f"the journal read did not complete ({exc.__class__.__name__})"
+
+    # ``read_journal`` returns no entries both when journalctl is missing
+    # and when the window is empty, so the two are not distinguishable
+    # here and the note says so rather than picking one.
+    if not before or not after:
+        return [], (
+            f"reading {UNWRAP_UNIT} returned {len(before)} records declared "
+            f"{UNWRAP_BEFORE} and {len(after)} declared {UNWRAP_AFTER} — either "
+            "journalctl did not answer or the window held nothing"
+        )
+
+    shaped: dict[tuple[str, str], str] = {}
+    for entry in after:
+        identity = record_identity(str(entry["raw_line"]))
+        if identity is not None:
+            shaped[identity] = str(entry["message"])
+
+    paired: list[tuple[str, str, str]] = []
+    for entry in before:
+        identity = record_identity(str(entry["raw_line"]))
+        if identity is None or identity not in shaped:
+            continue
+        inner = envelope_message(identity[1])
+        if inner is None:
+            continue
+        paired.append((inner, str(entry["message"]), shaped[identity]))
+    if not paired:
+        return [], (
+            f"none of the {len(before)} records read is a JSON envelope both reads "
+            "returned — the probe measured nothing about the declaration"
+        )
+    return paired, ""
+
+
+def check_unwrap_is_read_time() -> Measurement:
+    """``SNAG-LOG-008`` — a stored row's shape was fixed when it was read.
+
+    **Reproduced rather than counted, and the entry is the clearest case
+    for rule 1 this registry has had.**  Its population is ten stored rows
+    ingested inside one ten-minute window on 2026-08-17; the endpoint that
+    surfaces them computes over seven days, so they left it on 2026-08-24
+    with nothing fixed and the retention purge takes the rows themselves
+    at thirty.  A check that counted them would report the entry refuted
+    by the calendar — ``SNAG-LOG-013``'s reading, refused twice already.
+
+    What the entry claims is a mechanism in two halves, and both are
+    measured because a fix can only land in the second:
+
+    1. **The shape is decided at read time**, by the declaration the
+       caller passes.  Reproduced by reading this daemon's own journal
+       twice in one process, minutes apart, at the two declarations that
+       bracket the Session 64 deploy — so a row's ``message`` was settled
+       by what ``services.yaml`` said at the moment it was ingested, and
+       no later read revisits it.
+    2. **Nothing re-derives a stored row's message.**  The unwrap has
+       exactly one production call site and it is inside ``read_journal``.
+       That is where the entry's *"no read will ever unwrap them"* is
+       falsifiable: a backfill migration, or a serve-time unwrap in a
+       query path, is a second caller, and this is the only half of the
+       mechanism a fix can move.
+
+    Half 1 alone could never refute the entry — it reproduces the cause,
+    not the remedy — so a check built from the reproduction alone would
+    be one that can only ever say ``match``, which is the shape rule 2
+    exists to keep out of this registry.
+    """
+    # The call-site half is settled first and on purpose.  It needs no
+    # subprocess, so a box where journalctl will not answer still reports
+    # a landed backfill rather than an ``unknown`` that hides one — and
+    # the reproduction below is two 30-second reads not worth spending
+    # once the answer is known.
+    sites = call_sites(UNWRAP_FUNCTION, UNWRAP_BACKFILL_ROOTS)
+    site_detail = tuple(
+        f"{UNWRAP_FUNCTION} called at {where} in {enclosing}()" for where, enclosing in sites
+    )
+
+    if not sites:
+        return Measurement(
+            "unknown",
+            f"nothing under {', '.join(_rel(root) for root in UNWRAP_BACKFILL_ROOTS)} "
+            f"calls {UNWRAP_FUNCTION} at all — it has been renamed or inlined, and this "
+            "check no longer measures what it claims to",
+        )
+
+    elsewhere = [site for site in sites if site[1] != UNWRAP_READER]
+    if elsewhere:
+        return Measurement(
+            "mismatch",
+            f"{UNWRAP_FUNCTION} is called outside {UNWRAP_READER}() — "
+            f"{', '.join(f'{where} in {enclosing}()' for where, enclosing in elsewhere)} — "
+            "which is where a backfill or a serve-time unwrap lands, so the entry's "
+            "'no read will ever unwrap them' has a candidate answer",
+            site_detail,
+        )
+
+    paired, problem = read_at_both_declarations()
+    if problem:
+        return Measurement("unknown", problem, site_detail)
+
+    divergent = [pair for pair in paired if pair[1] != pair[2]]
+    detail = (
+        f"{len(paired)} JSON-enveloped records read at both declarations, "
+        f"{len(divergent)} shaped differently by the declaration alone",
+        *site_detail,
+    )
+    if not divergent:
+        return Measurement(
+            "mismatch",
+            f"every record read came back identical under {UNWRAP_BEFORE} and "
+            f"{UNWRAP_AFTER} — the reader no longer shapes a record by the source's "
+            "declaration, so what a stored row holds was not settled by the "
+            "declaration in force when it was ingested",
+            detail,
+        )
+    if len(divergent) < len(paired):
+        return Measurement(
+            "unknown",
+            f"{len(divergent)} of {len(paired)} enveloped records were shaped by the "
+            "declaration and the rest were not — the probe is reading a mixture and no "
+            "longer isolates the question",
+            detail,
+        )
+    specimen = divergent[0]
+    return Measurement(
+        "match",
+        "",
+        (
+            *detail,
+            f"specimen: declared {UNWRAP_BEFORE} it reads {specimen[1][:90]!r}",
+            f"specimen: declared {UNWRAP_AFTER} it reads {specimen[2][:90]!r}",
+        ),
+    )
+
 # ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
@@ -1528,6 +1854,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-002",
             "the estate's nudge wording never reaches the wire",
             check_nudge_wording_unpublished,
+        ),
+        Check(
+            "unwrap_is_read_time",
+            "SNAG-LOG-008",
+            "a stored row's shape was fixed when it was read",
+            check_unwrap_is_read_time,
         ),
     )
 }

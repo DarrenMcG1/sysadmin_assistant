@@ -2,99 +2,70 @@
 
 ## Next action
 
-Write the thirteenth check for `SNAG-LOG-008` — reproduced rather than counted, since its ten rows leave the 7-day window by retention and the endpoint's population empties without anything being fixed — driving the real `read_journal` over one pre-declaration record and one post-declaration record to show that `unwrap_json_message` is read-time and cannot reach a stored row, and measure while there how many of the ten are recoverable from the 2000-character `raw_line`, which that entry records as unmeasured.
+Write the fourteenth check for `SNAG-LOG-012`, driving this repository's own `sysadmin/core/text.py` re-export of `strip_markdown` over a narrative carrying inline code spans to show the backticks survive — which makes it the first check that is *pre-staged* against another repository's fix rather than a cross-repo read, since it holds `match` while estate-lib's `estate.text` is unchanged and flips to `mismatch` the day they land it, and it refutes in passing the rule `SNAG-ESTATE-014`'s body states as "delegated entries cannot carry a check", which Session 88's `SNAG-ESTATE-002` check already broke once.
 
-## Session 89 is complete — the entry closed on a run, not on the argument for it
+## Session 90 is complete — the thirteenth check, and the field order nobody had looked at
 
-`SNAG-DOCS-005` is **fixed and closed**, and it is the first entry this
-registry has closed on a check measuring **this repository's own code**.
-`sysadmin/ops_claims.py` gains `CODE_SPAN_RE` and `read_markers` strips
-code spans before matching — three lines, which is exactly what the
-entry's own "shape of a fix" bullet asked for.
+`SNAG-LOG-008` is **checked and stays open**. Open entries unmoved at
+**24**, checked **10 → 11**, unchecked **14 → 13**. **2500 tests pass**
+(2476 + 24). Ruff clean, mypy clean. The daemon was restarted at
+**16:10:00** and `/health` answers 200 — `sysadmin/snag_claims.py` is the
+only source edited and nothing under `sysadmin/` imports it, so for the
+seventh sitting running nothing a caller can observe moved.
 
-Open entries **25 → 24**, checked **11 → 10**, unchecked unmoved at
-**14**. **2476 tests pass** (2484 − 14 + 6). Ruff clean, mypy clean.
-estate-manager's `read_snags` reads **69 entries** either side. The
-daemon was restarted at **15:32:37** and `/health` answers 200 —
-`ops_claims.py` and `snag_claims.py` are the two composition roots
-nothing under `sysadmin/` imports, so for the sixth sitting running,
-nothing a caller can observe moved.
+### Reproduced rather than counted, because the calendar would have closed it
 
-### The check was written to separate two fixes, and it did
+The ten rows left the current 7-day window on 2026-08-24, leave
+`GET /api/logs/trends` altogether on **2026-08-31** when `previous_start`
+passes them, and leave `log_entries` at 30 days' retention on
+**2026-09-16**. Today the endpoint serves all ten with `change: gone`,
+`current: 0`, `previous: 1`.
 
-The pattern closes on a backtick run of its **own length** —
-`` (`+)[\s\S]*?\1 `` — which is markdown's own rule for a span that
-itself contains a span. That is the whole of why this closed rather than
-narrowed. Both candidates were driven through the twelfth check **before
-the entry was touched**:
+The check has **two halves because only one of them can move**. Half 1
+drives the real `read_journal` over this daemon's own journal twice in
+one process, at `text` and at `json` — 50 of 50 enveloped records come
+back shaped differently by the declaration alone. That reproduces the
+*cause* and can never refute the entry, since no backfill lands in
+`read_journal`. Half 2 pins that `unwrap_json_message` has exactly one
+production call site and it is inside `read_journal`, which is where one
+would. The call-site half is settled **first**, so a box where journalctl
+will not answer still reports a landed backfill rather than an `unknown`
+that hides one.
 
-- the naive `` `[^`]+` `` came back **`match`** — *"the single fence is
-  handled and the doubled fence still leaks … a narrowing rather than a
-  closure"*
-- the same-length pattern came back **`mismatch`** — *"candidate for
-  closure"*, all three probe lines reading `False` where they had read
-  `True` twenty minutes earlier
+### The entry's open question is answered, and the fear lands on the other side
 
-A check written the previous sitting to tell two fixes apart did exactly
-that, one day later. That is the difference between an entry closed on a
-measurement and one closed on a plausible-looking diff.
+*"How many of the ten are recoverable is unmeasured"* — **10 of 10**,
+stored lines 1396–1651 characters against a 2000 cap. The truncation the
+entry feared is real and present in the same source: `sysadmin.service`
+holds exactly **10 rows truncated at 2000**, and the intersection with
+the ten is **zero** — those are the `SNAG-DB-005` lifespan tracebacks,
+already unwrapped correctly. Recorded as a property of that ten-minute
+window rather than a law, because a traceback arriving inside it would
+have been both unrecoverable and in need of the backfill.
 
-### The check left the registry with its entry
+### What only a live run could say
 
-`test_every_checked_entry_is_open` makes that a rule rather than a
-choice: a refuted check on a closed entry says "go and judge this" for
-ever. `check_quoted_marker_reads_as_real`, `ops_probe`,
-`survey_quoted_markers`, `MarkerSurvey`, `QuotedMarker`, `_quoted_only`
-and the six `OPS_PROBE_*` constants went with it, as
-`handoff_apology_published`'s helpers did the sitting before.
+The check's first draft paired the two reads on `raw_line` and argued for
+it from the code under test — `unwrap_json_message`'s rule 3 promises
+that field is kept **verbatim** — and it paired **0 of 50**.
+`journalctl -o json` does not emit a record's fields in a fixed order, so
+one record read twice is two byte-different lines that parse to the
+identical dict. A content guarantee read as an identity guarantee.
 
-The last measurement the survey ever took is recorded **on the entry**
-rather than lost: 9 markers in the printed region with 0 quoted, 4 quoted
-outside it, the nearest **76** lines past the region's end and naming the
-retired `handoff_apology_published`. Session 88 measured that margin at
-**9** lines; it was 76 the next afternoon. A number that never stops
-moving was never a property of the document.
+**That is the backfill's problem too**, and it explains a case the entry
+had only named: the same field order decides whether `__CURSOR` falls
+inside the 2000-character cap, which is the mosquitto case. Checked for a
+live consequence and there is none — `raw_line` is written and stored and
+never used as a key.
 
-### What replaced it is a pin, not a gap
+### Also this sitting
 
-`snag_claims.strip_code_spans` is **still a copy rather than an import**
-— two composition roots must not couple to share a regex, and a snag-list
-parse must not move because the dashboard's reader was edited. So
-`TestAQuotedMarkerIsAQuotation::test_the_sibling_s_copy_and_this_one_agree_shape_for_shape`
-drives both over seven shapes and asserts they agree character for
-character. Import where you can, pin where you cannot.
+`alfred-frontend unreachable` — a `critical` open since 2026-08-25
+10:45:52 — resolved by itself at **15:37:41**, so the opening block's
+alert count is corrected 2 → 1 rather than left asking about a row that
+closed itself. That is `ops_claims.py` rule 5's founding case again.
 
-**The reason for keeping the copy was corrected mid-sitting.** The draft
-argued that `survey_quoted_markers` measures `ops_claims` with its own
-copy, so sharing would make the survey read the fix by definition — a
-check agreeing with itself. True when written, and the same change
-deleted that survey forty minutes later. An argument resting on machinery
-the change itself removes is not an argument; what survives is the
-coupling one the entry filed.
-
-### The block writes the sentence it could not write
-
-*"One thing this block deliberately does not do: quote a marker"* is
-gone, replaced by a paragraph that quotes one inside a code span beside a
-real marker. `check-ops-claims.sh` reports **no** `marker:` finding for
-it and **no** unclaimed figure, so the fix is asserted by the artefact
-the entry was about and not only by tests. A regression in `read_markers`
-turns that sentence into a spurious finding at the top of the next
-sitting, which is the loud direction.
-
-### Found rather than fixed
-
-The daemon had already been restarted at **14:48:31** by a party outside
-this sitting — a clean `Stopping` → `Deactivated successfully` →
-`Started`, not a crash — so the block's start time was stale before the
-first edit. `check_daemon_start`'s note says *"nothing recorded why"*;
-`tasks.md` and the block now do.
-
-### Not done, and deliberately
-
-- **No backfill, no migration, no route moved.** The change is three
-  lines of production code, one constant, and the removal of a check that
-  had done its job.
-- **`SNAG-ESTATE-012` is untouched.** A block sentence that is neither a
-  figure nor a marked prediction is still invisible, and deciding that an
-  English sentence is a claim is still a human's job.
+Five falsifications were driven at the behaviour each detects, plus a
+sixth for the *mixture* branch, which is `unknown` rather than a partial
+match because the tempting reading is that most records diverged so the
+mechanism holds.
