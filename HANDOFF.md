@@ -2,70 +2,82 @@
 
 ## Next action
 
-Write the fourteenth check for `SNAG-LOG-012`, driving this repository's own `sysadmin/core/text.py` re-export of `strip_markdown` over a narrative carrying inline code spans to show the backticks survive — which makes it the first check that is *pre-staged* against another repository's fix rather than a cross-repo read, since it holds `match` while estate-lib's `estate.text` is unchanged and flips to `mismatch` the day they land it, and it refutes in passing the rule `SNAG-ESTATE-014`'s body states as "delegated entries cannot carry a check", which Session 88's `SNAG-ESTATE-002` check already broke once.
+Hunt `SNAG-TEST-001` rather than write the fifteenth check, by running `tests/test_snag_claims.py` in a loop under `-p no:cacheprovider` until the three guards fire again and taking `--lf -vv` for the third name the tail dropped, because every verdict this registry publishes flows through that suite and a guard that is red once in twenty runs makes twelve green checks worth less than they read — and if it will not reproduce, the honest close is a bound written into the entry rather than an argument.
 
-## Session 90 is complete — the thirteenth check, and the field order nobody had looked at
+## Session 91 is complete — the fourteenth check, and a probe that counted itself
 
-`SNAG-LOG-008` is **checked and stays open**. Open entries unmoved at
-**24**, checked **10 → 11**, unchecked **14 → 13**. **2500 tests pass**
-(2476 + 24). Ruff clean, mypy clean. The daemon was restarted at
-**16:10:00** and `/health` answers 200 — `sysadmin/snag_claims.py` is the
-only source edited and nothing under `sysadmin/` imports it, so for the
-seventh sitting running nothing a caller can observe moved.
+`SNAG-LOG-012` is **checked and stays open**. Open entries **24 → 25**
+(one opened), checked **11 → 12**, unchecked unmoved at **13**. **2511
+tests pass** (2500 + 11). Ruff clean, mypy clean. The daemon was restarted
+at **17:43:37** and `/health` answers 200 — `sysadmin/snag_claims.py` is
+the only source edited and nothing under `sysadmin/` imports it, so for
+the eighth sitting running nothing a caller can observe moved.
 
-### Reproduced rather than counted, because the calendar would have closed it
+### The first check pre-staged against another repository's fix
 
-The ten rows left the current 7-day window on 2026-08-24, leave
-`GET /api/logs/trends` altogether on **2026-08-31** when `previous_start`
-passes them, and leave `log_entries` at 30 days' retention on
-**2026-09-16**. Today the endpoint serves all ten with `change: gone`,
-`current: 0`, `previous: 1`.
+The tenth and eleventh shell into estate-manager's venv to drive their
+code. This one needs **no cross-repo access at all**: `estate-lib` is an
+**editable** install here (`_editable_impl_estate_lib.pth`, `editable =
+true` in `pyproject.toml`), so `strip_markdown` resolves to a file in
+their working tree and the check flips to `mismatch` on the next run
+after they commit — nothing synced, nobody told. That is measured and put
+in the detail rather than assumed: a re-pin to a wheel would show up
+there as a path this repository would then lag behind.
 
-The check has **two halves because only one of them can move**. Half 1
-drives the real `read_journal` over this daemon's own journal twice in
-one process, at `text` and at `json` — 50 of 50 enveloped records come
-back shaped differently by the declaration alone. That reproduces the
-*cause* and can never refute the entry, since no backfill lands in
-`read_journal`. Half 2 pins that `unwrap_json_message` has exactly one
-production call site and it is inside `read_journal`, which is where one
-would. The call-site half is settled **first**, so a box where journalctl
-will not answer still reports a landed backfill rather than an `unknown`
-that hides one.
+It refutes the `SNAG-ESTATE-014` note's stated reason for the second
+time. "Delegated… so a check would be a cross-repo read" was never a
+property of delegation — it was a property of the two instruments that
+happened to be written first.
 
-### The entry's open question is answered, and the fear lands on the other side
+### The obvious probe reports `match` against a function that strips nothing
 
-*"How many of the ten are recoverable is unmeasured"* — **10 of 10**,
-stored lines 1396–1651 characters against a 2000 cap. The truncation the
-entry feared is real and present in the same source: `sysadmin.service`
-holds exactly **10 rows truncated at 2000**, and the intersection with
-the ten is **zero** — those are the `SNAG-DB-005` lifespan tracebacks,
-already unwrapped correctly. Recorded as a property of that ten-minute
-window rather than a law, because a traceback arriving inside it would
-have been both unrecoverable and in need of the backfill.
+`` '`' in strip_markdown('a `x`') `` is `True` for the identity function,
+so the specimen carries four **controls** the entry itself recorded as
+removed (heading, bullet, ordered item, bold) beside the two code spans.
+A surviving control is `unknown` — the probe has stopped isolating the
+question, which is the mixture branch one check over.
+
+### The residue already had a name here
+
+The specimen carries a **doubled fence** because `SNAG-DOCS-005` closed
+on exactly that distinction in this same module on 2026-08-26: the naive
+`` `[^`]+` `` strips the single fence and *leaks* the doubled one. Both
+candidate fixes are driven as **real patterns** — the naive gives
+`mismatch` naming the leak, the same-length a clean `mismatch`. Dropping
+that one line from the specimen breaks **both** fix tests, because it is
+the only thing that discriminates them.
 
 ### What only a live run could say
 
-The check's first draft paired the two reads on `raw_line` and argued for
-it from the code under test — `unwrap_json_message`'s rule 3 promises
-that field is kept **verbatim** — and it paired **0 of 50**.
-`journalctl -o json` does not emit a record's fields in a fixed order, so
-one record read twice is two byte-different lines that parse to the
-identical dict. A content guarantee read as an identity guarantee.
+The check's first drive reported **five** callers, two of them the
+probe's own. Beyond an inflated count that made the "nothing calls it"
+limb **unreachable**, since the check guaranteed a non-zero count — a
+probe counting itself is `ops_claims` rule 3's pin searching a region
+containing its own marker, reached from the other side. It is pinned from
+both sides now: the raw walk is asserted to still contain what the filter
+removes, so the exclusion cannot be deleted in silence.
 
-**That is the backfill's problem too**, and it explains a case the entry
-had only named: the same field order decides whether `__CURSOR` falls
-inside the 2000-character cap, which is the mosquitto case. Checked for a
-live consequence and there is none — `raw_line` is written and stored and
-never used as a key.
+The same run refuted the entry: it says "**Both** consumers here" and
+there are **three** — `monitor/health_review.py` was written on
+2026-08-25, the day *after* the entry was filed.
 
-### Also this sitting
+### A figure this repository has published wrong for four sittings
 
-`alfred-frontend unreachable` — a `critical` open since 2026-08-25
-10:45:52 — resolved by itself at **15:37:41**, so the opening block's
-alert count is corrected 2 → 1 rather than left asking about a row that
-closed itself. That is `ops_claims.py` rule 5's founding case again.
+`67 entries` against a live **69**. The instrument moved, not the
+document: the reader became `estate.snags` in estate-lib and now counts
+the two `### Session NN write-up` headings under `## Fixed Issues`. Both
+come back `is_open: False`, which is why the open count never moved and
+why the drift stayed invisible — the figure the board publishes was right
+throughout. Two test docstrings corrected.
 
-Five falsifications were driven at the behaviour each detects, plus a
-sixth for the *mixture* branch, which is `unknown` rather than a partial
-match because the tempting reading is that most records diverged so the
-mechanism holds.
+### `SNAG-TEST-001` opened, offering no diagnosis on purpose
+
+Three guards in `test_snag_claims.py` failed once and have not failed in
+fifteen runs since. Both obvious causes are excluded by **reading the
+path** rather than by assuming: the probe is pure (fixed anchor, no
+database, no unit files — `log_actions.recommend` takes all three of its
+inputs as arguments), and no randomising plugin is installed, so
+collection order is stable. No third cause is offered. That is the entry.
+
+Five falsifications were driven at the behaviour each detects, and one of
+them fires two tests rather than one.

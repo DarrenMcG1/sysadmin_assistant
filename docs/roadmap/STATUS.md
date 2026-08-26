@@ -4,28 +4,27 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and no sub-session action is either.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-26 16:10:00**
-> <!--check:daemon_start--> — by Session 90, which edited
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-26 17:43:37**
+> <!--check:daemon_start--> — by Session 91, which edited
 > `sysadmin/snag_claims.py` alone, the **composition root the daemon does
-> not import** (grep says nothing under `sysadmin/` imports it), so for
-> the seventh sitting running nothing a caller can observe moved. The
-> restart was taken rather than argued with, for the reason Sessions 81
-> and 84–89 took theirs: `check-ops-claims.sh` compares the daemon's start
-> against the newest source mtime and cannot know that the edited file is
-> one nothing loads — which its rule 4 states as the cost in advance — and
-> correcting the artefact the script names beats hand-verifying that it is
-> wrong. `/health` answers **200**
+> not import** (grep finds one mention under `sysadmin/` and it is a
+> comment in `ops_claims.py`, not an import), so for the **eighth**
+> sitting running nothing a caller can observe moved. The restart was
+> taken rather than argued with, for the reason Sessions 81 and 84–90 took
+> theirs: `check-ops-claims.sh` compares the daemon's start against the
+> newest source mtime and cannot know that the edited file is one nothing
+> loads — which its rule 4 states as the cost in advance — and correcting
+> the artefact the script names beats hand-verifying that it is wrong.
+> `/health` answers **200**
 > <!--check:health-->,
 > `alembic current` reads 016 at the packaged head <!--check:schema-->, and
 > `alerts` holds **1** unresolved row <!--check:alerts-->.
 >
-> **That count fell from 2 during this sitting and the fall is the
-> signal**, which is the founding case `ops_claims.py` rule 5 was written
-> for: `alfred-frontend unreachable` — a `critical` open since 2026-08-25
-> 10:45:52 — resolved by itself at **15:37:41**, five minutes after the
-> previous sitting's restart, with nobody doing anything about it. What
-> remains open is `info: Weekly disk review ready`
-> <!--check:open_titles-->.
+> **That count is unmoved across this sitting**, where the previous one
+> published a fall. What is open is `info: Weekly disk review ready`
+> <!--check:open_titles-->, the same row, and it is below
+> `tray.notify_min_severity` here — so the box has been quiet rather than
+> unwatched, which is a different claim and the one the sweep can make.
 >
 > **Every claim above names the check that closes it**, and that is what
 > `<!--check:…-->` is: the name of a check, never a copy of the figure
@@ -142,26 +141,30 @@
 > holds true), and a claims-checker that alerted on it would re-import
 > exactly that.
 >
-> **Next up**: **judge `SNAG-ROADMAP-001` once estate-manager commits,
-> and write the eleventh check.**
-> *Recommended at the close of Session 86, and the first half is a
-> judgement rather than a task.* The tenth check reports **refuted** and
-> the entry is deliberately still open: estate-manager's fix was in flight
-> *during* Session 86 — `roadmap.py` modified at 22:34, uncommitted, under
-> their `SNAG-ESTATE-056` — and rule 2 makes a refuted claim a candidate
-> for closure and never a closure. `estate_module_state()` is what a
-> sitting reads to tell the two apart, so the trigger is mechanical:
-> **when that evidence line stops saying "uncommitted", close the entry.**
-> Until then it holds against their last commit and against the daemon on
-> 8400, which serves start-time code. For the eleventh, the field is the
-> **16** remaining unchecked entries; pick as Sessions 85 and 86 were
-> asked to, by what a wrong answer costs, and note that the two cheapest
-> instruments are now both demonstrated — an `ast` walk over this
-> checkout, and their interpreter over theirs.
+> **Next up**: **hunt `SNAG-TEST-001` rather than write the fifteenth
+> check.** *Recommended at the close of Session 91, and it is deliberately
+> not the increment.* Three guards in `test_snag_claims.py` failed once
+> and fifteen runs have been green since; both obvious causes are already
+> excluded by reading the path, so what is owed is a reproduction and not
+> an argument. Run the file in a loop under `-p no:cacheprovider` until it
+> fires and take `--lf -vv` for **the third name the tail dropped** —
+> two of the three share a check and the third may not, which is the
+> missing evidence. The reason it outranks a fifteenth check is that every
+> verdict this registry publishes flows through that suite: a guard that
+> is red once in twenty runs makes twelve green checks worth less than
+> they read, and no new check can measure that. If it will not reproduce,
+> the honest close is a **bound** — N runs, no failure — written into the
+> entry, which is a smaller claim than the one standing there now and a
+> true one. The field for the fifteenth is then the **13** remaining
+> unchecked entries; pick as Sessions 85, 86 and 90 were asked to, by what
+> a wrong answer costs, and note that **three** instruments are now
+> demonstrated — an `ast` walk over this checkout, their interpreter over
+> theirs, and (Session 91) this repository's own import of a library that
+> resolves into their tree, which costs no cross-repo read at all.
 >
-> *Previously*: the ninth check, `SNAG-LOG-013` — **written by Session 85**,
-> and before it `SNAG-ESTATE-008`, decided and closed by Session 83 on an
-> empty residue rather than on its chain.
+> *Previously*: the fourteenth check, `SNAG-LOG-012` — **written by
+> Session 91**, the first pre-staged against another repository's fix;
+> and before it the thirteenth, `SNAG-LOG-008`, by Session 90.
 >
 > **No sub-session action is owed. Both are done**, and the header
 > paragraph above went on asking for the first of them until Session 83 —
@@ -277,7 +280,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2500 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (64 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, **snag-claim guard (96 tests: **eleven** open-entry claims each driven at the live box *and* at a box that moved, plus the closure rule pinned against estate-manager's own `read_snags` by shelling out to their venv — **the tenth is the first whose instrument is another repository's *code path*, driven at three real states of their tree: their committed `roadmap.py` (`match`), their uncommitted in-flight fix (`mismatch`) and a box with no venv (`unknown`)** — thirteen of the guards falsified by breaking the code they guard, the newest seven by restoring the private-symbol coupling, removing the isolation guard, swallowing an absent interpreter and an import failure into a `match`, typing the probe as a literal, dropping the `None` branch, and narrowing the comparison to the marked form; **the eleventh is the first that drives a domain's own async reader against the live journal** — the same records read twice at the two declarations that bracket `SNAG-LOG-008`, falsified in five directions: a reader that ignores the declaration, a second call site, the unwrap relocated out of `read_journal`, a renamed unwrap, and a journal that will not answer)**, **shared figure-free guard (9 tests over the one statement of rule 2 the three Tier 3 reviews share, each driven at something that must break it — a shared assertion that never refuses anything is worth less than the three copies it replaced)**, smoke script |
+| Testing | 🟢 Complete | **2511 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (64 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, **snag-claim guard (107 tests: **twelve** open-entry claims each driven at the live box *and* at a box that moved, plus the closure rule pinned against estate-manager's own `read_snags` by shelling out to their venv — **the tenth is the first whose instrument is another repository's *code path*, driven at three real states of their tree: their committed `roadmap.py` (`match`), their uncommitted in-flight fix (`mismatch`) and a box with no venv (`unknown`)** — thirteen of the guards falsified by breaking the code they guard, the newest seven by restoring the private-symbol coupling, removing the isolation guard, swallowing an absent interpreter and an import failure into a `match`, typing the probe as a literal, dropping the `None` branch, and narrowing the comparison to the marked form; **the eleventh is the first that drives a domain's own async reader against the live journal** — the same records read twice at the two declarations that bracket `SNAG-LOG-008`, falsified in five directions: a reader that ignores the declaration, a second call site, the unwrap relocated out of `read_journal`, a renamed unwrap, and a journal that will not answer; **the twelfth is the first *pre-staged* against another repository's fix rather than a read of their tree** — `estate-lib` is an editable install, so `strip_markdown` resolves into estate-manager's working tree and `SNAG-LOG-012`'s check flips the day they commit, with the two candidate fixes driven as **real patterns** so the naive `` `[^`]+` `` and the same-length one are told apart, and five falsifications each firing on the test that names it — one of which breaks *both* fix tests, because the doubled fence is the only line that discriminates them)**, **shared figure-free guard (9 tests over the one statement of rule 2 the three Tier 3 reviews share, each driven at something that must break it — a shared assertion that never refuses anything is worth less than the three copies it replaced)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -285,6 +288,63 @@
 ---
 
 ## Recently Completed
+
+### Session 91 — the fourteenth check, and a probe that counted itself (2026-08-26)
+
+`SNAG-LOG-012` is **checked and stays open**. Open entries **24 → 25**
+(one opened), checked **11 → 12**, unchecked **13 → 13**. **2511 tests
+pass** (2500 + 11). Ruff clean, mypy clean. The daemon was restarted at
+**17:43:37** and `/health` answers 200 — `sysadmin/snag_claims.py` is the
+only source edited and nothing under `sysadmin/` imports it, so for the
+eighth sitting running nothing a caller can observe moved.
+
+**The first check pre-staged against another repository's fix rather
+than a read of their tree.** The tenth and eleventh shell into
+estate-manager's venv; this one needs no cross-repo access at all,
+because `estate-lib` is an **editable** install here — `strip_markdown`
+resolves to a file in their working tree, so the check flips to
+`mismatch` on the next run after they commit, with nothing synced and
+nobody told. That is measured and put in the detail rather than assumed:
+a re-pin to a wheel would show up there as a path this repository would
+then lag behind.
+
+**The obvious probe reports `match` against a function that strips
+nothing.** `` '`' in strip_markdown('a `x`') `` is `True` for the identity
+function, so the specimen carries four **controls** the entry itself
+recorded as removed beside the two code spans. A control that survives is
+`unknown` — the probe has stopped isolating the question — which is the
+mixture branch one check over.
+
+**The residue already had a name here.** The specimen carries a doubled
+fence because `SNAG-DOCS-005` closed on exactly that distinction in this
+same module on 2026-08-26: the naive `` `[^`]+` `` strips the single
+fence and *leaks* the doubled one. Both candidate fixes are driven as
+real patterns — the naive one gives `mismatch` naming the leak, the
+same-length one a clean `mismatch` — and dropping the doubled fence from
+the specimen breaks **both** tests, because it is the only line that
+tells them apart.
+
+**Two corrections the live run made, and one the calendar had made
+quietly.** The entry says "**Both** consumers here" and there are
+**three** — `monitor/health_review.py` was written on 2026-08-25, the day
+*after* the entry was filed. The check's own first drive reported **five**
+callers, two of them the probe itself, which inflated the count *and*
+made the "nothing calls it" limb unreachable — a probe counting itself is
+`ops_claims` rule 3's pin searching a region containing its own marker,
+reached from the other side. And this repository has published **67
+entries** for at least four sittings against a live **69**: the reader
+became `estate.snags` in estate-lib and now counts the two
+`### Session NN write-up` headings under `## Fixed Issues`. Both are
+`is_open: False`, which is why the open count never moved and why the
+drift stayed invisible — the figure the board publishes was right
+throughout.
+
+**`SNAG-TEST-001` opened**: three guards in `test_snag_claims.py` failed
+once and have not failed in fifteen runs since. Both obvious causes are
+excluded by reading the path — the probe is pure (fixed anchor, no
+database, no unit files; `recommend` takes all three of its inputs as
+arguments) and no randomising plugin is installed, so ordering is stable.
+No third cause is offered, which is the entry.
 
 ### Session 90 — the thirteenth check, and the field order nobody had looked at (2026-08-26)
 

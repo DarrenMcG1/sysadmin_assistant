@@ -103,6 +103,7 @@ from __future__ import annotations
 import argparse
 import ast
 import asyncio
+import inspect
 import json
 import re
 import subprocess  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
@@ -117,6 +118,7 @@ from sqlalchemy import create_engine, text
 
 from sysadmin.core.config import REPO_ROOT, get_config
 from sysadmin.core.schema_guard import EXIT_STATUS, SchemaVerdict
+from sysadmin.core.text import strip_markdown
 
 #: The same three words and the same exit map as the schema check and the
 #: ops claims, imported rather than restated.  ``mismatch`` is a claim the
@@ -358,9 +360,7 @@ def _entry(title: str, body_lines: list[str]) -> Entry:
         title=title.strip(),
         body=body,
         is_open=not closure_declared(title),
-        markers=tuple(
-            match.group(1) for match in MARKER_RE.finditer(strip_code_spans(body))
-        ),
+        markers=tuple(match.group(1) for match in MARKER_RE.finditer(strip_code_spans(body))),
     )
 
 
@@ -541,6 +541,7 @@ def call_sites(name: str, roots: Iterable[Path]) -> list[tuple[str, str]]:
     # string sort files line 10 before line 9, which is a report that
     # reads as unordered rather than as ordered by something else.
     return [(f"{rel}:{line}", enclosing) for rel, line, enclosing in sorted(found)]
+
 
 def _rel(path: Path) -> str:
     try:
@@ -944,9 +945,7 @@ def check_dropin_blind_spot() -> Measurement:
         )
         dropin = root / "snagcheck.service.d"
         dropin.mkdir()
-        (dropin / "override.conf").write_text(
-            "[Service]\nRestartSec=99\n", encoding="utf-8"
-        )
+        (dropin / "override.conf").write_text("[Service]\nRestartSec=99\n", encoding="utf-8")
         units, _ = discover_units(root, None, str(Path.home()))
 
     probe = next((unit for unit in units if unit.name == "snagcheck.service"), None)
@@ -1139,7 +1138,7 @@ def check_capped_signature_collides() -> Measurement:
 
     detail = (
         f"cap {SIGNATURE_DETAIL_CHARS}; the pair agrees over "
-        f"{len(probe_signatures(SIGNATURE_DETAIL_CHARS)[0]) - len('alpha\"}')} characters",
+        f"{len(probe_signatures(SIGNATURE_DETAIL_CHARS)[0]) - len('alpha"}')} characters",
         f"roll-up member lines identical: {members_collide}",
         f"separate rows' titles identical: {titles_collide}",
         f"as rendered: {members[0].strip()}",
@@ -1766,6 +1765,264 @@ def check_unwrap_is_read_time() -> Measurement:
         ),
     )
 
+
+# ---------------------------------------------------------------------------
+# SNAG-LOG-012 — the model's code spans reach the briefing verbatim
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MarkdownForm:
+    """One markdown form the entry drove, and what it says becomes of it.
+
+    Attributes:
+        label: the form, in words, for the note.
+        line: the specimen line carrying it.
+        token: what makes the form visible in a rendered line.  Present in
+            the output means the form survived the strip.
+        survives: what ``strip_markdown`` does with it today, as the
+            entry's own driven literal records.
+    """
+
+    label: str
+    line: str
+    token: str
+    survives: bool
+
+
+#: The entry's driven literal, spread over the lines a narrative would
+#: actually use.  Four **controls** the entry records as removed and two
+#: **subjects** it records as kept, because a probe carrying only the
+#: subject reports ``match`` against a ``strip_markdown`` that has stopped
+#: stripping anything at all — backticks survive an identity function, and
+#: reporting that as evidence for the entry would hide a much larger
+#: fault.  The controls are what make the surviving backticks mean
+#: something.
+#:
+#: **The doubled fence is not an invented form.**  ``SNAG-DOCS-005``
+#: closed on exactly this distinction one module over, on 2026-08-26: the
+#: naive ``` `[^`]+` ``` strips the single fence and *leaks* the doubled
+#: one, which is why :data:`CODE_SPAN_RE` closes on a run of the same
+#: length.  So the two subject lines are the two candidate fixes told
+#: apart — the residue this repository has already paid to learn about,
+#: pre-staged against a library that has not met it yet.
+STRIPPER_FORMS: tuple[MarkdownForm, ...] = (
+    MarkdownForm("an ATX heading", "### Overnight log review", "###", False),
+    MarkdownForm("a bullet", "- Nothing else moved overnight.", "- ", False),
+    MarkdownForm("an ordered item", "1. The daemon restarted once.", "1. ", False),
+    MarkdownForm("bold emphasis", "The run wrote **eight** alert lines.", "**", False),
+    MarkdownForm(
+        "an inline code span",
+        "The `sysadmin.service` unit was the loudest source.",
+        "`",
+        True,
+    ),
+    MarkdownForm(
+        "a doubled code fence",
+        "Its sibling ``estate-broker-provision.service`` failed once.",
+        "`",
+        True,
+    ),
+)
+
+#: One narrative, built from the forms rather than written beside them —
+#: a specimen and a list of what is in it are two statements of one fact.
+STRIP_SPECIMEN = "\n".join(form.line for form in STRIPPER_FORMS)
+
+#: Where the consequence lands.  The entry says "**Both** consumers here"
+#: and names two; there are **three** — :mod:`sysadmin.monitor.health_review`
+#: was written on 2026-08-25, the day *after* the entry was filed, and
+#: calls the same function into the same briefing.  Re-measured on every
+#: run rather than written down, because that is how the two became three.
+#:
+#: **This module is excluded and only a live run said it had to be.**  The
+#: first drive reported *five* callers, two of them this check's own probe
+#: — so the count was inflated by the instrument, and worse, the "nothing
+#: calls it" limb could never have fired, because the check calls it.  A
+#: probe counting itself as a consumer is the same shape as a pin
+#: searching a region containing its own marker (:mod:`sysadmin.ops_claims`
+#: rule 3), reached from the other side.
+STRIPPER_NAME = "strip_markdown"
+STRIPPER_CONSUMER_ROOT = REPO_ROOT / "sysadmin"
+STRIPPER_PROBE = "sysadmin/snag_claims.py"
+
+
+def stripper_implementation() -> str | None:
+    """The file the ``strip_markdown`` this repository's callers reach lives in.
+
+    ``sysadmin/core/text.py`` re-exports ``estate.text``; the two names
+    are the same function object, so driving the re-export measures the
+    **producer** while still being the object the three reviews call.
+    That is the property the whole check rests on, so it is measured and
+    not assumed — :func:`check_estate_port_8500` refuses in writing to
+    measure a delegated claim at this repository's consumer, and a copy
+    landing in ``core/text.py`` is precisely how this check would quietly
+    start doing that.
+    """
+    try:
+        return inspect.getsourcefile(strip_markdown)
+    except TypeError:  # pragma: no cover — a builtin rebound over the name
+        return None
+
+
+def strip_forms() -> tuple[dict[str, str], str]:
+    """Each form's specimen line as the strip leaves it, keyed by label.
+
+    ``strip_markdown`` transforms a narrative line by line and joins, so
+    input line *i* pairs with output line *i*.  That pairing is the whole
+    instrument and it is checked rather than trusted: a fix that reflowed
+    or dropped a line would keep every token in the blob while making
+    "which form moved" unanswerable, and a probe that cannot say which
+    form moved must say so rather than average over them.
+
+    The **line** is returned rather than a survived/not verdict, so the
+    caller's evidence and the caller's judgement are read off one value.
+    Two lists — what survived, and what it now reads as — is the
+    ``SNAG-DB-003`` shape at the size of a return type.
+    """
+    lines = strip_markdown(STRIP_SPECIMEN).split("\n")
+    if len(lines) != len(STRIPPER_FORMS):
+        return {}, (
+            f"the strip returned {len(lines)} lines for a {len(STRIPPER_FORMS)}-line "
+            "narrative — it no longer maps a line to a line, so which form moved "
+            "cannot be read off the output"
+        )
+    return {form.label: line for form, line in zip(STRIPPER_FORMS, lines, strict=True)}, ""
+
+
+def check_code_spans_survive() -> Measurement:
+    """``SNAG-LOG-012`` — inline code spans reach the briefing verbatim.
+
+    **The first check in this registry that is pre-staged against another
+    repository's fix rather than a read of their tree.**  The tenth and
+    eleventh shell into estate-manager's venv to drive their code; this
+    one needs no cross-repo access at all, because ``estate-lib`` is an
+    *editable* install here — ``strip_markdown`` resolves to a file in
+    their working tree, so the day they land the fix this check flips to
+    ``mismatch`` on the next run with nothing synced and nothing told.
+    That is measured rather than assumed: the resolved path is in the
+    detail, and a re-pin to a wheel would show up there as a path this
+    repository would then lag behind.
+
+    It also refutes, in passing, a rule this document states about
+    itself.  The note under ``SNAG-ESTATE-014`` gives *"delegated… so a
+    check would be a cross-repo read of a thing that repository is
+    already fixing"* as the reason five entries carry none, and
+    ``SNAG-LOG-012`` is one of the five it names.  Session 88 broke that
+    once with :func:`check_nudge_wording_unpublished`, which was still a
+    cross-repo read; this breaks it the other way, and more cheaply —
+    being delegated is what makes a check *worth* writing, because the
+    closing move happens in a tree nothing here watches, and it need not
+    cost a cross-repo read to notice.
+
+    Three limbs, and the order is *is this still the right subject* before
+    *does the claim hold* — the thirteenth check's ordering for its
+    reason, with the halves a fix can move settled last:
+
+    1. **Whose implementation is this.**  Outside this repository, or the
+       entry's "not ours to fix" has moved and the check has started
+       measuring a consumer.  ``mismatch``, not ``unknown``: a copy
+       landing here is a measurement and not a failure to measure, and
+       the note names *which* limb moved so the judging sitting is not
+       told the behaviour changed when it did not.
+    2. **Does the consequence still have a path.**  Nothing in
+       ``sysadmin/`` calling it means no narrative is stripped at all,
+       which is a different and larger fault wearing this entry's
+       symptom.
+    3. **Do the code spans survive**, against controls.  The reading this
+       refuses is the obvious one — ``"`" in strip_markdown("a `x`")`` is
+       ``True`` for a function that strips *nothing*, so the four control
+       forms are what make the surviving backticks evidence rather than
+       coincidence.  A control that survives is ``unknown``: the probe
+       has stopped isolating the question, which is rule 5.
+
+    A **partial** fix is ``mismatch`` with the residue named, the eleventh
+    check's treatment.  Here the residue has a name already: the single
+    fence stripped and the doubled one left is the naive pattern
+    ``SNAG-DOCS-005`` rejected in this very module a day before this was
+    written, so the note can say which fix landed rather than only that
+    one did.
+    """
+    where = stripper_implementation()
+    if where is None:
+        return Measurement(
+            "unknown",
+            f"the source file of {STRIPPER_NAME} cannot be resolved, so this cannot say "
+            "whose implementation the reviews are calling",
+        )
+    resolved = Path(where).resolve()
+    if resolved.is_relative_to(REPO_ROOT):
+        return Measurement(
+            "mismatch",
+            f"{STRIPPER_NAME} is implemented at {_rel(resolved)}, inside this repository — "
+            "the entry's 'it is not this repository's to fix' has moved, and the copy that "
+            "moved it is the drift estate-manager ADR-0006 exists to prevent. The behaviour "
+            "limb is untouched and unmeasured: this is the delegation limb alone",
+        )
+
+    consumers = [
+        site
+        for site in call_sites(STRIPPER_NAME, (STRIPPER_CONSUMER_ROOT,))
+        if not site[0].startswith(STRIPPER_PROBE)
+    ]
+    evidence = (
+        f"{STRIPPER_NAME} is implemented at {resolved}",
+        f"{len(consumers)} caller(s) under {_rel(STRIPPER_CONSUMER_ROOT)}: "
+        + ", ".join(f"{site} in {enclosing}()" for site, enclosing in consumers),
+    )
+    if not consumers:
+        return Measurement(
+            "unknown",
+            f"nothing under {_rel(STRIPPER_CONSUMER_ROOT)} calls {STRIPPER_NAME} — no "
+            "narrative is stripped at all here, so what it leaves behind no longer "
+            "decides what reaches a briefing",
+            evidence[:1],
+        )
+
+    left, problem = strip_forms()
+    if problem:
+        return Measurement("unknown", problem, evidence)
+
+    survived = {form.label: form.token in left[form.label] for form in STRIPPER_FORMS}
+    kept_controls = [
+        form.label for form in STRIPPER_FORMS if not form.survives and survived[form.label]
+    ]
+    if kept_controls:
+        return Measurement(
+            "unknown",
+            f"{', '.join(kept_controls)} survived the strip — the controls are what make a "
+            "surviving backtick mean something, and a stripper that leaves them is not the "
+            "one the entry measured, so this no longer isolates the question",
+            evidence,
+        )
+
+    subjects = [form for form in STRIPPER_FORMS if form.survives]
+    gone = [form.label for form in subjects if not survived[form.label]]
+    kept = [form.label for form in subjects if survived[form.label]]
+    specimen = (
+        *evidence,
+        *(f"{form.label}: {form.line!r} -> {left[form.label]!r}" for form in subjects),
+    )
+    if not gone:
+        return Measurement("match", "", specimen)
+    if kept:
+        return Measurement(
+            "mismatch",
+            f"the strip no longer leaves {', '.join(gone)} and still leaves "
+            f"{', '.join(kept)} — a partial fix, and the residue has a name: stripping "
+            "the single fence and leaking the doubled one is the naive pattern "
+            "SNAG-DOCS-005 rejected in this module, so the library took the fix this "
+            "repository already refused",
+            specimen,
+        )
+    return Measurement(
+        "mismatch",
+        f"the strip no longer leaves {', '.join(gone)} — the library has landed the fix "
+        "this entry recommends and the code spans no longer reach a briefing verbatim",
+        specimen,
+    )
+
+
 # ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
@@ -1860,6 +2117,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-LOG-008",
             "a stored row's shape was fixed when it was read",
             check_unwrap_is_read_time,
+        ),
+        Check(
+            "code_spans_survive",
+            "SNAG-LOG-012",
+            "strip_markdown leaves the model's inline code spans",
+            check_code_spans_survive,
         ),
     )
 }

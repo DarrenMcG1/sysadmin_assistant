@@ -22,6 +22,7 @@ against a way it could crash:
 """
 
 import json
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -32,6 +33,7 @@ import pytest
 import sysadmin.snag_claims as snag_claims
 from sysadmin.core.config import REPO_ROOT
 from sysadmin.core.schema_guard import EXIT_STATUS
+from sysadmin.core.text import strip_markdown as real_strip_markdown
 from sysadmin.monitor.journal import unwrap_json_message
 from sysadmin.snag_claims import (
     CHECKS,
@@ -41,6 +43,10 @@ from sysadmin.snag_claims import (
     MAX_NAMED_ENTRIES,
     REVIEW_SCHEDULE_LEAVES,
     SNAG_PATH,
+    STRIP_SPECIMEN,
+    STRIPPER_FORMS,
+    STRIPPER_NAME,
+    STRIPPER_PROBE,
     UNWRAP_READER,
     Check,
     Measurement,
@@ -48,6 +54,7 @@ from sysadmin.snag_claims import (
     check_active_alerts_reads,
     check_all,
     check_capped_signature_collides,
+    check_code_spans_survive,
     check_convention,
     check_deprecated_contracts,
     check_dropin_blind_spot,
@@ -115,9 +122,18 @@ class TestReadingEntries:
         """``## Fixed Issues`` and the template section are both excluded.
 
         Two different exclusions and both are live in the real file: a
-        closed heading holds 43 of this document's 67 entries, and the
+        closed heading holds 45 of this document's 69 entries, and the
         template section holds a worked example whose id would otherwise
         be swept as a real open entry.
+
+        *Re-measured 2026-08-26 by Session 91: 43 of 67 was stale by two
+        for at least four sittings, and the instrument moved rather than
+        the document — the reader became ``estate.snags`` in estate-lib
+        and now reads the two ``### Session NN write-up`` headings under
+        ``## Fixed Issues`` as entries.  Both come back ``is_open``
+        ``False``, which is why the open count never moved and why this
+        drift stayed invisible: the figure the board publishes was right
+        throughout.*
         """
         ids = {entry.snag_id for entry in _entries()}
         assert ids == {"SNAG-FAKE-001", "SNAG-FAKE-002", "SNAG-FAKE-003"}
@@ -325,9 +341,7 @@ class TestInstruments:
         assert snag_claims.attribute_reads(
             frozenset({"log_review_hour"}), (REPO_ROOT / "sysadmin",)
         )
-        assert not snag_claims.attribute_reads(
-            REVIEW_SCHEDULE_LEAVES, (REPO_ROOT / "sysadmin",)
-        )
+        assert not snag_claims.attribute_reads(REVIEW_SCHEDULE_LEAVES, (REPO_ROOT / "sysadmin",))
 
     def test_method_calls_ignore_the_definition_and_the_docstring(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -481,8 +495,10 @@ class TestChecksAgainstTheLiveBox:
 
     def test_active_alerts_holds_and_is_refuted_in_either_direction(self):
         assert check_active_alerts_reads().verdict == "match"
-        for expected, word in ((EXPECTED_ACTIVE_ALERTS_CALLS - 1, "more"),
-                               (EXPECTED_ACTIVE_ALERTS_CALLS + 1, "fewer")):
+        for expected, word in (
+            (EXPECTED_ACTIVE_ALERTS_CALLS - 1, "more"),
+            (EXPECTED_ACTIVE_ALERTS_CALLS + 1, "fewer"),
+        ):
             with patch.object(snag_claims, "EXPECTED_ACTIVE_ALERTS_CALLS", expected):
                 measurement = check_active_alerts_reads()
             assert measurement.verdict == "mismatch"
@@ -635,9 +651,7 @@ class TestChecksAgainstTheLiveBox:
 
         real = log_actions.capped_signature
         with (
-            patch.object(
-                log_actions, "capped_signature", lambda s: f"{real(s)} [{hash(s) % 997}]"
-            ),
+            patch.object(log_actions, "capped_signature", lambda s: f"{real(s)} [{hash(s) % 997}]"),
             patch.object(log_actions, "quoted_signature", lambda s: f' — "{real(s)}"'),
         ):
             measurement = check_capped_signature_collides()
@@ -768,9 +782,7 @@ class TestTheRealDocument:
         were added, this reported all eight checks orphaned.
         """
         entries, _ = load_entries()
-        marked = {
-            (entry.snag_id, key) for entry in entries for key in entry.markers
-        }
+        marked = {(entry.snag_id, key) for entry in entries for key in entry.markers}
         missing = [
             f"{check.snag} does not carry <!--check:{key}-->"
             for key, check in CHECKS.items()
@@ -790,7 +802,7 @@ class TestTheRealDocument:
         ``_trailing_parenthetical`` requires it to end in ``)`` before it
         will look for a closure clause, so a marker appended to a title
         changes what the board publishes about this repository.  Verified
-        live as well: the board reads 67 entries and 24 open either side
+        live as well: the board reads 69 entries and 24 open either side
         of this sitting's edit.
         """
         entries, _ = load_entries()
@@ -925,16 +937,16 @@ class TestTheNudgeWordingCheck:
     """
 
     WORDING = (
-        '    @property\n'
-        '    def title(self):\n'
+        "    @property\n"
+        "    def title(self):\n"
         '        return "Project " + str(self.project_name) + " next action idle"\n'
-        '\n'
-        '    @property\n'
-        '    def message(self):\n'
+        "\n"
+        "    @property\n"
+        "    def message(self):\n"
         '        return "Unchanged for " + str(self.days) + " days"\n'
-        '\n'
-        '    @property\n'
-        '    def details(self):\n'
+        "\n"
+        "    @property\n"
+        "    def details(self):\n"
         '        return {"project": self.project_name}\n'
     )
 
@@ -1000,9 +1012,7 @@ class TestTheNudgeWordingCheck:
 
     # ── the three remedies the entry offers ──────────────────────────
 
-    def test_wording_published_as_fields_is_a_candidate_for_closure(
-        self, tmp_path, monkeypatch
-    ):
+    def test_wording_published_as_fields_is_a_candidate_for_closure(self, tmp_path, monkeypatch):
         """Remedy one: convert the properties.
 
         Also the test that the specimen adapts to a changed constructor.
@@ -1020,9 +1030,7 @@ class TestTheNudgeWordingCheck:
         assert found.verdict == "mismatch"
         assert "reaches the wire" in found.note
 
-    def test_a_producer_that_stops_computing_the_wording_is_refuted(
-        self, tmp_path, monkeypatch
-    ):
+    def test_a_producer_that_stops_computing_the_wording_is_refuted(self, tmp_path, monkeypatch):
         """Remedy three: delete the properties and the "one place" comment.
 
         A refutation rather than a failure to measure.  The entry's
@@ -1088,9 +1096,7 @@ class TestTheNudgeWordingCheck:
         assert found.verdict == "unknown"
         assert "interpreter" in found.note
 
-    def test_a_producer_that_will_not_import_is_unknown_naming_why(
-        self, tmp_path, monkeypatch
-    ):
+    def test_a_producer_that_will_not_import_is_unknown_naming_why(self, tmp_path, monkeypatch):
         """The state estate-manager's tree was actually in on 2026-08-25.
 
         A half-applied rename is neither a claim holding nor a claim
@@ -1139,13 +1145,9 @@ class TestTheNudgeWordingCheck:
         """
         import ast
 
-        probe = snag_claims.NUDGE_PROBE.format(
-            service="/x", wording=snag_claims.NUDGE_WORDING
-        )
+        probe = snag_claims.NUDGE_PROBE.format(service="/x", wording=snag_claims.NUDGE_WORDING)
         tree = ast.parse(probe)
-        attributes = [
-            node for node in ast.walk(tree) if isinstance(node, ast.Attribute)
-        ]
+        attributes = [node for node in ast.walk(tree) if isinstance(node, ast.Attribute)]
         private = {
             node.attr
             for node in attributes
@@ -1172,13 +1174,10 @@ class TestTheNudgeWordingCheck:
         check reports ``unknown`` for ever instead of the closure it
         exists to notice.
         """
-        probe = snag_claims.NUDGE_PROBE.format(
-            service="/x", wording=snag_claims.NUDGE_WORDING
-        )
+        probe = snag_claims.NUDGE_PROBE.format(service="/x", wording=snag_claims.NUDGE_WORDING)
         assert "dataclasses.fields" in probe
         for field_name in ("project_name", "next_action", "at_window_edge", "threshold"):
             assert field_name not in probe, f"the probe names {field_name} itself"
-
 
 
 class TestTheUnwrapCheck:
@@ -1397,6 +1396,7 @@ class TestTheUnwrapCheck:
         assert measurement.verdict == "unknown"
         assert "reading a mixture" in measurement.note
 
+
 class TestEstateModuleState:
     """Which tree the verdict was measured against — ``ports_checked``'s rule.
 
@@ -1453,3 +1453,192 @@ class TestTheNudgeCheckAgainstTheRealProducer:
         assert any("estate-manager's" in line for line in found.detail), (
             "the verdict must carry which tree it was measured against"
         )
+
+
+class TestTheCodeSpanCheck:
+    """``SNAG-LOG-012``'s check — the first pre-staged against another repo's fix.
+
+    The tenth and eleventh checks shell into estate-manager's venv to
+    drive their code.  This one needs no cross-repo access at all:
+    ``estate-lib`` is an *editable* install, so ``strip_markdown``
+    resolves into their working tree and the check flips on the next run
+    after they commit, with nothing synced and nobody told.
+
+    The two candidate fixes are driven as **real patterns** rather than
+    as literals saying "the fix landed", because the interesting verdict
+    is the one that tells them apart: the naive ``` `[^`]+` ``` leaks a
+    doubled fence and the same-length pattern does not, which is the
+    distinction ``SNAG-DOCS-005`` closed on in this very module a day
+    before this was written.
+    """
+
+    #: Where the library lives on this box.  Held still whenever the
+    #: *behaviour* is being moved, so a test says which limb it is
+    #: simulating — patching ``strip_markdown`` alone moves the resolved
+    #: source file too, and would be simulating a local copy instead.
+    LIBRARY = "/home/gaddi/projects/estate-manager/lib/estate/text.py"
+
+    @staticmethod
+    def _fixed(pattern: str):
+        """``strip_markdown`` as it would read with a code-span pass added.
+
+        The real function is bound at definition rather than looked up
+        on the module, because the module's name is the one being
+        patched — the first draft recursed until the stack ran out.
+        """
+
+        def stripper(text: str) -> str:
+            return real_strip_markdown(re.sub(pattern, lambda m: m.group(0).strip("`"), text))
+
+        return stripper
+
+    def _with(self, stripper):
+        return (
+            patch.object(snag_claims, "strip_markdown", stripper),
+            patch.object(snag_claims, "stripper_implementation", return_value=self.LIBRARY),
+        )
+
+    # -- the specimen ----------------------------------------------------
+
+    def test_every_form_is_visible_in_its_own_specimen_line(self):
+        """A probe whose token is absent from its own line pins nothing.
+
+        Each form claims that a token makes it visible; if the token is
+        not in the line to begin with, the form reads as "stripped"
+        whatever the stripper does, and the check quietly stops
+        measuring it.
+        """
+        for form in STRIPPER_FORMS:
+            assert form.token in form.line, form.label
+
+    def test_the_specimen_is_the_forms_and_not_a_second_copy(self):
+        assert STRIP_SPECIMEN.split("\n") == [form.line for form in STRIPPER_FORMS]
+
+    def test_the_entrys_own_driven_literal_still_reads_as_the_entry_records(self):
+        """The document's recorded measurement, re-driven.
+
+        ``SNAG-LOG-012``'s symptom bullet quotes a literal and its
+        result — bold removed, backticks kept, a mid-line ``#`` kept.
+        That is a claim in the document like any other, so it is pinned
+        against the box rather than trusted.
+        """
+        assert (
+            snag_claims.strip_markdown("a `code` and **bold** and # head")
+            == "a `code` and bold and # head"
+        )
+
+    def test_the_controls_are_forms_the_library_really_strips(self):
+        """The controls carry the whole weight of the subject's verdict.
+
+        A control that the library never stripped would be a control
+        that can only fire the ``unknown`` branch, which would make the
+        check unable to reach ``match`` at all.
+        """
+        left, problem = snag_claims.strip_forms()
+        assert not problem
+        for form in STRIPPER_FORMS:
+            assert (form.token in left[form.label]) is form.survives, form.label
+
+    # -- the verdicts ----------------------------------------------------
+
+    def test_the_check_holds_on_this_box(self):
+        measurement = check_code_spans_survive()
+        assert measurement.verdict == "match"
+        assert any("estate-manager" in line for line in measurement.detail)
+        assert any("generate_review()" in line for line in measurement.detail)
+
+    def test_the_same_length_fix_is_a_clean_mismatch(self):
+        """The fix the entry recommends, driven as the pattern it would be."""
+        stripper, source = self._with(self._fixed(r"(`+)[\s\S]*?\1"))
+        with stripper, source:
+            measurement = check_code_spans_survive()
+        assert measurement.verdict == "mismatch"
+        assert "landed the fix this entry recommends" in measurement.note
+        assert "doubled code fence" in measurement.note
+
+    def test_the_naive_fix_is_a_mismatch_that_names_the_residue(self):
+        """The partial state, and the one this repository already refused.
+
+        Reported as ``mismatch`` and not as ``match``, because backticks
+        *do* still reach the briefing — the entry's headline is intact —
+        and the note has to say the library took the fix
+        ``SNAG-DOCS-005`` rejected rather than leave the judging sitting
+        to discover it.
+        """
+        stripper, source = self._with(self._fixed(r"`[^`]+`"))
+        with stripper, source:
+            measurement = check_code_spans_survive()
+        assert measurement.verdict == "mismatch"
+        assert "a partial fix" in measurement.note
+        assert "SNAG-DOCS-005" in measurement.note
+        assert "doubled code fence" in measurement.note
+
+    def test_a_stripper_that_strips_nothing_is_unknown_and_never_a_match(self):
+        """The reading the controls exist to refuse.
+
+        ``"`" in strip_markdown("a `x`")`` is ``True`` for the identity
+        function, so the obvious probe reports this entry holding
+        against a ``strip_markdown`` that has stopped working entirely —
+        a much larger fault served as evidence for a P3.
+        """
+        stripper, source = self._with(lambda text: text)
+        with stripper, source:
+            measurement = check_code_spans_survive()
+        assert measurement.verdict == "unknown"
+        assert "the controls are what make a surviving backtick mean something" in measurement.note
+
+    def test_a_reflowing_stripper_is_unknown(self):
+        """The line pairing is the instrument, so losing it is unknown."""
+        stripper, source = self._with(lambda text: text.replace("\n", " "))
+        with stripper, source:
+            measurement = check_code_spans_survive()
+        assert measurement.verdict == "unknown"
+        assert "no longer maps a line to a line" in measurement.note
+
+    def test_a_copy_landing_here_is_a_mismatch_on_the_delegation_limb(self):
+        """The entry's "not ours to fix" moving, and only that.
+
+        ``mismatch`` rather than ``unknown`` because it is a measurement
+        and not a failure to measure — but the headline claim is
+        untouched, so the note says which limb moved rather than letting
+        a judging sitting read it as the behaviour changing.
+        """
+        local = str(REPO_ROOT / "sysadmin" / "core" / "text.py")
+        with patch.object(snag_claims, "stripper_implementation", return_value=local):
+            measurement = check_code_spans_survive()
+        assert measurement.verdict == "mismatch"
+        assert "inside this repository" in measurement.note
+        assert "the delegation limb alone" in measurement.note
+
+    def test_an_unresolvable_implementation_is_unknown_and_never_a_match(self):
+        with patch.object(snag_claims, "stripper_implementation", return_value=None):
+            measurement = check_code_spans_survive()
+        assert measurement.verdict == "unknown"
+        assert "whose implementation" in measurement.note
+
+    def test_nothing_calling_it_here_is_unknown_and_never_a_match(self):
+        with patch.object(snag_claims, "call_sites", return_value=[]):
+            measurement = check_code_spans_survive()
+        assert measurement.verdict == "unknown"
+        assert "no narrative is stripped at all here" in measurement.note
+
+    # -- the probe counting itself ---------------------------------------
+
+    def test_the_probe_is_excluded_from_its_own_consumer_count(self):
+        """The defect the first live drive found, pinned from both sides.
+
+        The check calls ``strip_markdown`` itself, so an unfiltered walk
+        reported **five** callers where there are three — and made the
+        "nothing calls it" limb above unreachable, since the probe
+        guaranteed a non-zero count.  Asserting only the filtered side
+        would let the exclusion be deleted silently, so the raw walk is
+        asserted to still contain what the filter removes.
+        """
+        raw = call_sites(STRIPPER_NAME, (REPO_ROOT / "sysadmin",))
+        assert [site for site, _ in raw if site.startswith(STRIPPER_PROBE)], (
+            "the probe no longer calls strip_markdown, so the exclusion below "
+            "is no longer doing anything and this test has stopped pinning it"
+        )
+        measurement = check_code_spans_survive()
+        assert not any(STRIPPER_PROBE in line for line in measurement.detail)
+        assert any("3 caller(s)" in line for line in measurement.detail)
