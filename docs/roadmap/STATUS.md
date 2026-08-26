@@ -4,12 +4,15 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and no sub-session action is either.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-26 12:16:23**
-> <!--check:daemon_start--> — by Session 88, which edited
-> `sysadmin/snag_claims.py`, the **composition root the daemon does not
-> import**, so for the fifth sitting running nothing a caller can
-> observe moved. The restart was taken rather than argued with, for the
-> reason Sessions 81, 84, 85, 86 and 87 took theirs:
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-26 15:32:37**
+> <!--check:daemon_start--> — by Session 89, which edited
+> `sysadmin/ops_claims.py` and `sysadmin/snag_claims.py`, the **two
+> composition roots the daemon does not import** (grep says nothing under
+> `sysadmin/` imports either), so for the sixth sitting running nothing a
+> caller can observe moved. A party outside that sitting had already
+> restarted it cleanly at **14:48:31**, which is why the block was stale
+> before the first edit. The restart was taken rather than argued with,
+> for the reason Sessions 81, 84, 85, 86, 87 and 88 took theirs:
 > `check-ops-claims.sh` compares the daemon's start against the newest
 > source mtime and cannot know that the edited file is one nothing loads —
 > which its rule 4 states as the cost in advance — and correcting the
@@ -31,35 +34,37 @@
 >
 > **`snag_list.md` has the same reader since 2026-08-25**, and the banner
 > now prints two families. `./scripts/check-snag-claims.sh` re-measures
-> the claim of **11** open snag entries — all eleven still hold — and names
+> the claim of **10** open snag entries — all ten still hold — and names
 > the **14** that carry no check. A red line there is *news* rather than a
 > fault: the entry may be closeable, which is a judgement, so nothing in
 > that family edits a document and neither script blocks on it. Session 82
 > did that sweep by hand and found five entries dead on the box, three of
 > them `P1` and three fixed for between nine and thirteen days.
 >
-> **That family closed its first entry on 2026-08-26, which is the whole
-> point of it.** `SNAG-ROADMAP-001` had been open since 2026-08-07 and
-> delegated since 2026-08-25; the tenth check reported it **refuted** on
-> the day it was written, against an edit estate-manager had in flight,
+> **That family has closed two entries, both on 2026-08-26, which is the
+> whole point of it.** `SNAG-ROADMAP-001` had been open since 2026-08-07
+> and delegated since 2026-08-25; the tenth check reported it **refuted**
+> on the day it was written, against an edit estate-manager had in flight,
 > and the trigger the sitting left was mechanical — close it when
 > `estate_module_state()` stops saying uncommitted. It stopped at
-> **22:42:29** that evening. **The check left the registry with the
-> entry**, which a test makes a rule rather than a choice, so the checked
-> count held at ten that sitting rather than rising to eleven; the
-> twelfth check written took it to eleven on 2026-08-26.
+> **22:42:29** that evening. `SNAG-DOCS-005` closed the same way that
+> afternoon, and it is the first closed on a check measuring **this
+> repository's own code**: the check had been written to tell the entry's
+> two candidate fixes apart, and it did — the naive pattern came back
+> *narrowed*, the same-length one *refuted*. **A check leaves the registry
+> with its entry**, which a test makes a rule rather than a choice, so the
+> checked count reads ten here and has done since two of the eleven
+> written did their job.
 >
-> *One thing this block deliberately does not do: quote a marker.* The
-> checker reads its own syntax out of the flattened region with no regard
-> for backticks, so a sentence here that showed one would register as a
-> claim — `SNAG-DOCS-005`, found by the sibling hitting the same hazard
-> with a full population and fixed only on that side. The convention is
-> explained in `sysadmin/ops_claims.py`, where quoting it is safe.
-> **That avoidance is the entry's cost, and it is being paid here rather
-> than by a future reader** — measured 2026-08-26, which also corrected
-> the entry's own account of why its population is empty. The section
-> below this region quotes markers freely, and the nearest one sat nine
-> lines past the region's last line.
+> *This block used to avoid quoting a marker, and no longer has to.* The
+> `<!--check:deploy-->` in the first line is a claim; the one in this
+> sentence is a quotation, and `read_markers` strips code spans before
+> matching so the two cannot be confused — `SNAG-DOCS-005`, fixed
+> 2026-08-26 after being carried on one side only since 2026-08-25. The
+> sentence is left here as the live demonstration: a regression in that
+> reader turns it into a spurious finding at the top of the next sitting,
+> which is the loud direction. The convention itself is explained in
+> `sysadmin/ops_claims.py`.
 >
 > **Nothing is owed, and the last thing that was is asked.** **The
 > Session 33 question** — seam drift detection cannot start here because
@@ -267,7 +272,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2465 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (58 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, **snag-claim guard (67 tests: **ten** open-entry claims each driven at the live box *and* at a box that moved, plus the closure rule pinned against estate-manager's own `read_snags` by shelling out to their venv — **the tenth is the first whose instrument is another repository's *code path*, driven at three real states of their tree: their committed `roadmap.py` (`match`), their uncommitted in-flight fix (`mismatch`) and a box with no venv (`unknown`)** — thirteen of the guards falsified by breaking the code they guard, the newest seven by restoring the private-symbol coupling, removing the isolation guard, swallowing an absent interpreter and an import failure into a `match`, typing the probe as a literal, dropping the `None` branch, and narrowing the comparison to the marked form)**, **shared figure-free guard (9 tests over the one statement of rule 2 the three Tier 3 reviews share, each driven at something that must break it — a shared assertion that never refuses anything is worth less than the three copies it replaced)**, smoke script |
+| Testing | 🟢 Complete | **2476 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (64 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, **snag-claim guard (72 tests: **ten** open-entry claims each driven at the live box *and* at a box that moved, plus the closure rule pinned against estate-manager's own `read_snags` by shelling out to their venv — **the tenth is the first whose instrument is another repository's *code path*, driven at three real states of their tree: their committed `roadmap.py` (`match`), their uncommitted in-flight fix (`mismatch`) and a box with no venv (`unknown`)** — thirteen of the guards falsified by breaking the code they guard, the newest seven by restoring the private-symbol coupling, removing the isolation guard, swallowing an absent interpreter and an import failure into a `match`, typing the probe as a literal, dropping the `None` branch, and narrowing the comparison to the marked form)**, **shared figure-free guard (9 tests over the one statement of rule 2 the three Tier 3 reviews share, each driven at something that must break it — a shared assertion that never refuses anything is worth less than the three copies it replaced)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -275,6 +280,78 @@
 ---
 
 ## Recently Completed
+
+### Session 89 — the entry closed on a run, not on the argument for it (2026-08-26)
+
+**`SNAG-DOCS-005` is fixed and closed**, and it is the first entry this
+registry has closed on a check measuring **this repository's own code** —
+the two before it were delegated, and their closing move happened in a
+tree nothing here watches. `sysadmin/ops_claims.py` gains
+`CODE_SPAN_RE` and `read_markers` strips code spans before matching:
+three lines, which is exactly what the entry's "shape of a fix" bullet
+asked for. Open entries **25 → 24**, checked **11 → 10**, unchecked
+unmoved at **14**. **2476 tests pass** (2484 − 14 + 6). Ruff clean, mypy
+clean. estate-manager's `read_snags` reads **69 entries** either side.
+
+**The pattern closes on a backtick run of its own length**, which is
+markdown's own rule and the whole of why this closed rather than
+narrowed. A span quoting a marker that itself contains backticks is
+written with a doubled fence, and the naive `` `[^`]+` `` closes at the
+*inner* backtick and leaves the marker bare. Both candidates were driven
+through the twelfth check **before the entry was touched**: the naive one
+came back `match` — *"the single fence is handled and the doubled fence
+still leaks … a narrowing rather than a closure"* — and the same-length
+one `mismatch`, *"candidate for closure"*. A check written the previous
+sitting to tell two fixes apart did exactly that, one day later, which is
+the difference between an entry closed on a measurement and one closed on
+a plausible-looking diff.
+
+**The check left the registry with its entry**, which
+`test_every_checked_entry_is_open` makes a rule rather than a choice — a
+refuted check on a closed entry says "go and judge this" for ever.
+`check_quoted_marker_reads_as_real`, `ops_probe`,
+`survey_quoted_markers`, `MarkerSurvey`, `QuotedMarker`, `_quoted_only`
+and the six `OPS_PROBE_*` constants went with it, as
+`handoff_apology_published`'s helpers did the sitting before. The last
+measurement the survey ever took is recorded on the entry rather than
+lost: **9** markers in the printed region with **0** quoted, **4** quoted
+outside it, the nearest **76** lines past the region's end and naming the
+retired `handoff_apology_published`. Session 88 measured that margin at
+**9** lines; it was 76 the next afternoon. A number that never stops
+moving was never a property of the document, which is what that entry's
+correction was about.
+
+**What replaced the check is a pin, not a gap.**
+`snag_claims.strip_code_spans` is still a copy rather than an import —
+two composition roots must not couple to share a regex, and a snag-list
+parse must not move because the dashboard's reader was edited — so
+`TestAQuotedMarkerIsAQuotation::test_the_sibling_s_copy_and_this_one_agree_shape_for_shape`
+drives both over seven shapes and asserts they agree character for
+character. Import where you can, pin where you cannot.
+
+**The reason for keeping the copy was corrected mid-sitting, which is
+worth recording because the first version was better and wrong.** The
+draft argued that `survey_quoted_markers` measures this module *with its
+own copy*, so sharing would make the survey read the fix by definition —
+a check agreeing with itself. True when written, and the same sitting
+deleted that survey forty minutes later as part of the closure. An
+argument resting on machinery the same change removes is not an argument;
+what survives is the coupling one the entry filed on 2026-08-25.
+
+**The block now writes the sentence it could not write.** *"One thing
+this block deliberately does not do: quote a marker"* is gone, replaced
+by a paragraph that quotes one inside a code span beside a real marker.
+`check-ops-claims.sh` reports **no** `marker:` finding for it and **no**
+unclaimed figure, so the fix is asserted by the artefact the entry was
+about and not only by tests. A regression in `read_markers` turns that
+sentence into a spurious finding at the top of the next sitting, which is
+the loud direction.
+
+**One thing found rather than fixed**: the daemon had already been
+restarted at **14:48:31** by a party outside this sitting — a clean
+`Stopping` → `Deactivated successfully` → `Started`, not a crash — so the
+block's start time was stale before the first edit was made.
+`check_daemon_start`'s note says *"nothing recorded why"*; this does.
 
 ### Session 88 — the twelfth check, and the entry that was paying its own cost (2026-08-26)
 

@@ -200,6 +200,33 @@ CHECK_KEYS: frozenset[str] = frozenset(CLAIM_PATTERNS) | KEYLESS_CHECKS
 #: after :func:`flatten`, so a marker may wrap onto its own line.
 MARKER_RE = re.compile(r"<!--\s*check:\s*([a-z_]+)\s*([^>]*?)\s*-->")
 
+#: A markdown code span, closing on a backtick run of its **own length**.
+#: ``SNAG-DOCS-005``: a marker inside one is a *quotation*, and reading it
+#: as a claim fails quietly in both directions — a quoted key nothing
+#: implements is reported as a broken marker, and a quoted key that *is*
+#: implemented silences the ``unclaimed`` finding beside a sentence that
+#: claims nothing.
+#:
+#: The same-length run is what separates this fix from the naive
+#: ``` `[^`]+` ``` and it was settled by running it rather than by
+#: argument.  Markdown writes a span that itself contains one with a
+#: doubled fence — ``the `<!--check:routes-->` marker`` — which is a live
+#: shape in ``snag_list.md``; the naive pattern closes at the *inner*
+#: backtick and leaves the marker bare.  ``SNAG-DOCS-005``'s check was
+#: built to tell the two apart before either was written, and it did:
+#: driven against the naive pattern it reported the entry *narrowed*, and
+#: against this one *refuted*.  So the entry closed on a run rather than
+#: on the argument this comment is making, and the check left the
+#: registry with it.
+#:
+#: Copied in shape from :func:`sysadmin.snag_claims.strip_code_spans`
+#: rather than imported.  That module is the other composition root, so
+#: an import would couple two of them to share a regex, and it would put
+#: a snag-list parse at the mercy of an edit made for this dashboard.
+#: Behaviour is pinned across the two by ``tests/test_ops_claims.py``
+#: instead: import where you can, pin where you cannot.
+CODE_SPAN_RE = re.compile(r"(`+)[\s\S]*?\1")
+
 #: The instant an ``expires`` marker carries.  Local, minute resolution,
 #: and unambiguous about the *date* — which is the whole reason the marker
 #: carries an instant the prose does not: "clears at 03:32" names a wall
@@ -332,10 +359,20 @@ def read_markers(region: str) -> list[Marker]:
     that wrapped onto its own line behind a ``>`` would otherwise stop
     being a marker, which is the silent retirement rule 2 exists to
     prevent, arriving through the mechanism meant to prevent it.
+
+    **Code spans are removed before the read** — ``SNAG-DOCS-005``.  A
+    marker between backticks is a sentence *about* the convention rather
+    than a line using it, and this block is the likeliest place on the box
+    for such a sentence: it carried *"One thing this block deliberately
+    does not do: quote a marker"* for as long as this function could not
+    tell the two apart, which made the emptiness of the entry's population
+    an avoidance rather than a measurement.  See :data:`CODE_SPAN_RE` for
+    why the pattern closes on a run of its own length, and why it is a
+    copy rather than an import.
     """
     return [
         Marker(match.group(1), match.group(2).strip())
-        for match in MARKER_RE.finditer(flatten(region))
+        for match in MARKER_RE.finditer(CODE_SPAN_RE.sub(" ", flatten(region)))
     ]
 
 

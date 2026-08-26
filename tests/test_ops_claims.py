@@ -14,6 +14,7 @@ file — which is the failure mode of the whole mechanism, since a reworded
 sentence would otherwise retire the check in silence.
 """
 
+import re
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -26,7 +27,9 @@ from sysadmin.core.schema_guard import EXIT_STATUS
 from sysadmin.ops_claims import (
     CHECK_KEYS,
     CLAIM_PATTERNS,
+    CODE_SPAN_RE,
     KEYLESS_CHECKS,
+    MARKER_RE,
     MAX_NAMED_ALERTS,
     STATUS_PATH,
     Claim,
@@ -49,6 +52,7 @@ from sysadmin.ops_claims import (
     read_claim,
     read_markers,
 )
+from sysadmin.snag_claims import strip_code_spans
 
 DOCUMENT = """# Project Status Dashboard
 
@@ -443,6 +447,109 @@ class TestMarkers:
         """
         assert CHECK_KEYS == frozenset(CLAIM_PATTERNS) | KEYLESS_CHECKS
         assert "routes" in CHECK_KEYS and "expires" in CHECK_KEYS
+
+
+class TestAQuotedMarkerIsAQuotation:
+    """``SNAG-DOCS-005`` — a marker between backticks states nothing.
+
+    The convention's syntax is also something a document has to be able to
+    *write about*, and the block that explains it is the block this module
+    reads.  Before the fix the two were indistinguishable, and the failure
+    was quiet in both directions: a quoted key nothing implements was
+    reported as a broken marker, and a quoted key that *is* implemented
+    silenced the ``unclaimed`` finding beside a sentence claiming nothing.
+    The block paid for it in prose — *"One thing this block deliberately
+    does not do: quote a marker"* — so the entry's empty population was an
+    avoidance rather than a measurement.
+
+    The founding case is the sibling's, not a hypothesis:
+    :mod:`sysadmin.snag_claims` shipped the same shape without the guard
+    and its first live run reported two checks nobody implements,
+    ``helth`` and ``routes``, both "named by" an entry that only quotes
+    them.
+    """
+
+    QUOTED = "> The `<!--check:helth-->` marker names a check and states no value."
+    DOUBLED = "> Session 76 wrote that ``the `<!--check:helth-->` marker`` names a check."
+
+    def test_a_quoted_marker_is_not_read_as_one(self):
+        assert read_markers(self.QUOTED) == []
+
+    def test_the_doubled_fence_is_where_the_naive_pattern_leaks(self):
+        """The reason :data:`CODE_SPAN_RE` closes on a run of its own length.
+
+        Markdown writes a span containing a span with a doubled fence, and
+        ``snag_list.md`` carries exactly this sentence.  Falsified against
+        ``` `[^`]+` ``` — which passes the test above and fails this one,
+        closing at the *inner* backtick and leaving the marker bare.  Driven
+        the same way one function over, where
+        ``sysadmin-check-snags`` reports the naive pattern a narrowing of
+        ``SNAG-DOCS-005`` rather than a closure.
+        """
+        assert read_markers(self.DOUBLED) == []
+        naive = re.compile(r"`[^`]+`")
+        assert MARKER_RE.search(naive.sub(" ", self.DOUBLED)) is not None
+
+    def test_a_real_marker_beside_a_quoted_one_is_still_read(self):
+        """The fix must remove the quotation and nothing else.
+
+        A code span the marker does not sit inside is ordinary prose
+        furniture — every claim in the real block wears one — so a pattern
+        that ate to the next backtick would retire the live markers while
+        closing the entry.
+        """
+        region = "> `alerts` holds **2** rows <!--check:alerts-->\n> unlike `<!--check:helth-->`"
+        assert [marker.key for marker in read_markers(region)] == ["alerts"]
+
+    def test_quoting_an_implemented_key_no_longer_silences_its_finding(self):
+        """The second direction, and the control is what makes it evidence.
+
+        A finding's absence says nothing until its presence has been
+        observed, so the same region is read twice — once stating the
+        figure with nothing quoted, once with the marker quoted beside it.
+        """
+        stated = "> The application serves **7 routes**."
+        control = check_markers(stated, read_markers(stated))
+        assert "unclaimed:routes" in {finding.key for finding in control}
+
+        quoted = stated + " The `<!--check:routes-->` marker names a check."
+        findings = {finding.key for finding in check_markers(quoted, read_markers(quoted))}
+        assert "unclaimed:routes" in findings
+        assert "marker:routes" not in findings
+
+    def test_quoting_a_key_nobody_implements_invents_no_finding(self):
+        region = "> Session 76's `<!--check:helth-->` fired from both sides."
+        assert [finding.key for finding in check_markers(region, read_markers(region))] == []
+
+    def test_the_sibling_s_copy_and_this_one_agree_shape_for_shape(self):
+        """Import where you can, pin where you cannot.
+
+        :func:`sysadmin.snag_claims.strip_code_spans` is a copy rather than
+        an import — two composition roots must not couple to share a
+        regex, and a snag-list parse must not move because the dashboard's
+        reader was edited.  What replaces the import is this: the two are
+        pinned on *behaviour*, over every shape this box's documents
+        actually write, rather than on a pattern string.  It is the pin
+        that outlives ``SNAG-DOCS-005``'s check, which was retired with
+        the entry the day both sides were fixed.
+
+        Falsified by pointing :data:`CODE_SPAN_RE` at ``` `[^`]+` ```,
+        which parts company from the sibling on the doubled fence — the
+        divergence that would otherwise let one module close the entry
+        while the other still leaks.
+        """
+        shapes = (
+            self.QUOTED,
+            self.DOUBLED,
+            "``a fence holding a `span` inside it``",
+            "a `span`, a `second span` and prose between them",
+            "an unpaired ` backtick and a <!--check:alerts--> after it",
+            "a span across\na line break: `one\ntwo`",
+            "no span at all",
+        )
+        for shape in shapes:
+            assert CODE_SPAN_RE.sub(" ", shape) == strip_code_spans(shape), shape
+        assert any(CODE_SPAN_RE.sub(" ", shape) != shape for shape in shapes)
 
 
 class TestTheConventionsTwoFailures:
