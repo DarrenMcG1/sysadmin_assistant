@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-25
+> **Last Updated**: 2026-08-26
 
 ---
 
@@ -393,6 +393,19 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+## Session 88 — the twelfth check, and the entry that was paying its own cost (2026-08-26) ✅
+
+- [x] `check_quoted_marker_reads_as_real` in `sysadmin/snag_claims.py` — the twelfth check written and the eleventh live, for `SNAG-DOCS-005`, and the first whose subject is this repository's *other* claims-checker. Checked entries **10 → 11**, unchecked **15 → 14**, all eleven still hold
+- [x] The mechanism is **reproduced, never counted** — `ops_probe()` builds a `STATUS.md` in miniature and drives the real `printed_region` → `read_markers` → `check_markers`, because the entry's population is empty and rule 1 is about the mechanism. The heading and the terminating `## ` are load-bearing: without the first `printed_region` returns `None`, without the second it runs to the end of the file
+- [x] **Three shapes, because the defect is quiet in three ways** — a quoted key nothing implements *invents* a broken-marker finding; a quoted key that is implemented *silences* the unclaimed-figure finding beside it; and the same quotation inside a **doubled fence**. The first two are opposite in sign, which is what the entry means by quiet in both directions
+- [x] A **control region** runs first, since direction two is read off a *missing* finding and an absence is only evidence once its presence has been observed — the same absence would follow from the pattern moving, the region not parsing, or the convention being retired
+- [x] The doubled fence earned its place by **measurement**: both obvious three-line fixes pass the single fence, and only a code-span pattern closing on a same-length backtick run survives the doubled one — the shape `SNAG-DOCS-005`'s own body carries. Driven, the naive alternative closes at the inner backtick and would be reported a **clean closure**. `check_nudge_wording_unpublished`'s third field, for its reason
+- [x] **Verdict asymmetry, stated rather than inherited**: any shape still leaking is `match` with a narrowing note, never `mismatch`. An entry is refuted when the defect is gone, not when some of it is — a half-fix reported as "candidate for closure" hands the next sitting a closure it has not earned
+- [x] **The entry's account of its own empty population was corrected, and the first correction drafted was itself wrong.** The draft said the entry's stated reason was not the reason; the block's own prose — *"One thing this block deliberately does not do: quote a marker"*, naming this entry — refuted that before it shipped. The emptiness is an **avoidance**, so the cost the entry files as a future reader's confusion is already being paid as a sentence the dashboard cannot write
+- [x] **The margin is nine lines and it named a retired check** — beyond the block the region runs to 270 lines and its far end is empty only by placement. The nearest quoted marker sat 9 lines past the last line, naming `handoff_apology_published`, which Session 87 correctly removed that morning: the *inventing* direction with a live member. Recorded as history rather than as a claim, since this sitting's own STATUS.md section pushed it to 76 within the hour
+- [x] Four falsifications driven and every one fired — a set-difference `_quoted_only`, the doubled-fence probe removed, and the survey's stripper disabled on each of its two halves. `test_the_live_region_carries_no_quoted_marker` is stated as a **blind spot** instead: a broken stripper produces its zero too, so the falsifiable half is built rather than live
+- [x] Noted, not authored: **Session 87 wrote no `### Session 87` section in STATUS.md.** Its record is `b454a50`, `HANDOFF.md` and the block; writing another sitting's entry retrospectively is not this one's to do
 
 ## Session 87 — the first entry this registry ever closed, and the eleventh check (2026-08-26) ✅
 

@@ -4,12 +4,12 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and no sub-session action is either.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-26 09:51:59**
-> <!--check:daemon_start--> — by Session 87, which edited
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-26 12:16:23**
+> <!--check:daemon_start--> — by Session 88, which edited
 > `sysadmin/snag_claims.py`, the **composition root the daemon does not
-> import**, so for the fourth sitting running nothing a caller can
+> import**, so for the fifth sitting running nothing a caller can
 > observe moved. The restart was taken rather than argued with, for the
-> reason Sessions 81, 84, 85 and 86 took theirs:
+> reason Sessions 81, 84, 85, 86 and 87 took theirs:
 > `check-ops-claims.sh` compares the daemon's start against the newest
 > source mtime and cannot know that the edited file is one nothing loads —
 > which its rule 4 states as the cost in advance — and correcting the
@@ -31,8 +31,8 @@
 >
 > **`snag_list.md` has the same reader since 2026-08-25**, and the banner
 > now prints two families. `./scripts/check-snag-claims.sh` re-measures
-> the claim of **10** open snag entries — all ten still hold — and names
-> the **15** that carry no check. A red line there is *news* rather than a
+> the claim of **11** open snag entries — all eleven still hold — and names
+> the **14** that carry no check. A red line there is *news* rather than a
 > fault: the entry may be closeable, which is a judgement, so nothing in
 > that family edits a document and neither script blocks on it. Session 82
 > did that sweep by hand and found five entries dead on the box, three of
@@ -46,7 +46,8 @@
 > `estate_module_state()` stops saying uncommitted. It stopped at
 > **22:42:29** that evening. **The check left the registry with the
 > entry**, which a test makes a rule rather than a choice, so the checked
-> count holds at ten rather than rising to eleven.
+> count held at ten that sitting rather than rising to eleven; the
+> twelfth check written took it to eleven on 2026-08-26.
 >
 > *One thing this block deliberately does not do: quote a marker.* The
 > checker reads its own syntax out of the flattened region with no regard
@@ -54,6 +55,11 @@
 > claim — `SNAG-DOCS-005`, found by the sibling hitting the same hazard
 > with a full population and fixed only on that side. The convention is
 > explained in `sysadmin/ops_claims.py`, where quoting it is safe.
+> **That avoidance is the entry's cost, and it is being paid here rather
+> than by a future reader** — measured 2026-08-26, which also corrected
+> the entry's own account of why its population is empty. The section
+> below this region quotes markers freely, and the nearest one sat nine
+> lines past the region's last line.
 >
 > **Nothing is owed, and the last thing that was is asked.** **The
 > Session 33 question** — seam drift detection cannot start here because
@@ -269,6 +275,73 @@
 ---
 
 ## Recently Completed
+
+### Session 88 — the twelfth check, and the entry that was paying its own cost (2026-08-26)
+
+**`SNAG-DOCS-005` names a check now**, and it is the first in the
+registry whose subject is this repository's *other* claims-checker.
+`sysadmin/snag_claims.py` gains `check_quoted_marker_reads_as_real`,
+`ops_probe`, `survey_quoted_markers` and `MarkerSurvey`. Checked entries
+go **10 → 11** and unchecked **15 → 14**; all eleven still hold.
+**2484 tests pass** (2470 + 14). Ruff clean, mypy clean.
+estate-manager's `read_snags` reads **69 entries and 25 open** either
+side of the edit.
+
+**The mechanism is local and was reproduced rather than reasoned about.**
+`ops_claims.read_markers` matches its own syntax over the flattened
+region with no regard for code spans, so the check builds a `STATUS.md`
+in miniature and drives the real `printed_region` → `read_markers` →
+`check_markers` over it. Three shapes, because the defect is quiet in
+three ways: a quoted key nothing implements **invents** a broken-marker
+finding, a quoted key that *is* implemented **silences** the
+unclaimed-figure finding beside it — opposite in sign, which is what the
+entry means by quiet in both directions — and the same quotation inside
+a **doubled fence**. A control region runs first, since a finding's
+absence is only evidence once its presence has been observed.
+
+**The third shape earned its place by measurement, not by argument.**
+Both obvious three-line fixes pass the single fence; only a code-span
+pattern closing on a backtick run of the *same length* survives the
+doubled one, which is the shape `SNAG-DOCS-005`'s own body carries.
+Driven: the naive alternative closes at the inner backtick and leaves the
+marker bare, so a probe testing one fence would report that fix a **clean
+closure**. Hence the verdict asymmetry — a partial fix is `match` with a
+narrowing note, never `mismatch`, because an entry is refuted when the
+defect is gone rather than when some of it is.
+
+**The entry's account of its own empty population was wrong in the
+interesting direction, and the block said so all along.** The entry reads
+the emptiness as a property of how the block is written. The block reads
+*"One thing this block deliberately does not do: quote a marker"*, names
+this entry, and sends the reader to `sysadmin/ops_claims.py` — so the
+cost the entry files as a future sitting's confusion is **already being
+paid**, as a sentence the dashboard cannot write. The first correction
+drafted here said the entry's reason was simply not the reason; reading
+the block refuted that before it shipped, which is
+`verify-ops-claims-live` applied to a document rather than to the box.
+
+**Nine lines is the margin, and it names a retired check.** Beyond the
+block the printed region runs to 270 lines and its far end is empty only
+by placement: the nearest quoted marker sat **9 lines** past the last
+line, naming the check Session 87 correctly removed with
+`SNAG-ROADMAP-001` that morning. So the *inventing* direction has a live
+member nine lines outside the region, and a `## ` heading added above it
+would close that margin with nobody intending to. The figure is recorded
+as history, not restated as a claim: this very section pushed it further
+out within the hour, and the check prints the live distance on every run.
+
+**Four falsifications were driven and every one fired**: a set-difference
+`_quoted_only`, the doubled-fence probe removed, and the survey's
+stripper disabled on each of its two halves. One guard is stated as a
+blind spot instead — `test_the_live_region_carries_no_quoted_marker`
+asserts nothing is quoted in the region, which a broken stripper also
+produces, so the falsifiable half is built rather than live and its
+docstring says which.
+
+**Session 87 wrote no section here**, which is why this one sits directly
+above Session 86's. Its record is `b454a50`, `HANDOFF.md` and the block
+above; nothing is missing but the heading, and authoring another
+sitting's entry retrospectively is not this one's to do.
 
 ### Session 86 — the tenth check, and the first that had to run another repository's code (2026-08-25)
 

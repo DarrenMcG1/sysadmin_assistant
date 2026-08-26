@@ -603,6 +603,55 @@ ESTATE_NUDGE_MODULES = (
 #: a clean closure.
 NUDGE_WORDING = ("title", "message", "details")
 
+#: ``SNAG-DOCS-005``'s probe — a ``STATUS.md`` in miniature.  The heading
+#: and the terminator are load-bearing rather than decorative:
+#: :func:`sysadmin.ops_claims.printed_region` returns ``None`` without the
+#: first and runs to the end of the file without the second, and it is the
+#: printed region the entry is about rather than the file.
+OPS_PROBE_TEMPLATE = """# Probe
+
+## Quick Status
+
+> The application serves **{routes} routes**.
+{quotation}
+
+## Not printed
+"""
+
+#: The probe's own figure.  Arbitrary, and deliberately not this box's
+#: route count: it exists only to give ``CLAIM_PATTERNS['routes']``
+#: something to match, and a number that looked measured would read as a
+#: claim about the box the first time somebody skim-read the fixture.
+OPS_PROBE_ROUTES = "7"
+
+#: The key the probe quotes in each direction.  ``routes`` is implemented
+#: **and** carries a pattern, so quoting it silences an ``unclaimed``
+#: finding; ``helth`` is implemented nowhere, so quoting it invents a
+#: ``marker`` one.  Both are the entry's own examples — ``SNAG-ESTATE-011``
+#: quotes them in its body, which is what produced the sibling's first
+#: false report and is how this hazard was found at all.  Checked against
+#: the live registry before either half is read, because a probe key that
+#: changed status would answer the wrong question quietly.
+OPS_PROBE_CLAIMED = "routes"
+OPS_PROBE_UNKNOWN = "helth"
+
+#: The two ways this box's documents quote a marker, and they are not one
+#: shape.  The doubled fence is markdown's way of writing a span that
+#: itself contains one, and ``SNAG-DOCS-005``'s own body carries it —
+#: ``the `<!--check:routes-->` marker`` — so it is a live shape rather
+#: than a hypothesis.  It is here because the two obvious three-line fixes
+#: part company on it, measured: a code-span pattern closing on the
+#: **same-length** backtick run removes the marker, and ``` `[^`]+` ```
+#: closes at the inner backtick and leaves it bare.  A probe that tested
+#: only the single fence would report the second of those a clean closure.
+OPS_PROBE_SINGLE_FENCE = (
+    "> The `<!--check:{claimed}-->` marker names a check and states no value; "
+    "a typo such as `<!--check:{unknown}-->` fires from both sides."
+)
+OPS_PROBE_DOUBLED_FENCE = (
+    "> Session 76 wrote that ``the `<!--check:{unknown}-->` marker`` names a check."
+)
+
 
 def check_sysd_ollama_ordering() -> Measurement:
     """``SNAG-SYSD-003`` — a retired unit still named in ``After=``.
@@ -1429,6 +1478,260 @@ def check_nudge_wording_unpublished() -> Measurement:
         )
     return Measurement("match", "", detail)
 
+
+@dataclass(frozen=True)
+class QuotedMarker:
+    """One marker ``STATUS.md`` quotes outside the region preflight prints.
+
+    Attributes:
+        distance: how many lines past the printed region's last line it
+            sits.  The number is the point: it is the margin by which the
+            entry's population is empty, and a ``## `` heading added above
+            it closes that margin without anybody intending to.
+        key: the check the quotation names.
+        implemented: whether anything implements it.  ``False`` is the
+            sharper case — a quotation about a *retired* check is the
+            shape that produces the invented finding.
+    """
+
+    distance: int
+    key: str
+    implemented: bool
+
+
+@dataclass(frozen=True)
+class MarkerSurvey:
+    """How ``STATUS.md`` quotes markers, inside the printed region and out.
+
+    Evidence, never a verdict — rule 1.  ``SNAG-DOCS-005``'s population is
+    measured empty *inside* the region and this is what that emptiness
+    rests on, which the entry states as a property of how the block is
+    written and which is not one.
+
+    One limit, stated rather than left to be discovered: ``outside`` is
+    read line by line, so a quotation broken across a line break is
+    counted in neither half.  Every live member is on one line, and the
+    in-region count — the half the entry actually claims — is read off
+    :func:`sysadmin.ops_claims.flatten`\'s output and so has no such gap.
+    """
+
+    in_region: int
+    quoted_in_region: int
+    outside: tuple[QuotedMarker, ...]
+
+
+def survey_quoted_markers(path: Path | None = None) -> tuple[MarkerSurvey | None, str]:
+    """:class:`MarkerSurvey` of STATUS.md on disk, or ``None`` and why not."""
+    from sysadmin.ops_claims import CHECK_KEYS, MARKER_RE, STATUS_PATH, flatten, printed_region
+
+    target = path or STATUS_PATH
+    try:
+        document = target.read_text(encoding="utf-8")
+    except OSError as exc:
+        return None, f"{_rel(target)} could not be read ({exc.__class__.__name__})"
+    region = printed_region(document)
+    if region is None:
+        return None, f"{_rel(target)} has no '## Quick Status' heading"
+
+    def keys(text: str) -> list[str]:
+        return [match.group(1) for match in MARKER_RE.finditer(flatten(text))]
+
+    region_lines = region.count("\n") + 1
+    total = keys(region)
+    bare = keys(strip_code_spans(region))
+    outside: list[QuotedMarker] = []
+    for number, line in enumerate(document.splitlines(), 1):
+        if number <= region_lines:
+            continue
+        for key in _quoted_only(keys(line), keys(strip_code_spans(line))):
+            outside.append(QuotedMarker(number - region_lines, key, key in CHECK_KEYS))
+    return MarkerSurvey(len(total), len(total) - len(bare), tuple(outside)), ""
+
+
+def _quoted_only(total: list[str], bare: list[str]) -> list[str]:
+    """The keys a code span accounts for, as a multiset difference."""
+    remaining = list(bare)
+    quoted: list[str] = []
+    for key in total:
+        if key in remaining:
+            remaining.remove(key)
+        else:
+            quoted.append(key)
+    return quoted
+
+
+def ops_probe(quotation: str) -> tuple[frozenset[str], frozenset[str]] | None:
+    """What :mod:`sysadmin.ops_claims` makes of one probe region.
+
+    The marker keys it read and the convention findings it produced, or
+    ``None`` when the probe no longer parses as a printed region at all —
+    which is the instrument having moved rather than an answer about the
+    claim.
+
+    Driven rather than read, rule 7\'s second half: the entry is about
+    what that module *does* with a quotation, and a reading of
+    ``MARKER_RE`` alone would miss the half that matters — a quoted key
+    reaching :func:`sysadmin.ops_claims.check_markers` is what turns a
+    quotation into a finding, or into the silence where one should be.
+    """
+    from sysadmin.ops_claims import check_markers, printed_region, read_markers
+
+    document = OPS_PROBE_TEMPLATE.format(routes=OPS_PROBE_ROUTES, quotation=quotation)
+    region = printed_region(document)
+    if region is None:
+        return None
+    markers = read_markers(region)
+    return (
+        frozenset(marker.key for marker in markers),
+        frozenset(finding.key for finding in check_markers(region, markers)),
+    )
+
+
+def check_quoted_marker_reads_as_real() -> Measurement:
+    """``SNAG-DOCS-005`` — the sibling reads a quoted marker as a real one.
+
+    **Rule 1\'s third case, and the population is empty because the
+    document is holding it that way.**  The entry measures ``STATUS.md``\'s
+    printed region at nine markers with none quoted and reads that as a
+    property of how the block is written.  The block says otherwise in its
+    own prose — *"One thing this block deliberately does not do: quote a
+    marker"* — naming this entry and sending the reader to
+    :mod:`sysadmin.ops_claims` *"where quoting it is safe"*.  So the
+    emptiness is an avoidance, and beyond the block the region\'s far end
+    is empty only by placement: the nearest quoted marker sat nine lines
+    past its last line when this was written.  Neither reading is a
+    mechanism, so the check builds its own document and carries the live
+    margin as evidence — rule 1 in both directions at once.
+
+    Three probes, because the defect is quiet in three ways and a fix can
+    land for some of them:
+
+    1. **A quoted key nothing implements invents a finding.**  The
+       quotation is reported as a marker naming a check nobody wrote,
+       which is a sentence being called unchecked for describing the
+       convention.
+    2. **A quoted key that *is* implemented removes one.**  The region
+       states a figure this module can test, no line claims it, and the
+       ``unclaimed`` finding that should say so is silenced by a sentence
+       claiming nothing.  Opposite in sign to the first, which is what
+       the entry means by quiet in both directions, and the reason a
+       control region is run: the finding\'s absence is only evidence
+       once its presence has been observed.
+    3. **The doubled fence, which is where the obvious fixes part
+       company.**  Measured rather than supposed: a code-span pattern
+       closing on a backtick run of the *same length* removes the marker
+       and ``` `[^`]+` ``` closes at the inner backtick and leaves it
+       bare.  ``SNAG-DOCS-005``\'s own body carries that shape, so a probe
+       testing only the single fence would report the second of those a
+       clean closure.  :func:`check_nudge_wording_unpublished`\'s third
+       field, for its reason.
+
+    The claim holds while **any** shape still leaks, so a partial fix is
+    ``match`` with a note rather than ``mismatch`` — an entry is refuted
+    when the defect is gone, not when some of it is.
+    """
+    from sysadmin.ops_claims import CHECK_KEYS, CLAIM_PATTERNS
+
+    if OPS_PROBE_CLAIMED not in CLAIM_PATTERNS:
+        return Measurement(
+            "unknown",
+            f"'{OPS_PROBE_CLAIMED}' no longer carries a claim pattern, so quoting it "
+            "cannot silence an unclaimed figure — the probe no longer isolates the "
+            "question",
+        )
+    if OPS_PROBE_UNKNOWN in CHECK_KEYS:
+        return Measurement(
+            "unknown",
+            f"'{OPS_PROBE_UNKNOWN}' is now an implemented check, so quoting it can no "
+            "longer invent a finding — the probe no longer isolates the question",
+        )
+
+    fences = {"claimed": OPS_PROBE_CLAIMED, "unknown": OPS_PROBE_UNKNOWN}
+    control = ops_probe("")
+    single = ops_probe(OPS_PROBE_SINGLE_FENCE.format(**fences))
+    doubled = ops_probe(OPS_PROBE_DOUBLED_FENCE.format(**fences))
+    if control is None or single is None or doubled is None:
+        return Measurement(
+            "unknown",
+            "printed_region no longer reads the probe as a region — the instrument has "
+            "moved and this check measures nothing",
+        )
+
+    unclaimed = f"unclaimed:{OPS_PROBE_CLAIMED}"
+    invented = f"marker:{OPS_PROBE_UNKNOWN}"
+    if unclaimed not in control[1]:
+        return Measurement(
+            "unknown",
+            f"the control region states a figure no line claims and '{unclaimed}' was "
+            "not reported — the finding this half watches for is gone, so its absence "
+            "beside a quotation would mean nothing",
+        )
+
+    silences = unclaimed not in single[1]
+    invents = invented in single[1]
+    invents_doubled = invented in doubled[1]
+
+    detail = [
+        f"probe: quoting <!--check:{OPS_PROBE_CLAIMED}--> silences the unclaimed "
+        f"figure beside it: {silences}",
+        f"probe: quoting <!--check:{OPS_PROBE_UNKNOWN}--> invents a broken-marker "
+        f"finding: {invents}",
+        f"probe: the same quotation inside a doubled fence invents one: {invents_doubled}",
+    ]
+    survey, problem = survey_quoted_markers()
+    if survey is None:
+        detail.append(f"live population unread: {problem}")
+    else:
+        detail.append(
+            f"STATUS.md printed region: {survey.in_region} markers, "
+            f"{survey.quoted_in_region} of them quoted"
+        )
+        nearest = min(survey.outside, key=lambda marker: marker.distance, default=None)
+        if nearest is None:
+            detail.append("STATUS.md quotes no marker outside the printed region either")
+        else:
+            implemented = "implemented" if nearest.implemented else "implemented by nothing"
+            detail.append(
+                f"{len(survey.outside)} quoted outside it, nearest {nearest.distance} "
+                f"lines past its end ('{nearest.key}', {implemented})"
+            )
+
+    evidence = tuple(detail)
+    if silences and invents and invents_doubled:
+        return Measurement("match", "", evidence)
+    if not (silences or invents or invents_doubled):
+        return Measurement(
+            "mismatch",
+            "a quoted marker no longer registers as a real one in any of the three "
+            "shapes — the entry's three-line fix has landed and the entry is a "
+            "candidate for closure",
+            evidence,
+        )
+    if invents_doubled and not (silences or invents):
+        return Measurement(
+            "match",
+            "the single fence is handled and the doubled fence still leaks — the shape "
+            "this entry's own body carries, so what remains is a narrowing rather than "
+            "a closure",
+            evidence,
+        )
+    leaking = [
+        name
+        for name, leaks in (
+            ("the silenced unclaimed figure", silences),
+            ("the invented broken marker", invents),
+            ("the doubled fence", invents_doubled),
+        )
+        if leaks
+    ]
+    return Measurement(
+        "match",
+        f"part of the defect is closed and {', '.join(leaking)} still leaks — the entry "
+        "holds in less than it was filed for, so it needs narrowing rather than closing",
+        evidence,
+    )
+
+
 # ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
@@ -1511,6 +1814,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-LOG-013",
             "a capped signature can name two faults at once",
             check_capped_signature_collides,
+        ),
+        Check(
+            "quoted_marker_reads_as_real",
+            "SNAG-DOCS-005",
+            "the sibling reads a quoted marker as a real one",
+            check_quoted_marker_reads_as_real,
         ),
         Check(
             "nudge_wording_unpublished",
