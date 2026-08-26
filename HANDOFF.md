@@ -2,97 +2,98 @@
 
 ## Next action
 
-Hunt `SNAG-TEST-001` rather than write the fifteenth check, by running `tests/test_snag_claims.py` in a loop under `-p no:cacheprovider` until the three guards fire again and taking `--lf -vv` for the third name the tail dropped, because every verdict this registry publishes flows through that suite and a guard that is red once in twenty runs makes twelve green checks worth less than they read — and if it will not reproduce, the honest close is a bound written into the entry rather than an argument.
+Write the fifteenth check against `SNAG-ESTATE-013` — the `check:expires` claim that takes a naive instant — because it is the only unchecked entry whose subject is this repository's own claims machinery, so its instrument is `ops_claims.read_markers` and it needs no cross-repo read at all, and drive it at both an aware and a naive producer stamp so the hour it is out by is measured rather than argued, exactly as `SNAG-LOG-009` was.
 
-## Session 91 is complete — the fourteenth check, and a probe that counted itself
+## Session 92 is complete — the flake was `hash()`, and the loop could not have found it
 
-`SNAG-LOG-012` is **checked and stays open**. Open entries **24 → 25**
-(one opened), checked **11 → 12**, unchecked unmoved at **13**. **2511
-tests pass** (2500 + 11). Ruff clean, mypy clean. The daemon was restarted
-at **17:43:37** and `/health` answers 200 — `sysadmin/snag_claims.py` is
-the only source edited and nothing under `sysadmin/` imports it, so for
-the eighth sitting running nothing a caller can observe moved.
+`SNAG-TEST-001` is **reproduced deterministically and closed**. Open
+entries **25 → 24** (one closed, none opened), unchecked **13 → 12**,
+checked unmoved at **12**; 70 entries either side, measured with
+estate-manager's `read_snags`. **2514 tests pass** (2511 + 3). Ruff
+clean, mypy clean. Nothing under `sysadmin/` was edited — the fix is
+`tests/test_snag_claims.py` and four documents — so **no restart is
+owed** and `check-ops-claims.sh` reads all nine claims green.
 
-### The first check pre-staged against another repository's fix
+### The cause, and why it is upstream of the path the entry read
 
-The tenth and eleventh shell into estate-manager's venv to drive their
-code. This one needs **no cross-repo access at all**: `estate-lib` is an
-**editable** install here (`_editable_impl_estate_lib.pth`, `editable =
-true` in `pyproject.toml`), so `strip_markdown` resolves to a file in
-their working tree and the check flips to `mismatch` on the next run
-after they commit — nothing synced, nobody told. That is measured and put
-in the detail rather than assumed: a re-pin to a wheel would show up
-there as a path this repository would then lag behind.
+Three falsification guards in `TestChecksAgainstTheLiveBox` patch in a
+hypothetical fix whose only job is to render two signatures that agree
+past `SIGNATURE_DETAIL_CHARS` **apart**, and all three built that
+disambiguator as `` hash(s) % 997 ``. CPython seeds `str` hashing from
+`PYTHONHASHSEED`, so the marker is stable inside a process and different
+between them. When the probe pair collides mod 997 the stand-in
+disambiguates nothing, `check_capped_signature_collides` correctly
+reports the entry **unrefuted**, and all three guards fail together —
+having measured the stand-in's luck rather than the check's sensitivity.
 
-It refutes the `SNAG-ESTATE-014` note's stated reason for the second
-time. "Delegated… so a check would be a cross-repo read" was never a
-property of delegation — it was a property of the two instruments that
-happened to be written first.
+Both of the entry's exclusions are **correct**. The probe *is* pure — a
+fixed anchor, no database, no unit files — and there *is* no randomising
+plugin, so collection order *is* stable. The secret `hash` reads is
+established before the interpreter imports anything, so it sits upstream
+of the code path being read. That is the transferable half: **a defect
+whose input is the process cannot be excluded by reading the process's
+code.**
 
-### The obvious probe reports `match` against a function that strips nothing
+### The third name is recoverable, because the population is closed
 
-`` '`' in strip_markdown('a `x`') `` is `True` for the identity function,
-so the specimen carries four **controls** the entry itself recorded as
-removed (heading, bullet, ordered item, bold) beside the two code spans.
-A surviving control is `unknown` — the probe has stopped isolating the
-question, which is the mixture branch one check over.
+Builtin `hash(` occurs **exactly three times in the repository**, at
+`tests/test_snag_claims.py:618`, `:637` and `:657`, all inside one class
+— so the third guard the tail dropped is
+`test_a_divergence_aware_cap_refutes_both_halves`, adjacent to the two
+the entry names. `PYTHONHASHSEED=282` reproduces **`3 failed, 104
+passed`** and those three names: the entry's own symptom to the digit.
 
-### The residue already had a name here
+### The recommended method was run, as the control
 
-The specimen carries a **doubled fence** because `SNAG-DOCS-005` closed
-on exactly that distinction in this same module on 2026-08-26: the naive
-`` `[^`]+` `` strips the single fence and *leaks* the doubled one. Both
-candidate fixes are driven as **real patterns** — the naive gives
-`mismatch` naming the leak, the same-length a clean `mismatch`. Dropping
-that one line from the specimen breaks **both** fix tests, because it is
-the only thing that discriminates them.
+40 whole-file runs under `-p no:cacheprovider`, **all green** — which is
+what 1/997 predicts. Even odds need ~690 runs and 99 % confidence
+~4,600, over seven hours at 6 s a run; the seed scan hit its first
+collision at 282 in under a minute. **A per-process defect is hunted per
+process, not per run**, because the thing that differs between two runs
+is the one input a loop cannot vary.
 
-### What only a live run could say
+The rate is **19 collisions over 20,000 seeds** — 1 in 1,053,
+indistinguishable from the modulus — so the entry's own "once in twenty
+runs" was **50x too high**. That makes the nuisance smaller and the
+diagnostic worse: the fifteen green runs were never evidence, and
+neither would the next nine hundred have been.
 
-The check's first drive reported **five** callers, two of them the
-probe's own. Beyond an inflated count that made the "nothing calls it"
-limb **unreachable**, since the check guaranteed a non-zero count — a
-probe counting itself is `ops_claims` rule 3's pin searching a region
-containing its own marker, reached from the other side. It is pinned from
-both sides now: the raw walk is asserted to still contain what the filter
-removes, so the exclusion cannot be deleted in silence.
+### The counter-intuitive result, and it decided what shipped
 
-The same run refuted the entry: it says "**Both** consumers here" and
-there are **three** — `monitor/health_review.py` was written on
-2026-08-25, the day *after* the entry was filed.
+Driven at the old behaviour in **both** directions. At seed 282 all six
+guards fire. At seed 0 **the three original guards are green** and only
+the AST sweep and the purity pin fire. So
+`test_it_separates_the_probe_pair` — which asserts the property directly
+— inherits the same 1/997 and is green at 996 seeds in 997, while
+`test_no_guard_here_reaches_for_the_randomised_builtin`, which merely
+refuses the builtin, is red at **every** seed.
 
-### A figure that went stale 52 minutes ago, and a wrong duration on it
+**Banning the instrument beats measuring the property**, and only
+because the property is the thing being randomised. The sweep is AST
+rather than textual because the docstrings around it are full of the
+word — `RecommendationInfo`'s prose-in-a-docstring trap, answered on the
+correct side.
 
-`67 entries` against a live **69**. `estate.snags` landed in estate-lib
-at **17:06:27** today — *after* Session 90's 16:14:24 commit — and counts
-the two `### Session NN write-up` headings under `## Fixed Issues` that
-the old reader did not.
+`_marker()` is `blake2s(text.encode(), digest_size=4).hexdigest()`: the
+same short marker with the randomisation removed, behind one helper
+rather than three copies of an expression — `journal_command`'s three
+callers formatting one fact, one file over.
 
-**The first draft of this section said "stale for at least four
-sittings"**, on the strength of driving **today's** reader over four past
-commits of this document. That measures the *instrument* and says nothing
-about what was published at the time — the exact error this repository
-files snags about, made inside the sitting that files them, and caught
-only by looking at the commit clock while filing the friction. The old
-reader is gone from the box (`estate_service.snags` no longer imports),
-so the historical figures cannot be re-checked at all.
+### What was deliberately not written
 
-Both new rows are `is_open: False`, so the open count never moved and the
-figure the board publishes was right throughout. Two test docstrings
-corrected, and the friction filed at 8400 as `1feea3c3` — the **second**
-attempt. The first (`6ac95fa6`) stated the old reader's count as a
-measurement when it is an inference, `estate_service.snags` having gone
-with the move, which is the message's own second half. Withdrawn by the
-sender and re-filed with the figure labelled.
+**No registry check.** `SNAG-TEST-001`'s claim is about *this suite's own
+instrument*, so a `sysadmin-check-snags` entry would read its own output
+— `SNAG-ESTATE-014`'s stated reason for having none. The guard is a test
+because the thing guarded is a test.
 
-### `SNAG-TEST-001` opened, offering no diagnosis on purpose
+It nonetheless sat in `convention:unchecked` for a day as though a check
+were owed. That finding counts entries with no check and **cannot tell
+"not yet" from "never"** — `ports_checked`'s rule at the level of the
+register rather than the reading. Recorded against `SNAG-ESTATE-014`,
+together with the third way its number moves: an *unchecked* entry
+closing moves it for the same reason a check does and buys nothing, so
+the pair of counts still does not separate the three cases.
 
-Three guards in `test_snag_claims.py` failed once and have not failed in
-fifteen runs since. Both obvious causes are excluded by **reading the
-path** rather than by assuming: the probe is pure (fixed anchor, no
-database, no unit files — `log_actions.recommend` takes all three of its
-inputs as arguments), and no randomising plugin is installed, so
-collection order is stable. No third cause is offered. That is the entry.
+### Blocked
 
-Five falsifications were driven at the behaviour each detects, and one of
-them fires two tests rather than one.
+Nothing.

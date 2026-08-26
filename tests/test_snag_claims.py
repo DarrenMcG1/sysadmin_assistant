@@ -21,10 +21,12 @@ against a way it could crash:
   with nothing said.
 """
 
+import ast
 import json
 import re
 import shutil
 import tempfile
+from hashlib import blake2s
 from pathlib import Path
 from unittest.mock import patch
 
@@ -110,6 +112,36 @@ def _entries():
 
 def _check(key="fake_one", snag="SNAG-FAKE-001", verdict="match"):
     return Check(key, snag, "a fake claim", lambda: Measurement(verdict))
+
+
+def _marker(text: str) -> str:
+    """A stand-in disambiguator that is stable across processes.
+
+    ``SNAG-TEST-001``.  The three falsification tests in
+    :class:`TestChecksAgainstTheLiveBox` patch in a hypothetical fix whose
+    entire job is to render two signatures that agree past the cap
+    *apart*, so the stand-in has to separate the probe pair — and it was
+    written as ``hash(text) % 997``, which does so only by luck.  CPython
+    seeds ``str`` hashing from ``PYTHONHASHSEED``, so the value is stable
+    within a process and different between them: the pair collides in
+    about **one run in 997**, all three guards fail together having
+    measured the stand-in rather than the check, and the next run is green
+    with nothing changed.  Measured rather than reasoned about — 19
+    collisions over 20,000 seeds, and ``PYTHONHASHSEED=282`` reproduces
+    the original ``3 failed, 104 passed`` exactly.
+
+    Note what could not have found it.  The entry excluded both obvious
+    causes by reading the path, correctly: the probe is pure and there is
+    no randomising plugin.  The secret is read before the interpreter
+    imports anything, so it is upstream of the path being read.
+
+    ``blake2s`` is the same short marker with the randomisation removed.
+    Whether the pair separates becomes a property of the text alone, which
+    is a fact this file asserts in
+    :meth:`TestTheStandInDisambiguator.test_it_separates_the_probe_pair`
+    rather than a probability it has to live with.
+    """
+    return blake2s(text.encode(), digest_size=4).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -429,6 +461,73 @@ class TestInstruments:
 # ---------------------------------------------------------------------------
 
 
+class TestTheStandInDisambiguator:
+    """``_marker`` is what the next class's three guards actually rest on.
+
+    ``SNAG-TEST-001``: they rested on ``hash(s) % 997``, whose value is
+    seeded per process, so they were red about once in 997 runs and said
+    nothing about the check on the other 996.  A guard that is wrong at a
+    rate nobody has measured is worth less than its green runs read.
+    """
+
+    def test_it_separates_the_probe_pair(self):
+        """The property the three falsification guards assume, asserted.
+
+        Each of them patches in a hypothetical fix built from ``_marker``
+        and then asserts the check notices.  If the marker does not
+        separate the probe pair there is no fix to notice, and all three
+        report the entry *unrefuted* — a green check turning red with no
+        edit behind it.  So the assumption is measured here once rather
+        than gambled on three times.
+        """
+        from sysadmin.monitor.log_actions import SIGNATURE_DETAIL_CHARS
+
+        first, second = probe_signatures(SIGNATURE_DETAIL_CHARS)
+        assert first != second
+        assert _marker(first) != _marker(second)
+
+    def test_it_is_a_function_of_the_text_and_nothing_else(self):
+        """Stability *within* a run was never the defect, so pin the rest.
+
+        ``hash`` is stable within a process too — that is precisely why
+        the loop the entry recommends does not find it, and why fifteen
+        green runs proved nothing.  What has to hold is that two
+        interpreters agree, which cannot be observed from inside one, so
+        it is pinned as purity here and as a known digest below.
+        """
+        text = "a signature that agrees past the cap"
+        assert _marker(text) == _marker(text)
+        assert _marker(text) == blake2s(text.encode(), digest_size=4).hexdigest()
+        assert _marker(text) != _marker(text + "!")
+
+    def test_no_guard_here_reaches_for_the_randomised_builtin(self):
+        """An AST sweep, because the docstrings above are full of the word.
+
+        Scoped to this file rather than to ``tests/`` — a test of some
+        type's ``__hash__`` is legitimate and this rule would forbid it —
+        and this file is where the convention it protects is written down.
+        The repo-wide population was measured before the fix and was
+        exactly the three stand-ins replaced here.
+
+        The failure mode being refused is silence: a fourth falsification
+        reaching for the obvious short-identity builtin is green on the
+        run that adds it and every run for weeks afterwards.
+        """
+        tree = ast.parse(Path(__file__).read_text())
+        offenders = [
+            node.lineno
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "hash"
+        ]
+        assert offenders == [], (
+            f"builtin hash() at lines {offenders}: its value is seeded per process "
+            "(SNAG-TEST-001), so a stand-in built from it separates two strings only "
+            "by luck — use _marker"
+        )
+
+
 class TestChecksAgainstTheLiveBox:
     """Every check is driven at the real box, then at a box that moved.
 
@@ -614,9 +713,7 @@ class TestChecksAgainstTheLiveBox:
         import sysadmin.monitor.log_actions as log_actions
 
         real = log_actions.capped_signature
-        with patch.object(
-            log_actions, "capped_signature", lambda s: f"{real(s)} [{hash(s) % 997}]"
-        ):
+        with patch.object(log_actions, "capped_signature", lambda s: f"{real(s)} [{_marker(s)}]"):
             measurement = check_capped_signature_collides()
         assert measurement.verdict == "mismatch"
         assert "neither half collides" in measurement.note
@@ -634,7 +731,7 @@ class TestChecksAgainstTheLiveBox:
         with patch.object(
             log_actions,
             "quoted_signature",
-            lambda s: f' — "{real(s)}" [{hash(s) % 997}]',
+            lambda s: f' — "{real(s)}" [{_marker(s)}]',
         ):
             measurement = check_capped_signature_collides()
         assert measurement.verdict == "mismatch"
@@ -654,7 +751,7 @@ class TestChecksAgainstTheLiveBox:
 
         real = log_actions.capped_signature
         with (
-            patch.object(log_actions, "capped_signature", lambda s: f"{real(s)} [{hash(s) % 997}]"),
+            patch.object(log_actions, "capped_signature", lambda s: f"{real(s)} [{_marker(s)}]"),
             patch.object(log_actions, "quoted_signature", lambda s: f' — "{real(s)}"'),
         ):
             measurement = check_capped_signature_collides()
