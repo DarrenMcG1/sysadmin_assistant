@@ -394,6 +394,16 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 87 — the first entry this registry ever closed, and the eleventh check (2026-08-26) ✅
+
+- [x] `SNAG-ROADMAP-001` **closed** — open since 2026-08-07, delegated 2026-08-25, refuted by the tenth check on the day that check was written and closed on the mechanical trigger the sitting left: estate-manager committed the fix as `a9828dc` at **22:42:29** on 2026-08-25, closing their `SNAG-ESTATE-056` and naming this repository's message `e0461fe9`
+- [x] The tenth check **removed with its entry** — `tests/test_snag_claims.py::test_every_checked_entry_is_open` makes closure and removal one edit rather than a judgement, because a check outliving its entry re-measures a claim for ever with nobody reading the answer. `handoff_apology_published`, `hook_apology`, `HANDOFF_HOOK` and `APOLOGY_PROBE` all went; `estate_probe` stayed, because the eleventh check uses it
+- [x] `estate_module_state()` takes the modules it is asked about, and says **committed** where it said *released* — their daemon on 8400 last started **11:35:25**, eleven hours *before* the fix was committed, so committed and running were demonstrably different facts on the day the entry closed
+- [x] `check_nudge_wording_unpublished` — the eleventh check, for `SNAG-ESTATE-002`, and the **second delegated entry checked**: the note under `SNAG-ESTATE-014` gives *delegated* as the reason five entries carry none, and being delegated is exactly what makes a check worth having, since the closing move happens in a tree nothing here watches
+- [x] The specimen's arguments come from `dataclasses.fields(Nudge)`, never a field list held here — the removed check's own defect (a probe coupled to the implementation it measures), avoided by having been paid for once. Falsified: hard-coding the list breaks **4** tests
+- [x] All three of the entry's remedies are reachable — converting the properties shows in `asdict`, deleting them is a **refutation** rather than a failure to measure, and augmenting beside the `asdict` call is `unknown` because `asdict` cannot see it. A **partial** fix is `mismatch` with the residue named, which is what the entry's own body asks for
+- [x] Found while writing it: **`PRODUCER_DROPPED_NUDGE_KEYS` cannot fire.** It is asserted inside `for nudge in payload["nudges"]` — the live half runs `require_populated=False` against a route that has always answered `{"nudges": []}`, and the recorded half runs against a static fixture captured 2026-08-16. The pre-staged trigger was wired to the entry's *population* rather than its *mechanism*; recorded on the entry rather than rewritten, since the check now covers it
+
 ## Session 86 — the tenth check, and the first that had to run another repository's code (2026-08-25) ✅
 
 - [x] `check_handoff_apology_published` in `sysadmin/snag_claims.py` — the tenth check, and the first whose instrument is another repository's *code path* rather than its document

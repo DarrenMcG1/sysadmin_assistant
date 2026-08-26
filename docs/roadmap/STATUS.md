@@ -1,15 +1,15 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-08-25
+**Last Updated**: 2026-08-26
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and no sub-session action is either.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-25 22:43:16**
-> <!--check:daemon_start--> — by Session 86, which edited
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-26 09:51:59**
+> <!--check:daemon_start--> — by Session 87, which edited
 > `sysadmin/snag_claims.py`, the **composition root the daemon does not
-> import**, so for the third sitting running nothing a caller can
+> import**, so for the fourth sitting running nothing a caller can
 > observe moved. The restart was taken rather than argued with, for the
-> reason Sessions 81, 84 and 85 took theirs:
+> reason Sessions 81, 84, 85 and 86 took theirs:
 > `check-ops-claims.sh` compares the daemon's start against the newest
 > source mtime and cannot know that the edited file is one nothing loads —
 > which its rule 4 states as the cost in advance — and correcting the
@@ -31,12 +31,22 @@
 >
 > **`snag_list.md` has the same reader since 2026-08-25**, and the banner
 > now prints two families. `./scripts/check-snag-claims.sh` re-measures
-> the claim of **8** open snag entries — all eight still hold — and names
-> the **18** that carry no check. A red line there is *news* rather than a
+> the claim of **10** open snag entries — all ten still hold — and names
+> the **15** that carry no check. A red line there is *news* rather than a
 > fault: the entry may be closeable, which is a judgement, so nothing in
 > that family edits a document and neither script blocks on it. Session 82
 > did that sweep by hand and found five entries dead on the box, three of
 > them `P1` and three fixed for between nine and thirteen days.
+>
+> **That family closed its first entry on 2026-08-26, which is the whole
+> point of it.** `SNAG-ROADMAP-001` had been open since 2026-08-07 and
+> delegated since 2026-08-25; the tenth check reported it **refuted** on
+> the day it was written, against an edit estate-manager had in flight,
+> and the trigger the sitting left was mechanical — close it when
+> `estate_module_state()` stops saying uncommitted. It stopped at
+> **22:42:29** that evening. **The check left the registry with the
+> entry**, which a test makes a rule rather than a choice, so the checked
+> count holds at ten rather than rising to eleven.
 >
 > *One thing this block deliberately does not do: quote a marker.* The
 > checker reads its own syntax out of the flattened region with no regard

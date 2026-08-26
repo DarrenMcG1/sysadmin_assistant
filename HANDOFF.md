@@ -1,97 +1,89 @@
-# Handoff — 2026-08-25
+# Handoff — 2026-08-26
 
 ## Next action
 
-Judge `SNAG-ROADMAP-001` once estate-manager commits their in-flight fix — the tenth check already reports it refuted, and the trigger is mechanical: when `estate_module_state()` stops saying "uncommitted", close the entry and write the eleventh check against the sixteen that remain.
+Write the twelfth check against `SNAG-DOCS-005` — `ops_claims` would read a quoted marker as a real one, its mechanism is local and reproducible by building a document that quotes one, and it is the highest-value of the fifteen unchecked entries because the module it accuses is the one every sitting opens with.
 
-## Session 86 is complete — the tenth check, and the first that had to run another repository's code
+## Session 87 is complete — the first entry this registry ever closed, and the eleventh check
 
-`sysadmin/snag_claims.py` gains `check_handoff_apology_published`,
-`hook_apology`, `estate_probe` and `estate_module_state`, and
-`SNAG-ROADMAP-001`'s body carries
-`<!--check:handoff_apology_published-->`. Checked entries go **9 → 10**,
-unchecked **17 → 16**, and **nine of the ten still hold** — the tenth is
-the first check in the registry to report **refuted** on the day it was
-written. estate-manager's `read_snags` reads **69 entries, 26 open,
-dialect `bullet`** either side of the edit, so the marker moved nothing
-the board publishes.
+`SNAG-ROADMAP-001` is **closed**, open since 2026-08-07 and delegated
+since 2026-08-25. The tenth check reported it **refuted** on the day it
+was written, against an edit estate-manager had in flight; the trigger
+Session 86 left was mechanical, and it fired. Their fix is `a9828dc`,
+committed **22:42:29** on 2026-08-25 — *"the placeholder guard is given a
+line it can judge, and the branch that had no guard at all gets one"* —
+closing their `SNAG-ESTATE-056` and naming this repository's cross-repo
+message `e0461fe9` in the commit body.
 
-**2465 tests pass** (2457 + 8). Ruff clean, mypy clean. The daemon was
-restarted at **22:43:16** and `/health` answers 200 — nothing it imports
-changed, and the restart was taken rather than argued with for the reason
-Sessions 81, 84 and 85 took theirs.
+The live parser reads **69 entries and 26 → 25 open** either side of the
+edit, checked entries hold at **ten**, unchecked falls **16 → 15**, and
+**all ten still hold**. **2470 tests pass** (2465 − 8 + 13). Ruff clean,
+mypy clean. The daemon was restarted at **09:51:59** and `/health`
+answers 200 — nothing it imports changed, and the restart was taken
+rather than argued with for the reason Sessions 81, 84, 85 and 86 took
+theirs.
 
-### The question this sitting was handed, and why it needed no new answer
+### Committed is not deployed, and the entry closed anyway
 
-It asked whether a check that skips when estate-manager's venv is absent
-is a check at all or a fourth way of reporting `unknown`. It is
-**neither: it is the third verdict, used for what it was defined for.**
-The `pytest.skip` in `TestAgainstTheOwningParser` does not transfer, and
-the reason is what the two things are — a test asserting two readers agree
-has nothing to assert when one is absent, while a check *reports on a
-claim*, and "nobody managed to test it" is an answer `schema_guard`
-already defines and this module already imports. So no checkout, no venv,
-a renamed symbol and a tree caught mid-edit are all `unknown` with the
-reason named.
+`estate-manager-api.service` last entered active at **11:35:25** on
+2026-08-25 — **eleven hours before** the fix was committed — so the
+daemon on 8400 is still serving the defective `_first_meaningful`.
+Session 86 gave three reasons to hold the entry open and the daemon was
+the third; it is **discharged rather than met**. This repository does not
+own their deploy, and holding a *delegated* entry open on the owner's
+restart state is the second owner the estate rules exist to prevent — the
+same refusal that kept the check measuring the producer rather than the
+publication. `estate_module_state()` now says `committed` where it said
+`released`, because the first wording read as a claim about what is
+running over there and it never was one.
 
-### estate-manager was fixing it while this was being written
+The live board is also clean — 0 of 26 projects carries the apology line
+— and that is **not** why it closed. An empty population is not a
+closure, which is this document's rule twice over.
 
-Their `roadmap.py` was modified at **22:34**, uncommitted, under their own
-`SNAG-ESTATE-056`, and the fix is precisely this entry's proposed remedy:
-`_first_meaningful` becomes `_meaningful_lines` yielding
-`(marked, cleaned)`, and `next_action_from_handoff` tests
-`is_placeholder(marked)`. The same module was therefore measured twice
-four minutes apart and came back as two different modules, the second
-refusing to import — a state no fixture would have produced, and the one
-that made the paragraph above concrete rather than theoretical.
+### The check left the registry with its entry, and a test made that a rule
 
-All three verdicts were driven at three real states of their tree, never
-at fixtures alone: **committed `roadmap.py` → `match`** (reproducing
-Session 82's reading exactly), **their working tree → `mismatch`**, **no
-venv → `unknown`**.
+`tests/test_snag_claims.py::test_every_checked_entry_is_open` already
+asserted no check names a closed entry, so closure and removal are one
+edit rather than a judgement: a check outliving its entry re-measures a
+claim for ever with nobody reading the answer, and a refuted check on a
+closed entry would say *go and judge this* for ever — `SNAG-ESTATE-008`'s
+shape arriving inside the tool built to prevent it. `hook_apology`,
+`HANDOFF_HOOK` and `APOLOGY_PROBE` went with it. `estate_probe` stayed,
+because the eleventh check uses it rather than leaving it parsed and read
+by nothing.
 
-### The entry stays open, and that is rule 2 rather than caution
+### The eleventh check, and why a delegated entry was the right target
 
-A refuted claim is a candidate for closure and never a closure. The fix is
-uncommitted, and the daemon on 8400 serves start-time code, so the entry
-still holds against everything that is actually running. Because a
-`mismatch` off a released fix and one off an edit in flight have opposite
-remedies, `estate_module_state()` carries which was measured —
-`ports_checked`'s rule applied to somebody else's repository, and needed
-within the hour of being written.
+`check_nudge_wording_unpublished` measures `SNAG-ESTATE-002`. The note
+under `SNAG-ESTATE-014` gives *delegated* as the reason five entries
+carry no check; `SNAG-ROADMAP-001` was delegated and was closed on
+exactly such a read one sitting after the check that noticed. Being
+delegated is what makes a check worth writing — the closing move happens
+in a tree nothing here watches.
 
-### What the falsification caught in the check itself
+Its arguments come from `dataclasses.fields(Nudge)` rather than a field
+list held here, which is the removed check's own defect avoided by having
+been paid for once: converting the properties into fields changes the
+constructor's signature, and a probe carrying its own copy would raise
+`TypeError` and report `unknown` for ever. All three of the entry's
+remedies are reachable — the delete is a **refutation**, not a failure to
+measure — and a **partial** fix is `mismatch` with the residue named,
+which is what the entry's own body asks for. Five mutations were driven
+and every one goes red; hard-coding the field list breaks four tests.
 
-Its first draft called `roadmap._first_meaningful` to evidence the strip —
-a **private helper whose name is what their fix renames** — so driven at
-the real fix it reported `unknown` and would have gone on reporting it for
-ever, structurally unable to witness the closure it exists to notice. **A
-check coupled to the implementation it measures is the shape of the bug it
-measures.** The repair states the mechanism more sharply than the entry
-ever did: `is_placeholder` says placeholder and the producer publishes it
-anyway — no private symbol, and it survives any rename.
-`test_the_probe_touches_nothing_private` is the guard, and nothing else
-would have caught it coming back: the stub defines only public names, so a
-probe reaching for a private one fails identically against every fixture
-and reads as an environment problem.
+### What writing it found, and what is filed rather than fixed
 
-### The reading that would have been wrong
+**`PRODUCER_DROPPED_NUDGE_KEYS` cannot fire.** `SNAG-ESTATE-002`'s body
+says "a test now fires when the estate fixes its half"; the assertion
+sits inside `for nudge in payload["nudges"]`, the live half runs
+`require_populated=False` against a route that has answered
+`{"nudges": []}` on every occasion anyone has looked, and the recorded
+half runs against `tests/fixtures/estate_projects_attention.json`, static
+since 2026-08-16. Neither half can witness the fix. The pre-staged
+trigger was wired to the entry's *population* rather than its
+*mechanism* — recorded on the entry rather than rewritten, because the
+check now covers it and a second trigger would be a second owner.
 
-`looks_like_no_action` exists in that module today, matches this exact
-wording, and is wired into `/next` — but **not** into
-`briefing._next_action_rows`, which is the surface the entry names. A
-check asking *does any guard reject this line* answers "yes" while the
-producer goes on returning it: rule 1's trap in a new dress, measuring
-that a remedy **exists** rather than that the fault is **gone**. The
-narrowing to what the producer returns is what avoids it, and the check
-measures the producer rather than the publication for a second reason —
-the entry is delegated, and judging which consumers estate-manager wired
-their guard into is the second owner the estate rules exist to prevent.
-
-### Nothing was filed cross-repo, deliberately
-
-This sitting hit no friction: estate-manager's tree read cleanly, their
-venv ran, and Session 82's reproduction is already with them as message
-`e0461fe9` — which they are acting on. A note saying "your tree was
-mid-edit" is not friction, it is noise.
-
+Nothing was filed cross-repo: their tree read cleanly, their venv ran,
+and the one message this sitting depended on was closed by them by name.

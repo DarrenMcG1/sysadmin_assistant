@@ -571,25 +571,37 @@ DEPRECATED_NAMES = frozenset(
 ESTATE_PORT = "8500"
 ESTATE_PORT_CLAIMANT = "sysadmin-service"
 
-#: ``SNAG-ROADMAP-001``'s subject: estate-manager's roadmap parser, which
-#: left this repository on 2026-08-13 (ADR-0005) and is reachable only by
-#: running it.  ``estate_service`` is not installed here and is not in
-#: ``estate-lib``, so the instrument is their interpreter, the same one
-#: ``tests/test_snag_claims.py`` already drives ``read_snags`` with.
+#: ``SNAG-ESTATE-002``'s subject is estate-manager's own code, reachable
+#: only by running it: ``estate_service`` is not installed here and is not
+#: in ``estate-lib``, so the instrument is their interpreter, the same one
+#: ``tests/test_snag_claims.py`` already drives ``read_snags`` with.  Held
+#: as a package root rather than as one module path because the check that
+#: first needed it — ``SNAG-ROADMAP-001``'s, removed with its entry on
+#: 2026-08-26 — was about a single module and this one is about two.
 ESTATE_SERVICE = Path.home() / "projects" / "estate-manager" / "service"
 ESTATE_PYTHON = ESTATE_SERVICE / ".venv" / "bin" / "python"
 ESTATE_PROBE_TIMEOUT = 60
 
-#: The hook that writes the line the entry is about, and the assignment
-#: that holds it.  **Read rather than typed**, which is
-#: :func:`check_capped_signature_collides`'s rule about deriving a probe
-#: from its producer: the entry's own impact bullet turns on the wording
-#: being "emitted by a hook this box controls", so a literal copied into
-#: this module would go on measuring a sentence nothing writes the day
-#: the hook is reworded — and would report the entry holding on the
-#: strength of a string only this file still contains.
-HANDOFF_HOOK = Path.home() / ".claude" / "hooks" / "generate-handoff.sh"
-HOOK_APOLOGY_RE = re.compile(r'NEXT="(_[^"]*_)"')
+#: The two modules ``SNAG-ESTATE-002`` spans: the dataclass that computes
+#: a nudge's wording, and the route that serialises it.  **Both** are
+#: named because the entry's candidate remedies land in different files —
+#: converting the properties is ``nudges.py``, augmenting the payload
+#: beside the ``asdict`` call is ``oversight.py`` — so a checkout state
+#: read for one of them would say nothing about a fix landing in the
+#: other, which is the half of ``ports_checked``'s rule that bites when
+#: the thing being reported on is somebody else's tree.
+ESTATE_NUDGE_MODULES = (
+    Path("estate_service") / "projects" / "nudges.py",
+    Path("estate_service") / "projects" / "oversight.py",
+)
+
+#: The three properties the entry says never reach the wire.  ``details``
+#: is the third and went unmentioned when the entry was filed; it is
+#: included because the entry's own body says a fix converting ``title``
+#: and ``message`` and stopping there "leaves the same defect one field
+#: over", and a check that could not see that would report such a fix as
+#: a clean closure.
+NUDGE_WORDING = ("title", "message", "details")
 
 
 def check_sysd_ollama_ordering() -> Measurement:
@@ -1094,46 +1106,44 @@ def check_capped_signature_collides() -> Measurement:
     )
 
 
-def hook_apology() -> tuple[str, str]:
-    """The line the handoff hook writes when a sitting queued nothing.
-
-    Returns the line as the hook writes it and a problem sentence, one of
-    which is always empty.  Read from the hook rather than held here for
-    the reason stated at :data:`HANDOFF_HOOK`.
-    """
-    try:
-        text = HANDOFF_HOOK.read_text(encoding="utf-8")
-    except OSError as exc:
-        return "", f"{HANDOFF_HOOK} could not be read ({exc.__class__.__name__})"
-    found = HOOK_APOLOGY_RE.search(text)
-    if not found:
-        return "", (
-            f"{_rel(HANDOFF_HOOK)} no longer assigns an italic fallback to NEXT — the "
-            "line this entry is about is not the line the hook writes any more"
-        )
-    return found.group(1), ""
-
-
-def estate_module_state() -> str:
-    """Whether the module the probe just ran is committed over there.
+def estate_module_state(modules: Iterable[Path]) -> str:
+    """Whether the modules the probe just ran are committed over there.
 
     ``ports_checked``'s rule applied to somebody else's repository.  A
-    ``mismatch`` measured against a **released** fix means close the
+    ``mismatch`` measured against a **committed** fix means close the
     entry; one measured against an edit in flight means wait, and the two
     have opposite remedies — so the verdict alone is not enough and the
     difference is carried as evidence rather than left for the reader to
     go and find.
 
-    The sitting that wrote this check needed it within the hour:
-    estate-manager was mid-fix in that exact file, so the first
-    ``mismatch`` this check ever produced was off an uncommitted edit.
-    Read-only, and never a reason to fail — an unanswerable question
-    yields a sentence saying so.
+    The sitting that wrote this needed it within the hour: estate-manager
+    was mid-fix in the exact file ``SNAG-ROADMAP-001`` turned on, so the
+    first ``mismatch`` this module ever produced was off an uncommitted
+    edit — and the *next* sitting closed that entry on this sentence
+    changing, which is the only trigger either of them had.
+
+    **Committed is not deployed, and the wording says ``committed`` for
+    that reason.**  The first draft said "not released", which reads as a
+    claim about what is *running* over there; it is not one.  When
+    ``SNAG-ROADMAP-001`` was closed on 2026-08-26 their fix had been
+    committed at 22:42 the previous evening and the daemon on 8400 had
+    last started at 11:35, eleven hours before it — so the committed fix
+    was demonstrably not the code being served.  That gap is
+    estate-manager's deploy state rather than a fact about the claim, and
+    judging it here is the second owner the estate rules exist to
+    prevent, so it is named and never measured.
+
+    The dirty paths are **named** rather than counted, this document's own
+    rule about a roll-up that cannot say what it swallowed.  Read-only,
+    and never a reason to fail — an unanswerable question yields a
+    sentence saying so.
     """
-    module = ESTATE_SERVICE / "estate_service" / "projects" / "roadmap.py"
+    paths = [str(ESTATE_SERVICE / module) for module in modules]
+    if not paths:
+        return "no estate-manager module was named, so its checkout state was not read"
     try:
         result = subprocess.run(  # noqa: S603 — a read-only `git status` over there
-            ["git", "-C", str(ESTATE_SERVICE), "status", "--porcelain", "--", str(module)],
+            ["git", "-C", str(ESTATE_SERVICE), "status", "--porcelain", "--", *paths],
             capture_output=True,
             text=True,
             timeout=ESTATE_PROBE_TIMEOUT,
@@ -1143,10 +1153,15 @@ def estate_module_state() -> str:
         return "estate-manager's checkout state could not be read"
     if result.returncode != 0:
         return "estate-manager's checkout state could not be read"
+    dirty = sorted({line[3:].strip() for line in result.stdout.splitlines() if line[3:].strip()})
+    if not dirty:
+        return (
+            "measured against estate-manager's committed tree — committed, which is not "
+            "the same as deployed on 8400"
+        )
     return (
-        "measured against an uncommitted edit in estate-manager's tree — not released"
-        if result.stdout.strip()
-        else "measured against estate-manager's committed roadmap.py"
+        "measured against uncommitted edits in estate-manager's tree — not released: "
+        + ", ".join(dirty)
     )
 
 
@@ -1192,129 +1207,227 @@ def estate_probe(script: str) -> tuple[dict[str, object] | None, str]:
     return payload, ""
 
 
-#: The probe handed to :func:`estate_probe`.  It drives
-#: ``next_action_from_handoff`` over a handoff whose ``## Next action``
-#: section holds exactly what the hook writes.
+#: The probe handed to :func:`estate_probe`.  It builds one ``Nudge``,
+#: reads the wording the producer computes off it, and serialises it the
+#: way ``GET /api/projects/attention`` does.
 #:
-#: **It touches nothing private, and the first draft did.**  That draft
-#: called ``_first_meaningful`` to evidence the strip the entry turns on
-#: — a helper whose *name* is what estate-manager's fix renames — so it
-#: reported ``unknown`` when driven at their in-flight fix and would have
-#: gone on reporting it for ever, unable to witness the closure it exists
-#: to notice.  A check coupled to the implementation it measures is the
-#: shape of the bug it is measuring.  What is asked instead is public and
-#: named in the entry: ``is_placeholder`` says placeholder, and the
-#: producer publishes it anyway.
-APOLOGY_PROBE = """\
-import json, sys
+#: **Nothing private is touched, and nothing is typed that the producer
+#: can restate.**  ``SNAG-ROADMAP-001``'s check learned that the hard way
+#: — its first draft named a private helper whose rename was the fix it
+#: existed to notice — so the specimen's arguments come from
+#: ``dataclasses.fields(Nudge)`` rather than from a literal field list
+#: here.  That is what lets the *first* candidate remedy be seen at all:
+#: converting ``title`` and ``message`` from properties into fields
+#: changes the constructor's signature, and a probe holding its own copy
+#: of that signature would raise ``TypeError`` and report ``unknown`` for
+#: ever, structurally unable to witness the closure it exists to notice.
+#:
+#: ``textwrap.dedent`` rather than ``inspect.cleandoc``: ``cleandoc``
+#: treats the block as a docstring and dedents every line *after* the
+#: first, which happens to be a no-op on a module-level function and
+#: mangles every other kind.  The real route is module-level, so the
+#: wrong tool agreed with the only specimen it was tried against —
+#: caught by driving the detector at a nested function instead.
+NUDGE_PROBE = '''\
+import ast, dataclasses, inspect, json, sys, textwrap
 sys.path.insert(0, {service!r})
-from estate_service.projects import roadmap
-apology = {apology!r}
-handoff = "# Handoff — 2026-08-25\\n\\n## Next action\\n\\n" + apology + "\\n"
-print(json.dumps({{
-    "returned": roadmap.next_action_from_handoff(handoff),
-    "raw_placeholder": roadmap.is_placeholder(apology),
-}}))
-"""
+from dataclasses import asdict
+from estate_service.projects import nudges, oversight
+
+FILLER = {{"str": "probe", "int": 7, "bool": False}}
 
 
-def check_handoff_apology_published() -> Measurement:
-    """``SNAG-ROADMAP-001`` — the detector strips the marks it keys on.
+def filler_for(annotation):
+    """A value for one field, whichever form the annotation survives as.
 
-    **The first check whose instrument is another repository's code path
-    rather than its document**, and the question that forces was settled
-    by rule 5 rather than by a new verdict.
-    :func:`check_estate_port_8500` reads a file estate-manager owns and
-    can always answer; this one has to *run* code estate-manager owns,
-    which fails for reasons the claim knows nothing about — no checkout,
-    no venv, a renamed symbol, a tree caught mid-edit.  A test may
-    ``skip`` there, because a test asserting two readers agree has
-    nothing to assert when one is absent.  A check may not: it reports on
-    a claim, and "nobody managed to test it" is the third verdict this
-    module already imports from :mod:`sysadmin.core.schema_guard`.  So
-    every one of those is ``unknown`` with the reason named, and none of
-    them is a fourth thing.
-
-    That is not hypothetical.  The sitting that wrote this check measured
-    the module twice four minutes apart and got two different modules:
-    estate-manager had an uncommitted edit in flight renaming
-    ``_first_meaningful`` to ``_meaningful_lines`` — which is this
-    entry's own proposed fix, *"have ``_first_meaningful`` return both raw
-    and cleaned"* — and the tree would not import in between.
-    ``unknown`` naming the import failure is a better sentence for a
-    sitting to read at that moment than any silence.
-
-    **What is measured is the producer, not the publication.**  The entry
-    is delegated and its title says *published*, but a consumer's wiring
-    is estate-manager's design and judging it here is the second owner
-    the estate rules exist to prevent — :func:`check_estate_port_8500`'s
-    refusal in writing, one claim over.  What their fix must move is
-    ``next_action_from_handoff`` returning the apology, so that is the
-    question asked.
-
-    **And the obvious wider reading would already report this refuted.**
-    ``looks_like_no_action`` exists in that module today, matches this
-    exact wording, and is wired into ``/next``; a check that asked *does
-    any guard reject this line* answers "yes" while the producer goes on
-    returning it.  That is rule 1's trap in a new dress — measuring that
-    a remedy *exists* rather than that the fault is *gone* — so the
-    reading is narrowed to what the producer returns, and what is carried
-    beside it is the contradiction rather than the implementation:
-    ``is_placeholder`` says placeholder, and the row is published anyway.
-
-    The verdict is not the whole report.  A ``mismatch`` off a released
-    fix and one off an edit in flight have opposite remedies, so
-    :func:`estate_module_state` names which was measured — rule 2 needs a
-    sitting to *judge*, and a verdict it cannot act on is not enough to
-    judge from.
+    ``dataclasses.fields(...).type`` is the annotation *string* under
+    ``from __future__ import annotations`` and the type *object* without
+    it.  The producer uses the future import and a stub need not, so both
+    are read rather than the live form being assumed.
     """
-    apology, problem = hook_apology()
-    if problem:
-        return Measurement("unknown", problem)
+    name = annotation if isinstance(annotation, str) else getattr(annotation, "__name__", "")
+    return FILLER.get(name)
 
+
+def specimen():
+    """A Nudge built from whatever fields the dataclass declares today."""
+    kwargs = {{}}
+    for field in dataclasses.fields(nudges.Nudge):
+        kwargs[field.name] = filler_for(field.type)
+    return nudges.Nudge(**kwargs)
+
+
+def payload_is_bare_asdict(func):
+    """Does the route serialise a nudge with an unaugmented asdict()?"""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    for node in ast.walk(tree):
+        elt = getattr(node, "elt", None)
+        if not isinstance(node, ast.ListComp) or not isinstance(elt, ast.Call):
+            continue
+        if (
+            isinstance(elt.func, ast.Name)
+            and elt.func.id == "asdict"
+            and len(elt.args) == 1
+            and isinstance(elt.args[0], ast.Name)
+            and not elt.keywords
+        ):
+            return True
+    return False
+
+
+nudge = specimen()
+offered, raised = {{}}, []
+for name in {wording!r}:
+    try:
+        offered[name] = str(getattr(nudge, name))
+    except AttributeError:
+        continue
+    except Exception as exc:
+        raised.append(name + ": " + exc.__class__.__name__)
+
+print(json.dumps({{
+    "offered": sorted(offered),
+    "raised": raised,
+    "title": offered.get("title"),
+    "message": offered.get("message"),
+    "published": sorted(asdict(nudge)),
+    "route_bare_asdict": payload_is_bare_asdict(oversight.attention),
+}}))
+'''
+
+
+def _probe_names(value: object) -> list[str]:
+    """One list of names out of a probe's JSON, or none at all.
+
+    :func:`estate_probe` guarantees an object and nothing about what is
+    inside it, because the producer is another repository's — so a key
+    that has stopped being a list is read as absent rather than iterated.
+    That direction is deliberate: an empty list flows into the verdicts
+    below and is *answered*, where a ``TypeError`` here would be caught
+    by :func:`run_check` and reported as ``unknown`` with a traceback
+    class name in place of the sentence a sitting needs.
+    """
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
+def check_nudge_wording_unpublished() -> Measurement:
+    """``SNAG-ESTATE-002`` — a wording the producer computes and drops.
+
+    ``Nudge.title``, ``.message`` and ``.details`` are ``@property``;
+    ``GET /api/projects/attention`` serialises with
+    ``dataclasses.asdict``, which emits **fields only**.  So the
+    producer's single source of truth for a nudge's wording is
+    unreachable from the consumer that renders it, and
+    :mod:`sysadmin.estate.judgements` built its own — the copy-drift
+    estate-manager exists to remove, in the one place both repositories
+    carry a comment claiming otherwise.
+
+    **The mechanism is asked, never the population** — rule 1, and this
+    entry is the one where getting it wrong would be cheapest to do.
+    ``/api/projects/attention`` has answered ``{"health": [], "nudges":
+    []}`` on every occasion anyone has looked, twice after an overnight
+    scheduled scan, so a check reading the live route would report *no
+    nudges* and could never distinguish that from *no wording on the
+    nudges there are*.  A specimen is built instead, exactly as
+    :func:`check_dropin_blind_spot` builds a unit it could not find.
+
+    **All three of the entry's candidate remedies are reachable, and
+    that is what decided the shape.**  The entry offers publishing the
+    properties as fields, augmenting the payload beside the ``asdict``
+    call, or deleting the properties and the "one place" comment so the
+    producer stops claiming a role it does not fill.  The first shows up
+    as the wording appearing in ``asdict``; the third as the wording
+    being *absent from the object*, which is a refutation and not a
+    failure to measure, because the entry's complaint is that both sides
+    think they own the format and neither says so — a producer that has
+    stopped claiming it has answered that.  The second cannot be seen in
+    ``asdict`` at all, so the route's serialisation is read as well, and
+    a route that no longer hands the list straight out of a bare
+    ``asdict`` is ``unknown`` rather than ``match``: the probe has
+    stopped isolating the question and saying so is rule 5.
+
+    **A partial fix is ``mismatch`` with the residue named.**  The entry
+    says in its own body that converting ``title`` and ``message`` and
+    stopping there "leaves the same defect one field over", so a check
+    reporting that state as ``match`` would hide the fix and one
+    reporting it as a clean refutation would hide the residue.  It is a
+    candidate for closure — rule 2 hands the judgement to a sitting
+    either way — and what that sitting needs is the name of the field
+    still being dropped, which the note carries.
+
+    Delegated, so what is measured is the **producer**, never this
+    repository's consumer: :func:`check_estate_port_8500`'s refusal in
+    writing, and ``SNAG-ROADMAP-001``'s. Whether
+    :mod:`sysadmin.estate.judgements` should keep its own title is a
+    separate question the entry already answers *yes* to, and a check
+    that folded it in would be judging a decision rather than a claim.
+    """
     payload, problem = estate_probe(
-        APOLOGY_PROBE.format(service=str(ESTATE_SERVICE), apology=apology)
+        NUDGE_PROBE.format(service=str(ESTATE_SERVICE), wording=NUDGE_WORDING)
     )
     if payload is None:
         return Measurement("unknown", problem)
 
-    returned = payload.get("returned")
-    raw_placeholder = payload.get("raw_placeholder")
+    #: Ordered by :data:`NUDGE_WORDING` rather than alphabetically, so a
+    #: note reading "title, message now reach the wire and details still
+    #: do not" names the fields in the order the entry argues about them.
+    seen = set(_probe_names(payload.get("offered")))
+    offered = [name for name in NUDGE_WORDING if name in seen]
+    raised = _probe_names(payload.get("raised"))
+    published = _probe_names(payload.get("published"))
+    bare = payload.get("route_bare_asdict")
+    dropped = [name for name in offered if name not in published]
+    carried = [name for name in offered if name in published]
     detail = (
-        f"hook writes {apology!r}",
-        f"is_placeholder says placeholder={raw_placeholder}",
-        f"next_action_from_handoff returned {returned!r}",
-        estate_module_state(),
+        f"Nudge offers {', '.join(offered) or 'none of ' + ', '.join(NUDGE_WORDING)}",
+        f"the route's asdict() publishes {', '.join(published)}",
+        f"producer's title: {payload.get('title')!r}",
+        f"producer's message: {payload.get('message')!r}",
+        f"attention() serialises with a bare asdict(): {bare}",
+        estate_module_state(ESTATE_NUDGE_MODULES),
     )
 
-    if raw_placeholder is not True:
+    if raised:
         return Measurement(
             "unknown",
-            "the detector no longer reads the hook's line as a placeholder at all, so the "
-            "probe stops isolating the contradiction the entry is about",
+            "the specimen no longer satisfies the wording it is asked for "
+            f"({'; '.join(raised)}) — the probe has stopped isolating the question",
             detail,
         )
-    if returned is None:
+    if not offered:
         return Measurement(
             "mismatch",
-            "next_action_from_handoff now returns nothing for a line its own detector "
-            "calls a placeholder — the row is omitted, which is the outcome the entry asks "
-            "for",
+            "the producer no longer computes a title, message or details at all — the "
+            "entry's delete remedy, which ends the two-owners problem rather than the "
+            "publishing one",
             detail,
         )
-    #: The hook's own marks, read off the hook rather than off their
-    #: parser: reimplementing the strip here would make this module a
-    #: second author of estate-manager's normalisation, which is the
-    #: thing rule 8 refuses.
-    if isinstance(returned, str) and returned.strip() in {apology, apology.strip("_")}:
-        return Measurement("match", "", detail)
-    return Measurement(
-        "unknown",
-        f"the producer returned {returned!r}, which is neither the hook's line nor "
-        "nothing — the parser has moved and this probe no longer isolates the question",
-        detail,
-    )
-
+    if carried and not dropped:
+        return Measurement(
+            "mismatch",
+            "the wording the producer computes now reaches the wire — "
+            f"{', '.join(carried)} are serialised, which is the outcome the entry asks for",
+            detail,
+        )
+    if carried:
+        return Measurement(
+            "mismatch",
+            f"{', '.join(carried)} now reach the wire and {', '.join(dropped)} still "
+            "do not — the partial fix this entry warned of, so the residue is what needs "
+            "judging rather than the closure",
+            detail,
+        )
+    if bare is not True:
+        return Measurement(
+            "unknown",
+            "attention() no longer serialises a nudge with a bare asdict(), so a fix "
+            "augmenting the payload at the call site would not show here — the probe no "
+            "longer isolates what reaches the wire",
+            detail,
+        )
+    return Measurement("match", "", detail)
 
 # ---------------------------------------------------------------------------
 # The registry
@@ -1400,10 +1513,10 @@ CHECKS: dict[str, Check] = {
             check_capped_signature_collides,
         ),
         Check(
-            "handoff_apology_published",
-            "SNAG-ROADMAP-001",
-            "the handoff placeholder survives the detector",
-            check_handoff_apology_published,
+            "nudge_wording_unpublished",
+            "SNAG-ESTATE-002",
+            "the estate's nudge wording never reaches the wire",
+            check_nudge_wording_unpublished,
         ),
     )
 }
