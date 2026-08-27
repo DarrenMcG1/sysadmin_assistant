@@ -35,6 +35,7 @@ import socket
 import tempfile
 import textwrap
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from hashlib import blake2s
 from pathlib import Path
@@ -5374,3 +5375,721 @@ class TestTheDefaultPortCheckAgainstTheRealAudit:
             pytest.skip("estate-manager is not beside this checkout")
         guide = snag_claims.ESTATE_REGISTRY.read_text(encoding="utf-8")
         assert snag_claims.DEFAULT_PORT_RULE in guide
+
+
+def _answering(payload: dict) -> Callable[..., object]:
+    """An ``httpx.get`` stand-in whose response can be raised for status.
+
+    A bare :class:`httpx.Response` refuses ``raise_for_status`` because no
+    request is attached, and the refusal is a ``RuntimeError`` the reader
+    catches — so a stub without one tests the *error* path while claiming
+    to test the answer.  Found by writing it the short way first.
+    """
+    import httpx
+
+    def answer(url: str, *args: object, **kwargs: object) -> httpx.Response:
+        return httpx.Response(200, json=payload, request=httpx.Request("GET", url))
+
+    return answer
+
+
+class TestTheQueueTimezoneCheck:
+    """``SNAG-ESTATE-007``'s check — the twenty-third, and the fifth across a boundary.
+
+    The second whose subject is what another repository *publishes*
+    rather than what its code computes, and the first where the fix could
+    land in three places: the pool's kwargs (which the entry's cause
+    bullet names), ``invariants()``, or the route's serialiser.  All
+    three are driven here as real stand-ins, and only the first would be
+    visible to an ``ast`` walk for the ``connect_args`` entry.
+
+    Two things this class exists to pin that no other check has needed.
+    **The instrument is a *pair* of instants**, because a single one
+    agrees with itself only in summer — ``Europe/London`` renders
+    ``+00:00`` from late October to late March, so a one-instant check
+    reports the entry refuted every winter with nothing having changed.
+    And **the reading that discriminates their fix from a box whose
+    default moved is the same one that validates the stand-in database**:
+    ``pg_settings.source`` is ``client`` when the connection asked and
+    ``configuration file`` when it inherited the cluster's, and
+    ``database`` when the setting is per-database — at which point this
+    repository's database cannot stand in for the estate's and the check
+    must say so rather than answer.
+
+    The producer is stubbed rather than mocked out, for
+    :class:`TestTheDefaultPortCheck`'s reason: a stub package on disk
+    driven by *this* interpreter exercises :func:`estate_probe`'s
+    subprocess, its JSON contract and the verdict logic together, and it
+    runs where estate-manager is not installed, which is CI.  The stub
+    honours the probe's own seeded instants rather than holding a copy of
+    them — the fake connection records what the ``INSERT`` was given and
+    the fake arbiter renders *that*, so a probe that stopped seeding two
+    instants could not be answered by a fixture pretending it had.
+    """
+
+    DB = '''\
+QUEUE_TZ = {queue_tz!r}
+QUEUE_SOURCE = {queue_source!r}
+QUEUE_SETTING = {setting_override!r} or QUEUE_TZ
+
+
+class Cursor:
+    def __init__(self, row):
+        self._row = row
+
+    async def fetchone(self):
+        return self._row
+
+
+class Connection:
+    def __init__(self, pool):
+        self._pool = pool
+
+    async def execute(self, statement, params=None):
+        sql = " ".join(str(statement).split())
+        if "pg_settings" in sql:
+            return Cursor({{"setting": QUEUE_SETTING, "source": QUEUE_SOURCE}})
+        if sql.upper().startswith("INSERT"):
+            self._pool.seeded = list(params or [])
+        return Cursor(None)
+
+
+class Held:
+    def __init__(self, pool):
+        self._pool = pool
+
+    async def __aenter__(self):
+        self._pool.acquired += 1
+        return Connection(self._pool)
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class StubPool:
+    def __init__(self, dsn):
+        self.dsn = dsn
+        self.seeded = []
+        self.acquired = 0
+        self.closed = False
+
+    async def open(self, wait=True, timeout=10):
+        self.opened = True
+
+    async def close(self):
+        self.closed = True
+
+    def connection(self):
+        return Held(self)
+
+
+def create_pool(dsn):
+    return StubPool(dsn)
+'''
+
+    ARBITER = '''\
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from .db import QUEUE_TZ
+
+LEASE = {lease!r}
+ZONELESS = {zoneless!r}
+DROPPED = {dropped!r}
+ARBITER_ZONE = {arbiter_zone!r}
+STAMPS = ("granted_at", "hold_deadline")
+
+
+class Arbiter:
+    def __init__(self, pool, profiles, systemd, *, gpu_pci_slot, gpu_busy_threshold,
+                 sampler=None):
+        self.pool = pool
+        self.systemd = systemd
+        self.sampler = sampler
+
+    async def invariants(self):
+        if not LEASE:
+            return {{"depth": 0, "active_lease": None}}
+        zone = ZoneInfo(ARBITER_ZONE or QUEUE_TZ)
+        row = {{"id": 1, "profile": "snagcheck", "requester": "snagcheck"}}
+        for name, raw in zip(STAMPS, self.pool.seeded[1:3]):
+            if name == DROPPED:
+                continue
+            moment = datetime.fromisoformat(raw).astimezone(zone)
+            row[name] = moment.replace(tzinfo=None) if ZONELESS else moment
+        return {{"depth": 0, "active_lease": row}}
+'''
+
+    API = '''\
+from collections.abc import Callable
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
+
+from fastapi import FastAPI
+
+ROUTE = {route!r}
+NORMALISE = {normalise!r}
+RELOCALISE = {relocalise!r}
+
+
+def _public(row):
+    if row is None:
+        return None
+    out = {{}}
+    for key, value in row.items():
+        if isinstance(value, datetime):
+            if NORMALISE and value.tzinfo is not None:
+                value = value.astimezone(UTC)
+            elif RELOCALISE and value.tzinfo is not None:
+                value = value.astimezone(ZoneInfo(RELOCALISE))
+            out[key] = value.isoformat()
+        else:
+            out[key] = value
+    return out
+
+
+def create_app(settings=None, *, arbiter=None):
+    app = FastAPI()
+
+    @app.get(ROUTE)
+    async def invariants():
+        stats = await arbiter.invariants()
+        stats["active_lease"] = _public(stats["active_lease"])
+        return stats
+
+    return app
+'''
+
+    CONFIG = '''\
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+@dataclass
+class Settings:
+    db_dsn: str = "postgresql:///stub"
+    profiles_path: Path = field(default_factory=lambda: Path("/dev/null"))
+    gpu_pci_slot: str = "0000:00:00.0"
+    gpu_busy_threshold: int = 50
+    tick_seconds: float = 1.0
+    cors_origins: tuple = ()
+
+
+def load_settings(path=None):
+    return Settings()
+'''
+
+    SYSTEMD = '''\
+class UserSystemd:
+    def __init__(self, runner=None):
+        self.runner = runner
+'''
+
+    PROJECTS_DB = '''\
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+SIBLING_TZ = {sibling_tz!r}
+SIBLING_SOURCE = {sibling_source!r}
+
+
+class Result:
+    def __init__(self, row):
+        self._row = row
+
+    def mappings(self):
+        return self
+
+    def one(self):
+        return self._row
+
+
+class Connection:
+    async def execute(self, statement, params=None):
+        sql = " ".join(str(statement).split())
+        if "pg_settings" in sql:
+            return Result({{"setting": SIBLING_TZ, "source": SIBLING_SOURCE}})
+        zone = ZoneInfo(SIBLING_TZ)
+        return Result({{
+            "granted_at": datetime.fromisoformat(params["winter"]).astimezone(zone),
+            "hold_deadline": datetime.fromisoformat(params["summer"]).astimezone(zone),
+        }})
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class Engine:
+    def connect(self):
+        return Connection()
+
+    async def dispose(self):
+        self.disposed = True
+
+
+def sqlalchemy_dsn(dsn):
+    return dsn
+
+
+def create_engine_and_session(dsn):
+    return Engine(), None
+'''
+
+    def _stub(
+        self,
+        tmp_path: Path,
+        *,
+        queue_tz: str = "Europe/London",
+        queue_source: str = "configuration file",
+        setting_override: str = "",
+        sibling_tz: str = "UTC",
+        sibling_source: str = "client",
+        route: str | None = None,
+        normalise: bool = False,
+        relocalise: str = "",
+        lease: bool = True,
+        zoneless: bool = False,
+        dropped: str = "",
+        arbiter_zone: str = "",
+    ) -> Path:
+        """An ``estate_service`` holding just the six modules the probe imports."""
+        service = tmp_path / "service"
+        projects = service / "estate_service" / "projects"
+        projects.mkdir(parents=True)
+        for package in (service / "estate_service", projects):
+            (package / "__init__.py").write_text("", encoding="utf-8")
+        modules = {
+            "db.py": self.DB.format(
+                queue_tz=queue_tz, queue_source=queue_source, setting_override=setting_override
+            ),
+            "arbiter.py": self.ARBITER.format(
+                lease=lease, zoneless=zoneless, dropped=dropped, arbiter_zone=arbiter_zone
+            ),
+            "api.py": self.API.format(
+                route=route if route is not None else snag_claims.queue_route(),
+                normalise=normalise,
+                relocalise=relocalise,
+            ),
+            "config.py": self.CONFIG,
+            "systemd.py": self.SYSTEMD,
+        }
+        for name, body in modules.items():
+            (service / "estate_service" / name).write_text(body, encoding="utf-8")
+        (projects / "db.py").write_text(
+            self.PROJECTS_DB.format(sibling_tz=sibling_tz, sibling_source=sibling_source),
+            encoding="utf-8",
+        )
+        return service
+
+    LIVE = "live population: active_lease is null, as the entry says"
+
+    def _drive(self, tmp_path, monkeypatch, *, live: str | None = None, **kwargs):
+        import sys as _sys
+
+        monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", self._stub(tmp_path, **kwargs))
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", Path(_sys.executable))
+        monkeypatch.setattr(
+            snag_claims, "live_queue_lease", lambda: self.LIVE if live is None else live
+        )
+        return snag_claims.check_queue_stamps_local()
+
+    # -- the claim holding -----------------------------------------------
+
+    def test_a_local_rendering_beside_a_utc_one_is_the_claim(self, tmp_path, monkeypatch):
+        """What the live estate does, and what the entry says."""
+        found = self._drive(tmp_path, monkeypatch)
+        assert found.verdict == "match"
+        assert "+01:00" in found.detail[0]
+        assert "+01:00" not in found.detail[2]
+        assert "Europe/London (source: configuration file)" in found.detail[3]
+        assert "local at both layers" in found.detail[4]
+
+    def test_the_verdict_carries_which_tree_it_was_taken_at(self, tmp_path, monkeypatch):
+        """Session 87's rule: a verdict about somebody else's tree needs its state."""
+        found = self._drive(tmp_path, monkeypatch)
+        assert any("estate-manager's" in line for line in found.detail)
+
+    # -- the three places a fix can land ----------------------------------
+
+    def test_the_pool_asking_for_utc_refutes_it_in_the_place_the_entry_names(
+        self, tmp_path, monkeypatch
+    ):
+        """One ``kwargs`` entry, which is the fix the entry proposes."""
+        found = self._drive(tmp_path, monkeypatch, queue_tz="UTC", queue_source="client")
+        assert found.verdict == "mismatch"
+        assert "asks for its own timezone" in found.note
+        assert "in the place it names" in found.note
+
+    def test_a_route_that_normalises_refutes_it_where_the_cause_bullet_does_not_look(
+        self, tmp_path, monkeypatch
+    ):
+        """The fix an ``ast`` walk over their pool would call *still holds*.
+
+        The connection is untouched — still ``Europe/London``, still
+        sourced from the configuration file — and the surface publishes
+        UTC anyway, because the serialiser converts.  A check reading
+        ``invariants()`` alone, or the pool's kwargs, reports the entry
+        intact.
+        """
+        found = self._drive(tmp_path, monkeypatch, normalise=True)
+        assert found.verdict == "mismatch"
+        assert "normalised in the route" in found.note
+        assert "invariants() handed up" in found.detail[1]
+        assert "+01:00" in found.detail[1]
+        assert "in the route's serialisation" in found.detail[4]
+
+    def test_invariants_normalising_is_seen_through_the_route(self, tmp_path, monkeypatch):
+        """The middle layer, which is neither the pool nor the serialiser."""
+        found = self._drive(tmp_path, monkeypatch, arbiter_zone="UTC")
+        assert found.verdict == "mismatch"
+        assert "above a connection that is still local" in found.note
+        assert "at or below invariants()" in found.detail[4]
+
+    # -- the instrument ---------------------------------------------------
+
+    def test_one_instant_would_agree_with_itself_only_in_summer(self, tmp_path, monkeypatch):
+        """The reason there are two, and it is not redundancy.
+
+        The winter instant renders ``+00:00`` through a ``Europe/London``
+        connection — identical, character for character, to what the
+        sibling engine publishes.  A check reading ``granted_at`` alone
+        would report this entry refuted from late October to late March
+        and true again every spring, having measured nothing but the
+        calendar.
+        """
+        found = self._drive(tmp_path, monkeypatch)
+        assert found.verdict == "match"
+        winter, summer = found.detail[0].split(", hold_deadline")
+        assert winter.endswith("+00:00")
+        assert summer.endswith("+01:00")
+        # And the sibling's winter rendering is the same string, so the
+        # two surfaces are indistinguishable on that instant alone.
+        assert winter.split()[-1] in found.detail[2]
+
+    def test_stamps_utc_refuses_a_reading_that_holds_one_instant(self):
+        """Driven at the property, because the check gates before it gets there.
+
+        This test exists because a falsification **passed**: removing the
+        completeness half of :attr:`StampReading.stamps_utc` broke
+        nothing, since the verdict body refuses an incomplete reading one
+        gate earlier.  The two are not two statements of one fact —
+        ``complete`` is defined once and consulted twice — so the
+        redundancy is real and harmless *inside the check*, and the
+        property is public and would otherwise answer *yes, UTC* about a
+        surface that was only ever asked about January.  The gate stays
+        and the observation moves to where it is reachable.
+        """
+        winter_only = snag_claims.StampReading(
+            {"granted_at": "2026-01-15T09:31:01+00:00"}, {"granted_at": 0}, ()
+        )
+        assert not winter_only.complete
+        assert not winter_only.stamps_utc
+
+    def test_a_fixed_offset_zone_is_still_not_utc(self, tmp_path, monkeypatch):
+        """Both instants equal and non-zero is a local clock without a summer.
+
+        ``stamps_utc`` is *every offset is zero*, not *the offsets
+        agree* — a zone with no daylight saving renders both alike and is
+        still not what the sibling promises.
+        """
+        found = self._drive(tmp_path, monkeypatch, queue_tz="Etc/GMT-1")
+        assert found.verdict == "match"
+        assert found.detail[0].count("+01:00") == 2
+
+    # -- the readings that are not answers --------------------------------
+
+    def test_the_boxs_default_moving_to_utc_is_unknown_and_never_a_closure(
+        self, tmp_path, monkeypatch
+    ):
+        """Rule 1: the mechanism is intact and the symptom is unobservable.
+
+        The surface renders exactly what a fixed one would.  What says it
+        is not fixed is ``source``: the connection still *inherits*, so
+        the rendering goes local again the day the box does, and
+        ``match`` would assert a local rendering this check did not see.
+        """
+        found = self._drive(
+            tmp_path, monkeypatch, queue_tz="UTC", queue_source="configuration file"
+        )
+        assert found.verdict == "unknown"
+        assert "the box's default has moved rather than the pool" in found.note
+
+    def test_a_utc_zone_spelt_another_way_is_still_utc(self, tmp_path, monkeypatch):
+        """The witness that the zone name is *resolved* rather than compared.
+
+        PostgreSQL will answer ``UTC``, ``Etc/UTC`` or ``utc`` for one
+        setting, and a check comparing the string reads the second as a
+        local zone — which turns the box's default moving into a
+        *mismatch* naming a fix that never landed.  Nothing else in this
+        class would notice, because every other zone here is spelt the
+        obvious way.
+        """
+        found = self._drive(
+            tmp_path, monkeypatch, queue_tz="Etc/UTC", queue_source="configuration file"
+        )
+        assert found.verdict == "unknown"
+        assert "the box's default has moved rather than the pool" in found.note
+
+    def test_a_zone_that_will_not_resolve_is_unknown(self, tmp_path, monkeypatch):
+        """A name neither PostgreSQL nor :mod:`zoneinfo` can place is not a default."""
+        found = self._drive(
+            tmp_path, monkeypatch, queue_tz="UTC", queue_source="configuration file",
+            setting_override="Mars/Olympus",
+        )
+        assert found.verdict == "unknown"
+        assert "does not resolve to a zone" in found.note
+
+    def test_a_per_database_timezone_makes_the_stand_in_unsound(self, tmp_path, monkeypatch):
+        """The one gate that is about this check's own legitimacy.
+
+        The probe points *their* pool at *this* repository's database,
+        which the estate rules permit only because the timezone is a
+        cluster-wide setting.  ``source: database`` says it is not, and
+        the reading that would otherwise be the answer becomes the reason
+        there is not one.
+        """
+        found = self._drive(tmp_path, monkeypatch, queue_source="database")
+        assert found.verdict == "unknown"
+        assert "per-database" in found.note
+
+    def test_a_zoneless_instant_is_neither_of_the_two_renderings(self, tmp_path, monkeypatch):
+        """An offset removed altogether is a third answer, not a UTC one."""
+        found = self._drive(tmp_path, monkeypatch, zoneless=True)
+        assert found.verdict == "unknown"
+        assert "no offset at all" in found.note
+
+    def test_a_field_that_stopped_being_published_is_unknown(self, tmp_path, monkeypatch):
+        """One instant is not the pair, so the comparison was not made.
+
+        This is the seasonal defect arriving by a *field* rather than by
+        the calendar, and it is why ``stamps_utc`` requires the pair
+        rather than merely *every offset is zero*: with only
+        ``granted_at`` published, a ``Europe/London`` connection renders
+        ``+00:00`` and the draft read it as UTC — refuting the entry off
+        the one instant on which the two surfaces have always agreed.
+        Found by driving the stand-in, not by reasoning about it.
+        """
+        found = self._drive(tmp_path, monkeypatch, dropped="hold_deadline")
+        assert found.verdict == "unknown"
+        assert "compared on one season" in found.note
+
+    def test_a_lease_the_surface_cannot_see_is_unknown(self, tmp_path, monkeypatch):
+        """The probe's own witness that its fixture reaches their query."""
+        found = self._drive(tmp_path, monkeypatch, lease=False)
+        assert found.verdict == "unknown"
+        assert "no active lease" in found.note
+
+    def test_a_moved_route_is_a_different_claim(self, tmp_path, monkeypatch):
+        """The surface is the subject, so a surface that moved is not it."""
+        found = self._drive(tmp_path, monkeypatch, route="/api/gpu/invariants")
+        assert found.verdict == "unknown"
+        assert snag_claims.queue_route() in found.note
+
+    def test_the_two_layers_disagreeing_is_a_different_fault(self, tmp_path, monkeypatch):
+        """UTC below and local above is neither layer doing what it says.
+
+        ``arbiter_zone`` alone is the *middle-layer fix* and is tested
+        above; putting the localisation back in the serialiser is what
+        produces a surface disagreeing with the function beneath it, and
+        that is a fault this entry does not describe.
+        """
+        found = self._drive(
+            tmp_path, monkeypatch, arbiter_zone="UTC", relocalise="Europe/London"
+        )
+        assert found.verdict == "unknown"
+        assert "disagree about one fact" in found.note
+
+    # -- the premise ------------------------------------------------------
+
+    def test_the_sibling_losing_utc_is_the_premise_going_not_the_complaint(
+        self, tmp_path, monkeypatch
+    ):
+        """Both surfaces agreeing at the wrong end is a closure to judge.
+
+        :func:`check_default_port_uncontended`'s rule: a single boolean
+        over the two halves would file a *deleted* guarantee as a job
+        well done.
+        """
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            sibling_tz="Europe/London",
+            sibling_source="configuration file",
+        )
+        assert found.verdict == "mismatch"
+        assert "premise has gone rather than its complaint" in found.note
+
+    def test_the_pool_declaring_a_local_zone_kills_the_cause_not_the_symptom(
+        self, tmp_path, monkeypatch
+    ):
+        """A declared zone that is not UTC refutes the entry's cause bullet."""
+        found = self._drive(tmp_path, monkeypatch, queue_source="client")
+        assert found.verdict == "mismatch"
+        assert "cause has gone while its symptom stands" in found.note
+
+    # -- the live population, which is evidence ---------------------------
+
+    def test_the_live_population_is_evidence_and_never_the_verdict(self, tmp_path, monkeypatch):
+        """Rule 1, and this entry's population is empty by construction.
+
+        A lease being granted this afternoon is a fact about who is
+        holding the GPU.  The verdict must not move with it, in either
+        direction.
+        """
+        absent = self._drive(tmp_path, monkeypatch)
+        granted = self._drive(
+            tmp_path / "granted",
+            monkeypatch,
+            live="live population: a lease is granted, and the wire carries granted_at X",
+        )
+        assert absent.verdict == granted.verdict == "match"
+        assert "a lease is granted" in granted.detail[5]
+
+    def test_the_live_reader_says_null_the_way_the_entry_does(self, monkeypatch):
+        """The sentence the entry's own observation bullet is checked against."""
+        import httpx
+
+        monkeypatch.setattr(httpx, "get", _answering({"active_lease": None}))
+        assert "active_lease is null" in snag_claims.live_queue_lease()
+
+    def test_the_live_reader_reports_a_granted_lease_verbatim(self, monkeypatch):
+        """The day the population arrives, the wire string is quoted."""
+        import httpx
+
+        payload = {
+            "active_lease": {
+                "granted_at": "2026-08-16T09:31:01+01:00",
+                "hold_deadline": "2026-08-16T10:31:01+01:00",
+            }
+        }
+        monkeypatch.setattr(httpx, "get", _answering(payload))
+        assert "2026-08-16T09:31:01+01:00" in snag_claims.live_queue_lease()
+
+    def test_an_unreachable_8400_is_a_sentence_and_never_a_gate(self, monkeypatch):
+        """:mod:`sysadmin.estate.client` refuses to judge 8400's availability."""
+        import httpx
+
+        def refuse(*args, **kwargs):
+            raise httpx.ConnectError("nope")
+
+        monkeypatch.setattr(httpx, "get", refuse)
+        assert "evidence only" in snag_claims.live_queue_lease()
+
+    # -- what the probe may and may not do --------------------------------
+
+    def test_the_probe_names_no_private_symbol_of_theirs(self):
+        """Session 87's rule: a private helper's name is what their fix renames.
+
+        ``_public`` renders the wire string and is deliberately reached by
+        *calling the route mounted at the published path* instead.
+        """
+        tree = ast.parse(
+            snag_claims.QUEUE_TIMEZONE_PROBE.format(
+                service="/stub",
+                dsn="postgresql:///stub",
+                winter=snag_claims.QUEUE_WINTER_INSTANT,
+                summer=snag_claims.QUEUE_SUMMER_INSTANT,
+                route=snag_claims.queue_route(),
+                stamps=snag_claims.QUEUE_LEASE_STAMPS,
+            )
+        )
+        imported = {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+            if (node.module or "").startswith("estate_service")
+        }
+        assert imported
+        assert not [name for name in imported if name.startswith("_")]
+
+    def test_the_probe_is_pointed_at_this_repositorys_own_database(self):
+        """Estate rule 1: no application reads another application's database.
+
+        ``create_pool`` is a factory taking a DSN, so the check hands it
+        this repository's.  A check running at both ends of every sitting
+        would otherwise be the most regular breach of that rule on the
+        box.
+        """
+        dsn = snag_claims.libpq_dsn(get_config().database.sync_url)
+        assert dsn.startswith("postgresql://")
+        assert "+psycopg2" not in dsn
+        assert "estate" not in dsn.rsplit("/", 1)[-1]
+
+    def test_the_probe_cannot_drive_systemd(self):
+        """The runner it hands ``UserSystemd`` raises rather than running."""
+        assert "runner=refuse" in snag_claims.QUEUE_TIMEZONE_PROBE
+        assert "raise RuntimeError" in snag_claims.QUEUE_TIMEZONE_PROBE
+
+    def test_the_lease_lives_in_a_temporary_table(self):
+        """No rollback anybody could forget, and no residue to clean up."""
+        assert "CREATE TEMPORARY TABLE" in snag_claims.QUEUE_TIMEZONE_PROBE
+
+    def test_the_route_is_read_from_this_repositorys_own_record(self):
+        """Two statements of one path can disagree; there is one.
+
+        The estate judge already pulls this surface hourly, so the path
+        it uses is the path this check drives — and a rename moves both
+        at once or neither.
+        """
+        from sysadmin.estate.client import SURFACE_PATHS
+
+        path = SURFACE_PATHS["queue_invariants"]
+        assert snag_claims.queue_route() == path
+        tree = ast.parse(Path(snag_claims.__file__).read_text(encoding="utf-8"))
+        literals = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and node.value == path
+        ]
+        assert not literals, f"{path} is written out at line(s) " + ", ".join(
+            str(node.lineno) for node in literals
+        )
+
+    def test_the_two_instants_bracket_a_daylight_saving_boundary(self):
+        """Otherwise the pair is two readings of one season.
+
+        Driven rather than asserted about the calendar: the check's own
+        zone renders them differently and a UTC zone does not.
+        """
+        from zoneinfo import ZoneInfo
+
+        winter = datetime.fromisoformat(snag_claims.QUEUE_WINTER_INSTANT)
+        summer = datetime.fromisoformat(snag_claims.QUEUE_SUMMER_INSTANT)
+        london = ZoneInfo("Europe/London")
+        assert winter.astimezone(london).utcoffset() != summer.astimezone(london).utcoffset()
+        assert winter.astimezone(UTC).utcoffset() == summer.astimezone(UTC).utcoffset()
+
+
+class TestTheQueueCheckAgainstTheRealProducer:
+    """The live half, which is the only thing that can catch the producer.
+
+    :class:`TestTheQueueTimezoneCheck` drives a stub, so it can only
+    catch this repository's half of the seam.  These run against
+    estate-manager's own interpreter where it is present, and skip where
+    it is not — which is CI.
+    """
+
+    def test_the_real_queue_surface_yields_one_of_the_three_verdicts(self):
+        if not snag_claims.ESTATE_PYTHON.exists():
+            pytest.skip("estate-manager's venv is not on this box")
+        found = snag_claims.check_queue_stamps_local()
+        assert found.verdict in set(EXIT_STATUS)
+        assert any("estate-manager's" in line for line in found.detail)
+
+    def test_the_two_engines_are_built_differently_over_there(self):
+        """The entry's cause, read where a failure says "they converged".
+
+        In the check this reads as a refutation; here it reads as what it
+        is — the one ``kwargs`` entry the entry says is missing, and the
+        comment beside its sibling that promises UTC on the wire.
+        """
+        pool = snag_claims.ESTATE_SERVICE / "estate_service" / "db.py"
+        engine = snag_claims.ESTATE_SERVICE / "estate_service" / "projects" / "db.py"
+        if not pool.exists() or not engine.exists():
+            pytest.skip("estate-manager is not beside this checkout")
+        assert "timezone=utc" in engine.read_text(encoding="utf-8")
+        assert "timezone=utc" not in pool.read_text(encoding="utf-8")

@@ -118,6 +118,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
 from sysadmin import ops_claims
 from sysadmin.core.config import REPO_ROOT, get_config
@@ -5739,6 +5740,625 @@ def check_default_port_uncontended() -> Measurement:
     return Measurement("match", "", detail)
 
 
+#: ``SNAG-ESTATE-007``'s two engines, which is where a fix to either half
+#: would land: the queue's psycopg pool and the project domain's
+#: SQLAlchemy engine.  Both are named for :data:`ESTATE_NUDGE_MODULES`'
+#: reason — a fix landing in one says nothing about the other, and this
+#: entry is precisely a claim that the two disagree.  ``api.py`` is named
+#: as well because the surface is what is measured and the route's
+#: serialiser is the third place a rendering could be decided.
+ESTATE_QUEUE_MODULES = (
+    Path("estate_service") / "db.py",
+    Path("estate_service") / "api.py",
+    Path("estate_service") / "projects" / "db.py",
+)
+
+#: Two instants six months apart, and the pair is the instrument rather
+#: than a redundancy.
+#:
+#: The entry quotes one rendered string, ``"2026-08-16T09:31:01+01:00"``,
+#: and a check reading one instant is a check that **agrees with itself
+#: only in summer**: this box runs ``Europe/London``, which renders
+#: ``+00:00`` from late October to late March, so a single-instant probe
+#: would report the entry refuted every winter with nothing having
+#: changed and re-report it true every spring.  That is rule 1's warning
+#: arriving as a *seasonal* population rather than a countable one, and
+#: it was found by rendering both instants rather than by reasoning about
+#: the zone.
+#:
+#: A session pinned to UTC renders every instant at ``+00:00`` by
+#: construction, so "both offsets are zero" is a property of the
+#: *connection* and not of the calendar.  The summer instant is the
+#: entry's own, to the second, so the evidence line can be read against
+#: the sentence that filed it.
+QUEUE_WINTER_INSTANT = "2026-01-15 09:31:01+00"
+QUEUE_SUMMER_INSTANT = "2026-08-16 09:31:01+00"
+
+#: The two ``timestamptz`` fields ``active_lease`` publishes.  Read from
+#: the payload rather than typed as a schema: the probe seeds one row and
+#: these are the columns the surface hands back, so a field that stops
+#: being published is an absence the check reports rather than a
+#: ``KeyError`` inside it.
+QUEUE_LEASE_STAMPS = ("granted_at", "hold_deadline")
+
+#: ``pg_settings.source`` values meaning *this connection inherited the
+#: box's timezone*.  The distinction is the entry's cause, driven: a
+#: connection that asked for a zone reports ``client`` — which is exactly
+#: what ``options: -c timezone=utc`` in the pool's kwargs produces, and
+#: therefore what their fix would produce — and one that took the
+#: cluster's default reports ``configuration file``.  Measured against
+#: both connection shapes before it was written down.
+QUEUE_INHERITED_SOURCES = frozenset({"default", "configuration file"})
+
+#: ``pg_settings.source`` when a connection asked for the setting itself.
+QUEUE_DECLARED_SOURCE = "client"
+
+#: The probe handed to :func:`estate_probe`.  It builds a lease the
+#: surface can publish, drives the estate's own ``Arbiter.invariants()``
+#: and then the route object mounted at the queue's published path, and
+#: hands back the strings that came out alongside the timezone reading
+#: that says where they came from.
+#:
+#: **Nothing of the estate's is read or written, and that is a rule
+#: rather than a courtesy.**  ``create_pool`` is a factory taking a DSN,
+#: so it is pointed at *this* repository's database — the estate rules
+#: forbid one application reading another's, not even once, and a check
+#: that ran at both ends of every sitting would be the most regular
+#: breach of it on the box.  The substitution is sound only while the
+#: timezone is a cluster-wide setting, which is not assumed: ``source``
+#: reads ``configuration file`` when it is, and ``database`` or ``user``
+#: when it is not, and the caller sends the second case back as
+#: ``unknown``.  So the reading that discriminates cause from fix is the
+#: same one that validates the stand-in.
+#:
+#: **Nothing private is touched.**  ``create_pool``, ``Arbiter``,
+#: ``create_app``, ``load_settings``, ``UserSystemd`` and
+#: ``create_engine_and_session`` are theirs and public; ``_public`` — the
+#: serialiser that renders the wire string — is not, and is reached only
+#: by *calling the route mounted at the published path*, which is
+#: Session 87's rule read past the symbol names it was written about.
+#: The path comes from :data:`sysadmin.estate.client.SURFACE_PATHS`,
+#: this repository's own record of the surface it already pulls hourly,
+#: rather than being typed here a second time.
+#:
+#: ``UserSystemd`` is constructed with a runner that raises, so the probe
+#: **cannot** stop or start a unit even if a future ``invariants()``
+#: grew a call that tried; and ``sampler`` is a constant, so no GPU
+#: counter is read.  The lease lives in a ``TEMPORARY`` table, which
+#: leaves this repository's database exactly as it found it without
+#: needing a rollback anybody could forget.  It is deliberately **this
+#: module's** fixture and not their ``schema.sql``: applying real DDL
+#: here to get a faithful table would write the estate's schema into a
+#: database this repository owns the moment a search-path assumption
+#: slipped, and a query that outgrows the fixture fails loudly into
+#: ``unknown`` instead.
+QUEUE_TIMEZONE_PROBE = '''\
+import asyncio, dataclasses, json, sys
+sys.path.insert(0, {service!r})
+from estate_service.api import create_app
+from estate_service.arbiter import Arbiter
+from estate_service.config import load_settings
+from estate_service.db import create_pool
+from estate_service.projects.db import create_engine_and_session
+from estate_service.systemd import UserSystemd
+from sqlalchemy import text
+
+DSN = {dsn!r}
+WINTER = {winter!r}
+SUMMER = {summer!r}
+ROUTE = {route!r}
+STAMPS = list({stamps!r})
+
+SETTING = "SELECT setting, source FROM pg_settings WHERE name = 'TimeZone'"
+FIXTURE = (
+    "CREATE TEMPORARY TABLE gpu_leases ("
+    " id bigint, profile text, requester text, state text,"
+    " requested_at timestamptz, granted_at timestamptz, hold_deadline timestamptz)"
+)
+SEED = (
+    "INSERT INTO gpu_leases"
+    " (id, profile, requester, state, requested_at, granted_at, hold_deadline)"
+    " VALUES (1, 'snagcheck', 'snagcheck', 'granted',"
+    " CAST(%s AS timestamptz), CAST(%s AS timestamptz), CAST(%s AS timestamptz))"
+)
+PAIR = (
+    "SELECT CAST(:winter AS timestamptz) AS granted_at,"
+    " CAST(:summer AS timestamptz) AS hold_deadline"
+)
+
+
+async def refuse(*args, **kwargs):
+    """The probe never drives systemd, and cannot."""
+    raise RuntimeError("the snag check never runs systemctl")
+
+
+def rendered(value):
+    """Whatever the surface published, as the string a consumer reads."""
+    return value if isinstance(value, str) else value.isoformat()
+
+
+async def main():
+    out = {{"problem": ""}}
+    settings = dataclasses.replace(load_settings(), db_dsn=DSN)
+    pool = create_pool(DSN)
+    await pool.open(wait=True, timeout=10)
+    try:
+        async with pool.connection() as conn:
+            row = await (await conn.execute(SETTING)).fetchone()
+            out["queue_setting"], out["queue_source"] = row["setting"], row["source"]
+            await conn.execute(FIXTURE)
+            await conn.execute(SEED, (SUMMER, WINTER, SUMMER))
+        arbiter = Arbiter(
+            pool,
+            {{}},
+            UserSystemd(runner=refuse),
+            gpu_pci_slot=settings.gpu_pci_slot,
+            gpu_busy_threshold=settings.gpu_busy_threshold,
+            sampler=lambda: None,
+        )
+        lease = (await arbiter.invariants()).get("active_lease")
+        if lease is None:
+            out["problem"] = "lease_invisible"
+            print(json.dumps(out))
+            return
+        out["arbiter"] = {{name: rendered(lease[name]) for name in STAMPS if name in lease}}
+        app = create_app(settings, arbiter=arbiter)
+        endpoint = None
+        for route in app.routes:
+            if getattr(route, "path", None) == ROUTE:
+                endpoint = route.endpoint
+        if endpoint is None:
+            out["problem"] = "route_absent"
+            print(json.dumps(out))
+            return
+        async with app.router.lifespan_context(app):
+            served = await endpoint()
+        active = (served or {{}}).get("active_lease") or {{}}
+        out["served"] = {{name: rendered(active[name]) for name in STAMPS if name in active}}
+    finally:
+        await pool.close()
+
+    engine, _ = create_engine_and_session(DSN)
+    try:
+        async with engine.connect() as conn:
+            row = (await conn.execute(text(SETTING))).mappings().one()
+            out["sibling_setting"], out["sibling_source"] = row["setting"], row["source"]
+            row = (
+                await conn.execute(text(PAIR), {{"winter": WINTER, "summer": SUMMER}})
+            ).mappings().one()
+            out["sibling"] = {{name: rendered(row[name]) for name in STAMPS if name in row}}
+    finally:
+        await engine.dispose()
+    print(json.dumps(out))
+
+
+asyncio.run(main())
+'''
+
+
+#: The queue surface's published path comes from this repository's own
+#: record of the surfaces it already pulls hourly, never typed a second
+#: time here: the estate judge would stop reading a moved path while this
+#: check went on driving the old one, which is two statements of one fact
+#: that can disagree — ``SNAG-DB-003``'s shape arriving in a route.
+def queue_route() -> str:
+    """The queue surface's path, from :data:`sysadmin.estate.client.SURFACE_PATHS`."""
+    from sysadmin.estate.client import SURFACE_PATHS
+
+    return SURFACE_PATHS["queue_invariants"]
+
+
+def libpq_dsn(url: str) -> str:
+    """A SQLAlchemy URL as the libpq conninfo psycopg's pool wants.
+
+    The estate's own ``sqlalchemy_dsn`` converts in the other direction
+    and this is its inverse, done with SQLAlchemy's parser rather than a
+    string edit: ``config.database.sync_url`` names ``psycopg2``, which
+    is this repository's sync driver and not a wire format, and handing
+    it to ``create_pool`` would fail on the driver name before any
+    timezone was read.
+    """
+    return make_url(url).set(drivername="postgresql").render_as_string(hide_password=False)
+
+
+@dataclass(frozen=True)
+class StampReading:
+    """One surface's rendering of the probe's two instants.
+
+    Attributes:
+        rendered: what the surface published, per field, verbatim.
+        offsets: the UTC offset each field carried, in seconds.
+        zoneless: fields the surface published with no offset at all.
+    """
+
+    rendered: dict[str, str]
+    offsets: dict[str, int]
+    zoneless: tuple[str, ...]
+
+    @property
+    def complete(self) -> bool:
+        """Both instants came back, and both carried an offset.
+
+        The pair *is* the instrument, so a reading holding half of it is
+        not a weaker reading — it is a different one.
+        """
+        return set(self.offsets) == set(QUEUE_LEASE_STAMPS)
+
+    @property
+    def stamps_utc(self) -> bool:
+        """**Both** instants came back at a zero offset.
+
+        The completeness half is load-bearing rather than defensive, and
+        a stand-in found that out: a surface publishing only
+        ``granted_at`` satisfies *every offset is zero* through a
+        ``Europe/London`` connection, because the winter instant renders
+        ``+00:00`` there — which is the seasonal defect
+        :data:`QUEUE_WINTER_INSTANT` exists to prevent, arriving by a
+        dropped field instead of by the calendar.  A session pinned to
+        UTC agrees with itself in January and in August; one that was
+        only ever asked about January has not been asked.
+        """
+        return self.complete and set(self.offsets.values()) == {0}
+
+    def render(self) -> str:
+        """The published strings, in the order the surface names them."""
+        return ", ".join(f"{name} {value}" for name, value in self.rendered.items()) or "nothing"
+
+
+def stamp_reading(value: object) -> StampReading | None:
+    """One surface's published instants, or ``None`` when it published none.
+
+    Tolerant for :func:`_probe_names`' reason — the payload is another
+    repository's, so a field that has stopped being a parseable instant
+    is carried as *zoneless* or dropped rather than raised over.  The two
+    are kept apart because they mean opposite things: a dropped field is
+    a surface that stopped publishing it, and a zoneless one is a surface
+    still publishing it with the offset removed, which is neither of the
+    two renderings this entry compares and must not be read as either.
+    """
+    if not isinstance(value, dict):
+        return None
+    rendered: dict[str, str] = {}
+    offsets: dict[str, int] = {}
+    zoneless: list[str] = []
+    for name in QUEUE_LEASE_STAMPS:
+        published = value.get(name)
+        if not isinstance(published, str):
+            continue
+        rendered[name] = published
+        try:
+            moment = datetime.fromisoformat(published)
+        except ValueError:
+            zoneless.append(name)
+            continue
+        offset = moment.utcoffset()
+        if offset is None:
+            zoneless.append(name)
+            continue
+        offsets[name] = int(offset.total_seconds())
+    if not rendered:
+        return None
+    return StampReading(rendered, offsets, tuple(zoneless))
+
+
+def zone_stamps_utc(name: str) -> bool | None:
+    """Would a session in this named zone render both instants at ``+00:00``?
+
+    Derived rather than compared against a vocabulary.  ``"UTC"``,
+    ``"Etc/UTC"`` and ``"utc"`` are three spellings PostgreSQL will
+    return for one setting, and a list of the ones somebody thought of is
+    :mod:`sysadmin.core.logging_setup`'s ``syslog_priority`` written the
+    way that module refuses to write it — so the name is *resolved* and
+    the same two instants are put through it.  ``None`` when the zone
+    will not resolve at all, which is a reading rather than a default:
+    PostgreSQL and :mod:`zoneinfo` share the IANA database, so a name
+    neither can place is one this check has no business interpreting.
+
+    This is what separates *the fix landed above the connection* from
+    *the box's default moved*, and the two are indistinguishable at the
+    wire: both publish ``+00:00`` twice.  What tells them apart is that
+    the connection is still in a local zone in the first case.
+    """
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        zone = ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return None
+    return all(
+        datetime.fromisoformat(instant).astimezone(zone).utcoffset() == timedelta(0)
+        for instant in (QUEUE_WINTER_INSTANT, QUEUE_SUMMER_INSTANT)
+    )
+
+
+def live_queue_lease() -> str:
+    """What the running 8400 surface says about a granted lease, in words.
+
+    **Evidence, never the verdict** — rule 1, and this entry is where the
+    distinction is cheapest to get wrong.  Its own body says
+    ``active_lease`` has read ``null`` on every occasion anyone has
+    looked, so a check that measured the live surface would be measuring
+    whether somebody happens to hold the GPU, which is a fact about the
+    afternoon rather than about how the estate stamps a timestamp.  It is
+    read because the entry states it and it is the number that moves: the
+    day a lease is live, the rendering the entry describes is visible on
+    the real wire and the line below quotes it.
+
+    This is the estate's **API**, which is the one way the estate rules
+    permit data to cross — and it is a surface this repository already
+    pulls hourly, so the path and the base URL come from
+    :mod:`sysadmin.estate.client` and the config rather than being typed
+    here.  Every failure is a sentence: 8400 being down is not this
+    entry's business, and :mod:`sysadmin.estate.client`'s own docstring
+    refuses to judge it.
+    """
+    import httpx
+
+    base = get_config().agents.estate_judge.base_url
+    url = f"{base.rstrip('/')}{queue_route()}"
+    try:
+        response = httpx.get(url, timeout=10.0)
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:  # noqa: BLE001 — the live surface is evidence, never a gate
+        return f"the live queue surface was not read ({exc.__class__.__name__}) — evidence only"
+    if not isinstance(payload, dict):
+        return "the live queue surface answered something that is not an object"
+    lease = payload.get("active_lease")
+    if lease is None:
+        return (
+            "live population: active_lease is null, as the entry says it has been on every "
+            "occasion anyone has looked"
+        )
+    reading = stamp_reading(lease)
+    if reading is None:
+        return "live population: a lease is granted and publishes neither timestamp"
+    return f"live population: a lease is granted, and the wire carries {reading.render()}"
+
+
+def check_queue_stamps_local() -> Measurement:
+    """``SNAG-ESTATE-007`` — one estate surface renders a timestamp locally.
+
+    ``GET :8400/api/queue/invariants`` publishes ``active_lease`` with
+    ``granted_at`` and ``hold_deadline`` rendered in the connection's
+    timezone, which on this box is ``Europe/London``; the three project
+    and audit surfaces render ``+00:00``.  Same process, same database,
+    two renderings — and the cause is one ``kwargs`` entry, because
+    ``estate_service/projects/db.py`` builds its engine with
+    ``connect_args={"options": "-c timezone=utc"}`` and the queue's pool
+    passes only ``row_factory``.
+
+    **The fifth check across a repository boundary and the second whose
+    subject is what another repository *publishes*.**  ``SNAG-ESTATE-004``
+    was the first, and the rule it settled applies twice over here: the
+    fix could land in the pool's kwargs, in ``invariants()``, or in the
+    route's serialiser, so an ``ast`` walk for the ``options`` entry the
+    entry's own cause bullet names would report *still holds* for two of
+    the three.  What is read instead is the **string on the wire**, taken
+    by calling the route object mounted at the queue's published path.
+
+    **Its population is empty by construction, which is rule 1's shape
+    for the fourth time.**  ``active_lease`` has read ``null`` on every
+    occasion anyone has looked — the entry says so and
+    :func:`live_queue_lease` re-reads it every run as evidence — so there
+    is no live rendering to inspect and the lease is *built*, exactly as
+    the entry's own "observed rather than reasoned about" bullet says it
+    was when the defect was found.  A check waiting for a granted lease
+    would measure whether somebody happens to be holding the GPU this
+    afternoon.
+
+    **The obvious instrument agrees with itself only in summer.**  The
+    entry quotes ``"2026-08-16T09:31:01+01:00"``, so reading one rendered
+    offset is the first thing anyone would write.  ``Europe/London``
+    renders ``+00:00`` from late October to late March: such a check
+    reports the entry refuted every winter and true again every spring,
+    having measured nothing.  :data:`QUEUE_WINTER_INSTANT` and
+    :data:`QUEUE_SUMMER_INSTANT` are both driven through every surface,
+    and ``stamps UTC`` means **both** came back at zero — which a session
+    pinned to UTC satisfies by construction and a local one cannot.
+
+    **The cause is driven rather than read, and the same reading
+    validates the stand-in.**  ``pg_settings.source`` says where the
+    connection's ``TimeZone`` came from: ``client`` when the connection
+    asked — which is precisely what the entry's proposed fix produces —
+    and ``configuration file`` when it inherited the cluster's.  Measured
+    against both pool shapes before it was written down.  That is what
+    separates *their fix landed* from *the box's default moved to UTC*,
+    which renders identically and leaves the mechanism intact; the second
+    is ``unknown``, because ``match`` would assert a local rendering this
+    check did not see.  It is also what makes pointing their pool at this
+    repository's database legitimate rather than merely convenient: a
+    setting sourced from the configuration file is cluster-wide, and a
+    ``database`` or ``user`` source says it is not, at which point the
+    substitution is unsound and the check says so instead of answering.
+
+    **The complaint and the premise refute the entry for opposite
+    reasons**, so they are reported apart —
+    :func:`check_default_port_uncontended`'s rule, itself
+    :func:`check_sysd_ollama_ordering`'s.  The queue starting to stamp
+    UTC is the fix.  The *sibling* engine ceasing to is the entry's
+    premise dying with its complaint intact — the two surfaces would
+    agree again, at the wrong end — and a single boolean would file that
+    as a job well done.
+
+    Delegated, so what is measured is the estate's surface and never this
+    repository's opinion of it, :func:`check_estate_port_8500`'s refusal
+    in writing.  What is deliberately **not** measured is whether
+    ``judge_queue_invariants`` would now misread the field: it carries
+    ``active_lease`` into ``details`` verbatim and parses none of it, so
+    the entry's own "costs nothing here" bullet is a statement about this
+    repository's code that nothing over there can change.
+    """
+    route = queue_route()
+    live = live_queue_lease()
+    payload, problem = estate_probe(
+        QUEUE_TIMEZONE_PROBE.format(
+            service=str(ESTATE_SERVICE),
+            dsn=libpq_dsn(get_config().database.sync_url),
+            winter=QUEUE_WINTER_INSTANT,
+            summer=QUEUE_SUMMER_INSTANT,
+            route=route,
+            stamps=QUEUE_LEASE_STAMPS,
+        )
+    )
+    if payload is None:
+        return Measurement("unknown", problem, (live,))
+
+    reported = str(payload.get("problem") or "")
+    if reported == "lease_invisible":
+        return Measurement(
+            "unknown",
+            "the surface published no active lease over the probe's own granted row — "
+            "the fixture no longer reaches the query invariants() runs, so nothing was "
+            "rendered to read",
+            (live,),
+        )
+    if reported == "route_absent":
+        return Measurement(
+            "unknown",
+            f"nothing is mounted at {route} any more — the queue surface this entry "
+            "is about has moved, which is a different claim",
+            (live,),
+        )
+
+    served = stamp_reading(payload.get("served"))
+    arbiter = stamp_reading(payload.get("arbiter"))
+    sibling = stamp_reading(payload.get("sibling"))
+    source = str(payload.get("queue_source") or "")
+    setting = str(payload.get("queue_setting") or "")
+    sibling_setting = str(payload.get("sibling_setting") or "")
+
+    where = "unmeasured"
+    if served is not None and arbiter is not None:
+        if arbiter.stamps_utc and served.stamps_utc:
+            where = (
+                "UTC at both layers, so the rendering is decided at or below invariants()"
+            )
+        elif served.stamps_utc:
+            where = (
+                "invariants() hands a local instant up and the route publishes UTC, so the "
+                "rendering is decided in the route's serialisation"
+            )
+        elif arbiter.stamps_utc:
+            where = (
+                "invariants() hands UTC up and the route publishes a local instant, which "
+                "is neither layer doing what it says"
+            )
+        else:
+            where = "local at both layers, which is the entry as filed"
+
+    detail = (
+        f"the queue surface published {served.render() if served else 'nothing'}"
+        + (f" (no offset on {', '.join(served.zoneless)})" if served and served.zoneless else ""),
+        f"Arbiter.invariants() handed up {arbiter.render() if arbiter else 'nothing'}",
+        f"the same two instants through the project engine: "
+        f"{sibling.render() if sibling else 'nothing'}",
+        f"TimeZone on the queue pool's connection: {setting or '(unread)'} "
+        f"(source: {source or 'unread'}); on the project engine's: "
+        f"{sibling_setting or '(unread)'} (source: {payload.get('sibling_source') or 'unread'})",
+        f"where the rendering is decided: {where}",
+        live,
+        estate_module_state(ESTATE_QUEUE_MODULES),
+    )
+
+    if served is None or arbiter is None or sibling is None:
+        return Measurement(
+            "unknown",
+            "one of the three surfaces published neither timestamp, so the two renderings "
+            "the entry compares were not both observed",
+            detail,
+        )
+    if served.zoneless or arbiter.zoneless or sibling.zoneless:
+        return Measurement(
+            "unknown",
+            "an instant reached the wire with no offset at all — that is neither of the "
+            "two renderings this entry compares, and reading it as either would be a "
+            "guess about which",
+            detail,
+        )
+    if not (served.complete and arbiter.complete and sibling.complete):
+        return Measurement(
+            "unknown",
+            "a surface published only one of the two instants, so it was compared on one "
+            "season — which is the reading this check exists to refuse, whether the half "
+            "went missing by the calendar or by a field",
+            detail,
+        )
+    if source not in QUEUE_INHERITED_SOURCES and source != QUEUE_DECLARED_SOURCE:
+        return Measurement(
+            "unknown",
+            f"the connection's TimeZone is sourced from {source!r}, which is per-database "
+            "or per-role rather than cluster-wide — this repository's database cannot "
+            "stand in for the estate's while that is true",
+            detail,
+        )
+
+    declared = source == QUEUE_DECLARED_SOURCE
+    connection_utc = zone_stamps_utc(setting)
+    if connection_utc is None:
+        return Measurement(
+            "unknown",
+            f"the connection reports its timezone as {setting!r}, which does not resolve "
+            "to a zone — whether the surface publishes UTC because it was asked to cannot "
+            "be told from whether it inherited one",
+            detail,
+        )
+    if served.stamps_utc and not connection_utc:
+        where_fixed = (
+            "in the route's serialisation"
+            if not arbiter.stamps_utc
+            else "in invariants(), above a connection that is still local"
+        )
+        return Measurement(
+            "mismatch",
+            f"the queue surface publishes UTC at both instants off a connection still in "
+            f"{setting} — the rendering is normalised {where_fixed}, which is the entry's "
+            "complaint answered somewhere its cause bullet does not look",
+            detail,
+        )
+    if served.stamps_utc and declared:
+        return Measurement(
+            "mismatch",
+            f"the queue pool now asks for its own timezone ({setting}) and the surface "
+            "publishes UTC at both instants — the entry's fix, in the place it names",
+            detail,
+        )
+    if served.stamps_utc:
+        return Measurement(
+            "unknown",
+            f"the surface publishes UTC at both instants on a connection that still "
+            f"inherits its timezone ({setting}, source {source}) — the box's default has "
+            "moved rather than the pool, so the entry's mechanism is intact and its "
+            "symptom is not observable here",
+            detail,
+        )
+    if arbiter.stamps_utc:
+        return Measurement(
+            "unknown",
+            "invariants() hands UTC up and the route publishes a local instant — the two "
+            "layers disagree about one fact, which is a different fault rather than this "
+            "one holding",
+            detail,
+        )
+    if declared:
+        return Measurement(
+            "mismatch",
+            f"the queue pool declares a timezone now and it is not UTC ({setting}) — the "
+            "entry's cause has gone while its symptom stands, which is a closure to judge "
+            "and not a fix to record",
+            detail,
+        )
+    if not sibling.stamps_utc:
+        return Measurement(
+            "mismatch",
+            f"the project engine no longer stamps UTC either ({sibling_setting}) — the two "
+            "surfaces agree again, at the wrong end, so the entry's premise has gone "
+            "rather than its complaint",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 # ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
@@ -5881,6 +6501,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-004",
             "the estate's audit files nothing about a claimed tool default",
             check_default_port_uncontended,
+        ),
+        Check(
+            "queue_stamps_local",
+            "SNAG-ESTATE-007",
+            "one estate surface renders a timestamp in local time",
+            check_queue_stamps_local,
         ),
         Check(
             "timer_agent_two_owners",

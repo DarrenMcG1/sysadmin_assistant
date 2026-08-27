@@ -394,6 +394,60 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 101 — the twenty-third check, and a symptom that agrees with itself only in summer (2026-08-27) ✅
+
+- [x] Take `SNAG-ESTATE-007` over `SNAG-ESTATE-006`, which
+      `tests/test_estate_surface_payloads.py::test_the_producers_code_never_reaches_the_wire`
+      already fails on the day estate-manager adds the column, so a
+      registry check there would be a second statement of one fact; and
+      over `SNAG-ESTATE-014`, refused outright because its claim *is* a
+      population — the count of unchecked entries — which is the one
+      thing rule 1 forbids a check to measure and which
+      `check_convention` reports every run
+- [x] Read the claim off the **string on the wire**, by calling the route
+      object mounted at the queue's published path. The fix can land in
+      three places — the pool's kwargs (which the entry's cause bullet
+      names), `invariants()`, or the route's serialiser — so an `ast`
+      walk for the `connect_args` entry reports *still holds* for two of
+      them; all three driven as real stand-ins
+- [x] Build the lease rather than wait for one — rule 1, and its
+      population is empty by construction. `active_lease` has read `null`
+      on every occasion anyone has looked, so it is re-read live every
+      run as **evidence** and the rendering is measured against a
+      synthetic granted lease built through the producer's own pool
+- [x] Drive **two** instants six months apart. The entry quotes one
+      rendered offset and `Europe/London` renders `+00:00` from late
+      October to late March, so a one-instant check reports the entry
+      refuted every winter and true again every spring, having measured
+      the calendar. *Stamps UTC* means both came back at zero
+- [x] Read the cause rather than the source: `pg_settings.source` is
+      `client` when the connection asked — which is what the proposed fix
+      produces — and `configuration file` when it inherited the cluster's.
+      Measured against both pool shapes before it was written down
+- [x] Keep the estate's database untouched. `create_pool` is a factory
+      taking a DSN, so it is pointed at this repository's, and the lease
+      lives in a `TEMPORARY` table. The substitution is legitimate only
+      while the timezone is cluster-wide, and the same `source` reading
+      says so — `database` or `user` makes it unsound and stops the check
+      answering
+- [x] Report the premise apart from the complaint: the sibling engine
+      ceasing to stamp UTC is this entry dying at its premise, and a
+      single boolean would file a deleted guarantee as a job well done
+- [x] Falsify all twelve guards, each firing on the test that names it.
+      One **passed against broken code** for the fifth time here:
+      removing the completeness half of `stamps_utc` broke nothing,
+      because the verdict body refuses an incomplete reading one gate
+      earlier. Not two statements of one fact — `complete` is defined
+      once and consulted twice — so the gate stayed and the observation
+      moved to the property, where it is reachable
+- [x] Repair the one red the full suite carried in from another
+      repository: estate-manager added a `1883` row to their port
+      registry today under their ADR-0054, outside the ranges this
+      repository audits, and `test_our_parser_and_the_estates_agree_on_the_live_document`
+      pinned the accepted-unaudited set at `[22000]`. Widening our ranges
+      is their decision to ask for, so the expectation is corrected and
+      the reason recorded beside it
+
 ## Session 100 — the twenty-second check, and the first about somebody else's surface (2026-08-27) ✅
 
 - [x] Take `SNAG-ESTATE-004` over `SNAG-SVC-001`, which is the harder
