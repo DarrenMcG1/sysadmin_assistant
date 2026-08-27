@@ -80,6 +80,7 @@ from sysadmin.snag_claims import (
     check_review_schedule_unread,
     check_run_status_cancelled,
     check_sysd_ollama_ordering,
+    check_unswept_port_is_loud,
     check_unwrap_is_read_time,
     closure_declared,
     discarded_tasks,
@@ -2578,7 +2579,7 @@ class TestTheQuietenedJudgementCheck:
         """Alert rows on the live box that the probe could have left.
 
         **Counted by title, and the first draft counted by message.**
-        The row the probe *opens* carries :data:`QUIETEN_MESSAGE`; the
+        The row the probe *opens* carries :data:`PROBE_MESSAGE`; the
         row it raises — the witness, and the more interesting write —
         carries the estate's own ``summary``, because ``raise_alert`` is
         handed the judgement's message.  So a guard keyed on the probe's
@@ -2596,7 +2597,7 @@ class TestTheQuietenedJudgementCheck:
         titles = ", ".join(f"'{judged[port].title}'" for port in snag_claims.QUIETEN_PORTS)
         count, problem = snag_claims.query_one(
             f"SELECT count(*) FROM sysadmin.alerts WHERE title IN ({titles}) "
-            f"OR message = '{snag_claims.QUIETEN_MESSAGE}'"
+            f"OR message = '{snag_claims.PROBE_MESSAGE}'"
         )
         assert not problem, problem
         return int(count or 0)
@@ -2643,7 +2644,7 @@ class TestTheQuietenedJudgementCheck:
             (
                 await session.execute(
                     select(Alert).where(
-                        Alert.message == snag_claims.QUIETEN_MESSAGE,
+                        Alert.message == snag_claims.PROBE_MESSAGE,
                         Alert.resolved.is_(False),
                     )
                 )
@@ -2683,7 +2684,7 @@ class TestTheQuietenedJudgementCheck:
         assert self._surviving_sweeps() == 0
 
     def test_the_probes_own_strings_cannot_become_an_injection(self):
-        for constant in (snag_claims.QUIETEN_MESSAGE, snag_claims.QUIETEN_HOLDER):
+        for constant in (snag_claims.PROBE_MESSAGE, snag_claims.QUIETEN_HOLDER):
             assert "'" not in constant and "\\" not in constant, constant
 
     def test_the_probe_ports_hold_no_live_row(self):
@@ -2736,7 +2737,7 @@ class TestTheQuietenedJudgementCheck:
             seen.extend(
                 (row.severity, (row.details or {}).get("holder"), "holder" in (row.details or {}))
                 for row in rows
-                if row.message == snag_claims.QUIETEN_MESSAGE
+                if row.message == snag_claims.PROBE_MESSAGE
             )
             return rows
 
@@ -2875,7 +2876,7 @@ class TestTheQuietenedJudgementCheck:
             await session.execute(
                 update(Alert)
                 .where(
-                    Alert.message == snag_claims.QUIETEN_MESSAGE,
+                    Alert.message == snag_claims.PROBE_MESSAGE,
                     Alert.resolved.is_(False),
                 )
                 .values(severity=TRANSIENT_HOLDER_SEVERITY)
@@ -2905,7 +2906,7 @@ class TestTheQuietenedJudgementCheck:
                     agent=row.agent,
                     severity=TRANSIENT_HOLDER_SEVERITY,
                     title=row.title,
-                    message=snag_claims.QUIETEN_MESSAGE,
+                    message=snag_claims.PROBE_MESSAGE,
                     details={**(row.details or {}), "holder": {"transient": True}},
                 )
             )
@@ -2998,3 +2999,477 @@ class TestTheQuietenedJudgementCheck:
         assert not problem, problem
         entry = next(e for e in entries if e.snag_id == check.snag)
         assert "quietened_judgement_reach" in entry.markers
+
+class TestTheUnsweptPortCheck:
+    """``SNAG-ESTATE-009``'s check — the sweep's age, driven rather than counted.
+
+    The entry is about a dev server started *between* sweeps, so its
+    population is which side of a six-hour boundary somebody opened an
+    editor on.  Nothing below counts a row.  What is driven is the one
+    fact that makes the window exist: ``_attribution`` reads a single
+    stored ``unit_audits`` row, so a sweep naming one of two ports **is**
+    a sweep taken before the second listener started.
+
+    Every falsification is a stand-in **modelling a landed fix** — the
+    sweep learning to see the port, the judge quietening it unattributed,
+    and the row gaining an annotation with the rung untouched — plus the
+    two ways the instrument itself can stop discriminating.
+    """
+
+    # -- helpers ---------------------------------------------------------
+
+    @staticmethod
+    def _payload():
+        return {
+            "findings": [
+                snag_claims.quieten_finding(port) for port in snag_claims.UNSWEPT_PORTS
+            ]
+        }
+
+    @classmethod
+    def _titles(cls) -> dict[int, str]:
+        """The two titles, off the producer — never a format string here."""
+        from sysadmin.core.config import get_config
+        from sysadmin.estate.judgements import judge_audit_findings
+        from sysadmin.units.ports import attribution_from_blob
+
+        judged = judge_audit_findings(
+            cls._payload(),
+            get_config().agents.estate_judge.port_breach_max_rows,
+            attribution_from_blob(
+                {"transient_ports": {snag_claims.UNSWEPT_HOLDER: [snag_claims.SWEPT_PORT]}},
+                datetime.now(UTC).isoformat(),
+            ),
+        )
+        return {judgement.details["port"]: judgement.title for judgement in judged}
+
+    @classmethod
+    def _surviving_rows(cls) -> int:
+        """Rows on the live box this probe could have left.
+
+        By **title**, for the reason its sibling's guard had to be
+        corrected to: this probe opens no row by hand at all, so every
+        row it can leak is one it *raised*, wearing the estate's own
+        ``summary`` rather than :data:`PROBE_MESSAGE`.  A guard keyed on
+        the probe's own message would here be blind to the whole
+        population.
+        """
+        titles = ", ".join(f"'{title}'" for title in cls._titles().values())
+        count, problem = snag_claims.query_one(
+            f"SELECT count(*) FROM sysadmin.alerts WHERE title IN ({titles})"
+        )
+        assert not problem, problem
+        return int(count or 0)
+
+    @staticmethod
+    def _surviving_sweeps() -> int:
+        count, problem = snag_claims.query_one(
+            "SELECT count(*) FROM sysadmin.unit_audits "
+            f"WHERE findings::text LIKE '%{snag_claims.UNSWEPT_HOLDER}%'"
+        )
+        assert not problem, problem
+        return int(count or 0)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _fix(mutate):
+        """Run the real ``_execute``, then apply ``mutate`` — a landed fix.
+
+        After the production loop rather than instead of it, so the run
+        under test is the real one and the only difference is what a fix
+        would have done to its output.  A stand-in replacing ``_execute``
+        outright would prove the check notices an edit to itself.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+
+        real = EstateJudgeAgent._execute
+
+        async def patched(self, session):
+            result = await real(self, session)
+            await mutate(session)
+            return result
+
+        with patch.object(EstateJudgeAgent, "_execute", patched):
+            yield
+
+    @classmethod
+    async def _row(cls, session, port: int):
+        from sqlalchemy import select
+
+        from sysadmin.core.models.alert import Alert
+
+        return (
+            (
+                await session.execute(
+                    select(Alert).where(
+                        Alert.title == cls._titles()[port],
+                        Alert.resolved.is_(False),
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+
+    # -- the instruments -------------------------------------------------
+
+    def test_the_probe_writes_nothing_that_survives(self):
+        """What makes writing to the live database allowable, asserted twice.
+
+        Before as well as after, because a probe that had been leaking
+        rows for a week would satisfy an "after" assertion on its own.
+        """
+        assert self._surviving_rows() == 0
+        assert self._surviving_sweeps() == 0
+        reading, problem = snag_claims.unswept_judgement_reading()
+        assert not problem, problem
+        assert reading is not None and reading.witnessed
+        assert self._surviving_rows() == 0
+        assert self._surviving_sweeps() == 0
+
+    def test_nothing_survives_a_run_that_raised(self):
+        """The rollback is in a ``finally``, so a failed drive leaks nothing either."""
+        from sysadmin.estate.agent import EstateJudgeAgent
+
+        async def boom(self, session):
+            raise RuntimeError("the judge fell over mid-run")
+
+        with patch.object(EstateJudgeAgent, "_execute", boom):
+            measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "unknown"
+        assert "would not run against the live database" in measurement.note
+        assert self._surviving_rows() == 0
+        assert self._surviving_sweeps() == 0
+
+    def test_the_probes_own_strings_cannot_become_an_injection(self):
+        assert "'" not in snag_claims.UNSWEPT_HOLDER
+        assert "\\" not in snag_claims.UNSWEPT_HOLDER
+
+    def test_the_two_probes_share_no_port_and_no_holder(self):
+        """Rule 4, and a leak has to name which probe left it.
+
+        The two write to the same two tables inside the same script.
+        Sharing a port would let one probe deduplicate against the
+        other's row; sharing the holder string would make a surviving
+        sweep ambiguous about which drive failed to roll back.
+        """
+        assert not set(snag_claims.UNSWEPT_PORTS) & set(snag_claims.QUIETEN_PORTS)
+        assert snag_claims.UNSWEPT_HOLDER != snag_claims.QUIETEN_HOLDER
+
+    def test_the_probe_ports_hold_no_live_row(self):
+        """The titles it raises must be nobody else's fault."""
+        assert self._surviving_rows() == 0
+
+    def test_the_instrument_is_the_agents_own_execute(self):
+        """Driven, not reimplemented — one call, one session."""
+        from sysadmin.estate.agent import EstateJudgeAgent
+
+        real = EstateJudgeAgent._execute
+        sessions = []
+
+        async def counting(self, session):
+            sessions.append(session)
+            return await real(self, session)
+
+        with patch.object(EstateJudgeAgent, "_execute", counting):
+            reading, problem = snag_claims.unswept_judgement_reading()
+        assert not problem, problem
+        assert reading is not None and len(sessions) == 1
+
+    def test_the_attribution_is_read_through_the_agent_twice(self):
+        """The production reader is *called*, not stood in for.
+
+        Written after a stand-in swapped the reading's call for a local
+        ``attribution_from_blob(blob, observed_at)`` and every assertion
+        still passed — the blob is what the row holds, so the two agree
+        on every value and only the call itself separates them.  Twice:
+        once inside ``_execute`` for the judgement, once after it for the
+        report.  They cannot disagree — both read the newest
+        ``unit_audits`` row and the transaction writes no second one —
+        which is exactly why the count is the thing worth asserting.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+
+        real = EstateJudgeAgent._attribution
+        calls = []
+
+        async def counting(self, session):
+            out = await real(self, session)
+            calls.append(out)
+            return out
+
+        with patch.object(EstateJudgeAgent, "_attribution", counting):
+            reading, problem = snag_claims.unswept_judgement_reading()
+        assert not problem, problem
+        assert reading is not None and len(calls) == 2
+        assert calls[0].observed_at == calls[1].observed_at
+
+    def test_the_probes_sweep_is_the_newest_on_the_box(self):
+        """Or it is not holding the variable at all.
+
+        ``_attribution`` reads **one** row — the newest — so a probe
+        whose row is not newest measures the estate's real sweep instead.
+        Driven when the row was backdated by one ``scan_interval_hours``
+        to model the entry's timing: the box's own sweep, 1.21 h old, won,
+        the swept port came back unattributed and the witness refused.
+        The age is reported for that reason and asserted here, because
+        the failure it guards against is a real sweep landing mid-drive.
+        """
+        reading, problem = snag_claims.unswept_judgement_reading()
+        assert not problem, problem
+        assert reading is not None
+        assert reading.attribution_age_hours is not None
+        assert reading.attribution_age_hours < 0.01
+
+    def test_the_stored_sweep_names_exactly_one_of_the_two_ports(self):
+        """The precondition, read at ``_attribution`` rather than at the blob.
+
+        The blob is this module's; what the claim is about is what the
+        production reader makes of it, and those are two facts until
+        something drives the second.
+        """
+        reading, problem = snag_claims.unswept_judgement_reading()
+        assert not problem, problem
+        assert reading is not None
+        assert isinstance(reading.attributed_swept, dict)
+        assert reading.attributed_swept["transient"] is True
+        assert reading.attributed_unswept is None
+
+    def test_only_the_findings_surface_is_read(self):
+        """The four declined surfaces, asserted at the sweep that consumes them."""
+        from sysadmin.estate.agent import EstateJudgeAgent
+
+        real = EstateJudgeAgent._resolve_gone
+        seen = []
+
+        async def recording(self, session, open_alerts, current, read):
+            seen.append(set(read))
+            return await real(self, session, open_alerts, current, read)
+
+        with patch.object(EstateJudgeAgent, "_resolve_gone", recording):
+            reading, problem = snag_claims.unswept_judgement_reading()
+        assert not problem, problem
+        assert seen == [{"audit_findings"}]
+
+    def test_the_quiet_rung_is_not_read_off_the_run(self):
+        """Rule 3, driven at the state that would hide a broken witness.
+
+        If ``quiet`` were taken from the swept row the run produced, the
+        witness could never fail — the expectation would follow the
+        measurement wherever it went.  So the swept row is moved to a
+        rung nothing computes, and the check has to notice.
+        """
+
+        async def mangle(session):
+            row = await self._row(session, snag_claims.SWEPT_PORT)
+            assert row is not None
+            row.severity = "critical"
+            await session.flush()
+
+        with self._fix(mangle):
+            measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "unknown"
+        assert "did not raise port" in measurement.note
+
+    # -- the verdicts ----------------------------------------------------
+
+    def test_the_check_holds_on_this_box(self):
+        measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "match"
+        assert any(
+            f"port {snag_claims.UNSWEPT_PORT} is not named by it" in line
+            for line in measurement.detail
+        )
+        assert any(
+            f"port {snag_claims.SWEPT_PORT} is named by the stored sweep" in line
+            for line in measurement.detail
+        )
+
+    def test_the_pair_differs_only_in_the_blob(self):
+        """Both ports judged alike once both are attributed, pinned purely."""
+        from sysadmin.core.config import get_config
+        from sysadmin.estate.judgements import judge_audit_findings
+        from sysadmin.units.ports import attribution_from_blob
+
+        judged = judge_audit_findings(
+            self._payload(),
+            get_config().agents.estate_judge.port_breach_max_rows,
+            attribution_from_blob(
+                {
+                    "transient_ports": {
+                        snag_claims.UNSWEPT_HOLDER: list(snag_claims.UNSWEPT_PORTS)
+                    }
+                },
+                datetime.now(UTC).isoformat(),
+            ),
+        )
+        assert {j.details["port"] for j in judged} == set(snag_claims.UNSWEPT_PORTS)
+        assert len({j.severity for j in judged}) == 1
+        for judgement in judged:
+            assert judgement.details["holder"]["transient"] is True
+
+    def test_a_judge_that_runs_ss_itself_is_a_mismatch(self):
+        """The entry's first rejected fix, driven whole.
+
+        Closing the window exactly — by any route that gets the judge a
+        live look — arrives here as an attribution naming the port the
+        stored sweep did not.  This one **composes** limbs rather than
+        isolating one: a dev server found live attributes as transient,
+        so the rung and the holder move together, and no single-limb
+        falsification can break it.  Each limb has its own scenario
+        below and beside it; this asserts that the fix the entry
+        actually considered is reported, and reported as both.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+        from sysadmin.units.ports import attribution_from_blob
+
+        async def sees_everything(self, session):
+            return attribution_from_blob(
+                {
+                    "transient_ports": {
+                        snag_claims.UNSWEPT_HOLDER: list(snag_claims.UNSWEPT_PORTS)
+                    }
+                },
+                datetime.now(UTC).isoformat(),
+            )
+
+        with patch.object(EstateJudgeAgent, "_attribution", sees_everything):
+            measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "mismatch"
+        assert "_attribution named it" in measurement.note
+        assert "it is judged" in measurement.note
+
+    def test_an_acquired_holder_alone_is_a_mismatch(self):
+        """The holder limb, isolated — and the state that isolates it is real.
+
+        A live look does not have to find a dev server.  A port held by
+        an ordinary unit comes back **non-transient**, so
+        ``_breach_severity`` leaves the rung exactly where it was and
+        only ``details['holder']`` moves — and the row has stopped being
+        indistinguishable from an ordinary unclaimed listener, which is
+        what the entry claims the window prevents.  The swept port keeps
+        its transient holder, or there would be no witness to judge
+        either verdict against.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+        from sysadmin.units.ports import attribution_from_blob
+
+        async def one_real_unit(self, session):
+            return attribution_from_blob(
+                {
+                    "unit_ports": {"system:probe-stand-in.service": [snag_claims.UNSWEPT_PORT]},
+                    "transient_ports": {
+                        snag_claims.UNSWEPT_HOLDER: [snag_claims.SWEPT_PORT]
+                    },
+                },
+                datetime.now(UTC).isoformat(),
+            )
+
+        with patch.object(EstateJudgeAgent, "_attribution", one_real_unit):
+            measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "mismatch"
+        assert "details['holder'] is" in measurement.note
+        assert "it is judged" not in measurement.note
+        assert "its details differ" not in measurement.note
+
+    def test_quietening_an_unattributed_breach_is_a_mismatch(self):
+        """The second, and it leaves ``_attribution`` exactly where it was.
+
+        A judge that decided an unclaimed listener inside a fresh-sweep
+        window is worth the quiet rung would land here — the holder stays
+        ``None`` and only the rung moves.
+        """
+        from sysadmin.estate import judgements
+
+        quiet = judgements.TRANSIENT_HOLDER_SEVERITY
+        with patch.object(judgements, "_breach_severity", lambda holder: quiet):
+            measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "mismatch"
+        assert f"it is judged {quiet} rather than" in measurement.note
+        assert "_attribution now holds" not in measurement.note
+
+    def test_an_annotation_alone_is_a_mismatch(self):
+        """The third, and the reason the assertion is wider than the rung.
+
+        The entry's "Why P3" bullet is that ``holder['observed_at']``
+        already publishes the evidence's age — which is true of an
+        attributed port and vacuous for this one, since ``holder`` is
+        ``None``.  A fix putting the window somewhere a reader of *this*
+        row can see moves neither the rung nor the holder, and a check
+        watching only those two would report it as the entry holding.
+        """
+
+        async def annotate(session):
+            row = await self._row(session, snag_claims.UNSWEPT_PORT)
+            assert row is not None
+            row.details = {
+                **(row.details or {}),
+                "attribution_observed_at": datetime.now(UTC).isoformat(),
+            }
+            await session.flush()
+
+        with self._fix(annotate):
+            measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "mismatch"
+        assert "its details differ from its swept sibling's" in measurement.note
+        assert "attribution_observed_at" in measurement.note
+        assert "it is judged" not in measurement.note
+
+    def test_without_the_witness_the_verdict_is_unknown(self):
+        """The control, driven at the state that would otherwise read ``match``.
+
+        A judge whose attribution never arrives raises **both** ports
+        loudly and unattributed, so every assertion the ``match`` branch
+        makes about the unswept port is still true — and the reason has
+        nothing to do with the sweep's age.  Only the witness separates
+        them.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+        from sysadmin.units.ports import PortAttribution
+
+        async def blind(self, session):
+            return PortAttribution()
+
+        with patch.object(EstateJudgeAgent, "_attribution", blind):
+            measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "unknown"
+        assert "rather than evidence about the sweep's age" in measurement.note
+        assert any(
+            f"port {snag_claims.UNSWEPT_PORT} is not named by it: _attribution holds None"
+            in line
+            for line in measurement.detail
+        )
+
+    def test_a_family_with_no_quieter_rung_is_unknown(self):
+        """Session 57 reverted: this entry is a limit on a fix that is gone.
+
+        Reached before anything is written, so it also pins that the
+        probe declines the database when it already knows it would
+        measure nothing.
+        """
+        from sysadmin.estate import judgements
+
+        with patch.object(
+            judgements, "DEFAULT_SEVERITY", judgements.TRANSIENT_HOLDER_SEVERITY
+        ):
+            measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "unknown"
+        assert "no quieter rung" in measurement.note
+        assert self._surviving_rows() == 0
+
+    def test_a_rolled_up_payload_is_unknown(self):
+        """One row for two ports is not the pair this probe holds constant."""
+        from sysadmin.core.config import get_config
+
+        with patch.object(get_config().agents.estate_judge, "port_breach_max_rows", 1):
+            measurement = check_unswept_port_is_loud()
+        assert measurement.verdict == "unknown"
+        assert "rather than one row per port at one rung" in measurement.note
+
+    def test_the_check_names_the_entry_and_the_entry_names_the_check(self):
+        check = CHECKS["unswept_port_is_loud"]
+        assert check.snag == "SNAG-ESTATE-009"
+        entries, problem = snag_claims.load_entries()
+        assert not problem, problem
+        entry = next(e for e in entries if e.snag_id == check.snag)
+        assert "unswept_port_is_loud" in entry.markers

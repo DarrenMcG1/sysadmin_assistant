@@ -394,6 +394,33 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 96 — the eighteenth check, and the sweep window driven rather than counted (2026-08-27) ✅
+
+- [x] Rank the remaining unchecked entries and take `SNAG-ESTATE-009` — a
+      dev server started inside a sweep window is unattributed, so it is
+      judged at `warning` rather than quietened
+- [x] Extract `findings_transport`, `mounted_judge` and
+      `rolled_back_drive` from Session 95's probe rather than copying the
+      scaffolding; all 19 of its tests pass unchanged across the move
+- [x] Drive `EstateJudgeAgent._execute` over two synthetic breaches with
+      the probe port **left out of** the sweep blob, asserting
+      `_attribution` returns no holder for it and the judgement lands at
+      `DEFAULT_SEVERITY`
+- [x] Add the witness the other way round — a second port that **is** in
+      the blob and must come back at the quiet rung, since a run where
+      nothing is quietened at all would otherwise look identical
+- [x] Widen the assertion past the rung to the entry's own
+      *indistinguishability* claim: rung, holder, and the two rows'
+      detail keys compared against each other rather than a field name
+- [x] Falsify every guard against the behaviour it replaces (14/14 fired,
+      plus the committing stand-in) and delete the two limbs that could
+      not be made to fire
+- [x] Fix the falsification harness's `__pycache__` blindness to
+      same-length edits
+- [x] Mark `SNAG-ESTATE-009` with `<!--check:unswept_port_is_loud-->` and
+      measure the parser either side (70 entries / 24 open, unmoved)
+- [x] Restart the daemon, re-check the nine ops claims, update the docs
+
 ## Session 95 — the seventeenth check, and the first that writes to the database (2026-08-27) ✅
 
 - [x] `SNAG-ESTATE-010` **checked and stays open**. Checked entries **14 → 15**, unchecked **10 → 9**, open unmoved at **24** (none opened, none closed) — measured either side of the edit by driving estate-manager's `read_snags`, which reads **70 entries / 24 open** both times. **2570 tests pass, 0 skipped** (2551 + 19), ruff and mypy clean

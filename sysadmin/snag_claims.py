@@ -126,6 +126,12 @@ from sysadmin.core.text import strip_markdown
 from sysadmin.ops_claims import EXPIRY_FORMAT, check_expiry, read_markers
 
 if TYPE_CHECKING:  # pragma: no cover — annotations only
+    from collections.abc import Awaitable, Mapping
+
+    import httpx
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from sysadmin.estate.agent import EstateJudgeAgent
     from sysadmin.monitor.services import ServiceEntry
 
 #: The same three words and the same exit map as the schema check and the
@@ -2802,6 +2808,154 @@ def check_health_path_guess() -> Measurement:
 
 
 # ---------------------------------------------------------------------------
+# Driving the estate judge against the live database
+# ---------------------------------------------------------------------------
+
+#: What a probe writes into every alert row it opens by hand.
+#:
+#: Nothing either probe writes is ever committed, so this is what a row
+#: that somehow escaped a rollback would say about where it came from.
+#: It names the *script* rather than an entry, so one query finds a
+#: leak from either probe — and it is deliberately **not** what the rows
+#: a probe *raises* carry, since ``raise_alert`` is handed the
+#: judgement's message and those rows come out wearing the estate's own
+#: ``summary``.  A guard keyed on this string alone was blind to exactly
+#: the rows the probes exist to produce until a committing stand-in
+#: leaked one past it.
+PROBE_MESSAGE = "sysadmin-check-snags probe row — never committed"
+
+
+def findings_transport(
+    payload: Mapping[str, object],
+) -> Callable[[httpx.Request], httpx.Response]:
+    """Answer ``audit_findings`` with ``payload``; decline the other four.
+
+    ``503`` rather than an empty payload, because *unread* and
+    *read-but-clean* are the two states
+    :attr:`~sysadmin.estate.client.SurfaceResult.read` exists to keep
+    apart, and only the first keeps the run's sweep away from rows the
+    probe did not open.  ``_resolve_gone`` is scoped per surface, so a
+    probe that answered all five would resolve every genuinely-open
+    estate row inside its own transaction.  Rolled back either way — and
+    a probe that can decline the blast should not spend the rollback
+    instead.
+    """
+    import httpx
+
+    from sysadmin.estate.client import SURFACE_PATHS
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == SURFACE_PATHS["audit_findings"]:
+            return httpx.Response(200, json=payload)
+        return httpx.Response(503, text="not served to the probe")
+
+    return handler
+
+
+def mounted_judge(
+    handler: Callable[[httpx.Request], httpx.Response],
+) -> tuple[EstateJudgeAgent | None, str]:
+    """The real judge, pointed at ``handler`` rather than at 8400.
+
+    The substitution is made at the **client factory**, so the
+    production :func:`~sysadmin.estate.client.pull_all` runs the whole
+    way down: path dispatch, ``raise_for_status``, the JSON parse and the
+    per-surface ``read`` flag are the ones the box uses.  A probe that
+    stubbed ``pull_all`` instead would be measuring its own fixture.
+
+    The :class:`LoopBoundClient` test is a precondition rather than a
+    formality.  A judge that had gained a second route to the estate
+    would reach the live service from a probe that believes it is
+    answering every request itself, and the first thing a reader would
+    know about it is a finding raised on somebody else's data.
+    """
+    import httpx
+
+    from sysadmin.core.async_http import LoopBoundClient
+    from sysadmin.estate.agent import EstateJudgeAgent
+
+    agent = EstateJudgeAgent()
+    if not isinstance(getattr(agent, "_http", None), LoopBoundClient):
+        return None, (
+            "EstateJudgeAgent no longer reaches 8400 through a LoopBoundClient, so this "
+            "probe cannot answer for it without touching the live estate"
+        )
+    agent._pending_events = []  # noqa: SLF001 — `run()` sets this; buffer, never publish
+    agent._http = LoopBoundClient(  # noqa: SLF001 — the factory `scoped()` calls
+        lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler), timeout=5.0)
+    )
+    return agent, ""
+
+
+def rolled_back_drive[ProbeT](
+    work: Callable[[AsyncSession], Awaitable[ProbeT]],
+) -> tuple[ProbeT | None, str]:
+    """Run ``work(session)`` against the live database, then roll it back.
+
+    Every row either probe writes lands inside this transaction and the
+    rollback sits in a ``finally``, so a drive that raised leaks no more
+    than one that returned.  That property is what makes writing to the
+    live database allowable at all, and it is asserted by tests of its
+    own rather than promised in this sentence.
+
+    The run is also **silenced**.  It writes ``alert_raised`` at WARNING
+    and one ``estate_surface_unread`` per declined surface, all of which
+    are true of the probe and false of the box — and this script prints
+    its report to a terminal at both ends of every sitting, where a log
+    line announcing an alert on a port nothing is listening to is a
+    worse artefact than noise.  The previous level is restored in a
+    ``finally`` too; note that a test cannot witness that from inside
+    ``caplog.at_level``, which restores it regardless.
+
+    Every failure is ``unknown``: a drive that would not run has
+    measured nothing, which is rule 5.
+    """
+    from sqlalchemy.ext.asyncio import (
+        AsyncSession,
+        async_sessionmaker,
+        create_async_engine,
+    )
+    from sqlalchemy.pool import NullPool
+
+    config = get_config()
+
+    async def drive() -> ProbeT:
+        engine = create_async_engine(
+            config.database.url,
+            poolclass=NullPool,
+            connect_args={
+                "server_settings": {"search_path": f"{config.database.schema_},public"}
+            },
+        )
+        try:
+            factory = async_sessionmaker(
+                engine, class_=AsyncSession, expire_on_commit=False
+            )
+            async with factory() as session:
+                try:
+                    return await work(session)
+                finally:
+                    # Before `engine.dispose()`, and unconditional: a
+                    # rollback is the only reason these probes are
+                    # allowed to write to the live database at all.
+                    await session.rollback()
+        finally:
+            await engine.dispose()
+
+    previous = logging.root.manager.disable
+    logging.disable(logging.CRITICAL)
+    try:
+        return asyncio.run(drive()), ""
+    except Exception as exc:  # noqa: BLE001 — a drive that would not run is "unknown"
+        return None, (
+            "the judge would not run against the live database "
+            f"({exc.__class__.__name__}: {exc})"
+        )
+    finally:
+        logging.disable(previous)
+
+
+# ---------------------------------------------------------------------------
 # SNAG-ESTATE-010 — a quieter judgement cannot reach a row already open
 # ---------------------------------------------------------------------------
 
@@ -2822,12 +2976,6 @@ QUIETEN_PORTS = (QUIETEN_OPEN_PORT, QUIETEN_FRESH_PORT)
 #: rule — and never by the name, so the ``.scope`` suffix here is
 #: legibility for a reader and not the signal being tested.
 QUIETEN_HOLDER = "user:snag-claims-probe.scope"
-
-#: Written into every row the probe inserts.  Nothing it writes is ever
-#: committed, so this is what a row that somehow escaped the rollback
-#: would say about where it came from.
-QUIETEN_MESSAGE = "sysadmin-check-snags probe row for SNAG-ESTATE-010 — never committed"
-
 
 def quieten_finding(port: int) -> dict[str, object]:
     """One unclaimed-listener breach, in the shape 8400 serves.
@@ -2967,27 +3115,17 @@ def quietened_judgement_reading() -> tuple[QuietenReading | None, str]:
     - **one already-open row**, at the loud rung with ``holder: null``,
       which is the state the entry was filed from.
 
-    Everything the run writes is rolled back.  The four surfaces other
-    than ``audit_findings`` are answered ``503`` so ``read`` holds one
-    id: the sweep is scoped per surface, and a run that read all five
-    would resolve every genuinely-open estate row inside the
-    transaction.  Rolled back either way, and narrower is still better —
-    a probe should not depend on a rollback for its blast radius when it
-    can decline the blast.
+    The transport, the mounted judge and the rolled-back transaction are
+    :func:`findings_transport`, :func:`mounted_judge` and
+    :func:`rolled_back_drive` — shared with
+    :func:`unswept_judgement_reading`, which drives the same three
+    against the *other* half of Session 57's fix.  What is local to this
+    reading is the blob, the standing row and what is read back.
     """
-    import httpx
     from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import (
-        AsyncSession,
-        async_sessionmaker,
-        create_async_engine,
-    )
-    from sqlalchemy.pool import NullPool
 
-    from sysadmin.core.async_http import LoopBoundClient
     from sysadmin.core.models.alert import Alert
-    from sysadmin.estate.agent import SURFACE_DETAIL_KEY, EstateJudgeAgent
-    from sysadmin.estate.client import SURFACE_PATHS
+    from sysadmin.estate.agent import SURFACE_DETAIL_KEY
     from sysadmin.estate.judgements import DEFAULT_SEVERITY, judge_audit_findings
     from sysadmin.units.models import UnitAudit
     from sysadmin.units.ports import attribution_from_blob
@@ -3029,126 +3167,71 @@ def quietened_judgement_reading() -> tuple[QuietenReading | None, str]:
     open_title = by_port[QUIETEN_OPEN_PORT].title
     fresh_title = by_port[QUIETEN_FRESH_PORT].title
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == SURFACE_PATHS["audit_findings"]:
-            return httpx.Response(200, json=payload)
-        # Not an empty payload: unread and read-but-clean are the two
-        # states `SurfaceResult.read` exists to keep apart, and only the
-        # first keeps the sweep away from rows this probe did not open.
-        return httpx.Response(503, text="not served to the probe")
+    agent, problem = mounted_judge(findings_transport(payload))
+    if agent is None:
+        return None, problem
 
-    agent = EstateJudgeAgent()
-    if not isinstance(getattr(agent, "_http", None), LoopBoundClient):
-        return None, (
-            "EstateJudgeAgent no longer reaches 8400 through a LoopBoundClient, so this "
-            "probe cannot answer for it without touching the live estate"
-        )
-    agent._pending_events = []  # noqa: SLF001 — `run()` sets this; buffer, never publish
-    agent._http = LoopBoundClient(  # noqa: SLF001 — the factory `scoped()` calls
-        lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler), timeout=5.0)
-    )
-
-    async def drive() -> QuietenReading:
-        engine = create_async_engine(
-            config.database.url,
-            poolclass=NullPool,
-            connect_args={
-                "server_settings": {"search_path": f"{config.database.schema_},public"}
-            },
-        )
-        try:
-            factory = async_sessionmaker(
-                engine, class_=AsyncSession, expire_on_commit=False
+    async def drive(session) -> QuietenReading:
+        session.add(
+            Alert(
+                agent=agent.name,
+                severity=DEFAULT_SEVERITY,
+                title=open_title,
+                message=PROBE_MESSAGE,
+                details={
+                    SURFACE_DETAIL_KEY: by_port[QUIETEN_OPEN_PORT].surface,
+                    "port": QUIETEN_OPEN_PORT,
+                    # The rows the entry was filed from carry
+                    # `holder: null` — raised before the sweep's
+                    # attribution reached this family at all. Modelled
+                    # rather than left absent, so "the blob did not
+                    # arrive" is a value that did not change and not a
+                    # key missing for two possible reasons.
+                    "holder": None,
+                },
             )
-            async with factory() as session:
-                try:
-                    session.add(
-                        Alert(
-                            agent=agent.name,
-                            severity=DEFAULT_SEVERITY,
-                            title=open_title,
-                            message=QUIETEN_MESSAGE,
-                            details={
-                                SURFACE_DETAIL_KEY: by_port[QUIETEN_OPEN_PORT].surface,
-                                "port": QUIETEN_OPEN_PORT,
-                                # The rows the entry was filed from carry
-                                # `holder: null` — raised before the
-                                # sweep's attribution reached this family
-                                # at all. Modelled rather than left
-                                # absent, so "the blob did not arrive" is
-                                # a value that did not change and not a
-                                # key missing for two possible reasons.
-                                "holder": None,
-                            },
-                        )
-                    )
-                    session.add(
-                        UnitAudit(scanned_at=datetime.now(UTC), findings={"ports": blob})
-                    )
-                    await session.flush()
-
-                    result = await agent._execute(session)  # noqa: SLF001
-                    await session.flush()
-                    session.expire_all()
-
-                    rows = list(
-                        (
-                            await session.execute(
-                                select(Alert).where(
-                                    Alert.agent == agent.name,
-                                    Alert.title.in_([open_title, fresh_title]),
-                                )
-                            )
-                        )
-                        .scalars()
-                        .all()
-                    )
-                    standing = [row for row in rows if row.title == open_title]
-                    fresh = [row for row in rows if row.title == fresh_title]
-                    after = standing[0] if len(standing) == 1 else None
-                    new = fresh[0] if len(fresh) == 1 else None
-                    return QuietenReading(
-                        expected_severity=quiet,
-                        open_before=DEFAULT_SEVERITY,
-                        open_after=after.severity if after is not None else "",
-                        open_holder=(
-                            (after.details or {}).get("holder")
-                            if after is not None
-                            else None
-                        ),
-                        open_resolved=bool(after.resolved) if after is not None else False,
-                        open_rows=len(standing),
-                        fresh_severity=new.severity if new is not None else None,
-                        fresh_holder=(
-                            (new.details or {}).get("holder") if new is not None else None
-                        ),
-                        fresh_rows=len(fresh),
-                        raised=result.alerts_raised,
-                    )
-                finally:
-                    # Before `engine.dispose()`, and unconditional: a
-                    # rollback is the only reason this probe is allowed
-                    # to write to the live database at all.
-                    await session.rollback()
-        finally:
-            await engine.dispose()
-
-    # The run writes `alert_raised` at WARNING and one `estate_surface_unread`
-    # per declined surface. Both are true of the probe and false of the
-    # box, and this script prints its report to a terminal at the top of
-    # every sitting — a log line saying an alert was raised, for a row
-    # that is about to be rolled back, is a worse artefact than noise.
-    previous = logging.root.manager.disable
-    logging.disable(logging.CRITICAL)
-    try:
-        return asyncio.run(drive()), ""
-    except Exception as exc:  # noqa: BLE001 — a drive that would not run is "unknown"
-        return None, (
-            "the judge would not run against the live database "
-            f"({exc.__class__.__name__}: {exc})"
         )
-    finally:
-        logging.disable(previous)
+        session.add(UnitAudit(scanned_at=datetime.now(UTC), findings={"ports": blob}))
+        await session.flush()
+
+        result = await agent._execute(session)  # noqa: SLF001
+        await session.flush()
+        session.expire_all()
+
+        rows = list(
+            (
+                await session.execute(
+                    select(Alert).where(
+                        Alert.agent == agent.name,
+                        Alert.title.in_([open_title, fresh_title]),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        standing = [row for row in rows if row.title == open_title]
+        fresh = [row for row in rows if row.title == fresh_title]
+        after = standing[0] if len(standing) == 1 else None
+        new_row = fresh[0] if len(fresh) == 1 else None
+        return QuietenReading(
+            expected_severity=quiet,
+            open_before=DEFAULT_SEVERITY,
+            open_after=after.severity if after is not None else "",
+            open_holder=(
+                (after.details or {}).get("holder") if after is not None else None
+            ),
+            open_resolved=bool(after.resolved) if after is not None else False,
+            open_rows=len(standing),
+            fresh_severity=new_row.severity if new_row is not None else None,
+            fresh_holder=(
+                (new_row.details or {}).get("holder") if new_row is not None else None
+            ),
+            fresh_rows=len(fresh),
+            raised=result.alerts_raised,
+        )
+
+    return rolled_back_drive(drive)
 
 
 def check_quietened_judgement_reach() -> Measurement:
@@ -3244,6 +3327,456 @@ def check_quietened_judgement_reach() -> Measurement:
             f"the quieter judgement reached the standing row: {'; '.join(reading.moved)} — "
             "a reclassification now applies to a fault that was already open, which is "
             "what the entry says nothing does",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
+# ---------------------------------------------------------------------------
+# SNAG-ESTATE-009 — the quietening is only as good as the sweep's age
+# ---------------------------------------------------------------------------
+
+#: The port the stored sweep did **not** see, and the subject of the claim.
+#:
+#: The entry's dev server, modelled as the one thing that distinguishes
+#: it from an attributable one: absence from the blob.  A dev server
+#: started at 09:00 against a 06:07 sweep holds a socket the sweep has
+#: no row for, which is this port exactly.
+UNSWEPT_PORT = 65009
+
+#: The port the sweep *did* see, and the witness.
+#:
+#: The same dev server started an hour earlier.  It carries the whole
+#: verdict: without it, a run in which Session 57's quietening had been
+#: reverted, or the blob key renamed, or ``attribution_from_blob``
+#: broken, would raise the unswept port loudly for a reason that has
+#: nothing to do with the window — and would look identical.
+SWEPT_PORT = 65008
+
+#: Sorted, because ``judge_audit_findings`` sorts its breaches by port
+#: and a reader comparing this tuple against a payload should not have
+#: to hold an ordering in their head.
+UNSWEPT_PORTS = (SWEPT_PORT, UNSWEPT_PORT)
+
+#: The session scope the probe's synthetic sweep attributes the swept
+#: port to.  Distinct from :data:`QUIETEN_HOLDER` so that a leaked row
+#: from either probe names which probe leaked it — the two write to the
+#: same table and a shared string would make the residue ambiguous.
+UNSWEPT_HOLDER = "user:snag-claims-window-probe.scope"
+
+
+@dataclass(frozen=True)
+class UnsweptReading:
+    """One judge run over two breaches, one of which the sweep missed.
+
+    Both are judged by the **same** ``_execute`` call, against the same
+    payload, the same stored sweep and the same clock, so the pair
+    differs in exactly one thing: whether the blob names the port.  Two
+    runs would differ in three more.
+    """
+
+    #: The rung a *transiently held* breach is judged at, read off
+    #: :func:`~sysadmin.estate.judgements.judge_audit_findings` run
+    #: purely against an attribution covering **both** ports — never
+    #: written down here, and never the same object as the measurement.
+    quiet: str
+    #: The rung an ordinary unclaimed listener gets.
+    loud: str
+    #: What ``EstateJudgeAgent._attribution`` returned for each port,
+    #: read from the same session the run used.  The claim's first half
+    #: is that the unswept one is ``None``.
+    attributed_unswept: object
+    attributed_swept: object
+    #: How old the sweep ``_attribution`` read was, in hours, measured
+    #: off the stamp it put on the attribution rather than off the clock
+    #: this module used to write the row.  A probe that rebuilt the blob
+    #: locally would report ``0``.
+    attribution_age_hours: float | None
+    unswept_severity: str | None
+    unswept_holder: object
+    unswept_rows: int
+    unswept_detail_keys: tuple[str, ...]
+    swept_severity: str | None
+    swept_holder: object
+    swept_rows: int
+    swept_detail_keys: tuple[str, ...]
+    raised: int
+
+    @property
+    def witnessed(self) -> bool:
+        """Did the quietening work at all on this run?
+
+        The control, and it carries the whole verdict.  The claim is
+        that a port is loud *because the sweep missed it*, and the only
+        thing that can tell that apart from a family which has stopped
+        quietening anything is a port the same sweep caught, judged in
+        the same breath, coming out quiet.
+        ``a-check-needs-a-discriminating-witness``, which this registry
+        has now had to apply at every scale from an ``ast`` walk to a
+        rolled-back transaction — and here with the polarity inverted
+        from the sitting before it, where the witness was a row that
+        *moved* beside one that did not.
+        """
+        return (
+            self.swept_rows == 1
+            and self.swept_severity == self.quiet
+            and isinstance(self.swept_holder, dict)
+            and bool(self.swept_holder.get("transient"))
+            and isinstance(self.attributed_swept, dict)
+        )
+
+    @property
+    def annotated(self) -> bool:
+        """Does the unswept row carry a key its swept sibling does not?
+
+        The third shape a fix could take, and the only one that leaves
+        both the rung and the holder alone: telling the reader that the
+        evidence has a window.  The entry's "Why P3" bullet is that
+        ``details['holder']['observed_at']`` already says how old the
+        evidence is — which is true of an *attributed* port and vacuous
+        here, because ``holder`` is ``None`` and carries no
+        ``observed_at`` to read.
+
+        Detected by comparing the two rows against each other rather
+        than against a field name written down here.  A name would be a
+        second statement of a producer's fact, free to go stale the day
+        the fix picks a different one; the sibling comparison needs no
+        name and stays true through a restructuring that moves both.
+        """
+        return self.unswept_detail_keys != self.swept_detail_keys
+
+    @property
+    def reached(self) -> bool:
+        """Has anything told the unswept port apart from an ordinary breach?
+
+        Deliberately wider than the rung.  "Reads as an ordinary
+        unclaimed listener" is the entry's own phrasing and it is a claim
+        about *indistinguishability*, so a fix lands whether the judge
+        learned to quieten the port unattributed, the sweep learned to
+        name its holder, or the row merely gained something saying the
+        evidence is six hours wide.  Three limbs, and each has a
+        falsification in which it is the **only** one that fires.
+
+        :attr:`attributed_unswept` was a fourth and was **measured
+        unreachable and removed** rather than shipped.  It is
+        ``_attribution``'s answer read directly; ``unswept_holder`` is
+        the same answer read off the row the run raised, and inside this
+        probe the two cannot disagree — both come from the newest
+        ``unit_audits`` row and the transaction writes no second one.  So
+        every state that sets it also sets the rung or the holder, and no
+        stand-in could make it decide anything: driven as a
+        falsification, removing it left
+        ``test_a_judge_that_runs_ss_itself_is_a_mismatch`` **passing
+        against the broken code**.  It stays in the report, where naming
+        what the sweep knew is the sharpest description of a landed fix,
+        and out of the verdict, where it was a second statement of a
+        fact ``unswept_holder`` already carries.
+        """
+        return (
+            self.unswept_severity != self.loud
+            or self.unswept_holder is not None
+            or self.annotated
+        )
+
+    @property
+    def moved(self) -> tuple[str, ...]:
+        """What told them apart, in words, for the note."""
+        out: list[str] = []
+        if self.unswept_severity != self.loud:
+            out.append(
+                f"it is judged {self.unswept_severity or '—'} rather than {self.loud}"
+            )
+        if self.unswept_holder is not None:
+            named = " — _attribution named it" if self.attributed_unswept is not None else ""
+            out.append(f"details['holder'] is {self.unswept_holder!r}{named}")
+        elif self.attributed_unswept is not None:
+            # Unreachable inside this probe by construction, and reported
+            # rather than dropped: the two readings come from one
+            # `unit_audits` row, so a run in which they disagree is a
+            # fix that took a live look and declined to publish it, and
+            # a reader deserves to be told which of the two moved.
+            out.append(
+                f"_attribution holds {self.attributed_unswept!r} for it, though the row "
+                "does not carry it"
+            )
+        if self.annotated:
+            extra = set(self.unswept_detail_keys) - set(self.swept_detail_keys)
+            missing = set(self.swept_detail_keys) - set(self.unswept_detail_keys)
+            out.append(
+                "its details differ from its swept sibling's "
+                f"(extra={sorted(extra)}, absent={sorted(missing)})"
+            )
+        return tuple(out)
+
+
+def unswept_judgement_reading() -> tuple[UnsweptReading | None, str]:
+    """Judge one breach the sweep saw and one it missed, then roll back.
+
+    **The instrument is the agent's own ``_execute``, and the sweep's
+    own stored row.**  The claim is not about
+    :func:`~sysadmin.estate.judgements.judge_audit_findings`, which is
+    given an attribution and does as it is told — it is about where that
+    attribution comes from.  ``EstateJudgeAgent._attribution`` reads the
+    newest ``unit_audits`` row and nothing else, by a decision
+    :meth:`~sysadmin.estate.agent.EstateJudgeAgent._attribution` argues
+    for in writing, and that read is the six-hour window.  So the probe
+    supplies a sweep that names one of its two ports and lets the
+    production path do the rest.
+
+    Three things are supplied and nothing else is touched — the same
+    three as :func:`quietened_judgement_reading`, differing only in the
+    blob:
+
+    - **the estate's answer**, an :class:`httpx.MockTransport` behind
+      the real :func:`~sysadmin.estate.client.pull_all`;
+    - **the sweep's attribution**, a ``unit_audits`` row naming
+      :data:`SWEPT_PORT` alone, which is a sweep that ran before the
+      second dev server started;
+    - **nothing standing open**, which is where this differs from the
+      sitting before it: both ports are fresh, so the dedup branch that
+      probe exists to measure is not in the path at all.
+
+    ``_attribution`` is then called once more, on the same session, for
+    the report.  It cannot disagree with the call ``_execute`` made:
+    both read the newest ``unit_audits`` row and the transaction has
+    written no second one.
+    """
+    from sysadmin.estate.judgements import DEFAULT_SEVERITY, judge_audit_findings
+    from sysadmin.units.models import UnitAudit
+    from sysadmin.units.ports import attribution_from_blob
+
+    config = get_config()
+    max_rows = config.agents.estate_judge.port_breach_max_rows
+    payload = {"findings": [quieten_finding(port) for port in UNSWEPT_PORTS]}
+
+    # Stamped **now**, and the obvious alternative was driven and
+    # refuted. Backdating the row by one `scan_interval_hours` models the
+    # entry's own arithmetic — the judge is hourly, the sweep six-hourly,
+    # so the oldest evidence a judgement can rest on is one interval old
+    # — and it puts the row *behind the box's own newest sweep*, which
+    # `_attribution` then reads instead. Driven: at a 6 h backdate the
+    # real sweep 1.21 h old won, `attribution.of(SWEPT_PORT)` came back
+    # `None`, the witness failed and the verdict was `unknown`. The probe
+    # has to own the newest row or it is not holding the variable, and
+    # `attribution_age_hours` is what makes that visible rather than
+    # assumed — it is ~0 while the probe's row wins and jumps the moment
+    # a real sweep lands mid-drive.
+    swept_at = datetime.now(UTC)
+    observed_at = swept_at.isoformat()
+
+    #: What the *stored sweep* will say: the swept port and not the other.
+    blob = {"transient_ports": {UNSWEPT_HOLDER: [SWEPT_PORT]}}
+
+    # The quiet rung, derived rather than written down — and derived
+    # from an attribution the drive never uses, so the expectation and
+    # the measurement cannot be one object read twice. Importing
+    # `TRANSIENT_HOLDER_SEVERITY` would be a second statement of the
+    # family's own constant, free to agree with this module while the
+    # family disagreed with both.
+    both = attribution_from_blob(
+        {"transient_ports": {UNSWEPT_HOLDER: list(UNSWEPT_PORTS)}}, observed_at
+    )
+    fully_judged = judge_audit_findings(payload, max_rows, both)
+    rungs = {judgement.severity for judgement in fully_judged}
+    if len(fully_judged) != len(UNSWEPT_PORTS) or len(rungs) != 1:
+        return None, (
+            f"judging two attributed breaches yielded {len(fully_judged)} judgement(s) at "
+            f"{len(rungs)} rung(s) rather than one row per port at one rung — the family "
+            "has rolled them up or stopped emitting them, and this probe is no longer "
+            "holding one variable"
+        )
+    quiet = rungs.pop()
+    if quiet == DEFAULT_SEVERITY:
+        return None, (
+            f"a transient holder is now judged {quiet}, the same rung an ordinary breach "
+            "gets — Session 57's quietening is what this entry is a limit on, and with no "
+            "quieter rung there is nothing for the window to withhold"
+        )
+
+    # The titles come from the producer for the reason the rung does: a
+    # format string here would stop matching the day the wording moves,
+    # and the probe would read every row back as absent.
+    #
+    # Taken from the judgements above rather than from a second call
+    # against the partial blob, which was written first and **measured
+    # unreachable**: a roll-up depends on the breach count against
+    # `max_rows`, which is the same for both attributions, so the guard
+    # beside it could never fire once this one had passed — driven, and
+    # `test_a_rolled_up_payload_is_unknown` passed against the broken
+    # code. A title that came to depend on the holder would then part
+    # from what the run raises for the *unswept* port alone, and the row
+    # would read back absent, which is the direction a check should fail
+    # in: that fix has told the two apart.
+    titles = {
+        judgement.details["port"]: judgement.title for judgement in fully_judged
+    }
+
+    agent, problem = mounted_judge(findings_transport(payload))
+    if agent is None:
+        return None, problem
+
+    async def drive(session) -> UnsweptReading:
+        from sqlalchemy import select
+
+        from sysadmin.core.models.alert import Alert
+
+        session.add(UnitAudit(scanned_at=swept_at, findings={"ports": blob}))
+        await session.flush()
+
+        result = await agent._execute(session)  # noqa: SLF001
+        await session.flush()
+        session.expire_all()
+
+        attribution = await agent._attribution(session)  # noqa: SLF001
+        rows = list(
+            (
+                await session.execute(
+                    select(Alert).where(
+                        Alert.agent == agent.name,
+                        Alert.title.in_(list(titles.values())),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        def one(port: int):
+            held = [row for row in rows if row.title == titles[port]]
+            return (held[0] if len(held) == 1 else None), len(held)
+
+        unswept, unswept_rows = one(UNSWEPT_PORT)
+        swept, swept_rows = one(SWEPT_PORT)
+
+        def keys(row) -> tuple[str, ...]:
+            return tuple(sorted((row.details or {}).keys())) if row is not None else ()
+
+        return UnsweptReading(
+            quiet=quiet,
+            loud=DEFAULT_SEVERITY,
+            attributed_unswept=attribution.of(UNSWEPT_PORT),
+            attributed_swept=attribution.of(SWEPT_PORT),
+            attribution_age_hours=(
+                (datetime.now(UTC) - datetime.fromisoformat(attribution.observed_at))
+                / timedelta(hours=1)
+                if attribution.observed_at
+                else None
+            ),
+            unswept_severity=unswept.severity if unswept is not None else None,
+            unswept_holder=(
+                (unswept.details or {}).get("holder") if unswept is not None else None
+            ),
+            unswept_rows=unswept_rows,
+            unswept_detail_keys=keys(unswept),
+            swept_severity=swept.severity if swept is not None else None,
+            swept_holder=(
+                (swept.details or {}).get("holder") if swept is not None else None
+            ),
+            swept_rows=swept_rows,
+            swept_detail_keys=keys(swept),
+            raised=result.alerts_raised,
+        )
+
+    return rolled_back_drive(drive)
+
+
+def check_unswept_port_is_loud() -> Measurement:
+    """``SNAG-ESTATE-009`` — a port the stored sweep missed is judged loudly.
+
+    **The population is a timing accident and no count can reach it.**
+    The entry is about a dev server started *between* sweeps: the sweep
+    runs six-hourly and the judge hourly, so whether a given listener is
+    attributed depends on which side of a six-hour boundary somebody
+    opened an editor.  Counting today's rows measures when a window was
+    opened, not whether the window exists — rule 1, refused for the
+    fifth time in this registry and the fourth entry in a row to run
+    into it.  The two rows its sibling ``SNAG-ESTATE-010`` was filed
+    from are the same two rows, and they have since resolved.
+
+    So the mechanism is driven, and it is drivable exactly because
+    ``_attribution`` reads one stored row: a sweep that names one of two
+    ports **is** a sweep taken before the second dev server started.
+    One ``_execute`` call judges both, and the pair differs in that and
+    in nothing else.
+
+    Four rules, three of them the opposite of the obvious
+    implementation:
+
+    1. **The witness runs the other way round from the sitting before
+       it.**  ``SNAG-ESTATE-010``'s probe needed a row that *moved*
+       beside one that did not; this one needs a row that is *quiet*
+       beside one that is loud.  Without it, a family whose quietening
+       had been reverted — Session 57 backed out, the blob key renamed,
+       ``attribution_from_blob`` broken — raises the unswept port loudly
+       for a reason that has nothing to do with the window and looks
+       identical.  Without the witness the verdict is ``unknown``, which
+       is also how this degrades when the database will not answer.
+    2. **The claim is indistinguishability, so the assertion is wider
+       than the rung.**  "Reads as an ordinary unclaimed listener" is the
+       entry's own phrasing.  A fix lands if the sweep learns to see the
+       port, if the judge learns to quieten it unattributed, *or* if the
+       row merely gains something saying the evidence is six hours wide —
+       the last being what the entry's "Why P3" bullet gestures at, and
+       vacuous today because ``holder`` is ``None`` and ``observed_at``
+       lives inside it.  The third is detected by comparing the two rows'
+       detail keys **against each other** rather than against a field
+       name written down here, which would be a second statement of a
+       producer's fact.
+    3. **The quiet rung is derived from an attribution the drive never
+       uses.**  Judging the same payload against a blob naming *both*
+       ports gives what a transiently-held breach is worth, and that is
+       what the run is measured against.  A constant here would be
+       :data:`~sysadmin.estate.judgements.TRANSIENT_HOLDER_SEVERITY`
+       written twice; taking it from the run's own swept row would make
+       the expectation and the measurement one object, so the witness
+       could never fail.
+    4. **Nothing stands open, which is what separates this probe from
+       its sibling.**  Both ports are fresh, so the dedup branch
+       ``SNAG-ESTATE-010`` measures is not in this path at all and the
+       two checks cannot report each other's fault.  Everything written
+       is rolled back, and the four surfaces other than
+       ``audit_findings`` are declined rather than emptied.
+    """
+    reading, problem = unswept_judgement_reading()
+    if reading is None:
+        return Measurement("unknown", problem)
+
+    detail = (
+        f"a transiently held breach is judged {reading.quiet}, against {reading.loud} "
+        "for an ordinary unclaimed listener",
+        f"port {SWEPT_PORT} is named by the stored sweep: _attribution holds "
+        f"{reading.attributed_swept!r}, and {reading.swept_rows} row(s) carry its title "
+        f"at severity {reading.swept_severity or '—'}",
+        "the sweep _attribution read was "
+        + (
+            f"{reading.attribution_age_hours:.2f}h old"
+            if reading.attribution_age_hours is not None
+            else "undated"
+        ),
+        f"port {UNSWEPT_PORT} is not named by it: _attribution holds "
+        f"{reading.attributed_unswept!r}, and {reading.unswept_rows} row(s) carry its "
+        f"title at severity {reading.unswept_severity or '—'}, holder="
+        f"{reading.unswept_holder!r}",
+        "both rows carry the same detail keys: "
+        f"{reading.unswept_detail_keys == reading.swept_detail_keys}",
+        f"the run reports alerts_raised={reading.raised}",
+    )
+
+    if not reading.witnessed:
+        return Measurement(
+            "unknown",
+            f"the same run did not raise port {SWEPT_PORT} at {reading.quiet} with a "
+            "transient holder, though the stored sweep names it — so a loud unswept port "
+            "is evidence that the quietening is not working at all, rather than evidence "
+            "about the sweep's age",
+            detail,
+        )
+    if reading.reached:
+        return Measurement(
+            "mismatch",
+            f"the sweep missed port {UNSWEPT_PORT} and something told it apart from an "
+            f"ordinary unclaimed listener anyway: {'; '.join(reading.moved)} — which is "
+            "what the entry says the six-hour window prevents",
             detail,
         )
     return Measurement("match", "", detail)
@@ -3361,6 +3894,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-013",
             "check:expires reads a zoneless instant as local",
             check_expiry_naive_instant,
+        ),
+        Check(
+            "unswept_port_is_loud",
+            "SNAG-ESTATE-009",
+            "a port the stored sweep missed is judged loudly",
+            check_unswept_port_is_loud,
         ),
         Check(
             "quietened_judgement_reach",
