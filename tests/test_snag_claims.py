@@ -6464,3 +6464,563 @@ class TestTheCheckIntervalCheck:
         for note in notes:
             for word in directives:
                 assert word not in note.lower(), note
+
+
+class TestTheAuditCodeCheck:
+    """``SNAG-ESTATE-006``'s check — the twenty-fifth, and the sixth cross-repo.
+
+    The producer is **stubbed rather than mocked out**, which is
+    :class:`TestTheNudgeWordingCheck`'s rule and its reason: a stub
+    package on disk driven by this interpreter exercises
+    :func:`~sysadmin.snag_claims.estate_probe`'s subprocess, its JSON
+    contract, the stand-in session's dispatch and the verdict logic
+    together — and it runs where estate-manager is not installed, which
+    is CI.
+
+    The stub is a **real SQLAlchemy declarative model and a real FastAPI
+    ``Depends``**, not a hand-rolled shape.  Both are load-bearing: the
+    probe dispatches on ``statement.column_descriptions``, which only a
+    real ``select()`` has, and the poison it installs is only meaningful
+    against a route whose session argument is a real dependency default.
+    A stub built out of plain functions would let a probe that had lost
+    both go on passing.
+    """
+
+    #: Every stub's ``findings()`` asks for these four selects, in the
+    #: order the real route asks for them.  Held as source rather than
+    #: built, because what is being exercised is the stand-in's dispatch
+    #: over statements the producer wrote.
+    ROUTE = '''\
+from typing import Any
+
+from fastapi import Depends
+from sqlalchemy import desc, select
+
+from estate_service.audit.models import AuditFinding, AuditRun
+from estate_service.projects.db import get_db_session
+
+
+async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
+    run = (
+        await session.execute(select(AuditRun).order_by(desc(AuditRun.started_at)).limit(1))
+    ).scalars().first()
+    if run is None:
+        return {"run": None, "findings": []}
+    rows = (
+        await session.execute(select(AuditFinding).where(AuditFinding.run_id == run.id))
+    ).scalars().all()
+    await session.execute(select(AuditRun.id, AuditRun.started_at))
+    await session.execute(select(AuditFinding.fingerprint, AuditFinding.run_id))
+    return {"run": {"run_id": str(run.id)}, "findings": [PAYLOAD(row) for row in rows]}
+'''
+
+    def _stub(
+        self,
+        tmp_path: Path,
+        *,
+        code_column: bool = False,
+        payload_code: str | None = None,
+        detail_keys: str = "{}",
+        finding_fields: tuple[str, ...] = (
+            "check: str",
+            "severity: str",
+            "subject: str",
+            "summary: str",
+            "code: str",
+        ),
+        serves: bool = True,
+    ) -> Path:
+        """A minimal ``estate_service`` holding the audit's three modules."""
+        root = tmp_path / "estate_service"
+        (root / "audit").mkdir(parents=True)
+        (root / "projects").mkdir(parents=True)
+        (root / "__init__.py").write_text("", encoding="utf-8")
+        (root / "audit" / "__init__.py").write_text("", encoding="utf-8")
+        (root / "projects" / "__init__.py").write_text("", encoding="utf-8")
+        (root / "projects" / "db.py").write_text(
+            "async def get_db_session():\n"
+            '    raise RuntimeError("the stub opens no session either")\n'
+            "    yield None\n",
+            encoding="utf-8",
+        )
+
+        fields = "".join(f"    {line}\n" for line in finding_fields)
+        (root / "audit" / "finding.py").write_text(
+            "from dataclasses import dataclass, field\n"
+            "from typing import Any\n\n\n"
+            "@dataclass(frozen=True)\n"
+            "class Finding:\n"
+            f"{fields}"
+            "    detail: dict[str, Any] = field(default_factory=dict)\n\n"
+            "    @property\n"
+            "    def fingerprint(self):\n"
+            '        return ":".join(str(getattr(self, n, "")) for n in '
+            f'{tuple(line.split(":")[0] for line in finding_fields)!r})\n\n'
+            "    def as_payload(self):\n"
+            "        out = {n: getattr(self, n) for n in "
+            f'{tuple(line.split(":")[0] for line in finding_fields)!r}}}\n'
+            '        out["fingerprint"] = self.fingerprint\n'
+            '        out["detail"] = self.detail\n'
+            "        return out\n",
+            encoding="utf-8",
+        )
+
+        extra = (
+            "    code: Mapped[str] = mapped_column(String(40), nullable=True)\n"
+            if code_column
+            else ""
+        )
+        (root / "audit" / "models.py").write_text(
+            "import uuid\n"
+            "from datetime import datetime\n\n"
+            "from sqlalchemy import ForeignKey, String, Text\n"
+            "from sqlalchemy.dialects.postgresql import JSONB, UUID\n"
+            "from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column\n"
+            "from sqlalchemy.types import DateTime\n\n\n"
+            "class Base(DeclarativeBase):\n"
+            "    pass\n\n\n"
+            "class AuditRun(Base):\n"
+            '    __tablename__ = "audit_runs"\n'
+            "    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)\n"
+            "    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))\n\n\n"
+            "class AuditFinding(Base):\n"
+            '    __tablename__ = "audit_findings"\n'
+            "    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)\n"
+            "    run_id: Mapped[uuid.UUID] = mapped_column(\n"
+            '        UUID(as_uuid=True), ForeignKey("audit_runs.id")\n'
+            "    )\n"
+            "    check_name: Mapped[str] = mapped_column(String(40))\n"
+            "    severity: Mapped[str] = mapped_column(String(10))\n"
+            "    subject: Mapped[str] = mapped_column(String(200))\n"
+            "    summary: Mapped[str] = mapped_column(Text)\n"
+            "    fingerprint: Mapped[str] = mapped_column(String(200))\n"
+            "    detail: Mapped[dict] = mapped_column(JSONB)\n"
+            "    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))\n"
+            f"{extra}",
+            encoding="utf-8",
+        )
+
+        keys = [
+            '"check": row.check_name',
+            '"severity": row.severity',
+            '"subject": row.subject',
+            '"summary": row.summary',
+            '"fingerprint": row.fingerprint',
+            f'"detail": {detail_keys}',
+            '"observed_at": row.observed_at.isoformat()',
+        ]
+        if payload_code is not None:
+            keys.append(f'"code": {payload_code}')
+        body = "{" + ", ".join(keys) + "}"
+        route = self.ROUTE.replace("PAYLOAD(row)", body)
+        if not serves:
+            route = route.replace("for row in rows]", "for row in rows[:0]]")
+        (root / "audit" / "router.py").write_text(route, encoding="utf-8")
+        return tmp_path
+
+    def _drive(self, tmp_path, monkeypatch, *, wire=None, **kwargs):
+        """The real check, against a stub producer and a chosen wire."""
+        import sys as _sys
+
+        monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", self._stub(tmp_path, **kwargs))
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", Path(_sys.executable))
+        monkeypatch.setattr(snag_claims, "audit_wire_client", self._client(wire))
+        return snag_claims.check_audit_code_unpublished()
+
+    @staticmethod
+    def _client(payload):
+        """A client factory answering ``audit_findings`` with ``payload``.
+
+        ``None`` means the surface declines, which is what an 8400 that is
+        down looks like from here.  Substituted at the factory so the
+        production ``pull_all`` runs the whole way down —
+        ``mounted_judge``'s rule.
+        """
+        import httpx
+
+        handler = snag_claims.findings_transport(payload if payload is not None else {})
+
+        def unreachable(request):
+            raise httpx.ConnectError("nothing is listening in this test")
+
+        chosen = handler if payload is not None else unreachable
+        return lambda: httpx.AsyncClient(
+            transport=httpx.MockTransport(chosen), timeout=5.0
+        )
+
+    @staticmethod
+    def _served(**over):
+        """One finding on the wire, in the shape the live route serves."""
+        finding = {
+            "check": "ports",
+            "severity": "breach",
+            "subject": "port 3300",
+            "summary": "claimed and silent",
+            "fingerprint": "ports:port 3300:claimed_but_silent",
+            "detail": {"port": 3300},
+            "observed_at": "2026-08-27T15:07:47+00:00",
+            "first_seen_at": "2026-08-27T15:07:47+00:00",
+            "standing_days": 0.0,
+            "runs_observed": 1,
+            "age_truncated": False,
+        }
+        finding.update(over)
+        return {"run": {"run_id": "r"}, "findings": [finding]}
+
+    # ── the claim holding ────────────────────────────────────────────
+
+    def test_computed_and_unpublished_is_the_claim_holding(self, tmp_path, monkeypatch):
+        """What the live producer does, and what Session 54 measured."""
+        found = self._drive(tmp_path, monkeypatch, wire=self._served())
+        assert found.verdict == "match"
+        assert found.note == ""
+        assert "Finding computes check, code" in found.detail[0]
+        assert "the findings route publishes" in found.detail[3]
+        assert "code" not in found.detail[3].split("publishes ")[1].split(", ")
+
+    def test_the_bus_payload_carries_the_code_the_route_drops(self, tmp_path, monkeypatch):
+        """The evidence line that sharpens the entry rather than the verdict.
+
+        ``as_payload`` publishes ``code`` and the HTTP route does not, so
+        "publishes a finding's ``code`` nowhere" is true of the surface
+        this repository reads and false of the bus.  Carried in the
+        evidence, deliberately: the claim that matters is about the
+        surface ``judge_audit_findings`` pulls, and folding the bus into
+        the verdict would refute the entry on a fact that changes nothing
+        for the consumer.
+        """
+        found = self._drive(tmp_path, monkeypatch, wire=self._served())
+        assert found.verdict == "match"
+        assert "code" in found.detail[1].split("publishes ")[1].split(", ")
+
+    # ── the four remedies, each a different note ─────────────────────
+
+    def test_a_published_code_key_refutes_the_entry(self, tmp_path, monkeypatch):
+        """The fix the entry waits for: nothing changes here when it lands."""
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            wire=self._served(),
+            code_column=True,
+            payload_code="row.code",
+        )
+        assert found.verdict == "mismatch"
+        assert "now publishes 'code'" in found.note
+        assert "no change here" in found.note
+
+    def test_a_code_key_without_a_column_also_refutes(self, tmp_path, monkeypatch):
+        """A fix on the producer's side that stores nothing new.
+
+        The entry's cause names the missing column, so a check keyed on
+        the column would report *still holds* for a producer that derived
+        the code and published it — which is exactly the sentence
+        ``SNAG-ESTATE-004``'s check settled: an ``ast`` walk for the name
+        the entry proposes reports still holds for a fix that lands
+        somewhere else.  The reading is the published key.
+        """
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            wire=self._served(),
+            payload_code='"derived"',
+        )
+        assert found.verdict == "mismatch"
+        assert "now publishes 'code'" in found.note
+
+    def test_a_code_inside_detail_is_refuted_with_a_line_owed_here(
+        self, tmp_path, monkeypatch
+    ):
+        """The one refutation that owes *this* repository an edit.
+
+        ``judge_audit_findings`` reads ``finding.get("code")`` at the top
+        level, so a producer publishing it inside ``detail`` has ended
+        the entry's claim and left the consumer reading ``None``.  A
+        check reporting that as a clean closure would hide the line owed
+        — ``check_nudge_wording_unpublished``'s partial-fix rule, one
+        surface over.
+        """
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            wire=self._served(),
+            detail_keys='{"code": "claimed_but_silent"}',
+        )
+        assert found.verdict == "mismatch"
+        assert "inside the finding's detail blob" in found.note
+        assert "one line is owed here" in found.note
+
+    def test_a_producer_that_stops_computing_a_code_refutes_it_differently(
+        self, tmp_path, monkeypatch
+    ):
+        """The delete remedy: the two-owners problem ends, not the publishing one."""
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            wire=self._served(),
+            finding_fields=("check: str", "severity: str", "subject: str", "summary: str"),
+        )
+        assert found.verdict == "mismatch"
+        assert "no longer computes a 'code'" in found.note
+
+    def test_the_column_landing_alone_is_match_with_the_residue_named(
+        self, tmp_path, monkeypatch
+    ):
+        """A fix in flight must not read as silence.
+
+        The claim is about the wire, so a column with no key leaves it
+        standing — but a sitting reading ``still holds`` with no note
+        cannot tell a producer that has started from one that has not.
+        """
+        found = self._drive(
+            tmp_path, monkeypatch, wire=self._served(), code_column=True
+        )
+        assert found.verdict == "match"
+        assert "now carries a 'code' column" in found.note
+        assert "the claim is unmoved" in found.note
+
+    # ── the wire ─────────────────────────────────────────────────────
+
+    def test_the_wire_refutes_over_a_probe_that_disagrees(self, tmp_path, monkeypatch):
+        """A ``code`` key on a served finding kills the claim outright.
+
+        The deployed process and the checkout can disagree in either
+        direction, and only one of them is the surface
+        ``judge_audit_findings`` reads.  So the wire is allowed to refute
+        against a probe reporting the unfixed shape, and the note says
+        it is the deployed surface that moved.
+        """
+        found = self._drive(tmp_path, monkeypatch, wire=self._served(code="x"))
+        assert found.verdict == "mismatch"
+        assert "deployed findings surface publishes" in found.note
+
+    def test_the_wire_cannot_confirm_the_claim_on_its_own(self, tmp_path, monkeypatch):
+        """Its absence is one deploy behind, so the specimen decides.
+
+        Driven at a producer whose route *does* publish the key while the
+        wire does not — the shape a committed-but-undeployed fix makes.
+        A check that took the wire's silence as agreement would report
+        ``still holds`` for a fix that had already landed.
+        """
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            wire=self._served(),
+            code_column=True,
+            payload_code="row.code",
+        )
+        assert found.verdict == "mismatch"
+
+    def test_a_detail_key_merely_containing_code_is_not_a_code_key(
+        self, tmp_path, monkeypatch
+    ):
+        """Exact keys, never a substring.
+
+        The live ``docs`` finding carries ``last_code_commit`` in its
+        detail blob, so a substring test would report the entry refuted
+        off a key that has nothing to do with it — and would have done so
+        on the day the check was written.
+        """
+        wire = self._served(detail={"last_code_commit": "abc", "encoded": 1})
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            wire=wire,
+            detail_keys='{"last_code_commit": "abc", "encoded": 1}',
+        )
+        assert found.verdict == "match", found.note
+
+    def test_the_wire_refutes_through_a_detail_blob_with_the_line_owed(
+        self, tmp_path, monkeypatch
+    ):
+        """The deployed surface can refute either way it publishes the code.
+
+        Read as well as collected: a ``detail_keys`` gathered from the
+        wire and consulted by nothing would be ``SNAG-CFG-001``'s shape
+        inside the check, and it was exactly that until a falsification
+        aimed at the substring rule passed against broken code and found
+        the dead field instead of the mis-aimed test.
+        """
+        wire = self._served(detail={"port": 3300, "code": "claimed_but_silent"})
+        found = self._drive(tmp_path, monkeypatch, wire=wire)
+        assert found.verdict == "mismatch"
+        assert "inside a finding's detail blob" in found.note
+        assert "one line is owed here" in found.note
+
+    def test_an_unreadable_wire_leaves_the_specimen_answering(
+        self, tmp_path, monkeypatch
+    ):
+        """8400 being down is not this entry's business.
+
+        ``sysadmin.estate.client``'s own docstring refuses to judge the
+        estate's availability, so an unread surface is a sentence in the
+        evidence and the verdict comes from the producer's code.
+        """
+        found = self._drive(tmp_path, monkeypatch, wire=None)
+        assert found.verdict == "match"
+        assert "live population:" in found.detail[5]
+        assert "was not read" in found.detail[5]
+
+    def test_a_clean_audit_is_answered_rather_than_unknown(self, tmp_path, monkeypatch):
+        """The end state the second instrument exists for.
+
+        An audit that finds nothing publishes ``"findings": []``, which
+        says nothing about the route's key set.  That is the estate's
+        goal rather than a remote possibility, so a wire-only check would
+        go blind on precisely the morning it succeeded.
+        """
+        found = self._drive(
+            tmp_path, monkeypatch, wire={"run": {"run_id": "r"}, "findings": []}
+        )
+        assert found.verdict == "match"
+        assert "served 0 findings" in found.detail[5]
+
+    # ── the ways it declines to answer ───────────────────────────────
+
+    def test_a_route_serving_no_finding_is_unknown(self, tmp_path, monkeypatch):
+        """The probe has stopped isolating the question — rule 5.
+
+        A route that hands back no finding for a specimen row publishes
+        an empty key set, which reads identically to *no code key* and is
+        not the same claim.
+        """
+        found = self._drive(tmp_path, monkeypatch, wire=self._served(), serves=False)
+        assert found.verdict == "unknown"
+        assert "stopped isolating the question" in found.note
+
+    def test_a_query_the_stand_in_has_not_met_is_unknown(self, tmp_path, monkeypatch):
+        """Dispatch is on the statement, so a new select raises rather than lies.
+
+        Order-based dispatch would answer a reordered route wrongly and
+        silently, which is the failure this registry cares most about
+        when the thing being driven belongs to somebody else.
+        """
+        stub = self._stub(tmp_path)
+        router = stub / "estate_service" / "audit" / "router.py"
+        router.write_text(
+            router.read_text(encoding="utf-8").replace(
+                "await session.execute(select(AuditRun.id, AuditRun.started_at))",
+                "await session.execute(select(AuditFinding.subject))",
+            ),
+            encoding="utf-8",
+        )
+        import sys as _sys
+
+        monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", stub)
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", Path(_sys.executable))
+        monkeypatch.setattr(snag_claims, "audit_wire_client", self._client(self._served()))
+        found = snag_claims.check_audit_code_unpublished()
+        assert found.verdict == "unknown"
+        assert "the audit route asked for" in found.note
+
+    def test_no_interpreter_is_unknown_and_never_a_skip(self, tmp_path, monkeypatch):
+        """Which is what CI is, and what a moved checkout is."""
+        monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", self._stub(tmp_path))
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", tmp_path / "nothing")
+        monkeypatch.setattr(snag_claims, "audit_wire_client", self._client(self._served()))
+        found = snag_claims.check_audit_code_unpublished()
+        assert found.verdict == "unknown"
+        assert "interpreter is not at" in found.note
+
+    # ── the constraint the entry imposes on the instrument ───────────
+
+    def test_nothing_here_splits_a_fingerprint(self):
+        """The entry's *not worked around here* bullet, as a guard.
+
+        The only workaround it forbids is splitting ``fingerprint`` on
+        its last colon, which is this repository parsing an identity
+        format the estate owns.  The cheapest way for a later sitting to
+        make this check "better" is exactly that, so the module's own
+        source is walked for it — including inside
+        :data:`~sysadmin.snag_claims.AUDIT_CODE_PROBE`, which is a string
+        this module ships and another interpreter runs.
+        """
+        module = Path(snag_claims.__file__).read_text(encoding="utf-8")
+        probe = snag_claims.AUDIT_CODE_PROBE.format(
+            service="/probe", code=snag_claims.AUDIT_FINDING_CODE
+        )
+        for label, body in (("the module", module), ("the probe", probe)):
+            splits = self._fingerprint_splits(body)
+            assert not splits, f"{label} splits a fingerprint at {splits} — the entry forbids it"
+
+    @staticmethod
+    def _fingerprint_splits(source: str) -> list[int]:
+        """Every line at which a fingerprint is taken apart.
+
+        Structural rather than textual, and the difference is the whole
+        of it: the probe *reads* ``finding.fingerprint`` to answer the
+        producer's own join, which a substring test reports as a
+        violation and which is the ``value``-where-``provenance``-was-meant
+        shape this suite has now caught six times.  What is forbidden is
+        splitting it, so what is walked for is a split.
+
+        The **receiver's whole subtree** is searched, for names and for
+        string constants alike, and two falsifications bought each half.
+        A first draft read only the immediate ``Name`` or ``Attribute``,
+        so ``str(f.fingerprint).rsplit(":", 1)`` walked past it — the
+        receiver is a ``Call`` and both names come back ``None``.  A
+        second read names anywhere in the subtree and still walked past
+        ``payload.get("fingerprint").rsplit(":", 1)``, where the field is
+        reached through a **dict key** and is an ``ast.Constant``.
+
+        Neither is a contrivance, and the second is the likelier of the
+        two: this module reads the probe's JSON and the wire's JSON, so
+        a sitting minded to take the code out of the identity would reach
+        it by key rather than by attribute.  The detector was tuned to
+        the shape the *producer* uses and not to the shape *this module*
+        would use, which is the same mis-aiming that made the wire's
+        detail blob dead for an afternoon.
+        """
+        cuts = {"split", "rsplit", "partition", "rpartition"}
+        found = []
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if node.func.attr not in cuts:
+                continue
+            reached = []
+            for inner in ast.walk(node.func.value):
+                reached.append(getattr(inner, "id", None) or getattr(inner, "attr", None))
+                if isinstance(inner, ast.Constant) and isinstance(inner.value, str):
+                    reached.append(inner.value)
+            if any(name and "fingerprint" in name for name in reached):
+                found.append(node.lineno)
+        return found
+
+    def test_the_probe_poisons_their_session_before_importing_the_router(self):
+        """No database is opened in either repository, and it cannot be.
+
+        ``QUEUE_TIMEZONE_PROBE`` keeps ``systemctl`` out of reach with a
+        runner that raises; this keeps their database out of reach the
+        same way.  The **order** is the whole of it: the router does
+        ``from ... import get_db_session`` at import time, so a poison
+        installed afterwards would be shadowed by the name the decorator
+        already captured.
+        """
+        probe = snag_claims.AUDIT_CODE_PROBE
+        poison = probe.index("projects_db.get_db_session = refuse")
+        router = probe.index("from estate_service.audit import router")
+        assert poison < router, (
+            "the poison is installed after the router captured the dependency, so it "
+            "guards nothing"
+        )
+
+    def test_the_surface_and_the_field_are_not_typed_as_a_path(self):
+        """``ports_checked``'s rule at the level of a constant.
+
+        The path comes from this repository's own record of what it pulls
+        hourly, so a renamed route reports a read failure rather than a
+        refutation.
+        """
+        from sysadmin.estate.client import SURFACE_PATHS
+
+        assert snag_claims.AUDIT_SURFACE in SURFACE_PATHS
+        assert "/" not in snag_claims.AUDIT_SURFACE
+
+    def test_the_check_is_pinned_to_its_entry(self):
+        """Rule 4's pin, for the entry this sitting added."""
+        check = snag_claims.CHECKS["audit_code_unpublished"]
+        assert check.snag == "SNAG-ESTATE-006"
+        entry = next(
+            e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-ESTATE-006"
+        )
+        assert "audit_code_unpublished" in entry.markers

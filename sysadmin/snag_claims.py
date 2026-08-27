@@ -6809,6 +6809,408 @@ def check_check_interval_looks_away() -> Measurement:
 
 
 # ---------------------------------------------------------------------------
+# SNAG-ESTATE-006 — a finding's `code` reaches no published key
+# ---------------------------------------------------------------------------
+
+#: The three modules ``SNAG-ESTATE-006`` spans, named for
+#: :data:`ESTATE_NUDGE_MODULES`' reason and with one more file than that
+#: entry needs.  The dataclass computes ``code`` and folds it into
+#: ``fingerprint``; the ORM model is where it is lost, having no column;
+#: the route is where a key would appear.  A fix can land in any one of
+#: the three and a checkout state read for one says nothing about the
+#: other two.
+ESTATE_AUDIT_MODULES = (
+    Path("estate_service") / "audit" / "finding.py",
+    Path("estate_service") / "audit" / "models.py",
+    Path("estate_service") / "audit" / "router.py",
+)
+
+#: The field the entry is about, typed here for :data:`NUDGE_WORDING`'s
+#: reason: it is the *entry's* subject rather than a copy of the
+#: producer's schema, and the check reads whether the producer still
+#: computes it rather than assuming it does.  Nothing else about the
+#: producer's shape is written down — the specimen is built from the
+#: fields and columns their code declares today, so a fix that publishes
+#: ``code`` is seen without this module being edited.
+AUDIT_FINDING_CODE = "code"
+
+#: The surface id in :data:`sysadmin.estate.client.SURFACE_PATHS`.  Taken
+#: from this repository's own record of what it pulls hourly rather than
+#: typed as a path, which is ``check_queue_stamps_local``'s rule and the
+#: reason a renamed route reports a read failure rather than a refutation.
+AUDIT_SURFACE = "audit_findings"
+
+#: The probe handed to :func:`estate_probe`.  It builds a finding out of
+#: whatever the producer's model declares, drives the producer's own
+#: ``findings()`` route function at it, and hands back four key sets: the
+#: fields the dataclass computes, the keys its bus payload publishes, the
+#: columns the table stores, and the keys the route serialises.
+#:
+#: **No database is opened, in either repository, and that is a rule
+#: rather than a courtesy.**  The estate rules forbid one application
+#: reading another's database — not even read-only, not even once — and a
+#: check that ran at both ends of every sitting would be the most regular
+#: breach of it on the box.  ``check_queue_stamps_local`` obeys that by
+#: pointing their pool at *this* repository's database; this route needs
+#: no database at all, because the key set is decided by a literal dict in
+#: their serialiser and not by anything a row can carry.  So the session
+#: is a stand-in and ``get_db_session`` is **poisoned before the router is
+#: imported**, which is the ``UserSystemd(runner=refuse)`` move in
+#: ``QUEUE_TIMEZONE_PROBE``: the probe cannot read their database even if
+#: a future ``findings()`` grew a call that tried.
+#:
+#: **Dispatch is on the statement's own ``column_descriptions``**, which
+#: is SQLAlchemy's public account of what a select asks for, rather than
+#: on call order.  Order-based dispatch answers a *reordered* route
+#: wrongly and silently; this raises, which :func:`run_check` reports as
+#: ``unknown`` — rule 5, and the direction that matters when the thing
+#: being driven belongs to somebody else.
+#:
+#: **Nothing private is touched.**  ``findings``, ``Finding``,
+#: ``AuditFinding`` and ``AuditRun`` are theirs and public; ``_run_payload``
+#: and ``_streak_starts`` are not, and are reached only by calling the
+#: route that calls them — Session 87's rule.
+AUDIT_CODE_PROBE = '''\
+import asyncio, dataclasses, datetime, json, sys, uuid
+sys.path.insert(0, {service!r})
+
+from estate_service.projects import db as projects_db
+
+
+async def refuse(*args, **kwargs):
+    """The probe never opens a session of theirs, and cannot."""
+    raise RuntimeError("the snag check never reads estate-manager's database")
+
+
+projects_db.get_db_session = refuse
+
+from estate_service.audit import router as audit_router
+from estate_service.audit.finding import Finding
+from estate_service.audit.models import AuditFinding, AuditRun
+
+CODE = {code!r}
+NOW = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+TEXT = "specimen"
+
+
+def column_value(column):
+    """A value for one column, read off the type it declares."""
+    name = column.type.__class__.__name__.lower()
+    if "uuid" in name:
+        return uuid.uuid4()
+    if "datetime" in name:
+        return NOW
+    if "json" in name:
+        return {{}}
+    if "int" in name:
+        return 1
+    if "bool" in name:
+        return False
+    return TEXT
+
+
+def stored(model, **over):
+    """One row of an ORM model, filled from the columns it declares today."""
+    kwargs = {{column.key: column_value(column) for column in model.__table__.columns}}
+    kwargs.update(over)
+    return model(**kwargs)
+
+
+class Answer:
+    """One prepared result, in each shape the route asks it for."""
+
+    def __init__(self, rows):
+        self._rows = list(rows)
+
+    def all(self):
+        return list(self._rows)
+
+    def scalars(self):
+        return self
+
+    def first(self):
+        return self._rows[0] if self._rows else None
+
+
+class Session:
+    """A session that answers from the specimen and never from a database."""
+
+    def __init__(self, run, finding):
+        self._run, self._finding = run, finding
+
+    async def execute(self, statement):
+        asked = tuple(item["name"] for item in statement.column_descriptions)
+        if asked == ("AuditRun",):
+            return Answer([self._run])
+        if asked == ("AuditFinding",):
+            return Answer([self._finding])
+        if asked == ("id", "started_at"):
+            return Answer([(self._run.id, self._run.started_at)])
+        if asked == ("fingerprint", "run_id"):
+            return Answer([(self._finding.fingerprint, self._run.id)])
+        raise RuntimeError("the audit route asked for " + repr(asked))
+
+
+columns = sorted(column.key for column in AuditFinding.__table__.columns)
+run = stored(AuditRun)
+finding = stored(AuditFinding, run_id=run.id)
+if CODE in columns:
+    setattr(finding, CODE, CODE)
+
+served = asyncio.run(audit_router.findings(session=Session(run, finding)))
+published = (served.get("findings") or [{{}}])[0]
+
+computed = Finding(**{{field.name: None for field in dataclasses.fields(Finding)}})
+
+print(json.dumps({{
+    "computed": sorted(field.name for field in dataclasses.fields(Finding)),
+    "offers_code": hasattr(computed, CODE),
+    "bus": sorted(computed.as_payload()),
+    "columns": columns,
+    "route": sorted(published),
+    "route_detail": sorted(published.get("detail") or {{}}),
+    "served": len(served.get("findings") or []),
+}}))
+'''
+
+
+def audit_wire_client() -> httpx.AsyncClient:
+    """The client :func:`live_audit_findings` reads the estate with.
+
+    A factory rather than a client, because the substitution a probe
+    needs is made **here** and nowhere lower: patching it leaves the
+    production :func:`sysadmin.estate.client.pull_all` running the whole
+    way down — path dispatch, ``raise_for_status``, the JSON parse and
+    the per-surface ``read`` flag — which is :func:`mounted_judge`'s rule
+    and its reason.  A test that stubbed the reader instead would be
+    measuring its own fixture.
+    """
+    import httpx
+
+    return httpx.AsyncClient(timeout=10.0)
+
+
+@dataclass(frozen=True)
+class WireReading:
+    """What the deployed findings surface published, as key sets.
+
+    Attributes:
+        keys: every key any finding carried.  The union rather than the
+            intersection, because the entry claims ``code`` reaches *no*
+            payload and one payload carrying it refutes that.
+        detail_keys: every key any finding's ``detail`` blob carried.
+        findings: how many findings the surface served.
+    """
+
+    keys: frozenset[str]
+    detail_keys: frozenset[str]
+    findings: int
+
+
+def live_audit_findings() -> tuple[WireReading | None, str]:
+    """The deployed surface's key sets, or the reason there are none.
+
+    Read through :func:`sysadmin.estate.client.pull_all` rather than with
+    an HTTP call of this module's own: that is the call
+    :class:`sysadmin.estate.agent.EstateJudgeAgent` makes hourly, so the
+    path, the base URL, the timeout and the treatment of a failure are
+    the consumer's rather than a second set that can disagree with them.
+    The four other surfaces come along because the function reads all
+    five; they are the same four the judge reads anyway.
+
+    This is the estate's **API**, which is the one way the estate rules
+    permit data to cross.
+
+    **The wire can refute and cannot confirm**, which is why this returns
+    evidence rather than a verdict.  A ``code`` key here kills the claim
+    whatever any checkout says.  Its *absence* is one release behind by
+    construction — ``estate_module_state``'s "committed is not deployed",
+    read the other way — and goes blind altogether on a clean audit,
+    which is the estate's goal rather than a remote possibility.
+    """
+    from sysadmin.estate import client
+    from sysadmin.estate.client import SurfaceResult
+
+    base = get_config().agents.estate_judge.base_url
+
+    async def drive() -> dict[str, SurfaceResult]:
+        async with audit_wire_client() as http:
+            return await client.pull_all(http, base)
+
+    try:
+        results = asyncio.run(drive())
+    except Exception as exc:  # noqa: BLE001 — the live surface is evidence, never a gate
+        return None, f"the live surface was not read ({exc.__class__.__name__})"
+    result = results.get(AUDIT_SURFACE)
+    if result is None or not result.read:
+        reason = (result.error if result is not None else None) or "no result"
+        return None, f"the live surface was not read ({reason})"
+    payload = result.payload or {}
+    served = payload.get("findings")
+    if not isinstance(served, list):
+        return None, "the live surface published no findings list"
+    findings = [item for item in served if isinstance(item, dict)]
+    keys: set[str] = set()
+    detail_keys: set[str] = set()
+    for item in findings:
+        keys.update(str(key) for key in item)
+        detail = item.get("detail")
+        if isinstance(detail, dict):
+            detail_keys.update(str(key) for key in detail)
+    return WireReading(frozenset(keys), frozenset(detail_keys), len(findings)), ""
+
+
+def check_audit_code_unpublished() -> Measurement:
+    """``SNAG-ESTATE-006`` — a code the producer computes and no key carries.
+
+    ``estate_service.audit.finding.Finding`` has a real ``code`` field and
+    folds it into ``fingerprint`` as that string's last ``:``-separated
+    segment.  ``AuditFinding`` has no ``code`` column, so ``_record``
+    cannot store one, and ``GET :8400/api/audit/findings`` builds each
+    finding from a literal dict of eleven keys that does not include it.
+    :func:`sysadmin.estate.judgements.judge_audit_findings` reads
+    ``finding.get("code")`` and gets ``None`` every time.
+
+    **The entry's own *not worked around here* bullet is what this check
+    respects, and it is a constraint on the instrument rather than a note
+    beside it.**  The only workaround available is splitting
+    ``fingerprint`` on its last colon, which is this repository parsing an
+    identity format the estate owns — so nothing here splits it, and what
+    is read is the set of **published keys**.  A test pins that: the
+    module's own source is walked for a split of ``fingerprint``, because
+    the cheapest way for a later sitting to make this check "better" is
+    the one thing the entry forbids.
+
+    **Two instruments, and the second exists because the first goes blind
+    at the finish line.**  The live wire is what the entry measured and
+    what the consumer reads; across **135 audit runs it has never once
+    been clean**, minimum one finding, so its population is not the
+    weather in the way ``/api/projects/attention``'s was for
+    :func:`check_nudge_wording_unpublished`.  But an audit that finds
+    nothing publishes ``"findings": []``, and a route that has never
+    served a finding says nothing about its own key set — so a wire-only
+    check reports ``unknown`` on precisely the morning the estate becomes
+    conformant.  The specimen answers whatever the audit found, and it is
+    built the way that check builds a ``Nudge``: from the fields and
+    columns the producer declares today, never from a list typed here.
+
+    **The wire can refute and cannot confirm.**  A ``code`` key on a
+    served finding kills the claim whether or not their checkout has
+    moved; its absence is one deploy behind and is carried as evidence,
+    with :func:`estate_module_state` naming the checkout state — the
+    distinction that function was written for, and the reason a fix
+    committed at 22:42 and served from an 11:35 process is not judged
+    here.
+
+    **Four remedies are reachable and they are four different notes.**
+    Publishing ``code`` as a route key is the complete fix and needs no
+    change here.  Publishing it inside ``detail`` is a fix on the
+    producer's side that our consumer still reads past, because
+    ``judge_audit_findings`` reads it at the top level — the residue
+    shape ``check_nudge_wording_unpublished`` reports for ``details``, one
+    surface over, and the one place a ``mismatch`` here owes this
+    repository a line.  Adding the column without publishing a key is the
+    storage half of the cause landing while the claim stands, so it is
+    ``match`` **with the residue named**: a check that reported it as
+    silence would let a fix in flight look like nothing happening.  And
+    the producer dropping ``code`` from the dataclass altogether ends the
+    two-owners problem rather than the publishing one, which is that
+    check's delete remedy and is a refutation for its reason.
+
+    **What the sitting found that the entry does not say**: ``code`` is
+    not computed-and-dropped everywhere.  ``Finding.as_payload`` — the
+    form published on ``estate/audit/findings/{check}`` — carries it.  So
+    the producer already has a published shape holding the field, and the
+    entry's "publishes a finding's ``code`` nowhere" is true of the one
+    surface this repository reads and false of the bus.  It is carried in
+    the evidence rather than folded into the verdict, because the claim
+    that matters is about the surface ``judge_audit_findings`` pulls.
+    """
+    wire, wire_problem = live_audit_findings()
+    payload, problem = estate_probe(
+        AUDIT_CODE_PROBE.format(service=str(ESTATE_SERVICE), code=AUDIT_FINDING_CODE)
+    )
+
+    wire_line = (
+        f"the live surface served {wire.findings} findings publishing "
+        f"{', '.join(sorted(wire.keys)) or 'no keys'}, whose detail blobs carry "
+        f"{', '.join(sorted(wire.detail_keys)) or 'no keys'}"
+        if wire is not None
+        else f"live population: {wire_problem}"
+    )
+    if wire is not None and AUDIT_FINDING_CODE in (wire.keys | wire.detail_keys):
+        owed = (
+            ""
+            if AUDIT_FINDING_CODE in wire.keys
+            else " inside a finding's detail blob, which judge_audit_findings reads past "
+            "because it reads the top level — so one line is owed here"
+        )
+        return Measurement(
+            "mismatch",
+            f"the deployed findings surface publishes {AUDIT_FINDING_CODE!r}{owed} — the "
+            "claim is dead on the surface the judge reads, whatever the checkout says",
+            (wire_line, estate_module_state(ESTATE_AUDIT_MODULES)),
+        )
+    if payload is None:
+        return Measurement("unknown", problem, (wire_line,))
+
+    computed = _probe_names(payload.get("computed"))
+    columns = _probe_names(payload.get("columns"))
+    route = _probe_names(payload.get("route"))
+    route_detail = _probe_names(payload.get("route_detail"))
+    bus = _probe_names(payload.get("bus"))
+    offers = payload.get("offers_code") is True
+    detail = (
+        f"Finding computes {', '.join(computed) or 'no fields'}",
+        f"its bus payload publishes {', '.join(bus) or 'no keys'}",
+        f"audit_findings stores {', '.join(columns)}",
+        f"the findings route publishes {', '.join(route) or 'no keys'}",
+        f"its detail blob carries {', '.join(route_detail) or 'no keys'}",
+        wire_line,
+        estate_module_state(ESTATE_AUDIT_MODULES),
+    )
+
+    if not route:
+        return Measurement(
+            "unknown",
+            "the producer's findings route served no finding for a specimen row — the "
+            "probe has stopped isolating the question",
+            detail,
+        )
+    if AUDIT_FINDING_CODE in route:
+        return Measurement(
+            "mismatch",
+            f"the findings route now publishes {AUDIT_FINDING_CODE!r} — the fix the entry "
+            "waits for, and judge_audit_findings starts working with no change here",
+            detail,
+        )
+    if AUDIT_FINDING_CODE in route_detail:
+        return Measurement(
+            "mismatch",
+            f"{AUDIT_FINDING_CODE!r} now reaches the wire inside the finding's detail blob "
+            "and not as a key of its own — the producer has published it and "
+            "judge_audit_findings reads it at the top level, so one line is owed here",
+            detail,
+        )
+    if not offers:
+        return Measurement(
+            "mismatch",
+            f"the producer no longer computes a {AUDIT_FINDING_CODE!r} at all — the delete "
+            "remedy, which ends the two-owners problem rather than the publishing one",
+            detail,
+        )
+    if AUDIT_FINDING_CODE in columns:
+        return Measurement(
+            "match",
+            f"audit_findings now carries a {AUDIT_FINDING_CODE!r} column and the route "
+            "still publishes no such key — the storage half of the cause has landed and "
+            "the claim is unmoved",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
+# ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
 
@@ -6968,6 +7370,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-SVC-001",
             "advice that answers a flap by observing it less often",
             check_check_interval_looks_away,
+        ),
+        Check(
+            "audit_code_unpublished",
+            "SNAG-ESTATE-006",
+            "the audit's findings surface publishes no code key",
+            check_audit_code_unpublished,
         ),
     )
 }

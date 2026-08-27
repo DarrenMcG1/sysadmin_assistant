@@ -394,6 +394,23 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 103 — the twenty-fifth check, and the register runs out of entries (2026-08-27) ✅
+
+- [x] Write `audit_code_unpublished`, the twenty-fifth check, against `SNAG-ESTATE-006`
+- [x] Read the published key set two ways — the live wire through `estate.client.pull_all`, and the producer's own `findings()` route driven at a specimen in their interpreter
+- [x] Respect the entry's **not worked around here** bullet: published keys only, `fingerprint` never split, and a guard over this module's source *and* its probe string that says so
+- [x] Open no database in either repository — a stand-in session dispatching on `column_descriptions`, with `get_db_session` poisoned before their router is imported
+- [x] 20 tests, 19 falsifications driven; three passed against deliberately broken code and all three were repairs to the check rather than to the patch
+- [x] Judge `SNAG-ESTATE-014` — **closed**, on the harm reaching nought rather than on the count reaching zero, which it cannot
+- [x] File `SNAG-DOCS-006` as the stated cost — `convention:unchecked` says nothing rather than nought — outside the `SNAG-ESTATE-*` namespace, per estate message `153c1c96`
+- [x] Update STATUS.md, tasks.md, snag_list.md; restart and verify
+
+**Not done, and named**: `SNAG-ESTATE-004` reads **red** — the estate now
+files `claimed_tool_default` for 3000, 5000, 8080, 8888 and 9000, which
+is the enforcement the entry says nobody provides. Flagged by Session 102
+and still awaiting a judgement rather than an edit; it is the next
+sitting's first question.
+
 ## Session 102 — the twenty-fourth check, and two judgements about being unchecked (2026-08-27) ✅
 
 `SNAG-SVC-001` is **checked and stays open**. Checked entries **21 → 22**,
