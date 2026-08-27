@@ -2,67 +2,91 @@
 
 ## Next action
 
-Write the twentieth check against `SNAG-ESTATE-012` — a block sentence that is neither a figure nor a marked prediction is still invisible — driving the mechanism rather than today's population by building a synthetic region carrying one sentence a pattern can reach and one that is a claim to a human and matches nothing, running the real `ops_claims.check_all` over it, and asserting the first is reported while the second is silently absent from every family, with the marked half as the witness because a reader that had stopped parsing the region at all reports the unmarked sentence exactly as a working reader does; the entry rules out both obvious remedies by name, so this is a check that the invisibility holds and never a marker built to close it, and it is promoted on evidence this sitting produced without looking for it — the dashboard's own "15 checked / 9 unchecked" was stale from Session 96 and no run could have named it, which is the entry's second live instance after Session 93's, while the Testing row's "166 tests" against a file holding 187 is the same failure deliberately not counted as one, since that row sits outside the region this checker reads at all.
+Write the twenty-first check against `SNAG-SVC-002` — the `timer_stale` recommendation asks `stalls.py`'s "has it run?" about a timer, with no ladder and no cross-reference — and note that rule 1 is the whole difficulty and the reason this entry has been runner-up three times without being taken: the two families are disjoint today only because no agent on this box is a systemd timer, which is a property of the box rather than of the design, so a check measuring the disjointness would report the entry fixed on a day nobody had touched the code; the mechanism is the claim that a timer-backed agent would be judged by both families at once, which needs a synthetic agent whose schedule is a timer — the treatment `check_dropin_blind_spot` gives a drop-in and `check_unmarked_sentence_invisible` gives a block sentence, now three checks built the same way and the shape to copy.
 
-## Session 97 is complete — the nineteenth check, and one entry with two faces
+## Session 98 is complete — the twentieth check, and the first that measures a silence
 
-`SNAG-TRAY-008` is **checked and stays open**. Checked entries
-**16 → 17**, unchecked **8 → 7**, open unmoved at **24** (none opened,
+`SNAG-ESTATE-012` is **checked and stays open**. Checked entries
+**17 → 18**, unchecked **7 → 6**, open unmoved at **24** (none opened,
 none closed) — measured either side of the edit by driving
-estate-manager's `read_snags`, which reads **70 entries / 24 open** both
-times. **2619 tests pass, 0 skipped** (2591 + 28, and the arithmetic is
-the check). Ruff clean, mypy clean. `sysadmin/snag_claims.py` was
-edited, so the daemon was restarted at **12:01:12** and all nine ops
-claims read green.
+`estate.snags.read_snags`, which reads **70 entries / 24 open** both
+times. Suite **2619 → 2635**, `tests/test_snag_claims.py` **215 → 231**.
 
-### The verdict is a conjunction, and the entry wrote that rule itself
+**Every other check in this registry looks for something and reports
+whether it is there. This one reports that a sentence reaches nothing.**
+`check_unmarked_sentence_invisible` builds a printed region in the shape
+of the sub-session block, carrying **two** sentences — one a pattern can
+reach (`**7 routes**`, with `<!--check:routes-->` beside it) and one of
+the entry's own three unmarked instances — and drives the real
+`ops_claims.check_all` over both documents.
 
-The entry names two faults with one root — the sweep's population is
-what *this process* announced — and then says in its own body that *"a
-fix that addresses only the second half leaves the first looking
-fixed"*. So `reached` is `unheard_adopted and remembered`. Persisting
-the spoken set is the fix the entry names; driven as a falsification it
-closes the second face outright and comes back **`match`** with the
-moved half in the note. A refuted claim is a candidate for closure; a
-half-refuted one is not.
+### What the sitting settled
 
-### The restart is a second instance, and its forgotten fault is the first one's witness
+- **The marked half is the witness, and that is the whole design.** An
+  absence is what a broken probe produces for free: a reader that had
+  stopped cutting the region reports the unmarked sentence *exactly* as
+  a working one does. Both halves of the convention are witnessed
+  because they fail apart — the figure coming back out of the prose is
+  `read_claim`, the absence of an `unclaimed:` finding beside it is
+  `read_markers` reaching the marker, and the marker half is the one
+  both refused remedies would have had to extend.
+- **It is a check that the invisibility holds, never a marker built to
+  close the entry.** The entry names both obvious remedies and refuses
+  both by name; rule 2 forbids this module authoring the document in any
+  case.
+- **Two instruments, because the two shapes a fix can take are invisible
+  to each other.** A finding reading *"blockquote paragraph 2 carries no
+  marker"* names no sentence and slips past a word search; a fix folded
+  into an existing claim's note adds no key and slips past a projection
+  of the report. Both are driven as real stand-ins wrapping the real
+  `check_all`, with two further shapes — a `CLAIM_PATTERNS` entry grown
+  to reach a specimen, and a colliding sentence.
+- **A difference the sentence cannot explain is `unknown`, never
+  `mismatch`.** `open_titles` states its `documented` over the live
+  alert table, so two drives 0.4 s apart can honestly disagree.
+  The direction rule is what makes that safe rather than a shrug: a
+  sentence can only change what of a block is readable, so `None →
+  value` and `value → None` are the sentence and `value → other value`
+  is the box.
 
-One timeline: the tray watching, then away; a sweep; a fresh
-`DesktopNotifier` sharing the same clock and session; another sweep. The
-fault the second instance has forgotten is the one the first announced
-*and restated*, so "announced before the restart" is demonstrated rather
-than asserted. Two leaves are supplied — the transport, and the tray's
-elapsed time, since `TrayPresence` takes no clock — and `is_watching`
-stays the module's own comparison against the live `tray_grace_seconds`.
+### Two falsifications corrected the check rather than the entry
 
-### Three things only running it could have said
+- **The collision stand-in found the draft's ordering wrong.** It
+  re-witnessed every drive, so a sentence restating the block's figure
+  differently — `read_claim` refuses two distinct matches rather than
+  resolving them — tripped the witness and came back `unknown` as *"the
+  probe could not be driven"*, which is the wrong verdict in the
+  dangerous direction for a sentence that had visibly been read. Once
+  the baseline has witnessed the reader, a witness that fails on the
+  specimen **is** the sentence, and a remedy refusing a region with an
+  unmarked paragraph lands there too.
+- **A constant moved because an instrument was silently dead.** At a
+  five-character floor the middle specimen yielded no distinctive word
+  at all — `8400` is four characters, and `answers` is already the
+  subject of the `/health` claim — so one of the three was covered by
+  the projection alone and nothing said so. That is this entry's own
+  symptom arriving inside its own check. The floor is four now, three is
+  refused in the other direction, and an unquotable specimen is named.
 
-- **The transport falsification is unreachable.** The probe overrides
-  `send`, so a stand-in patching `DesktopNotifier.send` never reaches
-  it. Re-aimed at gate 2 declining, which is what a live box produces,
-  and the shadowing is pinned by a test of its own.
-- **Reading the roll-up body is load-bearing.** A fix adopting one
-  further fault pushes the probe's own sweep over `_ROLLUP_THRESHOLD`;
-  narrowed to titles alone, all three fix-shaped tests fail together.
-- **Two dashboard figures were stale and invisible by construction** —
-  15/9 against a live 16/8, which is `SNAG-ESTATE-012` exactly, and 166
-  guard tests against 187, which is the same failure one table row
-  *outside* the region the checker reads. Corrected to 17/7 and 215,
-  re-counted rather than incremented.
+### Found on the way, without looking for it
 
-### Decisions taken
+The block's *"sixteen written, fourteen in the registry"* had been four
+sittings stale — it is **twenty** and **eighteen** — which is the
+**third** live instance of `SNAG-ESTATE-012` this dashboard has produced
+in three sittings, after Session 97's 15/9 and Session 93's 10/14. Like
+both of those it carries no figure any pattern holds and no marker any
+check can be pinned to, so the check written this sitting cannot reach
+it by construction. Corrected by hand, because that is what the entry
+says this class costs.
 
-- **Real rows, not a stub session.** A factory answering `IN (:spoken)`
-  would be a control the fix breaks: the shape the entry sketches reads
-  the *open* rows and caps them.
-- **The quiet rung, not `critical`.** `critical` clears Do Not Disturb
-  here whatever `min_severity` says, so picking it would arrange to pass
-  gate 3 rather than measure it. Every way of not-knowing — a disabled
-  understudy, `reminder_hours: 0`, an active DND window, a colliding
-  live row — is `unknown` with its own sentence.
-- **The refusal names the first premise that failed**, rather than the
-  bare `witnessed` bool its two siblings carry: this probe has five
-  distinguishable ways to measure nothing.
+### State of the box
 
-### Nothing is blocked
+`sysadmin` restarted at **2026-08-27 13:49:21**, `/health` **200**,
+`alembic current` **016** at the packaged head, `alerts` holds **1**
+unresolved row (`info: Weekly disk review ready`). `check-ops-claims.sh`
+green on all nine claims; `check-snag-claims.sh` reports all eighteen
+checked entries still holding and names the six that carry no check.
+The restart was taken rather than argued with for the reason Sessions 81
+and 84–97 took theirs: only `sysadmin/snag_claims.py` moved, which the
+daemon does not import, and correcting the artefact the script names
+beats hand-verifying that it is wrong.

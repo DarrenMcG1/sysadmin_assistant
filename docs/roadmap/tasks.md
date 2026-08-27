@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-26
+> **Last Updated**: 2026-08-27
 
 ---
 
@@ -393,6 +393,45 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+## Session 98 — the twentieth check, and the first that measures a silence (2026-08-27) ✅
+
+- [x] Take `SNAG-ESTATE-012` on this sitting's own evidence rather than
+      from a standing ranking — Session 97 found the entry's second live
+      instance in the block without looking for one, and this sitting
+      found a third while writing the check
+- [x] Drive the **mechanism**, never the population: today's block still
+      carries such sentences, so a check that counted them would report
+      a fix the next time somebody reworded a line
+- [x] Build a synthetic printed region carrying one sentence a pattern
+      reaches, marked, and one of the entry's own three unmarked
+      instances; run the real `ops_claims.check_all` over both documents
+- [x] Make the **marked half the witness**, because a reader that had
+      stopped parsing the region reports the unmarked sentence exactly
+      as a working reader does — and witness *both* halves of the
+      convention, since `read_claim` and `read_markers` fail apart
+- [x] Keep it a check that the invisibility **holds** and never a marker
+      built to close the entry: both remedies the entry names are still
+      refused, and rule 2 forbids this module authoring the document
+- [x] Use two instruments — a projection of what only the document
+      decides, and a search for words the report could only have taken
+      from the sentence — because a generic finding names no sentence
+      and a folded note adds no key
+- [x] Report a difference the sentence cannot explain as `unknown`
+      rather than `mismatch`, since `open_titles` counts live rows; the
+      direction rule (`None → value` and `value → None` are the
+      sentence, `value → other value` is the box) is what makes that safe
+- [x] Falsify every branch: the reader that parsed nothing, the broken
+      marker reader, the reader that raises, the two refused remedies as
+      real stand-ins, a grown pattern family, a colliding sentence, and
+      a drive where the box moves underneath the probe
+- [x] Two of the falsifications corrected the check itself — the
+      collision stand-in found the draft re-witnessing every drive, and
+      the distinctive-word test found the quotation instrument silently
+      dead for one of the three specimens at a five-character floor
+- [x] Correct the block's *"sixteen written, fourteen in the registry"*
+      by re-counting (twenty and eighteen), and record it as the entry's
+      third live instance rather than as a tidy-up
 
 ## Session 97 — the nineteenth check, and one entry with two faces (2026-08-27) ✅
 

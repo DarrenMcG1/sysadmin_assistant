@@ -24,6 +24,7 @@ against a way it could crash:
 import ast
 import contextlib
 import inspect
+import itertools
 import json
 import logging
 import os
@@ -81,6 +82,7 @@ from sysadmin.snag_claims import (
     check_run_status_cancelled,
     check_sysd_ollama_ordering,
     check_understudy_forgets,
+    check_unmarked_sentence_invisible,
     check_unswept_port_is_loud,
     check_unwrap_is_read_time,
     closure_declared,
@@ -4028,3 +4030,304 @@ class TestTheUnderstudyCheck:
         assert not problem, problem
         entry = next(e for e in entries if e.snag_id == check.snag)
         assert "understudy_forgets" in entry.markers
+
+
+class TestTheUnmarkedSentenceCheck:
+    """``SNAG-ESTATE-012``'s check — the twentieth, and the one that measures a silence.
+
+    Every other check here looks for something and reports whether it is
+    there.  This one reports that a sentence reaches **nothing**, which is
+    a claim about an absence — and an absence is what a broken probe
+    produces for free.  So almost all of these tests are about the
+    instruments rather than about the entry: the witness that separates
+    "the reader read the region and found no claim" from "the reader read
+    nothing", and the two independent ways a landed fix could show up.
+
+    Each candidate fix is driven as a **real stand-in** wrapping the real
+    :func:`sysadmin.ops_claims.check_all`, never as a literal saying the
+    fix landed, because the interesting verdicts are the ones that tell
+    four differently-shaped fixes apart.
+    """
+
+    # -- the specimen ----------------------------------------------------
+
+    def test_the_sentences_are_the_entrys_own(self):
+        """The specimens are quoted from the entry, not invented for the check.
+
+        The defect is a human writing an English claim into the block, so
+        a sentence this repository made up for the occasion would be
+        measuring a hypothetical one.  ``TestTheExpiryCheck``'s producer
+        stamp rule, one entry over.
+        """
+        body = SNAG_PATH.read_text(encoding="utf-8")
+        for sentence in snag_claims.INVISIBLE_SENTENCES:
+            assert sentence in body, sentence
+
+    def test_no_specimen_sentence_matches_a_claim_pattern(self):
+        """A specimen a pattern reaches is not a specimen of this entry.
+
+        Driven at the real :data:`~sysadmin.ops_claims.CLAIM_PATTERNS`
+        rather than asserted from the text, so a pattern added later that
+        happens to reach one of the three fails *here* — where it reads
+        as "the specimen went stale" — rather than in the check, where it
+        would read as a landed fix.
+        """
+        for sentence in snag_claims.INVISIBLE_SENTENCES:
+            for key, pattern in ops_claims.CLAIM_PATTERNS.items():
+                assert not re.search(pattern, ops_claims.flatten(sentence)), (key, sentence)
+
+    def test_the_marked_half_is_read_and_its_marker_with_it(self):
+        """The witness itself, driven at the real reader.
+
+        Both halves: the figure comes back out of the prose, and no
+        ``unclaimed:`` finding stands beside it — which is
+        ``read_markers`` having reached the marker.  A probe whose
+        witness was broken would report every entry in this family as
+        holding, so the witness is tested before anything that leans on
+        it.
+        """
+        claims, problem = snag_claims.ops_report(snag_claims.invisible_document())
+        assert not problem, problem
+        assert snag_claims.witness_problem(claims) == ""
+
+    def test_the_specimen_region_ends_at_the_quick_status_table(self):
+        """The document is cut by the module under test, not by this check.
+
+        :func:`~sysadmin.ops_claims.printed_region` returning ``None``
+        would make every claim unreadable for a reason that has nothing
+        to do with the entry, so the specimen's shape is driven rather
+        than assumed.
+        """
+        region = ops_claims.printed_region(snag_claims.invisible_document())
+        assert region is not None
+        assert "Quick Status" in region
+
+    def test_every_specimen_has_a_word_the_baseline_lacks(self):
+        """The quotation instrument must have something to look for.
+
+        **This is the test that moved a constant.**  At five characters
+        the middle specimen yielded nothing — ``8400`` is four, and
+        ``answers`` is already the subject of the ``/health`` claim — so
+        one of the three was covered by the projection alone and nothing
+        said so.  An instrument with an empty population that reports
+        silence is this entry's own symptom arriving inside its own
+        check.
+        """
+        base = snag_claims.invisible_document()
+        claims, problem = snag_claims.ops_report(base)
+        assert not problem, problem
+        seen = frozenset(snag_claims.INVISIBLE_WORD_RE.findall(base)) | frozenset(
+            word
+            for claim in claims
+            for word in snag_claims.INVISIBLE_WORD_RE.findall(snag_claims.claim_text(claim))
+        )
+        for sentence in snag_claims.INVISIBLE_SENTENCES:
+            distinctive = frozenset(snag_claims.INVISIBLE_WORD_RE.findall(sentence)) - seen
+            assert distinctive, sentence
+
+    # -- the box ---------------------------------------------------------
+
+    def test_it_holds_against_the_live_reader(self):
+        """The entry as it stands: nothing reaches an unmarked sentence."""
+        measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "match"
+        assert all("absent from every family" in line for line in measurement.detail[1:])
+
+    def test_the_witness_is_reported_as_evidence(self):
+        """The silence is only ever served beside the thing that discriminates it."""
+        measurement = check_unmarked_sentence_invisible()
+        assert measurement.detail[0].startswith("witness:")
+        assert f"routes={snag_claims.INVISIBLE_ROUTES}" in measurement.detail[0]
+
+    # -- the witness, falsified ------------------------------------------
+
+    def test_a_reader_that_parsed_nothing_is_unknown_not_a_match(self):
+        """The founding reason this check has a witness at all.
+
+        A reader that stopped cutting the region reports the unmarked
+        sentence **exactly** as a working reader does, so a probe
+        asserting silence alone would report this entry holding hardest
+        on the morning ``printed_region`` broke.
+        """
+        with patch.object(ops_claims, "printed_region", lambda document: None):
+            measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "unknown"
+        assert "says nothing" in measurement.note
+
+    def test_a_broken_marker_reader_is_unknown_too(self):
+        """The second half of the witness, which fails apart from the first.
+
+        ``read_claim`` reaching the prose and ``read_markers`` reaching
+        the marker beside it are two facts.  The marker half is the one
+        both refused remedies would have had to extend, so a probe blind
+        to it would keep reporting ``match`` through the fix it exists to
+        notice.
+        """
+        with patch.object(ops_claims, "read_markers", lambda region: []):
+            measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "unknown"
+        assert "unclaimed" in measurement.note
+
+    def test_a_reader_that_raises_is_unknown(self):
+        """A reader that did not run is not a reader that found nothing."""
+
+        def raises(path=None, now=None):
+            raise RuntimeError("the region moved")
+
+        with patch.object(ops_claims, "check_all", raises):
+            measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "unknown"
+        assert "RuntimeError" in measurement.note
+
+    # -- the fixes, each driven ------------------------------------------
+
+    @staticmethod
+    def _unmarked_paragraphs(path):
+        """The specimen's blockquote lines that carry no marker."""
+        region, _ = ops_claims.load_region(path)
+        return [
+            line[2:]
+            for line in (region or "").splitlines()
+            if line.startswith("> ") and "<!--" not in line
+        ]
+
+    def test_the_first_refused_remedy_is_a_mismatch(self):
+        """Remedy 1: every blockquote paragraph must carry a marker.
+
+        The entry refuses it because it turns the ranked recommendation
+        and the blocked list into claims they are not — but if it landed,
+        this check must say so.  Note that the finding **never quotes the
+        sentence**, so the word search cannot see it and only the
+        projection can: this is the falsification that justifies having
+        two instruments.
+        """
+        real = ops_claims.check_all
+
+        def remedy(path=None, now=None):
+            claims = list(real(path, now))
+            claims.extend(
+                ops_claims.Claim(
+                    f"unmarked:{index}", f"Unmarked paragraph {index}", "convention",
+                    None, None, "unknown", "carries no marker",
+                )
+                for index, _ in enumerate(self._unmarked_paragraphs(path))
+            )
+            return claims
+
+        with patch.object(ops_claims, "check_all", remedy):
+            measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "mismatch"
+        # ``unmarked:0`` is the specimen's own opening line, which carries
+        # no marker in *either* drive and is therefore in the baseline — so
+        # the key the sentence adds is the second one.  The projection
+        # compares key sets rather than counting them for exactly this
+        # reason: a probe asserting "the fix produced a finding" would pass
+        # on a finding the sentence had nothing to do with.
+        assert "the report gained unmarked:1" in measurement.note
+
+    def test_a_fix_that_only_quotes_the_sentence_is_a_mismatch(self):
+        """Remedy 2's shape: folded into an existing claim, adding no key.
+
+        The mirror of the test above, and the reason the projection
+        alone is not enough — the key set is unmoved and every
+        ``documented`` is unchanged, so the only thing that has happened
+        is that a note now carries words it could only have got from the
+        sentence.
+        """
+        real = ops_claims.check_all
+
+        def remedy(path=None, now=None):
+            extra = self._unmarked_paragraphs(path)
+            return [
+                ops_claims.Claim(
+                    claim.key, claim.subject, claim.kind, claim.documented, claim.measured,
+                    claim.verdict, f"{claim.note} unchecked beside it: {'; '.join(extra)}",
+                    claim.detail,
+                )
+                if claim.key == "routes" and extra
+                else claim
+                for claim in real(path, now)
+            ]
+
+        with patch.object(ops_claims, "check_all", remedy):
+            measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "mismatch"
+        assert "quotes the sentence" in measurement.note
+
+    def test_a_pattern_family_that_grows_to_reach_it_is_a_mismatch(self):
+        """The third shape, and the only one needing no wrapper at all.
+
+        A ``CLAIM_PATTERNS`` entry that reaches a specimen makes
+        ``check_markers`` report it as an unclaimed figure, which is the
+        convention doing exactly what it was built to do — and it means
+        the sentence has stopped being one nothing can reach.
+        """
+        grown = {**ops_claims.CLAIM_PATTERNS, "port": r"(\d{4}) answers"}
+        with patch.object(ops_claims, "CLAIM_PATTERNS", grown):
+            measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "mismatch"
+        assert "unclaimed:port" in measurement.note
+
+    def test_a_sentence_that_collides_with_the_marked_figure_is_a_mismatch(self):
+        """The fourth shape, and the one that corrected the check's own ordering.
+
+        ``read_claim`` refuses two distinct matches rather than resolving
+        them, so a sentence restating the block's figure differently
+        makes an existing claim stop reading the block.  The first draft
+        re-witnessed every drive and reported this as *"the probe could
+        not be driven"* — ``unknown`` for a sentence that had visibly
+        been read, which is the wrong verdict in the dangerous
+        direction.
+        """
+        with patch.object(
+            snag_claims, "INVISIBLE_SENTENCES",
+            ("the table above should read **9 routes**",),
+        ):
+            measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "mismatch"
+        assert "stopped reading the block" in measurement.note
+
+    # -- the box moving underneath the probe -----------------------------
+
+    def test_a_figure_that_merely_moves_is_unknown_not_a_mismatch(self):
+        """``open_titles`` counts live rows, so two drives can honestly disagree.
+
+        Reporting that as a landed fix would be reporting this
+        repository's own alert traffic.  The direction rule is what makes
+        the split safe: a sentence can add readability or remove it, and
+        it cannot restate a figure the block already carries as a
+        different one.
+        """
+        real = ops_claims.check_all
+        drives = itertools.count()
+
+        def noisy(path=None, now=None):
+            index = next(drives)
+            return [
+                ops_claims.Claim(
+                    claim.key, claim.subject, claim.kind, f"{index} named", claim.measured,
+                    claim.verdict, claim.note, claim.detail,
+                )
+                if claim.key == "open_titles"
+                else claim
+                for claim in real(path, now)
+            ]
+
+        with patch.object(ops_claims, "check_all", noisy):
+            measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "unknown"
+        assert "open_titles" in measurement.note
+        assert "cannot isolate the sentence" in measurement.note
+
+    def test_a_dead_quotation_instrument_is_declared(self):
+        """Half the reach gone is reported, never served as silence.
+
+        Driven at a specimen made entirely of words the baseline report
+        already uses, so nothing survives the subtraction.  The
+        projection still covers it — which is why the whole check falls
+        to ``unknown`` only when *no* specimen is quotable.
+        """
+        with patch.object(snag_claims, "INVISIBLE_SENTENCES", ("the block claim state",)):
+            measurement = check_unmarked_sentence_invisible()
+        assert measurement.verdict == "unknown"
+        assert "quotation instrument cannot look" in measurement.note

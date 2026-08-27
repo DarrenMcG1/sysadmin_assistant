@@ -119,6 +119,7 @@ from urllib.parse import urlsplit
 
 from sqlalchemy import create_engine, text
 
+from sysadmin import ops_claims
 from sysadmin.core.config import REPO_ROOT, get_config
 from sysadmin.core.escalation import humanise_hours
 from sysadmin.core.schema_guard import EXIT_STATUS, SchemaVerdict
@@ -4354,6 +4355,428 @@ def check_understudy_forgets() -> Measurement:
 
 
 # ---------------------------------------------------------------------------
+# The twentieth check — a sentence nothing can reach
+# ---------------------------------------------------------------------------
+
+#: The figure the specimen's *marked* half states.  Any value would do —
+#: ``documented`` is whatever the region says — so it is deliberately not
+#: this box's real route count, because a witness that happens to agree
+#: with the live figure cannot be told apart from one read off the real
+#: ``STATUS.md`` by a probe that lost its own document.
+INVISIBLE_ROUTES = "7"
+
+#: ``SNAG-ESTATE-012``'s specimen: a printed region cut down to the two
+#: sentences the entry is about.  ``printed_region`` runs from the top of
+#: the file to the heading *after* ``## Quick Status``, so the block above
+#: the table is what a sitting reads and what this document supplies.
+#:
+#: The marked sentence sits **first** and the unmarked one after it.  A
+#: markdown code span closes on a backtick run of its own length
+#: (:data:`CODE_SPAN_RE`), and two of the entry's three sentences carry a
+#: balanced pair — so an unmarked sentence placed *above* the marker could
+#: in principle swallow it and the probe would report invisibility caused
+#: by its own layout.  It cannot reach backwards from below, and the
+#: witness would catch it either way.
+INVISIBLE_DOCUMENT = """\
+# Status — a printed region built by sysadmin-check-snags
+
+> **Two sentences, and only one of them is a claim anything here can reach.**
+> <!--check:routes--> The application serves **{routes} routes**.
+{sentence}
+## Quick Status
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Probe | green | the printed region ends at the heading above |
+"""
+
+#: The entry's own three instances, verbatim from its ``Symptom`` bullet.
+#: Not invented specimens: the defect is a human writing an English claim
+#: into the block, so a sentence this repository made up for the occasion
+#: would be measuring a hypothetical one — :meth:`TestTheExpiryCheck.
+#: test_the_producer_stamp_is_the_entrys_own`'s rule, one entry over.
+#:
+#: They are three rather than one because they fail differently: an
+#: imperative with no figure in it at all, a bare number beside a port,
+#: and a snag id with a count spelled as a word.  A pattern family added
+#: later would plausibly reach the second and not the first.
+INVISIBLE_SENTENCES = (
+    "ask estate-manager the Session 33 question",
+    "8400 answers `200` now",
+    "`SNAG-ROADMAP-002` has published wrong board movement for seven consecutive sittings",
+)
+
+#: What counts as a word the report could only have got from the sentence.
+#: Subtracted from the base document *and* from the baseline report, so
+#: what survives both is distinctive by construction rather than by a
+#: hand-written list somebody has to keep in step — and a word already in
+#: the baseline proves nothing, since the two drives differ by the
+#: sentence alone.
+#:
+#: **Four characters, and the boundary was set by running it at five.**
+#: At five the middle sentence yielded *nothing*: ``8400`` is four
+#: characters and ``answers`` is already in the baseline report, as the
+#: subject of the ``/health`` claim.  So the quotation instrument was
+#: dead for one of the three specimens and silently — which is this
+#: entry's own symptom arriving inside its own check.  Three is refused
+#: in the other direction: ``the``/``has``/``for`` appear in almost any
+#: note, and although the subtraction would remove them from the baseline
+#: it would not remove them from a live alert title arriving in the
+#: second drive only.
+INVISIBLE_WORD_RE = re.compile(r"[A-Za-z0-9-]{4,}")
+
+
+def invisible_document(sentence: str = "") -> str:
+    """The specimen, with or without the unmarked sentence."""
+    line = f"> {sentence}\n" if sentence else ""
+    return INVISIBLE_DOCUMENT.format(routes=INVISIBLE_ROUTES, sentence=line)
+
+
+def ops_report(document: str) -> tuple[list[ops_claims.Claim], str]:
+    """Drive the real ops-claims reader over one synthetic document.
+
+    :func:`sysadmin.ops_claims.check_all` takes the *document* rather than
+    a region, so the specimen is written to a file and the module does its
+    own :func:`~sysadmin.ops_claims.printed_region` cut.  Handing it a
+    region would skip the one step this entry's siblings are built on and
+    would measure this check's idea of where the block ends.
+
+    The state checks run against this box either way, which is the point
+    at which this probe borrows somebody else's traffic; they are compared
+    across the two drives rather than read, and see the check's own note
+    for what a difference between them is allowed to mean.
+
+    **Reached through the module rather than imported by name**, which is
+    the one thing :func:`check_expiry_naive_instant` had to learn twice.
+    ``EXPIRY_FORMAT`` lives in two namespaces because it was imported by
+    name, and a stand-in modelling a landed fix patched only the owner and
+    passed against the code it was written to break — a guard asserting a
+    *value* where it meant *provenance*.  ``ops_claims.check_all`` has
+    exactly one home, so a stand-in cannot patch the wrong one.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "STATUS.md"
+        path.write_text(document, encoding="utf-8")
+        try:
+            return list(ops_claims.check_all(path)), ""
+        except Exception as exc:  # noqa: BLE001 — a reader that raises is a reader that did not run
+            return [], (
+                f"ops_claims.check_all raised {exc.__class__.__name__}: {exc} — the reader "
+                "this entry is about no longer runs over a document at all"
+            )
+
+
+def claim_text(claim: ops_claims.Claim) -> str:
+    """Every word one claim puts in front of a reader, as one string."""
+    parts = (
+        claim.key, claim.subject, claim.kind, claim.documented,
+        claim.measured, claim.verdict, claim.note, *claim.detail,
+    )
+    return " ".join(str(part) for part in parts if part)
+
+
+def claim_projection(claims: Iterable[ops_claims.Claim]) -> dict[str, str | None]:
+    """The part of a report that can only have come from the document.
+
+    ``key`` is decided by which families ran and ``documented`` by what
+    each read out of the region; both are answers about the block.
+    ``measured``, ``verdict`` and ``note`` are answers about the box and
+    are deliberately out, because two drives 0.4 s apart can honestly
+    disagree about them — see the check's ``other`` branch.
+    """
+    return {claim.key: claim.documented for claim in claims}
+
+
+@dataclass(frozen=True)
+class SentenceReading:
+    """What one unmarked sentence did to the report.
+
+    Attributes:
+        sentence: the specimen, as the entry writes it.
+        added: keys the report gained when the sentence was added.
+        removed: keys it lost.
+        newly_read: keys whose ``documented`` went from nothing to
+            something — a family that could not read the block before and
+            can now.
+        now_unreadable: keys whose ``documented`` went the other way.  The
+            sentence collided with a figure the block already stated, and
+            :func:`~sysadmin.ops_claims.read_claim` refuses two distinct
+            matches rather than resolving them — so this is the same
+            sentence being read, arriving as a refusal.
+        moved: keys whose ``documented`` changed while both sides stated
+            one.
+        quoted: words the report carries that it could only have taken
+            from the sentence.
+        unquotable: the sentence has no word the baseline report does not
+            already carry, so the quotation instrument cannot look at it
+            and only the projection covers it.  Named rather than left to
+            be inferred — ``ports_checked``'s rule, and the shape this
+            entry is about.
+        refusal: why the drive could not be made at all.
+    """
+
+    sentence: str
+    added: tuple[str, ...] = ()
+    removed: tuple[str, ...] = ()
+    newly_read: tuple[str, ...] = ()
+    now_unreadable: tuple[str, ...] = ()
+    moved: tuple[str, ...] = ()
+    quoted: tuple[str, ...] = ()
+    unquotable: bool = False
+    refusal: str = ""
+
+    @property
+    def visible(self) -> tuple[str, ...]:
+        """Every way this sentence reached the report, in words.
+
+        **Directional, and that is what separates the two branches.**  A
+        sentence added to a block can only ever *change what of it can be
+        read* — it cannot restate a figure the block already carries as a
+        different figure.  So a key appearing, a key disappearing, a
+        ``None -> value`` and a ``value -> None`` are all attributable to
+        the sentence, and a figure that merely *moved* between two values
+        is the box moving underneath the probe.
+        """
+        reasons = []
+        if self.added:
+            reasons.append(f"the report gained {', '.join(self.added)}")
+        if self.removed:
+            reasons.append(f"the report lost {', '.join(self.removed)}")
+        if self.newly_read:
+            reasons.append(f"{', '.join(self.newly_read)} now reads a figure out of the block")
+        if self.now_unreadable:
+            reasons.append(
+                f"{', '.join(self.now_unreadable)} stopped reading the block — the sentence "
+                "collides with a figure it already stated"
+            )
+        if self.quoted:
+            reasons.append(f"the report quotes the sentence ({', '.join(self.quoted)})")
+        return tuple(reasons)
+
+    def line(self) -> str:
+        """One evidence row."""
+        if self.refusal:
+            return f"{self.sentence!r}: not driven — {self.refusal}"
+        if self.visible:
+            return f"{self.sentence!r}: reached the report — {'; '.join(self.visible)}"
+        if self.moved:
+            return (
+                f"{self.sentence!r}: no finding of its own, but {', '.join(self.moved)} "
+                "moved between the two drives"
+            )
+        blind = " (no word the baseline lacks — projection only)" if self.unquotable else ""
+        return f"{self.sentence!r}: absent from every family{blind}"
+
+
+def witness_problem(claims: list[ops_claims.Claim]) -> str:
+    """Why the marked half is not evidence that the region was read, or ``""``.
+
+    **The whole design turns on this function.**  A reader that had
+    stopped parsing the region — a moved heading, a
+    :func:`~sysadmin.ops_claims.printed_region` returning ``None``, a
+    module that no longer opens the file — reports the unmarked sentence
+    *exactly* as a working reader does: absent from every family.  So the
+    silence this check is looking for is only evidence when something in
+    the same region would have forced a different observation, and the
+    marked sentence is that something.
+
+    Both halves of the convention are witnessed, because they can fail
+    apart.  ``documented`` coming back as the figure the block states is
+    :func:`~sysadmin.ops_claims.read_claim` reaching the prose; the
+    absence of an ``unclaimed:routes`` finding is
+    :func:`~sysadmin.ops_claims.read_markers` reaching the marker beside
+    it.  A probe that checked only the first would call a broken marker
+    reader a working one, and the marker half is the half the entry's two
+    refused remedies would both have had to extend.
+
+    **Established on the baseline alone, and re-witnessing each specimen
+    was a defect a falsification found.**  The obvious version witnessed
+    every drive, and a stand-in modelling a sentence that *collides* with
+    the marked figure — :func:`~sysadmin.ops_claims.read_claim` refuses
+    two distinct matches rather than resolving them — tripped that witness
+    and came back ``unknown`` as *"the probe could not be driven"*.  The
+    two documents differ by the sentence and by nothing else, so once the
+    baseline has witnessed the reader, a witness that fails on the
+    specimen is the **sentence being read**, not the reader breaking.
+    That is the whole of :attr:`SentenceReading.now_unreadable`, and it is
+    reachable by a landed fix as well as by a collision: a remedy that
+    refused a region carrying an unmarked paragraph lands there exactly.
+    """
+    routes = next((claim for claim in claims if claim.key == "routes"), None)
+    if routes is None:
+        return "the baseline report has no 'routes' claim at all"
+    if routes.documented != INVISIBLE_ROUTES:
+        return (
+            f"the baseline report read routes={routes.documented!r} where the specimen "
+            f"states {INVISIBLE_ROUTES!r}"
+        )
+    if any(claim.key == "unclaimed:routes" for claim in claims):
+        return (
+            "the baseline report calls the specimen's routes figure unclaimed — the marker "
+            "beside it was not read"
+        )
+    return ""
+
+
+def check_unmarked_sentence_invisible() -> Measurement:
+    """``SNAG-ESTATE-012`` — a block sentence with no pattern and no marker.
+
+    **The twentieth check, and the second whose subject is this
+    repository's own claims machinery** — :func:`check_expiry_naive_instant`
+    is the other, and the two are opposites.  That one drives a family
+    that exists and asks whether it reads its input correctly; this one
+    asks whether an input reaches *any* family, and the answer the entry
+    claims is that it reaches none.
+
+    **It is a check that the invisibility holds, and never a marker built
+    to close it.**  The entry names both obvious remedies and refuses both
+    by name: requiring every blockquote paragraph to carry a marker turns
+    the ranked recommendation and the blocked list into claims they are
+    not, and a ``<!--check:none-->`` marker is one whose absence is
+    indistinguishable from forgetting it — the thing it exists to detect.
+    Rule 2 forbids this module authoring the document in any case, so what
+    is measured is the mechanism as the entry describes it.
+
+    **Rule 1, and the population is live rather than empty for once.**
+    Today's block still carries such sentences, so a check counting them
+    would return a number — and it would fall to zero the next time
+    somebody reworded the block, reporting a fix that is a paragraph edit.
+    What the entry claims is that nothing *reaches* such a sentence, so a
+    specimen is built: a printed region carrying one sentence a pattern
+    can reach, marked, and one sentence that is a claim to a human and
+    matches nothing.
+
+    **The absence is not the evidence — the marked half is.**  A reader
+    that had stopped parsing the region at all reports the unmarked
+    sentence exactly as a working reader does, so a probe asserting
+    silence alone would report this entry holding hardest on the morning
+    :func:`~sysadmin.ops_claims.printed_region` broke.
+    :func:`witness_problem` is the discriminating observation, and it
+    witnesses both halves of the convention because they fail apart.
+
+    **Two instruments, because a fix can land in two shapes and each is
+    invisible to the other.**  A remedy that reported *"blockquote
+    paragraph 2 carries no marker"* names no sentence and would slip past
+    a text search; a remedy that folded the sentence into an existing
+    claim's note adds no key and would slip past a projection.  So the
+    report is compared as a projection of what only the document decides —
+    which keys ran, and what each read out of the region — and separately
+    searched for words it could only have taken from the sentence.
+
+    **A difference the sentence cannot explain is ``unknown``, never
+    ``mismatch``.**  ``open_titles`` states its ``documented`` as *"N
+    named"* over the live alert table, so two drives a second apart can
+    honestly disagree about it, and a probe that read that as a landed fix
+    would be reporting this repository's own traffic.  The direction rule
+    is what makes the split safe rather than a shrug: a sentence added to
+    a block can only make more of it readable, so ``None -> value`` is
+    attributable to the sentence and ``value -> other value`` is not.
+
+    The blind spot is stated rather than implied: a fix that changed an
+    existing claim's *verdict* on account of the sentence while neither
+    quoting it nor adding a key of its own is unreachable from here.  It
+    is also close to unbuildable — a finding about a sentence that never
+    names the sentence is a count that cannot name anything, which is
+    ``SNAG-ESTATE-001``'s defect and the shape this whole convention was
+    written against.
+    """
+    base = invisible_document()
+    baseline, problem = ops_report(base)
+    if problem:
+        return Measurement("unknown", problem)
+    blind = witness_problem(baseline)
+    if blind:
+        return Measurement(
+            "unknown",
+            f"{blind} — the marked half of the specimen is the only thing that can tell a "
+            "reader which read nothing from one which read the region and found no claim, "
+            "so the unmarked sentence's absence says nothing",
+        )
+
+    seen = frozenset(INVISIBLE_WORD_RE.findall(base)) | frozenset(
+        word for claim in baseline for word in INVISIBLE_WORD_RE.findall(claim_text(claim))
+    )
+    before = claim_projection(baseline)
+
+    readings: list[SentenceReading] = []
+    for sentence in INVISIBLE_SENTENCES:
+        claims, refusal = ops_report(invisible_document(sentence))
+        if refusal:
+            readings.append(SentenceReading(sentence, refusal=refusal))
+            continue
+        after = claim_projection(claims)
+        shared = sorted(set(before) & set(after))
+        text = " ".join(claim_text(claim) for claim in claims)
+        distinctive = sorted(frozenset(INVISIBLE_WORD_RE.findall(sentence)) - seen)
+        readings.append(
+            SentenceReading(
+                sentence,
+                added=tuple(sorted(set(after) - set(before))),
+                removed=tuple(sorted(set(before) - set(after))),
+                newly_read=tuple(
+                    key for key in shared if before[key] is None and after[key] is not None
+                ),
+                now_unreadable=tuple(
+                    key for key in shared if before[key] is not None and after[key] is None
+                ),
+                moved=tuple(
+                    key
+                    for key in shared
+                    if before[key] != after[key]
+                    and before[key] is not None
+                    and after[key] is not None
+                ),
+                quoted=tuple(word for word in distinctive if word in text),
+                unquotable=not distinctive,
+            )
+        )
+
+    detail = (
+        f"witness: the marked half reads routes={INVISIBLE_ROUTES} and carries its marker, "
+        f"so the reader parsed the region ({len(baseline)} claim(s))",
+        *(reading.line() for reading in readings),
+    )
+
+    refused = [reading for reading in readings if reading.refusal]
+    if refused:
+        return Measurement(
+            "unknown",
+            "the specimen could not be driven for "
+            f"{len(refused)} of {len(readings)} sentence(s): "
+            + "; ".join(reading.refusal for reading in refused),
+            detail,
+        )
+    reached = [reading for reading in readings if reading.visible]
+    if reached:
+        return Measurement(
+            "mismatch",
+            "a sentence carrying no pattern and no marker now reaches the report — "
+            + "; ".join(
+                f"{reading.sentence!r}: {'; '.join(reading.visible)}" for reading in reached
+            ),
+            detail,
+        )
+    if all(reading.unquotable for reading in readings):
+        return Measurement(
+            "unknown",
+            "no specimen carries a word the baseline report does not already use, so the "
+            "quotation instrument cannot look at any of them and only the projection is "
+            "left — half the check's reach is gone and the silence is that much weaker",
+            detail,
+        )
+    unstable = [reading for reading in readings if reading.moved]
+    if unstable:
+        return Measurement(
+            "unknown",
+            "the two drives disagreed about a figure the sentence cannot have moved "
+            f"({', '.join(sorted({key for r in unstable for key in r.moved}))}) — the box "
+            "changed underneath the probe, so this run cannot isolate the sentence",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
+# ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
 
@@ -4483,6 +4906,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-TRAY-008",
             "the reminder sweep restates only what it announced",
             check_understudy_forgets,
+        ),
+        Check(
+            "unmarked_sentence_invisible",
+            "SNAG-ESTATE-012",
+            "a block sentence with no pattern and no marker reaches nothing",
+            check_unmarked_sentence_invisible,
         ),
     )
 }
