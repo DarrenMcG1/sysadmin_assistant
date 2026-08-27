@@ -25,6 +25,7 @@ import ast
 import contextlib
 import inspect
 import json
+import logging
 import os
 import re
 import shutil
@@ -75,6 +76,7 @@ from sysadmin.snag_claims import (
     check_expiry_naive_instant,
     check_health_path_guess,
     check_manual_run_unawaited,
+    check_quietened_judgement_reach,
     check_review_schedule_unread,
     check_run_status_cancelled,
     check_sysd_ollama_ordering,
@@ -2528,3 +2530,471 @@ class TestTheHealthPathCheck:
             )
         ]
         assert not offenders, f"a health status compared to 'ok' by hand at {offenders}"
+
+
+class TestTheQuietenedJudgementCheck:
+    """``SNAG-ESTATE-010``'s check — the first here that writes to the database.
+
+    Every check before this one reads: an ``ast`` walk, a driven pure
+    function, another repository's interpreter, a journal, an outbound
+    request.  This one opens a row, judges over it and rolls back, which
+    makes *"nothing survives"* a property with a test of its own rather
+    than a promise in a docstring.
+
+    The entry's own population has resolved — its third bullet predicted
+    that it would — so nothing below counts the two dev-server rows it
+    was filed from.  What is driven is the mechanism, and every
+    falsification is a stand-in **modelling a landed fix** rather than a
+    literal saying one landed: an in-place rung, a resolve-and-re-raise,
+    and the ``holder`` blob arriving alone are the three shapes a fix
+    could take, and two of them leave the severity column untouched.
+    """
+
+    # -- helpers ---------------------------------------------------------
+
+    @staticmethod
+    def _judged():
+        """The two judgements the probe's payload produces, computed purely."""
+        from sysadmin.core.config import get_config
+        from sysadmin.estate.judgements import judge_audit_findings
+        from sysadmin.units.ports import attribution_from_blob
+
+        payload = {
+            "findings": [
+                snag_claims.quieten_finding(port) for port in snag_claims.QUIETEN_PORTS
+            ]
+        }
+        attribution = attribution_from_blob(
+            {"transient_ports": {snag_claims.QUIETEN_HOLDER: list(snag_claims.QUIETEN_PORTS)}},
+            datetime.now(UTC).isoformat(),
+        )
+        judged = judge_audit_findings(
+            payload, get_config().agents.estate_judge.port_breach_max_rows, attribution
+        )
+        return {judgement.details["port"]: judgement for judgement in judged}
+
+    @classmethod
+    def _surviving_rows(cls) -> int:
+        """Alert rows on the live box that the probe could have left.
+
+        **Counted by title, and the first draft counted by message.**
+        The row the probe *opens* carries :data:`QUIETEN_MESSAGE`; the
+        row it raises — the witness, and the more interesting write —
+        carries the estate's own ``summary``, because ``raise_alert`` is
+        handed the judgement's message.  So a guard keyed on the probe's
+        message was blind to exactly the row the check exists to produce,
+        and a committing stand-in leaked one past it.  Found by driving
+        that stand-in rather than by reading this, which is the fourth
+        time in this file a falsification has corrected the guard it was
+        aimed at.
+
+        Interpolated rather than bound because :func:`query_one` takes a
+        statement; the constants are asserted quote-free one test down,
+        so the interpolation cannot become an injection by a later edit.
+        """
+        judged = cls._judged()
+        titles = ", ".join(f"'{judged[port].title}'" for port in snag_claims.QUIETEN_PORTS)
+        count, problem = snag_claims.query_one(
+            f"SELECT count(*) FROM sysadmin.alerts WHERE title IN ({titles}) "
+            f"OR message = '{snag_claims.QUIETEN_MESSAGE}'"
+        )
+        assert not problem, problem
+        return int(count or 0)
+
+    @staticmethod
+    def _surviving_sweeps() -> int:
+        count, problem = snag_claims.query_one(
+            "SELECT count(*) FROM sysadmin.unit_audits "
+            f"WHERE findings::text LIKE '%{snag_claims.QUIETEN_HOLDER}%'"
+        )
+        assert not problem, problem
+        return int(count or 0)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _fix(mutate):
+        """Run the real ``_execute``, then apply ``mutate`` — a landed fix.
+
+        The fix is modelled *after* the production loop rather than
+        instead of it, so the run under test is the real one and the only
+        difference is that something reclassified a standing row.  A
+        stand-in replacing ``_execute`` outright would prove the check
+        notices an edit to itself.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+
+        real = EstateJudgeAgent._execute
+
+        async def patched(self, session):
+            result = await real(self, session)
+            await mutate(session)
+            return result
+
+        with patch.object(EstateJudgeAgent, "_execute", patched):
+            yield
+
+    @staticmethod
+    async def _standing(session):
+        from sqlalchemy import select
+
+        from sysadmin.core.models.alert import Alert
+
+        return (
+            (
+                await session.execute(
+                    select(Alert).where(
+                        Alert.message == snag_claims.QUIETEN_MESSAGE,
+                        Alert.resolved.is_(False),
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+
+    # -- the instruments -------------------------------------------------
+
+    def test_the_probe_writes_nothing_that_survives(self):
+        """The property that makes writing to the live database allowable.
+
+        Asserted before and after, because a probe that had been leaking
+        rows for a week would satisfy an "after" assertion on its own.
+        """
+        assert self._surviving_rows() == 0
+        assert self._surviving_sweeps() == 0
+        reading, problem = snag_claims.quietened_judgement_reading()
+        assert not problem, problem
+        assert reading is not None and reading.witnessed
+        assert self._surviving_rows() == 0
+        assert self._surviving_sweeps() == 0
+
+    def test_nothing_survives_a_run_that_raised(self):
+        """The rollback is in a ``finally``, so a failed drive leaks nothing either."""
+        from sysadmin.estate.agent import EstateJudgeAgent
+
+        async def boom(self, session):
+            raise RuntimeError("the judge fell over mid-run")
+
+        with patch.object(EstateJudgeAgent, "_execute", boom):
+            measurement = check_quietened_judgement_reach()
+        assert measurement.verdict == "unknown"
+        assert "would not run against the live database" in measurement.note
+        assert self._surviving_rows() == 0
+        assert self._surviving_sweeps() == 0
+
+    def test_the_probes_own_strings_cannot_become_an_injection(self):
+        for constant in (snag_claims.QUIETEN_MESSAGE, snag_claims.QUIETEN_HOLDER):
+            assert "'" not in constant and "\\" not in constant, constant
+
+    def test_the_probe_ports_hold_no_live_row(self):
+        """The titles it opens must be nobody else's fault.
+
+        A probe port that collided with a real breach would deduplicate
+        against a standing row somebody else raised and read the result
+        as its own — and would leave that row's severity as the thing it
+        reported on.
+        """
+        assert self._surviving_rows() == 0
+
+    def test_the_instrument_is_the_agents_own_execute(self):
+        """Driven, not reimplemented.
+
+        The claim is a branch three statements into ``_execute``; a check
+        that rebuilt the raise loop beside it would report a fix landing
+        in the real one as no change at all.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+
+        real = EstateJudgeAgent._execute
+        sessions = []
+
+        async def counting(self, session):
+            sessions.append(session)
+            return await real(self, session)
+
+        with patch.object(EstateJudgeAgent, "_execute", counting):
+            reading, problem = snag_claims.quietened_judgement_reading()
+        assert not problem, problem
+        assert reading is not None and len(sessions) == 1
+
+    def test_the_run_sees_a_standing_row_at_the_loud_rung(self):
+        """The precondition, read off what the production loop was handed.
+
+        ``holder: null`` and not an absent key: the rows the entry was
+        filed from carry exactly that, and "the blob did not arrive" has
+        to be a value that did not change rather than a key missing for
+        two possible reasons.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+        from sysadmin.estate.judgements import DEFAULT_SEVERITY
+
+        real = EstateJudgeAgent._open_alerts
+        seen = []
+
+        async def recording(self, session):
+            rows = await real(self, session)
+            seen.extend(
+                (row.severity, (row.details or {}).get("holder"), "holder" in (row.details or {}))
+                for row in rows
+                if row.message == snag_claims.QUIETEN_MESSAGE
+            )
+            return rows
+
+        with patch.object(EstateJudgeAgent, "_open_alerts", recording):
+            reading, problem = snag_claims.quietened_judgement_reading()
+        assert not problem, problem
+        assert seen == [(DEFAULT_SEVERITY, None, True)]
+
+    def test_only_the_findings_surface_is_read(self):
+        """The four declined surfaces, asserted at the sweep that consumes them.
+
+        ``503`` rather than an empty payload: the sweep is scoped per
+        surface, so a run that read all five would resolve every genuinely
+        open estate row inside the transaction.  Rolled back either way,
+        and a probe that can decline the blast should not spend the
+        rollback instead.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+
+        real = EstateJudgeAgent._resolve_gone
+        seen = []
+
+        async def recording(self, session, open_alerts, current, read):
+            seen.append(set(read))
+            return await real(self, session, open_alerts, current, read)
+
+        with patch.object(EstateJudgeAgent, "_resolve_gone", recording):
+            reading, problem = snag_claims.quietened_judgement_reading()
+        assert not problem, problem
+        assert seen == [{"audit_findings"}]
+
+    def test_neither_title_nor_rung_is_written_down_in_the_module(self):
+        """Provenance, and asserted at the source rather than at a value.
+
+        ``assert title == judged.title`` passes whether the module
+        derived it or retyped it — the shape this repository has now been
+        caught by three times — so this walks the tree: no string
+        constant outside a docstring may carry the producer's title, and
+        ``TRANSIENT_HOLDER_SEVERITY`` may not be imported at all.
+        """
+        tree = ast.parse(Path(snag_claims.__file__).read_text(encoding="utf-8"))
+        docstrings = set()
+        for node in ast.walk(tree):
+            if isinstance(
+                node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
+            ):
+                first = node.body[0] if node.body else None
+                if (
+                    isinstance(first, ast.Expr)
+                    and isinstance(first.value, ast.Constant)
+                    and isinstance(first.value.value, str)
+                ):
+                    docstrings.add(id(first.value))
+        offenders = [
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in docstrings
+            and "Estate port" in node.value
+        ]
+        assert not offenders, f"the producer's title is written down here: {offenders}"
+        imported = {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+        }
+        assert "TRANSIENT_HOLDER_SEVERITY" not in imported
+
+    def test_the_run_says_nothing_a_reader_would_take_for_the_box(self, caplog):
+        """``alert_raised`` for a row about to be rolled back, suppressed.
+
+        This script prints its report to a terminal at both ends of every
+        sitting, and a log line announcing an alert on two ports nothing
+        is listening on is a worse artefact than noise.
+        """
+        with caplog.at_level(logging.INFO):
+            reading, problem = snag_claims.quietened_judgement_reading()
+        assert not problem, problem
+        assert reading is not None and reading.witnessed
+        assert not [
+            record for record in caplog.records if record.getMessage() == "alert_raised"
+        ]
+
+    def test_the_disable_is_restored_and_caplog_cannot_witness_that(self):
+        """The other half of the same ``finally``, and it needs its own test.
+
+        Written first as one assertion inside the ``caplog`` block above,
+        where it **passed against code whose restore had been deleted**.
+        ``caplog.at_level`` is not neutral: pytest's ``catching_logs``
+        sets ``logging.disable(NOTSET)`` on entry and puts the previous
+        level back on exit, so the global is restored by the fixture
+        whatever the module does with it.  A guard that cannot fail is
+        the shape this file has now recorded three times — twice for
+        asserting a *value* where it meant provenance, and once here for
+        asserting a global inside the one context manager that owns it.
+        """
+        before = logging.root.manager.disable
+        reading, problem = snag_claims.quietened_judgement_reading()
+        assert not problem, problem
+        assert reading is not None
+        assert logging.root.manager.disable == before
+
+    # -- the verdicts ----------------------------------------------------
+
+    def test_the_check_holds_on_this_box(self):
+        measurement = check_quietened_judgement_reach()
+        assert measurement.verdict == "match"
+        assert any(
+            f"port {snag_claims.QUIETEN_OPEN_PORT} stood open at" in line
+            for line in measurement.detail
+        )
+        assert any(
+            f"port {snag_claims.QUIETEN_FRESH_PORT} stood open at nothing" in line
+            for line in measurement.detail
+        )
+
+    def test_the_two_ports_are_judged_alike_and_differ_only_in_what_stood_open(self):
+        """The one variable the pair holds, pinned at the pure judgement."""
+        judged = self._judged()
+        assert set(judged) == set(snag_claims.QUIETEN_PORTS)
+        rungs = {judgement.severity for judgement in judged.values()}
+        assert len(rungs) == 1
+        for judgement in judged.values():
+            assert judgement.details["holder"]["transient"] is True
+
+    def test_an_in_place_severity_change_is_a_mismatch(self):
+        """The first of the three shapes a fix could take."""
+        from sqlalchemy import update
+
+        from sysadmin.core.models.alert import Alert
+        from sysadmin.estate.judgements import TRANSIENT_HOLDER_SEVERITY
+
+        async def in_place(session):
+            await session.execute(
+                update(Alert)
+                .where(
+                    Alert.message == snag_claims.QUIETEN_MESSAGE,
+                    Alert.resolved.is_(False),
+                )
+                .values(severity=TRANSIENT_HOLDER_SEVERITY)
+            )
+
+        with self._fix(in_place):
+            measurement = check_quietened_judgement_reach()
+        assert measurement.verdict == "mismatch"
+        assert "its severity went warning → info" in measurement.note
+
+    def test_resolve_and_re_raise_is_a_mismatch(self):
+        """The second, and the one the entry's fourth bullet names as obvious.
+
+        It leaves the original row's severity exactly where it was, so a
+        check reading that column alone would call this no change.
+        """
+        from sysadmin.core.models.alert import Alert
+        from sysadmin.estate.judgements import TRANSIENT_HOLDER_SEVERITY
+
+        async def resolve_and_reraise(session):
+            row = await self._standing(session)
+            assert row is not None
+            row.resolved = True
+            row.resolved_at = datetime.now(UTC)
+            session.add(
+                Alert(
+                    agent=row.agent,
+                    severity=TRANSIENT_HOLDER_SEVERITY,
+                    title=row.title,
+                    message=snag_claims.QUIETEN_MESSAGE,
+                    details={**(row.details or {}), "holder": {"transient": True}},
+                )
+            )
+            await session.flush()
+
+        with self._fix(resolve_and_reraise):
+            measurement = check_quietened_judgement_reach()
+        assert measurement.verdict == "mismatch"
+        assert "2 rows now carry the standing title" in measurement.note
+
+    def test_the_holder_blob_arriving_alone_is_a_mismatch(self):
+        """The third, and the reason the assertion is reach rather than rung.
+
+        Session 26c's annotation reaching a standing row while its
+        severity stays put is a real partial fix — the entry names both
+        halves — and a check watching only the severity column would
+        report it as the entry still holding.
+        """
+
+        async def holder_only(session):
+            row = await self._standing(session)
+            assert row is not None
+            row.details = {
+                **(row.details or {}),
+                "holder": {"unit": "probe.scope", "scope": "user", "transient": True},
+            }
+            await session.flush()
+
+        with self._fix(holder_only):
+            measurement = check_quietened_judgement_reach()
+        assert measurement.verdict == "mismatch"
+        assert "details['holder'] is now" in measurement.note
+        assert "severity went" not in measurement.note
+
+    def test_without_the_witness_the_verdict_is_unknown(self):
+        """The control, driven at the state that would otherwise read ``match``.
+
+        A run whose attribution never arrives raises the fresh port at
+        the loud rung and leaves the standing row exactly as untouched as
+        the dedup does — so the detail still reports an unmoved row, and
+        only the witness rule stops that being published as the entry
+        holding.
+        """
+        from sysadmin.estate.agent import EstateJudgeAgent
+        from sysadmin.units.ports import PortAttribution
+
+        async def blind(self, session):
+            return PortAttribution()
+
+        with patch.object(EstateJudgeAgent, "_attribution", blind):
+            measurement = check_quietened_judgement_reach()
+        assert measurement.verdict == "unknown"
+        assert "evidence about this probe" in measurement.note
+        assert any(
+            f"port {snag_claims.QUIETEN_OPEN_PORT} stood open at warning; after the run "
+            "1 row(s) carry its title, severity warning" in line
+            for line in measurement.detail
+        )
+
+    def test_a_family_with_no_quieter_rung_is_unknown(self):
+        """Session 57's fix reverted: nothing left for a fix to deliver.
+
+        Reached before any row is written, so this also pins that the
+        probe declines to touch the database when it already knows it
+        would measure nothing.
+        """
+        from sysadmin.estate import judgements
+
+        with patch.object(
+            judgements, "DEFAULT_SEVERITY", judgements.TRANSIENT_HOLDER_SEVERITY
+        ):
+            measurement = check_quietened_judgement_reach()
+        assert measurement.verdict == "unknown"
+        assert "no quieter rung" in measurement.note
+        assert self._surviving_rows() == 0
+
+    def test_a_rolled_up_payload_is_unknown(self):
+        """One row for two ports is not the pair this probe holds constant."""
+        from sysadmin.core.config import get_config
+
+        with patch.object(get_config().agents.estate_judge, "port_breach_max_rows", 1):
+            measurement = check_quietened_judgement_reach()
+        assert measurement.verdict == "unknown"
+        assert "rather than one per port" in measurement.note
+
+    def test_the_check_names_the_entry_and_the_entry_names_the_check(self):
+        check = CHECKS["quietened_judgement_reach"]
+        assert check.snag == "SNAG-ESTATE-010"
+        entries, problem = snag_claims.load_entries()
+        assert not problem, problem
+        entry = next(e for e in entries if e.snag_id == check.snag)
+        assert "quietened_judgement_reach" in entry.markers

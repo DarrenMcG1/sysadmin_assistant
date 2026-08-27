@@ -1,92 +1,102 @@
-# Handoff — 2026-08-26
+# Handoff — 2026-08-27
 
 ## Next action
 
-Write the seventeenth check against `SNAG-ESTATE-010` — a judgement that gets quieter cannot reach a row that is already open — because its claim is a mechanism whose stated population (two dev-server port rows) has since resolved, so a check that looked for those rows would report the entry refuted by somebody closing an editor, and because the mechanism is drivable with an instrument this repository already owns: open a `warning` row against the live database in a rolled-back transaction, judge the same title at `info`, and assert the row's severity and `holder` are unmoved — asserting the **reach** rather than the rung, since the entry's own fourth bullet records that resolve-and-re-raise on a severity mismatch is the obvious fix and rebuilds `monitor/collation.py`'s flip-flop.
+Write the eighteenth check against `SNAG-ESTATE-009` — a dev server started inside a sweep window is unattributed, so it is judged at `warning` rather than quietened — because its population is a timing accident nobody can arrange (rule 1 again, and the fourth entry running to it) while its mechanism is exactly what this sitting's new harness now drives: `quietened_judgement_reading` already inserts a `unit_audits` row inside a rolled-back transaction and judges a synthetic breach through the real `EstateJudgeAgent._execute`, so the check is the same drive with the probe port **left out of** the sweep blob, asserting that `_attribution` returns no holder for it and the judgement lands at `DEFAULT_SEVERITY` — with the witness the other way round this time, a second port that **is** in the blob and must come back `info`, since a run where nothing is quietened at all would otherwise look identical.
 
-## Session 94 is complete — the sixteenth check, and the first that sends a request
+## Session 95 is complete — the seventeenth check, and the first that writes to the database
 
-`SNAG-UNITS-003` is **checked and stays open**. Checked entries
-**13 → 14**, unchecked **11 → 10**, open unmoved at **24**. **2551 tests
-pass, 0 skipped** (2532 + 19). Ruff clean, mypy clean.
-`sysadmin/snag_claims.py` was edited, so the daemon was restarted at
-**21:20:50** and all nine ops claims read green.
+`SNAG-ESTATE-010` is **checked and stays open**. Checked entries
+**14 → 15**, unchecked **10 → 9**, open unmoved at **24** (none opened,
+none closed) — measured either side of the edit by driving
+estate-manager's `read_snags`, which reads **70 entries / 24 open** both
+times. **2570 tests pass, 0 skipped** (2551 + 19). Ruff clean, mypy
+clean. `sysadmin/snag_claims.py` was edited, so the daemon was restarted
+at **08:31:41** and all nine ops claims read green.
 
-### Both claims are measured, because only one of them is a mechanism
+### The entry predicted its own population away
 
-The entry's body claims `_services_yaml_snippet` emits a health path it
-never fetched; its **title** claims that on this box the guess is "wrong
-more often than right", counted at 4 right and 7 wrong of 11 on
-2026-08-15 by an author whose first draft said "two of twelve". Rule 1
-says a check tests the mechanism rather than the population — and here
-the population *is* the sentence in the title. The two refute the entry
-for opposite reasons and the notes say which: the generator learning to
-look is the **fix**; the box converging on the contract's path is the
-**premise** dying with the generator unchanged.
-`check_sysd_ollama_ordering`'s split, one entry over.
+It is filed off two live rows — `Estate port 3110 registry breach` and
+`Estate port 8110 registry breach`, both VS Code dev servers standing at
+`warning` with `details['holder']` null while Session 57's fix ran three
+lines away — and its **own third bullet** says it self-clears when the
+editor closes. A check that counted those rows would therefore report
+the entry refuted by somebody shutting a window. Measured: **zero open
+`estate_judge` rows** on the box today, mechanism untouched. That is
+Session 83's rule met by an entry that had already argued its own case.
 
-### The recount, and why the agreement is a measurement
+### The instrument, and why it had to be `_execute`
 
-Live, by outbound probe: **4 right, 7 wrong of 11, 0 unmeasured**. The
-entry counted *declared urls in `services.yaml`*; this counts *what
-answers on the port*. A service serving both paths would have separated
-them and none does, so the two agreeing is a result rather than a
-tautology — and the ranking could not have assumed it either way. None
-of 4, 7 or 11 appears in the module; the recount is printed in `detail`
-at both ends of every sitting, and a drift that keeps the direction is
-deliberately not a mismatch.
+The claim is a branch three statements into `EstateJudgeAgent._execute`
+— a judgement whose title is already open is skipped *before* anything
+reads its severity or its details — and every fix the entry contemplates
+lands in that same loop, so a check that rebuilt the loop beside it would
+report a landed fix as no change. Three things are supplied and nothing
+else is touched: an `httpx.MockTransport` for the estate's answer (so the
+real `pull_all` runs against it), a `unit_audits` row inside the
+transaction for the sweep's attribution (which is what makes both ports
+transient and therefore quiet — Session 57's own route), and one
+already-open row at `warning` with `holder: null`.
 
-### The two things a draft had to be talked out of
+### Two decisions that carry the verdict
 
-**The private function the recommendation named was the wrong target.**
-The entry's candidate fix is "probe once when the snippet is generated",
-which is a moment on the whole path — a probe in the *caller* fixes it
-and leaves `_services_yaml_snippet` emitting the same literal, so a check
-bound to it would report a landed fix as no change. The public
-`recommendations_for_scan` is driven instead.
+**The assertion is the *reach*, never the rung.** The entry's fourth
+bullet names resolve-and-re-raise as the obvious fix and refuses it, so a
+fix may land as an in-place rung, as a resolved row plus a fresh one, or
+as the `holder` blob alone with the severity unmoved — and a check
+reading that one column would call two of those three no change. All
+three are driven as stand-ins modelling the fix.
 
-**A constant emitted path is not by itself evidence that nothing looked.**
-An implementation that probed, found nothing and fell back emits the same
-constant, which is exactly what the two frontends declaring no path at
-all would produce. So the refutation needs a **witness**: a port where
-the emitted path fails and the service's own answers. Five today; with
-none the verdict is `unknown`, which is also how the check degrades
-offline — the offline behaviour is a case of the rule rather than a
-special case bolted onto it.
+**The unmoved row is evidence only beside a row that moved.** The same
+`_execute` call judges a second synthetic port with nothing open under
+its title, and it must land at the quieter rung carrying a transient
+holder before either verdict means anything. Driven as the falsification:
+with `_attribution` returning an empty `PortAttribution` the standing row
+is still unmoved and the verdict is `unknown`, not `match`.
 
-### The control that carries the whole verdict
+### What writing to the live database cost, and what paid for it
 
-Every guess-probe is paired with a probe of the service's own declared
-url. A stopped service reports every path wrong, so without the control
-this entry would read as **holding hardest on the morning the box came
-up**. A service failing its own url is `unmeasured` and named, never
-counted as evidence — `ports_checked`'s rule. The reading is the
-monitor's own: `SysAdminAgent._check_http` under `_http.scoped()`,
-classified by `is_fault` off the CHECK constraint's map, with an `ast`
-sweep now refusing a hand-written comparison to `"ok"` here too.
+Fifteen falsifications, fifteen fired. The one that justifies the write
+replaces the rollback with a **commit**; the clean-run and failed-run
+guards fire independently, the second proving the `finally` covers a
+drive that raised.
 
-### Nine falsifications, nine fired — and one found a report defect
+**That falsification corrected the guard it was aimed at.**
+`_surviving_rows` counted by the probe's own message — and the row the
+probe *raises*, the witness and the more interesting write, carries the
+estate's own `summary`, because `raise_alert` is handed the judgement's
+message. The guard was blind to exactly the row the check exists to
+produce; the committing stand-in leaked one past it. Found on the box,
+deleted, guard now counts by title.
 
-The last break, joining the empty path away, exposed a note reading
-`ports (, /api/health, /api/v1/health, /health)` — four paths named as
-three, because two services declare a url with no path. `(no path)` now,
-with a test that fails against the join. One control has a
-**measured-empty population and says so**:
-`test_the_probe_never_leaves_this_machine` stays green with `_loopback`
-deleted, because the only off-box url in `services.yaml` declares neither
-a port nor a unit; the falsification that fires drives a remote entry
-through the prober directly, and the docstring names it.
+**One falsification passed against deliberately broken code, for the
+fourth time here and in a new shape.** The restore of `logging.disable`
+was asserted inside a `caplog.at_level` block, and pytest's
+`catching_logs` sets `logging.disable(NOTSET)` on entry and restores the
+previous level on exit — so the fixture put the global back whatever the
+module did. Split into two tests, only one of which may touch `caplog`.
+The three earlier instances asserted a *value* where they meant
+provenance; this one asserts a *global* inside the context manager that
+owns it.
 
-### The unplanned find: two readers, two totals, one open count
+### One documentation gap closed on the way
 
-`load_entries` reports **68** entries for `snag_list.md` where
-estate-manager's `read_snags` reports **70** — measured either side of
-this sitting's edit, so neither moved. Both report **24 open**, the
-figure the banner and the report use; the difference is the local reader
-skipping closed and template sections by construction. Session 93's
-handoff published 70, which was the owning parser's number. Recorded so a
-next sitting does not read 68 as a regression.
+`snag_list.md`'s top preamble named **Session 93**, because Session 94
+added a marker and wrote no preamble. Closed by writing this sitting's
+rather than by re-dating the old one — the block that says what a sitting
+did is the wrong place to be silently two sittings behind.
 
-### Blocked
+### Left deliberately
 
-Nothing.
+- **Nine open entries still carry no check**: `SNAG-ESTATE-004`, `-006`,
+  `-007`, `-009`, `-012`, `-014`, `SNAG-SVC-001`, `-002`,
+  `SNAG-TRAY-008`. Three are delegated to estate-manager and
+  `SNAG-ESTATE-012` is explicitly not machine-checkable — deciding that an
+  English sentence is a claim is a human's job, which is what that entry
+  says.
+- **`sysadmin-check-snags` exits 2**, and correctly: the convention
+  finding about those nine is `unknown`, not a failure. All fifteen
+  entry checks read `ok`.
+- **Two readers still report two entry totals** — `load_entries` 68
+  against `read_snags` 70, both reporting 24 open. Unchanged from Session
+  94, recorded so it is not read as a regression.
