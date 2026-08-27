@@ -6093,3 +6093,374 @@ class TestTheQueueCheckAgainstTheRealProducer:
             pytest.skip("estate-manager is not beside this checkout")
         assert "timezone=utc" in engine.read_text(encoding="utf-8")
         assert "timezone=utc" not in pool.read_text(encoding="utf-8")
+
+
+class TestTheCheckIntervalCheck:
+    """``SNAG-SVC-001``'s check — the twenty-fourth, and the fourth on a synthetic subject.
+
+    The entry's population is empty and its own body says so, so the
+    contention is **built**: a service whose every outage lasted one poll,
+    which is the shape this box has not produced.  What is unusual about
+    it is that the claim is a *conflict between two rules*, so the check
+    drives both sides — the advice row that answers volume by observing
+    less, and ``known_noise`` rule 3, which refuses exactly that move one
+    domain over.
+
+    Most of these tests are about the instruments, and one of them
+    records a falsification that **passed against deliberately broken
+    code** — the fourth in this registry to do so, and the first whose
+    cause was a rule stated twice in the module being driven.
+    """
+
+    # -- rule 1: the subject is built, not found -------------------------
+
+    def test_the_probe_service_is_declared_nowhere(self):
+        """The subject is synthetic, so no rename on this box can move the verdict.
+
+        The entry's population is zero and stays zero until a real
+        service starts blipping; a check that read the live scores would
+        report the entry refuted on every day the box behaved and live
+        the first afternoon a health path went slow, which is a
+        measurement of the weather.
+        """
+        for path in (REPO_ROOT / "services.yaml", REPO_ROOT / "config.yaml"):
+            assert snag_claims.BLIP_SERVICE not in path.read_text(encoding="utf-8")
+
+    def test_the_witness_episode_is_the_smallest_that_is_not_one(self):
+        """The arithmetic the whole narrowing rests on, driven at the real scorer.
+
+        ``_outage_episodes`` dates an episode to its last *failing*
+        check, so one sample spans zero seconds and the row fires; two
+        span one interval and it does not.  Both halves are asserted,
+        because a witness that measured zero duration too would be the
+        subject over again.
+        """
+        from sysadmin.monitor.reliability import score_service
+
+        now = datetime.now(UTC)
+        config = get_config()
+        interval = config.agents.sysadmin.health_check_interval_seconds
+        window = config.agents.sysadmin.reliability.window_days
+        episodes = config.agents.sysadmin.service_actions.flap_min_episodes
+
+        def longest(checks: int) -> float:
+            return score_service(
+                snag_claims.BLIP_SERVICE,
+                snag_claims.blip_health_points(episodes, checks, window, interval, now),
+                window_days=window,
+                check_interval_seconds=interval,
+                now=now,
+            ).longest_outage_minutes
+
+        assert snag_claims.BLIP_WITNESS_EPISODE_CHECKS == 2
+        assert longest(1) == 0.0
+        assert longest(snag_claims.BLIP_WITNESS_EPISODE_CHECKS) > 0.0
+
+    def test_the_episodes_are_spread_so_none_of_them_merge(self):
+        """``_outage_episodes`` collapses *consecutive* failing checks.
+
+        Two probe episodes placed one check apart are one episode of
+        three — the witness, arriving where the subject was meant to be —
+        so the builder spreads them and the scorer is asked to confirm
+        the count rather than trusted to.
+        """
+        from sysadmin.monitor.reliability import score_service
+
+        now = datetime.now(UTC)
+        config = get_config()
+        interval = config.agents.sysadmin.health_check_interval_seconds
+        window = config.agents.sysadmin.reliability.window_days
+
+        for episodes in (2, 3, 5):
+            score = score_service(
+                snag_claims.BLIP_SERVICE,
+                snag_claims.blip_health_points(episodes, 1, window, interval, now),
+                window_days=window,
+                check_interval_seconds=interval,
+                now=now,
+            )
+            assert score.outage_episodes == episodes
+
+    # -- the instruments -------------------------------------------------
+
+    def test_the_import_walk_sees_an_import_and_never_a_mention(self):
+        """Rule 7's instrument, driven at two files that differ only in that."""
+        with tempfile.TemporaryDirectory() as tmp:
+            joins = Path(tmp) / "joins.py"
+            joins.write_text(
+                "from sysadmin.monitor.log_actions import group_incidents\n"
+                "from sysadmin.monitor import log_trends\n",
+                encoding="utf-8",
+            )
+            mentions = Path(tmp) / "mentions.py"
+            mentions.write_text(
+                '"""Prose about sysadmin.monitor.log_actions and about\n'
+                'sysadmin.monitor.log_trends, naming neither as an import."""\n',
+                encoding="utf-8",
+            )
+            for module in snag_claims.BLIP_LOG_MODULES:
+                assert snag_claims.importers_of(module, [joins]) == [joins]
+                assert snag_claims.importers_of(module, [mentions]) == []
+
+    def test_the_advice_module_already_names_both_log_families_in_prose(self):
+        """Rule 7's fifth instance, and the sharpest of them.
+
+        ``service_recommendations.py`` names ``log_actions`` twice in its
+        module docstring, ``log_trends`` in ``_flapping_row``'s, and
+        ``known_noise`` in the very docstring that files this snag.  A
+        text search therefore reports every one of them as already wired
+        and would refute this entry on the day it was filed; an ``ast``
+        walk over imports sees none, because a docstring is an
+        ``ast.Constant``.
+        """
+        source = snag_claims.BLIP_ADVICE_PATH.read_text(encoding="utf-8")
+        assert "known_noise" in source
+        for module in snag_claims.BLIP_LOG_MODULES:
+            assert module.rsplit(".", 1)[-1] in source
+            assert snag_claims.importers_of(module, [snag_claims.BLIP_ADVICE_PATH]) == []
+
+    def test_the_noise_floor_is_read_from_the_family_that_owns_it(self):
+        """``NOISE_MIN_OCCURRENCES`` is invented and says so, so it is never copied.
+
+        A probe carrying its own floor goes on describing a threshold
+        nobody uses the day that one moves, and its "loud" drive stops
+        being loud without saying so.
+        """
+        from sysadmin.monitor import log_actions
+
+        reading, problem = snag_claims.blip_contention_reading()
+        assert reading is not None, problem
+        assert reading.noise_floor == log_actions.NOISE_MIN_OCCURRENCES
+        assert reading.occurrences == (
+            log_actions.NOISE_MIN_OCCURRENCES * snag_claims.BLIP_NOISE_MULTIPLE
+        )
+
+    # -- the witnesses ---------------------------------------------------
+
+    def test_a_series_coarser_than_the_box_is_suppressed_before_the_row_is_built(self):
+        """W1: the row is ``RATE_ARGUED``, so the gate runs before the producer.
+
+        A probe sampled at its own convenience scores ``low`` confidence,
+        every rate-argued row is dropped, and the check would report a
+        silence it manufactured — :func:`timer_agent_series`' trap
+        arriving through a different gate.
+        """
+        real = snag_claims.blip_health_points
+
+        def coarse(episodes, checks, window_days, interval, now):
+            return real(episodes, checks, window_days, interval * 10, now)
+
+        with patch.object(snag_claims, "blip_health_points", coarse):
+            result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "unknown"
+        assert "low confidence" in result.note
+        assert "unreachable through this probe" in result.note
+
+    def test_an_unreachable_noise_family_is_unknown_and_says_why(self):
+        """W2: a rule that was removed and a family the probe cannot reach agree.
+
+        Without the old-and-flat drive, the silence about the loud *new*
+        signature would be the probe's and would read as the rule's.
+        """
+        from sysadmin.monitor import log_actions
+
+        with patch.object(log_actions, "_is_noise_candidate", lambda *a, **k: False):
+            result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "unknown"
+        assert "not reachable through this probe" in result.note
+
+    def test_a_family_with_no_volume_floor_is_neither_verdict(self):
+        """W3: the conflict is about volume, so a rule that ignores it has moved.
+
+        If a signature below the floor is recommended as noise, the loud
+        *new* drive is silent because of its change kind and never
+        because of its volume — so "rule 3 still refuses volume alone"
+        would be true of a rule that no longer looks at volume at all.
+        """
+        from sysadmin.monitor import log_actions
+        from sysadmin.monitor.log_trends import ChangeKind
+
+        real = log_actions._is_noise_candidate
+
+        def floorless(trend, confidence):
+            if trend.change in (ChangeKind.STEADY, ChangeKind.FALLING, ChangeKind.RETURNED):
+                return True
+            return real(trend, confidence)
+
+        with patch.object(log_actions, "_is_noise_candidate", floorless):
+            result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "unknown"
+        assert "volume no longer gates the rule at all" in result.note
+
+    def test_the_narrowing_going_is_unknown_rather_than_either_verdict(self):
+        """The entry's headline gets *more* true while its third bullet goes false.
+
+        "Still live" understates it and "refuted" is plainly wrong, so
+        the check declines to grade an entry that has moved underneath
+        it.  This is the one drive whose stand-in makes the defect
+        **worse**, and it is the reason the witness is not simply folded
+        into the mismatch branch.
+        """
+        from sysadmin.monitor import service_recommendations as advice
+
+        real = advice._check_interval_row
+
+        def widened(score, settings, interval):
+            return real(
+                dataclasses.replace(score, longest_outage_minutes=0.0), settings, interval
+            )
+
+        with patch.object(advice, "_check_interval_row", widened):
+            result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "unknown"
+        assert "the narrowing the entry's third bullet describes is gone" in result.note
+        assert "an entry to rewrite rather than a verdict to grade" in result.note
+
+    # -- the entry -------------------------------------------------------
+
+    def test_the_conflict_is_live_today(self):
+        """The mechanism, and the evidence is the two rules side by side."""
+        result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "match", result.note
+        evidence = "\n".join(result.detail)
+        assert "one-check blips" in evidence
+        assert "evidence rate, 0 points recoverable" in evidence
+        assert "old and flat -> noise" in evidence
+        assert "new -> new_signature" in evidence
+        assert "surged -> surge" in evidence
+        assert "advice module importing a log family: none" in evidence
+
+    def test_deleting_the_kind_is_the_first_resolution_taken(self):
+        """One of the two edits the entry leaves to the owner, driven as a stand-in."""
+        from sysadmin.monitor import service_recommendations as advice
+
+        with patch.object(advice, "_check_interval_row", lambda *a, **k: None):
+            result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "mismatch"
+        assert "the kind no longer fires for the shape it was narrowed to" in result.note
+
+    def test_a_row_declaring_other_evidence_is_the_second_resolution(self):
+        """The producer's own statement that it argues from more than a rate."""
+        from sysadmin.monitor import service_recommendations as advice
+
+        real = advice._check_interval_row
+
+        def evidenced(*args, **kwargs):
+            # ``ServiceRecommendationInfo`` is a pydantic contract, not a
+            # dataclass — the score one call up is the dataclass, and the
+            # two are edited with different verbs.
+            row = real(*args, **kwargs)
+            return None if row is None else row.model_copy(update={"evidence": "correlation"})
+
+        with patch.object(advice, "_check_interval_row", evidenced):
+            result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "mismatch"
+        assert "arguing from something other than the blip count" in result.note
+
+    def test_the_advice_module_reaching_a_log_family_is_the_same_resolution(self):
+        """The structural half, which a fix has to move whichever file it lands in.
+
+        A correlation between the blips and the service's own logs cannot
+        be computed by a module that has not got the data, so the import
+        set is the instrument rather than the row's own field — and it
+        catches a fix that arrived without relabelling ``evidence``.
+        """
+        source = snag_claims.BLIP_ADVICE_PATH.read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as tmp:
+            stand_in = Path(tmp) / snag_claims.BLIP_ADVICE_PATH.name
+            stand_in.write_text(
+                "from sysadmin.monitor.log_actions import group_incidents\n" + source,
+                encoding="utf-8",
+            )
+            with patch.object(snag_claims, "BLIP_ADVICE_PATH", stand_in):
+                result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "mismatch"
+        assert "the evidence the entry says it has not got" in result.note
+
+    @pytest.mark.parametrize("kind_name", ["NEW", "SURGED"])
+    def test_the_other_party_relaxing_dissolves_the_conflict(self, kind_name):
+        """The third way this entry stops being true, which it does not anticipate.
+
+        ``known_noise`` rule 3 is the *other* side of the conflict.  Its
+        relaxing refutes the entry with nobody having touched the row the
+        entry is about, so the note says which side moved — a fix and a
+        dissolution must not read alike.
+
+        The stand-in models the loop, **not** the predicate: see
+        :meth:`test_relaxing_the_predicate_alone_changes_nothing`.
+        """
+        from sysadmin.monitor import log_actions
+        from sysadmin.monitor.log_trends import ChangeKind
+
+        kind = getattr(ChangeKind, kind_name)
+        real = log_actions.recommend
+
+        def relaxed(report, *args, **kwargs):
+            rows = list(real(report, *args, **kwargs))
+            rows.extend(
+                log_actions._noise_recommendation(trend)
+                for trend in report.signatures
+                if trend.change is kind
+                and trend.current >= log_actions.NOISE_MIN_OCCURRENCES
+            )
+            return rows
+
+        with patch.object(log_actions, "recommend", relaxed):
+            result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "mismatch"
+        assert "no longer refuses volume alone" in result.note
+        assert "nobody has touched the row this entry is about" in result.note
+
+    def test_relaxing_the_predicate_alone_changes_nothing(self):
+        """**The falsification that passed against deliberately broken code.**
+
+        ``_is_noise_candidate`` is the function whose docstring carries
+        rules 3 and 4, so it is the obvious place to model "rule 3
+        relaxed" — and a stand-in aimed there leaves the verdict at
+        ``match``.  ``recommend``'s loop does ``if trend.change is
+        ChangeKind.NEW: continue`` **before** the predicate is ever
+        called, and takes ``SURGED`` in the branch above it, so neither
+        kind can reach the noise branch whatever the predicate says.
+
+        The cause is a rule stated **twice** — once by the loop, once by
+        the predicate's admitted tuple — which is ``SNAG-DB-003``'s shape
+        inside a module nobody had driven from the outside.  The check
+        was right; only the falsification was aimed at the wrong
+        function.  Pinned here so the next author of a stand-in is told
+        where the decision is actually taken.
+        """
+        from sysadmin.monitor import log_actions
+        from sysadmin.monitor.log_trends import ChangeKind
+
+        real = log_actions._is_noise_candidate
+
+        def admits_everything_loud(trend, confidence):
+            if trend.change in (ChangeKind.NEW, ChangeKind.SURGED):
+                return True
+            return real(trend, confidence)
+
+        with patch.object(log_actions, "_is_noise_candidate", admits_everything_loud):
+            result = snag_claims.check_check_interval_looks_away()
+        assert result.verdict == "match"
+
+    def test_the_check_reports_liveness_and_never_a_resolution(self):
+        """The entry reserves the decision, so the check states no preference.
+
+        Both resolutions are opposite edits to one row and nothing
+        measurable here prefers either.  Every note this check can emit
+        is therefore a report of what moved — no imperative, and no
+        second-person instruction.
+        """
+        notes = [snag_claims.check_check_interval_looks_away().note]
+        from sysadmin.monitor import log_actions
+        from sysadmin.monitor import service_recommendations as advice
+
+        with patch.object(advice, "_check_interval_row", lambda *a, **k: None):
+            notes.append(snag_claims.check_check_interval_looks_away().note)
+        with patch.object(log_actions, "_is_noise_candidate", lambda *a, **k: False):
+            notes.append(snag_claims.check_check_interval_looks_away().note)
+
+        directives = (" should ", " must ", "consider raising", "recommend deleting")
+        for note in notes:
+            for word in directives:
+                assert word not in note.lower(), note

@@ -394,6 +394,85 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 102 — the twenty-fourth check, and two judgements about being unchecked (2026-08-27) ✅
+
+`SNAG-SVC-001` is **checked and stays open**. Checked entries **21 → 22**,
+unchecked **3 → 2**, open unmoved at **24** (none opened, none closed) —
+measured either side of the edit by driving `load_entries`, and by
+estate-manager's `read_snags`, which reads **93 rows / 24 open** both
+times. Suite **2713 → 2731**, `tests/test_snag_claims.py` **309 → 327**.
+
+**The first check whose claim is a conflict between two rules rather than
+a fact about one**, so it drives both sides and reports only whether the
+conflict is still live.
+
+- [x] Reproduce the mechanism rather than look for the population. The
+      entry states its own: zero on this box, `searxng` being the only
+      all-single-check service at 2 episodes against a threshold of 3. So
+      the subject is built — a fully-covered 7-day window carrying exactly
+      `flap_min_episodes` outages of one 300s check each, scored by the
+      real `score_service` and passed to the real `recommend`. Built from
+      *health rows*, never from a hand-set `ReliabilityScore`, because
+      `longest_outage_minutes == 0` is the fact the check exists to
+      reproduce and asserting it would be the check agreeing with itself
+- [x] Three instruments, refuting the entry in three directions: the row's
+      own `evidence: rate` / `0 points recoverable`; the advice module's
+      **import set**, since a correlation with the service's own logs
+      cannot be computed by a module that has not got the data; and
+      `known_noise` rule 3 **driven rather than read**
+- [x] Rule 7 for the fifth and sharpest time —
+      `service_recommendations.py` names `log_actions` twice in its module
+      docstring, `log_trends` in `_flapping_row`'s and `known_noise` in
+      the very docstring that filed this snag, so a grep reports all three
+      as already wired and an `ast` import walk sees none
+- [x] Three witnesses, because on each side a rule removed and a producer
+      the probe cannot reach report identically: a two-check episode must
+      produce **no** advice row; a loud old flat signature **must** be
+      noise; a signature below the floor must **not** be
+- [x] The narrowing going is `unknown`, not either verdict — the headline
+      claim gets *more* true while the entry's own third bullet goes
+      false, and a check cannot rewrite the entry it measures
+- [x] Report liveness, never a resolution. The entry's fourth bullet
+      reserves the decision and nothing measurable prefers either; a test
+      asserts no note this check can emit carries an imperative
+- [x] **One falsification passed against deliberately broken code**, the
+      sixth here and a new shape: the change-kind rule is stated by
+      `recommend`'s loop *and* by `_is_noise_candidate`'s admitted tuple,
+      so a stand-in aimed at the predicate — where the rule is
+      *documented* — never reaches the decision. The check was right; the
+      stand-in was aimed at the wrong function. Both pinned
+
+**Two judgements, decided rather than built**, at the owner's framing that
+these are judgements and not work.
+
+- [x] `SNAG-ESTATE-006` may **not** declare itself *checked by another
+      guard*, and the reason is the guard rather than the precedent: its
+      pre-staged test reads a fixture this repository recorded, so it
+      fires when somebody re-captures the payload and never on the day
+      estate-manager adds the column, which is what its bullet claims
+- [x] Measured against the wire instead — `GET :8400/api/audit/findings`
+      publishes **11** keys across 3 live findings and `code` is not among
+      them — so the claim holds and the entry is a **live candidate** for
+      the next check rather than an exempt one. The ranking that put it
+      behind `SNAG-SVC-001` (a check would restate an existing guard) is
+      refuted: the two would measure the fixture and the wire
+- [x] `SNAG-ESTATE-014` may **not** declare itself *unmeasurable by rule*
+      either, and the refusal costs it nothing — it is already named every
+      sitting by the finding it is about, which its own second bullet says
+      is the fix for invisibility. Exempting it would let the entry about
+      the count subtract itself from its own subject, and would give the
+      number a fourth way to move on top of the three it has catalogued
+- [x] **The rule both judgements settle**: a declaration may move an entry
+      between *published* buckets and may never remove it from the report
+      — `ops_claims` rule 1 at the level of the register. A `covered-by`
+      bullet is legitimate only if the machinery resolves the named guard
+      **and** the entry stays named in a category of its own. Unbuilt
+      deliberately: one live candidate is not enough population to design
+      against
+
+**Next**: `SNAG-ESTATE-006` is the last open entry for which a check is
+neither a restatement nor a measurement of the weather.
+
 ## Session 101 — the twenty-third check, and a symptom that agrees with itself only in summer (2026-08-27) ✅
 
 - [x] Take `SNAG-ESTATE-007` over `SNAG-ESTATE-006`, which

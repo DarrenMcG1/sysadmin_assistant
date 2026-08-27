@@ -135,7 +135,10 @@ if TYPE_CHECKING:  # pragma: no cover — annotations only
 
     from sysadmin.core.contracts import ServiceRecommendationInfo
     from sysadmin.estate.agent import EstateJudgeAgent
-    from sysadmin.monitor.service_recommendations import TimerSeries
+    from sysadmin.monitor.log_actions import LogRecommendation
+    from sysadmin.monitor.log_trends import ChangeKind, SignatureTrend
+    from sysadmin.monitor.reliability import HealthPoint, ReliabilityScore
+    from sysadmin.monitor.service_recommendations import AdviceReport, TimerSeries
     from sysadmin.monitor.services import ServiceEntry
 
 #: The same three words and the same exit map as the schema check and the
@@ -6360,6 +6363,452 @@ def check_queue_stamps_local() -> Measurement:
 
 
 # ---------------------------------------------------------------------------
+# SNAG-SVC-001 — advice that reduces observation, and the rule that forbids it
+# ---------------------------------------------------------------------------
+
+#: The synthetic service the advice half is driven at.  It is in no config
+#: file and has no health rows: the entry's population is empty on this
+#: box — ``searxng`` is the only service whose episodes are all
+#: single-check and it has 2 against a threshold of 3 — so rule 1 says
+#: build the subject rather than wait for one.
+BLIP_SERVICE = "snagcheck-blip"
+
+#: The synthetic journal source the ``known_noise`` half is driven at.
+BLIP_NOISE_SOURCE = "snagcheck-noise.service"
+BLIP_NOISE_SIGNATURE = "snagcheck probe fault N"
+
+#: How many checks the *witness* episode lasts.  Two is the smallest
+#: number that is not one, which is the whole of the narrowing being
+#: driven: :func:`~sysadmin.monitor.reliability._outage_episodes` dates an
+#: episode to its last **failing** check, so one sample spans zero seconds
+#: and two span one interval.
+BLIP_WITNESS_EPISODE_CHECKS = 2
+
+#: Occurrences for the loud signatures, as a multiple of
+#: :data:`~sysadmin.monitor.log_actions.NOISE_MIN_OCCURRENCES`.  Taken from
+#: that constant rather than written here: it is invented and says so, so
+#: a probe carrying its own copy would go on describing a floor nobody
+#: uses.
+BLIP_NOISE_MULTIPLE = 2
+
+#: The file whose row the entry is about.
+BLIP_ADVICE_PATH = REPO_ROOT / "sysadmin" / "monitor" / "service_recommendations.py"
+
+#: The families holding the evidence the entry says this row has not got
+#: — *"a correlation between the blips and the service's own logs, which
+#: is ``log_actions.group_incidents``' machinery pointed at a different
+#: table"*.  Both are named for :data:`ESTATE_NUDGE_MODULES`' reason: the
+#: correlation could be built off the trend or off the incident grouping,
+#: and a fix reaching one says nothing about the other.
+BLIP_LOG_MODULES = (
+    "sysadmin.monitor.log_actions",
+    "sysadmin.monitor.log_trends",
+)
+
+#: What the row declares it argues from.  ``rate`` is "N blips per
+#: window", which is the volume the conflict is about.
+BLIP_RATE_EVIDENCE = "rate"
+
+BLIP_ROW_KIND = "check_interval"
+
+
+@dataclass(frozen=True)
+class BlipContentionReading:
+    """One drive of each side of ``SNAG-SVC-001``'s conflict."""
+
+    episodes: int
+    check_interval_seconds: int
+    window_days: int
+
+    # --- the advice half, at episodes that each lasted one check ---
+    blip_title: str
+    blip_evidence: str
+    blip_points: int
+    #: The witness: the same episode count, each lasting
+    #: :data:`BLIP_WITNESS_EPISODE_CHECKS` checks.
+    witness_row: bool
+    witness_longest_minutes: float
+    confidence: str
+    suppressed: int
+
+    # --- the ``known_noise`` half, four drives at one signature ---
+    noise_on_loud_and_new: bool
+    noise_on_loud_and_surged: bool
+    noise_on_quiet_and_flat: bool
+    loud_new_kind: str
+    loud_surged_kind: str
+    occurrences: int
+    noise_floor: int
+
+    #: Which of :data:`BLIP_LOG_MODULES` the advice module imports.
+    log_reach: tuple[str, ...]
+
+    @property
+    def blip_row_fires(self) -> bool:
+        return bool(self.blip_title)
+
+
+def blip_health_points(
+    episodes: int,
+    episode_checks: int,
+    window_days: int,
+    check_interval_seconds: int,
+    now: datetime,
+) -> list[HealthPoint]:
+    """A fully-covered window carrying ``episodes`` outages of a fixed length.
+
+    Sampled at the **live** check interval across the whole window, which
+    is not decoration.  The row is ``RATE_ARGUED``, so
+    :func:`~sysadmin.monitor.service_recommendations.recommend` drops it
+    unless the score's confidence is ``high``, and confidence is
+    ``coverage_percent`` measured against ``checks_expected`` — itself
+    derived from that same interval.  A series sampled at the probe's own
+    convenience is suppressed before the row is built, and the probe then
+    reports a silence it manufactured: :func:`timer_agent_series`' trap
+    arriving through a different gate.
+
+    Episodes are spread evenly rather than placed adjacent, because
+    ``_outage_episodes`` collapses *consecutive* failing checks — two
+    probe episodes one check apart are one episode of three, which is the
+    witness rather than the subject.
+    """
+    from sysadmin.monitor.reliability import HealthPoint
+
+    total = int(window_days * 86400 / check_interval_seconds)
+    bad: set[int] = set()
+    for index in range(episodes):
+        start = int(total * (index + 1) / (episodes + 1))
+        bad.update(range(start, start + episode_checks))
+    return [
+        HealthPoint(
+            checked_at=now - timedelta(seconds=check_interval_seconds * (total - n)),
+            status="unreachable" if n in bad else "ok",
+        )
+        for n in range(total)
+    ]
+
+
+def blip_noise_trend(
+    change: ChangeKind,
+    first_seen: datetime,
+    current: int,
+    previous: int,
+    now: datetime,
+) -> SignatureTrend:
+    """One synthetic signature, in the shape ``log_actions.recommend`` reads."""
+    from sysadmin.monitor.log_trends import SignatureTrend
+
+    return SignatureTrend(
+        signature=BLIP_NOISE_SIGNATURE,
+        alert_title=f"Log error: {BLIP_NOISE_SOURCE} — {BLIP_NOISE_SIGNATURE}",
+        source=BLIP_NOISE_SOURCE,
+        severity="error",
+        sample=BLIP_NOISE_SIGNATURE.replace("N", "1"),
+        current=current,
+        previous=previous,
+        total=current + previous,
+        first_seen=first_seen,
+        last_seen=now,
+        change=change,
+    )
+
+
+def blip_contention_reading() -> tuple[BlipContentionReading | None, str]:
+    """Drive both sides of the conflict, over subjects this box has not got.
+
+    **Two witnesses, because on each side a rule that has been removed
+    and a producer the probe can no longer reach report identically** —
+    Session 98's rule, needed twice here for the reason
+    :func:`timer_agent_reading` needed it twice.  On the advice side the
+    witness is an episode two checks long, which must produce **no** row;
+    on the noise side it is the same loud signature made old and flat,
+    which **must** produce one.
+    """
+    from sysadmin.monitor import log_actions, service_recommendations
+    from sysadmin.monitor.log_trends import ChangeKind, Confidence, LogTrendReport
+    from sysadmin.monitor.reliability import score_service
+
+    config = get_config()
+    settings = config.agents.sysadmin.service_actions
+    interval = config.agents.sysadmin.health_check_interval_seconds
+    window_days = config.agents.sysadmin.reliability.window_days
+    episodes = settings.flap_min_episodes
+
+    if interval <= 0 or window_days <= 0 or episodes <= 0:
+        return None, (
+            f"the probe's window is not positive (check interval {interval}s, window "
+            f"{window_days}d, flap threshold {episodes}) — the synthetic subject cannot be "
+            "built from this config"
+        )
+
+    now = datetime.now(UTC)
+
+    def drive(episode_checks: int) -> tuple[ReliabilityScore, AdviceReport]:
+        score = score_service(
+            BLIP_SERVICE,
+            blip_health_points(episodes, episode_checks, window_days, interval, now),
+            window_days=window_days,
+            check_interval_seconds=interval,
+            now=now,
+        )
+        return score, service_recommendations.recommend(
+            [score], settings, check_interval_seconds=interval, now=now
+        )
+
+    subject_score, subject = drive(1)
+    if subject_score.outage_episodes != episodes:
+        return None, (
+            f"the probe built {subject_score.outage_episodes} episodes where it meant "
+            f"{episodes} — the scorer no longer collapses failing checks the way this series "
+            "assumes, so neither drive below is about the shape the entry describes"
+        )
+    if subject_score.confidence != "high":
+        return None, (
+            f"a fully-covered synthetic window scored {subject_score.confidence} confidence "
+            f"({subject_score.coverage_percent:g}% of expected checks across "
+            f"{subject_score.observed_days:g} days) — every RATE_ARGUED row is suppressed "
+            "before it is built, so the advice side is unreachable through this probe"
+        )
+
+    witness_score, witness = drive(BLIP_WITNESS_EPISODE_CHECKS)
+    if witness_score.longest_outage_minutes <= 0:
+        return None, (
+            f"an episode of {BLIP_WITNESS_EPISODE_CHECKS} consecutive failing checks still "
+            "measures zero duration, so the probe cannot build the one shape the narrowing "
+            "excludes and its control below would be the subject over again"
+        )
+
+    blip = next((r for r in subject.recommendations if r.kind == BLIP_ROW_KIND), None)
+
+    loud = log_actions.NOISE_MIN_OCCURRENCES * BLIP_NOISE_MULTIPLE
+    old = now - timedelta(days=window_days * 4)
+
+    def noise_drive(
+        change: ChangeKind, first_seen: datetime, current: int
+    ) -> list[LogRecommendation]:
+        previous = 0 if change is ChangeKind.NEW else current
+        return log_actions.recommend(
+            LogTrendReport(
+                window_days=window_days,
+                window_start=now - timedelta(days=window_days),
+                previous_start=now - timedelta(days=window_days * 2),
+                generated_at=now,
+                confidence=Confidence.HIGH,
+                signatures=[blip_noise_trend(change, first_seen, current, previous, now)],
+            )
+        )
+
+    def is_noise(rows: list[LogRecommendation]) -> bool:
+        return any(row.kind is log_actions.RecommendationKind.NOISE for row in rows)
+
+    if not is_noise(noise_drive(ChangeKind.STEADY, old, loud)):
+        return None, (
+            "a loud, old and flat signature produced no noise row, so the family "
+            "known_noise rule 3 belongs to is not reachable through this probe at all — its "
+            "silence about the loud *new* signature would then be the probe's rather than "
+            "the rule's, and the two are indistinguishable from here"
+        )
+
+    quiet_flat = noise_drive(ChangeKind.STEADY, old, log_actions.NOISE_MIN_OCCURRENCES - 1)
+    if is_noise(quiet_flat):
+        return None, (
+            f"a signature at {log_actions.NOISE_MIN_OCCURRENCES - 1} occurrences — below "
+            "the family's own floor — is recommended as noise, so volume no longer gates "
+            "the rule at all.  The loud *new* drive below would then be silent because of "
+            "its change kind and never because of its volume, and the conflict this entry "
+            "states is about volume: the rule it is measured against has changed shape "
+            "under it, which is neither verdict"
+        )
+
+    new_loud = noise_drive(ChangeKind.NEW, now - timedelta(days=1), loud)
+    surged_loud = noise_drive(ChangeKind.SURGED, old, loud)
+
+    return (
+        BlipContentionReading(
+            episodes=episodes,
+            check_interval_seconds=interval,
+            window_days=window_days,
+            blip_title=blip.title if blip else "",
+            blip_evidence=blip.evidence if blip else "",
+            blip_points=blip.recoverable_points if blip else 0,
+            witness_row=any(r.kind == BLIP_ROW_KIND for r in witness.recommendations),
+            witness_longest_minutes=witness_score.longest_outage_minutes,
+            confidence=subject_score.confidence,
+            suppressed=subject.suppressed_by_confidence,
+            noise_on_loud_and_new=is_noise(new_loud),
+            noise_on_loud_and_surged=is_noise(surged_loud),
+            noise_on_quiet_and_flat=is_noise(quiet_flat),
+            loud_new_kind=new_loud[0].kind.value if new_loud else "",
+            loud_surged_kind=surged_loud[0].kind.value if surged_loud else "",
+            occurrences=loud,
+            noise_floor=log_actions.NOISE_MIN_OCCURRENCES,
+            log_reach=tuple(
+                module
+                for module in BLIP_LOG_MODULES
+                if importers_of(module, [BLIP_ADVICE_PATH])
+            ),
+        ),
+        "",
+    )
+
+
+def check_check_interval_looks_away() -> Measurement:
+    """``SNAG-SVC-001`` — a row that answers volume by observing less.
+
+    **The twenty-fourth check, the fourth built on a synthetic subject,
+    and the first whose claim is a conflict between two rules rather than
+    a fact about one.**  :func:`check_dropin_blind_spot` builds a
+    drop-in, :func:`check_unmarked_sentence_invisible` a block sentence
+    and :func:`check_timer_agent_two_owners` a timer-backed agent; this
+    builds *a service whose every outage lasted one poll*, which is the
+    shape this box has not produced.
+
+    **Rule 1, and the entry states its own population for the checker.**
+    "Zero on this box today, measured" — ``searxng`` is the only service
+    whose episodes are all single-check and it has 2 against a threshold
+    of 3.  A check that looked for the row would report the entry refuted
+    on every day the box behaved, which is every day so far, and would
+    report it live the first afternoon a health path went slow.  So the
+    contention is **built**: a fully-covered window carrying exactly
+    ``flap_min_episodes`` outages of one check each, scored by the real
+    :func:`~sysadmin.monitor.reliability.score_service` and passed to the
+    real :func:`~sysadmin.monitor.service_recommendations.recommend`.
+
+    **What is reported, and what is deliberately not.**  The entry's own
+    body reserves the decision: *"the honest resolutions are two and both
+    are the owner's — delete the kind, or give it evidence it currently
+    has not got"*.  So this reports **whether the conflict is still
+    live** and, when it is not, **which side moved** — a verdict about
+    the box, which is what every entry in this registry gets.  It
+    recommends neither resolution, and it cannot: the two are opposite
+    edits to the same row and nothing measurable here prefers one.
+
+    **Three claims, three instruments, and they refute the entry in three
+    different directions.**
+
+    1. *The row still fires on volume alone.*  ``recoverable_points`` is
+       ``0`` and ``evidence`` is ``rate`` — the row's own statement that
+       it argues from "N blips per window" and recovers nothing.  Its
+       absence is the first resolution, taken.
+    2. *Nothing correlates the blips with the service's own logs.*  The
+       second resolution names ``log_actions.group_incidents``' machinery
+       pointed at a different table, and a correlation cannot be computed
+       by a module that has not got the data — so the instrument is the
+       advice module's **import set**, which any such fix has to move
+       whichever file it lands in.  Rule 7 for the fifth time, and the
+       sharpest instance yet: ``service_recommendations.py`` names
+       ``log_actions`` twice in its module docstring, ``log_trends`` in
+       :func:`~sysadmin.monitor.service_recommendations._flapping_row`'s
+       and ``known_noise`` in the very docstring that files this snag, so
+       a grep reports every one of them as already wired.  An ``ast``
+       import walk sees none: a docstring is an ``ast.Constant``.
+    3. *The rule it conflicts with still says the opposite.*  Driven, not
+       read: one synthetic signature at
+       :data:`BLIP_NOISE_MULTIPLE` times ``NOISE_MIN_OCCURRENCES`` is
+       offered to :func:`~sysadmin.monitor.log_actions.recommend` three
+       times.  Old and flat it **is** recommended as noise (the witness —
+       the family is reachable); *new* at the same volume it is **not**
+       (rule 3: volume is not evidence of harmlessness); quiet and flat
+       it is not either (volume is *necessary*, so rule 3 holds because
+       loudness is insufficient rather than because it is ignored).  That
+       third drive is what makes the second mean anything.
+
+    **A third way for this entry to stop being true, which it does not
+    anticipate.**  Claims 1 and 2 are the two resolutions it names; claim
+    3 is the *other* party.  ``known_noise`` rule 3 relaxing would
+    dissolve the conflict without anyone touching the row — the entry
+    would be refuted by a change in the module it is measured against,
+    which is not a fix and must not read as one.  The note says which
+    side moved for exactly that reason.
+
+    **The witness is why this is not simply "the row exists".**  The same
+    three episodes made :data:`BLIP_WITNESS_EPISODE_CHECKS` checks long
+    must produce **no** row, because ``longest_outage_minutes`` is then
+    positive and the narrowing excludes it.  If both drives produce a
+    row the narrowing has gone, and that is reported ``unknown`` rather
+    than either verdict: the entry's headline claim would be *more* true
+    and its third bullet false, so "still live" understates it and
+    "refuted" is plainly wrong.  A check cannot rewrite the entry it
+    measures; it can decline to grade one that has moved underneath it.
+    """
+    reading, problem = blip_contention_reading()
+    if reading is None:
+        return Measurement("unknown", problem)
+
+    detail = (
+        f"subject: {BLIP_SERVICE}, {reading.episodes} outages in a "
+        f"{reading.window_days}-day window at {reading.confidence} confidence, each lasting "
+        f"one {reading.check_interval_seconds}s check",
+        f"advice row: {reading.blip_title or '(silent)'} "
+        f"[evidence {reading.blip_evidence or '-'}, {reading.blip_points} points recoverable]",
+        f"witness — the same {reading.episodes} outages "
+        f"{BLIP_WITNESS_EPISODE_CHECKS} checks long "
+        f"({reading.witness_longest_minutes:g} min): "
+        + ("a row" if reading.witness_row else "no row"),
+        f"known_noise rule 3 at {reading.occurrences} occurrences "
+        f"(floor {reading.noise_floor}): old and flat -> noise, "
+        f"new -> {reading.loud_new_kind or '(silent)'}, "
+        f"surged -> {reading.loud_surged_kind or '(silent)'}, "
+        f"quiet and flat -> "
+        + ("noise" if reading.noise_on_quiet_and_flat else "(silent)"),
+        "advice module importing a log family: "
+        + (", ".join(reading.log_reach) if reading.log_reach else "none"),
+    )
+
+    if reading.witness_row:
+        return Measurement(
+            "unknown",
+            (
+                f"an outage lasting {BLIP_WITNESS_EPISODE_CHECKS} checks "
+                f"({reading.witness_longest_minutes:g} min) still produced a "
+                f"{BLIP_ROW_KIND} row, so the narrowing the entry's third bullet describes "
+                "is gone — its headline claim is more true than when it was filed and its "
+                "own account of what was done instead is not, which is an entry to rewrite "
+                "rather than a verdict to grade"
+            ),
+            detail,
+        )
+
+    faults: list[str] = []
+    if not reading.blip_row_fires:
+        faults.append(
+            f"no {BLIP_ROW_KIND} row is offered for {reading.episodes} single-check outages "
+            "— the kind no longer fires for the shape it was narrowed to, which is the "
+            "first of the two resolutions the entry leaves to the owner"
+        )
+    elif reading.blip_evidence != BLIP_RATE_EVIDENCE:
+        faults.append(
+            f"the row now declares evidence '{reading.blip_evidence}' rather than "
+            f"'{BLIP_RATE_EVIDENCE}' — it is arguing from something other than the blip "
+            "count, which is the second resolution's shape stated by the producer itself"
+        )
+    if reading.log_reach:
+        faults.append(
+            f"{BLIP_ADVICE_PATH.name} imports {', '.join(reading.log_reach)} — the advice "
+            "has the service's own log data now, which is the evidence the entry says it "
+            "has not got"
+        )
+    loud_but_not_flat = [
+        label
+        for label, seen in (
+            ("first seen inside the window", reading.noise_on_loud_and_new),
+            ("surging", reading.noise_on_loud_and_surged),
+        )
+        if seen
+    ]
+    if loud_but_not_flat:
+        faults.append(
+            f"a signature {' and one '.join(loud_but_not_flat)} is recommended as noise at "
+            f"{reading.occurrences} occurrences — known_noise rule 3 no longer refuses "
+            "volume alone, so the conflict has dissolved from the other side and nobody has "
+            "touched the row this entry is about"
+        )
+    if faults:
+        return Measurement("mismatch", "; ".join(faults), detail)
+    return Measurement("match", "", detail)
+
+
+# ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
 
@@ -6513,6 +6962,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-SVC-002",
             "a timer-backed agent is judged by two families at once",
             check_timer_agent_two_owners,
+        ),
+        Check(
+            "check_interval_looks_away",
+            "SNAG-SVC-001",
+            "advice that answers a flap by observing it less often",
+            check_check_interval_looks_away,
         ),
     )
 }
