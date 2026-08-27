@@ -288,11 +288,15 @@
 > did that sweep by hand and found five entries dead on the box, three of
 > them `P1` and three fixed for between nine and thirteen days.
 >
-> **Three entries have now been closed by a check going red, and the
-> third is the first closed because another repository did the work.**
+> **Three entries have now been closed by a check going red, and two of
+> the three went because estate-manager did the work.**
 > `SNAG-ESTATE-004` went on 2026-08-27, delegated 2026-08-14 and enforced
 > by estate-manager's `8f8821d` thirteen days later; the check that
-> reported it refuted left the registry with it, **23 → 22**. (A fourth
+> reported it refuted left the registry with it, **23 → 22**. It is the
+> **second** such closure and not the first — `SNAG-ROADMAP-001` was
+> delegated too — and what is actually new is that the fix is *deployed*
+> as well as committed, and that the delegate changed the shape of the
+> remedy the delegation proposed. (A fourth
 > entry, `SNAG-ESTATE-014`, closed on 2026-08-27 as well, and is counted
 > apart on purpose: nothing went red, it was judged against its own
 > subject.) The first two closed on 2026-08-26, which is the whole point

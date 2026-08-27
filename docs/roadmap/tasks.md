@@ -394,7 +394,7 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
-## Session 104 — the first entry closed because the delegate did the work (2026-08-27) ✅
+## Session 104 — the second delegated closure, and the first on a deployed fix (2026-08-27) ✅
 
 - [x] Re-drive `default_port_uncontended` — **refuted**: their audit files `claimed_tool_default` for 3000, 5000, 8080, 8888 and 9000, with `claimed_but_silent`, `unclaimed_listener` and `dormant_but_listening` firing for the three witnesses
 - [x] Read `estate_module_state` to separate a committed fix from an edit in flight — **committed**, which is `SNAG-ROADMAP-001`'s trigger and the only reason this closure fired

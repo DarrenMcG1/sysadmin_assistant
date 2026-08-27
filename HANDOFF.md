@@ -4,7 +4,7 @@
 
 Take `SNAG-AGENT-007` — `SysAdminAgent._active_alerts` issues four unbounded reads of `alerts` per 300-second run and materialises whole ORM rows, and the entry's own body names the tension the fix turns on, since the dedup caller needs titles alone while a `select(Alert.title)` projection beside it is a second definition of *this agent's open rows* — so the sitting's real question is where the one definition lives rather than how to write the query, and it is the first entry to be taken since the register ran out of checks to write, which is the direction the whole family was built to run in and has never once been run in.
 
-## Session 104 is complete — the first entry closed because the delegate did the work
+## Session 104 is complete — the second delegated closure, and the first on a deployed fix
 
 `SNAG-ESTATE-004` is **closed**. Open **24 → 23**, entries unmoved at
 **94** either side (driven through `estate.snags.read_snags` before and
@@ -16,9 +16,15 @@ no longer exist. The other 22 checks all hold. Daemon restarted
 
 ### What the sitting settled
 
-- **The judgement the handoff asked for, and it went the short way.** A
-  delegated entry is not a different kind of entry — delegation changes
-  who does the work, never whose box the claim is about. This entry's
+- **The judgement the handoff asked for, and it went the short way — but
+  it was not the unprecedented one the handoff called it.**
+  `SNAG-ROADMAP-001` closed on estate-manager's fix on 2026-08-26, so
+  this is the **second** delegated closure and not the first; what was
+  genuinely new is that the previous sitting left this one as a judgement
+  rather than as a mechanical trigger, and that the fix is deployed as
+  well as committed. A delegated entry is not a different kind of entry —
+  delegation changes who does the work, never whose box the claim is
+  about. This entry's
   claim is *the rule is enforced by nobody*, and that claim is now false
   on the estate's published surface, so it closes. Holding it open to
   track the delegate's rollout would make this repository a second owner
