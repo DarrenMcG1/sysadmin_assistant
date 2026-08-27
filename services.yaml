@@ -74,6 +74,28 @@ services:
     systemd: { unit: alfred-evaluate.timer, scope: user }
     controllable: false
 
+  # Five-minute personal-event evaluator (Alfred ADR-0079 §4), added
+  # 2026-08-27 the same day the unit was created. Same oneshot entrypoint
+  # as alfred-evaluate, differing only by --bucket=frequent, so it is a
+  # second cadence rather than a second program. The timer carries the
+  # signal for the same reason as its sibling: the service is Type=oneshot
+  # and inactive between runs by design.
+  #
+  # It is the highest-frequency unit on this host by an order of magnitude
+  # (288 fires/day against alfred-evaluate's 1), which is what makes it
+  # worth watching: measured at 0.51s wall / 0.48s CPU / 78 MiB peak per
+  # fire, so a regression that turns it into a multi-second job would cost
+  # real time on a daily-driver machine before anyone noticed by feel.
+  # Deliberately NOT Persistent=true, so a missed fire is skipped rather
+  # than replayed — an inactive timer here means the schedule has stopped
+  # and nothing will catch up.
+  - project: alfred
+    name: alfred-evaluate-frequent-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: alfred-evaluate-frequent.timer, scope: user }
+    controllable: false
+
   # Daily 08:20 career-mail ingest. Offset from alfred-evaluate's 08:00
   # because both touch the dGPU. The service is `static` by design — no
   # [Install], driven solely by its timer.
