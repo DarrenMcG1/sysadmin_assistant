@@ -109,6 +109,24 @@ _UNALLOCATED = re.compile(r"_?free\b", re.IGNORECASE)
 SCOPE_USER = "user"
 SCOPE_SYSTEM = "system"
 
+#: The registry's jurisdiction, as a *fallback* for callers with no
+#: config — every production path passes
+#: :attr:`~sysadmin.core.config.PortCheckConfig.audited_ranges` instead.
+#:
+#: It exists because this module is pure below :func:`observe_listeners`
+#: and may not read ``config.yaml`` to find out what it governs.  That
+#: makes it a second statement of one fact, so it is **pinned** to the
+#: config default by ``tests/test_unit_ports.py`` rather than trusted —
+#: ``syslog_priority`` against ``journal.PRIORITY_MAP``'s treatment.
+#: Import where you can, pin where you cannot; the failure mode of
+#: neither is silent drift, which is ``SNAG-PORT-001`` inside one
+#: repository instead of across two.
+DEFAULT_AUDITED_RANGES: tuple[tuple[int, int], ...] = (
+    (1000, 1999),
+    (3000, 3999),
+    (8000, 8999),
+)
+
 #: Finding kinds.  The first two alert, the last two advise.
 WRONG_UNIT = "wrong_unit"
 PORT_SHARED = "port_shared"
@@ -205,9 +223,24 @@ def _unit_from_cgroup(cgroup: str) -> tuple[str | None, str | None]:
     ``/proc`` beat ``systemctl show -p MainPID`` — which needs to know
     the scope *before* it can ask (``sysadmin.service`` returns
     ``MainPID=0`` on the user bus, being a system unit).
+
+    **The line is split on its first two colons, never its last.**
+    ``cgroup(5)`` is ``hierarchy-ID:controller-list:cgroup-path`` and
+    only the first two fields are colon-free — the *path* may contain
+    as many as it likes, because systemd escapes a unit name's ``/``
+    and leaves its ``:`` alone.  ``rpartition`` was the obvious reading
+    and is wrong for exactly the units that have one: a D-Bus activated
+    service sits at
+    ``…/user@1000.service/app.slice/app-dbus\\x2d:1.2\\x2dorg.kde.kdeconnect.slice/dbus-:1.2-org.kde.kdeconnect@0.service``,
+    where taking the last field drops the ``dbus-`` prefix from the unit
+    **and** the whole ``/user@1000.service/`` prefix from the path, so
+    the scope test below cannot see it and stamps a user unit
+    ``system``.  Found 2026-08-27 by ``SNAG-PORT-001``'s live drive:
+    1716 is the first mis-parsed listener to fall inside an audited
+    band, so the widening is what made a five-month-old parse visible.
     """
     line = cgroup.strip().rsplit("\n", 1)[-1]
-    path = line.rpartition(":")[2] if ":" in line else line
+    path = line.split(":", 2)[2] if line.count(":") >= 2 else line
     segment = path.rstrip("/").rsplit("/", 1)[-1]
     if not segment.endswith(_UNIT_SUFFIXES):
         return None, None
@@ -705,7 +738,7 @@ def judge_ports(
     unit_projects: Mapping[str, str],
     project_aliases: Mapping[str, Sequence[str]],
     *,
-    audited_ranges: Sequence[tuple[int, int]] = ((3000, 3999), (8000, 8999)),
+    audited_ranges: Sequence[tuple[int, int]] = DEFAULT_AUDITED_RANGES,
     ignore_ports: Sequence[int] = (),
     registry_document: str | None = None,
     registry_error: str | None = None,

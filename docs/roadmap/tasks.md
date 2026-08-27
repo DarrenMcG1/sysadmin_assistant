@@ -394,6 +394,51 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 106 — the band moved, nothing was raised, and the parse underneath it was wrong (2026-08-27) ✅
+
+- [x] Confirm the red is `SNAG-PORT-001`'s and nothing of this sitting's — 2 failed / 2568 passed with `-x`, both in `tests/test_unit_ports.py`, before any edit
+- [x] Rank the entry's blast radius by grepping the callers rather than reading the entry — **it names four comparisons and `in_range` has two call sites**, one of which is not a comparison. The identical overstatement estate-manager made and corrected on their side of the same copy the same day (their `SNAG-ESTATE-070`)
+- [x] Drive the counterfactual live before touching the constant — `ServiceDiscoveryAgent._check_ports` through its own code path against the real `ss`, the real `services.yaml` and the real registry, at both bands: **findings 0 → 0**, collisions 0 → 0, advice 0 → 0. The only difference is `unit_audited_ports`, 12 units → 13
+- [x] Establish why 1883 cannot contribute — root-owned socket, so `ss -p` names no holder, so it is `unattributed` and compared against nothing by construction. Widening over it buys jurisdiction and no observation, which is what `ports_checked` exists to keep apart
+- [x] Widen the band — `PortCheckConfig.audited_ranges` to `[(1000, 1999), (3000, 3999), (8000, 8999)]`, following estate-manager's `e5c639c` / their ADR-0056
+- [x] Name and pin the second statement — `ports.DEFAULT_AUDITED_RANGES` for `judge_ports`' fallback, which the pure module cannot derive, plus `test_the_pure_default_matches_the_config_default`. A widening applied to `config.py` alone would leave every bare `judge_ports` call in the suite judging the old band
+- [x] Read **both** of the producer's statements — their `audit.yaml` (what the running audit parses) as well as their `config.py` default. Their own test pins the two together and one repository's guard is not this repository's evidence; witnessed against doctored copies in both directions
+- [x] Take the band out of the live-document test's own hands — it now reads it from config rather than restating it, so it cannot drift from the constant independently
+- [x] **Find `SNAG-PORT-002` underneath it** — `_unit_from_cgroup` took the path from the *last* colon, so a D-Bus activated unit lost its `dbus-` prefix and, with it, the `/user@1000.service/` that decides scope: a user unit stamped `system` since Session 26c. 1 of 30 listeners, 4 of 694 processes; fixed, with a scope-only witness because the live specimen breaks both halves together
+- [x] File `SNAG-PORT-003` rather than guess — a D-Bus unit's name carries a per-session bus id, which is exactly what `transient` exists for and is not what it tests. Both obvious fixes are rules tuned against one observation
+- [x] Mint into `SNAG-PORT-*` — estate-manager's message `153c1c96` says `SNAG-ESTATE-*` has two minters and no owner; routing around it is not closing it
+- [x] Restart and verify — 22:26:57, `/health` 200, all ten ops claims ok, suite **2732 → 2737** green (2732 + 5, stated because a green suite cannot witness tests that no longer exist)
+- [x] Update STATUS.md, tasks.md, snag_list.md, HANDOFF.md
+
+**The entry deferred itself for a cost that had an empty population, and
+that was the right call anyway.** `SNAG-PORT-001` says widening *"changes
+what an alert family raises"* — true in principle, and measured at zero
+on this box. The deferral is still correct: the only way to know it is
+zero is to drive it, driving it is a sitting, and a constant changed
+without the drive would have been a guess that happened to be right.
+`SNAG-LOG-002`'s measured-empty population for the fourth time here.
+
+**The fixture was what hid `SNAG-PORT-002`.** Every existing cgroup test
+uses a hand-written path and nobody had typed one with a colon in it, so
+the parse was green for ninety days over a box that had a counterexample
+running the whole time — `test_excludes_health_endpoint`'s defect in a
+fifth module. What made it *visible* was the widening: 1716 is the first
+mis-parsed listener ever to fall inside an audited band.
+
+**One stand-in passed and it is not a hole.** `split(":", 2)[-1]` behind
+the colon-count guard is the same code as `[2]` — `maxsplit=2` returns at
+most three fields — so its passing says the two spellings are equivalent,
+not that the guard is blind. Recorded because a falsification list with
+an unexplained green in it reads as a gap.
+
+**Not done, and named**: `SNAG-PORT-003` carries no check, so the open
+entries without one go 1 → 2 (`SNAG-DOCS-006` is the other). The stored
+sweep in `unit_audits` still carries the old band and picks the widening
+up on its next six-hourly run — normal operation, not residue. Both
+estate messages stay open: `8c1706d3` was honoured by re-deriving the
+entry counts rather than comparing them, but neither is this
+repository's to close.
+
 ## Session 105 — the first entry taken since the register ran out, and the index nobody could reach (2026-08-27) ✅
 
 - [x] Measure `SNAG-AGENT-007` before deciding anything — **the entry's ranking is wrong**: it costed four reads by their result (0 open rows) when the cost is their scan (666,936 rows), so a parallel seq scan of **41,644 buffers / 33.3 ms**, four times per 300-second run

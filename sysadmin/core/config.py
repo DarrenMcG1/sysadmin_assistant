@@ -541,8 +541,16 @@ class PortCheckConfig(BaseModel):
     #: The registry's jurisdiction — application backends and frontends.
     #: Outside these, an unclaimed listener is sshd or Steam and means
     #: nothing.  Must match estate-manager's ``audit.ports.audited_ranges``.
+    #:
+    #: ``(1000, 1999)`` was added 2026-08-27 to follow estate-manager's
+    #: ``e5c639c`` (their ADR-0056), which widened the band so the two
+    #: third-party daemons their table had just claimed — 1716
+    #: (kdeconnectd) and 1883 (the shared MQTT broker) — fall inside a
+    #: jurisdiction rather than beside one.  ``SNAG-PORT-001``: the copy
+    #: is deliberate and the drift was not, and the test below is what
+    #: made the drift a failure someone reads.
     audited_ranges: list[tuple[int, int]] = Field(
-        default_factory=lambda: [(3000, 3999), (8000, 8999)]
+        default_factory=lambda: [(1000, 1999), (3000, 3999), (8000, 8999)]
     )
     #: Ports inside a range that are deliberately not governed.  Each
     #: entry needs a reason in the yaml comment, or this becomes a place

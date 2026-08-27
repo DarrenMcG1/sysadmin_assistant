@@ -112,6 +112,92 @@ def test_scope_comes_from_the_cgroup_path_not_the_unit_name():
     assert (unit, scope) == ("alfred-backend.service", "user")
 
 
+#: The live cgroup of ``kdeconnectd`` (pid 12483) on 2026-08-27, copied
+#: verbatim from ``/proc``.  Two colons sit *inside* the path, which is
+#: the shape ``_unit_from_cgroup`` used to read from the wrong end.
+DBUS_ACTIVATED_CGROUP = (
+    "0::/user.slice/user-1000.slice/user@1000.service/app.slice/"
+    "app-dbus\\x2d:1.2\\x2dorg.kde.kdeconnect.slice/"
+    "dbus-:1.2-org.kde.kdeconnect@0.service"
+)
+
+
+def test_the_cgroup_path_is_taken_from_the_first_two_colons_not_the_last():
+    """``cgroup(5)`` is ``hierarchy:controllers:path`` and only the path may hold a colon.
+
+    A D-Bus activated unit has one, and ``rpartition(":")`` returns the
+    tail of the *unit name* rather than the path — dropping the ``dbus-``
+    prefix and, with it, the ``/user@1000.service/`` that decides the
+    scope.  Both halves are asserted because the second is the
+    load-bearing one: scope is part of a unit's identity here
+    (``f"{scope}:{unit}"``), so a user unit read as ``system`` is a
+    different unit as far as ``wrong_unit`` is concerned.
+
+    Falsified by restoring ``line.rpartition(":")[2]``, which gives
+    ``("1.2-org.kde.kdeconnect@0.service", "system")``.
+    """
+    unit, scope = P._unit_from_cgroup(DBUS_ACTIVATED_CGROUP)
+    assert unit == "dbus-:1.2-org.kde.kdeconnect@0.service"
+    assert scope == "user"
+
+
+def test_the_scope_half_is_witnessed_where_the_unit_name_survives():
+    """A colon in the *slice* and none in the leaf isolates the scope.
+
+    The specimen above breaks the unit name and the scope together, so
+    it cannot say which half a candidate fix repaired.  Here
+    ``rpartition`` returns ``…kde.kdeconnect.slice/kdeconnectd.service``
+    — whose last segment is already the right unit — and loses only the
+    ``/user@1000.service/`` the scope test reads.  A fix that stripped a
+    ``dbus-`` prefix, or matched the unit with a regex, would pass the
+    specimen above and fail here.
+
+    Falsified by ``line.rpartition(":")[2]``, which gives
+    ``("kdeconnectd.service", "system")``.
+    """
+    unit, scope = P._unit_from_cgroup(
+        "0::/user.slice/user-1000.slice/user@1000.service/app.slice/"
+        "app-dbus\\x2d:1.2\\x2dorg.kde.kdeconnect.slice/kdeconnectd.service"
+    )
+    assert unit == "kdeconnectd.service"
+    assert scope == "user"
+
+
+def test_a_colon_free_path_is_unmoved_by_the_split():
+    """The two shapes that have always worked must keep working.
+
+    The fix changes which field is taken, not what is done with it, so
+    the control is the pair the module was written against — a system
+    unit and a user one, neither carrying a colon in its path.
+    """
+    assert P._unit_from_cgroup("0::/system.slice/sysadmin.service") == (
+        "sysadmin.service",
+        "system",
+    )
+    assert P._unit_from_cgroup(
+        "0::/user.slice/user-1000.slice/user@1000.service/app.slice/"
+        "alfred-backend.service"
+    ) == ("alfred-backend.service", "user")
+
+
+def test_a_cgroup_v1_line_with_no_path_field_is_still_read():
+    """A line with fewer than two colons is not split at all.
+
+    cgroup v1 hierarchies print ``N:controller:/path`` and v2 prints
+    ``0::/path``, so two colons is the normal case; the guard exists so
+    a malformed or truncated line degrades to "no attribution" rather
+    than raising ``IndexError`` inside the sweep.
+    """
+    assert P._unit_from_cgroup("/system.slice/sysadmin.service") == (
+        "sysadmin.service",
+        "system",
+    )
+    assert P._unit_from_cgroup("0::/user.slice/user-1000.slice/session-3") == (
+        None,
+        None,
+    )
+
+
 def test_a_dual_stack_listener_is_one_holder_not_two():
     """A port bound on v4 and v6 prints twice with the same pid.
 
@@ -954,6 +1040,17 @@ ESTATE_PORTS_CHECK = (
 ESTATE_AUDIT_CONFIG = (
     "/home/gaddi/projects/estate-manager/service/estate_service/audit/config.py"
 )
+#: The block their **live** audit reads.  Their code default and this
+#: file are two statements of one fact, pinned on their side by
+#: ``test_the_shipped_ranges_and_the_code_default_agree`` — which is
+#: exactly the kind of guarantee this module may not lean on, so both
+#: are read here.
+ESTATE_AUDIT_YAML = "/home/gaddi/projects/estate-manager/service/audit.yaml"
+
+#: What both repositories govern, as of estate-manager's ``e5c639c``
+#: (2026-08-27, their ADR-0056).  Stated once here and compared against
+#: three places: our config, their yaml, and their code default.
+AUDITED_RANGES = [(1000, 1999), (3000, 3999), (8000, 8999)]
 
 
 def test_our_audited_ranges_match_estate_managers():
@@ -968,26 +1065,76 @@ def test_our_audited_ranges_match_estate_managers():
     is unavailable anyway: ``estate_service`` is the *service* and only
     ``estate-lib`` is a dependency here.
 
-    Read textually and skipped when the file is absent, because CI has no
-    estate checkout.  A brittle test that fails loudly on a real
+    **This is the test that fired**, on a clean tree, the day they
+    widened the band (``SNAG-PORT-001``).  It is the whole justification
+    for the copy, so it is worth stating what it caught and what it did
+    not: it caught the *drift*, and it said nothing about what widening
+    would change here, which had to be driven live.
+
+    **Both of their statements are read.** Their ``audit.yaml`` is what
+    the running audit parses; their ``config.py`` default is what a bare
+    ``PortRegistryConfig()`` gives, and their own test pins the two
+    together.  Leaning on that test is the cross-repository lookup this
+    copy exists to avoid — one repository's guard is not this
+    repository's evidence — so a divergence between their own two halves
+    is a failure here too, and the message says which half moved.
+
+    Read textually and skipped when the files are absent, because CI has
+    no estate checkout.  A brittle test that fails loudly on a real
     divergence beats no test at all; the assertion message says which.
     """
     from pathlib import Path
 
+    import yaml
+
     from sysadmin.core.config import get_config
 
     source = Path(ESTATE_AUDIT_CONFIG)
-    if not source.exists():
+    shipped = Path(ESTATE_AUDIT_YAML)
+    if not source.exists() or not shipped.exists():
         pytest.skip("no estate-manager checkout on this host")
 
-    text = source.read_text(encoding="utf-8")
-    assert "[(3000, 3999), (8000, 8999)]" in text, (
-        "estate-manager's audited_ranges have moved. Update "
-        "PortCheckConfig.audited_ranges to match, or this check stops "
+    ours = [tuple(r) for r in get_config().agents.service_discovery.ports.audited_ranges]
+    assert ours == AUDITED_RANGES
+
+    literal = "[" + ", ".join(f"({lo}, {hi})" for lo, hi in AUDITED_RANGES) + "]"
+    assert literal in source.read_text(encoding="utf-8"), (
+        f"estate-manager's PortRegistryConfig default is no longer {literal}. "
+        "Update PortCheckConfig.audited_ranges to match, or this check stops "
         "judging ports the estate still governs."
     )
-    ours = [tuple(r) for r in get_config().agents.service_discovery.ports.audited_ranges]
-    assert ours == [(3000, 3999), (8000, 8999)]
+
+    theirs = yaml.safe_load(shipped.read_text(encoding="utf-8"))
+    running = [tuple(r) for r in theirs["port_registry"]["audited_ranges"]]
+    assert running == AUDITED_RANGES, (
+        f"estate-manager's shipped audit.yaml governs {running}, not "
+        f"{AUDITED_RANGES}. That is the band their audit actually runs on, "
+        "so it is the one this check must match."
+    )
+
+
+def test_the_pure_default_matches_the_config_default():
+    """``judge_ports``' fallback is a second statement of the same jurisdiction.
+
+    :mod:`sysadmin.units.ports` is pure below ``observe_listeners`` and
+    may not read ``config.yaml``, so it cannot derive what it governs —
+    and every production caller passes the config value anyway, which is
+    what makes the fallback invisible until it is wrong.  Pinned rather
+    than trusted, ``syslog_priority`` against ``journal.PRIORITY_MAP``'s
+    treatment: import where you can, pin where you cannot.
+
+    Not the same assertion as the one above.  That one pins this
+    repository against **estate-manager**; this one pins this repository
+    against **itself**, and a widening applied to ``config.py`` alone
+    would leave every test that builds a bare ``judge_ports`` call
+    judging the old band while production judged the new one — green in
+    both places and wrong in one.
+    """
+    from sysadmin.core.config import PortCheckConfig
+
+    assert list(P.DEFAULT_AUDITED_RANGES) == [
+        tuple(r) for r in PortCheckConfig().audited_ranges
+    ]
 
 
 def test_the_registry_document_we_read_is_the_one_the_audit_reads():
@@ -1055,19 +1202,26 @@ def test_our_parser_and_the_estates_agree_on_the_live_document():
     ours = {c.port for c in P.parse_port_registry(document.read_text(encoding="utf-8"))}
     assert ours, "the live port registry parsed to zero rows"
     # Every port the live table claims is inside the jurisdiction we
-    # judge, or explicitly outside it.  Two rows are, and both are
-    # third-party daemons the estate hosts rather than services either
-    # repository wrote: 22000, the syncthing sync port, under the sidecar
-    # rule; and 1883, the shared MQTT broker, added to their table on
-    # 2026-08-27 under estate-manager's ADR-0054.  A row inside a range
-    # we do not audit would be judged by nobody, which is what this
-    # assertion exists to catch — and both of these are *known* to be
-    # judged by nobody, recorded as their SNAG-ESTATE-070 in the row's
-    # own text, so widening our ranges is their decision to ask for and
+    # judge, or explicitly outside it.  **One row is**, and it is a
+    # third-party daemon the estate hosts rather than a service either
+    # repository wrote: 22000, the syncthing sync port, recorded under
+    # the sidecar rule.  A row inside a range nobody audits is judged by
+    # nobody, which is what this assertion exists to catch, and this one
+    # is *known* to be — recorded in the row's own text and as their
+    # SNAG-ESTATE-070 — so moving it is their decision to ask for and
     # not ours to take.
-    audited = [(3000, 3999), (8000, 8999)]
+    #
+    # It read ``[1883, 22000]`` until 2026-08-27, when estate-manager
+    # widened their band to cover 1000–1999 and this repository followed
+    # (SNAG-PORT-001).  1716 joined the table the same day and is inside
+    # the new band, so it never appeared here.
+    #
+    # The band is read from config rather than restated: a literal here
+    # would let this test and ``PortCheckConfig`` drift apart, which is
+    # the same defect one repository smaller.
+    audited = [tuple(r) for r in get_config().agents.service_discovery.ports.audited_ranges]
     unaudited = sorted(p for p in ours if not P.in_range(p, audited))
-    assert unaudited == [1883, 22000], (
-        f"registry rows outside the audited ranges: {unaudited}. Either the "
-        "ranges need widening or the row belongs elsewhere."
+    assert unaudited == [22000], (
+        f"registry rows outside the audited ranges {audited}: {unaudited}. "
+        "Either the ranges need widening or the row belongs elsewhere."
     )
