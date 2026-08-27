@@ -1837,6 +1837,7 @@ class TestTheCodeSpanCheck:
         assert not any(STRIPPER_PROBE in line for line in measurement.detail)
         assert any("3 caller(s)" in line for line in measurement.detail)
 
+
 class TestTheExpiryCheck:
     """``SNAG-ESTATE-013``'s check — the first aimed at this repository's own claims machinery.
 
@@ -2012,9 +2013,9 @@ class TestTheExpiryCheck:
         """
         with self._zone(self.EAST), self._accepting("%Y-%m-%dT%H:%M%z"):
             measurement = check_expiry_naive_instant()
-        assert any(
-            "expires 2026-08-25T03:32 …" in line for line in measurement.detail
-        ), measurement.detail
+        assert any("expires 2026-08-25T03:32 …" in line for line in measurement.detail), (
+            measurement.detail
+        )
 
     def test_the_naive_rendering_never_reaches_for_the_modules_constant(self):
         """The same coupling, banned at the source rather than measured.
@@ -2035,9 +2036,7 @@ class TestTheExpiryCheck:
             if isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
             and node.func.attr == "strftime"
-            and any(
-                isinstance(arg, ast.Name) and arg.id == "EXPIRY_FORMAT" for arg in node.args
-            )
+            and any(isinstance(arg, ast.Name) and arg.id == "EXPIRY_FORMAT" for arg in node.args)
         ]
         assert not offenders, (
             "the naive stamp is rendered with ops_claims' own accepted format, so the "
@@ -2137,9 +2136,7 @@ class TestTheExpiryCheck:
         distinguishes them.  Only ``Claim.measured`` does.
         """
         with self._zone(self.EAST):
-            mistimed, _ = expiry_reading(
-                "naive", "2026-08-25T03:32", datetime(2026, 8, 25, 4, 32)
-            )
+            mistimed, _ = expiry_reading("naive", "2026-08-25T03:32", datetime(2026, 8, 25, 4, 32))
             unparsed, _ = expiry_reading(
                 "aware", "2026-08-25T03:32+00:00", datetime(2026, 8, 25, 4, 32)
             )
@@ -2182,9 +2179,7 @@ class TestTheHealthPathCheck:
             return cls._MEASURED
         population, problem = snag_claims.health_path_population()
         assert not problem, problem
-        emitted = {
-            entry.port: snag_claims.generated_health_url(entry.port) for entry in population
-        }
+        emitted = {entry.port: snag_claims.generated_health_url(entry.port) for entry in population}
         probes, problem = snag_claims.probe_health_paths(population, emitted)
         assert not problem, problem
         by_name = {probe.name: probe for probe in probes}
@@ -2201,8 +2196,7 @@ class TestTheHealthPathCheck:
             "bare": [
                 e
                 for e in population
-                if by_name[e.name].guess_wrong
-                and not by_name[e.name].declared_path.strip("/")
+                if by_name[e.name].guess_wrong and not by_name[e.name].declared_path.strip("/")
             ],
         }
         return cls._MEASURED
@@ -2210,9 +2204,7 @@ class TestTheHealthPathCheck:
     @staticmethod
     @contextlib.contextmanager
     def _population(entries):
-        with patch.object(
-            snag_claims, "health_path_population", return_value=(list(entries), "")
-        ):
+        with patch.object(snag_claims, "health_path_population", return_value=(list(entries), "")):
             yield
 
     @staticmethod
@@ -2237,7 +2229,7 @@ class TestTheHealthPathCheck:
     # -- the instruments -------------------------------------------------
 
     def test_the_population_is_the_entrys_own_filter(self):
-        """"Declaring a port and a unit", read off the file.
+        """ "Declaring a port and a unit", read off the file.
 
         The ``internet`` entry is the one this filter has to exclude: it
         is the only off-box url in ``services.yaml``, and it declares
@@ -2565,9 +2557,7 @@ class TestTheQuietenedJudgementCheck:
         from sysadmin.units.ports import attribution_from_blob
 
         payload = {
-            "findings": [
-                snag_claims.quieten_finding(port) for port in snag_claims.QUIETEN_PORTS
-            ]
+            "findings": [snag_claims.quieten_finding(port) for port in snag_claims.QUIETEN_PORTS]
         }
         attribution = attribution_from_blob(
             {"transient_ports": {snag_claims.QUIETEN_HOLDER: list(snag_claims.QUIETEN_PORTS)}},
@@ -2785,9 +2775,7 @@ class TestTheQuietenedJudgementCheck:
         tree = ast.parse(Path(snag_claims.__file__).read_text(encoding="utf-8"))
         docstrings = set()
         for node in ast.walk(tree):
-            if isinstance(
-                node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
-            ):
+            if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
                 first = node.body[0] if node.body else None
                 if (
                     isinstance(first, ast.Expr)
@@ -2823,9 +2811,7 @@ class TestTheQuietenedJudgementCheck:
             reading, problem = snag_claims.quietened_judgement_reading()
         assert not problem, problem
         assert reading is not None and reading.witnessed
-        assert not [
-            record for record in caplog.records if record.getMessage() == "alert_raised"
-        ]
+        assert not [record for record in caplog.records if record.getMessage() == "alert_raised"]
 
     def test_the_disable_is_restored_and_caplog_cannot_witness_that(self):
         """The other half of the same ``finally``, and it needs its own test.
@@ -2979,9 +2965,7 @@ class TestTheQuietenedJudgementCheck:
         """
         from sysadmin.estate import judgements
 
-        with patch.object(
-            judgements, "DEFAULT_SEVERITY", judgements.TRANSIENT_HOLDER_SEVERITY
-        ):
+        with patch.object(judgements, "DEFAULT_SEVERITY", judgements.TRANSIENT_HOLDER_SEVERITY):
             measurement = check_quietened_judgement_reach()
         assert measurement.verdict == "unknown"
         assert "no quieter rung" in measurement.note
@@ -3004,6 +2988,7 @@ class TestTheQuietenedJudgementCheck:
         entry = next(e for e in entries if e.snag_id == check.snag)
         assert "quietened_judgement_reach" in entry.markers
 
+
 class TestTheUnsweptPortCheck:
     """``SNAG-ESTATE-009``'s check — the sweep's age, driven rather than counted.
 
@@ -3025,9 +3010,7 @@ class TestTheUnsweptPortCheck:
     @staticmethod
     def _payload():
         return {
-            "findings": [
-                snag_claims.quieten_finding(port) for port in snag_claims.UNSWEPT_PORTS
-            ]
+            "findings": [snag_claims.quieten_finding(port) for port in snag_claims.UNSWEPT_PORTS]
         }
 
     @classmethod
@@ -3299,11 +3282,7 @@ class TestTheUnsweptPortCheck:
             self._payload(),
             get_config().agents.estate_judge.port_breach_max_rows,
             attribution_from_blob(
-                {
-                    "transient_ports": {
-                        snag_claims.UNSWEPT_HOLDER: list(snag_claims.UNSWEPT_PORTS)
-                    }
-                },
+                {"transient_ports": {snag_claims.UNSWEPT_HOLDER: list(snag_claims.UNSWEPT_PORTS)}},
                 datetime.now(UTC).isoformat(),
             ),
         )
@@ -3329,11 +3308,7 @@ class TestTheUnsweptPortCheck:
 
         async def sees_everything(self, session):
             return attribution_from_blob(
-                {
-                    "transient_ports": {
-                        snag_claims.UNSWEPT_HOLDER: list(snag_claims.UNSWEPT_PORTS)
-                    }
-                },
+                {"transient_ports": {snag_claims.UNSWEPT_HOLDER: list(snag_claims.UNSWEPT_PORTS)}},
                 datetime.now(UTC).isoformat(),
             )
 
@@ -3362,9 +3337,7 @@ class TestTheUnsweptPortCheck:
             return attribution_from_blob(
                 {
                     "unit_ports": {"system:probe-stand-in.service": [snag_claims.UNSWEPT_PORT]},
-                    "transient_ports": {
-                        snag_claims.UNSWEPT_HOLDER: [snag_claims.SWEPT_PORT]
-                    },
+                    "transient_ports": {snag_claims.UNSWEPT_HOLDER: [snag_claims.SWEPT_PORT]},
                 },
                 datetime.now(UTC).isoformat(),
             )
@@ -3439,8 +3412,7 @@ class TestTheUnsweptPortCheck:
         assert measurement.verdict == "unknown"
         assert "rather than evidence about the sweep's age" in measurement.note
         assert any(
-            f"port {snag_claims.UNSWEPT_PORT} is not named by it: _attribution holds None"
-            in line
+            f"port {snag_claims.UNSWEPT_PORT} is not named by it: _attribution holds None" in line
             for line in measurement.detail
         )
 
@@ -3453,9 +3425,7 @@ class TestTheUnsweptPortCheck:
         """
         from sysadmin.estate import judgements
 
-        with patch.object(
-            judgements, "DEFAULT_SEVERITY", judgements.TRANSIENT_HOLDER_SEVERITY
-        ):
+        with patch.object(judgements, "DEFAULT_SEVERITY", judgements.TRANSIENT_HOLDER_SEVERITY):
             measurement = check_unswept_port_is_loud()
         assert measurement.verdict == "unknown"
         assert "no quieter rung" in measurement.note
@@ -3766,9 +3736,7 @@ class TestTheUnderstudyCheck:
         from sysadmin.monitor.desktop import SEVERITY_LEVELS
 
         constraint = next(
-            c
-            for c in Alert.__table__.constraints
-            if getattr(c, "name", "") == "chk_alert_severity"
+            c for c in Alert.__table__.constraints if getattr(c, "name", "") == "chk_alert_severity"
         )
         admitted = set(re.findall(r"'([a-z]+)'", str(constraint.sqltext)))
         assert set(SEVERITY_LEVELS) <= admitted
@@ -3842,6 +3810,7 @@ class TestTheUnderstudyCheck:
         own witness with it.  ``a-control-a-fix-breaks-is-not-a-control``
         at the level of a string comparison.
         """
+
         def titles_only(sent, title):
             return any(title == sent_title for _, sent_title, _ in sent)
 
@@ -4208,8 +4177,13 @@ class TestTheUnmarkedSentenceCheck:
             claims = list(real(path, now))
             claims.extend(
                 ops_claims.Claim(
-                    f"unmarked:{index}", f"Unmarked paragraph {index}", "convention",
-                    None, None, "unknown", "carries no marker",
+                    f"unmarked:{index}",
+                    f"Unmarked paragraph {index}",
+                    "convention",
+                    None,
+                    None,
+                    "unknown",
+                    "carries no marker",
                 )
                 for index, _ in enumerate(self._unmarked_paragraphs(path))
             )
@@ -4241,8 +4215,13 @@ class TestTheUnmarkedSentenceCheck:
             extra = self._unmarked_paragraphs(path)
             return [
                 ops_claims.Claim(
-                    claim.key, claim.subject, claim.kind, claim.documented, claim.measured,
-                    claim.verdict, f"{claim.note} unchecked beside it: {'; '.join(extra)}",
+                    claim.key,
+                    claim.subject,
+                    claim.kind,
+                    claim.documented,
+                    claim.measured,
+                    claim.verdict,
+                    f"{claim.note} unchecked beside it: {'; '.join(extra)}",
                     claim.detail,
                 )
                 if claim.key == "routes" and extra
@@ -4281,7 +4260,8 @@ class TestTheUnmarkedSentenceCheck:
         direction.
         """
         with patch.object(
-            snag_claims, "INVISIBLE_SENTENCES",
+            snag_claims,
+            "INVISIBLE_SENTENCES",
             ("the table above should read **9 routes**",),
         ):
             measurement = check_unmarked_sentence_invisible()
@@ -4306,8 +4286,14 @@ class TestTheUnmarkedSentenceCheck:
             index = next(drives)
             return [
                 ops_claims.Claim(
-                    claim.key, claim.subject, claim.kind, f"{index} named", claim.measured,
-                    claim.verdict, claim.note, claim.detail,
+                    claim.key,
+                    claim.subject,
+                    claim.kind,
+                    f"{index} named",
+                    claim.measured,
+                    claim.verdict,
+                    claim.note,
+                    claim.detail,
                 )
                 if claim.key == "open_titles"
                 else claim
@@ -4484,9 +4470,7 @@ class TestTheTimerAgentCheck:
         coarse = snag_claims.timer_agent_series(
             cadence, fires, 0.0, int(interval * 4), "success", now
         )
-        assert _observed_cadence(
-            _observed_fires(coarse.points), coarse.points, interval
-        ) is None
+        assert _observed_cadence(_observed_fires(coarse.points), coarse.points, interval) is None
 
     # -- the witnesses ---------------------------------------------------
 
@@ -4680,9 +4664,7 @@ class TestTheTimerAgentCheck:
 
         with patch.object(advice, "_timer_stale_row", laddered):
             caught = snag_claims.check_timer_agent_two_owners()
-            with patch.object(
-                snag_claims, "PROBE_FRESH_OVERSHOOT_INTERVALS", cadence // interval
-            ):
+            with patch.object(snag_claims, "PROBE_FRESH_OVERSHOOT_INTERVALS", cadence // interval):
                 missed = snag_claims.check_timer_agent_two_owners()
 
         assert caught.verdict == "mismatch", caught.note
@@ -4739,3 +4721,656 @@ class TestTheTimerAgentCheck:
         assert not problem, problem
         assert reading is not None
         return dataclasses.replace(reading, aged_timer_severity="risk")
+
+
+class TestTheDefaultPortCheck:
+    """``SNAG-ESTATE-004``'s check — the twenty-second, and the fourth across a boundary.
+
+    The three cross-boundary checks before it ask what another
+    repository's code *computes*: what a dataclass offers, what a
+    function returns, what a parser reads.  This one asks what their
+    audit **publishes**, which is a different kind of question and picks
+    a different instrument — ``CheckResult.findings`` rather than the
+    source of the branch that would fill it.  Three fixes are driven as
+    real stand-ins here (a branch over every default, a branch narrowed
+    to the audited ranges, and one that fills only the finding's subject)
+    and none of them would be visible to an ``ast`` walk looking for the
+    constant the entry's fix bullet names.
+
+    The producer is stubbed rather than mocked out, for
+    :class:`TestTheNudgeWordingCheck`'s reason: a stub package on disk
+    driven by *this* interpreter exercises :func:`estate_probe`'s
+    subprocess, its JSON contract and the verdict logic together, and it
+    runs where estate-manager is not installed, which is CI.
+    """
+
+    CONFIG = """\
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+@dataclass
+class PortRegistryConfig:
+    document: str = "registry.md"
+    audited_ranges: list = field(default_factory=lambda: {ranges!r})
+    ignore_ports: list = field(default_factory=lambda: {ignore!r})
+
+
+@dataclass
+class AuditConfig:
+    repo_root: str = {root!r}
+    port_registry: PortRegistryConfig = field(default_factory=PortRegistryConfig)
+
+    def resolve_repo_path(self, candidate):
+        path = Path(candidate)
+        return path if path.is_absolute() else Path(self.repo_root) / path
+
+
+def load_audit_config(path=None):
+    return AuditConfig()
+"""
+
+    PORTS = """\
+import re
+import subprocess
+from dataclasses import dataclass, field
+
+CHECK_NAME = "ports"
+_ROW = re.compile(r"^\\|\\s*(\\d{{2,5}})\\s*\\|([^|]*)\\|([^|]*)\\|")
+_UNALLOCATED = re.compile(r"_?free\\b", re.IGNORECASE)
+_DORMANT = re.compile(r"\\bdormant\\b", re.IGNORECASE)
+
+CODE_PREFIX = {code_prefix!r}
+CONTENTION = {contention!r}
+CONTENTION_CODE = {contention_code!r}
+CONTENTION_DETAIL = {contention_detail!r}
+CLAIMED_LOOP = {claimed_loop!r}
+DORMANT_BRANCH = {dormant_branch!r}
+BLIND_LISTENERS = {blind_listeners!r}
+RANGE_ONLY_CLAIMS = {range_only_claims!r}
+ERROR = {error!r}
+
+
+@dataclass(frozen=True)
+class Finding:
+    check: str
+    severity: str
+    subject: str
+    summary: str
+    code: str
+    detail: dict = field(default_factory=dict)
+
+
+@dataclass
+class CheckResult:
+    name: str
+    error: str = None
+    findings: list = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class PortClaim:
+    port: int
+    project: str
+    role: str
+    dormant: bool
+
+
+def _in_range(port, ranges):
+    return any(low <= port <= high for low, high in ranges)
+
+
+def parse_registry(document, ranges=None):
+    claims = []
+    for line in document.splitlines():
+        match = _ROW.match(line.strip())
+        if not match:
+            continue
+        port_text, project, role = match.groups()
+        project = project.strip()
+        if not project or _UNALLOCATED.search(project):
+            continue
+        port = int(port_text)
+        if RANGE_ONLY_CLAIMS and ranges is not None and not _in_range(port, ranges):
+            continue
+        claims.append(PortClaim(port, project, role.strip(), bool(_DORMANT.search(role))))
+    return claims
+
+
+def live_listeners(runner=subprocess.run):
+    completed = runner(["ss", "-H", "-tln"], capture_output=True, text=True, timeout=10,
+                       check=False)
+    if completed.returncode != 0:
+        raise RuntimeError("ss exited " + str(completed.returncode))
+    ports = set()
+    for line in completed.stdout.splitlines():
+        fields = line.split()
+        if len(fields) < 4:
+            continue
+        _, _, port_text = fields[3].rpartition(":")
+        if port_text.isdigit():
+            ports.add(int(port_text))
+    return ports
+
+
+def run_check(config, document_text, *, runner=subprocess.run):
+    result = CheckResult(name=CHECK_NAME)
+    claims = parse_registry(document_text, config.audited_ranges)
+    if not claims:
+        result.error = "port registry parsed to zero claimed rows"
+        return result
+    if ERROR:
+        result.error = ERROR
+        return result
+    listening = set() if BLIND_LISTENERS else live_listeners(runner=runner)
+    ignored = set(config.ignore_ports)
+    claimed = {{claim.port for claim in claims}}
+
+    if CLAIMED_LOOP:
+        for claim in claims:
+            if claim.port in ignored:
+                continue
+            answering = claim.port in listening
+            if claim.dormant and answering and DORMANT_BRANCH:
+                result.findings.append(Finding(
+                    CHECK_NAME, "info", "port %d" % claim.port,
+                    "declared dormant and listening", CODE_PREFIX + "dormant_but_listening",
+                    {{"port": claim.port}}))
+            elif not claim.dormant and not answering:
+                result.findings.append(Finding(
+                    CHECK_NAME, "warn", "port %d" % claim.port,
+                    "claimed but nothing is listening", CODE_PREFIX + "claimed_but_silent",
+                    {{"port": claim.port}}))
+
+    for port in sorted(listening):
+        if port in claimed or port in ignored or not _in_range(port, config.audited_ranges):
+            continue
+        result.findings.append(Finding(
+            CHECK_NAME, "breach", "port %d" % port, "listening but unclaimed",
+            CODE_PREFIX + "unclaimed_listener", {{"port": port}}))
+
+    for port in sorted(set(CONTENTION) & claimed):
+        if port in ignored:
+            continue
+        result.findings.append(Finding(
+            CHECK_NAME, "info", "port %d" % port, "a tool's default port",
+            CONTENTION_CODE, {{"port": port}} if CONTENTION_DETAIL else {{}}))
+
+    return result
+"""
+
+    def _stub(
+        self,
+        tmp_path: Path,
+        *,
+        ranges: list | None = None,
+        ignore: list | None = None,
+        code_prefix: str = "",
+        contention: tuple[int, ...] = (),
+        contention_code: str = "contended_default_port",
+        contention_detail: bool = True,
+        claimed_loop: bool = True,
+        dormant_branch: bool = True,
+        blind_listeners: bool = False,
+        range_only_claims: bool = False,
+        error: str | None = None,
+        registry_body: str | None = None,
+    ) -> Path:
+        """An ``estate_service.audit`` holding just the two modules the probe imports."""
+        service = tmp_path / "service"
+        checks = service / "estate_service" / "audit" / "checks"
+        checks.mkdir(parents=True)
+        for package in (
+            service / "estate_service",
+            service / "estate_service" / "audit",
+            checks,
+        ):
+            (package / "__init__.py").write_text("", encoding="utf-8")
+        (service / "estate_service" / "audit" / "config.py").write_text(
+            self.CONFIG.format(
+                ranges=list(ranges or [(3000, 3999), (8000, 8999)]),
+                ignore=list(ignore or []),
+                root=str(service),
+            ),
+            encoding="utf-8",
+        )
+        (checks / "ports.py").write_text(
+            self.PORTS.format(
+                code_prefix=code_prefix,
+                contention=tuple(contention),
+                contention_code=contention_code,
+                contention_detail=contention_detail,
+                claimed_loop=claimed_loop,
+                dormant_branch=dormant_branch,
+                blind_listeners=blind_listeners,
+                range_only_claims=range_only_claims,
+                error=error,
+            ),
+            encoding="utf-8",
+        )
+        body = registry_body
+        if body is None:
+            body = (
+                "| Port | Project | Role |\n"
+                "|------|---------|------|\n"
+                "| 8080 | venture-assistant | llama-server chat |\n"
+            )
+        (service / "registry.md").write_text(body, encoding="utf-8")
+        return service
+
+    def _guide(self, tmp_path: Path, *, rule: bool = True) -> Path:
+        text = "## 2.1\n\nSome prose.\n"
+        if rule:
+            text += f"\n**{snag_claims.DEFAULT_PORT_RULE}.** 8080 is llama.cpp's.\n"
+        path = tmp_path / "monitorable-project.md"
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def _drive(
+        self, tmp_path, monkeypatch, *, rule: bool = True, guide: Path | None = None, **kwargs
+    ):
+        import sys as _sys
+
+        monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", self._stub(tmp_path, **kwargs))
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", Path(_sys.executable))
+        monkeypatch.setattr(
+            snag_claims,
+            "ESTATE_REGISTRY",
+            guide if guide is not None else self._guide(tmp_path, rule=rule),
+        )
+        return snag_claims.check_default_port_uncontended()
+
+    # -- the claim holding -----------------------------------------------
+
+    def test_a_claimed_tool_default_goes_unremarked_and_that_is_the_claim(
+        self, tmp_path, monkeypatch
+    ):
+        """What the live audit does, and what the entry says."""
+        found = self._drive(tmp_path, monkeypatch)
+        assert found.verdict == "match"
+        assert "3000, 5000, 8080, 8888, 9000" in found.detail[0]
+        assert "claimed_but_silent" in found.detail[1]
+        assert "unclaimed_listener" in found.detail[1]
+
+    def test_the_verdict_carries_which_tree_it_was_taken_at(self, tmp_path, monkeypatch):
+        """Session 87's rule: a verdict about somebody else's tree needs its state."""
+        found = self._drive(tmp_path, monkeypatch)
+        assert any("estate-manager's" in line for line in found.detail)
+
+    def test_the_live_population_is_evidence_and_never_the_verdict(self, tmp_path, monkeypatch):
+        """Rule 1, and the reason this entry could not have a population check.
+
+        The stub's registry claims 8080 in the first drive and nothing in
+        the second, which is exactly what venture-assistant moving to
+        8301 would do.  The verdict must not move, because whether the
+        rule has an enforcer is not a question about who holds 8080.
+        """
+        held = self._drive(tmp_path, monkeypatch)
+        assert "8080 (venture-assistant)" in held.detail[4]
+
+        empty_registry = (
+            "| Port | Project | Role |\n"
+            "|------|---------|------|\n"
+            "| 8301 | venture-assistant | llama-server chat |\n"
+        )
+        moved = self._drive(tmp_path / "moved", monkeypatch, registry_body=empty_registry)
+        assert moved.verdict == held.verdict == "match"
+        assert "none of the entry's default ports is claimed" in moved.detail[4]
+
+        # And the refutation must survive an empty population too: a branch
+        # that fires is enforcement whether or not anybody on this box is
+        # currently violating the rule.
+        fixed = self._drive(
+            tmp_path / "fixed",
+            monkeypatch,
+            registry_body=empty_registry,
+            contention=snag_claims.ENTRY_DEFAULT_PORTS,
+        )
+        assert fixed.verdict == "mismatch"
+
+    def test_the_dormant_branch_is_evidence_and_not_a_required_witness(self, tmp_path, monkeypatch):
+        """Only the two *loops* are load-bearing; the third code is vocabulary.
+
+        The entry names two codes and the check observes three, so the
+        count is measured rather than quoted — and a branch leaving is
+        reported in the evidence rather than taking the verdict down.
+        """
+        full = self._drive(tmp_path, monkeypatch)
+        assert "3 codes, where the entry names two" in full.detail[2]
+
+        without = self._drive(tmp_path / "nodormant", monkeypatch, dormant_branch=False)
+        assert without.verdict == "match"
+        assert "2 codes" in without.detail[2]
+
+    # -- the fix, in three shapes ----------------------------------------
+
+    def test_a_contention_branch_over_every_default_is_refuted(self, tmp_path, monkeypatch):
+        """The entry's own fix bullet, driven as a real branch."""
+        found = self._drive(tmp_path, monkeypatch, contention=snag_claims.ENTRY_DEFAULT_PORTS)
+        assert found.verdict == "mismatch"
+        assert "contended_default_port" in found.note
+        assert "3000, 5000, 8080, 8888, 9000 named" in found.note
+        assert "still unremarked" not in found.note
+
+    def test_a_branch_narrowed_to_the_audited_ranges_names_its_residue(self, tmp_path, monkeypatch):
+        """The plausible partial, and why all five are probed rather than the three in range.
+
+        Their claimed loop never consults a range, so a fix that does is
+        a real and defensible narrowing — and reporting it as a clean
+        closure would lose 5000 and 9000, which the entry names and which
+        would still go unremarked.
+        """
+        found = self._drive(tmp_path, monkeypatch, contention=(3000, 8080, 8888))
+        assert found.verdict == "mismatch"
+        assert "3000, 8080, 8888 named" in found.note
+        assert "5000, 9000 still unremarked" in found.note
+
+    def test_a_finding_that_fills_only_its_subject_is_still_seen(self, tmp_path, monkeypatch):
+        """Both published identities are read, because either alone is a guess.
+
+        The branch does not exist yet, so which of ``detail['port']`` and
+        ``subject`` a new one would fill is unknowable — and the
+        fingerprint is built from the subject, so a finding carrying only
+        that is a perfectly conformant one.
+        """
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            contention=snag_claims.ENTRY_DEFAULT_PORTS,
+            contention_detail=False,
+        )
+        assert found.verdict == "mismatch"
+        assert "3000, 5000, 8080, 8888, 9000 named" in found.note
+
+    def test_a_fix_under_any_slug_at_all_is_seen(self, tmp_path, monkeypatch):
+        """Nothing here holds a copy of the estate's vocabulary."""
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            contention=snag_claims.ENTRY_DEFAULT_PORTS,
+            contention_code="popular_default_in_use",
+        )
+        assert found.verdict == "mismatch"
+        assert "popular_default_in_use" in found.note
+
+    def test_the_vocabulary_is_learned_and_a_typed_copy_would_be_wrong(self, tmp_path, monkeypatch):
+        """The test the previous one could not be: it does not discriminate.
+
+        A module holding ``{"claimed_but_silent", "dormant_but_listening",
+        "unclaimed_listener"}`` as a literal reports a renamed contention
+        code as a refutation too, so that assertion passes against the
+        behaviour it means to refuse.  This one cannot: the estate's own
+        three codes are renamed and the fix files under one of the slugs
+        a typed copy would be holding.  Learned, the witnesses teach the
+        new names and the fix is fresh — ``mismatch``.  Typed, the fix's
+        slug is already in the set and the check reports it as an
+        existing branch — ``unknown``, a landed fix invisible because
+        somebody renamed something else.  Session 87's rule read past the
+        symbol names it was written about.
+        """
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            code_prefix="estate_",
+            contention=snag_claims.ENTRY_DEFAULT_PORTS,
+            contention_code="claimed_but_silent",
+        )
+        assert found.verdict == "mismatch"
+        assert "claimed_but_silent" in found.note
+        assert "estate_claimed_but_silent" in found.detail[1]
+
+    # -- the premise dying, which refutes the entry the other way ---------
+
+    def test_the_rule_leaving_the_guide_is_refuted_for_the_opposite_reason(
+        self, tmp_path, monkeypatch
+    ):
+        """:func:`check_sysd_ollama_ordering`'s shape.
+
+        A single boolean would report a deleted rule as a job well done.
+        """
+        found = self._drive(tmp_path, monkeypatch, rule=False)
+        assert found.verdict == "mismatch"
+        assert "premise has gone rather than its complaint" in found.note
+
+    def test_enforcement_outranks_the_premise_when_both_have_moved(self, tmp_path, monkeypatch):
+        """The enforcement half is the news, so it is the note."""
+        found = self._drive(
+            tmp_path, monkeypatch, rule=False, contention=snag_claims.ENTRY_DEFAULT_PORTS
+        )
+        assert found.verdict == "mismatch"
+        assert "now files" in found.note
+
+    def test_an_unreadable_guide_is_unknown_and_never_still_holds(self, tmp_path, monkeypatch):
+        """``match`` here asserts a rule exists to go unenforced."""
+        found = self._drive(tmp_path, monkeypatch, guide=tmp_path / "gone.md")
+        assert found.verdict == "unknown"
+        assert "could not be read" in found.detail[5]
+
+    # -- the instrument failing, which is never a skip ---------------------
+
+    def test_a_dead_listener_read_is_unknown_rather_than_a_false_refutation(
+        self, tmp_path, monkeypatch
+    ):
+        """The witness that is load-bearing in the direction easiest to miss.
+
+        With no listeners the probed defaults are *claimed and silent*,
+        so the existing branch names all five — and a check asking only
+        "does a finding name a default port" would call a dead instrument
+        a landed fix.  The raw probe below shows that is exactly what
+        happens underneath, which is what the gate is standing in front
+        of.
+        """
+        found = self._drive(tmp_path, monkeypatch, blind_listeners=True)
+        assert found.verdict == "unknown"
+        assert "filed nothing about its witness" in found.note
+
+    def test_the_defaults_really_are_named_when_the_listener_read_dies(self, tmp_path, monkeypatch):
+        """The demonstration behind the test above, taken off the raw probe."""
+        import sys as _sys
+
+        monkeypatch.setattr(
+            snag_claims, "ESTATE_SERVICE", self._stub(tmp_path, blind_listeners=True)
+        )
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", Path(_sys.executable))
+        payload, problem = snag_claims.estate_probe(
+            snag_claims.DEFAULT_PORT_PROBE.format(
+                service=str(snag_claims.ESTATE_SERVICE),
+                defaults=snag_claims.ENTRY_DEFAULT_PORTS,
+            )
+        )
+        assert not problem, problem
+        assert payload is not None
+        named = {row["port"] for row in payload["findings"] if row["code"] == "claimed_but_silent"}
+        assert set(snag_claims.ENTRY_DEFAULT_PORTS) <= named, (
+            "the false refutation this check's listener witness exists to refuse is no "
+            "longer reachable, so that gate is no longer being shown to do anything"
+        )
+
+    def test_a_removed_claimed_loop_is_unknown_by_way_of_the_reach_drive(
+        self, tmp_path, monkeypatch
+    ):
+        """The loop the fix would land in going quiet must not read as no contention.
+
+        **This is the test that refuted the check's own symmetry.**  It
+        was written against a witness gate per loop and passed against a
+        stand-in with that gate removed — because deleting the claimed
+        loop leaves every probed default unreached, so the reachability
+        gate fires first and the symmetric one is unreachable by
+        construction.  The assertion named a substring both notes
+        carried, which is how a redundant gate stayed in the module for
+        as long as it did.  It names the gate that actually answers now.
+        """
+        found = self._drive(tmp_path, monkeypatch, claimed_loop=False)
+        assert found.verdict == "unknown"
+        assert "no longer reach the claimed half" in found.note
+        assert "3000, 5000, 8080, 8888, 9000" in found.note
+
+    def test_rows_their_check_stops_reading_are_unknown_and_named(self, tmp_path, monkeypatch):
+        """A narrowing that keeps the witnesses and drops part of the subject.
+
+        Their parser confining itself to the audited ranges is a
+        defensible edit and takes 5000 and 9000 out of the document
+        before the claimed loop sees them — so the probe stops putting
+        those two contended ports in front of the check, which is a
+        failure to measure and not an answer.
+
+        **This stub is what refuted the first draft of the gate.**  That
+        draft asked ``parse_registry`` directly, standalone, and this
+        narrowing walked through it: the separate call read five rows
+        while ``run_check`` read three, so the check reported ``match``
+        having never put 5000 or 9000 in front of anything.  The gate is
+        a second drive of the same document now, with the defaults
+        silent, which can only be answered by the call whose reading
+        matters.
+        """
+        found = self._drive(tmp_path, monkeypatch, range_only_claims=True)
+        assert found.verdict == "unknown"
+        assert "5000, 9000" in found.note
+        assert "no longer reach the claimed half" in found.note
+
+    def test_the_silent_drive_teaches_no_code_to_the_witnesses(self, tmp_path, monkeypatch):
+        """The reach drive must not hand a fix the means to hide from the check.
+
+        A contention branch names a default with the port silent as well
+        as answering, so folding the second drive's codes into the
+        witness vocabulary would make every such fix read as an existing
+        branch — ``unknown`` for ever, in place of the refutation it is.
+        """
+        found = self._drive(tmp_path, monkeypatch, contention=snag_claims.ENTRY_DEFAULT_PORTS)
+        assert found.verdict == "mismatch"
+        assert "contended_default_port" not in found.detail[2]
+
+    def test_a_check_error_is_unknown(self, tmp_path, monkeypatch):
+        found = self._drive(tmp_path, monkeypatch, error="could not read live listeners")
+        assert found.verdict == "unknown"
+        assert "errored on the probe's document" in found.note
+
+    def test_every_default_ignored_is_unknown_rather_than_still_holds(self, tmp_path, monkeypatch):
+        """Enforcement by exclusion is a different entry, and it is said so.
+
+        Their ``ignore_ports`` swallowing the whole subject leaves the
+        probe nothing to claim; reporting that as the entry holding would
+        be ``ports_checked``'s zero-because-blind served as
+        zero-because-clean.
+        """
+        found = self._drive(tmp_path, monkeypatch, ignore=list(snag_claims.ENTRY_DEFAULT_PORTS))
+        assert found.verdict == "unknown"
+        assert "ignore_ports" in found.note
+
+    def test_ranges_too_narrow_to_witness_are_unknown(self, tmp_path, monkeypatch):
+        """The probe refusing to answer where it cannot check itself."""
+        found = self._drive(tmp_path, monkeypatch, ranges=[(3000, 3001)])
+        assert found.verdict == "unknown"
+        assert "witness its own instrument" in found.note
+
+    def test_a_missing_interpreter_is_unknown_and_not_a_skip(self, tmp_path, monkeypatch):
+        """``ports_checked``'s rule at a boundary."""
+        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", tmp_path / "no" / "python")
+        monkeypatch.setattr(snag_claims, "ESTATE_REGISTRY", self._guide(tmp_path))
+        found = snag_claims.check_default_port_uncontended()
+        assert found.verdict == "unknown"
+        assert "interpreter is not at" in found.note
+        assert found.detail == (f"§2.1 still states {snag_claims.DEFAULT_PORT_RULE!r}",), (
+            "the rule half is read on this side precisely so it survives their venv "
+            "being absent, and it has stopped reaching the report"
+        )
+
+    def test_a_fix_reusing_an_existing_code_is_unknown_and_says_why(self, tmp_path, monkeypatch):
+        """The stated limit of learning the vocabulary from the witnesses.
+
+        A branch filing contention under a slug an old branch also emits
+        is indistinguishable from the probe's document having stopped
+        isolating a contended port — so it is ``unknown`` naming that,
+        never a closure.
+        """
+        found = self._drive(
+            tmp_path,
+            monkeypatch,
+            contention=snag_claims.ENTRY_DEFAULT_PORTS,
+            contention_code="claimed_but_silent",
+        )
+        assert found.verdict == "unknown"
+        assert "no longer separates a contended port" in found.note
+
+    # -- the instruments themselves ---------------------------------------
+
+    def test_the_probe_names_no_private_symbol_of_theirs(self):
+        """Session 87's rule, made mechanical rather than remembered.
+
+        ``SNAG-ROADMAP-001``'s check named a private helper whose rename
+        was the fix it existed to notice.  Dunders are the reader's own
+        (``exc.__class__.__name__``); a single underscore is theirs.
+        """
+        script = snag_claims.DEFAULT_PORT_PROBE.format(service="/tmp", defaults=(1,))
+        private = {
+            node.attr
+            for node in ast.walk(ast.parse(script))
+            if isinstance(node, ast.Attribute)
+            and node.attr.startswith("_")
+            and not node.attr.startswith("__")
+        }
+        imported = {
+            alias.name
+            for node in ast.walk(ast.parse(script))
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+            if alias.name.startswith("_")
+        }
+        assert not private and not imported, sorted(private | imported)
+
+    def test_the_probe_reads_findings_and_never_the_source_of_the_branch(self):
+        """The instrument choice this check turns on, pinned.
+
+        An ``ast`` walk for the constant the entry's fix bullet names
+        would report ``match`` for a fix that inlines the set, renames
+        it, or files from another module — three shapes this suite drives
+        as real stand-ins.
+        """
+        script = snag_claims.DEFAULT_PORT_PROBE.format(service="/tmp", defaults=(1,))
+        assert "WELL_KNOWN_DEFAULTS" not in script
+        assert "getsource" not in script and "ast" not in script.split("\n")[0]
+
+    def test_ports_out_of_a_probe_refuse_a_bool(self):
+        """``isinstance(True, int)`` is ``True``, and port 1 is a finding nobody filed."""
+        assert snag_claims._probe_ports([3000, True, False, "8080", 8080]) == [3000, 8080]
+        assert snag_claims._probe_ports("3000") == []
+
+    def test_a_finding_row_that_is_not_an_object_is_read_as_no_findings(self):
+        """Their JSON is theirs, so a moved shape is answered rather than raised."""
+        assert snag_claims._finding_rows(["port 8080", 3000]) == []
+        assert snag_claims._finding_rows({"code": "x"}) == []
+
+    def test_naming_a_port_reads_the_subject_and_refuses_a_bool(self):
+        assert snag_claims._names_port({"port": 8080}, 8080)
+        assert snag_claims._names_port({"subject": "port 8080"}, 8080)
+        assert not snag_claims._names_port({"port": True}, 1)
+        assert not snag_claims._names_port({"subject": "port 8081"}, 8080)
+
+
+class TestTheDefaultPortCheckAgainstTheRealAudit:
+    """The live half, skipped rather than failed when they are not here.
+
+    :class:`TestTheDefaultPortCheck` drives stubs, which pin the verdict
+    logic and can never notice the estate's audit moving — the same split
+    :class:`TestTheNudgeCheckAgainstTheRealProducer` makes, and the
+    reason a cross-repo check catches a tree in flight at all.
+    """
+
+    def test_the_real_audit_yields_one_of_the_three_verdicts(self):
+        if not snag_claims.ESTATE_PYTHON.exists():
+            pytest.skip("estate-manager's venv is not on this box")
+        found = snag_claims.check_default_port_uncontended()
+        assert found.verdict in set(EXIT_STATUS)
+        assert any("estate-manager's" in line for line in found.detail)
+
+    def test_the_rule_the_entry_is_about_is_still_in_their_guide(self):
+        """The entry's premise, read where a failure says "the guide moved".
+
+        In the check this reads as a refutation; here it reads as what it
+        is, which is the half of the entry that is not about enforcement
+        at all.
+        """
+        if not snag_claims.ESTATE_REGISTRY.exists():
+            pytest.skip("estate-manager is not beside this checkout")
+        guide = snag_claims.ESTATE_REGISTRY.read_text(encoding="utf-8")
+        assert snag_claims.DEFAULT_PORT_RULE in guide

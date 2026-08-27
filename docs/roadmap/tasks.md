@@ -394,6 +394,52 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 100 — the twenty-second check, and the first about somebody else's surface (2026-08-27) ✅
+
+- [x] Take `SNAG-ESTATE-004` over `SNAG-SVC-001`, which is the harder
+      *judgement* rather than the harder build: its own body says both
+      honest resolutions are the owner's, so a check there would measure
+      a narrowing nobody has decided to keep
+- [x] Read the claim off what estate-manager's audit **publishes** —
+      `CheckResult.findings` — and never off the source of the branch
+      that would fill them. The `ast` walk for the `WELL_KNOWN_DEFAULTS`
+      name the entry proposes reports *still holds* for a fix that
+      inlines the set, renames it, or files from another module; all
+      three driven as real stand-ins, plus one filling only `subject`
+- [x] Build the contention rather than look for it — rule 1. The live
+      violation is one port whose registry row says it should move to
+      8301, so a population check reports the entry refuted the day
+      somebody moves one service. A synthetic registry claiming all five
+      defaults, each answering, through their public `run_check` with a
+      stub `runner=`: no privilege, no socket, nothing written over there
+- [x] Carry Session 87's instrument rule: only public symbols (pinned by
+      an `ast` sweep over the probe), estate-manager's commit state
+      recorded beside the verdict, and every way of not-running reported
+      as `unknown` rather than as a skip
+- [x] Witness the listener loop, which is the *other* one from where the
+      fix would land — with the listener set empty every probed default
+      is claimed-and-silent and their existing branch names all five,
+      which reads as the fix having arrived. Demonstrated off the raw
+      probe rather than asserted
+- [x] Learn the code vocabulary from the witnesses instead of typing it,
+      and replace the test that claimed to pin that — a renamed
+      *contention* code passes against a typed copy too, so the estate's
+      own three codes are renamed and the fix files under a slug a typed
+      copy would hold
+- [x] Report the rule half apart from the enforcement half, because they
+      refute the entry for opposite reasons; leave the handover half
+      unmeasured and say why (their ids will not correspond)
+- [x] Falsify all nineteen guards. One **passed against broken code** and
+      deleted a gate rather than repairing one: the draft's per-loop
+      witness symmetry is unreachable, since removing the claimed loop
+      leaves every default unreached and the reachability drive answers
+      first. That drive replaced a standalone `parse_registry` call —
+      a second implementation of a fact `run_check` establishes, which a
+      parser narrowed to the audited ranges walked straight through
+- [x] Correct the block's `19`/`5` and the daemon start in the same
+      sitting they moved, and name the second open alert rather than
+      resolving it by hand
+
 ## Session 99 — the twenty-first check, and the entry that was runner-up three times (2026-08-27) ✅
 
 - [x] Take `SNAG-SVC-002`, which three sittings ranked and none took, and

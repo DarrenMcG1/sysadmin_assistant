@@ -2,108 +2,100 @@
 
 ## Next action
 
-Write the twenty-second check against `SNAG-ESTATE-004` — the fourth driven across a repository boundary and the first whose claim is entirely about another repository's *surface* rather than its code, so carry in Session 87's instrument rule: probe only public symbols, because a private helper's name is what their fix renames; record estate-manager's commit state beside the verdict, since a verdict about somebody else's tree means nothing without the state it was taken at; and report every way of not-running as `unknown` rather than as a skip, `ports_checked`'s rule at a boundary — with `SNAG-SVC-001` the other candidate and the harder judgement rather than the harder build, since its own body says both honest resolutions are the owner's, so a check there would be measuring a narrowing nobody has decided to keep.
+Write the twenty-third check against `SNAG-ESTATE-007` — the fifth driven across a repository boundary and the second whose subject is another repository's *surface* rather than its code, because its population is empty by construction (`active_lease` has read `null` on every occasion anyone has looked, so the claim is only observable against a synthetic lease built through the producer's own pool kwargs, which is rule 1's shape for the fourth time) — with `SNAG-ESTATE-006` deliberately ranked below it, since `tests/test_estate_surface_payloads.py::test_the_producers_code_never_reaches_the_wire` already fails on the day estate-manager adds the column, so a registry check there would be a second statement of one fact, and with `SNAG-ESTATE-014` refused outright because its claim *is* a population — the count of unchecked entries — which is the one thing rule 1 forbids a check to measure and which `check_convention` already reports every run.
 
-## Session 99 is complete — the twenty-first check, and the entry that was runner-up three times
+## Session 100 is complete — the twenty-second check, and the first about somebody else's surface
 
-`SNAG-SVC-002` is **checked and stays open**. Checked entries
-**18 → 19**, unchecked **6 → 5**, open unmoved at **24** (none opened,
+`SNAG-ESTATE-004` is **checked and stays open**. Checked entries
+**19 → 20**, unchecked **5 → 4**, open unmoved at **24** (none opened,
 none closed) — measured either side of the edit by driving
-`estate.snags.read_snags`. Suite **2635 → 2653**,
-`tests/test_snag_claims.py` **231 → 249**.
+`estate.snags.read_snags` against estate-manager at `1e7a9a9`, which
+reads **24 open** both times. Suite **2653 → 2682**,
+`tests/test_snag_claims.py` **249 → 278**.
 
-**The entry had been ranked runner-up three times and rule 1 is the whole
-reason.** The obvious check measures the disjointness its own second
-bullet reports — measured this sitting, **nine declared timers against
-five scheduled agents, zero overlap** — and that is a property of *this
-box*. One scheduled job moved to a `oneshot` + `.timer`, which
-`monitorable-project.md` requires of every new one, and such a check
-reports the entry fixed on a day nobody has touched either module.
-`check_timer_agent_two_owners` builds the thing this box has not got: an
-agent whose schedule is a timer.
+**The fourth check across a repository boundary, and the first whose
+claim is entirely about what another repository _publishes_.** The three
+before it ask what estate-manager's code computes — what a dataclass
+offers, what a function returns, what a parser reads — and every one of
+those is an answer a reader of their source could have reached. This
+entry says their guide states *never take a tool's default port* and that
+nothing enforces it, which is a claim about their audit's output. So the
+instrument is `CheckResult.findings`.
 
 ### What the sitting settled
 
-- **One fact, two vocabularies, and the shared name is not what makes it
-  one subject.** A daily schedule with one last-run instant goes to
-  `summarise_agent`/`stalls.evaluate` as an agent that has not run and to
-  `recommend` as a timer whose `LastTriggerUSec` stopped moving. Both
-  speak, and *simultaneously*, because `timer_stale_multiplier` **is**
-  `stall_grace_multiplier` — the entry's own stated mitigation — so one
-  elapsed value crosses both thresholds.
-- **Three instruments, because the two fixes the entry names move
-  different things.** A family going silent is the fix it asks for; a
-  rung on `timer_stale` is the fix it **forbids by name** and is
-  unreachable from the first instrument, since both families go on
-  speaking either way. Its headline claim — neither knows the other
-  exists — is measured as the *importer sets*, disjoint today
-  (`monitor/agent.py` against `health_review.py`,
-  `reliability_history.py`, `routers/services.py`), which is the one
-  thing a composing caller feeding `_observed_fires` into the stall
-  family could not avoid moving.
-- **Rule 7 for the fourth time.** `service_recommendations.py` already
-  carries the word `stalls`, in `_timer_stale_row`'s own docstring — the
-  entry's sentence written into the module the entry is about — so a grep
-  reports the cross-reference as already existing and an import walk
-  never sees a docstring. Pinned by a test at the real file.
-- **Two witnesses, and the second one's `unknown` names both readings.**
-  A fresh schedule must read not stalled; a still-firing timer whose last
-  run failed must yield a `timer_failed` row through the same call and
-  the same confidence gate. When that second witness fails, the timer
-  half having been *removed* is the entry's own fix and is named in the
-  note, because a reader who does not go and look would otherwise never
-  learn it may have landed.
-- **The check is excluded from its own population, and it is not
-  bookkeeping**: driving both families means importing both, so the only
-  thing here that knows the two exist would otherwise refute the entry on
-  every run.
+- **The obvious probe is an `ast` walk and it is wrong in three
+  directions at once.** The entry's own fix bullet names
+  `WELL_KNOWN_DEFAULTS`, so looking for that constant in their
+  `checks/ports.py` is the first thing anyone would write — and it
+  reports *still holds* for a fix that inlines the set, one that renames
+  it, and one that files the finding from a different check module. All
+  three are driven here as real stand-ins, with a fourth that fills only
+  the finding's `subject`.
+- **The mechanism is asked, never the population.** The live violation is
+  *one port*, and the guide's own annotation says it should move to 8301
+  when next touched — so a population check reports the entry refuted the
+  day somebody moves one service, having measured nothing about whether
+  the rule acquired an enforcer. The contention is built: a registry
+  document claiming all five defaults, each answering, through their real
+  public `run_check` with a stub `runner=`. No privilege, no socket,
+  nothing written into their tree.
+- **The listener witness is load-bearing in the direction easiest to
+  miss.** The fix lands in the claimed loop, so the witness that matters
+  is in the other one: with the listener set empty every probed default is
+  claimed-and-silent and their existing branch names all five, which reads
+  as the fix having arrived. Driven as its own test off the raw probe.
+- **The vocabulary is learned from the witnesses, never typed here.** The
+  test claiming to pin that had to be rewritten — a renamed *contention*
+  code passes against a typed copy too, so the stand-in renames the
+  estate's own three codes and files the fix under a slug a typed copy
+  would be holding.
+- **The rule half and the enforcement half refute the entry for opposite
+  reasons** and are reported apart; an unreadable guide is `unknown`,
+  because *still holds* asserts a rule exists to go unenforced. The
+  handover half is not measured, because their ids do not correspond and
+  matching one would be prose similarity dressed as a measurement.
 
-### The falsification corrected the check, then corrected its reason
+### A falsification passed against broken code and deleted a gate
 
-The first stand-in put a rung at six cadences and came back `match` — the
-stand-in was wrong. The second clocked its rung off the box's one
-escalation gap, the only shape available to a family recomputed per
-request, and **also** passed. The two drives straddle a rung only when
-its gap falls in `[overshoot, overshoot + 2 x escalate_after_hours)`; at
-the draft's one-cadence overshoot that window is **24h to 72h** here, so
-every rung shorter than a day read loud at both drives. The reason
-written first — "the two numbers coincide, so it reads loud at both" —
-was approximately right and imprecise, and only the arithmetic said
-which. The overshoot is one check interval now, widening the window to
-**5 minutes to 48 hours**, and a test drives both constants and asserts
-the old one still hides a sub-cadence rung.
+The draft carried the obvious symmetry — a witness row per loop — and a
+stand-in with the claimed-half gate removed **broke nothing**: deleting
+that loop leaves every probed default unreached, so the reachability
+drive always answers first and the symmetric gate was unreachable by
+construction. The test naming it asserted a substring both notes carried.
+The gate is gone rather than repaired.
 
-### Found on the way, without looking for it
+That reachability drive is itself a correction. The first version asked
+`parse_registry` directly — a second implementation of a fact `run_check`
+already establishes — and a stub narrowing their parser to the audited
+ranges walked straight through it, five rows seen against three, verdict
+*still holds* with nothing put in front of anything. The document is
+driven twice now, once with the defaults answering and once with them
+silent.
 
-**A count taken across a repository boundary moved underneath the
-measurement, and the natural reading of it was wrong.**
-`estate.snags.read_snags` returned **93** entries over this document
-against the **70** three sittings had recorded — which reads as stale
-prose, and is not. `estate-lib` is an **editable install resolving into
-estate-manager's working tree**, so the figure was taken against
-uncommitted work in another repository at 14:12; their commit `1e7a9a9`
-landed at **14:21:59**, growing the reader a third dialect (their
-ADR-0052). At the previous reader today's document reads **70 / 24** —
-exactly what was recorded — and the *open* half is 24 under both, which
-is the figure the board publishes and the one
-`TestAgainstTheOwningParser` pins, so nothing here depended on it.
+### Filed rather than absorbed
 
-**What it cost is the lesson.** `cross-repo-instrument-must-be-public`
-says record the other repository's commit state beside the verdict; not
-doing so put a wrong correction into three documents before the timeline
-was checked. Filed at estate-manager as friction rather than absorbed:
-an editable install publishes a neighbour's *uncommitted* state with no
-version stamp, and a consumer cannot tell that from a document of its own
-going stale.
+Message `926a8c61` to estate-manager: `SNAG-ESTATE-004` has been
+delegated since 2026-08-14 with **no counterpart entry ever recorded
+there**, so the rule has had no owner for 13 days. The cost is stated —
+those 13 days, and this sitting spent building the check to keep the
+claim fresh, which is work the delegation was meant to make unnecessary.
+The shape of the fix goes with it so an estate sitting need not
+re-derive it. No action is owed back.
 
 ### State of the box
 
-`sysadmin` restarted at **2026-08-27 14:20:53**, `/health` **200**,
-`alembic current` **016** at the packaged head, `alerts` holds **1**
-unresolved row (`info: Weekly disk review ready`). `check-ops-claims.sh`
-green on all nine claims; `check-snag-claims.sh` reports all nineteen
-checked entries still holding and names the five that carry no check.
-The restart was taken rather than argued with for the reason Sessions 81
-and 84–98 took theirs: only `sysadmin/snag_claims.py` moved, which the
-daemon does not import, and correcting the artefact the script names
-beats hand-verifying that it is wrong.
+`sysadmin` restarted at **2026-08-27 14:48:25**, `/health` **200**,
+`alembic current` **016** at the packaged head. `check-ops-claims.sh`
+green on all nine claims; `check-snag-claims.sh` reports all twenty
+checked entries still holding and names the four that carry no check.
+`alerts` holds **2** unresolved rows — the standing `info: Weekly disk
+review ready`, and `warning: Unusual CPU usage` raised at 14:45:55 inside
+the full-suite run (34.3 % against a 7-day mean of 4.7 %). That is a
+genuine anomaly correctly detected whose cause was 2,682 tests; it is
+**named rather than resolved by hand**, because `_check_anomalies`
+resolves it by id when the condition clears and a second owner closing it
+is the defect this repository has found at six scales. The restart was
+taken rather than argued with, for the reason Sessions 81 and 84–99 took
+theirs: only `sysadmin/snag_claims.py` moved, which the daemon does not
+import.

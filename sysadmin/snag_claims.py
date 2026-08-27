@@ -2158,9 +2158,7 @@ def expiry_reading(label: str, argument: str, now: datetime) -> tuple[ExpiryRead
     from the other side: there the fix lands in a tree nothing here
     watches, here it lands in the function being called.
     """
-    region = EXPIRY_REGION.format(
-        marker=f"<!--check:expires {argument} {EXPIRY_SUBJECT}-->"
-    )
+    region = EXPIRY_REGION.format(marker=f"<!--check:expires {argument} {EXPIRY_SUBJECT}-->")
     markers = [marker for marker in read_markers(region) if marker.key == "expires"]
     if not markers:
         return None, (
@@ -2188,8 +2186,13 @@ def expiry_reading(label: str, argument: str, now: datetime) -> tuple[ExpiryRead
         )
     return (
         ExpiryReading(
-            label, argument, now.strftime("%Y-%m-%d %H:%M:%S"),
-            claim.verdict, claim.measured, claim.note, aware_clock,
+            label,
+            argument,
+            now.strftime("%Y-%m-%d %H:%M:%S"),
+            claim.verdict,
+            claim.measured,
+            claim.note,
+            aware_clock,
         ),
         "",
     )
@@ -2383,6 +2386,7 @@ def check_expiry_naive_instant() -> Measurement:
         ),
     )
 
+
 # ---------------------------------------------------------------------------
 # SNAG-UNITS-003 — the emitted health path is a guess, not an observation
 # ---------------------------------------------------------------------------
@@ -2511,9 +2515,7 @@ def health_path_population() -> tuple[list[ServiceEntry], str]:
     except Exception as exc:  # noqa: BLE001 — an unreadable services.yaml is "unknown"
         return [], f"services.yaml would not load ({exc.__class__.__name__}: {exc})"
     return [
-        entry
-        for entry in services.services
-        if entry.port is not None and entry.unit is not None
+        entry for entry in services.services if entry.port is not None and entry.unit is not None
     ], ""
 
 
@@ -2542,9 +2544,7 @@ def generated_health_url(port: int) -> str | None:
         monitor_unit=HEALTH_PROBE_UNIT,
         enabled=True,
     )
-    blob = {
-        "unit_audited_ports": {f"{HEALTH_PROBE_SCOPE}:{HEALTH_PROBE_UNIT}": [port]}
-    }
+    blob = {"unit_audited_ports": {f"{HEALTH_PROBE_SCOPE}:{HEALTH_PROBE_UNIT}": [port]}}
     for recommendation in recommendations_for_scan([finding], None, blob):
         match = SNIPPET_URL_RE.search(recommendation.snippet or "")
         if match:
@@ -2593,8 +2593,14 @@ def probe_health_paths(
                 if not _loopback(guess):
                     probes.append(
                         PathProbe(
-                            entry.name, entry.port, guess, False, "not-probed",
-                            entry.url, False, "not-probed",
+                            entry.name,
+                            entry.port,
+                            guess,
+                            False,
+                            "not-probed",
+                            entry.url,
+                            False,
+                            "not-probed",
                             f"the emitted url {guess} is not on this machine",
                         )
                     )
@@ -2605,9 +2611,14 @@ def probe_health_paths(
                 if not entry.url or not _loopback(entry.url):
                     probes.append(
                         PathProbe(
-                            entry.name, entry.port, guess,
-                            not is_fault(guess_status), guess_status,
-                            entry.url, False, "not-probed",
+                            entry.name,
+                            entry.port,
+                            guess,
+                            not is_fault(guess_status),
+                            guess_status,
+                            entry.url,
+                            False,
+                            "not-probed",
                             "declares no url on this machine to compare against",
                         )
                     )
@@ -2926,14 +2937,10 @@ def rolled_back_drive[ProbeT](
         engine = create_async_engine(
             config.database.url,
             poolclass=NullPool,
-            connect_args={
-                "server_settings": {"search_path": f"{config.database.schema_},public"}
-            },
+            connect_args={"server_settings": {"search_path": f"{config.database.schema_},public"}},
         )
         try:
-            factory = async_sessionmaker(
-                engine, class_=AsyncSession, expire_on_commit=False
-            )
+            factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
             async with factory() as session:
                 try:
                     return await work(session)
@@ -2951,8 +2958,7 @@ def rolled_back_drive[ProbeT](
         return asyncio.run(drive()), ""
     except Exception as exc:  # noqa: BLE001 — a drive that would not run is "unknown"
         return None, (
-            "the judge would not run against the live database "
-            f"({exc.__class__.__name__}: {exc})"
+            f"the judge would not run against the live database ({exc.__class__.__name__}: {exc})"
         )
     finally:
         logging.disable(previous)
@@ -2979,6 +2985,7 @@ QUIETEN_PORTS = (QUIETEN_OPEN_PORT, QUIETEN_FRESH_PORT)
 #: rule — and never by the name, so the ``.scope`` suffix here is
 #: legibility for a reader and not the signal being tested.
 QUIETEN_HOLDER = "user:snag-claims-probe.scope"
+
 
 def quieten_finding(port: int) -> dict[str, object]:
     """One unclaimed-listener breach, in the shape 8400 serves.
@@ -3221,15 +3228,11 @@ def quietened_judgement_reading() -> tuple[QuietenReading | None, str]:
             expected_severity=quiet,
             open_before=DEFAULT_SEVERITY,
             open_after=after.severity if after is not None else "",
-            open_holder=(
-                (after.details or {}).get("holder") if after is not None else None
-            ),
+            open_holder=((after.details or {}).get("holder") if after is not None else None),
             open_resolved=bool(after.resolved) if after is not None else False,
             open_rows=len(standing),
             fresh_severity=new_row.severity if new_row is not None else None,
-            fresh_holder=(
-                (new_row.details or {}).get("holder") if new_row is not None else None
-            ),
+            fresh_holder=((new_row.details or {}).get("holder") if new_row is not None else None),
             fresh_rows=len(fresh),
             raised=result.alerts_raised,
         )
@@ -3476,9 +3479,7 @@ class UnsweptReading:
         fact ``unswept_holder`` already carries.
         """
         return (
-            self.unswept_severity != self.loud
-            or self.unswept_holder is not None
-            or self.annotated
+            self.unswept_severity != self.loud or self.unswept_holder is not None or self.annotated
         )
 
     @property
@@ -3486,9 +3487,7 @@ class UnsweptReading:
         """What told them apart, in words, for the note."""
         out: list[str] = []
         if self.unswept_severity != self.loud:
-            out.append(
-                f"it is judged {self.unswept_severity or '—'} rather than {self.loud}"
-            )
+            out.append(f"it is judged {self.unswept_severity or '—'} rather than {self.loud}")
         if self.unswept_holder is not None:
             named = " — _attribution named it" if self.attributed_unswept is not None else ""
             out.append(f"details['holder'] is {self.unswept_holder!r}{named}")
@@ -3610,9 +3609,7 @@ def unswept_judgement_reading() -> tuple[UnsweptReading | None, str]:
     # from what the run raises for the *unswept* port alone, and the row
     # would read back absent, which is the direction a check should fail
     # in: that fix has told the two apart.
-    titles = {
-        judgement.details["port"]: judgement.title for judgement in fully_judged
-    }
+    titles = {judgement.details["port"]: judgement.title for judgement in fully_judged}
 
     agent, problem = mounted_judge(findings_transport(payload))
     if agent is None:
@@ -3666,15 +3663,11 @@ def unswept_judgement_reading() -> tuple[UnsweptReading | None, str]:
                 else None
             ),
             unswept_severity=unswept.severity if unswept is not None else None,
-            unswept_holder=(
-                (unswept.details or {}).get("holder") if unswept is not None else None
-            ),
+            unswept_holder=((unswept.details or {}).get("holder") if unswept is not None else None),
             unswept_rows=unswept_rows,
             unswept_detail_keys=keys(unswept),
             swept_severity=swept.severity if swept is not None else None,
-            swept_holder=(
-                (swept.details or {}).get("holder") if swept is not None else None
-            ),
+            swept_holder=((swept.details or {}).get("holder") if swept is not None else None),
             swept_rows=swept_rows,
             swept_detail_keys=keys(swept),
             raised=result.alerts_raised,
@@ -3940,8 +3933,7 @@ def restated(sent: Iterable[tuple[str, str, str]], title: str) -> bool:
 def _rendered(sent: Iterable[tuple[str, str, str]]) -> tuple[str, ...]:
     """What a sweep said, flattened onto one line each for the report."""
     return tuple(
-        f"{severity}: {title!r} / {body!r}".replace("\n", " ⏎ ")
-        for severity, title, body in sent
+        f"{severity}: {title!r} / {body!r}".replace("\n", " ⏎ ") for severity, title, body in sent
     )
 
 
@@ -4471,8 +4463,14 @@ def ops_report(document: str) -> tuple[list[ops_claims.Claim], str]:
 def claim_text(claim: ops_claims.Claim) -> str:
     """Every word one claim puts in front of a reader, as one string."""
     parts = (
-        claim.key, claim.subject, claim.kind, claim.documented,
-        claim.measured, claim.verdict, claim.note, *claim.detail,
+        claim.key,
+        claim.subject,
+        claim.kind,
+        claim.documented,
+        claim.measured,
+        claim.verdict,
+        claim.note,
+        *claim.detail,
     )
     return " ".join(str(part) for part in parts if part)
 
@@ -4865,10 +4863,7 @@ def importers_of(module: str, paths: Iterable[Path]) -> list[Path]:
     return [
         path
         for path in paths
-        if any(
-            name == module or name.startswith(f"{module}.")
-            for name in imported_modules(path)
-        )
+        if any(name == module or name.startswith(f"{module}.") for name in imported_modules(path))
     ]
 
 
@@ -4908,9 +4903,7 @@ def timer_agent_series(
             TimerPoint(checked_at=at, last_run=f"trigger-{token}", last_result=last_result)
         )
         at += step
-    return TimerSeries(
-        service=TIMER_AGENT_NAME, unit=f"{TIMER_AGENT_NAME}.timer", points=points
-    )
+    return TimerSeries(service=TIMER_AGENT_NAME, unit=f"{TIMER_AGENT_NAME}.timer", points=points)
 
 
 def timer_agent_rows(
@@ -5306,6 +5299,446 @@ def check_timer_agent_two_owners() -> Measurement:
         return Measurement("mismatch", "; ".join(faults), detail)
     return Measurement("match", "", detail)
 
+
+#: ``SNAG-ESTATE-004``'s two halves, and they live in two files over
+#: there: the rule is prose in the estate's guide, and the enforcement
+#: that does not exist would be code in the audit's ports check.  Both
+#: are named for :data:`ESTATE_NUDGE_MODULES`' reason — a fix landing in
+#: one says nothing about the other — and the guide is reached through
+#: ``..`` because :func:`estate_module_state` is anchored at their
+#: ``service/`` package root while the guide sits above it.  ``git -C``
+#: resolves the repository from that directory whichever way the path
+#: points, which was driven before it was written down.
+ESTATE_PORT_RULE_PATHS = (
+    Path("estate_service") / "audit" / "checks" / "ports.py",
+    Path("..") / "docs" / "guides" / "monitorable-project.md",
+)
+
+#: The sentence the entry says nothing enforces, quoted from
+#: ``monitorable-project.md`` §2.1.  Read on **this** side rather than in
+#: the probe, so the rule half still reaches the report on a box where
+#: their interpreter is missing: a document is answerable when a venv is
+#: not, and the two halves failing apart is the whole reason the entry
+#: has two.
+DEFAULT_PORT_RULE = "Never take a tool's default port"
+
+#: **The entry's** proposed set, and the name says so on purpose.  A
+#: constant called ``WELL_KNOWN_DEFAULTS`` here would read as a fact
+#: about the estate's code, and the claim is that the estate has no such
+#: set at all — so this is the fix bullet quoted, never their vocabulary
+#: restated.  All five are probed although two (5000, 9000) sit outside
+#: their audited ranges, because the *claimed* half of ``run_check``
+#: never consults a range: a fix narrowed to the ranges then comes back
+#: as a partial naming 3000, 8080 and 8888, rather than as a closure or
+#: as a failure to measure.
+ENTRY_DEFAULT_PORTS = (3000, 5000, 8080, 8888, 9000)
+
+#: The probe handed to :func:`estate_probe`.  It builds a registry
+#: document that claims every port in :data:`ENTRY_DEFAULT_PORTS`, drives
+#: the estate's own ``run_check`` over it with a stub listener reader,
+#: and hands back the findings that came out.
+#:
+#: **Nothing private is touched, and the verdict is read off what the
+#: check *emits* rather than off how it is written.**  The obvious probe
+#: is an ``ast`` walk for a ``WELL_KNOWN_DEFAULTS`` name in ``ports.py``,
+#: and it is wrong in three directions at once: a fix that inlines the
+#: set, renames it, or files the finding from a different check module
+#: would all read as ``match`` — the entry reported still true by a
+#: probe looking in the one place the fix happened not to land.
+#: ``CheckResult.findings`` is the published shape and is blind to all
+#: three.  ``run_check``, ``parse_registry``, ``load_audit_config`` and
+#: ``resolve_repo_path`` are theirs and public; ``_ROW``, ``_DORMANT``
+#: and ``_in_range`` are not and are never named here, which is Session
+#: 87's rule — a private helper's name is what their fix renames.
+#:
+#: The ``runner=`` keyword is the reason this needs no privileges and
+#: binds no socket: it exists in their signature for injection, so the
+#: box's real listeners are never read and nothing is left behind.
+DEFAULT_PORT_PROBE = '''\
+import json, subprocess, sys
+sys.path.insert(0, {service!r})
+from estate_service.audit.checks import ports
+from estate_service.audit.config import load_audit_config
+
+DEFAULTS = list({defaults!r})
+
+config = load_audit_config()
+registry = config.port_registry
+ignored = set(registry.ignore_ports)
+probed = [port for port in DEFAULTS if port not in ignored]
+
+
+def witnesses(count):
+    """Free ports inside the ranges the audit is *configured* with.
+
+    Derived rather than typed: a witness outside their audited ranges is
+    dropped by the unclaimed-listener branch before it can be seen, and
+    that reads exactly like the branch having gone away.
+    """
+    found = []
+    for low, high in registry.audited_ranges:
+        for port in range(int(low), int(high) + 1):
+            if port in DEFAULTS or port in ignored or port in found:
+                continue
+            found.append(port)
+            if len(found) == count:
+                return found
+    return found
+
+
+picked = witnesses(3)
+if len(picked) < 3:
+    print(json.dumps({{"witness_problem": "their audited ranges leave fewer than three "
+                      "free ports, so the probe cannot witness its own instrument"}}))
+    raise SystemExit(0)
+silent, dormant, unclaimed = picked
+
+rows = ["| Port | Project | Role |", "|------|---------|------|"]
+rows += ["| %d | snagcheck-claim-%d | claimed and answering |" % (port, i)
+         for i, port in enumerate(probed)]
+rows.append("| %d | snagcheck-silent | claimed-loop witness |" % silent)
+rows.append("| %d | snagcheck-dormant | dormant — vocabulary witness |" % dormant)
+document = "\\n".join(rows) + "\\n"
+
+def stub_runner(listening):
+    """Their ``ss`` reader's collaborator, answering one listener set."""
+    stdout = "".join("LISTEN 0 4096 0.0.0.0:%d 0.0.0.0:*\\n" % port for port in listening)
+
+    def runner(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 0, stdout, "")
+
+    return runner
+
+
+heard = ports.run_check(registry, document, runner=stub_runner([*probed, dormant, unclaimed]))
+unheard = ports.run_check(registry, document, runner=stub_runner([dormant, unclaimed]))
+
+live, live_problem = [], ""
+try:
+    real = config.resolve_repo_path(registry.document).read_text(encoding="utf-8")
+except OSError as exc:
+    live_problem = exc.__class__.__name__
+else:
+    live = [{{"port": claim.port, "project": claim.project}}
+            for claim in ports.parse_registry(real) if claim.port in DEFAULTS]
+
+print(json.dumps({{
+    "error": heard.error or unheard.error,
+    "probed": probed,
+    "ignored": sorted(set(DEFAULTS) & ignored),
+    "silent": silent,
+    "dormant": dormant,
+    "unclaimed": unclaimed,
+    "findings": [{{"code": finding.code, "severity": finding.severity,
+                   "subject": finding.subject, "port": finding.detail.get("port")}}
+                 for finding in heard.findings],
+    "unheard": [{{"code": finding.code, "subject": finding.subject,
+                  "port": finding.detail.get("port")}}
+                for finding in unheard.findings],
+    "live": live,
+    "live_problem": live_problem,
+}}))
+'''
+
+
+def _probe_ports(value: object) -> list[int]:
+    """Ports out of a probe's JSON, tolerant for :func:`_probe_names`' reason.
+
+    ``bool`` is refused explicitly rather than admitted by
+    ``isinstance(True, int)`` — :mod:`sysadmin.estate.judgements` rule 4's
+    trap, and a ``True`` read as port 1 here would name a finding that
+    does not exist.
+    """
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, int) and not isinstance(item, bool)]
+
+
+def _finding_rows(value: object) -> list[dict[str, object]]:
+    """The findings a probe reported, as plain rows.
+
+    A key that has stopped being a list of objects is read as *no
+    findings*, which flows into the verdicts below and is answered there,
+    rather than raising into :func:`run_check` and replacing the sentence
+    a sitting needs with an exception class name.
+    """
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, dict)]
+
+
+def _names_port(row: dict[str, object], port: int) -> bool:
+    """Does this finding name that port?
+
+    Both published identities are read — ``detail['port']`` and the
+    ``subject`` the fingerprint is built from — because either alone is a
+    guess about which one a new branch would fill in, and the entry's
+    whole point is that the branch does not exist yet to be read.
+    """
+    named = row.get("port")
+    if isinstance(named, int) and not isinstance(named, bool) and named == port:
+        return True
+    return str(row.get("subject", "")).strip() == f"port {port}"
+
+
+def check_default_port_uncontended() -> Measurement:
+    """``SNAG-ESTATE-004`` — a rule in their guide that nothing enforces.
+
+    ``monitorable-project.md`` §2.1 says *never take a tool's default
+    port* in prose and annotates the one live violation by hand.  The
+    audit's ``ports`` check reconciles the table against ``ss`` in both
+    directions and has no concept of a **contended** port — so the rule
+    degrades at the speed the guide is read, which is the entry.
+
+    **The claim is about a surface, so the surface is what is read.**
+    This is the fourth check driven across a repository boundary and the
+    first whose subject is what another repository *publishes* rather
+    than what its code computes: ``SNAG-ESTATE-002``'s probe asks what a
+    dataclass offers, ``SNAG-LOG-012``'s what a function returns, and
+    both are answers a reader of the source could have reached.  Here the
+    source is the wrong instrument in three directions at once, named in
+    :data:`DEFAULT_PORT_PROBE`, and ``CheckResult.findings`` is blind to
+    all three.
+
+    **The mechanism is asked, never the population** — rule 1, and this
+    entry is where the difference is starkest.  The live violation is
+    *one port*, 8080, held by venture-assistant, and the guide's own
+    annotation says it should move to 8301 when next touched.  A check
+    that looked for a contended port on the box would therefore report
+    this entry refuted on the day somebody moved that one service, having
+    measured nothing about whether the rule acquired an enforcer.  So the
+    contention is **built**: a registry document that claims every port
+    in :data:`ENTRY_DEFAULT_PORTS`, each answering, driven through their
+    real ``run_check``.  The live population is read as well and carried
+    as evidence, because the entry states it and it is the number that
+    moves.
+
+    **The listener witness is load-bearing in the direction easiest to
+    miss.**  ``run_check`` has a claimed half and a listener half, and
+    the fix this entry describes lands in the claimed one — so the
+    witness that matters is in the *other* one.  If the listener set came
+    back empty, every probed default would be *claimed and silent* and
+    the branch that already exists would name all five, which a check
+    asking only "does a finding name a default port" reads as the fix
+    having landed.  The unclaimed-listener witness is what stands in
+    front of that, and its absence is ``unknown``, never ``match``.
+
+    **The claimed half needs no liveness witness of its own, and finding
+    that out cost a falsification that passed.**  The obvious symmetry —
+    a witness row per loop — was written first, and a stand-in with the
+    claimed loop deleted did not break the test naming it: every probed
+    default goes unreached in that state, so the reachability gate below
+    always fires first and the symmetric gate is unreachable by
+    construction.  The silent row stays, because what it actually
+    supplies is *vocabulary* rather than liveness — it is the only thing
+    in the answering drive that teaches this check what the claimed
+    half's codes are called.
+
+    **Reachability is witnessed per candidate, and the drive that does it
+    replaced a gate that was a second implementation of their fact.**
+    The first draft asked ``parse_registry`` directly whether it had read
+    the probe's rows — a call ``run_check`` also makes, from which this
+    one can silently diverge, and a stub modelling a parser narrowed to
+    the audited ranges walked straight through it: the standalone call
+    saw five rows and the check saw three.  So the document is driven
+    **twice**, once with the defaults answering and once with them
+    silent, and a default the silent drive leaves unremarked is a row
+    that never reached the claimed half — ``unknown``, and measured
+    through the one call whose reading is the one that matters.  The
+    codes the witnesses teach come from the *first* drive only: a
+    contention branch would name a default in the second one too, and
+    folding that in would make the fix teach the check to ignore it.
+
+    **The existing branches are learned from the witnesses, never typed
+    here.**  A finding naming a probed default is the new concept only if
+    its code is one the witnesses did **not** just produce; a default
+    carrying a code the probe has watched an old branch emit means the
+    document has stopped isolating a contended port from a silent or a
+    dormant one, which is ``unknown``.  Nothing in this module holds a
+    copy of their code vocabulary, so a renamed code cannot make either
+    verdict wrong — Session 87's rule read past the symbol names it was
+    written about.
+
+    **The rule half refutes the entry for the opposite reason to the
+    enforcement half**, so they are reported apart —
+    :func:`check_sysd_ollama_ordering`'s shape.  Enforcement arriving is
+    the fix.  The sentence leaving §2.1 is the entry's *premise* dying
+    with the enforcement still absent, and a single boolean would report
+    a deleted rule as a job well done.  A guide that cannot be read at
+    all is ``unknown`` rather than ``match``, because ``match`` here
+    asserts that a rule exists to go unenforced.
+
+    Delegated, so what is measured is the **estate's** surface and never
+    this repository's opinion of it — :func:`check_estate_port_8500`'s
+    refusal in writing.  Whether the third branch is worth building is
+    theirs to decide under their ADR process, and the entry's own
+    "shape of the fix" bullet exists so that decision costs them a
+    sitting rather than a re-derivation.  What is **not** measured is the
+    handover: the entry says no counterpart entry exists over there yet
+    and that their ids will not correspond, so matching one would be
+    prose similarity dressed as a measurement, and rule 7 sends that
+    kind of instrument back.
+    """
+    try:
+        guide = ESTATE_REGISTRY.read_text(encoding="utf-8")
+    except OSError as exc:
+        rule_state = f"the guide could not be read ({exc.__class__.__name__})"
+        rule_present: bool | None = None
+    else:
+        rule_present = DEFAULT_PORT_RULE in guide
+        rule_state = (
+            f"§2.1 still states {DEFAULT_PORT_RULE!r}"
+            if rule_present
+            else f"§2.1 no longer states {DEFAULT_PORT_RULE!r}"
+        )
+
+    payload, problem = estate_probe(
+        DEFAULT_PORT_PROBE.format(service=str(ESTATE_SERVICE), defaults=ENTRY_DEFAULT_PORTS)
+    )
+    if payload is None:
+        return Measurement("unknown", problem, (rule_state,))
+
+    witness_problem = payload.get("witness_problem")
+    if isinstance(witness_problem, str):
+        return Measurement("unknown", witness_problem, (rule_state,))
+
+    error = payload.get("error")
+    if error:
+        return Measurement(
+            "unknown",
+            f"their ports check errored on the probe's document ({error}) — the probe "
+            "no longer isolates the question",
+            (rule_state,),
+        )
+
+    probed = _probe_ports(payload.get("probed"))
+    ignored = _probe_ports(payload.get("ignored"))
+    findings = _finding_rows(payload.get("findings"))
+    unheard = _finding_rows(payload.get("unheard"))
+    reached = [port for port in probed if any(_names_port(row, port) for row in unheard)]
+    silent, dormant, unclaimed = (
+        payload.get("silent"),
+        payload.get("dormant"),
+        payload.get("unclaimed"),
+    )
+
+    def codes_naming(port: object) -> list[str]:
+        if not isinstance(port, int) or isinstance(port, bool):
+            return []
+        return sorted({str(row.get("code")) for row in findings if _names_port(row, port)})
+
+    silent_codes, dormant_codes, unclaimed_codes = (
+        codes_naming(silent),
+        codes_naming(dormant),
+        codes_naming(unclaimed),
+    )
+    witness_codes = {*silent_codes, *dormant_codes, *unclaimed_codes}
+    live = [row for row in _finding_rows(payload.get("live"))]
+    live_rendered = ", ".join(f"{row.get('port')} ({row.get('project')})" for row in live)
+
+    detail = (
+        "probed as claimed and answering: "
+        + (", ".join(_named(str(port) for port in probed)) or "none")
+        + (
+            f"; their ignore_ports excludes {', '.join(_named(str(port) for port in ignored))}"
+            if ignored
+            else ""
+        ),
+        f"witnesses: silent {silent} -> {', '.join(silent_codes) or 'nothing'}; "
+        f"unclaimed {unclaimed} -> {', '.join(unclaimed_codes) or 'nothing'}; "
+        f"dormant {dormant} -> {', '.join(dormant_codes) or 'nothing'}",
+        f"the vocabulary the probe observed: {', '.join(sorted(witness_codes)) or 'none'} "
+        f"({len(witness_codes)} codes, where the entry names two)",
+        f"reached the claimed half when silent: "
+        f"{', '.join(_named(str(port) for port in reached)) or 'none'} of "
+        f"{len(probed)} probed",
+        "live population in their registry today: "
+        + (live_rendered or "none of the entry's default ports is claimed")
+        + (
+            f" (their document could not be read: {payload['live_problem']})"
+            if payload.get("live_problem")
+            else ""
+        ),
+        rule_state,
+        estate_module_state(ESTATE_PORT_RULE_PATHS),
+    )
+
+    if not probed:
+        return Measurement(
+            "unknown",
+            "every default port the entry names sits in their ignore_ports, so the "
+            "probe has nothing left to claim — enforcement by exclusion is a different "
+            "entry and this one can no longer be measured",
+            detail,
+        )
+    unreached = [port for port in probed if port not in reached]
+    if unreached:
+        return Measurement(
+            "unknown",
+            "their check filed nothing about "
+            + ", ".join(_named(str(port) for port in unreached))
+            + " even with the port silent — the probe's rows no longer reach the "
+            "claimed half at all, so a contended port is never put in front of it",
+            detail,
+        )
+    if not unclaimed_codes:
+        return Measurement(
+            "unknown",
+            "the listener half of run_check filed nothing about its witness, so their "
+            "reading of the stub's listeners cannot be trusted — with the set empty every "
+            "probed default is claimed and silent, and the branch that already exists "
+            "names all of them",
+            detail,
+        )
+
+    named = [row for row in findings if any(_names_port(row, port) for port in probed)]
+    unwitnessed = [row for row in named if str(row.get("code")) not in witness_codes]
+    fresh = sorted({str(row.get("code")) for row in unwitnessed})
+    fresh_ports = [port for port in probed if any(_names_port(row, port) for row in unwitnessed)]
+    if fresh:
+        residue = [port for port in probed if port not in fresh_ports]
+        listed = ", ".join(_named(str(port) for port in fresh_ports))
+        return Measurement(
+            "mismatch",
+            f"the audit now files {', '.join(_named(fresh))} about a claimed tool default — "
+            f"{listed} named"
+            + (
+                ", and "
+                + ", ".join(_named(str(port) for port in residue))
+                + " still unremarked, so the residue is what needs judging rather than "
+                "the closure"
+                if residue
+                else ", which is the enforcement the entry says nobody provides"
+            ),
+            detail,
+        )
+    if named:
+        return Measurement(
+            "unknown",
+            "a finding about a probed default carries a code the probe just watched an "
+            "existing branch emit — the document no longer separates a contended port "
+            "from a silent or a dormant one",
+            detail,
+        )
+    if rule_present is None:
+        return Measurement(
+            "unknown",
+            "nothing enforces a contended port, and the guide that states the rule could "
+            "not be read — 'unenforced' is not a claim this check can make about a rule "
+            "it has not seen",
+            detail,
+        )
+    if not rule_present:
+        return Measurement(
+            "mismatch",
+            f"nothing enforces a contended port and §2.1 no longer states "
+            f"{DEFAULT_PORT_RULE!r} — the entry's premise has gone rather than its "
+            "complaint, which is a closure to judge and not a fix to record",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 # ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
@@ -5442,6 +5875,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-012",
             "a block sentence with no pattern and no marker reaches nothing",
             check_unmarked_sentence_invisible,
+        ),
+        Check(
+            "default_port_uncontended",
+            "SNAG-ESTATE-004",
+            "the estate's audit files nothing about a claimed tool default",
+            check_default_port_uncontended,
         ),
         Check(
             "timer_agent_two_owners",

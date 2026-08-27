@@ -4,48 +4,60 @@
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **No deploy is owed, and no sub-session action is either.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-27 14:20:53**
-> <!--check:daemon_start--> — by Session 98, which edited
+> <!--check:deploy--> `sysadmin` was restarted at **2026-08-27 14:48:25**
+> <!--check:daemon_start--> — by Session 100, which edited
 > `sysadmin/snag_claims.py` alone, the **composition root the daemon does
 > not import** (grep finds one mention under `sysadmin/` and it is a
-> comment in `ops_claims.py`, not an import), so for the **fourteenth**
+> comment in `ops_claims.py`, not an import), so for the **sixteenth**
 > sitting running nothing a caller can observe moved. The restart was
-> taken rather than argued with, for the reason Sessions 81 and 84–97 took
+> taken rather than argued with, for the reason Sessions 81 and 84–99 took
 > theirs: `check-ops-claims.sh` compares the daemon's start against the
 > newest source mtime and cannot know that the edited file is one nothing
 > loads — which its rule 4 states as the cost in advance — and correcting
 > the artefact the script names beats hand-verifying that it is wrong.
 >
-> **The twentieth check, and the first that measures a silence.**
-> `SNAG-ESTATE-012` says a block sentence carrying neither a figure a
-> pattern reaches nor a marked prediction is invisible to
-> `sysadmin-check-claims`. Every other check here looks for something and
-> reports whether it is there; this one reports that a sentence reaches
-> **nothing** — and an absence is what a broken probe produces for free.
-> So the specimen is a printed region carrying **two** sentences: one a
-> pattern can reach, marked, and one of the entry's own three unmarked
-> instances, with the real `ops_claims.check_all` driven over both.
+> **The twenty-second check, and the first whose claim is about another
+> repository's _surface_.** `SNAG-ESTATE-004` says the estate's own guide
+> states *never take a tool's default port* in prose and that nothing
+> enforces it — their audit's `ports` check reconciles the table against
+> `ss` in both directions and has no concept of a **contended** port. The
+> three cross-boundary checks before it ask what estate-manager's code
+> *computes*; this one asks what their audit **publishes**, so the
+> instrument is `CheckResult.findings` and never the source of the branch
+> that would fill them. An `ast` walk for the `WELL_KNOWN_DEFAULTS` name
+> the entry's own fix bullet proposes is the obvious probe and is wrong in
+> three directions at once — a fix that inlines the set, renames it, or
+> files from a different check module would each read as *still holds* —
+> and all three are driven here as real stand-ins.
 >
-> **The marked half is the witness, and it is the whole design.** A
-> reader that had stopped cutting the region reports the unmarked
-> sentence *exactly* as a working reader does, so a probe asserting
-> silence alone would report this entry holding hardest on the morning
-> `printed_region` broke. Both halves of the convention are witnessed
-> because they fail apart — the figure coming back out of the prose is
-> `read_claim`, the absence of an `unclaimed:` finding beside it is
-> `read_markers` — and the marker half is the one both remedies the entry
-> refuses would have had to extend. **It is a check that the invisibility
-> holds, never a marker built to close it.**
+> **The mechanism is asked and never the population, and this entry is
+> where that is starkest.** The live violation is *one port*, and its own
+> registry row says it should move to 8301 when next touched — so a check
+> looking for a contended port on the box would report the entry refuted
+> the day somebody moved one service, having measured nothing about
+> whether the rule acquired an enforcer. The contention is **built**: a
+> registry document claiming all five of the entry's default ports, each
+> answering, driven through their real public `run_check` with a stub
+> `runner=`, so no privilege, no socket, and nothing written into their
+> tree. Live, the five go unremarked, both witnesses fire, `8080
+> (venture-assistant)` is carried as evidence, and §2.1 still states the
+> rule — measured against their **committed** tree, which is not the same
+> as deployed on 8400.
 > `/health` answers **200**
 > <!--check:health-->,
 > `alembic current` reads 016 at the packaged head <!--check:schema-->, and
-> `alerts` holds **1** unresolved row <!--check:alerts-->.
+> `alerts` holds **2** unresolved rows <!--check:alerts-->.
 >
-> **That count is unmoved across this sitting**, where the previous one
-> published a fall. What is open is `info: Weekly disk review ready`
-> <!--check:open_titles-->, the same row, and it is below
-> `tray.notify_min_severity` here — so the box has been quiet rather than
-> unwatched, which is a different claim and the one the sweep can make.
+> **That count rose by one across this sitting, and the monitor was
+> watching this sitting when it did.** What is open is `info: Weekly disk
+> review ready` and `warning: Unusual CPU usage`
+> <!--check:open_titles-->. The second was raised at **14:45:55**, inside
+> the full-suite run that took the box to 34.3 % CPU against a 7-day mean
+> of 4.7 % — a genuine anomaly correctly detected, whose cause was 2,682
+> tests. It is named here rather than resolved by hand, because a row this
+> service raised is a row `_check_anomalies` resolves by id when the
+> condition clears, and a second owner closing it is the defect this
+> repository has now found at six scales.
 >
 > **Every claim above names the check that closes it**, and that is what
 > `<!--check:…-->` is: the name of a check, never a copy of the figure
@@ -59,12 +71,13 @@
 >
 > **`snag_list.md` has the same reader since 2026-08-25**, and the banner
 > now prints two families. `./scripts/check-snag-claims.sh` re-measures
-> the claim of **19** open snag entries — all nineteen still hold — and
-> names the **5** that carry no check. *Those two figures have now been
+> the claim of **20** open snag entries — all twenty still hold — and
+> names the **4** that carry no check. *Those two figures have now been
 > stale three times: 10 and 14 until Session 93, and 15 and 9 until
 > Session 97, Session 96 having moved them to 16 and 8 without correcting
-> the sentence; Session 99 moved them to 19 and 5 and corrected it in the
-> same sitting, which is what the record above is for. That is `SNAG-ESTATE-008`'s shape inside the block that
+> the sentence; Sessions 99 and 100 moved them to 19/5 and then 20/4 and
+> corrected the sentence in the same sitting each time, which is what the
+> record above is for. That is `SNAG-ESTATE-008`'s shape inside the block that
 > entry is about, arriving by the same route each time — neither figure
 > carries a pattern nor a marker, so it is `SNAG-ESTATE-012`'s class and
 > no run can say so. A third repeat is an argument for a check, not for
@@ -395,7 +408,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 Complete | **2653 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists — *and that claim was **false for 3h45m on 2026-08-26**, which is the point of writing it down: estate-manager moved `read_snags` into `estate-lib` and `TestAgainstTheOwningParser`'s subprocess read the resulting `ImportError` as “their parser would not run”, so two tests skipped across the whole of Session 92 and the row went on asserting otherwise. Repaired by Session 93 — the reader imports `estate.snags` first, absence is a skip and a moved symbol is a failure*); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (64 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, **snag-claim guard (231 tests, re-counted live rather than incremented — the row read 166 against a file holding 187, stale by two sittings: **eighteen** open-entry claims each driven at the live box *and* at a box that moved, plus the closure rule pinned against estate-manager's own `read_snags` by shelling out to their venv — **the tenth is the first whose instrument is another repository's *code path*, driven at three real states of their tree: their committed `roadmap.py` (`match`), their uncommitted in-flight fix (`mismatch`) and a box with no venv (`unknown`)** — thirteen of the guards falsified by breaking the code they guard, the newest seven by restoring the private-symbol coupling, removing the isolation guard, swallowing an absent interpreter and an import failure into a `match`, typing the probe as a literal, dropping the `None` branch, and narrowing the comparison to the marked form; **the eleventh is the first that drives a domain's own async reader against the live journal** — the same records read twice at the two declarations that bracket `SNAG-LOG-008`, falsified in five directions: a reader that ignores the declaration, a second call site, the unwrap relocated out of `read_journal`, a renamed unwrap, and a journal that will not answer; **the twelfth is the first *pre-staged* against another repository's fix rather than a read of their tree** — `estate-lib` is an editable install, so `strip_markdown` resolves into estate-manager's working tree and `SNAG-LOG-012`'s check flips the day they commit, with the two candidate fixes driven as **real patterns** so the naive `` `[^`]+` `` and the same-length one are told apart, and five falsifications each firing on the test that names it — one of which breaks *both* fix tests, because the doubled fence is the only line that discriminates them; **and three of the file's own guards were themselves flaky, which `SNAG-TEST-001` closed on 2026-08-26** — three falsification stand-ins built a disambiguator from `` hash(s) % 997 ``, whose `str` hashing is seeded per process, so the probe pair collided in about 1 run in 997 and all three failed together. Reproduced at `PYTHONHASHSEED=282` and fixed with a `blake2s` marker; the three new tests are the interesting part, because the one that *asserts* the pair separates inherits the same 1/997 while the AST sweep that simply refuses the builtin is red at every seed; **the fifteenth is the first whose subject is this repository's own claims machinery** — it imports `ops_claims` and drives `read_markers` into `check_expiry` at a naive and an offset-bearing rendering of one producer stamp, in three timezones, so the hour the marker is out by is measured rather than argued. Two of its fifteen tests exist because a run refuted the draft: the obvious single straddle holds only east of Greenwich (at `UTC-4` the same marker *outlives* its subject by four hours, which is `SNAG-LOG-009`'s asymmetry one document over), and the control it started with was the unfixed behaviour asserted twice, so a zone-aware fix broke it. Seven falsifications, of which one **passed against the broken code** until its patch was widened — `EXPIRY_FORMAT` lives in two namespaces and only one was moved, a guard asserting a *value* where it meant *provenance* for the third time here, now pinned by an `ast` sweep as well; **the sixteenth is the first that sends a request** — `SNAG-UNITS-003`'s check drives the sweep's public `recommendations_for_scan` at every port `services.yaml` declares with a unit, reads the url back out of the emitted snippet, and asks whether *that* url answers through `SysAdminAgent._check_http` and `is_fault` rather than through a status code of its own. Every probe is paired with one of the service's own declared url, so a stopped service is `unmeasured` rather than evidence — without that control the entry would read as holding hardest on the morning the box came up. Nine falsifications, each firing on the test that names it, and one of them found a note that rendered an empty path as nothing (`ports (, /api/health, …)`) where two services declare exactly that; **the seventeenth is the first that writes to the live database** — `SNAG-ESTATE-010`'s check opens a `warning` alert row, judges the same title at `info` through the agent's own `EstateJudgeAgent._execute`, and asserts the row's severity **and** its `holder` blob are unmoved, rolling back in a `finally`. The estate's answer comes from an `httpx.MockTransport` through the real `pull_all` and the sweep's attribution from a `unit_audits` row inside the transaction, so the quietening arrives by Session 57's own route. The assertion is the **reach** rather than the rung, because the entry's fourth bullet names resolve-and-re-raise as the obvious fix, and a check reading the severity column would call two of a fix's three shapes no change; the same run judges a second port with nothing open under it, which must land at the quieter rung before either verdict means anything. Fifteen falsifications, each firing on the test that names it — including a stand-in that **commits** instead of rolling back, which is what justifies writing to the live database at all and which found the survivor guard counting by the wrong column. One passed against broken code for the fourth time here and in a new shape: `caplog.at_level` restores `logging.disable` itself, so an assertion about that global inside a `caplog` block can never fail; **the nineteenth is the first whose entry has two faces and therefore the first whose verdict is a conjunction** — `SNAG-TRAY-008`'s check drives `DesktopNotifier` across a tray outage *and* a restart on one fake timeline, against three real unresolved rows in a rolled-back transaction, and reports a fix that closes only one face as a `match` carrying the moved half in its note, which is the entry's own warning turned into the verdict rule. Ten falsifications, each firing on the test that names it, including the two stand-ins that *are* the two fixes. Two things only running it could have said: the transport falsification is **unreachable**, because the probe overrides `send` and a stand-in patching `DesktopNotifier.send` never reaches it (re-aimed at gate 2, and the shadowing pinned by a test of its own); and reading the roll-up body is load-bearing rather than defensive, since a fix that adopts one further fault pushes the very sweep the probe drives over `_ROLLUP_THRESHOLD` — narrowed to titles alone it takes all three fix-shaped tests down together; **the twentieth is the first that measures a *silence*** — `SNAG-ESTATE-012`'s check builds a printed region carrying one sentence a pattern reaches, marked, and one of the entry's own three unmarked instances, drives the real `ops_claims.check_all` over both, and asserts the second is absent from every family. The marked half is the **witness**, because a reader that stopped cutting the region reports the unmarked sentence exactly as a working one does; both halves of the convention are witnessed, since `read_claim` reaching the prose and `read_markers` reaching the marker beside it fail apart. Two instruments rather than one, because the two shapes a fix can take are invisible to each other — a generic "paragraph 2 carries no marker" names no sentence and a fix folded into an existing note adds no key — and a difference the sentence cannot explain is `unknown` rather than `mismatch`, since `open_titles` counts live rows and two drives 0.4 s apart can honestly disagree. Sixteen tests; four candidate fixes each driven as a real stand-in wrapping the real `check_all`, and two of them corrected the check itself: the collision stand-in found the draft re-witnessing every drive and reporting a sentence that had visibly been read as "could not be driven", and the distinctive-word test found the quotation instrument **silently dead** for one of the three specimens at a five-character floor)**, **shared figure-free guard (9 tests over the one statement of rule 2 the three Tier 3 reviews share, each driven at something that must break it — a shared assertion that never refuses anything is worth less than the three copies it replaced)**, smoke script |
+| Testing | 🟢 Complete | **2682 backend + tray, all green** (the deliberately-red `test_searxng_wiring.py` was wired and went green 2026-08-14; nothing skipped on this box, 4 skip in CI where no searxng unit exists — *and that claim was **false for 3h45m on 2026-08-26**, which is the point of writing it down: estate-manager moved `read_snags` into `estate-lib` and `TestAgainstTheOwningParser`'s subprocess read the resulting `ImportError` as “their parser would not run”, so two tests skipped across the whole of Session 92 and the row went on asserting otherwise. Repaired by Session 93 — the reader imports `estate.snags` first, absence is a skip and a moved symbol is a failure*); real-app fixture, schema drift guard, import-boundary guard, shared-query guard, unit-file pairing guard, deploy-triggered wiring guard, **job-plan/target pairing guard**, **schema-check wiring guard (both readers driven against the live `alembic_version`; 11 new guards each falsified against the behaviour they replace)**, **autogenerate single-copy guard**, **derived-not-picked guards on the two reminder intervals**, **producer-built estate payloads (4 fixtures, recorded + live halves)**, **journal resume-boundary guard (8 tests, each falsified against the old behaviour and against both wrong fixes)**, **journalctl window-resolution guard (4 tests that resolve the emitted `--since` the way the consumer does, in three timezones, rather than pinning its rendering — each falsified, one of them needing `int` → `math.ceil` to break)**, **ops-claim guard (64 tests against the real `STATUS.md`, so a reworded block fails the suite rather than retiring the check in silence; ten falsified against the behaviour they replace — the five from Session 73 plus the convention's five, one of which fired *twice*)**, **snag-claim guard (278 tests, re-counted live rather than incremented — the row read 166 against a file holding 187, stale by two sittings, and 231 against 249 one sitting later: **twenty** open-entry claims each driven at the live box *and* at a box that moved, plus the closure rule pinned against estate-manager's own `read_snags` by shelling out to their venv — **the tenth is the first whose instrument is another repository's *code path*, driven at three real states of their tree: their committed `roadmap.py` (`match`), their uncommitted in-flight fix (`mismatch`) and a box with no venv (`unknown`)** — thirteen of the guards falsified by breaking the code they guard, the newest seven by restoring the private-symbol coupling, removing the isolation guard, swallowing an absent interpreter and an import failure into a `match`, typing the probe as a literal, dropping the `None` branch, and narrowing the comparison to the marked form; **the eleventh is the first that drives a domain's own async reader against the live journal** — the same records read twice at the two declarations that bracket `SNAG-LOG-008`, falsified in five directions: a reader that ignores the declaration, a second call site, the unwrap relocated out of `read_journal`, a renamed unwrap, and a journal that will not answer; **the twelfth is the first *pre-staged* against another repository's fix rather than a read of their tree** — `estate-lib` is an editable install, so `strip_markdown` resolves into estate-manager's working tree and `SNAG-LOG-012`'s check flips the day they commit, with the two candidate fixes driven as **real patterns** so the naive `` `[^`]+` `` and the same-length one are told apart, and five falsifications each firing on the test that names it — one of which breaks *both* fix tests, because the doubled fence is the only line that discriminates them; **and three of the file's own guards were themselves flaky, which `SNAG-TEST-001` closed on 2026-08-26** — three falsification stand-ins built a disambiguator from `` hash(s) % 997 ``, whose `str` hashing is seeded per process, so the probe pair collided in about 1 run in 997 and all three failed together. Reproduced at `PYTHONHASHSEED=282` and fixed with a `blake2s` marker; the three new tests are the interesting part, because the one that *asserts* the pair separates inherits the same 1/997 while the AST sweep that simply refuses the builtin is red at every seed; **the fifteenth is the first whose subject is this repository's own claims machinery** — it imports `ops_claims` and drives `read_markers` into `check_expiry` at a naive and an offset-bearing rendering of one producer stamp, in three timezones, so the hour the marker is out by is measured rather than argued. Two of its fifteen tests exist because a run refuted the draft: the obvious single straddle holds only east of Greenwich (at `UTC-4` the same marker *outlives* its subject by four hours, which is `SNAG-LOG-009`'s asymmetry one document over), and the control it started with was the unfixed behaviour asserted twice, so a zone-aware fix broke it. Seven falsifications, of which one **passed against the broken code** until its patch was widened — `EXPIRY_FORMAT` lives in two namespaces and only one was moved, a guard asserting a *value* where it meant *provenance* for the third time here, now pinned by an `ast` sweep as well; **the sixteenth is the first that sends a request** — `SNAG-UNITS-003`'s check drives the sweep's public `recommendations_for_scan` at every port `services.yaml` declares with a unit, reads the url back out of the emitted snippet, and asks whether *that* url answers through `SysAdminAgent._check_http` and `is_fault` rather than through a status code of its own. Every probe is paired with one of the service's own declared url, so a stopped service is `unmeasured` rather than evidence — without that control the entry would read as holding hardest on the morning the box came up. Nine falsifications, each firing on the test that names it, and one of them found a note that rendered an empty path as nothing (`ports (, /api/health, …)`) where two services declare exactly that; **the seventeenth is the first that writes to the live database** — `SNAG-ESTATE-010`'s check opens a `warning` alert row, judges the same title at `info` through the agent's own `EstateJudgeAgent._execute`, and asserts the row's severity **and** its `holder` blob are unmoved, rolling back in a `finally`. The estate's answer comes from an `httpx.MockTransport` through the real `pull_all` and the sweep's attribution from a `unit_audits` row inside the transaction, so the quietening arrives by Session 57's own route. The assertion is the **reach** rather than the rung, because the entry's fourth bullet names resolve-and-re-raise as the obvious fix, and a check reading the severity column would call two of a fix's three shapes no change; the same run judges a second port with nothing open under it, which must land at the quieter rung before either verdict means anything. Fifteen falsifications, each firing on the test that names it — including a stand-in that **commits** instead of rolling back, which is what justifies writing to the live database at all and which found the survivor guard counting by the wrong column. One passed against broken code for the fourth time here and in a new shape: `caplog.at_level` restores `logging.disable` itself, so an assertion about that global inside a `caplog` block can never fail; **the nineteenth is the first whose entry has two faces and therefore the first whose verdict is a conjunction** — `SNAG-TRAY-008`'s check drives `DesktopNotifier` across a tray outage *and* a restart on one fake timeline, against three real unresolved rows in a rolled-back transaction, and reports a fix that closes only one face as a `match` carrying the moved half in its note, which is the entry's own warning turned into the verdict rule. Ten falsifications, each firing on the test that names it, including the two stand-ins that *are* the two fixes. Two things only running it could have said: the transport falsification is **unreachable**, because the probe overrides `send` and a stand-in patching `DesktopNotifier.send` never reaches it (re-aimed at gate 2, and the shadowing pinned by a test of its own); and reading the roll-up body is load-bearing rather than defensive, since a fix that adopts one further fault pushes the very sweep the probe drives over `_ROLLUP_THRESHOLD` — narrowed to titles alone it takes all three fix-shaped tests down together; **the twentieth is the first that measures a *silence*** — `SNAG-ESTATE-012`'s check builds a printed region carrying one sentence a pattern reaches, marked, and one of the entry's own three unmarked instances, drives the real `ops_claims.check_all` over both, and asserts the second is absent from every family. The marked half is the **witness**, because a reader that stopped cutting the region reports the unmarked sentence exactly as a working one does; both halves of the convention are witnessed, since `read_claim` reaching the prose and `read_markers` reaching the marker beside it fail apart. Two instruments rather than one, because the two shapes a fix can take are invisible to each other — a generic "paragraph 2 carries no marker" names no sentence and a fix folded into an existing note adds no key — and a difference the sentence cannot explain is `unknown` rather than `mismatch`, since `open_titles` counts live rows and two drives 0.4 s apart can honestly disagree. Sixteen tests; four candidate fixes each driven as a real stand-in wrapping the real `check_all`, and two of them corrected the check itself: the collision stand-in found the draft re-witnessing every drive and reporting a sentence that had visibly been read as "could not be driven", and the distinctive-word test found the quotation instrument **silently dead** for one of the three specimens at a five-character floor; **the twenty-second is the first whose claim is about another repository's *surface* rather than its code** — `SNAG-ESTATE-004`'s check builds a registry document claiming all five of the entry's tool-default ports, each answering, and drives estate-manager's own public `run_check` over it with a stub `runner=`, reading the verdict off `CheckResult.findings` rather than off the source of the branch that would fill them. An `ast` walk for the `WELL_KNOWN_DEFAULTS` name the entry proposes is the obvious probe and reports *still holds* for a fix that inlines the set, renames it, or files from another module — all three driven here as real stand-ins, alongside one that fills only the finding's `subject`. Twenty-nine tests. The **vocabulary is learned from the witnesses**, so the estate's three codes are renamed in a stand-in whose fix files under a slug a typed copy would be holding — the test it replaced passed against that typed copy, which is what made it worth replacing. Nineteen falsifications, each firing on the test that names it, and **one passed against broken code and deleted a gate rather than repairing one**: the draft carried a witness per loop, and removing the claimed-half gate broke nothing, because deleting that loop leaves every probed default unreached and the reachability drive always answers first. That drive itself replaced a gate that was a second implementation of their fact — a standalone `parse_registry` call `run_check` can diverge from, which a stub narrowing the parser to the audited ranges walked straight through, five rows seen against three)**, **shared figure-free guard (9 tests over the one statement of rule 2 the three Tier 3 reviews share, each driven at something that must break it — a shared assertion that never refuses anything is worth less than the three copies it replaced)**, smoke script |
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -403,6 +416,97 @@
 ---
 
 ## Recently Completed
+
+### Session 100 — the twenty-second check, and the first about somebody else's surface (2026-08-27)
+
+`SNAG-ESTATE-004` is **checked and stays open**. Checked entries
+**19 → 20**, unchecked **5 → 4**, open unmoved at **24** (none opened,
+none closed) — measured either side of the edit by driving
+`estate.snags.read_snags`, which reads **24 open** both times against
+estate-manager at `1e7a9a9`, recorded because Session 99 learned that a
+count taken over that boundary can move underneath the measurement.
+Suite **2653 → 2682**, `tests/test_snag_claims.py` **249 → 278**.
+
+**The fourth check driven across a repository boundary, and the first
+whose claim is entirely about another repository's _surface_.** The three
+before it ask what estate-manager's code *computes* — what a dataclass
+offers, what a function returns, what a parser reads — and every one of
+those is an answer a reader of their source could have reached. This
+entry says their guide states *never take a tool's default port* in prose
+and that **nothing enforces it**, which is a claim about what their audit
+*publishes*. So the instrument is `CheckResult.findings`.
+
+### What the sitting settled
+
+- **The obvious probe is an `ast` walk and it is wrong in three
+  directions at once.** The entry's own fix bullet names
+  `WELL_KNOWN_DEFAULTS = {3000, 5000, 8080, 8888, 9000}`, so looking for
+  that constant in `checks/ports.py` is the first thing anyone would
+  write — and it reports *still holds* for a fix that inlines the set,
+  one that renames it, and one that files the finding from a different
+  check module. All three are driven here as real stand-ins, alongside a
+  fourth that fills only the finding's `subject`; the findings surface is
+  blind to every one of them.
+- **The mechanism is asked and never the population, and this is where
+  that is starkest.** The live violation is *one port*, and the guide's
+  own annotation says it should move to 8301 when next touched — so a
+  check that looked for a contended port on the box would report the
+  entry refuted the day somebody moved one service, having measured
+  nothing about whether the rule acquired an enforcer. The contention is
+  **built**: a registry document claiming all five defaults, each
+  answering, through their real public `run_check` with a stub `runner=`,
+  so no privilege, no socket and nothing written into their tree. A test
+  drives the same check with the population emptied and with it emptied
+  *and* a branch present, and the verdict moves only with the branch.
+- **The listener witness is load-bearing in the direction easiest to
+  miss.** The fix would land in the claimed loop, so the witness that
+  matters is in the *other* one: with the listener set empty every probed
+  default is claimed-and-silent and their existing branch names all five,
+  which a check asking "does a finding name a default port" reads as the
+  fix having landed. That is driven as its own test off the raw probe, so
+  the gate is shown to be standing in front of something rather than
+  asserted to be.
+- **The code vocabulary is learned from the witnesses and never typed
+  here**, which is Session 87's rule read past the symbol names it was
+  written about. A fix filing under any slug at all is seen; the test
+  saying so had to be rewritten, because the obvious one — a renamed
+  contention code — passes against a typed copy too, and only renaming
+  *their* three codes tells the two implementations apart.
+- **The rule half refutes the entry for the opposite reason to the
+  enforcement half**, so they are reported apart —
+  `check_sysd_ollama_ordering`'s shape. The sentence leaving §2.1 is the
+  premise dying with the complaint intact, and a guide that cannot be
+  read is `unknown`, because *still holds* asserts a rule exists to go
+  unenforced. The handover half is deliberately **not** measured: the
+  entry says their ids will not correspond, so matching a counterpart
+  would be prose similarity dressed as a measurement, which is rule 7.
+
+### A falsification passed against broken code, and deleted a gate
+
+The draft carried the obvious symmetry — a witness row per loop — and a
+stand-in with the claimed-half gate removed **broke nothing**. Deleting
+that loop leaves every probed default unreached, so the reachability
+drive always answers first and the symmetric gate was unreachable by
+construction; the test naming it asserted a substring both notes carried,
+which is how it stayed. The gate is gone rather than repaired, and the
+silent row stays for what it actually supplies, which is vocabulary
+rather than liveness.
+
+That reachability drive is itself a correction. The first version asked
+`parse_registry` directly whether their parser had read the probe's rows
+— a second implementation of a fact `run_check` already establishes, and
+a stub narrowing the parser to the audited ranges walked straight through
+it: the standalone call saw five rows while the check saw three, and the
+verdict came back *still holds* having put nothing in front of anything.
+The document is driven **twice** now, once with the defaults answering
+and once with them silent, so reachability is measured through the one
+call whose reading matters.
+
+Live at the close: the five probed defaults go unremarked, both witnesses
+fire, the observed vocabulary is **three** codes where the entry names
+two, `8080 (venture-assistant)` is the live population, §2.1 still states
+the rule, and the verdict is taken against estate-manager's **committed**
+tree — which is not the same as deployed on 8400, and the wording says so.
 
 ### Session 99 — the twenty-first check, and the entry that was runner-up three times (2026-08-27)
 
