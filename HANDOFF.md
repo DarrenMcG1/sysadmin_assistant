@@ -11,7 +11,7 @@ same sitting, and `SNAG-PORT-003` **opened**. The live parser reads
 **95 → 97 entries with open unmoved at 23**. Suite **2732 → 2737**, all
 green — the two red on a clean tree when this sitting opened are the two
 that closed. Daemon restarted **22:26:57**, `/health` 200, all ten ops
-claims check out. No migration; the change is one constant, one parse and
+claims check out — **nine**, not the ten the previous handoff said, which nobody had counted. No migration; the change is one constant, one parse and
 their guards.
 
 ### What the sitting settled

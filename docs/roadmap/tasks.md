@@ -407,7 +407,7 @@ debts that landing deliberately left behind._
 - [x] **Find `SNAG-PORT-002` underneath it** — `_unit_from_cgroup` took the path from the *last* colon, so a D-Bus activated unit lost its `dbus-` prefix and, with it, the `/user@1000.service/` that decides scope: a user unit stamped `system` since Session 26c. 1 of 30 listeners, 4 of 694 processes; fixed, with a scope-only witness because the live specimen breaks both halves together
 - [x] File `SNAG-PORT-003` rather than guess — a D-Bus unit's name carries a per-session bus id, which is exactly what `transient` exists for and is not what it tests. Both obvious fixes are rules tuned against one observation
 - [x] Mint into `SNAG-PORT-*` — estate-manager's message `153c1c96` says `SNAG-ESTATE-*` has two minters and no owner; routing around it is not closing it
-- [x] Restart and verify — 22:26:57, `/health` 200, all ten ops claims ok, suite **2732 → 2737** green (2732 + 5, stated because a green suite cannot witness tests that no longer exist)
+- [x] Restart and verify — 22:26:57, `/health` 200, all **nine** ops claims ok (Session 105's handoff said ten and the checker prints nine — a figure inherited rather than measured, which is `verify-ops-claims-live` inside the sentence claiming to have verified), suite **2732 → 2737** green (2732 + 5, stated because a green suite cannot witness tests that no longer exist)
 - [x] Update STATUS.md, tasks.md, snag_list.md, HANDOFF.md
 
 **The entry deferred itself for a cost that had an empty population, and
