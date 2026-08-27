@@ -115,7 +115,7 @@ from sqlalchemy import func, select
 
 from sysadmin.core.config import get_config
 from sysadmin.core.escalation import humanise_hours
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.monitor.dnd import dnd_manager
 
 logger = logging.getLogger(__name__)
@@ -353,7 +353,7 @@ class DesktopNotifier:
                 open_count = await session.scalar(
                     select(func.count())
                     .select_from(Alert)
-                    .where(Alert.title == title, Alert.resolved.is_(False))
+                    .where(Alert.title == title, unresolved())
                 )
         except Exception:  # noqa: BLE001 - a blip must not become a storm
             logger.exception("desktop_notify_incident_check_failed")
@@ -455,7 +455,7 @@ class DesktopNotifier:
             async with factory() as session:
                 rows = await session.scalars(
                     select(Alert.title)
-                    .where(Alert.title.in_(titles), Alert.resolved.is_(False))
+                    .where(Alert.title.in_(titles), unresolved())
                     .distinct()
                 )
                 return set(rows)

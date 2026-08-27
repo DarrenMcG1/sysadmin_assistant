@@ -41,7 +41,7 @@ from sqlalchemy import select
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 from sysadmin.core.escalation import Step, step_for
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.monitor.services import get_services
 from sysadmin.units import ports as port_check
 from sysadmin.units.models import UnitAudit
@@ -331,7 +331,7 @@ class ServiceDiscoveryAgent(BaseAgent):
                 await session.execute(
                     select(Alert).where(
                         Alert.agent == self.name,
-                        Alert.resolved.is_(False),
+                        unresolved(),
                         Alert.title.like(f"{ARMED_TITLE_PREFIX}%"),
                     )
                 )
@@ -393,7 +393,7 @@ class ServiceDiscoveryAgent(BaseAgent):
 
         conditions = [
             Alert.agent == self.name,
-            Alert.resolved.is_(False),
+            unresolved(),
             Alert.title.like(f"{ARMED_TITLE_PREFIX}%"),
         ]
         if judged:
@@ -533,7 +533,7 @@ class ServiceDiscoveryAgent(BaseAgent):
                 await session.execute(
                     select(Alert.title).where(
                         Alert.agent == self.name,
-                        Alert.resolved.is_(False),
+                        unresolved(),
                         Alert.title.like(f"{PORT_TITLE_PREFIX}%"),
                     )
                 )
@@ -592,7 +592,7 @@ class ServiceDiscoveryAgent(BaseAgent):
 
         conditions = [
             Alert.agent == self.name,
-            Alert.resolved.is_(False),
+            unresolved(),
             Alert.title.like(f"{PORT_TITLE_PREFIX}%"),
         ]
         if judged:
@@ -704,7 +704,7 @@ class ServiceDiscoveryAgent(BaseAgent):
                 select(Alert).where(
                     Alert.agent == self.name,
                     Alert.title.ilike(f"%{ALERT_TITLE}%"),
-                    Alert.resolved.is_(False),
+                    unresolved(),
                 )
             )
         ).scalars().first()

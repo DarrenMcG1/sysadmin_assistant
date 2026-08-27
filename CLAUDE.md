@@ -2723,6 +2723,69 @@ a *value* where it means *provenance*, which is the shape recorded after
 Session 59's guards, and only the source can answer provenance — it is an
 AST check now.
 
+**An index a reader cannot reach is not an index, and the two were eight
+lines apart** (Session 105, `SNAG-AGENT-007`). `alerts` has carried
+`idx_alerts_active … WHERE resolved = FALSE` since it was created.
+Nineteen readers asked for their open rows as
+`Alert.resolved.is_(False)`, which renders `resolved IS false`;
+PostgreSQL matches a partial index **structurally**, and a `BooleanTest`
+is not an `OpExpr`. Every one of them fell to a sequential scan.
+`unresolved()` on `sysadmin/core/models/alert.py` is the one statement of
+*open*, and it renders the index's own predicate literally.
+
+Five rules, four of them the opposite of what the entry proposed:
+
+1. **The entry costed the read by its result and the cost is its scan.**
+   It ranked itself P3 on "the table is small"; the table is **666,936
+   rows** and what is small is the answer — **zero** open `sysadmin`
+   rows. Live: **41,644 buffers and 33.3 ms** against **13 buffers and
+   0.03 ms**, four times per 300-second run. Reading the code confirms
+   the entry's count; running `EXPLAIN` refutes its ranking, which is
+   `verify-ops-claims-live` for a claim about performance.
+2. **A projection is not a definition, which is what dissolves the
+   tension the entry filed itself around.** It refused
+   `select(Alert.title)` for the dedup caller as *"a second definition of
+   this agent's open rows"*. What a caller wants **back** may differ per
+   caller; which rows it is **asking about** may not. So the predicate is
+   stated once and `SysAdminAgent._open_alert_criteria` composes the
+   agent scope on top — a third projection tomorrow adds no third
+   definition. `Alert.agent == self.name` deliberately stays at the
+   agent: a scope one caller applies is not a vocabulary anyone can
+   disagree about.
+3. **Migration 017 alone would have been a no-op**, which is worth
+   knowing because the obvious reading of a performance snag is that the
+   database is missing something. `idx_alerts_open_by_agent` bounds an
+   agent's read by *its own* open rows rather than by the whole open set
+   — `SNAG-AGENT-005` reached 598,091 in one family — and driven at
+   100,000 synthetic open rows in a rolled-back transaction the old
+   spelling **with the new index present** still seq-scanned at 41,644
+   buffers. Only the pair gives 2 buffers. Today the planner still
+   prefers the older index, one open row making either free, so the new
+   one is insurance that engages when the entry's worry materialises —
+   stated rather than implied, since an index nothing chooses looks
+   exactly like an index that does not work.
+4. **The substitution is provable, not merely safe-looking.** `IS false`
+   and `= false` differ on exactly one input and `resolved` is `NOT
+   NULL`, which is why the definition lives beside the column: the column
+   is the proof. A test asserts the nullability rather than remembering
+   it, because nineteen call sites were rewritten on that one fact.
+5. **The sweep is driven at its own owner.** `unresolved()` *is* the
+   hand-written form — that is what makes it the one definition — so the
+   AST guard exempts the model and then runs at it, which must trip every
+   rule. `test_autogenerate_config.py`'s idiom, reused.
+
+Note what was pinning the defect: `test_it_is_scoped_to_this_agents_unresolved_rows`
+asserted the string `alerts.resolved IS false` and was green for the life
+of the module — `TestJournalCommand` in a second family. It composes from
+`unresolved()` now, so it pins **provenance** (the resolve uses the
+shared predicate) while `tests/test_open_alert_predicate.py` pins the
+**value** (that predicate renders the index's string). And
+`test_alert_dedup.py`'s stand-in could not tell a projection from a row
+read, so the fix arrived as four red dedup tests — the defect they exist
+to catch, wearing the fix's clothes; it discriminates on
+`selected_columns` now, modelling the database rather than the one call
+site that happens to project.
+
 Retention needs **both halves**: a row in the `retention_config` table and
 an entry in `TABLE_TIMESTAMP_MAP`. `run_retention` iterates config rows and
 looks each up in the map, so a table with one half is silently never purged

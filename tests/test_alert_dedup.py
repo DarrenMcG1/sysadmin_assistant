@@ -119,8 +119,27 @@ class FakeSession:
         if isinstance(statement, Update):
             return MagicMock(rowcount=self.alerts.sweep(statement))
         result = MagicMock()
-        result.scalars.return_value.all.return_value = self.alerts.open()
+        result.scalars.return_value.all.return_value = self._answer(statement)
         return result
+
+    def _answer(self, statement):
+        """What the database would hand back for *this* statement.
+
+        The stand-in used to return whole rows for every SELECT, which
+        was true of ``_execute`` until ``SNAG-AGENT-007``: the dedup
+        snapshot now asks for ``select(Alert.title)`` and a fake that
+        cannot tell a projection from a row read answers it with ``Alert``
+        objects.  Dedup then compares titles against rows, matches
+        nothing, and every fault opens a second row — the exact defect
+        these tests exist to catch, reported as a fix breaking them.
+
+        Discriminated on ``selected_columns`` rather than on the caller,
+        so the fake models the database instead of the one call site that
+        happens to project today.
+        """
+        if [c.name for c in statement.selected_columns] == ["title"]:
+            return self.alerts.open_titles()
+        return self.alerts.open()
 
     def begin_nested(self):
         return _Savepoint()

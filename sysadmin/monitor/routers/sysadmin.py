@@ -23,7 +23,7 @@ from sysadmin.core.contracts import (
     StatusResponse,
 )
 from sysadmin.core.database import get_db_session
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.monitor import health_review as health_review_module
 from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.desktop import tray_presence
@@ -304,7 +304,7 @@ async def get_alerts(
 
     query = select(Alert).order_by(desc(Alert.created_at)).limit(limit)
     if active_only:
-        query = query.where(Alert.resolved.is_(False))
+        query = query.where(unresolved())
 
     result = await session.execute(query)
     rows = result.scalars().all()

@@ -36,7 +36,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import AnomalyConfig, AppConfig, get_config
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.monitor import collation, failures, stalls
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
@@ -395,14 +395,19 @@ class SysAdminAgent(BaseAgent):
         # `details['truncated_sources']` records on the log side.
         write_failures: list[str] = []
 
-        # One snapshot of the open rows for the whole run, taken before
-        # anything is raised — `_handle_status` and `_check_thresholds`
-        # both dedup against it (SNAG-AGENT-006). Read here rather than
-        # at the nine call sites for the reason `_check_agent_health`
-        # reads its own tables once: separate fetches milliseconds apart
-        # can disagree about the same row, and a per-site query would
-        # also need a session, which `_handle_status` is legitimately
-        # called without on the skipped path.
+        # One snapshot of the open titles for the whole run, taken
+        # before anything is raised — `_handle_status` and
+        # `_check_thresholds` both dedup against it (SNAG-AGENT-006).
+        # Read here rather than at the nine call sites for the reason
+        # `_check_agent_health` reads its own tables once: separate
+        # fetches milliseconds apart can disagree about the same row, and
+        # a per-site query would also need a session, which
+        # `_handle_status` is legitimately called without on the skipped
+        # path.
+        #
+        # Titles, not rows (SNAG-AGENT-007). The projection differs from
+        # the three row-reading callers below; the *predicate* does not —
+        # `_open_alert_criteria` states it once and all four build on it.
         #
         # Deliberately *not* shared with `_check_agent_health` or
         # `_check_collation`, which take their own `_active_alerts`
@@ -410,7 +415,7 @@ class SysAdminAgent(BaseAgent):
         # rows themselves — id, severity, created_at, details — and must
         # see what this run has already written; titles taken before the
         # service loop are neither.
-        self._open_titles = {a.title for a in await self._active_alerts(session)}
+        self._open_titles = await self._open_alert_titles(session)
 
         # --- Service health checks ---
         # One connection pool per run, bound to this run's event loop and
@@ -1000,8 +1005,7 @@ class SysAdminAgent(BaseAgent):
         }
 
         conditions = [
-            Alert.agent == self.name,
-            Alert.resolved.is_(False),
+            *self._open_alert_criteria(),
             or_(*[Alert.title.like(p) for p in RESOLVABLE_TITLE_PATTERNS]),
         ]
         if protected:
@@ -1219,15 +1223,73 @@ class SysAdminAgent(BaseAgent):
                 history.setdefault(key, []).append(value)
         return history
 
+    def _open_alert_criteria(self) -> tuple[Any, ...]:
+        """This agent's unresolved rows — **the** statement of that set.
+
+        ``SNAG-AGENT-007`` is filed against the four reads below, and its
+        own body names the tension the fix turns on: the dedup caller
+        needs titles alone, so a ``select(Alert.title)`` projection would
+        stop it materialising whole ORM rows, *at the cost of* a second
+        definition of "this agent's open rows" sitting beside
+        :meth:`_active_alerts` and free to drift from it.
+
+        The way out is that those are not the same kind of thing.  A
+        **projection** is what a caller wants back; a **predicate** is
+        which rows it is asking about.  Only the second is a definition,
+        so it is stated here once and both readers build on it —
+        :meth:`_active_alerts` selecting rows, :meth:`_open_alert_titles`
+        selecting one column.  Adding a third projection tomorrow adds no
+        third definition.
+
+        Composed from :func:`~sysadmin.core.models.alert.unresolved`
+        rather than restating it: "open" is a fact about the table and
+        belongs beside the column and the partial indexes that encode it,
+        where nineteen hand-written copies of it could not reach the
+        index they were eight lines from.  ``Alert.agent == self.name``
+        stays here, because a scope one caller applies is not a
+        vocabulary anyone can disagree about.
+        """
+        return (Alert.agent == self.name, unresolved())
+
     async def _active_alerts(self, session) -> list[Alert]:
-        """This agent's unresolved alerts (used for dedup/suppression)."""
+        """This agent's unresolved alerts, as rows.
+
+        Three callers need the rows themselves —
+        :meth:`_check_anomalies` (id, ``details``),
+        :meth:`_check_agent_health` (id, severity, ``created_at``,
+        ``details``, to run two ladders off) and
+        :meth:`_check_collation` (id, ``details``) — and each must see
+        what the run has already written by the time it asks, so none of
+        them can share the snapshot ``_execute`` takes before the service
+        loop.  Three reads, deliberately, and the entry is right about
+        that; what was wrong was the cost it put on them.
+
+        Prefer :meth:`_open_alert_titles` where only titles are wanted.
+        """
         result = await session.execute(
-            select(Alert).where(
-                Alert.agent == self.name,
-                Alert.resolved.is_(False),
-            )
+            select(Alert).where(*self._open_alert_criteria())
         )
         return list(result.scalars().all())
+
+    async def _open_alert_titles(self, session) -> set[str]:
+        """The titles of this agent's unresolved alerts, and nothing else.
+
+        The dedup snapshot ``_execute`` takes before it raises anything.
+        It used to build this set by materialising every open row and
+        throwing all but one column away, which is affordable exactly
+        while the table is small — and ``SNAG-AGENT-005``'s ``_open_alerts``
+        was written the same way and pulled **593,814 ORM objects** on its
+        first live run, the fix falling over on the backlog it existed to
+        end.
+
+        A set rather than a list: the only question asked of it is
+        membership, and building the set at the call site let a caller
+        hold the rows longer than it needed them.
+        """
+        result = await session.execute(
+            select(Alert.title).where(*self._open_alert_criteria())
+        )
+        return set(result.scalars().all())
 
     @staticmethod
     async def _resolve_alert_ids(session, alert_ids: list[Any]) -> None:

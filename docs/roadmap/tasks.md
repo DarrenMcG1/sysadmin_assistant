@@ -394,6 +394,52 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 105 — the first entry taken since the register ran out, and the index nobody could reach (2026-08-27) ✅
+
+- [x] Measure `SNAG-AGENT-007` before deciding anything — **the entry's ranking is wrong**: it costed four reads by their result (0 open rows) when the cost is their scan (666,936 rows), so a parallel seq scan of **41,644 buffers / 33.3 ms**, four times per 300-second run
+- [x] Find why — `Alert.resolved.is_(False)` renders `resolved IS false` and both partial indexes declare `resolved = FALSE`; PostgreSQL matches a partial index structurally, so a `BooleanTest` cannot reach an `OpExpr` predicate. The index and the readers that could not use it were **eight lines apart in one file**
+- [x] Answer the entry's actual question — where the one definition lives. A **projection** is what a caller wants back and a **predicate** is which rows it asks about; only the second is a definition, so `unresolved()` sits on the model beside the column and the indexes (`STATUS_READINGS`' placement) and `_open_alert_criteria` composes the agent scope on top
+- [x] Count the real population — **nineteen** hand-written copies across five domains, not the four the entry names; all converted, the substitution provable because `resolved` is `NOT NULL`
+- [x] Stop the dedup caller materialising rows — `_open_alert_titles` projects one column, `SNAG-AGENT-005`'s `_open_alerts` having pulled 593,814 ORM objects on its first live run
+- [x] Drive the storm the entry warns about — 100,000 open `log_aggregator` rows in a rolled-back transaction; **migration 017 alone is a no-op** (41,644 buffers / 31.4 ms with the old spelling and the new index), the spelling alone leaves 100,001 index entries scanned, and the two together give **2 buffers / 0.02 ms**
+- [x] Apply migration 017 and restart — in that order, `SNAG-DB-005`'s
+- [x] Guard it — `tests/test_open_alert_predicate.py`, 12 tests, **ten falsifications each firing on the test that names it**; the AST sweep is driven at its own owner, which must trip it
+- [x] Repair the two tests the fix exposed — one pinned the defect's *rendering* and was green for the life of the module; the other's stand-in could not tell a projection from a row read and answered `select(Alert.title)` with `Alert` objects
+- [x] Remove the check with the entry — checks-in-registry **22 → 21**, `method_calls` out with it
+- [x] File `SNAG-PORT-001` and cross-repo message `9022e358` for the two red tests that were red before this sitting began
+- [x] Update STATUS.md, tasks.md, snag_list.md, HANDOFF.md, CLAUDE.md
+
+**One guard passed against deliberately broken code — the seventh here,
+and in the shape this repository keeps meeting.** The projection test
+composed its own `select(...)` from `_open_alert_criteria` and asserted
+against that, so rewriting `_open_alert_titles` to pull whole rows again
+left it green: a test asserting a statement **it** wrote. It drives the
+real reader through a capturing session now. Only the producer can answer
+what the producer selects.
+
+**One "failed" falsification was the expectation being wrong, not the
+guard.** A stand-in that drops the agent scope entirely leaves
+`Alert.agent ==` stated exactly once, so the scope-count test correctly
+stays green while the WHERE-identity test fires. The two catch opposite
+failures — a duplicated scope and a dropped one — and neither subsumes
+the other.
+
+**What the wall clock cannot show, stated rather than dressed up.** One
+sysadmin run has completed since the deploy at **3.59 s** against a
+34-run mean of **3.07 s** (2.49–3.77). The run is dominated by 30 HTTP
+service checks; the four reads were ~133 ms of it, about 4 % of a figure
+with a 1.3 s spread, and the first run after a restart has a cold pool.
+The buffer counts are the evidence and the run duration is not, so no
+improvement is claimed from it.
+
+**Not done, and named**: `SNAG-PORT-001` is filed and not fixed —
+widening the audited band changes what an alert family raises, and 1883's
+socket is root-owned so `ss` will not name its holder, which is exactly
+the unattributed-listener case `ports_checked` and `SNAG-ESTATE-009` are
+about. Bundling it here would have made both harder to verify, which is
+the reason `SNAG-AGENT-007` was itself deferred on 2026-08-14.
+estate-manager's message `153c1c96` stays open for Session 104's reason.
+
 ## Session 104 — the second delegated closure, and the first on a deployed fix (2026-08-27) ✅
 
 - [x] Re-drive `default_port_uncontended` — **refuted**: their audit files `claimed_tool_default` for 3000, 5000, 8080, 8888 and 9000, with `claimed_but_silent`, `unclaimed_listener` and `dormant_but_listening` firing for the three witnesses

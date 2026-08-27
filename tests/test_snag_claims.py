@@ -54,7 +54,6 @@ from sysadmin.ops_claims import check_expiry as real_check_expiry
 from sysadmin.snag_claims import (
     CHECKS,
     DEPRECATED_MODULE,
-    EXPECTED_ACTIVE_ALERTS_CALLS,
     EXPECTED_DISCARDED_RUNS,
     EXPIRY_PRODUCER_STAMP,
     MAX_NAMED_ENTRIES,
@@ -68,7 +67,6 @@ from sysadmin.snag_claims import (
     Check,
     Measurement,
     call_sites,
-    check_active_alerts_reads,
     check_all,
     check_capped_signature_collides,
     check_code_spans_survive,
@@ -93,7 +91,6 @@ from sysadmin.snag_claims import (
     expiry_reading,
     load_entries,
     main,
-    method_calls,
     overall,
     probe_signatures,
     read_entries,
@@ -400,18 +397,6 @@ class TestInstruments:
         )
         assert not snag_claims.attribute_reads(REVIEW_SCHEDULE_LEAVES, (REPO_ROOT / "sysadmin",))
 
-    def test_method_calls_ignore_the_definition_and_the_docstring(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "m.py"
-            path.write_text(
-                'def _active_alerts(self):\n    """calls self._active_alerts once."""\n'
-                "    # self._active_alerts()\n"
-                "    return 1\n\n"
-                "def caller(self):\n    return self._active_alerts()\n",
-                encoding="utf-8",
-            )
-            assert method_calls(path, "_active_alerts") == [7]
-
     def test_discarded_tasks_exclude_a_task_whose_reference_is_kept(self):
         """The distinction ``SNAG-LOG-006`` turns on, and it is structural.
 
@@ -616,17 +601,6 @@ class TestChecksAgainstTheLiveBox:
             measurement = check_review_schedule_unread()
         assert measurement.verdict == "mismatch"
         assert "reader(s)" in measurement.note
-
-    def test_active_alerts_holds_and_is_refuted_in_either_direction(self):
-        assert check_active_alerts_reads().verdict == "match"
-        for expected, word in (
-            (EXPECTED_ACTIVE_ALERTS_CALLS - 1, "more"),
-            (EXPECTED_ACTIVE_ALERTS_CALLS + 1, "fewer"),
-        ):
-            with patch.object(snag_claims, "EXPECTED_ACTIVE_ALERTS_CALLS", expected):
-                measurement = check_active_alerts_reads()
-            assert measurement.verdict == "mismatch"
-            assert word in measurement.note
 
     def test_manual_run_holds_and_is_refuted_when_a_task_is_kept(self):
         assert check_manual_run_unawaited().verdict == "match"
@@ -2633,14 +2607,14 @@ class TestTheQuietenedJudgementCheck:
     async def _standing(session):
         from sqlalchemy import select
 
-        from sysadmin.core.models.alert import Alert
+        from sysadmin.core.models.alert import Alert, unresolved
 
         return (
             (
                 await session.execute(
                     select(Alert).where(
                         Alert.message == snag_claims.PROBE_MESSAGE,
-                        Alert.resolved.is_(False),
+                        unresolved(),
                     )
                 )
             )
@@ -2860,7 +2834,7 @@ class TestTheQuietenedJudgementCheck:
         """The first of the three shapes a fix could take."""
         from sqlalchemy import update
 
-        from sysadmin.core.models.alert import Alert
+        from sysadmin.core.models.alert import Alert, unresolved
         from sysadmin.estate.judgements import TRANSIENT_HOLDER_SEVERITY
 
         async def in_place(session):
@@ -2868,7 +2842,7 @@ class TestTheQuietenedJudgementCheck:
                 update(Alert)
                 .where(
                     Alert.message == snag_claims.PROBE_MESSAGE,
-                    Alert.resolved.is_(False),
+                    unresolved(),
                 )
                 .values(severity=TRANSIENT_HOLDER_SEVERITY)
             )
@@ -3084,14 +3058,14 @@ class TestTheUnsweptPortCheck:
     async def _row(cls, session, port: int):
         from sqlalchemy import select
 
-        from sysadmin.core.models.alert import Alert
+        from sysadmin.core.models.alert import Alert, unresolved
 
         return (
             (
                 await session.execute(
                     select(Alert).where(
                         Alert.title == cls._titles()[port],
-                        Alert.resolved.is_(False),
+                        unresolved(),
                     )
                 )
             )

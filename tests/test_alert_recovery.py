@@ -53,6 +53,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.dialects import postgresql
 
+from sysadmin.core.models.alert import unresolved
 from sysadmin.core.unit_failure import unit_failure_title
 from sysadmin.monitor.agent import (
     RESOLVABLE_TITLE_PATTERNS,
@@ -157,6 +158,11 @@ async def resolve_sql(
     )
 
 
+def _rendered(clause) -> str:
+    """One clause as it reaches PostgreSQL."""
+    return str(clause.compile(dialect=postgresql.dialect()))
+
+
 @pytest.mark.asyncio
 class TestTheResolveStatement:
     async def test_it_is_scoped_to_this_agents_unresolved_rows(self, agent, session):
@@ -164,7 +170,15 @@ class TestTheResolveStatement:
 
         assert "UPDATE sysadmin.alerts SET resolved=true" in sql
         assert "alerts.agent = 'sysadmin'" in sql
-        assert "alerts.resolved IS false" in sql
+        # Composed from the predicate rather than typed out.  This line
+        # read ``"alerts.resolved IS false"`` until 2026-08-27 and was
+        # green throughout: it pinned the *rendering* that could not
+        # reach either partial index, which is how a sequential scan over
+        # 667k rows survived here for the life of the module —
+        # ``TestJournalCommand``'s defect in a second family.  Written
+        # this way it cannot pin a spelling at all; the one statement of
+        # the predicate decides what it asserts.
+        assert _rendered(unresolved()) in sql
 
     async def test_every_owned_pattern_is_in_the_population(self, agent, session):
         sql = await resolve_sql(agent, session)

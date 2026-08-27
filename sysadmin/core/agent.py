@@ -17,7 +17,7 @@ from typing import Any
 from sysadmin.core.database import get_scheduler_session
 from sysadmin.core.event_bus import event_bus
 from sysadmin.core.models.agent_run import AgentRun
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +306,7 @@ class BaseAgent(ABC):
             .where(
                 Alert.agent == self.name,
                 Alert.title.ilike(f"%{title_pattern}%"),
-                Alert.resolved.is_(False),
+                unresolved(),
             )
             .values(resolved=True, resolved_at=datetime.now(UTC))
         )

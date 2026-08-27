@@ -461,26 +461,6 @@ def attribute_reads(attrs: frozenset[str], roots: Iterable[Path]) -> list[str]:
     return hits
 
 
-def method_calls(path: Path, name: str) -> list[int]:
-    """The line of every call to ``<anything>.name(...)`` in one file.
-
-    A call, never a mention: the ``def`` that declares it, the docstring
-    that names it and the comment above the caller are all excluded
-    without a special case, which is ``test_contract_reachability``'s rule
-    read for a different question.
-    """
-    tree = _parse(path)
-    if tree is None:
-        return []
-    return sorted(
-        node.lineno
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == name
-    )
-
-
 def discarded_tasks(path: Path, coroutine: str) -> list[int]:
     """Bare ``asyncio.create_task(x.<coroutine>(...))`` statements.
 
@@ -530,8 +510,9 @@ def call_sites(name: str, roots: Iterable[Path]) -> list[tuple[str, str]]:
     """Every call to ``name``, as ``(file:line, enclosing def)``.
 
     The **enclosing function is the half that carries the claim**, and it
-    is why this is not :func:`method_calls` with a wider net.
-    ``SNAG-LOG-008`` says the unwrap happens at read time; a call that
+    is why this is not a bare count of call sites — the shape
+    ``SNAG-AGENT-007``'s check used, removed with that entry on
+    2026-08-27.  ``SNAG-LOG-008`` says the unwrap happens at read time; a call that
     moved out of ``read_journal`` into a query path or a migration is the
     same count of call sites and a different mechanism, so a check
     counting them alone would report a landed fix as unchanged.
@@ -621,12 +602,6 @@ def query_one(statement: str) -> tuple[object | None, str]:
 SYSADMIN_UNIT = REPO_ROOT / "systemd" / "sysadmin.service"
 RETIRED_UNIT = "ollama.service"
 
-#: ``SNAG-AGENT-007``'s figure, in its own words: *"four unbounded reads
-#: of the alerts table per 300-second run"*.  Call sites, which is what
-#: the entry enumerates — ``_check_anomalies``, ``_check_agent_health``,
-#: ``_check_collation`` and ``_execute``'s dedup snapshot.
-AGENT_PATH = REPO_ROOT / "sysadmin" / "monitor" / "agent.py"
-EXPECTED_ACTIVE_ALERTS_CALLS = 4
 
 #: ``SNAG-LOG-006``'s two composition roots, and the count it measured.
 MANUAL_RUN_PATHS = (
@@ -793,27 +768,6 @@ def check_review_schedule_unread() -> Measurement:
         f"{len(readers)} reader(s) of schedules.review_hour/review_minute — the leaves "
         "drive something now, or the entry's remedy has already been taken",
         tuple(readers[:MAX_NAMED_ENTRIES]),
-    )
-
-
-def check_active_alerts_reads() -> Measurement:
-    """``SNAG-AGENT-007`` — four unbounded reads of ``alerts`` per run.
-
-    Counts *call sites*, which is what the entry enumerates, and says so
-    on both verdicts: a caller inside a branch is still one site, and the
-    entry's own claim is about how many places issue the query rather
-    than how many times one run happens to take a branch.
-    """
-    lines = method_calls(AGENT_PATH, "_active_alerts")
-    detail = (f"{_rel(AGENT_PATH)} call sites: " + ", ".join(str(n) for n in lines),)
-    if len(lines) == EXPECTED_ACTIVE_ALERTS_CALLS:
-        return Measurement("match", "", detail)
-    direction = "fewer" if len(lines) < EXPECTED_ACTIVE_ALERTS_CALLS else "more"
-    return Measurement(
-        "mismatch",
-        f"{len(lines)} call sites, not {EXPECTED_ACTIVE_ALERTS_CALLS} — {direction} than the "
-        "entry counts, so its figure is stale whichever way it moved",
-        detail,
     )
 
 
@@ -4083,11 +4037,11 @@ async def _unresolved_titles(session, titles: Iterable[str]) -> tuple[str, ...]:
     """
     from sqlalchemy import select
 
-    from sysadmin.core.models.alert import Alert
+    from sysadmin.core.models.alert import Alert, unresolved
 
     rows = await session.scalars(
         select(Alert.title)
-        .where(Alert.title.in_(list(titles)), Alert.resolved.is_(False))
+        .where(Alert.title.in_(list(titles)), unresolved())
         .distinct()
     )
     return tuple(sorted(rows))
@@ -6818,12 +6772,6 @@ CHECKS: dict[str, Check] = {
             "SNAG-CFG-002",
             "schedules.review_hour/minute drive nothing",
             check_review_schedule_unread,
-        ),
-        Check(
-            "active_alerts_reads",
-            "SNAG-AGENT-007",
-            "_active_alerts is read four times a run",
-            check_active_alerts_reads,
         ),
         Check(
             "manual_run_unawaited",

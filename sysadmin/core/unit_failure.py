@@ -71,7 +71,7 @@ from sqlalchemy.orm import Session
 
 from sysadmin.core.config import get_config
 from sysadmin.core.database import _configure_search_path
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.schema_guard import schema_status
 
 logger = logging.getLogger(__name__)
@@ -181,7 +181,7 @@ def record_unit_failure(
                 select(Alert.id).where(
                     Alert.agent == FILED_UNDER,
                     Alert.title == unit_failure_title(unit),
-                    Alert.resolved.is_(False),
+                    unresolved(),
                 )
             ).first()
             if existing is not None:
@@ -260,7 +260,7 @@ async def resolve_unit_failures(session, unit: str) -> int:
         .where(
             Alert.agent == FILED_UNDER,
             Alert.title == unit_failure_title(unit),
-            Alert.resolved.is_(False),
+            unresolved(),
             Alert.details["source"].astext == SOURCE,
         )
         .values(resolved=True, resolved_at=datetime.now(UTC))

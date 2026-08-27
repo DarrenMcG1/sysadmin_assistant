@@ -26,7 +26,7 @@ from sysadmin.core.config import get_config
 # the names collide would compare a log level against an alert level
 # and be wrong only for ``error``, which has no alert rung at all.
 from sysadmin.core.escalation import SEVERITY_ORDER as ALERT_SEVERITY_ORDER
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.journal import (
     SEVERITY_ORDER,
@@ -515,7 +515,7 @@ class LogAggregatorAgent(BaseAgent):
         result = await session.execute(
             select(Alert).where(
                 Alert.agent == self.name,
-                Alert.resolved.is_(False),
+                unresolved(),
                 Alert.title.in_(sorted(titles)),
             )
         )
@@ -614,7 +614,7 @@ class LogAggregatorAgent(BaseAgent):
         )
         conditions = [
             Alert.agent == self.name,
-            Alert.resolved.is_(False),
+            unresolved(),
             last_seen < cutoff,
         ]
         if seen:

@@ -80,7 +80,7 @@ from sqlalchemy import select, update
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import EstateJudgeConfig, get_config
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.estate import client, judgements
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.ports import PortAttribution, attribution_from_blob
@@ -280,7 +280,7 @@ class EstateJudgeAgent(BaseAgent):
         result = await session.execute(
             select(Alert).where(
                 Alert.agent == self.name,
-                Alert.resolved.is_(False),
+                unresolved(),
             )
         )
         return list(result.scalars().all())

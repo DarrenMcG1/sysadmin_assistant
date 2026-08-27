@@ -2,7 +2,85 @@
 
 ## Next action
 
-Take `SNAG-AGENT-007` — `SysAdminAgent._active_alerts` issues four unbounded reads of `alerts` per 300-second run and materialises whole ORM rows, and the entry's own body names the tension the fix turns on, since the dedup caller needs titles alone while a `select(Alert.title)` projection beside it is a second definition of *this agent's open rows* — so the sitting's real question is where the one definition lives rather than how to write the query, and it is the first entry to be taken since the register ran out of checks to write, which is the direction the whole family was built to run in and has never once been run in.
+Take `SNAG-PORT-001` — estate-manager widened `audit.ports.audited_ranges` to include `[1000, 1999]` today and this repository's deliberate copy of that list did not move, so its four port comparisons stopped covering two ports the estate now governs (1716 and 1883, the second being the estate-owned MQTT broker), and until it is taken the suite is **red on a clean tree**, which is the state a sitting must not start work in because the preflight reports the tree and not the suite; the fix is one constant and the sitting is not, since widening the band changes what an alert family raises and 1883's socket is root-owned so `ss` will not name its holder, which is precisely the unattributed-listener case `ports_checked` and `SNAG-ESTATE-009` exist for.
+
+## Session 105 is complete — the first entry taken since the register ran out, and the index nobody could reach
+
+`SNAG-AGENT-007` is **closed** and `SNAG-PORT-001` **opened**; the live
+parser reads **94 → 95** entries with open unmoved at **23**.
+Checks-in-registry **22 → 21** — the check left with its entry, and its
+own last clause had predicted the fix that closed it. Suite **2722 →
+2732**, of which **2730 green and 2 red**, both red before this sitting
+began. Migration **017** applied 20:52, daemon restarted **21:00:56**,
+`/health` 200, all ten ops claims check out.
+
+### What the sitting settled
+
+- **The entry's ranking was wrong, and only running it said so.** It
+  costed four reads by their *result* — zero open `sysadmin` rows — and
+  the cost is their *scan*: **666,936 rows, 41,644 buffers, 33.3 ms**,
+  four times per 300-second run. `alerts` has carried
+  `idx_alerts_active … WHERE resolved = FALSE` since it was created and
+  **not one of nineteen readers could reach it**, because
+  `Alert.resolved.is_(False)` renders `resolved IS false` and PostgreSQL
+  matches a partial index structurally. The index and the readers that
+  could not use it were **eight lines apart in one file**.
+- **The tension the entry filed itself around dissolves once the halves
+  are named.** It refused the `select(Alert.title)` projection as a
+  second definition of *this agent's open rows*. A projection is what a
+  caller wants back; a predicate is which rows it asks about; only the
+  second is a definition. `unresolved()` sits on the model beside the
+  column and the indexes, `_open_alert_criteria` composes the agent scope
+  on top, and the four reads now differ in projection and cannot differ
+  in population.
+- **The population was nineteen, not four**, across five domains — so
+  taking the entry at its word would have left fifteen sequential scans
+  and a fresh copy of the definition beside them. The substitution is
+  provable rather than safe-looking: `IS false` and `= false` differ on
+  exactly one input and `resolved` is `NOT NULL`, asserted against the
+  column rather than remembered.
+- **The migration would have been a no-op alone**, driven at 100,000
+  synthetic open rows in a rolled-back transaction: old spelling with the
+  new index present, **41,644 buffers / 31.4 ms**; new spelling on the
+  old index, **100,001 index entries** scanned to return nothing; the
+  pair, **2 buffers / 0.02 ms**. Today the planner still prefers the
+  older index, so the new one is insurance that engages exactly when the
+  entry's worry materialises — recorded, because an index nothing chooses
+  looks identical to one that does not work.
+- **Two tests were the reason this survived.** One pinned the *rendering*
+  `alerts.resolved IS false` and was green for the life of the module;
+  the other's stand-in could not tell a projection from a row read and
+  answered `select(Alert.title)` with `Alert` objects, so the fix arrived
+  as four red dedup tests — the defect they exist to catch, wearing the
+  fix's clothes.
+- **One new guard passed against deliberately broken code**, the seventh
+  here: it composed its own statement from `_open_alert_criteria` and
+  asserted against that, so only the producer could answer what the
+  producer selects. Ten falsifications now, each firing on the test that
+  names it.
+
+### What the wall clock cannot show
+
+One sysadmin run has completed since the deploy, at **3.59 s** against a
+45-run mean of **3.02 s** (2.49–3.77). The run is dominated by 30 HTTP
+service checks; the four reads were ~133 ms of it, roughly 4 % of a
+figure with a 1.3 s spread, and the first run after a restart has a cold
+pool. **No improvement is claimed from the run duration** — the buffer
+counts are the evidence and this is not.
+
+### Left open, deliberately
+
+- `SNAG-PORT-001`, filed rather than fixed, for the reason above and
+  because bundling it into a performance fix would have made both harder
+  to verify — which is why `SNAG-AGENT-007` was itself deferred on
+  2026-08-14. Cross-repo message **`9022e358`** filed at 8400 carrying
+  the cost: the suite red on a clean tree, and ~25 minutes of this
+  sitting spent establishing the red was another repository's.
+- estate-manager's message **`153c1c96`** stays open, for Session 104's
+  reason: the rule it recommends binds three repositories and their own
+  message routes it to the owner rather than to a session.
+
+---
 
 ## Session 104 is complete — the second delegated closure, and the first on a deployed fix
 

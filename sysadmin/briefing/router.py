@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.briefing.data import generate_briefing_data
 from sysadmin.core.database import get_db_session
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth, is_fault
@@ -88,7 +88,7 @@ async def get_summary(session: AsyncSession = Depends(get_db_session)):
     # --- Active alerts ---
     alert_query = (
         select(Alert)
-        .where(Alert.resolved.is_(False))
+        .where(unresolved())
         .order_by(desc(Alert.created_at))
         .limit(20)
     )

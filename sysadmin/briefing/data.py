@@ -62,7 +62,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.core.config import get_config
 from sysadmin.core.database import get_scheduler_session
-from sysadmin.core.models.alert import Alert
+from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.monitor.models.log_entry import LogEntry
 from sysadmin.monitor.models.service_health import ServiceHealth, is_fault, is_unwatched
@@ -307,7 +307,7 @@ async def _gather_alerts(session: AsyncSession) -> dict[str, Any]:
             func.count().label("occurrences"),
             func.max(Alert.created_at).label("latest"),
         )
-        .where(Alert.resolved.is_(False))
+        .where(unresolved())
         .group_by(Alert.severity, Alert.title)
         .order_by(desc("latest"))
     )
