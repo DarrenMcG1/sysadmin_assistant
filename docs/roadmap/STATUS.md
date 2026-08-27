@@ -54,19 +54,20 @@
 > `/health` answers **200**
 > <!--check:health-->,
 > `alembic current` reads 016 at the packaged head <!--check:schema-->, and
-> `alerts` holds **2** unresolved rows <!--check:alerts-->.
->
-> **That count is unmoved across this sitting, and one of the two rows is
-> not.** What is open is `info: Weekly disk review ready` and
-> `warning: Unusual CPU usage`
-> <!--check:open_titles-->. The second is a *fresh row* raised at
-> **15:48:28**, its predecessor having resolved when the previous
-> sitting's load fell away: the full-suite run took the box over the
-> threshold again, this time at 2,713 tests. It is named here rather than
-> resolved by hand, because a row this service raised is a row
-> `_check_anomalies` resolves by id when the condition clears, and a
-> second owner closing it is the defect this repository has now found at
-> six scales.
+> `alerts` holds **1** unresolved row <!--check:alerts-->.
+
+> **That count fell by one inside this sitting, and the fall is the check
+> being right rather than the block being wrong.** What is open is
+> `info: Weekly disk review ready` <!--check:open_titles-->. A
+> `warning: Unusual CPU usage` was raised at **15:48:28** by this
+> sitting's own full-suite run — 2,713 tests taking the box to well over
+> its 7-day mean — and the block said, in this paragraph, that it was
+> named rather than resolved by hand because `_check_anomalies` resolves
+> it by id when the condition clears. It did, within the hour, and
+> `check-ops-claims.sh` caught the block still asking for two. That is
+> `SNAG-ESTATE-008`'s founding case — a *fall* in the unresolved count is
+> the signal that already existed and had no reader — arriving against
+> the document that records it, in the sitting that wrote the sentence.
 >
 > **Every claim above names the check that closes it**, and that is what
 > `<!--check:…-->` is: the name of a check, never a copy of the figure

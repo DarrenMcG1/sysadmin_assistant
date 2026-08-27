@@ -93,11 +93,11 @@ consumer pins the set, so a correct row is a breaking change downstream.
 `alembic current` **016** at the packaged head. `check-ops-claims.sh`
 green on all nine claims; `check-snag-claims.sh` reports all twenty-one
 checked entries still holding and names the three that carry no check.
-`alerts` holds **2** unresolved rows — the standing `info: Weekly disk
-review ready`, and a *fresh* `warning: Unusual CPU usage` raised at
-15:48:28 inside this sitting's full-suite run, its predecessor having
-resolved when the previous sitting's load fell away. Named rather than
-resolved by hand, because `_check_anomalies` resolves it by id when the
-condition clears. Another session committed `services.yaml` in this tree
+`alerts` holds **1** unresolved row, the standing `info: Weekly disk
+review ready`. A `warning: Unusual CPU usage` was raised at 15:48:28 by
+this sitting's own full-suite run and **resolved itself within the
+hour**, exactly as the block said it would — so `check-ops-claims.sh`
+caught STATUS.md still asking for two, which is `SNAG-ESTATE-008`'s
+founding case arriving against the document that records it. Another session committed `services.yaml` in this tree
 at 15:40 (Alfred's five-minute evaluator timer) and left these files
 alone.
