@@ -2,91 +2,108 @@
 
 ## Next action
 
-Write the twenty-first check against `SNAG-SVC-002` — the `timer_stale` recommendation asks `stalls.py`'s "has it run?" about a timer, with no ladder and no cross-reference — and note that rule 1 is the whole difficulty and the reason this entry has been runner-up three times without being taken: the two families are disjoint today only because no agent on this box is a systemd timer, which is a property of the box rather than of the design, so a check measuring the disjointness would report the entry fixed on a day nobody had touched the code; the mechanism is the claim that a timer-backed agent would be judged by both families at once, which needs a synthetic agent whose schedule is a timer — the treatment `check_dropin_blind_spot` gives a drop-in and `check_unmarked_sentence_invisible` gives a block sentence, now three checks built the same way and the shape to copy.
+Write the twenty-second check against `SNAG-ESTATE-004` — the fourth driven across a repository boundary and the first whose claim is entirely about another repository's *surface* rather than its code, so carry in Session 87's instrument rule: probe only public symbols, because a private helper's name is what their fix renames; record estate-manager's commit state beside the verdict, since a verdict about somebody else's tree means nothing without the state it was taken at; and report every way of not-running as `unknown` rather than as a skip, `ports_checked`'s rule at a boundary — with `SNAG-SVC-001` the other candidate and the harder judgement rather than the harder build, since its own body says both honest resolutions are the owner's, so a check there would be measuring a narrowing nobody has decided to keep.
 
-## Session 98 is complete — the twentieth check, and the first that measures a silence
+## Session 99 is complete — the twenty-first check, and the entry that was runner-up three times
 
-`SNAG-ESTATE-012` is **checked and stays open**. Checked entries
-**17 → 18**, unchecked **7 → 6**, open unmoved at **24** (none opened,
+`SNAG-SVC-002` is **checked and stays open**. Checked entries
+**18 → 19**, unchecked **6 → 5**, open unmoved at **24** (none opened,
 none closed) — measured either side of the edit by driving
-`estate.snags.read_snags`, which reads **70 entries / 24 open** both
-times. Suite **2619 → 2635**, `tests/test_snag_claims.py` **215 → 231**.
+`estate.snags.read_snags`. Suite **2635 → 2653**,
+`tests/test_snag_claims.py` **231 → 249**.
 
-**Every other check in this registry looks for something and reports
-whether it is there. This one reports that a sentence reaches nothing.**
-`check_unmarked_sentence_invisible` builds a printed region in the shape
-of the sub-session block, carrying **two** sentences — one a pattern can
-reach (`**7 routes**`, with `<!--check:routes-->` beside it) and one of
-the entry's own three unmarked instances — and drives the real
-`ops_claims.check_all` over both documents.
+**The entry had been ranked runner-up three times and rule 1 is the whole
+reason.** The obvious check measures the disjointness its own second
+bullet reports — measured this sitting, **nine declared timers against
+five scheduled agents, zero overlap** — and that is a property of *this
+box*. One scheduled job moved to a `oneshot` + `.timer`, which
+`monitorable-project.md` requires of every new one, and such a check
+reports the entry fixed on a day nobody has touched either module.
+`check_timer_agent_two_owners` builds the thing this box has not got: an
+agent whose schedule is a timer.
 
 ### What the sitting settled
 
-- **The marked half is the witness, and that is the whole design.** An
-  absence is what a broken probe produces for free: a reader that had
-  stopped cutting the region reports the unmarked sentence *exactly* as
-  a working one does. Both halves of the convention are witnessed
-  because they fail apart — the figure coming back out of the prose is
-  `read_claim`, the absence of an `unclaimed:` finding beside it is
-  `read_markers` reaching the marker, and the marker half is the one
-  both refused remedies would have had to extend.
-- **It is a check that the invisibility holds, never a marker built to
-  close the entry.** The entry names both obvious remedies and refuses
-  both by name; rule 2 forbids this module authoring the document in any
-  case.
-- **Two instruments, because the two shapes a fix can take are invisible
-  to each other.** A finding reading *"blockquote paragraph 2 carries no
-  marker"* names no sentence and slips past a word search; a fix folded
-  into an existing claim's note adds no key and slips past a projection
-  of the report. Both are driven as real stand-ins wrapping the real
-  `check_all`, with two further shapes — a `CLAIM_PATTERNS` entry grown
-  to reach a specimen, and a colliding sentence.
-- **A difference the sentence cannot explain is `unknown`, never
-  `mismatch`.** `open_titles` states its `documented` over the live
-  alert table, so two drives 0.4 s apart can honestly disagree.
-  The direction rule is what makes that safe rather than a shrug: a
-  sentence can only change what of a block is readable, so `None →
-  value` and `value → None` are the sentence and `value → other value`
-  is the box.
+- **One fact, two vocabularies, and the shared name is not what makes it
+  one subject.** A daily schedule with one last-run instant goes to
+  `summarise_agent`/`stalls.evaluate` as an agent that has not run and to
+  `recommend` as a timer whose `LastTriggerUSec` stopped moving. Both
+  speak, and *simultaneously*, because `timer_stale_multiplier` **is**
+  `stall_grace_multiplier` — the entry's own stated mitigation — so one
+  elapsed value crosses both thresholds.
+- **Three instruments, because the two fixes the entry names move
+  different things.** A family going silent is the fix it asks for; a
+  rung on `timer_stale` is the fix it **forbids by name** and is
+  unreachable from the first instrument, since both families go on
+  speaking either way. Its headline claim — neither knows the other
+  exists — is measured as the *importer sets*, disjoint today
+  (`monitor/agent.py` against `health_review.py`,
+  `reliability_history.py`, `routers/services.py`), which is the one
+  thing a composing caller feeding `_observed_fires` into the stall
+  family could not avoid moving.
+- **Rule 7 for the fourth time.** `service_recommendations.py` already
+  carries the word `stalls`, in `_timer_stale_row`'s own docstring — the
+  entry's sentence written into the module the entry is about — so a grep
+  reports the cross-reference as already existing and an import walk
+  never sees a docstring. Pinned by a test at the real file.
+- **Two witnesses, and the second one's `unknown` names both readings.**
+  A fresh schedule must read not stalled; a still-firing timer whose last
+  run failed must yield a `timer_failed` row through the same call and
+  the same confidence gate. When that second witness fails, the timer
+  half having been *removed* is the entry's own fix and is named in the
+  note, because a reader who does not go and look would otherwise never
+  learn it may have landed.
+- **The check is excluded from its own population, and it is not
+  bookkeeping**: driving both families means importing both, so the only
+  thing here that knows the two exist would otherwise refute the entry on
+  every run.
 
-### Two falsifications corrected the check rather than the entry
+### The falsification corrected the check, then corrected its reason
 
-- **The collision stand-in found the draft's ordering wrong.** It
-  re-witnessed every drive, so a sentence restating the block's figure
-  differently — `read_claim` refuses two distinct matches rather than
-  resolving them — tripped the witness and came back `unknown` as *"the
-  probe could not be driven"*, which is the wrong verdict in the
-  dangerous direction for a sentence that had visibly been read. Once
-  the baseline has witnessed the reader, a witness that fails on the
-  specimen **is** the sentence, and a remedy refusing a region with an
-  unmarked paragraph lands there too.
-- **A constant moved because an instrument was silently dead.** At a
-  five-character floor the middle specimen yielded no distinctive word
-  at all — `8400` is four characters, and `answers` is already the
-  subject of the `/health` claim — so one of the three was covered by
-  the projection alone and nothing said so. That is this entry's own
-  symptom arriving inside its own check. The floor is four now, three is
-  refused in the other direction, and an unquotable specimen is named.
+The first stand-in put a rung at six cadences and came back `match` — the
+stand-in was wrong. The second clocked its rung off the box's one
+escalation gap, the only shape available to a family recomputed per
+request, and **also** passed. The two drives straddle a rung only when
+its gap falls in `[overshoot, overshoot + 2 x escalate_after_hours)`; at
+the draft's one-cadence overshoot that window is **24h to 72h** here, so
+every rung shorter than a day read loud at both drives. The reason
+written first — "the two numbers coincide, so it reads loud at both" —
+was approximately right and imprecise, and only the arithmetic said
+which. The overshoot is one check interval now, widening the window to
+**5 minutes to 48 hours**, and a test drives both constants and asserts
+the old one still hides a sub-cadence rung.
 
 ### Found on the way, without looking for it
 
-The block's *"sixteen written, fourteen in the registry"* had been four
-sittings stale — it is **twenty** and **eighteen** — which is the
-**third** live instance of `SNAG-ESTATE-012` this dashboard has produced
-in three sittings, after Session 97's 15/9 and Session 93's 10/14. Like
-both of those it carries no figure any pattern holds and no marker any
-check can be pinned to, so the check written this sitting cannot reach
-it by construction. Corrected by hand, because that is what the entry
-says this class costs.
+**A count taken across a repository boundary moved underneath the
+measurement, and the natural reading of it was wrong.**
+`estate.snags.read_snags` returned **93** entries over this document
+against the **70** three sittings had recorded — which reads as stale
+prose, and is not. `estate-lib` is an **editable install resolving into
+estate-manager's working tree**, so the figure was taken against
+uncommitted work in another repository at 14:12; their commit `1e7a9a9`
+landed at **14:21:59**, growing the reader a third dialect (their
+ADR-0052). At the previous reader today's document reads **70 / 24** —
+exactly what was recorded — and the *open* half is 24 under both, which
+is the figure the board publishes and the one
+`TestAgainstTheOwningParser` pins, so nothing here depended on it.
+
+**What it cost is the lesson.** `cross-repo-instrument-must-be-public`
+says record the other repository's commit state beside the verdict; not
+doing so put a wrong correction into three documents before the timeline
+was checked. Filed at estate-manager as friction rather than absorbed:
+an editable install publishes a neighbour's *uncommitted* state with no
+version stamp, and a consumer cannot tell that from a document of its own
+going stale.
 
 ### State of the box
 
-`sysadmin` restarted at **2026-08-27 13:49:21**, `/health` **200**,
+`sysadmin` restarted at **2026-08-27 14:20:53**, `/health` **200**,
 `alembic current` **016** at the packaged head, `alerts` holds **1**
 unresolved row (`info: Weekly disk review ready`). `check-ops-claims.sh`
-green on all nine claims; `check-snag-claims.sh` reports all eighteen
-checked entries still holding and names the six that carry no check.
+green on all nine claims; `check-snag-claims.sh` reports all nineteen
+checked entries still holding and names the five that carry no check.
 The restart was taken rather than argued with for the reason Sessions 81
-and 84–97 took theirs: only `sysadmin/snag_claims.py` moved, which the
+and 84–98 took theirs: only `sysadmin/snag_claims.py` moved, which the
 daemon does not import, and correcting the artefact the script names
 beats hand-verifying that it is wrong.

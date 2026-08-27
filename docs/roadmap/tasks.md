@@ -394,6 +394,40 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 99 — the twenty-first check, and the entry that was runner-up three times (2026-08-27) ✅
+
+- [x] Take `SNAG-SVC-002`, which three sittings ranked and none took, and
+      settle the reason: rule 1 refuses its population, and its
+      population is the *disjointness* — nine declared timers against
+      five scheduled agents, zero overlap, measured this sitting. That is
+      a property of the box, so a check reading it reports the entry
+      fixed the day somebody moves a scheduled job to a `oneshot` +
+      `.timer`
+- [x] Build the subject this box has not got — `check_timer_agent_two_owners`
+      hands one daily schedule with one last-run instant to
+      `summarise_agent`/`stalls.evaluate` as an agent that has not run and
+      to `recommend` as a timer whose `LastTriggerUSec` stopped moving.
+      `check_dropin_blind_spot`'s treatment and
+      `check_unmarked_sentence_invisible`'s, now three built the same way
+- [x] Three instruments, because the entry names two fixes that move
+      different things — a family going silent, a rung appearing on
+      `timer_stale` (the fix it forbids by name, and invisible to the
+      first instrument since both families go on speaking), and the
+      importer sets, which a composing caller could not avoid moving
+- [x] Two witnesses, since a family gone silent and a family the probe
+      cannot reach report identically — a fresh schedule must read not
+      stalled, and a still-firing timer whose last run failed must yield
+      a `timer_failed` row
+- [x] Falsify all four halves and both witnesses at real stand-ins. The
+      ladder falsification found a defect in the probe **and then in its
+      stated reason**: the two drives straddle a rung only when its gap
+      falls in `[overshoot, overshoot + 2 x escalate_after_hours)`, which
+      at the draft's one-cadence overshoot was 24h–72h, so every rung
+      shorter than a day was invisible. One check interval now, 5 min–48h
+- [x] Correct the block's `19`/`5` and `twenty-one`/`nineteen` figures in
+      the same sitting they moved, which is what Session 98's record of
+      three stale repeats was for
+
 ## Session 98 — the twentieth check, and the first that measures a silence (2026-08-27) ✅
 
 - [x] Take `SNAG-ESTATE-012` on this sitting's own evidence rather than

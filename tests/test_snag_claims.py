@@ -23,6 +23,7 @@ against a way it could crash:
 
 import ast
 import contextlib
+import dataclasses
 import inspect
 import itertools
 import json
@@ -44,7 +45,7 @@ import pytest
 
 import sysadmin.ops_claims as ops_claims
 import sysadmin.snag_claims as snag_claims
-from sysadmin.core.config import REPO_ROOT
+from sysadmin.core.config import REPO_ROOT, get_config
 from sysadmin.core.schema_guard import EXIT_STATUS
 from sysadmin.core.text import strip_markdown as real_strip_markdown
 from sysadmin.monitor.journal import unwrap_json_message
@@ -4331,3 +4332,410 @@ class TestTheUnmarkedSentenceCheck:
             measurement = check_unmarked_sentence_invisible()
         assert measurement.verdict == "unknown"
         assert "quotation instrument cannot look" in measurement.note
+
+
+class TestTheTimerAgentCheck:
+    """``SNAG-SVC-002``'s check — the twenty-first, and the third on a synthetic subject.
+
+    The entry has been runner-up three times and rule 1 is why.  The
+    obvious check measures the disjointness its second bullet reports —
+    no agent on this box is a systemd timer, so nothing reaches both
+    families — and that is a property of *this box*: one scheduled job
+    moved to a ``oneshot`` + ``.timer``, which ``monitorable-project.md``
+    requires of every new one, and the check flips to "refuted" with
+    nobody having touched either module.
+
+    So the mechanism is reproduced.  Most of these tests are about the
+    instruments rather than about the entry, and every candidate fix is
+    driven as a **real stand-in** wrapping the real producers rather than
+    as a literal saying a fix landed — because the verdicts worth having
+    are the ones that tell three differently-shaped fixes apart, and one
+    of those fixes is the one the entry **forbids**.
+    """
+
+    # -- the population the naive check would have measured --------------
+
+    def test_no_scheduled_agent_on_this_box_is_a_systemd_timer(self):
+        """Rule 1's founding condition for this entry, measured rather than quoted.
+
+        If this ever fails, the entry's population has stopped being
+        empty and a *population* check would become possible — but it
+        would also start reporting the entry refuted the day somebody
+        renamed a unit, which is why the check does not use one.  It
+        fails here, where it reads as "the box moved", rather than in the
+        check, where it would read as a landed fix.
+        """
+        from sysadmin.monitor.self_monitor import agent_schedules
+        from sysadmin.monitor.services import load_services
+
+        # The file, not the singleton: the suite does not prime it, and a
+        # singleton that answers "no services" would pass this test by
+        # having measured nothing.
+        services = load_services(REPO_ROOT / "services.yaml")
+        timers = {entry.name for entry in services.services if entry.kind == "timer"}
+        agents = set(agent_schedules(get_config()))
+        assert timers, "no timers are declared at all — the probe's subject has no analogue"
+        assert not (timers & agents)
+
+    # -- the instruments -------------------------------------------------
+
+    def test_the_two_thresholds_are_the_same_number_today(self):
+        """The entry's stated mitigation, pinned at the live config.
+
+        ``timer_stale_multiplier`` *is* ``stall_grace_multiplier``, which
+        is what makes one elapsed value cross both thresholds — so the
+        two families do not merely both *have* an opinion, they form it
+        at the same moment.  A divergence does not break the probe (it
+        takes the later of the two) and it does weaken the entry's own
+        mitigation, so it is reported here rather than silently absorbed.
+        """
+        config = get_config()
+        assert (
+            config.agents.sysadmin.service_actions.timer_stale_multiplier
+            == config.self_monitor.stall_grace_multiplier
+        )
+
+    def test_the_fresh_fault_clears_both_thresholds_and_the_aged_one_clears_a_rung(self):
+        """The arithmetic the whole check rests on, and the constant a falsification moved.
+
+        Three conditions, and the middle one is the defect that shipped
+        in the first draft:
+
+        1. the fresh fault is past **both** thresholds, or only one
+           family speaks and half 1 is vacuous;
+        2. it is *inside* ``escalate_after_hours``, or a rung clocked off
+           the fault's own age — the only clock a stateless family has —
+           is already loud at the fresh drive and the two drives read
+           alike;
+        3. the aged fault is past that gap, so such a rung has fired.
+        """
+        config = get_config()
+        gap = config.self_monitor.escalate_after_hours * 3600
+        interval = config.agents.sysadmin.health_check_interval_seconds
+        overshoot = interval * snag_claims.PROBE_FRESH_OVERSHOOT_INTERVALS
+
+        assert overshoot > 0
+        assert overshoot < gap
+        assert gap * snag_claims.PROBE_LADDER_MULTIPLE > gap
+
+    def test_the_import_walk_sees_an_import_and_never_a_mention(self):
+        """Rule 7's instrument, driven at two files that differ only in that.
+
+        The distinction is not hypothetical here — see the next test.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            joins = Path(tmp) / "joins.py"
+            joins.write_text(
+                "from sysadmin.monitor import stalls\n"
+                "from sysadmin.monitor.service_recommendations import TimerSeries\n",
+                encoding="utf-8",
+            )
+            mentions = Path(tmp) / "mentions.py"
+            mentions.write_text(
+                '"""Prose about sysadmin.monitor.stalls and about\n'
+                'sysadmin.monitor.service_recommendations, naming neither as an import."""\n',
+                encoding="utf-8",
+            )
+            for module in (snag_claims.STALL_MODULE, snag_claims.TIMER_ADVICE_MODULE):
+                assert snag_claims.importers_of(module, [joins]) == [joins]
+                assert snag_claims.importers_of(module, [mentions]) == []
+
+    def test_the_advice_module_already_names_stalls_in_prose(self):
+        """The reason a grep is the wrong instrument, measured at the real file.
+
+        ``_timer_stale_row``'s own docstring says *"``self_monitor``/
+        ``stalls.py`` owns 'has not run' for agents"* — the entry's
+        sentence, written into the module the entry is about.  A text
+        search reports the cross-reference as already existing and would
+        refute this entry on the day it was filed; an ``ast`` walk over
+        imports never sees a docstring.  Rule 7's founding argument
+        arriving for the fourth time in this registry.
+        """
+        advice = REPO_ROOT / "sysadmin" / "monitor" / "service_recommendations.py"
+        assert "stalls" in advice.read_text(encoding="utf-8")
+        assert snag_claims.importers_of(snag_claims.STALL_MODULE, [advice]) == []
+
+    def test_a_series_sampled_more_coarsely_than_the_box_yields_no_cadence(self):
+        """Why the probe samples at the live check interval and not at the cadence.
+
+        ``_series_holes`` calls any gap wider than ``SERIES_HOLE_FACTOR``
+        intervals a hole in the *monitor's* series and discards every
+        cadence sample spanning it.  A probe sampled at its own
+        convenience would therefore observe no cadence, produce no
+        ``timer_stale`` row, and report a silence it had manufactured —
+        which is indistinguishable from the fix.
+        """
+        from sysadmin.monitor.service_recommendations import (
+            _observed_cadence,
+            _observed_fires,
+        )
+
+        config = get_config()
+        interval = config.agents.sysadmin.health_check_interval_seconds
+        cadence = float(config.agents.file_organiser.scan_interval_hours * 3600)
+        now = datetime.now(UTC)
+        from sysadmin.monitor.service_recommendations import MIN_CADENCE_SAMPLES
+
+        fires = MIN_CADENCE_SAMPLES + 1 + snag_claims.PROBE_FIRE_SPARE
+
+        fine = snag_claims.timer_agent_series(cadence, fires, 0.0, interval, "success", now)
+        assert _observed_cadence(_observed_fires(fine.points), fine.points, interval) is not None
+
+        coarse = snag_claims.timer_agent_series(
+            cadence, fires, 0.0, int(interval * 4), "success", now
+        )
+        assert _observed_cadence(
+            _observed_fires(coarse.points), coarse.points, interval
+        ) is None
+
+    # -- the witnesses ---------------------------------------------------
+
+    def test_a_schedule_that_ran_one_cadence_ago_is_not_stalled(self):
+        """W1, alive.  The stall side reads the subject rather than defaulting."""
+        reading, problem = snag_claims.timer_agent_reading()
+        assert not problem, problem
+        assert reading is not None
+        assert reading.stall_title  # the *aged* subject is stalled
+
+    def test_a_still_firing_timer_whose_run_failed_yields_a_row(self):
+        """W2, alive, through the same call and the same confidence gate.
+
+        Driven at a series that is *not* stale, so the witness cannot be
+        satisfied by the row this check is looking for.
+        """
+        config = get_config()
+        interval = config.agents.sysadmin.health_check_interval_seconds
+        cadence = float(config.agents.file_organiser.scan_interval_hours * 3600)
+        now = datetime.now(UTC)
+        from sysadmin.monitor.service_recommendations import MIN_CADENCE_SAMPLES
+
+        rows = snag_claims.timer_agent_rows(
+            snag_claims.timer_agent_series(
+                cadence,
+                MIN_CADENCE_SAMPLES + 1 + snag_claims.PROBE_FIRE_SPARE,
+                0.0,
+                interval,
+                "exit-code",
+                now,
+            ),
+            interval,
+            now,
+        )
+        kinds = {row.kind for row in rows}
+        assert "timer_failed" in kinds
+        assert "timer_stale" not in kinds
+
+    def test_a_stall_side_that_cannot_tell_the_two_apart_is_unknown(self):
+        """W1 broken: everything reads stalled, so the family's speech means nothing."""
+        from sysadmin.monitor import self_monitor
+
+        real = self_monitor.summarise_agent
+
+        def always_stalled(*args, **kwargs):
+            entry = dict(real(*args, **kwargs))
+            entry["stalled"] = True
+            return entry
+
+        with patch.object(self_monitor, "summarise_agent", always_stalled):
+            result = snag_claims.check_timer_agent_two_owners()
+        assert result.verdict == "unknown"
+        assert "cannot tell a working schedule from a stopped one" in result.note
+
+    def test_an_unreachable_advice_family_is_unknown_and_names_both_readings(self):
+        """W2 broken, and the note refuses to choose between two honest readings.
+
+        A timer half that has been *removed* is the entry's own fix, and a
+        probe whose series no longer satisfies the module is the probe's
+        fault.  From here they are the same observation, so rule 5 applies
+        — but the note names the first, because a reader who does not go
+        and look would otherwise never learn that the fix may have landed.
+        """
+        from sysadmin.monitor import service_recommendations as advice
+
+        with patch.object(advice, "_timer_rows", lambda *a, **k: []):
+            result = snag_claims.check_timer_agent_two_owners()
+        assert result.verdict == "unknown"
+        assert "its timer half may have been removed" in result.note
+
+    # -- the entry -------------------------------------------------------
+
+    def test_one_schedule_reaches_both_families_today(self):
+        """The mechanism, and the evidence is the two rows side by side."""
+        result = snag_claims.check_timer_agent_two_owners()
+        assert result.verdict == "match", result.note
+        evidence = "\n".join(result.detail)
+        assert "agent stalled [warning -> critical]" in evidence
+        assert "armed but has not fired" in evidence
+        assert snag_claims.TIMER_AGENT_NAME in evidence
+
+    def test_the_advice_family_ceding_is_the_fix_the_entry_names(self):
+        """One family going quiet about the subject — ``stalls.py`` keeps the question."""
+        from sysadmin.monitor import service_recommendations as advice
+
+        with patch.object(advice, "_timer_stale_row", lambda *a, **k: None):
+            result = snag_claims.check_timer_agent_two_owners()
+        assert result.verdict == "mismatch"
+        assert "the advice family no longer speaks" in result.note
+
+    def test_the_stall_family_ceding_is_reported_as_the_wrong_direction(self):
+        """The same fix taken the way the entry argues against.
+
+        The ladder is the expensive half and it already exists in
+        ``stalls.py``, so a fix that silenced *that* side would have
+        moved the question away from the machinery it needs.
+        """
+        from sysadmin.monitor import self_monitor
+
+        real = self_monitor.summarise_agent
+
+        def never_stalled(*args, **kwargs):
+            entry = dict(real(*args, **kwargs))
+            entry["stalled"] = False
+            entry["stall_reason"] = None
+            return entry
+
+        with patch.object(self_monitor, "summarise_agent", never_stalled):
+            result = snag_claims.check_timer_agent_two_owners()
+        assert result.verdict == "mismatch"
+        assert "the stall family no longer speaks" in result.note
+
+    def test_both_families_ceding_is_not_reported_as_this_entry_fixed(self):
+        """Two owners becoming none is a different fault, and the note says so.
+
+        The obvious implementation reports any silence as progress.  A
+        question nobody owns is not this entry closed; it is the fault
+        underneath both families arriving instead.
+        """
+        from sysadmin.monitor import self_monitor
+        from sysadmin.monitor import service_recommendations as advice
+
+        real = self_monitor.summarise_agent
+
+        def never_stalled(*args, **kwargs):
+            entry = dict(real(*args, **kwargs))
+            entry["stalled"] = False
+            return entry
+
+        with (
+            patch.object(self_monitor, "summarise_agent", never_stalled),
+            patch.object(advice, "_timer_stale_row", lambda *a, **k: None),
+        ):
+            result = snag_claims.check_timer_agent_two_owners()
+        assert result.verdict == "mismatch"
+        assert "neither family speaks" in result.note
+        assert "a different fault rather than this one fixed" in result.note
+
+    def test_a_rung_on_the_timer_family_is_the_fix_the_entry_forbids(self):
+        """The half that cannot be inferred from the first — both families still speak.
+
+        The stand-in clocks its rung off the fault's own age at the box's
+        one escalation gap, because that is the only shape available to a
+        family that is recomputed per request and holds no "when the
+        alarm rang".
+        """
+        laddered = self._laddered_reading()
+        with patch.object(snag_claims, "timer_agent_reading", lambda: (laddered, "")):
+            result = snag_claims.check_timer_agent_two_owners()
+        assert result.verdict == "mismatch"
+        assert "this family has a rung now" in result.note
+        assert "forbids by name" in result.note
+
+    def test_the_old_constant_was_blind_to_any_rung_shorter_than_a_cadence(self):
+        """The falsification that moved :data:`PROBE_FRESH_OVERSHOOT_INTERVALS`.
+
+        The first draft put the fresh fault one *cadence* past the
+        threshold, and the arithmetic is exact: the two drives straddle
+        only a rung whose gap falls in ``[overshoot, overshoot + 2 x
+        escalate_after_hours)``.  At one cadence that window is **24h to
+        72h** — so every rung shorter than a day read loud at both drives,
+        the check saw no movement, and it passed against code deliberately
+        given a ladder.  At one check interval the window is **5 minutes
+        to 48 hours**, and a rung below the monitor's own resolution is
+        one it could not observe in any case.
+
+        Driven at the real producers with a rung at *half* the escalation
+        gap — the shape a stateless family would most plausibly reach for,
+        since it holds no "when the alarm rang" and must clock off the
+        fault's own age.  Both verdicts are asserted, because a test that
+        only pinned the catch would pass with the old constant restored.
+        """
+        from sysadmin.monitor import service_recommendations as advice
+
+        config = get_config()
+        interval = config.agents.sysadmin.health_check_interval_seconds
+        cadence = config.agents.file_organiser.scan_interval_hours * 3600
+        rung_gap = config.self_monitor.escalate_after_hours * 3600 / 2
+        real = advice._timer_stale_row
+
+        def laddered(series, points, settings, check_interval, now):
+            row = real(series, points, settings, check_interval, now)
+            if row is None:
+                return None
+            fires = advice._observed_fires(points)
+            observed = advice._observed_cadence(fires, points, check_interval) or 1.0
+            elapsed = (now - fires[-1]).total_seconds()
+            if elapsed > observed * settings.timer_stale_multiplier + rung_gap:
+                return row.model_copy(update={"severity": "risk"})
+            return row
+
+        with patch.object(advice, "_timer_stale_row", laddered):
+            caught = snag_claims.check_timer_agent_two_owners()
+            with patch.object(
+                snag_claims, "PROBE_FRESH_OVERSHOOT_INTERVALS", cadence // interval
+            ):
+                missed = snag_claims.check_timer_agent_two_owners()
+
+        assert caught.verdict == "mismatch", caught.note
+        assert "has a rung now" in caught.note
+        assert missed.verdict == "match", (
+            "the old constant no longer hides a sub-cadence rung — the constant this "
+            "test exists to justify may have been changed without it"
+        )
+
+    def test_a_module_importing_both_families_is_a_mismatch(self):
+        """Half 3, driven at a real file rather than at a patched instrument.
+
+        This is the shape the entry's *recommended* fix has to take
+        whichever file it lands in — a caller feeding ``_observed_fires``
+        into the stall family need not edit either module, and a pairwise
+        file-to-file check would never see it.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            joins = Path(tmp) / "composes_the_two.py"
+            joins.write_text(
+                "from sysadmin.monitor.stalls import evaluate\n"
+                "from sysadmin.monitor.service_recommendations import _observed_fires\n",
+                encoding="utf-8",
+            )
+            with patch.object(snag_claims, "_python_files", lambda roots: [joins]):
+                result = snag_claims.check_timer_agent_two_owners()
+        assert result.verdict == "mismatch"
+        assert "imports both families" in result.note
+        assert "composes_the_two.py" in result.note
+
+    def test_this_module_is_excluded_from_its_own_population(self):
+        """The only thing here that knows both families exist is the check saying nothing does.
+
+        Not bookkeeping: driving both families means importing both, so
+        without the exclusion the check refutes its own entry on every
+        run.  The exclusion is shown to be doing work by asking the
+        instrument directly.
+        """
+        self_path = REPO_ROOT / "sysadmin" / "snag_claims.py"
+        for module in (snag_claims.STALL_MODULE, snag_claims.TIMER_ADVICE_MODULE):
+            assert snag_claims.importers_of(module, [self_path]) == [self_path]
+
+        with patch.object(snag_claims, "_python_files", lambda roots: [self_path]):
+            reading, problem = snag_claims.timer_agent_reading()
+        assert not problem, problem
+        assert reading is not None
+        assert reading.joint_importers == ()
+
+    # -- helpers ---------------------------------------------------------
+
+    def _laddered_reading(self):
+        """A reading identical to today's but for a rung on the advice family."""
+        reading, problem = snag_claims.timer_agent_reading()
+        assert not problem, problem
+        assert reading is not None
+        return dataclasses.replace(reading, aged_timer_severity="risk")

@@ -132,7 +132,9 @@ if TYPE_CHECKING:  # pragma: no cover — annotations only
     import httpx
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from sysadmin.core.contracts import ServiceRecommendationInfo
     from sysadmin.estate.agent import EstateJudgeAgent
+    from sysadmin.monitor.service_recommendations import TimerSeries
     from sysadmin.monitor.services import ServiceEntry
 
 #: The same three words and the same exit map as the schema check and the
@@ -4776,6 +4778,534 @@ def check_unmarked_sentence_invisible() -> Measurement:
     return Measurement("match", "", detail)
 
 
+#: ``SNAG-SVC-002``'s synthetic subject: a scheduled job that is an agent
+#: *and* a systemd timer.  The name is shared across both drives so the
+#: report reads as one subject, and **the sharing is not what makes it
+#: one** — the two families would key on different strings on a real box
+#: (``AGENT_NAMES`` against a ``services.yaml`` entry).  What makes it one
+#: subject is that both drives are handed the same fact: one schedule, one
+#: last-run instant, one cadence.
+TIMER_AGENT_NAME = "snagcheck_timer_agent"
+
+#: Firings the probe records before the schedule goes quiet.  Derived from
+#: the timer module's own floor rather than restated beside it:
+#: :func:`~sysadmin.monitor.service_recommendations._observed_cadence`
+#: refuses to claim a cadence below ``MIN_CADENCE_SAMPLES + 1`` fires, and
+#: one spare keeps a single discarded interval from taking the probe under
+#: that floor.  ``max_priority_for`` against ``PRIORITY_MAP``'s treatment.
+PROBE_FIRE_SPARE = 1
+
+#: Multiples of ``self_monitor.escalate_after_hours`` between the fresh
+#: drive and the aged one.  **Derived from the sibling family's own gap**,
+#: which is the whole point: a rung on the advice family would have
+#: nothing else to derive its own gap from — ``stalls.py``'s is the only
+#: escalation gap on this box, and Session 53's ``reminder_hours`` already
+#: reuses it — so the aged drive is taken two of them past the fresh one
+#: and a ladder using that gap cannot sit between the two.
+PROBE_LADDER_MULTIPLE = 2.0
+
+#: How far past the later of the two thresholds the *fresh* fault stands:
+#: one check interval, the smallest amount by which this monitor is
+#: capable of observing a threshold crossed at all.
+#:
+#: **It is small on purpose, and the first draft had it at one cadence,
+#: where the ladder half of this check was blind to most of what it was
+#: looking for.**  A rung on the advice family would have to run its clock
+#: from the fault's own age — the family is stateless and recomputed per
+#: request, so unlike ``stalls.py`` it has no "when the alarm rang" to
+#: measure from.  The two drives therefore straddle a rung only when its
+#: gap falls in ``[overshoot, overshoot + 2 x escalate_after_hours)``, and
+#: the arithmetic is exact: at one cadence that window is **24h to 72h**
+#: on this box, so every rung shorter than a day read loud at *both*
+#: drives, the check saw no movement, and it passed against code
+#: deliberately given a ladder.  At one check interval the window is **5
+#: minutes to 48 hours**, and a rung below the monitor's own resolution is
+#: one it could not observe in any case.  Found by driving a stand-in that
+#: added a rung at half the escalation gap; the two figures are printed by
+#: ``tests/test_snag_claims.py`` rather than asserted here, since both are
+#: derived from config and would move with it.
+PROBE_FRESH_OVERSHOOT_INTERVALS = 1
+
+#: The two modules the entry names, as import targets.  Read as *modules*
+#: rather than as file paths because that is what an importer names, and
+#: the failing shape this looks for — a third module composing the two —
+#: is invisible in either file.
+STALL_MODULE = "sysadmin.monitor.stalls"
+TIMER_ADVICE_MODULE = "sysadmin.monitor.service_recommendations"
+
+
+def imported_modules(path: Path) -> set[str]:
+    """Every module one file imports, dotted, both statement forms.
+
+    The exact opposite selection from :func:`_names_used`, and
+    deliberately: that function excludes imports because a name in an
+    import list is not a *reader*, and this one keeps only imports because
+    a module that has wired two families together has to have named both
+    of them at the top of the file.
+
+    Absolute imports only.  A relative one cannot be resolved to a dotted
+    name without knowing the package root, and this repository writes none
+    — so the alternative to skipping them is guessing.
+    """
+    tree = _parse(path)
+    if tree is None:
+        return set()
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            found.add(node.module)
+            found.update(f"{node.module}.{alias.name}" for alias in node.names)
+    return found
+
+
+def importers_of(module: str, paths: Iterable[Path]) -> list[Path]:
+    """The files importing ``module`` or anything under it."""
+    return [
+        path
+        for path in paths
+        if any(
+            name == module or name.startswith(f"{module}.")
+            for name in imported_modules(path)
+        )
+    ]
+
+
+def timer_agent_series(
+    cadence: float,
+    fires: int,
+    silent_seconds: float,
+    check_interval_seconds: int,
+    last_result: str,
+    now: datetime,
+) -> TimerSeries:
+    """One timer's observations: ``fires`` firings a cadence apart, then quiet.
+
+    Points are spaced at the *live* check interval, which is not a
+    decoration:
+    :func:`~sysadmin.monitor.service_recommendations._series_holes` calls
+    any gap wider than ``SERIES_HOLE_FACTOR`` intervals a hole in the
+    monitor's series and discards every cadence sample spanning it, so a
+    series sampled more coarsely than the box samples would yield no
+    cadence at all and the probe would report silence it had manufactured.
+    """
+    from sysadmin.monitor.service_recommendations import TimerPoint, TimerSeries
+
+    start = now - timedelta(seconds=cadence * (fires - 1) + silent_seconds)
+    fire_at = [start + timedelta(seconds=cadence * i) for i in range(fires)]
+    step = timedelta(seconds=check_interval_seconds)
+
+    points: list[TimerPoint] = []
+    token = 0
+    pending = 1  # the first point cannot be a fire — there is nothing before it
+    at = start
+    while at <= now:
+        while pending < len(fire_at) and at >= fire_at[pending]:
+            token += 1
+            pending += 1
+        points.append(
+            TimerPoint(checked_at=at, last_run=f"trigger-{token}", last_result=last_result)
+        )
+        at += step
+    return TimerSeries(
+        service=TIMER_AGENT_NAME, unit=f"{TIMER_AGENT_NAME}.timer", points=points
+    )
+
+
+def timer_agent_rows(
+    series: TimerSeries, check_interval_seconds: int, now: datetime
+) -> list[ServiceRecommendationInfo]:
+    """What the advice family says about one timer series.
+
+    Reached through :func:`~sysadmin.monitor.service_recommendations.recommend`
+    rather than through ``_timer_rows``, so the confidence gate is on the
+    path.  ``timer_stale`` is ``RATE_ARGUED`` and is withheld below
+    ``confidence: high``, and the score is **earned** from a full clean
+    health window by the real scorer rather than default-constructed —
+    a ``ReliabilityScore(service=…)`` asserts the confidence this row
+    needs instead of demonstrating it, and the probe would then go on
+    passing on the day the gate moved.
+    """
+    from sysadmin.monitor.reliability import HealthPoint, score_service
+    from sysadmin.monitor.service_recommendations import recommend
+
+    config = get_config()
+    window_days = config.agents.sysadmin.reliability.window_days
+    health = [
+        HealthPoint(checked_at=now - timedelta(seconds=check_interval_seconds * i), status="ok")
+        for i in range(int(window_days * 86400 / check_interval_seconds))
+    ]
+    score = score_service(
+        TIMER_AGENT_NAME,
+        health,
+        window_days=window_days,
+        check_interval_seconds=check_interval_seconds,
+        now=now,
+    )
+    report = recommend(
+        [score],
+        config.agents.sysadmin.service_actions,
+        timers=[series],
+        check_interval_seconds=check_interval_seconds,
+        now=now,
+    )
+    return report.recommendations
+
+
+@dataclass(frozen=True)
+class TimerAgentReading:
+    """One schedule, put to both families in each one's own vocabulary.
+
+    Attributes:
+        cadence_seconds: the subject's schedule.
+        stall_window_seconds: ``interval x stall_grace_multiplier``,
+            floored — when the stall family calls it stalled.
+        timer_threshold_seconds: ``cadence x timer_stale_multiplier`` —
+            when the advice family calls it stale.  Equal to the stall
+            window by construction today, which is the entry's stated
+            mitigation and is reported rather than assumed.
+        silent_seconds: how long the fresh fault has stood.
+        overshoot_seconds: by how much that clears the later of the two
+            thresholds.  Carried rather than recomputed for the evidence
+            line, because both thresholds render as the same round figure
+            as the elapsed does and a reader would otherwise have no way
+            to see that the fault is past them at all.
+        stall_title: the row the stall family raised, or ``""``.
+        stall_severity: the rung it opened on.
+        escalated_severity: the rung it moved to once the quiet row had
+            stood ``escalate_after_hours``.
+        timer_title: the row the advice family raised, or ``""``.
+        timer_severity: its severity.
+        aged_timer_severity: the same family's severity once the fault had
+            stood :data:`PROBE_LADDER_MULTIPLE` further escalation gaps.
+        aged_timer_rows: how many rows the aged drive produced, so a
+            second row appearing beside the first is not read as silence.
+        escalate_after_hours: the sibling family's gap, echoed so the
+            evidence line can name the span the aged drive was taken over
+            rather than leaving a reader to reconstruct it.
+        joint_importers: modules in ``sysadmin/`` importing both families.
+    """
+
+    cadence_seconds: float
+    stall_window_seconds: float
+    timer_threshold_seconds: float
+    silent_seconds: float
+    overshoot_seconds: float
+    stall_title: str
+    stall_severity: str
+    escalated_severity: str
+    timer_title: str
+    timer_severity: str
+    aged_timer_severity: str
+    aged_timer_rows: int
+    escalate_after_hours: float
+    joint_importers: tuple[str, ...]
+
+    @property
+    def both_speak(self) -> bool:
+        return bool(self.stall_title) and bool(self.timer_title)
+
+    @property
+    def timer_has_ladder(self) -> bool:
+        """The advice family's rung moved with the age of the fault."""
+        return self.aged_timer_severity != self.timer_severity
+
+
+def timer_agent_reading() -> tuple[TimerAgentReading | None, str]:
+    """Drive both families over one synthetic timer-backed agent.
+
+    Two witnesses first, because a family that has gone silent and a
+    family the probe can no longer reach report identically — Session
+    98's rule, and this check needs it twice because it drives two
+    modules.  A *fresh* schedule must come back not-stalled, which is the
+    stall side reading the subject rather than defaulting; and a timer
+    still firing whose last run **failed** must yield a ``timer_failed``
+    row, which is the advice side reachable through the same call, the
+    same series shape and the same confidence gate that
+    ``timer_stale`` has to clear.
+    """
+    from sysadmin.core.models.agent_run import AgentRun
+    from sysadmin.monitor import stalls
+    from sysadmin.monitor.self_monitor import AgentSchedule, stall_window_seconds, summarise_agent
+    from sysadmin.monitor.service_recommendations import MIN_CADENCE_SAMPLES
+
+    config = get_config()
+    self_monitor = config.self_monitor
+    advice = config.agents.sysadmin.service_actions
+    check_interval = config.agents.sysadmin.health_check_interval_seconds
+
+    # The subject is a daily job, which is `file_organiser`'s and
+    # `service_discovery`'s interval and the cadence every daily timer on
+    # this box derives.  Read from config rather than written here: a
+    # constant would go on describing a schedule nobody runs.
+    cadence = float(config.agents.file_organiser.scan_interval_hours * 3600)
+    if cadence <= 0 or check_interval <= 0:
+        return None, (
+            f"the probe's schedule is not positive (cadence {cadence}s, check interval "
+            f"{check_interval}s) — the synthetic subject cannot be built from this config"
+        )
+
+    now = datetime.now(UTC)
+    schedule = AgentSchedule(
+        name=TIMER_AGENT_NAME,
+        enabled=True,
+        interval_seconds=int(cadence),
+        job_id=f"{TIMER_AGENT_NAME}_job",
+    )
+    stall_window = stall_window_seconds(schedule, self_monitor)
+    timer_threshold = cadence * advice.timer_stale_multiplier
+    overshoot = float(check_interval * PROBE_FRESH_OVERSHOOT_INTERVALS)
+    silent = max(stall_window, timer_threshold) + overshoot
+
+    def ran(seconds_ago: float) -> list[AgentRun]:
+        return [
+            AgentRun(
+                agent=TIMER_AGENT_NAME,
+                run_type="scheduled",
+                status="completed",
+                duration_seconds=1.0,
+                started_at=now - timedelta(seconds=seconds_ago),
+            )
+        ]
+
+    fresh_entry = summarise_agent(schedule, ran(cadence), self_monitor, now)
+    if fresh_entry["stalled"]:
+        return None, (
+            "a schedule that ran one cadence ago is already reported stalled — the stall "
+            "side of the probe cannot tell a working schedule from a stopped one, so its "
+            "silence about anything would say nothing"
+        )
+
+    fires = MIN_CADENCE_SAMPLES + 1 + PROBE_FIRE_SPARE
+    witness = timer_agent_rows(
+        timer_agent_series(cadence, fires, 0.0, check_interval, "exit-code", now),
+        check_interval,
+        now,
+    )
+    if not any(row.kind == "timer_failed" for row in witness):
+        return None, (
+            "a timer still firing whose last run failed produced no timer_failed row, so "
+            "the advice family is not reachable through this probe at all — its timer half "
+            "may have been removed, which is the entry's own fix and is worth a look, or "
+            "this probe's series may no longer satisfy it; the two are indistinguishable "
+            "from here, and a timer_stale row's absence below would be the probe's rather "
+            "than the box's either way"
+        )
+
+    stalled_entry = summarise_agent(schedule, ran(silent), self_monitor, now)
+    raised = stalls.evaluate(
+        [stalled_entry] if stalled_entry["stalled"] else [],
+        {},
+        escalate_after_hours=self_monitor.escalate_after_hours,
+        now=now,
+    )
+    escalated = stalls.evaluate(
+        [stalled_entry] if stalled_entry["stalled"] else [],
+        {
+            TIMER_AGENT_NAME: stalls.OpenStall(
+                alert_id=None,
+                severity=raised[0].severity if raised else "warning",
+                created_at=now - timedelta(hours=self_monitor.escalate_after_hours + 1),
+            )
+        },
+        escalate_after_hours=self_monitor.escalate_after_hours,
+        now=now,
+    )
+
+    fresh_rows = timer_agent_rows(
+        timer_agent_series(cadence, fires, silent, check_interval, "success", now),
+        check_interval,
+        now,
+    )
+    stale = next((row for row in fresh_rows if row.kind == "timer_stale"), None)
+    aged_silent = silent + self_monitor.escalate_after_hours * 3600 * PROBE_LADDER_MULTIPLE
+    aged_rows = [
+        row
+        for row in timer_agent_rows(
+            timer_agent_series(cadence, fires, aged_silent, check_interval, "success", now),
+            check_interval,
+            now,
+        )
+        if row.kind == "timer_stale"
+    ]
+
+    sources = [
+        path
+        for path in _python_files((REPO_ROOT / "sysadmin",))
+        if path != REPO_ROOT / "sysadmin" / "snag_claims.py"
+    ]
+    joint = sorted(
+        {
+            _rel(path)
+            for path in importers_of(STALL_MODULE, sources)
+            if path in set(importers_of(TIMER_ADVICE_MODULE, sources))
+        }
+    )
+
+    return (
+        TimerAgentReading(
+            cadence_seconds=cadence,
+            stall_window_seconds=stall_window,
+            timer_threshold_seconds=timer_threshold,
+            silent_seconds=silent,
+            overshoot_seconds=overshoot,
+            stall_title=raised[0].title if raised else "",
+            stall_severity=raised[0].severity if raised else "",
+            escalated_severity=escalated[0].severity if escalated else "",
+            timer_title=stale.title if stale else "",
+            timer_severity=stale.severity if stale else "",
+            aged_timer_severity=aged_rows[0].severity if aged_rows else "",
+            aged_timer_rows=len(aged_rows),
+            escalate_after_hours=self_monitor.escalate_after_hours,
+            joint_importers=tuple(joint),
+        ),
+        "",
+    )
+
+
+def check_timer_agent_two_owners() -> Measurement:
+    """``SNAG-SVC-002`` — one schedule, judged by two families that do not know each other.
+
+    **The twenty-first check, and the third built on a synthetic subject.**
+    :func:`check_dropin_blind_spot` builds a drop-in and
+    :func:`check_unmarked_sentence_invisible` builds a block sentence;
+    this builds an *agent whose schedule is a systemd timer*, which is the
+    one thing on this box that does not exist.
+
+    **Rule 1 is the whole difficulty here, and it is why this entry has
+    been runner-up three times without being taken.**  The obvious check
+    measures the disjointness the entry reports — no agent on this box is
+    a timer, so no subject reaches both families — and that is a property
+    of *this box*, not of the design.  A rewritten ``services.yaml`` or a
+    scheduled job moved to a ``oneshot`` + ``.timer``, which
+    ``monitorable-project.md`` requires of every new one, would flip such
+    a check to "refuted" with nobody having touched either module; the
+    entry says so in its own second bullet.  What the entry *claims* is a
+    mechanism — that a timer-backed schedule would be spoken about by both
+    families at once — so the mechanism is reproduced rather than looked
+    for.
+
+    **One fact, two vocabularies, and the shared name is not the point.**
+    The subject is a daily schedule whose last run was long enough ago to
+    cross both thresholds.  It is handed to
+    :func:`~sysadmin.monitor.self_monitor.summarise_agent` as an agent
+    that has not run, and to
+    :func:`~sysadmin.monitor.service_recommendations.recommend` as a timer
+    whose ``LastTriggerUSec`` stopped moving.  Both drives use one name so
+    the evidence reads as one subject; on a real box the two families
+    would key on different strings, and what makes it one subject is the
+    single schedule and the single last-run instant behind both.
+
+    **The two thresholds are the same number, and that is derived rather
+    than arranged.**  ``timer_stale_multiplier`` *is*
+    ``stall_grace_multiplier``'s 3.0, imported as an argument and
+    documented as such in ``config.py`` — the entry's own stated
+    mitigation.  So one elapsed value crosses both, which is not a
+    convenience of the probe but the reason the two families speak
+    *simultaneously* rather than merely both being capable of speaking.
+    Both are reported, so the day they diverge the evidence says so.
+
+    **Four claims, three instruments, and the halves are reported apart
+    because two of them refute the entry in opposite directions.**
+
+    1. *Both families speak.*  The mechanism.  One of them going silent
+       for this subject is the fix the entry names — "give one module the
+       question and the other the subject" — and the note says which
+       ceded.
+    2. *The advice family's rung does not move with the age of the
+       fault.*  Driven at a fault that has stood
+       :data:`PROBE_LADDER_MULTIPLE` further escalation gaps, against a
+       stall row that goes ``warning`` -> ``critical`` over the same span.
+       A rung appearing here is the fix the entry **forbids** by name
+       ("that is the second owner arriving with more machinery"), and a
+       check that could not see it would let the wrong fix land in
+       silence.  This is the half that cannot be inferred from the first:
+       both families would go on speaking either way.
+    3. *Nothing joins them.*  The entry's headline is that neither knows
+       the other exists, and its recommended fix is a caller feeding
+       ``_observed_fires`` into the stall family — which need not touch
+       either file.  So the instrument is the *importer sets*: today they
+       are disjoint, ``monitor/agent.py`` against ``health_review.py``,
+       ``reliability_history.py`` and ``routers/services.py``.  A module
+       importing both is the shape every fix in that direction has to
+       take, whichever file it lands in.
+    4. Rule 7 for the fourth time: ``service_recommendations.py`` already
+       contains the word ``stalls``, in ``_timer_stale_row``'s own
+       docstring, so a grep reports the cross-reference as already
+       existing.  A docstring is an ``ast.Constant`` and an import walk
+       never sees it.
+
+    **This module is excluded from its own population, which is not
+    bookkeeping.**  Driving both families means importing both, so the
+    only thing in this repository that knows the two exist is the check
+    reporting that nothing does.
+
+    **What is out of reach, stated rather than implied.**  A fix that
+    taught ``recommend`` to decline a timer whose service is an agent
+    would need to be *told* which services those are, and this probe
+    declares nothing of the kind — so it would go on producing a
+    ``timer_stale`` row here and half 1 would read unchanged.  Half 3 is
+    what covers that case: no such fix can be written without one module
+    naming both families.
+    """
+    reading, problem = timer_agent_reading()
+    if reading is None:
+        return Measurement("unknown", problem)
+
+    detail = (
+        f"subject: a schedule every {humanise_hours(reading.cadence_seconds / 3600)}, quiet "
+        f"for {humanise_hours(reading.silent_seconds / 3600)} — "
+        f"{reading.overshoot_seconds:.0f}s past the later threshold",
+        f"thresholds: stall window {humanise_hours(reading.stall_window_seconds / 3600)}, "
+        f"timer staleness {humanise_hours(reading.timer_threshold_seconds / 3600)}",
+        f"stalls.py: {reading.stall_title or '(silent)'} "
+        f"[{reading.stall_severity or '-'} -> {reading.escalated_severity or '-'}]",
+        f"service_recommendations.py: {reading.timer_title or '(silent)'} "
+        f"[{reading.timer_severity or '-'}]",
+        f"the same timer fault aged a further "
+        f"{humanise_hours(reading.escalate_after_hours * PROBE_LADDER_MULTIPLE)}: "
+        f"{reading.aged_timer_rows} row(s) at "
+        f"[{reading.aged_timer_severity or '-'}]",
+        "modules importing both families: "
+        + (", ".join(reading.joint_importers) if reading.joint_importers else "none"),
+    )
+
+    faults: list[str] = []
+    if not reading.stall_title and not reading.timer_title:
+        faults.append(
+            "neither family speaks about the subject any more — the entry describes two "
+            "owners of one question and there are now none, which is a different fault "
+            "rather than this one fixed"
+        )
+    elif not reading.timer_title:
+        faults.append(
+            "the advice family no longer speaks about a timer-backed schedule while the "
+            "stall family does — the entry's own fix, with the question left where the "
+            "ladder already is"
+        )
+    elif not reading.stall_title:
+        faults.append(
+            "the stall family no longer speaks about the subject while the advice family "
+            "does — the entry's fix taken in the direction it argues against, since the "
+            "ladder is the expensive half and it lives in stalls.py"
+        )
+    if reading.timer_has_ladder:
+        faults.append(
+            f"the timer_stale row moved {reading.timer_severity} -> "
+            f"{reading.aged_timer_severity} as the fault aged — this family has a rung now, "
+            "which is the fix the entry forbids by name rather than the one it asks for"
+        )
+    if reading.joint_importers:
+        faults.append(
+            f"{', '.join(reading.joint_importers)} imports both families — something joins "
+            "them now, so the entry's *neither knows the other exists* no longer holds"
+        )
+
+    if faults:
+        return Measurement("mismatch", "; ".join(faults), detail)
+    return Measurement("match", "", detail)
+
 # ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
@@ -4912,6 +5442,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-012",
             "a block sentence with no pattern and no marker reaches nothing",
             check_unmarked_sentence_invisible,
+        ),
+        Check(
+            "timer_agent_two_owners",
+            "SNAG-SVC-002",
+            "a timer-backed agent is judged by two families at once",
+            check_timer_agent_two_owners,
         ),
     )
 }
