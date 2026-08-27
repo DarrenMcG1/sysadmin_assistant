@@ -1055,12 +1055,19 @@ def test_our_parser_and_the_estates_agree_on_the_live_document():
     ours = {c.port for c in P.parse_port_registry(document.read_text(encoding="utf-8"))}
     assert ours, "the live port registry parsed to zero rows"
     # Every port the live table claims is inside the jurisdiction we
-    # judge, or explicitly outside it (22000, the syncthing sync port,
-    # recorded under the sidecar rule).  A row inside a range we do not
-    # audit would be judged by nobody.
+    # judge, or explicitly outside it.  Two rows are, and both are
+    # third-party daemons the estate hosts rather than services either
+    # repository wrote: 22000, the syncthing sync port, under the sidecar
+    # rule; and 1883, the shared MQTT broker, added to their table on
+    # 2026-08-27 under estate-manager's ADR-0054.  A row inside a range
+    # we do not audit would be judged by nobody, which is what this
+    # assertion exists to catch — and both of these are *known* to be
+    # judged by nobody, recorded as their SNAG-ESTATE-070 in the row's
+    # own text, so widening our ranges is their decision to ask for and
+    # not ours to take.
     audited = [(3000, 3999), (8000, 8999)]
     unaudited = sorted(p for p in ours if not P.in_range(p, audited))
-    assert unaudited == [22000], (
+    assert unaudited == [1883, 22000], (
         f"registry rows outside the audited ranges: {unaudited}. Either the "
         "ranges need widening or the row belongs elsewhere."
     )
