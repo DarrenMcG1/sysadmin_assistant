@@ -394,6 +394,27 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 104 — the first entry closed because the delegate did the work (2026-08-27) ✅
+
+- [x] Re-drive `default_port_uncontended` — **refuted**: their audit files `claimed_tool_default` for 3000, 5000, 8080, 8888 and 9000, with `claimed_but_silent`, `unclaimed_listener` and `dormant_but_listening` firing for the three witnesses
+- [x] Read `estate_module_state` to separate a committed fix from an edit in flight — **committed**, which is `SNAG-ROADMAP-001`'s trigger and the only reason this closure fired
+- [x] Read the estate's live audit surface as evidence — `ports:port 8080:claimed_tool_default` at `info`, first seen 15:00:13Z, 4 runs observed — and judge nothing on it, because their deploy state is theirs
+- [x] Judge `SNAG-ESTATE-004` — **closed**: the complaint went and the premise did not, §2.1 still stating the rule
+- [x] Remove the check with the entry — `check_default_port_uncontended` and its four constants out of `sysadmin/snag_claims.py`, its 29 tests out of `tests/test_snag_claims.py`, checks-in-registry **23 → 22**
+- [x] Correct the two dangling `:func:` references the removal left, rather than leaving a pointer to a function that no longer exists
+- [x] Correct `judgements.JUDGED_AUDIT_SEVERITY`'s docstring — it enumerated the estate's ports vocabulary as two codes and it is four, incomplete since the day it was typed rather than made stale by their new branch
+- [x] Record why neither `info` code is judged here, since a consumer declining to judge a published finding with nothing recording the decision is `SNAG-CFG-001`'s shape
+- [x] Cite the counterpart repo-qualified — estate-manager ADR-0055 and their `SNAG-ESTATE-073`, through message `926a8c61` — per their message `153c1c96`
+- [x] Update STATUS.md, tasks.md, snag_list.md; restart and verify
+
+**Not done, and named**: estate-manager's message `153c1c96` is **left
+open** rather than closed. The half this repository owns is discharged —
+the counterpart is now cited repo-qualified in the closed entry — but the
+rule it recommends, that snag ids be repo-qualified everywhere, binds
+Alfred and estate-manager as well as this repository, and their own
+message routes it to the owner rather than to a session. Closing it would
+report a decision nobody has taken.
+
 ## Session 103 — the twenty-fifth check, and the register runs out of entries (2026-08-27) ✅
 
 - [x] Write `audit_code_unpublished`, the twenty-fifth check, against `SNAG-ESTATE-006`

@@ -734,19 +734,42 @@ JUDGED_AUDIT_CHECK = "ports"
 #:
 #: The same deference :func:`judge_attention` gives a nudge's rung: the
 #: estate computed it against the contract it owns, and a second opinion
-#: here would be two implementations of one policy.  Its ``ports`` check
-#: assigns ``breach`` to a *live listener with no registry row* — "the
-#: registry being wrong, and it is how two projects end up guessing the
-#: same number" — and ``warn`` to a claimed port that is silent.
+#: here would be two implementations of one policy.
 #:
-#: Only the first is judged, because the second is **availability**, and
-#: availability on this box already has an owner: ``services.yaml`` plus
-#: the sysadmin agent's ``% unreachable`` family.  Judging it would make
-#: this agent a second owner of that lifecycle, the defect this package's
-#: docstrings name three times over.  That the one live ``warn`` today
-#: (port 3300, venture-assistant's frontend) happens *not* to overlap is
-#: luck rather than design — its registry row reads "unit to follow", so
-#: the overlap arrives on the day that unit ships.
+#: **Their ``ports`` check emits four codes across three rungs, and this
+#: comment said two of them until 2026-08-27.**  Re-read off their
+#: ``checks/ports.py`` rather than remembered: ``breach`` for
+#: ``unclaimed_listener``, a *live listener with no registry row* — "the
+#: registry being wrong, and it is how two projects end up guessing the
+#: same number"; ``warn`` for ``claimed_but_silent``; and ``info`` for
+#: both ``dormant_but_listening`` and ``claimed_tool_default``.  The
+#: omission was not today's branch going stale — ``dormant_but_listening``
+#: has been theirs since 2026-08-13, so the enumeration was incomplete the
+#: day it was written, which is why it is now dated and sourced.
+#:
+#: Only ``breach`` is judged, and each exclusion has its own reason.
+#: ``claimed_but_silent`` is **availability**, and availability on this
+#: box already has an owner: ``services.yaml`` plus the sysadmin agent's
+#: ``% unreachable`` family.  Judging it would make this agent a second
+#: owner of that lifecycle, the defect this package's docstrings name
+#: three times over.  That the one live ``warn`` today (port 3300,
+#: venture-assistant's frontend) happens *not* to overlap is luck rather
+#: than design — its registry row reads "unit to follow", so the overlap
+#: arrives on the day that unit ships.
+#:
+#: The two ``info`` codes are **advisory by request, and the request was
+#: this repository's**.  ``claimed_tool_default`` exists because
+#: ``SNAG-ESTATE-004`` was delegated to them on 2026-08-14 asking for
+#: exactly ``SEVERITY_INFO`` — "advisory, not ``warn``, because it has not
+#: collided and the remedy is a port move, which is work rather than a
+#: correction" — and they built it that way (their ADR-0055, commit
+#: ``8f8821d``).  Raising an alert here for a rung this repository asked
+#: for would be a second opinion on a policy it wrote itself, and ``info``
+#: is below ``tray.notify_min_severity`` on this box in any case, so a
+#: judged row would be a silent one.  Written down rather than left as a
+#: silence: a consumer that declines to judge a published finding with
+#: nothing recording the decision is ``SNAG-CFG-001``'s shape, which is
+#: the reason this paragraph exists at all.
 JUDGED_AUDIT_SEVERITY = "breach"
 
 #: The rung a breach gets when the sweep attributes its port to a
