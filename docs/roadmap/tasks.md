@@ -394,6 +394,36 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 97 — the nineteenth check, and one entry with two faces (2026-08-27) ✅
+
+- [x] Take `SNAG-TRAY-008` as the cheapest instrument left — no
+      subprocess, no request, no scheduler: `DesktopNotifier` already
+      takes an injected `clock` and the reminder population is the keys
+      of an in-memory dict, so a restart is a second instance
+- [x] Drive **both** faces on one timeline, because the entry warns that
+      a fix for the second leaves the first looking fixed: a fault raised
+      while the tray was watching and never adopted, and a fault the
+      instance before the restart announced and this one has forgotten
+- [x] Reuse the first instance's own witness as the second's forgotten
+      fault, so "announced before the restart" is demonstrated rather
+      than asserted, and no fourth title differs in more than one thing
+- [x] Make `reached` a **conjunction** and report a half-fix in the note
+      of a `match` — the entry's own warning as the verdict rule, since a
+      half-fix is news and never a candidate for closure
+- [x] Supply the tray's elapsed time by subclassing `TrayPresence`
+      (which takes no clock) so `is_watching` stays the module's own
+      comparison against the live `tray_grace_seconds`
+- [x] Write against real unresolved rows in a rolled-back transaction
+      rather than a stub session, since the fix the entry sketches reads
+      the *open* rows and a stub built round the unfixed query could not
+      answer it
+- [x] Falsify every guard against the behaviour it guards (10/10 fired),
+      and re-aim the transport falsification once it proved unreachable
+- [x] Mark `SNAG-TRAY-008` with `<!--check:understudy_forgets-->` and
+      measure the parser either side (70 entries / 24 open, unmoved;
+      checked 16 → 17)
+- [x] Restart the daemon, re-check the nine ops claims, update the docs
+
 ## Session 96 — the eighteenth check, and the sweep window driven rather than counted (2026-08-27) ✅
 
 - [x] Rank the remaining unchecked entries and take `SNAG-ESTATE-009` — a

@@ -80,6 +80,7 @@ from sysadmin.snag_claims import (
     check_review_schedule_unread,
     check_run_status_cancelled,
     check_sysd_ollama_ordering,
+    check_understudy_forgets,
     check_unswept_port_is_loud,
     check_unwrap_is_read_time,
     closure_declared,
@@ -3473,3 +3474,557 @@ class TestTheUnsweptPortCheck:
         assert not problem, problem
         entry = next(e for e in entries if e.snag_id == check.snag)
         assert "unswept_port_is_loud" in entry.markers
+
+
+class TestTheUnderstudyCheck:
+    """``SNAG-TRAY-008``'s check — two faces, driven on one timeline.
+
+    The entry's population is **zero and always was**: it was filed as
+    the stated cost of ``SNAG-TRAY-007``'s rule 1 rather than by
+    observation, and the understudy speaks only when nothing is polling
+    the alerts route, which the tray on this box does.  So nothing below
+    counts a row.  What is driven is the mechanism: a notifier whose
+    reminder population is the keys of an in-memory dict, across a tray
+    outage and a restart.
+
+    Every falsification is a stand-in **modelling a landed fix** — the
+    spoken set made durable, an adoption of what the daemon never
+    announced, and the two together — plus the ways the instrument
+    itself can stop discriminating.  The first two matter most: each
+    closes *one* of the entry's two faces, and the entry warns in its own
+    body that a fix for either leaves the other looking fixed.  A check
+    that reported those as refutations would close an entry that is
+    still half true.
+    """
+
+    # -- helpers ---------------------------------------------------------
+
+    @staticmethod
+    def _desktop_config():
+        from sysadmin.core.config import get_config
+
+        return get_config().notifications.desktop
+
+    @classmethod
+    def _severity(cls) -> str:
+        return snag_claims.quietest_admitted_rung(cls._desktop_config().min_severity)
+
+    @staticmethod
+    def _surviving_rows() -> int:
+        """Rows on the live box this probe could have left.
+
+        By title, and all three of them: unlike its two siblings this
+        probe opens every row it uses **by hand**, so each one wears
+        :data:`PROBE_MESSAGE` and either key would find a leak.  The
+        title is used because it is also what a collision would be
+        against — the same string the pre-flight limb reads.
+        """
+        titles = ", ".join(f"'{title}'" for title in snag_claims.UNDERSTUDY_TITLES)
+        count, problem = snag_claims.query_one(
+            f"SELECT count(*) FROM sysadmin.alerts WHERE title IN ({titles})"
+        )
+        assert not problem, problem
+        return int(count or 0)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _durable_spoken():
+        """A fix that survives a restart, and nothing else.
+
+        The obvious closure of the entry's *second* face and the one its
+        own body names — *"persist the spoken set"* — modelled at the
+        smallest place it could land: every instance shares one
+        ``_spoken`` dict, so the notifier after the restart inherits what
+        the one before it said.  Applied **after** the real ``__init__``
+        rather than instead of it, so the object under test is the
+        module's own and the only difference is that its memory outlives
+        it.
+        """
+        from sysadmin.monitor.desktop import DesktopNotifier
+
+        real = DesktopNotifier.__init__
+        shared: dict = {}
+
+        def patched(self, *args, **kwargs) -> None:
+            real(self, *args, **kwargs)
+            self._spoken = shared
+
+        with patch.object(DesktopNotifier, "__init__", patched):
+            yield
+
+    @classmethod
+    @contextlib.contextmanager
+    def _adopts(cls, *titles: str):
+        """A fix that adopts faults this process never announced.
+
+        The closure of the entry's *first* face, in the shape the entry
+        sketches — adopt what the tray was speaking for once it has been
+        away long enough — reduced to its observable consequence: the
+        titles are in the spoken set before the sweep reads it.  Around
+        the production sweep, never in place of it.
+        """
+        from sysadmin.monitor.desktop import DesktopNotifier, _SpokenFault
+
+        real = DesktopNotifier.sweep_reminders
+        severity = cls._severity()
+
+        async def patched(self) -> int:
+            for title in titles:
+                self._spoken.setdefault(
+                    title,
+                    _SpokenFault(
+                        title=title,
+                        severity=severity,
+                        first_spoken_at=0.0,
+                        last_spoken_at=0.0,
+                    ),
+                )
+            return await real(self)
+
+        with patch.object(DesktopNotifier, "sweep_reminders", patched):
+            yield
+
+    @staticmethod
+    def _reading(**overrides):
+        """A reading whose every limb is satisfied, for the pure branches."""
+        fields = {
+            "interval_hours": 24.0,
+            "severity": "warning",
+            "pre_existing": (),
+            "spoke_while_watched": False,
+            "spoke_unwatched": True,
+            "spoke_after_restart": True,
+            "witness_first": True,
+            "unheard_adopted": False,
+            "witness_second": True,
+            "remembered": False,
+            "first_count": 1,
+            "second_count": 1,
+            "first_sent": (),
+            "second_sent": (),
+            "still_open": tuple(sorted(snag_claims.UNDERSTUDY_TITLES)),
+        }
+        return snag_claims.UnderstudyReading(**{**fields, **overrides})
+
+    # -- the instruments -------------------------------------------------
+
+    def test_the_probe_writes_nothing_that_survives(self):
+        """What makes writing to the live database allowable, asserted twice.
+
+        Before as well as after, because a probe that had been leaking
+        rows for a week would satisfy an "after" assertion on its own.
+        """
+        assert self._surviving_rows() == 0
+        reading, problem = snag_claims.understudy_sweep_reading()
+        assert not problem, problem
+        assert reading is not None and not reading.refusal
+        assert self._surviving_rows() == 0
+
+    def test_nothing_survives_a_run_that_raised(self):
+        """The rollback is in a ``finally``, so a failed drive leaks nothing."""
+        from sysadmin.monitor.desktop import DesktopNotifier
+
+        async def boom(self, event):
+            raise RuntimeError("the subscriber fell over")
+
+        with patch.object(DesktopNotifier, "on_alert_raised", boom):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "unknown"
+        assert "would not run against the live database" in measurement.note
+        assert self._surviving_rows() == 0
+
+    def test_the_probes_own_strings_cannot_become_an_injection(self):
+        for title in snag_claims.UNDERSTUDY_TITLES:
+            assert "'" not in title
+            assert "\\" not in title
+
+    def test_no_probe_title_is_a_substring_of_another(self):
+        """The instrument reads a roll-up body, so overlap would forge a hit.
+
+        :func:`restated` matches a folded reminder by looking for the
+        fault's title *inside* the notification body.  If one probe title
+        contained another, a roll-up naming only the witness would read
+        as having named both, and the check would report the entry
+        refuted off its own control.
+        """
+        for one in snag_claims.UNDERSTUDY_TITLES:
+            others = [other for other in snag_claims.UNDERSTUDY_TITLES if other != one]
+            assert len(others) == 2
+            assert not any(one in other for other in others)
+
+    def test_the_tray_gate_above_the_supplied_reading_is_the_modules_own(self):
+        """One leaf is overridden; the gate itself is inherited.
+
+        ``is_watching`` is what both call sites ask, and it must stay the
+        module's own comparison against the live ``tray_grace_seconds``
+        — a probe that reimplemented it would be measuring its own
+        arithmetic.  ``ever_seen`` is asserted because the entry's first
+        face is a tray that was *here and left*, which the module keeps
+        apart from one that was never seen.
+        """
+        from sysadmin.monitor.desktop import TrayPresence
+
+        elapsed = [5.0]
+        presence = snag_claims.supplied_presence(lambda: elapsed[0])
+        assert isinstance(presence, TrayPresence)
+        assert type(presence).is_watching is TrayPresence.is_watching
+        assert presence.ever_seen is True
+        assert presence.seconds_since_seen() == 5.0
+        assert presence.is_watching(10.0) and not presence.is_watching(1.0)
+        elapsed[0] = 100.0
+        assert not presence.is_watching(10.0)
+
+    def test_the_tray_presence_global_is_put_back(self):
+        """Including when the drive raises — this module is imported by tests."""
+        from sysadmin.monitor import desktop
+
+        standing = desktop.tray_presence
+        check_understudy_forgets()
+        assert desktop.tray_presence is standing
+
+        async def boom(self, event):
+            raise RuntimeError("the subscriber fell over")
+
+        with patch.object(desktop.DesktopNotifier, "on_alert_raised", boom):
+            check_understudy_forgets()
+        assert desktop.tray_presence is standing
+
+    def test_the_instrument_is_the_modules_own_sweep(self):
+        """Driven, not reimplemented — two sweeps, one per instance."""
+        from sysadmin.monitor.desktop import DesktopNotifier
+
+        real = DesktopNotifier._sweep
+        calls = []
+
+        async def counting(self):
+            calls.append(self)
+            return await real(self)
+
+        with patch.object(DesktopNotifier, "_sweep", counting):
+            reading, problem = snag_claims.understudy_sweep_reading()
+        assert not problem, problem
+        assert reading is not None and not reading.refusal
+        assert len(calls) == 2
+        assert calls[0] is not calls[1]
+
+    def test_the_notifier_reads_the_drives_own_session(self):
+        """Real rows in one transaction — the check's rule 3, pinned.
+
+        A stub factory answering ``IN (:spoken)`` would be a control the
+        fix breaks: the shape the entry itself proposes reads the *open*
+        rows and caps them, which a stub built around the unfixed query
+        could not answer.  So the notifier is handed the drive's own
+        session — every gate 2 count and every ``_still_open`` runs
+        against rows PostgreSQL actually holds, and closing it would end
+        the transaction the rollback owns.
+        """
+        seen = []
+        real = snag_claims._SharedSession.__aenter__
+
+        async def recording(self):
+            session = await real(self)
+            seen.append(session)
+            return session
+
+        with patch.object(snag_claims._SharedSession, "__aenter__", recording):
+            reading, problem = snag_claims.understudy_sweep_reading()
+        assert not problem, problem
+        assert reading is not None and not reading.refusal
+        assert seen, "the notifier issued no query at all"
+        assert len({id(session) for session in seen}) == 1
+
+    def test_the_rung_is_derived_from_the_modules_own_map(self):
+        """And derived *quiet*, which is the half worth pinning.
+
+        ``critical`` clears Do Not Disturb on this box whatever
+        ``min_severity`` says, so a probe that picked it would be
+        arranging to pass gate 3 rather than measuring it.
+        """
+        from sysadmin.monitor.desktop import SEVERITY_LEVELS
+
+        assert snag_claims.quietest_admitted_rung("info") == "info"
+        assert snag_claims.quietest_admitted_rung("warning") == "warning"
+        assert snag_claims.quietest_admitted_rung("critical") == "critical"
+        # An unknown rung takes the module's own default, not this one's.
+        assert snag_claims.quietest_admitted_rung("nonsense") == "warning"
+        assert snag_claims.quietest_admitted_rung("nonsense") != max(
+            SEVERITY_LEVELS, key=lambda rung: SEVERITY_LEVELS[rung]
+        )
+
+    def test_the_rung_the_probe_writes_is_one_the_column_admits(self):
+        """Two vocabularies, pinned rather than assumed to coincide.
+
+        The rung comes from ``desktop.SEVERITY_LEVELS`` and the row goes
+        through ``chk_alert_severity``.  Nothing makes those agree, and a
+        rung admitted by one and refused by the other would take the
+        drive down as an ``unknown`` nobody could read.
+        """
+        from sysadmin.core.models.alert import Alert
+        from sysadmin.monitor.desktop import SEVERITY_LEVELS
+
+        constraint = next(
+            c
+            for c in Alert.__table__.constraints
+            if getattr(c, "name", "") == "chk_alert_severity"
+        )
+        admitted = set(re.findall(r"'([a-z]+)'", str(constraint.sqltext)))
+        assert set(SEVERITY_LEVELS) <= admitted
+
+    # -- the measurement -------------------------------------------------
+
+    def test_the_check_holds_on_this_box(self):
+        measurement = check_understudy_forgets()
+        assert measurement.verdict == "match"
+        assert measurement.note == ""
+        assert any(
+            "it restated the fault it had announced: True; the one it had not: False" in line
+            for line in measurement.detail
+        )
+        assert any(
+            "it restated the fault it had announced: True; its predecessor's: False" in line
+            for line in measurement.detail
+        )
+
+    def test_persisting_the_spoken_set_alone_is_not_a_closure(self):
+        """The headline falsification, and the reason the verdict is a conjunction.
+
+        This is the fix the entry names and rejects in the same breath.
+        It closes the second face outright — the restarted notifier
+        restates what its predecessor announced — and leaves the first
+        exactly where it was, because a fault the daemon never announced
+        was never in the set being persisted.  Reported as ``match``
+        with the moved half in the note: news, and not a candidate for
+        closure.
+        """
+        with self._durable_spoken():
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "match"
+        assert "one of its two faces has moved" in measurement.note
+        assert "only the instance before it had announced" in measurement.note
+        assert "never announced" not in measurement.note
+        assert any("its predecessor's: True" in line for line in measurement.detail)
+
+    def test_adopting_what_it_never_announced_alone_is_not_a_closure(self):
+        """The mirror, and the face the entry says a persistence fix hides.
+
+        A fix that adopts a standing fault the daemon was silent about
+        closes the first face and cannot touch the second: the adopted
+        set is rebuilt from the open rows on every sweep, so it is not
+        *memory* and a restart still forgets what this process said.
+        """
+        with self._adopts(snag_claims.UNHEARD_TITLE):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "match"
+        assert "one of its two faces has moved" in measurement.note
+        assert "a fault this process never announced" in measurement.note
+        assert "only the instance before it had announced" not in measurement.note
+        assert any("the one it had not: True" in line for line in measurement.detail)
+
+    def test_both_faces_moving_is_a_mismatch(self):
+        """And only both, which is the entry's own warning as a verdict rule."""
+        with self._durable_spoken(), self._adopts(snag_claims.UNHEARD_TITLE):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "mismatch"
+        assert "no longer only what this process announced" in measurement.note
+        assert "a fault this process never announced" in measurement.note
+        assert "only the instance before it had announced" in measurement.note
+
+    def test_a_probe_reading_only_titles_would_miss_the_fix(self):
+        """Why :func:`restated` reads the roll-up body, driven rather than argued.
+
+        A fix that adopts one further fault pushes the very sweep this
+        probe drives over ``_ROLLUP_THRESHOLD``, and a folded reminder is
+        titled ``"N faults still open"`` — so a check comparing titles
+        alone reports a landed fix as **silence**, and worse, loses its
+        own witness with it.  ``a-control-a-fix-breaks-is-not-a-control``
+        at the level of a string comparison.
+        """
+        def titles_only(sent, title):
+            return any(title == sent_title for _, sent_title, _ in sent)
+
+        with (
+            self._durable_spoken(),
+            self._adopts(snag_claims.UNHEARD_TITLE),
+            patch.object(snag_claims, "restated", titles_only),
+        ):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "unknown"
+        assert "reminders have stopped working at all" in measurement.note
+
+    def test_without_the_witness_the_verdict_is_unknown(self):
+        """The control, driven at the state that would otherwise read ``match``.
+
+        A notifier whose ``_still_open`` will not answer restates
+        **nothing**, so every silence the ``match`` branch reads is still
+        there and the reason has nothing to do with the population.  Only
+        the fault each instance did announce, swept in the same call,
+        separates them.
+        """
+        from sysadmin.monitor.desktop import DesktopNotifier
+
+        async def unreadable(self, titles):
+            return None
+
+        with patch.object(DesktopNotifier, "_still_open", unreadable):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "unknown"
+        assert "reminders have stopped working at all" in measurement.note
+        assert any("restated 0 fault(s): nothing" in line for line in measurement.detail)
+
+    def test_a_daemon_that_speaks_over_the_tray_is_unknown(self):
+        """The premise limb: without gate 1 there is no unannounced fault.
+
+        A tray gate that stopped deferring would have the understudy
+        announce the fault raised while the tray was watching, which is
+        the one thing the entry's first face is *about*.  That is a
+        change to the module and not a fix to this entry, and the honest
+        answer is that the probe could not build the state.
+        """
+        from sysadmin.monitor.desktop import TrayPresence
+
+        with patch.object(TrayPresence, "is_watching", lambda self, grace: False):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "unknown"
+        assert "raised while the tray was watching" in measurement.note
+        assert "cannot build the thing the entry is about" in measurement.note
+
+    def test_a_gate_that_declines_the_opening_call_is_unknown(self):
+        """Nothing is recorded as spoken, so the sweep has no population.
+
+        The module's own rule 4 — a notification that did not land is
+        never restated — reached from the probe's side.  Driven at
+        **gate 2** rather than at the transport, and that is a finding
+        rather than a preference: the probe's transport cannot fail, so
+        a stand-in patching ``DesktopNotifier.send`` does not reach it at
+        all (:meth:`test_the_recording_transport_is_what_runs`).  Gate 2
+        declining — a database blip, which that gate answers ``False``
+        by design — is the reachable shape of "nothing was announced",
+        and it is the one a live box would produce.
+        """
+        from sysadmin.monitor.desktop import DesktopNotifier
+
+        async def never_new(self, title):
+            return False
+
+        with patch.object(DesktopNotifier, "_is_new_incident", never_new):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "unknown"
+        assert "announced nothing with the tray away" in measurement.note
+
+    def test_the_recording_transport_is_what_runs(self):
+        """The probe's ``send`` shadows the module's, and that has a cost.
+
+        Overriding the leaf is what keeps ``notify-send`` and the session
+        bus out of a check that runs at both ends of every sitting.  What
+        it also does is make the module's own transport **unreachable
+        from a stand-in**: patching ``DesktopNotifier.send`` leaves the
+        probe landing every notification, which is why the refusal above
+        is driven at a gate.  Stated here rather than discovered by the
+        next author of a falsification that passes.
+        """
+        from sysadmin.monitor.desktop import DesktopNotifier
+
+        notifier = snag_claims.recorded_notifier(None, lambda: 0.0)
+        assert isinstance(notifier, DesktopNotifier)
+        assert type(notifier).send is not DesktopNotifier.send
+        assert type(notifier)._sweep is DesktopNotifier._sweep
+        assert type(notifier).on_alert_raised is DesktopNotifier.on_alert_raised
+
+    def test_reminders_switched_off_is_unknown_before_anything_is_written(self):
+        """A mechanism that is off is not a mechanism that has been narrowed."""
+        with patch.object(self._desktop_config(), "reminder_hours", 0):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "unknown"
+        assert "disables the reminder sweep" in measurement.note
+        assert self._surviving_rows() == 0
+
+    def test_a_disabled_understudy_is_unknown(self):
+        with patch.object(self._desktop_config(), "enabled", False):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "unknown"
+        assert "speaks for nothing" in measurement.note
+
+    def test_do_not_disturb_is_unknown_rather_than_measured(self):
+        """Gate 3 is not this entry's gate, and a probe cannot see past it."""
+        from sysadmin.monitor.dnd import dnd_manager
+
+        with patch.object(dnd_manager, "should_suppress", lambda severity: True):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "unknown"
+        assert "Do Not Disturb is suppressing" in measurement.note
+        assert self._surviving_rows() == 0
+
+    def test_an_event_that_no_longer_carries_its_title_is_unknown(self):
+        """The payload is the producer's, and the probe refuses a fake one.
+
+        ``raise_alert`` builds the ``alert.raised`` payload the bus
+        carries.  A probe that typed one out would keep matching a shape
+        that had moved and would measure a notifier declining an event
+        nothing sends, so the drive takes what the producer buffered and
+        stops if it is not about the row just written.
+        """
+        from sysadmin.core.agent import BaseAgent
+
+        real = BaseAgent.raise_alert
+
+        async def silent(self, session, severity, title, message=None, details=None):
+            alert = await real(self, session, severity, title, message, details)
+            if self._pending_events:
+                self._pending_events.pop()
+            return alert
+
+        with patch.object(BaseAgent, "raise_alert", silent):
+            measurement = check_understudy_forgets()
+        assert measurement.verdict == "unknown"
+        assert "no longer buffers an event carrying the title it wrote" in measurement.note
+        assert self._surviving_rows() == 0
+
+    # -- the pure limbs --------------------------------------------------
+
+    def test_a_colliding_live_row_is_a_refusal(self):
+        """Driven at the reading, because the state needs a committed row.
+
+        Gate 2 counts *unresolved rows with this title* and stays silent
+        above one, so a live fault sharing a probe title would make the
+        understudy silent for a reason that is not this entry.  Producing
+        one would mean committing to the live table, which is the single
+        thing these probes may not do — so the limb is pinned where it is
+        pure and :meth:`test_the_probes_own_strings` keeps the titles
+        distinctive enough that it stays unreachable.
+        """
+        reading = self._reading(pre_existing=(snag_claims.ANNOUNCED_TITLE,))
+        assert "gate 2 counts two open rows" in reading.refusal
+        assert reading.reached is False
+
+    def test_a_row_that_resolved_mid_drive_is_a_refusal(self):
+        """A fault that cleared is dropped from the spoken set, not withheld.
+
+        The sweep deletes a title whose row has resolved, so silence
+        about it would be correct behaviour rather than the narrowing
+        this entry is about.  Read straight off the table rather than
+        through ``_still_open``, which is bounded by the very set under
+        measurement.
+        """
+        reading = self._reading(still_open=(snag_claims.RESTARTED_TITLE,))
+        assert "did not all stay open" in reading.refusal
+        assert snag_claims.ANNOUNCED_TITLE in reading.refusal
+
+    def test_the_refusal_names_the_first_thing_that_failed(self):
+        """Five ways to measure nothing, and a bare bool names none of them."""
+        assert self._reading().refusal == ""
+        assert self._reading(witness_first=False).refusal
+        assert self._reading(spoke_while_watched=True).refusal
+        assert self._reading(spoke_after_restart=False).refusal
+
+    def test_a_half_fix_is_never_reached(self):
+        assert self._reading(unheard_adopted=True).reached is False
+        assert self._reading(remembered=True).reached is False
+        assert self._reading(unheard_adopted=True, remembered=True).reached is True
+
+    def test_the_check_names_the_entry_and_the_entry_names_the_check(self):
+        check = CHECKS["understudy_forgets"]
+        assert check.snag == "SNAG-TRAY-008"
+        entries, problem = snag_claims.load_entries()
+        assert not problem, problem
+        entry = next(e for e in entries if e.snag_id == check.snag)
+        assert "understudy_forgets" in entry.markers
