@@ -248,6 +248,16 @@ class SysAdminAgent(BaseAgent):
         # nobody reads is the SNAG-CFG-001 shape and the exclusion now
         # comes from `_judged_titles` below.
         self._open_titles: set[str] = set()
+        # Titles this run *wrote a row for*, kept apart from the snapshot
+        # above rather than folded into it (SNAG-AGENT-009). Both sets
+        # suppress a raise, and only the snapshot admits a refresh: a
+        # held row that this run inserted seconds ago is one whose
+        # message this run already chose, and refreshing it would make
+        # the *last* of two same-titled judgements — two identically
+        # named GPUs, the case that put the `add` here in the first
+        # place — overwrite the first. Which of the two is current is
+        # undefined, so the run must not answer it twice.
+        self._written_titles: set[str] = set()
         # Titles this run judged **still true**, whether or not a row was
         # written for them — the set `_resolve_recovered` subtracts.
         # Deliberately not "the titles this run raised": see
@@ -256,6 +266,12 @@ class SysAdminAgent(BaseAgent):
         # Judgements that found a row already open. Counted so that a run
         # reporting zero raises can say which zero it means.
         self._suppressed: int = 0
+        # Held rows whose text had moved and was rewritten. Counted
+        # beside `_suppressed` rather than inside it: a suppressed
+        # judgement that changed nothing and one that corrected a
+        # standing sentence are different events, and `agent_runs.details`
+        # is where the population of both was measured.
+        self._refreshed: int = 0
 
     def forget_unknown(self) -> list[str]:
         """Drop per-service state for services no longer declared.
@@ -350,16 +366,65 @@ class SysAdminAgent(BaseAgent):
         them from one override is the "second owner of one lifecycle"
         defect that produced this method in the first place.
 
+        **A suppressed raise is not a suppressed correction**
+        (``SNAG-AGENT-009``).  The largest held population on this box is
+        this method — **838** suppressed raises across 751 of 2,303 runs,
+        against 131 for the estate judge and 0 for the port family — and
+        every one of them left ``message`` and ``details`` as the first
+        run wrote them.  The threshold family is the worst case by
+        construction: ``High VRAM usage on …`` is stable while its whole
+        message is the measurement, ``VRAM at 90.1% (threshold: 90%)``,
+        so **42 of 42** polls inside a hold carried a different figure and
+        19 of them read *below* the threshold the sentence was asserting.
+        The row is therefore brought up to date here, by
+        :meth:`~sysadmin.core.agent.BaseAgent.refresh_alert`, which owns
+        the comparison and the write.
+
+        Only a row that was open **before this run** is refreshed, which
+        is why :attr:`_written_titles` exists as a second set rather than
+        as more entries in :attr:`_open_titles` — see its comment.
+
+        The row is fetched at the hold rather than carried in the
+        snapshot, and that is ``SNAG-AGENT-005``'s rule rather than
+        thrift: a snapshot widened to carry ``message`` and ``details``
+        is bounded by *the table*, and this agent's own families reached
+        51,924 open rows before ``SNAG-AGENT-004``; a read at the hold is
+        bounded by *the judgements this run made*, which is at most a
+        handful.  It costs one indexed lookup per held-and-checked title:
+        measured against the live table at 665,937 rows, **84 buffers and
+        0.098 ms**, on ``idx_alerts_active`` rather than
+        ``idx_alerts_open_by_agent`` — with one open row on the box
+        either partial index is free and the planner takes the older one,
+        which is exactly what ``SNAG-AGENT-007`` recorded about its own
+        pair.  The agent-scoped one is what bounds this read if the open
+        set ever grows again, and it is reached through
+        :meth:`_open_alert_criteria` rather than by a hand-written
+        predicate, so it can be reached at all.
+
+        The read happens inside the per-service savepoint on that path,
+        which changes nothing:
+        :meth:`~sysadmin.core.agent.BaseAgent.raise_alert` already
+        flushes there, so this adds no earlier flush than the raise it
+        replaces — ``SNAG-DB-001``'s one-savepoint-per-service isolation
+        is untouched.
+
         Returns:
             1 if a row was written, 0 if the fault already had one open.
+            A refresh returns 0 — it writes no row, and ``alerts_raised``
+            counts rows.  ``details["standing"]["refreshed"]`` is where a
+            run says it happened.
         """
         self._judged_titles.add(title)
-        if dedup and title in self._open_titles:
+        if dedup and (title in self._open_titles or title in self._written_titles):
             self._suppressed += 1
             logger.debug(
                 "alert_suppressed_row_already_open",
                 extra={"agent": self.name, "title": title},
             )
+            if title in self._open_titles:
+                await self._refresh_open(
+                    session, title=title, message=message, details=details
+                )
             return 0
         await self.raise_alert(
             session,
@@ -371,8 +436,43 @@ class SysAdminAgent(BaseAgent):
         # So that a second judgement of the same title inside one run —
         # two identically-named GPUs, say — dedups against the row this
         # call just wrote rather than against a snapshot taken before it.
-        self._open_titles.add(title)
+        self._written_titles.add(title)
         return 1
+
+    async def _refresh_open(
+        self,
+        session,
+        *,
+        title: str,
+        message: str,
+        details: dict[str, Any],
+    ) -> bool:
+        """Rewrite the standing row for ``title`` if its text has moved.
+
+        Scoped through :meth:`_open_alert_criteria`, so "open" is stated
+        where the column and the partial indexes are and this method adds
+        no second definition of it.
+
+        **A missing row is not an error.**  The snapshot is taken at the
+        top of the run and something may have resolved the row since —
+        the lifespan closes ``sysadmin.service failed``, an operator may
+        acknowledge and resolve one through the API — and a judgement
+        that finds nothing to correct has simply nothing to correct.  It
+        is still counted as suppressed, because the *raise* was
+        suppressed by the snapshot either way; what the run reports is
+        how many corrections it made, not how many it attempted.
+        """
+        alert = (
+            await session.execute(
+                select(Alert).where(*self._open_alert_criteria(), Alert.title == title)
+            )
+        ).scalars().first()
+        if alert is None:
+            return False
+        if not self.refresh_alert(alert, message=message, details=details):
+            return False
+        self._refreshed += 1
+        return True
 
     async def _execute(self, session) -> AgentResult:
         """Run all health checks and record resource snapshot."""
@@ -380,7 +480,9 @@ class SysAdminAgent(BaseAgent):
         self._agent_failure_counts = _NO_AGENT_FAILURES
         self._collation_counts = _NO_COLLATION
         self._judged_titles = set()
+        self._written_titles = set()
         self._suppressed = 0
+        self._refreshed = 0
         config = get_config()
         agent_config = config.agents.sysadmin
         services = get_services().services
@@ -546,6 +648,14 @@ class SysAdminAgent(BaseAgent):
                 "standing": {
                     "judged": len(self._judged_titles),
                     "suppressed": self._suppressed,
+                    # How many of the suppressed judgements found a
+                    # standing row whose sentence had gone stale and
+                    # rewrote it (SNAG-AGENT-009). Reported beside
+                    # `suppressed` and never summed into `alerts_raised`:
+                    # no row was written, and a count of rows that
+                    # included updates would stop meaning what four other
+                    # families read it as.
+                    "refreshed": self._refreshed,
                 },
             },
         )

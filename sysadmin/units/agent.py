@@ -513,6 +513,30 @@ class ServiceDiscoveryAgent(BaseAgent):
         ``warning`` because it names a port and a unit, and this family
         has never had a member on this box — a ladder tuned against zero
         observations is a guess with a number on it.
+
+        **A held row is refreshed rather than left standing**
+        (``SNAG-AGENT-009``), and its population here is **zero: 0 held
+        events in 65 runs**, all-time.  That is worth stating rather than
+        leaving to be inferred, because the entry was *filed* against
+        this method and against
+        :meth:`~sysadmin.estate.agent.EstateJudgeAgent._execute` as
+        though the two were comparable, when the box says 0 against 131
+        and says 838 for a third family the entry never named.  The fix
+        is here anyway, and for a reason the count cannot see: the drive
+        that demonstrated the mechanism used exactly this family — a port
+        raised naming ``user:alpha.service`` and then handed to
+        ``user:beta.service`` came back ``held: 1, raised: 0`` with the
+        message still naming alpha **and the ``findings`` blob still
+        naming it too**, which is what showed that ``details`` freezes
+        with the sentence.  Ranked last and built anyway is the honest
+        shape; skipped because empty is how ``SNAG-LOG-002`` was
+        mis-ranked three times.
+
+        The read is rows rather than titles for that refresh.  It is
+        bounded by :data:`PORT_TITLE_PREFIX` and by this agent's own
+        open set, which is the bound that matters —
+        ``SNAG-AGENT-005``'s unbounded ``SELECT`` was over a family with
+        598,091 rows in it, and this one has never had one.
         """
         if not report.ok:
             logger.warning("port_check_unavailable", extra={"error": report.error})
@@ -523,46 +547,63 @@ class ServiceDiscoveryAgent(BaseAgent):
             by_port.setdefault(finding.port, []).append(finding)
 
         judged = {port_alert_title(port) for port in by_port}
-        # ``select(Alert.title)`` yields the titles themselves, not rows.
-        # Written as ``row.title`` first, which on a ``str`` silently
-        # returns the bound ``str.title`` method rather than raising — so
-        # every membership test failed and the family raised a duplicate
-        # row on every sweep.  Caught by the dedup test, not by mypy.
-        open_titles = set(
-            (
+        # Rows, not ``select(Alert.title)``: a held row has to be reached
+        # to be refreshed (SNAG-AGENT-009).  The projection this replaces
+        # yielded the titles themselves rather than rows, and was written
+        # as ``row.title`` first — which on a ``str`` silently returns the
+        # bound ``str.title`` method rather than raising, so every
+        # membership test failed and the family raised a duplicate row on
+        # every sweep.  Caught by the dedup test, not by mypy; the map
+        # below cannot restage it, because a ``dict`` keyed on the wrong
+        # thing has no ``in`` that quietly succeeds.
+        standing = {
+            alert.title: alert
+            for alert in (
                 await session.execute(
-                    select(Alert.title).where(
+                    select(Alert).where(
                         Alert.agent == self.name,
                         unresolved(),
                         Alert.title.like(f"{PORT_TITLE_PREFIX}%"),
                     )
                 )
             ).scalars()
-        )
+        }
 
-        raised = held = 0
+        raised = held = refreshed = 0
         for port in sorted(by_port):
             title = port_alert_title(port)
-            if title in open_titles:
-                held += 1
-                continue
             # Worst kind first (``KIND_ORDER``), so the message describes
             # the more serious of two findings and ``kinds`` names both.
             findings = sorted(
                 by_port[port], key=lambda f: port_check.KIND_ORDER.index(f.kind)
             )
             worst = findings[0]
+            # Built above the branch so a raise and a refresh of the same
+            # port write the same blob.
+            details = {
+                "port": port,
+                "kinds": [f.kind for f in findings],
+                "findings": [f.as_dict() for f in findings],
+                "source": "port_check",
+            }
+            if title in standing:
+                held += 1
+                # The title is keyed on the port and nothing else
+                # (Session 26c rule 4), so a port whose holder changed
+                # keeps its row and must not keep its sentence: ``8081 is
+                # held by user:alpha.service`` outlives alpha by exactly
+                # as long as the collision does.
+                if self.refresh_alert(
+                    standing[title], message=worst.summary, details=details
+                ):
+                    refreshed += 1
+                continue
             await self.raise_alert(
                 session,
                 severity="warning",
                 title=title,
                 message=worst.summary,
-                details={
-                    "port": port,
-                    "kinds": [f.kind for f in findings],
-                    "findings": [f.as_dict() for f in findings],
-                    "source": "port_check",
-                },
+                details=details,
             )
             raised += 1
 
@@ -571,6 +612,12 @@ class ServiceDiscoveryAgent(BaseAgent):
             "judged": len(judged),
             "raised": raised,
             "held": held,
+            # How many of the held rows had their sentence rewritten
+            # because the port had changed hands (SNAG-AGENT-009).
+            # Beside `held` rather than inside it: a collision that
+            # stands unchanged and one whose holder moved are different
+            # news, and only the second is worth reading twice.
+            "refreshed": refreshed,
             "resolved": resolved,
             "checked": True,
         }

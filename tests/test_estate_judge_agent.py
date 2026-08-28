@@ -152,11 +152,19 @@ def results(scan=FRESH_SCAN, attention=NO_ATTENTION, findings=None, unread=()):
 
 
 class FakeAlert:
-    """Enough of ``Alert`` for the dedup and sweep logic."""
+    """Enough of ``Alert`` for the dedup, the sweep and the refresh.
 
-    def __init__(self, title, surface, resolved=False):
+    ``message`` and ``agent`` arrived with ``SNAG-AGENT-009``: a held
+    judgement now rewrites the standing row's sentence and its blob, so a
+    stand-in without those two fields models a row this loop can no
+    longer be handed.
+    """
+
+    def __init__(self, title, surface, resolved=False, message=None):
         self.id = uuid.uuid4()
+        self.agent = "estate_judge"
         self.title = title
+        self.message = message
         self.details = {SURFACE_DETAIL_KEY: surface} if surface else {}
         self.resolved = resolved
 

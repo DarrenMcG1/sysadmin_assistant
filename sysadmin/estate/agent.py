@@ -143,21 +143,56 @@ class EstateJudgeAgent(BaseAgent):
 
         # --- 3. Raise and resolve, in one transaction -------------------
         open_alerts = await self._open_alerts(session)
-        open_titles = {a.title for a in open_alerts}
+        # Keyed rather than reduced to a set of titles: a held judgement
+        # has to reach the row it was held by, so that its recomputed
+        # sentence can replace the one standing (SNAG-AGENT-009). The
+        # read already returns the rows, so the map costs nothing the set
+        # did not.
+        standing = {a.title: a for a in open_alerts}
+        open_titles = set(standing)
 
-        raised = 0
+        raised = refreshed = 0
         for judgement in judged:
+            # Built once, above the branch: a raise and a refresh handed
+            # the same judgement must put the same blob in the row, or
+            # its contents would depend on which path happened to write
+            # it.
+            details = {
+                **judgement.details,
+                SURFACE_DETAIL_KEY: judgement.surface,
+            }
             if judgement.title in open_titles:
+                # Suppress the raise; never suppress the correction.
+                # **18 of the 21 judgement templates in
+                # :mod:`sysadmin.estate.judgements` interpolate a
+                # quantity that moves while the fault stands** — an age
+                # in hours, a health score, a nudge's streak in days, a
+                # queue depth — so this family is the second-largest
+                # held population on this box (131 across 77 of 240
+                # runs) and almost all of it is stale-prone. A row
+                # raised at "idle 8 days" reads "idle 8 days" a
+                # fortnight later.
+                #
+                # `standing` may not hold the title: a judgement made
+                # twice in one run (`judge_audit_findings` rule 4 keeps
+                # a finding's `code` out of the title deliberately) adds
+                # to `open_titles` below and not to the map, so the
+                # first judgement's message stands and the second is
+                # merely suppressed — which is the same rule
+                # `SysAdminAgent._raise_judged` states for two
+                # identically-named GPUs, and for its reason.
+                held = standing.get(judgement.title)
+                if held is not None and self.refresh_alert(
+                    held, message=judgement.message, details=details
+                ):
+                    refreshed += 1
                 continue
             await self.raise_alert(
                 session,
                 severity=judgement.severity,
                 title=judgement.title,
                 message=judgement.message,
-                details={
-                    **judgement.details,
-                    SURFACE_DETAIL_KEY: judgement.surface,
-                },
+                details=details,
             )
             # A title is taken the moment it is raised, not on the next
             # run. `judged` may legitimately hold two entries with one
@@ -186,6 +221,11 @@ class EstateJudgeAgent(BaseAgent):
                 # a run reporting only `raised` reads as a clean estate.
                 "standing": len(judged),
                 "raised": raised,
+                # How many standing rows had their sentence rewritten
+                # because the quantity in it had moved (SNAG-AGENT-009).
+                # Beside `raised` and never summed into it: no row was
+                # written, and `alerts_raised` counts rows.
+                "refreshed": refreshed,
                 "resolved": resolved,
                 "by_surface": per_surface,
                 "surfaces_read": sorted(read),

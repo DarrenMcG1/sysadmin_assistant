@@ -52,6 +52,17 @@ def _like(pattern: str, value: str) -> bool:
     return re.fullmatch(re.escape(pattern).replace("%", ".*"), value) is not None
 
 
+def _title_equals(statement) -> str | None:
+    """The ``alerts.title = '…'`` this statement asks for, if it asks for one."""
+    sql = str(
+        statement.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    match = re.search(r"alerts\.title = '(.*?)'", sql)
+    return match.group(1) if match else None
+
+
 class FakeAlerts:
     """The ``alerts`` rows this agent can see, kept across runs.
 
@@ -118,8 +129,15 @@ class FakeSession:
     async def execute(self, statement):
         if isinstance(statement, Update):
             return MagicMock(rowcount=self.alerts.sweep(statement))
+        answer = self._answer(statement)
         result = MagicMock()
-        result.scalars.return_value.all.return_value = self._answer(statement)
+        result.scalars.return_value.all.return_value = answer
+        # ``.first()`` as the database means it, not as a MagicMock
+        # invents it: ``_refresh_open`` reads one row this way, and a
+        # mock answering with a mock would let ``refresh_alert`` compare
+        # a string against an attribute that is never equal to anything
+        # and rewrite a row on every held poll (SNAG-AGENT-009).
+        result.scalars.return_value.first.return_value = answer[0] if answer else None
         return result
 
     def _answer(self, statement):
@@ -136,13 +154,47 @@ class FakeSession:
         Discriminated on ``selected_columns`` rather than on the caller,
         so the fake models the database instead of the one call site that
         happens to project today.
+
+        **The WHERE clause is honoured too, and it had to start being**
+        (SNAG-AGENT-009): ``_refresh_open`` asks for one row by title, and
+        a fake that answers every row read with *every* open row hands it
+        the wrong alert and reports a refresh that never happened.  Read
+        off the compiled statement, the idiom ``FakeAlerts.sweep`` already
+        uses for the ``NOT IN`` list, and with the same limit — it proves
+        the statement says what it means to say, not that PostgreSQL
+        evaluates it that way.
         """
         if [c.name for c in statement.selected_columns] == ["title"]:
             return self.alerts.open_titles()
-        return self.alerts.open()
+        rows = self.alerts.open()
+        wanted = _title_equals(statement)
+        if wanted is not None:
+            rows = [row for row in rows if row.title == wanted]
+        return rows
 
     def begin_nested(self):
         return _Savepoint()
+
+
+def _no_rows_session():
+    """A session that answers every read with nothing.
+
+    Enough for the tests that drive ``_handle_status`` alone with
+    ``_open_titles`` set by hand: there is no row behind those titles, so
+    the refresh ``SNAG-AGENT-009`` added finds nothing and does nothing.
+    That is the production path for a row resolved between the snapshot
+    and the judgement, exercised here for free — and it is a real
+    ``AsyncMock`` rather than a bare ``MagicMock`` because a mock that
+    cannot be awaited hides the read behind a ``TypeError`` instead of
+    modelling it.
+    """
+    session = MagicMock()
+    session.flush = AsyncMock()
+    result = MagicMock()
+    result.scalars.return_value.first.return_value = None
+    result.scalars.return_value.all.return_value = []
+    session.execute = AsyncMock(return_value=result)
+    return session
 
 
 class _Savepoint:
@@ -243,7 +295,7 @@ class TestOneFaultOneRow:
 
         assert sorted(alerts.open_titles()) == sorted([TIMER_ALERT, DISK_ALERT])
         assert result.alerts_raised == 2
-        assert result.details["standing"] == {"judged": 2, "suppressed": 0}
+        assert result.details["standing"] == {"judged": 2, "suppressed": 0, "refreshed": 0}
 
     async def test_run_two_raises_nothing_and_resolves_nothing(
         self, agent, session, alerts, mock_config
@@ -278,7 +330,76 @@ class TestOneFaultOneRow:
         )
 
         assert result.alerts_raised == 0
-        assert result.details["standing"] == {"judged": 2, "suppressed": 2}
+        # Nothing moved between the two runs — same status, same 95% — so
+        # the gate holds and neither standing row is rewritten
+        # (SNAG-AGENT-009).
+        assert result.details["standing"] == {
+            "judged": 2,
+            "suppressed": 2,
+            "refreshed": 0,
+        }
+
+    async def test_a_held_row_whose_figure_moved_is_rewritten(
+        self, agent, session, alerts, mock_config
+    ):
+        """``SNAG-AGENT-009`` — the row stands, the sentence moves.
+
+        This is the family the entry never named and the largest of the
+        five: **838** suppressed raises across 751 of 2,303 runs.  The
+        threshold half is the worst case by construction, because the
+        title is stable while the whole message is the measurement — so
+        ``Critical disk usage on /`` raised at 95% went on saying 95% for
+        as long as the disk stayed over the line.  Across the live
+        ``High VRAM usage`` rows every one of the 42 measurable held
+        polls carried a different figure, and 19 read *below* the
+        threshold the frozen sentence was asserting.
+        """
+        await _run(agent, session, mock_config, status="critical", disk_percent=95)
+        row = next(r for r in alerts.open() if r.title == DISK_ALERT)
+        assert "95" in row.message
+
+        result = await _run(
+            agent, session, mock_config, status="critical", disk_percent=99
+        )
+
+        assert len(alerts.rows) == 2, "a moved figure must not open a second row"
+        assert result.alerts_raised == 0
+        assert result.details["standing"]["refreshed"] == 1
+        assert "99" in row.message and "95" not in row.message
+        # Both halves, or the evidence disagrees with the sentence above
+        # it — which is what the drive found on the ports family.
+        assert row.details["percent"] == 99
+
+    async def test_a_row_written_by_this_same_run_is_not_rewritten(
+        self, agent, session, alerts, mock_config
+    ):
+        """The reason ``_written_titles`` is a second set.
+
+        A title judged twice inside one run — two identically-named GPUs
+        is the case that put the bookkeeping there — dedups against the
+        row the first judgement just inserted.  Which of the two is
+        *current* is undefined, so the run must not answer it twice: the
+        first sentence stands and the second is merely suppressed.
+        Driven through the disk loop, where two mounts can be made to
+        produce one title.
+        """
+        agent._open_titles = set()
+        agent._written_titles = set()
+        agent._judged_titles = set()
+        agent._suppressed = agent._refreshed = 0
+
+        for percent in (95, 99):
+            await agent._raise_judged(
+                session,
+                severity="critical",
+                title=DISK_ALERT,
+                message=f"Disk at {percent}%",
+                details={"percent": percent},
+            )
+
+        assert len(alerts.rows) == 1
+        assert alerts.rows[0].message == "Disk at 95%"
+        assert agent._suppressed == 1 and agent._refreshed == 0
 
     async def test_ten_runs_of_one_fault_are_still_one_row_each(
         self, agent, session, alerts, mock_config
@@ -305,7 +426,7 @@ class TestOneFaultOneRow:
 
         assert alerts.open_titles() == []
         assert result.details["alerts_resolved"] == 2
-        assert result.details["standing"] == {"judged": 0, "suppressed": 0}
+        assert result.details["standing"] == {"judged": 0, "suppressed": 0, "refreshed": 0}
 
     async def test_run_four_raises_again_when_the_fault_returns(
         self, agent, session, alerts, mock_config
@@ -355,8 +476,7 @@ class TestAutoRestartIsAnEventNotAState:
         )
 
     async def test_a_second_restart_writes_a_second_row(self, agent, svc):
-        session = MagicMock()
-        session.flush = AsyncMock()
+        session = _no_rows_session()
         agent._open_titles = {"svc auto-restarted"}
 
         with patch(
@@ -374,8 +494,7 @@ class TestAutoRestartIsAnEventNotAState:
     ):
         """The carve-out is one title, not the family."""
         svc = ServiceEntry(name="svc", kind="http", url="http://localhost/h")
-        session = MagicMock()
-        session.flush = AsyncMock()
+        session = _no_rows_session()
         agent._open_titles = {"svc critical"}
 
         written = await agent._handle_status(session, svc, "critical", {})
@@ -397,8 +516,7 @@ class TestAutoRestartIsAnEventNotAState:
             systemd={"unit": "svc.service", "scope": "system"},
             auto_restart=True, auto_restart_after_checks=2,
         )
-        session = MagicMock()
-        session.flush = AsyncMock()
+        session = _no_rows_session()
         agent._open_titles = {"svc critical", "svc auto-restarted"}
 
         with patch(

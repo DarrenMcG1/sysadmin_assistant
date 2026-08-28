@@ -3,10 +3,12 @@
 Provides:
 - Template method `run()` that records to `agent_runs`
 - `raise_alert()` for writing alerts to the database
+- `refresh_alert()` for keeping a deduplicated row's text true
 - Automatic timing and error handling
 - Change events published to the event bus (fed to SSE clients)
 """
 
+import json
 import logging
 import time
 import uuid
@@ -296,6 +298,109 @@ class BaseAgent(ABC):
             },
         )
         return alert
+
+    @staticmethod
+    def refresh_alert(
+        alert: Alert,
+        *,
+        message: str | None,
+        details: dict[str, Any] | None = None,
+    ) -> bool:
+        """Bring a held row's text up to date, and only if it has moved.
+
+        ``SNAG-AGENT-009``.  Every family that deduplicates on an open
+        title takes a ``held`` branch and moves on, so ``alert.message``
+        stays whatever the **first** run wrote.  :attr:`Alert.title` is
+        the identity and must not move — that is settled, and Session 42
+        settled it — but the message is the sentence a reader acts on and
+        nothing was keeping it true.  Measured across the 23 post-dedup
+        ``High VRAM usage`` rows on this box: **42 of 42** polls that fell
+        inside a hold carried a figure different from the frozen one, mean
+        absolute drift 8.15 pp, and **19 of the 42 read below the very
+        threshold the message was asserting**.
+
+        Five rules, three of them the opposite of the obvious
+        implementation:
+
+        1. **``message`` and ``details`` move together, always.**  The
+           entry was filed against the message alone; driving it showed
+           ``details`` is frozen by the identical ``continue``, so a fix
+           that moved only the sentence would leave half the row lying —
+           the ports drive kept a ``findings`` blob naming a unit that had
+           not held the port for hours.  One write, not a cheaper one.
+        2. **The gate is "the text differs", and it is a floor rather
+           than a promise of quiet.**  For a family whose ``details`` is a
+           live measurement (the service family carries the check's own
+           response time) every held poll differs and every held poll
+           writes.  That is bounded anyway: holds run at **1,360 across
+           ~5,200 runs ≈ 0.26 per run**, and this is an ``UPDATE`` to a
+           row that already exists.  ``SNAG-AGENT-006``'s objection was
+           about ``INSERT`` statements accumulating — 60 rows for one dead timer
+           in five hours — and does not transfer to a statement that
+           accumulates nothing.
+        3. **``details`` is compared through a JSON round trip, never as
+           the dict handed in.**  What comes back from ``JSONB`` has been
+           through ``json.dumps``: a tuple written today is a list
+           tomorrow, so a plain ``!=`` would report a difference that can
+           never be resolved and the gate would pass on every poll for
+           ever.  Normalising the *computed* side is what makes the two
+           comparable, and it raises on exactly the inputs the write
+           itself would raise on, so it adds no new failure.
+        4. **What is stored is the caller's dict, not the normalised
+           copy.**  A raise and a refresh handed the same input must put
+           the same bytes in the row, or its content would depend on
+           which path happened to write it — and the normalisation exists
+           to answer a question, not to launder a value.
+        5. **Reassigned, never mutated in place** —
+           :meth:`~sysadmin.monitor.log_aggregator.LogAggregatorAgent._record_recurrence`'s
+           rule, and it is the one this family already had to learn:
+           SQLAlchemy does not track mutation inside a plain ``JSONB``
+           dict, so an in-place update looks like it worked and writes
+           nothing.
+
+        **Nothing is announced, and that is not an oversight.**  Session
+        39 forbids an in-place *severity* change because the tray
+        fingerprints on ``{severity}:{title}`` and would keep a
+        fingerprint it has already suppressed.  A message change is
+        invisible to that fingerprint, so it is safe in the direction
+        that ban is about — and, for the same reason, silent.  No
+        ``alert.refreshed`` event is queued: the SSE stream has no
+        consumer for one, and an event nobody reads is the
+        ``SNAG-CFG-001`` shape.  The corrected sentence reaches the tray
+        on its next poll of ``GET /api/sysadmin/alerts``, and reaches a
+        reader out loud only when
+        :mod:`sysadmin_tray.notifications`' ``reminder_hours`` re-speaks
+        the row — which is the surface this fix exists for.
+
+        Finding the row is deliberately **not** done here.  The three
+        callers reach it three different ways for reasons of their own —
+        the estate judge already holds the ORM rows, the port family
+        bounds its read by a title prefix, and
+        :meth:`~sysadmin.monitor.agent.SysAdminAgent._raise_judged` keeps
+        the title-only snapshot ``SNAG-AGENT-007`` gave it — so a base
+        class that took a *title* would own a predicate its subclasses
+        state three ways.  It owns the comparison and the write, which is
+        the part that must not be written three times.
+
+        Returns:
+            ``True`` if the row was changed, ``False`` if it already said
+            this.  Never a row count: no row is written, so a refresh must
+            not reach ``alerts_raised``.
+        """
+        wanted = details or {}
+        # See rule 3. `json.dumps` without `default=`, deliberately: the
+        # write goes through the same serialiser, so anything this
+        # rejects is something the row could not have held anyway.
+        comparable = json.loads(json.dumps(wanted))
+        if alert.message == message and (alert.details or {}) == comparable:
+            return False
+        alert.message = message
+        alert.details = wanted
+        logger.debug(
+            "alert_refreshed",
+            extra={"agent": alert.agent, "title": alert.title},
+        )
+        return True
 
     async def resolve_alerts(self, session, title_pattern: str) -> int:
         """Resolve all active alerts matching the given title pattern."""

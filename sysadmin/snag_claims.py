@@ -3029,18 +3029,35 @@ class QuietenReading:
     def reached(self) -> bool:
         """Did anything about the standing row move?
 
-        Deliberately **reach**, not rung.  The entry's fourth bullet
+        Deliberately **reach**, not rung: the entry's fourth bullet
         records that resolve-and-re-raise on a severity mismatch is the
         obvious fix and rebuilds ``monitor/collation.py``'s flip-flop, so
-        a fix may legitimately land as an in-place rung, as a second row,
-        or as the blob alone — and a check watching only the severity
-        column would report two of those three as no change.
+        a fix may land as an in-place rung *or* as a second row, and a
+        check watching the severity column alone would report the second
+        as no change.
+
+        **Two of the entry's three shapes are left, because the third
+        landed** (2026-08-28, ``SNAG-AGENT-009``).  A held judgement now
+        rewrites the standing row's ``message`` and ``details``, so
+        ``details['holder']`` reaches a row that is already open and
+        ``open_holder is not None`` is the *expected* reading rather than
+        a fix signal — driven live the run gives ``holder`` arrived,
+        severity ``warning`` → ``warning``, one row, unresolved.  Keeping
+        the clause would report the entry refuted on the strength of a
+        different entry's fix and stop discriminating the moment it
+        landed: the verdict would be ``mismatch`` whatever happened to
+        the rung, which is a control a fix broke.
+
+        The blob is still carried in ``detail`` and is still read by
+        :attr:`open_holder`, because "the correction reached the row and
+        the rung stayed put" is a stronger statement of the surviving
+        claim than "nothing happened", and a reader of the note needs to
+        be able to tell those apart.
         """
         return (
             self.open_rows != 1
             or self.open_resolved
             or self.open_after != self.open_before
-            or self.open_holder is not None
         )
 
     @property
@@ -3053,8 +3070,10 @@ class QuietenReading:
             out.append("the standing row is resolved")
         if self.open_after and self.open_after != self.open_before:
             out.append(f"its severity went {self.open_before} → {self.open_after}")
-        if self.open_holder is not None:
-            out.append(f"details['holder'] is now {self.open_holder!r}")
+        # `open_holder` is deliberately absent: since SNAG-AGENT-009 the
+        # blob arriving is what a correct run does, so naming it here
+        # would put an expected observation in a note that lists what
+        # refutes the entry.
         return tuple(out)
 
 
@@ -3234,7 +3253,13 @@ def check_quietened_judgement_reach() -> Measurement:
        ``holder`` blob alone with the severity unmoved.  A check watching
        the severity column would report two of those three as no change —
        ``a-control-a-fix-breaks-is-not-a-control`` met from the side
-       where the fix is the *unexpected* one.
+       where the fix is the *unexpected* one.  **The third shape landed
+       on 2026-08-28**: ``SNAG-AGENT-009``'s remedy rewrites a held row's
+       ``message`` and ``details``, so the blob now arrives on every run
+       and :attr:`QuietenReading.reached` stopped reading it — keeping
+       the clause would have reported this entry refuted by a different
+       entry's fix and returned ``mismatch`` whatever the rung did.  What
+       is still filed is the half Session 39 keeps shut on purpose.
     2. **The quiet rung is read off the judgement, never written down.**
        ``judge_audit_findings`` is run purely first, on the same payload
        and the same attribution, and its answer is what the run is

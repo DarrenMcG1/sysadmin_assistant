@@ -19,6 +19,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from sysadmin.core.models.alert import Alert
 from sysadmin.units import ports as P  # noqa: N812
 from sysadmin.units.agent import (
     PORT_TITLE_PREFIX,
@@ -589,15 +590,40 @@ def test_findings_are_ranked_worst_kind_first():
 # shape of the work as well as supplying the data.
 
 
-def _session(open_titles=(), swept=0):
+def _session(open_titles=(), swept=0, message="x", details=None):
+    """The two statements ``_maintain_port_alerts`` issues, in order.
+
+    The SELECT hands back **rows**, not titles.  It handed back titles
+    until 2026-08-28: ``SNAG-AGENT-009`` made the family refresh a held
+    row's ``message`` and ``details``, which it cannot do without the row
+    — so a fake still answering with strings would model a database this
+    code no longer talks to, and the dedup would look broken because the
+    stand-in was.  ``tests/test_alert_dedup.py`` documents the same trap
+    from the other side, where a fake that could not tell a projection
+    from a row read made ``SNAG-AGENT-007``'s fix read as a regression.
+
+    The rows are kept on the session as ``open_rows`` so a test can ask
+    what the refresh did to them.
+    """
+    rows = [
+        Alert(
+            agent="service_discovery",
+            severity="warning",
+            title=title,
+            message=message,
+            details=dict(details or {}),
+        )
+        for title in open_titles
+    ]
     select_result = MagicMock()
-    select_result.scalars.return_value = list(open_titles)
+    select_result.scalars.return_value = rows
     update_result = MagicMock()
     update_result.rowcount = swept
 
     session = AsyncMock()
     session.add = MagicMock()
     session.execute = AsyncMock(side_effect=[select_result, update_result])
+    session.open_rows = rows
     return session
 
 
@@ -660,6 +686,63 @@ async def test_a_standing_collision_writes_one_row_not_one_per_sweep(agent):
     )
     agent.raise_alert.assert_not_awaited()
     assert result["held"] == 1 and result["raised"] == 0
+
+
+async def test_a_held_row_whose_holder_moved_is_rewritten(agent):
+    """SNAG-AGENT-009 — the title is the port, so the sentence must move.
+
+    ``Port collision on 8100`` is keyed on the port and nothing else
+    (Session 26c rule 4), which is what makes the row survive a change of
+    holder — and what made it survive with a message naming a unit that
+    let the port go hours earlier.  The drive that demonstrated the
+    mechanism used this family exactly: raise naming ``alpha``, judge
+    again with ``beta``, and both ``message`` and the ``findings`` blob
+    still said ``alpha``.
+    """
+    session = _session(
+        open_titles=[port_alert_title(8100)],
+        message="8100 is held by user:alpha.service",
+        details={"port": 8100, "findings": [{"holder": "user:alpha.service"}]},
+    )
+    result = await agent._maintain_port_alerts(
+        session,
+        _report(
+            P.PortFinding(
+                port=8100,
+                kind=P.WRONG_UNIT,
+                summary="8100 is held by user:beta.service",
+            )
+        ),
+    )
+
+    agent.raise_alert.assert_not_awaited()
+    assert result["held"] == 1 and result["raised"] == 0 and result["refreshed"] == 1
+    row = session.open_rows[0]
+    assert row.message == "8100 is held by user:beta.service"
+    # Both halves, or half the row is still lying — the blob is what the
+    # drive found still naming alpha, so it is asserted as well as the
+    # sentence.
+    assert [f["summary"] for f in row.details["findings"]] == [
+        "8100 is held by user:beta.service"
+    ]
+    assert row.details["source"] == "port_check"
+
+
+async def test_a_held_row_that_still_says_the_same_thing_is_not_rewritten(agent):
+    """The gate.  A standing collision nobody has touched is not news twice."""
+    finding = _collision(8100)
+    session = _session(
+        open_titles=[port_alert_title(8100)],
+        message=finding.summary,
+        details={
+            "port": 8100,
+            "kinds": [finding.kind],
+            "findings": [finding.as_dict()],
+            "source": "port_check",
+        },
+    )
+    result = await agent._maintain_port_alerts(session, _report(finding))
+    assert result["held"] == 1 and result["refreshed"] == 0
 
 
 async def test_the_still_true_row_is_protected_from_the_sweep(agent):

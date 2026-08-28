@@ -2,9 +2,101 @@
 
 ## Next action
 
-Build `SNAG-AGENT-009`'s chosen remedy in the order the measurement ranked it — refresh a held row's `message` and `details` only when the recomputed text differs, starting at `SysAdminAgent._raise_judged` where 838 of the 1,360 held events are, then `EstateJudgeAgent._execute` with 131, and last `_maintain_port_alerts`, whose population is zero in 65 runs and whose docstring should say so.
+Decide `SNAG-AGENT-010`'s lifecycle — the only open row on this box is `Weekly disk review ready`, written by `files/review.py:553` with a bare `session.add`, matching no `RESOLVABLE_TITLE_PATTERNS` entry and unreachable by retention, so choose between resolving the previous notice when the next review is generated and dropping the alert row for a tray read of `/api/files/review`.
 
-## Session 109 is complete — the population was in the family the entry never named, and the one stale row was a different bug
+## Session 110 is complete — the fix landed in the ranked order, and it half-closed a different entry
+
+`SNAG-AGENT-009` is **fixed**, in Session 109's order: `_raise_judged`
+(838 held events), `EstateJudgeAgent._execute` (131),
+`_maintain_port_alerts` (0 in 65 runs, and its docstring now says so).
+The live parser reads **99 entries either side, open 24 → 23** at
+estate-manager's committed `047eb8a` on a clean tree. Suite **2750 →
+2764**, 14 added and none removed. All nine ops claims ok. Restart owed
+and taken at **13:03:15**; no migration.
+
+### What the sitting settled
+
+- **`BaseAgent.refresh_alert` owns the comparison and the write, and
+  *finding* the row stays with each caller.** The three reach it three
+  ways for reasons of their own — the estate judge already holds the ORM
+  rows, the port family bounds its read by a title prefix, and
+  `_raise_judged` keeps the title-only snapshot `SNAG-AGENT-007` gave it
+  — so a base class taking a *title* would own a predicate its
+  subclasses state three ways.
+- **The 838's row is read at the hold, not carried in the snapshot.**
+  Widening it is bounded by *the table* (51,924 open rows before
+  `SNAG-AGENT-004`); a read at the hold is bounded by *the judgements
+  the run made*. Measured at 665,937 rows: **84 buffers, 0.098 ms**.
+- **`details` is compared through a JSON round trip, or the gate is
+  decorative.** `JSONB` has no tuple, so a plain `!=` reports a
+  difference no write can settle and every held poll rewrites for ever.
+  What is *stored* is the caller's dict, so a raise and a refresh handed
+  one input write one row.
+- **`_written_titles` splits from `_open_titles`** so a title judged
+  twice inside one run — two identically named GPUs — is suppressed
+  rather than rewritten by the second judgement. Which of the two is
+  current is undefined and the run must not answer it twice.
+- **The gate is a floor, not a promise of quiet.** A family whose
+  `details` is a live measurement differs on every held poll. Bounded at
+  ~0.26 per run, and an `UPDATE` rather than the `INSERT`s
+  `SNAG-AGENT-006` objected to.
+
+### What only running it could have said
+
+- **The refresh read lands on `idx_alerts_active`, not
+  `idx_alerts_open_by_agent`.** The docstring claimed the agent-scoped
+  one; `EXPLAIN` refuted it. One open row makes either partial index
+  free and the planner takes the older — exactly what `SNAG-AGENT-007`
+  recorded about its own pair. Corrected in place rather than left.
+- **`SNAG-ESTATE-010`'s check flipped to `mismatch`.** This fix is the
+  third of the three shapes that check enumerates, so `details['holder']`
+  now reaches a standing row while the rung does not. The clause came
+  **out** of `QuietenReading.reached` rather than the verdict being
+  accepted: a `reached` still reading the blob answers `mismatch`
+  whatever happens to the rung, which is a control this fix broke. The
+  falsification asserting the blob alone was a mismatch is kept and
+  **inverted**, and a second test drives its arrival with no stand-in at
+  all, so a revert shows up there.
+- **That probe found its standing row by `message == PROBE_MESSAGE`** —
+  the value this fix rewrites — so it keys on the title now, which is
+  the identity the entry it checks turns on.
+- **Four stand-ins modelled a database this code no longer talks to**,
+  and that was most of the work: `test_unit_ports.py` answered the dedup
+  read with *titles*, `test_estate_judge_agent.py`'s `FakeAlert` had no
+  `message`, `test_alert_dedup.py`'s fake ignored the WHERE clause and
+  could not answer `.first()`, and `conftest.mock_session`'s bare
+  `AsyncMock` returns a coroutine from `.scalars()` — a failure no
+  database produces, which reads as a bug in the code under it.
+
+### Verified on the box, not only in the tree
+
+- The real `_raise_judged` against the real database in a rolled-back
+  transaction: a row raised at `VRAM at 91.5%` judged again at 51.0%
+  gives `raised=0`, **one** row, message and `details` both moved,
+  `suppressed=1 / refreshed=1`; a second identical judgement
+  `refreshed=0`; **0 rows of residue**.
+- All three families ship the counter live — the 13:04:17 runs of
+  `estate_judge` and `service_discovery` and the 13:08:17 run of
+  `sysadmin` each carry `refreshed` in `agent_runs.details`.
+- Five falsifications, each firing on the tests that name it: the
+  refresh made a no-op (7), the gate removed (7), the JSON round trip
+  removed (1), `details` left frozen (7), the two sets merged (1).
+
+### Deliberately not done
+
+- **`SNAG-AGENT-009` gets no check.** A check here would assert that a
+  held row *is* refreshed, which is this fix's own tests rather than a
+  claim about the box that goes stale between sittings.
+  `SNAG-PORT-003`'s retired check is the warning about writing one
+  anyway. What does watch the box is `SNAG-ESTATE-010`'s, whose witness
+  half now depends on this fix running.
+- **`SNAG-AGENT-010` is untouched.** That row was never *held*, so this
+  fix cannot reach it, and its lifecycle question stays open — which is
+  the next action above.
+
+---
+
+## Previously — Session 109 is complete — the population was in the family the entry never named, and the one stale row was a different bug
 
 `SNAG-AGENT-009` is **measured and decided, not fixed**; `SNAG-AGENT-010`
 is opened. The live parser reads **98 → 99 entries, open 23 → 24** at

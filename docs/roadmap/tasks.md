@@ -394,6 +394,36 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 110 — the fix landed in the ranked order, and it half-closed a different entry (2026-08-28) ✅
+
+**Build `SNAG-AGENT-009`'s chosen remedy** — refresh a held row's
+`message` and `details` only when the recomputed text differs — in the
+order Session 109's measurement ranked: 838, then 131, then 0.
+
+- [x] **Put the comparison and the write on `BaseAgent.refresh_alert`, and leave *finding the row* with each caller.** The three reach it three different ways for reasons of their own — the estate judge already holds the ORM rows, the port family bounds its read by a title prefix, and the sysadmin agent keeps the title-only snapshot `SNAG-AGENT-007` gave it — so a base class taking a *title* would own a predicate its subclasses state three ways
+- [x] **Fix the 838** (`SysAdminAgent._raise_judged`): a hold against the pre-run snapshot reads its row and refreshes it, and `details["standing"]["refreshed"]` reports how many corrections the run made
+- [x] **Read the row at the hold rather than widening the snapshot**, which is `SNAG-AGENT-005`'s rule rather than thrift: a snapshot carrying `message` and `details` is bounded by *the table* — this agent's families reached 51,924 open rows before `SNAG-AGENT-004` — and a read at the hold is bounded by *the judgements the run made*
+- [x] **Measure that read instead of asserting it, which corrected the docstring.** Live at 665,937 rows it is **84 buffers, 0.098 ms**, and it lands on `idx_alerts_active` — not `idx_alerts_open_by_agent`, which the first draft claimed. One open row makes either partial index free and the planner takes the older one, exactly as `SNAG-AGENT-007` recorded about its own pair
+- [x] **Establish that the savepoint is untouched** rather than assuming it: `raise_alert` already `flush`es inside the per-service savepoint, so the new read adds no earlier flush than the raise it sits beside, and `SNAG-DB-001`'s isolation is unchanged
+- [x] **Split `_written_titles` out of `_open_titles`, for a case the entry does not name.** `_open_titles` gained the titles this run raised so two identically-named GPUs dedup; refreshing on that branch would let the *last* of two same-titled judgements overwrite the first, and which is current is undefined — so only a row open **before this run** is refreshed
+- [x] **Compare `details` through a JSON round trip.** `JSONB` has no tuple, so a plain `!=` reports a difference no write can settle and every held poll rewrites the row for ever — the gate switched off by a type, with the counter reporting corrections that corrected nothing. What is *stored* is still the caller's dict, so a raise and a refresh handed one input write one row
+- [x] **Fix the 131** (`EstateJudgeAgent._execute`): the `_open_alerts` read is keyed by title, the blob is built once above the branch so a raise and a refresh cannot write different bytes, and `refreshed` joins `raised` in the run's details
+- [x] **Fix the 0** (`_maintain_port_alerts`) and **say in the docstring that it is 0 in 65 runs**. Built anyway, because the drive that demonstrated the whole mechanism used this family — and skipping a family because its population is empty is how `SNAG-LOG-002` was mis-ranked three times
+- [x] **Drive it live**, through the real `_raise_judged` against the real database in a rolled-back transaction: a row raised at `VRAM at 91.5%` judged again at 51.0% gives `raised=0`, one row, message and `details` both moved, `suppressed=1 / refreshed=1`, a second identical judgement `refreshed=0`, **0 rows of residue**
+- [x] **Falsify every new test against the behaviour it replaces** — five stand-ins: the refresh made a no-op (7 tests fire), the gate removed (7), the JSON round trip removed (1), `details` left frozen (7), the two sets merged (1)
+- [x] **Repair the four stand-ins the fix broke, and repair them by modelling the database.** `test_unit_ports.py` answered the dedup read with *titles*; `test_estate_judge_agent.py`'s `FakeAlert` had no `message`; `test_alert_dedup.py`'s fake ignored the WHERE clause and could not answer `.first()`; `conftest.mock_session`'s bare `AsyncMock` returned a coroutine from `.scalars()`, failing in a way no database does
+- [x] **Narrow `SNAG-ESTATE-010`'s check rather than accepting its new verdict.** The fix is the third of the three shapes that check enumerates, so `details['holder']` now reaches a standing row and `reached` had to stop reading it — a `reached` still reading the blob answers `mismatch` whatever happens to the rung, which is a control this fix broke. Its probe also had to stop finding its row by `message`, the value the fix rewrites, and key on the title
+- [x] **Keep and invert the falsification** asserting the blob alone was a mismatch, plus one driving the blob's arrival with no stand-in at all, so a revert of this fix shows up as a failure there
+- [x] Restart the daemon — owed, `core/agent.py` being imported by everything — `/health` 200, started 13:03:15
+
+**Not done, and deliberately.** `SNAG-AGENT-009` gets **no check**. A
+check here would assert that a held row *is* refreshed, which is this
+fix's own tests rather than a claim about the box that goes stale
+between sittings — and `SNAG-PORT-003`'s retired check is the warning
+about writing one anyway. `SNAG-AGENT-010` is untouched: that row was
+never held, so this fix cannot reach it, and its lifecycle question is
+still open.
+
 ## Session 109 — the population was in the family the entry never named, and the one stale row was a different bug (2026-08-28) ✅
 
 **Decide `SNAG-AGENT-009` by measuring its population first.** The entry

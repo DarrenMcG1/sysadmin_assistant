@@ -2603,19 +2603,28 @@ class TestTheQuietenedJudgementCheck:
         with patch.object(EstateJudgeAgent, "_execute", patched):
             yield
 
-    @staticmethod
-    async def _standing(session):
+    @classmethod
+    async def _standing(cls, session):
+        """The row the probe opened, found by **title** rather than message.
+
+        It was found by ``message == PROBE_MESSAGE`` until 2026-08-28,
+        and ``SNAG-AGENT-009`` is exactly why that stopped working: a
+        held judgement now rewrites the standing row's message to the
+        estate's own summary, so the probe's marker survives only until
+        the run it is measuring.  The title is the identity and does not
+        move — which is the property the entry being checked turns on —
+        so it is what a stand-in modelling a landed fix has to reach the
+        row by.
+        """
         from sqlalchemy import select
 
         from sysadmin.core.models.alert import Alert, unresolved
 
+        title = cls._judged()[snag_claims.QUIETEN_OPEN_PORT].title
         return (
             (
                 await session.execute(
-                    select(Alert).where(
-                        Alert.message == snag_claims.PROBE_MESSAGE,
-                        unresolved(),
-                    )
+                    select(Alert).where(Alert.title == title, unresolved())
                 )
             )
             .scalars()
@@ -2837,13 +2846,12 @@ class TestTheQuietenedJudgementCheck:
         from sysadmin.core.models.alert import Alert, unresolved
         from sysadmin.estate.judgements import TRANSIENT_HOLDER_SEVERITY
 
+        title = self._judged()[snag_claims.QUIETEN_OPEN_PORT].title
+
         async def in_place(session):
             await session.execute(
                 update(Alert)
-                .where(
-                    Alert.message == snag_claims.PROBE_MESSAGE,
-                    unresolved(),
-                )
+                .where(Alert.title == title, unresolved())
                 .values(severity=TRANSIENT_HOLDER_SEVERITY)
             )
 
@@ -2882,13 +2890,23 @@ class TestTheQuietenedJudgementCheck:
         assert measurement.verdict == "mismatch"
         assert "2 rows now carry the standing title" in measurement.note
 
-    def test_the_holder_blob_arriving_alone_is_a_mismatch(self):
-        """The third, and the reason the assertion is reach rather than rung.
+    def test_the_holder_blob_arriving_alone_is_no_longer_a_mismatch(self):
+        """The third shape, which **landed** on 2026-08-28.
 
-        Session 26c's annotation reaching a standing row while its
-        severity stays put is a real partial fix — the entry names both
-        halves — and a check watching only the severity column would
-        report it as the entry still holding.
+        This asserted ``mismatch`` until ``SNAG-AGENT-009``'s remedy
+        shipped, and it was right to: the entry names both halves, and a
+        check watching only the severity column would have reported a
+        real partial fix as the entry still holding.  The remedy is that
+        partial fix — a held judgement rewrites ``message`` and
+        ``details``, so the blob reaches a standing row on **every** run
+        now, with no stand-in needed.
+
+        Which is why the clause had to come out rather than the verdict
+        being accepted: a ``reached`` that still read the blob would
+        answer ``mismatch`` whatever happened to the rung, and a control
+        that cannot be moved by the thing it watches is not a control.
+        The stand-in is kept and inverted, so the day something makes the
+        blob stop arriving this says so.
         """
 
         async def holder_only(session):
@@ -2902,9 +2920,33 @@ class TestTheQuietenedJudgementCheck:
 
         with self._fix(holder_only):
             measurement = check_quietened_judgement_reach()
-        assert measurement.verdict == "mismatch"
-        assert "details['holder'] is now" in measurement.note
-        assert "severity went" not in measurement.note
+        assert measurement.verdict == "match"
+        assert measurement.note == ""
+        # Still reported, just not as a refutation: the surviving claim
+        # is "the correction reached the row and the rung stayed put",
+        # which a reader cannot tell from "nothing happened" without it.
+        assert any("holder={'unit': 'probe.scope'" in line for line in measurement.detail)
+
+    def test_the_blob_arrives_without_any_stand_in_at_all(self):
+        """``SNAG-AGENT-009``'s remedy, observed at this entry's probe.
+
+        The production loop is untouched here — no ``_fix`` — so a blob
+        on the standing row can only have come from
+        :meth:`~sysadmin.estate.agent.EstateJudgeAgent._execute`
+        refreshing a row it held.  It is the reading that made the clause
+        above stop discriminating, and it is asserted rather than
+        described so that a revert shows up here as a failure instead of
+        as this file quietly agreeing with itself.
+        """
+        reading, problem = snag_claims.quietened_judgement_reading()
+        assert not problem, problem
+        assert reading is not None
+        assert isinstance(reading.open_holder, dict)
+        assert reading.open_holder.get("transient") is True
+        # And the half Session 39 keeps shut is still shut.
+        assert reading.open_after == reading.open_before
+        assert reading.open_rows == 1 and not reading.open_resolved
+        assert not reading.reached
 
     def test_without_the_witness_the_verdict_is_unknown(self):
         """The control, driven at the state that would otherwise read ``match``.

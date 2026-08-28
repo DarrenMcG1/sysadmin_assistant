@@ -107,13 +107,24 @@ def mock_session():
     """Mock async SQLAlchemy session for unit tests.
 
     Provides add(), flush(), execute(), commit(), rollback() as AsyncMocks.
+
+    ``execute`` answers with an **empty result** rather than a bare
+    ``AsyncMock``.  A bare one returns a coroutine from ``.scalars()``,
+    so a caller writing the ordinary ``.scalars().first()`` gets
+    ``AttributeError`` on a coroutine — a stand-in failing in a way no
+    database does, and a test that then reads as a bug in the code under
+    it.  Any test wanting rows back sets ``return_value`` itself.
     """
     session = AsyncMock()
     session.add = MagicMock()
     session.flush = AsyncMock()
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
-    session.execute = AsyncMock()
+    result = MagicMock()
+    result.scalars.return_value.first.return_value = None
+    result.scalars.return_value.all.return_value = []
+    result.scalars.return_value.__iter__ = lambda self: iter(())
+    session.execute = AsyncMock(return_value=result)
     return session
 
 

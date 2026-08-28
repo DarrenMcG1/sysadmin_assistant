@@ -294,8 +294,18 @@ class TestJudgementIsCollectedCentrally:
     """
 
     async def _session(self):
+        """A session that flushes and answers every read with nothing.
+
+        The read is ``_refresh_open``'s (``SNAG-AGENT-009``): these tests
+        set ``_open_titles`` by hand with no row behind it, which is the
+        production case of a row resolved between the snapshot and the
+        judgement — nothing to correct, and not an error.
+        """
         s = MagicMock()
         s.flush = AsyncMock()
+        result = MagicMock()
+        result.scalars.return_value.first.return_value = None
+        s.execute = AsyncMock(return_value=result)
         return s
 
     async def test_a_judgement_that_raises_records_the_title(self, agent):

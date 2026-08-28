@@ -2786,6 +2786,93 @@ to catch, wearing the fix's clothes; it discriminates on
 `selected_columns` now, modelling the database rather than the one call
 site that happens to project.
 
+**A row is deduplicated on its title, and until 2026-08-28 that froze
+its sentence with it** (Session 110, `SNAG-AGENT-009`). Every family
+that dedups takes a `held` branch and `continue`s, so `alert.message`
+stayed whatever the *first* run wrote — and `details` with it, which the
+entry did not say. `Alert.title` is the identity and must not move
+(Session 42), but the message is what a reader acts on.
+`BaseAgent.refresh_alert` rewrites both, and only when the recomputed
+text differs. Measured before it was built: **1,360 held events
+all-time** — threshold+service **838**, collation 386, estate judge
+**131**, armed orphans 5, ports **0** — and across the 23 post-dedup
+`High VRAM usage` rows **42 of 42** polls inside a hold carried a
+different figure, 19 of them *below* the threshold the frozen sentence
+was asserting.
+
+Six rules, four of them the opposite of the obvious implementation:
+
+1. **The base class owns the comparison and the write; finding the row
+   stays with each caller.** The three reach it three ways for reasons of
+   their own — the estate judge already holds the ORM rows,
+   `_maintain_port_alerts` bounds its read by a title prefix, and
+   `_raise_judged` keeps the title-only snapshot `SNAG-AGENT-007` gave
+   it — so a base class taking a *title* would own a predicate its
+   subclasses state three ways. `_open_alert_criteria`'s split of
+   projection from predicate, read from the other end.
+2. **The 838's row is read at the hold, never carried in the
+   snapshot.** A snapshot widened to hold `message` and `details` is
+   bounded by *the table*, and this agent's families reached 51,924 open
+   rows before `SNAG-AGENT-004`; a read at the hold is bounded by *the
+   judgements the run made*. Live at 665,937 rows it is **84 buffers,
+   0.098 ms** — and lands on `idx_alerts_active`, **not** the
+   agent-scoped index the first docstring claimed: one open row makes
+   either partial index free and the planner takes the older one, which
+   is exactly `SNAG-AGENT-007`'s own reading. `EXPLAIN` corrected the
+   prose; reading the code would have shipped it.
+3. **`details` is compared through a JSON round trip, or the gate
+   degenerates into "always".** `JSONB` has no tuple, so a caller
+   building `details` with one gets a list back next run and a plain
+   `!=` reports a difference no write can settle — the gate switched off
+   by a type, with the counter reporting corrections that corrected
+   nothing. What is *stored* is the caller's dict, because a raise and a
+   refresh handed one input must write one row.
+4. **Only a row open before this run is refreshed**, which is why
+   `_written_titles` is a second set rather than more entries in
+   `_open_titles`. A title judged twice inside one run — two identically
+   named GPUs, the case that put the `add` there — would otherwise have
+   the *last* judgement overwrite the first, and which of the two is
+   current is undefined. The run must not answer that twice.
+5. **The gate is a floor, not a promise of quiet.** For a family whose
+   `details` is a live measurement — the service family carries the
+   check's own response time — every held poll differs and every held
+   poll writes. Bounded anyway at ~**0.26 per run**, and it is an
+   `UPDATE` to a row that already exists: `SNAG-AGENT-006`'s objection
+   was about `INSERT`s accumulating and does not transfer.
+6. **Nothing is announced, and that is not an oversight.** Session 39
+   bans an in-place *severity* change because the tray fingerprints on
+   `{severity}:{title}` and would keep a fingerprint it has already
+   suppressed. A message change is invisible to that fingerprint, so it
+   is safe in the direction that ban is about and, for the same reason,
+   silent — no `alert.refreshed` event is queued, because an event
+   nobody reads is `SNAG-CFG-001`'s shape. The corrected sentence reaches
+   the tray on its next poll, and reaches a reader out loud only when
+   `reminder_hours` re-speaks the row, which is the surface this exists
+   for.
+
+**It half-closes `SNAG-ESTATE-010`, and that entry's own check is what
+said so.** That check enumerates three shapes a fix could take and
+refuses to watch the severity column alone; the third — *the `holder`
+blob arriving with the severity unmoved* — is this fix, so the blob now
+reaches a standing row on every run. The clause came **out** of
+`QuietenReading.reached` rather than the verdict being accepted: a
+`reached` still reading the blob answers `mismatch` whatever happens to
+the rung, which is a control this fix broke. The rung half stands, by
+Session 39's design. The blob is still carried in the *detail*, because
+"the correction reached the row and the rung stayed put" is a stronger
+statement of the surviving claim than "nothing happened".
+
+**Four stand-ins modelled a database this code no longer talks to**, and
+that was most of the work. `tests/test_unit_ports.py` answered the dedup
+read with *titles*; `test_estate_judge_agent.py`'s `FakeAlert` had no
+`message`; `test_alert_dedup.py`'s fake ignored the WHERE clause and
+could not answer `.first()`; and `conftest.mock_session`'s bare
+`AsyncMock` returns a coroutine from `.scalars()`, which fails in a way
+no database produces and reads as a bug in the code under it.
+`SNAG-ESTATE-010`'s probe located its standing row by
+`message == PROBE_MESSAGE` — the value this fix rewrites — and keys on
+the title now, which is the identity the entry it checks turns on.
+
 Retention needs **both halves**: a row in the `retention_config` table and
 an entry in `TABLE_TIMESTAMP_MAP`. `run_retention` iterates config rows and
 looks each up in the map, so a table with one half is silently never purged
