@@ -394,6 +394,64 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 114 — the prediction carries the zone it was copied from (2026-08-28) ✅
+
+**Fix `SNAG-ESTATE-013`.** `ops_claims`' `check:expires` marker took a
+bare wall clock, so the one marker ever written — copied off an estate
+surface publishing `2026-08-25T03:32:17.538288+00:00` — named an instant
+an hour before the thing it predicted, and the check reported the passed
+boundary *correctly*, having nothing to disagree with. `SNAG-LOG-009`'s
+defect one document over, answered with `journal.since_timestamp`'s
+posture.
+
+- [x] `EXPIRY_FORMAT` is `%Y-%m-%dT%H:%M%z`; `EXPIRY_NAIVE_FORMAT`
+      **recognises** the old shape without accepting it, which is what
+      lets the refusal name the two instants a zoneless stamp could mean
+      rather than report "not an instant of the form" — `schema_guard`'s
+      rule that every way of not-knowing fails closed with its own message
+- [x] Rule 9's pin renders the instant **into this box's zone** before
+      looking for it in the prose, which is the half that makes the fix
+      more than a format change: naive, the entry's own block satisfied
+      the pin while both halves were an hour out
+- [x] `check_expiry` refuses a naive `now` at the entry point rather than
+      leaving it to the subtraction, which would only fire at the first
+      *well-formed* marker — a document carrying none, which is this one,
+      would let a naive caller through until the day somebody wrote a
+      good one
+- [x] `@<epoch>` refused, with the reason recorded: the difference from
+      `since_timestamp` is the reader, not the instant. An epoch is
+      unambiguous and unreadable, so accepting one would buy rule 8 by
+      deleting rule 9
+- [x] Twelve tests in `tests/test_ops_claims.py`, nine of them the
+      retiring check's three-zone drive re-homed as
+      `TestTheInstantCarriesItsZone`. Seven mutations, each red on
+      exactly the right test
+- [x] Closed the entry; `expiry_naive_instant` and its marker retired
+      with it (every member of `CHECKS` names an open entry), taking 15
+      tests. Suite **2795 → 2792** — stated because a green suite cannot
+      witness tests that no longer exist
+- [x] Entry counts re-derived through `estate.snags.read_snags`: 99
+      either side, open **20 → 19**, every open entry still carrying a
+      check and `sysadmin-check-snags` exiting **0**
+- [x] Restarted the daemon (3801574 → 3830192, active 15:17:21) and
+      re-ran `check-ops-claims.sh` green
+
+**Corrected in the entry**: its "two hours" is **two mechanisms** and
+only one of them the marker's — the timer fired at 04:32 local (the
+offset) and the hourly judge swept at 05:32 (the poll interval). Driven
+at its own stamp through the real `check_expiry` before the fix, the
+displacement is **1 hour**, exactly this box's offset.
+
+**Not done, and named**: no new check was added, because the entry is
+closing — checks-in-registry **20 → 19**. The guard ships with an *empty
+live population*: `git log -S 'check:expires'` finds one marker ever
+written and `STATUS.md` carries none today, so nothing in the document is
+refused on the day the refusal lands. The handoff's phrasing said the
+fail-closed posture has a non-empty population here; that is true of the
+marker's **history** (1 of 1 naive) and not of the live block, and the
+distinction is worth keeping because it is the difference between a guard
+that fires today and one that waits for the next author.
+
 ## Session 113 — the register says nought instead of falling silent (2026-08-28) ✅
 
 **Fix `SNAG-DOCS-006`.** `check_convention` appended its

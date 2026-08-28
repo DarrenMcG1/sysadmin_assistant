@@ -108,17 +108,26 @@ decides whether a marker beside prose is a defect or a convention:
    exactly what rule 2 reserves ``unknown`` for.
 
 9. **The one fact stated twice is pinned rather than trusted.**  An
-   ``expires`` marker must carry a *date*, because the prose does not —
-   "clears at 03:32" names a wall clock and no day, and a pattern that
-   guessed the day would be wrong once per prediction.  That makes the
-   instant the single exception to rule 7, so it is handled the way
+   ``expires`` marker must carry a *date* and an *offset*, because the
+   prose carries neither — "clears at 03:32" names a wall clock, no day
+   and no zone, and a pattern that guessed either would be wrong once per
+   prediction.  That makes the instant the single exception to rule 7, so
+   it is handled the way
    :func:`sysadmin.core.logging_setup.syslog_priority` is handled against
    ``journal.PRIORITY_MAP``: not asserted on each side, *pinned* — the
-   wall clock the marker renders must appear in the block, or the claim is
-   ``unknown`` and says which two moments disagree.  The pin is against
-   the whole region rather than the marker's own sentence, which is the
-   weaker half and is stated rather than hidden: a block naming ``03:32``
-   twice for two different reasons would satisfy it.
+   wall clock the marker renders **in this box's zone** must appear in the
+   block, or the claim is ``unknown`` and says which two moments disagree.
+   The pin is against the whole region rather than the marker's own
+   sentence, which is the weaker half and is stated rather than hidden: a
+   block naming ``03:32`` twice for two different reasons would satisfy
+   it.
+
+   The offset is what makes the pin more than a spelling check
+   (``SNAG-ESTATE-013``).  Without one, a UTC stamp copied into a
+   sentence written in BST renders back as the same string it came in as
+   and the pin passes — the marker and the prose agree, and both are an
+   hour from the moment predicted.  With one, they visibly disagree, and
+   the note says which of them is in which clock.
 
 **This module sits beside main.py** for the reason :mod:`sysadmin.reload`
 and :mod:`sysadmin.metadata` do: it composes ``core`` with every domain
@@ -135,7 +144,7 @@ import re
 import subprocess  # noqa: S404 — one read-only `systemctl show`
 import sys
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -227,15 +236,53 @@ MARKER_RE = re.compile(r"<!--\s*check:\s*([a-z_]+)\s*([^>]*?)\s*-->")
 #: instead: import where you can, pin where you cannot.
 CODE_SPAN_RE = re.compile(r"(`+)[\s\S]*?\1")
 
-#: The instant an ``expires`` marker carries.  Local, minute resolution,
-#: and unambiguous about the *date* — which is the whole reason the marker
-#: carries an instant the prose does not: "clears at 03:32" names a wall
-#: clock and no day, and a pattern that guessed the day would be wrong
-#: exactly once per prediction.
-EXPIRY_FORMAT = "%Y-%m-%dT%H:%M"
+#: The instant an ``expires`` marker carries: minute resolution,
+#: unambiguous about the *date* — which is the whole reason the marker
+#: carries an instant the prose does not, since "clears at 03:32" names a
+#: wall clock and no day — and, since ``SNAG-ESTATE-013``, unambiguous
+#: about the **zone**.
+#:
+#: It used to take a bare wall clock read as local.  The one marker ever
+#: written was copied off an estate surface publishing
+#: ``2026-08-25T03:32:17.538288+00:00``, and the offset was dropped on the
+#: way in: the prediction then named an instant an hour before its subject
+#: here, and would have named one four hours *after* it west of Greenwich.
+#: Nothing in this module could say so, because a zoneless stamp has no
+#: zone to disagree with.  ``SNAG-LOG-009`` one document over, answered the
+#: way :func:`sysadmin.monitor.journal.since_timestamp` answers it — the
+#: ambiguity is **refused**, never resolved by a default, because a default
+#: is correct on the box that wrote the marker and silently wrong
+#: everywhere else.
+#:
+#: **``@<epoch>`` is deliberately not accepted, though that is exactly what
+#: ``since_timestamp`` renders for the same fault**, and the difference is
+#: the reader rather than the instant.  There the consumer is journalctl,
+#: whose zone is the reader's and unknown, and whose ``--since`` has no
+#: offset syntax at all — an epoch is the only unambiguous thing it takes.
+#: Here the consumer is :func:`check_expiry` and the *author* is a human,
+#: who must also write the instant's wall clock into the sentence beside it
+#: (rule 9).  An epoch is a figure no reader can pin against a sentence, so
+#: accepting one would buy unambiguity by making the one fact stated twice
+#: checkable by the checker alone — which is rule 9 deleted in order to
+#: satisfy rule 8.
+EXPIRY_FORMAT = "%Y-%m-%dT%H:%M%z"
+
+#: The shape every ``expires`` marker written before 2026-08-28 carries.
+#: **Recognised, never accepted.**  A naive instant is refused; this is
+#: what lets the refusal name the fault rather than report a generic
+#: malformation, which is ``schema_guard``'s rule that every way of
+#: not-knowing fails closed *with its own message*.  "This carries no
+#: offset, and here are the two instants it names" is a remedy; "not an
+#: instant of the form ``%Y-%m-%dT%H:%M%z``" is a puzzle whose answer is
+#: the defect.
+EXPIRY_NAIVE_FORMAT = "%Y-%m-%dT%H:%M"
 
 #: How the pinned wall clock is rendered back out of an ``expires``
-#: instant, to be looked for in the prose.  Rule 9.
+#: instant, to be looked for in the prose.  Rule 9.  Rendered **in this
+#: box's zone**, never in the marker's own: the prose is a sentence a human
+#: wrote on this box, so local is the clock it is in, and demanding the
+#: local rendering is what turns the pin from a spelling check into the
+#: thing that catches a UTC stamp copied into a sentence written in BST.
 EXPIRY_CLOCK_FORMAT = "%H:%M"
 
 
@@ -926,6 +973,50 @@ def check_markers(region: str, markers: list[Marker]) -> list[Claim]:
     return findings
 
 
+def expiry_example(now: datetime) -> str:
+    """``now`` written the way an ``expires`` marker must carry it.
+
+    ``isoformat`` rather than ``strftime(EXPIRY_FORMAT)``: the latter
+    renders ``+0100`` where every surface anyone copies a stamp from —
+    the estate's ``started_at``, this repository's own JSON — renders
+    ``+01:00``.  Both parse, and the example a message hands an author
+    should look like the thing they will paste beside it.
+    """
+    return now.astimezone().isoformat(timespec="minutes")
+
+
+def _malformed_instant(text: str) -> str:
+    """Why an ``expires`` argument did not yield an instant — rule 8.
+
+    Two distinguishable faults, and the naive one is the whole of
+    ``SNAG-ESTATE-013``'s population: every marker written before
+    2026-08-28 is a bare wall clock.  A generic "not of the form" would
+    report the commonest case as a typo, so the naive shape is recognised
+    (never accepted) and the message names the **two instants** the stamp
+    could mean rather than picking one.  Picking one is the defect: local
+    is right on the box that wrote it and wrong by the offset everywhere
+    else, which is why :func:`sysadmin.monitor.journal.since_timestamp`
+    refuses rather than converts.
+    """
+    try:
+        naive = datetime.strptime(text, EXPIRY_NAIVE_FORMAT)
+    except ValueError:
+        return f"'{text}' is not an instant of the form {EXPIRY_FORMAT}"
+    here = naive.astimezone().isoformat(timespec="minutes")
+    utc = naive.replace(tzinfo=UTC).isoformat(timespec="minutes")
+    if here == utc:
+        return (
+            f"'{text}' carries no offset — write it as {utc}.  This box's clock agrees "
+            "with UTC at that instant, so the two readings coincide today and will not "
+            "across the year, which is why the offset is required rather than inferred"
+        )
+    return (
+        f"'{text}' carries no offset, so it names two instants — {here} if the sentence "
+        f"is in this box's clock, {utc} if it was copied from a UTC-stamped surface.  "
+        "Write the offset rather than leaving this module to choose (SNAG-ESTATE-013)"
+    )
+
+
 def check_expiry(marker: Marker, region: str, now: datetime) -> Claim:
     """One prediction, against the clock — rules 8 and 9.
 
@@ -942,30 +1033,63 @@ def check_expiry(marker: Marker, region: str, now: datetime) -> Claim:
     ``unknown`` rather than ``mismatch`` deliberately.  A passed boundary
     does not make the sentence false — rule 2's whole point is that a
     claim nobody managed to test is its own verdict.
+
+    **The instant must carry an offset and a naive one is refused**
+    (``SNAG-ESTATE-013``).  The marker that opened that entry was copied
+    off a surface publishing UTC and written as a bare wall clock, so it
+    named a moment an hour before its subject here — and the check
+    reported the passed boundary correctly, having nothing to disagree
+    with.  See :data:`EXPIRY_FORMAT` for why the remedy is an offset
+    rather than ``@<epoch>``, which is what ``since_timestamp`` renders
+    for the identical fault one document over.
+
+    **``now`` must be aware, and the guard is here rather than left to
+    the subtraction below.**  A naive ``now`` and an aware ``moment``
+    raise ``TypeError`` on their own, loudly — so this is not the silent
+    reading ``since_timestamp`` exists to refuse — but only at the first
+    *well-formed* marker.  A document carrying none, which is this one
+    today, would let a naive caller through until the day somebody wrote
+    a good marker, and the crash would arrive stamped with that edit.
+    Refusing at the entry point puts the failure where the mistake is.
+    ``TypeError`` because that is what comparing the two raises already:
+    this brings the same fault forward, it does not invent a new one.
     """
+    if now.tzinfo is None:
+        raise TypeError(
+            "check_expiry needs an aware clock: a naive one is read as local, "
+            "which is the ambiguity an expires marker's offset exists to remove"
+        )
     parts = marker.argument.split(None, 1)
     label = parts[1] if len(parts) > 1 else "prediction"
     subject = f"Block predicts: {label}"
     if not parts:
         return _convention(
             "expires:?", subject, "the marker carries no instant — expected "
-            f"<!--check:expires {now.strftime(EXPIRY_FORMAT)} what it is about-->",
+            f"<!--check:expires {expiry_example(now)} what it is about-->",
         )
     try:
         moment = datetime.strptime(parts[0], EXPIRY_FORMAT)
     except ValueError:
-        return _convention(
-            f"expires:{parts[0]}", subject,
-            f"'{parts[0]}' is not an instant of the form {EXPIRY_FORMAT}",
-        )
+        return _convention(f"expires:{parts[0]}", subject, _malformed_instant(parts[0]))
 
     key = f"expires:{parts[0]}"
-    clock = moment.strftime(EXPIRY_CLOCK_FORMAT)
-    if region and clock not in prose_without_markers(region):
-        return Claim(
-            key, subject, "claim", parts[0], _local(moment.timestamp()), "unknown",
+    clock = moment.astimezone().strftime(EXPIRY_CLOCK_FORMAT)
+    stated = moment.strftime(EXPIRY_CLOCK_FORMAT)
+    prose = prose_without_markers(region)
+    if region and clock not in prose:
+        note = (
             f"the marker names {clock} and the block's prose does not — pinned rather "
-            "than trusted, because the instant is the one fact stated twice here",
+            "than trusted, because the instant is the one fact stated twice here"
+        )
+        if stated != clock and stated in prose:
+            note = (
+                f"the marker's instant is {clock} on this box and the block's prose says "
+                f"{stated}, which is that moment in the marker's own zone — the sentence "
+                "and the stamp are in different clocks, which is the copy "
+                "SNAG-ESTATE-013 was opened by"
+            )
+        return Claim(
+            key, subject, "claim", parts[0], _local(moment.timestamp()), "unknown", note,
         )
 
     hours = (moment - now).total_seconds() / 3600
@@ -993,7 +1117,12 @@ def check_all(path: Path | None = None, now: datetime | None = None) -> list[Cla
     status = schema_status()
     region_text = region or ""
     markers = read_markers(region_text)
-    moment = now or datetime.now()
+    # Local and aware — the document's prose is a local wall clock (rule 9)
+    # and `check_expiry` refuses a naive one.  A naive `now` handed in by a
+    # caller is passed through unchanged and refused there: normalising it
+    # here would resolve the caller's ambiguity by guessing, which is the
+    # move `EXPIRY_FORMAT` exists to refuse one layer down.
+    moment = now or datetime.now().astimezone()
 
     return [
         check_schema(status.verdict, status.current, status.problem),

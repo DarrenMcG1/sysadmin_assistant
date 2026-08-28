@@ -28,13 +28,11 @@ import inspect
 import itertools
 import json
 import logging
-import os
 import re
 import shutil
 import socket
 import tempfile
 import textwrap
-import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from hashlib import blake2s
@@ -50,11 +48,9 @@ from sysadmin.core.config import REPO_ROOT, get_config
 from sysadmin.core.schema_guard import EXIT_STATUS
 from sysadmin.core.text import strip_markdown as real_strip_markdown
 from sysadmin.monitor.journal import unwrap_json_message
-from sysadmin.ops_claims import check_expiry as real_check_expiry
 from sysadmin.snag_claims import (
     CHECKS,
     DEPRECATED_MODULE,
-    EXPIRY_PRODUCER_STAMP,
     MAX_NAMED_ENTRIES,
     REVIEW_SCHEDULE_LEAVES,
     SNAG_PATH,
@@ -73,7 +69,6 @@ from sysadmin.snag_claims import (
     check_deprecated_contracts,
     check_dropin_blind_spot,
     check_estate_port_8500,
-    check_expiry_naive_instant,
     check_health_path_guess,
     check_quietened_judgement_reach,
     check_review_schedule_unread,
@@ -85,7 +80,6 @@ from sysadmin.snag_claims import (
     check_unwrap_is_read_time,
     closure_declared,
     envelope_message,
-    expiry_reading,
     load_entries,
     main,
     overall,
@@ -1908,313 +1902,6 @@ class TestTheCodeSpanCheck:
         measurement = check_code_spans_survive()
         assert not any(STRIPPER_PROBE in line for line in measurement.detail)
         assert any("3 caller(s)" in line for line in measurement.detail)
-
-
-class TestTheExpiryCheck:
-    """``SNAG-ESTATE-013``'s check — the first aimed at this repository's own claims machinery.
-
-    Every other check here measures the box, another repository's tree or
-    a domain module.  This one drives :mod:`sysadmin.ops_claims`, which is
-    what ``check-ops-claims.sh`` runs at both ends of a sitting — so the
-    subject is imported and driven rather than reimplemented, and these
-    tests exist mostly to pin the two things a run refuted about the first
-    draft.
-
-    **Both are about the probe rather than the module.**  The single
-    straddle it started with holds only east of Greenwich; and the control
-    it started with was the unfixed behaviour asserted twice, so a landed
-    fix broke it.  Each candidate fix is therefore driven as a **real
-    stand-in** — a module that reads the stamp differently — rather than
-    as a literal saying "the fix landed", because the interesting verdicts
-    are the ones that tell four different fixes apart.
-    """
-
-    #: The three zones the check is driven at, and why each is here.  One
-    #: east of Greenwich (where the entry was observed), one west (where
-    #: the same marker outlives its subject instead), and UTC (where the
-    #: two stamps name one instant and the probe must decline).
-    #: ``SNAG-LOG-009``'s three-timezone treatment, which is where the
-    #: sign asymmetry was first written down in this repository.
-    EAST, WEST, ZERO = "Europe/London", "America/New_York", "UTC"
-
-    @staticmethod
-    @contextlib.contextmanager
-    def _zone(name: str):
-        """Run a block at a nominated timezone, restoring the box's own.
-
-        ``time.tzset`` is what makes ``astimezone()`` move, so the zone
-        cannot be injected as an argument — the check reads the process's
-        idea of local time exactly as :func:`datetime.datetime.now` does
-        in the module it is measuring.
-        """
-        before = os.environ.get("TZ")
-        os.environ["TZ"] = name
-        time.tzset()
-        try:
-            yield
-        finally:
-            if before is None:
-                os.environ.pop("TZ", None)
-            else:
-                os.environ["TZ"] = before
-            time.tzset()
-
-    @staticmethod
-    def _reslot(marker, region, now, instant):
-        """The real ``check_expiry``, given a marker carrying ``instant``.
-
-        Every stand-in below is a *rewriting* of the argument in front of
-        the real timer rather than a reimplementation of it, so a
-        stand-in cannot pass by accidentally modelling something simpler
-        than the module — the Session 92 lesson about a disambiguator
-        that measured its own luck.
-        """
-        parts = marker.argument.split(None, 1)
-        rewritten = " ".join([instant.strftime("%Y-%m-%dT%H:%M"), *parts[1:]])
-        return real_check_expiry(ops_claims.Marker(marker.key, rewritten), region, now)
-
-    @staticmethod
-    @contextlib.contextmanager
-    def _accepting(fmt: str):
-        """The module's accepted instant format moved, at **both** names.
-
-        ``snag_claims`` does ``from sysadmin.ops_claims import
-        EXPIRY_FORMAT``, so the constant lives in two namespaces and a
-        landed fix moves both.  Patching only the owner is what let the
-        coupling test below pass against the very code it was written to
-        break — a guard asserting a *value* where it means *provenance*,
-        for the third time in this repository.
-        """
-        with (
-            patch.object(ops_claims, "EXPIRY_FORMAT", fmt),
-            patch.object(snag_claims, "EXPIRY_FORMAT", fmt),
-        ):
-            yield
-
-    def _drive(self, zone: str, **patches):
-        with contextlib.ExitStack() as stack:
-            stack.enter_context(self._zone(zone))
-            for name, value in patches.items():
-                stack.enter_context(patch.object(snag_claims, name, value))
-            return check_expiry_naive_instant()
-
-    # -- the specimen ----------------------------------------------------
-
-    def test_the_producer_stamp_is_the_entrys_own(self):
-        """The probe drives the stamp the entry quotes, not an invented one.
-
-        The defect is a *copy* — a human reads an estate surface and
-        writes its wall clock into a marker — so a specimen the entry
-        does not name would be measuring a hypothetical copy.
-        """
-        assert EXPIRY_PRODUCER_STAMP in SNAG_PATH.read_text(encoding="utf-8")
-
-    def test_the_region_names_both_wall_clocks(self):
-        """Rule 9's pin must pass whichever clock a fix chooses to render.
-
-        ``ops_claims`` requires the marker's wall clock to appear in the
-        prose beside it.  A fix that taught the marker an offset would
-        have to render one of two clocks back out — UTC's ``03:32`` or
-        this box's ``04:32`` — and a region carrying only one would come
-        back as a *pin* failure, so the check would report the wrong limb
-        moved.  Driven rather than asserted from the text: both are put
-        through the real ``check_expiry`` and neither may complain.
-        """
-        with self._zone(self.EAST):
-            for clock in ("2026-08-25T03:32", "2026-08-25T04:32"):
-                reading, problem = expiry_reading("pin", clock, datetime(2026, 8, 25, 3, 0))
-                assert not problem, problem
-                assert "prose does not" not in reading.note, clock
-
-    # -- the box, in three zones -----------------------------------------
-
-    def test_it_holds_east_of_greenwich(self):
-        """The entry's own observation, re-measured: expiry before the subject."""
-        measurement = self._drive(self.EAST)
-        assert measurement.verdict == "match"
-        assert any("expires 1 hour before its subject occurs" in d for d in measurement.detail)
-
-    def test_it_holds_west_of_greenwich_in_the_other_direction(self):
-        """The same marker, the other sign — and the defect the first draft missed.
-
-        At ``UTC-4`` the marker names an instant four hours *after* its
-        subject, so the prediction outlives what it predicted.  A probe
-        asking only "did it expire early" reports the module correct
-        here, which is ``SNAG-LOG-009``'s *"N hours late at UTC−N"*
-        arriving one document over.
-        """
-        measurement = self._drive(self.WEST)
-        assert measurement.verdict == "match"
-        assert any("outlives its subject by 4 hours" in d for d in measurement.detail)
-
-    def test_a_box_at_utc_declines_rather_than_refuting(self):
-        """Zero-because-blind is never served as zero-because-clean.
-
-        The magnitude *is* the local offset, so at UTC the two stamps
-        name one instant and a zone-blind reading is indistinguishable
-        from a correct one.  Reporting ``mismatch`` there would close an
-        entry whose mechanism is untouched.
-        """
-        measurement = self._drive(self.ZERO)
-        assert measurement.verdict == "unknown"
-        assert "cannot demonstrate it" in measurement.note
-
-    # -- the four fixes, each driven -------------------------------------
-
-    def test_an_offset_bearing_format_refutes_both_halves(self):
-        """The natural landing: the accepted form gains ``%z``.
-
-        Patched at ``ops_claims`` rather than at this module, because
-        that global is what ``check_expiry`` reads — and the naive stamp
-        must keep rendering naively, which is the whole reason
-        :data:`EXPIRY_NAIVE_FORMAT` is owned here.
-        """
-        with self._zone(self.EAST), self._accepting("%Y-%m-%dT%H:%M%z"):
-            measurement = check_expiry_naive_instant()
-        assert measurement.verdict == "mismatch"
-        assert "first half" in measurement.note
-        assert "second half" in measurement.note
-
-    def test_the_naive_stamp_is_still_naive_when_the_module_moves(self):
-        """The coupling a falsification found, pinned from the outside.
-
-        The first draft rendered the naive stamp with the module's own
-        ``EXPIRY_FORMAT``; under the fix above it silently starts
-        rendering ``+0000``, the control moves with the thing it controls
-        for, and a landed fix comes back looking like no fix at all.
-        """
-        with self._zone(self.EAST), self._accepting("%Y-%m-%dT%H:%M%z"):
-            measurement = check_expiry_naive_instant()
-        assert any("expires 2026-08-25T03:32 …" in line for line in measurement.detail), (
-            measurement.detail
-        )
-
-    def test_the_naive_rendering_never_reaches_for_the_modules_constant(self):
-        """The same coupling, banned at the source rather than measured.
-
-        Session 92's rule — *banning the instrument beats measuring the
-        property* — and here it is not a preference: the behavioural test
-        above passed against the broken code until its patch was widened,
-        because ``EXPIRY_FORMAT`` lives in two namespaces and only one of
-        them was moved.  A value cannot answer provenance; the source
-        can, so this refuses ``EXPIRY_FORMAT`` as an argument to any
-        ``strftime`` in the check, which is the one place the coupling
-        could come back.
-        """
-        tree = ast.parse(inspect.getsource(check_expiry_naive_instant))
-        offenders = [
-            node.lineno
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "strftime"
-            and any(isinstance(arg, ast.Name) and arg.id == "EXPIRY_FORMAT" for arg in node.args)
-        ]
-        assert not offenders, (
-            "the naive stamp is rendered with ops_claims' own accepted format, so the "
-            f"probe's control moves with the thing it controls for (line {offenders})"
-        )
-
-    def test_a_module_tolerant_of_both_forms_refutes_the_offset_half_alone(self):
-        def tolerant(marker, region, now):
-            parts = marker.argument.split(None, 1)
-            try:
-                moment = datetime.strptime(parts[0], "%Y-%m-%dT%H:%M%z")
-            except ValueError:
-                return real_check_expiry(marker, region, now)
-            return self._reslot(marker, region, now, moment.astimezone().replace(tzinfo=None))
-
-        measurement = self._drive(self.EAST, check_expiry=tolerant)
-        assert measurement.verdict == "mismatch"
-        assert "first half" in measurement.note
-        assert "second half" not in measurement.note
-
-    def test_a_parse_that_fails_closed_refutes_the_zoneless_half_alone(self):
-        def fail_closed(marker, region, now):
-            parts = marker.argument.split(None, 1)
-            if parts and len(parts[0]) == len("2026-08-25T03:32"):
-                return ops_claims.Claim(
-                    "expires:x", "x", "claim", None, None, "unknown", "a naive instant is refused"
-                )
-            return real_check_expiry(marker, region, now)
-
-        measurement = self._drive(self.EAST, check_expiry=fail_closed)
-        assert measurement.verdict == "mismatch"
-        assert "second half" in measurement.note
-        assert "first half" not in measurement.note
-
-    def test_a_zoneless_instant_read_as_utc_refutes_it_by_neither_half(self):
-        """The fix that moves the boundary onto the event, naming no half.
-
-        **This is what refuted the first draft's control.**  It asserted
-        the timer flips at the marker's own text — which a zone-aware
-        module does not do, because its boundary is the producer's
-        instant — so a landed fix came back ``unknown`` where it should
-        come back ``mismatch``.  A control a fix breaks is the unfixed
-        behaviour asserted twice.
-        """
-
-        def zone_aware(marker, region, now):
-            parts = marker.argument.split(None, 1)
-            try:
-                moment = datetime.strptime(parts[0], "%Y-%m-%dT%H:%M").replace(tzinfo=UTC)
-            except ValueError:
-                return real_check_expiry(marker, region, now)
-            return self._reslot(marker, region, now, moment.astimezone().replace(tzinfo=None))
-
-        measurement = self._drive(self.EAST, check_expiry=zone_aware)
-        assert measurement.verdict == "mismatch"
-        assert "straddles the producer's instant" in measurement.note
-
-    # -- the probe losing its grip ---------------------------------------
-
-    def test_a_reader_that_stops_seeing_the_marker_is_reported(self):
-        measurement = self._drive(self.EAST, read_markers=lambda region: [])
-        assert measurement.verdict == "mismatch"
-        assert "no longer sees the form the block writes" in measurement.note
-
-    @pytest.mark.parametrize(
-        ("label", "measured", "verdict"),
-        [("passed", "passed 1 hour ago", "unknown"), ("to run", "1 hour to run", "match")],
-    )
-    def test_a_timer_stuck_on_one_answer_is_unknown(self, label, measured, verdict):
-        """A straddle over a timer that cannot flip measures nothing.
-
-        Both directions, because each satisfies one half of a naive
-        "before says X, after says Y" test on its own.
-        """
-
-        def stuck(marker, region, now):
-            claim = real_check_expiry(marker, region, now)
-            if claim.measured is None:
-                return claim
-            return ops_claims.Claim(
-                claim.key, claim.subject, claim.kind, claim.documented, measured, verdict, ""
-            )
-
-        measurement = self._drive(self.EAST, check_expiry=stuck)
-        assert measurement.verdict == "unknown"
-        assert "flips at neither straddle" in measurement.note
-
-    # -- the entry's own deeper claim ------------------------------------
-
-    def test_the_verdict_cannot_separate_the_two_readings(self):
-        """Why the probe classifies on ``measured`` and never on the verdict.
-
-        ``SNAG-ESTATE-013``'s title says the check "cannot say so", and
-        it is truer than the entry states: a mis-timed prediction and a
-        marker the module could not parse at all are **both** ``unknown``
-        and both print ``??``, so nothing in the rendered report
-        distinguishes them.  Only ``Claim.measured`` does.
-        """
-        with self._zone(self.EAST):
-            mistimed, _ = expiry_reading("naive", "2026-08-25T03:32", datetime(2026, 8, 25, 4, 32))
-            unparsed, _ = expiry_reading(
-                "aware", "2026-08-25T03:32+00:00", datetime(2026, 8, 25, 4, 32)
-            )
-        assert mistimed.verdict == unparsed.verdict == "unknown"
-        assert mistimed.parsed is True
-        assert unparsed.parsed is False
 
 
 class TestTheHealthPathCheck:

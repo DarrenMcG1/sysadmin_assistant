@@ -14,8 +14,11 @@ file — which is the failure mode of the whole mechanism, since a reworded
 sentence would otherwise retire the check in silence.
 """
 
+import contextlib
+import os
 import re
-from datetime import datetime
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,6 +31,8 @@ from sysadmin.ops_claims import (
     CHECK_KEYS,
     CLAIM_PATTERNS,
     CODE_SPAN_RE,
+    EXPIRY_FORMAT,
+    EXPIRY_NAIVE_FORMAT,
     KEYLESS_CHECKS,
     MARKER_RE,
     MAX_NAMED_ALERTS,
@@ -53,6 +58,30 @@ from sysadmin.ops_claims import (
     read_markers,
 )
 from sysadmin.snag_claims import strip_code_spans
+
+
+@contextlib.contextmanager
+def _zone(name: str):
+    """Run a block at a nominated timezone, restoring the box's own.
+
+    ``time.tzset`` is what makes ``astimezone()`` move, so the zone cannot
+    be injected as an argument: :func:`sysadmin.ops_claims.check_expiry`
+    reads the process's idea of local time exactly as the document's own
+    author does.  Copied in shape from the ``SNAG-ESTATE-013`` check that
+    retired with the entry — the mechanism it drove lives on here.
+    """
+    before = os.environ.get("TZ")
+    os.environ["TZ"] = name
+    time.tzset()
+    try:
+        yield
+    finally:
+        if before is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = before
+        time.tzset()
+
 
 DOCUMENT = """# Project Status Dashboard
 
@@ -609,17 +638,30 @@ class TestExpiry:
     """A prediction is timed, not measured — rules 8 and 9.
 
     The instance that opened SNAG-ESTATE-011: "the row clears at 03:32
-    with nothing done", written at 00:30 and true of nothing yet.
+    with nothing done", written at 00:30 and true of nothing yet.  Every
+    fixture here carries an offset since SNAG-ESTATE-013: the marker that
+    opened *that* entry did not, and named an instant an hour before the
+    thing it predicted.
     """
 
+    #: The prose is a local wall clock, so the block and the marker agree
+    #: only when the marker's offset is this box's.  ``+01:00`` rather
+    #: than a rendered ``datetime.now()``: a fixture whose zone follows
+    #: the process cannot demonstrate the disagreement these tests are
+    #: about, and a naive fixture is what the module now refuses.
     BLOCK = (
         "> the estate row clears at 03:32 with nothing done "
-        "<!--check:expires 2026-08-25T03:32 estate scan row-->"
+        "<!--check:expires 2026-08-25T03:32+01:00 estate scan row-->"
     )
-    MARKER = Marker("expires", "2026-08-25T03:32 estate scan row")
+    MARKER = Marker("expires", "2026-08-25T03:32+01:00 estate scan row")
+    BST = timezone(timedelta(hours=1))
+
+    def _at(self, hour: int, minute: int) -> datetime:
+        """A clock in the marker's own zone, so the arithmetic is readable."""
+        return datetime(2026, 8, 25, hour, minute, tzinfo=self.BST)
 
     def test_before_its_moment_the_prediction_stands(self):
-        claim = check_expiry(self.MARKER, self.BLOCK, datetime(2026, 8, 25, 0, 30))
+        claim = check_expiry(self.MARKER, self.BLOCK, self._at(0, 30))
         assert claim.verdict == "match"
         assert "to run" in (claim.measured or "")
         assert claim.subject.endswith("estate scan row")
@@ -631,7 +673,7 @@ class TestExpiry:
         prediction may well have come true.  What nobody did is look, and
         rule 2 reserves ``unknown`` for exactly that.
         """
-        claim = check_expiry(self.MARKER, self.BLOCK, datetime(2026, 8, 25, 6, 32))
+        claim = check_expiry(self.MARKER, self.BLOCK, self._at(6, 32))
         assert claim.verdict == "unknown"
         assert "nobody re-measured it" in claim.note
 
@@ -644,7 +686,7 @@ class TestExpiry:
         pinned by a check, not asserted on each side.
         """
         drifted = "> the estate row clears at 04:15 with nothing done"
-        claim = check_expiry(self.MARKER, drifted, datetime(2026, 8, 25, 0, 30))
+        claim = check_expiry(self.MARKER, drifted, self._at(0, 30))
         assert claim.verdict == "unknown"
         assert "03:32" in claim.note and "does not" in claim.note
 
@@ -662,20 +704,33 @@ class TestExpiry:
         """
         only_in_the_marker = (
             "> the estate row clears at 04:15 with nothing done "
-            "<!--check:expires 2026-08-25T03:32 estate scan row-->"
+            "<!--check:expires 2026-08-25T03:32+01:00 estate scan row-->"
         )
-        claim = check_expiry(self.MARKER, only_in_the_marker, datetime(2026, 8, 25, 0, 30))
+        claim = check_expiry(self.MARKER, only_in_the_marker, self._at(0, 30))
         assert claim.verdict == "unknown"
         assert "the block's prose does not" in claim.note
 
     def test_a_marker_with_no_instant_is_a_convention_finding(self):
-        claim = check_expiry(Marker("expires", ""), self.BLOCK, datetime(2026, 8, 25, 0, 30))
+        claim = check_expiry(Marker("expires", ""), self.BLOCK, self._at(0, 30))
         assert claim.kind == "convention"
         assert "carries no instant" in claim.note
 
+    def test_the_example_it_offers_is_one_the_module_would_accept(self):
+        """The remedy in a convention finding must not be a third format.
+
+        A message suggesting a shape ``EXPIRY_FORMAT`` rejects is a
+        remedy that fails when followed, which is worse than none — the
+        author has then written the marker twice and been refused twice.
+        Falsified by rendering the example with ``EXPIRY_NAIVE_FORMAT``.
+        """
+        claim = check_expiry(Marker("expires", ""), self.BLOCK, self._at(0, 30))
+        offered = re.search(r"<!--check:expires (\S+)", claim.note)
+        assert offered, claim.note
+        assert datetime.strptime(offered.group(1), EXPIRY_FORMAT).tzinfo is not None
+
     def test_an_unparseable_instant_names_the_form_it_wanted(self):
         claim = check_expiry(
-            Marker("expires", "tomorrow-ish"), self.BLOCK, datetime(2026, 8, 25, 0, 30)
+            Marker("expires", "tomorrow-ish"), self.BLOCK, self._at(0, 30)
         )
         assert claim.kind == "convention"
         assert "tomorrow-ish" in claim.note
@@ -683,16 +738,222 @@ class TestExpiry:
     def test_two_predictions_are_two_claims(self):
         """The family's members are declared by the document, not by this module."""
         block = (
-            "> one clears at 03:32 <!--check:expires 2026-08-25T03:32 estate row-->\n"
-            "> another leaves the window at 14:11 <!--check:expires 2026-08-25T14:11 log rows-->"
+            "> one clears at 03:32 <!--check:expires 2026-08-25T03:32+01:00 estate row-->\n"
+            "> another leaves the window at 14:11 "
+            "<!--check:expires 2026-08-25T14:11+01:00 log rows-->"
         )
         markers = [m for m in read_markers(block) if m.key == "expires"]
-        claims = [check_expiry(m, block, datetime(2026, 8, 25, 0, 30)) for m in markers]
+        claims = [check_expiry(m, block, self._at(0, 30)) for m in markers]
         assert [claim.key for claim in claims] == [
-            "expires:2026-08-25T03:32",
-            "expires:2026-08-25T14:11",
+            "expires:2026-08-25T03:32+01:00",
+            "expires:2026-08-25T14:11+01:00",
         ]
         assert all(claim.verdict == "match" for claim in claims)
+
+
+class TestTheInstantCarriesItsZone:
+    """SNAG-ESTATE-013 — a zoneless instant is refused, not read as local.
+
+    The entry's specimen is a *copy*: the estate publishes
+    ``started_at: "2026-08-25T03:32:17.538288+00:00"``, a human took the
+    wall clock out of it, and the marker then named 03:32 **BST** — an
+    hour before the thing it predicted, and four hours *after* it west of
+    Greenwich.  The magnitude is the reader's offset and the sign is the
+    reader's hemisphere; what neither of them changes is that the marker
+    had no zone for the check to disagree with.
+
+    These tests are the durable half of ``check_expiry_naive_instant``,
+    which retired with the entry it measured.  The registry rule is that
+    a check names an open entry; the *detector* outlives it as a test,
+    which is what Session 112 did with ``TestNoTriggerDiscardsItsTask``.
+    """
+
+    #: The stamp the entry quotes, verbatim.  Both forms below are
+    #: rendered from this one value, so the naive marker and the aware
+    #: one cannot come to name two different instants the way two typed
+    #: literals would — the retired check's rule, kept.
+    PRODUCER = "2026-08-25T03:32:17.538288+00:00"
+
+    def _drive(self, instant: str, now: datetime, clocks=("03:32", "04:32")) -> Claim:
+        """The real reader and the real timer, given a marker text.
+
+        ``read_markers`` rather than a hand-built :class:`Marker`: the
+        argument is the part of the convention this is about, and
+        ``MARKER_RE``'s group stops at ``>``, so that ``+00:00`` survives
+        it is a fact about the reader worth driving rather than assuming.
+
+        **The prose names every clock the instant could render as**, so
+        rule 9's pin is satisfied in advance and what is measured here is
+        the parse.  Otherwise a correctly-parsed instant comes back
+        ``unknown`` for the pin's reason and these tests report the wrong
+        limb moved — which is what the first draft did at
+        ``America/New_York``, where 03:32 UTC is the previous evening.
+        """
+        stated = ", ".join(clocks)
+        region = (
+            f"> the estate row clears at {stated} with nothing done "
+            f"<!--check:expires {instant} estate scan row-->"
+        )
+        marker = next(m for m in read_markers(region) if m.key == "expires")
+        return check_expiry(marker, region, now)
+
+    def test_the_producer_stamp_is_the_entrys_own(self):
+        """The specimen is quoted, never invented — the defect is a copy."""
+        snags = (REPO_ROOT / "docs/roadmap/snag_list.md").read_text(encoding="utf-8")
+        assert self.PRODUCER in snags
+
+    def test_a_zoneless_instant_is_refused_and_names_both_readings(self):
+        """Falsified by keeping ``EXPIRY_FORMAT`` naive: the drive parses.
+
+        ``convention`` rather than a timed claim is the whole of it —
+        ``Claim.measured`` is what separates a mis-timed prediction from
+        a rejected marker, because both print ``??``.
+        """
+        producer = datetime.fromisoformat(self.PRODUCER)
+        claim = self._drive(producer.strftime(EXPIRY_NAIVE_FORMAT), producer)
+        assert claim.kind == "convention" and claim.measured is None
+        assert "carries no offset" in claim.note
+
+    def test_the_producers_own_form_parses(self):
+        """The half that makes the refusal usable rather than a wall.
+
+        An author copying the estate's ``started_at`` and cutting it at
+        the minute writes exactly this, so a fix that refused the naive
+        form and did not accept the offset-bearing one would leave the
+        family with no writable shape at all.
+        """
+        producer = datetime.fromisoformat(self.PRODUCER)
+        claim = self._drive(producer.isoformat(timespec="minutes"), producer)
+        assert claim.kind == "claim" and claim.measured is not None
+
+    def test_utc_may_be_written_as_z(self):
+        """``Z`` is what a JSON surface is as likely to publish as ``+00:00``."""
+        claim = self._drive("2026-08-25T03:32Z", datetime.fromisoformat(self.PRODUCER))
+        assert claim.kind == "claim" and claim.measured is not None
+
+    def test_an_epoch_is_refused_though_since_timestamp_renders_one(self):
+        """The deliberate departure from ``journal.since_timestamp``.
+
+        Both refuse the same ambiguity; only one of them has a human
+        reader who must pin the instant against the sentence beside it
+        (rule 9).  An epoch is unambiguous and unreadable, so it is
+        refused *here* and correct *there* — a difference of reader, not
+        of instant.  Falsified by teaching the parse ``@<epoch>``.
+        """
+        moment = datetime.fromisoformat(self.PRODUCER)
+        claim = self._drive(f"@{int(moment.timestamp())}", moment)
+        assert claim.kind == "convention" and claim.measured is None
+
+    def test_a_sentence_in_the_markers_zone_rather_than_the_boxs_is_named_as_such(self):
+        """Rule 9 doing more than spelling — the entry's own block, exactly.
+
+        "the estate's stored scan of 03:32 today" beside
+        ``<!--check:expires 2026-08-25T03:32…-->`` is the copy that opened
+        the entry: both halves say 03:32 and both are an hour from the
+        moment predicted.  Naive, the two agree and the pin passes.  With
+        an offset they visibly disagree, and the note says which of them
+        is in which clock rather than reporting a drifted figure.
+
+        Falsified by pinning against ``moment.strftime`` instead of
+        ``moment.astimezone().strftime``: the marker's own rendering is
+        then what is looked for, it is in the prose, and the pin passes
+        exactly as it did before the fix.
+        """
+        with _zone("Europe/London"):
+            producer = datetime.fromisoformat(self.PRODUCER)
+            claim = self._drive(
+                producer.isoformat(timespec="minutes"), producer, clocks=("03:32",)
+            )
+        assert claim.verdict == "unknown"
+        assert "different clocks" in claim.note
+        assert "04:32" in claim.note and "03:32" in claim.note
+
+    @pytest.mark.parametrize(
+        ("zone", "displaced"),
+        [("Europe/London", True), ("America/New_York", True), ("UTC", False)],
+    )
+    def test_the_boundary_sits_where_the_producer_stamped_it_in_every_zone(
+        self, zone, displaced
+    ):
+        """The entry's symptom is a displacement whose *sign* the zone picks.
+
+        Written first as "does it expire early", which is the entry's own
+        wording and holds only east of Greenwich: at ``America/New_York``
+        the same naive marker named an instant four hours **after** its
+        subject, so the prediction outlived what it predicted and an
+        early-expiry test reported the module correct.  ``SNAG-LOG-009``'s
+        *"N hours late at UTC−N"* one document over.
+
+        So what is asserted is that the boundary now sits at the
+        producer's instant in **all three** zones, including the one where
+        the old reading was accidentally right.  ``displaced`` records
+        which zones could have demonstrated the fault at all: at UTC the
+        two readings name one moment, so this is a control rather than a
+        witness and says so rather than looking like evidence.
+        """
+        with _zone(zone):
+            producer = datetime.fromisoformat(self.PRODUCER)
+            naive = producer.astimezone().strftime(EXPIRY_NAIVE_FORMAT)
+            offset = producer.astimezone().utcoffset() or timedelta(0)
+            assert bool(offset) is displaced, "the zone database moved under this test"
+
+            minute = timedelta(minutes=1)
+            aware = producer.isoformat(timespec="minutes")
+            local = (producer.astimezone().strftime("%H:%M"),)
+            before = self._drive(aware, producer - minute, clocks=local)
+            after = self._drive(aware, producer + minute, clocks=local)
+            assert before.verdict == "match" and after.verdict == "unknown"
+            assert after.measured and "passed" in after.measured
+
+            # And the reading that produced the displacement no longer parses,
+            # in the zone where it was wrong and in the zone where it was not.
+            assert self._drive(naive, producer, clocks=local).kind == "convention"
+
+
+class TestTheClockItIsJudgedAgainst:
+    """``now`` must be aware — SNAG-ESTATE-013, the guard's other half.
+
+    ``since_timestamp``'s posture, arriving at a function that takes two
+    instants rather than one.  The subtraction below would raise on its
+    own, which is why this is a *relocation* of a failure rather than a
+    new one; what it buys is that the failure lands on the caller that
+    passed the naive clock instead of on the day somebody writes the
+    first well-formed marker.
+    """
+
+    def test_a_naive_clock_is_refused_before_any_marker_is_read(self):
+        """Falsified by dropping the guard: the empty marker returns a finding.
+
+        Driven at a marker carrying **no instant at all**, deliberately.
+        That path never reaches the subtraction, so it is the one drive
+        that would sail past a guard placed at the arithmetic — which is
+        the entire argument for putting it at the entry point.
+        """
+        with pytest.raises(TypeError, match="aware clock"):
+            check_expiry(Marker("expires", ""), "", datetime(2026, 8, 25, 0, 30))
+
+    def test_check_all_judges_predictions_against_an_aware_clock(self, tmp_path):
+        """The default is aware, so the module's own caller is not the bug.
+
+        Falsified by restoring ``datetime.now()``: every ``expires``
+        claim in a real document becomes a ``TypeError``.
+        """
+        seen: list[datetime] = []
+
+        def _spy(marker, region, now):
+            seen.append(now)
+            return Claim("expires:x", "s", "claim", None, None, "match", "")
+
+        document = (
+            "# Project Status Dashboard\n\n"
+            "> a prediction <!--check:expires 2026-08-25T03:32+01:00 something-->\n\n"
+            "## Quick Status\n"
+        )
+        status = tmp_path / "STATUS.md"
+        status.write_text(document, encoding="utf-8")
+        with patch("sysadmin.ops_claims.check_expiry", _spy):
+            check_all(status)
+        assert seen and all(moment.tzinfo is not None for moment in seen)
 
 
 class TestOpenTitlesAreNamed:
@@ -760,5 +1021,6 @@ class TestTheConventionAgainstTheRealDocument:
         for marker in read_markers(region):
             if marker.key != "expires":
                 continue
-            claim = check_expiry(marker, region, datetime.now())
+            claim = check_expiry(marker, region, datetime.now().astimezone())
             assert "does not" not in claim.note, f"unpinned: {marker.argument}"
+            assert "different clocks" not in claim.note, f"zone drift: {marker.argument}"
