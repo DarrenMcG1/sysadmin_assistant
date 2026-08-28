@@ -2,7 +2,16 @@
 
 Guards against the backend and tray drifting apart on host/port, and
 pins the defaults for values that used to be hard-coded in routers/main.
+
+Since 2026-08-28 it also holds the *shipped-file* half of that drift
+question: the reminder ceiling ``SNAG-ESTATE-009`` now rests on, and the
+two ``reminder_hours`` leaves whose agreement was held by a comment.
 """
+
+from pathlib import Path
+
+import pytest
+import yaml
 
 from sysadmin.core.config import (
     AppConfig,
@@ -10,6 +19,7 @@ from sysadmin.core.config import (
     HealthGradeBands,
     SchedulesConfig,
     ServiceConfig,
+    load_config,
 )
 from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
 from sysadmin.monitor.services import ServiceEntry
@@ -175,3 +185,230 @@ class TestSession18Defaults:
         assert actions.category_folders["archives"] == "Archives"
         assert ".py" in actions.code_extensions
         assert cfg.schedules.agent_first_run_delay_seconds == 60
+
+
+# ── The reminder ceiling (SNAG-ESTATE-009) ───────────────────────────────
+#
+# Session 117 bounded that entry's loud rung by *arithmetic* rather than by
+# luck: a dev server's port is unattributed until the next unit sweep, and
+# the estate judge quietens it to ``info`` on its first poll after that
+# sweep.  So the worst case is one sweep interval plus one poll interval —
+# 6 + 1 = 7 h on this box — against a ``reminder_hours`` of 24, and the
+# repeat that used to restate the fault at ``warning`` for a day and a half
+# is unreachable.  Nothing protected that inequality until this class.
+
+REPO_CONFIG = Path(__file__).parent.parent / "config.yaml"
+
+#: Index of ``notifications.tray.reminder_hours`` among the file's two
+#: ``reminder_hours:`` leaves — the understudy's copy is 0 and comes
+#: first.  Positional, and therefore itself a mutable fact: every caller
+#: reads the result back through the real parser and asserts the leaf it
+#: meant to move is the one that moved.  No constant is defined for the
+#: understudy, because nothing targets it — a name nothing passes is
+#: ``SNAG-CFG-001`` at the size of a constant.
+TRAY = 1
+
+
+def _with_reminder_hours(destination: Path, which: int, value: float) -> Path:
+    """Copy the shipped config with one ``reminder_hours:`` leaf rewritten.
+
+    Located by **position and key**, then rewritten wholesale — never by
+    replacing the string ``"24"``.  A fixture that edits the current value
+    matches nothing the day that value moves and then tests whatever the
+    file happened to say, which is how the first draft of this class went
+    red under an unrelated mutation: *"a probe keys on identity, not a
+    mutable field"*, met inside the guard written for it.
+
+    ``which`` is a position, so this function is not trusted on its own:
+    each caller asserts through ``load_tray_config`` / ``load_config``
+    that the leaf it named is the leaf that moved, which is the witness
+    a reordering of the ``notifications:`` blocks would fail.
+    """
+    lines = REPO_CONFIG.read_text().splitlines()
+    hits = [i for i, line in enumerate(lines)
+            if line.strip().startswith("reminder_hours:")]
+    assert len(hits) == 2, f"expected two reminder_hours leaves, found {len(hits)}"
+
+    line = lines[hits[which]]
+    lines[hits[which]] = f"{line[:len(line) - len(line.lstrip())]}reminder_hours: {value}"
+    destination.write_text("\n".join(lines) + "\n")
+    return destination
+
+
+def _reminder_ceiling(config_path: Path) -> tuple[int, float] | None:
+    """``(loud-rung ceiling in hours, hours until a restatement)``.
+
+    ``None`` when reminders are switched off, which is a *declaration*
+    and not a violation: both speakers gate on ``interval <= 0``
+    (:meth:`sysadmin.monitor.desktop.DesktopNotifier.sweep_reminders` and
+    ``sysadmin_tray.notifications`` alike), so with ``reminder_hours: 0``
+    there is no repeat for the ceiling to have to beat and the arithmetic
+    has nothing to say.
+
+    The ceiling is **summed from the two intervals, never written as
+    7** — ``max_priority_for`` against ``PRIORITY_MAP``'s rule.  A
+    literal would be a second statement of an arithmetic ``config.yaml``
+    already makes, free to drift from it in exactly the way this guard
+    exists to catch.
+
+    The restatement side is read through ``load_tray_config``, the tray's
+    own parser, because ``notifications.tray.reminder_hours`` is the leaf
+    a repeat is actually due on and
+    :class:`~sysadmin.core.config.TrayNotificationsConfig` — the slice the
+    *backend* keeps — parses ``mute_services`` alone.  That model is not
+    the file: the tray ships in this wheel and reads the same
+    ``config.yaml``, so the real leaf is readable here even though no
+    backend object holds it.
+    """
+    agents = load_config(config_path).agents
+    reminder = load_tray_config(config_path=config_path).reminder_hours
+    if reminder <= 0:
+        return None
+    ceiling = (
+        agents.service_discovery.scan_interval_hours
+        + agents.estate_judge.poll_interval_hours
+    )
+    return ceiling, reminder
+
+
+class TestTheLoudRungEndsBeforeItIsRestated:
+    """``SNAG-ESTATE-009``'s ceiling is one config line wide.
+
+    Raising ``agents.service_discovery.scan_interval_hours`` from 6 to 24
+    — a plausible edit, since the file organiser already runs daily —
+    puts the sum at **25** against a ``reminder_hours`` of 24, and the
+    entry's whole re-ranking on 2026-08-28 rests on that sum being under
+    it.  The failure is silent: the sweep still runs, the judge still
+    quietens, and the only difference is that a dev server's ``warning``
+    survives long enough to be restated as though it were news.  The
+    family's one recorded episode stood **31.88 h** at ``warning``, which
+    is what that looks like.
+    """
+
+    def test_the_ceiling_is_under_a_restatement(self):
+        measured = _reminder_ceiling(REPO_CONFIG)
+        if measured is None:
+            # Skipped rather than passed: with reminders off there is no
+            # repeat for the ceiling to beat, so the claim is vacuous —
+            # and ``ports_checked``'s rule says a check that could not
+            # look must not be served as a check that looked and was
+            # happy.  A skip is visible in the run; a green is not.
+            pytest.skip("notifications.tray.reminder_hours is 0 — reminders off")
+
+        ceiling, reminder = measured
+        assert ceiling < reminder, (
+            f"a dev server's breach can stay loud for {ceiling} h against a "
+            f"reminder_hours of {reminder} h, so SNAG-ESTATE-009's quiet rung "
+            f"is restated at warning before it arrives"
+        )
+
+    def test_the_detector_moves(self, tmp_path):
+        """Driven at a mutation, not asserted about.
+
+        Both terms read ``24`` somewhere on this box already
+        (``file_organiser.scan_interval_hours``,
+        ``desktop.reminder_hours``), so a guard that merely compared two
+        numbers it had found would be green whatever it was reading.
+        ``test_autogenerate_config.py``'s idiom — run the detector at
+        something that must trip it.
+        """
+        shipped = _reminder_ceiling(REPO_CONFIG)
+        if shipped is None:
+            pytest.skip("notifications.tray.reminder_hours is 0 — reminders off")
+
+        before, reminder_hours = shipped
+        raw = yaml.safe_load(REPO_CONFIG.read_text())
+        raw["agents"]["service_discovery"]["scan_interval_hours"] = int(
+            reminder_hours
+        )
+        mutated = tmp_path / "config.yaml"
+        mutated.write_text(yaml.safe_dump(raw))
+        ceiling, reminder = _reminder_ceiling(mutated)
+
+        # The *delta*, never the endpoint, and the mutation is built by
+        # structure rather than by string.  Three drafts failed here for
+        # the same reason: ``ceiling == 25`` is satisfied by a config.yaml
+        # already reading 24 and a replacement that matched nothing;
+        # ``before == 7`` pins a number the owner may change for unrelated
+        # reasons; and a ``replace("scan_interval_hours: 6", …)`` matches
+        # nothing the day the sweep is retimed, so a legitimate edit reads
+        # as a broken detector.  Setting the interval to ``reminder_hours``
+        # violates by construction whatever either leaf currently says.
+        assert ceiling > before, "the mutation did not move the sum"
+        assert not ceiling < reminder
+
+    def test_reminders_switched_off_are_not_a_violation(self, tmp_path):
+        """``0`` disables the repeat, so there is nothing to be early for.
+
+        Failing here would refuse a configuration both speakers document
+        as legitimate, which is a guard that has to be disarmed to be
+        obeyed — and a disarmed guard is the ``--no-verify`` shape
+        ``check-migrations.sh`` fails open to avoid.
+        """
+        off = _with_reminder_hours(tmp_path / "config.yaml", TRAY, 0)
+
+        assert load_tray_config(config_path=off).reminder_hours == 0
+        assert _reminder_ceiling(off) is None
+
+
+class TestTheTwoSpeakersAgreeInTheShippedFile:
+    """The defaults are pinned; the *file* was not, and only one is edited.
+
+    ``test_desktop_notifier.py::test_the_reminder_interval_matches_the_trays``
+    asserts ``DesktopNotificationsConfig().reminder_hours ==
+    NotificationSettings().reminder_hours`` — two objects constructed with
+    no file, so it holds whatever ``config.yaml`` says.  Driven against a
+    copy with the tray's leaf set to 6 and the understudy's left at 24,
+    that pin stays green while the two speakers restate the same fault
+    four times a day apart: the interval depends on which of them happened
+    to be running, which is the one thing the understudy exists to hide.
+    """
+
+    def test_the_understudy_carries_the_trays_interval(self):
+        tray = load_tray_config(config_path=REPO_CONFIG).reminder_hours
+        understudy = load_config(REPO_CONFIG).notifications.desktop.reminder_hours
+
+        assert understudy == tray, (
+            f"notifications.desktop.reminder_hours is {understudy} and "
+            f"notifications.tray.reminder_hours is {tray}; the daemon and the "
+            f"tray would restate one standing fault on two cadences"
+        )
+
+    def test_that_claim_is_about_the_file_and_not_the_defaults(self, tmp_path):
+        """The witness the defaults pin cannot supply."""
+        from sysadmin.core.config import DesktopNotificationsConfig
+        from sysadmin_tray.notifications import NotificationSettings
+
+        shipped = load_config(REPO_CONFIG).notifications.desktop.reminder_hours
+        skewed = _with_reminder_hours(tmp_path / "config.yaml", TRAY, 6)
+
+        assert load_tray_config(config_path=skewed).reminder_hours == 6
+        assert load_config(skewed).notifications.desktop.reminder_hours == shipped
+        assert shipped != 6, "the skew must actually skew the two apart"
+        # ...and the existing pin is unmoved by all of it.
+        assert (
+            DesktopNotificationsConfig().reminder_hours
+            == NotificationSettings().reminder_hours
+        )
+
+
+class TestTheSweepIsWhatMakesTheCeilingFinite:
+    """The asymmetry: one of the two agents may be switched off harmlessly.
+
+    ``EstateJudgeAgent._attribution`` reads the **newest stored** sweep
+    with no age gate — deliberately, so the enrichment never becomes a
+    dependency of the alert.  With ``service_discovery`` disabled that
+    read freezes, no later sweep ever names a new dev server, and the loud
+    rung is bounded by nothing at all: a stronger break of the same
+    arithmetic than raising the interval, and invisible to the sum.
+
+    Disabling ``estate_judge`` is the opposite and needs no assertion —
+    nothing raises the breach, so there is no loud rung to bound.
+    """
+
+    def test_the_sweep_that_supplies_the_quietening_is_scheduled(self):
+        agents = load_config(REPO_CONFIG).agents
+        assert agents.service_discovery.enabled, (
+            "the stored sweep never advances, so a dev server started now is "
+            "never attributed and its breach stays loud indefinitely"
+        )

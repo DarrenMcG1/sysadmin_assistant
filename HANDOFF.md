@@ -2,7 +2,123 @@
 
 ## Next action
 
-Decide whether to build the guard Session 118 offered and did not build: a test asserting that `agents.service_discovery.scan_interval_hours` plus `agents.estate_judge.poll_interval_hours` stays below `notifications.desktop.reminder_hours`, which is the arithmetic that now bounds `SNAG-ESTATE-009`'s loud rung at 7 h against a 24 h restatement and which nothing currently protects, noting that the tray's own `reminder_hours` — the leaf the inequality is really about — is not parsed by `TrayNotificationsConfig` at all, so the guard can only read the understudy's copy of the same 24.
+Decide whether anything should check the snag_list header paragraph, which Session 118 left open and Session 119 did not take: `check-snag-claims.sh` reads entry claims and `check-ops-claims.sh` reads STATUS.md's block, so the paragraph whose whole job is to record movement is read by neither, which is how it went six sittings without being written.
+
+## Session 119 is complete — the model is not the file
+
+The guard Session 118 offered is **built**:
+`tests/test_config_defaults.py::TestTheLoudRungEndsBeforeItIsRestated`
+asserts `agents.service_discovery.scan_interval_hours` +
+`agents.estate_judge.poll_interval_hours` **<** the tray's
+`reminder_hours` — the arithmetic that bounds `SNAG-ESTATE-009`'s loud
+rung at **7 h** against a **24 h** restatement, and which nothing
+protected. The lever is one config line: raising the sweep to daily puts
+the sum at **25**.
+
+**The reason it was offered as weak does not hold, and that is the part
+worth carrying.** The handoff said a guard *"can only read
+`notifications.desktop.reminder_hours`, the understudy's copy"* because
+`TrayNotificationsConfig` parses `mute_services` alone. It does — and it
+is the **backend's model, not the file**. `sysadmin_tray/config.py`
+reads `notifications.tray.reminder_hours` out of the same `config.yaml`,
+ships in this wheel, and is already imported across the seam by
+`tests/test_desktop_notifier.py`. Driven at a copy with the tray leaf set
+to 6, `load_tray_config` returns **6.0** while the understudy still reads
+**24.0**. `may_quieten_in_place` rule 3 is untouched: it refuses the
+*daemon* a policy the tray owns, and a test is not the daemon. CLAUDE.md
+now says so beside that rule, because reading it the wider way cost a
+sitting.
+
+**A second gap closed with it, and it is the one already written down as
+pinned.** `test_the_reminder_interval_matches_the_trays` compares
+`DesktopNotificationsConfig()` against `NotificationSettings()` — two
+objects constructed with **no file** — so the shipped copies can read 6
+and 24 with that pin green and the two speakers restating one standing
+fault four times a day apart.
+`TestTheTwoSpeakersAgreeInTheShippedFile` is the half that can see an
+edit, and it carries the witness the defaults pin cannot supply.
+
+**Two rules the guard encodes that are not the obvious version.**
+`reminder_hours: 0` is a **skip**, never a pass and never a failure —
+both speakers gate on `interval <= 0`, so the claim is vacuous, and
+`ports_checked`'s rule says a check that could not look must not be
+served as one that looked and was happy. And the sweep being **enabled**
+is asserted separately, because `_attribution` reads the newest *stored*
+sweep with no age gate: a disabled `service_discovery` freezes it and the
+loud rung is bounded by nothing at all, which the sum cannot see.
+Disabling `estate_judge` is the opposite and needs no assertion.
+
+**Three drafts of the detector test were wrong the same way**, each
+keying on a *mutable value*. `ceiling == 25` is satisfied by a
+`config.yaml` already reading 24 and a replacement that matched nothing;
+`before == 7` pins a number the owner may change, so a sweep legitimately
+retimed to 4 h read as a broken detector; and
+`replace("scan_interval_hours: 6", …)` matches nothing the day that leaf
+moves. What ships builds the mutation through parsed YAML — setting the
+interval to `reminder_hours`, which violates by construction whatever
+either leaf says — and asserts the **delta**. Falsified in both
+directions: violations red (sweep 6 → 24, tray 24 → 6, sweep disabled,
+judge poll 1 → 24), legitimate configurations green or visibly skipped
+(sweep retimed 6 → 4, reminder raised to 48, both reminders 0).
+
+**`SNAG-CFG-003` is filed** for what a test cannot reach: it runs when
+the suite runs, `claude-precommit.sh` runs the schema check and lints
+rather than pytest, and a `SIGHUP` installs a config from disk reporting
+only whether each changed leaf could be *delivered* live. P4, empty
+population, and the cheap fix is the one `may_quieten_in_place` rule 3
+forbids — so it is a question for the owner rather than an obvious
+repair.
+
+**No restart owed and none taken** — no production code changed. Suite
+**2838 → 2844**, six added and none retired; nine ops claims green; the
+live snag parser reads **100 → 101 entries, 17 → 18 open** at
+estate-manager's committed `0667f43`.
+
+## What Session 119 got wrong, and what it cost
+
+- **One `git checkout` on the uncommitted test file destroyed the whole
+  addition mid-sitting**, used as a careless way to revert a temporary
+  mutation. Recovered from context and re-driven from scratch, ~15
+  minutes. The count arithmetic is what proved the rewrite was complete
+  — 2838 + 6 = 2844 — and it is the first time that check has caught a
+  live clobber here. Mutations belong in a scratchpad copy; `git
+  checkout` is not an undo for work that is not committed.
+- **`read_snags` takes the document's `text`, not a path**, and handed a
+  path it answers `format: unrecognised` with **0 entries** — a shape
+  that reads as an emptied register rather than as an error, which is
+  `ports_checked`'s rule arriving in another repository's API. A
+  consumer publishing movement figures off it reads 100 → 0 entries and
+  17 → 0 open, i.e. every entry closed. The first count of this sitting
+  was confidently wrong and silent about it. **Filed at the owner rather
+  than absorbed**: cross-repo message `5a8bbc97`, carrying the cost (one
+  wrong count, ~5 minutes to detect and re-derive). A message and not a
+  finding — the signature is documented and the misuse was ours.
+- **`uv run --active` inside estate-manager installed its dependencies
+  into this repository's `.venv`**, uninstalling 22 packages and
+  installing 29. Repaired with `uv sync --all-extras` and the suite
+  re-run green. Drive another repository's code with `env -u
+  VIRTUAL_ENV uv run`, never `--active`.
+
+## What Session 119 left undone, and why
+
+- **The snag_list header paragraph is still unchecked**, which is
+  Session 118's second open decision carried forward unchanged. It was
+  re-derived through the live parser again this sitting, which is the
+  third consecutive sitting doing by hand what nothing verifies.
+- **`SNAG-CFG-003` carries no check, and it is the only open entry that
+  does not** — `check-snag-claims.sh` reports `17 of 18` and names it.
+  The claim is cheaply checkable without a database: whether
+  `claude-precommit.sh`'s executable lines invoke pytest
+  (`test_schema_guard.py`'s idiom for the `upgrade` ban), and whether a
+  violating config driven through `reload.py` still reports success with
+  no semantic complaint. Not started because writing one to this
+  registry's standard — docstring, discriminating witness, falsification
+  against a stand-in *modelling the fix* — is a piece of work the size
+  of this sitting's own, and one roadmap session per sitting.
+- **`SNAG-CFG-003` is filed rather than fixed.** Its remedy is a design
+  question — whether `reload.py` grows a *semantic* verdict beside its
+  delivery report, and if so who may read the tray's leaf — and the
+  population is empty. Left for the owner to rank.
 
 ## Session 118 is complete — a cost that fell is not a mechanism that closed
 

@@ -3224,6 +3224,24 @@ every one settled against the running code rather than by argument:
    the *backend* needs") while that key lives in the top-level `tray:`
    section the tray parses for itself. A config leaf added for a rule
    that does not need it is `SNAG-CFG-001`'s shape.
+
+   **That rule is about the daemon, and a test is not the daemon** —
+   stated because reading it the wider way cost a sitting. Session 118
+   declined to guard `SNAG-ESTATE-009`'s ceiling on the grounds that
+   `TrayNotificationsConfig` parses `mute_services` alone, so a test
+   *"can only read `notifications.desktop.reminder_hours`, the
+   understudy's copy"*. `TrayNotificationsConfig` is the backend's
+   **model**, not the file: `sysadmin_tray/config.py` parses
+   `notifications.tray.reminder_hours` out of the same `config.yaml`,
+   ships in this wheel, and is already imported across the seam by
+   `tests/test_desktop_notifier.py`. Measured — `load_tray_config` at a
+   copy with the tray leaf set to 6 returns `6.0` while the understudy
+   still reads `24.0`. So the leaf is unreadable *to the daemon*, by
+   design, and readable to a guard;
+   `tests/test_config_defaults.py::TestTheLoudRungEndsBeforeItIsRestated`
+   is that guard, and `TestTheTwoSpeakersAgreeInTheShippedFile` is the
+   shipped-file half of the pin whose existing copy compares two
+   defaults constructed with no file at all.
 4. **It is asked *before* the text gate, which is where the fix would
    otherwise have shipped green and inert.** `refresh_alert`'s existing
    gate is "has the text moved", and the founding case is a breach the

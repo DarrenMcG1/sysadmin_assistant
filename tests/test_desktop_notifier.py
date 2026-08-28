@@ -1012,6 +1012,14 @@ class TestTheSweepIsScheduled:
 
         which of them happened to be running — the thing the understudy
         exists to hide.
+
+        This pins the two **defaults**, constructed with no file, so it
+        holds whatever ``config.yaml`` says.  The shipped-file half is
+        ``tests/test_config_defaults.py``'s
+        ``TestTheTwoSpeakersAgreeInTheShippedFile``, which is what
+        actually catches an edit — and the ceiling those two numbers
+        bound (``SNAG-ESTATE-009``) is guarded in the same class's
+        neighbour.
         """
         from sysadmin_tray.notifications import NotificationSettings
 

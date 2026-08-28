@@ -394,12 +394,84 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 119 — the model is not the file (2026-08-28) ✅
+
+_The guard Session 118 offered is built, and the sentence that ranked it
+weak was measuring the wrong object._
+
+- [x] Build the ceiling guard —
+      `tests/test_config_defaults.py::TestTheLoudRungEndsBeforeItIsRestated`.
+      `service_discovery.scan_interval_hours` +
+      `estate_judge.poll_interval_hours` < the tray's `reminder_hours`,
+      summed from the two leaves and **never written as 7**
+      (`max_priority_for` against `PRIORITY_MAP`'s rule), so the
+      inequality cannot drift from the arithmetic `config.yaml` makes
+- [x] **Refute the stated weakness before building on it.** The claim
+      was that the guard can only read `notifications.desktop.`
+      `reminder_hours`, the understudy's copy. `TrayNotificationsConfig`
+      does parse `mute_services` alone — and it is the backend's *model*,
+      not the file. `load_tray_config` reads the real leaf out of the
+      same `config.yaml`; driven at a copy with the tray leaf set to 6 it
+      returns `6.0` while the understudy still reads `24.0`
+- [x] **Close a second gap the entry did not name.** The existing pin,
+      `test_the_reminder_interval_matches_the_trays`, compares
+      `DesktopNotificationsConfig()` against `NotificationSettings()` —
+      two objects constructed with **no file**, so it is green while the
+      shipped copies say 6 and 24. `TestTheTwoSpeakersAgreeInTheShippedFile`
+      is the half that can see an edit, and it carries the witness the
+      defaults pin cannot supply
+- [x] Make `reminder_hours: 0` a **skip**, never a pass and never a
+      failure. Both speakers gate on `interval <= 0`, so with reminders
+      off the claim is vacuous — and `ports_checked`'s rule says a check
+      that could not look must not be served as one that looked and was
+      happy
+- [x] Assert the sweep is **enabled**, which the sum cannot see.
+      `_attribution` reads the newest *stored* sweep with no age gate, so
+      a disabled `service_discovery` freezes it and the loud rung is
+      bounded by nothing at all — a stronger break of the same arithmetic
+      than raising the interval. Disabling `estate_judge` is the opposite
+      and needs no assertion: nothing raises the breach
+- [x] Falsify every assertion against real `config.yaml` mutations, and
+      falsify the **legitimate** configurations too. Violations red
+      (sweep 6→24; tray 24→6; sweep disabled; judge poll 1→24),
+      legitimate green or visibly skipped (sweep retimed 6→4; reminder
+      raised to 48; both reminders 0). **Three drafts of the detector
+      test were wrong** and each failed the same way — see below
+- [x] File `SNAG-CFG-003`: the guard runs when the suite runs, and a
+      SIGHUP reload installs a config nothing has judged coherent
+
+**What the falsification cost, and it is one lesson three times.** The
+detector test kept keying on a *mutable value*. Draft 1 asserted
+`ceiling == 25`, which a `config.yaml` already reading 24 satisfies with
+a replacement that matched nothing — green while witnessing nothing.
+Draft 2 asserted `(before, ceiling) == (7, 25)`, pinning a number the
+owner may change, so a sweep legitimately retimed to 4 h read as a broken
+detector. Draft 3 built the mutation with
+`replace("scan_interval_hours: 6", …)`, which matches nothing the day
+that leaf moves. What ships sets the interval to `reminder_hours` through
+a parsed YAML structure — violating **by construction** whatever either
+leaf currently says — and asserts the *delta*. That is
+`a-probe-keys-on-identity-not-a-mutable-field` met inside the guard
+written for it, and the same fault put a red on
+`test_reminders_switched_off_are_not_a_violation` for a reason unrelated
+to its claim, which is why `_with_reminder_hours` rewrites a located line
+wholesale rather than editing its value.
+
+**One `git checkout` on an uncommitted test file destroyed the whole
+addition mid-sitting.** Recovered from context and re-driven from
+scratch; the count arithmetic is what proves nothing was lost — 2838
+baseline + 6 added = **2844**, which is the check
+`test-count-arithmetic-catches-clobber` exists for and the first time it
+has caught a live clobber here.
+
 ## Session 118 — a cost that fell is not a mechanism that closed (2026-08-28)
 
-_No ✅: the re-rank is done and two decisions are deliberately left
+_No ✅: the re-rank is done and two decisions were deliberately left
 open beneath it, which is `Session 67`'s shape rather than an
-unfinished sitting. Both are the owner's to rank, and both are also
-recorded in HANDOFF.md's "What Session 118 left undone"._
+unfinished sitting. **The first was taken by Session 119 and the reason
+it was offered as weak turned out not to hold**; the second — whether
+anything should check the snag_list header paragraph — is still the
+owner's to rank._
 
 - [x] Re-rank `SNAG-ESTATE-009` against the cost Session 117 changed
       without touching its mechanism. **Stays `P3`, for a different
@@ -425,15 +497,13 @@ recorded in HANDOFF.md's "What Session 118 left undone"._
       sittings stale**: last written for Session 111 at 99 entries / 22
       open against today's 100 / 17. Stated as two measured figures with
       the gap named, never reconstructed per sitting
-- [ ] Decide whether to assert the new ranking lever. The ceiling is a
-      sum measured against `reminder_hours`, so raising
-      `scan_interval_hours` to daily puts it at **25** and the loud rung
-      back inside a restatement; the margin is **3.4×** and nothing
-      protects it. The guard is weaker than it looks —
-      `TrayNotificationsConfig` parses `mute_services` alone
-      (`may_quieten_in_place` rule 2), so it can only read
-      `notifications.desktop.reminder_hours`, the understudy's copy of
-      the same 24, held to the tray's by a comment rather than a test
+- [x] Decide whether to assert the new ranking lever. **Built** by
+      Session 119, and the reason it was offered as weak does not hold:
+      `TrayNotificationsConfig` parses `mute_services` alone, but that
+      is the *backend's* slice — `sysadmin_tray/config.py` reads
+      `notifications.tray.reminder_hours` from the same `config.yaml`,
+      ships in this wheel, and is already imported across the seam by
+      `tests/test_desktop_notifier.py`. The guard reads the real leaf
 - [ ] Decide whether anything should check the snag_list header
       paragraph. `check-snag-claims.sh` reads entry claims and
       `check-ops-claims.sh` reads STATUS.md's block; the paragraph whose
