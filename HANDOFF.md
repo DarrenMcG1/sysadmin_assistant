@@ -1,8 +1,85 @@
-# Handoff — 2026-08-27
+# Handoff — 2026-08-28
 
 ## Next action
 
-Write the snag-claim check for `SNAG-PORT-003` — it is the only entry opened today with no instrument, and it is the one where an instrument earns its keep most obviously, because the entry's whole argument for not fixing it is that a rule tuned against a single observation is a guess and this box currently has exactly one D-Bus activated listener, so a check that sweeps `observe_listeners` for units whose name carries a bus-unique id and asks whether `Listener.transient` recognises them is a check whose verdict flips on the day a second instance appears, which is precisely the evidence the entry says it is waiting for and cannot otherwise be told has arrived.
+Judge `SNAG-PORT-003` now that its own blocker is measured gone, choosing between the two fixes it names and the third it does not — systemd's `Transient=`, whose unit files sit in `$XDG_RUNTIME_DIR/systemd/transient` and are a directory listing away, which is the same class of signal `scan.py` already reads for enablement and is therefore not a guess at all, and decide at the same time whether the fix it actually needs is the smaller one this sitting's fourth instrument found, since `port_alert_title` is keyed on the port so the row deduplicates and what churns per login is the message rather than the title the entry predicts.
+
+## Session 107 is complete — the instrument for an entry that argues for its own postponement
+
+`SNAG-PORT-003` has a check and **stays open at `P3`**; nothing was
+fixed, which is what the entry asked for. Open entries carrying no check
+go **2 → 1**. Suite **2737 → 2755** (2737 + 18), ruff and mypy clean, all
+nine ops claims ok. Daemon restarted **09:30:18** — see below, because it
+did not need to be. No migration; no entry opened or closed, so the
+parser still reads 97 with open at 23.
+
+### What the sitting settled
+
+- **The handoff's own proposed verdict rule was refuted by the first
+  run.** It asked for a check "whose verdict flips on the day a second
+  instance appears". The second instance was already here:
+  `$XDG_RUNTIME_DIR/systemd/transient` holds **three** D-Bus activated
+  units, so a verdict keyed on the population would have printed
+  *refuted* against a live, untouched defect on day one — rule 1's
+  reading, and the one Session 83 refused for `SNAG-LOG-013`. So
+  `mismatch` is reserved for the entry being **dead**, and the blocker's
+  disappearance rides in the note, which `render` prints on a `match`
+  line too. `SNAG-TRAY-008`'s rule reached from the other side: an entry
+  whose fix has become *buildable* must stay open, and one reported
+  `mismatch` sits in the bucket with the ones to close.
+- **The second instance is discriminating, not merely present.** The
+  entry spells the rejected pattern `:N.N`, and
+  `dbus-:1.21-org.a11y.atspi.Registry@0.service` sits beside
+  `dbus-:1.2-org.kde.kdeconnect@0.service`. That is strictly the evidence
+  the entry says is missing — a pair that tells a rule from a
+  coincidence — and it is why the candidate pool is the **union** of the
+  listener and runtime sets: only `:1.2` binds a TCP port, so a pool
+  taken from `ss` alone reports the anchored naive fix complete, which is
+  the one verdict this check exists to be able to refuse.
+- **Two of the entry's own claims were corrected by the instrument built
+  to measure it.** Its *"no consumer reaches it"* names
+  `recommendations.py` and the estate judge and **not** `judge_ports`,
+  whose `holders` map admits the listener because its guard is the
+  property under test — one synthetic `DeclaredPort` produces a
+  `wrong_unit` naming the per-session unit verbatim. And its predicted
+  *"new title every login"* is not what it would get: `port_alert_title`
+  is `Port collision on 1716`, keyed on the port, so the row deduplicates
+  and what churns is the message. Both are recorded in the `Check`
+  bullet rather than by rewriting the bullets they correct, because a
+  check that edits the entry it reads is the second author
+  `ops_claims` rule 6 exists to keep out.
+- **Two of the eighteen tests passed against deliberately broken code, in
+  one shape.** Both decided their `pytest.skip` from a value the break
+  itself empties — the partial-rule test read `reading.candidates`, which
+  a narrowed pool empties, and the failure-mode test read
+  `reading.reach_title`, which removing that instrument nulls. Both
+  decide from the box now.
+  `a-control-a-fix-breaks-is-not-a-control`, found twice in one class.
+- **The restart was not owed and was taken anyway.**
+  `sysadmin/snag_claims.py` is reached from the `sysadmin-check-snags`
+  console script and from nothing in `create_app()`, so the daemon's
+  imported code did not move. The deploy check compares the newest `.py`
+  on disk and its docstring already prices this: *"a file the daemon
+  never imports reports a restart owed, and that fails in the direction
+  that costs a needless `kill -TERM`"*. The alternative was a red claim
+  at every preflight until an unrelated sitting restarted.
+
+### Left deliberately
+
+- **`SNAG-PORT-003` is not fixed and its priority is unchanged.** No
+  family can raise on it today and its own first escalation trigger — a
+  bus-named unit declared in `services.yaml` — has not fired. What
+  changed is only that its argument for staying unfixed no longer holds.
+- **The registry's second trigger is unmeasured and the check says so.**
+  Whether the registry claims a bus-named holder's port *under a project
+  name* needs the project join `wrong_project` already owns; 1716 is
+  claimed as `_kdeconnectd_`, which folds to a name matching no project
+  on disk. Reproducing that join would be a second implementation of an
+  existing comparison, so the silence is stated rather than left to be
+  read as an oversight.
+- **One open entry still carries no check** (`SNAG-DOCS-006`).
+- **Both estate messages stay open** — `8c1706d3` and `153c1c96` are
+  estate-manager's to close and neither is this repository's to answer.
 
 ## Session 106 is complete — the band moved, nothing was raised, and the parse underneath it was wrong
 

@@ -63,9 +63,12 @@ from sysadmin.snag_claims import (
     STRIPPER_FORMS,
     STRIPPER_NAME,
     STRIPPER_PROBE,
+    TYPED_BUS_UNIT,
     UNWRAP_READER,
     Check,
     Measurement,
+    bus_name_reading,
+    bus_named,
     call_sites,
     check_all,
     check_capped_signature_collides,
@@ -81,6 +84,7 @@ from sysadmin.snag_claims import (
     check_review_schedule_unread,
     check_run_status_cancelled,
     check_sysd_ollama_ordering,
+    check_transient_misses_bus_name,
     check_understudy_forgets,
     check_unmarked_sentence_invisible,
     check_unswept_port_is_loud,
@@ -6346,3 +6350,326 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
             e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-ESTATE-006"
         )
         assert "audit_code_unpublished" in entry.markers
+
+
+class TestTheBusNameCheck:
+    """``SNAG-PORT-003``'s check — the twenty-sixth, and the first whose entry
+    argues for its own postponement rather than for a fix.
+
+    Every other entry in this registry says *this is broken*.  This one
+    says *this is broken and both obvious fixes are guesses, because a
+    rule tuned against one observation is a guess and this box has one
+    observation* — so it carries a defect **and** a blocker, and they
+    move independently.  The tests below are organised around that: the
+    verdict answers the defect, and the blocker is asserted through the
+    note.
+
+    **Two of the stand-ins are the fixes the entry names and a third is
+    one it does not.**  ``Listener.transient`` is a property on a frozen
+    dataclass, so each is installed at the class — which is what makes
+    them real: ``judge_ports`` reads the same property, so a fix removes
+    the reach counterfactual's subject as a side effect, and the verdict
+    has to survive that.  ``a-control-a-fix-breaks-is-not-a-control``,
+    driven rather than reasoned about.
+    """
+
+    #: Where systemd's runtime unit names live, for the stand-in that
+    #: keys on the directory rather than on the name.
+    RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR") or "/run/user/1000") / "systemd"
+
+    @staticmethod
+    def _rule(fn):
+        """Install ``fn`` as ``Listener.transient`` for the duration."""
+        from sysadmin.units.ports import Listener
+
+        return patch.object(Listener, "transient", property(fn))
+
+    @staticmethod
+    def _scope(unit: str | None) -> bool:
+        return bool(unit and unit.endswith(".scope"))
+
+    # -- the box as it is ---------------------------------------------------
+
+    def test_the_defect_still_holds_on_this_box(self):
+        measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "match"
+        assert any("misses" in line for line in measurement.detail)
+
+    def test_the_blocker_is_refuted_and_the_note_carries_it(self):
+        """The headline, and the reason the handoff's proposed rule was refused.
+
+        The sitting that opened the entry asked for a verdict that flips
+        on the day a second instance appears.  It was already there —
+        three D-Bus activated units, of which ``:1.21`` beside ``:1.2``
+        refutes the entry's own spelling of the rejected pattern — so a
+        verdict keyed on the population would have printed *refuted*
+        against a live defect on day one.  The news goes in the note,
+        which :func:`~sysadmin.snag_claims.render` prints on a ``match``
+        line too.
+        """
+        try:
+            names = {p.name for p in (self.RUNTIME_DIR / "transient").iterdir()}
+        except OSError:  # pragma: no cover — this box has one
+            pytest.skip("this box has no runtime transient directory")
+        if len({n for n in names if bus_named(n)}) <= 1:
+            pytest.skip("this box carries fewer than two bus-named units")
+        measurement = check_transient_misses_bus_name()
+        assert "the blocker is refuted" in measurement.note
+        assert measurement.verdict == "match", (
+            "a population that grew is not an entry that died — the remedy is to build "
+            "the fix, and an entry to build must stay open"
+        )
+
+    def test_the_candidate_pool_is_the_union_and_not_the_listener_set(self):
+        """The first drive's correction, pinned.
+
+        Only ``:1.2`` listens here; ``:1.21`` binds no TCP port.  A pool
+        taken from ``ss`` alone cannot separate an anchored naive pattern
+        from a correct one, which is the one verdict this check exists to
+        be able to refuse.
+        """
+        reading, _ = bus_name_reading()
+        assert reading is not None
+        if reading.runtime_bus_named and reading.listening:
+            assert set(reading.candidates) >= set(reading.runtime_bus_named)
+            assert set(reading.candidates) >= set(reading.listening)
+            assert reading.candidate_source == "listener+runtime"
+
+    # -- the fixes the entry names -----------------------------------------
+
+    def test_the_dbus_prefix_fix_is_reported_as_the_entry_dying(self):
+        """The entry's first candidate: widen ``transient`` to a ``dbus-`` prefix."""
+        with self._rule(
+            lambda self: bool(
+                self.unit and (self.unit.endswith(".scope") or self.unit.startswith("dbus-"))
+            )
+        ):
+            measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "mismatch"
+        assert "the defect this entry describes is fixed" in measurement.note
+
+    def test_the_correct_bus_pattern_fix_is_reported_as_the_entry_dying(self):
+        """The entry's second candidate, spelled so that ``N`` is any integer."""
+        with self._rule(
+            lambda self: bool(
+                self.unit
+                and (self.unit.endswith(".scope") or re.search(r":\d+\.\d+-", self.unit))
+            )
+        ):
+            measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "mismatch"
+
+    def test_an_anchored_naive_pattern_is_reported_as_the_partial_rule_it_is(self):
+        """The payoff, and the entry's own prediction stated as a measurement.
+
+        ``N`` read as one digit catches ``:1.2`` and misses ``:1.21``.
+        This is the verdict the check exists to be able to give: a fix has
+        landed, it is a guess, and the note names what it misses rather
+        than counting it.
+        """
+        # **The skip is decided by the box and never by the reading.**  A
+        # first draft asked ``reading.candidates``, which is the value under
+        # test: narrowing the pool to listeners removed the discriminating
+        # name, the guard skipped instead of failing, and the falsification
+        # that should have fired went green.
+        # ``a-control-a-fix-breaks-is-not-a-control``, caught by driving it.
+        try:
+            names = {p.name for p in (self.RUNTIME_DIR / "transient").iterdir()}
+        except OSError:  # pragma: no cover — this box has one
+            pytest.skip("this box has no runtime transient directory")
+        if not any(re.search(r":\d\d+\.|:\d+\.\d\d", name) for name in names):
+            pytest.skip("this box carries no bus name a one-digit pattern would miss")
+        with self._rule(
+            lambda self: bool(
+                self.unit and (self.unit.endswith(".scope") or re.search(r":\d\.\d-", self.unit))
+            )
+        ):
+            measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "match"
+        assert "a rule has landed that catches" in measurement.note
+        assert "misses" in measurement.note
+
+    def test_an_unanchored_naive_pattern_is_correct_here_only_by_luck(self):
+        """A spelling the second instance does **not** separate, said out loud.
+
+        ``re.search(r":\\d\\.\\d", "dbus-:1.21-…")`` matches, because the
+        pattern is a substring of the longer bus name.  So the
+        discriminating pair discriminates the *anchored* spelling and not
+        this one, and reporting that as a fix is correct — the rule does
+        catch every name here.  Pinned so nobody reads the check as
+        separating two spellings when it separates one.
+        """
+        with self._rule(
+            lambda self: bool(
+                self.unit and (self.unit.endswith(".scope") or re.search(r":\d\.\d", self.unit))
+            )
+        ):
+            measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "mismatch"
+
+    # -- a fix the entry does not name --------------------------------------
+
+    def test_a_rule_keyed_on_systemds_own_answer_is_reported_as_the_entry_dying(self):
+        """The third fix, and it is not a guess — which is the entry's whole argument.
+
+        systemd already answers this question: a unit created at runtime
+        has its file under ``$XDG_RUNTIME_DIR/systemd/transient``, and a
+        directory listing is the same class of signal ``scan.py`` reads
+        for enablement.  The check must see it, or a landed fix that
+        sidesteps both of the entry's candidates reads as no change.
+        """
+        try:
+            names = {p.name for p in (self.RUNTIME_DIR / "transient").iterdir()}
+        except OSError:
+            pytest.skip("this box has no runtime transient directory")
+        with self._rule(lambda self: bool(self.unit and self.unit in names)):
+            measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "mismatch"
+
+    def test_a_wider_fix_still_names_what_it_leaves_missed(self):
+        """A closure must not swallow the sentence saying it should have been wider."""
+        reading, _ = bus_name_reading()
+        assert reading is not None
+        if not reading.runtime_unstable:
+            pytest.skip("this box carries no per-launch unit outside the bus-named set")
+        with self._rule(
+            lambda self: bool(
+                self.unit and (self.unit.endswith(".scope") or self.unit.startswith("dbus-"))
+            )
+        ):
+            measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "mismatch"
+        assert "the family is wider" in measurement.note
+
+    # -- the controls -------------------------------------------------------
+
+    def test_a_rule_that_catches_everything_is_unknown_and_never_a_fix(self):
+        """The negative control's whole job.
+
+        Without it ``return True`` reads as the defect fixed.  With it the
+        instrument has stopped discriminating, which is ``unknown`` —
+        rule 5, and the difference between a fix and a gutting.
+        """
+        with self._rule(lambda self: True):
+            measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "unknown"
+        assert "stopped discriminating" in measurement.note
+
+    def test_a_gutted_rule_is_unknown_rather_than_the_claim_holding(self):
+        """The positive control: a rule that recognises nothing proves nothing.
+
+        A ``transient`` deleted down to ``False`` answers *not
+        recognised* for a bus name exactly as today's correct rule does,
+        so without this control the check would report the entry holding
+        against code that no longer implements it.
+        """
+        with self._rule(lambda self: False):
+            measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "unknown"
+        assert "stopped discriminating" in measurement.note
+
+    # -- degradation --------------------------------------------------------
+
+    def test_the_verdict_survives_a_box_where_ss_will_not_run(self):
+        """The mechanism does not need the sweep, and the reach half says so.
+
+        ``observe_listeners`` failing is a reason to know less about
+        reach, never a reason to stop measuring the property — the split
+        :func:`sysadmin.ops_claims.check_all` makes for its state checks.
+        """
+        from sysadmin.units.ports import ListenerReport
+
+        with patch.object(
+            snag_claims, "runtime_transient_units", return_value=((), "")
+        ), patch(
+            "sysadmin.units.ports.observe_listeners",
+            return_value=ListenerReport(error="could not run ss: nope"),
+        ):
+            measurement = check_transient_misses_bus_name()
+        assert measurement.verdict == "match"
+        assert any("the reach half had no live subject" in line for line in measurement.detail)
+        assert any("could not run ss" in line for line in measurement.detail)
+
+    def test_a_box_with_no_runtime_directory_falls_back_and_says_so(self):
+        with patch.dict(os.environ, {"XDG_RUNTIME_DIR": "/nonexistent/snagcheck"}):
+            reading, _ = bus_name_reading()
+        assert reading is not None
+        assert reading.runtime_bus_named == ()
+        assert "would not list" in reading.runtime_problem
+
+    def test_a_box_with_neither_still_measures_the_property_from_the_typed_shape(self):
+        from sysadmin.units.ports import ListenerReport
+
+        with patch.object(
+            snag_claims, "runtime_transient_units", return_value=((), "no runtime dir")
+        ), patch(
+            "sysadmin.units.ports.observe_listeners", return_value=ListenerReport(listeners=())
+        ):
+            reading, _ = bus_name_reading()
+            measurement = check_transient_misses_bus_name()
+        assert reading is not None
+        assert reading.candidates == (TYPED_BUS_UNIT,)
+        assert reading.candidate_source == "typed"
+        assert measurement.verdict == "match"
+
+    # -- the reach counterfactual -------------------------------------------
+
+    def test_the_reach_half_is_one_declaration_from_a_finding_that_names_the_holder(self):
+        """The entry's *no consumer reaches it* measured, and corrected.
+
+        It names ``recommendations.py`` and the estate judge, and not
+        ``judge_ports`` — whose ``holders`` map admits the listener
+        because its guard is the property under test.  Nothing fires
+        today only because nothing declares the port, which is the
+        entry's own first trigger.
+        """
+        reading, _ = bus_name_reading()
+        assert reading is not None
+        if not reading.listening:
+            pytest.skip("no bus-named listener on this box")
+        assert reading.live_findings == 0
+        assert reading.reach_summary is not None
+        assert reading.reach_names_holder is True
+
+    def test_the_entrys_stated_failure_mode_is_measured_and_is_not_the_one_it_gets(self):
+        """The fourth instrument, and the only one about a consequence.
+
+        The entry predicts *"a new title every login"*.  The title is
+        ``Port collision on <port>`` — keyed on the port, Session 46's
+        rule — so the row deduplicates and what churns is the message.
+        """
+        reading, _ = bus_name_reading()
+        assert reading is not None
+        # Gated on the *sweep* having a subject, never on ``reach_title``,
+        # which is the value under test: removing the title instrument
+        # leaves it ``None``, and the first draft skipped on exactly that
+        # and went green against deliberately broken code.  F3's shape,
+        # found a second time in the same class.
+        if not reading.listening:
+            pytest.skip("no bus-named listener on this box")
+        assert reading.reach_title is not None
+        assert reading.title_names_holder is False
+        assert "stated failure mode is not the one it would get" in (
+            check_transient_misses_bus_name().note
+        )
+
+    # -- the instrument itself ----------------------------------------------
+
+    def test_bus_named_is_a_colon_and_deliberately_not_the_rejected_pattern(self):
+        """Encoding ``:N.N`` would measure a candidate fix, not the defect."""
+        assert bus_named("dbus-:1.2-org.kde.kdeconnect@0.service")
+        assert bus_named("dbus-:1.21-org.a11y.atspi.Registry@0.service")
+        assert not bus_named("alfred-backend.service")
+        assert not bus_named("app-steam@455b2e51e70244d98b817b19364641d8.service")
+        source = inspect.getsource(bus_named)
+        body = source.split('"""')[-1]
+        assert r"\d" not in body, (
+            "the detector must not share a spelling with the fix it measures — a check "
+            "keyed on :N.N goes quiet with the fix on the day that pattern proves narrow"
+        )
+
+    def test_the_check_is_pinned_to_its_entry(self):
+        check = CHECKS["transient_misses_bus_name"]
+        assert check.snag == "SNAG-PORT-003"
+        entry = next(e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-PORT-003")
+        assert "transient_misses_bus_name" in entry.markers

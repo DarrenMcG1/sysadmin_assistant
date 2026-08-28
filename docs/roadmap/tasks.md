@@ -394,6 +394,40 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 107 — the instrument for an entry that argues for its own postponement, and the blocker was already gone (2026-08-28) ✅
+
+- [x] Read `SNAG-PORT-003` and settle what a check can even measure — it is the first entry in the register whose body argues for **not** fixing it, so it carries a defect *and* a blocker and they move independently
+- [x] **Refuse the handoff's proposed verdict rule, and refuse it on measurement rather than on principle.** It asked for a check "whose verdict flips on the day a second instance appears". `$XDG_RUNTIME_DIR/systemd/transient` already held **three** D-Bus activated units, so that rule would have printed *refuted* against a live, untouched defect on its first run — which is rule 1's reading (a check tests the mechanism, never the population), and the reading Session 83 refused for `SNAG-LOG-013`
+- [x] **Establish that the blocker is not merely gone but discriminating** — the entry spells the rejected pattern `:N.N`, and `dbus-:1.21-org.a11y.atspi.Registry@0.service` sits beside `dbus-:1.2-org.kde.kdeconnect@0.service`. A second instance that repeated the first would tell a rule from a coincidence and no more; this one refutes the entry's own spelling of the candidate rule
+- [x] Settle the verdict rule — `mismatch` is reserved for the entry being **dead**, and the blocker's disappearance rides in the note, which `render` prints on a `match` line too. `SNAG-TRAY-008`'s rule reached from the other side: there the moved half is one face of a defect, here it is the argument for leaving it, and the remedies are opposite — an entry whose fix has become *buildable* must stay open, and one reported `mismatch` sits in the bucket with the ones to close
+- [x] Build the property instrument with **two** controls — a `.scope` the rule must recognise and a hand-written `.service` it must not. Without the second, a rule widened to `return True` reads as a fix; with it, that is `unknown`, which is the difference between a fix and a gutting
+- [x] Keep the detector off the rejected pattern — `bus_named` is a colon and deliberately not `:N.N`, because a check sharing a spelling with one of the two candidate fixes goes quiet with that fix on the day it proves narrow. Pinned by an `ast`-free source assertion that no `\d` reaches the body
+- [x] Build the reach counterfactual, and **correct the entry with it** — its *"no consumer reaches it"* names `recommendations.py` and the estate judge and **not `judge_ports`**, whose `holders` map admits the listener because its guard is the property under test. One synthetic `DeclaredPort` produces a `wrong_unit` whose summary carries `dbus-:1.2-org.kde.kdeconnect@0.service` verbatim. `SNAG-UNITS-001`'s counterfactual treatment
+- [x] Measure the entry's stated **consequence**, which nobody had — it predicts *"a new title every login — `SNAG-AGENT-005` in miniature"*. `port_alert_title` is `Port collision on 1716`, keyed on the port (Session 46's rule, `judgements.py` rule 5), so the row deduplicates and what churns is the *message*: a standing row naming a unit nobody can find, which is a staleness fault and not a pile-up. The fix the entry needs may be smaller than the one it argues about
+- [x] Report the wider family the entry does not mention — five per-launch `app-…@<32 hex>.service` units carry the same property and are missed for the same reason, and there is a **third** fix neither candidate covers and which is not a guess: systemd's own `Transient=`, whose unit files are a directory listing away
+- [x] Make the wider-family clause survive a `mismatch` — a closure must not swallow the sentence saying the fix should have been wider, which is `SNAG-ESTATE-001`'s defect wearing a closure
+- [x] **Widen the candidate pool on the first drive's evidence** — only `:1.2` listens; `:1.21` binds no TCP port, so a pool taken from `ss` alone reports the anchored naive fix complete, which is the one verdict this check exists to be able to refuse
+- [x] Falsify all ten, each firing on the test that names it — controls removed either way, pool narrowed, `wider` dropped, the handoff's population rule installed, the title instrument removed, a failed sweep swallowed into `unknown`, `bus_named` keyed on `:N.N`, the runtime read removed, and the counterfactual declaring the true holder
+- [x] **Two guards passed against deliberately broken code, in one shape, and both were coupled to the value they measure** — the partial-rule test skipped on `reading.candidates` (which the narrowed pool empties) and the failure-mode test skipped on `reading.reach_title` (which removing the instrument nulls). Both now decide the skip from the box. `a-control-a-fix-breaks-is-not-a-control`, found twice in one class
+- [x] Suite **2737 → 2755** green (2737 + 18, stated because a green suite cannot witness tests that no longer exist); ruff and mypy clean; open entries with no check **2 → 1**
+- [x] Update STATUS.md, tasks.md, snag_list.md, HANDOFF.md
+
+**Nothing was fixed, and that is the outcome the entry asked for.**
+`SNAG-PORT-003` stays open at `P3`: the defect stands, no family can
+raise on it today, and its own first escalation trigger — a bus-named
+unit declared in `services.yaml` — has not fired. What changed is that
+its argument for staying unfixed no longer holds, and the register now
+says so on every run rather than waiting for someone to look again.
+
+**The registry's second trigger is deliberately unmeasured and says so.**
+Whether the registry claims a bus-named holder's port *under a project
+name* needs the project join `wrong_project` already owns; 1716 is
+claimed as `_kdeconnectd_`, which folds to a name matching no project on
+disk. Reproducing that join would be a second implementation of an
+existing comparison, so the silence is stated in the docstring rather
+than left to be read as an oversight — `SNAG-ESTATE-012`'s convention
+applied to a check's own coverage.
+
 ## Session 106 — the band moved, nothing was raised, and the parse underneath it was wrong (2026-08-27) ✅
 
 - [x] Confirm the red is `SNAG-PORT-001`'s and nothing of this sitting's — 2 failed / 2568 passed with `-x`, both in `tests/test_unit_ports.py`, before any edit

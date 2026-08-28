@@ -106,6 +106,7 @@ import asyncio
 import inspect
 import json
 import logging
+import os
 import re
 import subprocess  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
 import sys
@@ -6727,6 +6728,487 @@ def check_audit_code_unpublished() -> Measurement:
 
 
 # ---------------------------------------------------------------------------
+# SNAG-PORT-003 — a per-session unit name that `transient` does not recognise
+# ---------------------------------------------------------------------------
+
+#: The specimen shapes, used **only** where the box supplies none of its
+#: own.  All three are real names observed here on 2026-08-27 and the
+#: entry's body carries the first two.  :func:`bus_name_reading` learns
+#: the candidates from the box first and falls back to these, because a
+#: check that only ever asks about a name this repository typed cannot
+#: notice that the shape moved — ``SNAG-ESTATE-004``'s falsification that
+#: passed against broken code, met one entry over.
+TYPED_BUS_UNIT = "dbus-:1.2-org.kde.kdeconnect@0.service"
+TYPED_SCOPE_UNIT = "app-code-oss-26348.scope"
+TYPED_STABLE_UNIT = "alfred-backend.service"
+
+#: The counterfactual ``services.yaml`` declaration the reach half
+#: installs.  ``wrong_unit`` fires when the file names a unit for a port
+#: something else holds, so a declaration naming anything *but* the
+#: observed holder is the single line that turns this entry's reach from
+#: latent into live — which is the first of the two triggers the entry
+#: names for itself.
+REACH_PROBE_SERVICE = "snagcheck-bus-name"
+REACH_PROBE_UNIT = "snagcheck-not-the-holder.service"
+
+
+def bus_named(unit: str) -> bool:
+    """Whether a unit name carries a bus-unique connection name.
+
+    **A colon, and deliberately not ``:N.N``.**  ``SNAG-PORT-003``
+    refuses the narrow pattern for production — *"reaches into a format
+    D-Bus owns"* — so a check encoding it would be measuring one of the
+    two candidate fixes rather than the defect, and would go quiet on the
+    day that fix proved too narrow.  The colon is what ``SNAG-PORT-002``
+    established as the distinguishing feature (4 of 694 processes, 3 of
+    10 runtime units), it is the character systemd escapes ``/`` around
+    and leaves alone, and it selects exactly the D-Bus activated set on
+    this box.
+
+    It is broader in the direction that matters.  The live box carries
+    ``dbus-:1.2-…`` beside ``dbus-:1.21-…``, so a fix spelled ``:\\d\\.\\d``
+    catches one and misses the other; a check sharing the pattern would
+    report that fix complete.  Here it comes out as a *partial* rule,
+    which is the entry's own prediction — a rule tuned against one
+    observation is a guess — stated as a measurement.
+    """
+    return ":" in unit
+
+
+def runtime_transient_units() -> tuple[tuple[str, ...], str]:
+    """Every unit systemd created at runtime, by name.
+
+    ``$XDG_RUNTIME_DIR/systemd/transient`` listed, never a ``systemctl
+    show``: the same class of signal
+    :func:`~sysadmin.units.scan.discover_units` reads for enablement, so
+    the instrument stays inside what the swept modules can themselves
+    see.
+
+    **It is the population instrument and never the mechanism one.**  A
+    D-Bus activated service that binds no TCP port is invisible to ``ss``
+    and is still a second instance of the naming shape — which is exactly
+    the evidence ``SNAG-PORT-003`` says it is waiting for and cannot
+    otherwise be told has arrived.  Sweeping only ``observe_listeners``
+    would have this box at a population of one until a second such
+    service happened to bind a port, an event that need never occur.
+    """
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    root = Path(runtime) if runtime else Path("/run/user") / str(os.getuid())
+    directory = root / "systemd" / "transient"
+    try:
+        return tuple(sorted(path.name for path in directory.iterdir())), ""
+    except OSError as exc:
+        return (), f"{directory} would not list ({exc.__class__.__name__}: {exc})"
+
+
+@dataclass(frozen=True)
+class BusNameReading:
+    """What the three instruments saw.
+
+    Attributes:
+        candidates: every bus-named unit the box offered, or the typed
+            shape where it offered none.
+        candidate_source: ``listener``, ``runtime`` or ``typed``.
+        recognised: the candidates :attr:`~sysadmin.units.ports.Listener.transient`
+            already calls transient.
+        unrecognised: the candidates it does not.
+        scope_control: a name the rule **must** recognise, and its answer.
+        stable_control: a name it **must not**, and its answer.
+        listening: bus-named units holding a TCP port right now.
+        in_unit_ports: the holder keys such a listener puts in the stored
+            blob — the map whose key changes on every login.
+        reach_summary: the ``wrong_unit`` summary one declaration away.
+        reach_names_holder: whether that summary carries the per-session
+            name verbatim.
+        reach_title: the alert title that finding would be raised under.
+        title_names_holder: whether *that* carries the name — the entry's
+            own stated failure mode, and the one instrument here that
+            answers a question about a consequence rather than a cause.
+        live_findings: findings the same sweep raises today, undeclared.
+        runtime_bus_named: bus-named units systemd created at runtime.
+        runtime_unstable: runtime units the rule misses that are *not*
+            bus-named — the wider family, evidence only.
+        declared_bus_named: bus-named units ``services.yaml`` declares.
+    """
+
+    candidates: tuple[str, ...]
+    candidate_source: str
+    recognised: tuple[str, ...]
+    unrecognised: tuple[str, ...]
+    scope_control: str
+    scope_recognised: bool
+    stable_control: str
+    stable_recognised: bool
+    listening: tuple[str, ...] = ()
+    in_unit_ports: tuple[str, ...] = ()
+    reach_summary: str | None = None
+    reach_names_holder: bool = False
+    reach_title: str | None = None
+    title_names_holder: bool = False
+    live_findings: int = 0
+    runtime_bus_named: tuple[str, ...] = ()
+    runtime_unstable: tuple[str, ...] = ()
+    runtime_problem: str = ""
+    declared_bus_named: tuple[str, ...] = ()
+    declared_problem: str = ""
+    sweep_problem: str = ""
+
+
+def _audited_ranges() -> list[tuple[int, int]]:
+    """The band the box is actually running, never the module default.
+
+    ``SNAG-PORT-001`` widened it on 2026-08-27 and that widening is what
+    made this entry askable at all, so a check reading the default would
+    be measuring a jurisdiction the daemon left.
+    """
+    from sysadmin.units.ports import DEFAULT_AUDITED_RANGES
+
+    try:
+        ports = get_config().agents.service_discovery.ports
+    except Exception:  # noqa: BLE001 — an unreadable config is the default band
+        return [tuple(pair) for pair in DEFAULT_AUDITED_RANGES]  # type: ignore[misc]
+    return [tuple(pair) for pair in ports.audited_ranges]  # type: ignore[misc]
+
+
+def bus_name_reading() -> tuple[BusNameReading | None, str]:
+    """Drive the property, its two controls, and the reach counterfactual."""
+    from sysadmin.units.agent import port_alert_title
+    from sysadmin.units.ports import (
+        WRONG_UNIT,
+        DeclaredPort,
+        Listener,
+        PortReport,
+        judge_ports,
+        observe_listeners,
+    )
+
+    def transient_of(unit: str) -> bool:
+        return Listener(port=0, unit=unit).transient
+
+    report = observe_listeners()
+    sweep_problem = report.error or ""
+    seen = report.listeners if report.ok else ()
+
+    runtime, runtime_problem = runtime_transient_units()
+    runtime_bus = tuple(name for name in runtime if bus_named(name))
+    runtime_unstable = tuple(
+        name for name in runtime if not bus_named(name) and not transient_of(name)
+    )
+
+    listening = tuple(sorted({x.unit for x in seen if x.unit and bus_named(x.unit)}))
+    # **The union, not the listener set, and the first drive is why.**  Only
+    # ``:1.2`` listens here; ``:1.21`` — the instance that tells a rule from a
+    # coincidence, because it refutes the entry's own ``:N.N`` spelling — binds
+    # no TCP port.  A pool taken from ``ss`` alone would report the naive
+    # ``:\d\.\d`` fix complete, which is the one verdict this check exists to
+    # be able to refuse.
+    pool = tuple(sorted(set(listening) | set(runtime_bus)))
+    contributions = [
+        label for label, group in (("listener", listening), ("runtime", runtime_bus)) if group
+    ]
+    candidates = pool or (TYPED_BUS_UNIT,)
+    source = "+".join(contributions) or "typed"
+
+    # The positive control: a name the rule as documented must recognise.
+    # Taken from the runtime directory where the box has one, so a rule
+    # that stopped firing is caught against a real name rather than only
+    # against a name this module chose.
+    scopes = tuple(name for name in runtime if name.endswith(".scope"))
+    scope_control = scopes[0] if scopes else TYPED_SCOPE_UNIT
+
+    declared: list[object] = []
+    declared_problem = ""
+    try:
+        from sysadmin.monitor.services import default_services_path, load_services
+
+        declared = list(load_services(default_services_path()).services)
+    except Exception as exc:  # noqa: BLE001 — an unreadable services.yaml costs one half
+        declared_problem = f"services.yaml would not load ({exc.__class__.__name__}: {exc})"
+
+    declared_units = tuple(
+        sorted({getattr(entry, "unit", None) or "" for entry in declared} - {""})
+    )
+    declared_bus_named = tuple(unit for unit in declared_units if bus_named(unit))
+    # The negative control: a stable, hand-written unit the rule must
+    # leave alone.  Without it a rule widened to `return True` reads as a
+    # fix rather than as a gutting.
+    stable = tuple(
+        unit for unit in declared_units if not bus_named(unit) and not unit.endswith(".scope")
+    )
+    stable_control = stable[0] if stable else TYPED_STABLE_UNIT
+
+    reading_kwargs: dict[str, object] = {}
+    if listening and report.ok:
+        holder = next(x for x in seen if x.unit and bus_named(x.unit))
+        ranges = _audited_ranges()
+        blob = PortReport(listeners=report.listeners, audited_ranges=tuple(ranges))
+        reading_kwargs["in_unit_ports"] = tuple(
+            key for key in blob.unit_ports(audited_only=True) if bus_named(key)
+        )
+        today = judge_ports(report, (), (), {}, {}, audited_ranges=ranges)
+        reading_kwargs["live_findings"] = sum(
+            1 for finding in today.findings if finding.port == holder.port
+        )
+        forced = judge_ports(
+            report,
+            [
+                DeclaredPort(
+                    name=REACH_PROBE_SERVICE,
+                    port=holder.port,
+                    unit=REACH_PROBE_UNIT,
+                    scope=holder.scope or "user",
+                )
+            ],
+            (),
+            {},
+            {},
+            audited_ranges=ranges,
+        )
+        for finding in forced.findings:
+            if finding.port == holder.port and finding.kind == WRONG_UNIT:
+                title = port_alert_title(finding.port)
+                reading_kwargs["reach_summary"] = finding.summary
+                reading_kwargs["reach_names_holder"] = (holder.unit or "") in finding.summary
+                reading_kwargs["reach_title"] = title
+                reading_kwargs["title_names_holder"] = (holder.unit or "") in title
+                break
+
+    return (
+        BusNameReading(
+            candidates=candidates,
+            candidate_source=source,
+            recognised=tuple(name for name in candidates if transient_of(name)),
+            unrecognised=tuple(name for name in candidates if not transient_of(name)),
+            scope_control=scope_control,
+            scope_recognised=transient_of(scope_control),
+            stable_control=stable_control,
+            stable_recognised=transient_of(stable_control),
+            listening=listening,
+            runtime_bus_named=runtime_bus,
+            runtime_unstable=runtime_unstable,
+            runtime_problem=runtime_problem,
+            declared_bus_named=declared_bus_named,
+            declared_problem=declared_problem,
+            sweep_problem=sweep_problem,
+            **reading_kwargs,  # type: ignore[arg-type]
+        ),
+        "",
+    )
+
+
+def check_transient_misses_bus_name() -> Measurement:
+    """``SNAG-PORT-003`` — ``transient`` does not recognise a per-session D-Bus name.
+
+    **The twenty-sixth check, and the first whose entry argues for its
+    own postponement rather than for a fix.**  Everything else in this
+    registry says *this is broken*; this entry says *this is broken and
+    both obvious fixes are guesses, because a rule tuned against one
+    observation is a guess and this box has one observation*.  So it has
+    two things a check can measure that pull in opposite directions —
+    the defect, and the blocker — and separating them is the whole of the
+    design.
+
+    **The verdict is the mechanism's, and the handoff's proposed rule was
+    refuted by the first run.**  The sitting that opened the entry asked
+    for a check "whose verdict flips on the day a second instance
+    appears".  It cannot: the second instance was already there.
+    ``$XDG_RUNTIME_DIR/systemd/transient`` holds **three** D-Bus
+    activated units on this box — ``org.kde.kdeconnect``,
+    ``org.kde.kwalletd6`` and ``org.a11y.atspi.Registry`` — so a verdict
+    keyed on the population would have printed *refuted* against a live
+    defect on the day it was written, which is rule 1's reading exactly.
+    ``mismatch`` is therefore reserved for the entry being **dead**, and
+    everything else rides in the note, which :func:`render` prints on a
+    ``match`` line too.  ``SNAG-TRAY-008``'s rule — a fix that closes one
+    face is a ``match`` carrying the moved half in its note — reached
+    from the other side: here the moved half is not a face of the defect
+    but the argument for leaving it, and the remedies are opposite.  An
+    entry whose fix has become *buildable* must stay open; an entry
+    reported ``mismatch`` sits in the bucket with the ones to close.
+
+    **The blocker is refuted and the discriminating pair is why.**  The
+    entry spells the rejected pattern ``:N.N``, and the live box carries
+    ``dbus-:1.2-org.kde.kdeconnect@0.service`` beside
+    ``dbus-:1.21-org.a11y.atspi.Registry@0.service``.  A second instance
+    that merely repeated the first would tell a rule from a coincidence
+    and no more; this one refutes the entry's own spelling of the
+    candidate rule, which is strictly the evidence it says is missing.
+
+    **Four instruments, and only the first decides anything.**
+
+    1. *The property, with two controls.*
+       :attr:`~sysadmin.units.ports.Listener.transient` is asked about
+       every bus-named unit the box offers.  The controls are what make
+       a constant observation evidence: a ``.scope`` it **must**
+       recognise, and a hand-written ``.service`` it **must not**.
+       Without the second, a rule widened to ``return True`` reads as a
+       fix; with it, that is ``unknown`` — the instrument no longer
+       discriminates — rather than a job well done.
+    2. *The reach counterfactual.*  The entry's *"no consumer reaches
+       it"* is measured rather than restated, and it names the wrong
+       consumers: it cites ``recommendations.py`` and the estate judge,
+       and not :func:`~sysadmin.units.ports.judge_ports`, whose
+       ``holders`` map admits the listener because line 549's guard is
+       the very property under test.  Nothing fires today because
+       nothing declares 1716 — so a synthetic
+       :class:`~sysadmin.units.ports.DeclaredPort` naming a different
+       unit is installed, and the ``wrong_unit`` summary that comes back
+       carries the per-session name verbatim.  ``SNAG-UNITS-001``'s
+       counterfactual treatment: the entry's own first trigger, driven
+       one ``services.yaml`` line ahead of the box.
+    3. *The population.*  The runtime transient directory, because a
+       D-Bus activated service that binds no TCP port is invisible to
+       ``ss`` and is still an instance of the shape.  Reported beside the
+       wider family it is a subset of — the per-launch
+       ``app-…@<32 hex>.service`` units, which the rule misses for the
+       same reason and which the entry does not mention.
+    4. *The consequence.*  The entry's stated failure mode is *"a new
+       title every login — ``SNAG-AGENT-005`` in miniature"*, and
+       :func:`~sysadmin.units.agent.port_alert_title` is asked what title
+       the counterfactual finding would actually be raised under.  It is
+       ``Port collision on 1716`` — keyed on the port, Session 46's rule
+       and :mod:`sysadmin.estate.judgements` rule 5 — so the row
+       deduplicates and what churns is the *message*.  A standing row
+       naming a unit nobody can find is a staleness fault, not a
+       pile-up.  This is the only instrument here answering a question
+       about a consequence rather than a cause, and it is why the entry
+       is worth re-judging rather than merely re-prioritised: the fix it
+       needs may be smaller than the one it argues about.
+
+    **A partial rule is the most useful thing this check can ever say,
+    and it is a ``match``.**  A fix catching some candidates and missing
+    others is precisely the guess the entry predicts, so the note names
+    what it misses rather than counting it — ``SNAG-ESTATE-001``'s rule,
+    and this document is where that was learned.
+
+    **What is deliberately not measured.**  Whether the registry claims a
+    bus-named holder's port *under a project name*, the entry's second
+    trigger.  1716 is claimed as ``_kdeconnectd_``, which
+    :func:`~sysadmin.units.ports._registry_project_key` folds to a name
+    matching no project on disk — so answering it needs the project list
+    the sweep builds, and a check reproducing that join would be a second
+    implementation of ``wrong_project``.  The first trigger is checked
+    and is the cheaper half; the silence about the second is stated here
+    rather than left to be read as an oversight, ``SNAG-ESTATE-012``'s
+    convention.
+    """
+    reading, problem = bus_name_reading()
+    if reading is None:
+        return Measurement("unknown", problem)
+
+    detail = (
+        f"candidates ({reading.candidate_source}): "
+        + ", ".join(reading.candidates or ("none",)),
+        f"transient() recognises {len(reading.recognised)} of "
+        f"{len(reading.candidates)}"
+        + (f" — misses {', '.join(reading.unrecognised)}" if reading.unrecognised else ""),
+        f"controls: {reading.scope_control} -> {reading.scope_recognised} (must be True), "
+        f"{reading.stable_control} -> {reading.stable_recognised} (must be False)",
+        "listening now: "
+        + (", ".join(reading.listening) if reading.listening else "none")
+        + (f" [{reading.sweep_problem}]" if reading.sweep_problem else ""),
+        "in the stored blob's unit_ports: "
+        + (", ".join(reading.in_unit_ports) if reading.in_unit_ports else "none"),
+        "one services.yaml line away: "
+        + (
+            f"{reading.reach_summary} [names the holder: {reading.reach_names_holder}]"
+            if reading.reach_summary
+            else "no wrong_unit finding — the reach half had no live subject"
+        ),
+        "the title such a finding is raised under: "
+        + (
+            f"{reading.reach_title!r} [names the holder: {reading.title_names_holder}]"
+            if reading.reach_title
+            else "not driven — the reach half had no live subject"
+        ),
+        f"the same sweep raises {reading.live_findings} finding(s) for that port undeclared",
+        "runtime transient units carrying a bus-unique id: "
+        + (", ".join(reading.runtime_bus_named) if reading.runtime_bus_named else "none")
+        + (f" [{reading.runtime_problem}]" if reading.runtime_problem else ""),
+        "runtime transient units the rule misses that are not bus-named: "
+        + (", ".join(reading.runtime_unstable) if reading.runtime_unstable else "none"),
+        "services.yaml declarations naming a bus-named unit: "
+        + (", ".join(reading.declared_bus_named) if reading.declared_bus_named else "none")
+        + (f" [{reading.declared_problem}]" if reading.declared_problem else ""),
+    )
+
+    if not reading.scope_recognised or reading.stable_recognised:
+        return Measurement(
+            "unknown",
+            f"the controls no longer hold — {reading.scope_control} reads "
+            f"{reading.scope_recognised} and {reading.stable_control} reads "
+            f"{reading.stable_recognised}, so transient() has stopped discriminating and an "
+            "answer about a bus-named unit means nothing either way",
+            detail,
+        )
+    if not reading.candidates:
+        return Measurement(
+            "unknown",
+            "no bus-named unit could be obtained from the box or from the typed shape, so "
+            "the property was never asked",
+            detail,
+        )
+    # Built before the verdict so it survives one.  A fix that ends this
+    # entry while leaving the per-launch half missed is a fix that should
+    # have been wider, and dropping the sentence on the good news is
+    # ``SNAG-ESTATE-001``'s defect wearing a closure.
+    wider = (
+        f"the family is wider than the entry's D-Bus framing: "
+        f"{', '.join(reading.runtime_unstable)} carry a per-launch id and are missed too"
+        if reading.runtime_unstable
+        else ""
+    )
+
+    if not reading.unrecognised:
+        return Measurement(
+            "mismatch",
+            "; ".join(
+                clause
+                for clause in (
+                    f"transient() now recognises every bus-named unit here "
+                    f"({', '.join(reading.recognised)}) while still leaving "
+                    f"{reading.stable_control} alone — the defect this entry describes "
+                    "is fixed",
+                    wider,
+                )
+                if clause
+            ),
+            detail,
+        )
+
+    news: list[str] = []
+    if reading.recognised:
+        news.append(
+            f"a rule has landed that catches {', '.join(reading.recognised)} and misses "
+            f"{', '.join(reading.unrecognised)} — the partial fix this entry predicts, since "
+            "a rule tuned against one observation is a guess"
+        )
+    if len(reading.runtime_bus_named) > 1:
+        news.append(
+            f"the blocker is refuted: this box carries {len(reading.runtime_bus_named)} "
+            f"bus-named units ({', '.join(reading.runtime_bus_named)}), so the second "
+            "instance the entry says it is waiting for has arrived and a rule can be told "
+            "from a coincidence"
+        )
+    if reading.declared_bus_named:
+        news.append(
+            f"services.yaml now declares {', '.join(reading.declared_bus_named)} — the "
+            "entry's own first trigger for ceasing to be P3 has fired"
+        )
+    if reading.reach_title and not reading.title_names_holder:
+        news.append(
+            f"the entry's stated failure mode is not the one it would get: the alert title "
+            f"is {reading.reach_title!r}, keyed on the port and not on the holder, so the "
+            "row deduplicates and what churns per login is the message — a standing row "
+            "naming a unit nobody can find, which is a staleness fault rather than "
+            "SNAG-AGENT-005's pile-up"
+        )
+    if wider:
+        news.append(wider)
+    return Measurement("match", "; ".join(news), detail)
+
+
+# ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
 
@@ -6880,6 +7362,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-006",
             "the audit's findings surface publishes no code key",
             check_audit_code_unpublished,
+        ),
+        Check(
+            "transient_misses_bus_name",
+            "SNAG-PORT-003",
+            "transient does not recognise a per-session D-Bus unit name",
+            check_transient_misses_bus_name,
         ),
     )
 }
