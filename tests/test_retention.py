@@ -66,6 +66,10 @@ class TestTableTimestampMap:
             # Session 79: the weekly system health review's table, same
             # treatment.  Both halves land in migration 016 together.
             "health_reviews",
+            # Session 115, SNAG-TRAY-008: the understudy's spoken set,
+            # durable so the 24-hour reminder can be reached by a daemon
+            # whose median life is 1.77 h.  Both halves in migration 018.
+            "desktop_notifications",
         }
         assert set(TABLE_TIMESTAMP_MAP.keys()) == expected_tables
 

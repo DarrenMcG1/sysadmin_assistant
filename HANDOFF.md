@@ -2,7 +2,127 @@
 
 ## Next action
 
-Fix `SNAG-TRAY-008` — persist the understudy's spoken set across a restart and decide whether it may adopt a fault raised while the tray was watching, since the reminder sweep's population is what this process announced and a tray restart therefore re-announces every standing fault as news while a fault the tray was speaking for is never adopted when the tray dies, and Session 97's check already treats the entry as a conjunction so a fix closing only one face is reported as a `match` with the moved half in its note rather than as a closure.
+Fix `SNAG-LOG-008` — ten of this daemon's own stored log rows are frozen as raw JSON because they were ingested before the `format: json` declaration existed, so no read will ever unwrap them, and the sitting should measure whether retention has already emptied the population before deciding between a backfill and closing the entry as moot.
+
+## Session 115 is complete — the understudy remembers, and adopts what it never announced
+
+`SNAG-TRAY-008` is **fixed, both faces**. `DesktopNotifier._spoken` was
+an in-memory dict and the reminder sweep's population was exactly its
+keys, so a fault raised while the tray was watching was never adopted
+when the tray died, and a daemon restart forgot everything it had
+announced. `desktop_notifications` (migration 018) is the store;
+`DesktopNotifier._adopt` is the scope.
+
+**The measurement is the finding, and nobody had taken it.**
+`sysadmin.service` started **111 times in 28.26 days**, median uptime
+**1.77 h**, mean 6.17 h, and **5 of 110** lives reached the 24 hours
+`reminder_hours` asks for. `SNAG-TRAY-007`'s reminder was therefore
+structurally unavailable on **95 %** of this daemon's lives. The entry
+filed its population as zero and stopped there, which is why that half
+was invisible for twelve days.
+
+**The same number refutes the entry's own shape-of-fix.** It asks for
+adoption *"only when the tray has been absent for a full
+`reminder_hours`"*. `TrayPresence` is monotonic and in-memory by
+deliberate design — its docstring argues for both — so a process
+observes 24 h of absence only by living 24 h, which is one life in
+twenty-two. Written as a **refusal** the fix would have been correct,
+green and inert. It ships as an **anchor**: the absence sets the adopted
+fault's `last_spoken_at` back, capped at one interval, so a fault
+adopted the moment the tray leaves still waits a full interval — the
+quiet-by-construction property the entry wanted — and one adopted after
+a day of silence speaks at once.
+
+**Decision taken, and it is the reason both halves shipped together: the
+two faces are multiplicative rather than independent.** Adoption alone
+re-adopts on every restart and re-arms its own anchor, so on a
+1.77-hour daemon it would never speak. The store alone leaves face 1
+exactly as filed. `SNAG-AGENT-008`'s shape — a fix for one half is not
+half the benefit, it is none. Persisting without deciding the scoping
+question was therefore not an option the measurement left open.
+
+**Options rejected.** A durable *tray-presence* reading, which would
+have let the entry's gate ship as written: refused because
+`TrayPresence`'s own docstring argues against inheriting a belief about
+the tray across a restart, and because it needs a second write path for
+a fact whose short reading must stay in-memory. A state **file** rather
+than a table: refused because `sysadmin.service` is a system unit and a
+`StateDirectory=` needs `sudo`, and because a config-declared path is a
+new leaf the reload has to classify. Persisting rule 2's stamp-forward:
+refused because the store records what was **said**, and a watching tray
+is a belief about another process — the stated cost is one early toast
+if the daemon restarts while the tray is up and the tray then dies
+inside that one grace window.
+
+**Three consequences, each the opposite of the obvious version.** The
+notifier's clock became a **wall** clock — no monotonic value survives a
+process, and on Linux `CLOCK_MONOTONIC` does not survive a suspend
+either, which a 24-hour interval about elapsed human time should count;
+`TrayPresence` keeps monotonic for its own 180-second question and the
+two now differ on purpose. The store is written once per **notification**
+rather than once per sweep. And the old cheapest gate — *"a sweep that
+has said nothing issues no query at all"* — is exactly the entry, so it
+became **one query per process**.
+
+**The check retired with the entry; the detector did not.**
+`tests/test_desktop_store_live.py` is the same two-sweep timeline
+against the real database, and it is **stronger than the check it
+replaces**: once adoption landed, "the restarted instance restated its
+predecessor's fault" was producible by adoption alone, so it asks *how*
+it was inherited — a restored episode carries a reminder already sent
+and is not marked adopted.
+
+**`rolled_back_drive` had to be hardened first, and the leak was not
+hypothetical.** `_remember` must commit, and that harness rolled back a
+plain session — so the first full-suite run after the fix committed the
+probe's transaction: three rows into `alerts` and three into
+`desktop_notifications`, found by counting either side and deleted by
+hand. The session now joins the connection's transaction by savepoint.
+Any future probe driving code that owns its own transaction depends on
+this.
+
+**Deploying it found a second, independent reason the reminder path was
+inert, and it is the more serious half of the sitting.** `DesktopNotifier`
+resolved `get_session_factory()` — the *application's* pooled engine —
+while every call it makes runs on a loop that is not the application's:
+the sweep is an APScheduler job and `scheduler._run_async` wraps each
+firing in its own `asyncio.run`, and `on_alert_raised` is published from
+inside an agent's run, which is another. A pooled asyncpg connection
+belongs to the loop that opened it, so the first query out of the
+restarted daemon raised `RuntimeError: got Future … attached to a
+different loop`, then `InternalClientError: got result for unknown
+protocol state 3`. **`_still_open` has carried that defect since Session
+55 and never once executed on this box**, because the sweep's old first
+gate — *"a daemon that has announced nothing issues no query at all"* —
+returned before reaching it. `SNAG-TRAY-007`'s reminder could not have
+worked here even for a fault the daemon *had* announced, and
+`SNAG-TRAY-008`'s own symptom is what hid it. `_factory()` returns
+`get_scheduler_session` now, and the commit belongs to that context
+manager rather than being restated beside it. **The next sitting should
+assume other module-level singletons reaching for the pooled factory are
+suspect** — this one was found only because a new query got past a gate
+that had been short-circuiting for twelve weeks.
+
+**Its first live exercise adopted a real fault** — `High VRAM usage on
+AMD Radeon RX 7900 XTX`, open on this box and never announced here
+because the tray was watching. Under the old code nothing would ever
+have restated it. It is also why the live test asserts a **floor** on
+the restated count rather than an equality: the population is the box's
+and it moves.
+
+**Live population here is still zero, and that is by design.** The tray
+runs on this box, so the tray gate returns before adoption and
+`desktop_notifications` stays empty — the feature is for the window
+where the tray is down, which is the only window the understudy has ever
+existed for.
+
+**Deployed twice.** Migration 018 applied; the first restart (16:09:40,
+PID 3830192 → 3859841) is what exposed the loop defect, and the second
+(16:18:54, PID 3859841 → 3865932) carries its fix — verified over a full
+sweep cycle: **0** `desktop_spoken_load_failed`, **0** loop errors,
+sweeps firing at `interval[0:03:00]`. `schema_revision_verified revision:
+018`, `/health` **200**, twelve jobs scheduled. Suite **2801**
+(2792 + 37 − 28), ruff and mypy clean.
 
 ## Session 114 is complete — the prediction carries the zone it was copied from
 

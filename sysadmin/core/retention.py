@@ -42,6 +42,12 @@ TABLE_TIMESTAMP_MAP = {
     "reliability_scores": "computed_at",
     "agent_runs": "started_at",
     "disk_reviews": "generated_at",
+    # SNAG-TRAY-008: the understudy's spoken set. Purged on
+    # ``last_spoken_at`` rather than on a creation stamp, because a
+    # row is refreshed every time the fault is restated — so a fault
+    # still being reminded about can never age out, and only a row
+    # whose fault resolved while the daemon was down goes stale.
+    "desktop_notifications": "last_spoken_at",
 }
 
 #: The entity for a table with no per-entity dimension: the whole table

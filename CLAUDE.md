@@ -1298,6 +1298,116 @@ A roll-up folds at two and takes the **loudest** rung it swallows
 (Session 52's rule): `notify-send` has no `replaces_id`, so six due
 reminders would otherwise be six toasts.
 
+**The understudy remembers now, and the reminder it could not reach was
+a restart-cadence problem nobody had measured** (Session 115,
+`SNAG-TRAY-008`). `DesktopNotifier._spoken` was in memory and the sweep's
+population was exactly its keys, so the entry's two costs stood: a fault
+raised while the tray was watching was never adopted when the tray died,
+and a restart forgot everything. `desktop_notifications` (migration 018)
+is the store and `DesktopNotifier._adopt` the scope.
+
+Six rules, four of them the opposite of the obvious implementation and
+every one settled against the box rather than by argument:
+
+1. **The number reranks the entry, and the entry could not see it
+   because it filed its population as zero.** `sysadmin.service` started
+   **111 times in 28.26 days** — median uptime **1.77 h**, mean 6.17 h,
+   **5 of 110** lives reaching the 24 h `reminder_hours` asks for. So
+   `SNAG-TRAY-007`'s reminder was structurally unavailable on **95 %**
+   of this daemon's lives: not a slow reminder, silence with a number
+   beside it.
+2. **The entry's own shape-of-fix is unreachable as written, and the
+   same measurement is why.** It asks for adoption *"only when the tray
+   has been absent for a full `reminder_hours`"*; `TrayPresence` is
+   monotonic and in-memory by deliberate design, so a process observes
+   24 h of absence only by living 24 h. Shipped as a **refusal** the fix
+   would have been correct, green and inert. It ships as an **anchor** —
+   `absent_for()` sets the adopted fault's `last_spoken_at` back, capped
+   at one interval — which keeps the quiet-by-construction property the
+   entry wanted and is reachable here. `absent_for()` falls back to
+   process uptime, an under-count that delays an adoption and can never
+   hasten one.
+3. **The two faces are multiplicative, not independent** —
+   `SNAG-AGENT-008`'s shape, and the mechanism the entry describes
+   without naming. Adoption alone re-adopts on every restart and re-arms
+   its own anchor, so on a 1.77-hour daemon it never speaks; the store
+   alone leaves face 1 exactly as filed. A fix for one half is not half
+   the benefit, it is none.
+4. **The clock became a wall clock, which is a change of *reading***.
+   No monotonic value survives a process — and on Linux
+   `CLOCK_MONOTONIC` does not survive a **suspend** either, so a
+   workstation asleep overnight paid nothing towards an interval that is
+   precisely about elapsed human time. `TrayPresence` keeps monotonic
+   for its own 180-second question, where a suspended box correctly
+   counts nothing because neither process was running.
+5. **The store records what was *said*, never what the tray's presence
+   implied.** Rule 2's stamp-forward stays in memory, which bounds writes
+   at one per notification and is safe because a restored stale stamp
+   cannot act — a reminder needs the tray absent, and that same gate
+   corrects it on the first sweep after a restart, inside one grace
+   window. The stated cost is one early toast if the daemon restarts
+   while the tray is up and the tray dies inside that window.
+6. **The old cheapest gate could not survive persistence and was
+   replaced rather than kept.** *"A sweep that has said nothing issues
+   no query at all"* **is** the entry — not knowing what the last
+   process said is indistinguishable from it having said nothing. The
+   bound moved from per sweep to **one query per process**, and where
+   the tray runs the tray gate returns before anything else is read.
+   Adoption is bounded in SQL (`GROUP BY title`, `LIMIT`) and across
+   sweeps by `MAX_ADOPTED_TITLES`, which is `_MAX_LISTED_TITLES` reused:
+   adopting more than a roll-up can name is adopting a fault nobody will
+   hear named, Session 46's rule. It orders by `MIN(created_at)`,
+   because a family re-raising every poll has a fresh newest row and a
+   deduplicating one — the families `SNAG-ESTATE-003` is about — has a
+   single old row, so newest-first ranks exactly backwards.
+
+Three things only running it could have said. **A test asserted the
+defect as correct behaviour** — `test_a_fault_the_tray_announced_is_never_adopted`,
+green since Session 55 — and had to be inverted rather than deleted.
+**Six of twenty-eight falsifications passed against deliberately broken
+code**, four of them upsert columns no fake can witness, because a fake
+replaces the whole row on conflict and therefore agrees with an `ON
+CONFLICT` that keeps the old value; the guard is a statement test
+asserting every mutable column is set from `excluded`. And
+**`rolled_back_drive` leaked** before it was hardened: `_remember`
+commits, that harness rolled back a plain session, and this session's own
+suite run committed three rows into `alerts` and three into
+`desktop_notifications`. It now joins the connection's transaction by
+savepoint — a harness that cannot survive the code it drives is a control
+the next fix breaks.
+
+**Deploying it found a second, independent reason the reminder path was
+inert.** `DesktopNotifier` resolved `get_session_factory()` — the
+*application's* pooled engine — while every call it makes runs on a loop
+that is not the application's: the sweep is an APScheduler job and
+`scheduler._run_async` wraps each firing in its own `asyncio.run`, and
+`on_alert_raised` is published from inside an agent's run, which is
+another. A pooled asyncpg connection belongs to the loop that opened it,
+so the first query out of a restarted daemon raised `RuntimeError: got
+Future … attached to a different loop` and asyncpg followed with
+`InternalClientError: got result for unknown protocol state 3`.
+
+**`_still_open` has carried that defect since Session 55 and never once
+executed on this box**, because the sweep's old first gate returned
+before reaching it — so `SNAG-TRAY-007`'s reminder could not have worked
+here even for a fault the daemon *had* announced, and this entry's own
+symptom was what hid it. `_factory()` returns `get_scheduler_session`
+now (`NullPool`, an engine per call, what every agent already does) and
+the commit belongs to that context manager rather than being restated
+beside it. Found by restarting and reading three `Log error:
+sysadmin.service` rows out of the live table, which is
+`verify-ops-claims-live` for a claim about a code path nothing had ever
+run.
+
+The check retired with the entry and the drive is re-homed as
+`tests/test_desktop_store_live.py` (`FROZEN_TABLES`' rule), where it is
+**stronger than the check**: once adoption landed, "the restarted
+instance restated its predecessor's fault" was producible by adoption
+alone, so the live test asks *how* it was inherited — a restored episode
+carries a reminder already sent and is not marked adopted. Live
+population here is zero by design: the tray runs, so the tray gate
+returns before adoption ever queries.
+
 **Serving against a schema this code was not written for is worse than
 not starting** (Session 43, SNAG-DB-001). `sysadmin/core/schema_guard.py`
 compares `alembic_version` against the packaged head in the lifespan and

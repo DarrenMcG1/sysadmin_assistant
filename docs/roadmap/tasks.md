@@ -394,6 +394,61 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 115 — the understudy remembers, and adopts what it never announced (2026-08-28) ✅
+
+**Fix `SNAG-TRAY-008`, both faces.** `DesktopNotifier._spoken` was an
+in-memory dict and the reminder sweep's population was exactly its keys,
+so a fault raised while the tray was watching was never adopted when the
+tray died, and a daemon restart forgot everything it had announced.
+
+- [x] **Measure the restart cadence before designing anything** — 111
+      starts in 28.26 days, median uptime **1.77 h**, mean 6.17 h, and
+      **5 of 110** lives reaching the 24 h `reminder_hours` asks for. So
+      `SNAG-TRAY-007`'s reminder was structurally unavailable on 95 % of
+      this daemon's lives, which reranks the entry: it is not only a
+      narrowing with two named costs
+- [x] **Refute the entry's own shape-of-fix with the same number.** It
+      asks for adoption *"only when the tray has been absent for a full
+      `reminder_hours`"*; `TrayPresence` is monotonic and in-memory by
+      deliberate design, so that is observable only by a process that
+      has lived a day. Shipped as a refusal the fix would have been
+      correct, green and inert
+- [x] **Ship the gate as an anchor instead** — `absent_for()` sets the
+      adopted fault's `last_spoken_at` back, capped at one interval. The
+      quiet-by-construction property the entry asked for survives, and
+      it is reachable on a 1.77-hour daemon
+- [x] **`desktop_notifications` + migration 018**, both retention halves
+      in the same migration, one row per fault keyed on the title,
+      written only when something is **said**
+- [x] **Turn the clock into a wall clock** and state why `TrayPresence`
+      keeps monotonic — no monotonic value survives a process, and
+      `CLOCK_MONOTONIC` does not survive a suspend either
+- [x] **Invert `test_a_fault_the_tray_announced_is_never_adopted`**,
+      which had pinned the defect as correct behaviour since Session 55
+- [x] **Retire `understudy_forgets` with the entry, re-home the drive**
+      as `tests/test_desktop_store_live.py` — and make it stronger than
+      the check, since adoption alone now produces the output that check
+      read as face 2
+- [x] **Harden `rolled_back_drive`** against code that commits, after it
+      leaked three rows into `alerts` and three into
+      `desktop_notifications` during this session's own suite run
+
+- [x] **Route the notifier through `get_scheduler_session`** after the
+      first deploy exposed a cross-event-loop defect the code review
+      could not have found: `_still_open` has resolved the application's
+      *pooled* engine since Session 55 and never once executed, because
+      the sweep's old first gate returned before it
+
+**What is worth carrying forward.** The two faces are **multiplicative**,
+not independent — `SNAG-AGENT-008`'s shape — so a fix for one half is
+not half the benefit, it is none. Six of twenty-eight falsifications
+passed against deliberately broken code first, four of them upsert
+columns that no fake can witness because a fake replaces the whole row
+on conflict and therefore agrees with an `ON CONFLICT` that keeps the
+old value; a seventh survivor was the stand-in rather than the code, the
+shared probe session caching ORM rows a fresh production session never
+would.
+
 ## Session 114 — the prediction carries the zone it was copied from (2026-08-28) ✅
 
 **Fix `SNAG-ESTATE-013`.** `ops_claims`' `check:expires` marker took a
