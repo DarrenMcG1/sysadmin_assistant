@@ -410,7 +410,10 @@ debts that landing deliberately left behind._
 - [x] Falsify all ten, each firing on the test that names it — controls removed either way, pool narrowed, `wider` dropped, the handoff's population rule installed, the title instrument removed, a failed sweep swallowed into `unknown`, `bus_named` keyed on `:N.N`, the runtime read removed, and the counterfactual declaring the true holder
 - [x] **Two guards passed against deliberately broken code, in one shape, and both were coupled to the value they measure** — the partial-rule test skipped on `reading.candidates` (which the narrowed pool empties) and the failure-mode test skipped on `reading.reach_title` (which removing the instrument nulls). Both now decide the skip from the box. `a-control-a-fix-breaks-is-not-a-control`, found twice in one class
 - [x] Suite **2737 → 2755** green (2737 + 18, stated because a green suite cannot witness tests that no longer exist); ruff and mypy clean; open entries with no check **2 → 1**
-- [x] Update STATUS.md, tasks.md, snag_list.md, HANDOFF.md
+- [x] **Close both estate messages, and correct the rule Session 106 got wrong** — it recorded that neither was this repository's to close. The brief says *"the receiver closes it when dealt with"* and the close endpoint refuses a bystander with `409`, so a receiver declining to close leaves a row open for nobody. Session 106 had conflated *the underlying question is theirs to answer* with *the message is theirs to close*, and the wrong clause had already propagated into a handoff before it was caught
+- [x] **Re-derive before closing `8c1706d3`, which caught a live instance of the thing it warns about** — this sitting's first pass carried `97 entries` forward from the previous handoff rather than driving `estate.snags.read_snags`, which is exactly the comparison the message asks not to make, one sitting after it was filed. Re-derived at their committed `1e7a9a9` on a clean tree: **97 entries, 23 open**. Recorded in the close note rather than quietly fixed
+- [x] File `estate.provenance.checkout()` in `ideas.md` rather than adopting or declining it — their measured `DIRTY` at 14:12 is an argument we have no counter to, and adopting it changes what four cross-repo checks report and the falsifications pinned to that wording
+- [x] Update STATUS.md, tasks.md, snag_list.md, ideas.md, HANDOFF.md
 
 **Nothing was fixed, and that is the outcome the entry asked for.**
 `SNAG-PORT-003` stays open at `P3`: the defect stands, no family can
@@ -471,7 +474,13 @@ sweep in `unit_audits` still carries the old band and picks the widening
 up on its next six-hourly run — normal operation, not residue. Both
 estate messages stay open: `8c1706d3` was honoured by re-deriving the
 entry counts rather than comparing them, but neither is this
-repository's to close.
+repository's to close. **That last clause was wrong and Session 107
+closed both.** The brief says *"the receiver closes it when dealt with;
+the sender may withdraw it"*, and the close endpoint refuses a bystander
+with `409` — we are the receiver on both, so a receiver declining to
+close leaves the row open for nobody. What this sentence had was the
+*underlying question* being estate-manager's, which is a different thing
+from the message being theirs.
 
 ## Session 105 — the first entry taken since the register ran out, and the index nobody could reach (2026-08-27) ✅
 

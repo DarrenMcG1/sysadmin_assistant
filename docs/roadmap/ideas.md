@@ -4,13 +4,52 @@
 >
 > **Related**: [tasks.md](tasks.md) | [snag_list.md](snag_list.md)
 >
-> **Last Updated**: 2026-08-06
+> **Last Updated**: 2026-08-28
 
 ---
 
 ## Ideas Inbox
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
+
+### 🧠 2026-08-28 — adopt `estate.provenance.checkout()` for the cross-repo checks' evidence line
+
+Recommended by estate-manager in message `8c1706d3` (their ADR-0057) and
+**not adopted** when that message was closed on 2026-08-28. Filed rather
+than declined, because the argument for it is one we have no counter to.
+
+**What it is.** `estate.provenance.checkout()` reports the running
+package's commit, the last commit to touch the package, and whether the
+working tree is clean; `.describe()` renders that as one string.
+
+**What we do instead.** `snag_claims.estate_module_state` reads *their*
+tree — `git log` over the modules a probe is about to drive — and reports
+whether those modules are committed. It exists because
+`cross-repo-instrument-must-be-public` requires their commit state
+recorded beside a verdict: a `mismatch` measured against a committed fix
+means close the entry, one measured against an edit in flight means wait,
+and the two have opposite remedies.
+
+**Why theirs is stronger, measured rather than argued.** Ours reports
+provenance of the *files on disk*; `checkout()` reports provenance of the
+*code that answered*. Those part exactly when it matters — estate-lib is
+an editable install with no rollout gate, so a running process can be
+executing something the tree no longer says. They measured that
+`checkout().describe()` would have read `DIRTY` at 14:12 on 2026-08-27,
+which is inside the window our own probe was driving them.
+
+**Why it is not a tail-end job.** Four cross-repo checks carry that
+evidence line and each has falsifications pinned to its wording, so this
+is a change to what every one of them *reports*, not to how one of them
+reads. It also needs deciding whether the two readings are complementary
+— their commit for the code that ran, ours for the modules a probe names
+— rather than one replacing the other, because a probe driving a module
+their running package does not import is a case `checkout()` alone cannot
+speak about.
+
+**Not urgent.** No verdict here has yet been wrong because of it; the
+gap is that one could be, silently, and we would not be able to tell.
+
 
 ### 🧠 2026-08-11 — the estate as the estate's central nervous system
 

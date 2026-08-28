@@ -78,8 +78,27 @@ parser still reads 97 with open at 23.
   existing comparison, so the silence is stated rather than left to be
   read as an oversight.
 - **One open entry still carries no check** (`SNAG-DOCS-006`).
-- **Both estate messages stay open** — `8c1706d3` and `153c1c96` are
-  estate-manager's to close and neither is this repository's to answer.
+- **Both estate messages are closed** (`8c1706d3`, `153c1c96`), and the
+  bullet that stood here said the opposite — that they were
+  estate-manager's to close. That was Session 106's clause carried
+  forward unchecked. The brief says *"the receiver closes it when dealt
+  with; the sender may withdraw it"*, and the close endpoint refuses a
+  bystander with **409**: we are the receiver on both, so a receiver
+  declining to close leaves the row open for nobody. Neither asked
+  anything of us — *"Cost to us: none"* and *"Nothing is asked of you"*,
+  in their own words.
+- **Closing `8c1706d3` caught a live instance of what it warns about.**
+  It asks that entry counts be re-derived rather than compared; this
+  sitting's first pass carried `97 entries` forward from the previous
+  handoff, and only drove `estate.snags.read_snags` when it came to write
+  the close note. Re-derived at their committed `1e7a9a9`, clean tree:
+  **97 entries, 23 open**. Said in the note rather than quietly fixed.
+- **`estate.provenance.checkout()` is filed in `ideas.md`, not adopted
+  and not declined.** It reports the commit of the code that *answered*
+  where `estate_module_state` infers it from the tree, and they measured
+  it would have read `DIRTY` at 14:12 inside a window we were driving
+  them. Adopting it changes what four cross-repo checks report and the
+  falsifications pinned to that wording, so it is its own sitting.
 
 ## Session 106 is complete — the band moved, nothing was raised, and the parse underneath it was wrong
 
