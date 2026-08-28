@@ -394,6 +394,53 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 118 — a cost that fell is not a mechanism that closed (2026-08-28)
+
+_No ✅: the re-rank is done and two decisions are deliberately left
+open beneath it, which is `Session 67`'s shape rather than an
+unfinished sitting. Both are the owner's to rank, and both are also
+recorded in HANDOFF.md's "What Session 118 left undone"._
+
+- [x] Re-rank `SNAG-ESTATE-009` against the cost Session 117 changed
+      without touching its mechanism. **Stays `P3`, for a different
+      reason than the one it was given**: the replaced bullet priced the
+      failure at one extra toast and was wrong on the day it was
+      written, since the tray's `reminder_hours` was committed
+      2026-08-16 09:22:44 (`3752c78`) against an entry filed 08-17 —
+      and the only episode of this listener class the box has recorded
+      stood **31.88 h** at `warning`, outliving it by eight hours
+- [x] Establish what the fix actually bought, by arithmetic rather than
+      by adjective: a **ceiling**, not a narrower window.
+      `service_discovery.scan_interval_hours` (6) +
+      `estate_judge.poll_interval_hours` (1) = **7 h worst case**
+      against a `reminder_hours` of 24, confirmed against
+      `EstateJudgeAgent._attribution` (newest stored sweep, read every
+      run) and the held branch's `refresh_alert(..., severity=)`
+- [x] Refuse `P4` on this file's only precedent for it — `SNAG-LOG-014`
+      is `P4` for being *residue from a fixed entry, not a live defect*
+      — and evidence the refusal by driving `unswept_port_is_loud`
+      **after** the fix: still `match`, port 65009 at `warning` with
+      `holder=None` and an identical detail key set, `alerts_raised=2`
+- [x] Re-derive the snag_list header paragraph, which was **six
+      sittings stale**: last written for Session 111 at 99 entries / 22
+      open against today's 100 / 17. Stated as two measured figures with
+      the gap named, never reconstructed per sitting
+- [ ] Decide whether to assert the new ranking lever. The ceiling is a
+      sum measured against `reminder_hours`, so raising
+      `scan_interval_hours` to daily puts it at **25** and the loud rung
+      back inside a restatement; the margin is **3.4×** and nothing
+      protects it. The guard is weaker than it looks —
+      `TrayNotificationsConfig` parses `mute_services` alone
+      (`may_quieten_in_place` rule 2), so it can only read
+      `notifications.desktop.reminder_hours`, the understudy's copy of
+      the same 24, held to the tray's by a comment rather than a test
+- [ ] Decide whether anything should check the snag_list header
+      paragraph. `check-snag-claims.sh` reads entry claims and
+      `check-ops-claims.sh` reads STATUS.md's block; the paragraph whose
+      whole job is to record movement is read by neither, which is how
+      it went six sittings without being written
+
+
 ## Session 117 — the ban is asymmetric, and its reason is what permits the reverse (2026-08-28) ✅
 
 **Fix `SNAG-ESTATE-010`'s surviving rung half.** `SNAG-AGENT-009` closed

@@ -126,6 +126,67 @@
 
 ## Recently Completed
 
+### Session 118 — a cost that fell is not a mechanism that closed (2026-08-28)
+
+**`SNAG-ESTATE-009` is re-ranked and stays `P3`**, and the number holds
+for a different reason than the one it was given. No code changed; the
+live parser reads **100 entries / 17 open** either side, the entry is
+`P3` and open in both, and its body goes 5,538 → 8,286 characters.
+
+**The bullet the re-rank replaces was wrong on the day it was
+written.** It priced the failure at *one extra toast at the start of a
+dev session*. `reminder_hours` had shipped the day before — the tray's
+at **2026-08-16 09:22:44** (`3752c78`, `SNAG-ESTATE-003`) and the
+understudy's at **11:59:53** (`a330e31`, `SNAG-TRAY-007`) — against an
+entry filed 2026-08-17. So a mid-window start cost one toast **and
+every restatement due after it**, unbounded in the listener's life.
+
+**The family's whole life is six rows in three episodes, and it
+settles the point.** `3.13 h` and **`31.88 h`** at `warning`
+(2026-08-16 12:07:11 → 2026-08-17 20:00:05 — raised **2 h 45 m** after
+the tray's reminder was committed), then `11.23 h` at `info`, the third
+pair being the first raised after Session 57's quietening shipped. The
+long one outlives `reminder_hours` by **eight hours**. Note what that
+also says: **both loud episodes predate the quietening**, so this
+entry's own defect — loud *because the sweep had not seen the port* —
+has never produced a row on this box. A sharper statement of its
+check's "the population is a timing accident".
+
+**What Session 117 bought is a ceiling, not a narrower window.** The
+loud rung now ends at the first judge run after the next sweep:
+`service_discovery.scan_interval_hours` (6) +
+`estate_judge.poll_interval_hours` (1) = **7 h worst case**, against a
+`reminder_hours` of **24**. The repeat is unreachable by **arithmetic**
+where it was previously survived by luck, and the old bullet's claim —
+one transient toast, nothing after it — is true for the first time.
+
+**`P4` was considered and refused on this file's only precedent for
+it.** `SNAG-LOG-014` is `P4` because it is *residue from a fixed entry,
+not a live defect*; this mechanism is untouched. Driven **after** the
+fix, `unswept_port_is_loud` still reads `match` — port 65008 named by
+the stored sweep and judged `info` holding `transient: True`, port
+65009 not named and judged `warning` with `holder=None` and an
+identical detail key set, `alerts_raised=2`. Moving the number would
+say a mechanism closed when only a cost fell.
+
+**The new ranking lever is arithmetical and unasserted.** The ceiling
+is a *sum* measured against `reminder_hours`, so anything lifting it
+past 24 h returns the entry to its pre-fix cost — raising
+`scan_interval_hours` to daily, the opposite of the refused hourly
+sweep and the cheap move the day the six-hourly sweep is costed, puts
+the sum at **25**. The margin is **3.4×** and nothing asserts it,
+because the inequality's right-hand side is
+`notifications.tray.reminder_hours` and `TrayNotificationsConfig`
+deliberately does not parse it (`mute_services` alone —
+`may_quieten_in_place` rule 2, one leaf over). A guard could only read
+`notifications.desktop.reminder_hours`, the understudy's copy, which is
+the same 24 and is held to the tray's by a **comment** rather than a
+test. Offered, not built.
+
+**Checks green either side**: eighteen snag claims and all nine ops
+claims. Alembic head 018, suite untouched, no restart owed.
+
+
 ### Session 115 — the understudy remembers, and adopts what it never announced (2026-08-28)
 
 `SNAG-TRAY-008` is **fixed**, both faces. The reminder sweep's

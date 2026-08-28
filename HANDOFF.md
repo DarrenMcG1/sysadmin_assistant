@@ -2,7 +2,78 @@
 
 ## Next action
 
-Re-rank `SNAG-ESTATE-009` against its new cost, which today's fix changed without touching its mechanism and which was measured rather than reasoned before this line was written: driven against the live database in a rolled-back transaction, a breach the sweep had not yet seen is raised `warning` on run 1 and the first judge run after the next sweep quietens that same row in place to `info` — one row, still open, nothing raised and one refresh — so the loud rung the entry is about now lasts one sweep window rather than the life of the listener.
+Decide whether to build the guard Session 118 offered and did not build: a test asserting that `agents.service_discovery.scan_interval_hours` plus `agents.estate_judge.poll_interval_hours` stays below `notifications.desktop.reminder_hours`, which is the arithmetic that now bounds `SNAG-ESTATE-009`'s loud rung at 7 h against a 24 h restatement and which nothing currently protects, noting that the tray's own `reminder_hours` — the leaf the inequality is really about — is not parsed by `TrayNotificationsConfig` at all, so the guard can only read the understudy's copy of the same 24.
+
+## Session 118 is complete — a cost that fell is not a mechanism that closed
+
+`SNAG-ESTATE-009` is **re-ranked and stays `P3`**. No code changed. The
+live parser reads **100 entries / 17 open** either side of the edit
+(estate-manager committed `b98f44d`), eighteen snag claims and all nine
+ops claims are green, and no restart is owed.
+
+**The bullet the re-rank replaces was wrong on the day it was
+written**, which is the part worth carrying. It priced the failure at
+*one extra toast at the start of a dev session*; the tray's
+`reminder_hours` was committed at **2026-08-16 09:22:44** (`3752c78`)
+and the understudy's at **11:59:53** (`a330e31`), against an entry
+filed 2026-08-17. So a mid-window start cost one toast **and every
+restatement due after it**.
+
+**The family's whole life is six rows in three episodes and it settles
+the point.** `3.13 h` and **`31.88 h`** at `warning`, then `11.23 h` at
+`info`. The long episode began 2026-08-16 12:07:11 — **2 h 45 m** after
+the tray's reminder was committed — and ran to 2026-08-17 20:00:05,
+outliving `reminder_hours` by eight hours. And **both loud episodes
+predate Session 57's quietening**, so this entry's own defect has never
+produced a row here: a sharper statement of its check's "the population
+is a timing accident".
+
+**What Session 117 bought is a ceiling, not a narrower window.** The
+loud rung ends at the first judge run after the next sweep — 6 + 1 =
+**7 h worst case** against a `reminder_hours` of 24 — so the repeat is
+unreachable by **arithmetic** where it was previously survived by luck,
+and the old bullet's claim is true for the first time. `_attribution`
+reads the newest stored sweep on every run and the held branch passes
+`severity=` to `refresh_alert`, which is what makes the ceiling one
+sweep interval plus one poll rather than anything longer.
+
+**`P4` was refused on this file's only precedent for it.**
+`SNAG-LOG-014` is `P4` for being *residue from a fixed entry, not a
+live defect*; this mechanism is untouched, and `unswept_port_is_loud`
+driven **after** the fix still reads `match` — port 65009 unnamed by
+the stored sweep, judged `warning`, `holder=None`, identical detail key
+set to the attributed 65008 beside it, `alerts_raised=2`. Moving the
+number would say a mechanism closed when only a cost fell.
+
+**The snag_list header paragraph was six sittings stale and is
+re-derived rather than reconstructed.** It was last written for Session
+111 at 99 entries / 22 open against today's 100 / 17 — one opened and
+five closed across Sessions 112–117 with nothing recording it — which
+is `SNAG-ESTATE-008`'s shape inside the document that exists to measure
+movement. Per-sitting attribution was **not** invented; the two
+measured figures are stated and the gap is named.
+
+
+## What Session 118 left undone, and why
+
+- **The margin is not asserted, and the leaf the inequality is really
+  about is not readable from here.** `notifications.tray.reminder_hours`
+  is the number a repeat is actually due on, and
+  `TrayNotificationsConfig` parses `mute_services` alone —
+  `may_quieten_in_place` rule 2, one leaf over. A guard would have to
+  read `notifications.desktop.reminder_hours`, the understudy's copy,
+  which is the same 24 and is held to the tray's by a **comment**. That
+  is a real guard against the lever this sitting found (raising
+  `scan_interval_hours` to daily puts the sum at 25) and it is a weaker
+  one than it looks, so it was offered rather than built.
+- **No snag was filed for the stale header paragraph**, because it was
+  fixed in the sitting that found it. What is *not* fixed is that
+  nothing checks it: `check-snag-claims.sh` reads entry claims and
+  `check-ops-claims.sh` reads STATUS.md's block, and neither looks at
+  the paragraph whose job is to record movement. Left for the owner to
+  rank rather than filed unasked.
+
+
 
 ## Session 117 is complete — the ban is asymmetric, and its reason is what permits the reverse
 
@@ -130,8 +201,7 @@ the box holds 0 open alert rows, so nothing on it was reclassified by
 the deploy, and the refutation is the retired check's own drive against
 the live database in a rolled-back transaction — `warning → info`, one
 row, unresolved, `alerts_raised=1` for the witness port alone.
-
-## What was left undone, and why
+## What Session 117 left undone, and why
 
 - **A downward step that stops short of the floor still cannot reach a
   standing row**, and that is a design position rather than a residue.
