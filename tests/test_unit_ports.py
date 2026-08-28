@@ -62,11 +62,24 @@ def _runner(stdout=LIVE_SS, returncode=0, stderr=""):
     return run
 
 
-def _observe(stdout=LIVE_SS, cgroups=None, **kwargs):
+def _runtime(user=(), system=(), problems=()):
+    """Stand in for the two ``systemd/transient`` directories.
+
+    Injected by ``_observe`` **by default**, so no test in this file
+    reads the box it happens to run on.  Without that, a developer who
+    had ``systemd-run`` a unit sharing a fixture's name would see a
+    different answer from CI for a reason nothing in the test names.
+    """
+    names = {P.SCOPE_USER: frozenset(user), P.SCOPE_SYSTEM: frozenset(system)}
+    return lambda: (names, tuple(problems))
+
+
+def _observe(stdout=LIVE_SS, cgroups=None, runtime=None, **kwargs):
     table = LIVE_CGROUPS if cgroups is None else cgroups
     return P.observe_listeners(
         runner=_runner(stdout=stdout, **kwargs),
         cgroup_reader=lambda pid: table.get(pid),
+        runtime_reader=_runtime() if runtime is None else runtime,
     )
 
 
@@ -1225,3 +1238,223 @@ def test_our_parser_and_the_estates_agree_on_the_live_document():
         f"registry rows outside the audited ranges {audited}: {unaudited}. "
         "Either the ranges need widening or the row belongs elsewhere."
     )
+
+
+# ── SNAG-PORT-003: transience is observed, never read off the name ────
+
+
+#: Real names from this box on 2026-08-28.  ``app-steam`` and the
+#: appimagekit one were *holding ports* while the entry said the
+#: population was one, and neither carries a colon — so both fixes
+#: ``SNAG-PORT-003`` proposed (a ``dbus-`` prefix, a ``:N.N`` pattern)
+#: leave them reading as stable identities.
+RUNTIME_SERVICE = "app-steam@455b2e51e70244d98b817b19364641d8.service"
+RUNTIME_DBUS = "dbus-:1.2-org.kde.kdeconnect@0.service"
+RUNTIME_ESCAPED = "app-code\\x2doss@3ec0681d85b34536883ab69ca8b5671a.service"
+
+_STEAM_SS = 'LISTEN 0 4096 0.0.0.0:27036 0.0.0.0:* users:(("steam",pid=9001,fd=3))\n'
+
+
+def _held_by(unit, scope="user", pid=9001):
+    prefix = (
+        "0::/user.slice/user-1000.slice/user@1000.service/app.slice/"
+        if scope == "user"
+        else "0::/system.slice/"
+    )
+    return {pid: prefix + unit + "\n"}
+
+
+def test_a_runtime_created_service_is_transient_though_its_name_says_nothing():
+    """The family ``SNAG-PORT-003`` was closed on, and the shape it missed.
+
+    ``app-steam@455b2e51….service`` is a ``.service`` with no colon, so
+    the suffix rule and both name-based fixes the entry proposed leave it
+    alone.  It held four ports on the day the entry claimed a population
+    of one.
+    """
+    report = _observe(
+        stdout=_STEAM_SS,
+        cgroups=_held_by(RUNTIME_SERVICE),
+        runtime=_runtime(user=[RUNTIME_SERVICE]),
+    )
+    listener = report.listeners[0]
+    assert listener.unit == RUNTIME_SERVICE
+    assert listener.runtime_created is True
+    assert listener.transient is True
+
+
+def test_the_same_name_is_not_transient_when_no_manager_created_it():
+    """The discriminating half: the name alone decides nothing.
+
+    Without this the test above passes for a rule that simply widened to
+    ``return True``, which is the gutting ``SNAG-PORT-003``'s own controls
+    were written to refuse.
+    """
+    report = _observe(
+        stdout=_STEAM_SS,
+        cgroups=_held_by(RUNTIME_SERVICE),
+        runtime=_runtime(user=[]),
+    )
+    assert report.listeners[0].runtime_created is False
+    assert report.listeners[0].transient is False
+
+
+def test_a_hand_written_service_is_left_alone_though_a_stale_sibling_is_listed():
+    """The negative control, with the directory non-empty so it can fail."""
+    report = _observe(runtime=_runtime(user=[RUNTIME_SERVICE, RUNTIME_DBUS]))
+    units = {x.unit: x for x in report.listeners if x.unit}
+    assert units["alfred-backend.service"].transient is False
+    assert units["sysadmin.service"].transient is False
+
+
+def test_the_escaped_name_matches_the_filename_without_unescaping():
+    """systemd writes one escaped name into both places, measured.
+
+    The obvious worry is that the cgroup path and the transient filename
+    escape differently, which would make every ``app-*`` unit a miss.  On
+    this box they are byte-identical — ``\\x2d`` and all — so the
+    comparison is a plain string test and this pins that it stays one.
+    """
+    report = _observe(
+        stdout=_STEAM_SS,
+        cgroups=_held_by(RUNTIME_ESCAPED),
+        runtime=_runtime(user=[RUNTIME_ESCAPED]),
+    )
+    assert "\\x2d" in (report.listeners[0].unit or "")
+    assert report.listeners[0].transient is True
+
+
+def test_the_scope_suffix_still_decides_when_the_directory_does_not_name_it():
+    """``init.scope`` is the witness that this had to be additive.
+
+    Measured 2026-08-28: ``init.scope`` reports ``Transient=yes`` from
+    both managers and appears in **neither** transient directory.  A fix
+    that replaced the suffix test with the listing — the obvious reading
+    of "ask systemd instead of guessing" — would stop recognising it, so
+    the listing is added and never substituted.
+    """
+    report = _observe(
+        stdout=_STEAM_SS,
+        cgroups=_held_by("init.scope"),
+        runtime=_runtime(user=[]),
+    )
+    assert report.listeners[0].runtime_created is False
+    assert report.listeners[0].transient is True
+
+
+def test_the_directory_is_chosen_by_the_listener_scope():
+    """A user unit named only in the system directory is not stamped.
+
+    Both directories are populated here — ``/run/systemd/transient`` held
+    ``dbus-:1.2-org.kde.kameleon.qmk.helper@0.service`` on 2026-08-28 — so
+    a reader that merged them would call a user unit transient on a
+    system manager's say-so.
+    """
+    report = _observe(
+        stdout=_STEAM_SS,
+        cgroups=_held_by(RUNTIME_SERVICE, scope="user"),
+        runtime=_runtime(system=[RUNTIME_SERVICE]),
+    )
+    assert report.listeners[0].scope == P.SCOPE_USER
+    assert report.listeners[0].transient is False
+
+
+def test_a_system_scope_listener_is_stamped_from_the_system_directory():
+    """The other half of the routing, or the test above passes for a reader
+    that never stamps a system unit at all."""
+    report = _observe(
+        stdout=_STEAM_SS,
+        cgroups=_held_by(RUNTIME_SERVICE, scope="system"),
+        runtime=_runtime(system=[RUNTIME_SERVICE]),
+    )
+    assert report.listeners[0].scope == P.SCOPE_SYSTEM
+    assert report.listeners[0].transient is True
+
+
+def test_an_unreadable_directory_degrades_to_the_suffix_rule():
+    """Fails toward noise, deliberately.
+
+    Claiming transience on a failed read would suppress a genuine
+    collision on the strength of not having looked — the estate judge's
+    rule 2.  So the observation is simply absent and the sweep behaves as
+    it did before Session 108.
+    """
+    report = _observe(
+        stdout=_STEAM_SS,
+        cgroups=_held_by(RUNTIME_SERVICE),
+        runtime=_runtime(problems=["/run/user/1000/systemd/transient would not list"]),
+    )
+    assert report.ok
+    assert report.listeners[0].runtime_created is False
+    assert report.listeners[0].transient is False
+
+
+def test_the_directories_are_listed_once_per_sweep_not_once_per_listener():
+    """Two listeners in one report must not disagree about the same box."""
+    calls = []
+
+    def counting():
+        calls.append(1)
+        return {P.SCOPE_USER: frozenset(), P.SCOPE_SYSTEM: frozenset()}, ()
+
+    report = _observe(runtime=counting)
+    assert len(report.listeners) > 1
+    assert len(calls) == 1
+
+
+def test_transient_reads_no_filesystem_so_a_stored_observation_keeps_its_answer():
+    """The property stays pure, which is what the stamp buys.
+
+    ``judge_ports`` is pure below :func:`observe_listeners` and this module
+    says so at the top.  Deriving transience in the property would put an
+    impure read underneath that line and let the same listener answer two
+    ways at two moments.
+    """
+    listener = P.Listener(port=1, unit=RUNTIME_SERVICE, scope="user")
+    assert listener.transient is False
+    assert P.Listener(port=1, unit=RUNTIME_SERVICE, runtime_created=True).transient
+
+
+def test_runtime_unit_names_reports_the_directory_it_could_not_list():
+    """A problem is returned, never swallowed — ``ports_checked``'s rule."""
+
+    def explode(_directory):
+        raise PermissionError("nope")
+
+    names, problems = P.runtime_unit_names(lister=explode)
+    assert names[P.SCOPE_USER] == frozenset()
+    assert names[P.SCOPE_SYSTEM] == frozenset()
+    assert len(problems) == 2
+    assert all("PermissionError" in x for x in problems)
+
+
+def test_runtime_unit_names_reads_the_system_directory_by_its_constant():
+    from pathlib import Path
+
+    seen = []
+
+    def lister(directory):
+        seen.append(directory)
+        return []
+
+    P.runtime_unit_names(lister=lister)
+    assert P.SYSTEM_TRANSIENT_DIR in seen
+    assert P.SYSTEM_TRANSIENT_DIR == Path("/run/systemd/transient")
+
+
+def test_a_transient_holder_stays_out_of_unit_ports_and_lands_in_the_other_map():
+    """The consequence the fix exists for, at the map the consumers read.
+
+    Live on 2026-08-28 this moved ``user:dbus-:1.2-org.kde.kdeconnect@0.service``
+    out of ``unit_ports`` — where the estate judge would have read it as a
+    stable holder and judged a breach at ``warning`` rather than at
+    ``TRANSIENT_HOLDER_SEVERITY``.
+    """
+    report = _observe(
+        stdout='LISTEN 0 4096 0.0.0.0:1716 0.0.0.0:* users:(("kdeconnectd",pid=9001,fd=3))\n',
+        cgroups=_held_by(RUNTIME_DBUS),
+        runtime=_runtime(user=[RUNTIME_DBUS]),
+    )
+    blob = P.PortReport(listeners=report.listeners, audited_ranges=((1000, 1999),))
+    assert blob.unit_ports(audited_only=True) == {}
+    assert blob.transient_ports() == {f"user:{RUNTIME_DBUS}": [1716]}

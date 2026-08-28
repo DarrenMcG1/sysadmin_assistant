@@ -78,6 +78,7 @@ and claims, get findings.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -108,6 +109,20 @@ _UNALLOCATED = re.compile(r"_?free\b", re.IGNORECASE)
 
 SCOPE_USER = "user"
 SCOPE_SYSTEM = "system"
+
+#: Where each manager serialises the units it was asked to create at
+#: runtime.  Listed, never a ``systemctl show -p Transient``: the same
+#: class of signal :func:`~sysadmin.units.scan.discover_units` reads for
+#: enablement, so the signal stays inside what the swept modules can
+#: themselves see and costs no second subprocess beside ``ss``.
+#:
+#: **Scope decides the directory, and both are populated here.**  The
+#: user manager writes under ``$XDG_RUNTIME_DIR``; the system manager
+#: under ``/run/systemd``, which is world-readable and on 2026-08-28
+#: held ``dbus-:1.2-org.kde.kameleon.qmk.helper@0.service`` — so a
+#: system-scope per-launch listener is a real shape on this box and not
+#: a hypothetical.
+SYSTEM_TRANSIENT_DIR = Path("/run/systemd/transient")
 
 #: The registry's jurisdiction, as a *fallback* for callers with no
 #: config — every production path passes
@@ -165,6 +180,7 @@ class Listener:
     unit: str | None = None
     scope: str | None = None
     cgroup: str | None = None
+    runtime_created: bool = False
 
     @property
     def attributed(self) -> bool:
@@ -172,13 +188,50 @@ class Listener:
 
     @property
     def transient(self) -> bool:
-        """A session scope (``app-code-oss-26348.scope``) rather than a unit.
+        """A per-launch identity rather than one worth comparing to a registry.
 
-        Named because it looks like an attribution and is not one worth
-        comparing against a registry: the number in it changes on every
-        login, so a finding built on it would never dedup.
+        Named because it looks like an attribution and is not one: the id
+        in it changes on every launch, so a finding built on it would
+        never dedup and its remedy would name a unit nobody can find.
+
+        **Two signals, because one shape was mistaken for the family**
+        (``SNAG-PORT-003``, closed 2026-08-28).  The suffix test was
+        written in Session 57 against ``app-code-oss-26348.scope`` — the
+        editor dev servers — and a ``.scope`` is per-launch by
+        construction, since systemd has no persistent scope files.  What
+        it misses is every runtime-created ``.service``, and this box
+        holds eight: ``dbus-:1.2-org.kde.kdeconnect@0.service`` and two
+        siblings carry a bus-unique connection name, and
+        ``app-steam@455b2e51…service``, ``app-firefox@d50574d5…service``
+        and four more carry a 32-hex per-launch id and no colon at all.
+
+        That count is what refused both fixes the entry proposed.  A
+        ``dbus-`` prefix reaches 3 of the 8 and a ``:N.N`` pattern 2 (the
+        box carries ``:1.21`` beside ``:1.2``), while both leave the two
+        ``app-*@<id>`` units that were *holding ports at the time* —
+        steam on four, appimagekit on one — reading as stable identities.
+        The entry called the missing evidence "a second instance to tell
+        a rule from a coincidence"; the second instance was a different
+        shape, so a rule tuned to the first would have been the
+        coincidence.  Nor is there a name rule that could have worked:
+        ``app-steam@455b….service`` and ``syncthing@gaddi.service`` are
+        the same shape, and separating them means deciding that a 32-hex
+        instance is special — ``systemd-run``'s convention, which is the
+        format-someone-else-owns objection the entry raised against
+        ``:N.N``, met from the other side.
+
+        :attr:`runtime_created` is stamped by :func:`observe_listeners`
+        from the manager's own transient directory rather than derived
+        from the name, so this property stays pure and a stored
+        observation keeps answering what it answered when it was taken.
+        Deriving it here would make an in-memory value's attribute depend
+        on the filesystem at access time and would put an impure read
+        below :func:`observe_listeners`, which this module promises at the
+        top not to do.
         """
-        return bool(self.unit and self.unit.endswith(".scope"))
+        if not self.unit:
+            return False
+        return self.unit.endswith(".scope") or self.runtime_created
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -258,9 +311,72 @@ def _read_cgroup(pid: int) -> str | None:
         return None
 
 
+def _list_names(directory: Path) -> Iterable[str]:
+    """Every entry in ``directory``, by name.  Raises ``OSError`` if it cannot."""
+    return [entry.name for entry in directory.iterdir()]
+
+
+def runtime_unit_names(
+    lister: Callable[[Path], Iterable[str]] = _list_names,
+) -> tuple[dict[str, frozenset[str]], tuple[str, ...]]:
+    """Units each systemd manager created at runtime, by scope.
+
+    **A proxy for ``Transient=yes``, and it under-reports — which is the
+    whole reason this is added to the ``.scope`` suffix rather than
+    substituted for it.**  Measured 2026-08-28: ``init.scope`` reports
+    ``Transient=yes`` from *both* managers and appears in *neither*
+    directory, so a rule that replaced the suffix test with this listing
+    would stop recognising it.  Additive cannot subtract — the posture
+    ``ops_claims`` rule 1 takes for its markers — and on this box the
+    union is exactly complete: the suffix catches ``init.scope`` and the
+    two app scopes, the listing catches the eight ``app-*@<id>`` and
+    ``dbus-:N.N-*`` services, and together they are every
+    ``Transient=yes`` unit observed.
+
+    **The names need no unescaping.**  systemd writes the escaped unit
+    name as the filename and the same escaped name into the cgroup path,
+    so the string :func:`_unit_from_cgroup` returns compares directly —
+    ``\\x2d``, ``@`` and ``:`` included.  Measured against the live box:
+    of 14 attributed user listeners exactly 4 match a transient file, and
+    they are exactly the four per-launch holders
+    (``app-code-oss-112152.scope``, ``app-steam@…service``,
+    ``app-appimagekit_…@…service``, ``dbus-:1.2-org.kde.kdeconnect@0.service``);
+    the ten hand-written services match nothing.
+
+    **An unreadable directory degrades to the suffix rule and says so.**
+    That is the *noisy* direction — fewer units recognised as transient
+    means more findings — and it is chosen deliberately: claiming
+    transience on a failed read would suppress a genuine collision on the
+    strength of not having looked, which is the estate judge's rule 2.
+    The problems are returned rather than swallowed, so a caller can put
+    "we could not tell" where it belongs instead of serving it as
+    "nothing was transient".
+    """
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    base = Path(runtime) if runtime else Path("/run/user") / str(os.getuid())
+    user_dir = base / "systemd" / "transient"
+    names: dict[str, frozenset[str]] = {}
+    problems: list[str] = []
+    for scope, directory in (
+        (SCOPE_USER, user_dir),
+        (SCOPE_SYSTEM, SYSTEM_TRANSIENT_DIR),
+    ):
+        try:
+            names[scope] = frozenset(lister(directory))
+        except OSError as exc:
+            names[scope] = frozenset()
+            problems.append(
+                f"{directory} would not list ({exc.__class__.__name__}: {exc})"
+            )
+    return names, tuple(problems)
+
+
 def observe_listeners(
     runner: Runner = subprocess.run,
     cgroup_reader: Callable[[int], str | None] = _read_cgroup,
+    runtime_reader: Callable[
+        [], tuple[dict[str, frozenset[str]], tuple[str, ...]]
+    ] = runtime_unit_names,
 ) -> ListenerReport:
     """Every listening TCP port, with the unit holding it where visible.
 
@@ -269,6 +385,14 @@ def observe_listeners(
     bound on both IPv4 and IPv6 prints twice with the same pid, so
     ``(port, pid)`` is deduplicated — otherwise ``port_shared`` would
     fire on every dual-stack server on the box.
+
+    The transient directories are listed **once per sweep** and not once
+    per listener: the answer is a property of the box at this instant,
+    and re-reading it per port would let two listeners in one report
+    disagree about the same unit.  A directory that would not list costs
+    :attr:`Listener.runtime_created` and nothing else — see
+    :func:`runtime_unit_names` for why that degrades toward noise rather
+    than toward silence.
     """
     try:
         completed = runner(
@@ -284,6 +408,10 @@ def observe_listeners(
     if completed.returncode != 0:
         detail = (completed.stderr or "").strip() or "no stderr"
         return ListenerReport(error=f"ss exited {completed.returncode}: {detail}")
+
+    runtime_names, runtime_problems = runtime_reader()
+    for problem in runtime_problems:
+        logger.warning("transient_dir_unreadable", extra={"detail": problem})
 
     seen: set[tuple[int, int | None]] = set()
     cgroups: dict[int, str | None] = {}
@@ -323,6 +451,9 @@ def observe_listeners(
                     unit=unit,
                     scope=scope,
                     cgroup=(raw.strip().rsplit("\n", 1)[-1] if raw else None),
+                    runtime_created=bool(
+                        unit and unit in runtime_names.get(scope or "", frozenset())
+                    ),
                 )
             )
 

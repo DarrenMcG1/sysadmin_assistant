@@ -2,7 +2,105 @@
 
 ## Next action
 
-Judge `SNAG-PORT-003` now that its own blocker is measured gone, choosing between the two fixes it names and the third it does not — systemd's `Transient=`, whose unit files sit in `$XDG_RUNTIME_DIR/systemd/transient` and are a directory listing away, which is the same class of signal `scan.py` already reads for enablement and is therefore not a guess at all, and decide at the same time whether the fix it actually needs is the smaller one this sitting's fourth instrument found, since `port_alert_title` is keyed on the port so the row deduplicates and what churns per login is the message rather than the title the entry predicts.
+Decide `SNAG-AGENT-009` by measuring its population first — drive `_maintain_port_alerts` and `EstateJudgeAgent._execute` across a run where the *state* moves under a held title and count how many open rows on this box currently carry a message that no longer describes what they are about, because the entry is `P3` on a guess and the three candidate remedies it names are not comparable until that number exists.
+
+## Session 108 is complete — the blocker was gone, the family was three times bigger, and the name never carried the fact
+
+`SNAG-PORT-003` is **closed** and `SNAG-AGENT-009` opened; the live
+parser reads **97 → 98 entries with open unmoved at 23**. Suite
+**2755 → 2750** (2755 − 18 + 13), ruff and mypy clean, all nine ops
+claims ok. Daemon restarted **10:37:40**, `/health` 200 — owed this
+time, unlike Session 107's. No migration.
+
+### What the sitting settled
+
+- **The entry's own framing was the smaller half of its defect.** It is
+  filed as a *D-Bus* fault with a population of one, deferring itself
+  for want of *"a second instance to tell a rule from a coincidence"*.
+  `$XDG_RUNTIME_DIR/systemd/transient` holds **eight** runtime-created
+  services: three bus-named and **five** `app-*@<32-hex>`. The second
+  instance was there when the entry was written and was a **different
+  shape**, which is precisely what makes a rule tuned to the first the
+  coincidence.
+- **Both named fixes are refuted by the count, and by which units were
+  listening.** A `dbus-` prefix reaches 3 of 8; `:N.N` reaches 2,
+  because `dbus-:1.21-org.a11y.atspi.Registry@0.service` sits beside
+  `:1.2` and refutes the entry's own spelling of the pattern it
+  rejects. Both leave `app-steam@455b2e51….service` (27036, 34223,
+  46847, 57343) and `app-appimagekit_…@….service` (36577) — `.service`,
+  colon-free, and holding ports on the day the entry recorded a
+  population of one.
+- **No name rule could have worked, which is the durable half.**
+  `app-steam@455b….service` and `syncthing@gaddi.service` are the same
+  shape. Separating them means deciding a 32-hex instance is special —
+  `systemd-run`'s convention, which is the format-someone-else-owns
+  objection the entry raised against `:N.N`, met from the other side.
+  The name does not carry the fact, so the fix had to stop reading it.
+- **The third fix is systemd's own answer and it is added, never
+  substituted.** `runtime_unit_names` lists both managers' transient
+  directories — the same class of signal `discover_units` reads for
+  enablement, no second subprocess — and `observe_listeners` stamps
+  `Listener.runtime_created`. The obvious reading is to *replace* the
+  suffix test; `init.scope` refutes it, reporting `Transient=yes` from
+  both managers while appearing in **neither** directory. So the listing
+  is a proxy that under-reports, and additive cannot subtract.
+- **Stamped at observation, not derived in the property**, so
+  `judge_ports` stays pure below `observe_listeners` — the promise this
+  module makes in its first paragraph. Nothing in production rebuilds a
+  `Listener` from storage, so the stamp cannot go stale in a consumer.
+- **The handoff's second question answered: no.** The entry predicted a
+  new title every login; `port_alert_title` is keyed on the **port**, so
+  the row dedups and what churns is the message. That makes the entry
+  *less* urgent and the fix **no smaller** — a message-refresh reaches
+  one of the eight by accident and none correctly, and Session 57's rule
+  for a per-launch holder is to quieten it, not to describe it better.
+  Fixing `transient` closes the staleness here outright, because no such
+  finding is raised at all.
+- **The retired check reported `match` against the fix that closed its
+  entry.** `transient_misses_bus_name` asked
+  `Listener(port=0, unit=name).transient` — a *synthetic* listener — so
+  it assumed transience is a function of the name. It was built to be
+  neutral between the two fixes the entry named, and both were
+  name-based, so it inherited their shared assumption and the fix
+  refuting both is invisible to it; read off the *observed* listener the
+  same property returns `True`.
+  `a-control-a-fix-breaks-is-not-a-control`, a third time, and the first
+  where the coupling came from the entry's framing rather than the
+  check's construction. It retired with the entry per the registry's own
+  rule, and the reading is recorded in the entry rather than lost.
+- **Live either side, through the production path.**
+  `unit_ports(audited_only=True)` **13 keys → 12**, findings **0 → 0**,
+  and the degraded path driven at `XDG_RUNTIME_DIR=/nonexistent`: one
+  warning logged, `ok: True`, and the `.scope` holder still recognised.
+
+### Two mistakes the sitting made, recorded
+
+- **A cross-repo filing was nearly made against our own error.** The
+  first drive of `estate.snags.read_snags` returned **0 entries,
+  format unrecognised**, at HEAD *and* the working tree — which reads
+  exactly like a regression in their parser between `1e7a9a9` and
+  `516116f`. It was ours: the function takes the document *text* and was
+  handed a *path*. Reading their signature before writing the message is
+  what stopped it.
+- **A falsification harness that reverts with `git checkout` deletes the
+  fix it is testing.** The first pass restored `sysadmin/units/ports.py`
+  from HEAD between stand-ins; the fix was uncommitted, so it went too,
+  and only the next stand-in's missing anchor showed it. Re-applied, and
+  every later revert came from a copy in the scratchpad.
+
+### Left deliberately
+
+- **`SNAG-AGENT-009` is filed, not fixed, and its `P3` is a guess.** The
+  population is unmeasured — that is the next action above. Its three
+  candidate remedies are not comparable until the number exists, and the
+  obvious one (refresh every held row) is `SNAG-AGENT-006`'s per-run
+  write arriving by the back door.
+- **Two open entries now carry no check** (`SNAG-DOCS-006` and the new
+  `SNAG-AGENT-009`), up from one, which is the cost of closing an entry
+  whose check retired with it.
+- **`app-signal-2308871.scope` and five other runtime units bind no
+  port**, so the fix's effect on them is unobservable today and is not
+  claimed. What is claimed is the four that do.
 
 ## Session 107 is complete — the instrument for an entry that argues for its own postponement
 

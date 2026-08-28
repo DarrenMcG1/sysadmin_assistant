@@ -394,6 +394,42 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 108 — the blocker was gone, the family was three times bigger, and the name never carried the fact (2026-08-28) ✅
+
+- [x] Judge `SNAG-PORT-003` against the three candidate fixes — the two it names and the one the handoff proposed, systemd's own `Transient=` via `$XDG_RUNTIME_DIR/systemd/transient`
+- [x] **Measure the population before choosing, which is what refuted both named fixes.** The entry is filed as a *D-Bus* fault waiting for "a second instance to tell a rule from a coincidence". The runtime directory holds **eight** services: three bus-named and **five** `app-*@<32-hex>`. A `dbus-` prefix reaches 3 of 8; `:N.N` reaches 2, because `dbus-:1.21-org.a11y.atspi.Registry@0.service` sits beside `:1.2` and refutes the entry's own spelling of the pattern it rejects
+- [x] **Check which of them were listening**, since a latent shape and a live one rank differently — `app-steam@455b2e51….service` held 27036/34223/46847/57343 and `app-appimagekit_…@….service` held 36577, both `.service`, both colon-free, both invisible to either named fix, and both holding ports on the day the entry recorded a population of one
+- [x] **Establish that no name rule could have worked**, which is the durable half — `app-steam@455b….service` and `syncthing@gaddi.service` are the same shape, so separating them means deciding a 32-hex instance is special, which is `systemd-run`'s convention and the format-someone-else-owns objection the entry raised against `:N.N`
+- [x] **Fix** `sysadmin/units/ports.py`: `runtime_unit_names` lists both managers' transient directories, `observe_listeners` stamps `Listener.runtime_created`, and `transient` is the union of that and the old suffix test
+- [x] **Add, never substitute — settled by one witness rather than by caution.** `init.scope` reports `Transient=yes` from both managers and appears in **neither** directory, so the listing is a proxy that under-reports; a replacement stops recognising it
+- [x] **Stamp at observation rather than derive in the property**, so `judge_ports` stays pure below `observe_listeners` — the promise this module makes in its opening paragraph — and a stored observation keeps answering what it answered when taken
+- [x] Route the directory by listener scope, since `/run/systemd/transient` is populated here too (`dbus-:1.2-org.kde.kameleon.qmk.helper@0.service`)
+- [x] Confirm the names need no unescaping — 4 of 14 attributed user listeners match a transient filename byte-for-byte, `\x2d` and all, and they are exactly the four per-launch holders
+- [x] **Answer the handoff's second question: no, the smaller fix is not the one it needs.** The entry predicted "a new title every login"; `port_alert_title` is keyed on the port, so the row dedups and what churns is the message. That makes the entry *less* urgent and the fix no smaller — a message-refresh reaches one of the eight by accident and none correctly, and the right answer for a per-launch holder is Session 57's, to quieten it, not to describe it better
+- [x] File `SNAG-AGENT-009` for what that reading leaves behind — `log_aggregator._refresh` updates a held row's message and two other families `continue` past it, one mechanism with opposite treatment and nothing saying which is right
+- [x] Retire `transient_misses_bus_name` with its entry, and **record that it reported `match` against the fix that closed it** — it probed a synthetic `Listener`, so it assumed transience is name-derived; built neutral between two name-based fixes, it inherited their shared assumption
+- [x] Falsify all 13 new guards — seven stand-ins, each firing on the test that names it
+- [x] Drive it live: `unit_ports` 13 keys → 12, findings 0 → 0, degraded path verified at `XDG_RUNTIME_DIR=/nonexistent`
+- [x] Restart the daemon — owed this time, `ports.py` being imported by `create_app()` — `/health` 200, PID 3532450 → 3597580
+
+**The sitting's own mistake, recorded because it nearly became a filing.**
+The first drive of `estate.snags.read_snags` returned **0 entries,
+format unrecognised**, at both HEAD and the working tree — which reads
+exactly like a regression in their parser between `1e7a9a9` and
+`516116f`. It was ours: `read_snags` takes the document *text* and was
+handed a *path*. Reading their signature before writing the message is
+what stopped it, which is `verify-ops-claims-live`'s rule that a
+correction is a claim too. Re-derived correctly: **97 → 98 entries, open
+unmoved at 23**.
+
+**A falsification harness that reverts with `git checkout` deletes the
+fix it is testing.** The first falsification pass restored
+`sysadmin/units/ports.py` from HEAD between stand-ins, and the fix was
+uncommitted, so it went with them — visible only because the next
+stand-in's anchor was missing. Re-applied, and every later revert came
+from a copy in the scratchpad. The suite was green throughout the
+window, since the tests had not been written yet.
+
 ## Session 107 — the instrument for an entry that argues for its own postponement, and the blocker was already gone (2026-08-28) ✅
 
 - [x] Read `SNAG-PORT-003` and settle what a check can even measure — it is the first entry in the register whose body argues for **not** fixing it, so it carries a defect *and* a blocker and they move independently
