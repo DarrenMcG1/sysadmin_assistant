@@ -76,18 +76,22 @@
 > 3859841 at 16:09:40 — the first is what exposed the loop defect and
 > the second carries its fix). `/health` answers **200**
 > <!--check:health-->, `alembic current` reads 018 at the packaged head
-> <!--check:schema-->, and `alerts` holds **1** unresolved row
-> <!--check:alerts--> with **1** named here <!--check:open_titles-->.
+> <!--check:schema-->, and `alerts` holds **0** unresolved rows
+> <!--check:alerts--> with **0** named here <!--check:open_titles-->.
 > The schema was applied and checked at head *before* the signal,
 > `SNAG-DB-005`'s rule.
 >
-> **The one open row is `High VRAM usage on AMD Radeon RX 7900 XTX`**,
-> the same fault the live drive adopted — a genuine threshold breach
-> that flaps as the card's VRAM crosses 90 %, so this figure is expected
-> to fall without anything being done and `check_alerts` will report
-> that as a note. The three `Log error: sysadmin.service` rows the loop
-> defect wrote resolved themselves at 16:35, fifteen quiet minutes after
-> their last sighting.
+> **That figure is the least stable claim in this block, and the reason
+> is worth reading before treating a non-zero one as news.**
+> `High VRAM usage on AMD Radeon RX 7900 XTX` — the fault the live drive
+> adopted — is a genuine threshold breach that **flaps**: four episodes
+> in the 24 hours to 17:03 (20:31→20:36, 12:17→12:32, 15:57→16:07,
+> 16:33→17:03), each self-resolving as the card crosses back under 90 %.
+> The block said **1** when it was written at 16:38 and read **0**
+> twenty-five minutes later, which `check_alerts` reported as a *fall* —
+> `SNAG-ESTATE-008`'s founding case, working. The three `Log error:
+> sysadmin.service` rows the loop defect wrote also resolved themselves,
+> at 16:35, fifteen quiet minutes after their last sighting.
 >
 > **Alembic head is 018**<!--check:migration_head--> — `desktop_notifications`,
 > with its `retention_config` row in the same migration because the two
