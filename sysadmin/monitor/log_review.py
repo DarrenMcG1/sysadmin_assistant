@@ -69,7 +69,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.core.config import get_config
 from sysadmin.core.database import get_scheduler_session
-from sysadmin.core.models.alert import Alert
 from sysadmin.core.text import strip_markdown
 from sysadmin.monitor.log_actions import (
     NOISE_MIN_OCCURRENCES,
@@ -554,32 +553,28 @@ async def generate_review(
 
 
 async def run_weekly_review() -> None:
-    """Scheduler entry point — generate, store, and notify via an alert.
+    """Scheduler entry point — generate and store the review.
 
-    The alert is ``info`` and announces that a review exists; it is not
-    an alert *about* a fault.  Every fault in it already has its own row
-    raised by :class:`~sysadmin.monitor.log_aggregator.LogAggregatorAgent`
-    under the signature identity, and a second speaker for one fault is
-    the defect ``SNAG-LOG-005`` closed three days ago.
+    **It announces nothing** — the ruling in ``SNAG-AGENT-010``, argued
+    once in :func:`sysadmin.files.review.run_weekly_review` and cited
+    here rather than restated.  This wrote an ``info`` alert row that
+    nothing could resolve and retention could never purge.
+
+    The docstring this replaces reasoned that the row was safe *because*
+    "a second speaker for one fault is the defect ``SNAG-LOG-005``
+    closed" — and it was right about the principle while the row it
+    defended became a counted fault anyway:
+    :func:`sysadmin.monitor.health_review._gather_alerts` takes no
+    severity filter, so a notice is narrated under "Distinct faults
+    alerted".  The announcement was never reachable by a speaker either;
+    ``info`` sits below both severity gates on this box.  What already
+    announces this review is ``briefing/data.py``, which reads
+    ``log_reviews`` directly and expires a stale one, which the alert
+    never did.
     """
     async with get_scheduler_session() as session:
         review = await generate_review(session)
         if review is None:
             return
 
-        first_line = review.narrative.splitlines()[0] if review.narrative else ""
-        session.add(
-            Alert(
-                agent="log_aggregator",
-                severity="info",
-                title="Weekly log review ready",
-                message=first_line[:255],
-                details={
-                    "review_id": str(review.id),
-                    "llm_used": review.llm_used,
-                    "confidence": review.confidence,
-                    "endpoint": "/api/logs/review",
-                },
-            )
-        )
     logger.info("weekly_log_review_generated")

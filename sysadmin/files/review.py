@@ -31,7 +31,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.core.config import get_config
 from sysadmin.core.database import get_scheduler_session
-from sysadmin.core.models.alert import Alert
 
 # Re-exported: this was strip_markdown's original home, and the project
 # review needs it too — see sysadmin/core/text.py for why it moved.
@@ -540,22 +539,57 @@ async def generate_review(
 
 
 async def run_weekly_review() -> None:
-    """Scheduler entry point — generate, store, and notify via an alert."""
+    """Scheduler entry point — generate and store the review.
+
+    **It announces nothing, and that is the ruling in `SNAG-AGENT-010`.**
+    This wrote an ``info`` alert row saying the review was ready.  The
+    row was raised by nothing that could resolve it — no dedup branch,
+    no title in :data:`~sysadmin.monitor.agent.RESOLVABLE_TITLE_PATTERNS`
+    — and :func:`~sysadmin.core.retention.purge_statement` deletes an
+    ``alerts`` row only ``WHERE resolved = TRUE``, so it was immortal in
+    the literal sense.  One stood open for 271 hours saying the disk
+    crossed 90 % on a date that had passed with the disk at 80 %.
+
+    Four measured reasons it is a deletion rather than a lifecycle, the
+    first of which refutes the obvious fix:
+
+    1. **Resolving the previous notice on the next generation would not
+       have closed the observed row.**  It was written 2026-08-17 05:45
+       and the next generation was due 08-24 05:45, when the daemon was
+       down — the first ``agent_runs`` row that day is 07:00.  A
+       lifecycle anchored to the *next* run is bounded by the thing that
+       already failed, so the row is open now exactly as long as it
+       would be under the fix.
+    2. **Neither speaker on this box can say it.**  ``info`` sits below
+       both ``tray.notify_min_severity`` and
+       ``notifications.desktop.min_severity``, which read ``warning``
+       here, so the row has never reached a screen and could not.
+    3. **The briefing already owns the announcement, with a freshness
+       rule the alert never shared.**  ``briefing/data.py`` reads this
+       table directly and drops a review older than ``_REVIEW_FRESH_DAYS``
+       (8).  Measured 2026-08-28, one envelope declined to render the
+       Weekly Disk Review as stale **and carried the alert announcing
+       it** — a payload disagreeing with itself about one fact.  A second
+       owner of one announcement is the defect this repository has now
+       found at seven scales.
+    4. **A notice is counted as a fault by this repository's own
+       reviews.**  :func:`sysadmin.monitor.health_review._gather_alerts`
+       takes no severity filter and its sentence reads "Distinct faults
+       alerted: N", so each week's notices are narrated as faults — and
+       the health review's own notice lands in the next health review's
+       ``new_titles``.
+
+    Nothing consumed the row's payload either: ``details['review_id']``
+    and ``details['endpoint']`` were written by three modules here and
+    read by none, which is ``SNAG-CFG-001``'s shape three times over.
+    The tray needs no change to compensate, which is where the entry's
+    own framing of this option was wrong — it proposed "let the tray
+    read ``/api/files/review``", and the consumer that mattered was the
+    briefing, which had been reading it all along.
+    """
     async with get_scheduler_session() as session:
         review = await generate_review(session)
         if review is None:
             return
 
-        first_line = review.narrative.splitlines()[0] if review.narrative else ""
-        session.add(Alert(
-            agent="file_organiser",
-            severity="info",
-            title="Weekly disk review ready",
-            message=first_line[:255],
-            details={
-                "review_id": str(review.id),
-                "llm_used": review.llm_used,
-                "endpoint": "/api/files/review",
-            },
-        ))
     logger.info("weekly_disk_review_generated")

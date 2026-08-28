@@ -1028,38 +1028,31 @@ async def generate_review(
 
 
 async def run_weekly_review() -> None:
-    """Scheduler entry point — generate, store, and notify via an alert.
+    """Scheduler entry point — generate and store the review.
 
-    The alert is ``info`` and announces that a review *exists*; it is not
-    an alert about a fault.  Every fault in it already has its own row —
-    raised by :class:`~sysadmin.monitor.agent.SysAdminAgent` under the
-    service and threshold families — and a second speaker for one fault
-    is the defect ``SNAG-LOG-005`` closed.
+    **It announces nothing** — the ruling in ``SNAG-AGENT-010``, argued
+    once in :func:`sysadmin.files.review.run_weekly_review` and cited
+    here rather than restated.
 
-    ``agent="sysadmin"`` because ``chk_alert_agent`` admits only the five
-    agent names and this review is that agent's data; the log review
-    files its own announcement under ``log_aggregator`` for the same
-    reason.  No migration is needed, which is the check worth doing
-    before adding any alert-writing surface here.
+    This writer is the one that made the reason legible, because the
+    contamination is self-referential: :func:`_gather_alerts` above
+    counts distinct ``alerts`` titles with **no severity filter**, and
+    :func:`build_review_prompt` phrases that figure as "Distinct faults
+    alerted".  An ``info`` row announcing *this* review therefore
+    arrived in the next review's ``new_titles`` as a fault — a review
+    counting its own announcement.  Deleting the write is what keeps the
+    numerator honest; filtering the query instead would leave three
+    immortal rows on the box and teach the count to ignore a severity
+    that other families legitimately use (``known_noise``'s quietening,
+    ``COVERED_SIGNATURES``).
+
+    ``agent="sysadmin"`` is gone with the row.  Nothing here writes to
+    ``alerts`` now, so the ``chk_alert_agent`` check that mattered before
+    adding an alert-writing surface does not apply to this module.
     """
     async with get_scheduler_session() as session:
         review = await generate_review(session)
         if review is None:
             return
 
-        first_line = review.narrative.splitlines()[0] if review.narrative else ""
-        session.add(
-            Alert(
-                agent="sysadmin",
-                severity="info",
-                title="Weekly system health review ready",
-                message=first_line[:255],
-                details={
-                    "review_id": str(review.id),
-                    "llm_used": review.llm_used,
-                    "confidence": review.confidence,
-                    "endpoint": "/api/sysadmin/review",
-                },
-            )
-        )
     logger.info("weekly_health_review_generated")

@@ -2,7 +2,88 @@
 
 ## Next action
 
-Decide `SNAG-AGENT-010`'s lifecycle — the only open row on this box is `Weekly disk review ready`, written by `files/review.py:553` with a bare `session.add`, matching no `RESOLVABLE_TITLE_PATTERNS` entry and unreachable by retention, so choose between resolving the previous notice when the next review is generated and dropping the alert row for a tray read of `/api/files/review`.
+Cost `SNAG-LOG-006`'s two candidate fixes and build the honest one — retain the task references from `POST /api/sysadmin/scan-all` and `POST /api/files/organise` and attach a done-callback logging a distinct event — since a manual run discards its task, so a failure inside `_record_outcome` is quietened by `COVERED_SIGNATURES` with no scheduler listener behind it to raise `scheduler_job_error`, which is the one path `SNAG-LOG-005`'s rule 5 does not cover.
+
+## Session 111 is complete — the notice had no lifecycle because it should never have been a row
+
+`SNAG-AGENT-010` is **fixed**, by the second of the two candidates it
+named and against the framing it gave that candidate. The live parser
+reads **99 entries either side, open 23 → 22** at estate-manager's
+committed `c545fa8` on a clean tree. Suite **2764 → 2772**, 9 added and
+1 retired. All nine ops claims ok. Restart owed and taken at
+**13:41:23**; no migration.
+
+### What the sitting settled
+
+- **The entry named one writer and the box had three.**
+  `files/review.py:553`, `monitor/log_review.py:575` and
+  `monitor/health_review.py:1055` write the identical bare
+  `session.add(Alert(...))` at `info`. The symptom was one row because
+  only the disk review's scheduler path has ever fired — `disk_reviews`
+  holds 4, three of them the manual `POST` route which never announced.
+  Grepping from the symptom finds one writer; grepping the *shape*
+  finds three.
+- **The lifecycle candidate was ruled out by arithmetic, not taste.**
+  It anchors to the next run; the row was written 2026-08-17 05:45 and
+  the next generation was due 08-24 05:45, when the daemon was down
+  (first `agent_runs` row that day is 07:00). Under that fix the row is
+  open today at 271 h with the same wrong sentence.
+- **The surviving candidate needed nothing built.** Its framing —
+  *"let the tray read `/api/files/review`"* — names a tray feature that
+  does not exist; `sysadmin_tray/` holds no reference to any review
+  endpoint. `briefing/data.py`'s `_gather` reads all three review
+  tables directly and always has.
+- **The clinching observation is one payload disagreeing with itself.**
+  The briefing dropped the Weekly Disk Review as stale at 11 days
+  (`_REVIEW_FRESH_DAYS` is 8) and carried `Weekly disk review ready` in
+  the same envelope's alert digest. One announcement, two owners, and
+  only one of them holding a freshness rule.
+- **A notice was being counted as a fault by this repository's own
+  review.** `health_review._gather_alerts` takes no severity filter and
+  its sentence reads "Distinct faults alerted", so the health review
+  would have narrated its own announcement in the next week's
+  `new_titles`. The fixture had already normalised it, using
+  `"Weekly disk review ready"` as its example of a fault. Filtering the
+  query was refused — it leaves three immortal rows standing and
+  teaches the count to ignore a severity `known_noise` and
+  `COVERED_SIGNATURES` use legitimately.
+- **The suite was pinning the immortality as intended behaviour**,
+  which is why this was found by counting the table rather than by a
+  red test. `test_the_announcement_escapes_the_sysadmin_resolve_sweep`
+  treated escaping the resolve sweep as the property to protect; read
+  the other way it is the defect, since retention deletes an `alerts`
+  row only when it is resolved.
+- **The guard is two halves that fail apart, falsified rather than
+  asserted.** A stand-in that builds the row and never adds it fires
+  only the provenance half, so a behavioural test alone would have
+  passed it. The provenance half is an `ast` walk, not a grep, because
+  `health_review` legitimately imports `Alert`.
+
+### What was measured and deliberately not acted on
+
+- **The defect class is closed, not just the instance.** Every
+  remaining direct `Alert(...)` writer — `stalls.py`, `failures.py`,
+  `unit_failure.py` — has a documented, argued lifecycle;
+  `snag_claims.py`'s write is `SNAG-ESTATE-010`'s probe inside a
+  rolled-back transaction. No other family lacks one.
+- **The severity-filter question has an empty population.** Over the
+  last 7 days `alerts` holds 13 critical rows / 5 titles, 39 warning /
+  13, and **1 info** — the notice just removed. No `covered_by` or
+  `noise_reason` rows in the window, so widening
+  `health_review._gather_alerts` to exclude quietened rows would be a
+  rule tuned against zero observations. Not filed.
+
+### The near-miss worth carrying
+
+The first parser drive returned `unrecognised` / 0 entries and was one
+signature-read away from a cross-repo message accusing estate-manager
+of breaking the parse. `read_snags` takes the document *text* and reads
+a path as a one-line document; it has taken text at every commit that
+has ever touched it. **Session 108 hit this same trap earlier today and
+recorded it in the snag-list header, and it is also in memory** — so
+the note is written and not read. The recovery route was the same both
+times: read the signature before concluding anything about their tree.
+Nothing was filed, because there was nothing to file.
 
 ## Session 110 is complete — the fix landed in the ranked order, and it half-closed a different entry
 

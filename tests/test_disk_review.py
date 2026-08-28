@@ -19,7 +19,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from sysadmin.core.config import AgentsConfig, AppConfig, FileOrganiserConfig
-from sysadmin.core.models.alert import Alert
 from sysadmin.files.models.disk_review import DiskReview
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.files.review import (
@@ -572,7 +571,18 @@ class TestRunWeeklyReview:
         return session, fake_scheduler_session
 
     @pytest.mark.asyncio
-    async def test_generates_and_raises_info_alert(self):
+    async def test_generates_and_announces_nothing(self):
+        """``SNAG-AGENT-010``: the scheduler path writes no ``alerts`` row.
+
+        This asserted the opposite until 2026-08-28 — that an ``info``
+        row was raised naming ``/api/files/review``.  Nothing could
+        resolve that row (no dedup branch, no matching
+        ``RESOLVABLE_TITLE_PATTERNS`` entry) and retention deletes an
+        ``alerts`` row only ``WHERE resolved = TRUE``, so the assertion
+        was pinning an immortal row as intended behaviour.  What
+        announces the review is ``briefing/data.py``, which reads
+        ``disk_reviews`` directly and expires a stale one.
+        """
         session, ctx = self._scheduler_session()
         review = DiskReview(
             period_days=7, narrative="Disk /: 78.0% used.\nMore.", llm_used=True
@@ -585,12 +595,7 @@ class TestRunWeeklyReview:
         ):
             await run_weekly_review()
 
-        (alert,) = session.add.call_args[0]
-        assert isinstance(alert, Alert)
-        assert alert.agent == "file_organiser"
-        assert alert.severity == "info"
-        assert alert.message == "Disk /: 78.0% used."
-        assert alert.details["endpoint"] == "/api/files/review"
+        session.add.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_review_no_alert(self):

@@ -394,6 +394,43 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 111 — the notice had no lifecycle because it should never have been a row (2026-08-28) ✅
+
+**Decide `SNAG-AGENT-010`'s lifecycle** — the entry filed the question
+and left it open: resolve the previous notice when the next review is
+generated, or stop using an alert row for what is a notification.
+
+- [x] **Read the artefact before the entry.** Three modules write the identical bare `session.add(Alert(...))` at `info` — `files/review.py:553`, `monitor/log_review.py:575`, `monitor/health_review.py:1055`. The entry names one, because the symptom was one row: only the disk review's scheduler path has ever fired (`disk_reviews` holds 4, three of them the manual `POST` route which never announced)
+- [x] **Rule out the lifecycle by arithmetic rather than by taste.** It anchors to the next run; the row was written 2026-08-17 05:45 and the next generation was due 08-24 05:45, when the daemon was down — first `agent_runs` row that day is 07:00. That fix leaves the observed row open today at 271 h with the same wrong sentence
+- [x] **Measure whether anything can hear the row.** `tray.notify_min_severity` and `notifications.desktop.min_severity` both read `warning`; the row is `info`. Structurally inaudible on this box, so nothing being delivered is lost
+- [x] **Find the consumer that actually matters**, which is not the tray. `sysadmin_tray/` holds no reference to any review endpoint; `briefing/data.py`'s `_gather` reads `disk_reviews`, `log_reviews` and `health_reviews` directly and always has — so the second candidate needs nothing built behind it
+- [x] **The clinching observation, live**: the briefing dropped the Weekly Disk Review as stale at 11 days (`_REVIEW_FRESH_DAYS` is 8) and carried `Weekly disk review ready` in the same envelope's alert digest. One payload announcing a review it had itself declined to show
+- [x] **Establish the cost of leaving it.** `health_review._gather_alerts` takes no severity filter and its sentence reads "Distinct faults alerted", so each week's three notices are narrated as faults and the health review's own notice lands in the next one's `new_titles`. The repo's fixture already used `"Weekly disk review ready"` as its example of a fault
+- [x] **Refuse the cheaper fix and say why.** Filtering `info` out of the delta leaves three immortal rows standing and teaches the count to ignore a severity `known_noise` and `COVERED_SIGNATURES` use legitimately
+- [x] **Fix** — the `session.add(Alert(...))` removed from all three `run_weekly_review` functions, the `Alert` import dropped from two of them (`health_review` keeps it for four alert-delta queries), the ruling argued once in `files/review.py` and cited by the other two
+- [x] **Guard it in two halves that fail apart** — `tests/test_review_announcements.py`, 9 tests: behaviour (the scheduler path adds nothing) and provenance (no `Alert(...)` built in the entry point, by `ast` walk rather than grep, since `health_review` legitimately imports the name)
+- [x] **Falsify the separation rather than asserting it** — a stand-in that builds the row and never adds it fires only the provenance half, so a behavioural test alone would have passed it. The three reason-tests falsified at their own subjects: retention's `resolved = TRUE`, the two `config.yaml` gates, a `_gather_review` line removed
+- [x] **Retire the two tests that pinned the immortality as intended behaviour**, and record why — `test_the_announcement_escapes_the_sysadmin_resolve_sweep` treated escaping the resolve sweep as the property to protect, which is why this was found by counting the table and not by a red test
+- [x] **Verify live through the real commit path**, which the `MagicMock` fixtures cannot reach — all three entry points against the real database: `alerts` 665,937 before and after, delta 0 each, 0 residue, 0 open rows
+- [x] **Close the standing row by hand**, nothing in the code being able to reach it once the writer was gone; it is retention-reachable for the first time and purges around 2026-09-16
+- [x] **Restart the daemon**, schema checked at head first — PID 3684053 → 3716817 at 13:41:23, `/health` 200 within 2 s. The fix is inert without it and the next firing is Monday 05:00
+- [x] Re-derive the parser counts rather than carrying them — 99 entries either side, open 23 → 22, at estate-manager's committed `c545fa8`
+
+**A near-miss worth recording.** The first parser drive returned
+`unrecognised` / 0 entries and was one signature-read away from a
+cross-repo message accusing estate-manager of breaking the parse.
+`read_snags` takes the document *text*; it was handed a path, which it
+read as a one-line document. It has taken text at every commit that has
+ever touched it, so there was nothing to file. The trap is already in
+memory warning about this exact near-miss — a correction is a claim too.
+
+**Not done, and deliberately.** No check was written for the closed
+entry: a check here would assert that three modules *do not* write a
+row, which is what the suite asserts about this checkout rather than a
+claim about the box that can go stale. The box-facing half is
+`ops_claims`' `check_alerts`, which caught the fall from 1 to 0 the
+moment it happened.
+
 ## Session 110 — the fix landed in the ranked order, and it half-closed a different entry (2026-08-28) ✅
 
 **Build `SNAG-AGENT-009`'s chosen remedy** — refresh a held row's

@@ -151,7 +151,7 @@ DATA = {
         "rows": 24,
         "previous_rows": 59650,
         "by_severity": {"warning": 10, "critical": 6, "info": 1},
-        "new_titles": ["Weekly disk review ready"],
+        "new_titles": ["Critical disk usage on /"],
         "cleared_titles": ["Log error: kernel"],
     },
     "anomalies": {
@@ -756,39 +756,29 @@ class TestWiring:
         assert TABLE_TIMESTAMP_MAP["health_reviews"] == "generated_at"
         assert "health_reviews" in KEEP_LATEST_PER
 
-    def test_the_announcement_escapes_the_sysadmin_resolve_sweep(self):
-        """The cost of filing the announcement under ``sysadmin``.
+    def test_the_review_no_longer_announces_itself_with_an_alert(self):
+        """``SNAG-AGENT-010``, and what this test used to assert.
 
-        ``SysAdminAgent._resolve_recovered`` closes every open row whose
-        title matches :data:`RESOLVABLE_TITLE_PATTERNS` and whose
-        ``agent`` is its own — so an announcement raised under that agent
-        is one wrong suffix away from being resolved by the next health
-        check, five minutes after it was written.  ``failures.py``
-        already pays for this with its ``agent failing`` suffix and pins
-        it with a test; this is the same pin for the same reason.
+        Two tests stood here.  One pinned that
+        ``"Weekly system health review ready"`` matched no
+        :data:`RESOLVABLE_TITLE_PATTERNS` entry, reasoning that an
+        announcement filed under ``sysadmin`` was *"one wrong suffix away
+        from being resolved by the next health check"* — so escaping the
+        sweep was the property being protected.  Read the other way that
+        is the defect: the row could not be resolved by anything, and
+        :func:`~sysadmin.core.retention.purge_statement` deletes an
+        ``alerts`` row only when it is resolved.  The suite was pinning
+        an immortal row as intended behaviour, which is why the entry was
+        found by counting the table rather than by a red test.
 
-        Verified against the live database's own ``LIKE`` as well as
-        here, because ``fnmatch`` is an approximation of it and the
-        approximation is not what runs.
+        The other asserted the announcement named an agent
+        ``chk_alert_agent`` admits.  Both retire with the write.
+        :mod:`tests.test_review_announcements` holds the guard now, for
+        all three reviews rather than this one.
         """
-        import fnmatch
+        from tests.test_review_announcements import REVIEW_MODULES
 
-        from sysadmin.monitor.agent import RESOLVABLE_TITLE_PATTERNS
-
-        title = "Weekly system health review ready"
-        matched = [
-            p
-            for p in RESOLVABLE_TITLE_PATTERNS
-            if fnmatch.fnmatch(title, p.replace("%", "*"))
-        ]
-        assert not matched, matched
-
-    def test_the_announcement_names_an_agent_the_constraint_admits(self):
-        """``chk_alert_agent`` admits five names and the database rejects
-        any other, *after* the review has already been written."""
-        from sysadmin.monitor.self_monitor import AGENT_NAMES
-
-        assert COVERAGE_AGENT in AGENT_NAMES
+        assert "sysadmin.monitor.health_review" in REVIEW_MODULES
 
     def test_the_briefing_renders_the_section_when_a_review_exists(self):
         from sysadmin.briefing.data import render_sections
