@@ -328,6 +328,129 @@ class TestConvention:
 
 
 # ---------------------------------------------------------------------------
+# The unchecked line in every state — SNAG-DOCS-006
+# ---------------------------------------------------------------------------
+
+#: Every open entry carries a check.  The state that produced no line at
+#: all until 2026-08-28, and the state this box entered the moment
+#: ``SNAG-DOCS-006`` closed.
+ALL_CHECKED = """# Snag List
+
+## Open Issues
+
+- [P3] SNAG-DONE-001: **a checked thing** (2026-08-01)
+  - **Check**: <!--check:fake_one--> `sysadmin-check-snags` — refuted when mended
+"""
+
+#: Entries the parser reads, none of them open.  ``load_entries`` finds no
+#: problem to report, so nothing upstream catches it, and the unchecked
+#: count is nought because there was nothing to count.
+NONE_OPEN = """# Snag List
+
+## Open Issues
+
+- [P3] SNAG-GONE-001: **a thing** (2026-08-01, **fixed 2026-08-02**)
+  - **Check**: <!--check:fake_one--> `sysadmin-check-snags` — refuted when mended
+"""
+
+
+class TestTheUncheckedLineIsPublishedInEveryState:
+    """``SNAG-DOCS-006``: ``ports_checked``'s rule at the claims register.
+
+    The line was appended inside ``if unchecked:``, so *every open entry
+    is checked* and *the finding was deleted, renamed or is failing to
+    run* rendered identically — as nothing.  Each test here is falsified
+    by putting that ``if`` back: the first three then raise ``IndexError``
+    on an empty list, and the fourth reads exit ``0`` for a report that
+    looked at nothing.
+    """
+
+    @staticmethod
+    def _line(document: str, checks: dict) -> object:
+        with patch.dict(CHECKS, checks, clear=True):
+            findings = check_convention(read_entries(document), "")
+        return [f for f in findings if f.key == "convention:unchecked"][0]
+
+    def test_a_register_with_every_entry_checked_says_nought(self):
+        """The founding case: a line, a count, and ``match``."""
+        line = self._line(ALL_CHECKED, {"fake_one": _check(snag="SNAG-DONE-001")})
+        assert line.verdict == "match"
+        assert "0 of 1 open entries" in line.note
+        assert line.detail == ()
+
+    def test_a_register_with_no_open_entry_is_unknown_and_not_clean(self):
+        """The witness rule.  Nothing in this population could have differed.
+
+        ``load_entries`` reports a problem only when it reads *no* entries
+        at all, so a document whose entries are all closed parses cleanly
+        and reaches here with ``open_total == 0``.  Serving that as
+        ``match`` would be zero-because-blind dressed as
+        zero-because-clean — the defect being fixed, one level in.
+        """
+        line = self._line(NONE_OPEN, {"fake_one": _check(snag="SNAG-GONE-001")})
+        assert line.verdict == "unknown"
+        assert "no open entry" in line.note
+
+    def test_an_unchecked_entry_is_still_unknown(self):
+        """A regression pin, and it passes against the old code by design.
+
+        The fix must not have widened what an *unchecked* entry reports:
+        a claim nobody has tested is rule 5's ``unknown`` whatever else
+        moved around it.
+        """
+        line = self._line(DOCUMENT, {"fake_one": _check()})
+        assert line.verdict == "unknown"
+        assert line.detail == ("SNAG-FAKE-003",)
+
+    def test_the_key_is_the_same_line_in_all_three_states(self):
+        """What makes it publication rather than three findings.
+
+        ``ports_checked`` is one field answered in both states, not a
+        field that appears in one of them.  A reader — or a grep — finds
+        ``convention:unchecked`` whatever the register holds, and reads
+        the verdict to learn which state it is in.
+        """
+        verdicts = {
+            self._line(document, {"fake_one": _check(snag=snag)}).verdict
+            for document, snag in (
+                (ALL_CHECKED, "SNAG-DONE-001"),
+                (NONE_OPEN, "SNAG-GONE-001"),
+                (DOCUMENT, "SNAG-FAKE-001"),
+            )
+        }
+        assert verdicts == {"match", "unknown"}
+
+    def test_the_exit_status_contract_survives_the_zero(self):
+        """Why this was filed rather than fixed where it was found.
+
+        ``_convention`` returned ``unknown`` unconditionally, so
+        publishing the line in the empty state would have pinned
+        ``sysadmin-check-snags`` at exit ``2`` for ever — a change to what
+        ``claude-precommit.sh`` and ``claude-postflight.sh`` read.  A
+        report whose only convention line is the nought exits ``0``; the
+        vacuous register still exits ``2``.
+
+        **The presence assertion comes first and is what makes this
+        discriminate.**  Written as the two status assertions alone it
+        passed against the stripped code, because ``overall`` of *no*
+        findings is also ``match`` and also exits ``0`` — a status test
+        agreeing with silence, which is the very thing the entry is
+        about.  The vacuous half passed for a worse reason still: the
+        first draft's document carried no marker, so ``pin:fake_one``
+        fired and supplied the ``2`` the branch under test was supposed
+        to.
+        """
+        with patch.dict(CHECKS, {"fake_one": _check(snag="SNAG-DONE-001")}, clear=True):
+            clean = check_convention(read_entries(ALL_CHECKED), "")
+        with patch.dict(CHECKS, {"fake_one": _check(snag="SNAG-GONE-001")}, clear=True):
+            vacuous = check_convention(read_entries(NONE_OPEN), "")
+        assert [f.key for f in clean] == ["convention:unchecked"]
+        assert EXIT_STATUS[overall(clean)] == 0
+        assert [f.key for f in vacuous] == ["convention:unchecked"]
+        assert EXIT_STATUS[overall(vacuous)] == 2
+
+
+# ---------------------------------------------------------------------------
 # Verdicts
 # ---------------------------------------------------------------------------
 
@@ -2596,11 +2719,7 @@ class TestTheQuietenedJudgementCheck:
 
         title = cls._judged()[snag_claims.QUIETEN_OPEN_PORT].title
         return (
-            (
-                await session.execute(
-                    select(Alert).where(Alert.title == title, unresolved())
-                )
-            )
+            (await session.execute(select(Alert).where(Alert.title == title, unresolved())))
             .scalars()
             .first()
         )
@@ -4764,7 +4883,7 @@ class TestTheQueueTimezoneCheck:
     instants could not be answered by a fixture pretending it had.
     """
 
-    DB = '''\
+    DB = """\
 QUEUE_TZ = {queue_tz!r}
 QUEUE_SOURCE = {queue_source!r}
 QUEUE_SETTING = {setting_override!r} or QUEUE_TZ
@@ -4822,9 +4941,9 @@ class StubPool:
 
 def create_pool(dsn):
     return StubPool(dsn)
-'''
+"""
 
-    ARBITER = '''\
+    ARBITER = """\
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -4855,9 +4974,9 @@ class Arbiter:
             moment = datetime.fromisoformat(raw).astimezone(zone)
             row[name] = moment.replace(tzinfo=None) if ZONELESS else moment
         return {{"depth": 0, "active_lease": row}}
-'''
+"""
 
-    API = '''\
+    API = """\
 from collections.abc import Callable
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
@@ -4895,9 +5014,9 @@ def create_app(settings=None, *, arbiter=None):
         return stats
 
     return app
-'''
+"""
 
-    CONFIG = '''\
+    CONFIG = """\
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -4914,15 +5033,15 @@ class Settings:
 
 def load_settings(path=None):
     return Settings()
-'''
+"""
 
-    SYSTEMD = '''\
+    SYSTEMD = """\
 class UserSystemd:
     def __init__(self, runner=None):
         self.runner = runner
-'''
+"""
 
-    PROJECTS_DB = '''\
+    PROJECTS_DB = """\
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -4973,7 +5092,7 @@ def sqlalchemy_dsn(dsn):
 
 def create_engine_and_session(dsn):
     return Engine(), None
-'''
+"""
 
     def _stub(
         self,
@@ -5173,7 +5292,10 @@ def create_engine_and_session(dsn):
     def test_a_zone_that_will_not_resolve_is_unknown(self, tmp_path, monkeypatch):
         """A name neither PostgreSQL nor :mod:`zoneinfo` can place is not a default."""
         found = self._drive(
-            tmp_path, monkeypatch, queue_tz="UTC", queue_source="configuration file",
+            tmp_path,
+            monkeypatch,
+            queue_tz="UTC",
+            queue_source="configuration file",
             setting_override="Mars/Olympus",
         )
         assert found.verdict == "unknown"
@@ -5233,9 +5355,7 @@ def create_engine_and_session(dsn):
         produces a surface disagreeing with the function beneath it, and
         that is a fault this entry does not describe.
         """
-        found = self._drive(
-            tmp_path, monkeypatch, arbiter_zone="UTC", relocalise="Europe/London"
-        )
+        found = self._drive(tmp_path, monkeypatch, arbiter_zone="UTC", relocalise="Europe/London")
         assert found.verdict == "unknown"
         assert "disagree about one fact" in found.note
 
@@ -5379,9 +5499,7 @@ def create_engine_and_session(dsn):
         assert snag_claims.queue_route() == path
         tree = ast.parse(Path(snag_claims.__file__).read_text(encoding="utf-8"))
         literals = [
-            node
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Constant) and node.value == path
+            node for node in ast.walk(tree) if isinstance(node, ast.Constant) and node.value == path
         ]
         assert not literals, f"{path} is written out at line(s) " + ", ".join(
             str(node.lineno) for node in literals
@@ -5644,9 +5762,7 @@ class TestTheCheckIntervalCheck:
         real = advice._check_interval_row
 
         def widened(score, settings, interval):
-            return real(
-                dataclasses.replace(score, longest_outage_minutes=0.0), settings, interval
-            )
+            return real(dataclasses.replace(score, longest_outage_minutes=0.0), settings, interval)
 
         with patch.object(advice, "_check_interval_row", widened):
             result = snag_claims.check_check_interval_looks_away()
@@ -5738,8 +5854,7 @@ class TestTheCheckIntervalCheck:
             rows.extend(
                 log_actions._noise_recommendation(trend)
                 for trend in report.signatures
-                if trend.change is kind
-                and trend.current >= log_actions.NOISE_MIN_OCCURRENCES
+                if trend.change is kind and trend.current >= log_actions.NOISE_MIN_OCCURRENCES
             )
             return rows
 
@@ -5828,7 +5943,7 @@ class TestTheAuditCodeCheck:
     #: order the real route asks for them.  Held as source rather than
     #: built, because what is being exercised is the stand-in's dispatch
     #: over statements the producer wrote.
-    ROUTE = '''\
+    ROUTE = """\
 from typing import Any
 
 from fastapi import Depends
@@ -5850,7 +5965,7 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
     await session.execute(select(AuditRun.id, AuditRun.started_at))
     await session.execute(select(AuditFinding.fingerprint, AuditFinding.run_id))
     return {"run": {"run_id": str(run.id)}, "findings": [PAYLOAD(row) for row in rows]}
-'''
+"""
 
     def _stub(
         self,
@@ -5893,10 +6008,10 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
             "    @property\n"
             "    def fingerprint(self):\n"
             '        return ":".join(str(getattr(self, n, "")) for n in '
-            f'{tuple(line.split(":")[0] for line in finding_fields)!r})\n\n'
+            f"{tuple(line.split(':')[0] for line in finding_fields)!r})\n\n"
             "    def as_payload(self):\n"
             "        out = {n: getattr(self, n) for n in "
-            f'{tuple(line.split(":")[0] for line in finding_fields)!r}}}\n'
+            f"{tuple(line.split(':')[0] for line in finding_fields)!r}}}\n"
             '        out["fingerprint"] = self.fingerprint\n'
             '        out["detail"] = self.detail\n'
             "        return out\n",
@@ -5982,9 +6097,7 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
             raise httpx.ConnectError("nothing is listening in this test")
 
         chosen = handler if payload is not None else unreachable
-        return lambda: httpx.AsyncClient(
-            transport=httpx.MockTransport(chosen), timeout=5.0
-        )
+        return lambda: httpx.AsyncClient(transport=httpx.MockTransport(chosen), timeout=5.0)
 
     @staticmethod
     def _served(**over):
@@ -6065,9 +6178,7 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         assert found.verdict == "mismatch"
         assert "now publishes 'code'" in found.note
 
-    def test_a_code_inside_detail_is_refuted_with_a_line_owed_here(
-        self, tmp_path, monkeypatch
-    ):
+    def test_a_code_inside_detail_is_refuted_with_a_line_owed_here(self, tmp_path, monkeypatch):
         """The one refutation that owes *this* repository an edit.
 
         ``judge_audit_findings`` reads ``finding.get("code")`` at the top
@@ -6100,18 +6211,14 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         assert found.verdict == "mismatch"
         assert "no longer computes a 'code'" in found.note
 
-    def test_the_column_landing_alone_is_match_with_the_residue_named(
-        self, tmp_path, monkeypatch
-    ):
+    def test_the_column_landing_alone_is_match_with_the_residue_named(self, tmp_path, monkeypatch):
         """A fix in flight must not read as silence.
 
         The claim is about the wire, so a column with no key leaves it
         standing — but a sitting reading ``still holds`` with no note
         cannot tell a producer that has started from one that has not.
         """
-        found = self._drive(
-            tmp_path, monkeypatch, wire=self._served(), code_column=True
-        )
+        found = self._drive(tmp_path, monkeypatch, wire=self._served(), code_column=True)
         assert found.verdict == "match"
         assert "now carries a 'code' column" in found.note
         assert "the claim is unmoved" in found.note
@@ -6148,9 +6255,7 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         )
         assert found.verdict == "mismatch"
 
-    def test_a_detail_key_merely_containing_code_is_not_a_code_key(
-        self, tmp_path, monkeypatch
-    ):
+    def test_a_detail_key_merely_containing_code_is_not_a_code_key(self, tmp_path, monkeypatch):
         """Exact keys, never a substring.
 
         The live ``docs`` finding carries ``last_code_commit`` in its
@@ -6167,9 +6272,7 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         )
         assert found.verdict == "match", found.note
 
-    def test_the_wire_refutes_through_a_detail_blob_with_the_line_owed(
-        self, tmp_path, monkeypatch
-    ):
+    def test_the_wire_refutes_through_a_detail_blob_with_the_line_owed(self, tmp_path, monkeypatch):
         """The deployed surface can refute either way it publishes the code.
 
         Read as well as collected: a ``detail_keys`` gathered from the
@@ -6184,9 +6287,7 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         assert "inside a finding's detail blob" in found.note
         assert "one line is owed here" in found.note
 
-    def test_an_unreadable_wire_leaves_the_specimen_answering(
-        self, tmp_path, monkeypatch
-    ):
+    def test_an_unreadable_wire_leaves_the_specimen_answering(self, tmp_path, monkeypatch):
         """8400 being down is not this entry's business.
 
         ``sysadmin.estate.client``'s own docstring refuses to judge the
@@ -6206,9 +6307,7 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         goal rather than a remote possibility, so a wire-only check would
         go blind on precisely the morning it succeeded.
         """
-        found = self._drive(
-            tmp_path, monkeypatch, wire={"run": {"run_id": "r"}, "findings": []}
-        )
+        found = self._drive(tmp_path, monkeypatch, wire={"run": {"run_id": "r"}, "findings": []})
         assert found.verdict == "match"
         assert "served 0 findings" in found.detail[5]
 
@@ -6338,8 +6437,7 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         poison = probe.index("projects_db.get_db_session = refuse")
         router = probe.index("from estate_service.audit import router")
         assert poison < router, (
-            "the poison is installed after the router captured the dependency, so it "
-            "guards nothing"
+            "the poison is installed after the router captured the dependency, so it guards nothing"
         )
 
     def test_the_surface_and_the_field_are_not_typed_as_a_path(self):
@@ -6358,7 +6456,5 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         """Rule 4's pin, for the entry this sitting added."""
         check = snag_claims.CHECKS["audit_code_unpublished"]
         assert check.snag == "SNAG-ESTATE-006"
-        entry = next(
-            e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-ESTATE-006"
-        )
+        entry = next(e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-ESTATE-006")
         assert "audit_code_unpublished" in entry.markers

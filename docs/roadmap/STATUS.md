@@ -3,111 +3,78 @@
 **Last Updated**: 2026-08-28
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **Costed both ways, the cheap fix bought a quarter of the fault for
-> more work.** `SNAG-LOG-006` is **FIXED**. Its entry filed two
-> candidates as *"neither costed"*; the costing inverts the ranking it
-> implied. `BaseAgent.run` swallows `_execute`'s exception, so the
-> exceptions that escape it come from the bookkeeping around the work —
-> **four shapes**, driven through the real `run()`: `_execute` *and*
-> `_record_outcome` raising (journal holds `agent_run_failed`),
-> `_record_outcome` alone (`agent_run_completed`), `_record_start`
-> (**no line at all**) and `_flush_events` (`agent_run_completed`).
+> **A register in which everything is checked said nothing; it says
+> nought now.** `SNAG-DOCS-006` is **FIXED**. `check_convention` appended
+> its `convention:unchecked` finding inside `if unchecked:`, so *every
+> open entry carries a check* and *the finding was deleted, renamed, or
+> is failing to run* rendered identically — as no line at all. It is
+> `ports_checked`'s rule arriving at this repository's own claims
+> register, the one surface where the rule had never been applied,
+> because until 2026-08-27 nobody had seen the zero.
 >
-> **The cheap candidate reaches one of those four.** Narrowing
-> `COVERED_SIGNATURES` to `run_type == "scheduled"` can only speak where
-> an `agent_run_failed` line **exists**; the other three write no line
-> for a narrowed cover to un-quieten, and one writes nothing whatever.
-> It is also the *more* expensive — it needs `unwrap_json_message` to
-> promote `run_type` out of the envelope, which that function's own
-> docstring refuses, and gives `COVERED_SIGNATURES` a third key
-> component `known_noise` does not share.
+> **The blocker the entry filed was a contract, and it is honoured
+> rather than changed.** `_convention` returned `unknown`
+> unconditionally, so publishing a zero line would have pinned
+> `sysadmin-check-snags` at exit **2** for ever. Giving *one* family a
+> verdict is what avoids that: `marker:` and `pin:` are faults by
+> construction — neither has a state of the world in which the line is
+> good news — so they keep the default, and
+> `scripts/check-snag-claims.sh`'s documented exit statuses need no edit.
 >
-> **The entry names the wrong second trigger and its own check could
-> not have said so.** `POST /api/files/organise` is a *synchronous*
-> action route returning `FileActionResponse`; the discarded task was in
-> `POST /api/files/scan`. `check_manual_run_unawaited` counted five
-> discards across two *files* and never named a route, so it stayed
-> `match` either side of the misdescription — the right number about the
-> wrong thing.
+> **Three states, and the third is the one the fix could most easily
+> have got wrong.** A non-empty set is `unknown`, unchanged. An empty
+> set **over a population** is `match`. An empty set over **no open
+> entries at all** is `unknown` again — a document whose entries are all
+> closed parses cleanly, so it reaches the count with `open_total == 0`
+> and a nought nothing could have made non-zero. Served as `match` that
+> is zero-because-blind wearing zero-because-clean, which is the defect
+> being fixed, one level inside its own application.
 >
-> **The residual signal is measured now, and *when* was never the
-> problem.** The entry filed asyncio's fallback as real but unmeasured.
-> It fires at `ERROR` on the loop turn **after** the task completes —
-> prompt, not GC-deferred, and no `gc.collect()` helps or is needed.
-> **What** it emits is the defect: a **252-character signature** and a
-> **220-character title** reading `Task exception was never retrieved
-> future: <Task finished name='Task-N' coro=<BaseAgent.run() done,
-> defined at …/sysadmin/core/agent.py:N> …` — `SNAG-LOG-003`'s shape by
-> the one route `unwrap_json_message` cannot help, since the *unwrapped*
-> message is itself the repr. It names `BaseAgent.run`, so all five
-> triggers share one signature and the row cannot say which agent died;
-> it carries the module path, so moving `run()` forks the row on a
-> commit that changed nothing; and the exception's own text sits inside
-> the repr, so on a shorter checkout path it falls inside the cap and
-> forks a row per distinct failure.
+> **Live either side, and this entry was the last member of its own
+> population.** `?? … 1 of 21 open entries … SNAG-DOCS-006` became
+> `ok … 0 of 20 open entries carry no check`, and the report's exit went
+> **2 → 0** — the first 0 in `sysadmin-check-snags`' life, since the
+> unchecked line has been non-empty on every run since the module
+> shipped at 16 of 24.
 >
-> **The fix reports to the journal and never to the database**, because
-> the exceptions that reach it *are* database failures —
-> `unit_failure.py`'s argument, which runs while the application is
-> dead, one layer in. `spawn_manual_run` holds the reference and
-> `_report_manual_run` speaks; `manual_run_failed` has a **17-character
-> signature and a 46-character title**, with `exc_info` measured landing
-> under its own envelope key so the traceback stays out of the identity
-> and one query away in `raw_line`.
+> **Two of the five falsifications passed against deliberately broken
+> code**, which is the part worth carrying. `overall([])` is `match` and
+> exits `0`, so the exit-status test written as two status assertions
+> *agreed with the silence it exists to catch*; and the vacuous fixture
+> carried no marker, so `pin:fake_one` fired and supplied the `2` the
+> branch under test was meant to supply. Asserting the finding's
+> **presence** before its status is what makes it discriminate — Session
+> 78's `waived=True` test and Session 80's interned-string check, met a
+> third time. A sixth passes against the old code **by design** and says
+> so: it is the regression pin that an unchecked entry still reports
+> `unknown`.
 >
-> **It cannot double-report an ordinary failure, and that is what makes
-> the journal enough.** A normal agent failure *returns normally*, so
-> the callback sees no exception at all — `failures.py`/`stalls.py`'s
-> mutual exclusion one layer down, and the healthy-run test is what
-> keeps it honest.
->
-> **Cancellation is recorded and not announced**, at `warning`, which
-> `FAULT_SEVERITIES` excludes: stored, counted, carried into
-> `GET /api/logs/trends`, raising nothing. That tuple was extracted from
-> an inline literal in `LogAggregatorAgent._execute` so the rung is
-> derived rather than restated.
->
-> **The check retires with the entry; the detector does not.** Every
-> member of `CHECKS` names an *open* entry, so `manual_run_unawaited`
-> is gone — the AST walk lives on as `TestNoTriggerDiscardsItsTask`,
-> `FROZEN_TABLES`' rule, since deleting a guard with its last finding
-> takes the guard against the defect coming back.
->
-> **A restart was owed and taken.** The daemon was restarted at
-> **2026-08-28 14:13:52** <!--check:deploy--> <!--check:daemon_start-->
-> (PID 3716817 → 3745842), `/health` answers **200** <!--check:health-->,
+> **A restart was owed and taken, and it was owed for a file the daemon
+> never imports.** The daemon was restarted at
+> **2026-08-28 14:44:14** <!--check:deploy--> <!--check:daemon_start-->
+> (PID 3745842 → 3801574), `/health` answers **200** <!--check:health-->,
 > `alembic current` reads 017 at the packaged head <!--check:schema-->,
 > and `alerts` holds **0** unresolved rows <!--check:alerts--> with
 > **0** named here <!--check:open_titles-->. The schema was checked at
-> head *before* the signal, `SNAG-DB-005`'s rule.
->
-> **Verified live and untriggered**, the same position `SNAG-LOG-005`
-> shipped in: the real `POST /api/sysadmin/scan-all` on the restarted
-> daemon put all four agents through `spawn_manual_run` and produced
-> **four `agent_run_completed` lines and zero `manual_run_failed`**. The
-> reporting path is wired rather than assumed — `log_entries` holds 153
-> `warning` and 24 `error` rows for `sysadmin.service`, the newest
-> stamped one second after the restart.
+> head *before* the signal, `SNAG-DB-005`'s rule. Nothing in the served
+> application imports `sysadmin/snag_claims.py` — it is a composition
+> root reached only by its console script — but the deploy check
+> compares file mtimes and cannot know that, which its own docstring
+> names as the cost it pays in the direction that is merely wasteful.
 >
 > **Alembic head is 017**<!--check:migration_head--> and the live schema
 > matches it. Unmoved — this sitting wrote code and no migration.
 >
-> **The suite is 2790**, from 2772: **20 added and 2 retired**.
-> `tests/test_manual_run_supervision.py` is the twenty; the two that
-> went are `check_manual_run_unawaited`'s and `discarded_tasks`', which
-> retire with the entry. **Ten mutations were driven and each lands red
-> on the right test** — and two of them were wrong on the first attempt:
-> removing the `finally` produced a `SyntaxError` rather than a leak, so
-> it had to be rewritten as a discard moved *inside* the guard, and the
-> priority round-trip test read `PRIORITY_MAP` with an `int` key when
-> the map is keyed on the string journalctl emits.
+> **The suite is 2795**, from 2790: **5 added and none retired**, all
+> five in `tests/test_snag_claims.py`. Stripping the two new branches
+> lands **4 of them red** and leaves the stated regression pin green.
 >
 > **The entry counts were re-derived, not carried**: **99 entries either
-> side, open 22 → 21**, through `estate.snags.read_snags` at
-> estate-manager's `c545fa8`. Their tree is dirty in three files
-> (`CLAUDE.md`, `service/audit.yaml`, `service/estate_service/audit/agent.py`),
-> none in the parser's path — recorded rather than assumed away, because
-> a cross-repo instrument's state belongs beside its verdict.
+> side, open 21 → 20**, through `estate.snags.read_snags` — which
+> resolves to `estate-manager/lib/estate/snags.py`, that repository at
+> `3c62563` with a **clean** tree. This repository's own reader agrees
+> on both numbers, which is rule 8's pin holding without the venv the
+> live half of it needs.
 
 ## Quick Status
 
@@ -129,6 +96,53 @@
 ---
 
 ## Recently Completed
+
+### Session 113 — the register says nought instead of falling silent (2026-08-28)
+
+`SNAG-DOCS-006` is **fixed**. `check_convention` appended its
+`convention:unchecked` finding inside `if unchecked:`, so a register in
+which every open entry carries a check said *nothing* about the
+convention — indistinguishable, to a reader of `sysadmin-check-snags`,
+from the finding having been deleted, renamed, or failing to run. The
+line is published in every state now. `ports_checked`'s rule at this
+repository's own claims register, which was the one surface it had never
+reached, because nobody had seen the zero until 2026-08-27.
+
+**The blocker was a contract and it is honoured rather than changed.**
+`_convention` returned `unknown` unconditionally, so a zero line would
+pin the tool at exit **2** for ever — which `claude-precommit.sh` and
+`claude-postflight.sh` read. It takes a `verdict` now, defaulting to
+`unknown`, so the two families that are faults by construction (`marker:`
+and `pin:`) are untouched and only the family that *can* hold gained the
+ability to say so.
+
+**Three states.** A non-empty set is `unknown`, unchanged. An empty set
+over a population is `match`. An empty set over **no open entries at
+all** is `unknown` again — reachable, because a document whose entries
+are all closed parses cleanly and `load_entries` reports a problem only
+when it reads no entries whatever, so the count is vacuous rather than
+good. Serving that as `match` would be zero-because-blind wearing
+zero-because-clean, one level inside the fix for exactly that.
+
+**This entry was the last member of its own population**, so closing it
+drove the new branch live in the same sitting: `?? … 1 of 21 …
+SNAG-DOCS-006` became `ok … 0 of 20 open entries carry no check`, and
+the report exited **0** for the first time since the module shipped at
+16 of 24 unchecked.
+
+**Two of the five falsifications passed against deliberately broken
+code.** `overall([])` is `match` and exits `0`, so an exit-status test
+written as two status assertions agreed with the silence it exists to
+catch; and the vacuous fixture carried no marker, so `pin:fake_one`
+fired and supplied the `2` the branch under test was meant to supply.
+Both repaired by asserting the finding's presence before its status. A
+sixth passes against the old code by design and says so — the regression
+pin that an unchecked entry still reports `unknown`.
+
+No check was added and none retired: the entry never had one, so
+checks-in-registry is unmoved at **20**. Suite 2790 → **2795**. Daemon
+restarted at 14:44:14 for a file it does not import, which is the deploy
+check's stated cost.
 
 ### Session 112 — the cheap fix reached one shape of four (2026-08-28)
 

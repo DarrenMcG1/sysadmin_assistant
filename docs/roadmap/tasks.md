@@ -394,6 +394,50 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 113 — the register says nought instead of falling silent (2026-08-28) ✅
+
+**Fix `SNAG-DOCS-006`.** `check_convention` appended its
+`convention:unchecked` finding inside `if unchecked:`, so a register in
+which every open entry carries a check reported no line at all — and a
+reader could not tell that from the finding having been deleted, renamed,
+or failing to run. `ports_checked`'s rule arriving at this repository's
+own claims register.
+
+- [x] `_convention` takes a `verdict`, defaulting to `unknown`, so
+      `marker:` and `pin:` — faults by construction — are untouched and
+      only the family that can *hold* gained the ability to say so. That
+      is what honours the exit-status contract the entry was filed on:
+      publishing a zero line at `unknown` would have pinned
+      `sysadmin-check-snags` at exit **2** for ever
+- [x] `check_convention` publishes the line in all three states.
+      Non-empty set → `unknown`, unchanged. Empty **over a population**
+      → `match`. Empty over **no open entries at all** → `unknown`, the
+      vacuous case, because a document whose entries are all closed
+      parses cleanly and nothing could have made the count non-zero
+- [x] Five tests in `tests/test_snag_claims.py`. Stripping the two new
+      branches lands **4 red**; the fifth is a stated regression pin and
+      passes against the old code by design
+- [x] Two falsifications were repaired after passing against broken
+      code — `overall([])` is `match` and exits `0`, and the vacuous
+      fixture's missing marker let `pin:fake_one` supply the exit `2`
+      the branch under test was meant to supply
+- [x] Closed the entry, which took the unchecked set to nought and drove
+      the new branch live in the same sitting: `1 of 21` → `0 of 20`,
+      report exit **2 → 0**
+- [x] Entry counts re-derived through `estate.snags.read_snags`
+      (estate-manager `3c62563`, clean tree): 99 either side, open
+      21 → 20 — agreeing with this repository's own reader
+
+**Not done, and named**: no check was added, because the entry never had
+one and is closing — checks-in-registry is unmoved at **20** and the
+`convention:unchecked` line now reports nought rather than the entry that
+used to be its only member. `SNAG-PORT-003` was the other unchecked entry
+when Session 106 counted two; it is closed, so today's zero is real and
+not an artefact of the count. `SNAG-DOCS-006`'s own `Check:` bullet
+called for a test driving `check_convention`'s `Finding` objects, and
+`TestTheUncheckedLineIsPublishedInEveryState` is that test rather than a
+registry entry.
+
 ## Session 112 — the cheap fix reached one shape of four (2026-08-28) ✅
 
 **Cost `SNAG-LOG-006`'s two candidate fixes and build the honest one.**

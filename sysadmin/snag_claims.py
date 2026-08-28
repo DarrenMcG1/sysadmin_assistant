@@ -2996,11 +2996,7 @@ class QuietenReading:
         claim than "nothing happened", and a reader of the note needs to
         be able to tell those apart.
         """
-        return (
-            self.open_rows != 1
-            or self.open_resolved
-            or self.open_after != self.open_before
-        )
+        return self.open_rows != 1 or self.open_resolved or self.open_after != self.open_before
 
     @property
     def moved(self) -> tuple[str, ...]:
@@ -4007,9 +4003,7 @@ async def _unresolved_titles(session, titles: Iterable[str]) -> tuple[str, ...]:
     from sysadmin.core.models.alert import Alert, unresolved
 
     rows = await session.scalars(
-        select(Alert.title)
-        .where(Alert.title.in_(list(titles)), unresolved())
-        .distinct()
+        select(Alert.title).where(Alert.title.in_(list(titles)), unresolved()).distinct()
     )
     return tuple(sorted(rows))
 
@@ -5717,9 +5711,7 @@ def check_queue_stamps_local() -> Measurement:
     where = "unmeasured"
     if served is not None and arbiter is not None:
         if arbiter.stamps_utc and served.stamps_utc:
-            where = (
-                "UTC at both layers, so the rendering is decided at or below invariants()"
-            )
+            where = "UTC at both layers, so the rendering is decided at or below invariants()"
         elif served.stamps_utc:
             where = (
                 "invariants() hands a local instant up and the route publishes UTC, so the "
@@ -6126,9 +6118,7 @@ def blip_contention_reading() -> tuple[BlipContentionReading | None, str]:
             occurrences=loud,
             noise_floor=log_actions.NOISE_MIN_OCCURRENCES,
             log_reach=tuple(
-                module
-                for module in BLIP_LOG_MODULES
-                if importers_of(module, [BLIP_ADVICE_PATH])
+                module for module in BLIP_LOG_MODULES if importers_of(module, [BLIP_ADVICE_PATH])
             ),
         ),
         "",
@@ -6232,8 +6222,7 @@ def check_check_interval_looks_away() -> Measurement:
         f"(floor {reading.noise_floor}): old and flat -> noise, "
         f"new -> {reading.loud_new_kind or '(silent)'}, "
         f"surged -> {reading.loud_surged_kind or '(silent)'}, "
-        f"quiet and flat -> "
-        + ("noise" if reading.noise_on_quiet_and_flat else "(silent)"),
+        f"quiet and flat -> " + ("noise" if reading.noise_on_quiet_and_flat else "(silent)"),
         "advice module importing a log family: "
         + (", ".join(reading.log_reach) if reading.log_reach else "none"),
     )
@@ -6877,8 +6866,32 @@ class Finding:
     detail: tuple[str, ...] = field(default_factory=tuple)
 
 
-def _convention(key: str, subject: str, note: str, detail: tuple[str, ...] = ()) -> Finding:
-    return Finding(key, None, subject, "convention", "unknown", note, detail)
+def _convention(
+    key: str,
+    subject: str,
+    note: str,
+    detail: tuple[str, ...] = (),
+    verdict: Verdict = "unknown",
+) -> Finding:
+    """One convention finding, ``unknown`` unless the caller says otherwise.
+
+    **Two of the three families are faults by construction.**  A marker
+    naming no check, and a check whose entry does not carry it, are both
+    the document and the registry out of step; neither has a state of the
+    world in which the line is good news, so neither is ever emitted
+    holding and both keep the default.  Rule 5 with them.
+
+    **The third can hold, and giving it a verdict is what ``SNAG-DOCS-006``
+    cost.**  A finding published in *every* state needs an answer for the
+    state where nothing is wrong, or publishing it pins
+    ``sysadmin-check-snags`` at exit ``2`` for ever — and
+    :data:`sysadmin.core.schema_guard.EXIT_STATUS` gives ``unknown`` its
+    own rung precisely so a check that could not run is told apart from
+    one that failed.  So the parameter is here rather than the verdict
+    being widened for all three: what changed is what *one* family can
+    report, not what a convention finding means.
+    """
+    return Finding(key, None, subject, "convention", verdict, note, detail)
 
 
 def run_check(check: Check) -> Finding:
@@ -6923,6 +6936,28 @@ def check_convention(entries: list[Entry], entries_problem: str) -> list[Finding
     hand sweep was.  Reported as a count with the ids named, because a
     count that cannot name anything is ``SNAG-ESTATE-001``'s defect and
     this document is where that was learned.
+
+    **That third line is published in every state, which is
+    ``SNAG-DOCS-006``** — ``ports_checked``'s rule arriving at this
+    repository's own claims register.  It was appended inside ``if
+    unchecked:`` until 2026-08-28, so a register in which every open
+    entry carried a check said *nothing* about the convention, and a
+    reader could not tell that from the finding having been deleted,
+    renamed, or failing to run.  Emitting the line only when the set is
+    empty is the mirror of the same defect and was refused with it.
+
+    Three states, and the third is the one the fix could most easily have
+    got wrong.  A non-empty set is ``unknown`` and unchanged — an entry
+    nobody checks is a claim nobody has tested, which is rule 5.  An
+    empty set **over a population** is ``match``: something in the
+    register could have forced the other answer and did not.  An empty
+    set over **no open entries at all** is ``unknown`` again, because
+    nothing could have made it non-zero — zero-because-blind served as
+    zero-because-clean is the defect being fixed, one level in, and a
+    constant observation is not evidence without a witness that could
+    have differed.  Reachable and empty today: a document whose entries
+    are all closed parses cleanly, so :func:`load_entries` reports no
+    problem and the count is vacuous rather than good.
     """
     if entries_problem:
         return [_convention("convention:document", "Snag list", entries_problem)]
@@ -6959,6 +6994,7 @@ def check_convention(entries: list[Entry], entries_problem: str) -> list[Finding
         )
 
     checked = {check.snag for check in CHECKS.values()}
+    open_total = sum(1 for entry in entries if entry.is_open)
     unchecked = [
         entry.snag_id or entry.title[:40]
         for entry in entries
@@ -6972,9 +7008,28 @@ def check_convention(entries: list[Entry], entries_problem: str) -> list[Finding
             _convention(
                 "convention:unchecked",
                 "Open entries no check names",
-                f"{len(unchecked)} of {sum(1 for e in entries if e.is_open)} open entries "
+                f"{len(unchecked)} of {open_total} open entries "
                 "carry no check — their claims are only as fresh as the last hand sweep",
                 named,
+            )
+        )
+    elif open_total:
+        findings.append(
+            _convention(
+                "convention:unchecked",
+                "Open entries no check names",
+                f"0 of {open_total} open entries carry no check — every one names a check, "
+                "and the lines above are what those checks found",
+                verdict="match",
+            )
+        )
+    else:
+        findings.append(
+            _convention(
+                "convention:unchecked",
+                "Open entries no check names",
+                "the document holds no open entry, so nothing could have been reported "
+                "unchecked — the absence of a population, not a clean one",
             )
         )
     return findings
