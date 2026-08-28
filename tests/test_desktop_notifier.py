@@ -434,6 +434,12 @@ class _FakeSession:
 
     def __init__(self, still_open, stored, adoptable):
         self.still_open = still_open
+        #: The rung each open row currently carries, for the titles where
+        #: it is not the one ``announce`` opens at. The sweep reads it
+        #: rather than trusting what this process announced
+        #: (``SNAG-ESTATE-010``), so a fake answering the title alone
+        #: could not model a row that had been quietened underneath it.
+        self.open_rungs: dict[str, str] = {}
         self.stored = stored
         #: ``(title, opened_at_seconds, [severity, ...])`` — what a
         #: ``GROUP BY title`` over the open rows would yield.
@@ -460,11 +466,12 @@ class _FakeSession:
         return 1
 
     async def scalars(self, stmt, *_a, **_k):
-        if stmt.column_descriptions[0]["entity"] is DesktopNotification:
-            self.queries.append("load")
-            return list(self.stored)
-        self.queries.append("still_open")
-        return list(self.still_open)
+        assert stmt.column_descriptions[0]["entity"] is DesktopNotification, (
+            "the only `scalars` caller left is the store's load; "
+            "`_still_open` reads two columns and goes through `execute`"
+        )
+        self.queries.append("load")
+        return list(self.stored)
 
     async def execute(self, stmt, *_a, **_k):
         if isinstance(stmt, Delete):
@@ -486,6 +493,18 @@ class _FakeSession:
                 # a stale row is still there and pass.
                 self.rows[row["title"]] = row
             return MagicMock()
+        if len(stmt.column_descriptions) == 2:
+            # `_still_open`: title and severity, one row per open alert.
+            # Told apart from the adoption scan by its shape rather than
+            # by call order — that scan aggregates and comes back with
+            # three columns. Answering by statement is this fake's whole
+            # contract.
+            self.queries.append("still_open")
+            result = MagicMock()
+            result.__iter__ = lambda _self: iter(
+                [(title, self.open_rungs.get(title, "critical")) for title in self.still_open]
+            )
+            return result
         self.queries.append("adopt")
         # The cap and the exclusion are enforced **in SQL**, so a fake
         # that returned everything it was holding would report an
@@ -569,10 +588,19 @@ def wired(
 
 
 async def announce(desktop, *, title: str = None, severity: str = "critical", **kw):
-    """Drive the raise path once, so the sweep has something to restate."""
+    """Drive the raise path once, so the sweep has something to restate.
+
+    The rung is stamped on the fake table as well as on the notifier,
+    because a raise puts a row in ``alerts`` and the sweep reads it back
+    (``SNAG-ESTATE-010``). A helper that recorded only what this process
+    said would leave the two disagreeing for every announcement above or
+    below the default, and the disagreement would look like the code.
+    """
     event = dict(RAISED, severity=severity)
     if title is not None:
         event["title"] = title
+    session = desktop._session_factory()
+    session.open_rungs[event["title"]] = severity
     with wired(**kw), patch.object(desktop, "send", new=AsyncMock(return_value=True)):
         await desktop.on_alert_raised(event)
 
@@ -782,6 +810,98 @@ class TestTheRepeatPath:
 
         send.assert_not_awaited()
 
+    async def test_a_fault_quietened_underneath_us_stops_being_restated(self):
+        """``SNAG-ESTATE-010``'s second speaker.
+
+        The tray is fixed for free — the old ``{severity}:{title}`` pair
+        leaves the poll and the new one is dropped below
+        ``notify_min_severity``. This module is not: it speaks from
+        ``_spoken``, whose rung is the one it *announced*, so an
+        understudy carrying that would go on restating at ``warning`` a
+        fault the judge has since decided is ``info`` — the founding
+        entry surviving inside the fix for it, and in the one component
+        that exists for the case where the tray is down.
+        """
+        clock = _Clock()
+        desktop, session, _ = sweeper(clock, ["Estate port 3110 registry breach"])
+        await announce(
+            desktop, title="Estate port 3110 registry breach", severity="warning"
+        )
+
+        session.open_rungs["Estate port 3110 registry breach"] = "info"
+        clock.advance_hours(24)
+        with wired(), patch.object(desktop, "send", new=AsyncMock()) as send:
+            assert await desktop.sweep_reminders() == 0
+
+        send.assert_not_awaited()
+        # Kept, not dropped: the fault is still open and still ours, and
+        # a row that goes loud again must not arrive as news from a
+        # process that never stopped watching it.
+        assert "Estate port 3110 registry breach" in desktop._spoken
+        assert desktop._spoken["Estate port 3110 registry breach"].severity == "info"
+
+    async def test_a_fault_that_stayed_loud_is_still_restated(self):
+        """The witness for the test above.
+
+        A sweep that had stopped reminding at all — a broken threshold, a
+        clock that never advances — leaves that fault silent for reasons
+        of its own and looks identical. Same fixture, one variable: the
+        row's rung never moved.
+        """
+        clock = _Clock()
+        desktop, _, _ = sweeper(clock, ["Estate port 3110 registry breach"])
+        await announce(
+            desktop, title="Estate port 3110 registry breach", severity="warning"
+        )
+
+        clock.advance_hours(24)
+        with wired(), patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send:
+            assert await desktop.sweep_reminders() == 1
+
+        send.assert_awaited_once()
+
+    async def test_the_loudest_of_two_open_rows_wins(self):
+        """An escalation is a resolved row and a fresh one under one title.
+
+        For the beat in which both are open the read must not quieten the
+        fault on the strength of the row that is on its way out —
+        ``_loudest``'s rule, which a roll-up already obeys.
+        """
+        clock = _Clock()
+        desktop, session, _ = sweeper(clock, ["a fault", "a fault"])
+        await announce(desktop, title="a fault", severity="warning")
+        session.open_rungs["a fault"] = "info"
+
+        with wired():
+            current = await desktop._still_open({"a fault"})
+
+        assert current == {"a fault": "info"}
+        # …and with the two rungs actually differing, the loud one wins.
+        session.still_open[:] = ["a fault"]
+        original = session.execute
+        rungs = ("info", "critical")
+
+        async def two_rows(stmt, *a, **k):
+            result = await original(stmt, *a, **k)
+            if len(stmt.column_descriptions) == 2:
+                result.__iter__ = lambda _s: iter(
+                    [("a fault", rungs[0]), ("a fault", rungs[1])]
+                )
+            return result
+
+        session.execute = two_rows
+        # **Both orderings.** The query has no ORDER BY, so which row
+        # arrives first is PostgreSQL's business — and a "last one wins"
+        # implementation answers correctly for exactly one of the two.
+        # Driven at only the loud-last ordering this assertion passed
+        # against a version with no `_loudest` call in it at all.
+        for pair in (("info", "critical"), ("critical", "info")):
+            rungs = pair
+            with wired():
+                assert await desktop._still_open({"a fault"}) == {
+                    "a fault": "critical"
+                }, rungs
+
     async def test_zero_hours_disables_reminders(self):
         clock = _Clock()
         desktop, session, _ = sweeper(clock)
@@ -804,7 +924,13 @@ class TestTheSweepFailsClosed:
         clock = _Clock()
         desktop, session, _ = sweeper(clock)
         await announce(desktop)
+        # Both readers, not one: the sweep asks two questions of the
+        # database and breaking whichever method a given release happens
+        # to use would let the next one through — which is how this test
+        # went green against a sweep that had stopped calling `scalars`
+        # for the open check at all.
         session.scalars = AsyncMock(side_effect=RuntimeError("connection reset"))
+        session.execute = AsyncMock(side_effect=RuntimeError("connection reset"))
 
         clock.advance_hours(24)
         with wired(), patch.object(desktop, "send", new=AsyncMock()) as send:
@@ -818,6 +944,7 @@ class TestTheSweepFailsClosed:
         desktop, session, _ = sweeper(clock)
         await announce(desktop)
         session.scalars = AsyncMock(side_effect=RuntimeError("connection reset"))
+        session.execute = AsyncMock(side_effect=RuntimeError("connection reset"))
 
         clock.advance_hours(24)
         with wired():

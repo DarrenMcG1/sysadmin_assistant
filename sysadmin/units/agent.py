@@ -81,6 +81,23 @@ ARMED_TITLE_PREFIX = "Orphaned unit still enabled"
 #: from that sweep.
 PORT_TITLE_PREFIX = "Port collision on"
 
+#: The rung the port-collision family raises at, and the one it hands
+#: :meth:`~sysadmin.core.agent.BaseAgent.refresh_alert` when a row is
+#: already open.
+#:
+#: A constant rather than the two literals it replaces, because the two
+#: statements had to agree and nothing made them: the raise said
+#: ``"warning"`` and the refresh said nothing at all.  Its population is
+#: **empty by construction today** — one rung means
+#: :func:`~sysadmin.core.escalation.may_quieten_in_place` can only ever
+#: answer ``False`` here — and it is wired anyway, because
+#: ``SNAG-ESTATE-010`` is exactly what happens when a family gains a
+#: quieter rung and its held branch was never told what rung it judged.
+#: There is no ladder here and deliberately so (Session 26c rule 6): a
+#: ladder tuned against a family with no live member is a guess with a
+#: number on it.
+PORT_ALERT_SEVERITY = "warning"
+
 
 def port_alert_title(port: int) -> str:
     """The stable identity of one contested port."""
@@ -594,13 +611,16 @@ class ServiceDiscoveryAgent(BaseAgent):
                 # held by user:alpha.service`` outlives alpha by exactly
                 # as long as the collision does.
                 if self.refresh_alert(
-                    standing[title], message=worst.summary, details=details
+                    standing[title],
+                    message=worst.summary,
+                    details=details,
+                    severity=PORT_ALERT_SEVERITY,
                 ):
                     refreshed += 1
                 continue
             await self.raise_alert(
                 session,
-                severity="warning",
+                severity=PORT_ALERT_SEVERITY,
                 title=title,
                 message=worst.summary,
                 details=details,

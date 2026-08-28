@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sysadmin.core.database import get_scheduler_session
+from sysadmin.core.escalation import may_quieten_in_place
 from sysadmin.core.event_bus import event_bus
 from sysadmin.core.models.agent_run import AgentRun
 from sysadmin.core.models.alert import Alert, unresolved
@@ -367,6 +368,7 @@ class BaseAgent(ABC):
         *,
         message: str | None,
         details: dict[str, Any] | None = None,
+        severity: str | None = None,
     ) -> bool:
         """Bring a held row's text up to date, and only if it has moved.
 
@@ -381,7 +383,7 @@ class BaseAgent(ABC):
         absolute drift 8.15 pp, and **19 of the 42 read below the very
         threshold the message was asserting**.
 
-        Five rules, three of them the opposite of the obvious
+        Six rules, four of them the opposite of the obvious
         implementation:
 
         1. **``message`` and ``details`` move together, always.**  The
@@ -413,7 +415,20 @@ class BaseAgent(ABC):
            the same bytes in the row, or its content would depend on
            which path happened to write it — and the normalisation exists
            to answer a question, not to launder a value.
-        5. **Reassigned, never mutated in place** —
+        5. **The rung moves in one direction only, and only to the
+           floor** (``SNAG-ESTATE-010``, 2026-08-28).  ``severity`` is
+           optional and a caller that omits it gets the text-only
+           behaviour this method shipped with.  A caller that passes one
+           is asking a question, not issuing an instruction:
+           :func:`~sysadmin.core.escalation.may_quieten_in_place` decides
+           it, and permits exactly a move to
+           :data:`~sysadmin.core.escalation.QUIETEST_SEVERITY` from
+           something louder.  An escalation is refused here and belongs
+           to :func:`~sysadmin.core.escalation.step_for`'s
+           resolve-and-re-raise; a downward step that stops short of the
+           floor is refused too, because it would be *heard* — see that
+           predicate's rule 1.
+        6. **Reassigned, never mutated in place** —
            :meth:`~sysadmin.monitor.log_aggregator.LogAggregatorAgent._record_recurrence`'s
            rule, and it is the one this family already had to learn:
            SQLAlchemy does not track mutation inside a plain ``JSONB``
@@ -425,7 +440,13 @@ class BaseAgent(ABC):
         fingerprints on ``{severity}:{title}`` and would keep a
         fingerprint it has already suppressed.  A message change is
         invisible to that fingerprint, so it is safe in the direction
-        that ban is about — and, for the same reason, silent.  No
+        that ban is about — and, for the same reason, silent.  A
+        **quietening** is visible to it and is silent for the opposite
+        reason: the old pair leaves the poll, the new one is dropped
+        below ``notify_min_severity`` before ``_consider`` can act on it,
+        and the row goes on being served by
+        ``GET /api/sysadmin/alerts`` throughout.  Neither write earns an
+        event, so neither gets one.  No
         ``alert.refreshed`` event is queued: the SSE stream has no
         consumer for one, and an event nobody reads is the
         ``SNAG-CFG-001`` shape.  The corrected sentence reaches the tray
@@ -454,10 +475,48 @@ class BaseAgent(ABC):
         # write goes through the same serialiser, so anything this
         # rejects is something the row could not have held anyway.
         comparable = json.loads(json.dumps(wanted))
-        if alert.message == message and (alert.details or {}) == comparable:
+        # Asked before the text comparison, not after it: a
+        # reclassification whose sentence happens to be word-for-word
+        # what the row already says is exactly the case the founding
+        # entry was filed from — the estate republishes the same breach
+        # every hour and only the *rung* moved.  Gating the rung behind
+        # "has the text changed" would have shipped green and inert.
+        # The rung to write, or `None` for "leave it alone" — carried as
+        # the value rather than as a bool so the branch below needs no
+        # second test to know it has one.
+        quieten_to = (
+            severity
+            if severity is not None and may_quieten_in_place(severity, alert.severity)
+            else None
+        )
+        if (
+            quieten_to is None
+            and alert.message == message
+            and (alert.details or {}) == comparable
+        ):
             return False
         alert.message = message
         alert.details = wanted
+        if quieten_to is not None:
+            # `info` rather than `debug`, alone among the three writes
+            # this method makes. A corrected sentence is bookkeeping; a
+            # reclassification is the daemon deciding a standing fault is
+            # no longer worth interrupting anyone about, and the journal
+            # is the only place that decision is recorded — the row
+            # itself keeps no history of the rung it was raised at.
+            # Below `severity_filter` for this unit, so it is readable
+            # and raises nothing (SNAG-LOG-005's rule, from the other
+            # end).
+            logger.info(
+                "alert_quietened",
+                extra={
+                    "agent": alert.agent,
+                    "title": alert.title,
+                    "was": alert.severity,
+                    "now": quieten_to,
+                },
+            )
+            alert.severity = quieten_to
         logger.debug(
             "alert_refreshed",
             extra={"agent": alert.agent, "title": alert.title},

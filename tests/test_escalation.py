@@ -8,7 +8,14 @@ and de-escalation read as an escalation.
 
 import pytest
 
-from sysadmin.core.escalation import SEVERITY_ORDER, Ladder, Step, step_for
+from sysadmin.core.escalation import (
+    QUIETEST_SEVERITY,
+    SEVERITY_ORDER,
+    Ladder,
+    Step,
+    may_quieten_in_place,
+    step_for,
+)
 
 NUDGE = Ladder(quiet="info", loud="warning")
 STALL = Ladder(quiet="warning", loud="critical")
@@ -210,3 +217,96 @@ class TestNoPrivateCopiesRemain:
             source = Path(module).read_text()
             assert "def _hours_since" not in source, module
             assert "def _humanise_hours" not in source, module
+
+
+class TestQuietestSeverity:
+    """The floor is derived, never written down."""
+
+    def test_it_is_the_bottom_of_the_ordering(self):
+        assert SEVERITY_ORDER[QUIETEST_SEVERITY] == min(SEVERITY_ORDER.values())
+
+    def test_it_is_not_a_literal_beside_the_ordering(self):
+        """``max_priority_for`` against ``PRIORITY_MAP``'s rule.
+
+        A constant written as ``"info"`` agrees with the ordering today
+        and stops agreeing the day a quieter rung is added — and the
+        failure would be silent, because :func:`may_quieten_in_place`
+        would go on permitting a write to a rung that is no longer
+        inaudible.  Asserting the *value* cannot see that, since a
+        literal and a derivation both read ``"info"``; the source is the
+        only place provenance exists.
+        """
+        from pathlib import Path
+
+        source = Path("sysadmin/core/escalation.py").read_text()
+        line = next(
+            ln for ln in source.splitlines() if ln.startswith("QUIETEST_SEVERITY")
+        )
+        assert "SEVERITY_ORDER" in line
+        assert '"info"' not in line
+
+
+class TestMayQuietenInPlace:
+    """``SNAG-ESTATE-010``'s surviving half, as a rule about two rungs.
+
+    Session 39 bans an in-place *escalation* because an escalation must
+    be heard and the tray's ``{severity}:{title}`` fingerprint is already
+    suppressed.  A quietening wants that outcome, so the ban is
+    asymmetric — but only as far as the floor.
+    """
+
+    def test_a_warning_row_may_be_quietened(self):
+        assert may_quieten_in_place("info", "warning") is True
+
+    def test_a_critical_row_may_be_quietened_all_the_way(self):
+        """Two rungs at once is still one write to an inaudible rung."""
+        assert may_quieten_in_place("info", "critical") is True
+
+    def test_a_fall_that_stops_short_of_the_floor_is_refused(self):
+        """Rule 1, and the clause a "downward is safe" fix would omit.
+
+        ``warning:title`` is a fingerprint the tray speaks, so this write
+        would arrive as a fresh, less urgent notification about a fault
+        that has not improved — which is exactly what :func:`step_for`
+        refuses in its own docstring.
+        """
+        assert may_quieten_in_place("warning", "critical") is False
+
+    def test_an_escalation_is_refused(self):
+        assert may_quieten_in_place("critical", "info") is False
+        assert may_quieten_in_place("warning", "info") is False
+
+    def test_an_unchanged_rung_is_not_a_move(self):
+        for rung in SEVERITY_ORDER:
+            assert may_quieten_in_place(rung, rung) is False
+
+    def test_an_unrecognised_rung_is_refused_on_either_side(self):
+        """Rule 4 — refused, not defaulted.
+
+        ``SEVERITY_ORDER.get(..., 0)`` reads an unknown string as the
+        floor, which is right where the question is "how loud is this"
+        and wrong here: it would read a typo as the quietest rung and
+        permit a write to it.  ``chk_alert_severity`` admits three
+        values, so a fourth is a bug and the safe answer to a bug is to
+        leave the standing row alone.
+        """
+        assert may_quieten_in_place("infoo", "warning") is False
+        assert may_quieten_in_place("info", "wraning") is False
+
+    def test_it_is_total_over_the_rungs_the_database_admits(self):
+        """Every ordered pair answers, and only the ones named do.
+
+        The pair-by-pair truth table, so a rewrite cannot quietly widen
+        what is permitted while leaving the four named tests green.
+        """
+        permitted = {
+            (wanted, standing)
+            for wanted in SEVERITY_ORDER
+            for standing in SEVERITY_ORDER
+            if may_quieten_in_place(wanted, standing)
+        }
+        assert permitted == {
+            (QUIETEST_SEVERITY, standing)
+            for standing in SEVERITY_ORDER
+            if standing != QUIETEST_SEVERITY
+        }

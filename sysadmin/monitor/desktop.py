@@ -562,13 +562,25 @@ class DesktopNotifier:
             if still_open is None:
                 return 0  # unreadable database → silence, as gate 2 does
 
-            cleared = set(self._spoken) - still_open
+            cleared = set(self._spoken) - set(still_open)
             for title in cleared:
                 # The fault cleared.  Dropping it means a recurrence
                 # months later is announced as news by gate 2 rather than
                 # arriving as a reminder of something already fixed.
                 del self._spoken[title]
             await self._forget(cleared)
+            # The row's rung, not the one this process announced
+            # (SNAG-ESTATE-010). Taken unconditionally rather than only
+            # when it fell: an escalation has already replaced the whole
+            # entry through `on_alert_raised` and reads back the same
+            # value, so a direction test would be a second, weaker
+            # statement of a fact the row states outright. Not written
+            # to the store — rule 5, this is a fact about the alert
+            # rather than an utterance of ours.
+            for title, rung in still_open.items():
+                spoken = self._spoken.get(title)
+                if spoken is not None:
+                    spoken.severity = rung
 
         threshold = SEVERITY_LEVELS.get(config.min_severity, 1)
 
@@ -594,14 +606,30 @@ class DesktopNotifier:
 
         return await self._restate(due, now)
 
-    async def _still_open(self, titles: set[str]) -> set[str] | None:
-        """Which of *titles* still have an unresolved row; None on failure.
+    async def _still_open(self, titles: set[str]) -> dict[str, str] | None:
+        """Which of *titles* are still open, and how loud they are now.
 
         Bounded by the titles handed in — ``SNAG-AGENT-005``'s rule, where
         the same query written as "every unresolved row this agent owns"
-        pulled 593,814 ORM objects on its first live run.  Scalars rather
-        than ORM objects for the same reason: the answer is a set of
-        strings.
+        pulled 593,814 ORM objects on its first live run.  Columns rather
+        than ORM objects for the same reason: the answer is two strings
+        per title.
+
+        **The severity comes back with the title because the row is the
+        authority on how loud a fault is now, and this process is only
+        the authority on when it last said so** (``SNAG-ESTATE-010``).
+        A quietening reaches a standing row in place and queues no event
+        — deliberately, since the write exists to *stop* a notification
+        — so an understudy that carried the rung it announced would go on
+        restating at ``warning`` a fault the judge has since decided is
+        ``info``, which is the founding entry surviving inside the fix
+        for it.  The sweep therefore takes the rung from here and keeps
+        only its own clocks.
+
+        A title with two open rows is possible for a beat — an
+        escalation resolves the quiet row and raises a loud one — so the
+        loudest wins, :func:`_loudest`'s rule, and a roll-up never
+        quietens.
         """
         factory = self._factory()
         if factory is None:
@@ -609,12 +637,17 @@ class DesktopNotifier:
 
         try:
             async with factory() as session:
-                rows = await session.scalars(
-                    select(Alert.title)
+                rows = await session.execute(
+                    select(Alert.title, Alert.severity)
                     .where(Alert.title.in_(titles), unresolved())
                     .distinct()
                 )
-                return set(rows)
+                current: dict[str, str] = {}
+                for title, severity in rows:
+                    current[title] = _loudest(
+                        (severity, current[title]) if title in current else (severity,)
+                    )
+                return current
         except Exception:  # noqa: BLE001 - a blip must not become a storm
             logger.exception("desktop_reminder_open_check_failed")
             return None

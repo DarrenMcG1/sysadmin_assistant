@@ -19,13 +19,16 @@ from sqlalchemy import DateTime, func, select, update
 from sysadmin.core.agent import AGENT_RUN_FAILED_EVENT, AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 
-# Aliased, because this module already imports a *different*
-# ``SEVERITY_ORDER`` from ``journal``: that one ranks the five log
-# severities a journal entry can carry (debug…critical), this one the
-# three an ``alerts`` row may hold (``chk_alert_severity``).  Letting
-# the names collide would compare a log level against an alert level
-# and be wrong only for ``error``, which has no alert rung at all.
-from sysadmin.core.escalation import SEVERITY_ORDER as ALERT_SEVERITY_ORDER
+# The alert-rung comparison this module used to do by hand against an
+# aliased ``SEVERITY_ORDER``.  The alias existed because ``journal``
+# exports a *different* ``SEVERITY_ORDER`` — five log severities, not
+# the three ``chk_alert_severity`` admits — and letting the two names
+# collide would have compared a log level against an alert level, wrong
+# only for ``error``, which has no alert rung at all.  Importing the
+# predicate instead of the ordering removes the collision rather than
+# renaming around it, and there is now one statement of when a rung may
+# move under a standing row.
+from sysadmin.core.escalation import may_quieten_in_place
 from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.journal import (
@@ -553,16 +556,19 @@ class LogAggregatorAgent(BaseAgent):
         quiet, so its row never resolves and the operator's edit would
         take effect approximately never.
 
-        Session 39 forbids in-place severity changes, and the ban is
-        **asymmetric**.  Its reason is that an escalation must be *heard*:
-        the tray fingerprints on ``{severity}:{title}``, so bumping
-        severity in place keeps a fingerprint it has already suppressed
-        and the escalation is recorded but never spoken.  A quietening
-        wants the opposite outcome.  Writing ``info`` in place hands the
-        tray a fingerprint that ``_consider`` drops below
-        ``notify_min_severity`` before it can notify — which is the entire
-        objective, so the mechanism that makes escalation fail is what
-        makes this work.
+        The rule this family wrote down first now lives at
+        :func:`~sysadmin.core.escalation.may_quieten_in_place`, beside
+        the ban whose asymmetry it depends on, and is **asked** here
+        rather than restated: it was the only statement of it for two
+        sittings while four other deduplicating families needed the same
+        answer, which is how a copied rule drifts in the direction nobody
+        notices — this module's own opening argument for living in
+        ``core``.  Its rule 1 narrows what this hand-rolled test
+        permitted, from any downward step to a step landing on the floor,
+        and that costs this family **nothing measured**: ``alert_title``
+        interpolates the entry's own severity, so one title carries one
+        rung and the only downward move a fault here can make is to
+        :data:`NOISE_SEVERITY`, which *is* the floor.
 
         :data:`COVERED_SIGNATURES` rides the same path for the same
         reason, and it needs it more rather than less: a ``known_noise``
@@ -597,9 +603,7 @@ class LogAggregatorAgent(BaseAgent):
         alert.message = fault["message"][:500]
 
         wanted = fault["severity"]
-        if ALERT_SEVERITY_ORDER.get(wanted, 0) < ALERT_SEVERITY_ORDER.get(
-            alert.severity, 0
-        ):
+        if may_quieten_in_place(wanted, alert.severity):
             alert.severity = wanted
 
     async def _resolve_quiet(

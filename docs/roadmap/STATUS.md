@@ -3,118 +3,107 @@
 **Last Updated**: 2026-08-28
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The repair reads the column the reader read, not the one the entry
-> named.** `SNAG-LOG-008` is **FIXED**. Ten `sysadmin.service` rows kept
-> a raw JSON envelope in `message` because they were ingested before the
-> `format: json` declaration existed and `unwrap_json_message` applies
-> at *read* time. The sitting was told to measure whether retention had
-> already made the entry moot: **it had not, and it was three days
-> away.** All ten were intact and serving as 10 of the 24
-> `sysadmin.service` signatures on `GET /api/logs/trends` at
-> `change: gone, current: 0, previous: 1` — they leave that endpoint on
-> **2026-08-31** and `log_entries` at retention on **2026-09-16**.
+> **A quietening reaches a standing row now, and the rule that permits
+> it was already in this repository one domain over.**
+> `SNAG-ESTATE-010` is **FIXED** — its rung half, the blob half having
+> gone on 2026-08-28 with `SNAG-AGENT-009`. Every family that
+> deduplicates on an open title skipped a judgement whose title was
+> already open *before* looking at its severity, so Session 57's
+> `TRANSIENT_HOLDER_SEVERITY` applied only to breaches raised
+> afterwards: the two rows it was written for sat at `warning` for the
+> life of a VS Code window and were restated at that rung throughout.
 >
-> **The entry's proposed derivation was the wrong one, and the cost it
-> priced in is not on the path.** It asks for `message` to be re-derived
-> *from* `raw_line` and files that column's 2000-character truncation as
-> the reason a backfill "is not free". `read_journal` composes
-> `message_text(MESSAGE)` **first** and unwraps *that*, so a
-> `text`-declared row's stored `message` **is** the unwrap's input.
-> Driven over the live ten the two derivations agree **10 of 10**, and
-> the `raw_line` route re-implements the reader's own parse.
+> **Session 39's ban on in-place severity changes is asymmetric, and
+> the reason it exists is what makes the reverse safe.** The ban is
+> about an escalation needing to be *heard* — the tray fingerprints on
+> `{severity}:{title}`, so bumping the column keeps a fingerprint
+> already suppressed. A quietening wants exactly that outcome. That
+> argument was written down in `log_aggregator._record_recurrence` and
+> obeyed by one family; it is `core/escalation.may_quieten_in_place`
+> now, beside the ban it depends on, and `BaseAgent.refresh_alert` has
+> an optional `severity=` that asks it.
 >
-> **`raw_line` earns a different job instead — the *witness*.** "Looks
-> like JSON" cannot separate a frozen envelope from a correctly-unwrapped
-> message that is itself a JSON document, and acting on the guess
-> destroys the second. Byte equality against the record's own `MESSAGE`
-> is exact in both directions. So the truncation the entry feared is
-> real and lands on the **witness**, where a row that cannot be cleared
-> is *refused and reported* rather than corrupted. Re-measured, the
-> anti-correlation Session 90 found has grown and still holds: **16**
-> rows now carry a `raw_line` cut at 2000, intersecting the ten at
-> **zero**.
+> **"Downward is safe" is the obvious reading and it is too broad by one
+> rung.** `critical` → `warning` in place hands the tray a fingerprint
+> it *will* speak — a fresh, less urgent toast about a fault that has
+> not improved, which is `escalation.step_for`'s own refusal met from
+> the other side. Only the **floor** of `SEVERITY_ORDER` is
+> inaudible-or-asked-for. `QUIETEST_SEVERITY` is derived from the
+> ordering rather than written as `"info"`, and a source-reading test
+> pins the provenance because a literal and a derivation both *read*
+> `info`.
 >
-> **A console script, not a data migration**, which inverts the obvious
-> ranking. An Alembic revision moves the packaged head for no structural
-> reason, so the box would owe `alembic upgrade head` **plus a restart**
-> or `schema_guard` refuses to boot — `SNAG-DB-005`'s 23 hours bought
-> for ten rows — and it would repair this population once where the
-> defect is a *class*. `sysadmin-backfill-messages` is a dry run unless
-> `--confirm`, is never scheduled, and keeps "nothing frozen" apart from
-> "could not measure". Idempotence is the witness read again, not a flag.
+> **The tray's threshold is deliberately not consulted, and could not
+> have been.** The obvious gate is "quieter than `notify_min_severity`",
+> which makes the daemon a second reader of a policy the tray owns —
+> and `AppConfig` parses `notifications.tray:` while that key lives in
+> the top-level `tray:` section the tray parses for itself.
 >
-> **Live either side of the write**: `GET /api/logs/trends` went
-> **60 → 50** signatures, `sysadmin.service` **24 → 14**, raw-JSON
-> **10 → 0**, the ten collapsing to two readable signatures with
-> `logger` recovered for all ten. `GET /api/logs/actions` is **unmoved
-> at 8** — the ten were `previous`-only and never produced advice, so
-> the whole live cost sat on the trends endpoint.
+> **The gate order is where this would have shipped green and inert.**
+> `refresh_alert`'s existing gate is "has the text moved"; the founding
+> case is a breach the estate republishes *identically* every hour with
+> only the rung changed. The quietening is asked **before** the text
+> comparison and can carry a write on its own — one test catches it,
+> and it was falsified against exactly that mutation.
 >
-> **Applying it exposed something three sittings had not seen, and it is
-> not this fix's doing.** Two of the ten have a **readable twin**, same
-> `logged_at` to the microsecond, ingested at **19:50:19** — the restart
-> that deployed the declaration. The declaration was committed at
-> **17:53:33** and `SNAG-LOG-007`'s boundary close landed at
-> **20:09:44**, *nineteen minutes after that restart*, so `_resume_floor`
-> re-admitted its own inclusive second. Invisible before the backfill,
-> because the twins were different signatures and hid each other. Filed
-> as `SNAG-LOG-014` rather than hand-deleted.
+> **It reaches the second speaker too, which nothing had noticed.** The
+> tray is fixed for free; `monitor/desktop.py` is not, because
+> `_SpokenFault.severity` is the rung it *announced* and `_still_open`
+> asked only which titles were open. The understudy would have gone on
+> restating at `warning` a fault the judge had decided is `info` — the
+> entry surviving inside the fix for it, in the one component that
+> exists for the case where the tray is down. That read returns
+> `{title: severity}` now.
 >
-> **The check retired with the entry and the detector did not.** Its
-> half 1 — the two-declaration drive against this daemon's own journal —
-> is re-homed as `tests/test_message_backfill_live.py`, `FROZEN_TABLES`'
-> rule. Re-homing it walked into the entry's own warning a second time:
-> the drive paired the two reads on `raw_line`, whose field order
-> `journalctl -o json` does not fix, so it compared nothing and
-> **skipped**. It pairs on `__REALTIME_TIMESTAMP` now and carries a
-> premise test asserting the reads shared a record at all.
+> **Populations, measured rather than assumed.** The estate judge is the
+> only family with a live one (**131** held judgements across 77 of 240
+> runs). `SysAdminAgent._raise_judged`'s is empty **by construction** —
+> every family there pairs a rung with a *title kind*, so a disk breach
+> at the two thresholds is two titles rather than one row at two rungs.
+> The port family's is empty because its rung is a constant. Both are
+> wired regardless: the entry *is* what happens when a family gains a
+> quieter rung and its held branch was never told what rung it judged.
 >
-> **A restart was owed and taken.** The daemon was last restarted at
-> **2026-08-28 18:48:23** <!--check:deploy--> <!--check:daemon_start-->
-> (PID 3875592 → 3920712). Neither edited module is reachable from
-> `create_app()`, so nothing functional was owed — this is the false
-> positive `ops_claims` rule 4 documents, and a restart is cheaper than
-> a special case. `/health` answers **200** <!--check:health-->,
-> `alembic current` reads 018 at the packaged head <!--check:schema-->,
-> and `alerts` holds **0** unresolved rows <!--check:alerts--> with
-> **0** named here <!--check:open_titles-->. Migration head is unmoved:
-> this session added none.
+> **The check retired with the entry and the detector did not** — its
+> drive is `tests/test_quietened_judgement_live.py`, and it is
+> **stronger than the check**. That check asserted a *disjunction* on
+> purpose, because a fix could have landed as any of three shapes; now
+> that the shape is known, a resolve-and-re-raise would satisfy it while
+> rebuilding `monitor/collation.py`'s flip-flop. The live test asks
+> which shape — rung moved in place, one row, still open, nothing raised
+> and nothing resolved — and the resolve-and-re-raise mutation turns
+> three of its four tests red where the check would have said
+> `mismatch` and called it fixed.
 >
-> **That figure moved twice while this block was being written, which is
-> the second sitting running.** `High VRAM usage on AMD Radeon RX 7900
-> XTX` is a genuine threshold breach that **flaps** as the card crosses
-> back under 90 %: three episodes inside the last forty minutes
-> (18:13:07→18:18:11, 18:23:07→18:38:10, 18:43:07→18:53:28). The block
-> read **1** when it was written and **0** ten minutes later, which
-> `check_alerts` reported as a *fall* — `SNAG-ESTATE-008`'s founding
-> case, working exactly as designed. Treat a non-zero reading of this
-> claim as this card, not as news, unless the title differs.
+> **A restart was owed and taken.** The daemon restarted at
+> **2026-08-28 20:53:24** <!--check:deploy--> <!--check:daemon_start-->
+> (PID 3920712 → 3972553, twice — the second because retiring the check
+> edited a module after the first). `/health` answers **200**
+> <!--check:health-->, `alembic current` reads 018 at the packaged head
+> <!--check:schema-->, and `alerts` holds **0** unresolved rows
+> <!--check:alerts--> with **0** named here <!--check:open_titles-->.
 >
-> **Alembic head is 018**<!--check:migration_head--> — unchanged, and
-> deliberately so. A data-only revision was the obvious shape of this
-> fix and is the one thing it refused.
+> **So the fix ships untriggered**, which is this repository's ordinary
+> case and is stated rather than left to be inferred: with no open row
+> on the box, nothing was reclassified by the deploy. The refutation is
+> the retired check's own drive against the live database in a
+> rolled-back transaction — `warning → info`, one row, unresolved,
+> `alerts_raised=1` for the witness port alone.
 >
-> **The suite is 2832**, from 2801: **53 added and 22 retired**. The
-> twenty-two left with `unwrap_is_read_time`, since every member of
-> `CHECKS` names an *open* entry — and the arithmetic is written because
-> a green suite cannot witness tests that no longer exist: the removed
-> class held 12 `def test_` and collected **22**, the difference being
-> parametrisation. The fifty-three are 31 in
-> `tests/test_message_backfill.py`, 16 in the live drive, and 6 for the
-> new `duplicate_ingest_residue` check.
+> **Alembic head is 018**<!--check:migration_head--> — unchanged. This
+> fix moves a column's value, never its shape.
 >
-> **Fourteen mutations driven against the repair and three against the
-> check**, each red on the test that names it. **Two were wrong on the
-> first attempt**, which is the part worth carrying: removing the
-> declaration filter produced a *collection error* rather than a red
-> test — a stand-in that cannot compile is silence wearing a result —
-> and breaking the confirm gate was caught only by an AST test until a
-> live dry-run drive was added through `run()` itself, which is the
-> function that owns the session and the commit.
+> **The suite is 2838**, from 2832: **26 added and 20 retired**. The
+> twenty left with `quietened_judgement_reach`, since every member of
+> `CHECKS` names an *open* entry. The arithmetic is written down because
+> a green suite cannot witness tests that no longer exist.
 >
-> **The entry counts were re-derived, not carried**: **99 → 100
-> entries, open unmoved at 18**, through `estate.snags.read_snags` —
-> one closed and one opened.
+> **Nine mutations driven, each red on the test that names it — and one
+> falsification passed against deliberately broken code.** The "loudest
+> of two open rows wins" test yielded its rows loud-*last*, so a
+> last-one-wins implementation with no `_loudest` call answered
+> correctly by accident. The query has no `ORDER BY`, which is the whole
+> reason `_loudest` is there, so it drives both orderings now.
 
 ## Quick Status
 

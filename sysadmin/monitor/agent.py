@@ -423,7 +423,11 @@ class SysAdminAgent(BaseAgent):
             )
             if title in self._open_titles:
                 await self._refresh_open(
-                    session, title=title, message=message, details=details
+                    session,
+                    title=title,
+                    message=message,
+                    details=details,
+                    severity=severity,
                 )
             return 0
         await self.raise_alert(
@@ -446,6 +450,7 @@ class SysAdminAgent(BaseAgent):
         title: str,
         message: str,
         details: dict[str, Any],
+        severity: str | None = None,
     ) -> bool:
         """Rewrite the standing row for ``title`` if its text has moved.
 
@@ -461,6 +466,29 @@ class SysAdminAgent(BaseAgent):
         is still counted as suppressed, because the *raise* was
         suppressed by the snapshot either way; what the run reports is
         how many corrections it made, not how many it attempted.
+
+        **The judged rung is handed on, and its population here is empty
+        by construction rather than merely today** (``SNAG-ESTATE-010``).
+        Every family reaching this method pairs a rung with a *title
+        kind* — ``service_alert_title(name, "degraded")`` is ``warning``
+        and ``…(name, status)`` is ``critical``; a disk breach at the
+        critical threshold and one at the warning threshold are two
+        titles, not one row at two rungs — so a standing row and the
+        judgement that holds it can never disagree about severity, and
+        :func:`~sysadmin.core.escalation.may_quieten_in_place` can only
+        ever answer ``False`` from here.  It is wired regardless: the
+        rung is already a parameter, so passing it costs nothing, and the
+        alternative is a caller that quietly stops honouring the base
+        class's contract on the day a family gains a second rung — which
+        is the founding entry, one domain over.
+
+        Note what would happen if such a family arrived and its rung
+        *fell* rather than climbing: a disk at 91 % dropping to 85 %
+        under one title would be refused, and rightly.  It is still
+        breaching, and a fresh ``warning`` toast about it is a less
+        urgent notification about a fault that has not improved —
+        :func:`~sysadmin.core.escalation.step_for`'s own refusal, which
+        rule 1 of that predicate keeps intact.
         """
         alert = (
             await session.execute(
@@ -469,7 +497,9 @@ class SysAdminAgent(BaseAgent):
         ).scalars().first()
         if alert is None:
             return False
-        if not self.refresh_alert(alert, message=message, details=details):
+        if not self.refresh_alert(
+            alert, message=message, details=details, severity=severity
+        ):
             return False
         self._refreshed += 1
         return True

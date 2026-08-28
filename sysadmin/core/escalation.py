@@ -110,6 +110,97 @@ def step_for(wanted: str, open_severity: str | None) -> Step:
     return Step.HOLD
 
 
+#: The quietest rung there is.
+#:
+#: Derived from :data:`SEVERITY_ORDER` rather than written as ``"info"``
+#: — ``max_priority_for`` against ``PRIORITY_MAP``'s rule.  The two would
+#: be a second statement of one fact, and the direction they drift in is
+#: the one nobody notices: a fourth rung added below ``info`` would leave
+#: this constant naming a rung that is no longer the floor, and
+#: :func:`may_quieten_in_place` would then permit an audible write while
+#: still reading as though it did not.
+QUIETEST_SEVERITY: str = min(SEVERITY_ORDER, key=lambda rung: SEVERITY_ORDER[rung])
+
+
+def may_quieten_in_place(wanted: str, open_severity: str) -> bool:
+    """May a held row be rewritten from ``open_severity`` to ``wanted``?
+
+    ``SNAG-ESTATE-010``'s surviving half.  Every family that
+    deduplicates on an open title skips a judgement whose title is
+    already open, so **a change that makes a family quieter is silent on
+    every fault standing when it ships** — it applies only to faults
+    raised afterwards.  Session 57 shipped
+    :data:`~sysadmin.estate.judgements.TRANSIENT_HOLDER_SEVERITY` and the
+    two rows it was written for stayed at ``warning`` for the life of a
+    VS Code window, restated at that rung by ``reminder_hours``
+    throughout.
+
+    **Session 39's ban on in-place severity changes is asymmetric, and
+    the reason it exists is what makes the reverse safe.**  It bans an
+    in-place *escalation* because an escalation must be **heard**: the
+    tray fingerprints on ``{severity}:{title}``
+    (``sysadmin_tray/notifications.py``), so bumping the column keeps a
+    fingerprint the tray has already suppressed and the escalation is
+    recorded in the database and never spoken.  A quietening wants
+    exactly that outcome.  The mechanism that makes escalation fail is
+    what makes this work, so it is one-directional by construction —
+    which is
+    :meth:`~sysadmin.monitor.log_aggregator.LogAggregatorAgent._record_recurrence`'s
+    argument, generalised here rather than left as a rule one family
+    states and four obey by accident.
+
+    Four rules, three of them the opposite of the obvious
+    implementation:
+
+    1. **The floor is the only destination, not merely a downward
+       step.**  "Going down is safe" is the obvious reading of the
+       asymmetry above and it is too broad by one rung: ``critical`` →
+       ``warning`` in place hands the tray a fingerprint it *will*
+       speak, so the quietening arrives as a fresh, less urgent
+       notification about a fault that has not improved — which is the
+       refusal :func:`step_for` already states in its own docstring, met
+       from the other side.  Only :data:`QUIETEST_SEVERITY` is
+       inaudible-or-asked-for: it is below ``tray.notify_min_severity``
+       on this box (``warning``), and an operator who lowers that knob to
+       the floor has asked to hear reclassifications.
+    2. **The tray's threshold is not read, and it could not be.**  The
+       obvious gate is "quieter than ``notify_min_severity``", which
+       makes the daemon a second reader of a policy the tray owns — and
+       the backend cannot see that key in any case: ``AppConfig``
+       parses ``notifications.tray:``
+       (:class:`~sysadmin.core.config.TrayNotificationsConfig`, "the
+       slice the *backend* needs") while ``notify_min_severity`` lives in
+       the top-level ``tray:`` section the tray parses for itself.
+       Adding it would be a config leaf whose only reader is a rule that
+       does not need it.
+    3. **It answers about a rung, never about a row.**  Whether the row
+       is worth rewriting at all — has the sentence moved, is this
+       family even allowed to correct itself — belongs to
+       :meth:`~sysadmin.core.agent.BaseAgent.refresh_alert`, which owns
+       the comparison and the write for all three deduplicating callers.
+       A predicate that also read an :class:`~sysadmin.core.models.alert.Alert`
+       would put half of that decision in ``core`` and half in the base
+       class.
+    4. **An unknown rung is refused rather than defaulted.**
+       :data:`SEVERITY_ORDER`'s ``.get(..., 0)`` reads an unrecognised
+       string as ``info`` elsewhere, which is right where the question is
+       "how loud is this" and wrong here: it would read a typo as the
+       floor and permit a write to it.  ``chk_alert_severity`` admits
+       three values, so a fourth is a bug and the safe answer to a bug is
+       to leave the standing row alone.
+
+    Returns:
+        ``True`` when ``wanted`` is the quietest rung and the row is
+        currently louder.  ``False`` for an escalation, for an unchanged
+        rung, and for any downward step that stops short of the floor.
+    """
+    if wanted not in SEVERITY_ORDER or open_severity not in SEVERITY_ORDER:
+        return False
+    if wanted != QUIETEST_SEVERITY:
+        return False
+    return SEVERITY_ORDER[wanted] < SEVERITY_ORDER[open_severity]
+
+
 @dataclass(frozen=True)
 class Ladder:
     """A two-rung severity ladder, quiet then loud.

@@ -2351,29 +2351,6 @@ def rolled_back_drive[ProbeT](
         logging.disable(previous)
 
 
-# ---------------------------------------------------------------------------
-# SNAG-ESTATE-010 — a quieter judgement cannot reach a row already open
-# ---------------------------------------------------------------------------
-
-#: The two ports the probe has the estate report as breached.
-#:
-#: Far above the registry's audited range and adjacent to nothing, so
-#: neither title can collide with a live row.  The probe *opens* one of
-#: them itself, and a collision would have it deduplicate against
-#: somebody else's standing fault and read the result as its own.
-QUIETEN_OPEN_PORT = 65010
-QUIETEN_FRESH_PORT = 65011
-QUIETEN_PORTS = (QUIETEN_OPEN_PORT, QUIETEN_FRESH_PORT)
-
-#: The session scope the probe's synthetic sweep attributes both to.
-#:
-#: Transience is decided by *which map* a holder sits in — ``transient_ports``
-#: rather than ``unit_ports``, :func:`~sysadmin.units.ports.attribution_from_blob`'s
-#: rule — and never by the name, so the ``.scope`` suffix here is
-#: legibility for a reader and not the signal being tested.
-QUIETEN_HOLDER = "user:snag-claims-probe.scope"
-
-
 def quieten_finding(port: int) -> dict[str, object]:
     """One unclaimed-listener breach, in the shape 8400 serves.
 
@@ -2383,6 +2360,16 @@ def quieten_finding(port: int) -> dict[str, object]:
     report the entry holding while judging nothing at all.
     ``syslog_priority`` against ``journal.PRIORITY_MAP``, one payload
     over.
+
+    **Named for a probe that has retired.**  It was written for
+    ``SNAG-ESTATE-010``'s check, which went with that entry on
+    2026-08-28; its drive lives on as
+    ``tests/test_quietened_judgement_live.py``.  The payload is the one
+    ``SNAG-ESTATE-009`` needs too — same family, same producer, same
+    filter — so it stayed here rather than being copied into the test
+    and left to drift from the check still using it.  The name is
+    deliberately not chased: renaming a helper to match whichever caller
+    survives is churn in a file two open checks read.
     """
     from sysadmin.estate.judgements import JUDGED_AUDIT_CHECK, JUDGED_AUDIT_SEVERITY
 
@@ -2402,348 +2389,6 @@ def quieten_finding(port: int) -> dict[str, object]:
         "runs_observed": 1,
         "age_truncated": False,
     }
-
-
-@dataclass(frozen=True)
-class QuietenReading:
-    """One judge run over a fault it has already raised, and one it has not.
-
-    Both ports are judged by the **same** ``_execute`` call against the
-    same payload and the same attribution, so the pair differs in
-    exactly one thing: whether a row was already open under that title.
-    Two runs would differ in the clock, in what the sweep said and in
-    what else the estate was serving.
-    """
-
-    #: What the pure judgement computes for both ports — read off
-    #: :func:`~sysadmin.estate.judgements.judge_audit_findings`, never
-    #: written down here.
-    expected_severity: str
-    #: The rung the standing row was opened at, and the one it holds after.
-    open_before: str
-    open_after: str
-    #: ``details['holder']`` on the standing row afterwards.  The two
-    #: rows the entry was filed from carry ``null``.
-    open_holder: object
-    open_resolved: bool
-    #: How many rows carry the standing title afterwards.  Two is the
-    #: resolve-and-re-raise shape the entry's fourth bullet names.
-    open_rows: int
-    fresh_severity: str | None
-    fresh_holder: object
-    fresh_rows: int
-    raised: int
-
-    @property
-    def witnessed(self) -> bool:
-        """Did this run raise the quieter row where nothing stood open?
-
-        The control, and it carries the whole verdict.  A standing row
-        that did not move is evidence only if the run genuinely had
-        something quieter to move it *to*: a judge that had stopped
-        computing ``info``, or a sweep whose attribution no longer
-        reached the family, would leave the row exactly as untouched and
-        look identical.  ``a-check-needs-a-discriminating-witness``,
-        which this registry has now had to apply at every scale from an
-        ``ast`` walk to an outbound request.
-        """
-        return (
-            self.fresh_rows == 1
-            and self.fresh_severity == self.expected_severity
-            and isinstance(self.fresh_holder, dict)
-            and bool(self.fresh_holder.get("transient"))
-        )
-
-    @property
-    def reached(self) -> bool:
-        """Did anything about the standing row move?
-
-        Deliberately **reach**, not rung: the entry's fourth bullet
-        records that resolve-and-re-raise on a severity mismatch is the
-        obvious fix and rebuilds ``monitor/collation.py``'s flip-flop, so
-        a fix may land as an in-place rung *or* as a second row, and a
-        check watching the severity column alone would report the second
-        as no change.
-
-        **Two of the entry's three shapes are left, because the third
-        landed** (2026-08-28, ``SNAG-AGENT-009``).  A held judgement now
-        rewrites the standing row's ``message`` and ``details``, so
-        ``details['holder']`` reaches a row that is already open and
-        ``open_holder is not None`` is the *expected* reading rather than
-        a fix signal — driven live the run gives ``holder`` arrived,
-        severity ``warning`` → ``warning``, one row, unresolved.  Keeping
-        the clause would report the entry refuted on the strength of a
-        different entry's fix and stop discriminating the moment it
-        landed: the verdict would be ``mismatch`` whatever happened to
-        the rung, which is a control a fix broke.
-
-        The blob is still carried in ``detail`` and is still read by
-        :attr:`open_holder`, because "the correction reached the row and
-        the rung stayed put" is a stronger statement of the surviving
-        claim than "nothing happened", and a reader of the note needs to
-        be able to tell those apart.
-        """
-        return self.open_rows != 1 or self.open_resolved or self.open_after != self.open_before
-
-    @property
-    def moved(self) -> tuple[str, ...]:
-        """What moved, in words, for the note."""
-        out: list[str] = []
-        if self.open_rows != 1:
-            out.append(f"{self.open_rows} rows now carry the standing title")
-        if self.open_resolved:
-            out.append("the standing row is resolved")
-        if self.open_after and self.open_after != self.open_before:
-            out.append(f"its severity went {self.open_before} → {self.open_after}")
-        # `open_holder` is deliberately absent: since SNAG-AGENT-009 the
-        # blob arriving is what a correct run does, so naming it here
-        # would put an expected observation in a note that lists what
-        # refutes the entry.
-        return tuple(out)
-
-
-def quietened_judgement_reading() -> tuple[QuietenReading | None, str]:
-    """Judge two synthetic breaches against the live database, then roll back.
-
-    **The instrument is the agent's own ``_execute``, and it has to be.**
-    The claim is about a branch three statements into that method — a
-    judgement whose title is already open is skipped *before* anything
-    looks at its severity or its details — and every fix the entry
-    contemplates lands in the same loop.  Driving
-    :func:`~sysadmin.estate.judgements.judge_audit_findings` alone would
-    measure the half that was never in doubt.
-
-    Three things are supplied to it and nothing else is touched:
-
-    - **the estate's answer**, through an :class:`httpx.MockTransport`
-      handed to the agent's own client factory, so the real
-      :func:`~sysadmin.estate.client.pull_all` runs against it — path
-      dispatch, ``raise_for_status``, the JSON parse and the per-surface
-      ``read`` flag are the production ones;
-    - **the sweep's attribution**, as a ``unit_audits`` row inserted
-      inside the transaction, so ``_attribution`` reads it the way it
-      reads a real sweep.  This is what makes both ports *transient* and
-      therefore quiet — the same route Session 57's fix takes;
-    - **one already-open row**, at the loud rung with ``holder: null``,
-      which is the state the entry was filed from.
-
-    The transport, the mounted judge and the rolled-back transaction are
-    :func:`findings_transport`, :func:`mounted_judge` and
-    :func:`rolled_back_drive` — shared with
-    :func:`unswept_judgement_reading`, which drives the same three
-    against the *other* half of Session 57's fix.  What is local to this
-    reading is the blob, the standing row and what is read back.
-    """
-    from sqlalchemy import select
-
-    from sysadmin.core.models.alert import Alert
-    from sysadmin.estate.agent import SURFACE_DETAIL_KEY
-    from sysadmin.estate.judgements import DEFAULT_SEVERITY, judge_audit_findings
-    from sysadmin.units.models import UnitAudit
-    from sysadmin.units.ports import attribution_from_blob
-
-    config = get_config()
-    payload = {"findings": [quieten_finding(port) for port in QUIETEN_PORTS]}
-    blob = {"transient_ports": {QUIETEN_HOLDER: list(QUIETEN_PORTS)}}
-    attribution = attribution_from_blob(blob, datetime.now(UTC).isoformat())
-
-    # What the run *ought* to produce, computed purely and before any
-    # row exists. The titles come from here rather than from a format
-    # string: a title written down would stop matching the day the
-    # producer's wording moves, and the probe would then open a row the
-    # run never judges and report the entry refuted by a rename.
-    judged = judge_audit_findings(
-        payload, config.agents.estate_judge.port_breach_max_rows, attribution
-    )
-    by_port = {judgement.details.get("port"): judgement for judgement in judged}
-    if set(by_port) != set(QUIETEN_PORTS):
-        return None, (
-            f"judging two synthetic breaches yielded {len(judged)} judgement(s) rather "
-            f"than one per port — the family has rolled them up or stopped emitting "
-            "them, and this probe is no longer holding one variable"
-        )
-    expected = {judgement.severity for judgement in judged}
-    if len(expected) != 1:
-        return None, (
-            "the two synthetic breaches are judged at different rungs "
-            f"({', '.join(sorted(expected))}) — they differ only in port number, so the "
-            "probe is no longer comparing like with like"
-        )
-    quiet = expected.pop()
-    if quiet == DEFAULT_SEVERITY:
-        return None, (
-            f"a transient holder is now judged {quiet}, the same rung an ordinary breach "
-            "gets — there is no quieter rung for a fix to deliver, so nothing here "
-            "discriminates"
-        )
-    open_title = by_port[QUIETEN_OPEN_PORT].title
-    fresh_title = by_port[QUIETEN_FRESH_PORT].title
-
-    agent, problem = mounted_judge(findings_transport(payload))
-    if agent is None:
-        return None, problem
-
-    async def drive(session) -> QuietenReading:
-        session.add(
-            Alert(
-                agent=agent.name,
-                severity=DEFAULT_SEVERITY,
-                title=open_title,
-                message=PROBE_MESSAGE,
-                details={
-                    SURFACE_DETAIL_KEY: by_port[QUIETEN_OPEN_PORT].surface,
-                    "port": QUIETEN_OPEN_PORT,
-                    # The rows the entry was filed from carry
-                    # `holder: null` — raised before the sweep's
-                    # attribution reached this family at all. Modelled
-                    # rather than left absent, so "the blob did not
-                    # arrive" is a value that did not change and not a
-                    # key missing for two possible reasons.
-                    "holder": None,
-                },
-            )
-        )
-        session.add(UnitAudit(scanned_at=datetime.now(UTC), findings={"ports": blob}))
-        await session.flush()
-
-        result = await agent._execute(session)  # noqa: SLF001
-        await session.flush()
-        session.expire_all()
-
-        rows = list(
-            (
-                await session.execute(
-                    select(Alert).where(
-                        Alert.agent == agent.name,
-                        Alert.title.in_([open_title, fresh_title]),
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-        standing = [row for row in rows if row.title == open_title]
-        fresh = [row for row in rows if row.title == fresh_title]
-        after = standing[0] if len(standing) == 1 else None
-        new_row = fresh[0] if len(fresh) == 1 else None
-        return QuietenReading(
-            expected_severity=quiet,
-            open_before=DEFAULT_SEVERITY,
-            open_after=after.severity if after is not None else "",
-            open_holder=((after.details or {}).get("holder") if after is not None else None),
-            open_resolved=bool(after.resolved) if after is not None else False,
-            open_rows=len(standing),
-            fresh_severity=new_row.severity if new_row is not None else None,
-            fresh_holder=((new_row.details or {}).get("holder") if new_row is not None else None),
-            fresh_rows=len(fresh),
-            raised=result.alerts_raised,
-        )
-
-    return rolled_back_drive(drive)
-
-
-def check_quietened_judgement_reach() -> Measurement:
-    """``SNAG-ESTATE-010`` — a quieter judgement cannot reach an open row.
-
-    **The entry's stated population has resolved, and a check that
-    looked for it would be refuted by somebody closing an editor.**  It
-    is filed off two live rows — ``Estate port 3110 registry breach`` and
-    ``Estate port 8110 registry breach``, both VS Code dev servers,
-    standing at ``warning`` with ``details['holder']`` null while
-    Session 57's fix ran three lines away.  The entry says in its own
-    third bullet that it self-clears: close the window and the listeners
-    go, the sweep resolves both rows, and the next dev server is judged
-    by the new code.  So counting those two rows measures whether an
-    editor is open — rule 1, refused for the fourth time in this
-    registry and the first time against an entry that predicted its own
-    population away.
-
-    What is left is a mechanism, and it is drivable end to end with
-    instruments this repository already owns: an
-    :class:`httpx.MockTransport` for the estate's answer, a
-    ``unit_audits`` row for the sweep's attribution, and a rolled-back
-    transaction on the live database for everything else.  One
-    ``_execute`` call judges two synthetic breaches — one with a row
-    already open under its title, one without — and the pair differs in
-    exactly that.
-
-    Four rules, three of them the opposite of the obvious
-    implementation:
-
-    1. **The assertion is *reach*, never the rung.**  The entry's fourth
-       bullet records that resolve-and-re-raise on a severity mismatch is
-       the obvious fix and rebuilds the flip-flop
-       ``monitor/collation.py`` refuses, so a real fix may land as an
-       in-place rung, as a resolved row plus a fresh one, or as the
-       ``holder`` blob alone with the severity unmoved.  A check watching
-       the severity column would report two of those three as no change —
-       ``a-control-a-fix-breaks-is-not-a-control`` met from the side
-       where the fix is the *unexpected* one.  **The third shape landed
-       on 2026-08-28**: ``SNAG-AGENT-009``'s remedy rewrites a held row's
-       ``message`` and ``details``, so the blob now arrives on every run
-       and :attr:`QuietenReading.reached` stopped reading it — keeping
-       the clause would have reported this entry refuted by a different
-       entry's fix and returned ``mismatch`` whatever the rung did.  What
-       is still filed is the half Session 39 keeps shut on purpose.
-    2. **The quiet rung is read off the judgement, never written down.**
-       ``judge_audit_findings`` is run purely first, on the same payload
-       and the same attribution, and its answer is what the run is
-       measured against.  A constant here would be a second statement of
-       :data:`~sysadmin.estate.judgements.TRANSIENT_HOLDER_SEVERITY`
-       free to agree with the box while the family disagreed with both.
-       The **titles** come from the same place and for a sharper reason:
-       a title written as a format string would stop matching the day the
-       producer's wording moves, and the probe would then open a row the
-       run never judges and report a rename as the fix.
-    3. **The unmoved row is evidence only beside a row that moved.**  A
-       judge that had stopped computing ``info`` at all, or a sweep whose
-       attribution no longer reached this family, leaves the standing row
-       exactly as untouched as the dedup does.  So the same run judges a
-       second port with nothing open under it, and that row must land at
-       the quieter rung carrying a transient holder before either verdict
-       means anything.  Without the witness the verdict is ``unknown``,
-       which is also how this degrades when the database will not answer.
-    4. **Nothing is committed, and the surfaces are declined rather than
-       emptied.**  The four surfaces other than ``audit_findings`` answer
-       ``503``, so ``read`` holds one id and the run's sweep cannot reach
-       a row this probe did not open.  Rolled back either way; a probe
-       that can narrow its blast radius should not spend the rollback
-       instead.
-    """
-    reading, problem = quietened_judgement_reading()
-    if reading is None:
-        return Measurement("unknown", problem)
-
-    detail = (
-        f"the judgement computes {reading.expected_severity} for a transient holder, "
-        f"against {reading.open_before} for an ordinary breach",
-        f"port {QUIETEN_OPEN_PORT} stood open at {reading.open_before}; after the run "
-        f"{reading.open_rows} row(s) carry its title, severity {reading.open_after or '—'}, "
-        f"resolved={reading.open_resolved}, holder={reading.open_holder!r}",
-        f"port {QUIETEN_FRESH_PORT} stood open at nothing; after the run "
-        f"{reading.fresh_rows} row(s) carry its title, severity "
-        f"{reading.fresh_severity or '—'}, holder={reading.fresh_holder!r}",
-        f"the run reports alerts_raised={reading.raised}",
-    )
-
-    if not reading.witnessed:
-        return Measurement(
-            "unknown",
-            f"the same run did not raise port {QUIETEN_FRESH_PORT} at "
-            f"{reading.expected_severity} with a transient holder, and nothing stood open "
-            "under its title — so a standing row that did not move is evidence about this "
-            "probe rather than about the dedup",
-            detail,
-        )
-    if reading.reached:
-        return Measurement(
-            "mismatch",
-            f"the quieter judgement reached the standing row: {'; '.join(reading.moved)} — "
-            "a reclassification now applies to a fault that was already open, which is "
-            "what the entry says nothing does",
-            detail,
-        )
-    return Measurement("match", "", detail)
 
 
 # ---------------------------------------------------------------------------
@@ -2773,9 +2418,12 @@ SWEPT_PORT = 65008
 UNSWEPT_PORTS = (SWEPT_PORT, UNSWEPT_PORT)
 
 #: The session scope the probe's synthetic sweep attributes the swept
-#: port to.  Distinct from :data:`QUIETEN_HOLDER` so that a leaked row
-#: from either probe names which probe leaked it — the two write to the
-#: same table and a shared string would make the residue ambiguous.
+#: port to.  It was distinct from ``SNAG-ESTATE-010``'s holder so that a
+#: leaked row would name which probe leaked it — the two wrote to the
+#: same table and a shared string would have made the residue ambiguous.
+#: That probe retired on 2026-08-28 and the string stays as it is: it
+#: identifies rows *this* probe leaks, which is the half that was ever
+#: about this check.
 UNSWEPT_HOLDER = "user:snag-claims-window-probe.scope"
 
 
@@ -5703,12 +5351,6 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-009",
             "a port the stored sweep missed is judged loudly",
             check_unswept_port_is_loud,
-        ),
-        Check(
-            "quietened_judgement_reach",
-            "SNAG-ESTATE-010",
-            "a quieter judgement cannot reach an open row",
-            check_quietened_judgement_reach,
         ),
         Check(
             "unmarked_sentence_invisible",

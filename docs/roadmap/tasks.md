@@ -394,6 +394,101 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 117 — the ban is asymmetric, and its reason is what permits the reverse (2026-08-28) ✅
+
+**Fix `SNAG-ESTATE-010`'s surviving rung half.** `SNAG-AGENT-009` closed
+the blob half on 2026-08-28; a judgement that gets *quieter* still could
+not move a standing row's severity, and the entry's own check enumerates
+the three shapes a fix can take and refuses to watch the severity column
+alone.
+
+- [x] **Read the check before the code, which is what the entry asked
+      for.** Its `reached` is a *disjunction* — an in-place rung, a
+      resolve-and-re-raise, or the `holder` blob alone — because when it
+      was written any of the three would have been a fix. Driven live at
+      the start of the sitting it reported `still holds`: the standing
+      row unmoved at `warning` while the same `_execute` judged the
+      identical fault `info`, with the witness port raised at `info`
+      carrying a transient holder
+- [x] **Find the rule rather than invent one.**
+      `log_aggregator._record_recurrence` has quietened a held row in
+      place since Session 66 and states the argument: **Session 39's ban
+      on in-place severity changes is asymmetric, and the reason it
+      exists is what makes the reverse safe.** The ban is about an
+      escalation needing to be *heard* — the tray fingerprints on
+      `{severity}:{title}`, so bumping the column keeps a fingerprint
+      already suppressed. A quietening wants that outcome
+- [x] **Narrow it, because "downward is safe" is too broad by one
+      rung.** `critical` → `warning` in place hands the tray a
+      fingerprint it *will* speak, so the write arrives as a fresh, less
+      urgent toast about a fault that has not improved — which is
+      `escalation.step_for`'s own refusal, met from the other side. Only
+      the **floor** of `SEVERITY_ORDER` is inaudible-or-asked-for
+- [x] **Put it in `core/escalation.py`, beside the ban it depends on**,
+      as `may_quieten_in_place`, with `QUIETEST_SEVERITY` derived from
+      the ordering rather than written as `"info"`. A source-reading
+      test pins the provenance, since a literal and a derivation both
+      *read* `info` — the shape recorded after Session 59's guards
+- [x] **Refuse the tray's threshold, and measure why it was never
+      available.** The obvious gate is "quieter than
+      `notify_min_severity`", which makes the daemon a second reader of
+      a policy the tray owns; the backend cannot see that key at all —
+      `AppConfig` parses `notifications.tray:` while it lives in the
+      top-level `tray:` section the tray parses for itself
+- [x] **Ask it *before* the text gate, which is where this would have
+      shipped green and inert.** `refresh_alert`'s existing gate is "has
+      the text moved", and the founding case is a breach the estate
+      republishes *identically* every hour with only the rung changed.
+      One test catches it and it was falsified against exactly that
+      mutation
+- [x] **Wire all three deduplicating callers**, two of them with
+      populations that are empty and said to be. `_raise_judged`'s is
+      empty **by construction** — every family there pairs a rung with a
+      *title kind* — and the port family's because its rung is a
+      constant, now `PORT_ALERT_SEVERITY` rather than a literal in the
+      raise and nothing in the held branch. The entry *is* what happens
+      when a family gains a quieter rung and its held branch was never
+      told what rung it judged
+- [x] **Refactor `log_aggregator` onto the shared predicate** rather
+      than leaving a second statement of it. The narrowing costs that
+      family nothing measured: `alert_title` interpolates the entry's
+      own severity, so one title carries one rung and its only downward
+      move is to `NOISE_SEVERITY`, which *is* the floor
+- [x] **Fix the second speaker, which nothing had noticed.** The tray is
+      fixed for free; `monitor/desktop.py` is not, because
+      `_SpokenFault.severity` is the rung it *announced* and
+      `_still_open` asked only which titles were open. It returns
+      `{title: severity}` now and the sweep takes the row's rung —
+      loudest wins for the beat in which an escalation has two rows open
+- [x] **Retire the check and re-home its drive**, `FROZEN_TABLES`' rule.
+      `tests/test_quietened_judgement_live.py` is **stronger than the
+      check**: the disjunction was right while the shape was unknown and
+      is wrong now, since a resolve-and-re-raise would satisfy it while
+      rebuilding `monitor/collation.py`'s flip-flop. It asks which shape,
+      and the resolve-and-re-raise mutation turns three of its four tests
+      red
+- [x] **Move the two-probe disjointness assertion across the boundary**
+      rather than retiring it with the check. The counterpart moved and
+      the collision did not: both drives still write ports and a holder
+      string into the same two tables
+- [x] **Falsify nine mutations, and repair the one that passed.** The
+      "loudest of two open rows wins" test yielded its rows loud-*last*,
+      so a last-one-wins implementation with no `_loudest` call answered
+      correctly by accident. The query has no `ORDER BY`, which is the
+      whole reason `_loudest` is there
+- [x] **Fix the three stand-ins that modelled a database this code no
+      longer talks to** — `FakeAlert` with no `severity` (the column is
+      `NOT NULL` behind `chk_alert_severity`), `_FakeSession` answering
+      the open check with titles alone, and a fail-closed test that broke
+      one reader out of two. Session 110's lesson, arriving for the
+      second sitting running
+- [x] **Verify live**: suite **2838** (2832 + 26 − 20), `ruff` and
+      `mypy` clean, daemon restarted 20:46:51 and `/health` 200, all
+      nine `check-ops-claims` claims green, snag sweep at **17** open
+      entries with every one carrying a check. The fix ships
+      **untriggered** — 0 open rows on the box — and the refutation is
+      the retired check's own drive against the live database
+
 ## Session 116 — the repair reads the column the reader read, not the one the entry named (2026-08-28) ✅
 
 **Fix `SNAG-LOG-008`**, having first measured whether retention had made

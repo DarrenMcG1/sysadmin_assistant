@@ -416,7 +416,9 @@ with no snippet is an item no execution sitting can close.
    is asymmetric: `new` rows survive a gappy series, because a gap can
    hide a fault and never invent one.
 4. **The quietening reaches a row that is already open**, which
-   `SNAG-ESTATE-010` says nothing does — and this family cannot wait it
+   `SNAG-ESTATE-010` said nothing did until this rule was lifted out of
+   here into `core/escalation.may_quieten_in_place` on 2026-08-28 — and
+   this family cannot wait it
    out, since a signature loud enough to declare is by definition one
    that never goes quiet, so its row never resolves. Session 39's ban on
    in-place severity changes is **asymmetric and that is what rescues
@@ -3165,10 +3167,13 @@ blob arriving with the severity unmoved* — is this fix, so the blob now
 reaches a standing row on every run. The clause came **out** of
 `QuietenReading.reached` rather than the verdict being accepted: a
 `reached` still reading the blob answers `mismatch` whatever happens to
-the rung, which is a control this fix broke. The rung half stands, by
-Session 39's design. The blob is still carried in the *detail*, because
-"the correction reached the row and the rung stayed put" is a stronger
-statement of the surviving claim than "nothing happened".
+the rung, which is a control this fix broke. The rung half stood at the
+time, by Session 39's design, and **closed the same day** — see the
+`may_quieten_in_place` section below, where that design turns out to
+permit exactly this direction. The blob is still carried in the
+*detail*, because "the correction reached the row and the rung stayed
+put" was a stronger statement of the then-surviving claim than "nothing
+happened".
 
 **Four stand-ins modelled a database this code no longer talks to**, and
 that was most of the work. `tests/test_unit_ports.py` answered the dedup
@@ -3180,6 +3185,100 @@ no database produces and reads as a bug in the code under it.
 `SNAG-ESTATE-010`'s probe located its standing row by
 `message == PROBE_MESSAGE` — the value this fix rewrites — and keys on
 the title now, which is the identity the entry it checks turns on.
+
+**The rung moves too now, in one direction and only to the floor**
+(Session 117, `SNAG-ESTATE-010`). The half `SNAG-AGENT-009` left is a
+judgement that gets *quieter*: every dedup skips a title that is already
+open before it looks at severity, so Session 57's
+`TRANSIENT_HOLDER_SEVERITY` applied only to breaches raised afterwards
+and the two rows it was written for sat at `warning` for the life of a
+VS Code window. `core/escalation.may_quieten_in_place` is the rule and
+`BaseAgent.refresh_alert`'s optional `severity=` asks it.
+
+Six rules, four of them the opposite of the obvious implementation and
+every one settled against the running code rather than by argument:
+
+1. **The rule was already here, stated once and obeyed by one family.**
+   `log_aggregator._record_recurrence` has quietened a held row in place
+   since Session 66, because **Session 39's ban is asymmetric and the
+   reason it exists is what makes the reverse safe**: the ban is about an
+   escalation needing to be *heard*, and the tray's suppressed
+   `{severity}:{title}` fingerprint is exactly what a quietening wants.
+   Four other deduplicating families needed the same answer and had no
+   way to ask for it, which is how a copied rule drifts — `escalation`'s
+   own opening argument for living in `core`.
+2. **"Downward is safe" is too broad by one rung, and that is the whole
+   narrowing.** `critical` → `warning` in place hands the tray a
+   fingerprint it *will* speak, so the write arrives as a fresh, less
+   urgent notification about a fault that has not improved — which is
+   `step_for`'s refusal met from the other side. Only `QUIETEST_SEVERITY`
+   is inaudible-or-asked-for, and it is **derived** from `SEVERITY_ORDER`
+   rather than written as `"info"`: `max_priority_for` against
+   `PRIORITY_MAP`'s rule, pinned by reading the source, because a literal
+   and a derivation both *read* `info` and only provenance separates
+   them.
+3. **The tray's threshold is not consulted and could not have been.**
+   The obvious gate is "quieter than `notify_min_severity`", which makes
+   the daemon a second reader of a policy the tray owns — and `AppConfig`
+   parses `notifications.tray:` (`TrayNotificationsConfig`, "the slice
+   the *backend* needs") while that key lives in the top-level `tray:`
+   section the tray parses for itself. A config leaf added for a rule
+   that does not need it is `SNAG-CFG-001`'s shape.
+4. **It is asked *before* the text gate, which is where the fix would
+   otherwise have shipped green and inert.** `refresh_alert`'s existing
+   gate is "has the text moved", and the founding case is a breach the
+   estate republishes word-for-word every hour with only the rung
+   changed. One test catches the ordering, falsified against exactly that
+   mutation.
+5. **The entry asks for a reason the new severity is *durable*, and the
+   answer is that the transition is one-directional rather than that the
+   rung is stable.** A wobbling producer cannot flip-flop: down is in
+   place and silent, up is refused and belongs to `step_for`'s
+   resolve-and-re-raise. No row is resolved, none re-raised, and the
+   count of standing faults does not move.
+6. **Two of the three callers have empty populations and are wired
+   anyway.** `_raise_judged`'s is empty **by construction** — every
+   family there pairs a rung with a *title kind*, so a disk breach at the
+   warning and critical thresholds is two titles rather than one row at
+   two rungs — and the port family's because its rung is a constant, now
+   `PORT_ALERT_SEVERITY` rather than a literal in the raise and nothing
+   at all in the held branch. The entry *is* what happens when a family
+   gains a quieter rung and its held branch was never told what rung it
+   judged.
+
+**It reaches the second speaker, which nothing had noticed.** The tray is
+fixed for free — the old pair leaves the poll and the new one is dropped
+below `notify_min_severity` — but `monitor/desktop.py` speaks from
+`_SpokenFault.severity`, the rung it *announced*, and `_still_open` asked
+only which titles were open. So the understudy would have gone on
+restating at `warning` a fault the judge had decided is `info`: the
+founding entry surviving inside the fix for it, in the one component that
+exists for the case where the tray is down. That read returns
+`{title: severity}` now and the sweep takes the row's rung, **loudest
+wins** for the beat in which an escalation has two rows open — and the
+sync is unconditional rather than direction-tested, because an escalation
+has already replaced the whole entry through `on_alert_raised` and reads
+back the same value.
+
+The check retired with the entry and the drive is re-homed as
+`tests/test_quietened_judgement_live.py` (`FROZEN_TABLES`' rule), where
+it is **stronger than the check**: that check asserted a *disjunction* on
+purpose, since any of three shapes would have been a fix, and now that
+the shape is known a resolve-and-re-raise would satisfy it while
+rebuilding `monitor/collation.py`'s flip-flop. It asks which shape — the
+rung moved in place, one row, still open, nothing raised and nothing
+resolved — and the resolve-and-re-raise mutation turns three of its four
+tests red where the check would have said `mismatch` and called it fixed.
+
+**One falsification passed against deliberately broken code**, which is
+the part worth carrying: the "loudest of two open rows wins" test yielded
+its rows loud-*last*, so a last-one-wins implementation with no
+`_loudest` call in it answered correctly by accident. The query has no
+`ORDER BY` — which is the whole reason `_loudest` is there — so it drives
+both orderings. Three stand-ins again modelled a database this code no
+longer talks to: `FakeAlert` with no `severity` (the column is `NOT NULL`
+behind `chk_alert_severity`), `_FakeSession` answering the open check
+with titles alone, and a fail-closed test breaking one reader out of two.
 
 Retention needs **both halves**: a row in the `retention_config` table and
 an entry in `TABLE_TIMESTAMP_MAP`. `run_retention` iterates config rows and

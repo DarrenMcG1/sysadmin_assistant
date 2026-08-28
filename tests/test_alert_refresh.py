@@ -138,16 +138,118 @@ class TestWhatIsStored:
         assert original == {"card": "card1", "vram_percent": 90.1}
         assert row.details is not original
 
-    def test_severity_and_title_are_never_touched(self):
-        """Session 39's ban, which this does not go near.
+    def test_a_caller_that_names_no_rung_touches_neither_severity_nor_title(self):
+        """Session 39's ban, which the text-only call does not go near.
 
         An in-place *severity* change keeps a ``{severity}:{title}``
         fingerprint the tray has already suppressed, so an escalation is
         recorded and never spoken.  A message change is invisible to that
         fingerprint — which is what makes it safe, and equally what makes
         it silent.
+
+        Narrowed on 2026-08-28 rather than deleted: ``SNAG-ESTATE-010``
+        gives the method an optional ``severity``, and this test asserted
+        the absence of the whole capability.  What survives is the claim
+        it was always making — a caller that names no rung moves none —
+        and the title stays untouchable either way, because it is the
+        identity.
         """
         row = _row()
         before = (row.severity, row.title, row.resolved)
         BaseAgent.refresh_alert(row, message="moved", details={"card": "card2"})
         assert (row.severity, row.title, row.resolved) == before
+
+
+class TestTheRungMovesOneWay:
+    """``SNAG-ESTATE-010``'s surviving half, at the primitive.
+
+    The predicate itself is pinned in ``tests/test_escalation.py``; what
+    is asserted here is that this method asks it, obeys it, and — the
+    part that would have shipped green and inert — asks it on a call
+    whose text has not moved at all.
+    """
+
+    def test_a_quietening_is_written(self):
+        row = _row()
+        assert (
+            BaseAgent.refresh_alert(
+                row, message="moved", details={"card": "card2"}, severity="info"
+            )
+            is True
+        )
+        assert row.severity == "info"
+
+    def test_a_quietening_lands_even_when_the_sentence_has_not_moved(self):
+        """The founding case, and the one a naive gate order misses.
+
+        The estate republishes the same breach every hour, so the
+        recomputed message and blob are word-for-word what the standing
+        row already says and only the rung moved.  A fix that asked
+        "has the text changed" first would have returned ``False`` here,
+        left the row loud, and passed every other test in this file.
+        """
+        row = _row()
+        assert (
+            BaseAgent.refresh_alert(
+                row,
+                message=row.message,
+                details=dict(row.details),
+                severity="info",
+            )
+            is True
+        )
+        assert row.severity == "info"
+
+    def test_an_escalation_is_refused(self):
+        """Session 39's ban, arriving through the new parameter.
+
+        The row is left at ``warning`` and the *text* still moves — the
+        two decisions are independent, and refusing the rung must not
+        also refuse the correction.
+        """
+        row = _row()
+        assert (
+            BaseAgent.refresh_alert(
+                row, message="moved", details={"card": "card2"}, severity="critical"
+            )
+            is True
+        )
+        assert row.severity == "warning"
+        assert row.message == "moved"
+
+    def test_an_escalation_alone_writes_nothing(self):
+        row = _row()
+        assert (
+            BaseAgent.refresh_alert(
+                row,
+                message=row.message,
+                details=dict(row.details),
+                severity="critical",
+            )
+            is False
+        )
+        assert row.severity == "warning"
+
+    def test_a_fall_that_stops_short_of_the_floor_is_refused(self):
+        """A ``critical`` row recomputed ``warning`` stays ``critical``.
+
+        Not an oversight and not the same question as a quietening: the
+        fault has not improved, and ``warning:title`` is a fingerprint
+        the tray *will* speak, so the write would arrive as a fresh, less
+        urgent toast about a live fault — ``step_for``'s own refusal.
+        """
+        row = _row()
+        row.severity = "critical"
+        BaseAgent.refresh_alert(
+            row, message="moved", details={"card": "card2"}, severity="warning"
+        )
+        assert row.severity == "critical"
+
+    def test_the_title_is_still_untouchable(self):
+        """Whatever the rung does.  It is the identity — Session 42."""
+        row = _row()
+        before = row.title
+        BaseAgent.refresh_alert(
+            row, message="moved", details={"card": "card2"}, severity="info"
+        )
+        assert row.title == before

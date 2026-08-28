@@ -183,7 +183,10 @@ class EstateJudgeAgent(BaseAgent):
                 # identically-named GPUs, and for its reason.
                 held = standing.get(judgement.title)
                 if held is not None and self.refresh_alert(
-                    held, message=judgement.message, details=details
+                    held,
+                    message=judgement.message,
+                    details=details,
+                    severity=judgement.severity,
                 ):
                     refreshed += 1
                 continue

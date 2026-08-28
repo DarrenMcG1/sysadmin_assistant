@@ -22,6 +22,7 @@ import pytest
 from sysadmin.core.models.alert import Alert
 from sysadmin.units import ports as P  # noqa: N812
 from sysadmin.units.agent import (
+    PORT_ALERT_SEVERITY,
     PORT_TITLE_PREFIX,
     ServiceDiscoveryAgent,
     port_alert_title,
@@ -608,7 +609,7 @@ def _session(open_titles=(), swept=0, message="x", details=None):
     rows = [
         Alert(
             agent="service_discovery",
-            severity="warning",
+            severity=PORT_ALERT_SEVERITY,
             title=title,
             message=message,
             details=dict(details or {}),
@@ -1541,3 +1542,41 @@ def test_a_transient_holder_stays_out_of_unit_ports_and_lands_in_the_other_map()
     blob = P.PortReport(listeners=report.listeners, audited_ranges=((1000, 1999),))
     assert blob.unit_ports(audited_only=True) == {}
     assert blob.transient_ports() == {f"user:{RUNTIME_DBUS}": [1716]}
+
+
+def test_the_port_family_states_its_rung_once():
+    """``SNAG-ESTATE-010``, at the family whose population is empty.
+
+    One rung means :func:`may_quieten_in_place` can only ever answer
+    ``False`` here, so nothing observable changes — which is exactly why
+    the wiring is worth pinning rather than trusting. What must hold is
+    that the raise and the held branch name **the same** rung: the whole
+    entry is a family gaining a quieter rung while its held branch went
+    on knowing nothing about severity, and two literals free to disagree
+    is how that happens again.
+    """
+    from pathlib import Path
+
+    source = Path("sysadmin/units/agent.py").read_text()
+    body = source.split("async def _maintain_port_alerts", 1)[1]
+    body = body.split("\n    async def ", 1)[0]
+    assert body.count("PORT_ALERT_SEVERITY") == 2
+    assert 'severity="warning"' not in body
+
+
+def test_a_held_port_row_is_offered_the_rung_the_family_judged():
+    """The refresh is handed a rung at all — the wiring, not its effect.
+
+    Asserted at the call rather than at the row, because the effect is
+    nil by construction: ``warning`` is not the floor, so the predicate
+    refuses it and the column is untouched. A test asserting the column
+    would pass identically against a caller that passed nothing, which
+    is the behaviour being fixed.
+    """
+    import inspect
+
+    from sysadmin.units.agent import ServiceDiscoveryAgent
+
+    source = inspect.getsource(ServiceDiscoveryAgent._maintain_port_alerts)
+    refresh = source.split("self.refresh_alert(", 1)[1].split(")", 1)[0]
+    assert "severity=PORT_ALERT_SEVERITY" in refresh

@@ -38,6 +38,8 @@ import pytest
 
 from sysadmin.estate.agent import SURFACE_DETAIL_KEY, EstateJudgeAgent
 from sysadmin.estate.client import SURFACES, SurfaceResult
+from sysadmin.estate.judgements import DEFAULT_SEVERITY, TRANSIENT_HOLDER_SEVERITY
+from sysadmin.units.ports import attribution_from_blob
 
 HOUR = 3600.0
 
@@ -158,13 +160,23 @@ class FakeAlert:
     judgement now rewrites the standing row's sentence and its blob, so a
     stand-in without those two fields models a row this loop can no
     longer be handed.
+
+    ``severity`` arrived with ``SNAG-ESTATE-010`` for the same reason and
+    is **not** optional: the column is ``NOT NULL`` behind
+    ``chk_alert_severity``, so a row with no rung is one the database
+    cannot hold, and a stand-in permitting it would let a caller that
+    forgot to pass one pass a test the database would refuse.  It
+    defaults to the rung an ordinary judgement opens at, which is what
+    every standing row in this file is.
     """
 
-    def __init__(self, title, surface, resolved=False, message=None):
+    def __init__(self, title, surface, resolved=False, message=None,
+                 severity=DEFAULT_SEVERITY):
         self.id = uuid.uuid4()
         self.agent = "estate_judge"
         self.title = title
         self.message = message
+        self.severity = severity
         self.details = {SURFACE_DETAIL_KEY: surface} if surface else {}
         self.resolved = resolved
 
@@ -259,6 +271,75 @@ class TestTheAuditsTwoSurfaces:
         assert result.alerts_raised == 0
         assert result.details["resolved"] == 0
         assert result.details["standing"] == 1
+
+    async def test_a_breach_reclassified_transient_quietens_the_standing_row(
+        self, agent, monkeypatch
+    ):
+        """``SNAG-ESTATE-010``, at the family it was filed against.
+
+        The founding case exactly: a breach raised at ``warning`` before
+        the sweep's attribution reached this family, judged ``info`` now
+        because the port turns out to be held by an editor's dev server.
+        Dedup skips the raise — correctly — and until 2026-08-28 skipped
+        the reclassification with it, so the two live rows sat at
+        ``warning`` for the life of a VS Code window and were restated at
+        that rung by ``reminder_hours`` throughout.
+
+        Note what is **not** asserted: no row is raised, none resolved,
+        and the count of standing faults does not move.  A quietening
+        that showed up in any of those would be the flip-flop
+        ``monitor/collation.py`` refuses, wearing this fix's clothes.
+        """
+        monkeypatch.setattr(
+            agent,
+            "_attribution",
+            AsyncMock(
+                return_value=attribution_from_blob(
+                    {"transient_ports": {"user:code-oss.scope": [8888]}},
+                    "2026-08-28T09:00:00+00:00",
+                )
+            ),
+        )
+        open_row = FakeAlert("Estate port 8888 registry breach", "audit_findings")
+        assert open_row.severity == DEFAULT_SEVERITY
+        session = _session([open_row])
+
+        result = await _run(agent, session, results(findings=port_breach(8888)))
+
+        assert open_row.severity == TRANSIENT_HOLDER_SEVERITY
+        assert open_row.details["holder"]["transient"] is True
+        assert result.alerts_raised == 0
+        assert result.details["resolved"] == 0
+        assert result.details["standing"] == 1
+        assert result.details["refreshed"] == 1
+
+    async def test_an_ordinary_breach_leaves_the_standing_rung_alone(
+        self, agent, monkeypatch
+    ):
+        """The witness, and it carries the previous test's whole verdict.
+
+        A judge that had stopped computing the quiet rung at all, or an
+        attribution that no longer reached this family, would leave the
+        row at ``warning`` and look identical.  Same fixture, same
+        ``_execute``, one variable moved: the port is not in the
+        transient map.
+        """
+        monkeypatch.setattr(
+            agent,
+            "_attribution",
+            AsyncMock(
+                return_value=attribution_from_blob(
+                    {"unit_ports": {"system:nginx.service": [8888]}},
+                    "2026-08-28T09:00:00+00:00",
+                )
+            ),
+        )
+        open_row = FakeAlert("Estate port 8888 registry breach", "audit_findings")
+        session = _session([open_row])
+
+        await _run(agent, session, results(findings=port_breach(8888)))
+
+        assert open_row.severity == DEFAULT_SEVERITY
 
     async def test_an_unread_invariants_surface_does_not_stop_the_findings(self, agent):
         """The other direction, and the reason this is not one surface
