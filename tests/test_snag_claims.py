@@ -54,7 +54,6 @@ from sysadmin.ops_claims import check_expiry as real_check_expiry
 from sysadmin.snag_claims import (
     CHECKS,
     DEPRECATED_MODULE,
-    EXPECTED_DISCARDED_RUNS,
     EXPIRY_PRODUCER_STAMP,
     MAX_NAMED_ENTRIES,
     REVIEW_SCHEDULE_LEAVES,
@@ -76,7 +75,6 @@ from sysadmin.snag_claims import (
     check_estate_port_8500,
     check_expiry_naive_instant,
     check_health_path_guess,
-    check_manual_run_unawaited,
     check_quietened_judgement_reach,
     check_review_schedule_unread,
     check_run_status_cancelled,
@@ -86,7 +84,6 @@ from sysadmin.snag_claims import (
     check_unswept_port_is_loud,
     check_unwrap_is_read_time,
     closure_declared,
-    discarded_tasks,
     envelope_message,
     expiry_reading,
     load_entries,
@@ -397,24 +394,6 @@ class TestInstruments:
         )
         assert not snag_claims.attribute_reads(REVIEW_SCHEDULE_LEAVES, (REPO_ROOT / "sysadmin",))
 
-    def test_discarded_tasks_exclude_a_task_whose_reference_is_kept(self):
-        """The distinction ``SNAG-LOG-006`` turns on, and it is structural.
-
-        ``sysadmin/core/event_bus.py`` calls ``create_task`` two lines
-        under a comment explaining why it assigns the result.  A search
-        for the call name cannot tell the two apart; an ``ast.Expr``
-        wrapper *is* the discard.
-        """
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "m.py"
-            path.write_text(
-                "import asyncio\n"
-                "def a():\n    asyncio.create_task(agent.run(run_type='manual'))\n"
-                "def b():\n    task = asyncio.create_task(agent.run(run_type='manual'))\n",
-                encoding="utf-8",
-            )
-            assert discarded_tasks(path, "run") == [3]
-
     def test_call_sites_name_the_enclosing_function_and_take_the_innermost(self):
         """The half a count of call sites cannot supply.
 
@@ -601,11 +580,6 @@ class TestChecksAgainstTheLiveBox:
             measurement = check_review_schedule_unread()
         assert measurement.verdict == "mismatch"
         assert "reader(s)" in measurement.note
-
-    def test_manual_run_holds_and_is_refuted_when_a_task_is_kept(self):
-        assert check_manual_run_unawaited().verdict == "match"
-        with patch.object(snag_claims, "EXPECTED_DISCARDED_RUNS", EXPECTED_DISCARDED_RUNS - 1):
-            assert check_manual_run_unawaited().verdict == "mismatch"
 
     def test_deprecated_contracts_holds_and_is_refuted_when_the_shim_goes(self):
         assert check_deprecated_contracts().verdict == "match"

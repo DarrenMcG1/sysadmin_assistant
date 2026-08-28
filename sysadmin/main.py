@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from sysadmin import __version__
 from sysadmin.briefing.data import send_morning_briefing
 from sysadmin.briefing.router import router as summary_router
+from sysadmin.core.agent import spawn_manual_run
 from sysadmin.core.auth import require_auth
 from sysadmin.core.config import get_config, load_config
 from sysadmin.core.contracts import ReloadResponse, ScanAllResponse
@@ -350,10 +351,14 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
     async def scan_all(request: Request):
         """Trigger all agents to run immediately."""
         state = request.app.state
-        asyncio.create_task(state.sysadmin_agent.run(run_type="manual"))
-        asyncio.create_task(state.file_organiser_agent.run(run_type="manual"))
-        asyncio.create_task(state.log_aggregator_agent.run(run_type="manual"))
-        asyncio.create_task(state.service_discovery_agent.run(run_type="manual"))
+        # Supervised rather than discarded (``SNAG-LOG-006``): a manual run
+        # has no scheduler listener behind it, so ``spawn_manual_run`` is
+        # the only thing that can hear ``run()`` raise.  See its docstring
+        # for why the report goes to the journal and not to the database.
+        spawn_manual_run(state.sysadmin_agent)
+        spawn_manual_run(state.file_organiser_agent)
+        spawn_manual_run(state.log_aggregator_agent)
+        spawn_manual_run(state.service_discovery_agent)
         return {"status": "all_scans_triggered"}
 
     @app.post(

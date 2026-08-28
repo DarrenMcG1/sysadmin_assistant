@@ -461,35 +461,6 @@ def attribute_reads(attrs: frozenset[str], roots: Iterable[Path]) -> list[str]:
     return hits
 
 
-def discarded_tasks(path: Path, coroutine: str) -> list[int]:
-    """Bare ``asyncio.create_task(x.<coroutine>(...))`` statements.
-
-    "Bare" is the load-bearing word and the reason this is not a search
-    for ``create_task``: the defect ``SNAG-LOG-006`` describes is a task
-    nobody keeps a reference to, and ``sysadmin/core/event_bus.py`` calls
-    the same function two lines under a comment explaining why it assigns
-    the result.  An ``ast.Expr`` wrapper is exactly "the value was
-    discarded", so the distinction is structural rather than a heuristic
-    over names.
-    """
-    tree = _parse(path)
-    if tree is None:
-        return []
-    lines: list[int] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Expr) or not isinstance(node.value, ast.Call):
-            continue
-        call = node.value
-        if not (isinstance(call.func, ast.Attribute) and call.func.attr == "create_task"):
-            continue
-        if not call.args or not isinstance(call.args[0], ast.Call):
-            continue
-        inner = call.args[0].func
-        if isinstance(inner, ast.Attribute) and inner.attr == coroutine:
-            lines.append(node.lineno)
-    return sorted(lines)
-
-
 def _called_name(node: ast.Call) -> str | None:
     """The final segment of a call's callee, for a ``Name`` or an ``Attribute``.
 
@@ -602,13 +573,6 @@ def query_one(statement: str) -> tuple[object | None, str]:
 SYSADMIN_UNIT = REPO_ROOT / "systemd" / "sysadmin.service"
 RETIRED_UNIT = "ollama.service"
 
-
-#: ``SNAG-LOG-006``'s two composition roots, and the count it measured.
-MANUAL_RUN_PATHS = (
-    REPO_ROOT / "sysadmin" / "main.py",
-    REPO_ROOT / "sysadmin" / "files" / "router.py",
-)
-EXPECTED_DISCARDED_RUNS = 5
 
 #: ``SNAG-CFG-002``'s two leaves.  The sibling leaves that *are* read
 #: (``review_day_of_week``, and the three ``*_review_hour`` pairs) are the
@@ -768,28 +732,6 @@ def check_review_schedule_unread() -> Measurement:
         f"{len(readers)} reader(s) of schedules.review_hour/review_minute — the leaves "
         "drive something now, or the entry's remedy has already been taken",
         tuple(readers[:MAX_NAMED_ENTRIES]),
-    )
-
-
-def check_manual_run_unawaited() -> Measurement:
-    """``SNAG-LOG-006`` — manual runs started by a task nobody holds.
-
-    The check is structural rather than nominal: a bare ``ast.Expr``
-    around ``create_task`` *is* the discard, so
-    ``sysadmin/core/event_bus.py``'s deliberate ``task = loop.create_task(…)``
-    two lines under a comment explaining itself is excluded by the
-    grammar rather than by a name.
-    """
-    found: list[str] = []
-    for path in MANUAL_RUN_PATHS:
-        found.extend(f"{_rel(path)}:{line}" for line in discarded_tasks(path, "run"))
-    if len(found) == EXPECTED_DISCARDED_RUNS:
-        return Measurement("match", "", tuple(found))
-    return Measurement(
-        "mismatch",
-        f"{len(found)} discarded agent-run task(s), not {EXPECTED_DISCARDED_RUNS} — a "
-        "reference is kept somewhere the entry says none is, or a trigger was added",
-        tuple(found[:MAX_NAMED_ENTRIES]),
     )
 
 
@@ -6797,12 +6739,6 @@ CHECKS: dict[str, Check] = {
             "SNAG-CFG-002",
             "schedules.review_hour/minute drive nothing",
             check_review_schedule_unread,
-        ),
-        Check(
-            "manual_run_unawaited",
-            "SNAG-LOG-006",
-            "manual agent runs are started and discarded",
-            check_manual_run_unawaited,
         ),
         Check(
             "deprecated_contracts",

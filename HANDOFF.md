@@ -2,7 +2,83 @@
 
 ## Next action
 
-Cost `SNAG-LOG-006`'s two candidate fixes and build the honest one — retain the task references from `POST /api/sysadmin/scan-all` and `POST /api/files/organise` and attach a done-callback logging a distinct event — since a manual run discards its task, so a failure inside `_record_outcome` is quietened by `COVERED_SIGNATURES` with no scheduler listener behind it to raise `scheduler_job_error`, which is the one path `SNAG-LOG-005`'s rule 5 does not cover.
+Fix `SNAG-DOCS-006` — make `check_convention` emit `convention:unchecked` unconditionally so a register in which every open entry is checked reports nought rather than falling silent, which is `ports_checked`'s rule arriving at this repository's own claims register and is the fifth way the count can move that `SNAG-ESTATE-014` did not catalogue.
+
+## Session 112 is complete — the cheap fix reached one shape of four
+
+`SNAG-LOG-006` is **fixed**, and the costing its entry never did is what
+settles which of its two candidates was honest.
+
+**The four shapes.** `BaseAgent.run` swallows `_execute`'s exception, so
+the exceptions that escape it come from the bookkeeping around the work.
+Driven through the real `run()`: `_execute` *and* `_record_outcome`
+raising (journal holds `agent_run_failed`), `_record_outcome` alone
+(`agent_run_completed`), `_record_start` (**no line at all**) and
+`_flush_events` (`agent_run_completed`).
+
+**The cheap candidate reaches one of them.** Narrowing
+`COVERED_SIGNATURES` to `run_type == "scheduled"` can speak only where an
+`agent_run_failed` line exists. It is also the *more* expensive of the
+two, not the cheaper: `unwrap_json_message` returns `{"logger": …}` and
+its own docstring refuses to promote further envelope fields into the
+identity, and `COVERED_SIGNATURES` would gain a third key component
+`known_noise` does not share while `NOISE_SEVERITY`'s comment turns on
+the two answering one question.
+
+**The entry misnames its second trigger.** `POST /api/files/organise` is
+a synchronous action route returning `FileActionResponse`; the discarded
+task was in `POST /api/files/scan`. `check_manual_run_unawaited` counted
+five discards across two *files* and never named a route, so it reported
+`match` — the right number about the wrong thing — for eleven days.
+
+**The residual signal is measured, and *when* was never the problem.**
+asyncio's fallback fires at `ERROR` on the loop turn after the task
+completes; no `gc.collect()` is needed or helps. What it emits is the
+defect: a 252-character signature and a 220-character title naming
+`BaseAgent.run` and this module's path, so all five triggers share one
+row, moving `run()` forks it, and on a shorter checkout path the
+exception text falls inside the cap and forks a row per failure.
+
+**What was built.** `spawn_manual_run` holds the reference and
+`_report_manual_run` speaks — to the **journal and never the database**,
+because the exceptions that reach it *are* database failures
+(`unit_failure.py`'s argument, one layer in). `manual_run_failed` is a
+17-character signature; `exc_info` was measured landing under its own
+envelope key, so the traceback stays out of the identity and one query
+away in `raw_line`. Cancellation is recorded at `warning`, which
+`FAULT_SEVERITIES` excludes — that tuple extracted from an inline literal
+in `LogAggregatorAgent._execute` so the rung is derived rather than
+restated.
+
+**Options rejected.** A per-agent reference set (a distinction with no
+reader); a `run_type` parameter (a scheduled run must not arrive here —
+APScheduler's listener already owns it, and a second supervisor is the
+second-owner defect inside the fix for a case of it); dropping the
+cancellation line (`known_noise`'s rule 2 — the residue is identical to a
+failure's); and a second alert family (it would need a session at the
+moment the session is what failed).
+
+**The check retired and the detector did not.** Every member of `CHECKS`
+names an *open* entry, so `manual_run_unawaited` and the `discarded_tasks`
+helper it was the only caller of are gone; the AST walk lives on as
+`TestNoTriggerDiscardsItsTask` in `tests/test_manual_run_supervision.py`,
+`FROZEN_TABLES`' rule.
+
+**Suite 2790** (2772 + 20 − 2). Ten mutations driven, each red on the
+right test, **two of them wrong on the first attempt**: removing the
+`finally` produced a `SyntaxError` rather than a leak and had to be
+rewritten as a discard moved inside the guard, and the priority
+round-trip test read `PRIORITY_MAP` with an `int` key when the map is
+keyed on the string journalctl emits.
+
+**Deployed and verified live.** Restart 2026-08-28 14:13:52 (PID 3716817
+→ 3745842), schema checked at head 017 *before* the signal, `/health`
+200. The real `POST /api/sysadmin/scan-all` put all four agents through
+`spawn_manual_run`: four `agent_run_completed`, **zero**
+`manual_run_failed`. It ships untriggered, the position `SNAG-LOG-005`
+shipped in.
+
+**Nothing is blocked.**
 
 ## Session 111 is complete — the notice had no lifecycle because it should never have been a row
 

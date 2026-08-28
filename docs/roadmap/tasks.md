@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-27
+> **Last Updated**: 2026-08-28
 
 ---
 
@@ -393,6 +393,59 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+## Session 112 — the cheap fix reached one shape of four (2026-08-28) ✅
+
+**Cost `SNAG-LOG-006`'s two candidate fixes and build the honest one.**
+The entry filed both as *"neither costed"*, so the costing was the work
+and it inverted the ranking the entry implied.
+
+- [x] **Cost the two candidates against the code, not the prose.**
+      `BaseAgent.run` swallows `_execute`'s exception, so what escapes it
+      is the bookkeeping — **four shapes**, each driven through the real
+      `run()`: `_execute` *and* `_record_outcome` raising (journal holds
+      `agent_run_failed`), `_record_outcome` alone
+      (`agent_run_completed`), `_record_start` (**no line at all**) and
+      `_flush_events` (`agent_run_completed`)
+- [x] **The cheap candidate reaches 1 of the 4.** Narrowing
+      `COVERED_SIGNATURES` to `run_type == "scheduled"` can speak only
+      where an `agent_run_failed` line exists. It is also the *more*
+      expensive: `unwrap_json_message` returns `{"logger": …}` and its own
+      docstring refuses to promote further envelope fields, and
+      `COVERED_SIGNATURES` would gain a third key component
+      `known_noise` does not share
+- [x] **Measure the residual signal the entry called unmeasured.** It is
+      **prompt, not GC-deferred** — the loop drops its reference, CPython
+      collects the task and `Task.__del__` calls the handler on the next
+      turn. *When* was never the problem: it emits a **252-character
+      signature** and a **220-character title** naming `BaseAgent.run`
+      and this module's path
+- [x] **Build the honest one.** `spawn_manual_run` +
+      `_report_manual_run` in `sysadmin/core/agent.py`; all five triggers
+      go through it. Reports to the **journal and never the database**,
+      because the exceptions that reach it *are* database failures —
+      `unit_failure.py`'s argument one layer in
+- [x] **Correct the entry's second trigger.** It names
+      `POST /api/files/organise`, which is a synchronous action route;
+      the discarded task was in `POST /api/files/scan`. The check
+      watching it counted five discards across two *files* and never
+      named a route, so it was green either side of the error
+- [x] **Cancellation recorded, not announced** — `warning`, which
+      `FAULT_SEVERITIES` excludes. That tuple extracted from an inline
+      literal in `LogAggregatorAgent._execute` so the rung is derived
+- [x] **Retire the check, re-home the detector.** Every member of
+      `CHECKS` names an *open* entry, so `manual_run_unawaited` and
+      `discarded_tasks` go; the AST walk lives on as
+      `TestNoTriggerDiscardsItsTask` — `FROZEN_TABLES`' rule
+- [x] **20 tests, 10 mutations, each red on the right test** — two of the
+      mutations wrong on the first attempt: removing the `finally` gave a
+      `SyntaxError` rather than a leak, and the priority round trip read
+      `PRIORITY_MAP` with an `int` key when it is keyed on the string
+      journalctl emits
+- [x] **Verified live and untriggered.** Restart 14:13:52 (3716817 →
+      3745842), `/health` 200; the real `POST /api/sysadmin/scan-all`
+      produced four `agent_run_completed` and **zero**
+      `manual_run_failed`
 
 ## Session 111 — the notice had no lifecycle because it should never have been a row (2026-08-28) ✅
 

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sysadmin.core.agent import spawn_manual_run
 from sysadmin.core.auth import require_auth
 from sysadmin.core.config import AppConfig, FileOrganiserConfig, get_config
 from sysadmin.core.contracts import (
@@ -414,7 +415,9 @@ async def trigger_scan(request: Request):
     if agent is None:
         raise HTTPException(status_code=503, detail="File organiser agent not available")
 
-    asyncio.create_task(agent.run(run_type="manual"))
+    # ``SNAG-LOG-006``: supervised, not discarded — see
+    # :func:`sysadmin.core.agent.spawn_manual_run`.
+    spawn_manual_run(agent)
     return {"status": "scan_triggered"}
 
 

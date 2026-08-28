@@ -127,6 +127,19 @@ STORED_MESSAGE_CHARS = 5000
 #: A hand-maintained set of this kind is the ``SNAG-CFG-001`` shape, so it
 #: is bounded rather than open: one entry, both halves derived, and a test
 #: pins that the emitter still emits what this keys on.
+#: The rungs at which an ingested line becomes an alert.  Below these a
+#: line is stored, counted, and carried into ``GET /api/logs/trends``
+#: while raising nothing and reaching no tray.
+#:
+#: Named rather than written inline because a *producer* now depends on
+#: it: :data:`sysadmin.core.agent.MANUAL_RUN_CANCELLED_EVENT` is emitted
+#: at ``warning`` precisely so that it is recorded without being
+#: announced, and that choice is only correct while this tuple says so.
+#: A test pins the two against each other — ``max_priority_for`` against
+#: ``PRIORITY_MAP`` and ``chk_alert_agent`` against ``AGENT_NAMES``, the
+#: same rule: derive, never write beside.
+FAULT_SEVERITIES = ("error", "critical")
+
 COVERED_SIGNATURES: dict[tuple[str, str], str] = {
     (OWN_UNIT, AGENT_RUN_FAILED_EVENT): "sysadmin/monitor/failures.py — "
     "'<agent> agent failing', at two consecutive failures",
@@ -275,7 +288,7 @@ class LogAggregatorAgent(BaseAgent):
                 session.add(log_entry)
                 total_ingested += 1
 
-                if entry["severity"] not in ("error", "critical"):
+                if entry["severity"] not in FAULT_SEVERITIES:
                     continue
 
                 title = alert_title(

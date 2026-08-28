@@ -8,6 +8,7 @@ Provides:
 - Change events published to the event bus (fed to SSE clients)
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -40,6 +41,67 @@ logger = logging.getLogger(__name__)
 #: because renaming this event to something with a number in it would
 #: silently unkey the exclusion rather than break it.
 AGENT_RUN_FAILED_EVENT = "agent_run_failed"
+
+#: The log event :func:`spawn_manual_run`'s supervisor writes when
+#: :meth:`BaseAgent.run` *itself* raises — the bookkeeping around the
+#: work, never the work.
+#:
+#: ``SNAG-LOG-006``.  It sits beside :data:`AGENT_RUN_FAILED_EVENT`
+#: because the two must be read together: that constant is the one
+#: :data:`sysadmin.monitor.log_aggregator.COVERED_SIGNATURES` **quietens**
+#: on the grounds that :mod:`sysadmin.monitor.failures` will speak
+#: instead, and this one is the case where that reasoning does not reach.
+#: A sitting adding a third entry to that map needs the exception in
+#: view, not one module away.
+#:
+#: Disjoint from it **by construction rather than by convention**.
+#: :meth:`BaseAgent.run` swallows ``_execute``'s exception, so the only
+#: exceptions that escape it come from ``_record_start``,
+#: ``_record_outcome`` and ``_flush_events``.  A supervisor therefore
+#: cannot double-report an ordinary agent failure, because an ordinary
+#: agent failure *returns normally* — the mutual exclusion
+#: :mod:`sysadmin.monitor.failures` and :mod:`sysadmin.monitor.stalls`
+#: rely on, one layer down.
+#:
+#: **No digit, and that is arithmetic rather than taste.**
+#: :func:`~sysadmin.monitor.log_signature.signature` maps digit runs to
+#: ``N``, so a name carrying a number would make the stored signature
+#: differ from this literal — and the failure mode of that is silence,
+#: not an error.  ``AGENT_RUN_FAILED_EVENT`` states this for a constant
+#: that is *looked up*; these two are looked up by a human reading an
+#: alert title, and the same arithmetic decides whether the title they
+#: read is the string written here.
+MANUAL_RUN_FAILED_EVENT = "manual_run_failed"
+
+#: The log event the same supervisor writes when a manual run is
+#: **cancelled** — recorded, deliberately not announced.
+#:
+#: A task cancelled at interpreter shutdown is not a fault, and
+#: :meth:`asyncio.Task.exception` *raises* on a cancelled task, so it has
+#: to be tested first whatever is done with it.  Dropping it silently was
+#: refused for ``known_noise``'s rule 2: a cancellation leaves exactly
+#: the residue a failure leaves — an ``agent_runs`` row stuck at
+#: ``running`` that nothing will ever close — so the fact that it
+#: happened is worth keeping even though nobody needs waking for it.
+#:
+#: The rung is the entire mechanism and no flag is kept beside it.
+#: :meth:`~sysadmin.monitor.log_aggregator.LogAggregatorAgent._execute`
+#: raises a fault only for ``error`` and ``critical``, so a ``warning``
+#: line from this source is stored in ``log_entries``, counted, and
+#: carried into ``GET /api/logs/trends`` while raising no alert and
+#: reaching no tray.  A second suppression list would be a second
+#: statement of what the severity already says.
+MANUAL_RUN_CANCELLED_EVENT = "manual_run_cancelled"
+
+#: Tasks :func:`spawn_manual_run` is holding.
+#:
+#: Module level rather than per agent: the five triggers spawn from two
+#: composition roots into one process, and a set per agent would make
+#: what is retained depend on which agent was asked — a distinction with
+#: no reader.  The idiom (a set, plus a callback that discards) is
+#: :meth:`sysadmin.core.event_bus.EventBus._spawn`'s, two lines under a
+#: comment explaining why the result of ``create_task`` is assigned.
+_manual_runs: set[asyncio.Task[Any]] = set()
 
 
 class AgentResult:
@@ -422,3 +484,152 @@ class BaseAgent(ABC):
                 {"agent": self.name, "match": title_pattern, "count": resolved},
             )
         return resolved
+
+
+def spawn_manual_run(agent: BaseAgent) -> asyncio.Task[Any]:
+    """Start a manual run and keep watching it, which nothing did before.
+
+    ``SNAG-LOG-006``.  ``POST /api/sysadmin/scan-all`` and
+    ``POST /api/files/scan`` started agents with a bare
+    ``asyncio.create_task(agent.run(run_type="manual"))`` and kept no
+    reference, so there was no scheduler listener behind them and nothing
+    awaited the coroutine.  A scheduled run's escape reaches
+    ``Scheduler._on_job_error`` and comes out as ``scheduler_job_error``;
+    a manual run's reached nobody, which is the one path
+    ``COVERED_SIGNATURES``' rule 5 does not cover.
+
+    *The entry names ``POST /api/files/organise`` as the second trigger
+    and that is wrong.*  ``/api/files/organise`` is a synchronous action
+    route returning ``FileActionResponse``; the discarded task was in
+    ``POST /api/files/scan``.  The structural check that watched this
+    counted five discards across two files and never named a route, so it
+    stayed green either side of the misdescription.
+
+    Six rules, four of them the opposite of the obvious implementation
+    and every one settled against the running loop rather than by
+    argument:
+
+    1. **The reference is held here, and the residual signal it replaces
+       was measured rather than assumed.**  The entry filed the asyncio
+       fallback as real but unmeasured — *"what is not established is
+       when"* — because no such line exists in this journal.  Driven
+       in-process it is **prompt, not deferred**: the loop drops its
+       reference when the task completes, CPython collects it on the next
+       turn, and ``Task.__del__`` calls the exception handler
+       synchronously.  No ``gc.collect()`` is needed and none helps.
+       *When* was never the problem.  **What** is: the emitted record
+       unwraps to a **252-character signature** and a **220-character
+       title** reading ``Task exception was never retrieved future: <Task
+       finished name='Task-N' coro=<BaseAgent.run() done, defined at
+       …/sysadmin/core/agent.py:N> …`` — ``SNAG-LOG-003``'s shape
+       arriving by the one route :func:`~sysadmin.monitor.journal.unwrap_json_message`
+       cannot help, since the *unwrapped* message is itself the repr.
+       Three costs, each visible in that string: it names ``BaseAgent.run``,
+       so all five triggers share one signature and the row cannot say
+       which agent died; it carries this module's path, so moving
+       ``run()`` forks the row on a commit that changed nothing; and the
+       exception's own text sits inside the repr, so on a checkout path
+       shorter than this one it falls within the cap and forks a row per
+       distinct failure — ``SNAG-AGENT-005``'s pile-up rebuilt inside the
+       family built to end it.
+    2. **It reports through the journal and never through the database.**
+       The exceptions that reach here come from ``_record_start`` and
+       ``_record_outcome``, which are database writes — so a report that
+       needed a session would need the thing that has just failed.
+       :mod:`sysadmin.core.unit_failure` makes this argument one layer
+       out, running while the application is dead; this is the same
+       argument one layer in.  The journal costs nothing and is already
+       wired: since the level prefix (Session 61) and the ``format: json``
+       declaration (Session 64) an ``error`` line from this daemon is
+       ingested by :class:`~sysadmin.monitor.log_aggregator.LogAggregatorAgent`
+       and raises through the family that already owns this source.  No
+       new alert family, no new table, no session.
+    3. **It cannot double-report an ordinary failure, and that is what
+       makes rule 2 safe.**  ``run()`` swallows ``_execute``'s exception,
+       so a normal agent failure returns normally and this callback sees
+       no exception at all.  Driven across all four shapes ``run()`` can
+       escape by: ``_execute`` **and** ``_record_outcome`` raising (the
+       journal holds ``agent_run_failed``), ``_record_outcome`` alone
+       (``agent_run_completed``), ``_record_start`` (**nothing at all**),
+       and ``_flush_events`` (``agent_run_completed``).  All four escape;
+       none of the last three writes a ``failed`` row for
+       :mod:`sysadmin.monitor.failures` to find.
+    4. **That measurement is also what refuted the cheaper fix.**  The
+       entry's second candidate — narrow ``COVERED_SIGNATURES`` to
+       ``run_type == "scheduled"`` — can only speak where an
+       ``agent_run_failed`` line **exists**, which is shape 1 and nothing
+       else: **one of the four**.  Shapes 2 and 4 write
+       ``agent_run_completed`` and shape 3 writes no line at all, so
+       there is nothing there for a narrowed cover to un-quieten.  It is
+       also the more expensive of the two, not the cheaper: it needs
+       ``unwrap_json_message`` to promote ``run_type`` out of the
+       envelope — which that function's own docstring refuses, because
+       choosing which further envelope fields join the identity is
+       recognising this application again — and it gives
+       ``COVERED_SIGNATURES`` a third key component ``known_noise`` does
+       not share, when ``NOISE_SEVERITY``'s comment turns on the two
+       answering one question.  Costed both ways it buys a quarter of the
+       fault for more work.
+    5. **Cancellation is tested first and recorded, never announced.**
+       :meth:`asyncio.Task.exception` *raises* on a cancelled task, so
+       the order is forced; what is not forced is what to do with it.  A
+       cancellation at shutdown is not a fault, but it leaves precisely
+       the residue a failure leaves — an ``agent_runs`` row stuck at
+       ``running`` — so it is written rather than dropped, and written at
+       ``warning``, which the log aggregator stores and counts without
+       raising.  See :data:`MANUAL_RUN_CANCELLED_EVENT`.
+    6. **There is no ``run_type`` parameter, and its absence is the
+       rule.**  All five triggers are manual; a scheduled run must not
+       arrive here, because APScheduler's listener is what makes
+       ``scheduler_job_error`` loud for those and a second supervisor
+       would give one fault two speakers — the second-owner defect this
+       repository keeps finding, arriving inside the fix for a case of
+       it.  Hard-coding ``"manual"`` is what makes that impossible rather
+       than merely discouraged, which is
+       :func:`~sysadmin.monitor.journal.since_timestamp`'s argument for
+       taking a ``datetime``.
+
+    The task is returned for the benefit of a caller that wants it; the
+    reference this function keeps does not depend on what the caller does
+    with the return, which is the entire point.
+    """
+    task = asyncio.create_task(agent.run(run_type="manual"))
+    _manual_runs.add(task)
+    task.add_done_callback(lambda finished: _report_manual_run(agent.name, finished))
+    return task
+
+
+def _report_manual_run(agent_name: str, task: asyncio.Task[Any]) -> None:
+    """Say what became of a manual run, then let go of it.
+
+    The discard is in a ``finally`` because a done-callback that raises is
+    swallowed by the loop's exception handler — so a logging failure would
+    otherwise leak the reference this module exists to hold, and leak it
+    silently.
+
+    ``exc_info`` is attached and deliberately not folded into the message.
+    Measured through the real :class:`~sysadmin.core.logging_setup.JournalLevelPrefixFormatter`:
+    the traceback lands under its own ``exc_info`` envelope key (485
+    characters for a short stack) while ``message`` stays the event name,
+    so the signature is ``manual_run_failed`` — 17 characters, a
+    46-character title — and the evidence is one query away in
+    ``raw_line``.  That is ``unwrap_json_message``'s rule 3 holding: the
+    unwrap moves what identity is built from, never what is retained.
+    """
+    try:
+        if task.cancelled():
+            logger.warning(
+                MANUAL_RUN_CANCELLED_EVENT,
+                extra={"agent": agent_name, "run_type": "manual"},
+            )
+            return
+        error = task.exception()
+        if error is None:
+            return
+        logger.error(
+            MANUAL_RUN_FAILED_EVENT,
+            extra={"agent": agent_name, "run_type": "manual", "error": str(error)},
+            exc_info=error,
+        )
+    finally:
+        _manual_runs.discard(task)

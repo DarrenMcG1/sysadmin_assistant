@@ -1017,6 +1017,108 @@ of residue**. Each of the six tests was falsified deliberately: emptying
 signature alone breaks the sixth — the one asserting a *negative*, which
 an empty set can never break.
 
+**Rule 5's one uncovered path is closed, and costing the two candidates
+inverted the ranking the entry implied** (Session 112, `SNAG-LOG-006`).
+That rule rests on `_record_outcome` being awaited *outside* `run()`'s
+`try`, so a failure to record a failure propagates into APScheduler and
+raises `scheduler_job_error`. A manual run has no scheduler behind it:
+`POST /api/sysadmin/scan-all` and `POST /api/files/scan` started agents
+with a bare `asyncio.create_task(agent.run(...))` and kept no reference.
+`spawn_manual_run` and `_report_manual_run` in `core/agent.py` are the
+supervisor; all five triggers go through them.
+
+Six rules, four of them the opposite of the obvious implementation and
+every one settled against the running loop rather than by argument:
+
+1. **`run()` escapes in four shapes and the cheap fix reaches one.**
+   `_execute`'s exception is swallowed, so what escapes is the
+   bookkeeping around the work. Driven through the real `run()`:
+   `_execute` **and** `_record_outcome` raising (journal holds
+   `agent_run_failed`), `_record_outcome` alone (`agent_run_completed`),
+   `_record_start` (**no line at all**) and `_flush_events`
+   (`agent_run_completed`). Narrowing `COVERED_SIGNATURES` to
+   `run_type == "scheduled"` can speak only where an `agent_run_failed`
+   line **exists** — shape 1, and nothing else. It is also the *more*
+   expensive: `unwrap_json_message` returns `{"logger": …}` and its own
+   docstring refuses to promote further envelope fields into the
+   identity, and the map would gain a third key component `known_noise`
+   does not share.
+2. **The report goes to the journal and never to the database.** The
+   exceptions that reach here come from `_record_start` and
+   `_record_outcome`, which are database writes, so a report needing a
+   session would need the thing that has just failed —
+   `core/unit_failure.py`'s argument (it runs while the application is
+   dead) arriving one layer in. The journal is already wired: since the
+   level prefix and the `format: json` declaration an `error` line from
+   this daemon is ingested and raises through the family that owns this
+   source. No new alert family, no new table, no session.
+3. **It cannot double-report an ordinary failure, which is what makes
+   rule 2 safe.** A normal agent failure *returns normally*, so the
+   callback sees no exception at all — `failures.py`/`stalls.py`'s
+   mutual-exclusion-by-construction one layer down, and the
+   healthy-run-says-nothing test is what keeps it honest.
+4. **The residual signal the entry filed as unmeasured is prompt, and
+   *when* was never the problem.** asyncio's fallback fires at `ERROR` on
+   the loop turn **after** the task completes — the loop drops its
+   reference, CPython collects the task, `Task.__del__` calls the handler
+   synchronously; no `gc.collect()` is needed or helps. **What** it emits
+   is the defect: a **252-character signature** and a **220-character
+   title** reading `Task exception was never retrieved future: <Task
+   finished name='Task-N' coro=<BaseAgent.run() done, defined at
+   …/core/agent.py:N> …` — `SNAG-LOG-003`'s shape by the one route
+   `unwrap_json_message` cannot help, since the *unwrapped* message is
+   itself the repr. It names `BaseAgent.run`, so all five triggers share
+   one signature and the row cannot say which agent died; it carries the
+   module path, so moving `run()` forks the row on a commit that changed
+   nothing; and the exception's own text sits inside the repr, so on a
+   checkout path shorter than this one it falls inside the cap and forks
+   a row per distinct failure — `SNAG-AGENT-005`'s pile-up rebuilt inside
+   the family built to end it. What ships instead is
+   `manual_run_failed`: a **17-character** signature and a
+   **46-character** title, with `exc_info` measured landing under its own
+   envelope key so the traceback stays out of the identity and one query
+   away in `raw_line`.
+5. **Cancellation is tested first, recorded, and never announced.**
+   `Task.exception()` *raises* on a cancelled task, so the order is
+   forced; what is not forced is the response. A cancellation leaves
+   precisely the residue a failure leaves — an `agent_runs` row stuck at
+   `running` — so it is written rather than dropped (`known_noise`'s rule
+   2), and written at `warning`, which `FAULT_SEVERITIES` excludes:
+   stored, counted, carried into `GET /api/logs/trends`, raising nothing.
+   That tuple was extracted from an inline literal in
+   `LogAggregatorAgent._execute` so the rung is derived rather than
+   restated — `max_priority_for` against `PRIORITY_MAP`'s rule. The rung
+   *is* the mechanism; a second suppression list would restate what the
+   severity already says.
+6. **There is no `run_type` parameter.** A scheduled run must not arrive
+   here, because APScheduler's listener is what makes
+   `scheduler_job_error` loud for those and a second supervisor gives one
+   fault two speakers — the second-owner defect arriving inside the fix
+   for a case of it. Hard-coding `"manual"` makes that impossible rather
+   than discouraged, which is `since_timestamp`'s argument for taking a
+   `datetime`.
+
+**The entry named the wrong second trigger and its own check could not
+have said so.** `POST /api/files/organise` is a *synchronous* action
+route returning `FileActionResponse`; the discarded task was in
+`POST /api/files/scan`. `check_manual_run_unawaited` counted five
+discards across two *files* and never named a route, so it reported
+`match` — the right number about the wrong thing. The check retires with
+the entry (every member of `CHECKS` names an open one) and the detector
+does **not**: the AST walk is re-homed as `TestNoTriggerDiscardsItsTask`,
+`FROZEN_TABLES`' rule, since deleting a guard along with its last finding
+takes the guard against the defect coming back.
+
+Ten mutations were driven against the twenty new tests and each lands red
+on the right one — **two of them wrong on the first attempt, which is the
+part worth carrying**: removing the `finally` produced a `SyntaxError`
+rather than a leak (a stand-in that cannot compile is silence wearing a
+result), and the priority round-trip test read `PRIORITY_MAP` with an
+`int` key when the map is keyed on the **string** journalctl emits.
+Verified live and untriggered: the real `POST /api/sysadmin/scan-all` on
+the restarted daemon produced four `agent_run_completed` lines and zero
+`manual_run_failed`.
+
 The other 86 % was the tray. `sysadmin_tray/dashboard/services_tab.py`
 is built eagerly at startup and wired to `status_updated`
 unconditionally, so it issued one `/details` per systemd-backed service
