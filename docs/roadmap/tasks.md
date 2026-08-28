@@ -394,6 +394,32 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 109 — the population was in the family the entry never named, and the one stale row was a different bug (2026-08-28) ✅
+
+**Decide `SNAG-AGENT-009` by measuring its population first.** The entry
+ranked itself `P3` on a guess and said in writing that its three
+candidate remedies were not comparable until the number existed.
+
+- [x] **Drive both named functions across a state move under a held title**, against the live database in a rolled-back transaction rather than against the mocked session the existing tests use. `_maintain_port_alerts`: holder `alpha` → `beta` on one port gives `held: 1, raised: 0` and a message still naming alpha. `EstateJudgeAgent._execute`: score 42 → 31 and streak 8 → 9 days under two held titles, `raised=0`, both messages unchanged
+- [x] **Record what the drive found that the entry does not say** — `details` is frozen too, so the ports `findings` blob still named alpha. A fix that moves only `message` leaves half the row lying, and `_record_recurrence` (the precedent) already reassigns both
+- [x] **Count the live population: 1 open row, and 0 of it is this entry.** The box holds exactly one unresolved alert. Its message *is* stale, and it belongs to a family with no dedup branch at all — filed as `SNAG-AGENT-010`
+- [x] **Count the held-branch events all-time, per family**, from `agent_runs.details`: threshold+service **838**, collation 386, estate judge **131**, armed orphans 5, ports **0** — **1,360** total across ~5,200 runs
+- [x] **Correct the entry's scoping on that count.** The two functions it names are not comparable halves: one has taken the held branch 0 times in 65 runs, the other 131 times. And the largest population by far is `SysAdminAgent._raise_judged`, which the entry never mentions
+- [x] **Separate the stale-prone families from the immune ones by predicate**, not by inspection: a held message goes stale iff it interpolates a quantity that moves while the fault stands. Collation states two versions; the units roll-up and the service family put the moving figure in the **title**, so a state change mints a new row. The threshold family, the estate judge (**18 of 21** templates) and ports are the stale-prone set
+- [x] **Measure the actual drift rather than bounding it.** Joining `resource_snapshots` to each held window of the 23 post-dedup `High VRAM usage` rows: **42 of 42** polls carried a moved figure, mean 8.15 pp, max 43.8 pp, and **19 of 42** read below the threshold the message was asserting
+- [x] **Catch the first version of that query being a non-witness** — the wrong JSON path made every comparison `NULL <> x`, which is never true, so it reported a confident 0. `min_seen` coming back empty is what said so
+- [x] **Decide: keep `P3`, re-scope, take candidate 1** (refresh when the text differs, `details` with it). `P3` holds because no dedup row has ever been held past `reminder_hours: 24` *with a figure-bearing message* — the four that outlived 24 h are condition-messages or title-coupled
+- [x] **Refute the other two candidates on measurement rather than out-ranking them.** "Carry the state in `details`" is the same write (details is frozen identically) landing where nothing reads — **3 of 3** tray render sites read `message`, none reads `details`. "Say it is a first sighting in the docstring" cannot survive the sentence being republished as current every 24 h, and reaches the threshold family not at all
+- [x] **Refute candidate 1's own stated objection with the number.** `SNAG-AGENT-006` was about `INSERT`s accumulating rows; this is an `UPDATE` to an existing row, ceiling **0.26 per run**, lower gated on the text differing
+- [x] Correct the symbol the entry names — `log_aggregator._refresh` does not exist; it is `LogAggregatorAgent._record_recurrence`
+- [x] Re-derive the parser counts rather than carrying them — 98 → 99 entries, open 23 → 24, at estate-manager's committed `516116f`
+
+**Not done, and deliberately.** The fix is not built. The measurement is
+a sitting's work and the remedy spans three agents; the entry now
+carries the number, the ranking and the chosen candidate, which is what
+it asked for. `SNAG-AGENT-010` is filed and its lifecycle question is
+left open rather than decided in passing.
+
 ## Session 108 — the blocker was gone, the family was three times bigger, and the name never carried the fact (2026-08-28) ✅
 
 - [x] Judge `SNAG-PORT-003` against the three candidate fixes — the two it names and the one the handoff proposed, systemd's own `Transient=` via `$XDG_RUNTIME_DIR/systemd/transient`

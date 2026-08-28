@@ -2,7 +2,97 @@
 
 ## Next action
 
-Decide `SNAG-AGENT-009` by measuring its population first — drive `_maintain_port_alerts` and `EstateJudgeAgent._execute` across a run where the *state* moves under a held title and count how many open rows on this box currently carry a message that no longer describes what they are about, because the entry is `P3` on a guess and the three candidate remedies it names are not comparable until that number exists.
+Build `SNAG-AGENT-009`'s chosen remedy in the order the measurement ranked it — refresh a held row's `message` and `details` only when the recomputed text differs, starting at `SysAdminAgent._raise_judged` where 838 of the 1,360 held events are, then `EstateJudgeAgent._execute` with 131, and last `_maintain_port_alerts`, whose population is zero in 65 runs and whose docstring should say so.
+
+## Session 109 is complete — the population was in the family the entry never named, and the one stale row was a different bug
+
+`SNAG-AGENT-009` is **measured and decided, not fixed**; `SNAG-AGENT-010`
+is opened. The live parser reads **98 → 99 entries, open 23 → 24** at
+estate-manager's committed `516116f`. Suite **2750, unmoved** — no guard
+was added, because the fix is not built and there is nothing for a check
+to hold still against. All nine ops claims ok. No migration, no restart,
+no production code.
+
+### What the sitting settled
+
+- **The mechanism is real in both named families, and it was driven
+  rather than argued.** Against the live database in a rolled-back
+  transaction: `_maintain_port_alerts` raises naming
+  `user:alpha.service`, then `user:beta.service` takes the port —
+  `held: 1, raised: 0`, message still naming alpha.
+  `EstateJudgeAgent._execute` holds two titles through a score moving
+  42 → 31 and a streak 8 → 9 days — `raised=0`, both messages unchanged.
+- **`details` is frozen too, which the entry does not say.** The ports
+  `findings` blob still carried alpha. A fix that moves only `message`
+  leaves half the row lying, and `_record_recurrence` — the precedent
+  this entry cites — already reassigns both.
+- **The live population is 1 open row and 0 of it is this entry.** The
+  box holds exactly one unresolved alert; its message *is* stale, and it
+  belongs to a family with no dedup branch at all. Filed as
+  `SNAG-AGENT-010` rather than counted here, because same symptom and
+  opposite mechanism is exactly what a population count must separate.
+- **The entry's two halves are not comparable, and one is empty
+  all-time.** `_maintain_port_alerts` has taken the held branch **0
+  times in 65 runs**; `EstateJudgeAgent._execute` **131 times across 77
+  of 240**. Giving them equal billing is `SNAG-PORT-003`'s framing
+  defect, one entry later.
+- **The largest population is a family the entry never mentions.**
+  `SysAdminAgent._raise_judged` has suppressed **838** raises across 751
+  of 2,303 runs. Full table: threshold+service 838, collation 386,
+  estate judge 131, armed orphans 5, ports 0 — **1,360** all-time.
+- **The stale-prone set is decided by a predicate rather than by
+  inspection**: a held message goes stale iff it interpolates a quantity
+  that moves while the fault stands. The units roll-up and the service
+  family put the moving figure in the **title**, so a state change mints
+  a new row — twelve roll-up rows on this box, twelve different counts —
+  and collation states a condition. Left: the threshold family, the
+  estate judge (**18 of 21** templates) and ports.
+- **The drift is 100% of every held poll that could be measured.**
+  Joining `resource_snapshots` to each held window of the 23 post-dedup
+  `High VRAM usage` rows: **42 of 42** polls carried a moved figure,
+  mean **8.15 pp**, max **43.8 pp**, and **19 of 42** read below the
+  90% threshold the message was asserting.
+- **Decision: keep `P3`, re-scope, take candidate 1.** `P3` survives
+  because no dedup row has ever been held past `reminder_hours: 24`
+  *with a figure-bearing message* — the four that outlived 24 h are
+  condition-messages or title-coupled — so the consequence surface
+  (`notifications.py:617` re-speaking the frozen message beside a live
+  "Still open N hours") has an empty population to date.
+- **The other two candidates are refuted by measurement, not
+  out-ranked.** Carrying the state in `details` is the *same* write
+  landing where nothing reads: **3 of 3** tray render sites read
+  `message` and none reads `details`. Documenting that a message is a
+  first sighting cannot survive the sentence being republished as
+  current every 24 h, and reaches the threshold family not at all,
+  whose message has no content but the measurement.
+- **Candidate 1's own objection does not transfer, and that is the
+  number the entry was missing.** `SNAG-AGENT-006` was about `INSERT`s
+  accumulating rows — 60 for one dead timer in five hours. This is an
+  `UPDATE` to a row that already exists: it accumulates nothing, ceiling
+  **0.26 per run** across ~5,200 runs, lower again once gated on the
+  text differing.
+
+### The sitting's own mistake, recorded because it produced a confident number
+
+The first drift query read the VRAM percentage at
+`gpu_usage->0->>'vram_percent'` when the blob is keyed `card0`, so every
+comparison was `NULL <> x`, which is never true, and it reported **0 of
+42 polls moved** — the answer that would have closed the entry as
+harmless. Nothing errored. What said so was `min_seen` and `max_seen`
+coming back empty beside a non-zero poll count:
+`a-check-needs-a-discriminating-witness`, met inside the instrument
+rather than in the thing being measured.
+
+### Two corrections to what was written down
+
+- The entry names `log_aggregator._refresh`; **no such symbol exists**.
+  It is `LogAggregatorAgent._record_recurrence`
+  (`monitor/log_aggregator.py:524`), and reading the real one is what
+  showed the precedent reassigns `details` as well as `message`.
+- `SNAG-PORT-003`'s closing bullet calls this entry **`SNAG-PORT-004`**;
+  the id minted was `SNAG-AGENT-009`. Left as-is in that entry rather
+  than rewritten, since it is a closed entry's own record of what it
+  believed, and noted here instead.
 
 ## Session 108 is complete — the blocker was gone, the family was three times bigger, and the name never carried the fact
 

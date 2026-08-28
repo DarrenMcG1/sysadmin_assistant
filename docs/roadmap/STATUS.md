@@ -3,90 +3,90 @@
 **Last Updated**: 2026-08-28
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The blocker was measured gone, and the entry's own framing was the
-> smaller half of the defect.**
-> `SNAG-PORT-003` is **closed**: `Listener.transient` now reads
-> systemd's own runtime-created set rather than guessing from the unit
-> name. The entry deferred itself for want of *"a second instance to
-> tell a rule from a coincidence"*; the box holds **eight** — three
-> bus-named services and **five** `app-*@<32-hex>` ones — so the second
-> instance was there when it was written and was a **different shape**,
-> which is what makes a rule tuned to the first the coincidence.
+> **The population was in the family the entry never named, and the one
+> stale row on the box is a different bug.**
+> `SNAG-AGENT-009` is **measured and decided, not fixed**. It ranked
+> itself `P3` on a guess and said in writing that its three candidate
+> remedies were not comparable until the number existed. It now does.
 >
-> **Both fixes the entry named are refuted by the count.** A `dbus-`
-> prefix reaches 3 of 8; `:N.N` reaches 2, the box carrying `:1.21`
-> beside `:1.2` — its own spelling of the rejected pattern, refuted by
-> the box. Both leave the two `app-*@<id>` units that were **holding
-> ports while the entry claimed a population of one**. And no name rule
-> could work: `app-steam@455b2e51….service` and `syncthing@gaddi.service`
-> are the same shape, so separating them means calling a 32-hex instance
-> special — `systemd-run`'s convention, the format-someone-else-owns
-> objection the entry raised against `:N.N`, met from the other side.
+> **The mechanism is real, driven rather than argued.** Against the live
+> database in a rolled-back transaction, `_maintain_port_alerts` raises
+> naming `user:alpha.service` and then holds — `held: 1, raised: 0` —
+> with the message still naming alpha after `user:beta.service` took the
+> port; `EstateJudgeAgent._execute` holds two titles through a score
+> moving 42 → 31 and a streak 8 → 9 days, `raised=0`, both messages
+> unchanged. **`details` is frozen too**, which the entry does not say.
 >
-> **Added to the suffix rule, never substituted for it, on one measured
-> witness.** `init.scope` reports `Transient=yes` from both managers and
-> appears in **neither** transient directory, so the listing is a proxy
-> that under-reports and a replacement would stop recognising it.
-> Additive cannot subtract — `ops_claims` rule 1's posture.
+> **The entry's two halves are not comparable and one is empty
+> all-time.** Held-branch events on this box: `_maintain_port_alerts`
+> **0 in 65 runs**, `EstateJudgeAgent._execute` **131 across 77 of 240**.
+> The largest population is a family the entry never mentions —
+> `SysAdminAgent._raise_judged`, **838** suppressed raises across 751 of
+> 2,303 runs. Full table: threshold+service 838, collation 386, estate
+> judge 131, armed orphans 5, ports 0 — **1,360** all-time. Giving the
+> two named functions equal billing is the framing defect
+> `SNAG-PORT-003` was closed for, one entry later.
 >
-> **The smaller fix was refused, and its residue is filed.** The entry
-> predicted *"a new title every login"*; `port_alert_title` is keyed on
-> the **port**, so the row dedups and what churns is the message — a
-> staleness fault, not `SNAG-AGENT-005`'s pile-up. That makes the entry
-> less urgent and the fix no smaller: a message-refresh reaches one of
-> the eight by accident and none correctly. `SNAG-AGENT-009` is the
-> general form, and it is not about ports — `log_aggregator._refresh`
-> already updates a held row's message and two other families
-> `continue` past it, one mechanism with opposite treatment and nothing
-> saying which is right.
+> **A held message goes stale iff it interpolates a quantity that moves
+> while the fault stands**, and that predicate splits the 1,360. The
+> units roll-up and the service family put the moving figure in the
+> **title**, so a state change mints a new row and they are immune by
+> construction; collation states a condition. What is left is the
+> threshold family, the estate judge (**18 of 21** templates) and ports.
 >
-> **The retired check reported `match` against its own fix, which is a
-> finding about the instrument.** `transient_misses_bus_name` asked
-> `Listener(port=0, unit=name).transient` — a *synthetic* listener — so
-> it assumed transience is a function of the name. Built to be neutral
-> between the two fixes the entry named, and both were name-based, so it
-> inherited their shared assumption and the fix refuting both is
-> invisible to it; read off the *observed* listener the same property
-> returns `True`. `a-control-a-fix-breaks-is-not-a-control`, a third
-> time, and the first where the coupling came from the entry's framing.
-> It retired with the entry, per the registry's own rule.
+> **The drift is 100% of every held poll that could be measured.**
+> Joining `resource_snapshots` to each held window of the 23 post-dedup
+> `High VRAM usage` rows: **42 of 42** polls carried a figure different
+> from the frozen one, mean **8.15 pp**, max **43.8 pp**, and **19 of
+> 42** read *below* the 90% threshold the message was asserting. The
+> first version of that query reported a confident **0** because the
+> JSON path was wrong and `NULL <> x` is never true — a constant
+> observation with no discriminating witness, caught by `min_seen`
+> coming back empty.
 >
-> **Live either side, through the production path.**
-> `unit_ports(audited_only=True)` **13 keys → 12**:
-> `user:dbus-:1.2-org.kde.kdeconnect@0.service` leaves it for
-> `transient_ports`, alongside the steam, appimagekit and code-oss
-> holders. All 14 hand-written services unmoved, findings **0 → 0**.
+> **Decision: keep `P3`, re-scope, take candidate 1** — refresh when the
+> text differs, `details` with it. The other two are refuted by the
+> measurement rather than out-ranked: carrying the state in `details`
+> is the *same* write landing where nothing reads (**3 of 3** tray
+> render sites read `message`, none reads `details`), and documenting
+> that a message is a first sighting cannot survive the sentence being
+> republished as current every `reminder_hours: 24`. Candidate 1's own
+> objection does not transfer — `SNAG-AGENT-006` was about `INSERT`s
+> accumulating rows; this is an `UPDATE` to an existing row, ceiling
+> **0.26 per run**.
 >
-> **A deploy was owed this time and taken.**
-> <!--check:deploy--> `sysadmin` was restarted at **2026-08-28 10:37:40**
-> <!--check:daemon_start--> — `sysadmin/units/ports.py` is imported by
-> `create_app()`, so unlike Session 107's restart this one moved the
-> code the daemon serves. `/health` answers **200**
-> <!--check:health-->, PID 3532450 → 3597580, no `sudo`.
-> `alembic current` reads 017 at the packaged head <!--check:schema-->,
-> and `alerts` holds **1** unresolved row <!--check:alerts-->. What is
-> open is `info: Weekly disk review ready` <!--check:open_titles--> —
-> unmoved across this sitting, since nothing here raises or resolves:
-> the fix routes per-launch holders out of the finding rather than into
-> a quieter one, and `judge_ports` returned **0 findings** either side.
+> **`SNAG-AGENT-010` is what the count turned up on the way.** The
+> single open row on this box *is* stale — `Weekly disk review ready`,
+> open **270 h**, predicting a 90% disk crossing on 2026-08-23 that did
+> not happen against a disk at 80% — and it is stale by the **opposite**
+> mechanism: never held, because its family has no dedup branch; never
+> resolvable, because its title matches no `RESOLVABLE_TITLE_PATTERNS`
+> entry and `_resolve_recovered` scopes on its own agent; and never
+> purged, because retention deletes `resolved = TRUE` only.
+>
+> **No code changed, so no deploy is owed.** `sysadmin` is still the
+> process restarted at **2026-08-28 10:37:40** <!--check:deploy-->
+> <!--check:daemon_start-->, `/health` answers **200**
+> <!--check:health-->, `alembic current` reads 017 at the packaged head
+> <!--check:schema-->, and `alerts` holds **1** unresolved row
+> <!--check:alerts--> — which is `info: Weekly disk review ready`
+> <!--check:open_titles-->, unmoved and now filed rather than merely
+> observed.
 >
 > **Alembic head is 017**<!--check:migration_head--> and the live schema
-> matches it. Unmoved this sitting — no migration was needed, the change
-> being one field, one directory read and their guards.
+> matches it. Unmoved — this sitting measured and documented, and wrote
+> no migration and no production code.
 >
-> **The suite arithmetic is stated because it went down.** 2755 → 2750
-> = 2755 − 18 + 13: the retired check took its 18 tests with it and the
-> fix added 13. A green suite cannot witness tests that no longer exist,
-> so the sum is written rather than the total alone.
+> **The suite is unmoved at 2750**, which is the honest figure for a
+> sitting that added no guard: `SNAG-AGENT-009`'s fix is not built, so
+> there is nothing for a check to hold still against, and its entry says
+> so rather than leaving the absence to be read as an oversight.
 >
 > **The entry counts were re-derived, not carried** (estate-manager's
-> message `8c1706d3`): **97 → 98 entries, open unmoved at 23**, driven
-> through `estate.snags.read_snags` at their committed `516116f` on a
-> clean tree. The first drive read **0 entries** and the fault was
-> **ours** — `read_snags` takes the document *text* and was handed a
-> *path*. Nearly filed as a cross-repo regression against their parser;
-> reading their signature is what stopped it, which is
-> `verify-ops-claims-live`'s rule that a correction is a claim too.
+> message `8c1706d3`): **98 → 99 entries, open 23 → 24**, through
+> `estate.snags.read_snags` at their committed `516116f`. Their tree
+> carries three unrelated modified files and `lib/estate/snags.py` is
+> not among them, so the instrument is the committed one.
 
 
 ## Quick Status
@@ -109,6 +109,20 @@
 ---
 
 ## Recently Completed
+
+### Session 109 — the population was in the family the entry never named, and the one stale row was a different bug (2026-08-28)
+
+`SNAG-AGENT-009` is **measured and decided**, not fixed: `P3` holds, the
+scope moves to `SysAdminAgent._raise_judged` (**838** held events, which
+the entry never names) ahead of the estate judge (**131**) and ports
+(**0 in 65 runs**), and candidate 1 is taken with the other two refuted
+on measurement. The drift is **42 of 42** held polls across the 23
+post-dedup `High VRAM usage` rows, mean 8.15 pp. `SNAG-AGENT-010` opened
+for the single open row on the box, which is stale by the opposite
+mechanism — never held, never resolvable, never purged. Parser reads
+**98 → 99 entries, open 23 → 24** at estate-manager's committed
+`516116f`. Suite **2750**, unmoved. No migration, no restart, no
+production code.
 
 ### Session 108 — the blocker was gone, the family was three times bigger, and the name never carried the fact (2026-08-28)
 
