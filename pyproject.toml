@@ -61,6 +61,15 @@ sysadmin-check-claims = "sysadmin.ops_claims:main"
 # on the box, three of them P1. The residue — the open entries no
 # check yet names — is SNAG-ESTATE-014.
 sysadmin-check-snags = "sysadmin.snag_claims:main"
+# Run by hand, never scheduled. Repairs log_entries rows whose source
+# gained `format: json` after they were ingested, so the read-time unwrap
+# could never reach them (SNAG-LOG-008). A console script rather than a
+# data migration: an Alembic revision would move the packaged head for no
+# structural reason, obliging `alembic upgrade head` plus a restart or
+# schema_guard refuses to boot — SNAG-DB-005's 23 hours bought for ten
+# rows — and would fix this population once where the defect is a class.
+# Dry run unless --confirm.
+sysadmin-backfill-messages = "sysadmin.monitor.message_backfill:main"
 
 [tool.uv.sources]
 # Editable relative path, deliberately unversioned: one box, one committer,

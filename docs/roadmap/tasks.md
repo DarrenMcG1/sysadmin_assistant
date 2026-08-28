@@ -394,6 +394,75 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 116 — the repair reads the column the reader read, not the one the entry named (2026-08-28) ✅
+
+**Fix `SNAG-LOG-008`**, having first measured whether retention had made
+it moot. It had not, and it was **three days** from doing so.
+
+- [x] **Measure the population before deciding, which was the sitting's
+      instruction** — **10 rows intact**, serving as 10 of the 24
+      `sysadmin.service` signatures on `GET /api/logs/trends` at
+      `change: gone, current: 0, previous: 1`. They leave that endpoint
+      on **2026-08-31** as `previous_start` passes them and `log_entries`
+      at retention on **2026-09-16**. So the calendar was going to close
+      the entry without anyone fixing anything, and had not yet
+- [x] **Refute the entry's proposed derivation.** It asks for `message`
+      to be re-derived *from* `raw_line` and prices in that column's
+      2000-character truncation as the reason a backfill "is not free".
+      `read_journal` composes `message_text(MESSAGE)` **first** and
+      unwraps *that*, so a `text`-declared row's stored `message` **is**
+      the unwrap's input. Both derivations agree **10 of 10**, and the
+      `raw_line` route re-implements the reader's own parse
+- [x] **Give `raw_line` the job it can actually do — the *witness*.**
+      "Looks like JSON" cannot separate a frozen envelope from a
+      correctly-unwrapped message that is itself a document, and acting
+      on the guess destroys the second. Byte equality against the
+      record's `MESSAGE` is exact in both directions. So the truncation
+      the entry feared lands on the witness, where a row that cannot be
+      cleared is **refused and reported** rather than corrupted
+- [x] **Re-measure the anti-correlation Session 90 found** — **16**
+      `sysadmin.service` rows now carry a `raw_line` cut at 2000
+      (was 10), and the intersection with the ten needing repair is
+      still **zero**
+- [x] **Ship it as a console script, not a data migration.** An Alembic
+      revision moves the packaged head for no structural reason, so the
+      box owes `alembic upgrade head` plus a restart or `schema_guard`
+      refuses to boot — `SNAG-DB-005`'s 23 hours bought for ten rows —
+      and it repairs this population once where the defect is a *class*.
+      `sysadmin-backfill-messages`, dry run unless `--confirm`, never
+      scheduled (a test pins that no job plan or agent reaches it)
+- [x] **Rehearse in a rolled-back transaction, then apply.** Live either
+      side: **60 → 50** signatures, `sysadmin.service` **24 → 14**,
+      raw-JSON **10 → 0**, collapsing to two readable signatures with
+      `logger` recovered for all ten. `GET /api/logs/actions` is
+      **unmoved at 8** — the ten were `previous`-only and never produced
+      advice, so the entire live cost sat on the trends endpoint
+- [x] **File what the apply exposed** — `SNAG-LOG-014`. Two of the ten
+      have a readable twin ingested at **19:50:19**, the restart that
+      deployed the declaration; the declaration was committed at
+      **17:53:33** and `SNAG-LOG-007`'s boundary close landed at
+      **20:09:44**, *nineteen minutes after that restart*. Not this
+      fix's doing and invisible without it: before the backfill the
+      twins were different signatures and hid each other
+- [x] **Retire `unwrap_is_read_time` and its marker, re-home the
+      detector.** Every member of `CHECKS` names an open entry; the
+      two-declaration drive lives on as
+      `tests/test_message_backfill_live.py`. Re-homing it caught the
+      entry's own warning being walked into a second time — the drive
+      paired the two reads on `raw_line`, whose field order journalctl
+      does not fix, so it compared nothing and **skipped**. It pairs on
+      `__REALTIME_TIMESTAMP` now and carries a premise test
+- [x] **Write `duplicate_ingest_residue`** so `SNAG-LOG-014` is not the
+      one open entry nobody checks. Its witness is the source still
+      having rows, because that population empties by *retention* and a
+      check without the witness reports the entry refuted by the calendar
+- [x] **Fourteen mutations driven against the repair and three against
+      the check**, each red on the test that names it. **Two were wrong
+      on the first attempt**: removing the declaration filter produced a
+      collection error rather than a red test, and the confirm-gate break
+      was only caught by an AST test until the live dry-run drive was
+      added. 2832 tests pass (2801 + 47 + 6 − 22), ruff and mypy clean
+
 ## Session 115 — the understudy remembers, and adopts what it never announced (2026-08-28) ✅
 
 **Fix `SNAG-TRAY-008`, both faces.** `DesktopNotifier._spoken` was an

@@ -26,10 +26,8 @@ import contextlib
 import dataclasses
 import inspect
 import itertools
-import json
 import logging
 import re
-import shutil
 import socket
 import tempfile
 import textwrap
@@ -47,7 +45,6 @@ import sysadmin.snag_claims as snag_claims
 from sysadmin.core.config import REPO_ROOT, get_config
 from sysadmin.core.schema_guard import EXIT_STATUS
 from sysadmin.core.text import strip_markdown as real_strip_markdown
-from sysadmin.monitor.journal import unwrap_json_message
 from sysadmin.snag_claims import (
     CHECKS,
     DEPRECATED_MODULE,
@@ -58,7 +55,6 @@ from sysadmin.snag_claims import (
     STRIPPER_FORMS,
     STRIPPER_NAME,
     STRIPPER_PROBE,
-    UNWRAP_READER,
     Check,
     Measurement,
     call_sites,
@@ -76,15 +72,12 @@ from sysadmin.snag_claims import (
     check_sysd_ollama_ordering,
     check_unmarked_sentence_invisible,
     check_unswept_port_is_loud,
-    check_unwrap_is_read_time,
     closure_declared,
-    envelope_message,
     load_entries,
     main,
     overall,
     probe_signatures,
     read_entries,
-    record_identity,
     render,
     run_check,
     strip_code_spans,
@@ -1439,221 +1432,67 @@ class TestTheNudgeWordingCheck:
             assert field_name not in probe, f"the probe names {field_name} itself"
 
 
-class TestTheUnwrapCheck:
-    """``SNAG-LOG-008``'s check — the registry's clearest case for rule 1.
+class TestTheDuplicateIngestCheck:
+    """``SNAG-LOG-014`` — and the reason it cannot read an empty table.
 
-    The entry's population is ten stored rows from one ten-minute window
-    on 2026-08-17.  They left ``GET /api/logs/trends``' seven-day window
-    on 2026-08-24 with nothing fixed and the purge takes the rows at
-    thirty days, so a check that counted them would report the entry
-    refuted by the calendar.  What is reproduced instead is the
-    mechanism, in the two halves a fix could land in — and only the
-    second of them can move, which is why the reproduction alone would
-    have been a check that can only ever say *match*.
+    This entry's population empties by *retention* on 2026-09-16 with
+    nothing done, so "no duplicates" and "the entry is dead" are only the
+    same statement while the source still has rows.  The witness is those
+    rows, and it is what keeps the check from reporting a refutation the
+    calendar wrote — ``SNAG-LOG-013``'s reading, refused a fourth time.
     """
 
-    #: One journald record, spelled two ways.  ``journalctl -o json``
-    #: does not emit a record's fields in a stable order, so these are
-    #: the same record as two different lines — which is the fact that
-    #: broke this check's first draft and is pinned below.
-    RECORD = {
-        "__REALTIME_TIMESTAMP": "1787846400000000",
-        "__CURSOR": "s=abc;i=1",
-        "MESSAGE": '{"timestamp": "2026-08-26 14:00:00,000", "level": "ERROR",'
-        ' "logger": "sysadmin.core.agent", "message": "alert_raised"}',
-        "_PID": "9999",
-    }
+    def test_it_holds_against_the_live_table(self):
+        assert snag_claims.check_duplicate_ingest_residue().verdict == "match"
 
-    def _line(self, order: tuple[str, ...], **overrides: str) -> str:
-        record = {**self.RECORD, **overrides}
-        return json.dumps({key: record[key] for key in order})
+    def test_a_removed_pair_refutes_the_entry_while_the_source_has_rows(self):
+        with patch.object(
+            snag_claims, "query_one", side_effect=[(0, ""), (199, ""), (0, "")]
+        ):
+            measurement = snag_claims.check_duplicate_ingest_residue()
+        assert measurement.verdict == "mismatch"
+        assert "has been removed or has aged out" in measurement.note
 
-    ORDER_A = ("__REALTIME_TIMESTAMP", "__CURSOR", "MESSAGE", "_PID")
-    ORDER_B = ("_PID", "MESSAGE", "__CURSOR", "__REALTIME_TIMESTAMP")
+    def test_an_emptied_source_is_unknown_and_never_a_refutation(self):
+        """The whole reason the row count is read at all.
 
-    # -- the identity ----------------------------------------------------
-
-    def test_identity_survives_the_field_order_that_broke_the_first_draft(self):
-        """The one thing about this check only a live run could supply.
-
-        The draft paired the two reads on ``raw_line`` and argued for it
-        from the code under test: ``unwrap_json_message``'s rule 3
-        promises that field is kept *verbatim*, so the guarantee comes
-        from the thing being measured.  Driven at the real journal it
-        paired **0 of 50** records, because the promise is about the
-        record's content and not about its bytes.
+        Without it a table retention had emptied answers ``mismatch``,
+        which is the calendar closing an entry nobody judged.
         """
-        first, second = self._line(self.ORDER_A), self._line(self.ORDER_B)
-        assert first != second, "the two spellings must differ, or this pins nothing"
-        assert record_identity(first) == record_identity(second)
+        with patch.object(
+            snag_claims, "query_one", side_effect=[(0, ""), (0, ""), (0, "")]
+        ):
+            measurement = snag_claims.check_duplicate_ingest_residue()
+        assert measurement.verdict == "unknown"
+        assert "retention has emptied" in measurement.note
 
-    def test_identity_separates_records_sharing_a_millisecond(self):
-        """A timestamp alone is not a key for this source.
+    def test_a_pair_elsewhere_is_reported_rather_than_folded_in(self):
+        """The entry's strongest claim is that these are the *only* ones.
 
-        The eight ``alert_raised`` rows behind ``SNAG-LOG-008`` were
-        ingested inside 1.7 ms of one another, so pairing on the instant
-        would fold them into each other and the probe would compare a
-        record against a different one.
+        Scoping the count to the source it names would make that claim
+        unmeasurable by the check written to measure it, and would hide
+        a second occurrence of the mechanism.
         """
-        same_instant = self._line(self.ORDER_A, MESSAGE='{"message": "a second fault"}')
-        assert record_identity(self._line(self.ORDER_A)) != record_identity(same_instant)
-
-    @pytest.mark.parametrize(
-        "line",
-        [
-            "not json at all",
-            "[1, 2, 3]",
-            '{"MESSAGE": "no timestamp"}',
-            '{"__REALTIME_TIMESTAMP": "1787846400000000"}',
-            '{"__REALTIME_TIMESTAMP": "1", "MESSAGE": [72, 105]}',
-        ],
-    )
-    def test_a_record_it_cannot_key_is_dropped_rather_than_guessed(self, line):
-        """A truncated or byte-valued record leaves the population.
-
-        ``raw_line`` is capped at 2000 characters and the field order
-        that broke the draft decides what falls outside the cap, so a
-        record whose key is not in the stored line is a real shape here.
-        Dropping it costs the probe one record; keying it on a guess
-        would pair two different records and report on neither.
-        """
-        assert record_identity(line) is None
-
-    # -- the population --------------------------------------------------
-
-    @pytest.mark.parametrize(
-        ("raw", "expected"),
-        [
-            ('{"message": "alert_raised"}', "alert_raised"),
-            ("Failed to start SportsAnalyser - Frontend (Next.js).", None),
-            ("{not json", None),
-            ('["a", "b"]', None),
-            ('{"level": "ERROR"}', None),
-            ('{"message": ""}', None),
-            ('{"message": 3}', None),
-        ],
-    )
-    def test_envelope_message_reads_only_a_real_envelope(self, raw, expected):
-        assert envelope_message(raw) == expected
-
-    def test_the_second_implementation_agrees_with_the_one_under_test(self):
-        """``envelope_message`` is a copy, so it is pinned rather than trusted.
-
-        It exists because deciding the population with
-        :func:`~sysadmin.monitor.journal.unwrap_json_message` would make
-        the probe agree with the code under test by construction — the
-        defect :mod:`sysadmin.ops_claims` rule 3 recorded one day before
-        this was written, where a pin searched a region containing its
-        own marker.  A copy that can never disagree is worth nothing, so
-        what is asserted is that the two answer the same question the
-        same way today, over the shapes the real journal holds — the
-        ``syslog_priority`` against ``PRIORITY_MAP`` treatment.
-        """
-        shapes = [
-            '{"message": "alert_raised", "logger": "sysadmin.core.agent"}',
-            "Failed to start SportsAnalyser - Frontend (Next.js).",
-            "{not json",
-            '["a"]',
-            '{"level": "ERROR"}',
-            '{"message": ""}',
-            '{"message": 3}',
-        ]
-        for shape in shapes:
-            unwrapped, _ = unwrap_json_message(shape)
-            mine = envelope_message(shape)
-            assert (mine is not None) == (unwrapped != shape), shape
-            if mine is not None:
-                assert mine == unwrapped, shape
-
-    # -- the verdicts ----------------------------------------------------
-
-    def test_the_check_holds_on_this_box(self):
-        """The reproduction, driven at the real journal through the real reader."""
-        if shutil.which("journalctl") is None:
-            pytest.skip("journalctl is not on this box")
-        measurement = check_unwrap_is_read_time()
-        if measurement.verdict == "unknown":
-            pytest.skip(f"the probe could not measure: {measurement.note}")
+        with patch.object(
+            snag_claims, "query_one", side_effect=[(3, ""), (199, ""), (1, "")]
+        ):
+            measurement = snag_claims.check_duplicate_ingest_residue()
         assert measurement.verdict == "match"
-        assert any("shaped differently by the declaration" in line for line in measurement.detail)
-        assert any(f"in {UNWRAP_READER}()" in line for line in measurement.detail)
+        assert "1 of them outside" in " ".join(measurement.detail)
 
-    def test_a_reader_that_ignores_the_declaration_is_a_mismatch(self):
-        """The half the reproduction can refute: shape stops depending on the read."""
-        agreed = [("alert_raised", "{...}", "{...}")]
-        with patch.object(snag_claims, "read_at_both_declarations", return_value=(agreed, "")):
-            measurement = check_unwrap_is_read_time()
-        assert measurement.verdict == "mismatch"
-        assert "no longer shapes a record by the source's declaration" in measurement.note
+    def test_it_counts_groups_and_not_rows(self):
+        """One record ingested three times is one fault, not two.
 
-    def test_a_second_call_site_is_a_mismatch_without_reading_the_journal(self):
-        """Where a backfill lands, and the order the two halves are settled in.
-
-        The call-site half needs no subprocess, so it is decided first —
-        a box where journalctl will not answer still reports a landed
-        backfill rather than an ``unknown`` that hides one.  The journal
-        read is asserted *not* to have happened, because "it also
-        happened to be right" is what a call-count cannot tell from "it
-        was decided here".
+        Asserted at the statement, because the difference is invisible
+        in the two-row population this box actually has.
         """
-        sites = [
-            ("sysadmin/monitor/journal.py:349", UNWRAP_READER),
-            ("alembic/versions/017_backfill_json_messages.py:22", "upgrade"),
-        ]
-        with (
-            patch.object(snag_claims, "call_sites", return_value=sites),
-            patch.object(snag_claims, "read_at_both_declarations") as read,
-        ):
-            measurement = check_unwrap_is_read_time()
-        assert measurement.verdict == "mismatch"
-        assert "017_backfill_json_messages.py:22 in upgrade()" in measurement.note
-        assert not read.called
+        assert "HAVING count(*) > 1" in snag_claims.DUPLICATE_GROUPS_SQL
+        assert "GROUP BY source, logged_at, message" in snag_claims.DUPLICATE_GROUPS_SQL
 
-    def test_the_unwrap_moving_out_of_the_reader_is_a_mismatch(self):
-        """A fix that *relocates* the call leaves the count at one.
-
-        This is the reason the instrument reports the enclosing function
-        rather than a line: an unwrap that moved to a query path serves
-        the ten rows unwrapped without touching them, which answers the
-        entry, and a check counting call sites would see no change at all.
-        """
-        with patch.object(
-            snag_claims, "call_sites", return_value=[("sysadmin/monitor/log_query.py:88", "recent")]
-        ):
-            measurement = check_unwrap_is_read_time()
-        assert measurement.verdict == "mismatch"
-        assert "recent()" in measurement.note
-
-    def test_a_renamed_unwrap_is_unknown_and_never_a_match(self):
-        with patch.object(snag_claims, "call_sites", return_value=[]):
-            measurement = check_unwrap_is_read_time()
-        assert measurement.verdict == "unknown"
-        assert "renamed or inlined" in measurement.note
-
-    def test_a_journal_that_will_not_answer_is_unknown_and_never_a_match(self):
-        with patch.object(
-            snag_claims,
-            "read_at_both_declarations",
-            return_value=([], "either journalctl did not answer or the window held nothing"),
-        ):
-            measurement = check_unwrap_is_read_time()
-        assert measurement.verdict == "unknown"
-        assert measurement.detail, "the call-site evidence survives an unmeasurable read"
-
-    def test_a_mixture_is_unknown_rather_than_a_partial_match(self):
-        """Some records shaped and some not is a probe that stopped isolating.
-
-        The reading it refuses is the tempting one — *most* records
-        diverged, so the mechanism holds.  A reader that unwrapped only
-        some records under a ``json`` declaration is a different
-        mechanism from the one the entry describes, and reporting it as
-        the entry's own would leave the residue unexplained.
-        """
-        mixed = [("a", "{...}", "a"), ("b", "{...}", "{...}")]
-        with patch.object(snag_claims, "read_at_both_declarations", return_value=(mixed, "")):
-            measurement = check_unwrap_is_read_time()
-        assert measurement.verdict == "unknown"
-        assert "reading a mixture" in measurement.note
+    def test_a_silent_database_is_unknown(self):
+        silent = (None, "the database did not answer")
+        with patch.object(snag_claims, "query_one", return_value=silent):
+            assert snag_claims.check_duplicate_ingest_residue().verdict == "unknown"
 
 
 class TestEstateModuleState:

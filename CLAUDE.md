@@ -932,6 +932,102 @@ swallowing a genuine wiring failure, so the fixture constructs the real
 model instead — `UnitFinding.enabled`'s trap answered on the correct
 side.
 
+**A declaration applied at read time cannot reach a row already stored,
+and the repair reads the column the reader read** (Session 116,
+`SNAG-LOG-008`). Ten `sysadmin.service` rows kept the raw envelope in
+`message` because they were ingested before the declaration existed;
+`signature()` and `alert_title()` are both computed from `message`, so
+`GET /api/logs/trends` served ten unreadable signatures.
+`sysadmin/monitor/message_backfill.py` is the second caller of
+`unwrap_json_message` — the one the entry named as its own refutation —
+and `sysadmin-backfill-messages` the console script over it.
+
+Six rules, four of them the opposite of what the entry proposed and every
+one settled against the live table rather than by argument:
+
+1. **The new message is derived from `message`, never from `raw_line`.**
+   The entry asks for the reverse and prices in `raw_line`'s
+   2000-character truncation as the reason a backfill "is not free".
+   Read what `read_journal` composes: `message = message_text(MESSAGE)`
+   **first**, then `unwrap_json_message` on that same string only where
+   the source declares it. A `text`-declared row's stored `message` is
+   therefore exactly the unwrap's input, so applying the unwrap to it
+   reproduces the `json` read by construction, while going through
+   `raw_line` re-implements `message_text(json.loads(line)["MESSAGE"])`
+   — a second statement of the reader's own parse, free to drift from
+   it. The two derivations agree **10 of 10**, so the cheaper route is
+   also the exact one.
+2. **`raw_line` earns a different job instead: the *witness*.** "Does
+   this look like JSON" cannot separate a frozen envelope from a
+   correctly-unwrapped message that is itself a JSON document, and
+   acting on the guess destroys the second. Byte equality against the
+   record's own `MESSAGE` is exact in both directions — a row nothing
+   unwrapped holds it verbatim, an unwrapped row holds the fragment. So
+   the truncation the entry feared is real and lands on the **witness**,
+   which is the weaker half: a row that cannot be cleared is *refused
+   and reported* rather than corrupted. Re-measured, Session 90's
+   anti-correlation has grown and still holds — **16** rows now carry a
+   `raw_line` cut at 2000, intersecting the ten at **zero**.
+3. **The population is the declaration's, never the shape's.** A
+   candidate is a row whose source declares `format: json` *today*; a
+   sweep for JSON-looking messages would rewrite a plain-text service
+   that happened to log a document, which is recognising an application
+   rather than honouring a statement — `unwrap_json_message`'s own rule.
+   The set is `composed_log_sources` resolved through
+   `stored_source_name`, because `log_entries.source` holds the **unit**
+   while the declaration is keyed on the **name**: `log_source_scopes`
+   records that trap from the other side, where the wrong key yields an
+   empty map that reads as success.
+4. **Idempotence is a property, not a flag.** A repaired row's `message`
+   no longer equals the record's `MESSAGE`, so rule 2's witness answers
+   `False` on the next run. A `backfilled` column would be a second
+   statement of a fact the data already carries.
+5. **A console script, not a data migration**, which inverts the obvious
+   ranking. An Alembic revision moves the packaged head for no structural
+   reason, so the box owes `alembic upgrade head` plus a restart or
+   `schema_guard` refuses to boot — `SNAG-DB-005`'s twenty-three hours
+   bought for ten rows — and it repairs this population once where the
+   defect is a *class*. Dry run unless `--confirm` (`files/actions.py`'s
+   contract), and **never scheduled**: `check-migrations.sh`'s rule, with
+   a test pinning that no job plan or agent reaches it.
+6. **Every way of not-knowing is reported and none is success.** A row
+   that cannot be witnessed and a row whose envelope will not parse are
+   distinct from "nothing to do" and both push the exit status to `2` —
+   `ports_checked`'s rule at the size of a return code.
+
+Measured before deciding, which is what the sitting was for: the
+population was **intact and three days from moot**. The ten left the
+trend's current window on 2026-08-24 and would have left the endpoint on
+2026-08-31; live either side of the write, `GET /api/logs/trends` went
+**60 → 50** signatures, `sysadmin.service` **24 → 14** and raw-JSON
+**10 → 0**. `GET /api/logs/actions` is **unmoved at 8** — the ten were
+`previous`-only and never produced advice — which corrects this
+document's own "four of the nine live titles now open with
+`{"timestamp"`": that population had already aged out.
+
+**Applying it exposed a duplicate nobody had seen, and dating the commits
+is what settled the mechanism.** Two of the ten have a readable twin
+ingested at **19:50:19**, the restart that deployed the declaration; the
+declaration was committed at **17:53:33** and `SNAG-LOG-007`'s boundary
+close (`_is_unstored`, `stored_at_floor`) landed at **20:09:44** —
+*nineteen minutes after that restart* — so `_resume_floor` re-admitted
+its own inclusive second. Invisible before the backfill, because the
+twins were different signatures and hid each other; `SNAG-LOG-004`'s
+ordering a fourth time, a fix that widens what a monitor can see being a
+regression surface for whatever reads it. Filed as `SNAG-LOG-014`.
+
+The check retired with the entry and **the detector did not** — its
+two-declaration drive is `tests/test_message_backfill_live.py`,
+`FROZEN_TABLES`' rule. Re-homing it walked into the entry's own warning
+a second time: the drive paired the two reads on `raw_line`, whose field
+order `journalctl -o json` does not fix, so it compared nothing and
+**skipped**. It pairs on `__REALTIME_TIMESTAMP` now, with a premise test
+asserting the reads shared a record at all. Two of fourteen mutations
+were wrong on the first attempt — removing the declaration filter gave a
+*collection error* rather than a red test, and breaking the confirm gate
+was caught only by an AST sweep until a live drive through `run()`
+itself was added.
+
 **Making the monitor able to see its own errors gave one fault two
 speakers, and the second-owner defect existed at a sixth scale by this
 repository's own hand** (Session 65, `SNAG-LOG-005`). `BaseAgent.run`
