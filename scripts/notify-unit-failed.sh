@@ -16,18 +16,38 @@
 # expiring notification about a dead monitor is the same miss with extra
 # steps.
 #
-# **It exits non-zero when it cannot speak.** If nobody is logged in there
-# is no session bus and notify-send fails. Returning 0 there would record
-# "the failure was reported" in the journal when it was not. This handler
-# failing is the honest outcome, and it is visible as
-# `systemctl status sysadmin-failed`.
+# **It exits non-zero when it cannot speak**, and since Session 125 it
+# finds that out in milliseconds rather than discovering it by being
+# killed. Returning 0 when nothing was shown would record "the failure was
+# reported" in the journal when it was not. This handler failing is the
+# honest outcome, and it is visible as `systemctl status sysadmin-failed`.
+#
+# **It fails fast rather than waiting, and that was settled by counting
+# rather than argued.** SNAG-SYSD-004: the guard below used to test for the
+# session bus *socket*, which `Linger=yes` creates at boot with nobody
+# logged in, so all four firings since 2026-08-22 passed it, blocked inside
+# notify-send and were killed at `TimeoutStartSec=30`. Waiting was measured
+# before it was rejected. A pending call *is* delivered if a notification
+# server appears — driven against a private bus, a server claiming the name
+# at t+4 s received the notification intact and notify-send returned 0 —
+# but the window is notify-send's own **60.08 s** bound, and at the four
+# real firings the next login was **24 min** away at best and **6.1 h** at
+# worst. Nought of four could ever have been delivered. The one firing that
+# did complete, 2026-08-11, had a human already logged in. See
+# notification-server-present.sh for the mechanism.
 #
 # **It names the cause when the cause is knowable.** SNAG-DB-005: on
-# 2026-08-23 this handler fired correctly and said only
-# `result=exit-code, restarts=5`. The fault was an unapplied migration and
-# the remedy was one command, both of which `sysadmin/core/schema_guard.py`
-# knew and wrote only to the journal. The daemon stayed dead 23 hours. The
-# schema check below is asked first and its answer goes into the toast.
+# 2026-08-23 the fault was an unapplied migration and the remedy was one
+# command, both of which `sysadmin/core/schema_guard.py` knew and wrote
+# only to the journal. The daemon stayed dead 23 hours. The schema check
+# below is asked first and its answer goes into the toast.
+#
+# That entry also records this handler as having *"fired correctly, with a
+# persistent critical toast"* that day, and the journal refutes it: both
+# 08-23 firings were killed with `Result=timeout`, having reached
+# notify-send on a bus nobody was watching. The surviving summary line and
+# alert row are what made the record look complete — a claim written from
+# the mechanism rather than from counting its output.
 #
 # Off-box notification is the known gap, recorded in tasks.md rather than
 # pretended closed: nothing here survives the machine being off.
@@ -117,11 +137,33 @@ fi
 # The session bus is not inherited by a system unit, so it is named
 # explicitly. Hardcoded uid 1000 (gaddi) — this box has one human, and
 # guessing the "current" session from a system unit is how a handler picks
-# the wrong bus on the one day it matters.
-export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/1000/bus"
+# the wrong bus on the one day it matters. Stated once here and passed to
+# both readers below, because two spellings of one path is how a guard
+# comes to check a different bus from the one the call uses.
+bus_path=/run/user/1000/bus
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${bus_path}"
 
-if [[ ! -S /run/user/1000/bus ]]; then
-	echo "no session bus at /run/user/1000/bus — nobody is logged in to tell" >&2
+# Ask whether anything is listening *before* speaking, because on this box
+# speaking to nobody does not fail — it blocks for 60 s inside a D-Bus
+# activation and is killed at 30. The question is answered by the bus
+# daemon itself in about 4 ms and activates nothing; the answer is not.
+# SNAG-SYSD-004, and notification-server-present.sh carries the mechanism.
+#
+# `|| listen_rc=$?` for the reason the schema capture above has one: `set
+# -u -o pipefail` is in effect without `-e`, and an explicit capture is
+# what stops a future `-e` turning "nobody is listening" into a handler
+# that dies before writing the line saying so.
+listen_rc=0
+listen_out=$("$(dirname "$0")/notification-server-present.sh" "$bus_path") || listen_rc=$?
+
+if [[ $listen_rc -ne 0 ]]; then
+	# Both non-zero verdicts mean the same thing to this script — nothing
+	# was shown to a human — and they are reported apart because the
+	# operator reading this needs to know whether the box was merely
+	# pre-login or actually broken. The journal line and the alert row
+	# above have already been written, so the failure is not lost; only
+	# the interruption is, and that is what this exit status records.
+	echo "not notifying: ${listen_out}" >&2
 	exit 1
 fi
 

@@ -158,3 +158,95 @@ class TestFailureIsReportable:
         """
         code = _script_code("notify-unit-failed.sh")
         assert code.index("systemd-cat") < code.index("notify-send")
+
+
+class TestTheAnnouncerAsksBeforeItSpeaks:
+    """SNAG-SYSD-004. The guard tested for the bus, not for a server on it.
+
+    ``Linger=yes`` starts ``user@1000.service`` at boot, so
+    ``/run/user/1000/bus`` exists with nobody logged in. The old guard
+    passed there, the call reached a D-Bus activation
+    (``plasma_waitforname``, whose whole job is to block until the name
+    appears), and the handler was killed at ``TimeoutStartSec=30`` — four
+    of four firings since 2026-08-22.
+
+    **Note what was green throughout.**
+    ``test_the_handler_is_a_oneshot_that_cannot_hang`` above asserts
+    ``TimeoutStartSec`` exists and is sane, and it is: 30 seconds, which is
+    the thing that *fired*. A test that the hang is bounded is not a test
+    that the hang cannot happen, and this file carried the first without
+    the second for the whole life of the defect.
+
+    These are the static half. ``tests/test_notify_guard_live.py`` drives
+    the guard against a real bus with nothing listening, which is the only
+    place the mechanism itself is observable.
+    """
+
+    def test_the_guard_is_its_own_script_and_is_executable(self):
+        """It has one production caller and is drivable on its own.
+
+        ``check-migrations.sh``'s shape, and for its reason: a question the
+        announcer must ask before it can act is testable only if it can be
+        asked without the announcer's side effects, which include a journal
+        line and an ``alerts`` row.
+        """
+        guard = SCRIPTS / "notification-server-present.sh"
+        assert guard.is_file(), f"missing: {guard}"
+        assert guard.stat().st_mode & 0o111, f"not executable: {guard}"
+
+    def test_the_announcer_calls_the_guard_before_notify_send(self):
+        code = _script_code("notify-unit-failed.sh")
+        assert "notification-server-present.sh" in code, (
+            "the announcer must ask whether anything is listening; without "
+            "it, notify-send blocks for 60s on a bus with no server"
+        )
+        assert code.index("notification-server-present.sh") < code.index("notify-send")
+
+    def test_the_announcer_no_longer_guards_on_the_socket(self):
+        """The refuted predicate, asserted absent rather than merely replaced.
+
+        A socket test left beside the new one would pass on a lingering box
+        exactly as it did before, and the fix would be a second opinion
+        rather than a correction.
+        """
+        code = _script_code("notify-unit-failed.sh")
+        assert "-S /run/user/1000/bus" not in code, (
+            "the bus socket exists at boot under Linger=yes — testing for "
+            "it is the defect SNAG-SYSD-004 records"
+        )
+
+    def test_the_guard_asks_a_question_the_bus_daemon_answers(self):
+        """``NameHasOwner`` cannot be caught in activation; ``Notify`` can.
+
+        This is the whole mechanism. A call to
+        ``org.freedesktop.Notifications`` on an unowned name starts
+        ``plasma_waitforname``; a call to ``org.freedesktop.DBus`` is
+        answered by the bus itself. Measured: five guard calls against a
+        private bus started zero waiters, one ``notify-send`` started one.
+        """
+        code = _script_code("notification-server-present.sh")
+        assert "NameHasOwner" in code
+        assert "org.freedesktop.DBus" in code, (
+            "the question must be addressed to the bus daemon, or asking it "
+            "triggers the activation the question exists to avoid"
+        )
+
+    def test_the_guard_bounds_its_own_question(self):
+        """A guard against hanging that can itself hang is not a guard.
+
+        The measured answer is ~4 ms; the bound exists for a wedged bus
+        daemon, which would otherwise leave even this call unanswered.
+        """
+        code = _script_code("notification-server-present.sh")
+        assert "timeout" in code
+
+    def test_the_guard_reports_not_knowing_apart_from_knowing_no(self):
+        """``ports_checked``'s rule, at the size of an exit status.
+
+        Three verdicts, ``check-migrations.sh``'s three: a server is
+        listening, nothing is listening, or the question could not be
+        answered. Collapsing the last two would report a broken bus as a
+        box that is merely pre-login.
+        """
+        code = _script_code("notification-server-present.sh")
+        assert "exit 0" in code and "exit 1" in code and "exit 2" in code

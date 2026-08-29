@@ -2,7 +2,86 @@
 
 ## Next action
 
-Take `SNAG-SYSD-004` on its own terms and settle whether the announcer should fail fast or wait, since this sitting measured that its guard tests for the bus socket rather than for a notification server on it and that lingering makes those two different things at exactly the boot where the daemon most often dies.
+Take `SNAG-SYSD-005` on its own terms and decide whether a login-time replay is worth building at all, since this sitting measured that four of the five failures this handler has ever had fired into an empty room and that nothing which survives the daemon's death can currently speak for them.
+
+## Session 125 is complete — the wait was real and 24× too short
+
+**`SNAG-SYSD-004` is fixed and its open question is settled by counting.**
+The handoff asked whether the announcer should fail fast or wait, and that
+was a genuine question rather than a rhetorical one: a *pending*
+`notify-send` call really is delivered if a notification server appears.
+Driven against a private `dbus-daemon`, a server claiming
+`org.freedesktop.Notifications` at **t+4 s** received the notification
+intact — right summary, right body, `urgency=2`, `expire_timeout=0` — and
+the call returned **0**. `plasma_waitforname` does exactly what it is for.
+
+**What kills waiting is the size of the window against the size of the
+gap.** notify-send self-bounds at **60.08 s** on an unserved bus, then
+fails with `StartServiceByName … Timeout was reached`. After the four
+killed firings the next `class=user` login was **24 min 20 s**, **23 min
+49 s**, **6.11 h** and **6.10 h** away. Nought of four could ever have
+been delivered, and the nearest miss is **24×** the window. The control is
+the fifth firing, 2026-08-11 — the only one that completed, with a human
+already logged in.
+
+**So the shipped behaviour was never "wait"; it was "hang, then be
+killed".** Three bounds and the smallest is systemd's: `TimeoutStartSec=30`
+< notify-send's **60 s** < the bus's **120 s** `service_start_timeout`. The
+call could not resolve there at any point.
+
+**The mechanism sits a level below what the entry states**, and that is
+what made asking the wrong question expensive rather than merely wrong.
+`/usr/share/dbus-1/services/org.kde.plasma.Notifications.service` declares
+`Exec=/usr/bin/plasma_waitforname`, so a call to an unowned name is not
+refused — the bus **starts a program whose whole job is to block until the
+name appears**, and that waiter outlives the handler systemd kills.
+`scripts/notification-server-present.sh` asks `NameHasOwner` at
+`org.freedesktop.DBus` instead, which the bus answers itself: **3.1 ms**
+served, **3.8 ms** unserved, and **five calls started zero waiters against
+one notify-send's one**. Three verdicts and three exit statuses,
+`check-migrations.sh`'s, which the announcer already consumes one function
+up. `TimeoutStartSec` stays at 30 deliberately — once the activation path
+is refused the only remaining call is `Notify` against a server that
+exists, bounded at 25 s by GDBus, and raising the unit's timeout would
+re-admit the wait.
+
+Driven end to end against the real script, with only `venv=` stubbed onto
+its own documented "alert row not written" branch: **exit 0 in 31 ms** with
+the toast on screen, **exit 1 in 15 ms** on an unserved bus naming the
+reason. No deploy was needed — the installed unit's `ExecStart` names the
+repository path, so writing the file *is* the deployment.
+
+**Two claims made during the sitting were wrong, and both are worth
+carrying.** A falsification passed against deliberately broken code:
+mutating the guard to refuse *everything* — the silent-forever failure,
+which has no symptom because what it suppresses is itself a notification
+nobody receives — left `test_it_admits_the_live_bus` **skipping** rather
+than failing, since that test asked the guard under test whether a live
+server existed. A control a broken subject can switch off is not a
+control; it asks `busctl` directly now.
+
+And **`systemctl reset-failed` returning exit 0 was written up here as a
+third correction to this repository's `sudo` claims, and it was not.**
+Polkit put an authentication dialog on the owner's screen and they
+authorised it — invisibly to the session that ran the command, and
+reported by the owner mid-sitting. `pkcheck` says `auth_admin_keep`:
+admin authentication required *and retained*, which is why the retry
+meant to confirm the finding confirmed nothing. **Exit status is evidence
+about the result, never about the privilege.** The reads the toast tells a
+human to run are still ungated — measured under `env -i` with no session,
+`journalctl -u` exits 0 and `systemctl --no-pager status` exits 1 — so the
+Session 70 finding stands; only the state-change claim was wrong.
+
+**The residue is filed rather than absorbed.** `SNAG-SYSD-005`: a
+boot-time failure is now refused honestly and still reaches nobody. No
+existing component can hold the wait, and the reason is structural — the
+tray polls a route the dead daemon serves, and `monitor/desktop.py` with
+its `desktop_notifications` store lives *inside* that daemon. The one
+component able to speak is the one that has died. Its first requirement,
+the announcer recording that it *could not* speak, is deferred to the
+entry that will read it, because a flag with no consumer is
+`SNAG-CFG-001` at the size of a flag. It is the only open entry naming no
+check, and it says so.
 
 ## Session 124 is complete — the check found its entry's own trap in its own hand
 

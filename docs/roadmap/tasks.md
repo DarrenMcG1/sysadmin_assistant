@@ -394,6 +394,77 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 125 — the wait was real and 24× too short (2026-08-29) ✅
+
+_`SNAG-SYSD-004` taken on its own terms and its open question settled by
+counting rather than by argument. Fail fast, because the wait already in
+the code **does** deliver — a server appearing mid-call gets the
+notification intact — and its window is 60 s against a nearest real gap
+of 24 minutes. The mechanism turned out to sit a level below what the
+entry states, the residue has been given its own entry rather than
+absorbed, and two claims made during the sitting were wrong: one caught
+by a mutation, one by the owner._
+
+- [x] **Settle fail-fast against wait, on measurement.** Driven against
+      a private `dbus-daemon` with nothing owning
+      `org.freedesktop.Notifications`: `notify-send` blocks **60.08 s**
+      and then fails with `StartServiceByName … Timeout was reached`, and
+      a notification server claiming the name at **t+4 s** receives the
+      call intact — right summary, body, `urgency=2`, `expire_timeout=0`
+      — with `rc=0`. So waiting is not hypothetical. Against the four
+      killed firings the next `class=user` login was **24 min 20 s**,
+      **23 min 49 s**, **6.11 h** and **6.10 h** away: **nought of four**
+      reachable, nearest miss **24×** the window. The control is the
+      fifth firing, 2026-08-11, the only one that completed — a human was
+      already logged in
+- [x] **Name what the shipped behaviour actually was.** Three bounds,
+      smallest first: `TimeoutStartSec=30` < notify-send's **60 s** <
+      the bus's **120 s** `service_start_timeout`. The call cannot
+      resolve on an unserved bus at any point, so the entry's framing of
+      a wait that might pay off had no reachable state in it
+- [x] **Find the mechanism a level below the entry.**
+      `org.kde.plasma.Notifications.service` declares
+      `Exec=/usr/bin/plasma_waitforname`, so an unowned name is not
+      refused — the bus **starts a program whose job is to block**. That
+      is why nothing errored, why a desktop probe returns instantly, and
+      why the waiter **outlives** the handler systemd kills
+- [x] **Ask a question the bus daemon answers.**
+      `scripts/notification-server-present.sh` tests `NameHasOwner` at
+      `org.freedesktop.DBus`, measured under `env -i` with no
+      `XDG_RUNTIME_DIR` at **3.1 ms** served / **3.8 ms** unserved, and
+      **five calls started zero waiters against one notify-send's one**.
+      Three verdicts and three exit statuses, `check-migrations.sh`'s,
+      which the announcer already consumes one function up; an
+      unrecognised answer is `2` and never a "no"
+- [x] **Leave `TimeoutStartSec` at 30**, which looks like an oversight
+      and is not: once the activation path is refused the only remaining
+      call is `Notify` against a server that exists, whose GDBus bound is
+      25 s. Raising it would re-admit the wait
+- [x] **Drive the composition end to end.** The real announcer, with
+      only `venv=` stubbed onto its own documented "alert row not
+      written" branch: **exit 0 in 31 ms** with the toast on screen,
+      **exit 1 in 15 ms** on an unserved bus naming the reason
+- [x] **Falsify, and repair the control that a fix could switch off.**
+      Eight mutations, each red on the intended test — and one passed
+      against broken code: a guard mutated to refuse *everything* left
+      `test_it_admits_the_live_bus` **skipping**, because its skip
+      predicate asked the guard under test. It asks `busctl` directly
+      now and the mutation turns it red
+- [x] **Clear the six-day stale `failed` state**, and correct the claim
+      made about it. `systemctl reset-failed` returned exit 0 and that
+      was written up as unprivileged; **polkit had prompted the owner on
+      screen**, invisibly to this session. `pkcheck` reports
+      `auth_admin_keep` — required *and retained*, so the confirming
+      retry confirmed nothing. The reads the script tells a human to run
+      are still ungated, measured under `env -i`
+- [x] **File the residue rather than absorb it.** `SNAG-SYSD-005`: the
+      boot-time failure still reaches nobody, and the wait needs an owner
+      that survives a login — which nothing existing can be, since the
+      component that would speak is the daemon that died. Its first
+      requirement (the announcer recording that it *could not* speak) is
+      deliberately deferred to the entry that will read it, a flag with
+      no consumer being `SNAG-CFG-001` at the size of a flag
+
 ## Session 124 — the check found its entry's own trap in its own hand (2026-08-29) ✅
 
 _`SNAG-CFG-003` taken on its own terms: the **mechanism** is exactly as
