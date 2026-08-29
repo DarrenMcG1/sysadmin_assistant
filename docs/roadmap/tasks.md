@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-28
+> **Last Updated**: 2026-08-29
 
 ---
 
@@ -393,6 +393,119 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+## Session 124 — the check found its entry's own trap in its own hand (2026-08-29) ✅
+
+_`SNAG-CFG-003` taken on its own terms: the **mechanism** is exactly as
+filed, the **cost** is the smaller half three times over, and the entry
+gained the check Session 119 declined as a sitting's own work — which it
+was. Building it hit the trap the entry is about, twice: `load_config`
+installs, so the drive's helper was writing the value its own witness
+read back, and the guard the entry names was doing the same to the test
+process. A second, unrelated defect was found and filed._
+
+- [x] **Drive the mechanism, not the file.** The entry's population is
+      measured-empty by its own bullet, so a check reading the shipped
+      config would report it refuted on the day it was filed — rule 1,
+      refused here for the seventh time. `check_reload_unjudged_config`
+      builds a configuration the suite forbids, puts it through the real
+      `reload_configuration` with a real `Scheduler` and an injected
+      `sync_jobs`, and reads back what the process held: `ok=True`,
+      `requires_restart=[]`, `jobs_retimed=['service_discovery_scan']`,
+      sum **25** against a `reminder_hours` of **24**. Without the
+      syncer every job leaf lands in `requires_restart` and the reload
+      appears to flag the very edit the entry says it delivers silently,
+      so a drive that omitted it would have refuted the entry by its own
+      harness
+- [x] **The pair is the instrument, because the claim is an absence.**
+      One drive observes that the reload said nothing in particular,
+      which is what it says about every configuration. Two specimens
+      that differ in coherence and are identical in delivery make the
+      difference the only thing left to explain, and the coherent drive
+      is the control that the harness works at all
+- [x] **What the comparison discounts is measured, never listed.** The
+      first run reported `mismatch` — the fix landed — because
+      `reloaded_at` is a wall clock stamped per call. A hand-written
+      exclusion would have been right today and stale the day a second
+      time-varying key arrived, so the same specimen is driven **twice**
+      and whatever moves between two identical runs is discounted
+- [x] **The cost is the smaller half at the installer.** The entry
+      scopes the unjudged install to `SIGHUP` and the POST. Over the 30
+      days the journal reaches: **2 reloads, 122 daemon starts, 7 tray
+      starts.** A restart reads the same file with the same absence of a
+      verdict, is **61×** more frequent, and is the remedy every other
+      check here recommends; the lifespan's one verdict is
+      `verify_schema_revision()`, about the schema. So the entry's fix
+      bullet is aimed at 2 of 131, and `schema_guard` is the standing
+      precedent for a boot-time verdict that it does not weigh
+- [x] **The cost is the smaller half at the guard: 1 of about thirty.**
+      Roughly thirty live coherence assertions over the shipped
+      `config.yaml` and `services.yaml` across nine test files, all
+      suite-only. Driven for the sharpest: setting the log source's
+      `format` to `text` while `service.log_format` reads `json` reloads
+      `ok=True` with `services_changed=['sysadmin-service']` and leaves
+      the two declarations disagreeing — which returns `SNAG-LOG-003`'s
+      252-character JSON titles
+- [x] **And at the input: one of three leaves.** Lowering
+      `notifications.tray.reminder_hours` breaks the same ceiling and the
+      reload reports **nothing at all** — `AppConfig` holds
+      `mute_services` alone under `notifications.tray` — and its
+      installer is a **tray restart**, the tray having no reload path.
+      `service_discovery.enabled: false` breaks the property harder while
+      the sum stays coherent, which the guard's own third class states in
+      writing and the entry does not carry
+- [x] **`load_config` installs, and that is the entry's own defect at
+      two more scales.** It is `set_config(parse_config(…))`, so reading
+      a specimen writes the process-wide slot. In the check it made the
+      installed-witness read back a value its own helper had written —
+      caught by a mutation that swapped the two and changed nothing. In
+      `tests/test_config_defaults.py` it left the process holding
+      `scan_interval_hours: 24`, the configuration that class exists to
+      refuse, for every test behind it; invisible only because the
+      class's third test happens to reinstall a coherent copy, which
+      `pytest-randomly` makes a per-seed accident. Both read with
+      `parse_config` now, both pinned, and the pin is asserted against a
+      **violating** specimen because installing the shipped file has no
+      witness
+- [x] **Every open entry now names a check.** The register shipped with
+      16 of 24 unchecked; `SNAG-CFG-003` was the last of the eighteen,
+      and the report's unchecked line reads **0 of 18** before this
+      sitting's own filing takes it to 1 of 19
+- [x] **`SNAG-SYSD-004` opened — the announcer is silent at boot.**
+      `sysadmin-failed.service` has been `failed` since 2026-08-23 and
+      **4 of 4** firings since 08-22 were killed at `TimeoutStartSec=30`
+      inside `notify-send`, after writing their journal line and alert
+      row. `Linger=yes` starts `user@1000.service` at boot, so the
+      script's `[[ -S /run/user/1000/bus ]]` guard passes with nobody
+      logged in and the call waits instead of failing. Measured at the
+      boot itself: boot 08:37:10, bus 08:38:19, sddm greeter 08:38:22,
+      firing 08:38:28, killed 08:38:58. It is silent in the case it
+      exists for, and `SNAG-DB-005`'s record that it *"fired correctly,
+      with a persistent critical toast"* that day is refuted by the
+      journal
+- [x] **Nine mutations driven, each red on one intended test — and one
+      passed against deliberately broken code.** Reading the witness
+      back from the specimen rather than from the singleton is the same
+      number whenever the reload installs, so the surviving mutation
+      named the missing case: a reload that reports success and installs
+      nothing. Four stand-ins also had to be rewritten to call through to
+      the real drive, because one that reports a verdict without
+      installing the configuration models no fix at all
+- [x] **2886 tests pass** (2872 + 14, none retired), ruff and mypy clean
+
+### Not done, and why
+
+- **No restart, and the deploy check's `no` is the documented false
+  positive** — `ops_claims` rule 4, for the fourth sitting running. The
+  only production file changed is `sysadmin/snag_claims.py`, and
+  `create_app()` does not import it (measured, not assumed). A restart
+  with no cause is the needless `kill -TERM` that rule already costs
+- **No fix for `SNAG-CFG-003`**, which is unchanged as a judgement: it
+  stays P4, the shipped file is coherent, all ~30 relations hold, and
+  nothing has ever reloaded or booted a violating config here
+- **No check for `SNAG-SYSD-004`.** Its mechanism needs a bus with no
+  notification server on it, and a probe on a working desktop returns
+  instantly — the shape is named in the entry rather than invented later
 
 ## Session 123 — the cost an entry states is a claim like any other (2026-08-29) ✅
 

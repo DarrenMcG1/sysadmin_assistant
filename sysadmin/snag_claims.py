@@ -5336,6 +5336,437 @@ def check_audit_code_unpublished() -> Measurement:
     return Measurement("match", "", detail)
 
 
+#: The job whose interval is one of the two terms ``SNAG-CFG-003`` names.
+#: Held as the *job id* rather than as the config path because the drive's
+#: witness is that the delivery report is identical across the pair, and
+#: ``jobs_retimed`` is where that is observable.
+RELOAD_PROBE_JOB = "service_discovery_scan"
+
+
+@dataclass(frozen=True)
+class ReloadReading:
+    """Two reloads that differ in coherence and in nothing else.
+
+    Both move ``agents.service_discovery.scan_interval_hours``, both
+    re-time the same one job, both start from the shipped configuration.
+    The pair therefore has the *same delivery report to make*, and any
+    difference between what the two produced is a verdict about the
+    values rather than about what could be delivered — which is the
+    distinction the entry's second bullet draws and the only one this
+    check has to measure.
+    """
+
+    #: ``ReloadReport.to_payload()`` for each drive.  The whole payload,
+    #: never a chosen field: a verdict added to the report as a new key is
+    #: the entry's own stated shape of fix, and a check reading four
+    #: fields by name could not see one.
+    payload_coherent: dict[str, Any]
+    payload_violating: dict[str, Any]
+    #: Keys that differ when the **same** specimen is driven twice, and
+    #: which the comparison therefore must not read.  Measured rather
+    #: than listed: ``reloaded_at`` is a wall clock stamped per call, so
+    #: the first run of this check reported the fix already landed —
+    #: a hand-written exclusion would have fixed that one field and gone
+    #: stale the day a second time-varying key was added, where a third
+    #: drive discounts whatever is actually volatile.
+    volatile: tuple[str, ...]
+    #: Records at ``WARNING`` or above emitted anywhere during each drive.
+    #: The other shape a fix can take — install it and say so — which
+    #: leaves the payload untouched and the log line the only difference.
+    loud_coherent: tuple[str, ...]
+    loud_violating: tuple[str, ...]
+    #: The two terms, read off each specimen through the real parser.
+    ceiling_coherent: int
+    ceiling_violating: int
+    #: What the **process** held after the violating drive, read from the
+    #: installed singleton rather than from the file it was built from.
+    #: The specimen says what was offered; only this says what was taken,
+    #: and a check that read the file back would call a reload that
+    #: refused outright indistinguishable from one that accepted.
+    ceiling_installed: int
+    reminder: float
+    #: The shipped file's own standing, carried as evidence and never as
+    #: the verdict — rule 1.  A box whose config.yaml already violates is
+    #: a different finding from a reload that cannot judge one.
+    ceiling_shipped: int
+    #: Whether the shipped configuration was put back and re-read.
+    restored: bool
+
+    @property
+    def installed(self) -> bool:
+        """Did the violating drive actually install the violation?
+
+        The witness, and it carries the verdict.  "The reload said
+        nothing" and "the reload never ran" produce the same silence, and
+        only reading back what the process holds tells them apart — a
+        specimen that failed to parse leaves the shipped configuration
+        standing and looks exactly like indifference.
+        """
+        return (
+            self.ceiling_installed == self.ceiling_violating
+            and self.ceiling_violating >= self.reminder > 0
+        )
+
+    def _stable(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """A payload with the measured-volatile keys taken out."""
+        return {k: v for k, v in payload.items() if k not in self.volatile}
+
+    @property
+    def indifferent(self) -> bool:
+        """Did the pair produce the same report?
+
+        Stated as an equality over the whole payload rather than as a
+        list of fields that must be present or absent, because the fix's
+        shape is the entry's own open question: ``ok=False``, a new key,
+        a changed key, or a log line are four fixes and one comparison.
+        What is subtracted is subtracted by measurement — see
+        :attr:`volatile`.
+        """
+        return (
+            self._stable(self.payload_coherent) == self._stable(self.payload_violating)
+            and self.loud_coherent == self.loud_violating
+        )
+
+
+class _LoudRecords(logging.Handler):
+    """Every record at ``WARNING`` or above, as rendered text.
+
+    Attached to the **root** logger rather than to ``sysadmin.reload``:
+    a coherence verdict is as likely to be written by whatever module
+    ends up owning the rule as by the reload itself, and a handler
+    scoped to one logger would report the fix absent because it was
+    implemented one import away.  Both drives are captured the same way,
+    so an unrelated library's warning appears on both sides and cancels.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.seen: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.seen.append(f"{record.name}:{record.getMessage()}")
+
+
+async def _never_runs() -> None:
+    """A job target that cannot fire: nothing starts the probe's scheduler.
+
+    ``main.py`` hands ``apply_jobs`` the real agents; this hands it a
+    coroutine function of the right shape and no body, because the drive
+    measures what the reload *says*, not what the jobs do.  Typed as a
+    coroutine rather than a bare ``lambda`` so the stand-in matches the
+    signature it stands in for — a target of the wrong kind would be
+    caught only if something ran it, and nothing here ever does.
+    """
+
+
+def _reload_drive(
+    config_path: Path, services_path: Path, sync: Callable[[Any], Any]
+) -> tuple[dict[str, Any], tuple[str, ...]]:
+    """One reload, with everything loud it emitted."""
+    from sysadmin.reload import reload_configuration
+
+    handler = _LoudRecords()
+    root = logging.getLogger()
+    root.addHandler(handler)
+    try:
+        report = reload_configuration(
+            config_path=config_path, services_path=services_path, sync_jobs=sync
+        )
+    finally:
+        root.removeHandler(handler)
+    return report.to_payload(), tuple(handler.seen)
+
+
+def reload_coherence_reading() -> tuple[ReloadReading | None, str]:
+    """Drive the reload twice and read back what it installed.
+
+    The specimens are **derived from the installed values, never
+    written** — ``probe_signatures`` against ``SIGNATURE_DETAIL_CHARS``'s
+    rule, and load-bearing for the same reason.  The violating interval
+    is ``reminder_hours`` itself, so the sum is ``reminder_hours +
+    poll_interval_hours`` and exceeds the restatement by the poll
+    interval whatever either leaf currently reads; a written ``24`` would
+    stop violating the day somebody re-times the sweep, and the check
+    would report the entry refuted by an edit that changed nothing about
+    it.
+    """
+    import yaml
+
+    from sysadmin.core.config import get_config, parse_config, set_config
+    from sysadmin.core.jobs import apply_jobs, plan_jobs
+    from sysadmin.core.scheduler import Scheduler
+    from sysadmin.monitor.services import (
+        default_services_path,
+        get_services,
+        set_services,
+    )
+    from sysadmin_tray.config import load_tray_config
+
+    shipped_config = REPO_ROOT / "config.yaml"
+    services_path = default_services_path()
+    if not shipped_config.is_file():
+        return None, f"{shipped_config} is not readable, so no specimen can be built"
+
+    try:
+        reminder = load_tray_config(config_path=shipped_config).reminder_hours
+    except Exception as exc:  # noqa: BLE001
+        return None, f"the tray's parser would not read config.yaml ({exc!r})"
+    if reminder <= 0:
+        # The guard skips here rather than passing, and so does this: with
+        # no repeat due there is no ceiling for a configuration to breach,
+        # so a drive would measure the reload's indifference to a value
+        # that violates nothing.
+        return None, "notifications.tray.reminder_hours is 0 — reminders are off"
+
+    raw = yaml.safe_load(shipped_config.read_text(encoding="utf-8"))
+    try:
+        shipped_interval = int(raw["agents"]["service_discovery"]["scan_interval_hours"])
+        poll = int(raw["agents"]["estate_judge"]["poll_interval_hours"])
+    except (KeyError, TypeError, ValueError) as exc:
+        return None, (
+            "the two leaves the entry names are no longer where it says they are "
+            f"({exc!r}) — the specimen cannot be built without restating the rule"
+        )
+
+    violating = int(reminder)
+    coherent = 1 if shipped_interval != 1 else 2
+    if coherent + poll >= reminder:
+        return None, (
+            f"no interval both re-times the job and keeps the sum under {reminder} h, so "
+            "the pair cannot be made to differ in coherence alone"
+        )
+    if violating == coherent:
+        return None, "the violating and coherent specimens are the same value"
+
+    # Captured *before* anything is swapped, and restored from these
+    # objects rather than re-parsed: a harness that re-reads the file to
+    # undo itself cannot tell a restored process from one left holding a
+    # specimen, which is a control the next fix breaks.
+    before_config = get_config()
+    before_services = get_services()
+
+    scheduler = Scheduler()
+    targets = {spec.job_id: _never_runs for spec in plan_jobs(before_config)}
+    # The lifespan's own call, so the pair is driven against a scheduler
+    # that already holds the shipped triggers. The targets are never
+    # invoked — nothing starts this scheduler — so a no-op stands in for
+    # each agent without standing in for anything the drive measures.
+    apply_jobs(scheduler, before_config, targets)
+
+    def sync(config: Any) -> Any:
+        return apply_jobs(scheduler, config, targets)
+
+    def specimen(root: Path, hours: int) -> Path:
+        document = yaml.safe_load(shipped_config.read_text(encoding="utf-8"))
+        document["agents"]["service_discovery"]["scan_interval_hours"] = hours
+        path = root / f"config-{hours}.yaml"
+        path.write_text(yaml.safe_dump(document), encoding="utf-8")
+        return path
+
+    def ceiling(path: Path) -> int:
+        """A specimen's own sum, read **without** installing it.
+
+        ``load_config`` is ``set_config(parse_config(...))`` — it writes
+        the process-wide slot — so reading a specimen with it makes this
+        helper the thing that installs the violation, and
+        :attr:`ReloadReading.installed` then reads back a value it wrote
+        itself.  Caught by a mutation that swapped the two and changed
+        nothing, which is a witness measuring its own hand.
+        ``parse_config`` was split out of the loader for the reload's
+        sake and says so; this is its second caller with the same need.
+        """
+        agents = parse_config(path).agents
+        return (
+            agents.service_discovery.scan_interval_hours
+            + agents.estate_judge.poll_interval_hours
+        )
+
+    def rewind() -> None:
+        # Back to the shipped state between drives, so each starts from
+        # the same place: ``requires_restart`` is computed against
+        # whatever was installed last, and drives run in sequence would
+        # differ in what they were compared with rather than in what they
+        # say.
+        set_config(before_config)
+        set_services(before_services)
+        apply_jobs(scheduler, before_config, targets)
+
+    restored = False
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            good, bad = specimen(root, coherent), specimen(root, violating)
+
+            payload_coherent, loud_coherent = _reload_drive(good, services_path, sync)
+            ceiling_coherent = ceiling(good)
+
+            # The same specimen a second time, which is what makes the
+            # comparison's exclusions a measurement instead of a list.
+            rewind()
+            payload_again, _ = _reload_drive(good, services_path, sync)
+            volatile = tuple(
+                sorted(
+                    key
+                    for key in set(payload_coherent) | set(payload_again)
+                    if payload_coherent.get(key) != payload_again.get(key)
+                )
+            )
+
+            rewind()
+            payload_violating, loud_violating = _reload_drive(bad, services_path, sync)
+            ceiling_violating = ceiling(bad)
+            # Read from the singleton the reload writes, before the
+            # restore below puts the shipped configuration back.
+            held = get_config().agents
+            ceiling_installed = (
+                held.service_discovery.scan_interval_hours
+                + held.estate_judge.poll_interval_hours
+            )
+    finally:
+        set_config(before_config)
+        set_services(before_services)
+        restored = (
+            get_config() is before_config and get_services() is before_services
+        )
+
+    return (
+        ReloadReading(
+            payload_coherent=payload_coherent,
+            payload_violating=payload_violating,
+            volatile=volatile,
+            loud_coherent=loud_coherent,
+            loud_violating=loud_violating,
+            ceiling_coherent=ceiling_coherent,
+            ceiling_violating=ceiling_violating,
+            ceiling_installed=ceiling_installed,
+            reminder=reminder,
+            ceiling_shipped=shipped_interval + poll,
+            restored=restored,
+        ),
+        "",
+    )
+
+
+def check_reload_unjudged_config() -> Measurement:
+    """``SNAG-CFG-003`` — a reload installs a config nothing judged coherent.
+
+    **Rule 1 again, and the entry says its own population is empty in so
+    many words**: the shipped sum is 7 against a ``reminder_hours`` of
+    24, and nothing has ever reloaded a violating configuration here.  A
+    check that read the shipped file would therefore report the entry
+    refuted on the day it was filed — the reading Session 83 refused for
+    ``SNAG-LOG-013`` and this registry has now refused six times.  So the
+    mechanism is driven: a configuration the suite forbids is built, put
+    through the real ``reload_configuration``, and read back.
+
+    Five rules, four of them the opposite of the obvious implementation:
+
+    1. **The pair is the instrument, because the claim is an absence.**
+       One drive can only observe that the reload said nothing in
+       particular, which is what it says about *every* configuration —
+       "no verdict" and "a verdict this specimen passes" are the same
+       silence.  Two specimens that differ in coherence and are identical
+       in delivery make the difference the only thing left to explain,
+       and the coherent drive doubles as the control that the harness
+       works at all: ``a-check-needs-a-discriminating-witness``, which
+       this registry has now had to apply at every scale.
+    2. **The syncer is real, or the check measures the wrong path.**
+       Without one, every job leaf that moved lands in
+       ``requires_restart`` and the reload appears to flag the very edit
+       the entry says it delivers silently.  That is
+       :mod:`sysadmin.reload`'s documented no-syncer fallback and not
+       what the daemon does, so a drive that omitted it would report the
+       entry refuted by its own harness.  ``main.py`` injects
+       ``_sync_jobs``; this injects ``apply_jobs`` over a real
+       ``Scheduler`` that is never started.
+    3. **The verdict is scoped to the reload and says so.**  The entry's
+       title names a SIGHUP, and that is the path driven here.  It is not
+       the only installer of an unjudged configuration — a restart reads
+       the same file with the same absence of a verdict, and the
+       lifespan's one verdict is
+       :func:`~sysadmin.core.schema_guard.verify_schema_revision`, about
+       the schema — so the note names the path measured rather than
+       leaving a reader to read a reload's silence as the whole claim.
+    4. **The specimen is derived and the violation is by
+       construction.**  The interval is set to ``reminder_hours`` itself,
+       so the sum overshoots by the poll interval whatever either leaf
+       reads today.  The entry's own arithmetic is not restated here
+       beyond the two leaves it names, which is as far as a check can go
+       without becoming a second author of the rule.
+    5. **The shipped configuration is restored and the restoration is
+       checked.**  This drive swaps a process-global, and ``check_all``
+       runs sixteen further checks behind it; a harness that cannot
+       survive the code it drives is a control the next fix breaks.  A
+       failed restore is ``unknown`` and never ``match``, because a
+       reading taken with the wrong configuration installed is a reading
+       about nothing.
+    """
+    reading, problem = reload_coherence_reading()
+    if reading is None:
+        return Measurement("unknown", problem)
+
+    detail = (
+        f"shipped: the loud rung ends after {reading.ceiling_shipped} h against a "
+        f"restatement at {reading.reminder} h",
+        f"driven at {reading.ceiling_coherent} h (coherent) and "
+        f"{reading.ceiling_violating} h (violating), one leaf apart",
+        f"the violating reload reports ok={reading.payload_violating.get('ok')}, "
+        f"requires_restart={reading.payload_violating.get('requires_restart')}, "
+        f"jobs_retimed={reading.payload_violating.get('jobs_retimed')}",
+        f"the two reloads report the same thing: {reading.indifferent}, discounting "
+        f"{', '.join(reading.volatile) or 'nothing'} as volatile across two identical drives",
+        f"loud records: {len(reading.loud_coherent)} coherent, "
+        f"{len(reading.loud_violating)} violating",
+        "the path measured is the reload; a restart installs the same file and is not "
+        "driven here",
+    )
+
+    if not reading.restored:
+        return Measurement(
+            "unknown",
+            "the shipped configuration was not put back after the drive — every reading "
+            "behind this one is about a process holding a specimen",
+            detail,
+        )
+    # Read before the installed witness, and the order is the whole
+    # difference between seeing a fix and reporting one as unmeasurable:
+    # a reload that refuses installs nothing, so the witness below would
+    # answer "the drive did not happen" about the strongest fix there is.
+    if reading.payload_violating.get("ok") is not True:
+        return Measurement(
+            "mismatch",
+            "the reload refused the incoherent configuration outright — the strongest of "
+            "the fixes the entry's last bullet leaves open, and nothing is owed here",
+            detail,
+        )
+    if not reading.installed:
+        return Measurement(
+            "unknown",
+            f"the reload reported success and the process is holding "
+            f"{reading.ceiling_installed} h where the specimen offered "
+            f"{reading.ceiling_violating} h — the drive measured a reload that did not "
+            "take rather than one that said nothing",
+            detail,
+        )
+    if not reading.indifferent:
+        return Measurement(
+            "mismatch",
+            "the reload now says something about an incoherent configuration that it does "
+            "not say about a coherent one, which is the semantic verdict the entry asks "
+            "whether reload.py should grow",
+            detail,
+        )
+    if reading.ceiling_shipped >= reading.reminder:
+        return Measurement(
+            "match",
+            f"the claim is unmoved and the shipped file is itself in breach — the loud "
+            f"rung ends after {reading.ceiling_shipped} h against a restatement at "
+            f"{reading.reminder} h, which is the entry's measured-empty population filling",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 # ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
@@ -5466,6 +5897,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-006",
             "the audit's findings surface publishes no code key",
             check_audit_code_unpublished,
+        ),
+        Check(
+            "reload_unjudged_config",
+            "SNAG-CFG-003",
+            "a reload installs a configuration nothing judged coherent",
+            check_reload_unjudged_config,
         ),
     )
 }

@@ -3,7 +3,33 @@
 **Last Updated**: 2026-08-29
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The cost an entry states is a claim like any other, and this one was
+> **A check written for one entry found the entry's own trap in its own
+> hand.** `SNAG-CFG-003` is measured and holds: driven at the real
+> `reload_configuration` with the daemon's injected syncer, a violating
+> configuration installs with `ok=True`, `requires_restart=[]` and
+> `jobs_retimed`, at a sum of 25 against a `reminder_hours` of 24. Its
+> **cost** is the smaller half three times over — **2 reloads against
+> 122 daemon starts** in 30 days, so the fix bullet's question about
+> `reload.py` is aimed at the rarest installer; **1 of about thirty**
+> suite-only coherence guards over the two shipped files; and **one of
+> three leaves**, the other two being invisible to the report and
+> installed by a different process. The entry is the **last of the
+> nineteen to gain a check**, and every open entry now names one.
+>
+> Building it hit `load_config` — which is `set_config(parse_config(…))`
+> and therefore **installs** — so the drive's own helper was writing the
+> value its witness read back, and a mutation swapping the two changed
+> nothing. The same trap was live in the guard the entry is about:
+> `_reminder_ceiling` left the process holding the configuration its own
+> class exists to refuse. Both now read with `parse_config`, both pinned.
+>
+> **`SNAG-SYSD-004` opened**: `sysadmin-failed.service` has been `failed`
+> since 2026-08-23, **4 of 4** firings killed at `TimeoutStartSec=30`
+> inside `notify-send`. `Linger=yes` creates the session bus at boot, so
+> the script's socket guard passes with nobody logged in. Silent in the
+> case it exists for.
+
+> *Previously —* **The cost an entry states is a claim like any other, and this one was
 > the smaller half twice.** `SNAG-LOG-014` prices its whole cost at *"a
 > count of `alert_raised` that is 2 too high for three days"* on
 > `GET /api/logs/trends`. `build_trend_report`'s own docstring says the
@@ -101,7 +127,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **2872 green** | **2872 backend + tray** *(2869 + 3 on 2026-08-29, Session 123: `TestTheDuplicateIngestCheck`'s three new members in `tests/test_snag_claims.py` — the verdict keyed on the entry's narrow key, a divergently-parsed duplicate named rather than silent, and the record identity asserted at the statement because today both keys agree over 235,230 rows. None retired; the four existing members were re-driven at a fourth `query_one` call. Four mutations, each red on one intended test, and one of them passed against broken code first time — the equal-count case was uncovered. Previously 2863 + 6 on 2026-08-29, Session 122: `TestACutTitleStaysAnIdentity` in `tests/test_log_alert_dedup.py` and the estate parser's new raise shape in `tests/test_snag_claims.py`, none retired — one falsified against the pre-fix title and four against mutations of the fix, because a test that passes against the broken code is a control over the fix's failure modes rather than over the defect's. Previously 2844 + 19 on 2026-08-29, Session 120: the derived movement line and the closure-aware banner reader in `tests/test_snag_claims.py`, none retired — nine mutations driven, each red on the intended test. Previously 2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
+| Testing | 🟢 **2886 green** | **2886 backend + tray** *(2872 + 14 on 2026-08-29, Session 124: `TestTheReloadCoherenceCheck`'s thirteen members in `tests/test_snag_claims.py` and the specimen-does-not-install pin in `tests/test_config_defaults.py`, none retired. Nine mutations driven, each red on exactly one intended test — and **one passed against deliberately broken code**: reading the installed-witness back from the specimen instead of the singleton is the same number whenever the reload installs, and the surviving mutation named the missing case, a reload that reports success and installs nothing. Four of the stand-ins had to be rewritten to call through to the real drive first, because a stand-in that reports a verdict without installing the configuration models no fix at all. Previously 2869 + 3 on 2026-08-29, Session 123: `TestTheDuplicateIngestCheck`'s three new members in `tests/test_snag_claims.py` — the verdict keyed on the entry's narrow key, a divergently-parsed duplicate named rather than silent, and the record identity asserted at the statement because today both keys agree over 235,230 rows. None retired; the four existing members were re-driven at a fourth `query_one` call. Four mutations, each red on one intended test, and one of them passed against broken code first time — the equal-count case was uncovered. Previously 2863 + 6 on 2026-08-29, Session 122: `TestACutTitleStaysAnIdentity` in `tests/test_log_alert_dedup.py` and the estate parser's new raise shape in `tests/test_snag_claims.py`, none retired — one falsified against the pre-fix title and four against mutations of the fix, because a test that passes against the broken code is a control over the fix's failure modes rather than over the defect's. Previously 2844 + 19 on 2026-08-29, Session 120: the derived movement line and the closure-aware banner reader in `tests/test_snag_claims.py`, none retired — nine mutations driven, each red on the intended test. Previously 2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |

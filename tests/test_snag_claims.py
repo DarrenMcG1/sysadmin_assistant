@@ -5348,3 +5348,200 @@ class TestTheBannerReaderIsClosureAware:
         listed = sum(1 for entry in entries if entry.is_open)
         movement = snag_claims.check_movement(entries)
         assert f"{listed} open" in movement.note
+
+
+class TestTheReloadCoherenceCheck:
+    """``SNAG-CFG-003`` — and the pair that makes an absence measurable.
+
+    The claim is that nothing on the reload path judges a configuration
+    coherent, which is a *negative* about behaviour: one drive can only
+    observe that the reload said nothing in particular, and it says
+    nothing in particular about every configuration.  Two specimens that
+    differ in coherence and are identical in delivery are what turn that
+    into a difference somebody has to explain.
+
+    Each fix the entry's last bullet leaves open is driven here as a
+    stand-in, because a check that cannot see the fix is coupled to the
+    unfixed behaviour and reads a landed fix as a broken probe.
+    """
+
+    #: The order ``reload_coherence_reading`` drives its specimens in:
+    #: coherent, the same coherent one again (which is what measures
+    #: volatility), then the violating one.
+    COHERENT, REPEAT, VIOLATING = 0, 1, 2
+
+    @staticmethod
+    def _payloads():
+        """A real reading from the live drive, to build stand-ins from."""
+        reading, problem = snag_claims.reload_coherence_reading()
+        assert reading is not None, problem
+        return reading
+
+    @classmethod
+    def _through(cls, violating=None, loud=(), every=None):
+        """The real drive, with the violating one's report decorated.
+
+        **A stand-in that reports a verdict without installing the
+        configuration models no fix at all.**  Fix shapes two and three
+        install exactly as today's reload does and additionally say
+        something, so the drive has to happen; a stand-in that skipped it
+        is refused by the installed-witness, which is what four of these
+        tests did until they called through.  Only shape one — a refusal
+        — legitimately installs nothing, and it is driven without this.
+
+        ``every`` decorates all three drives, which is how a key that
+        moves between two identical runs is modelled.
+        """
+        real = snag_claims._reload_drive
+        counter = itertools.count()
+
+        def drive(config_path, services_path, sync):
+            payload, seen = real(config_path, services_path, sync)
+            nth = next(counter)
+            if every is not None:
+                payload = dict(payload, **every(nth))
+            if nth == cls.VIOLATING:
+                payload = dict(payload, **(violating or {}))
+                seen = tuple(seen) + tuple(loud)
+            return payload, seen
+
+        return drive
+
+    def test_it_holds_on_this_box(self):
+        assert snag_claims.check_reload_unjudged_config().verdict == "match"
+
+    def test_the_shipped_configuration_is_put_back(self):
+        """Rule 5, and the reason it is asserted rather than trusted.
+
+        ``check_all`` runs sixteen further checks behind this one, and
+        every one of them reads ``get_config()``.
+        """
+        before = get_config()
+        snag_claims.check_reload_unjudged_config()
+        assert get_config() is before
+
+    def test_the_violating_specimen_really_is_installed(self):
+        """The witness: the drive must be able to say the reload took it."""
+        reading = self._payloads()
+        assert reading.installed
+        assert reading.ceiling_installed == reading.ceiling_violating
+        assert reading.ceiling_violating >= reading.reminder
+        assert reading.ceiling_coherent < reading.reminder
+
+    def test_a_refusing_reload_is_the_fix_and_not_an_unmeasurable_drive(self):
+        """Fix shape one, and the ordering it caught.
+
+        A reload that refuses installs nothing, so the installed-witness
+        answers "the drive did not take" about the strongest fix there
+        is.  Driven at exactly that, the verdict must be ``mismatch``.
+        """
+        live = self._payloads()
+        base = live.payload_coherent
+        drives = [(dict(base, reloaded_at=f"t{n}"), ()) for n in (0, 1)]
+        drives.append((dict(base, ok=False, error="incoherent", reloaded_at="t2"), ()))
+        with patch.object(snag_claims, "_reload_drive", side_effect=drives):
+            measurement = snag_claims.check_reload_unjudged_config()
+        assert measurement.verdict == "mismatch"
+        assert "refused" in measurement.note
+
+    def test_a_reload_that_claims_success_and_installs_nothing_is_unknown(self):
+        """Why the witness reads the singleton and not the specimen back.
+
+        The two are the same number whenever the reload installs, so a
+        mutation swapping them passed against every other test here and
+        named this one as the gap.  ``ok=True`` with nothing installed is
+        a drive that did not take, and reporting it as ``match`` would
+        credit the entry to a reload that never happened — the shape
+        ``ports_checked`` refuses, one composition root over.
+        """
+        live = self._payloads()
+        base = live.payload_coherent
+        drives = [(dict(base, reloaded_at=f"t{n}"), ()) for n in (0, 1, 2)]
+        with patch.object(snag_claims, "_reload_drive", side_effect=drives):
+            measurement = snag_claims.check_reload_unjudged_config()
+        assert measurement.verdict == "unknown"
+        assert "did not take" in measurement.note
+
+    def test_a_verdict_added_to_the_report_is_seen(self):
+        """Fix shape two: the entry's own words, a key beside the report."""
+        drive = self._through(violating={"incoherent": ["reminder_ceiling"]})
+        with patch.object(snag_claims, "_reload_drive", side_effect=drive):
+            measurement = snag_claims.check_reload_unjudged_config()
+        assert measurement.verdict == "mismatch"
+        assert "semantic verdict" in measurement.note
+
+    def test_a_warning_logged_only_for_the_violating_config_is_seen(self):
+        """Fix shape three: install it and say so, payload untouched.
+
+        The shape a comparison over the report alone would miss, which is
+        why the drive captures the root logger as well.
+        """
+        drive = self._through(loud=("sysadmin.reload:config_incoherent",))
+        with patch.object(snag_claims, "_reload_drive", side_effect=drive):
+            measurement = snag_claims.check_reload_unjudged_config()
+        assert measurement.verdict == "mismatch"
+
+    def test_a_warning_both_drives_emit_is_not_a_verdict(self):
+        """The other half of that: a noisy box is not a fix.
+
+        An unrelated warning appears on both sides and must cancel, or
+        the check reports the entry refuted by whatever else logged.
+        """
+        real = snag_claims._reload_drive
+
+        def drive(config_path, services_path, sync):
+            payload, seen = real(config_path, services_path, sync)
+            return payload, (*seen, "py.warnings:deprecated")
+
+        with patch.object(snag_claims, "_reload_drive", side_effect=drive):
+            measurement = snag_claims.check_reload_unjudged_config()
+        assert measurement.verdict == "match"
+
+    def test_a_key_that_moves_between_identical_drives_is_discounted(self):
+        """Why the exclusion is measured and not written down.
+
+        The first run of this check reported ``mismatch`` — the fix
+        landed — because ``reloaded_at`` is a wall clock stamped per
+        call.  A second key behaving the same way must be discounted for
+        the same reason and without an edit here.
+        """
+        drive = self._through(every=lambda nth: {"served_by": f"pid-{nth}"})
+        with patch.object(snag_claims, "_reload_drive", side_effect=drive):
+            measurement = snag_claims.check_reload_unjudged_config()
+        assert measurement.verdict == "match"
+        assert any("served_by" in line for line in measurement.detail)
+
+    def test_reloaded_at_is_what_it_discounts_here(self):
+        """Measured on this box rather than assumed of it."""
+        assert self._payloads().volatile == ("reloaded_at",)
+
+    def test_reminders_switched_off_reach_no_verdict(self, tmp_path):
+        """The guard skips there, and a check that cannot look says so.
+
+        With no repeat due there is no ceiling to breach, so a drive
+        would measure the reload's indifference to a configuration that
+        violates nothing — ``match`` off a vacuous specimen.
+        """
+        # The import is function-local, so the name resolves from the
+        # owning module at call time and that is where the stand-in goes.
+        import sysadmin_tray.config as tray_config
+
+        with patch.object(
+            tray_config,
+            "load_tray_config",
+            return_value=SimpleNamespace(reminder_hours=0),
+        ):
+            measurement = snag_claims.check_reload_unjudged_config()
+        assert measurement.verdict == "unknown"
+        assert "reminders are off" in measurement.note
+
+    def test_the_note_says_which_installer_it_measured(self):
+        """Rule 3: the reload is not the only one, and silence would read
+        as the whole claim."""
+        detail = snag_claims.check_reload_unjudged_config().detail
+        assert any("a restart installs the same file" in line for line in detail)
+
+    def test_the_check_is_registered_against_its_entry(self):
+        check = snag_claims.CHECKS["reload_unjudged_config"]
+        assert check.snag == "SNAG-CFG-003"
+        assert check.run is snag_claims.check_reload_unjudged_config

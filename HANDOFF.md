@@ -2,74 +2,82 @@
 
 ## Next action
 
-Take the next open entry on its own terms and measure the cost it states as well as the mechanism it names, since the last four sittings each found the entry's own scoping to be the smaller or the wrong half and this one found the same of its cost bullet and of the instrument written to check it.
+Take `SNAG-SYSD-004` on its own terms and settle whether the announcer should fail fast or wait, since this sitting measured that its guard tests for the bus socket rather than for a notification server on it and that lingering makes those two different things at exactly the boot where the daemon most often dies.
 
-## Session 123 is complete — the cost an entry states is a claim like any other
+## Session 124 is complete — the check found its entry's own trap in its own hand
 
-`SNAG-LOG-014` **stays open at P4 and nothing was deleted.** Its remedy
-judgement was re-read and stands: two rows are two rows. What moved is
-its stated **cost**, which was the smaller half twice, and the key its
-own check was grouping on.
+`SNAG-CFG-003` **stays open at P4 and nothing about it was fixed.** Its
+judgement was re-read and stands: the shipped file is coherent, every one
+of the ~30 relations holds, and nothing has ever reloaded or booted a
+violating configuration here. What moved is its **cost**, which was the
+smaller half three times, and it gained the check Session 119 declined as
+a piece of work the size of a sitting's own — which it was.
 
-**Every surface enumerated before the cost was accepted.**
-`build_trend_report`'s docstring says the advice *must* be computed off
-the same report the trend serves, so the two surfaces cannot disagree
-about whether a signature is new — which makes an error in the grouped
-counts reach both **by construction**. The entry names one.
-
-Driven through the real pipeline against the live table in a rolled-back
-transaction, stored against true:
+**The mechanism is exactly as filed.** Driven at the real
+`reload_configuration` with a real `Scheduler` and an injected
+`sync_jobs` — the daemon's shape, not the documented no-syncer fallback,
+which would have reported the entry refuted by its own harness:
 
 ```
-/api/logs/trends    previous 23->21   total 91->89
-                    ratio 2.96->3.24  sources[].previous_warnings 28->26
-/api/logs/actions   title: 'sysadmin.service fault up 3.0x — "alert_raised"'
-                    true:  '...up 3.2x'      detail: 23 -> 21 last window
-not reached         the alert family, the weekly review, the 06:00 briefing,
-                    /api/logs/stats, /api/logs/recent, the trend ordering
+ok=True   requires_restart=[]   jobs_retimed=['service_discovery_scan']
+scheduler moved to interval[1 day]; installed sum 25 against reminder_hours 24
+shipped margin 7/24 = 3.43x, as the entry states
+claude-precommit.sh runs check-migrations.sh and lints, no pytest
 ```
 
-The advice row carries the error in a **title**, which `SNAG-LOG-010`
-made that surface's row identity — the same cap-and-count family
-reaching the field it was written to protect.
+**The cost is the smaller half at three joints.** At the *installer*: the
+journal's 30 days hold **2 reloads, 122 daemon starts and 7 tray starts**,
+so a restart installs the same unjudged file 61× more often and the
+entry's fix bullet — "does `reload.py` grow a semantic verdict" — is aimed
+at 2 of 131; the lifespan's one verdict is `verify_schema_revision()`,
+about the schema, and is the standing precedent the entry does not weigh.
+At the *guard*: the one inequality it names is **1 of about thirty**
+suite-only coherence assertions over the two shipped files across nine
+test files, and breaking the sharpest of them (log format `json` against
+`text`) reloads cleanly while returning `SNAG-LOG-003`'s 252-character
+JSON titles. At the *input*: lowering the tray's `reminder_hours` breaks
+the same ceiling and the reload reports **nothing at all**, `AppConfig`
+holding `mute_services` alone under `notifications.tray`, with a tray
+restart as its installer.
 
-**The duration is wrong in the field the entry offers as the
-mitigation.** `previous` is windowed and converges 2026-08-31 as filed.
-`total` is `func.count()` with **no window filter**, so it stays 2 high
-until retention — on `ingested_at`, not `logged_at` — puts both copies
-at **2026-09-16**. Eighteen days, not three.
+**`load_config` installs, and that is the entry's own defect at two more
+scales.** It is `set_config(parse_config(…))`, so reading a specimen
+writes the process-wide slot. In the new check it made the
+installed-witness read back a value its own helper had written — found by
+a mutation that swapped the two and changed nothing. In
+`tests/test_config_defaults.py` it left the process holding
+`scan_interval_hours: 24`, the configuration that class exists to refuse,
+for every test behind it; invisible only because the class's third test
+happens to reinstall a coherent copy, which `pytest-randomly` makes a
+per-seed accident. Both read with `parse_config` now and both are pinned.
 
-**The check was keyed on the column the fix rewrote, and this entry is
-the best evidence against that.** It grouped on `(source, logged_at,
-message)`; these rows were invisible for eleven days precisely because
-`SNAG-LOG-008`'s backfill had not yet made the copies agree. The
-**verdict** stays narrow — a wide key admits a microsecond coincidence
-and would hold `match` open after the pair aged out, which is the
-calendar keeping an entry alive rather than closing one. The
-**"elsewhere"** limb reaches no verdict and moves to the record's own
-identity, because that is the limb whose blindness costs something: a
-second occurrence needs a restart, and a restart is when a declaration
-changes.
+**Every open entry now names a check** — `SNAG-CFG-003` was the last of
+the eighteen, against 16 of 24 unchecked when the registry shipped.
 
-**The entry's own untested question is answered, and it moved the
-deciding population to another source.** 0 of **235,230 rows across 9
-sources** have two distinct records sharing a `(source, logged_at)`, so
-the `message` component does no work today; the tightest genuine gap is
-**3 µs at `kernel`**, not the millisecond of `alert_raised` writes the
-fix bullet named — 333× wide and the wrong source.
+**`SNAG-SYSD-004` is opened and is the reason for the next action.**
+`sysadmin-failed.service` has been `failed` since 2026-08-23 and **4 of 4**
+firings since 08-22 were killed at `TimeoutStartSec=30` inside
+`notify-send`, each having already written its journal line and its alert
+row. `Linger=yes` starts `user@1000.service` at boot, so the script's
+`[[ -S /run/user/1000/bus ]]` guard passes with nobody logged in and the
+call waits instead of failing — the fast-fail its own comment describes is
+defeated by lingering. Measured at the boot: **boot 08:37:10, bus
+08:38:19, sddm greeter 08:38:22, firing 08:38:28, killed 08:38:58**, with
+no human session at any point. It is therefore silent in the case Session
+39 built it for, a daemon failing at boot, and `SNAG-DB-005`'s record that
+this handler *"fired correctly, with a persistent critical toast"* that day
+is refuted by the journal.
 
-2,872 tests pass (2,869 + 3, none retired), ruff and mypy clean. Four
-mutations driven, each red on exactly one intended test — and **one
-passed against deliberately broken code** on the first attempt: `>=` for
-`>` emits a nonsense "0 of them agree…" clause and no test carried the
-equal-count case, which is the live one.
+2,886 tests pass (2,872 + 14, none retired), ruff and mypy clean. Nine
+mutations driven, each red on exactly one intended test — and **one passed
+against deliberately broken code**: the installed-witness read back from
+the specimen is the same number whenever the reload installs, and that
+surviving mutation named the missing case, a reload reporting success
+while installing nothing.
 
-Daemon restarted at **2026-08-29 16:09:37**, **not owed** and measured
-rather than argued — `create_app()` does not import `snag_claims`.
-Taken because the deploy check compares `.py` mtimes, `ops_claims` rule
-4's documented false positive for the third sitting running. `/health`
-200, clean journal, all nine ops claims green, **0** unresolved alerts.
-
-**What is still open on this entry**: nothing about the mechanism, which
-closed on 2026-08-17 at 20:09:44. The residue ages out on 2026-09-16 and
-the check now reports both identities until it does.
+**No restart, and it is not owed.** The only production file changed is
+`sysadmin/snag_claims.py`; `create_app()` does not import it, measured
+rather than argued. The deploy check's `no` is `ops_claims` rule 4's
+documented false positive for the fourth sitting running, and a restart
+with no cause is the needless `kill -TERM` that rule already prices.
+`/health` 200, all nine other ops claims green, **0** unresolved alerts.

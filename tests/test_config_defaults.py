@@ -19,7 +19,9 @@ from sysadmin.core.config import (
     HealthGradeBands,
     SchedulesConfig,
     ServiceConfig,
+    get_config,
     load_config,
+    parse_config,
 )
 from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
 from sysadmin.monitor.services import ServiceEntry
@@ -259,8 +261,20 @@ def _reminder_ceiling(config_path: Path) -> tuple[int, float] | None:
     the file: the tray ships in this wheel and reads the same
     ``config.yaml``, so the real leaf is readable here even though no
     backend object holds it.
+
+    **Read with ``parse_config``, which does not install.**
+    ``load_config`` is ``set_config(parse_config(...))``, so reading a
+    specimen with it left the process-wide ``AppConfig`` holding
+    ``scan_interval_hours: 24`` — a configuration this very class exists
+    to call incoherent — for every test that ran behind it in the same
+    worker.  It was invisible because the class's third test happens to
+    reinstall a coherent copy afterwards, and ``pytest-randomly`` makes
+    that ordering a per-seed accident rather than a guarantee.  Found by
+    ``snag_claims.reload_coherence_reading`` hitting the same trap one
+    composition root over, where it made the installed-witness read back
+    a value its own helper had written.
     """
-    agents = load_config(config_path).agents
+    agents = parse_config(config_path).agents
     reminder = load_tray_config(config_path=config_path).reminder_hours
     if reminder <= 0:
         return None
@@ -337,6 +351,40 @@ class TestTheLoudRungEndsBeforeItIsRestated:
         assert ceiling > before, "the mutation did not move the sum"
         assert not ceiling < reminder
 
+    def test_reading_a_specimen_does_not_install_it(self, tmp_path):
+        """The guard must not leave the process holding what it forbids.
+
+        ``load_config`` installs, so every reading here used to write the
+        process-wide slot: after ``test_the_detector_moves`` the singleton
+        held ``scan_interval_hours: 24``, which is the configuration this
+        class exists to call incoherent, for every test behind it in the
+        same worker.  Ten test modules read ``get_config()``, and
+        ``pytest-randomly`` decides which of them run after this file.
+
+        Asserted against a **violating** specimen rather than the shipped
+        file, because installing the shipped file is invisible — it is
+        what the process already holds, so the leak only has a witness
+        when the specimen differs.
+        """
+        shipped = _reminder_ceiling(REPO_CONFIG)
+        if shipped is None:
+            pytest.skip("notifications.tray.reminder_hours is 0 — reminders off")
+        _, reminder_hours = shipped
+
+        raw = yaml.safe_load(REPO_CONFIG.read_text())
+        raw["agents"]["service_discovery"]["scan_interval_hours"] = int(reminder_hours)
+        specimen = tmp_path / "config.yaml"
+        specimen.write_text(yaml.safe_dump(raw))
+
+        before = get_config()
+        ceiling, _ = _reminder_ceiling(specimen)
+
+        assert not ceiling < reminder_hours, "the specimen does not violate anything"
+        assert get_config() is before, (
+            "reading a specimen installed it: the process is now serving a "
+            "configuration this class exists to refuse"
+        )
+
     def test_reminders_switched_off_are_not_a_violation(self, tmp_path):
         """``0`` disables the repeat, so there is nothing to be early for.
 
@@ -383,7 +431,7 @@ class TestTheTwoSpeakersAgreeInTheShippedFile:
         skewed = _with_reminder_hours(tmp_path / "config.yaml", TRAY, 6)
 
         assert load_tray_config(config_path=skewed).reminder_hours == 6
-        assert load_config(skewed).notifications.desktop.reminder_hours == shipped
+        assert parse_config(skewed).notifications.desktop.reminder_hours == shipped
         assert shipped != 6, "the skew must actually skew the two apart"
         # ...and the existing pin is unmoved by all of it.
         assert (
