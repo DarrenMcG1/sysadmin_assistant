@@ -5726,13 +5726,26 @@ def measure_movement(path: Path | None, entries: list[Entry]) -> tuple[Movement 
     disagree with the repository about the same fact — this document's
     own rule against a second statement, arriving as a marker beside the
     thing it marks.  So the delta is against ``HEAD`` and the finding
-    **names the sha and its subject**, which is the honest form: at the
-    start of a sitting HEAD is the previous sitting's last commit and the
-    delta is exactly what the paragraph wants, and once this sitting has
-    committed the snag list the delta reads ``unmoved`` against a subject
-    the reader can see is their own.  Stated rather than hidden, because
-    a figure that silently changes meaning mid-sitting is worse than one
-    that says what it is measured against.
+    **names the sha and its subject**, which is the honest form.
+
+    **Its reach is one moment wide, and that is measured rather than
+    reasoned** (corrected 2026-08-29 by Session 121; this docstring
+    claimed the opposite and ``SNAG-DOCS-007``'s fourth bullet claimed it
+    too).  The comparison is the **working tree** against ``HEAD``, so a
+    clean tree is ``unmoved`` *by construction* — preflight runs on one
+    and printed ``unmoved since bc43986`` at 102 / 19 either side.
+    Postflight before the docs commit is the only run at which the delta
+    is this sitting's movement; a run after that commit is ``unmoved``
+    against a subject the reader can see is their own.  So the population
+    is every other run rather than a mid-sitting re-run.
+
+    The anchor therefore holds **no memory of a sitting**: the series
+    100 / 17 → 101 / 18 → 102 / 19 sits in git across ``639e594``,
+    ``c46872a`` and ``bc43986``, and no run of this function reports it.
+    That is what decided ``SNAG-DOCS-007``'s closure — the header
+    paragraph dropped its *counts*, which this derivation restates at
+    every run, and kept its *movement* sentence, which it can state only
+    in one window and can never attribute to an entry.
     """
     read_snags, problem = owning_parser()
     if read_snags is None:
@@ -5769,7 +5782,7 @@ def measure_movement(path: Path | None, entries: list[Entry]) -> tuple[Movement 
 
 
 def check_movement(entries: list[Entry], path: Path | None = None) -> Finding:
-    """The figure the header paragraph writes by hand, measured instead.
+    """The figure the header paragraph used to write by hand, measured instead.
 
     ``docs/roadmap/snag_list.md`` opens with a paragraph recording what
     moved this sitting — *"one opened and none closed … the live parser
@@ -5798,6 +5811,15 @@ def check_movement(entries: list[Entry], path: Path | None = None) -> Finding:
     figure a tool can derive should not be a claim a human states —
     checking the hand-written count leaves two producers of one fact,
     which is ``SNAG-DB-003``'s shape, and deriving it leaves one.
+
+    **The paragraph dropped its counts on 2026-08-29 and kept its
+    movement sentence, which closed ``SNAG-DOCS-007``.**  The two halves
+    part on whether this function can restate them: the counts it prints
+    at every run, so a written copy is the second producer; the movement
+    it can state only between the edit and the commit (see
+    :func:`measure_movement`) and can never attribute to an entry, so
+    there is no second producer to remove.  Dropping the figures
+    *altogether* was the entry's own wording and one figure too many.
 
     The prose is the third reason and the weakest, so it is stated last:
     thirteen paragraphs write that sentence **seven ways**

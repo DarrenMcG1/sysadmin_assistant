@@ -2,7 +2,69 @@
 
 ## Next action
 
-Decide whether `SNAG-DOCS-007` closes by the header paragraph dropping its figures altogether, since the derivation now prints them at both ends of every sitting and the paragraph restating them is the only remaining second producer of that count.
+Take the next open entry on its own terms and measure its stated scope before its stated remedy, since three of the last four closures found the entry's own scoping to be the smaller or wrong half of the defect.
+
+## Session 121 is complete — a gauge is not a ledger
+
+`SNAG-DOCS-007` is **closed**, by the narrowing its own last bullet asked
+for. The question put to the sitting was whether it closes by the header
+paragraph dropping its figures *altogether*; the answer is **one figure
+too many**, and the split is the whole result.
+
+The paragraph states two things and only one has a second producer:
+
+- **The counts** (`102 entries, 19 open`) are derived at every run and
+  printed at both ends of every sitting. A written copy is
+  `SNAG-DB-003`'s shape. **Deleted.**
+- **The movement** (*“one opened and none closed … the entry is
+  `SNAG-DOCS-007`”*) has no second producer anywhere. `MOVEMENT_ANCHOR`
+  is `HEAD` and `measure_movement` compares the **working tree** against
+  it, so the delta is non-zero only between the edit and the commit, and
+  no anchor lets it name *which* entry moved. **Kept.**
+
+**The entry overstated the derivation's reach at one of its two ends,
+and the sitting's own opening run refuted it.** Its fourth bullet says
+preflight and postflight *“anchor correctly, so the population is a
+mid-sitting re-run”*. Preflight runs on a clean tree, where the
+comparison is `unmoved` **by construction** — it printed `unmoved since
+bc43986` at 102 / 19 either side. Postflight before the docs commit is
+the *only* correct moment, so the population is every other run.
+`measure_movement`'s docstring carried the same claim at its owner and
+is corrected in the same edit.
+
+Driven at three revisions through estate-manager's `read_snags`:
+`639e594` reads 100 / 17, `c46872a` 101 / 18, `bc43986` 102 / 19. The
+series is in git and no run of the derivation reports it, which is
+precisely why the movement sentence outlives the counts.
+
+Live after the edit:
+
+```
+ok Snag list movement — 102 entries, 18 open — -1 open since bc43986
+   anchor bc43986 — feat(snags): the figure a tool can derive is not a claim a human states
+   at the anchor: 102 entries, 19 open
+   this module's reader: 18 open of 77 under the open headings
+```
+
+**Only the named paragraph lost its numbers.** The “Previously:” chain
+keeps its own — those state what was current at commits that have
+passed, nothing prints them, and they cannot drift. Session 120's is
+struck because 102 / 19 was still the register's *current* count.
+
+**No check is owed and the shape the entry named is unreachable**: it
+asked for a specimen with the paragraph's figure altered, and there is
+no figure left to alter. `check_movement` keeps its own red state (the
+two parsers disagreeing about the open count).
+
+2,863 tests pass, ruff and mypy clean. Daemon restarted at
+**2026-08-29 14:35:49** — a docstring-only edit to a module the daemon's
+import graph never reaches (verified), so the deploy red was
+`ops_claims` rule 4's documented false positive; restarted anyway on
+Session 120's precedent, since the alternative is a red line at the next
+preflight teaching the reader to ignore the family. All ten ops claims
+green, `/health` 200.
+
+---
 
 ## Session 120 is complete — the figure a tool can derive is not a claim a human states
 

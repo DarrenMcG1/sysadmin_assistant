@@ -55,7 +55,7 @@
 > direction that costs a needless `kill -TERM`, which is a second and
 > unprivileged, and the alternative is a red line at the next preflight
 > teaching the reader to ignore the family. Daemon restarted
-> at **2026-08-29 09:21:36** <!--check:deploy--> <!--check:daemon_start-->,
+> at **2026-08-29 14:35:49** <!--check:deploy--> <!--check:daemon_start-->,
 > clean journal. `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
 > packaged head <!--check:schema-->, and `alerts` holds **0** unresolved
@@ -73,12 +73,17 @@
 > agreement, the disagreement branch removed, and an unimportable parser
 > reported as measured.
 >
-> **`SNAG-DOCS-007` is filed** as the stated cost: the paragraph still
-> writes the figure out in prose, so two producers of it remain and
-> nothing compares them. What the ruling buys is that the true figure is
-> printed twice a sitting *beside* the written one; what it does not buy
-> is anything that notices. P4, and it closes by the paragraph dropping
-> the numbers rather than by a check being written.
+> **`SNAG-DOCS-007` closed the same day** (Session 121) — by the
+> narrowing its own last bullet asked for, and *“altogether”* was one
+> figure too many. The paragraph states two things and only one has a
+> second producer. The **counts** are derived at every run, so the
+> written copy is gone. The **movement** is not: `MOVEMENT_ANCHOR` is
+> `HEAD` compared against the **working tree**, so the delta exists only
+> between the edit and the commit, and it can never name *which* entry
+> moved. Preflight runs on a clean tree and reads `unmoved` **by
+> construction** — which refutes the entry's own fourth bullet and this
+> module's docstring, both of which claimed preflight anchors correctly.
+> The sentence stays; the numbers went.
 
 
 ## Quick Status
@@ -101,6 +106,53 @@
 ---
 
 ## Recently Completed
+
+### Session 121 — a gauge is not a ledger (2026-08-29)
+
+Closed `SNAG-DOCS-007`, the cost Session 120 filed against its own
+ruling. The entry asks to close *“by the paragraph dropping the
+figures”*; the run says **one figure too many**, and the split is what
+the sitting was for.
+
+The paragraph states two things. Its **counts** (`102 entries, 19
+open`) are derived live and printed at both ends of every sitting, so a
+written copy is `SNAG-DB-003`'s shape — deleted. Its **movement**
+(*“one opened and none closed … the entry is `SNAG-DOCS-007`”*) has no
+second producer anywhere: `MOVEMENT_ANCHOR` is `HEAD` and
+`measure_movement` compares the **working tree** against it, so the
+delta is non-zero only between the edit and the commit, and no anchor
+lets it name *which* entry moved. Deleting it leaves the register with
+no ledger and nothing able to rebuild one.
+
+**The entry overstated the derivation's reach at one of its two ends,
+and the sitting's own opening run refuted it.** Its fourth bullet reads
+*“Both moments the report is actually read — preflight, and postflight
+before the docs commit — anchor correctly”*; preflight runs on a clean
+tree, where the comparison is `unmoved` **by construction**, and it
+printed `unmoved since bc43986` at 102 / 19 either side. Postflight
+before the docs commit is the *only* correct moment, so the population
+is every other run rather than a mid-sitting re-run.
+`measure_movement`'s docstring carried the same claim at its owner and
+is corrected in the same edit — reading the module confirms it, running
+preflight refutes it, which is `verify-ops-claims-live` applied to a
+correction rather than to a remedy.
+
+Driven at three revisions through estate-manager's `read_snags`:
+`639e594` reads 100 / 17, `c46872a` 101 / 18, `bc43986` 102 / 19. The
+series is in git and no run of the derivation reports it — which is
+precisely why the movement sentence survives the counts.
+
+**Only the named paragraph lost its numbers.** The “Previously:” chain
+keeps its own: those state what was current at a commit that has
+passed, nothing prints them, and they cannot drift. Session 120's is
+struck because 102 / 19 was still the register's *current* count on the
+day it closed.
+
+**No check is owed, and the shape the entry named is now unreachable.**
+It asked for two specimens, one with the paragraph's figure altered —
+there is no figure left to alter. `check_movement` keeps its own red
+state (the two parsers disagreeing about the open count) and the nine
+falsifications Session 120 drove at it.
 
 ### Session 120 — the figure a tool can derive is not a claim a human states (2026-08-29)
 
@@ -132,8 +184,10 @@ entries`, its list opening with ten entries titled FIXED.
 `closure_declared` has one implementation instead of a shell
 approximation free to drift from the number above it.
 
-`SNAG-DOCS-007` is the stated cost: the paragraph still writes the figure
-out, so two producers remain and nothing compares them.
+`SNAG-DOCS-007` was the stated cost and **closed on 2026-08-29 by
+Session 121**: the paragraph's counts are gone, its movement sentence
+stays, and the derivation now reads `-1 open since bc43986` beside a
+paragraph that states no count at all.
 
 ### Session 119 — the model is not the file (2026-08-28)
 

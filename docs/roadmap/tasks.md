@@ -460,6 +460,23 @@ prose**, and three measurements are why:
       would be state free to disagree with the repository. The cost is
       stated rather than hidden and is `SNAG-DOCS-007`
 
+**Session 121 closed `SNAG-DOCS-007`, and the anchor's reach is
+narrower than the bullet above says.**
+
+- [x] **The counts went and the movement stayed** — *“altogether”* was
+      one figure too many. The counts are derived at every run, so a
+      written copy is a second producer; the movement can be stated only
+      between the edit and the commit and can never name *which* entry
+      moved, so it has none
+- [x] **Preflight reads `unmoved` by construction**, because
+      `measure_movement` compares the **working tree** against `HEAD`.
+      The entry's fourth bullet and the docstring both claimed preflight
+      anchors correctly; the sitting's own opening run printed `unmoved
+      since bc43986` at 102 / 19 either side. Corrected in both places
+- [x] **Only the named paragraph lost its numbers.** The “Previously:”
+      chain states what was current at commits that have passed, nothing
+      prints them, and they cannot drift
+
 **The banner was stating the open count two ways.** Found on the way and
 fixed with it: `claude-preflight.sh` counted `^- \[P[0-9]\]` under
 `## Open Issues`, which is every bullet whatever its title says.
