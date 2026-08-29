@@ -110,7 +110,7 @@ import re
 import subprocess  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
 import sys
 import tempfile
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -2520,6 +2520,31 @@ UNSWEPT_PORTS = (SWEPT_PORT, UNSWEPT_PORT)
 UNSWEPT_HOLDER = "user:snag-claims-window-probe.scope"
 
 
+def _detail_shape(details: Mapping[str, Any] | None, port: int) -> tuple[tuple[str, str], ...]:
+    """A row's ``details``, comparable against a sibling row's.
+
+    ``holder`` is dropped and the row's **own** port number is rendered
+    opaque, which is what makes two rows about two different ports
+    comparable at all without naming the keys that carry the port —
+    see :attr:`UnsweptReading.annotated`.
+
+    Values are rendered to JSON rather than compared as objects so the
+    result is hashable and printable: the probe's rows carry nested
+    dicts, and a reader of a ``mismatch`` note wants to see what moved
+    rather than a repr of a mapping.  ``default=str`` because a value
+    the estate adds tomorrow must not make the probe raise — a check
+    that dies on an unexpected payload reports nothing, which is the
+    one verdict this registry never accepts from a live read.
+    """
+    if not details:
+        return ()
+    return tuple(
+        (key, json.dumps(value, sort_keys=True, default=str).replace(str(port), "<port>"))
+        for key, value in sorted(details.items())
+        if key != "holder"
+    )
+
+
 @dataclass(frozen=True)
 class UnsweptReading:
     """One judge run over two breaches, one of which the sweep missed.
@@ -2551,10 +2576,15 @@ class UnsweptReading:
     unswept_holder: object
     unswept_rows: int
     unswept_detail_keys: tuple[str, ...]
+    #: The row's ``details`` with ``holder`` dropped and its own port
+    #: number rendered opaque, as sorted ``(key, json)`` pairs.  See
+    #: :func:`_detail_shape`; :attr:`annotated` compares the two.
+    unswept_detail_shape: tuple[tuple[str, str], ...]
     swept_severity: str | None
     swept_holder: object
     swept_rows: int
     swept_detail_keys: tuple[str, ...]
+    swept_detail_shape: tuple[tuple[str, str], ...]
     raised: int
 
     @property
@@ -2582,7 +2612,7 @@ class UnsweptReading:
 
     @property
     def annotated(self) -> bool:
-        """Does the unswept row carry a key its swept sibling does not?
+        """Do the two rows' details differ other than in port and holder?
 
         The third shape a fix could take, and the only one that leaves
         both the rung and the holder alone: telling the reader that the
@@ -2597,8 +2627,52 @@ class UnsweptReading:
         second statement of a producer's fact, free to go stale the day
         the fix picks a different one; the sibling comparison needs no
         name and stays true through a restructuring that moves both.
+
+        **It compared key *sets* until 2026-08-29 and was blind to the
+        better half of its own third limb.**  A fix that adds a key to
+        the unswept row alone is caught by a key-set comparison; a fix
+        that adds the *same* key to every row and varies its value is
+        not — and that is the shape the annotation should take, because
+        a key present only sometimes is ``ports_checked``'s collapse
+        rebuilt one level down, absent-because-clean served as
+        absent-because-blind.  So the check was coupled to the weaker of
+        the two fixes and would have reported ``match`` over a landed
+        one.  Measured before the fix existed rather than discovered
+        after it: the baseline read ``both rows carry the same detail
+        keys: True``, and the annotation this entry wants would have
+        left it reading exactly that.
+
+        Two exemptions, and only one of them is a name.  ``holder`` has
+        its own limb, so counting it here would make :attr:`moved` state
+        one fact twice.  The **port** is exempted by normalisation
+        rather than by naming the keys that carry it: the two rows
+        legitimately differ in ``port``, ``fingerprint`` and
+        ``audit_summary``, all three of which are the port number in
+        different clothes, and writing those three names down is the
+        second statement of a producer's fact this docstring's second
+        paragraph refuses.  :func:`_detail_shape` renders each row with
+        its **own** port made opaque, so the pair is compared on
+        everything that is not the thing they are allowed to differ in.
         """
-        return self.unswept_detail_keys != self.swept_detail_keys
+        return self.unswept_detail_shape != self.swept_detail_shape
+
+    @property
+    def revalued(self) -> tuple[str, ...]:
+        """Keys both rows carry whose values differ once the port is out.
+
+        Reported apart from the extra/absent keys in :attr:`moved`
+        because the two are different fixes: a key one row lacks is an
+        annotation aimed at the unswept case, and a key both carry with
+        different values is an annotation aimed at *every* breach, which
+        is the shape that says what the sweep knew rather than merely
+        that something was odd about this one.
+        """
+        swept = dict(self.swept_detail_shape)
+        return tuple(
+            key
+            for key, value in self.unswept_detail_shape
+            if key in swept and swept[key] != value
+        )
 
     @property
     def reached(self) -> bool:
@@ -2607,10 +2681,29 @@ class UnsweptReading:
         Deliberately wider than the rung.  "Reads as an ordinary
         unclaimed listener" is the entry's own phrasing and it is a claim
         about *indistinguishability*, so a fix lands whether the judge
-        learned to quieten the port unattributed, the sweep learned to
-        name its holder, or the row merely gained something saying the
-        evidence is six hours wide.  Three limbs, and each has a
-        falsification in which it is the **only** one that fires.
+        learned to quieten the port unattributed or the sweep learned to
+        name its holder.
+
+        **:attr:`annotated` was a third limb and came out on
+        2026-08-29, the day it fired.**  The annotation it watched for
+        landed — ``details['attribution']`` now says what the sweep knew
+        about each port — and a limb that is true from here on can never
+        again say anything about the window it was pointed at.  Leaving
+        it in would make this check answer ``mismatch`` for ever on
+        evidence that has stopped discriminating, which is
+        ``a-probe-keys-on-identity-not-a-mutable-field`` a second time:
+        the same shape ``SNAG-ESTATE-010``'s ``reached`` hit on
+        2026-08-28, when a clause reading a blob the next fix rewrote
+        answered ``mismatch`` whatever happened to the rung.  Same
+        remedy, and it is this file's own precedent: **narrow the
+        clause, keep the observation in the note.**  :attr:`annotated`
+        and :attr:`revalued` still run and still reach the report, where
+        naming what the row gained is the sharpest description of what
+        has and has not moved; they are out of the verdict, where the
+        entry's live mechanism is the rung and the holder.
+
+        Two limbs, then, and each has a falsification in which it is the
+        **only** one that fires.
 
         :attr:`attributed_unswept` was a fourth and was **measured
         unreachable and removed** rather than shipped.  It is
@@ -2627,13 +2720,20 @@ class UnsweptReading:
         and out of the verdict, where it was a second statement of a
         fact ``unswept_holder`` already carries.
         """
-        return (
-            self.unswept_severity != self.loud or self.unswept_holder is not None or self.annotated
-        )
+        return self.unswept_severity != self.loud or self.unswept_holder is not None
 
     @property
     def moved(self) -> tuple[str, ...]:
-        """What told them apart, in words, for the note."""
+        """What told them apart, in words, for the note.
+
+        **The verdict's limbs and only those.**  :attr:`annotated` left
+        :attr:`reached` on 2026-08-29 and left here in the same edit: a
+        ``mismatch`` note listing something that did not decide the
+        verdict reads as a reason when it is a bystander, and this note
+        is the whole of what a sitting sees.  The annotation is reported
+        in the check's ``detail`` instead, where it is a standing
+        observation rather than a cause.
+        """
         out: list[str] = []
         if self.unswept_severity != self.loud:
             out.append(f"it is judged {self.unswept_severity or '—'} rather than {self.loud}")
@@ -2650,14 +2750,20 @@ class UnsweptReading:
                 f"_attribution holds {self.attributed_unswept!r} for it, though the row "
                 "does not carry it"
             )
-        if self.annotated:
-            extra = set(self.unswept_detail_keys) - set(self.swept_detail_keys)
-            missing = set(self.swept_detail_keys) - set(self.unswept_detail_keys)
-            out.append(
-                "its details differ from its swept sibling's "
-                f"(extra={sorted(extra)}, absent={sorted(missing)})"
-            )
         return tuple(out)
+
+    @property
+    def annotation(self) -> str:
+        """How the two rows' details differ, for the report.
+
+        Not a verdict limb — see :attr:`annotated`.  Spelled out rather
+        than reduced to a bool because the three ways they can differ
+        are three different fixes: a key the unswept row gained, a key
+        it lost, and a key both carry whose value moved.
+        """
+        extra = sorted(set(self.unswept_detail_keys) - set(self.swept_detail_keys))
+        missing = sorted(set(self.swept_detail_keys) - set(self.unswept_detail_keys))
+        return f"{self.annotated} (extra={extra}, absent={missing}, revalued={list(self.revalued)})"
 
 
 def unswept_judgement_reading() -> tuple[UnsweptReading | None, str]:
@@ -2815,10 +2921,16 @@ def unswept_judgement_reading() -> tuple[UnsweptReading | None, str]:
             unswept_holder=((unswept.details or {}).get("holder") if unswept is not None else None),
             unswept_rows=unswept_rows,
             unswept_detail_keys=keys(unswept),
+            unswept_detail_shape=_detail_shape(
+                unswept.details if unswept is not None else None, UNSWEPT_PORT
+            ),
             swept_severity=swept.severity if swept is not None else None,
             swept_holder=((swept.details or {}).get("holder") if swept is not None else None),
             swept_rows=swept_rows,
             swept_detail_keys=keys(swept),
+            swept_detail_shape=_detail_shape(
+                swept.details if swept is not None else None, SWEPT_PORT
+            ),
             raised=result.alerts_raised,
         )
 
@@ -2902,8 +3014,11 @@ def check_unswept_port_is_loud() -> Measurement:
         f"{reading.attributed_unswept!r}, and {reading.unswept_rows} row(s) carry its "
         f"title at severity {reading.unswept_severity or '—'}, holder="
         f"{reading.unswept_holder!r}",
-        "both rows carry the same detail keys: "
-        f"{reading.unswept_detail_keys == reading.swept_detail_keys}",
+        # Out of the verdict since 2026-08-29 and kept here, which is the
+        # half that matters: the annotation landed, so this line is what
+        # says the rows *are* now told apart — while the rung above says
+        # the entry's own mechanism is not what tells them apart.
+        f"the two rows' details differ other than in port and holder: {reading.annotation}",
         f"the run reports alerts_raised={reading.raised}",
     )
 

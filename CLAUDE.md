@@ -2231,6 +2231,71 @@ speaks at `warning`. Both closures were refused — a second `ss` caller
 (which `_attribution` forbids in writing) and an hourly sweep (six times
 the cost, for one annotation).
 
+7. **The row says what the sweep *knew*, beside who it named — and that
+is an annotation, not a rung** (Session 128). `PortAttribution.of()`
+answers *who held this port* and returns `None` for **four** different
+reasons; `reading()` answers *what the evidence says* and never returns
+nothing: `held`, `transient`, `unattributed` (the sweep looked straight
+at the port and could not name a holder — 5432, 8601), `unswept` (the
+sweep ran before this listener started, which is `SNAG-ESTATE-009`), and
+`unknown` (no stored row, a failed observation, or a blob predating the
+key). `details['attribution']` carries it on every breach row and in the
+roll-up.
+
+Four rules, three of them the opposite of the obvious implementation and
+every one settled against the live sweep rather than by argument:
+
+1. **The discriminator was already stored and no consumer read it.**
+   `as_blob` has emitted `unattributed_ports` since Session 26c;
+   `attribution_from_blob` was written later for a different consumer
+   and ignored it. So this is not new evidence, it is the **sibling** of
+   the collapse rule 6 fixed one field over in the same function —
+   `ports_checked`'s rule, which that rule's own closing paragraph cites
+   while leaving this half standing.
+2. **It moves no rung, and the refusal is on correctness where the
+   entry's two are on cost.** Quietening an unattributed breach because
+   the sweep predates it inverts `_attribution`'s stated posture — *"the
+   enrichment is not allowed to become a dependency of the alert"* — and
+   a failed `observe_listeners` returns **no** listeners, so every port
+   would read unswept and the whole family would fall below
+   `tray.notify_min_severity`. Session 26b-A's founding defect at full
+   scale, as the fix for a seven-hour window. Gating on `ok` removes
+   that failure and not the objection: the default for an unknown port
+   would still be *"probably a dev server"*, a guess
+   `attribution_from_blob` already refuses where a port held by two
+   units is **dropped** rather than attributed to whichever sorted first.
+3. **`ok` gates the evidence, which is the half that is easy to miss.**
+   A failed observation serialises `unattributed_ports` as `[]`, and an
+   empty list read as evidence is a confident statement about a sweep
+   that never looked — `ports_checked`'s rule rebuilt inside the fix for
+   `ports_checked`'s rule. `unattributed` is therefore `None` rather
+   than empty whenever the sweep cannot answer.
+4. **Uniform on every row, never only the odd one.** A key present only
+   sometimes is the absent-vs-present collapse one level down, so the
+   *value* carries the news and the roll-up keeps a reading for every
+   port even though `holders` is filtered to the ones it named.
+
+**The entry stays open and its own check said so.** The annotation
+removes the indistinguishability the check is keyed on and moves nothing
+about the mechanism. Two of the entry's measurements were also refuted
+by the box: its four historic `warning` rows **predate `transient_ports`
+in the blob by a day**, so this entry has never observed its own class;
+and *"the window is six hours wide"* is the **p90** — 83 inter-sweep gaps
+give a median of **1.30 h**, because `agent_first_run_delay_seconds: 60`
+re-runs every added job on each daemon start and this daemon's median
+life is 1.77 h. Both errors have one root: the mechanism was costed from
+`config.yaml` and the code path rather than from `unit_audits`.
+
+The check needed **widening before its third limb could be removed
+honestly**, and the baseline is what caught it: `annotated` compared
+detail *key sets*, so it saw a key added to one row and was blind to the
+same key added to every row with a varying value — which is the shape
+rule 4 requires. Measured before a line of the fix existed, so the check
+would have reported `match` over a landed fix, which is worse than
+flipping. `_detail_shape` compares values with each row's **own** port
+rendered opaque rather than by naming `port`/`fingerprint`/
+`audit_summary`, the three spellings of one number.
+
 Verified live rather than only against literals. This family **shipped
 with zero rows until 2026-08-16**, which was exactly `SNAG-ESTATE-002`'s
 starting position: the estate's own `run_check` was driven in-process

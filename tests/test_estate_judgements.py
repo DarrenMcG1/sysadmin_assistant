@@ -753,6 +753,72 @@ class TestAuditFindings:
         assert judgement.severity == DEFAULT_SEVERITY
         assert judgement.details["holder"] is None
 
+    # -- what the sweep knew, beside who it named (SNAG-ESTATE-009) ------
+
+    def test_every_row_says_what_the_sweep_knew(self):
+        """The annotation is on **every** breach, not only the odd one.
+
+        A key present only sometimes is ``ports_checked``'s collapse one
+        level down — absent-because-clean served as absent-because-blind
+        — so the reading is uniform and its *value* carries the news.
+        """
+        attribution = _MixedAttribution(transient={3110}, real={8100}, seen={5432})
+        judged = judge_audit_findings(
+            {"findings": [_breach(port=p) for p in (3110, 5432, 8100, 8110)]}, 5, attribution
+        )
+        assert {j.details["port"]: j.details["attribution"]["reading"] for j in judged} == {
+            3110: "transient",
+            5432: "unattributed",
+            8100: "held",
+            8110: "unswept",
+        }
+
+    def test_the_two_rows_holder_cannot_separate_are_separated(self):
+        """The entry's claim is indistinguishability, and this is it.
+
+        A port the sweep *looked straight at* and a port it ran before
+        both carry ``holder: None`` and the same rung.  Until
+        2026-08-29 nothing else on the row told them apart.
+        """
+        attribution = _MixedAttribution(transient=set(), real=set(), seen={5432})
+        seen, unswept = judge_audit_findings(
+            {"findings": [_breach(port=5432), _breach(port=8110)]}, 5, attribution
+        )
+        assert seen.details["holder"] is None and unswept.details["holder"] is None
+        assert seen.severity == unswept.severity == DEFAULT_SEVERITY
+        assert seen.details["attribution"] != unswept.details["attribution"]
+
+    def test_the_annotation_moves_no_rung(self):
+        """Deliberately not a fix for the loud rung — refused on
+        correctness, not cost. ``_attribution`` fails **open** in
+        writing, so quietening on absent evidence would drop the whole
+        family below the tray's threshold the day ``ss`` fails."""
+        attribution = _MixedAttribution(transient=set(), real=set(), seen=set())
+        [judgement] = judge_audit_findings({"findings": [_breach(port=8110)]}, 5, attribution)
+        assert judgement.details["attribution"]["reading"] == "unswept"
+        assert judgement.severity == DEFAULT_SEVERITY
+
+    def test_the_roll_up_carries_a_reading_for_every_port(self):
+        """Unlike ``holders``, which is filtered to the ones it named.
+
+        Filtering a reading would be the collapse it exists to remove,
+        one branch over: an absent entry would mean both "no holder" and
+        "no evidence".
+        """
+        findings = [_breach(port=8880 + n) for n in range(6)]
+        attribution = _MixedAttribution(transient={8880}, real=set(), seen={8881})
+        [judgement] = judge_audit_findings({"findings": findings}, 5, attribution)
+        assert set(judgement.details["attribution"]) == {str(8880 + n) for n in range(6)}
+        assert set(judgement.details["holders"]) == {"8880"}
+        assert judgement.details["attribution"]["8881"]["reading"] == "unattributed"
+        assert judgement.details["attribution"]["8882"]["reading"] == "unswept"
+
+    def test_no_attribution_at_all_is_unknown_not_unswept(self):
+        """The duck-typed fallback, answered by an empty attribution
+        rather than by a string spelled a second time here."""
+        [judgement] = judge_audit_findings({"findings": [_breach(port=8110)]}, 5)
+        assert judgement.details["attribution"] == {"reading": "unknown", "observed_at": None}
+
     def test_the_roll_up_takes_the_loudest_rung_it_swallows(self):
         """Session 52's rule. Six dev servers and one genuine unclaimed
         listener is one row that still has to be heard; collapsing rows
@@ -980,9 +1046,10 @@ class _MixedAttribution:
     from real ``ss`` output.
     """
 
-    def __init__(self, transient: set[int], real: set[int]):
+    def __init__(self, transient: set[int], real: set[int], seen: set[int] | None = None):
         self._transient = transient
         self._real = real
+        self._seen = seen
 
     def of(self, port: int):
         if port in self._transient:
@@ -991,18 +1058,42 @@ class _MixedAttribution:
             return _holder("alfred-backend.service", transient=False)
         return None
 
+    def reading(self, port: int):
+        """Delegated to the real value rather than re-implemented here.
+
+        The mixture stays hand-built, which is what this stand-in is
+        for; the *vocabulary* is the producer's, because a second
+        spelling of ``unswept`` in a test file is ``SNAG-DB-003``'s
+        shape and would agree with this module while disagreeing with
+        the box.
+        """
+        from sysadmin.units.ports import PortAttribution
+
+        return PortAttribution(
+            holders={p: "user:alfred-backend.service" for p in self._real},
+            transient_holders={p: "user:app-code-oss-26348.scope" for p in self._transient},
+            observed_at=OBSERVED_AT,
+            unattributed=None if self._seen is None else frozenset(self._seen),
+        ).reading(port)
+
+
+#: The sweep's own stamp, stated once so ``_holder`` and ``reading``
+#: cannot disagree about the age of one observation.
+OBSERVED_AT = "2026-08-17T06:07:11+01:00"
+
 
 def _holder(unit: str, *, transient: bool):
     return {
         "unit": unit,
         "scope": "user",
         "transient": transient,
-        "observed_at": "2026-08-17T06:07:11+01:00",
+        "observed_at": OBSERVED_AT,
     }
 
 
-def _attribution(port: int, *, transient: bool):
+def _attribution(port: int, *, transient: bool, seen: set[int] | None = None):
     return _MixedAttribution(
         transient={port} if transient else set(),
         real=set() if transient else {port},
+        seen=seen,
     )

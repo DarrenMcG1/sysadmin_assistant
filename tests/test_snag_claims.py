@@ -2474,6 +2474,46 @@ class TestTheUnsweptPortCheck:
             for line in measurement.detail
         )
 
+    # -- the widening the fix forced ------------------------------------
+
+    def test_a_port_only_difference_is_not_an_annotation(self):
+        """No false positive: the pair is *allowed* to differ in the port.
+
+        The two rows legitimately carry different ``port``,
+        ``fingerprint`` and ``audit_summary`` — three spellings of one
+        number.  Exempting them by name would be the second statement of
+        a producer's fact this comparison exists to avoid, so each row is
+        rendered with its **own** port made opaque instead.
+        """
+        shape = snag_claims._detail_shape
+        swept = {"port": 65008, "fingerprint": "ports:port 65008:x", "summary": "port 65008 up"}
+        unswept = {"port": 65009, "fingerprint": "ports:port 65009:x", "summary": "port 65009 up"}
+        assert shape(swept, 65008) == shape(unswept, 65009)
+
+    def test_a_value_only_annotation_is_seen(self):
+        """The widening, falsified against the comparison it replaced.
+
+        ``annotated`` compared detail **key sets** until 2026-08-29 and
+        was blind to the better half of its own limb: an annotation
+        added to *every* row with a value that varies leaves the key
+        sets identical.  That is the shape the fix took — a key present
+        only sometimes is ``ports_checked``'s collapse one level down —
+        so the check would have reported ``match`` over a landed fix,
+        which is worse than flipping.
+        """
+        shape = snag_claims._detail_shape
+        swept = {"port": 65008, "attribution": {"reading": "transient"}}
+        unswept = {"port": 65009, "attribution": {"reading": "unswept"}}
+        assert {k for k, _ in shape(swept, 65008)} == {k for k, _ in shape(unswept, 65009)}
+        assert shape(swept, 65008) != shape(unswept, 65009)
+
+    def test_the_holder_is_exempt_because_it_owns_a_limb(self):
+        """Counting it here would make the note state one fact twice."""
+        shape = snag_claims._detail_shape
+        swept = {"port": 65008, "holder": {"unit": "x.scope", "transient": True}}
+        unswept = {"port": 65009, "holder": None}
+        assert shape(swept, 65008) == shape(unswept, 65009)
+
     def test_the_pair_differs_only_in_the_blob(self):
         """Both ports judged alike once both are attributed, pinned purely."""
         from sysadmin.core.config import get_config
@@ -2567,15 +2607,27 @@ class TestTheUnsweptPortCheck:
         assert f"it is judged {quiet} rather than" in measurement.note
         assert "_attribution now holds" not in measurement.note
 
-    def test_an_annotation_alone_is_a_mismatch(self):
-        """The third, and the reason the assertion is wider than the rung.
+    def test_an_annotation_alone_no_longer_moves_the_verdict(self):
+        """The third limb, **inverted on 2026-08-29 rather than deleted**.
 
-        The entry's "Why P3" bullet is that ``holder['observed_at']``
-        already publishes the evidence's age — which is true of an
-        attributed port and vacuous for this one, since ``holder`` is
-        ``None``.  A fix putting the window somewhere a reader of *this*
-        row can see moves neither the rung nor the holder, and a check
-        watching only those two would report it as the entry holding.
+        It asserted that a row gaining something about the evidence's
+        window is a fix, and it was right when written: the entry's
+        claim is indistinguishability, and ``holder['observed_at']`` —
+        the age the "Why P3" bullet says already ships — is vacuous for
+        an unattributed port, since ``holder`` is ``None``.
+
+        That annotation has landed.  ``details['attribution']`` says
+        what the sweep knew about every breached port, so this limb is
+        true from here on and can never again say anything about the
+        window it was pointed at.  It is out of :attr:`UnsweptReading.
+        reached` and out of the note, and the check now measures the
+        rung and the holder — the entry's live mechanism, which the
+        annotation deliberately did not move.
+
+        Kept and inverted because deleting it would take the record of
+        what the limb was for along with it, which is the trap Session
+        115 named when a test asserting a defect as correct behaviour
+        had to be turned round rather than removed.
         """
 
         async def annotate(session):
@@ -2589,10 +2641,11 @@ class TestTheUnsweptPortCheck:
 
         with self._fix(annotate):
             measurement = check_unswept_port_is_loud()
-        assert measurement.verdict == "mismatch"
-        assert "its details differ from its swept sibling's" in measurement.note
-        assert "attribution_observed_at" in measurement.note
-        assert "it is judged" not in measurement.note
+        assert measurement.verdict == "match"
+        assert "its details differ" not in (measurement.note or "")
+        # Out of the verdict and still reported: the extra key reaches
+        # the detail, which is where a standing observation belongs.
+        assert any("attribution_observed_at" in line for line in measurement.detail)
 
     def test_without_the_witness_the_verdict_is_unknown(self):
         """The control, driven at the state that would otherwise read ``match``.

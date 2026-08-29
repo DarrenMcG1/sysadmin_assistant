@@ -187,7 +187,20 @@ def agent():
 
 
 def _session(open_alerts):
-    """A session whose ``_open_alerts`` query returns ``open_alerts``."""
+    """A session whose ``_open_alerts`` query returns ``open_alerts``.
+
+    One ``execute`` answers two queries here — the open alerts and
+    ``_attribution``'s newest ``unit_audits`` row — so the sweep half
+    has to be answered with a state a **database** can produce.
+    ``scalar_one_or_none`` returned a bare ``MagicMock`` until
+    2026-08-29, which stood for a ``UnitAudit`` whose ``scanned_at``
+    was a mock; that was invisible while ``PortAttribution.of()``
+    dropped it, and the moment ``details`` began carrying the sweep's
+    age unconditionally it reached ``json.dumps`` in ``refresh_alert``
+    and raised.  ``None`` — *no sweep has ever run* — is a real state,
+    is what these tests mean (none of them is about attribution), and
+    is the one a fake cannot get wrong.
+    """
     session = MagicMock()
     session.add = MagicMock()
     session.flush = AsyncMock()
@@ -195,6 +208,7 @@ def _session(open_alerts):
     scalars.all.return_value = open_alerts
     select_result = MagicMock()
     select_result.scalars.return_value = scalars
+    select_result.scalar_one_or_none.return_value = None
     session.execute = AsyncMock(return_value=select_result)
     return session
 

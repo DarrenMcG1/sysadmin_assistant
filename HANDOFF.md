@@ -2,7 +2,92 @@
 
 ## Next action
 
-Take `SNAG-ESTATE-009` on its own terms and decide whether the dev-server quietening is worth a narrower fix than the two this repository has already refused, since the sweep is six-hourly and the judge hourly so a dev server started inside a sweep window still speaks at `warning`, and both named closures were rejected on cost rather than on correctness.
+Answer estate-manager's message `8462bcc5` on its own terms and decide whether `wiring` joins `ports` as a second audit check this repository speaks for, since `JUDGED_AUDIT_CHECK`'s own comment admits `ports` because no repository owns a port and the estate may not alert, and the estate has measured that nobody says the `wiring` findings out loud either — a ruling either way closes an estate row and is this repository's to make under its own ADR process.
+
+## Session 128 is complete — the sweep knew, and nobody asked it
+
+**`SNAG-ESTATE-009` was taken on its own terms and it stays open.** The
+decision asked for was whether a narrower fix than the two refused
+closures is worth it. It is — but not a fix for the loud rung, and the
+distinction is the whole of this sitting.
+
+**What was built.** `PortAttribution.reading()` answers *what the sweep
+knew* beside `of()`'s *who held it*, splitting the four reasons `holder`
+is `None` — `held`, `transient`, `unattributed` (the sweep looked
+straight at the port and could not name a holder), `unswept` (the sweep
+ran before this listener started, which is this entry), `unknown` (no
+usable sweep). `judge_audit_findings` puts it in
+`details['attribution']` on **every** breach row and in the roll-up.
+Live: `of(5432)` and `of(8110)` were both `None` this morning and now
+read `unattributed` and `unswept`.
+
+**The discriminator had been in the blob for four months.** `as_blob`
+has emitted `unattributed_ports` since Session 26c;
+`attribution_from_blob` was written later, for a different consumer, and
+never read it. This is the **sibling** of the collapse Session 57 fixed
+one field over in the same function — that sitting separated a session
+scope from an unattributable socket and left an unattributable socket
+indistinguishable from a port nobody looked at.
+
+**A third closure was refused, and on correctness rather than cost.**
+Quietening an unattributed breach because the sweep predates it inverts
+a posture `_attribution` states in writing: a failed `observe_listeners`
+returns **no** listeners, so every port would read unswept and the whole
+ports family would drop below `tray.notify_min_severity` — Session
+26b-A's founding defect at full scale, arriving as the fix for a
+seven-hour window. Both of the entry's named closures still stand.
+
+**Two of the entry's own measurements were refuted by the box.** Its
+four historic `warning` rows predate `transient_ports` in the blob by a
+day, so they are a missing key rather than a stale sweep and **this
+entry has never observed its own class**. And *"the window is six hours
+wide"* is the **p90** — 83 inter-sweep gaps in 14 days give a median of
+**1.30 h**, because `schedules.agent_first_run_delay_seconds: 60`
+re-runs every added job on each daemon start and this daemon's median
+life is 1.77 h, so the sweep runs 10–15 times a day against a nominal 4.
+Both errors have one root: the mechanism was costed from `config.yaml`
+and the code path rather than from `unit_audits`.
+
+**The check was widened before its third limb could be removed, and the
+order mattered.** `annotated` compared detail *key sets*, so it caught a
+key added to the unswept row alone and was **blind** to the same key
+added to every row with a varying value — which is the shape the fix
+had to take, since a key present only sometimes is `ports_checked`'s
+collapse one level down. Baselined before a line of the fix existed
+(`both rows carry the same detail keys: True`), so the check would have
+reported `match` over a landed fix, which is worse than flipping.
+Widened it answered `mismatch`; the limb then left the **verdict**,
+because a limb true from here on can never again say anything about the
+window — `a-probe-keys-on-identity-not-a-mutable-field` for the second
+consecutive sitting. Narrowed, the check reads `match`, and that is what
+says the entry is still open. The test pinning the limb was **inverted
+rather than deleted**.
+
+**Options rejected.** Running `ss` in the judge (refused in writing by
+`_attribution`) and an hourly sweep (six times the cost, and now doubly
+pointless given the measured 1.30 h median) — both unchanged. A judge
+that triggers a sweep on seeing an unattributed breach was considered
+and refused: it makes the judge own the sweep's lifecycle, the
+second-owner defect this repository has found at six scales, and a
+genuinely unattributable listener would trigger one on every hourly poll
+for ever. Closing the entry was refused because a cost that fell is not
+a mechanism that closed, and neither is an annotation.
+
+**What is blocked or owed.** Nothing here. Two estate messages are open
+and untouched — `3f2a0e0a` (a `monitorable-project.md` health-path
+marker and a new audit check reading this repository's `services.yaml`)
+and `8462bcc5` (the `wiring` question above). Neither was absorbed into
+this sitting.
+
+**Verification.** 2984 green (2971 at HEAD + 13, none retired), ruff and
+mypy clean, all 20 snag checks and the ops-claims checks `ok`. Daemon
+restarted at 22:34 and healthy; the estate judge has run twice on the
+new code, `completed`, five surfaces read, zero alerts raised — live and
+untriggered, since the estate publishes no ports `breach` today. Ten
+mutations driven, each red on exactly one intended test, **one having
+passed against deliberately broken code first**: the missing-key test
+drove a blob with no `ok` either, so the `ok` gate returned before the
+branch it names was reached.
 
 ## Session 127 is complete — the grace period the box already knew
 

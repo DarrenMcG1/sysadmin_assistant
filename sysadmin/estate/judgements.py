@@ -975,6 +975,11 @@ def judge_audit_findings(
         port: (attribution.of(port) if attribution is not None else None)
         for port in ports
     }
+    # What the sweep *knew*, beside who it named. Read off the same
+    # object in the same call as `holders`, so the two cannot disagree
+    # about one observation — the reason `holders` is looked up once and
+    # shared by both branches, applied to the second question.
+    readings = {port: _reading_of(attribution, port) for port in ports}
 
     if len(breaches) > max_rows:
         return [
@@ -1005,6 +1010,10 @@ def judge_audit_findings(
                         for port, holder in holders.items()
                         if holder is not None
                     },
+                    # Every port, unlike `holders` — a reading is never
+                    # absent, so filtering it would be the collapse it
+                    # exists to remove, one branch over.
+                    "attribution": {str(port): r for port, r in readings.items()},
                 },
             )
         ]
@@ -1024,11 +1033,66 @@ def judge_audit_findings(
                 "first_seen_at": finding.get("first_seen_at"),
                 "audit_summary": finding.get("summary"),
                 "holder": holders[port],
+                "attribution": readings[port],
             },
             severity=_breach_severity(holders[port]),
         )
         for port, finding in breaches
     ]
+
+
+def _reading_of(attribution: Any, port: int) -> dict[str, Any]:
+    """What the stored sweep knew about this port — always a record.
+
+    **The sixth rule, and it moves no rung.**  ``holder`` is ``None``
+    for four different reasons and this says which: the sweep held a
+    unit, held a session scope, *saw the port and could not name it*, or
+    never saw it at all.  Until 2026-08-29 the last two were one answer,
+    so a breach raised on a sweep that predates its listener read
+    exactly like one the sweep had looked straight at — which is
+    ``SNAG-ESTATE-009``'s claim of indistinguishability, and the honest
+    annotation the entry has said it ships since Session 57 without
+    having it.  ``details['holder']['observed_at']`` cannot carry the
+    evidence's age when ``holder`` is ``None``, which is precisely the
+    case that needed it.
+
+    **It is an annotation and deliberately not a rung.**  Quietening an
+    unattributed breach because the sweep predates it was considered and
+    refused on correctness rather than cost, which is what separates it
+    from the entry's two standing refusals.
+    :meth:`~sysadmin.estate.agent.EstateJudgeAgent._attribution` fails
+    **open** in writing — "the enrichment is not allowed to become a
+    dependency of the alert" — and making absence of evidence quieten
+    inverts that: ``observe_listeners`` failing returns no listeners at
+    all, so *every* port would read unswept and the whole family would
+    drop below ``tray.notify_min_severity``.  A ports breach detected,
+    correct, machine-readable and never said out loud is this family's
+    founding defect (Session 26b-A), and that would rebuild it at full
+    scale as the fix for a seven-hour window.  It would also be a guess
+    :func:`~sysadmin.units.ports.attribution_from_blob` already refuses
+    in a milder form, where a port held by two units is *dropped* rather
+    than attributed to whichever sorted first.
+
+    Duck-typed for the reason :func:`_breach_severity` is: this module
+    holds no clock and no configuration, and an attribution is whatever
+    the agent read.  An absent one is answered by an **empty**
+    :class:`~sysadmin.units.ports.PortAttribution` rather than by a
+    string written here, because "nobody supplied evidence" and "the
+    stored sweep cannot answer" are the same fact and a second spelling
+    of ``unknown`` in this module is ``SNAG-DB-003``'s shape — two
+    statements of one vocabulary, free to drift in the direction nobody
+    notices.  The import is function-local so this module's dependencies
+    at import time are unchanged; the path is unreachable in production
+    in any case, since ``_attribution`` returns an empty attribution
+    rather than ``None`` when there is no stored sweep.
+    """
+    reader = getattr(attribution, "reading", None)
+    if callable(reader):
+        return reader(port)
+
+    from sysadmin.units.ports import PortAttribution
+
+    return PortAttribution().reading(port)
 
 
 def _breach_severity(holder: Any) -> str:

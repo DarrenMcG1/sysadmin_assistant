@@ -1128,6 +1128,109 @@ def test_a_sweep_written_before_this_change_still_attributes():
     assert attribution.of(3110) is None
 
 
+# ── What the sweep knew, beside who it named (SNAG-ESTATE-009) ───────
+
+
+def _seen_blob(**over):
+    """A successful sweep: one unit, one dev server, two it could not name."""
+    return {
+        "ok": True,
+        "unit_ports": {"user:alfred-backend.service": [8100]},
+        "transient_ports": {"user:app-code-oss-26348.scope": [3110]},
+        "unattributed_ports": [5432, 8601],
+        **over,
+    }
+
+
+def test_the_four_reasons_holder_is_none_are_four_readings():
+    """``of()`` collapses four states; :meth:`reading` separates them.
+
+    The founding measurement, and it is the sibling of the collapse
+    Session 57 fixed one field over: ``of(5432)`` and ``of(8110)`` are
+    both ``None`` on the live sweep, and one of them means *the sweep
+    looked straight at this port* while the other means *the sweep ran
+    before this listener started*.  That second one is what
+    ``SNAG-ESTATE-009`` is about.
+    """
+    a = P.attribution_from_blob(_seen_blob(), "2026-08-29T20:34:14+00:00")
+    assert a.reading(8100)["reading"] == "held"
+    assert a.reading(3110)["reading"] == "transient"
+    assert a.reading(5432)["reading"] == "unattributed"
+    assert a.reading(8110)["reading"] == "unswept"
+    # The two the fix separates are still one answer to `of`, which asks
+    # a different question and is right to.
+    assert a.of(5432) is None and a.of(8110) is None
+
+
+def test_every_reading_carries_the_evidences_age():
+    """A reading with no date is a claim with no evidence behind it.
+
+    ``details['holder']['observed_at']`` is the age the entry's "Why P3"
+    bullet says already ships — and it is unreachable for exactly the
+    rows that need it, because ``holder`` is ``None`` there.
+    """
+    a = P.attribution_from_blob(_seen_blob(), "2026-08-29T20:34:14+00:00")
+    for port in (8100, 3110, 5432, 8110):
+        assert a.reading(port)["observed_at"] == "2026-08-29T20:34:14+00:00"
+
+
+def test_a_failed_observation_is_unknown_and_never_unswept():
+    """The ``ok`` gate, and it is the half that is easy to miss.
+
+    ``observe_listeners`` failing returns the error and **no** listeners,
+    so ``unattributed_ports`` serialises as ``[]``.  Read as evidence
+    that would make every breached port ``unswept`` — a confident
+    statement about a sweep that never looked, which is
+    ``ports_checked``'s rule rebuilt inside the fix for
+    ``ports_checked``'s rule.
+    """
+    a = P.attribution_from_blob(
+        {"ok": False, "error": "ss: command not found", "unattributed_ports": []}
+    )
+    assert a.unattributed is None
+    assert a.reading(5432)["reading"] == "unknown"
+    assert a.reading(8110)["reading"] == "unknown"
+
+
+def test_a_sweep_predating_the_key_cannot_answer():
+    """51 stored sweeps have no ``ports`` block and 0 have a partial one.
+
+    The partial case is unreachable on this box today and handled
+    anyway: absent evidence is ``unknown``, never a confident
+    ``unswept``.
+
+    **The first version of this test passed against the mutation it
+    exists to catch.**  It drove ``{"unit_ports": …}`` — a blob with no
+    ``ok`` either — so the ``ok`` gate returned before the missing-key
+    branch was ever reached, and making that branch answer
+    ``frozenset()`` left the test green.  It asserted the right value
+    for the wrong reason, which is what the mutation drive is for.  The
+    successful-sweep-with-no-key case is what isolates it.
+    """
+    # A sweep that ran fine and predates the key: the observation is
+    # sound and the question is still unanswerable.
+    partial = P.attribution_from_blob({"ok": True, "unit_ports": {"u": [8100]}})
+    assert partial.unattributed is None
+    assert partial.reading(8110)["reading"] == "unknown"
+    assert partial.reading(8100)["reading"] == "held"
+    # And the no-`ok` case, which is a different gate.
+    assert P.attribution_from_blob({"unit_ports": {"u": [8100]}}).unattributed is None
+    assert P.attribution_from_blob(None).reading(8110)["reading"] == "unknown"
+    assert P.PortAttribution().reading(8110) == {"reading": "unknown", "observed_at": None}
+
+
+def test_a_bool_in_the_list_is_not_port_one():
+    """``isinstance(True, int)`` is ``True``.
+
+    A bool would land as port 1 and read a live listener as
+    unattributable — ``judge_audit_findings`` rule 3's trap, one blob
+    over.
+    """
+    a = P.attribution_from_blob(_seen_blob(unattributed_ports=[True, 5432, "x", None]))
+    assert a.unattributed == frozenset({5432})
+    assert a.reading(1)["reading"] == "unswept"
+
+
 # ── Conformance with the producer this check reads ───────────────────
 
 

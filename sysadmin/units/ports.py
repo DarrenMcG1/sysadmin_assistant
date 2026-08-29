@@ -777,6 +777,14 @@ class PortAttribution:
     #: never asks about transience cannot silently start receiving it.
     transient_holders: Mapping[int, str] = field(default_factory=dict)
     observed_at: str | None = None
+    #: Ports the sweep **saw listening** and could not name a holder for
+    #: — root-owned and containerised sockets, 5432 and 8601 on this box.
+    #:
+    #: ``None`` means the stored sweep cannot answer the question at all:
+    #: there was no row, or ``observe_listeners`` failed and returned no
+    #: listeners, or the blob predates the key.  That is a third state
+    #: and not an empty set, for :meth:`reading`'s reason.
+    unattributed: frozenset[int] | None = None
 
     def of(self, port: int) -> dict[str, Any] | None:
         """``{"unit", "scope", "transient", "observed_at"}``, or ``None``.
@@ -802,6 +810,68 @@ class PortAttribution:
             "transient": transient,
             "observed_at": self.observed_at,
         }
+
+    def reading(self, port: int) -> dict[str, Any]:
+        """What the sweep knew about this port — always an answer.
+
+        :meth:`of` answers *who held it* and returns ``None`` for four
+        different reasons.  This answers *what the evidence says*, and
+        it exists because those four reasons are not one fact:
+
+        ``held``
+            a real unit holds it.
+        ``transient``
+            a session scope holds it — an editor's dev server.
+        ``unattributed``
+            the sweep **saw** the port listening and could not name a
+            holder.  Root-owned and containerised sockets; the estate's
+            own check is blind here too, since it runs ``ss`` without
+            ``-p``.
+        ``unswept``
+            the sweep observed successfully and **did not see this port
+            at all**, so the listener started after it ran.  This is the
+            state ``SNAG-ESTATE-009`` is about, and until 2026-08-29 it
+            was indistinguishable from ``unattributed``.
+        ``unknown``
+            there is no usable sweep: no stored row, a failed
+            observation, or a blob written before the key existed.
+
+        **This is ``ports_checked``'s rule, and it is the sibling of the
+        collapse Session 57 fixed one field over.**  The comment above
+        :meth:`transient_ports` in this module records that a session
+        scope fell out of both stored maps, so ``holder`` came back
+        ``None`` and a consumer could not tell *nobody is attributable*
+        from *attributable, and to something we chose not to write
+        down*.  Fixing that left the other half standing: a consumer
+        still could not tell *nobody is attributable* from *the sweep
+        never looked*.  The discriminator — ``unattributed_ports`` — has
+        been in the blob since Session 26c and no consumer read it.
+
+        ``observed_at`` rides along because it is the age of whatever
+        this says, and a reading with no date is a claim with no
+        evidence behind it.  It is the same value :meth:`of` carries and
+        cannot disagree with it: both are read off one attribution in
+        one call.
+
+        The stated limit: ``unattributed_ports`` is truncated at the
+        blob's ``limit``, so a box with more unattributable listeners
+        than that would report some of them ``unswept``.  That fails
+        towards *"the evidence is silent"* rather than towards a false
+        claim of having looked, which is the direction
+        :mod:`sysadmin.core.schema_guard` fails in and the opposite of
+        the direction that would matter here.
+        """
+        if port in self.holders:
+            state = "held"
+        elif port in self.transient_holders:
+            state = "transient"
+        elif self.unattributed is None:
+            state = "unknown"
+        elif port in self.unattributed:
+            state = "unattributed"
+        else:
+            state = "unswept"
+        return {"reading": state, "observed_at": self.observed_at}
 
 
 def attribution_from_blob(
@@ -848,7 +918,41 @@ def attribution_from_blob(
         holders={p: n for p, n in unique.items() if p not in transient},
         transient_holders={p: n for p, n in unique.items() if p in transient},
         observed_at=observed_at,
+        unattributed=_seen_unattributed(blob),
     )
+
+
+def _seen_unattributed(blob: Mapping[str, Any]) -> frozenset[int] | None:
+    """The ports the sweep saw and could not name, or ``None``.
+
+    **Gated on the sweep's own ``ok``, which is the half that is easy to
+    miss.**  A failed :func:`observe_listeners` returns the error and
+    *no* listeners, so ``unattributed_ports`` serialises as ``[]`` — and
+    an empty list read as evidence would make every breached port
+    ``unswept``, which is a confident statement about a sweep that never
+    looked.  ``ports_checked``'s rule at the size of one key:
+    zero-because-clean must not be served as zero-because-blind.
+
+    ``None`` for a blob written before Session 26c as well, where the
+    key is simply absent and the question is equally unanswerable.
+    """
+    if not blob.get("ok"):
+        return None
+    raw = blob.get("unattributed_ports")
+    if not isinstance(raw, list):
+        return None
+    seen: set[int] = set()
+    for port in raw:
+        # `isinstance(True, int)` is True, so a bool would land as port 1
+        # and read a live listener as unattributable. Refused explicitly,
+        # `judge_audit_findings` rule 3's treatment of the same trap.
+        if isinstance(port, bool):
+            continue
+        try:
+            seen.add(int(port))
+        except (TypeError, ValueError):
+            continue
+    return frozenset(seen)
 
 
 def in_range(port: int, ranges: Sequence[tuple[int, int]]) -> bool:
