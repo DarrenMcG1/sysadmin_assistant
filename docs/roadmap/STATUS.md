@@ -3,87 +3,88 @@
 **Last Updated**: 2026-08-29
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The figure a tool can derive is not a claim a human states.**
-> `docs/roadmap/snag_list.md`'s header paragraph records what moved this
-> sitting and nothing read it — `ops_claims` reads `STATUS.md`'s block,
-> `snag_claims` reads the entries' own claims, and the paragraph fell
-> between them. Session 118 found it **six sittings stale**; the owner's
-> ruling of 2026-08-29 is to derive the figure rather than check the
-> prose. `sysadmin-check-snags` now ends every run with
-> `convention:movement`.
+> **A cut identity is not an identity, and the marked cut was hiding
+> that rather than saying it.** `SNAG-LOG-013` prices its cost at *"a
+> GET advice surface, no toast and no row"*. The same defeat of the same
+> cap lands in `log_signature.alert_title`, which is the dedup key, the
+> set-based resolve's key and the tray's `{severity}:{title}`
+> fingerprint — so two faults agreeing past the title budget are **one
+> row, one fingerprint and one toast**. That is `SNAG-AGENT-005`'s
+> masking defect at the surface that entry was written to protect,
+> arriving from the other side. The entry stays open on its roll-up
+> half; the alert half is closed.
 >
-> **Three measurements decided it against the obvious fix.** The
-> paragraph **has no reader** — preflight prints this block, both claim
-> reports and the entry bullets, and never that — so `ops_claims` rule
-> 1, which buys that module's legitimacy from *"preflight already prints
-> those claims"*, has no equivalent. The figure is **derivable**:
-> `git show HEAD~1:docs/roadmap/snag_list.md` through the owning parser
-> gives **100 / 17** against HEAD's **101 / 18**, precisely what Session
-> 119 wrote by hand. And thirteen paragraphs write that sentence **seven
-> ways**, so a pattern reports `unknown` more often than it measures.
+> **Measured before anything was decided, on the population the entry
+> itself observed.** `SNAG-LOG-008`'s backfill has since rewritten
+> `message`, but `raw_line` holds the journalctl record verbatim, so the
+> pre-backfill signatures are recoverable exactly as `read_journal`
+> composed them: **39 distinct signatures collapsed to 21 alert titles,
+> four of them covering 2, 2, 2 and 16 distinct faults.** The sixteen
+> are `warning` and so stored rather than raised; one pair is `error`
+> and did raise. After the fix, 39 → 39.
 >
-> **It has a real red state, so it is a measurement and not a
-> decoration**: the two parsers disagreeing about the **open** count.
-> `read_entries` sweeps this register, `read_snags` is what the board
-> publishes, and a divergence means those figures have come apart.
-> Totals are deliberately not compared — 102 rows there against 77 under
-> the open headings is two populations by design.
+> **Live the population is empty and the margin is one fault wide.** Of
+> 50 signatures on this box **2** are cut at all and none collide — but
+> the surviving one is a Python traceback whose first 211 characters are
+> starlette's `lifespan` frame, boilerplate shared by *every*
+> lifespan-time failure, which is the class `schema_guard` raises. The
+> class needs one second startup fault and nothing else.
 >
-> **An empty read is a failure and never a count.** `read_snags` takes
-> the document's *text*; handed a path it returns zero rows, and Session
-> 119 published `100 → 0 entries, 17 → 0 open` off exactly that. The
-> gate is the **rows** and not the dialect, because their vocabulary is
-> theirs. A failed anchor read is `unknown` and never `unmoved`, which
-> is the mutation that would otherwise have shipped green.
+> **What ships is a discriminator, not a bigger cap.** A cut title now
+> carries eight hex characters of the whole signature's SHA-256.
+> Raising `TITLE_MAX` moves where the cut falls and nothing else, which
+> is `SNAG-LOG-013`'s own argument against raising a cap; a digest over
+> the part cut away is the only **per-row pure function** that cannot be
+> defeated by two records differing past the bound — and per-row is
+> exactly what the entry says its roll-up half cannot have. Only a *cut*
+> title is stamped, so no open row's fingerprint moves: measured, **0**
+> open rows carried a cut title (3 all-time, all resolved).
 >
-> **The banner was stating the open count two ways and one was wrong by
-> 4x.** `claude-preflight.sh` counted `^- \[P[0-9]\]` under
-> `## Open Issues` — every bullet whatever its title says — so it
-> printed **76 open** eight lines below the snag-claims section's **18
-> open entries**, with the first ten rows of its list titled **FIXED**.
-> `ops_claims` rule 2 in the surface that sets the agenda.
-> `sysadmin-check-snags --list-open` is the reader now, so
-> `closure_declared` has **one** implementation; a non-zero exit prints
-> "could not be counted", never "all clear".
+> **The existing test is what pinned it.** `test_title_fits_the_column`
+> asserted the cut was **marked** and never that it stayed
+> **distinguishing** — two properties, one bought. Five tests replace
+> it; only one goes red against the pre-fix code, so the other four were
+> falsified against mutations of the *fix* — digest-instead-of-text,
+> stamp-everything, digest-the-message, and builtin `hash()`, which
+> `PYTHONHASHSEED` salts per process and would make the aggregator and
+> `log_trends` disagree about one fault across a restart.
 >
-> **No restart was needed and one was taken anyway.** No production code
-> changed — `snag_claims.py` is a composition root nothing in the
-> daemon's import graph reaches, and `claude-preflight.sh` is a script —
-> so the deploy check's red was its own documented false positive
-> (`ops_claims` rule 4: *"a file the daemon never imports — this one,
-> the moment it is written"*). That rule also says it fails in the
-> direction that costs a needless `kill -TERM`, which is a second and
-> unprivileged, and the alternative is a red line at the next preflight
-> teaching the reader to ignore the family. Daemon restarted
-> at **2026-08-29 14:35:49** <!--check:deploy--> <!--check:daemon_start-->,
-> clean journal. `/health` answers
+> **estate-manager's message `99679328` is closed in the same sitting.**
+> `estate.snags.read_snags` now raises `UnreadableSnagText` where it
+> returned `([], "unrecognised")` — the shape our `5a8bbc97` filed.
+> `parser_counts` needed no code change, and **both guards stay**: the
+> `except` owns the new shape and the `if not rows` gate the old, which
+> is not dead code because `estate-lib` is an editable install and the
+> parser is whichever revision of their tree is checked out.
+>
+> Daemon restarted
+> at **2026-08-29 15:17:47** <!--check:deploy--> <!--check:daemon_start-->,
+> clean journal. The first restart was **owed** — `log_signature.py` is
+> in the daemon's import graph, unlike Session 121's docstring-only edit
+> — and the second was `ops_claims` rule 4's documented false positive
+> again, a docstring in `snag_claims.py`, taken rather than argued for
+> the same reason: unprivileged, and the alternative teaches the reader
+> to ignore a red line. `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **0** unresolved
-> rows <!--check:alerts--> with **0** named here
-> <!--check:open_titles-->.
+> packaged head <!--check:schema-->, and `alerts` holds **1** unresolved
+> row <!--check:alerts--> with **1** named here
+> <!--check:open_titles-->: `warning: Unusual CPU usage`, raised at
+> 15:16:46 against **this sitting's own suite run** — 33.0 % is 3.5σ
+> above a 7-day mean of 5.1 %, which is what a box that mostly idles
+> says about sixty seconds of pytest. `_check_anomalies` resolves it by
+> id when the reading falls back, so it is named rather than waited
+> out.
 >
 > **Alembic head is 018**<!--check:migration_head--> — unchanged. A
-> console-script flag moves no schema.
+> title format moves no schema.
 >
-> **The suite is 2863**, from 2844: **19 added and none retired.** Nine
+> **The suite is 2869**, from 2863: **6 added and none retired.** Five
 > mutations were driven and each lands red on the intended test — the
-> empty read served as a count, the failed anchor defaulted to current,
-> `unmoved` rendered blank, totals compared, the closure filter dropped,
-> an unreadable document reported as success, one reader read as
-> agreement, the disagreement branch removed, and an unimportable parser
-> reported as measured.
->
-> **`SNAG-DOCS-007` closed the same day** (Session 121) — by the
-> narrowing its own last bullet asked for, and *“altogether”* was one
-> figure too many. The paragraph states two things and only one has a
-> second producer. The **counts** are derived at every run, so the
-> written copy is gone. The **movement** is not: `MOVEMENT_ANCHOR` is
-> `HEAD` compared against the **working tree**, so the delta exists only
-> between the edit and the commit, and it can never name *which* entry
-> moved. Preflight runs on a clean tree and reads `unmoved` **by
-> construction** — which refutes the entry's own fourth bullet and this
-> module's docstring, both of which claimed preflight anchors correctly.
-> The sentence stays; the numbers went.
+> pre-fix title, the digest replacing the text, every title stamped, the
+> message digested instead of the signature, and the builtin `hash()`.
+> A sixth was driven at `snag_claims`: narrowing `parser_counts`' except
+> to `TypeError` turns the estate's new raise into an error rather than
+> a verdict.
 
 
 ## Quick Status
@@ -98,7 +99,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **2863 green** | **2863 backend + tray** *(2844 + 19 on 2026-08-29, Session 120: the derived movement line and the closure-aware banner reader in `tests/test_snag_claims.py`, none retired — nine mutations driven, each red on the intended test. Previously 2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
+| Testing | 🟢 **2869 green** | **2869 backend + tray** *(2863 + 6 on 2026-08-29, Session 122: `TestACutTitleStaysAnIdentity` in `tests/test_log_alert_dedup.py` and the estate parser's new raise shape in `tests/test_snag_claims.py`, none retired — one falsified against the pre-fix title and four against mutations of the fix, because a test that passes against the broken code is a control over the fix's failure modes rather than over the defect's. Previously 2844 + 19 on 2026-08-29, Session 120: the derived movement line and the closure-aware banner reader in `tests/test_snag_claims.py`, none retired — nine mutations driven, each red on the intended test. Previously 2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -106,6 +107,22 @@
 ---
 
 ## Recently Completed
+
+### Session 122 — a cut identity is not an identity (2026-08-29)
+
+**`SNAG-LOG-013`'s stated scope was the smaller half.** It prices the
+defeat of a cap at *"a GET advice surface, no toast and no row"*;
+`log_signature.alert_title` cuts the same signature and **is** the dedup
+key, the resolve key and the tray fingerprint. Measured on the entry's
+own population, recovered from `raw_line`: **39 signatures → 21 titles,
+four covering 2, 2, 2 and 16 faults**, one pair at a raising severity.
+A cut title now carries eight hex characters of the signature's SHA-256
+— a per-row pure function, which is exactly what the entry says its
+roll-up half cannot have. Live: **50 → 50** titles, 2 cut, 0 colliding;
+**0** open rows carried a cut title, so no fingerprint moved. The entry
+stays open on its roll-up half. estate-manager's message `99679328`
+closed in the same sitting: `read_snags` raises where it returned an
+empty read, and both guards in `parser_counts` stay.
 
 ### Session 121 — a gauge is not a ledger (2026-08-29)
 

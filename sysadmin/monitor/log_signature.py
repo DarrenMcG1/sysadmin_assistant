@@ -38,11 +38,12 @@ verbatim line, so the exact errno is one click away, and
 row volume.  The signature exists to bound the table, not to diagnose.
 """
 
+import hashlib
 import re
 
 from sysadmin.core.text import TRUNCATION_MARKER, truncate_at_word
 
-__all__ = ["TITLE_MAX", "alert_title", "signature"]
+__all__ = ["SIGNATURE_DIGEST_CHARS", "TITLE_MAX", "alert_title", "signature"]
 
 #: ``sysadmin.alerts.title`` is ``String(255)``.  A title assembled past
 #: that raises ``StringDataRightTruncation``, so the budget is computed
@@ -67,6 +68,32 @@ def signature(message: str) -> str:
     return _WS.sub(" ", _NUM.sub("N", _HEX.sub("0xN", message))).strip()
 
 
+#: How many hex characters of the full signature's digest a **cut** title
+#: carries.
+#:
+#: Eight is the smallest width at which the discriminator is not itself a
+#: source of collisions at any volume this table can reach: 32 bits over
+#: the 50 distinct signatures live here, or over the 44 the whole kernel
+#: population collapses to, puts the birthday probability under 3e-7.  It
+#: is a **width**, not a threshold — nothing sits near it and nothing has
+#: to be re-measured when the population grows by an order of magnitude.
+SIGNATURE_DIGEST_CHARS = 8
+
+
+def _digest(signature_text: str) -> str:
+    """A stable discriminator for a signature the title cannot hold whole.
+
+    ``hashlib`` rather than the builtin :func:`hash`, and the reason is
+    not style: ``hash()`` is salted per process by ``PYTHONHASHSEED``, so
+    the aggregator writing a row and :func:`sysadmin.monitor.log_trends`
+    computing the same title for :attr:`SignatureTrend.alert_title` — two
+    processes, or one process either side of a restart — would disagree
+    about the identity of one fault.  That is the defect this suffix
+    exists to remove, arriving through its own fix.
+    """
+    return hashlib.sha256(signature_text.encode("utf-8")).hexdigest()[:SIGNATURE_DIGEST_CHARS]
+
+
 def alert_title(severity: str, source: str, message: str) -> str:
     """Build the deduplication key, which is also what the reader sees.
 
@@ -82,7 +109,51 @@ def alert_title(severity: str, source: str, message: str) -> str:
     and the budget accounts for the marker, because that helper may exceed
     its own limit by the marker's length (deliberately — see
     ``SNAG-BRIEF-002``) and this one lands in a ``String(255)`` column.
+
+    **A cut identity is not an identity, and the marked cut was hiding
+    that rather than saying it** (``SNAG-LOG-013``, whose stated scope
+    this is outside).  That entry prices its cost at *"a GET advice
+    surface, no toast and no row"*; the same defeat lands here, where the
+    title **is** the dedup key, so two faults agreeing past the budget
+    share one row, one fingerprint and one toast — ``SNAG-AGENT-005``'s
+    masking defect at the surface that entry exists to protect, arriving
+    from the other side.  Measured on the population that entry itself
+    observed, recovered from ``raw_line`` because ``SNAG-LOG-008``'s
+    backfill has since rewritten ``message``: **39 distinct signatures
+    collapse to 21 titles, four of which cover 2, 2, 2 and 16 distinct
+    faults**.  The sixteen are ``warning`` and so stored rather than
+    raised; one of the pairs is ``error`` and did raise.
+
+    So a cut title carries :func:`_digest` of the **whole** signature.
+    Three things decided that shape:
+
+    1. **Only a cut title carries one.**  An uncut signature is already
+       total, and stamping every title would move every open row's
+       fingerprint at the deploy for no gain — the mass re-raise
+       ``escalation.step_for`` refuses one row at a time.
+    2. **The digest is of the signature, never of the message.**  Several
+       messages share one signature by design (that is the whole of
+       :func:`signature`), so digesting the message would fork the
+       identity per errno and rebuild the 598,091 rows.
+    3. **It restores totality rather than making a collision unlikely.**
+       Raising ``TITLE_MAX`` moves where the cut falls and nothing else,
+       which is ``SNAG-LOG-013``'s own argument against raising a cap;
+       a discriminator computed over the part that was cut away is the
+       only per-row pure function that cannot be defeated by two records
+       differing past the bound.
+
+    The live margin is why this is not merely hygiene.  Two of the 50
+    signatures on this box are cut at all and neither collides, but the
+    surviving one is a Python traceback whose first 211 characters are
+    starlette's ``lifespan`` frame — boilerplate shared by *every*
+    lifespan-time failure, which is the class ``schema_guard`` raises.
+    The population needs one second startup fault and nothing else.
     """
     prefix = f"Log {severity}: {source} — "
     budget = TITLE_MAX - len(prefix) - len(TRUNCATION_MARKER) - 1
-    return f"{prefix}{truncate_at_word(signature(message), max(budget, 1))}"
+    text = signature(message)
+    if len(text) <= budget:
+        return f"{prefix}{text}"
+    suffix = f" [{_digest(text)}]"
+    cut = truncate_at_word(text, max(budget - len(suffix), 1))
+    return f"{prefix}{cut}{suffix}"

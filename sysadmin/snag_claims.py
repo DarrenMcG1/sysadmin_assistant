@@ -965,6 +965,18 @@ def check_capped_signature_collides() -> Measurement:
     do with the cap.  A check whose fixture moves two things at once
     cannot say which one it measured.
 
+    **Both halves are the advice surface, and a third one has closed.**
+    Session 122 measured the entry's stated scope and found
+    :func:`~sysadmin.monitor.log_signature.alert_title` cutting the same
+    signature — the dedup key, so two faults agreeing past *its* budget
+    were one row and one toast rather than one advice line.  That half is
+    fixed, by a discriminator on cut titles, and is guarded in
+    ``tests/test_log_alert_dedup.py`` rather than here: this check exists
+    because the entry's advice population is empty and its claim is a
+    mechanism, and a closed half belongs to the suite.  Read the verdict
+    as *the roll-up and the advice titles still collide*, never as *the
+    entry is untouched*.
+
     What it cannot reach is the entry's first candidate fix: making the
     signature readable at the producer removes the *population* and
     leaves the mechanism exactly as it is, so this check would go on
@@ -5589,13 +5601,24 @@ def parser_counts(
 
     **An empty read is a failure and never a count**, which is the one
     rule here that was learned by publishing the wrong answer.
-    ``read_snags`` takes the document's *text*; handed a path it returns
-    zero rows and a dialect of ``unrecognised``, and Session 119
+    ``read_snags`` takes the document's *text*; handed a path it used to
+    return zero rows and a dialect of ``unrecognised``, and Session 119
     published ``100 → 0 entries, 17 → 0 open`` off exactly that — every
     entry closed, stated confidently, with nothing in the shape of the
     result saying it had not read a document.  Filed at the owner as
     ``5a8bbc97``; guarded here by refusing to treat any empty read as a
     measurement.
+
+    **The owner closed that message by changing the shape, and both
+    guards stay.**  ``read_snags`` now raises ``UnreadableSnagText`` — a
+    ``ValueError`` — on text carrying no heading anywhere, so the path
+    case arrives at the ``except`` rather than at the ``if not rows``
+    gate.  Neither is redundant and the second is not dead code: this
+    resolves through an *editable install*, so the parser is whatever
+    revision of their working tree is checked out, and a document that
+    is genuinely empty of entries still reads as zero rows under any
+    version.  Deleting either would make one arrangement of two
+    repositories publish "every entry closed" again.
 
     The gate is the **rows**, not the dialect, deliberately.  Their
     vocabulary is theirs — ``bullet``, ``unrecognised``, ``empty`` today

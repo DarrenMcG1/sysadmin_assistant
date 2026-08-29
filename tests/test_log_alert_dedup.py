@@ -108,10 +108,126 @@ def test_hex_collapses_whole():
 
 
 def test_title_fits_the_column():
-    """``alerts.title`` is String(255); an over-long title is an insert error."""
+    """``alerts.title`` is String(255); an over-long title is an insert error.
+
+    The marker is asserted as *present* rather than as the last thing in
+    the string, because a cut title now ends with its discriminator —
+    see :class:`TestACutTitleStaysAnIdentity`.  This assertion is what
+    pinned that defect: it required the cut to be **marked** and never
+    that it stayed **distinguishing**, which are different properties and
+    only the first was being bought.
+    """
     title = alert_title("error", "kernel", "x" * 4000)
     assert len(title) <= TITLE_MAX
-    assert title.endswith(TRUNCATION_MARKER)
+    assert TRUNCATION_MARKER in title
+
+
+class TestACutTitleStaysAnIdentity:
+    """``SNAG-LOG-013`` at the surface its own cost bullet excludes.
+
+    That entry prices the defeat of a cap at *"a GET advice surface, no
+    toast and no row"*.  :func:`alert_title` is the dedup key, the
+    set-based resolve's key and the tray's ``{severity}:{title}``
+    fingerprint, so two faults agreeing past the title budget are one
+    row, one fingerprint and one toast — which is this file's own
+    ``SNAG-AGENT-005`` read backwards: not four faults wearing one
+    uninformative title, but sixteen wearing one informative-looking one.
+
+    Measured on the population the entry observed, recovered from
+    ``raw_line`` because ``SNAG-LOG-008``'s backfill has since rewritten
+    ``message``: **39 distinct signatures collapsed to 21 titles**, four
+    of them covering 2, 2, 2 and 16 faults.  After the digest, 39 → 39.
+    """
+
+    #: Every traceback this daemon writes opens with the same two frames,
+    #: so the first 211 characters — the whole of a ``sysadmin.service``
+    #: title's budget — are boilerplate.  Verbatim from the live journal.
+    LIFESPAN_FRAME = (
+        "Traceback (most recent call last): "
+        'File "/home/gaddi/projects/sysadmin_assistant/.venv/lib/python3.12/'
+        'site-packages/starlette/routing.py", line 694, in lifespan '
+        "async with self.lifespan_context(app) as maybe_state: "
+    )
+
+    def test_two_faults_agreeing_past_the_budget_are_two_rows(self):
+        """The live near-miss, driven: two lifespan-time failures.
+
+        This is one second startup fault away from being the live
+        population — ``schema_guard`` raises exactly here — so it is the
+        specimen rather than a construction.
+        """
+        first = alert_title(
+            "error", OWN_UNIT, self.LIFESPAN_FRAME + "ValueError: schema is at 017, code wants 018"
+        )
+        second = alert_title(
+            "error", OWN_UNIT, self.LIFESPAN_FRAME + "RuntimeError: could not reach the broker"
+        )
+        assert first != second
+        assert len(first) <= TITLE_MAX
+        assert len(second) <= TITLE_MAX
+
+    def test_the_shared_half_is_still_readable(self):
+        """The discriminator is added, never substituted for the text.
+
+        A digest that *replaced* the cut signature would buy identity by
+        giving the reader nothing at all, which is the state
+        ``SNAG-AGENT-005`` describes and this module's docstring refuses.
+        """
+        title = alert_title("error", OWN_UNIT, self.LIFESPAN_FRAME + "ValueError: boom")
+        assert title.startswith(f"Log error: {OWN_UNIT} — Traceback (most recent call last):")
+        assert TRUNCATION_MARKER in title
+
+    def test_an_uncut_title_carries_no_discriminator(self):
+        """Only a cut title is stamped, so no open row's fingerprint moves.
+
+        The deploy cost of this change is exactly the set of open rows
+        whose title was cut; on this box that was **0** (three such rows
+        all-time, all resolved).  Stamping every title would have made it
+        every open log row instead.
+        """
+        assert alert_title("error", "kernel", USB_PROTO_9) == (
+            "Log error: kernel — usb N-N: device not accepting address N, error -N"
+        )
+
+    def test_one_signature_keeps_one_title(self):
+        """The digest is of the *signature*, never of the message.
+
+        Several messages share one signature by design — that is the
+        whole of :func:`signature` — so digesting the message would fork
+        the identity per errno and rebuild the pile-up this file is
+        about.  ``USB_PROTO_9`` and ``USB_PROTO_10`` are the live pair
+        that proves it, lengthened past the budget so the cut path runs.
+        """
+        pad = " padding" * 40
+        assert alert_title("error", "kernel", USB_PROTO_9 + pad) == alert_title(
+            "error", "kernel", USB_PROTO_10 + pad
+        )
+
+    def test_the_discriminator_does_not_depend_on_the_process(self):
+        """``hashlib``, not the builtin ``hash``, which ``PYTHONHASHSEED``
+        salts per process — the aggregator and
+        :mod:`sysadmin.monitor.log_trends` would then disagree about one
+        fault's identity across a restart, which is the defect the suffix
+        exists to remove arriving through its own fix.
+        """
+        import subprocess
+        import sys
+
+        script = (
+            "from sysadmin.monitor.log_signature import alert_title;"
+            "print(alert_title('error', 'kernel', 'x' * 4000))"
+        )
+        runs = {
+            subprocess.run(  # noqa: S603 — this interpreter, a fixed script
+                [sys.executable, "-c", script],
+                capture_output=True,
+                text=True,
+                check=True,
+                env={"PYTHONHASHSEED": seed, "PATH": "/usr/bin"},
+            ).stdout
+            for seed in ("0", "1", "random")
+        }
+        assert len(runs) == 1
 
 
 def test_title_carries_the_signature():

@@ -394,6 +394,67 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 122 — a cut identity is not an identity (2026-08-29) ✅
+
+_The next open entry taken on its own terms, and its stated scope
+measured before its stated remedy. `SNAG-LOG-013` prices the defeat of a
+cap at "a GET advice surface, no toast and no row"; the same cap defeat
+lands in `alert_title`, which is the dedup key, the set-based resolve's
+key and the tray's `{severity}:{title}` fingerprint. The alert half is
+fixed and the roll-up half stays open._
+
+- [x] **Measured the stated scope first, on the entry's own population.**
+      `SNAG-LOG-008`'s backfill has rewritten `message`, so the
+      pre-backfill signatures were recovered from `raw_line` exactly as
+      `read_journal` composes them — **39 distinct signatures collapsing
+      to 21 alert titles, four covering 2, 2, 2 and 16 distinct faults**.
+      The sixteen are `warning` (stored, not raised); one pair is `error`
+      and did raise
+- [x] **Measured the live margin, which is one fault wide.** 2 of 50
+      signatures are cut at all and none collide, so this half's
+      population is empty by the entry's own last-bullet rule — but the
+      surviving cut is a Python traceback whose first 211 characters are
+      starlette's `lifespan` frame, shared by every lifespan-time
+      failure, which is the class `schema_guard` raises
+- [x] **Enumerated every surface that caps a signature before deciding
+      where the fix goes** — `alert_title` (identity), `capped_signature`
+      and `quoted_signature` (advice), `log_review._quoted_signature`
+      (prose), `SAMPLE_DETAIL_CHARS` (colour). Exactly one is an
+      identity, and it is the one the entry does not name
+- [x] **Shipped a discriminator, not a bigger cap.** Eight hex characters
+      of the whole signature's SHA-256 on cut titles only. It is a
+      **per-row pure function** — precisely what the entry says its
+      divergence-aware cap cannot be, so the fix impossible one level
+      down is available one level up and only there
+- [x] **`hashlib`, never builtin `hash`** — `PYTHONHASHSEED` salts it per
+      process, so the aggregator and `log_trends` would disagree about
+      one fault's identity across a restart: the defect arriving inside
+      its own fix
+- [x] **Five tests, four of them controls over the fix rather than the
+      defect.** Only one goes red against the pre-fix code, so the others
+      were falsified against mutations of the fix —
+      digest-instead-of-text, stamp-everything, digest-the-message and
+      builtin `hash()`
+- [x] **Closed estate-manager's message `99679328`**: `read_snags` raises
+      `UnreadableSnagText` where it returned `([], "unrecognised")`.
+      `parser_counts` needed no code change and **both guards stay** —
+      `estate-lib` is an editable install, so the parser is whichever
+      revision of their tree is checked out
+
+### Verified, 2026-08-29
+
+```
+historic:  39 signatures -> 21 titles (4 colliding)  ->  39 titles (0 colliding)
+live:      50 signatures -> 50 titles, 2 cut, 0 colliding
+open rows carrying a cut title: 0  (3 all-time, all resolved)
+suite:     2863 + 6 = 2869, none retired (5 in test_log_alert_dedup, 1 in test_snag_claims)
+```
+
+- [x] **Restart owed and taken** — `log_signature.py` is in the daemon's
+      import graph, unlike Session 121's docstring-only edit. Restarted
+      **15:11:44**, `/health` 200, clean journal, and
+      `GET /api/logs/trends` serves both cut titles with a discriminator
+
 ## Session 120 — the figure a tool can derive is not a claim a human states (2026-08-29) ✅
 
 _Session 118's second open decision, taken. The banner it was found

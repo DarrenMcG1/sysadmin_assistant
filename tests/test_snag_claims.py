@@ -4955,15 +4955,28 @@ class _Parser:
     against an implementation that read the same document twice.
     """
 
-    def __init__(self, answers: dict[str, tuple[int, int]], default=None):
+    def __init__(self, answers: dict[str, tuple[int, int]], default=None, raises=False):
         self.answers = answers
         self.default = default
+        #: Whether an unanswerable text arrives as a raise rather than as
+        #: an empty read.  Both shapes are real and neither is a version
+        #: this repository chooses: ``read_snags`` returned
+        #: ``([], "unrecognised")`` until estate-manager's message
+        #: ``99679328`` (2026-08-29) closed our ``5a8bbc97`` by raising
+        #: ``UnreadableSnagText`` instead, and ``estate-lib`` is an
+        #: editable install, so the parser is whichever revision of their
+        #: working tree is checked out.
+        self.raises = raises
         self.seen: list[str] = []
 
     def __call__(self, text: str):
         self.seen.append(text)
         answer = self.answers.get(text, self.default)
         if answer is None:
+            if self.raises:
+                raise ValueError(
+                    "read_snags takes a document's text, and this looks like a path"
+                )
             return [], "unrecognised"
         total, open_count = answer
         rows = [SimpleNamespace(is_open=index < open_count) for index in range(total)]
@@ -4991,6 +5004,7 @@ class TestTheMovementIsDerived:
         anchor: tuple[int, int] | None | str = None,
         entries=(),
         parser_problem: str = "",
+        parser_raises: bool = False,
     ):
         """Drive :func:`check_movement` against a stand-in parser.
 
@@ -5002,7 +5016,7 @@ class TestTheMovementIsDerived:
         answers = {"worktree": current} if current else {}
         if isinstance(anchor, tuple):
             answers["anchor"] = anchor
-        parser = _Parser(answers)
+        parser = _Parser(answers, raises=parser_raises)
         read = None if parser_problem else parser
         with (
             patch.object(snag_claims, "owning_parser", lambda: (read, parser_problem)),
@@ -5027,6 +5041,26 @@ class TestTheMovementIsDerived:
         read ``0 entries, 0 open`` at ``match``.
         """
         finding = self._finding(tmp_path, current=None)
+        assert finding.verdict == "unknown"
+        assert "read no entry" in finding.note
+        assert "0 entries" not in finding.note
+
+    def test_a_read_that_raises_is_unknown_for_the_same_reason(self, tmp_path):
+        """The same not-knowing, in the shape the owner moved it to.
+
+        Our message ``5a8bbc97`` said an empty read with a dialect of
+        ``unrecognised`` reads as an emptied register rather than as a
+        type error; estate-manager closed it on 2026-08-29 (message
+        ``99679328``) by raising ``UnreadableSnagText``, a ``ValueError``,
+        instead.  Both shapes must land on ``unknown``, and both are
+        reachable — ``estate-lib`` is an editable install, so the parser
+        is whichever revision of their tree is checked out, and a
+        genuinely entry-free document is an empty read under any version.
+        Falsified by narrowing :func:`parser_counts`' ``except`` to
+        ``TypeError``, which turns this into an error rather than a
+        verdict.
+        """
+        finding = self._finding(tmp_path, current=None, parser_raises=True)
         assert finding.verdict == "unknown"
         assert "read no entry" in finding.note
         assert "0 entries" not in finding.note
