@@ -2,7 +2,112 @@
 
 ## Next action
 
-Take `SNAG-SYSD-005` on its own terms and decide whether a login-time replay is worth building at all, since this sitting measured that four of the five failures this handler has ever had fired into an empty room and that nothing which survives the daemon's death can currently speak for them.
+Take `SNAG-TRAY-009` on its own terms and decide the grace period before wiring the tray to speak about an unreachable backend, since this sitting measured 122 daemon starts in 30 days against a single 37.7-hour outage and a naive rule would fire on every deploy while the real fault went 22.2 hours unspoken.
+
+## Session 126 is complete — the room was not empty, it was silent
+
+**`SNAG-SYSD-005` was taken on its own terms and the answer is yes — but
+the entry understated its own benefit by two orders of magnitude, and its
+framing of the loss was the wrong way round.**
+
+`sysadmin-replay-failures.service` is a **user** unit wanted by
+`graphical-session.target`, running `sysadmin/core/failure_replay.py`. It
+is the third half of the lifecycle `unit_failure.py` owns: the handler
+writes the row while the application is dead, the lifespan closes it when
+the application returns, and this speaks the gap between them to the first
+human who arrives.
+
+**The entry priced the loss as the gap to the next login; the table prices
+it as the life of the row.** It argued from firings — four of five at a
+boot with nobody logged in, next login 24 min to 6.1 h away. But `alerts`
+holds only **2** `systemd_onfailure` rows for those **5** firings, three
+having hit `record_unit_failure`'s dedup branch, and the one row that was
+not fixed at once stood open **37.73 hours** (`1 day 13:43:31`). The login
+gap is 24 minutes of that. So the replay recovers **37.3 hours of
+silence**, not 24 minutes of lateness. Reading the entry gives the
+population; querying the table gives the cost.
+
+**And the room was occupied for most of it, which is the finding worth
+carrying.** Reconstructed minute by minute: `start-limit-hit` 18:11:15,
+login 18:34:41, tray started 18:34:46 — polled 8500, got nothing, went to
+`IconState.DISCONNECTED` and sat there. Across two sessions, **22.2 of the
+37.7 hours** had a live graphical session with the tray running and
+silent; only 15.5 were an empty room. "Four of five fired into an empty
+room" is true about *firings* and misleading about *silence*. The real
+fault is that nothing on this box interrupts about a dead daemon, occupied
+or not — login is merely the cheapest moment to catch it.
+
+**The blocker the entry deferred on turned out not to be one.** It asked
+for `--unannounced` at the announcer first, refusing to add a flag with no
+reader — correct for a *history* predicate. The replay needs a *state*
+one, and the table already answers it: `resolve_unit_failures` has exactly
+one production caller (the lifespan, `main.py:244`), `% failed` sits
+outside `RESOLVABLE_TITLE_PATTERNS`, and retention purges resolved rows
+only. So an unresolved `systemd_onfailure` row already *means* "this unit
+has not come back". No flag, no announcer change, and the second-speaker
+trap dissolves with it — a state predicate cannot speak about a fault that
+is over.
+
+**Waiting is permitted here and was refused in the announcer, and it is
+the number that changed rather than the principle.** `SNAG-SYSD-004`
+rejected it at notify-send's 60.08 s against a 24-minute gap. At login the
+precondition arrives in seconds: measured at the 2026-08-23 session,
+`plasma-plasmashell.service` active **14:44:55**, target reached
+**14:44:57**, plasmashell still initialising **14:44:58**.
+`WAIT_BUDGET_SECONDS` is therefore **derived** — notify-send's own
+measured bound, so the replay spends exactly the patience one blocked call
+would have spent anyway, on a mechanism that starts no
+`plasma_waitforname`. The read comes **before** the wait, so a clean login
+costs **0.34 s** and no D-Bus call at all.
+
+**Driven live, three ways.** Clean box: exit 0 in 0.34 s. A real standing
+row inserted and removed: the installed unit found it, announced it, exited
+0, with the row's own `CAUSE:` line carried verbatim and `Failed 38 hours
+ago` added. A private `dbus-daemon`: a server claiming the name at t+2 s is
+caught at **3.02 s** and receives the notification intact — `urgency=2`,
+`expire_timeout=0`. `alerts` back to **0** unresolved either side.
+
+**Two falsifications passed against deliberately broken code, and the
+second was in the harness rather than the subject.** Eleven mutations each
+landed red on exactly one intended test. But the live stand-in notification
+server printed `claimed` and **owned nothing a millisecond later** — a
+`dbus.service.BusName` held only in a local is garbage-collected the moment
+the function returns — so the wait reported `False` after a full budget,
+which reads as a verdict about the module and was a verdict about the
+harness. The first repair was insufficient in the same way: it asserted the
+stand-in had *said* `claimed`, which the mutation satisfies. The premise now
+asks the **bus** with `busctl` — independent of both the subject and the
+harness — and the mutation fails naming the harness. Session 125's own trap
+was avoided by construction: a guard mutated to refuse everything turns
+**three** live tests red and skips none.
+
+**`SNAG-TRAY-009` is opened at P2 and is the reason for the next action.**
+The tray is silent for two *independent* reasons, and they are
+multiplicative in `SNAG-AGENT-008`'s sense. `client.py:407`
+`_on_disconnected` emits `connection_lost` only `if self._was_connected`,
+and `_was_connected` initialises `False` — so a tray starting against a
+backend that is *already* dead never emits, which is exactly the
+population. And `tray_icon.py:151` `on_connection_lost` only recolours the
+icon; there is no path from it to `notifications.py` at all. Fixing either
+alone buys nothing. It was filed rather than folded into this sitting at
+the owner's direction, because the real work is the noise question: 122
+daemon starts in 30 days against one 37.7-hour outage.
+
+**Every open entry names a check again** — 19 open, **0** unchecked. That
+property was Session 124's and `SNAG-SYSD-005` broke it on opening;
+closing it and opening a checked entry restores it. All 21 snag checks
+green, all 9 ops claims green.
+
+2937 tests pass (2899 + 38, none retired — 26 in
+`tests/test_failure_replay.py`, 5 in the new
+`tests/test_failure_replay_live.py`, 7 unit-file guards in
+`tests/test_systemd_units.py`), ruff and mypy clean.
+
+**Restarted at 20:58:45, and owed on the merits** — `unit_failure.py`
+gained a reader and `create_app()` imports it. `/health` 200, `alembic
+current` 018 at the packaged head, **0** unresolved alerts. The new user
+unit is installed and enabled; it goes `inactive` after exit, so the next
+login pulls it in again.
 
 ## Session 125 is complete — the wait was real and 24× too short
 
@@ -71,92 +176,3 @@ about the result, never about the privilege.** The reads the toast tells a
 human to run are still ungated — measured under `env -i` with no session,
 `journalctl -u` exits 0 and `systemctl --no-pager status` exits 1 — so the
 Session 70 finding stands; only the state-change claim was wrong.
-
-**The residue is filed rather than absorbed.** `SNAG-SYSD-005`: a
-boot-time failure is now refused honestly and still reaches nobody. No
-existing component can hold the wait, and the reason is structural — the
-tray polls a route the dead daemon serves, and `monitor/desktop.py` with
-its `desktop_notifications` store lives *inside* that daemon. The one
-component able to speak is the one that has died. Its first requirement,
-the announcer recording that it *could not* speak, is deferred to the
-entry that will read it, because a flag with no consumer is
-`SNAG-CFG-001` at the size of a flag. It is the only open entry naming no
-check, and it says so.
-
-## Session 124 is complete — the check found its entry's own trap in its own hand
-
-`SNAG-CFG-003` **stays open at P4 and nothing about it was fixed.** Its
-judgement was re-read and stands: the shipped file is coherent, every one
-of the ~30 relations holds, and nothing has ever reloaded or booted a
-violating configuration here. What moved is its **cost**, which was the
-smaller half three times, and it gained the check Session 119 declined as
-a piece of work the size of a sitting's own — which it was.
-
-**The mechanism is exactly as filed.** Driven at the real
-`reload_configuration` with a real `Scheduler` and an injected
-`sync_jobs` — the daemon's shape, not the documented no-syncer fallback,
-which would have reported the entry refuted by its own harness:
-
-```
-ok=True   requires_restart=[]   jobs_retimed=['service_discovery_scan']
-scheduler moved to interval[1 day]; installed sum 25 against reminder_hours 24
-shipped margin 7/24 = 3.43x, as the entry states
-claude-precommit.sh runs check-migrations.sh and lints, no pytest
-```
-
-**The cost is the smaller half at three joints.** At the *installer*: the
-journal's 30 days hold **2 reloads, 122 daemon starts and 7 tray starts**,
-so a restart installs the same unjudged file 61× more often and the
-entry's fix bullet — "does `reload.py` grow a semantic verdict" — is aimed
-at 2 of 131; the lifespan's one verdict is `verify_schema_revision()`,
-about the schema, and is the standing precedent the entry does not weigh.
-At the *guard*: the one inequality it names is **1 of about thirty**
-suite-only coherence assertions over the two shipped files across nine
-test files, and breaking the sharpest of them (log format `json` against
-`text`) reloads cleanly while returning `SNAG-LOG-003`'s 252-character
-JSON titles. At the *input*: lowering the tray's `reminder_hours` breaks
-the same ceiling and the reload reports **nothing at all**, `AppConfig`
-holding `mute_services` alone under `notifications.tray`, with a tray
-restart as its installer.
-
-**`load_config` installs, and that is the entry's own defect at two more
-scales.** It is `set_config(parse_config(…))`, so reading a specimen
-writes the process-wide slot. In the new check it made the
-installed-witness read back a value its own helper had written — found by
-a mutation that swapped the two and changed nothing. In
-`tests/test_config_defaults.py` it left the process holding
-`scan_interval_hours: 24`, the configuration that class exists to refuse,
-for every test behind it; invisible only because the class's third test
-happens to reinstall a coherent copy, which `pytest-randomly` makes a
-per-seed accident. Both read with `parse_config` now and both are pinned.
-
-**Every open entry now names a check** — `SNAG-CFG-003` was the last of
-the eighteen, against 16 of 24 unchecked when the registry shipped.
-
-**`SNAG-SYSD-004` is opened and is the reason for the next action.**
-`sysadmin-failed.service` has been `failed` since 2026-08-23 and **4 of 4**
-firings since 08-22 were killed at `TimeoutStartSec=30` inside
-`notify-send`, each having already written its journal line and its alert
-row. `Linger=yes` starts `user@1000.service` at boot, so the script's
-`[[ -S /run/user/1000/bus ]]` guard passes with nobody logged in and the
-call waits instead of failing — the fast-fail its own comment describes is
-defeated by lingering. Measured at the boot: **boot 08:37:10, bus
-08:38:19, sddm greeter 08:38:22, firing 08:38:28, killed 08:38:58**, with
-no human session at any point. It is therefore silent in the case Session
-39 built it for, a daemon failing at boot, and `SNAG-DB-005`'s record that
-this handler *"fired correctly, with a persistent critical toast"* that day
-is refuted by the journal.
-
-2,886 tests pass (2,872 + 14, none retired), ruff and mypy clean. Nine
-mutations driven, each red on exactly one intended test — and **one passed
-against deliberately broken code**: the installed-witness read back from
-the specimen is the same number whenever the reload installs, and that
-surviving mutation named the missing case, a reload reporting success
-while installing nothing.
-
-**No restart, and it is not owed.** The only production file changed is
-`sysadmin/snag_claims.py`; `create_app()` does not import it, measured
-rather than argued. The deploy check's `no` is `ops_claims` rule 4's
-documented false positive for the fourth sitting running, and a restart
-with no cause is the needless `kill -TERM` that rule already prices.
-`/health` 200, all nine other ops claims green, **0** unresolved alerts.

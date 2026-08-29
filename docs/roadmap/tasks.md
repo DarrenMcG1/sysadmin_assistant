@@ -394,6 +394,77 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 126 — the room was not empty, it was silent (2026-08-29) ✅
+
+_`SNAG-SYSD-005` taken on its own terms and the verdict is **yes, build
+it** — but the entry's own benefit was understated by two orders of
+magnitude, and its framing of the loss was the wrong way round. It argued
+from firings into an empty room; the table says the room was occupied for
+22.2 of the 37.7 hours and nothing spoke then either._
+
+- [x] **Decide, from the box rather than from the entry.** Measured
+      before anything was written: `alerts` holds **2** `systemd_onfailure`
+      rows for **5** firings (three hit the dedup branch), and the one row
+      not fixed at once stood open **37.73 hours** — `1 day 13:43:31`,
+      2026-08-22 18:10:22 → 2026-08-24 07:53:54. The login gap is 24
+      minutes of that, so the replay recovers 37.3 hours of silence rather
+      than 24 minutes of lateness
+- [x] **Reconstruct the outage minute by minute**, which is what reranked
+      the entry. `start-limit-hit` 18:11:15 → login 18:34:41 → tray
+      started 18:34:46, polled 8500, got nothing, went to
+      `IconState.DISCONNECTED`. **22.2 of 37.7 hours** had a live
+      graphical session with the tray running and silent; 15.5 were an
+      empty room
+- [x] **Establish that nothing existing can hold the wait**, which the
+      entry claimed and which is now stronger than it stated: the tray is
+      alive at login and structurally silent twice over
+- [x] **Drop the deferred flag, with the reason.** `resolve_unit_failures`
+      has exactly one production caller (`main.py:244`), `% failed` sits
+      outside `RESOLVABLE_TITLE_PATTERNS`, retention purges resolved rows
+      only — so "unresolved" already means "has not come back". A state
+      predicate, not a history one, and the second-speaker trap goes with it
+- [x] **`sysadmin/core/unit_failure.py` gains `pending_unit_failures`**
+      and `PendingFailure`, beside the two halves of the lifecycle it
+      belongs to
+- [x] **`sysadmin/core/failure_replay.py`** — the bounded wait, the
+      composition, the three exit statuses. Read before wait, so a clean
+      login costs 0.34 s and no D-Bus call
+- [x] **`systemd/sysadmin-replay-failures.service`**, wanted by
+      `graphical-session.target` because that target cycles per login
+      while `user@1000.service` does not. `RemainAfterExit` deliberately
+      left at `no`, or it runs once and never again
+- [x] **Reuse `notification-server-present.sh` rather than reimplement
+      `NameHasOwner`**, with an AST test refusing a `busctl` call here
+- [x] **Derive the wait budget** from notify-send's measured 60.08 s
+      rather than choosing one, and pin it below that bound
+- [x] **Drive it live, both ways.** Clean box exit 0 in 0.34 s; a real
+      standing row inserted and removed, announced by the installed unit
+      with the row's own `CAUSE:` carried verbatim; a private bus where a
+      server claiming at t+2 s is caught at 3.02 s and receives
+      `urgency=2`, `expire_timeout=0`
+- [x] **Install and enable the unit**, and confirm it goes `inactive`
+      after exit so the next login pulls it in again
+- [x] **Eleven mutations**, each red on exactly one intended test
+- [x] **File `SNAG-TRAY-009`** (P2) for the tray's two silences, with the
+      check `tray_silent_on_arrival` driven at three mutations
+- [x] 2937 tests (2899 + 38, none retired), ruff and mypy clean, all 21
+      snag checks and all 9 ops claims green
+
+### Not done, and why
+
+- **The tray was not fixed.** It is a different fault with a different
+  owner and a real noise question the replay does not have: 122 daemon
+  starts in 30 days, so a naive "notify on disconnected" fires on every
+  deploy. It needs a grace period and it belongs beside the policy
+  `notifications.py` already owns. Filed rather than folded in, at the
+  owner's direction
+- **The replay says *what* died and not *why the session only hears now*.**
+  Deliberate: `alert.message` is `_schema_diagnosis`'s to author, and a
+  second sentence about it here would be a second author of one claim
+- **A user who logs in twice during one outage hears it twice.** Also
+  deliberate — `reminder_hours`' own argument, bounded by 12 logins in 30
+  days
+
 ## Session 125 — the wait was real and 24× too short (2026-08-29) ✅
 
 _`SNAG-SYSD-004` taken on its own terms and its open question settled by

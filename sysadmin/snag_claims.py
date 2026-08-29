@@ -591,6 +591,20 @@ DEPRECATED_NAMES = frozenset(
     }
 )
 
+#: ``SNAG-TRAY-009``'s two silences, which live in two files and are
+#: independent: a transition signal that cannot fire for a state that was
+#: true at startup, and a handler that recolours an icon and tells nobody.
+TRAY_CLIENT = REPO_ROOT / "sysadmin_tray" / "client.py"
+TRAY_ICON = REPO_ROOT / "sysadmin_tray" / "tray_icon.py"
+TRAY_DISCONNECT_EMITTER = "_on_disconnected"
+TRAY_CONNECTED_FLAG = "_was_connected"
+TRAY_LOST_HANDLER = "on_connection_lost"
+#: What the handler would have to reach for to have stopped being silent.
+#: Names rather than an import, because the claim is about what the source
+#: *says* — and rule 7's reason: importing PyQt to answer a question about
+#: a source file is a cost a session-opening report has no business paying.
+TRAY_SPEAKING_NAMES = frozenset({"notify", "send_notification", "_notifier", "notifier"})
+
 #: ``SNAG-ESTATE-005``'s row and the name it gives the port.
 ESTATE_PORT = "8500"
 ESTATE_PORT_CLAIMANT = "sysadmin-service"
@@ -662,6 +676,120 @@ def check_sysd_ollama_ordering() -> Measurement:
         "mismatch",
         f"{RETIRED_UNIT} is {state} rather than not-found — the ordering is stale "
         "prose no longer, it is a live dependency, and the entry's remedy is wrong",
+        detail,
+    )
+
+
+def _method(tree: ast.Module, name: str) -> ast.FunctionDef | None:
+    """The first ``def name`` anywhere in ``tree``, or ``None``."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    return None
+
+
+def check_tray_silent_on_arrival() -> Measurement:
+    """``SNAG-TRAY-009`` — the tray sees a dead backend and says nothing.
+
+    **Two independent silences, and the entry is only refuted when both
+    go.** They are reported apart because either alone leaves the tray
+    mute in the case that matters: emitting the signal at startup reaches
+    a handler that recolours an icon, and making the handler speak reaches
+    a signal that never fires for a backend that was already down.
+    ``SNAG-AGENT-008``'s multiplicative shape, in the tray.
+
+    Measured 2026-08-29 against the 2026-08-22 outage: the alert row stood
+    open 37.73 hours, of which **22.2** had a live graphical session with
+    this tray running and showing ``IconState.DISCONNECTED``.
+
+    ``match`` means the tray is still silent, which is the entry standing.
+    """
+    client_tree = _parse(TRAY_CLIENT)
+    icon_tree = _parse(TRAY_ICON)
+    if client_tree is None or icon_tree is None:
+        return Measurement(
+            "unknown",
+            f"{_rel(TRAY_CLIENT)} or {_rel(TRAY_ICON)} would not parse",
+        )
+
+    emitter = _method(client_tree, TRAY_DISCONNECT_EMITTER)
+    handler = _method(icon_tree, TRAY_LOST_HANDLER)
+    if emitter is None or handler is None:
+        return Measurement(
+            "unknown",
+            f"{TRAY_DISCONNECT_EMITTER} or {TRAY_LOST_HANDLER} is gone — the entry "
+            "describes a shape that no longer exists and needs re-reading, which is "
+            "not the same as being fixed",
+        )
+
+    # Face 1. The emit is inside a test of the flag, so a first poll that
+    # never connected cannot reach it. Asked as "is the emit guarded", not
+    # "is the flag mentioned": the flag has to be *read* and the signal
+    # sent underneath that read.
+    guarded = any(
+        isinstance(node, ast.If)
+        and any(
+            isinstance(sub, ast.Attribute) and sub.attr == TRAY_CONNECTED_FLAG
+            for sub in ast.walk(node.test)
+        )
+        and any(
+            isinstance(sub, ast.Attribute) and sub.attr == "connection_lost"
+            for sub in ast.walk(node)
+        )
+        for node in ast.walk(emitter)
+    )
+    # And the flag starts False, which is what makes the guard unreachable
+    # on a tray that starts against a daemon already dead.
+    starts_false = any(
+        isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Attribute) and target.attr == TRAY_CONNECTED_FLAG
+            for target in node.targets
+        )
+        and isinstance(node.value, ast.Constant)
+        and node.value.value is False
+        for node in ast.walk(client_tree)
+    )
+
+    # Face 2. The handler reaches nothing that could put a notification on
+    # a screen — it sets a flag and recomputes an icon.
+    speaks = sorted(
+        {
+            node.attr
+            for node in ast.walk(handler)
+            if isinstance(node, ast.Attribute) and node.attr in TRAY_SPEAKING_NAMES
+        }
+    )
+
+    detail = (
+        f"{_rel(TRAY_CLIENT)}:{emitter.lineno} {TRAY_DISCONNECT_EMITTER} "
+        f"guarded_on_{TRAY_CONNECTED_FLAG}={guarded}",
+        f"{_rel(TRAY_CLIENT)} {TRAY_CONNECTED_FLAG} initialised False={starts_false}",
+        f"{_rel(TRAY_ICON)}:{handler.lineno} {TRAY_LOST_HANDLER} "
+        f"speaking_names={speaks or 'none'}",
+    )
+
+    silent_at_startup = guarded and starts_false
+    if silent_at_startup and not speaks:
+        return Measurement("match", "", detail)
+    if not silent_at_startup and speaks:
+        return Measurement(
+            "mismatch",
+            "both silences are gone — the tray can now emit on a first failed poll "
+            "and its handler reaches something that speaks",
+            detail,
+        )
+    if not silent_at_startup:
+        return Measurement(
+            "mismatch",
+            f"{TRAY_DISCONNECT_EMITTER} no longer fires only on a transition, so the "
+            "first face of the entry is gone; the handler is still mute",
+            detail,
+        )
+    return Measurement(
+        "mismatch",
+        f"{TRAY_LOST_HANDLER} now reaches {', '.join(speaks)}, so the second face is "
+        "gone; the signal still cannot fire for a backend that was already down",
         detail,
     )
 
@@ -5807,6 +5935,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-DB-006",
             "chk_run_status admits a value nothing writes",
             check_run_status_cancelled,
+        ),
+        Check(
+            "tray_silent_on_arrival",
+            "SNAG-TRAY-009",
+            "the tray sees a dead backend at login and says nothing",
+            check_tray_silent_on_arrival,
         ),
         Check(
             "review_schedule_unread",

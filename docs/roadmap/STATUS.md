@@ -3,73 +3,82 @@
 **Last Updated**: 2026-08-29
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **Waiting was measured before it was refused, and the wait turned out
-> to be real and 24× too short.** `SNAG-SYSD-004` is **fixed**: the
-> announcer asks whether anything *owns* `org.freedesktop.Notifications`
-> rather than whether the bus socket exists. Driven at the real script,
-> the served bus gives **exit 0 in 31 ms** with the toast on screen and
-> the unserved bus **exit 1 in 15 ms** naming the reason — where it
-> previously ran to the 30-second kill. The handoff left "fail fast or
-> wait" genuinely open, and a pending call **is** delivered: a server
-> claiming the name at t+4 s received the notification intact, `rc=0`.
-> What kills the option is arithmetic — the window is notify-send's own
-> **60.08 s**, and after the four killed firings the next login was
-> **24 min** away at best and **6.1 h** at worst. Nought of four.
+> **A login-time replay was worth building, and the entry that asked for
+> it understated its own benefit by two orders of magnitude.**
+> `SNAG-SYSD-005` is **fixed**: `sysadmin-replay-failures.service`, a
+> user unit wanted by `graphical-session.target`, announces at login
+> every unit failure still open. The entry priced the loss as the gap to
+> the next login — 24 min at best, 6.1 h at worst. The `alerts` table
+> prices it as the life of the row, and only **2** rows exist for all
+> **5** firings (three hit the dedup branch): the one row not fixed at
+> once stood open **37.73 hours**, of which the login gap is 24 minutes.
+> So the replay recovers **37.3 hours of silence**, not 24 minutes of
+> lateness. Reading the entry gives the population; querying the table
+> gives the cost.
 >
-> The shipped behaviour was therefore never "wait": `TimeoutStartSec=30`
-> sits under notify-send's 60 s *and* under the bus's 120 s
-> `service_start_timeout`, so the call could never resolve there at all.
-> The mechanism is a level below what the entry states — a call to an
-> unowned name is not refused, the bus **starts `plasma_waitforname`,
-> whose job is to block until the name appears**, and it outlives the
-> handler systemd kills. `NameHasOwner` goes to the bus daemon instead
-> and cannot be caught by it: **five guard calls started zero waiters,
-> one notify-send started one.**
+> **The room was not empty for most of it, which reranks the entry's own
+> framing.** Reconstructed minute by minute: `start-limit-hit` 18:11:15,
+> login 18:34:41, tray started 18:34:46 — polled 8500, got nothing, went
+> to `IconState.DISCONNECTED` and stayed there. **22.2 of the 37.7
+> hours** carried a live graphical session with the tray running and
+> silent; only 15.5 were an empty room. "Four of five fired into an
+> empty room" is true about *firings* and misleading about *silence*.
+> That is **`SNAG-TRAY-009`**, opened here at P2 with its check.
 >
-> **Two corrections, and the sharper one came from the owner.** A
-> falsification passed against deliberately broken code — mutating the
-> guard to refuse *everything* left `test_it_admits_the_live_bus`
-> **skipping** rather than failing, because it asked the guard whether a
-> server existed in order to decide whether to run. And
-> `systemctl reset-failed` returning **exit 0** was written up here as a
-> third correction to this repository's `sudo` claims; it was not.
-> **Polkit prompted the owner on screen and they authorised it**,
-> invisibly to the session that ran it, and `pkcheck` reports
-> `auth_admin_keep` — admin auth required and *retained*, which is why
-> the confirming retry confirmed nothing. Exit status is evidence about
-> the result, never about the privilege.
+> **The blocker the entry deferred on was not one.** It wanted an
+> `--unannounced` flag at the announcer first, refusing a flag with no
+> reader — right for a *history* predicate. The replay needs a *state*
+> one, and `resolve_unit_failures` has exactly one production caller
+> (the lifespan), `% failed` sits outside `RESOLVABLE_TITLE_PATTERNS`,
+> and retention purges resolved rows only. So an unresolved
+> `systemd_onfailure` row already *means* "this unit has not come back".
 >
-> `SNAG-SYSD-005` carries the residue: a boot-time failure is now
-> refused honestly and still reaches nobody, and the wait needs an owner
-> that survives a login — which no existing component can be, since the
-> one that would speak is the daemon that has died. It is the **only**
-> open entry naming no check, said here rather than left to be found.
+> **Waiting is permitted here and was refused in the announcer; only the
+> number changed.** At login the precondition arrives in seconds —
+> plasmashell active 14:44:55, target reached 14:44:57, still
+> initialising 14:44:58. `WAIT_BUDGET_SECONDS` is **derived**:
+> notify-send's own measured 60.08 s bound, so the replay spends exactly
+> the patience one blocked call would have, on a mechanism that starts
+> no `plasma_waitforname`. Driven against a private bus, a server
+> claiming the name at t+2 s is caught at **3.02 s** and the
+> notification arrives intact, `urgency=2`, `expire_timeout=0`. The read
+> comes **before** the wait, so a clean login costs 0.34 s and no D-Bus
+> call at all.
 >
-> Daemon restarted
-> at **2026-08-29 20:11:43** <!--check:deploy--> <!--check:daemon_start-->,
-> clean journal but for the standing `api.auth_token` warning. **Not
-> owed on the merits** — this sitting changed two shell scripts and two
-> test files, none of which `create_app()` imports — and taken anyway
-> because the deploy check compares `.py` mtimes and would have read
-> stale, for the fourth sitting running. Here the false positive was
-> *self-inflicted*: `git stash push`/`pop`, run to check the test-count
-> arithmetic, rewrites every tracked file's mtime. `/health` answers
+> **Two falsifications passed against deliberately broken code and the
+> second is the one worth carrying.** Eleven mutations each landed red
+> on their intended test. But the live harness's stand-in server printed
+> `claimed` and owned nothing a millisecond later — a `BusName` held
+> only in a local is garbage-collected on return — and the wait duly
+> reported `False`: a fact about the harness reported as a fact about
+> the module. The first repair was insufficient the same way, asserting
+> the stand-in had *said* `claimed`. The premise now asks the **bus**
+> with `busctl`, independent of both subject and harness. Session 125's
+> own trap is avoided by construction: a guard mutated to refuse
+> everything turns **three** live tests red and skips none.
+>
+> **Every open entry names a check again** — 19 open, **0** unchecked,
+> the property `SNAG-SYSD-005` broke on opening and its closure restores.
+> All 21 checks green.
+>
+> Daemon restarted at **2026-08-29 20:58:45**
+> <!--check:deploy--> <!--check:daemon_start-->, clean journal, 12 jobs
+> scheduled. **Owed on the merits this time** — `sysadmin/core/unit_failure.py`
+> gained a reader and `create_app()` imports it. `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
 > packaged head <!--check:schema-->, and `alerts` holds **0** unresolved
 > rows <!--check:alerts--> with **0** named here
 > <!--check:open_titles-->.
 >
-> **Alembic head is 018**<!--check:migration_head--> — unchanged. A
-> shell guard moves no schema.
+> **Alembic head is 018**<!--check:migration_head--> — unchanged. A user
+> unit and a console script move no schema.
 >
-> **The suite is 2899**, from 2886: **13 added and none retired** — six
-> static guards in `tests/test_systemd_units.py` and seven live ones in
-> the new `tests/test_notify_guard_live.py`, which starts a real
-> `dbus-daemon` with nothing owning the name. Eight mutations driven,
-> each red on the intended test, one of them passing against broken code
-> first time as above. The count was checked by arithmetic rather than
-> by the suite being green, since a green suite cannot witness tests
-> that no longer exist.
+> **The suite is 2937**, from 2899: **38 added and none retired** — 26
+> in `tests/test_failure_replay.py`, 5 in the new
+> `tests/test_failure_replay_live.py`, and 7 unit-file guards in
+> `tests/test_systemd_units.py`. Arithmetic against the baseline rather
+> than a green suite, which cannot witness tests that no longer exist.
+
 
 > *Previously —* **A check written for one entry found the entry's own trap in its own
 > hand.** `SNAG-CFG-003` is measured and holds: driven at the real
@@ -175,7 +184,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **2899 green** | **2899 backend + tray** *(2886 + 13 on 2026-08-29, Session 125: six static guards in `tests/test_systemd_units.py` and seven live ones in the new `tests/test_notify_guard_live.py`, none retired. Eight mutations driven, each red on exactly one intended test — and **one passed against deliberately broken code**: a guard mutated to refuse everything left `test_it_admits_the_live_bus` *skipping* rather than failing, because its own skip predicate asked the guard under test whether a live notification server existed. A control a broken subject can switch off is not a control; it asks `busctl` directly now, and re-driven the mutation turns it red. The count was verified by arithmetic against a stashed HEAD rather than by the suite being green. Previously 2872 + 14 on 2026-08-29, Session 124: `TestTheReloadCoherenceCheck`'s thirteen members in `tests/test_snag_claims.py` and the specimen-does-not-install pin in `tests/test_config_defaults.py`, none retired. Nine mutations driven, each red on exactly one intended test — and **one passed against deliberately broken code**: reading the installed-witness back from the specimen instead of the singleton is the same number whenever the reload installs, and the surviving mutation named the missing case, a reload that reports success and installs nothing. Four of the stand-ins had to be rewritten to call through to the real drive first, because a stand-in that reports a verdict without installing the configuration models no fix at all. Previously 2869 + 3 on 2026-08-29, Session 123: `TestTheDuplicateIngestCheck`'s three new members in `tests/test_snag_claims.py` — the verdict keyed on the entry's narrow key, a divergently-parsed duplicate named rather than silent, and the record identity asserted at the statement because today both keys agree over 235,230 rows. None retired; the four existing members were re-driven at a fourth `query_one` call. Four mutations, each red on one intended test, and one of them passed against broken code first time — the equal-count case was uncovered. Previously 2863 + 6 on 2026-08-29, Session 122: `TestACutTitleStaysAnIdentity` in `tests/test_log_alert_dedup.py` and the estate parser's new raise shape in `tests/test_snag_claims.py`, none retired — one falsified against the pre-fix title and four against mutations of the fix, because a test that passes against the broken code is a control over the fix's failure modes rather than over the defect's. Previously 2844 + 19 on 2026-08-29, Session 120: the derived movement line and the closure-aware banner reader in `tests/test_snag_claims.py`, none retired — nine mutations driven, each red on the intended test. Previously 2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
+| Testing | 🟢 **2937 green** | **2937 backend + tray** *(2899 + 38 on 2026-08-29, Session 126: 26 in `tests/test_failure_replay.py`, 5 in the new `tests/test_failure_replay_live.py` and 7 unit-file guards in `tests/test_systemd_units.py`, none retired. Eleven mutations driven, each red on exactly one intended test — and **one falsification passed against deliberately broken code, in the harness rather than the subject**: the stand-in notification server printed `claimed` and owned nothing a millisecond later, because a `dbus.service.BusName` held only in a local is garbage-collected on return, so the wait reported `False` after a full budget and that read as a verdict about the module. The first repair was insufficient the same way — it asserted the stand-in had *said* `claimed`, which the mutation satisfies. The premise asks the **bus** with `busctl` now, independent of both the subject and the harness, and the mutation fails naming the harness. Session 125's trap was avoided by construction: a guard mutated to refuse everything turns three live tests red and skips none. The count was verified by arithmetic against the baseline rather than by the suite being green. Previously 2886 + 13 on 2026-08-29, Session 125: six static guards in `tests/test_systemd_units.py` and seven live ones in the new `tests/test_notify_guard_live.py`, none retired. Eight mutations driven, each red on exactly one intended test — and **one passed against deliberately broken code**: a guard mutated to refuse everything left `test_it_admits_the_live_bus` *skipping* rather than failing, because its own skip predicate asked the guard under test whether a live notification server existed. A control a broken subject can switch off is not a control; it asks `busctl` directly now, and re-driven the mutation turns it red. The count was verified by arithmetic against a stashed HEAD rather than by the suite being green. Previously 2872 + 14 on 2026-08-29, Session 124: `TestTheReloadCoherenceCheck`'s thirteen members in `tests/test_snag_claims.py` and the specimen-does-not-install pin in `tests/test_config_defaults.py`, none retired. Nine mutations driven, each red on exactly one intended test — and **one passed against deliberately broken code**: reading the installed-witness back from the specimen instead of the singleton is the same number whenever the reload installs, and the surviving mutation named the missing case, a reload that reports success and installs nothing. Four of the stand-ins had to be rewritten to call through to the real drive first, because a stand-in that reports a verdict without installing the configuration models no fix at all. Previously 2869 + 3 on 2026-08-29, Session 123: `TestTheDuplicateIngestCheck`'s three new members in `tests/test_snag_claims.py` — the verdict keyed on the entry's narrow key, a divergently-parsed duplicate named rather than silent, and the record identity asserted at the statement because today both keys agree over 235,230 rows. None retired; the four existing members were re-driven at a fourth `query_one` call. Four mutations, each red on one intended test, and one of them passed against broken code first time — the equal-count case was uncovered. Previously 2863 + 6 on 2026-08-29, Session 122: `TestACutTitleStaysAnIdentity` in `tests/test_log_alert_dedup.py` and the estate parser's new raise shape in `tests/test_snag_claims.py`, none retired — one falsified against the pre-fix title and four against mutations of the fix, because a test that passes against the broken code is a control over the fix's failure modes rather than over the defect's. Previously 2844 + 19 on 2026-08-29, Session 120: the derived movement line and the closure-aware banner reader in `tests/test_snag_claims.py`, none retired — nine mutations driven, each red on the intended test. Previously 2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -183,6 +192,56 @@
 ---
 
 ## Recently Completed
+
+### Session 126 — the room was not empty, it was silent (2026-08-29)
+
+**`SNAG-SYSD-005` is fixed and its own benefit was understated by two
+orders of magnitude.** `sysadmin-replay-failures.service` is a **user**
+unit wanted by `graphical-session.target` running
+`sysadmin/core/failure_replay.py` — the third half of the lifecycle
+`unit_failure.py` owns. The handler writes the row while the application
+is dead, the lifespan closes it when the application returns, and this
+speaks the gap between them to the first human who arrives.
+
+**The measurement that reranked the entry.** It argued from firings: four
+of five came at a boot with nobody logged in, next login 24 min to 6.1 h
+away. But `alerts` holds only **2** rows for those 5 firings — three hit
+`record_unit_failure`'s dedup branch — and the one row not fixed at once
+stood open **37.73 hours**. The login gap is 24 minutes of that. So the
+replay recovers 37.3 hours of silence, not 24 minutes of lateness.
+
+**And 22.2 of those hours had somebody there.** Reconstructed minute by
+minute: `start-limit-hit` 18:11:15, login 18:34:41, tray started
+18:34:46 — polled 8500, got nothing, went to `IconState.DISCONNECTED`
+and sat there across two sessions. Only 15.5 hours were an empty room.
+The real fault is that nothing on this box interrupts about a dead
+daemon, occupied or not; login is merely the cheapest moment to catch
+it. Filed as **`SNAG-TRAY-009`** (P2, checked), whose two silences are
+multiplicative: `connection_lost` is emitted only on a *transition* and
+`_was_connected` starts `False`, so a tray starting against an
+already-dead backend never emits it — and `on_connection_lost` only
+recolours an icon.
+
+**The deferred flag was not needed.** The entry wanted `--unannounced`
+recorded at the announcer first. That is a *history* predicate; the
+replay needs a *state* one, and `resolve_unit_failures` has exactly one
+production caller while `% failed` sits outside
+`RESOLVABLE_TITLE_PATTERNS` and retention purges resolved rows only — so
+an unresolved `systemd_onfailure` row already *means* "this unit has not
+come back". No flag, no announcer change, and the second-speaker trap
+dissolves with it.
+
+**Waiting is permitted here and was refused in the announcer, and only
+the number changed.** `WAIT_BUDGET_SECONDS` is derived from notify-send's
+own measured 60.08 s bound, so the replay spends exactly the patience one
+blocked call would have — on a mechanism that starts no
+`plasma_waitforname`. Driven against a private bus: a server claiming the
+name at t+2 s is caught at 3.02 s and the notification arrives intact.
+The read comes **before** the wait, so a clean login costs 0.34 s and no
+D-Bus call.
+
+**Every open entry names a check again** — 19 open, 0 unchecked, the
+property `SNAG-SYSD-005` broke on opening and its closure restores.
 
 ### Session 122 — a cut identity is not an identity (2026-08-29)
 

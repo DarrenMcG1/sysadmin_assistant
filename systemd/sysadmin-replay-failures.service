@@ -1,0 +1,62 @@
+# Say at login what nobody was there to hear at boot.
+#
+# SNAG-SYSD-005, Session 126. Install to ~/.config/systemd/user/ and
+#   systemctl --user daemon-reload && systemctl --user enable sysadmin-replay-failures
+#
+# **A user unit, because the speaker has to survive what it speaks about.**
+# sysadmin-failed.service is a *system* unit fired by OnFailure=, and it
+# runs at the moment of the failure — which on four of this handler's five
+# firings was a boot with nobody logged in. The tray polls a route the dead
+# daemon serves; monitor/desktop.py and its desktop_notifications store are
+# inside that daemon. The one component able to speak is the one that has
+# died, so the replay is triggered by the session starting instead.
+#
+# **Wanted by graphical-session.target, which cycles per login even though
+# the user manager does not.** Linger=yes keeps user@1000.service running
+# across logouts, so a unit hung off default.target would run once at boot
+# — with no display, which is the bug being fixed — and never again. The
+# target is stopped at logout and started at login, verified in the journal
+# against sysadmin-tray.service (stopped 2026-08-22 23:38:42, started
+# 2026-08-23 14:44:57). RemainAfterExit is deliberately left at `no`: a
+# oneshot that stayed `active` would not be pulled in again by the next
+# login, which is the one thing this unit must do.
+
+[Unit]
+Description=Announce sysadmin unit failures that are still open
+Documentation=file:///home/gaddi/projects/sysadmin_assistant/docs/roadmap/snag_list.md
+
+# After= rather than merely Wants=: the target being *reached* is the
+# latest defensible moment to start asking, and the notification server may
+# still be a second or two behind it. Measured at the 2026-08-23 login,
+# plasma-plasmashell.service went active at 14:44:55, this target was
+# reached at 14:44:57, and plasmashell was still initialising at 14:44:58 —
+# so the race is real and small, and the script's own bounded wait is what
+# closes it rather than an ordering directive that cannot express "and also
+# has claimed a D-Bus name".
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/gaddi/projects/sysadmin_assistant
+ExecStart=/home/gaddi/projects/sysadmin_assistant/.venv/bin/sysadmin-replay-failures
+
+# A backstop, not the mechanism. Every component below this bounds itself:
+# the D-Bus question at 5 s inside the guard and 15 s around it, the wait
+# for a notification server at a derived 60 s, and each notify-send at 30 s
+# against a server whose own GDBus bound is 25 s. Worst case is 60 + 3×30 =
+# 150 s, so 180 leaves margin without being the thing that stops a hang —
+# SNAG-SYSD-004's lesson, where a unit timeout was the only bound and
+# therefore the only symptom.
+TimeoutStartSec=180
+
+# No Restart=. A failure here means either that nothing was listening after
+# a full 60-second wait, or that notify-send itself broke; retrying inside
+# the same session repeats a question already answered at length. The exit
+# status is the record, and `systemctl --user status` is where it is read.
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sysadmin-replay-failures
+
+[Install]
+WantedBy=graphical-session.target

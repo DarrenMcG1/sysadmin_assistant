@@ -56,6 +56,16 @@ this row is unresolvable by construction — nothing else knows it exists —
 and an alert type that can only accumulate is how this repository reached
 1,664 orphaned rows. The pairing is the feature: the alerts list then
 answers "is it broken *now*", and the resolved row stays as history.
+
+**That pairing is also what makes a third half possible** (``SNAG-SYSD-005``,
+Session 126). Because the lifespan is the *only* thing that closes one of
+these rows, "unresolved" is not merely a flag — it is the statement *this
+unit has not come back*. :func:`pending_unit_failures` reads exactly that,
+and :mod:`sysadmin.core.failure_replay` speaks it at the next login, which
+is the one moment the missing precondition — somebody to tell — becomes
+true. Four of this handler's five firings came at a boot with nobody
+logged in, and the one row that was not fixed at once stayed open 37.73
+hours.
 """
 
 from __future__ import annotations
@@ -63,6 +73,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -240,6 +251,91 @@ def _details(
         "restarts": restarts,
         "schema": schema,
     }
+
+
+@dataclass(frozen=True)
+class PendingFailure:
+    """An open unit-failure row: a unit that has not come back.
+
+    ``created_at`` is what lets the reader say *how long* — the figure the
+    row has always carried and no destination has ever rendered.
+    """
+
+    unit: str
+    title: str
+    message: str
+    created_at: datetime
+    details: dict[str, Any]
+
+
+def pending_unit_failures() -> list[PendingFailure]:
+    """Every unit failure that is still open, oldest first.
+
+    **"Open" already means "still dead", which is why this needs no flag
+    of its own.**  :func:`resolve_unit_failures` has exactly one
+    production caller — the lifespan — and the ``% failed`` family is
+    deliberately outside ``RESOLVABLE_TITLE_PATTERNS``, so the sysadmin
+    agent's set-based sweep cannot reach these rows either.  Retention
+    purges resolved rows only.  Nothing else in this application can close
+    one.  So an unresolved ``systemd_onfailure`` row means precisely *the
+    daemon has not started successfully since it failed*, which is the
+    fact a person arriving at the machine needs told.
+
+    ``SNAG-SYSD-005`` proposed recording, at the announcer, whether a
+    firing had been *refused*, and replaying only those.  That is a
+    history predicate and it needs a flag the announcer does not write.
+    This is a **state** predicate and the row already answers it — so the
+    flag lands with a reader that needs it or not at all, which is what
+    that entry asked for in the first place.
+
+    The consequence is deliberate and is the reason this is not called
+    ``unannounced_unit_failures``: a second login while the daemon is
+    *still* dead speaks again.  That is not duplication, it is
+    ``reminder_hours``' own argument — a standing fault restated to
+    somebody who has just sat down is news.  It is bounded by how often a
+    human logs in, which on this box is 12 times in 30 days.
+
+    Returns ``[]`` rather than raising when the database cannot be
+    reached.  The caller is a login-time announcer whose failure mode
+    must not be a failed unit in a fresh session; the reason is logged.
+    """
+    try:
+        with _sync_session() as session:
+            rows = session.execute(
+                select(
+                    Alert.title,
+                    Alert.message,
+                    Alert.created_at,
+                    Alert.details,
+                ).where(
+                    Alert.agent == FILED_UNDER,
+                    unresolved(),
+                    Alert.details["source"].astext == SOURCE,
+                )
+                # Oldest first: the longest-standing fault is the one worth
+                # hearing about first, and it is also the one a cap must
+                # not drop.
+                .order_by(Alert.created_at)
+            ).all()
+    except Exception as exc:  # noqa: BLE001 — an announcer must not raise
+        logger.error("could not read pending unit failures: %s", exc)
+        return []
+
+    pending = []
+    for title, message, created_at, details in rows:
+        blob = details or {}
+        pending.append(PendingFailure(
+            # `details['unit']` is written by `_details` on every row this
+            # application has ever produced.  The title is the fallback
+            # because it is derived from the unit by `unit_failure_title`
+            # and so cannot disagree with it.
+            unit=blob.get("unit") or title.removesuffix(" failed"),
+            title=title,
+            message=message,
+            created_at=created_at,
+            details=blob,
+        ))
+    return pending
 
 
 async def resolve_unit_failures(session, unit: str) -> int:

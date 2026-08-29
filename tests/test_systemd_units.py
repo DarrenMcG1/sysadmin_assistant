@@ -250,3 +250,86 @@ class TestTheAnnouncerAsksBeforeItSpeaks:
         """
         code = _script_code("notification-server-present.sh")
         assert "exit 0" in code and "exit 1" in code and "exit 2" in code
+
+
+class TestTheReplayRunsAtEveryLogin:
+    """``SNAG-SYSD-005``. The announcer speaks at the moment of the failure,
+    which four times in five was a boot with nobody logged in. This unit
+    speaks at the moment somebody arrives — so the property that matters is
+    that it runs *again* on the next login, and most of the ways to get this
+    unit wrong are ways to make it run once.
+    """
+
+    UNIT = "sysadmin-replay-failures.service"
+
+    def test_the_unit_exists(self):
+        assert (UNITS / self.UNIT).is_file()
+
+    def test_it_is_wanted_by_the_target_that_cycles_per_login(self):
+        """``graphical-session.target``, never ``default.target``.
+
+        ``Linger=yes`` keeps ``user@1000.service`` alive across logouts, so
+        a unit hung off ``default.target`` runs once at boot — with no
+        display, which is the bug — and never again. The graphical target
+        is stopped at logout and started at login, which the journal shows
+        against the tray: stopped 2026-08-22 23:38:42, started 2026-08-23
+        14:44:57.
+        """
+        directives = _directives(self.UNIT)
+        assert directives["WantedBy"] == "graphical-session.target"
+        assert directives["After"] == "graphical-session.target"
+
+    def test_it_does_not_remain_after_exit(self):
+        """The one directive that would silently reduce this to a single run.
+
+        A ``oneshot`` with ``RemainAfterExit=yes`` stays ``active`` once it
+        has run, so the next start of the target does not pull it in again
+        — and the failure mode is silence at every login after the first,
+        which is this entry's own defect rebuilt inside its fix.
+        """
+        assert "RemainAfterExit" not in _directives(self.UNIT)
+
+    def test_it_is_a_oneshot_with_no_restart(self):
+        """A retry inside one session repeats a question already answered.
+
+        The script waits a full derived budget for a notification server; if
+        that failed, starting it again immediately asks the same thing.
+        """
+        directives = _directives(self.UNIT)
+        assert directives["Type"] == "oneshot"
+        assert "Restart" not in directives
+
+    def test_its_timeout_is_a_backstop_and_not_the_bound(self):
+        """``SNAG-SYSD-004``'s lesson: the unit timeout must not be the only bound.
+
+        There, ``TimeoutStartSec=30`` was the sole limit on a call that
+        wanted 60, so the only symptom of the defect was a killed unit.
+        Here every component bounds itself and this sits above the sum, so
+        reaching it means something stranger than a slow login.
+        """
+        from sysadmin.core.failure_replay import MAX_SPOKEN, WAIT_BUDGET_SECONDS
+
+        timeout = int(_directives(self.UNIT)["TimeoutStartSec"])
+        worst_case = WAIT_BUDGET_SECONDS + MAX_SPOKEN * 30
+        assert timeout > worst_case, (
+            f"TimeoutStartSec={timeout} would kill a run that is still within "
+            f"its own bounds ({worst_case:.0f}s)"
+        )
+
+    def test_it_runs_a_console_script_this_project_declares(self):
+        """Wired and undeclared is a unit that fails at every login.
+
+        The same half-change shape as a retention row with no
+        ``TABLE_TIMESTAMP_MAP`` entry, at the size of an entry point.
+        """
+        exec_start = _directives(self.UNIT)["ExecStart"]
+        binary = Path(exec_start.split()[0])
+        assert binary.name == "sysadmin-replay-failures"
+
+        pyproject = (UNITS.parent / "pyproject.toml").read_text(encoding="utf-8")
+        assert "sysadmin-replay-failures = " in pyproject
+
+    def test_it_names_the_working_directory(self):
+        """The monitorable-project contract's requirement, and load-bearing
+        here: the script resolves the guard relative to the repository."""
+        assert _directives(self.UNIT)["WorkingDirectory"] == str(UNITS.parent)

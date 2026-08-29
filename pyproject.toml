@@ -42,6 +42,13 @@ sysadmin-tray = "sysadmin_tray.app:main"
 # A console script rather than inline psql: the alert row must satisfy the
 # same model and CHECK constraint the application writes through.
 sysadmin-record-failure = "sysadmin.core.unit_failure:main"
+# Called by sysadmin-replay-failures.service at login, to say out loud what
+# the handler above could not because nobody was logged in to hear it. Four
+# of that handler's five firings were boot-time, and the one row that was
+# not fixed at once stayed open 37.73 hours. A console script rather than
+# shell because the predicate is a database read and the row's own message
+# is carried verbatim rather than rebuilt. SNAG-SYSD-005.
+sysadmin-replay-failures = "sysadmin.core.failure_replay:main"
 # Called by scripts/check-migrations.sh, which the pre-commit hook and the
 # postflight script both run. A console script rather than a shell `psql`
 # so the comparison is alembic's own ScriptDirectory against a
