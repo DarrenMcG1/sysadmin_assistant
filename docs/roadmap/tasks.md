@@ -394,6 +394,62 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 123 — the cost an entry states is a claim like any other (2026-08-29) ✅
+
+_The next open entry taken on its own terms, and its **stated cost**
+measured before it was accepted. `SNAG-LOG-014` prices its whole cost at
+a count on one endpoint for three days; the mechanism reaches two
+endpoints for eighteen, and the instrument measuring it was keyed on the
+column whose rewrite is what hid the defect in the first place. Nothing
+was deleted — the remedy judgement was re-read and stands._
+
+- [x] **Enumerate the surfaces before accepting the cost.**
+      `build_trend_report` is shared by the trend, the advice and the
+      review *by construction*, so an error in the grouped counts reaches
+      all three. Driven through the real pipeline against the live table
+      in a rolled-back transaction, stored against true:
+      `GET /api/logs/trends` moves **four** figures (`previous` 23→21,
+      `total` 91→89, `ratio` 2.96→3.24, `sources[].previous_warnings`
+      28→26), and `GET /api/logs/actions` — which the entry never names —
+      carries the error in a **title**: `sysadmin.service fault up 3.0x`
+      against a true `3.2x`. `SNAG-LOG-010` is the entry that made a
+      title that surface's row identity
+- [x] **Correct the duration, in the field the entry offers as the
+      mitigation.** `previous` is windowed and converges 2026-08-31 as
+      filed; `total` has **no window filter**, so it is 2 high until
+      retention (on `ingested_at`, not `logged_at`) purges both copies on
+      **2026-09-16**. Eighteen days, not three — in the one served figure
+      the bullet points a reader at as evidence
+- [x] **Bound the blast radius by measuring what is *not* reached**, so
+      the negative is a result rather than a silence. The alert family is
+      untouched (`warning`, against `FAULT_SEVERITIES = ("error",
+      "critical")`, and the occurrence count accumulates from a run's own
+      read); the weekly review and the 06:00 briefing are byte-identical
+      either side of the counterfactual; `/api/logs/stats` and
+      `/api/logs/recent` cap `hours` at 168 against twelve-day-old rows;
+      the `total` ordering tiebreaker has no sibling at `current == 68`
+- [x] **Re-key the check's detection half.** It grouped on
+      `(source, logged_at, message)` — the column `SNAG-LOG-008`'s
+      backfill rewrote, and the reason these rows were invisible for
+      eleven days. The **verdict** stays narrow, because a wide key
+      admits a microsecond coincidence and would hold `match` open after
+      the pair aged out; the **"elsewhere"** limb, which reaches no
+      verdict, moves to the record's own identity. A wide count above the
+      narrow one is named as this entry's own pre-backfill shape
+- [x] **Answer the entry's own untested question.** 0 of **235,230 rows
+      across 9 sources** have two distinct records sharing a
+      `(source, logged_at)`, so the `message` component does no work
+      today; the tightest genuine gap is **3 µs at `kernel`**, not the
+      millisecond of `alert_raised` writes the fix bullet named — 333×
+      wide and the wrong source
+- [ ] **`total` is unwindowed and nothing says so on the wire.** The
+      served `total` counts every retained row for a signature while
+      `current`/`previous` are windowed, and only this sitting's
+      measurement makes that visible. Not filed as a snag: it is the
+      field behaving as documented, and the question is whether
+      `LogSignatureTrendInfo` should say which of its three counts is
+      window-bounded. Left for the owner
+
 ## Session 122 — a cut identity is not an identity (2026-08-29) ✅
 
 _The next open entry taken on its own terms, and its stated scope

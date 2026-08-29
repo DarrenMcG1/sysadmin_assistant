@@ -1430,6 +1430,16 @@ DUPLICATE_INGEST_SOURCE = "sysadmin.service"
 #: Duplicate *groups*, never duplicate rows.  A group of three would be
 #: one record ingested three times and is still one fault; counting rows
 #: would report it as two.
+#:
+#: **This is the entry's own identity and it drives the verdict.**  The
+#: entry's symptom is two rows sharing a ``logged_at`` to the microsecond
+#: *and* a ``message``, so this is the statement that can refute it.  It
+#: is deliberately the narrow of the two keys below: a wide key admits
+#: two genuinely distinct records that happened to land in one
+#: microsecond, and a coincidence of that kind would hold ``match`` open
+#: after the real pair had aged out — the calendar keeping an entry alive
+#: instead of closing one, which is ``SNAG-LOG-013``'s reading arriving
+#: from the other side.
 DUPLICATE_GROUPS_SQL = """
     SELECT count(*) FROM (
         SELECT source FROM sysadmin.log_entries
@@ -1437,11 +1447,46 @@ DUPLICATE_GROUPS_SQL = """
     ) d
 """
 
+#: The same question at the **record's** identity, which is the source
+#: and the journal instant and nothing else.
+#:
+#: ``message`` is the column ``SNAG-LOG-008``'s backfill rewrote, and
+#: this entry's own history is what makes that disqualifying for the
+#: *detection* half: before that repair the two copies carried different
+#: ``message`` values — one envelope, one fragment — so they were
+#: different signatures that hid each other for eleven days.  A key
+#: containing ``message`` is therefore blind to the only variant of this
+#: mechanism anyone has recorded, which is the variant a second
+#: occurrence elsewhere would most likely take, since the mechanism needs
+#: a restart and a restart is when a declaration changes.
+#:
+#: ``logged_at`` cannot move: it is ``__REALTIME_TIMESTAMP`` at
+#: microsecond precision, the journal's own identity for a record, and no
+#: repair here rewrites it.
+#:
+#: Measured before it was preferred rather than argued: across **235,230
+#: retained rows and 9 sources**, *zero* groups share a ``(source,
+#: logged_at)`` while disagreeing about ``message``, so the two keys give
+#: the same answer today and the narrow one is doing no work.  The
+#: tightest gap between two genuinely distinct records from one source is
+#: **3 µs**, at ``kernel`` — not the millisecond of ``alert_raised``
+#: writes the entry names as the deciding population.
+DUPLICATE_RECORDS_SQL = """
+    SELECT count(*) FROM (
+        SELECT source FROM sysadmin.log_entries
+        GROUP BY source, logged_at HAVING count(*) > 1
+    ) d
+"""
+
+#: "Is this happening anywhere else" — and it is asked at the **record's**
+#: identity, because that limb is where the blindness above would cost
+#: something.  It reaches no verdict, only the note, so widening it
+#: cannot resurrect a dead entry.
 DUPLICATE_GROUPS_ELSEWHERE_SQL = """
     SELECT count(*) FROM (
         SELECT source FROM sysadmin.log_entries
         WHERE source <> :source
-        GROUP BY source, logged_at, message HAVING count(*) > 1
+        GROUP BY source, logged_at HAVING count(*) > 1
     ) d
 """.replace(":source", f"'{DUPLICATE_INGEST_SOURCE}'")
 
@@ -1469,6 +1514,18 @@ def check_duplicate_ingest_residue() -> Measurement:
     measure it, and would hide a second occurrence of the mechanism
     somewhere else, which is the shape a fix would need to know about.
 
+    **Two identities, and which one reaches the verdict is the point.**
+    The verdict is the entry's own key, ``(source, logged_at, message)``,
+    because that is the claim the entry makes and a wider key could hold
+    ``match`` open on a coincidence after the pair had aged out.  The
+    *note* also reports the record's own identity, ``(source,
+    logged_at)`` — see :data:`DUPLICATE_RECORDS_SQL` — because ``message``
+    is the column ``SNAG-LOG-008``'s backfill rewrote, and these two rows
+    were invisible for eleven days precisely because it had not yet.  A
+    wide count above the narrow one is a duplicate whose copies were
+    parsed differently: this entry's own pre-repair shape, and the shape
+    nothing here could see.
+
     **Grouped rather than counted in rows.**  One record ingested three
     times is one fault; two rows of arithmetic would call it two.
     """
@@ -1478,13 +1535,29 @@ def check_duplicate_ingest_residue() -> Measurement:
     rows, problem = query_one(SOURCE_ROWS_SQL)
     if problem:
         return Measurement("unknown", problem)
+    records, problem = query_one(DUPLICATE_RECORDS_SQL)
+    if problem:
+        return Measurement("unknown", problem)
     elsewhere, problem = query_one(DUPLICATE_GROUPS_ELSEWHERE_SQL)
     if problem:
         return Measurement("unknown", problem)
 
+    # ``query_one`` answers ``object | None`` — a scalar off an arbitrary
+    # statement — so the narrowing is real rather than a mypy tax, and it
+    # fails **closed**: anything that is not a pair of integers produces
+    # no clause at all, which is a note that stays silent rather than a
+    # check that raises inside a report printed at both ends of a sitting.
+    divergent = ""
+    if isinstance(records, int) and isinstance(here, int) and records > here:
+        divergent = (
+            f" — {records - here} of them agree on the record and not on the "
+            "message, which is this entry's own pre-backfill shape"
+        )
     detail = (
         f"{here} duplicate group(s) across log_entries, "
         f"{elsewhere} of them outside {DUPLICATE_INGEST_SOURCE}",
+        f"{records} at the record's own identity (source, logged_at)"
+        f"{divergent}",
         f"{DUPLICATE_INGEST_SOURCE} holds {rows} row(s) in the retention window",
     )
     if not rows:

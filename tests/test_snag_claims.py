@@ -1446,7 +1446,7 @@ class TestTheDuplicateIngestCheck:
 
     def test_a_removed_pair_refutes_the_entry_while_the_source_has_rows(self):
         with patch.object(
-            snag_claims, "query_one", side_effect=[(0, ""), (199, ""), (0, "")]
+            snag_claims, "query_one", side_effect=[(0, ""), (199, ""), (0, ""), (0, "")]
         ):
             measurement = snag_claims.check_duplicate_ingest_residue()
         assert measurement.verdict == "mismatch"
@@ -1459,7 +1459,7 @@ class TestTheDuplicateIngestCheck:
         which is the calendar closing an entry nobody judged.
         """
         with patch.object(
-            snag_claims, "query_one", side_effect=[(0, ""), (0, ""), (0, "")]
+            snag_claims, "query_one", side_effect=[(0, ""), (0, ""), (0, ""), (0, "")]
         ):
             measurement = snag_claims.check_duplicate_ingest_residue()
         assert measurement.verdict == "unknown"
@@ -1471,13 +1471,21 @@ class TestTheDuplicateIngestCheck:
         Scoping the count to the source it names would make that claim
         unmeasurable by the check written to measure it, and would hide
         a second occurrence of the mechanism.
+
+        It also carries the **equal-count** case, which is the live one:
+        both keys agreeing means nothing diverged, so the divergence
+        clause must be absent rather than reading "0 of them".  A count
+        of nought announced as a finding is the sentence
+        ``SNAG-DOCS-006`` closed one register over.
         """
         with patch.object(
-            snag_claims, "query_one", side_effect=[(3, ""), (199, ""), (1, "")]
+            snag_claims, "query_one", side_effect=[(3, ""), (199, ""), (3, ""), (1, "")]
         ):
             measurement = snag_claims.check_duplicate_ingest_residue()
         assert measurement.verdict == "match"
-        assert "1 of them outside" in " ".join(measurement.detail)
+        note = " ".join(measurement.detail)
+        assert "1 of them outside" in note
+        assert "agree on the record and not on the message" not in note
 
     def test_it_counts_groups_and_not_rows(self):
         """One record ingested three times is one fault, not two.
@@ -1487,6 +1495,57 @@ class TestTheDuplicateIngestCheck:
         """
         assert "HAVING count(*) > 1" in snag_claims.DUPLICATE_GROUPS_SQL
         assert "GROUP BY source, logged_at, message" in snag_claims.DUPLICATE_GROUPS_SQL
+
+    def test_the_verdict_is_the_entrys_narrow_key_and_not_the_wide_one(self):
+        """A coincidence must not hold a dead entry open.
+
+        Two genuinely distinct records landing in one microsecond share
+        the record identity and disagree about the message.  If that
+        drove the verdict, ``match`` would survive the day the real pair
+        aged out — the calendar keeping an entry alive, which is the
+        mirror of the reading this check exists to refuse.
+
+        Measured margin rather than assumed: the tightest gap between
+        two distinct records from one source on this box is 3 µs.
+        """
+        with patch.object(
+            snag_claims, "query_one", side_effect=[(0, ""), (199, ""), (4, ""), (4, "")]
+        ):
+            measurement = snag_claims.check_duplicate_ingest_residue()
+        assert measurement.verdict == "mismatch"
+
+    def test_a_divergently_parsed_duplicate_is_named_rather_than_silent(self):
+        """The wide count above the narrow one is this entry's own shape.
+
+        Before ``SNAG-LOG-008``'s backfill the two copies carried
+        different ``message`` values — one envelope, one fragment — so a
+        ``message``-keyed group could not see them, and did not, for
+        eleven days.  A second occurrence elsewhere would most likely
+        take that form too, the mechanism needing a restart and a restart
+        being when a declaration changes.
+        """
+        with patch.object(
+            snag_claims, "query_one", side_effect=[(2, ""), (199, ""), (5, ""), (3, "")]
+        ):
+            measurement = snag_claims.check_duplicate_ingest_residue()
+        note = " ".join(measurement.detail)
+        assert "3 of them agree on the record and not on the message" in note
+
+    def test_the_record_identity_omits_the_column_the_backfill_rewrote(self):
+        """Asserted at the statement, because today the two keys agree.
+
+        Across 235,230 retained rows and 9 sources, zero groups share a
+        ``(source, logged_at)`` while disagreeing about ``message`` — so
+        no live population can witness this, and only the source can.
+        ``message`` is mutable (``SNAG-LOG-008`` rewrote it);
+        ``logged_at`` is the journal's own ``__REALTIME_TIMESTAMP``.
+        """
+        for statement in (
+            snag_claims.DUPLICATE_RECORDS_SQL,
+            snag_claims.DUPLICATE_GROUPS_ELSEWHERE_SQL,
+        ):
+            assert "GROUP BY source, logged_at HAVING" in statement
+            assert "message" not in statement
 
     def test_a_silent_database_is_unknown(self):
         silent = (None, "the database did not answer")

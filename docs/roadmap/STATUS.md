@@ -3,88 +3,90 @@
 **Last Updated**: 2026-08-29
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **A cut identity is not an identity, and the marked cut was hiding
-> that rather than saying it.** `SNAG-LOG-013` prices its cost at *"a
-> GET advice surface, no toast and no row"*. The same defeat of the same
-> cap lands in `log_signature.alert_title`, which is the dedup key, the
-> set-based resolve's key and the tray's `{severity}:{title}`
-> fingerprint — so two faults agreeing past the title budget are **one
-> row, one fingerprint and one toast**. That is `SNAG-AGENT-005`'s
-> masking defect at the surface that entry was written to protect,
-> arriving from the other side. The entry stays open on its roll-up
-> half; the alert half is closed.
+> **The cost an entry states is a claim like any other, and this one was
+> the smaller half twice.** `SNAG-LOG-014` prices its whole cost at *"a
+> count of `alert_raised` that is 2 too high for three days"* on
+> `GET /api/logs/trends`. `build_trend_report`'s own docstring says the
+> advice **must** be computed off the same report the trend serves, so
+> that the two surfaces cannot disagree about whether a signature is new
+> — which makes an error in the grouped counts reach both by
+> construction. The entry names one of them. Nothing was deleted and the
+> remedy judgement stands; what moved is what the register says the cost
+> is.
 >
-> **Measured before anything was decided, on the population the entry
-> itself observed.** `SNAG-LOG-008`'s backfill has since rewritten
-> `message`, but `raw_line` holds the journalctl record verbatim, so the
-> pre-backfill signatures are recoverable exactly as `read_journal`
-> composed them: **39 distinct signatures collapsed to 21 alert titles,
-> four of them covering 2, 2, 2 and 16 distinct faults.** The sixteen
-> are `warning` and so stored rather than raised; one pair is `error`
-> and did raise. After the fix, 39 → 39.
+> **Driven through the real pipeline against the live table in a
+> rolled-back transaction, stored against true.** `/api/logs/trends`
+> moves four figures rather than one — `previous` 23→21, `total` 91→89,
+> `ratio` 2.96→3.24, `sources[].previous_warnings` 28→26. And
+> `GET /api/logs/actions`, which the entry never mentions, carries the
+> error in a **title**: the live row reads `sysadmin.service fault up
+> 3.0x — "alert_raised"` against a true `3.2x`. `SNAG-LOG-010` is the
+> entry that made a title this surface's row identity, so the same
+> cap-and-count family has reached the field it was written to protect.
 >
-> **Live the population is empty and the margin is one fault wide.** Of
-> 50 signatures on this box **2** are cut at all and none collide — but
-> the surviving one is a Python traceback whose first 211 characters are
-> starlette's `lifespan` frame, boilerplate shared by *every*
-> lifespan-time failure, which is the class `schema_guard` raises. The
-> class needs one second startup fault and nothing else.
+> **The duration is wrong in the field the entry offers as the
+> mitigation.** `previous` is windowed and does converge on 2026-08-31
+> as filed. `total` is `func.count()` with **no window filter**, so it
+> stays 2 high until retention — on `ingested_at`, not `logged_at` —
+> puts both copies at **2026-09-16**. Eighteen days, not three, in the
+> one served figure the bullet points a reader at as evidence.
 >
-> **What ships is a discriminator, not a bigger cap.** A cut title now
-> carries eight hex characters of the whole signature's SHA-256.
-> Raising `TITLE_MAX` moves where the cut falls and nothing else, which
-> is `SNAG-LOG-013`'s own argument against raising a cap; a digest over
-> the part cut away is the only **per-row pure function** that cannot be
-> defeated by two records differing past the bound — and per-row is
-> exactly what the entry says its roll-up half cannot have. Only a *cut*
-> title is stamped, so no open row's fingerprint moves: measured, **0**
-> open rows carried a cut title (3 all-time, all resolved).
+> **What it does not reach is measured, not assumed.** The alert family
+> is untouched: both copies are `warning`, `FAULT_SEVERITIES` is
+> `("error", "critical")`, and `details['occurrences']` is accumulated
+> from what a run read rather than queried — so no row, no fingerprint,
+> no toast. The weekly review and the 06:00 briefing are clean, the
+> facts section and the prompt byte-identical either side of the
+> counterfactual. `/api/logs/stats` and `/api/logs/recent` cap `hours`
+> at 168 against rows twelve days old.
 >
-> **The existing test is what pinned it.** `test_title_fits_the_column`
-> asserted the cut was **marked** and never that it stayed
-> **distinguishing** — two properties, one bought. Five tests replace
-> it; only one goes red against the pre-fix code, so the other four were
-> falsified against mutations of the *fix* — digest-instead-of-text,
-> stamp-everything, digest-the-message, and builtin `hash()`, which
-> `PYTHONHASHSEED` salts per process and would make the aggregator and
-> `log_trends` disagree about one fault across a restart.
+> **The instrument was keyed on the column the fix rewrote, and this
+> entry is the best evidence against that.** `check_duplicate_ingest_`
+> `residue` grouped on `(source, logged_at, message)` — and these two
+> rows were invisible for eleven days precisely because `SNAG-LOG-008`'s
+> backfill had not yet made the copies agree. The **verdict** stays on
+> the narrow key, because a wider one admits a microsecond coincidence
+> and would hold `match` open after the pair aged out, which is the
+> calendar keeping an entry alive rather than closing one. The **"is it
+> happening elsewhere"** limb reaches no verdict and moves to the
+> record's own identity, `(source, logged_at)`, which is the limb whose
+> blindness costs something: a second occurrence needs a restart, and a
+> restart is when a declaration changes.
 >
-> **estate-manager's message `99679328` is closed in the same sitting.**
-> `estate.snags.read_snags` now raises `UnreadableSnagText` where it
-> returned `([], "unrecognised")` — the shape our `5a8bbc97` filed.
-> `parser_counts` needed no code change, and **both guards stay**: the
-> `except` owns the new shape and the `if not rows` gate the old, which
-> is not dead code because `estate-lib` is an editable install and the
-> parser is whichever revision of their tree is checked out.
+> **Measured before it was preferred**: **0 of 235,230 rows across 9
+> sources** have two distinct records sharing a `(source, logged_at)`,
+> so the `message` component is doing no work today — and the tightest
+> gap between two genuinely distinct records is **3 µs, at `kernel`**,
+> not the millisecond of `alert_raised` writes the entry's fix bullet
+> named as the deciding population. That bullet was 333× wide and at
+> the wrong source; it now carries the number.
 >
 > Daemon restarted
-> at **2026-08-29 15:17:47** <!--check:deploy--> <!--check:daemon_start-->,
-> clean journal. The first restart was **owed** — `log_signature.py` is
-> in the daemon's import graph, unlike Session 121's docstring-only edit
-> — and the second was `ops_claims` rule 4's documented false positive
-> again, a docstring in `snag_claims.py`, taken rather than argued for
-> the same reason: unprivileged, and the alternative teaches the reader
-> to ignore a red line. `/health` answers
+> at **2026-08-29 16:09:37** <!--check:deploy--> <!--check:daemon_start-->,
+> clean journal. **Not owed**, and measured rather than argued —
+> `create_app()` does not import `snag_claims`, so nothing the daemon
+> serves changed. Taken anyway, because the deploy check compares `.py`
+> mtimes and would read stale: `ops_claims` rule 4's documented false
+> positive, for the third sitting running, and the alternative teaches
+> the reader to ignore a red line. `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **1** unresolved
-> row <!--check:alerts--> with **1** named here
-> <!--check:open_titles-->: `warning: Unusual CPU usage`, raised at
-> 15:16:46 against **this sitting's own suite run** — 33.0 % is 3.5σ
-> above a 7-day mean of 5.1 %, which is what a box that mostly idles
-> says about sixty seconds of pytest. `_check_anomalies` resolves it by
-> id when the reading falls back, so it is named rather than waited
-> out.
+> packaged head <!--check:schema-->, and `alerts` holds **0** unresolved
+> rows <!--check:alerts--> with **0** named here
+> <!--check:open_titles-->. Session 122's `Unusual CPU usage` row
+> resolved itself by id exactly as that block predicted it would, which
+> is why this block opened the sitting reading `no`.
 >
 > **Alembic head is 018**<!--check:migration_head--> — unchanged. A
-> title format moves no schema.
+> check's grouping key moves no schema.
 >
-> **The suite is 2869**, from 2863: **6 added and none retired.** Five
-> mutations were driven and each lands red on the intended test — the
-> pre-fix title, the digest replacing the text, every title stamped, the
-> message digested instead of the signature, and the builtin `hash()`.
-> A sixth was driven at `snag_claims`: narrowing `parser_counts`' except
-> to `TypeError` turns the estate's new raise into an error rather than
-> a verdict.
+> **The suite is 2872**, from 2869: **3 added and none retired.** Four
+> mutations were driven and each lands red on exactly one intended test
+> — the verdict keyed on the wide count, the divergence clause dropped,
+> `message` put back into the record identity, and `>=` for `>`. The
+> last of those **passed against deliberately broken code** on the first
+> attempt: a `>=` emits a nonsense "0 of them agree on the record and
+> not on the message" and no test carried the equal-count case, which is
+> the live one. The equal-count test now asserts the clause is absent.
 
 
 ## Quick Status
@@ -99,7 +101,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **2869 green** | **2869 backend + tray** *(2863 + 6 on 2026-08-29, Session 122: `TestACutTitleStaysAnIdentity` in `tests/test_log_alert_dedup.py` and the estate parser's new raise shape in `tests/test_snag_claims.py`, none retired — one falsified against the pre-fix title and four against mutations of the fix, because a test that passes against the broken code is a control over the fix's failure modes rather than over the defect's. Previously 2844 + 19 on 2026-08-29, Session 120: the derived movement line and the closure-aware banner reader in `tests/test_snag_claims.py`, none retired — nine mutations driven, each red on the intended test. Previously 2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
+| Testing | 🟢 **2872 green** | **2872 backend + tray** *(2869 + 3 on 2026-08-29, Session 123: `TestTheDuplicateIngestCheck`'s three new members in `tests/test_snag_claims.py` — the verdict keyed on the entry's narrow key, a divergently-parsed duplicate named rather than silent, and the record identity asserted at the statement because today both keys agree over 235,230 rows. None retired; the four existing members were re-driven at a fourth `query_one` call. Four mutations, each red on one intended test, and one of them passed against broken code first time — the equal-count case was uncovered. Previously 2863 + 6 on 2026-08-29, Session 122: `TestACutTitleStaysAnIdentity` in `tests/test_log_alert_dedup.py` and the estate parser's new raise shape in `tests/test_snag_claims.py`, none retired — one falsified against the pre-fix title and four against mutations of the fix, because a test that passes against the broken code is a control over the fix's failure modes rather than over the defect's. Previously 2844 + 19 on 2026-08-29, Session 120: the derived movement line and the closure-aware banner reader in `tests/test_snag_claims.py`, none retired — nine mutations driven, each red on the intended test. Previously 2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
