@@ -394,6 +394,108 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 120 — the figure a tool can derive is not a claim a human states (2026-08-29) ✅
+
+_Session 118's second open decision, taken. The banner it was found
+beside was stating the same figure two ways and one of them was wrong by
+4x._
+
+**The decision.** `docs/roadmap/snag_list.md`'s header paragraph records
+what moved this sitting and nothing read it — `ops_claims` reads
+`STATUS.md`'s block, `snag_claims` reads the entries' own claims, and the
+paragraph fell between them. Measured 2026-08-28 it was **six sittings
+stale**. The owner's ruling is to **derive the figure, not check the
+prose**, and three measurements are why:
+
+- [x] **The paragraph has no reader.** `claude-preflight.sh` prints
+      `STATUS.md`'s block, both claim reports and the entry bullets, and
+      never this. `ops_claims` rule 1 buys that module's legitimacy from
+      *"preflight already prints those claims, with nothing between the
+      document and the reader"* — there is no equivalent here, so a
+      claim-check would be a guard on an unwatched door
+- [x] **The figure is derivable.** Parsing
+      `git show HEAD~1:docs/roadmap/snag_list.md` through the owning
+      parser gives **100 / 17** against HEAD's **101 / 18** — precisely
+      the movement Session 119 wrote by hand. A figure a tool can derive
+      should not be a claim a human states: checking the written count
+      leaves two producers of one fact, `SNAG-DB-003`'s shape; deriving
+      it leaves one
+- [x] **The prose is written seven ways** across thirteen paragraphs
+      (`N -> M entries with open at A -> B`, `N entries / A open either
+      side`, `open unmoved at A`, ...), so a pattern over it would report
+      `unknown` more often than it measured. Stated last because it is
+      the weakest of the three
+
+**What shipped: `convention:movement`**, the last line of every
+`sysadmin-check-snags` report, at both ends of every sitting.
+
+- [x] **The instrument is the owner's parser, imported.** This reverses
+      `snag_claims` rule 8 for one figure and only because the fact under
+      it moved: `read_snags` went to `estate.snags` in `estate-lib` at
+      their `a5c1834`, and `estate-lib` is an editable install here. The
+      entry sweep keeps its own narrowed reader — the two answer
+      different questions, and this is the figure the **board publishes**,
+      so a second implementation of it is the whole of rule 8 read the
+      other way
+- [x] **An empty read is a failure and never a count.** `read_snags`
+      takes the document's *text*; handed a path it returns zero rows,
+      and Session 119 published `100 -> 0 entries, 17 -> 0 open` off
+      exactly that — every entry closed, stated confidently. The gate is
+      the **rows** and not the dialect, because their vocabulary is
+      theirs and spelling it out here is free to go stale
+- [x] **A failed anchor read is `unknown`, never `unmoved`.** The
+      tempting default compares the document against itself, which
+      reports no movement for a sitting that moved everything. Driven as
+      a mutation: it turns the finding green
+- [x] **It has a real red state**, so it is a measurement and not a
+      decoration: the two parsers disagreeing about the **open** count.
+      `read_entries` sweeps this register and `read_snags` is what the
+      board publishes; a divergence means those figures have come apart,
+      and an entry under `Fixed Issues` that never declared closure is
+      the reachable case. **Totals are deliberately not compared** — 101
+      rows there against 76 under the open headings is two populations by
+      design
+- [x] **The anchor is a commit and names its sha and subject.** A
+      sitting is not a git concept and a file recording the boundary
+      would be state free to disagree with the repository. The cost is
+      stated rather than hidden and is `SNAG-DOCS-007`
+
+**The banner was stating the open count two ways.** Found on the way and
+fixed with it: `claude-preflight.sh` counted `^- \[P[0-9]\]` under
+`## Open Issues`, which is every bullet whatever its title says.
+
+- [x] It printed **76 open** eight lines below the snag-claims section's
+      **18 open entries**, and the first ten rows of its list were titled
+      **FIXED** — one figure stated two ways inside one banner, with the
+      wrong half carrying the list. `ops_claims` rule 2 in the surface
+      that sets the agenda
+- [x] `sysadmin-check-snags --list-open` is the reader now, so the
+      closure rule has **one** implementation. A shell approximation of
+      `closure_declared` would be a second statement of it, free to
+      drift from the number printed eight lines up — the defect, not a
+      cheaper way to have it
+- [x] **Exit non-zero prints "could not be counted", never "all
+      clear"** — `ports_checked`'s rule at the size of a console script,
+      since the caller renders empty stdout as "none open"
+
+### Verified, 2026-08-29
+
+```
+banner:   76 open  ->  18 open   (agreeing with the checker above it)
+report:   ok Snag list movement - 101 entries, 18 open - unmoved since c46872a
+suite:    2844 + 19 = 2863, none retired
+```
+
+- [x] **Nine mutations driven, each red on the intended test** — the
+      empty read served as a count, the failed anchor defaulted to
+      current, `unmoved` rendered blank, totals compared, the closure
+      filter dropped, an unreadable document reported as success, one
+      reader read as agreement, the disagreement branch removed, and an
+      unimportable parser reported as measured
+- [x] **No production code changed**, so no restart is owed:
+      `snag_claims.py` is a composition root nothing imports at runtime,
+      and `claude-preflight.sh` is a script
+
 ## Session 119 — the model is not the file (2026-08-28) ✅
 
 _The guard Session 118 offered is built, and the sentence that ranked it

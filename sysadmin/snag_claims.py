@@ -114,7 +114,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 from sqlalchemy import create_engine, text
@@ -5467,6 +5467,418 @@ def run_check(check: Check) -> Finding:
         measurement.detail,
     )
 
+# ---------------------------------------------------------------------------
+# Movement: the figure the header paragraph states, derived rather than written
+# ---------------------------------------------------------------------------
+
+#: What the movement is measured against.  A **commit**, never a stored
+#: sitting boundary — see :func:`measure_movement`.
+MOVEMENT_ANCHOR = "HEAD"
+
+#: How long git is given, over here and over there.  Both reads are of a
+#: file that is already in the page cache; a timeout at all means
+#: something is wrong, and rule 5 says that is ``unknown``.
+GIT_TIMEOUT = 10.0
+
+
+@dataclass(frozen=True)
+class Movement:
+    """What the document holds now, what it held at the anchor, and who read it.
+
+    Attributes:
+        entries: rows the owning parser reads today.
+        open_entries: of those, how many it calls open.
+        was_entries: the same count at :data:`MOVEMENT_ANCHOR`, or ``None``
+            when that revision could not be read.
+        was_open: likewise.
+        anchor: the resolved short sha, so the reader can see *what* the
+            delta is against rather than trusting the word "HEAD".
+        anchor_subject: that commit's subject line, for the same reason.
+        dialect: the format string the owning parser reports — evidence,
+            never a gate; see :func:`parser_counts`.
+        local_open: :func:`read_entries`' own open count, or ``None``.
+        instrument: which of estate-manager's trees produced the figure.
+    """
+
+    entries: int
+    open_entries: int
+    was_entries: int | None
+    was_open: int | None
+    anchor: str
+    anchor_subject: str
+    dialect: str
+    local_open: int | None
+    instrument: str
+
+    @property
+    def anchored(self) -> bool:
+        """Was the anchor revision read at all?"""
+        return self.was_entries is not None and self.was_open is not None
+
+    @property
+    def movement(self) -> str:
+        """The delta in words, or a sentence saying it could not be taken.
+
+        Named rather than counted where it moved, and stated as
+        ``unmoved`` where it did not: a blank is what a broken reader
+        produces for free, so the no-movement case says so out loud.
+        """
+        was_entries, was_open = self.was_entries, self.was_open
+        if was_entries is None or was_open is None:
+            return f"movement against {self.anchor} was not measured"
+        parts = [
+            _signed(self.entries - was_entries, "entry", "entries"),
+            _signed(self.open_entries - was_open, "open", "open"),
+        ]
+        moved = [part for part in parts if part]
+        if not moved:
+            return f"unmoved since {self.anchor}"
+        return f"{' and '.join(moved)} since {self.anchor}"
+
+    @property
+    def readers_agree(self) -> bool | None:
+        """Do the two parsers agree about the open count, where both ran?
+
+        ``None`` when only one of them did, which is ``unknown`` and not
+        agreement — :attr:`UnitScanResponse.ports_checked`'s rule at the
+        size of a comparison.
+        """
+        if self.local_open is None:
+            return None
+        return self.local_open == self.open_entries
+
+
+def _signed(delta: int, singular: str, plural: str) -> str:
+    """``+1 entry``, ``-2 open``, or ``""`` for no change."""
+    if delta == 0:
+        return ""
+    return f"{delta:+d} {singular if abs(delta) == 1 else plural}"
+
+
+def owning_parser() -> tuple[Callable[[str], tuple[list[Any], str]] | None, str]:
+    """estate-manager's ``read_snags``, or ``None`` and the sentence why not.
+
+    Imported rather than shelled into, which reverses this module's own
+    rule 8 for one figure and only because the fact underneath it moved.
+    That rule was written when ``read_snags`` lived in ``estate_service``
+    and could not be reached from here; it went to ``estate.snags`` in
+    ``estate-lib`` at their ``a5c1834`` on 2026-08-26, and ``estate-lib``
+    is an editable install here — so the parser now resolves into their
+    working tree with no subprocess at all.
+
+    The entry sweep keeps its own reader regardless, and the two answer
+    different questions: :func:`read_entries` is narrowed to under-report
+    closure over the open sections, because an entry wrongly reported
+    *unchecked* costs a glance and one wrongly reported *closed* leaves
+    the population this module exists to sweep.  This figure is the one
+    the register **publishes**, so it must be the owner's parser reading
+    it or it is a second implementation of somebody else's count — which
+    is the whole of rule 8 read the other way.
+    """
+    try:
+        from estate.snags import read_snags
+    except Exception as exc:  # noqa: BLE001 — another repository's import graph
+        return None, f"estate.snags could not be imported ({exc.__class__.__name__}: {exc})"
+    return read_snags, ""
+
+
+def parser_counts(
+    read_snags: Callable[[str], tuple[list[Any], str]], text: str
+) -> tuple[int, int, str] | None:
+    """``(entries, open, dialect)``, or ``None`` when nothing was read.
+
+    **An empty read is a failure and never a count**, which is the one
+    rule here that was learned by publishing the wrong answer.
+    ``read_snags`` takes the document's *text*; handed a path it returns
+    zero rows and a dialect of ``unrecognised``, and Session 119
+    published ``100 → 0 entries, 17 → 0 open`` off exactly that — every
+    entry closed, stated confidently, with nothing in the shape of the
+    result saying it had not read a document.  Filed at the owner as
+    ``5a8bbc97``; guarded here by refusing to treat any empty read as a
+    measurement.
+
+    The gate is the **rows**, not the dialect, deliberately.  Their
+    vocabulary is theirs — ``bullet``, ``unrecognised``, ``empty`` today
+    and whatever a table dialect adds tomorrow — so a gate spelling those
+    out is a second statement of their fact, free to go stale the day
+    they add one.  A parse that yielded no row cannot have read this
+    document whatever it calls the reason, and the dialect is carried
+    beside the verdict as evidence instead.
+    """
+    try:
+        rows, dialect = read_snags(text)
+    except Exception:  # noqa: BLE001 — another repository's parser, over a document it may not accept
+        return None
+    if not rows:
+        return None
+    return len(rows), sum(1 for row in rows if row.is_open), dialect
+
+
+def instrument_state(read_snags: Callable[..., object]) -> str:
+    """Which of estate-manager's trees this figure was read with.
+
+    :func:`estate_module_state`'s rule for a module that is *imported*
+    rather than driven in their venv, and the path is resolved from the
+    imported object rather than assumed: ``ESTATE_SERVICE`` names their
+    ``service/`` directory and this parser lives in ``lib/``, so a
+    constructed path would have recorded the checkout state of a file
+    nothing read.
+
+    Committed is not deployed, and this says ``committed`` for that
+    reason — but note the difference from that function's case, which is
+    what makes the distinction cheap here: an *editable install* means
+    the working tree **is** what ran, so a dirty file is the figure's
+    provenance rather than a caveat about it.
+    """
+    source = inspect.getsourcefile(read_snags)
+    if not source:
+        return "the parser's own file could not be located, so its checkout state is unread"
+    path = Path(source)
+    try:
+        head = subprocess.run(  # noqa: S603 — a read-only `git rev-parse` over there
+            ["git", "-C", str(path.parent), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT,
+            check=False,
+        )
+        dirty = subprocess.run(  # noqa: S603 — a read-only `git status` over there
+            ["git", "-C", str(path.parent), "status", "--porcelain", "--", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return f"read with {path}, whose checkout state could not be read"
+    if head.returncode != 0 or dirty.returncode != 0:
+        return f"read with {path}, whose checkout state could not be read"
+    revision = head.stdout.strip() or "an unnamed revision"
+    if dirty.stdout.strip():
+        return (
+            f"read with {path} at {revision}, **uncommitted** over there — "
+            "an editable install, so this is the code that ran"
+        )
+    return (
+        f"read with {path} at {revision}, committed over there — "
+        "committed, which is not the same as deployed on 8400"
+    )
+
+
+def anchor_commit(revision: str) -> tuple[str, str]:
+    """``(short sha, subject)`` for ``revision``, or two sentences saying not.
+
+    The sha is named rather than the word ``HEAD`` repeated, because the
+    reader's next question is always *which* commit — and on the day this
+    matters most the answer is "one of this sitting's own", which the word
+    ``HEAD`` cannot say and a subject line says at a glance.
+    """
+    try:
+        result = subprocess.run(  # noqa: S603 — a read-only `git log` in this checkout
+            ["git", "-C", str(REPO_ROOT), "log", "-1", "--format=%h\t%s", revision],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return revision, "its subject could not be read"
+    if result.returncode != 0 or not result.stdout.strip():
+        return revision, "its subject could not be read"
+    sha, _, subject = result.stdout.strip().partition("\t")
+    return sha or revision, subject or "no subject"
+
+
+def document_at(revision: str, path: Path) -> tuple[str | None, str]:
+    """The document as ``revision`` has it, or ``None`` and why not.
+
+    Read through ``git show`` rather than by walking history objects, and
+    keyed on the path **relative to this checkout** — a ``--snag-file``
+    pointing outside the repository has no revision to be read at, which
+    is a reason to know less and never a reason to report no movement.
+    """
+    try:
+        relative = path.resolve().relative_to(REPO_ROOT.resolve())
+    except ValueError:
+        return None, f"{path} is outside {REPO_ROOT}, so it has no history here"
+    try:
+        result = subprocess.run(  # noqa: S603 — a read-only `git show` in this checkout
+            ["git", "-C", str(REPO_ROOT), "show", f"{revision}:{relative.as_posix()}"],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None, f"git could not be run, so {revision} was not read"
+    if result.returncode != 0:
+        return None, f"{relative.as_posix()} could not be read at {revision}"
+    return result.stdout, ""
+
+
+def measure_movement(path: Path | None, entries: list[Entry]) -> tuple[Movement | None, str]:
+    """The document's counts and its movement since :data:`MOVEMENT_ANCHOR`.
+
+    **The anchor is a commit and deliberately not a sitting.**  What the
+    header paragraph states is per-*sitting* movement, and a sitting is
+    not a git concept: nothing on this box records which commit HEAD was
+    at when preflight ran, and a file recording it would be state free to
+    disagree with the repository about the same fact — this document's
+    own rule against a second statement, arriving as a marker beside the
+    thing it marks.  So the delta is against ``HEAD`` and the finding
+    **names the sha and its subject**, which is the honest form: at the
+    start of a sitting HEAD is the previous sitting's last commit and the
+    delta is exactly what the paragraph wants, and once this sitting has
+    committed the snag list the delta reads ``unmoved`` against a subject
+    the reader can see is their own.  Stated rather than hidden, because
+    a figure that silently changes meaning mid-sitting is worse than one
+    that says what it is measured against.
+    """
+    read_snags, problem = owning_parser()
+    if read_snags is None:
+        return None, problem
+    target = path or SNAG_PATH
+    try:
+        text = target.read_text(encoding="utf-8")
+    except OSError as exc:
+        return None, f"{target} could not be read ({exc.__class__.__name__})"
+    current = parser_counts(read_snags, text)
+    if current is None:
+        return None, (
+            f"the owning parser read no entry from {target} — an empty read is "
+            "an unreadable document, never a register that emptied"
+        )
+    sha, subject = anchor_commit(MOVEMENT_ANCHOR)
+    previous_text, _ = document_at(MOVEMENT_ANCHOR, target)
+    previous = parser_counts(read_snags, previous_text) if previous_text is not None else None
+    total, open_entries, dialect = current
+    return (
+        Movement(
+            entries=total,
+            open_entries=open_entries,
+            was_entries=previous[0] if previous else None,
+            was_open=previous[1] if previous else None,
+            anchor=sha,
+            anchor_subject=subject,
+            dialect=dialect,
+            local_open=sum(1 for entry in entries if entry.is_open) if entries else None,
+            instrument=instrument_state(read_snags),
+        ),
+        "",
+    )
+
+
+def check_movement(entries: list[Entry], path: Path | None = None) -> Finding:
+    """The figure the header paragraph writes by hand, measured instead.
+
+    ``docs/roadmap/snag_list.md`` opens with a paragraph recording what
+    moved this sitting — *"one opened and none closed … the live parser
+    reads 100 → 101 entries with open at 17 → 18"*.  Nothing read it.
+    :mod:`sysadmin.ops_claims` reads ``STATUS.md``'s block and this
+    module reads the entries' own claims, and the paragraph whose whole
+    job is to record movement fell between them: measured 2026-08-28 it
+    was **six sittings stale**, last written for Session 111 at 99
+    entries / 22 open against a live 100 / 17, with one opened and five
+    closed across Sessions 112–117 and nothing recording it.  That is
+    ``SNAG-ESTATE-008``'s shape inside the document that exists to
+    measure movement.
+
+    **What ships is a derivation and not a check, which is the owner's
+    ruling of 2026-08-29 and the stronger of the two.**  The obvious fix
+    is a claim-check: pattern the paragraph's post-figures out of the
+    prose and compare them against the parser.  It was refused on two
+    measurements.  The paragraph **has no reader** — ``preflight``
+    prints ``STATUS.md``'s block, the two claim reports and the entry
+    bullets, and never this — so :mod:`sysadmin.ops_claims`' rule 1,
+    which buys that module's legitimacy from *"preflight already prints
+    those claims, with nothing between the document and the reader"*, has
+    no equivalent here.  And the figure is **derivable**: parsing
+    ``git show HEAD~1:docs/roadmap/snag_list.md`` gives 100 / 17 against
+    HEAD's 101 / 18, precisely the movement Session 119 wrote by hand.  A
+    figure a tool can derive should not be a claim a human states —
+    checking the hand-written count leaves two producers of one fact,
+    which is ``SNAG-DB-003``'s shape, and deriving it leaves one.
+
+    The prose is the third reason and the weakest, so it is stated last:
+    thirteen paragraphs write that sentence **seven ways**
+    (``N → M entries with open at A → B``, ``N entries / A open either
+    side``, ``open unmoved at A``, …), and a pattern over that reports
+    ``unknown`` more often than it measures.
+
+    Three verdicts, and the middle one is what stops this being a
+    decorative number:
+
+    1. ``match`` — both reads landed.  The witness is the delta, which
+       could have been anything and is reported whichever way it came
+       out; ``unmoved`` is said out loud rather than left as a blank,
+       because a blank is what a broken reader produces for free.
+    2. ``mismatch`` — **the two parsers disagree about the open count.**
+       :func:`read_entries` reads the open sections and narrows closure;
+       ``read_snags`` reads the whole file and is what the estate board
+       publishes about this repository.  Today both answer 18 (over 76
+       rows here and 101 there, which are different populations by design
+       and are therefore *not* compared).  A divergence means the figure
+       this register sweeps and the figure the board publishes have come
+       apart — an entry filed under ``Fixed Issues`` that never declared
+       closure is the reachable case — and that is a red line, not a
+       footnote.  ``tests/test_snag_claims.py::TestAgainstTheOwningParser``
+       pins the same pair, but only when the suite runs; this asks it at
+       the start of every sitting.
+    3. ``unknown`` — the parser could not be imported, the document could
+       not be read, or the read yielded no row.  Rule 5, and the last of
+       those is the one that has actually happened.
+    """
+    movement, problem = measure_movement(path, entries)
+    if movement is None:
+        return _convention("convention:movement", "Snag list movement", problem)
+
+    detail = [
+        f"anchor {movement.anchor} — {movement.anchor_subject}",
+        (
+            f"at the anchor: {movement.was_entries} entries, {movement.was_open} open"
+            if movement.anchored
+            else f"{movement.anchor} could not be parsed, so no delta was taken"
+        ),
+        f"dialect: {movement.dialect}",
+        movement.instrument,
+    ]
+    if movement.readers_agree is None:
+        detail.append(
+            "this module's own reader found no entry, so the two parsers were not compared"
+        )
+    else:
+        detail.append(
+            f"this module's reader: {movement.local_open} open of {len(entries)} "
+            f"under the open headings"
+        )
+
+    if movement.readers_agree is False:
+        return _convention(
+            "convention:movement",
+            "Snag list movement",
+            f"the two parsers disagree about the open count — the owning parser reads "
+            f"{movement.open_entries} and this module's reader reads {movement.local_open}, "
+            "so the figure the board publishes and the figure this register sweeps "
+            "have come apart",
+            tuple(detail),
+            verdict="mismatch",
+        )
+    if not movement.anchored:
+        return _convention(
+            "convention:movement",
+            "Snag list movement",
+            f"{movement.entries} entries, {movement.open_entries} open — "
+            + movement.movement,
+            tuple(detail),
+        )
+    return _convention(
+        "convention:movement",
+        "Snag list movement",
+        f"{movement.entries} entries, {movement.open_entries} open — {movement.movement}",
+        tuple(detail),
+        verdict="match",
+    )
+
 
 def check_convention(entries: list[Entry], entries_problem: str) -> list[Finding]:
     """The three ways the document and the registry can fall out of step.
@@ -5587,17 +5999,23 @@ def check_convention(entries: list[Entry], entries_problem: str) -> list[Finding
 
 
 def check_all(path: Path | None = None) -> list[Finding]:
-    """Every check, then the convention findings.
+    """Every check, then the convention findings, then the movement.
 
     The convention findings run even when the document cannot be read at
     all: a missing snag list is a reason to know less about the entries,
     never a reason to stop measuring the claims — the same split
     :func:`sysadmin.ops_claims.check_all` makes for its state checks.
+    :func:`check_movement` is called from here rather than from
+    :func:`check_convention` for that same reason one step further — that
+    function returns early on an unreadable document, and the movement
+    read has its *own* account of why it could not measure, which is the
+    more useful of the two.
     """
     entries, problem = load_entries(path)
     return [
         *(run_check(CHECKS[key]) for key in sorted(CHECKS)),
         *check_convention(entries, problem),
+        check_movement(entries, path),
     ]
 
 
@@ -5644,6 +6062,46 @@ def render(findings: list[Finding]) -> list[str]:
     return lines
 
 
+def list_open(path: Path | None = None) -> int:
+    """Print the open entries' titles, one per line, and run no check.
+
+    The session banner's reader.  ``scripts/claude-preflight.sh`` counted
+    them with ``awk … | grep -E '^- \\[P[0-9]\\]'`` until 2026-08-29,
+    which reads every bullet under ``## Open Issues`` whatever its title
+    says — so the banner printed **76 open** eight lines below this same
+    script's ``18 open entries``, and the first ten rows of its list were
+    titled **FIXED**.  One figure stated two ways inside one banner is
+    :mod:`sysadmin.ops_claims`' rule 2 arriving in the surface that sets
+    the agenda, and the wrong half was the one with the list under it.
+
+    **Read here rather than narrowed in shell**, which is the whole point:
+    the closure rule is :func:`closure_declared` — a completion word
+    opening a clause inside the title's *balanced* trailing parenthetical
+    — and a grep that approximated it would be a second implementation of
+    this module's fact, free to drift from the count printed above it.
+    That is the defect being removed, not a cheaper way to have it.
+
+    **A document that could not be read exits ``2`` and prints nothing to
+    stdout**, so the caller cannot render silence as "none open" —
+    ``UnitScanResponse.ports_checked``'s rule at the size of a console
+    script.  It is the same reason :func:`parser_counts` refuses an empty
+    read one section up, and the banner says "could not be counted"
+    rather than "all clear".
+
+    The flag exists because it has a caller.  :mod:`sysadmin.ops_claims`
+    rule 6 refuses ``--quiet`` on the grounds that nothing would pass it;
+    the test is the caller and not the flag, and preflight is this one's.
+    """
+    entries, problem = load_entries(path)
+    if problem:
+        print(problem, file=sys.stderr)
+        return EXIT_STATUS["unknown"]
+    for entry in entries:
+        if entry.is_open:
+            print(entry.title.removeprefix("- "))
+    return EXIT_STATUS["match"]
+
+
 def main(argv: list[str] | None = None) -> int:
     """``sysadmin-check-snags`` — do the open entries still describe this box?
 
@@ -5662,7 +6120,16 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help=f"the document to read entries from (default {SNAG_PATH})",
     )
+    parser.add_argument(
+        "--list-open",
+        action="store_true",
+        help="print the open entries' titles and exit, running no check "
+        "(the session banner's reader — see list_open)",
+    )
     args = parser.parse_args(argv)
+
+    if args.list_open:
+        return list_open(args.snag_file)
 
     findings = check_all(args.snag_file)
     for line in render(findings):

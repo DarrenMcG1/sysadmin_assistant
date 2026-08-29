@@ -34,6 +34,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from hashlib import blake2s
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
@@ -3498,6 +3499,7 @@ def create_app(settings=None, *, arbiter=None):
     CONFIG = """\
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 
 
 @dataclass
@@ -4937,3 +4939,319 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         assert check.snag == "SNAG-ESTATE-006"
         entry = next(e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-ESTATE-006")
         assert "audit_code_unpublished" in entry.markers
+
+
+# ---------------------------------------------------------------------------
+# Movement — the header paragraph's figure, derived
+# ---------------------------------------------------------------------------
+
+
+class _Parser:
+    """A ``read_snags`` stand-in keyed on the text it is handed.
+
+    Keyed on the *text* rather than counting calls, because the two reads
+    :func:`measure_movement` makes — the worktree and the anchor — differ
+    only in what they are given, and a call-order stand-in would pass
+    against an implementation that read the same document twice.
+    """
+
+    def __init__(self, answers: dict[str, tuple[int, int]], default=None):
+        self.answers = answers
+        self.default = default
+        self.seen: list[str] = []
+
+    def __call__(self, text: str):
+        self.seen.append(text)
+        answer = self.answers.get(text, self.default)
+        if answer is None:
+            return [], "unrecognised"
+        total, open_count = answer
+        rows = [SimpleNamespace(is_open=index < open_count) for index in range(total)]
+        return rows, "bullet"
+
+
+class TestTheMovementIsDerived:
+    """The header paragraph's figure, measured rather than read (Session 120).
+
+    ``docs/roadmap/snag_list.md`` opens with a paragraph recording what
+    moved this sitting, and nothing read it: measured 2026-08-28 it was
+    **six sittings stale**, last written for Session 111 at 99 entries /
+    22 open against a live 100 / 17.  The owner's ruling of 2026-08-29 was
+    to derive the figure rather than check the prose, so these tests are
+    written against the ways a derivation goes quietly wrong — an empty
+    read served as a count, a failed anchor served as "unmoved", and two
+    parsers agreeing by not being compared.
+    """
+
+    @staticmethod
+    def _finding(
+        tmp_path,
+        *,
+        current: tuple[int, int] | None,
+        anchor: tuple[int, int] | None | str = None,
+        entries=(),
+        parser_problem: str = "",
+    ):
+        """Drive :func:`check_movement` against a stand-in parser.
+
+        ``anchor`` is the anchor revision's counts, or the string
+        ``"unreadable"`` for a ``git show`` that did not answer.
+        """
+        document = tmp_path / "snag_list.md"
+        document.write_text("worktree", encoding="utf-8")
+        answers = {"worktree": current} if current else {}
+        if isinstance(anchor, tuple):
+            answers["anchor"] = anchor
+        parser = _Parser(answers)
+        read = None if parser_problem else parser
+        with (
+            patch.object(snag_claims, "owning_parser", lambda: (read, parser_problem)),
+            patch.object(
+                snag_claims,
+                "document_at",
+                lambda _rev, _path: (None, "no history") if anchor is None else ("anchor", ""),
+            ),
+            patch.object(snag_claims, "anchor_commit", lambda _rev: ("abc1234", "a subject")),
+            patch.object(snag_claims, "instrument_state", lambda _p: "read with a stand-in"),
+        ):
+            return snag_claims.check_movement(list(entries), document)
+
+    def test_an_empty_read_is_unknown_and_never_a_count(self, tmp_path):
+        """Session 119's published wrong answer, refused.
+
+        ``read_snags`` takes the document's *text*; handed a path it
+        returns zero rows and a dialect of ``unrecognised``, and the
+        figure published off that read ``100 → 0 entries, 17 → 0 open`` —
+        every entry closed, stated confidently.  Falsified by deleting
+        ``parser_counts``' ``if not rows`` gate, which makes this finding
+        read ``0 entries, 0 open`` at ``match``.
+        """
+        finding = self._finding(tmp_path, current=None)
+        assert finding.verdict == "unknown"
+        assert "read no entry" in finding.note
+        assert "0 entries" not in finding.note
+
+    def test_a_parser_that_will_not_import_is_unknown_and_says_so(self, tmp_path):
+        """Rule 5.  The instrument is another repository's, so it can go.
+
+        ``estate-lib`` is an editable install pointing into their working
+        tree; a move, a rename or a syntax error over there is a reason to
+        know less and never a reason to report no movement.
+        """
+        finding = self._finding(
+            tmp_path, current=(101, 18), parser_problem="estate.snags could not be imported (X)"
+        )
+        assert finding.verdict == "unknown"
+        assert "could not be imported" in finding.note
+
+    def test_an_unreadable_anchor_is_unknown_and_not_unmoved(self, tmp_path):
+        """The failure this derivation could most easily have hidden.
+
+        A ``git show`` that does not answer leaves no previous counts, and
+        the tempting default is to compare the document against itself —
+        which reports ``unmoved`` for a sitting that moved everything.
+        Falsified by defaulting ``was_entries``/``was_open`` to the
+        current figures, which turns this green at ``match``.
+        """
+        finding = self._finding(tmp_path, current=(101, 18), anchor=None)
+        assert finding.verdict == "unknown"
+        assert "was not measured" in finding.note
+        assert "unmoved" not in finding.note
+        assert "could not be parsed" in " ".join(finding.detail)
+
+    def test_no_movement_is_said_out_loud(self, tmp_path):
+        """A blank is what a broken reader produces for free.
+
+        Falsified by returning ``""`` from :attr:`Movement.movement` when
+        nothing moved, which renders ``101 entries, 18 open — `` and is
+        indistinguishable from a delta the reader failed to compute.
+        """
+        finding = self._finding(tmp_path, current=(101, 18), anchor=(101, 18), entries=[])
+        assert finding.verdict == "match"
+        assert finding.note == "101 entries, 18 open — unmoved since abc1234"
+
+    @pytest.mark.parametrize(
+        ("anchor", "expected"),
+        [
+            ((100, 17), "+1 entry and +1 open since abc1234"),
+            ((100, 18), "+1 entry since abc1234"),
+            ((102, 19), "-1 entry and -1 open since abc1234"),
+            ((99, 18), "+2 entries since abc1234"),
+        ],
+    )
+    def test_the_delta_is_named_in_both_directions(self, tmp_path, anchor, expected):
+        """Named rather than counted, and pluralised where it matters.
+
+        The one-opened case is the founding measurement: parsing
+        ``git show HEAD~1:docs/roadmap/snag_list.md`` gave 100 / 17
+        against HEAD's 101 / 18, precisely what Session 119 wrote by hand.
+        """
+        finding = self._finding(tmp_path, current=(101, 18), anchor=anchor)
+        assert finding.verdict == "match"
+        assert finding.note.endswith(expected)
+
+    def test_the_two_parsers_disagreeing_about_open_is_red(self, tmp_path):
+        """The finding's discriminating witness, and its only red state.
+
+        ``read_entries`` sweeps this register; ``read_snags`` is what the
+        estate board publishes about this repository.  A divergence means
+        those two figures have come apart — an entry filed under ``Fixed
+        Issues`` that never declared closure is the reachable case — and
+        ``TestAgainstTheOwningParser`` pins the same pair only when the
+        suite runs.  This asks it at the start of every sitting.
+        """
+        finding = self._finding(
+            tmp_path, current=(101, 18), anchor=(101, 18), entries=read_entries(DOCUMENT)
+        )
+        assert finding.verdict == "mismatch"
+        assert "18" in finding.note and "2" in finding.note
+        assert "have come apart" in finding.note
+
+    def test_the_totals_are_deliberately_not_compared(self, tmp_path):
+        """The two readers measure different populations by design.
+
+        ``read_snags`` reads the whole file — 101 rows here, 76 of them
+        under the open headings — so a total-versus-total comparison would
+        report a mismatch on every run.  Falsified by comparing
+        ``entries`` against ``len(entries)``, which turns this red.
+        """
+        entries = read_entries(DOCUMENT)
+        finding = self._finding(
+            tmp_path,
+            current=(101, sum(entry.is_open for entry in entries)),
+            anchor=(101, 2),
+            entries=entries,
+        )
+        assert finding.verdict == "match"
+        assert "101 entries" in finding.note
+
+    def test_one_reader_alone_is_unknown_rather_than_agreement(self, tmp_path):
+        """``ports_checked``'s rule at the size of a comparison.
+
+        An empty entry list is this module's reader having read nothing,
+        which is not the two parsers agreeing.
+        """
+        movement = snag_claims.Movement(
+            entries=101,
+            open_entries=18,
+            was_entries=101,
+            was_open=18,
+            anchor="abc1234",
+            anchor_subject="a subject",
+            dialect="bullet",
+            local_open=None,
+            instrument="",
+        )
+        assert movement.readers_agree is None
+
+    def test_a_document_outside_the_checkout_has_no_history(self, tmp_path):
+        """``document_at`` refuses a path it cannot name a revision for.
+
+        Driven at the real function rather than a stand-in, because the
+        ``relative_to`` guard is the whole of it.
+        """
+        text, problem = snag_claims.document_at("HEAD", tmp_path / "elsewhere.md")
+        assert text is None
+        assert "outside" in problem
+
+
+class TestTheMovementAgainstTheRealDocument:
+    """The live half.  Nothing here is a stand-in.
+
+    Its counterpart above proves the branches; this proves the wiring —
+    that the owning parser imports, that ``git show`` answers in this
+    checkout, and that the figure the report prints is the one the
+    document holds.
+    """
+
+    def test_the_real_document_is_measured_and_the_readers_agree(self):
+        finding = snag_claims.check_movement(read_entries(SNAG_PATH.read_text(encoding="utf-8")))
+        assert finding.key == "convention:movement"
+        assert finding.verdict == "match", finding.note
+        assert "entries" in finding.note
+
+    def test_the_instrument_is_named_with_its_checkout_state(self):
+        """A cross-repo instrument records whose tree produced the figure.
+
+        The path is resolved from the *imported object*, never
+        constructed: ``ESTATE_SERVICE`` names their ``service/``
+        directory and this parser lives in ``lib/``, so a built path would
+        report the checkout state of a file nothing read.
+        """
+        read_snags, problem = snag_claims.owning_parser()
+        assert read_snags is not None, problem
+        state = snag_claims.instrument_state(read_snags)
+        assert "estate" in state
+        assert "committed" in state or "uncommitted" in state
+
+    def test_the_report_carries_the_line(self):
+        """It is published in every state, ``SNAG-DOCS-006``'s rule."""
+        keys = [finding.key for finding in check_all()]
+        assert keys.count("convention:movement") == 1
+        assert keys[-1] == "convention:movement"
+
+
+class TestTheBannerReaderIsClosureAware:
+    """``list_open`` — the count the session banner prints.
+
+    ``claude-preflight.sh`` counted ``^- \\[P[0-9]\\]`` under
+    ``## Open Issues`` until 2026-08-29, which is every bullet in the
+    section whatever its title says: the banner printed **76 open** eight
+    lines below this script's **18 open entries**, and the first ten rows
+    of its list were titled **FIXED**.
+    """
+
+    def test_a_closed_entry_under_an_open_heading_is_not_listed(self, tmp_path, capsys):
+        """The founding defect, at the size of the fixture.
+
+        ``SNAG-FAKE-002``'s title declares closure and it sits under
+        ``## Open Issues``; the old grep listed it.  Falsified by dropping
+        the ``entry.is_open`` filter, which prints three lines.
+        """
+        document = tmp_path / "snag_list.md"
+        document.write_text(DOCUMENT, encoding="utf-8")
+        assert snag_claims.list_open(document) == 0
+        listed = capsys.readouterr().out.splitlines()
+        assert len(listed) == 2
+        assert not any("SNAG-FAKE-002" in line for line in listed)
+        assert all(not line.startswith("- ") for line in listed)
+
+    def test_an_unreadable_document_exits_two_and_prints_nothing(self, tmp_path, capsys):
+        """``ports_checked`` at the size of a console script.
+
+        The caller renders empty stdout as "none open", so a document that
+        could not be read must not produce it silently.  Falsified by
+        returning ``EXIT_STATUS["match"]``, which makes the banner print
+        "None — all clear" for a missing file.
+        """
+        assert snag_claims.list_open(tmp_path / "absent.md") == 2
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "could not be read" in captured.err
+
+    def test_the_flag_runs_no_check(self, tmp_path, capsys):
+        """It is a document reader, not a claims report.
+
+        Driven through ``main`` because the flag is the contract: a
+        listing that also ran the register would take a minute and could
+        exit ``1``, which the banner reads as "could not be counted".
+        """
+        document = tmp_path / "snag_list.md"
+        document.write_text(DOCUMENT, encoding="utf-8")
+        status = main(["--snag-file", str(document), "--list-open"])
+        assert status == 0
+        assert capsys.readouterr().out.count("\n") == 2
+
+    def test_the_reader_is_the_one_the_register_counts_with(self):
+        """The whole point: one implementation of ``open``.
+
+        A shell approximation of :func:`closure_declared` would be a
+        second statement of it, free to drift from the figure printed
+        eight lines above it in the same banner — which is the defect,
+        not a cheaper way to have it.
+        """
+        entries, problem = load_entries()
+        assert not problem
+        listed = sum(1 for entry in entries if entry.is_open)
+        movement = snag_claims.check_movement(entries)
+        assert f"{listed} open" in movement.note

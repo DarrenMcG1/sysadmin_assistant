@@ -1,95 +1,84 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-08-28
+**Last Updated**: 2026-08-29
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The guard Session 118 offered is built, and the sentence that
-> ranked it weak was measuring the wrong object.**
-> `tests/test_config_defaults.py::TestTheLoudRungEndsBeforeItIsRestated`
-> asserts `agents.service_discovery.scan_interval_hours` +
-> `agents.estate_judge.poll_interval_hours` **<** the tray's
-> `reminder_hours` — the arithmetic that bounds `SNAG-ESTATE-009`'s loud
-> rung at **7 h** against a **24 h** restatement, and which nothing
-> protected. Raising the sweep to daily puts the sum at **25** and the
-> loud rung back inside a repeat, on one config line.
+> **The figure a tool can derive is not a claim a human states.**
+> `docs/roadmap/snag_list.md`'s header paragraph records what moved this
+> sitting and nothing read it — `ops_claims` reads `STATUS.md`'s block,
+> `snag_claims` reads the entries' own claims, and the paragraph fell
+> between them. Session 118 found it **six sittings stale**; the owner's
+> ruling of 2026-08-29 is to derive the figure rather than check the
+> prose. `sysadmin-check-snags` now ends every run with
+> `convention:movement`.
 >
-> **`TrayNotificationsConfig` is the backend's *model*, not the file.**
-> The handoff's reason for leaving it unbuilt was that it parses
-> `mute_services` alone, so a guard *"can only read
-> `notifications.desktop.reminder_hours`, the understudy's copy"*. It
-> can read the real one: `sysadmin_tray/config.py` parses
-> `notifications.tray.reminder_hours` out of the same `config.yaml`,
-> ships in this wheel, and is already imported across the seam by
-> `tests/test_desktop_notifier.py`. Driven at a copy with the tray leaf
-> set to 6, `load_tray_config` returns **6.0** while the understudy
-> still reads **24.0**. `may_quieten_in_place` rule 3 stands untouched —
-> it refuses the *daemon* a policy the tray owns, and a test is not the
-> daemon.
+> **Three measurements decided it against the obvious fix.** The
+> paragraph **has no reader** — preflight prints this block, both claim
+> reports and the entry bullets, and never that — so `ops_claims` rule
+> 1, which buys that module's legitimacy from *"preflight already prints
+> those claims"*, has no equivalent. The figure is **derivable**:
+> `git show HEAD~1:docs/roadmap/snag_list.md` through the owning parser
+> gives **100 / 17** against HEAD's **101 / 18**, precisely what Session
+> 119 wrote by hand. And thirteen paragraphs write that sentence **seven
+> ways**, so a pattern reports `unknown` more often than it measures.
 >
-> **A second gap the entry did not name, and it is the one already
-> written down as pinned.**
-> `test_the_reminder_interval_matches_the_trays` compares
-> `DesktopNotificationsConfig()` against `NotificationSettings()` — two
-> objects constructed with **no file** — so the two shipped copies can
-> read 6 and 24 with that pin green and the two speakers restating one
-> standing fault four times a day apart.
-> `TestTheTwoSpeakersAgreeInTheShippedFile` is the half that can see an
-> edit.
+> **It has a real red state, so it is a measurement and not a
+> decoration**: the two parsers disagreeing about the **open** count.
+> `read_entries` sweeps this register, `read_snags` is what the board
+> publishes, and a divergence means those figures have come apart.
+> Totals are deliberately not compared — 102 rows there against 77 under
+> the open headings is two populations by design.
 >
-> **`reminder_hours: 0` is skipped, never passed and never failed.**
-> Both speakers gate on `interval <= 0`, so with reminders off the claim
-> is vacuous — and `ports_checked`'s rule says a check that could not
-> look must not be served as one that looked and was happy. A skip is
-> visible in the run; a green is not.
+> **An empty read is a failure and never a count.** `read_snags` takes
+> the document's *text*; handed a path it returns zero rows, and Session
+> 119 published `100 → 0 entries, 17 → 0 open` off exactly that. The
+> gate is the **rows** and not the dialect, because their vocabulary is
+> theirs. A failed anchor read is `unknown` and never `unmoved`, which
+> is the mutation that would otherwise have shipped green.
 >
-> **The sum cannot see the stronger break, so it is asserted
-> separately.** `_attribution` reads the newest *stored* sweep with no
-> age gate, so a disabled `service_discovery` freezes it and the loud
-> rung is bounded by nothing at all. Disabling `estate_judge` is the
-> opposite and needs no assertion: nothing raises the breach.
+> **The banner was stating the open count two ways and one was wrong by
+> 4x.** `claude-preflight.sh` counted `^- \[P[0-9]\]` under
+> `## Open Issues` — every bullet whatever its title says — so it
+> printed **76 open** eight lines below the snag-claims section's **18
+> open entries**, with the first ten rows of its list titled **FIXED**.
+> `ops_claims` rule 2 in the surface that sets the agenda.
+> `sysadmin-check-snags --list-open` is the reader now, so
+> `closure_declared` has **one** implementation; a non-zero exit prints
+> "could not be counted", never "all clear".
 >
-> **Three drafts of the detector test were wrong the same way** — each
-> keyed on a *mutable value*. `ceiling == 25` is satisfied by a
-> `config.yaml` already reading 24 and a replacement that matched
-> nothing; `before == 7` pins a number the owner may change, so a sweep
-> legitimately retimed to 4 h read as a broken detector; and
-> `replace("scan_interval_hours: 6", …)` matches nothing the day that
-> leaf moves. What ships builds the mutation through parsed YAML and
-> asserts the **delta**. That is
-> *"a probe keys on identity, not a mutable field"* met inside the guard
-> written for it.
->
-> **Falsified in both directions, which is the part that took the
-> sitting.** Violations red — sweep 6 → 24, tray 24 → 6, sweep disabled,
-> judge poll 1 → 24. Legitimate configurations green or visibly skipped
-> — sweep retimed 6 → 4, reminder raised to 48, both reminders 0.
->
-> **No restart is owed and none was taken**, because no production code
-> changed — the daemon restarted at **2026-08-28 20:53:24**
-> <!--check:deploy--> <!--check:daemon_start--> for Session 117's fix and
-> has served since. `/health` answers
+> **No restart was needed and one was taken anyway.** No production code
+> changed — `snag_claims.py` is a composition root nothing in the
+> daemon's import graph reaches, and `claude-preflight.sh` is a script —
+> so the deploy check's red was its own documented false positive
+> (`ops_claims` rule 4: *"a file the daemon never imports — this one,
+> the moment it is written"*). That rule also says it fails in the
+> direction that costs a needless `kill -TERM`, which is a second and
+> unprivileged, and the alternative is a red line at the next preflight
+> teaching the reader to ignore the family. Daemon restarted
+> at **2026-08-29 09:21:36** <!--check:deploy--> <!--check:daemon_start-->,
+> clean journal. `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
 > packaged head <!--check:schema-->, and `alerts` holds **0** unresolved
 > rows <!--check:alerts--> with **0** named here
 > <!--check:open_titles-->.
 >
-> **Alembic head is 018**<!--check:migration_head--> — unchanged. A test
-> moves no schema.
+> **Alembic head is 018**<!--check:migration_head--> — unchanged. A
+> console-script flag moves no schema.
 >
-> **The suite is 2844**, from 2838: **6 added and none retired.** The
-> arithmetic is written down because a green suite cannot witness tests
-> that no longer exist — and it earned its keep here, since a
-> `git checkout` on the uncommitted test file destroyed the whole
-> addition mid-sitting and the count is what proved the rewrite was
-> complete.
+> **The suite is 2863**, from 2844: **19 added and none retired.** Nine
+> mutations were driven and each lands red on the intended test — the
+> empty read served as a count, the failed anchor defaulted to current,
+> `unmoved` rendered blank, totals compared, the closure filter dropped,
+> an unreadable document reported as success, one reader read as
+> agreement, the disagreement branch removed, and an unimportable parser
+> reported as measured.
 >
-> **`SNAG-CFG-003` is filed** for what the guard cannot reach: it runs
-> when the suite runs, `claude-precommit.sh` runs the schema check and
-> lints rather than pytest, and a `SIGHUP` installs a config from disk
-> reporting only whether each changed leaf could be *delivered* live.
-> Empty population, P4, and the cheap fix is the one
-> `may_quieten_in_place` rule 3 forbids — so it is a question for the
-> owner rather than an obvious repair.
+> **`SNAG-DOCS-007` is filed** as the stated cost: the paragraph still
+> writes the figure out in prose, so two producers of it remain and
+> nothing compares them. What the ruling buys is that the true figure is
+> printed twice a sitting *beside* the written one; what it does not buy
+> is anything that notices. P4, and it closes by the paragraph dropping
+> the numbers rather than by a check being written.
 
 
 ## Quick Status
@@ -104,7 +93,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **2844 green** | **2844 backend + tray** *(2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
+| Testing | 🟢 **2863 green** | **2863 backend + tray** *(2844 + 19 on 2026-08-29, Session 120: the derived movement line and the closure-aware banner reader in `tests/test_snag_claims.py`, none retired — nine mutations driven, each red on the intended test. Previously 2838 + 6 on 2026-08-28, Session 119: the reminder-ceiling guard in `tests/test_config_defaults.py`, none retired. **This row was a session stale when that was written** — it read 2832 while Session 117's block read 2838, so the row and the block disagreed about the same figure in one file, which is `SNAG-ESTATE-008`'s shape and the reason the arithmetic is carried rather than the total alone. Previously: 2801 + 53 − 22 on 2026-08-28 for `SNAG-LOG-008`, then 2832 + 26 − 20 for Session 117's `SNAG-ESTATE-010`.)* 
 | CI | 🟢 Complete | GitHub Actions: ruff + mypy-clean codebase + full pytest (headless Qt) |
 | LLM | 🟢 Complete | llama.cpp (llama-server :8081, OpenAI-compatible API) — migrated from Ollama 2026-07-24 |
 | Frontend | 🔴 Retired | Web UI died with PA (2026-07-24). The PyQt6 tray dashboard is now the only UI — see ideas.md for rebuilding it in Alfred's Nuxt frontend |
@@ -112,6 +101,39 @@
 ---
 
 ## Recently Completed
+
+### Session 120 — the figure a tool can derive is not a claim a human states (2026-08-29)
+
+Took Session 118's second open decision, which Session 119 carried
+forward unchanged. `snag_list.md`'s header paragraph records what moved
+this sitting and **nothing read it** — `ops_claims` reads `STATUS.md`'s
+block, `snag_claims` reads the entries' own claims, and the paragraph
+fell between them, six sittings stale when Session 118 found it.
+
+The ruling is to **derive rather than check**. `convention:movement` is
+the last line of every `sysadmin-check-snags` run: entry and open counts
+from estate-manager's own `read_snags`, and the delta against the anchor
+commit, whose sha and subject it names. Three measurements refused the
+obvious claim-check — the paragraph has no reader, the figure is
+derivable from `git show`, and thirteen paragraphs write the sentence
+seven ways.
+
+It is a measurement rather than a decoration because it has a red state:
+the two parsers disagreeing about the **open** count, which is the figure
+this register sweeps parting from the figure the board publishes. Totals
+are deliberately not compared. An empty read is `unknown` and never a
+count — Session 119 published `100 → 0 entries` off exactly that — and a
+failed anchor read is `unknown` and never `unmoved`.
+
+Found and fixed with it: **the banner was stating the open count two
+ways**, printing `76 open` eight lines below the checker's `18 open
+entries`, its list opening with ten entries titled FIXED.
+`sysadmin-check-snags --list-open` is the reader now, so
+`closure_declared` has one implementation instead of a shell
+approximation free to drift from the number above it.
+
+`SNAG-DOCS-007` is the stated cost: the paragraph still writes the figure
+out, so two producers remain and nothing compares them.
 
 ### Session 119 — the model is not the file (2026-08-28)
 

@@ -1,8 +1,137 @@
-# Handoff — 2026-08-28
+# Handoff — 2026-08-29
 
 ## Next action
 
-Decide whether anything should check the snag_list header paragraph, which Session 118 left open and Session 119 did not take: `check-snag-claims.sh` reads entry claims and `check-ops-claims.sh` reads STATUS.md's block, so the paragraph whose whole job is to record movement is read by neither, which is how it went six sittings without being written.
+Decide whether `SNAG-DOCS-007` closes by the header paragraph dropping its figures altogether, since the derivation now prints them at both ends of every sitting and the paragraph restating them is the only remaining second producer of that count.
+
+## Session 120 is complete — the figure a tool can derive is not a claim a human states
+
+Session 118's second open decision is **taken**, and the ruling is to
+**derive the movement figure rather than check the prose**.
+`sysadmin-check-snags` ends every run with `convention:movement`:
+
+```
+ok Snag list movement — 102 entries, 19 open — +1 entry and +1 open since c46872a
+   anchor c46872a — test(config): the model is not the file — the reminder ceiling is guarded
+   at the anchor: 101 entries, 18 open
+   dialect: bullet
+   read with …/estate-manager/lib/estate/snags.py at f482f3b, committed over there
+   this module's reader: 19 open of 77 under the open headings
+```
+
+**Three measurements refused the obvious claim-check.** The paragraph
+**has no reader** — `claude-preflight.sh` prints `STATUS.md`'s block,
+both claim reports and the entry bullets, and never this — so
+`ops_claims` rule 1, which buys that module's legitimacy from *"preflight
+already prints those claims, with nothing between the document and the
+reader"*, has no equivalent here. The figure is **derivable**: parsing
+`git show HEAD~1:docs/roadmap/snag_list.md` through the owning parser
+gives **100 / 17** against HEAD's **101 / 18**, precisely the movement
+Session 119 wrote by hand. And thirteen paragraphs write that sentence
+**seven ways**, so a pattern reports `unknown` more often than it
+measures. A figure a tool can derive should not be a claim a human
+states — checking the written count leaves two producers of one fact and
+deriving it leaves one.
+
+**It has a real red state, which is what stops it being a decorative
+number**: the two parsers disagreeing about the **open** count.
+`read_entries` sweeps this register and `read_snags` is what the estate
+board publishes about this repository; a divergence means those figures
+have come apart, and an entry under `Fixed Issues` that never declared
+closure is the reachable case. `TestAgainstTheOwningParser` pins the same
+pair only when the suite runs. **Totals are deliberately not compared** —
+102 rows there against 77 under the open headings is two populations by
+design, and comparing them would fire on every run.
+
+**The instrument reverses `snag_claims` rule 8 for one figure, and only
+because the fact under it moved.** That rule was written when
+`read_snags` lived in `estate_service` and could not be imported; it went
+to `estate.snags` in `estate-lib` at their `a5c1834`, and `estate-lib` is
+an editable install here. The entry sweep keeps its own narrowed reader —
+the two answer different questions — but this is the figure the **board
+publishes**, so a second implementation of it is the whole of rule 8 read
+the other way. The instrument line records **their** commit state and
+earned its keep immediately: they are at `f482f3b`, not the `0667f43`
+Session 119 wrote down.
+
+**Two failure modes are refused by name, and both have happened.** An
+empty read is `unknown` and never a count — `read_snags` takes the
+document's *text*, and handed a path it returns zero rows, which is what
+Session 119 published `100 → 0 entries, 17 → 0 open` off. The gate is the
+**rows** and not the dialect, because their vocabulary is theirs and
+spelling it out here is free to go stale. And a failed anchor read is
+`unknown` and never `unmoved`: the tempting default compares the document
+against itself, which reports no movement for a sitting that moved
+everything.
+
+**The anchor is a commit and names its sha and subject.** A sitting is
+not a git concept, and a file recording the boundary would be state free
+to disagree with the repository about the same fact. Both moments the
+report is actually read — preflight, and postflight before the docs
+commit — anchor correctly.
+
+## The banner was stating the open count two ways, and one was wrong by 4x
+
+Found on the way and fixed with it. `claude-preflight.sh` counted
+`^- \[P[0-9]\]` under `## Open Issues`, which is every bullet whatever
+its title says: it printed **76 open** eight lines below the snag-claims
+section's **18 open entries**, and the first ten rows of its list were
+titled **FIXED**. `ops_claims` rule 2 — one figure stated two ways —
+arriving in the surface that sets the agenda, with the wrong half
+carrying the list.
+
+`sysadmin-check-snags --list-open` is the reader now, so
+`closure_declared` has **one** implementation. A shell approximation of
+it would be a second statement of the rule, free to drift from the number
+printed eight lines up, which is the defect rather than a cheaper way to
+have it. A non-zero exit prints "could not be counted", never "all
+clear" — `ports_checked`'s rule at the size of a console script, since
+the caller renders empty stdout as "none open".
+
+## Verified on the box
+
+Suite **2844 → 2863**, nineteen added and none retired; `ruff` and `mypy
+sysadmin` clean. **Nine mutations driven and each lands red on the
+intended test** — the empty read served as a count, the failed anchor
+defaulted to current, `unmoved` rendered blank, totals compared, the
+closure filter dropped, an unreadable document reported as success, one
+reader read as agreement, the disagreement branch removed, and an
+unimportable parser reported as measured. All nine ops claims green;
+`check-snag-claims` reports **19 open, 2 carrying no check**.
+
+**No restart was needed and one was taken anyway.** Nothing in the
+daemon's import graph reaches `snag_claims`, so the deploy check's red
+was its own documented false positive (`ops_claims` rule 4). That rule
+says it fails in the direction that costs a needless `kill -TERM`; the
+alternative is a red line at the next preflight teaching the reader to
+ignore the family. Restarted **09:21:36**, clean journal, only the
+standing `api.auth_token` warning.
+
+**The mutations were driven against a scratchpad backup, never
+`git checkout`** — Session 119 lost its whole addition that way, and the
+file was compared byte-identical after each of the nine.
+
+## What Session 120 left undone, and why
+
+- **`SNAG-DOCS-007` carries no check**, which takes the register to 2 of
+  19 open entries unchecked. Session 119 declined one for
+  `SNAG-CFG-003` on the ground that writing one to this registry's
+  standard is a piece of work the size of a sitting's own, and the same
+  holds. The shape is named in the entry rather than left to be
+  invented: `SNAG-ESTATE-012`'s — drive `check_convention` and
+  `check_movement` over two specimens of this document, one with the
+  paragraph's figure altered and one with an open entry removed, and
+  assert the first moves nothing while the second moves the movement
+  line. The second arm is the witness, because an absence is what a
+  broken reader produces for free.
+- **The paragraph still states the figure**, which is `SNAG-DOCS-007`
+  itself and the ruling's stated cost rather than a defect in it. It
+  closes by the numbers coming out and the narrative staying, which is
+  what the ruling's own reasoning argues for and is the owner's call.
+- **`ops_claims` does not read this document and was not made to.** A
+  movement family there would give one document two readers, which is
+  the second-owner defect this repository has now found at seven scales;
+  the figure belongs to the module that already parses the file.
 
 ## Session 119 is complete — the model is not the file
 

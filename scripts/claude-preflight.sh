@@ -181,24 +181,34 @@ else
     echo -e "  ${YELLOW}Frontend: Not running${NC}"
 fi
 
-# 8. Snag list summary — only the "Open Issues" section counts
-#    (the old grep counted the whole file, so Fixed Issues inflated the totals)
+# 8. Snag list summary — the closure-aware reader, not a grep.
+#
+# This counted `^- \[P[0-9]\]` under `## Open Issues` until 2026-08-29,
+# which is every bullet in the section whatever its title says. That
+# printed **76 open** eight lines below the snag-claims section's
+# **18 open entries** — one figure stated two ways inside one banner, with
+# the wrong half carrying the list, whose first ten rows were titled
+# **FIXED**. `ops_claims` rule 2 in the surface that sets the agenda.
+#
+# `--list-open` is `sysadmin.snag_claims.list_open`, which applies
+# `closure_declared` — the rule the count above it already uses. A shell
+# approximation of that rule would be a second implementation of it, free
+# to drift from the number printed eight lines up, which is the defect
+# rather than a cheaper way to have it.
+#
+# **Exit non-zero prints "could not be counted", never "all clear"**:
+# `ports_checked`'s rule. `set -e` is on, so the status is captured.
 echo -e "\n${BLUE}🐛 Open snags:${NC}"
-SNAG_FILE="docs/roadmap/snag_list.md"
-if [ -f "$SNAG_FILE" ]; then
-    # Slice out the Open Issues section (up to the next ## heading),
-    # then keep only top-level snag bullets like "- [P1] SNAG-XXX: title"
-    OPEN_SNAGS=$(awk '/^## Open Issues/{flag=1; next} /^## /{flag=0} flag' "$SNAG_FILE" \
-        | grep -E '^- \[P[0-9]\]' || true)
-    if [ -z "$OPEN_SNAGS" ]; then
-        echo -e "  ${GREEN}None — all clear${NC}"
-    else
-        SNAG_COUNT=$(echo "$OPEN_SNAGS" | wc -l)
-        echo -e "  ${YELLOW}${SNAG_COUNT} open:${NC}"
-        echo "$OPEN_SNAGS" | sed 's/^- /  /'
-    fi
+OPEN_STATUS=0
+OPEN_SNAGS=$(./scripts/check-snag-claims.sh --list-open 2>/dev/null) || OPEN_STATUS=$?
+if [ "$OPEN_STATUS" -ne 0 ]; then
+    echo -e "  ${YELLOW}could not be counted — the closure-aware reader did not run${NC}"
+elif [ -z "$OPEN_SNAGS" ]; then
+    echo -e "  ${GREEN}None — all clear${NC}"
 else
-    echo -e "  ${YELLOW}snag_list.md not found${NC}"
+    SNAG_COUNT=$(echo "$OPEN_SNAGS" | wc -l)
+    echo -e "  ${YELLOW}${SNAG_COUNT} open:${NC}"
+    echo "$OPEN_SNAGS" | sed 's/^/  /'
 fi
 
 # 9. Testing reminder
