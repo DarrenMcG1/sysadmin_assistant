@@ -85,6 +85,22 @@ _INHIBIT_CACHE_SECONDS = 5.0
 FP_COALESCED = "sysadmin:new-alert-summary"
 FP_DIGEST = "sysadmin:warning-digest"
 FP_REMINDER = "sysadmin:still-open-summary"
+FP_BACKEND_UNREACHABLE = "sysadmin:backend-unreachable"
+
+#: What the tray calls a backend it cannot reach.  Deliberately about the
+#: *monitoring*, not about the machine: ``health_review.confidence_phrase``
+#: had to learn the same distinction after a model published "The machine
+#: was down for much of the week" about a box that was merely unwatched.
+BACKEND_UNREACHABLE_TITLE = "Monitoring is down"
+
+#: ``critical`` is derived rather than picked.  Session 39 settled that
+#: ``critical`` is the only severity the tray leaves on screen
+#: (:data:`_TIMEOUT_MAP` gives it ``0`` and the request carries
+#: ``transient=False``), and chose it for stalls because the owner's
+#: reported failure was "I never saw the toast".  The fault this family
+#: exists for ran **17h 09m** with the user at the machine and produced
+#: no interruption at all, which is that failure with the room occupied.
+BACKEND_UNREACHABLE_SEVERITY = "critical"
 
 _MAX_LISTED_TITLES = 5
 
@@ -154,6 +170,11 @@ class NotificationSettings:
     #: 0 disables reminders entirely.  See :meth:`NotificationPolicy._reminder`
     #: for why the default is 24 and why it is derived rather than picked.
     reminder_hours: float = 24.0
+    #: seconds an unreachable backend is tolerated before the tray speaks.
+    #: 0 disables the family.  See
+    #: :meth:`NotificationPolicy.evaluate_backend_unreachable` for the
+    #: derivation and the measurement it was checked against.
+    backend_unreachable_grace_seconds: float = 300.0
 
     @property
     def min_severity_level(self) -> int:
@@ -323,6 +344,202 @@ class NotificationPolicy:
 
         self._close_inactive(active, now)
         return requests
+
+    def evaluate_backend_unreachable(
+        self,
+        unreachable_for: float,
+        *,
+        dnd_active: bool = False,
+        dnd_allow_critical: bool = True,
+        desktop_inhibited: bool = False,
+    ) -> NotificationRequest | None:
+        """Decide whether an unreachable backend is worth interrupting for.
+
+        Called on every failed status poll with the episode's age in
+        seconds, and it is the only path in this module that is not fed
+        by an alert payload — by construction, since the process that
+        serves the alerts is the one that has died (`SNAG-TRAY-009`).
+
+        **The grace period is `max(3 × status_poll_seconds, 300 s)` = 300 s,
+        and both halves are borrowed rather than invented.**  The
+        multiplier is ``self_monitor.stall_grace_multiplier``'s 3.0, whose
+        argument — one missed observation is merely late and clears on the
+        next tick — transfers unchanged, and which
+        ``notifications.desktop.tray_grace_seconds`` already applies to a
+        tray poll ("3× the tray's alert_poll_seconds").  The floor is
+        ``self_monitor.min_stall_grace_seconds``' 300, whose stated reason
+        is literally *"so a restart doesn't flag the 60s log aggregator"* —
+        this family's noise population, one domain over.
+
+        Five rules, three of them the opposite of the obvious
+        implementation and every one settled against the box rather than
+        by argument:
+
+        1. **The floor is what does the work, because the multiple alone
+           derives from a leaf with two producers.**
+           ``status_poll_seconds`` defaults to ``10`` in
+           :class:`sysadmin_tray.config.TrayConfig` and is ``30`` in the
+           shipped ``config.yaml``, so "3× the poll interval" is 30 s on a
+           default install and 90 s here — a 3× spread in a number whose
+           job is to clear a daemon restart that does not move with the
+           poll interval at all.  The noise is bounded in **seconds** and
+           the observation is counted in **polls**; a pure poll count
+           would change meaning silently the day anyone edits the
+           interval, which is why the threshold is stored in seconds and
+           the polls only wake it.
+        2. **The bound it clears is measured, not assumed.**  Across 30
+           days the daemon's journal holds **104 deploy restarts of 2, 3,
+           12 or 13 seconds — maximum 13 s** — and nothing between that
+           and a reboot; the tray's own journal holds **27** windows
+           where it polled and got nothing, **every one exactly 60.0 s**,
+           which is one missed poll.  Against that, 300 s is 23× the
+           restart bound and 5× the widest window the tray has ever
+           observed.  The nearest real fault is **18,235 s** (5h 04m),
+           so the two populations are three orders of magnitude apart and
+           every value between them produces identical output —
+           ``INCIDENT_WINDOW_SECONDS``' shape.  300 sits *below* the
+           geometric midpoint (487 s) on purpose: the cost curve is
+           asymmetric, since firing early costs a toast on each of 104
+           deploys a month and firing late costs minutes of an outage
+           that ran hours.
+        3. **``escalation_polls`` is deliberately not applied.**  A new
+           ``critical`` normally opens at ``info`` and escalates once it
+           is still failing several polls later
+           (:meth:`_first_notification`, :meth:`_maybe_escalate`).
+           Waiting out the grace **is** that test, already passed, so
+           applying both would speak quietly at 300 s and loudly at
+           390 s about one fault.  The opening notification is therefore
+           the loud one, and it is the only family here that opens that
+           way.
+        4. **The episode is closed by the connection, never by an alert
+           poll.**  :meth:`_close_inactive` resets any fingerprint absent
+           from a poll, and this fingerprint is absent from every poll
+           because it is not an alert row — so it is excluded there and
+           :meth:`backend_reachable` owns it.  Letting an alerts payload
+           close it would make a question about reachability answerable
+           by the surface that cannot be read while it is open.
+        5. **Recovery is not announced**, matching the daemon's rule for
+           ``alert.resolved``.  The icon already goes green within one
+           poll, and a second toast per restart is the noise this whole
+           derivation exists to avoid.
+
+        The honest cost, filed rather than implied: the state is in
+        memory, so a tray restart re-opens the episode and re-speaks
+        after a fresh grace — :meth:`_reminder`'s rule 1 for its reason,
+        and here it is closer to desirable than not, since a tray
+        restarting into a dead daemon should say so.
+        """
+        settings = self.settings
+        grace = settings.backend_unreachable_grace_seconds
+        if not settings.enabled or grace <= 0:
+            return None
+        if unreachable_for < grace:
+            return None
+        if (
+            SEVERITY_LEVELS[BACKEND_UNREACHABLE_SEVERITY]
+            < settings.min_severity_level
+        ):
+            return None
+
+        now = self.clock()
+        state = self._states.get(FP_BACKEND_UNREACHABLE)
+        if state is None:
+            state = _FingerprintState(
+                fingerprint=FP_BACKEND_UNREACHABLE,
+                severity=BACKEND_UNREACHABLE_SEVERITY,
+            )
+            self._states[FP_BACKEND_UNREACHABLE] = state
+        state.episode_open = True
+        state.polls_active += 1
+
+        if self._is_snoozed(FP_BACKEND_UNREACHABLE, None):
+            return None
+        if self._suppressed_by_dnd(
+            BACKEND_UNREACHABLE_SEVERITY,
+            dnd_active=dnd_active,
+            dnd_allow_critical=dnd_allow_critical,
+            desktop_inhibited=desktop_inhibited,
+        ):
+            return None
+
+        if state.notified_this_episode:
+            if not self._reminder_due(state, now):
+                return None
+            state.last_notified_at = now
+            state.reminders_sent += 1
+            return self._backend_unreachable_request(
+                state, unreachable_for, reminder=True,
+            )
+
+        # Flap cooldown, for the same reason every other family gets it:
+        # a backend that fails the grace, recovers and fails it again
+        # inside the window is one story.  Empty population as measured —
+        # a restart loop is terminal at StartLimitBurst=5 within 600 s and
+        # each restart is 13 s, so it never reaches the grace at all —
+        # kept because its absence would be a special case, not a rule.
+        cooldown = settings.flap_cooldown_minutes * 60
+        if (
+            cooldown > 0
+            and state.last_notified_at is not None
+            and now - state.last_notified_at < cooldown
+        ):
+            state.suppressed_episodes += 1
+            return None
+
+        state.suppressed_episodes = 0
+        state.notified_this_episode = True
+        state.last_notified_at = now
+        state.first_notified_at = now
+        state.reminders_sent = 0
+        return self._backend_unreachable_request(state, unreachable_for)
+
+    def backend_reachable(self) -> None:
+        """Close the unreachable episode; the backend answered.
+
+        The counterpart to :meth:`evaluate_backend_unreachable`, and the
+        only thing that closes that episode (rule 4 there).
+        ``last_notified_at`` is deliberately **kept**: it is what the flap
+        cooldown measures against, so forgetting it here would let a
+        backend that fails the grace twice in five minutes speak twice.
+        """
+        state = self._states.get(FP_BACKEND_UNREACHABLE)
+        if state is None:
+            return
+        state.episode_open = False
+        state.polls_active = 0
+        state.notified_this_episode = False
+        state.escalated = False
+        state.first_notified_at = None
+        state.reminders_sent = 0
+        if state.last_notified_at is None:
+            del self._states[FP_BACKEND_UNREACHABLE]
+
+    def _backend_unreachable_request(
+        self, state: _FingerprintState, unreachable_for: float, *,
+        reminder: bool = False,
+    ) -> NotificationRequest:
+        """Build the notification for an unreachable backend."""
+        elapsed = humanise_hours(unreachable_for / 3600)
+        lines = [
+            f"No answer from the monitoring service for {elapsed}.",
+            "Alerts, service checks and log capture are all stopped.",
+        ]
+        # What this cannot say, and why SNAG-SYSD-005's login replay stays
+        # load-bearing: with the daemon dead the tray cannot read the
+        # alert row, so it cannot name _schema_diagnosis's CAUSE: line or
+        # the one command that fixes it.  It can say *that* monitoring is
+        # down; only the replay can say *why*.
+        lines.append("systemctl status sysadmin — journalctl -u sysadmin -n 50")
+        return NotificationRequest(
+            summary=f"{BACKEND_UNREACHABLE_SEVERITY.upper()}: sysadmin",
+            body=f"{BACKEND_UNREACHABLE_TITLE}\n" + "\n".join(lines),
+            severity=BACKEND_UNREACHABLE_SEVERITY,
+            alert_severity=BACKEND_UNREACHABLE_SEVERITY,
+            fingerprint=state.fingerprint,
+            transient=False,
+            snooze_key=f"fp:{state.fingerprint}",
+            reminder=reminder,
+        )
 
     def snooze(self, key: str, minutes: int | None = None) -> None:
         """Silence a fingerprint or service until the snooze expires.
@@ -588,10 +805,7 @@ class NotificationPolicy:
         mode that is ``false`` on this host and has no live observations
         behind it.
         """
-        interval = self.settings.reminder_hours * 3600
-        if interval <= 0 or state.last_notified_at is None:
-            return None
-        if now - state.last_notified_at < interval:
+        if not self._reminder_due(state, now):
             return None
 
         # `is None`, never `or`: a monotonic clock reading exactly 0.0 is
@@ -627,6 +841,20 @@ class NotificationPolicy:
             snooze_key=self.snooze_key_for(alert, state.fingerprint),
             reminder=True,
         )
+
+    def _reminder_due(self, state: _FingerprintState, now: float) -> bool:
+        """Whether ``reminder_hours`` has elapsed since the last thing said.
+
+        Extracted so the alert family and the unreachable-backend family
+        cannot come to disagree about when a restatement is due — two
+        statements of one interval is ``SNAG-DB-003``'s shape at the size
+        of a comparison.  ``0`` disables reminders for both, which is the
+        contract ``reminder_hours`` already publishes.
+        """
+        interval = self.settings.reminder_hours * 3600
+        if interval <= 0 or state.last_notified_at is None:
+            return False
+        return now - state.last_notified_at >= interval
 
     def _coalesce(
         self,
@@ -687,6 +915,12 @@ class NotificationPolicy:
         cooldown = self.settings.flap_cooldown_minutes * 60
         for fingerprint, state in list(self._states.items()):
             if fingerprint in active:
+                continue
+            if fingerprint == FP_BACKEND_UNREACHABLE:
+                # Never in ``active``: it is not an alert row, so "absent
+                # from this poll" carries no information about it.
+                # :meth:`backend_reachable` owns its lifecycle —
+                # ``evaluate_backend_unreachable`` rule 4.
                 continue
             state.episode_open = False
             state.polls_active = 0

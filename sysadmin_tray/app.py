@@ -89,6 +89,9 @@ class TrayApp:
             digest_interval_minutes=config.digest_interval_minutes,
             respect_desktop_dnd=config.respect_desktop_dnd,
             reminder_hours=config.reminder_hours,
+            backend_unreachable_grace_seconds=(
+                config.backend_unreachable_grace_seconds
+            ),
             muted_services=config.muted_services,
         )
 
@@ -102,6 +105,7 @@ class TrayApp:
         client.alerts_updated.connect(tray.update_from_alerts)
         client.connection_lost.connect(tray.on_connection_lost)
         client.connection_restored.connect(tray.on_connection_restored)
+        client.backend_unreachable.connect(tray.on_backend_unreachable)
 
         # TrayIcon → Dashboard (left click opens main dashboard)
         tray.popup_requested.connect(self._open_dashboard)

@@ -3,8 +3,73 @@
 **Last Updated**: 2026-08-29
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **A login-time replay was worth building, and the entry that asked for
-> it understated its own benefit by two orders of magnitude.**
+> **The tray speaks about a dead backend now, and the grace period the
+> entry called "the real work" was decided by two instruments that
+> disagree about nothing.** `SNAG-TRAY-009` is **fixed**:
+> `NotificationPolicy.evaluate_backend_unreachable` behind a
+> **300-second** grace, fed by a new `backend_unreachable(float)` tick
+> and a tri-state `_was_connected`. Both faces moved together, because
+> the entry is right that a fix for one is not half the benefit.
+>
+> **`max(3 × status_poll_seconds, 300 s)`, and both halves are
+> borrowed.** The 3 is `self_monitor.stall_grace_multiplier` — one
+> missed observation is merely late — which
+> `notifications.desktop.tray_grace_seconds` already applies to a tray
+> poll. The 300 is `min_stall_grace_seconds`, whose stated reason in
+> `config.yaml` is literally *"so a restart doesn't flag"* the fastest
+> agent: this family's noise population, one domain over. **The floor is
+> what does the work**, because `status_poll_seconds` is **10** in the
+> tray's model and **30** in the shipped file, so the multiple alone
+> spans 30–90 s while the daemon startup it must clear does not move
+> with the poll interval at all.
+>
+> **The two populations are 1,400× apart and there is nothing between
+> them.** The daemon's journal holds **104 deploy restarts of 2, 3, 12
+> or 13 s** in 30 days — max **13 s**, the one 276 s window having a
+> `-- Boot --` marker inside it. The tray's own journal, whose `httpx`
+> line is logged only on a *successful* `/health`, holds **27**
+> unreachable windows across 36,240 polls and **every one is exactly
+> 60.0 s** — one missed poll. Against a nearest real fault of **18,235 s**.
+> 300 s sits *below* the geometric midpoint (487 s) on purpose: firing
+> early costs a toast on each of 104 deploys a month, firing late costs
+> minutes of an outage that ran hours.
+>
+> **"Multiplicative" was understated — the two populations are
+> *disjoint*.** Both real outages were **arrivals** (tray started
+> 18:34:46 and 14:44:57 against an already-dead daemon), so
+> `connection_lost` never fired; every window it *did* fire on was a
+> 60 s deploy restart. The transition signal fired **only on noise and
+> never once on a fault**.
+>
+> **The retired check answered `match` against the fixed code**, which is
+> the part worth carrying. Its Face 1 predicate asked whether the emit
+> sits inside an `if` reading `_was_connected` — **`True` before and
+> after**, since the fix keeps the guard and corrects its polarity. Its
+> "initialised `False`" predicate matched **two** assignments at HEAD
+> (the initialiser *and* one inside `_on_disconnected`), so it was right
+> for the wrong reason and went on matching the second. A shape check
+> about a defect whose essence is a *value*. Retired with the entry; the
+> **corrected** predicate is re-homed in
+> `tests/test_tray/test_backend_unreachable.py`.
+>
+> **17 mutations, 34 tests, one falsification wrong on the first
+> attempt.** `test_the_shipped_file_reaches_the_policy` asserted
+> `load_tray_config(config.yaml) == the value in config.yaml`, and the
+> shipped 300 **is** the model default — green whether or not the loader
+> read the file. Deleting the key from `config.py`'s parse loop,
+> `SNAG-CFG-001`'s exact shape, survived it. It drives a mutated copy
+> carrying a witness value now.
+>
+> **Driven live, and Face 1 landed at 0.0 s.** Real `ApiClient`,
+> `TrayIcon`, policy at the shipped 300 s and real `DbusNotifier` on the
+> real session bus, pointed at a dead `127.0.0.1:8599` — an *arrival*.
+> `connection_lost` emitted on the first failed poll, silence held
+> through 29.6 / 59.6 / 89.6 s, one non-transient `critical` after the
+> grace.
+>
+> *Previously —* **A login-time replay was worth building, and the entry
+> that asked for it understated its own benefit by two orders of
+> magnitude.**
 > `SNAG-SYSD-005` is **fixed**: `sysadmin-replay-failures.service`, a
 > user unit wanted by `graphical-session.target`, announces at login
 > every unit failure still open. The entry priced the loss as the gap to
@@ -57,14 +122,25 @@
 > own trap is avoided by construction: a guard mutated to refuse
 > everything turns **three** live tests red and skips none.
 >
-> **Every open entry names a check again** — 19 open, **0** unchecked,
-> the property `SNAG-SYSD-005` broke on opening and its closure restores.
-> All 21 checks green.
+> **Every open entry names a check** — 18 open, **0** unchecked. The
+> retired `tray_silent_on_arrival` takes the count with it: a check
+> outliving its entry is the other half of that pin, and this one had
+> stopped discriminating anyway.
 >
-> Daemon restarted at **2026-08-29 20:58:45**
-> <!--check:deploy--> <!--check:daemon_start-->, clean journal, 12 jobs
-> scheduled. **Owed on the merits this time** — `sysadmin/core/unit_failure.py`
-> gained a reader and `create_app()` imports it. `/health` answers
+> Daemon restarted at **2026-08-29 21:33:11**
+> <!--check:deploy--> <!--check:daemon_start-->, clean journal. **Not owed
+> on the merits, and the check's stated cost is why** — this sitting's
+> code is all `sysadmin_tray/`, which the daemon does not serve, plus
+> `sysadmin/snag_claims.py`, which only the `sysadmin-check-snags`
+> console script imports. The deploy check compares `.py` mtimes under
+> `sysadmin/` and reports a restart owed for a file the daemon never
+> imports, which is the direction it fails in by design. Restarted
+> anyway, at 12.67 s of downtime — and it doubles as a live observation:
+> the restarted tray's polls at 21:32:54 and 21:33:25 both succeeded, so
+> the window fell **entirely between two polls** and the tray never saw
+> it. That is why 122 restarts in 30 days yield only 27 observed windows.
+> The real deploy was `systemctl --user restart sysadmin-tray.service`.
+> `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
 > packaged head <!--check:schema-->, and `alerts` holds **0** unresolved
 > rows <!--check:alerts--> with **0** named here
@@ -73,11 +149,14 @@
 > **Alembic head is 018**<!--check:migration_head--> — unchanged. A user
 > unit and a console script move no schema.
 >
-> **The suite is 2937**, from 2899: **38 added and none retired** — 26
-> in `tests/test_failure_replay.py`, 5 in the new
-> `tests/test_failure_replay_live.py`, and 7 unit-file guards in
-> `tests/test_systemd_units.py`. Arithmetic against the baseline rather
-> than a green suite, which cannot witness tests that no longer exist.
+> **The suite is 2971**, from 2937: **34 added and none retired**, all in
+> the new `tests/test_tray/test_backend_unreachable.py`. Arithmetic
+> against the baseline rather than a green suite, which cannot witness
+> tests that no longer exist — 2937 collected with the new file ignored.
+>
+> *Previously —* **The suite was 2937**, from 2899: 38 added and none
+> retired, in `tests/test_failure_replay.py` (26),
+> `tests/test_failure_replay_live.py` (5) and `tests/test_systemd_units.py` (7).
 
 
 > *Previously —* **A check written for one entry found the entry's own trap in its own

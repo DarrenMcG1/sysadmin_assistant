@@ -2,7 +2,94 @@
 
 ## Next action
 
-Take `SNAG-TRAY-009` on its own terms and decide the grace period before wiring the tray to speak about an unreachable backend, since this sitting measured 122 daemon starts in 30 days against a single 37.7-hour outage and a naive rule would fire on every deploy while the real fault went 22.2 hours unspoken.
+Take `SNAG-ESTATE-009` on its own terms and decide whether the dev-server quietening is worth a narrower fix than the two this repository has already refused, since the sweep is six-hourly and the judge hourly so a dev server started inside a sweep window still speaks at `warning`, and both named closures were rejected on cost rather than on correctness.
+
+## Session 127 is complete — the grace period the box already knew
+
+**`SNAG-TRAY-009` is fixed, and the number the entry called "the real
+work" was already written down twice on this box.**
+
+The tray now speaks about a backend it cannot reach, behind a **300-second**
+grace: `NotificationPolicy.evaluate_backend_unreachable`, fed by a new
+`ApiWorker.backend_unreachable(float)` tick and a tri-state
+`_was_connected`. Both faces moved together, because the entry is right
+that a fix for one is not half the benefit.
+
+**The grace is `max(3 × status_poll_seconds, 300 s)` and both halves are
+borrowed.** The 3 is `self_monitor.stall_grace_multiplier` — one missed
+observation is merely late — which `notifications.desktop.tray_grace_seconds`
+already applies to a tray poll. The 300 is `min_stall_grace_seconds`,
+whose stated reason in `config.yaml` is literally *"so a restart doesn't
+flag"* the fastest agent: this family's noise population, one domain over.
+
+**The floor is what does the work, and that is the one decision the
+derivation itself could have got wrong.** `status_poll_seconds` is **10**
+in the tray's pydantic model and **30** in the shipped `config.yaml`, so
+"3× the poll interval" spans 30–90 s — a 3× swing in a number whose job
+is to clear a 13-second daemon startup that does not move with the poll
+interval at all. The noise is bounded in *seconds* and the observation
+counted in *polls*, so the threshold is stored in seconds and the polls
+only wake it.
+
+**Two instruments, and they disagree about nothing.** The daemon's journal
+holds **104 deploy restarts of 2, 3, 12 or 13 s** in 30 days — max
+**13 s**, with the one 276 s window carrying a `-- Boot --` marker inside
+it and the six 8.9–12.5 h windows being the box off overnight. The tray's
+own journal — its `httpx` line is logged only on a *successful* `/health`,
+so a gap inside one tray life is a window in which it polled and got
+nothing — holds **27** such windows across 36,240 polls, **every one
+exactly 60.0 s**, one missed poll. Nearest real fault: **18,235 s**.
+300 s sits *below* the geometric midpoint (487 s) deliberately, because
+the cost curve is asymmetric.
+
+**The entry's "multiplicative" was understated — the populations are
+*disjoint*.** Both real outages were **arrivals** (tray started 18:34:46
+and 14:44:57 against an already-dead daemon), so `connection_lost` never
+fired; every window it *did* fire on was a 60 s deploy restart. The
+transition signal fired **only on noise and never once on a fault**.
+
+**The check was retired because it had stopped discriminating.** It
+answered `match` — "still silent" — against the fixed code. Its Face 1
+predicate asked whether the emit sits inside an `if` reading
+`_was_connected`, which is `True` before *and* after: the fix keeps the
+guard and corrects its polarity, so the defect was the guard's
+*reachability*, never its existence. Its "initialised `False`" predicate
+matched **two** assignments at HEAD — the initialiser and one inside
+`_on_disconnected` — so it was right for the wrong reason and went on
+matching the second. The **corrected** predicate is re-homed in
+`tests/test_tray/test_backend_unreachable.py`.
+
+**One falsification passed against deliberately broken code.**
+`test_the_shipped_file_reaches_the_policy` compared
+`load_tray_config(config.yaml)` to the value in `config.yaml` — and the
+shipped 300 **is** the model default, so it was green whether or not the
+loader ever read the file. Deleting the key from `config.py`'s parse loop
+(`SNAG-CFG-001`'s exact shape) survived it. It drives a mutated copy
+carrying a witness value now, and "the file and the model agree today" is
+a second test rather than the same one. The other 16 of 17 mutations each
+landed red on their intended test.
+
+**Driven live, and Face 1 landed at 0.0 s.** Real `ApiClient`, `TrayIcon`,
+policy at the shipped 300 s and real `DbusNotifier` on the real session
+bus, pointed at a dead `127.0.0.1:8599` — an *arrival*, which is the
+population. `connection_lost` emitted on the first failed poll, silence
+held through 29.6 / 59.6 / 89.6 / 299.6 s, one non-transient `critical` at
+329.6 s, nothing at 359.7 s. Then deployed
+(`systemctl --user restart sysadmin-tray.service`) and a real **12.67 s**
+daemon restart watched: its polls at 21:32:54 and 21:33:25 both succeeded,
+so the window fell entirely between two polls and the tray never saw it —
+which is why 122 restarts a month yield only 27 observed windows.
+
+**One claim written in this sitting was wrong and `services.yaml`
+refuted it.** The first draft of `tasks.md` filed the tray's own death as
+an uncovered gap. It is covered and documented: `monitor: false` with a
+stated reason, and the consequence held by `monitor/desktop.py`. All three
+directions are now closed — daemon dead → the tray speaks; tray dead →
+the understudy speaks; daemon dead at boot with nobody logged in →
+`sysadmin-replay-failures` at login.
+
+**Suite 2971** (2937 + 34, arithmetic against the baseline). Ruff and
+mypy clean, all 9 ops claims green, 18 open snags each naming a check.
 
 ## Session 126 is complete — the room was not empty, it was silent
 

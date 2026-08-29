@@ -52,6 +52,13 @@ class TrayConfig(BaseModel):
     respect_desktop_dnd: bool = True
     #: hours a still-open alert stays quiet before being restated; 0 = off
     reminder_hours: float = 24.0
+    #: seconds an unreachable backend is tolerated before the tray speaks;
+    #: 0 = off.  ``max(3 × status_poll_seconds, 300)`` — the floor is what
+    #: does the work here, because this leaf and ``status_poll_seconds``
+    #: disagree between the model and the shipped file.  Derivation and
+    #: measurement:
+    #: :meth:`sysadmin_tray.notifications.NotificationPolicy.evaluate_backend_unreachable`
+    backend_unreachable_grace_seconds: float = 300.0
     #: services whose alerts are permanently silenced (expected-down)
     muted_services: list[str] = Field(default_factory=list)
 
@@ -152,7 +159,7 @@ def load_tray_config(
     for key in ("flap_cooldown_minutes", "escalation_polls",
                 "coalesce_threshold", "snooze_minutes", "digest_mode",
                 "digest_interval_minutes", "respect_desktop_dnd",
-                "reminder_hours"):
+                "reminder_hours", "backend_unreachable_grace_seconds"):
         if key in notif_section:
             kwargs[key] = notif_section[key]
 

@@ -394,6 +394,69 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 127 — the grace period the box already knew (2026-08-29) ✅
+
+_`SNAG-TRAY-009` taken on its own terms. The grace period the entry called
+"the real work" turned out to be **already written down twice** on this
+box, and the measurement that checks it is bimodal with three orders of
+magnitude of nothing in between._
+
+- [x] **Measure before deciding, from two instruments.** The daemon's
+      journal: **104 deploy restarts of 2, 3, 12 or 13 s** over 30 days,
+      **max 13 s**, nothing between that and a reboot — the one 276 s
+      window has a `-- Boot --` marker inside it and the six 8.9–12.5 h
+      ones are the box off overnight. The tray's own journal, whose
+      `httpx` line is logged only on a *successful* `/health`: **27**
+      unreachable windows across 36,240 polls in 6 tray lives, **every
+      one exactly 60.0 s**. Three sampled windows cross-checked against
+      the daemon journal and all three are real restarts
+- [x] **Decide the grace: 300 s = `max(3 × status_poll_seconds, 300)`.**
+      Both halves borrowed — the 3 from `self_monitor.stall_grace_multiplier`,
+      the 300 from `min_stall_grace_seconds`, whose stated reason is
+      literally *"so a restart doesn't flag"* the fastest agent. **The
+      floor is what does the work**, because `status_poll_seconds` has
+      two producers (10 in the tray model, 30 in the shipped file) while
+      the 13 s it must clear does not move with the poll interval at all
+- [x] **Correct the entry's ranking: the two faces are *disjoint*, not
+      merely multiplicative.** Both real outages were **arrivals**, so
+      `connection_lost` never fired; every window it *did* fire on was a
+      60 s deploy restart. The transition signal fired only on noise and
+      never once on a fault
+- [x] **Fix Face 1** — tri-state `_was_connected` (`None` = nothing
+      observed yet), plus a `backend_unreachable(float)` tick carrying the
+      episode's monotonic age, emitted from the status poll alone
+- [x] **Fix Face 2** — `NotificationPolicy.evaluate_backend_unreachable`
+      and `backend_reachable`, wired through `on_backend_unreachable`.
+      `escalation_polls` deliberately **not** applied: the grace already
+      is that test, so it opens loud
+- [x] **Retire the check and re-home the corrected detector.** It answered
+      `match` against the fixed code — its Face 1 predicate is `True`
+      before *and* after, and its "initialised `False`" predicate matched
+      two assignments at HEAD, one of them inside a method. A shape check
+      about a defect whose essence is a value
+- [x] **Falsify all 34 tests: 17 mutations, each red on the right one.**
+      One survived first time — the config-leaf test compared the shipped
+      value to the model default, which are the same number, so it was
+      green with the parse key deleted (`SNAG-CFG-001`'s exact shape).
+      Driven at a mutated copy now
+- [x] **Drive it live.** Real `ApiClient`, `TrayIcon`, policy at the
+      shipped 300 s, real `DbusNotifier` on the real session bus, pointed
+      at a dead port — an *arrival*. `connection_lost` at 0.0 s, silent
+      through 299.6 s, one non-transient `critical` at 329.6 s, nothing at
+      359.7 s. Then deployed and a real 12.67 s daemon restart watched:
+      it fell entirely between two tray polls
+- [x] **Check the mirror case rather than assume it, and it is already
+      covered.** The obvious next worry is the tray's own death, and
+      `services.yaml` answers it: `sysadmin-tray` carries `monitor: false`
+      with a stated reason (it is `PartOf=graphical-session.target`, so a
+      check would alert every night) and the *consequence* is covered by
+      `monitor/desktop.py`, the understudy, which speaks whenever the tray
+      is not polling. So the two directions are both held: daemon dead →
+      the tray speaks (this sitting); tray dead → the understudy speaks
+      (2026-08-11); daemon dead at boot with nobody logged in →
+      `sysadmin-replay-failures` at login (`SNAG-SYSD-005`). Written as a
+      finding because the first draft of this list claimed the opposite
+
 ## Session 126 — the room was not empty, it was silent (2026-08-29) ✅
 
 _`SNAG-SYSD-005` taken on its own terms and the verdict is **yes, build

@@ -17,6 +17,7 @@ Error handling:
 from __future__ import annotations
 
 import logging
+import time
 
 import httpx
 from PyQt6.QtCore import QMutex, QObject, QThread, pyqtSignal, pyqtSlot
@@ -51,6 +52,14 @@ class ApiWorker(QObject):
     alerts_ready = pyqtSignal(object)        # AlertsResponse
     connection_lost = pyqtSignal()
     connection_restored = pyqtSignal()
+    #: every failed status poll, carrying the unreachable episode's age in
+    #: seconds.  ``connection_lost`` opens the episode and says nothing
+    #: about how long it has run; the grace period in
+    #: :class:`~sysadmin_tray.notifications.NotificationPolicy` needs a
+    #: repeating tick, and while the backend is down the status poll is
+    #: the only tick that still fires — every other surface the tray
+    #: reads is served by the process that has died.
+    backend_unreachable = pyqtSignal(float)  # seconds since the episode opened
     scan_complete = pyqtSignal(bool, str)    # success, message
     service_action_complete = pyqtSignal(str, str, bool, str)  # name, action, success, msg
     alert_acknowledged = pyqtSignal(str, bool, str)            # alert_id, success, msg
@@ -88,7 +97,30 @@ class ApiWorker(QObject):
         # require it, but sending it everywhere is harmless and simpler).
         headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
         self._client = httpx.Client(timeout=10.0, headers=headers)
-        self._was_connected = False
+        # Tri-state, and the third state is the whole of SNAG-TRAY-009's
+        # first face.  ``False`` used to be the initial value, so a tray
+        # that started against an already-dead backend had "never
+        # connected" and "was connected and then lost it" spelled the same
+        # way — and :meth:`_on_disconnected` only spoke for the second.
+        # That is not an edge case here: ``graphical-session.target`` is
+        # reached long after a boot-time failure, so *starting* against a
+        # dead daemon is the common shape.  Measured across the
+        # 2026-08-22/23 outage, both silent sessions (5h 04m and 17h 09m)
+        # were arrivals and every window this signal did fire on was a
+        # 60-second deploy restart — the signal fired only on noise and
+        # never once on a fault.
+        #
+        #   None  — nothing observed yet
+        #   True  — the last observation reached the backend
+        #   False — the last observation did not
+        self._was_connected: bool | None = None
+        #: monotonic start of the current unreachable episode, or ``None``
+        #: when the backend is reachable.  Monotonic rather than wall
+        #: clock for ``TrayPresence``'s reason: it does not advance across
+        #: a suspend, and a suspended box is one where neither this
+        #: process nor the daemon nor the human was running, so it
+        #: correctly counts nothing towards the grace period.
+        self._unreachable_since: float | None = None
         self._mutex = QMutex()
 
     # ── Fetch methods (called via signal from main thread) ───────────
@@ -108,7 +140,14 @@ class ApiWorker(QObject):
             self.status_ready.emit(status)
         except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             logger.debug("status fetch failed: %s", exc)
-            self._on_disconnected()
+            # Only the status poll carries the tick.  Every fetch method
+            # calls ``_on_disconnected`` so the episode clock starts at
+            # whichever request failed first, but the tick is emitted from
+            # one of them: the cadence a grace period is measured against
+            # must be a single interval the operator can name, and the
+            # others (resources, alerts, dashboard tabs) fire on their own
+            # timers or on a click.
+            self.backend_unreachable.emit(self._on_disconnected())
 
     @pyqtSlot()
     def fetch_resources(self) -> None:
@@ -398,18 +437,36 @@ class ApiWorker(QObject):
     def _on_connected(self) -> None:
         self._mutex.lock()
         try:
-            if not self._was_connected:
+            self._unreachable_since = None
+            if self._was_connected is not True:
                 self._was_connected = True
                 self.connection_restored.emit()
         finally:
             self._mutex.unlock()
 
-    def _on_disconnected(self) -> None:
+    def _on_disconnected(self) -> float:
+        """Record a failed reach and return the episode's age in seconds.
+
+        ``is not False`` rather than the old truthiness test: ``None``
+        means nothing has been observed yet, and a first observation that
+        fails is news exactly as a transition is.  See
+        :attr:`_was_connected` for why that is the population that
+        matters rather than an edge case.
+
+        The returned age is what :meth:`fetch_status` carries on
+        ``backend_unreachable``.  It is computed here so the episode's
+        start and its age are read under one lock — two callers asking
+        the clock separately could disagree about the same episode.
+        """
         self._mutex.lock()
         try:
-            if self._was_connected:
+            if self._unreachable_since is None:
+                self._unreachable_since = time.monotonic()
+            age = time.monotonic() - self._unreachable_since
+            if self._was_connected is not False:
                 self._was_connected = False
                 self.connection_lost.emit()
+            return age
         finally:
             self._mutex.unlock()
 
@@ -427,6 +484,7 @@ class ApiClient(QObject):
         - ``alerts_updated(AlertsResponse)``
         - ``connection_lost()``
         - ``connection_restored()``
+        - ``backend_unreachable(float)``
         - ``scan_complete(bool, str)``
     """
 
@@ -436,6 +494,7 @@ class ApiClient(QObject):
     alerts_updated = pyqtSignal(object)
     connection_lost = pyqtSignal()
     connection_restored = pyqtSignal()
+    backend_unreachable = pyqtSignal(float)  # seconds since the episode opened
     scan_complete = pyqtSignal(bool, str)
     service_action_complete = pyqtSignal(str, str, bool, str)  # name, action, ok, msg
     alert_acknowledged = pyqtSignal(str, bool, str)            # id, ok, msg
@@ -527,6 +586,7 @@ class ApiClient(QObject):
         self._worker.alerts_ready.connect(self.alerts_updated)
         self._worker.connection_lost.connect(self.connection_lost)
         self._worker.connection_restored.connect(self.connection_restored)
+        self._worker.backend_unreachable.connect(self.backend_unreachable)
         self._worker.scan_complete.connect(self.scan_complete)
         self._worker.service_action_complete.connect(self.service_action_complete)
         self._worker.alert_acknowledged.connect(self.alert_acknowledged)

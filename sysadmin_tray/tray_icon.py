@@ -156,7 +156,39 @@ class TrayIcon(QSystemTrayIcon):
     def on_connection_restored(self) -> None:
         """Called when the backend becomes reachable again."""
         self._backend_reachable = True
+        self._policy.backend_reachable()
         self._recompute_state()
+
+    def on_backend_unreachable(self, unreachable_for: float) -> None:
+        """Called on every failed status poll, with the episode's age.
+
+        The other half of `SNAG-TRAY-009`.  :meth:`on_connection_lost`
+        recoloured an icon and told nobody — there was no path from it to
+        this module at all — so even a backend dying while the tray
+        watched produced a colour change in a corner of the screen and
+        nothing else.
+
+        The decision is the policy's, not this widget's: what reaches
+        here is an elapsed time, and whether that is worth interrupting
+        for is ``NotificationPolicy``'s question, beside the dedup, flap
+        cooldown and reminder rules it already owns.  A speaker of its
+        own here would be the second-owner defect this repository has
+        found at seven scales.
+
+        ``self._dnd_active`` is the last value ``/api/sysadmin/dnd``
+        returned before the outage and cannot be refreshed — that route
+        is served by the dead process.  Stale is the honest input: the
+        alternative is to guess, and at ``critical`` with
+        ``allow_critical`` the answer does not move either way.
+        """
+        request = self._policy.evaluate_backend_unreachable(
+            unreachable_for,
+            dnd_active=self._dnd_active,
+            dnd_allow_critical=self._dnd_allow_critical,
+            desktop_inhibited=self._desktop_inhibited(),
+        )
+        if request is not None:
+            self._dispatch(request)
 
     def update_dnd_status(self, dnd_status: dict) -> None:
         """Called when DND status data arrives from the backend."""
@@ -221,6 +253,7 @@ class TrayIcon(QSystemTrayIcon):
         digest_interval_minutes: int | None = None,
         respect_desktop_dnd: bool | None = None,
         reminder_hours: float | None = None,
+        backend_unreachable_grace_seconds: float | None = None,
         muted_services: list[str] | None = None,
     ) -> None:
         """Configure desktop notification behaviour.
@@ -242,6 +275,7 @@ class TrayIcon(QSystemTrayIcon):
             "digest_interval_minutes": digest_interval_minutes,
             "respect_desktop_dnd": respect_desktop_dnd,
             "reminder_hours": reminder_hours,
+            "backend_unreachable_grace_seconds": backend_unreachable_grace_seconds,
         }
         for name, value in overrides.items():
             if value is not None:

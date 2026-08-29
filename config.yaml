@@ -105,6 +105,27 @@ notifications:
     # already heard quietly. Shorten it and the escalation stops being
     # the first thing you hear twice.
     reminder_hours: 24
+    # Seconds an unreachable backend is tolerated before the tray says so
+    # (0 disables the family). SNAG-TRAY-009: across the 2026-08-22 outage
+    # the tray polled a dead daemon for 22.2 hours across two sessions,
+    # displayed a grey icon and never interrupted anyone.
+    #
+    # DERIVED, not picked: max(3 × status_poll_seconds, 300). The 3 is
+    # self_monitor.stall_grace_multiplier (~line 137) — one missed
+    # observation is merely late — and the 300 floor is that section's
+    # min_stall_grace_seconds, whose stated reason is "so a restart
+    # doesn't flag" the fastest agent. The FLOOR is what does the work:
+    # status_poll_seconds is 10 in the tray model and 30 in this file, so
+    # the multiple alone spans 30–90 s while the noise it must clear does
+    # not move with the poll interval at all.
+    #
+    # Checked against the box rather than reasoned about: 30 days hold 104
+    # deploy restarts of 2, 3, 12 or 13 s (max 13 s) and 27 tray-observed
+    # unreachable windows of exactly 60.0 s — one missed poll — against a
+    # real fault of 5h 04m. 300 s is 23× the restart bound and 1.6 % of
+    # the shorter outage. Do NOT lower this towards the poll interval: at
+    # 3.5 deploys a day the family becomes noise and gets muted.
+    backend_unreachable_grace_seconds: 300
     # Services that are expected to be down — never worth a toast. Use the
     # monitored-service name, including the ones projects.yaml contributes
     # (e.g. alfred, alfred-frontend). A service declared below with
