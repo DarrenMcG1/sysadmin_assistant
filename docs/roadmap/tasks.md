@@ -16,6 +16,73 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 140 — the measurement named the wrong contender, and the
+      box had already recorded the right one.** *(2026-08-30.)*
+      `SNAG-SCHED-001` owed one number before its two fixes could be
+      ranked; taking it **re-ranked the entry** instead. Three findings,
+      each measured on this box rather than read off the estate's prose.
+      - **This repository gates, and its own check could not see it.**
+        `sysadmin/core/llm_client.py:134` calls `ensure_gpu_idle(...)`
+        from `estate.gpu` at threshold **25** — one pre-dispatch read,
+        `GpuBusy` → `return None` → `llm_used=False`. The entry's AST
+        walk searched `estate_queue`, `wait_for_dgpu` and two literals,
+        found none, and the sentence it supported generalised that into
+        *"neither party is gating"*. The walk was right about its four
+        names. Filed and fixed as **`SNAG-SCHED-002`**.
+      - **The obvious repair is the harmful one**, which is why it is its
+        own entry rather than a typo: adding `ensure_gpu_idle` to the
+        refuting set reports `SNAG-SCHED-001`'s first named fix as landed
+        on the strength of a gate that **predates it by eighteen days**
+        and fixes nothing — and that gate is the *mechanism by which the
+        entry hurts*, since without it the collision would cost a slow
+        review rather than the narrative. The vocabulary is split by what
+        a gate **does**: `GPU_ARBITRATION_NAMES` wait and refute,
+        `GPU_DEFERRAL_NAMES` read once and are reported as evidence that
+        never can. `_gpu_gate_mentions` takes its vocabulary as a
+        parameter rather than being written twice.
+      - **The occupant at 05:45 is the drain, not the estate.** This
+        box's journal: `venture-enrich-nightly.service` finished
+        **05:47:18, 05:45:15, 05:46:58, 05:45:22 and 05:45:26** on 08-26
+        → 08-30 — *the same five values the estate published as its
+        granted band*, so their band is the drain's finish and their
+        review is granted after it. Every one is after our 05:45:00
+        dispatch. `resource_snapshots` corroborate in two independent
+        signals: **99 %** busy at 05:44:45 on 08-30, `vram_used_mb`
+        **19,870 → 11,112** across the release.
+      - **A generation is under six seconds, so the two never overlap.**
+        The real prompt dispatched raw — no gate, no write — gives
+        **80.0 tok/s** solo over 3 runs and **62.4** per stream with two
+        in flight over 4: **22.1 %** cost, both completing, nothing
+        failing against a 120 s timeout, worst single run **5.85 s**.
+        Session 79's fifteen-minute spacing was over-provisioned by two
+        orders of magnitude and was never the scarce thing.
+      - **So the chain is the entry, not the slot — `SNAG-SCHED-003`, P2.**
+        Since the drain moved to 00:00, health reads **12 of 12** samples
+        over the gate's own threshold and log **12 of 12**, against
+        disk's **5 of 12**: the two reviews `SNAG-SCHED-001` does not
+        mention sit squarely inside an occupancy no schedule leaf
+        reaches. The estate meets the identical fault and **waits** up to
+        1800 s for its narrative where we defer and lose ours — the
+        ranking inverted, since the entry priced the lease as the
+        expensive option.
+      - **Why the entry's own named measurement was not run as written.**
+        Run now it answers the wrong question: the desktop holds the card
+        at a **66.2 %** mean with **97.3 %** of 150 samples over the
+        threshold, so both reviews fall back for a reason that is not the
+        collision — and driving the estate's `POST
+        /api/projects/review/generate` would have written a
+        `project_reviews` row to buy that confounded reading.
+      - **+20 tests, 3160 → 3180**, baseline measured by stashing rather
+        than read off a STATUS row that said **3107**. Eleven mutations
+        driven and **one passed against deliberately broken code**:
+        unanimity survived where the majority rule was meant, because the
+        specimen had its slot at **6 of 6** — a reading both rules agree
+        about. A second guard was strengthened before being driven, the
+        threshold pin having asserted a *value* where it meant
+        *provenance*.
+      - **Not observed yet, and the date is fixed**: no Monday has run in
+        the new regime. **2026-08-31** is the first, and the prediction
+        `SNAG-SCHED-003` makes is false, false, false.
 - [x] **Session 139 — the gauge moved and the threshold deliberately did
       not.** *(2026-08-30.)* Estate message `d1939cf7` **acted on and
       closed**. estate-manager's weekly review now *takes* a GPU lease

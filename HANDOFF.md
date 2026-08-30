@@ -2,7 +2,115 @@
 
 ## Next action
 
-Measure what `SNAG-SCHED-001` owes before choosing between its two fixes, by running this repository's disk review and the estate's weekly review against llama-server at the same moment and recording each one's wall-clock and whether either fell back to a digest, or equivalently by reading `llm_used` on the estate's board and `GET /api/files/review` on the next two Mondays, because the entry deliberately claims only that Session 79's fifteen-minute chain spacing is now false and unmeasured — the estate's review no longer generates at 05:30 but at the moment its GPU lease is granted, 05:45:15-05:47:18 on their five measured nights, which is this repository's disk-review slot at 05:45 — and that one number decides whether the cheap fix (move `schedules.disk_review_minute`, one leaf, but re-derived against another repository's timer and so one schedule change from being wrong again) or the durable one (take a lease from 8400 in the review path, which costs a dependency on the estate inside a job that must still run when the estate is down) is worth its cost.
+Read the three `llm_used` values this box writes on Monday 2026-08-31 — `GET /api/sysadmin/review` at 05:00, `GET /api/logs/review` at 05:15 and `GET /api/files/review` at 05:45, or `SELECT generated_at, llm_used FROM sysadmin.health_reviews UNION ALL ...` across the three tables — because `SNAG-SCHED-003` predicts all three come back **false** and 08-31 is the first Monday since `venture-enrich-nightly` moved to 00:00 and began holding the card until 05:45:15-05:47:18, so a false-false-false confirms the mechanism and licenses the lease fix outright while any single `true` refutes the mechanism rather than merely the scope and sends the next sitting back to the occupancy measurement before it changes any code.
+
+## Session 140 is complete — the measurement named the wrong contender, and the box had already recorded the right one
+
+**`SNAG-SCHED-001` owed one number and taking it re-ranked the entry.**
+The entry asked for two concurrent generations timed against
+llama-server. What the box says is that the two generations never
+overlap, that the contender is a third party the entry does not name,
+and that this repository has been gating on the card all along.
+
+**This repository gates, and the entry's own check could not see it.**
+`sysadmin/core/llm_client.py:134` calls `ensure_gpu_idle(...)` from
+`estate.gpu` at threshold **25** — one pre-dispatch read, `GpuBusy` →
+`return None` → `llm_used=False` → digest. The entry's AST walk searched
+`estate_queue`, `wait_for_dgpu` and two literals, found none, and the
+sentence it supported read *"neither party is gating"*. The walk was
+correct about its four names; the generalisation was not, and
+`sysadmin-check-snags` printed `gpu gates under sysadmin/: none` over a
+repository that has gated since 2026-08-12. Filed and fixed as
+**`SNAG-SCHED-002`**.
+
+**The obvious repair is the harmful one, and that is why it is its own
+entry.** Adding `ensure_gpu_idle` to the refuting set flips half 1 to
+`mismatch` and reports `SNAG-SCHED-001`'s first named fix as landed — on
+the strength of a gate that **predates the entry by eighteen days** and
+fixes nothing. Worse, that gate is the *mechanism by which the entry
+hurts*: without it the collision would cost a slow review, with it the
+collision costs the narrative outright. The vocabulary is split by what
+a gate **does** rather than by whether one exists —
+`GPU_ARBITRATION_NAMES` wait and therefore refute,
+`GPU_DEFERRAL_NAMES` read once and are reported beside them as evidence
+that can never refute. `_gpu_gate_mentions` takes its vocabulary as a
+parameter, since a second body is free to drift from the first about
+what "binds" means. **The verdict does not move**, which is the point:
+this repairs what the check *says*, not what it decides.
+
+**The occupant at our dispatch instant is `venture-enrich-nightly`, and
+this box's own journal is what says so.** The drain finished
+**05:47:18, 05:45:15, 05:46:58, 05:45:22 and 05:45:26** on 08-26 →
+08-30 — *the same five values the estate published as "the drain
+released at"*, so their granted band **is** the drain's finish and their
+review is granted after it. Every one is after our 05:45:00 dispatch, by
+15 s to 2 min 18 s. `resource_snapshots` corroborate independently in
+two signals at once: `gpu_percent` **99 at 05:44:45** on 08-30, and
+`vram_used_mb` **19,870 → 11,112** across the release.
+
+**A generation takes under six seconds, so the two never overlap at
+all.** The real disk-review prompt (385 prompt tokens) dispatched raw —
+no gate, no write — gives **80.0 tok/s** solo over three runs and
+**62.4 tok/s** per stream with two in flight over four: **77.9 % of
+solo, a 22.1 % cost**, both completing, nothing failing against a 120 s
+timeout, worst single run **5.85 s**. A 05:45:00 dispatch is finished by
+~05:45:06, before the earliest grant. Session 79's fifteen-minute
+spacing was over-provisioned by roughly two orders of magnitude and was
+never the scarce resource; the drain's **5 h 45 m** is.
+
+**So the chain is the entry, not the slot — `SNAG-SCHED-003`, filed
+P2.** Since the drain moved to 00:00, `resource_snapshots` in a ±300 s
+window round each slot read health **12 of 12** samples over the gate's
+own threshold, log **12 of 12**, disk **5 of 12**. The two reviews
+`SNAG-SCHED-001` does not mention sit squarely inside an occupancy no
+schedule leaf in that entry reaches, and there is no minute to move them
+to: the hold runs 00:00 → ~05:45 and the 06:00 briefing is the fixed end
+of the chain. **The estate meets the identical fault and does not pay
+it** — `estate-manager-review.service` logged `llm_gpu_busy` →
+`project_review_llm_unavailable_used_fallback` on 08-17 and 08-24,
+finishing in **368 ms and 390 ms**, and responded by taking a lease and
+**waiting** up to 1800 s. On the same fault they now wait and get their
+narrative while we defer and lose ours. That inverts the entry's
+ranking, which priced the lease as the expensive option.
+
+**Why the entry's own named measurement was not run as written.** Run
+now it answers the wrong question: the desktop holds the card at a
+**66.2 %** mean with **97.3 %** of 150 samples over the threshold, so
+both reviews would fall back for a reason that is not the collision —
+and driving the estate's `POST /api/projects/review/generate` would have
+written a `project_reviews` row into another repository's database to
+buy that confounded reading. The contention half was driven raw against
+llama-server instead, which is the faithful form of the same question
+and writes nothing anywhere.
+
+**Decided and not done, deliberately.** Neither fix is landed. The
+measurement now says which one to take — a lease, because it arbitrates
+against the holder wherever the boundary lands, and the boundary is
+another repository's **workload**, whose wall clock has ranged **1 h
+14 m to 5 h 47 m** across the recorded nights. Moving leaves chases a
+4½-hour spread. But `SNAG-SCHED-003` has **not been observed once**: no
+Monday has run in the new regime, so the fix waits on 08-31 rather than
+on an argument.
+
+**+20 tests, 3160 → 3180.** The baseline was measured by stashing to
+HEAD and re-collecting rather than read off the STATUS row, which said
+**3107** — a 53-test gap and `SNAG-ESTATE-008`'s shape in that cell for
+the third time. Eleven mutations driven, each red on the intended tests,
+and **one passed against deliberately broken code**: replacing the
+majority rule with unanimity survived because the specimen for *"one
+slot inside is enough"* had that slot at **6 of 6**, a reading both
+rules agree about; it is **4 of 6** now with a boundary test at exactly
+half. A second guard was strengthened before it could be driven — the
+threshold pin compared the detail against `get_config()`, which passes
+just as well over a hard-coded `25` while the shipped threshold happens
+to be 25, so it now *moves* the threshold and requires the reading to
+move with it.
+
+**Nothing was filed at the estate.** Their published band is accurate
+and their own review is correctly protected; what this sitting found is
+that this repository read their band as *their review's* rather than as
+*the drain's*, which is ours to have got wrong. No cross-repo friction
+was incurred.
 
 ## Session 139 is complete — the gauge moved and the threshold deliberately did not
 

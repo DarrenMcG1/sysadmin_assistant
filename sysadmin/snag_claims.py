@@ -709,14 +709,32 @@ ESTATE_GRANT_BAND_SECONDS = (915, 1038)
 #: the chain at the front rather than shortening it.
 CHAIN_SPACING_SECONDS = 15 * 60
 
-#: Identifiers a review path here would bind to in order to gate on the
-#: card — the estate's queue client, or the estate's own wait helper.
-GPU_GATE_NAMES = frozenset({"estate_queue", "wait_for_dgpu"})
+#: Identifiers a review path here would bind to in order to **arbitrate**
+#: for the card — the estate's queue client, or the estate's own wait
+#: helper.  Both *wait*: they return when the card is free.
+#:
+#: **This is not the same thing as gating, and conflating the two is what
+#: `SNAG-SCHED-002` was** (measured 2026-08-30).  A *deferring* gate
+#: (:data:`GPU_DEFERRAL_NAMES`) reads the card once and gives up; an
+#: arbitrating one queues for it.  Only the second is
+#: ``SNAG-SCHED-001``'s first named fix, because only the second turns a
+#: digest back into a narrative — so only the second may refute it.  The
+#: first has been present since 2026-08-12 and refutes nothing.
+GPU_ARBITRATION_NAMES = frozenset({"estate_queue", "wait_for_dgpu"})
 
-#: The same gate spelled as data rather than as code: the helper's path
-#: on disk, and the lease route on 8400.  Both are string literals, which
-#: is why this check reads two node kinds rather than one.
-GPU_GATE_LITERALS = ("wait-for-dgpu", "/api/queue/lease")
+#: The same arbitration spelled as data rather than as code: the helper's
+#: path on disk, and the lease route on 8400.  Both are string literals,
+#: which is why this check reads two node kinds rather than one.
+GPU_ARBITRATION_LITERALS = ("wait-for-dgpu", "/api/queue/lease")
+
+#: Identifiers for the *deferring* gate: one pre-dispatch read of
+#: ``gpu_busy_percent`` against a threshold, ``GpuBusy`` raised above it,
+#: and the caller degrading to a digest.  Reported as **evidence and
+#: never as a refutation** — printing ``none`` here over
+#: ``sysadmin/core/llm_client.py``'s live call is the defect
+#: `SNAG-SCHED-002` records, and promoting it to a refutation would
+#: retire ``SNAG-SCHED-001`` on the strength of a gate that predates it.
+GPU_DEFERRAL_NAMES = frozenset({"ensure_gpu_idle", "GpuBusy"})
 
 
 def user_unit_calendar(unit: str) -> tuple[str, str]:
@@ -743,6 +761,40 @@ def user_unit_calendar(unit: str) -> tuple[str, str]:
         elif line.startswith("LoadState="):
             state = line.split("=", 1)[1].strip()
     return calendar, state or "unmeasured (no LoadState)"
+
+
+#: The unit that actually holds the card across this repository's Monday
+#: review chain.  Another repository's timer; this check reads only its
+#: ``LoadState`` and **this box's own** ``resource_snapshots`` — never
+#: venture-assistant's database, which estate rule 1 forbids.
+DRAIN_UNIT = "venture-enrich-nightly.timer"
+
+#: The night ``venture-enrich-nightly`` moved to ``OnCalendar=00:00`` and
+#: began running ~5 h 45 m, so its busy tail landed at 05:45 instead of
+#: 05:30.  Samples before this describe a schedule that no longer exists,
+#: and mixing the two eras is what would make the 05:00 slot read 54.7 %
+#: instead of 99.6 %.
+DRAIN_RESCHEDULED = "2026-08-25"
+
+#: Half-width of the window sampled around each slot.  The sysadmin agent
+#: polls every 300 s, so a narrower window can observe *nothing* on a
+#: given night and a wider one reaches the neighbouring slot — 05:00,
+#: 05:15 and 05:45 are 900 s apart, so ±300 s is the largest width that
+#: keeps the three populations disjoint.  Derived, not invented.
+SLOT_WINDOW_SECONDS = 300
+
+#: Below this many samples in a slot's window the reading is ``unknown``
+#: rather than a fraction, because one poll on one night is not an
+#: occupancy.  ``ports_checked``'s rule: zero-because-blind is never
+#: served as zero-because-clean.
+MIN_SLOT_SAMPLES = 5
+
+#: The fraction of a slot's samples that must exceed the gate's own
+#: threshold before the slot counts as generating into a busy card.  A
+#: simple majority, and deliberately coarse: the live readings are 100 %,
+#: 100 % and 42 %, so nothing between 0.5 and 0.99 changes the verdict
+#: and the constant sits three readings away from anything it decides.
+BUSY_MAJORITY = 0.5
 
 
 def _slot_seconds(hour: int, minute: int) -> int:
@@ -790,15 +842,22 @@ def _docstring_nodes(tree: ast.Module) -> set[int]:
     return found
 
 
-def _gpu_gate_mentions() -> list[str]:
-    """Every place under ``sysadmin/`` that binds a way to gate on the card.
+def _gpu_gate_mentions(
+    names: frozenset[str], literals: tuple[str, ...] = ()
+) -> list[str]:
+    """Every place under ``sysadmin/`` that binds one of ``names``.
 
-    Two node kinds because the gate has two spellings: an identifier
-    (:data:`GPU_GATE_NAMES` — the estate's queue client, or their wait
-    helper) and a string literal (:data:`GPU_GATE_LITERALS` — the
-    helper's path, the lease route). A comment or a docstring naming
-    either is **not** a gate, and this module is skipped entirely because
-    it names all four in order to look for them.
+    Two node kinds because a gate can have two spellings: an identifier
+    (the estate's queue client, their wait helper, their busy check) and
+    a string literal (the helper's path, the lease route). A comment or a
+    docstring naming either is **not** a binding, and this module is
+    skipped entirely because it names all of them in order to look for
+    them.
+
+    **Parameterised rather than two walkers**, because the two questions
+    differ only in their vocabulary and a second body is free to drift
+    from the first about what "binds" means — ``metadata.py``'s argument
+    for one statement of ``include_object`` at the size of an AST walk.
     """
     found: list[str] = []
     for path in _python_files([REPO_ROOT / "sysadmin"]):
@@ -810,17 +869,17 @@ def _gpu_gate_mentions() -> list[str]:
         docstrings = _docstring_nodes(tree)
         for node in ast.walk(tree):
             hit = False
-            if isinstance(node, ast.Name) and node.id in GPU_GATE_NAMES:
+            if isinstance(node, ast.Name) and node.id in names:
                 hit = True
-            elif isinstance(node, ast.Attribute) and node.attr in GPU_GATE_NAMES:
+            elif isinstance(node, ast.Attribute) and node.attr in names:
                 hit = True
-            elif isinstance(node, ast.alias) and node.name.split(".")[-1] in GPU_GATE_NAMES:
+            elif isinstance(node, ast.alias) and node.name.split(".")[-1] in names:
                 hit = True
             elif (
                 isinstance(node, ast.Constant)
                 and isinstance(node.value, str)
                 and id(node) not in docstrings
-                and any(token in node.value for token in GPU_GATE_LITERALS)
+                and any(token in node.value for token in literals)
             ):
                 hit = True
             if hit:
@@ -835,10 +894,22 @@ def check_review_slot_collides() -> Measurement:
     refute it, or this is a control that survives its own remedy.  So it
     is a conjunction:
 
-    1. **Nothing in this repository gates on the card.**  A review here
-       calls llama-server directly — no lease, no ``wait-for-dgpu`` — so
-       a gate appearing anywhere under ``sysadmin/`` is the first fix and
-       reports ``mismatch``.
+    1. **Nothing in this repository *arbitrates* for the card.**  A
+       review here reads the card once and gives up — no lease, no
+       ``wait-for-dgpu`` — so an arbitrating gate appearing anywhere
+       under ``sysadmin/`` is the first fix and reports ``mismatch``.
+
+       **The deferring gate is reported beside it and never refutes it**
+       (`SNAG-SCHED-002`, measured 2026-08-30).  This half read
+       *"nothing gates on the card"* until then, and printed ``gpu gates
+       under sysadmin/: none`` over :func:`sysadmin.core.llm_client`'s
+       live ``ensure_gpu_idle`` call — a constant observation from a
+       vocabulary nothing in the population could have moved.  Adding
+       that name to the refuting set was the obvious repair and is the
+       wrong one: the gate predates the entry by eighteen days and is
+       *why* the collision costs a digest rather than a slow review, so
+       promoting it would retire the entry on the strength of its own
+       mechanism.
     2. **A slot of ours still lands inside the estate's granted band.**
        Moving ``disk_review_minute`` out of it is the second fix, and it
        leaves half 1 exactly as filed, so watching half 1 alone would go
@@ -906,7 +977,8 @@ def check_review_slot_collides() -> Measurement:
         if low - CHAIN_SPACING_SECONDS < at < high + CHAIN_SPACING_SECONDS
     }
 
-    gates = sorted(_gpu_gate_mentions())
+    gates = _gpu_gate_mentions(GPU_ARBITRATION_NAMES, GPU_ARBITRATION_LITERALS)
+    deferrals = _gpu_gate_mentions(GPU_DEFERRAL_NAMES)
 
     def _clock(seconds: int) -> str:
         return f"{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
@@ -917,14 +989,16 @@ def check_review_slot_collides() -> Measurement:
         "our slots: "
         + ", ".join(f"{n} {_clock(at)}" for n, at in sorted(slots.items(), key=lambda kv: kv[1])),
         f"colliding: {', '.join(sorted(colliding)) or 'none'}",
-        f"gpu gates under sysadmin/: {', '.join(gates) or 'none'}",
+        f"arbitrating gates under sysadmin/: {', '.join(gates) or 'none'}",
+        f"deferring gates under sysadmin/: {', '.join(deferrals) or 'none'}"
+        " (evidence, never a refutation — see SNAG-SCHED-002)",
     )
 
     if gates:
         return Measurement(
             "mismatch",
-            "a review path here now gates on the card, which is the entry's first "
-            "named fix — the two generations no longer overlap unarbitrated",
+            "a review path here now arbitrates for the card, which is the entry's "
+            "first named fix — the generations no longer contend unarbitrated",
             detail,
         )
     if not colliding:
@@ -932,6 +1006,159 @@ def check_review_slot_collides() -> Measurement:
             "mismatch",
             "no review slot here falls within one chain-spacing of the estate's "
             "granted band any more, which is the entry's second named fix",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
+def _dgpu_percent(blob: object) -> int | None:
+    """The discrete card's ``gpu_percent`` out of one ``gpu_usage`` blob.
+
+    **The card is chosen by a property of the data, never by key.**  The
+    collector writes ``card0``/``card1`` in whatever order it enumerated
+    them and records no PCI slot, so keying on ``card0`` would silently
+    read the *iGPU* the day enumeration flipped — and the iGPU is busy
+    with desktop compositing, which is a different fact wearing the same
+    number.  The discrete card is the one with the larger
+    ``vram_total_mb`` (24560 against 2048 here), which is true of this
+    box by construction rather than by transcription.
+    """
+    if not isinstance(blob, dict):
+        return None
+    best: tuple[int, int] | None = None
+    for card in blob.values():
+        if not isinstance(card, dict):
+            continue
+        try:
+            vram = int(card["vram_total_mb"])
+            busy = int(card["gpu_percent"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if best is None or vram > best[0]:
+            best = (vram, busy)
+    return None if best is None else best[1]
+
+
+def check_review_chain_inside_drain() -> Measurement:
+    """``SNAG-SCHED-003`` — the Monday chain generates into a held card.
+
+    ``SNAG-SCHED-001`` is scoped to the disk review at 05:45 and to the
+    estate's displaced generation.  Measured 2026-08-30, that is the
+    *least* affected of the three reviews and the estate is not the
+    contender: ``venture-enrich-nightly`` runs 00:00 → 05:45:15-05:47:18
+    and holds the card across the whole chain, so 05:00 and 05:15 sit
+    squarely inside an occupancy no schedule leaf in that entry reaches.
+
+    The claim is a conjunction, for ``check_review_slot_collides``'s
+    reason — either fix must refute it:
+
+    1. **A slot here still generates into a card held above the gate's
+       own threshold.**  Moving every slot clear of the occupancy refutes
+       it.
+    2. **Nothing here arbitrates for the card.**  An arbitrating gate is
+       the durable fix and refutes it wherever the slots sit, which is
+       the whole argument for preferring it: the occupancy's edge is
+       another repository's *workload*, which has ranged 1 h 14 m to
+       5 h 47 m, not merely its schedule.
+
+    The threshold is the **gate's own** (``llm.gpu_busy_threshold``)
+    rather than a number restated here — ``max_priority_for`` against
+    ``PRIORITY_MAP``'s rule — so a config edit that widens what the
+    daemon tolerates moves this reading with it.
+    """
+    config = get_config()
+    threshold = config.llm.gpu_busy_threshold
+    schedules = config.schedules
+    slots = {
+        "health_review": _slot_seconds(
+            schedules.health_review_hour, schedules.health_review_minute
+        ),
+        "log_review": _slot_seconds(
+            schedules.log_review_hour, schedules.log_review_minute
+        ),
+        "disk_review": _slot_seconds(
+            schedules.disk_review_hour, schedules.disk_review_minute
+        ),
+    }
+
+    # ``--user``: the drain is a user timer, and ``unit_load_state``
+    # asks the *system* manager, which answers ``not-found`` for every
+    # user unit on the box — a premise that dies for the wrong reason.
+    calendar, load_state = user_unit_calendar(DRAIN_UNIT)
+    if load_state.startswith("unmeasured"):
+        return Measurement("unknown", f"systemd would not answer for {DRAIN_UNIT}")
+    if load_state != "loaded":
+        return Measurement(
+            "unknown",
+            f"{DRAIN_UNIT} is {load_state} — the occupancy this entry is about is "
+            "that unit's, so its absence is the premise dying rather than the "
+            "claim being refuted",
+        )
+
+    schema = config.database.schema_
+    payload, problem = query_one(
+        "SELECT coalesce(json_agg(json_build_object("  # noqa: S608
+        "'at', extract(epoch FROM recorded_at::time)::int, 'gpu', gpu_usage))::text, '[]') "
+        f"FROM {schema}.resource_snapshots "
+        f"WHERE recorded_at >= '{DRAIN_RESCHEDULED}' AND gpu_usage <> '{{}}'::jsonb"
+    )
+    if problem:
+        return Measurement("unknown", problem)
+    try:
+        rows = json.loads(str(payload))
+    except ValueError as exc:
+        return Measurement("unknown", f"resource_snapshots would not parse ({exc})")
+
+    readings: dict[str, tuple[int, int]] = {}
+    for name, at in slots.items():
+        samples = [
+            busy
+            for row in rows
+            if abs(int(row["at"]) - at) <= SLOT_WINDOW_SECONDS
+            and (busy := _dgpu_percent(row["gpu"])) is not None
+        ]
+        readings[name] = (len(samples), sum(1 for b in samples if b > threshold))
+
+    thin = [n for n, (total, _) in readings.items() if total < MIN_SLOT_SAMPLES]
+    gates = _gpu_gate_mentions(GPU_ARBITRATION_NAMES, GPU_ARBITRATION_LITERALS)
+    inside = {
+        name: (total, busy)
+        for name, (total, busy) in readings.items()
+        if total >= MIN_SLOT_SAMPLES and busy / total > BUSY_MAJORITY
+    }
+
+    detail = (
+        f"{DRAIN_UNIT} {calendar}; samples since {DRAIN_RESCHEDULED}, "
+        f"±{SLOT_WINDOW_SECONDS}s of each slot, against the gate's own "
+        f"threshold of {threshold}%",
+        "; ".join(
+            f"{n} {readings[n][1]}/{readings[n][0]} busy"
+            for n in sorted(slots, key=lambda k: slots[k])
+        ),
+        f"generating into a held card: {', '.join(sorted(inside)) or 'none'}",
+        f"arbitrating gates under sysadmin/: {', '.join(gates) or 'none'}",
+    )
+
+    if thin:
+        return Measurement(
+            "unknown",
+            f"too few samples to read {', '.join(sorted(thin))} — a slot observed "
+            f"under {MIN_SLOT_SAMPLES} times is not an occupancy",
+            detail,
+        )
+    if gates:
+        return Measurement(
+            "mismatch",
+            "a review path here now arbitrates for the card, which is the entry's "
+            "durable fix — it holds wherever the slots sit",
+            detail,
+        )
+    if not inside:
+        return Measurement(
+            "mismatch",
+            "no review slot here still generates into a held card — the occupancy "
+            "moved off the chain, which refutes the entry without anything here "
+            "having been fixed",
             detail,
         )
     return Measurement("match", "", detail)
@@ -6303,6 +6530,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-SCHED-001",
             "the estate's displaced review generation lands on our disk review slot",
             check_review_slot_collides,
+        ),
+        Check(
+            "review_chain_inside_drain",
+            "SNAG-SCHED-003",
+            "the whole Monday review chain generates into a card another unit holds",
+            check_review_chain_inside_drain,
         ),
         Check(
             "run_status_cancelled",
