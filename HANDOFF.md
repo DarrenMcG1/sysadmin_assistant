@@ -2,7 +2,118 @@
 
 ## Next action
 
-Act on estate message `d1939cf7` before Monday 05:30 by pointing `judge_queue_invariants`'s wait predicate at `oldest_unexplained_wait_seconds` instead of `oldest_waiting_seconds` and keeping the 900-second threshold, because the estate's weekly review now takes a GPU lease and queues behind `venture-enrich-nightly` for a measured 915–1038 s every Monday — a third cause the "Estate queue starved" text does not name, namely the queue working as designed — and both new fields are already live on 8400 (verified 2026-08-30: `waiting_reason` and `oldest_unexplained_wait_seconds` both present on `GET :8400/api/queue/invariants`), so the change is a one-predicate edit plus its guard and the message is then closed with a note.
+Measure what `SNAG-SCHED-001` owes before choosing between its two fixes, by running this repository's disk review and the estate's weekly review against llama-server at the same moment and recording each one's wall-clock and whether either fell back to a digest, or equivalently by reading `llm_used` on the estate's board and `GET /api/files/review` on the next two Mondays, because the entry deliberately claims only that Session 79's fifteen-minute chain spacing is now false and unmeasured — the estate's review no longer generates at 05:30 but at the moment its GPU lease is granted, 05:45:15-05:47:18 on their five measured nights, which is this repository's disk-review slot at 05:45 — and that one number decides whether the cheap fix (move `schedules.disk_review_minute`, one leaf, but re-derived against another repository's timer and so one schedule change from being wrong again) or the durable one (take a lease from 8400 in the review path, which costs a dependency on the estate inside a job that must still run when the estate is down) is worth its cost.
+
+## Session 139 is complete — the gauge moved and the threshold deliberately did not
+
+**Estate message `d1939cf7` is acted on and closed.** estate-manager's
+weekly review now *takes* a GPU lease instead of sampling a counter
+(their ADR-0076/0077, filed **before** the commit that carried it —
+their rule 3), so it queues behind `venture-enrich-nightly` every Monday
+05:30 and waits **915–1038 s** across the five nights they measured.
+This repository judged `oldest_waiting_seconds > 900` with the message
+*"Either a holder never released, or the arbiter's tick loop has stopped
+granting"* — so the first alert would have arrived on a Monday morning,
+said the queue was starved, and been **wrong**.
+`judge_queue_invariants` reads `oldest_unexplained_wait_seconds` now,
+which is the same number with that third cause masked out by the
+producer. **`queue_max_wait_seconds` is unchanged at 900.**
+
+**The message's own recommendation was taken as filed, and the reason
+raising the threshold was refused is worth carrying.** At any larger
+number the gauge still cannot separate a normal Monday from a stuck
+queue, it only says so later — and the Monday wait is bounded by
+*another repository's* timer, so the new number would be one schedule
+change from being wrong again. `config.yaml` now carries that refusal
+beside the leaf, because the leaf is where a future Monday false alarm
+sends someone.
+
+**Three rules, two of them the opposite of the obvious
+implementation.**
+
+1. **The mask is read, never recomputed.** `waiting_reason ==
+   "behind_holder"` plus the raw gauge reconstructs the masked number,
+   and reconstructing it makes this a second implementation of the
+   producer's derivation — `SNAG-DB-003`'s shape. A test drives an
+   *inconsistent* payload (`behind_holder` beside an unexplained wait)
+   and asserts the field wins; it is the one mutation that lands on a
+   single test.
+2. **Absent is not masked** — `ports_checked`'s rule at the size of a
+   dict key. `payload.get(...)` answers `None` both for a producer that
+   explained the wait and for one that does not publish the field, and
+   collapsing them retires this family in silence the day the estate
+   rolls back. A payload without the key falls back to
+   `oldest_waiting_seconds` and labels the row `wait_gauge: "total"` —
+   deliberately the *pre-fix* behaviour rather than a refusal, because
+   over-reporting on a Monday is the failure this module survives and
+   going quiet is not.
+3. **The reason is named, because the producer names it** —
+   `SNAG-UNITS-004`'s defect otherwise. The two values that can still
+   reach a row are exactly the old disjunction's two limbs, which is
+   what makes the existing sentence true again. A value this repository
+   has not been told about falls back to the disjunction rather than
+   being rendered.
+
+**The trade is stated rather than left to be discovered: a survivable
+absence is a silent one.** The fallback makes the new field vanishing
+invisible to every fixture-driven test, so the only place it can be loud
+is the live half — `test_the_wait_discriminator_is_still_published`,
+beside one asserting the masked gauge never exceeds the gauge it masks.
+
+**The fixtures are the producer's.** The three states were built by
+running `Arbiter.submit` → `tick` → `invariants` in estate-manager's own
+venv against a **scratch** database created and dropped by the capture —
+never the live `estate` one, which estate rule 1 forbids writing and
+which two connections could not have been rolled back across anyway.
+Only public symbols were touched. The 2026-08-16 fixture is kept
+**unmodified** as the legacy-producer specimen and a test fails if it is
+hand-edited into the new shape.
+
+**It ships untriggered**: `alerts` holds **0** `Estate queue…` rows
+all-time, so nothing standing needed reconciling and no fixture could
+have said so. Restarted twice (19:41:36 on the merits, 19:54:44 for the
+mtime check's blind spot — `snag_claims.py` has 0 importers under
+`sysadmin/`); the estate judge ran at 19:42:39 and 19:55:46 against live
+8400, all four surfaces read, no queue row, no error lines.
+
+**No ADR, and that is a decision rather than an omission.** `8462bcc5`
+got [ADR-0006](docs/adr/0006-wiring-joins-ports.md) because it carried
+`needs_ruling=true` and asked a question this repository had to answer;
+`d1939cf7` is recommendation-only, and the reasoning lives in
+`judge_queue_invariants`'s docstring where a future reader of that
+predicate will meet it.
+
+**One snag opened beside the work — `SNAG-SCHED-001`.** Reading *why*
+their review takes a lease showed it displaces **where it generates**
+from 05:30 to the grant, which is this repository's disk-review slot.
+Neither party gates: an AST walk over `sysadmin/` finds **zero**
+bindings of `wait-for-dgpu`, `/api/queue/lease` or `estate_queue`, and
+their lease arbitrates them against `venture-enrich-nightly` rather than
+against us. The entry claims **less than it could** — nobody has
+measured what two concurrent generations cost, llama-server serialises,
+and their `estate-review` profile is no-swap — so what is claimed is
+that Session 79's fifteen-minute spacing is now false and unmeasured,
+with the deciding measurement named. Its check is a **conjunction**, so
+either fix refutes it; watching one limb would report *still holds* over
+the other, which is `check_review_schedule_unread`'s defect and one this
+repository has already paid for.
+
+**The falsification worth carrying is the one that passed.** The
+check's first draft was a substring search and read
+`estate_queue_invariants.json` **named in a docstring** as a landed gate
+— a check that reads a *sentence about* a fix as the fix retires its own
+entry. The detector excludes docstrings by node identity now; but the
+test written for that regression **passed against the mutation**,
+because `estate_queue` is matched as an identifier and a docstring
+cannot produce an `ast.Name` — green for a reason it did not name. Only
+a *literal* gate spelled in prose exercises the exclusion, which is what
+the test builds now.
+
+**Numbers.** +35 tests, **3125 → 3160**; `ruff` and `mypy` clean;
+`check-ops-claims.sh` all green; `check-snag-claims.sh` reports 19 open
+entries and **0** carrying no check. Ten mutations of the predicate,
+eight of the fixture and live guards and six of the new check each land
+red on the test that owns the rule.
 
 ## Session 138 is complete — the measurement refuted the remedy rather than sizing it
 

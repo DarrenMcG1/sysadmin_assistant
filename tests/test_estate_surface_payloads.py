@@ -94,8 +94,7 @@ def scenarios(name: str) -> dict[str, Any]:
     passing a hand-edit off as an observation.
     """
     payload = json.loads((FIXTURES / f"estate_{name}.json").read_text())
-    payload.pop("_provenance")
-    return payload
+    return {k: v for k, v in payload.items() if not k.startswith("_provenance")}
 
 
 def titles(judgements) -> set[str]:
@@ -107,9 +106,42 @@ def titles(judgements) -> set[str]:
     ["projects_invariants", "audit_invariants", "audit_findings", "queue_invariants"],
 )
 def test_every_fixture_carries_its_provenance(name: str):
-    block = json.loads((FIXTURES / f"estate_{name}.json").read_text())["_provenance"]
-    assert block["box"] and block["captured_at"]
-    assert "rolled back" in block["method"]
+    """Every block says where it came from, and how the live database
+    was left alone: rolled back on the connection, or captured against a
+    scratch database, or read off the wire with no write at all."""
+    doc = json.loads((FIXTURES / f"estate_{name}.json").read_text())
+    blocks = [v for k, v in doc.items() if k.startswith("_provenance")]
+    assert blocks
+    for block in blocks:
+        assert block["box"] and block["captured_at"]
+        assert any(
+            phrase in block["method"]
+            for phrase in ("rolled back", "scratch database", "no write")
+        ), block["method"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["projects_invariants", "audit_invariants", "audit_findings", "queue_invariants"],
+)
+def test_every_scenario_is_claimed_by_exactly_one_provenance_block(name: str):
+    """A fixture re-captured in two sittings has two blocks, and the
+    thing that goes wrong is a scenario belonging to neither.
+
+    ``estate_queue_invariants.json`` is the live instance: its
+    ``live``/``backlog`` pair predates ADR-0077 and its four newer
+    scenarios do not, and reading the older pair as though it had been
+    captured against today's producer is exactly the mistake the
+    fallback path exists to survive. So with more than one block, every
+    block names what it covers and the union is total and disjoint."""
+    doc = json.loads((FIXTURES / f"estate_{name}.json").read_text())
+    blocks = [v for k, v in doc.items() if k.startswith("_provenance")]
+    names = {k for k in doc if not k.startswith("_provenance")}
+    if len(blocks) == 1 and "applies_to" not in blocks[0]:
+        return  # one capture, one sitting: the block covers the file
+    claimed = [n for block in blocks for n in block["applies_to"]]
+    assert sorted(claimed) == sorted(set(claimed)), "a scenario is claimed twice"
+    assert set(claimed) == names
 
 
 # ── The scan ─────────────────────────────────────────────────────────
@@ -351,13 +383,21 @@ class TestTheQueueAgainstProducerBuiltPayloads:
         queue is starved *because* it is backed up.  Two rows because
         they answer different questions: depth says how many are
         blocked, wait says for how long, and a queue can breach either
-        alone."""
+        alone.
+
+        This payload was captured 2026-08-16 and so predates ADR-0077:
+        it is the **legacy producer** specimen, and what it exercises
+        now is the fallback. It is deliberately not re-captured — see
+        the fixture's ``_provenance.scope``."""
         payload = scenarios("queue_invariants")["backlog"]
         assert payload["depth"] == 5
         assert payload["oldest_waiting_seconds"] == 2880.0
+        assert "oldest_unexplained_wait_seconds" not in payload
 
         out = judge_queue_invariants(payload, QUEUE_MAX_DEPTH, QUEUE_MAX_WAIT_SECONDS)
         assert titles(out) == {"Estate queue backlog", "Estate queue starved"}
+        starved = next(j for j in out if j.title == "Estate queue starved")
+        assert starved.details["wait_gauge"] == "total"
 
     def test_the_totals_ride_along_on_both_rows(self):
         """Rule 1's other half: never judged, always reported, so a
@@ -390,6 +430,86 @@ class TestTheQueueAgainstProducerBuiltPayloads:
         lease = rows["Estate queue starved"].details["active_lease"]
         assert lease["requester"] == "venture-assistant"
         assert "active_lease" not in rows["Estate queue backlog"].details
+
+
+class TestTheWaitReasonAgainstProducerBuiltPayloads:
+    """The three states ADR-0077 introduced, each built by running
+    ``Arbiter.submit`` → ``Arbiter.tick`` → ``Arbiter.invariants`` in
+    estate-manager's own venv.
+
+    What a literal could not have supplied here is the *pairing*.
+    ``waiting_reason`` and ``oldest_unexplained_wait_seconds`` are two
+    fields derived from one another by the producer, and a keyword
+    override can set them into a combination the arbiter cannot emit —
+    which is how a consumer comes to rely on a shape that never
+    arrives. Every pairing below is the producer's.
+    """
+
+    def _judge(self, name):
+        return judge_queue_invariants(
+            scenarios("queue_invariants")[name], QUEUE_MAX_DEPTH, QUEUE_MAX_WAIT_SECONDS
+        )
+
+    def test_the_live_queue_judges_nothing(self):
+        """8400 as it actually answered on 2026-08-30, straight off the
+        wire: 27 grants, 3 drops, nothing waiting. The healthy payload
+        is the one case a synthetic fixture cannot show, and the case a
+        rule most easily fires on by accident."""
+        payload = scenarios("queue_invariants")["live_2026_08_30"]
+        assert payload["waiting_reason"] is None
+        assert payload["dropped_total"] == 3
+        assert judge_queue_invariants(
+            payload, QUEUE_MAX_DEPTH, QUEUE_MAX_WAIT_SECONDS
+        ) == []
+
+    def test_the_monday_wait_judges_nothing(self):
+        """The whole reason this changed, in the producer's own numbers.
+
+        1038 s is the top of the 915-1038 s band estate-manager measured
+        over five nights, and it is over this repository's threshold.
+        The arbiter says a declared holder explains it. Before
+        2026-08-30 this payload raised "Estate queue starved" every
+        Monday morning and was wrong every time."""
+        payload = scenarios("queue_invariants")["behind_holder"]
+        assert payload["waiting_reason"] == "behind_holder"
+        assert payload["oldest_waiting_seconds"] > QUEUE_MAX_WAIT_SECONDS
+        assert payload["oldest_unexplained_wait_seconds"] is None
+        assert payload["active_lease"]["requester"] == "venture-drain"
+        assert self._judge("behind_holder") == []
+
+    @pytest.mark.parametrize("name", ["holder_overdue", "nothing_granted"])
+    def test_the_two_conditions_worth_an_alert_still_reach_one(self, name):
+        """The mask must not swallow the thing it was built beside.
+
+        These are the disjunction's two limbs — the message named them
+        both before ADR-0077 and still does — and a mask that quietened
+        either would be worse than the gauge it replaced."""
+        payload = scenarios("queue_invariants")[name]
+        assert payload["oldest_unexplained_wait_seconds"] == payload[
+            "oldest_waiting_seconds"
+        ]
+        out = self._judge(name)
+        assert titles(out) == {"Estate queue starved"}
+        assert out[0].details["wait_gauge"] == "unexplained"
+        assert out[0].details["waiting_reason"] == name
+
+    def test_the_holder_is_carried_on_an_overdue_row_and_absent_on_a_starved_one(self):
+        """``active_lease`` answers "who is holding it", and the two
+        unmasked states differ in whether there is one at all —
+        ``nothing_granted`` means no holder exists, which is the
+        distinction the old single gauge could not carry either."""
+        overdue = self._judge("holder_overdue")[0]
+        assert overdue.details["active_lease"]["requester"] == "venture-drain"
+        assert self._judge("nothing_granted")[0].details["active_lease"] is None
+
+    def test_a_backlog_behind_a_declared_holder_is_still_a_backlog(self):
+        """``depth`` did not change with the wait gauge. A Monday queue
+        deep enough to breach is still worth a row — the fix narrowed
+        what counts as *starvation*, not what counts as a queue."""
+        payload = dict(scenarios("queue_invariants")["behind_holder"])
+        payload["depth"] = QUEUE_MAX_DEPTH + 1
+        out = judge_queue_invariants(payload, QUEUE_MAX_DEPTH, QUEUE_MAX_WAIT_SECONDS)
+        assert titles(out) == {"Estate queue backlog"}
 
 
 # ── The live half ────────────────────────────────────────────────────
@@ -498,3 +618,34 @@ class TestTheKeysTheJudgeReadsAreStillServed:
         assert payload["oldest_waiting_seconds"] is None or isinstance(
             payload["oldest_waiting_seconds"], float
         )
+
+    def test_the_wait_discriminator_is_still_published(self):
+        """The one thing the fallback cannot tell us.
+
+        ``_starvation_gauge`` survives this key vanishing — it drops to
+        the old gauge and labels the row — so its absence is silent in
+        every other test in this repository. This is where it is loud.
+        A red here means 8400 stopped publishing the discrimination and
+        the Monday false alarm is back, which is a conversation with
+        estate-manager rather than a bug in this module."""
+        payload = self._get("/api/queue/invariants")
+        assert "oldest_unexplained_wait_seconds" in payload
+        assert "waiting_reason" in payload
+        assert payload["waiting_reason"] in (
+            None,
+            "behind_holder",
+            "holder_overdue",
+            "nothing_granted",
+        )
+
+    def test_the_masked_gauge_never_exceeds_the_gauge_it_masks(self):
+        """The producer's own invariant, asserted from this side.
+
+        ``oldest_unexplained_wait_seconds`` is ``oldest_waiting_seconds``
+        with one cause masked to null, so it is that number or nothing —
+        never a larger one and never a number of its own. If it ever
+        became independently computed, this repository would be
+        thresholding something it has not read."""
+        payload = self._get("/api/queue/invariants")
+        unexplained = payload["oldest_unexplained_wait_seconds"]
+        assert unexplained is None or unexplained == payload["oldest_waiting_seconds"]

@@ -3,7 +3,78 @@
 **Last Updated**: 2026-08-30
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The measurement refuted the remedy rather than sizing it, and the
+> **The gauge moved and the threshold deliberately did not** — estate
+> message `d1939cf7` is **acted on and closed**. estate-manager's
+> weekly review now *takes* a GPU lease instead of sampling a counter
+> (their ADR-0076/0077), so it queues behind `venture-enrich-nightly`
+> every Monday 05:30 and waits **915–1038 s** across the five nights
+> they measured. This repository judges `oldest_waiting_seconds > 900`
+> and says *"Either a holder never released, or the arbiter's tick loop
+> has stopped granting"* — so the first alert would have arrived on a
+> Monday morning, said the queue was starved, and been **wrong**.
+> `judge_queue_invariants` now reads
+> `oldest_unexplained_wait_seconds`, the same number with that third
+> cause masked out by the producer. **900 is unchanged.**
+>
+> **Raising the threshold was the obvious fix and buys nothing.** At a
+> bigger number the gauge still cannot separate a normal Monday from a
+> stuck queue, it only says so later — and the Monday wait is bounded by
+> *another repository's* timer, so any number clearing it is one
+> schedule change from being wrong again. `config.yaml` carries that
+> refusal beside the leaf now, because the leaf is where a future Monday
+> false alarm sends someone.
+>
+> **Three rules, two of them the opposite of the obvious
+> implementation.** The mask is **read, never recomputed** —
+> reconstructing it from `waiting_reason` would be a second
+> implementation of the producer's derivation, `SNAG-DB-003`'s shape, so
+> a test drives an *inconsistent* payload and asserts the field wins.
+> **Absent is not masked** — `payload.get(...)` answers `None` both for a
+> producer that explained the wait and for one that does not publish the
+> field, and collapsing them retires this family in silence the day the
+> estate rolls back, so a payload without the key falls back to the old
+> gauge and labels the row `wait_gauge: "total"`. And **the reason is
+> named because the producer names it**: the two values that can still
+> reach a row are exactly the disjunction's two limbs, which is what
+> makes the existing sentence true again.
+>
+> **The trade is stated: a survivable absence is a silent one.** The
+> fallback means the new field vanishing is invisible to every
+> fixture-driven test, so the only place it can be loud is the live half
+> — `test_the_wait_discriminator_is_still_published`. The three states
+> are pinned against payloads built by running the estate's own
+> `Arbiter.submit` → `tick` → `invariants` in their venv against a
+> **scratch** database, never the live `estate` one, which estate rule 1
+> forbids writing. The 2026-08-16 fixture is kept unmodified as the
+> **legacy-producer** specimen, and a test fails if anyone hand-edits it
+> into the new shape.
+>
+> **One snag opened beside the work: `SNAG-SCHED-001`.** Reading *why*
+> the estate's review now takes a lease showed that it displaces **where
+> it generates** from 05:30 to the grant — 05:45:15–05:47:18 on their
+> five measured nights, which is this repository's disk-review slot at
+> **05:45**. Neither party gates: an AST walk over `sysadmin/` finds
+> **zero** bindings of `wait-for-dgpu`, `/api/queue/lease` or
+> `estate_queue`, and the estate's lease arbitrates it against
+> `venture-enrich-nightly` rather than against us. The entry claims less
+> than it could — nobody has measured what two concurrent generations
+> cost, so what is claimed is that Session 79's fifteen-minute spacing is
+> now **false and unmeasured**, with the one deciding measurement named.
+> Its check is a conjunction, because either of the two fixes must refute
+> it or it is a control that survives its own remedy.
+>
+> **It ships untriggered**, which is why it was driven rather than
+> reasoned about: `alerts` holds **0** `Estate queue…` rows all-time, so
+> nothing standing needed reconciling and no fixture could have told us
+> so. Ten mutations of the predicate and eight of the fixture and live
+> guards were each driven and each lands red on the test that owns the
+> rule. **+23 tests, 3125 → 3148**, suite green, `ruff` and `mypy`
+> clean. **No ADR** — the last estate message got one because it carried
+> `needs_ruling=true` and asked a question; this one is
+> recommendation-only and the reasoning lives in the docstring beside
+> the predicate.
+>
+> *Previously —* **The measurement refuted the remedy rather than sizing it, and the
 > entry stays open as a deliberate non-fix.** `SNAG-TRAY-011` asked
 > whether `sysadmin-tray` should gain a
 > `log: {type: journalctl, severity_filter: warning}` block so
@@ -729,10 +800,21 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-08-30 17:04:47**
+> Daemon restarted at **2026-08-30 19:54:44**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since. **Owed by the mtime check and not on
-> the merits**, which is worth saying plainly: this sitting's only
+> `ERROR`/`CRITICAL` lines since. The **first** restart this sitting was
+> owed on the merits — `sysadmin/estate/judgements.py` is imported by the
+> running application and the predicate it serves changed — and the
+> estate judge ran against live 8400 a minute later, reading all four
+> surfaces and raising no queue row. This second one is the mtime check's
+> known blind spot: `sysadmin/snag_claims.py` has **0** importers under
+> `sysadmin/` and the daemon never loads it, so nothing it serves moved.
+> Restarting is free (`kill -TERM`, `Restart=always`, no `sudo`), so it
+> was done rather than argued with.
+>
+> *Previously — the restart before it was* **owed by the mtime check and
+> not on
+> the merits**, which is worth saying plainly: that sitting's only
 > backend change is `sysadmin/snag_claims.py`, a console script the
 > running application never imports, so nothing the daemon serves moved.
 > `check-ops-claims.sh` compares mtimes and cannot know that, and the

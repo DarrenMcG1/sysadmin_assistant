@@ -475,6 +475,15 @@ agents:
     # INVENTED, and flagged as such. Nothing on this box records what a
     # normal GPU queue looks like — until estate-manager's Session 3
     # there was no queue. Move these once a busy day has been observed.
+    #
+    # The busy day arrived 2026-08-30 (estate message d1939cf7) and
+    # queue_max_wait_seconds deliberately STAYED at 900. The estate's
+    # weekly review now queues behind venture-enrich-nightly every
+    # Monday for 915-1038 s, which is over this number — but raising it
+    # only alerts later on a queue that is working, and the Monday wait
+    # belongs to another repository's timer. The gauge moved instead:
+    # judge_queue_invariants reads oldest_unexplained_wait_seconds now.
+    # Do not "fix" a Monday false alarm here; it will not be this leaf.
     queue_max_depth: 3
     queue_max_wait_seconds: 900
     # INVENTED, and a shape guard rather than a tolerance. Every breach

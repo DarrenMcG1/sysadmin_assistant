@@ -24,8 +24,10 @@ Three rules run through everything below.
    table.  ``dropped_total`` is 1 today; a ``> 0`` rule raises a row
    that no future state can clear, which is ``redis unreachable``'s
    6,283 rows and ``Critical disk usage on /``'s 13,971 arriving by a
-   new route.  Only ``depth`` and ``oldest_waiting_seconds`` are gauges,
-   and only gauges are judged.  The totals are reported in ``details``
+   new route.  Only ``depth`` and the oldest-wait gauge are judged —
+   since 2026-08-30 that is ``oldest_unexplained_wait_seconds`` rather
+   than ``oldest_waiting_seconds``; see
+   :func:`judge_queue_invariants`.  The totals are reported in ``details``
    and in ``agent_runs``, where a human comparing two runs can see a
    change that this module cannot.
 
@@ -1455,6 +1457,94 @@ def _wiring_details(
 # --- the queue -----------------------------------------------------------
 
 
+#: The gauge the starvation predicate reads, since estate message
+#: ``d1939cf7``.  ``oldest_waiting_seconds`` is the same number with
+#: ``behind_holder`` **not** masked out; it is still published by the
+#: estate, still carried in ``details``, and no longer judged.
+UNEXPLAINED_WAIT_KEY = "oldest_unexplained_wait_seconds"
+
+#: How the row opens, per gauge.  The two readings are different claims
+#: about the same seconds and the message must not spell them the same
+#: way: one is a wait nothing explains, the other is every wait there
+#: was, because the producer did not publish the discriminator.
+_WAIT_SUBJECT = {
+    "unexplained": "The oldest unexplained GPU lease request",
+    "total": "The oldest GPU lease request",
+}
+
+#: The producer's ``waiting_reason`` vocabulary, minus ``behind_holder``
+#: — which cannot reach here, because it is exactly what the masked
+#: gauge removes.  ``None`` and any value not in this map fall through
+#: to the two-cause sentence: a reason this repository does not
+#: recognise is a producer that has moved, and naming it from a guess is
+#: how :func:`_port_of`'s refused ``subject`` fallback would have read.
+_WAIT_CAUSES = {
+    "holder_overdue": (
+        "A holder is past its hold deadline, which the arbiter expires "
+        "before doing anything else — so its tick loop is mid-tick or dead."
+    ),
+    "nothing_granted": (
+        "Nothing holds a lease at all, so the arbiter's tick loop has "
+        "stopped granting, or its GPU sampler is pinned by undeclared load."
+    ),
+}
+
+#: Said only on the fallback path, and it is the whole reason that path
+#: is distinguishable from the masked one.
+_UNDISCRIMINATED = (
+    "Either a holder never released, or the arbiter's tick loop has "
+    "stopped granting."
+)
+
+_NO_DISCRIMINATOR = (
+    f" This surface published no {UNEXPLAINED_WAIT_KEY}, so a legitimate "
+    "wait behind a declared holder cannot be ruled out."
+)
+
+
+def _starvation_gauge(payload: dict[str, Any]) -> tuple[float | None, str]:
+    """Which oldest-wait number to judge, and which one it was.
+
+    The distinction is between a key that is **absent** and a key that
+    is ``None``, and collapsing them is ``ports_checked``'s rule: a
+    producer that masked the wait and a producer that does not publish
+    the field are the same ``payload.get(...)`` and opposite facts.
+    Masked means *looked at and explained*; absent means *not asked*,
+    and answering it with silence would retire this family the day the
+    estate rolls back — a monitor going quiet about a surface it cannot
+    read, which is the direction this repository refuses.
+
+    So an absent key falls back to ``oldest_waiting_seconds`` and says
+    so in ``details['wait_gauge']`` and in the message.  That is
+    deliberately the **pre-fix** behaviour rather than a refusal: it
+    over-reports on a Monday, and over-reporting is the failure this
+    module can survive.
+
+    The masked field is read rather than derived.  ``waiting_reason ==
+    "behind_holder"`` plus ``oldest_waiting_seconds`` reconstructs the
+    same number, and reconstructing it would make this a second
+    implementation of the producer's own derivation — ``SNAG-DB-003``'s
+    shape, ``max_priority_for`` against ``PRIORITY_MAP``.  One
+    statement, and it is theirs.
+    """
+    if UNEXPLAINED_WAIT_KEY in payload:
+        return payload[UNEXPLAINED_WAIT_KEY], "unexplained"
+    return payload.get("oldest_waiting_seconds"), "total"
+
+
+def _starvation_cause(gauge: str, reason: Any) -> str:
+    """The sentence naming why, when the producer said which.
+
+    ``waiting_reason`` answers the question the old message could only
+    pose as a disjunction, and leaving it unread would be
+    ``SNAG-UNITS-004``'s defect — under-reading a field the producer had
+    already filled in.
+    """
+    if gauge == "total":
+        return _UNDISCRIMINATED + _NO_DISCRIMINATOR
+    return _WAIT_CAUSES.get(reason, _UNDISCRIMINATED)
+
+
 def judge_queue_invariants(
     payload: dict[str, Any], max_depth: int, max_wait_seconds: float
 ) -> list[Judgement]:
@@ -1474,13 +1564,67 @@ def judge_queue_invariants(
     Judging it would need a grace period long enough to clear the race,
     which is an invented number after all, and the condition it detects
     surfaces anyway: a lease nothing expires blocks the queue, and
-    waiters pile up behind it as ``depth`` and ``oldest_waiting_seconds``.
+    waiters pile up behind it as ``depth`` and the oldest-wait gauge.
     One symptom with two derived thresholds beats three with an extra.
+    Note what the estate did with that same deadline: it is now their
+    ``holder_overdue`` discriminator, asked of the database against the
+    clock that set it, and published as a *classification* rather than
+    as a column for a consumer to threshold.  The rejection stands and
+    the condition is named anyway, which is the better end of it.
 
     Both thresholds **are** judgements rather than measurements, and say
     so in config: nothing on this box records what a normal queue depth
     is, because until Session 3 there was no queue.  They are defaults to
     be moved once the shape of a busy day is known.
+
+    **The busy day arrived, and the threshold was the wrong half.**
+    estate-manager's message ``d1939cf7`` (their ADR-0076/0077, filed
+    before the commit that carried it) announced that their weekly
+    review now *takes* a GPU lease instead of sampling a counter, so it
+    queues behind ``venture-enrich-nightly`` every Monday 05:30 and
+    waits **915-1038 s** across the five nights they measured — over
+    this 900 s threshold every time.  Against a queue in which nothing
+    had ever waited: 29 leases in 19 days, longest wait 6.7 s, mean
+    4.2 s.  So the first alert would have arrived on a Monday morning,
+    said the queue was starved, and been wrong.
+
+    Four rules, three of them the opposite of the obvious
+    implementation:
+
+    1. **The threshold did not move; the gauge did.**  Raising 900 is
+       the fix anyone would reach for and it buys nothing: at a bigger
+       number the number still cannot tell a normal Monday from a stuck
+       queue, it only says so later — and the Monday wait is bounded by
+       another repository's timer, so any threshold clearing it is one
+       schedule change from being wrong again.  What changed is that a
+       *third* cause exists — the queue working exactly as designed —
+       and this message names two.  ``oldest_unexplained_wait_seconds``
+       is ``oldest_waiting_seconds`` with that third cause masked out,
+       so the existing sentence is true again at the existing number.
+
+    2. **The mask is read, never recomputed** — :func:`_starvation_gauge`.
+
+    3. **Absent is not masked** — the same function, and
+       ``ports_checked``'s rule.  A payload with no such key falls back
+       to the old gauge and labels the row, because the alternative is
+       this family retiring itself in silence the day the producer rolls
+       back.  ``tests/fixtures/estate_queue_invariants.json`` holds a
+       real specimen of that shape: it was captured 2026-08-16, before
+       these fields existed, and is kept **as** the legacy-producer
+       specimen rather than re-captured.
+
+    4. **The reason is named, because the producer names it.**  The old
+       message posed a disjunction; ``waiting_reason`` answers it, and
+       the two values that can still reach a row are precisely the
+       disjunction's two limbs.  An unrecognised value falls back to the
+       disjunction rather than being rendered — this repository does not
+       parse a vocabulary the estate owns beyond the members it was
+       told about.
+
+    ``oldest_waiting_seconds`` stays in ``details`` beside the masked
+    number.  Dropping it would make a row unable to say how long the
+    request had actually been queued, which is the figure a human goes
+    to the arbiter with.
     """
     out: list[Judgement] = []
     totals = {
@@ -1505,20 +1649,23 @@ def judge_queue_invariants(
             )
         )
 
-    waiting = payload.get("oldest_waiting_seconds")
+    waiting, gauge = _starvation_gauge(payload)
+    reason = payload.get("waiting_reason")
     if waiting is not None and waiting > max_wait_seconds:
         out.append(
             Judgement(
                 surface="queue_invariants",
                 title="Estate queue starved",
                 message=(
-                    f"The oldest GPU lease request has waited {_hours(waiting)} "
-                    f"(threshold {max_wait_seconds / 60:.0f} minutes). Either a "
-                    "holder never released, or the arbiter's tick loop has "
-                    "stopped granting."
+                    f"{_WAIT_SUBJECT[gauge]} has waited {_hours(waiting)} "
+                    f"(threshold {max_wait_seconds / 60:.0f} minutes). "
+                    f"{_starvation_cause(gauge, reason)}"
                 ),
                 details={
-                    "oldest_waiting_seconds": waiting,
+                    "oldest_waiting_seconds": payload.get("oldest_waiting_seconds"),
+                    UNEXPLAINED_WAIT_KEY: payload.get(UNEXPLAINED_WAIT_KEY),
+                    "waiting_reason": reason,
+                    "wait_gauge": gauge,
                     "max_wait_seconds": max_wait_seconds,
                     "depth": depth,
                     "active_lease": payload.get("active_lease"),

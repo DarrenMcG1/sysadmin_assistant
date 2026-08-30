@@ -3,7 +3,25 @@
     "captured_at": "2026-08-16T09:36:01.119476+00:00",
     "box": "dbelter",
     "dsn": "postgresql:///estate",
-    "method": "the arbiter's own invariants() SQL and api._public, driven against the live estate database on one pinned connection whose synthetic leases were rolled back"
+    "method": "the arbiter's own invariants() SQL and api._public, driven against the live estate database on one pinned connection whose synthetic leases were rolled back",
+    "scope": "`live` and `backlog` only. Both predate ADR-0077 and therefore carry neither `waiting_reason` nor `oldest_unexplained_wait_seconds`. They are KEPT AS THAT SHAPE rather than re-captured: a payload from a producer that does not publish the discriminator is the fallback path's only real specimen, and inventing one by deleting keys from a new capture would test this repository's idea of an old producer instead of an old producer.",
+    "applies_to": [
+      "live",
+      "backlog"
+    ]
+  },
+  "_provenance_adr_0077": {
+    "captured_at": "2026-08-30T19:31:00+01:00",
+    "box": "dbelter",
+    "estate_commit": "eeb1d923956e0c55cf829003a3c65f107c9ee5ee",
+    "applies_to": [
+      "live_2026_08_30",
+      "behind_holder",
+      "holder_overdue",
+      "nothing_granted"
+    ],
+    "method": "`live_2026_08_30` is GET http://127.0.0.1:8400/api/queue/invariants off the wire, no write of any kind. The three states are Arbiter.submit -> Arbiter.tick -> Arbiter.invariants run in estate-manager's own venv against a scratch database this capture created and dropped -- never the live `estate` one, which estate rule 1 forbids writing and which two connections could not have been rolled back across anyway. Only public symbols were touched; the systemd and sampler stand-ins were written against the interface Arbiter calls.",
+    "synthetic": "The waiter's `requested_at` is pushed 1038 s into the past -- the top of the 915-1038 s band estate-manager measured over five nights -- and `holder_overdue`'s `hold_deadline` one minute into the past. Both are the producer's own test idiom for the same reason: waiting out a real clock would make this a slow test of a clock. Everything derived from those rows is theirs. The totals are consequently synthetic here; `live_2026_08_30` is where the live ones are."
   },
   "live": {
     "depth": 0,
@@ -26,5 +44,57 @@
       "granted_at": "2026-08-16T09:31:01.121902+01:00",
       "hold_deadline": "2026-08-16T10:31:01.121902+01:00"
     }
+  },
+  "live_2026_08_30": {
+    "depth": 0,
+    "oldest_waiting_seconds": null,
+    "dropped_total": 3,
+    "expired_total": 0,
+    "grants_total": 27,
+    "waiting_reason": null,
+    "oldest_unexplained_wait_seconds": null,
+    "active_lease": null
+  },
+  "behind_holder": {
+    "depth": 1,
+    "oldest_waiting_seconds": 1038.00199,
+    "dropped_total": 0,
+    "expired_total": 0,
+    "grants_total": 1,
+    "waiting_reason": "behind_holder",
+    "oldest_unexplained_wait_seconds": null,
+    "active_lease": {
+      "id": 1,
+      "profile": "nightly",
+      "requester": "venture-drain",
+      "granted_at": "2026-08-30 19:31:40.646721+01:00",
+      "hold_deadline": "2026-08-30 20:31:40.646721+01:00"
+    }
+  },
+  "holder_overdue": {
+    "depth": 1,
+    "oldest_waiting_seconds": 1038.001121,
+    "dropped_total": 0,
+    "expired_total": 0,
+    "grants_total": 1,
+    "waiting_reason": "holder_overdue",
+    "oldest_unexplained_wait_seconds": 1038.001121,
+    "active_lease": {
+      "id": 1,
+      "profile": "nightly",
+      "requester": "venture-drain",
+      "granted_at": "2026-08-30 19:31:40.704035+01:00",
+      "hold_deadline": "2026-08-30 19:30:40.706366+01:00"
+    }
+  },
+  "nothing_granted": {
+    "depth": 1,
+    "oldest_waiting_seconds": 1038.000692,
+    "dropped_total": 0,
+    "expired_total": 0,
+    "grants_total": 0,
+    "waiting_reason": "nothing_granted",
+    "oldest_unexplained_wait_seconds": 1038.000692,
+    "active_lease": null
   }
 }

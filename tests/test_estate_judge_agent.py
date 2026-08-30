@@ -128,6 +128,10 @@ IDLE_QUEUE = {
     "dropped_total": 1,
     "expired_total": 0,
     "grants_total": 2,
+    # ADR-0077's pair, present and ``None`` — an idle queue has nothing
+    # waiting, so there is nothing to explain.
+    "waiting_reason": None,
+    "oldest_unexplained_wait_seconds": None,
     "active_lease": None,
 }
 NO_ATTENTION = {"health": [], "nudges": []}

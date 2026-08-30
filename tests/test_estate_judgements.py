@@ -147,16 +147,50 @@ def _audit(**overrides):
 
 
 def _queue(**overrides):
+    """The shape 8400 serves **today** — ADR-0077, estate message
+    ``d1939cf7``.  ``waiting_reason`` and
+    ``oldest_unexplained_wait_seconds`` are present and ``None``, which
+    is what an idle queue looks like: nothing waiting, so nothing to
+    explain."""
     payload = {
         "depth": 0,
         "oldest_waiting_seconds": None,
         "dropped_total": 1,
         "expired_total": 0,
         "grants_total": 2,
+        "waiting_reason": None,
+        "oldest_unexplained_wait_seconds": None,
         "active_lease": None,
     }
     payload.update(overrides)
     return payload
+
+
+def _legacy_queue(**overrides):
+    """The shape 8400 served before 2026-08-30, and the reason the
+    fallback exists at all.
+
+    The two discriminating keys are **absent**, not ``None``.  Every
+    test that uses this is about a producer that cannot answer "was this
+    wait explained", which is a different fact from one that answered
+    "no"."""
+    payload = _queue(**overrides)
+    del payload["waiting_reason"]
+    del payload["oldest_unexplained_wait_seconds"]
+    return payload
+
+
+def _starving(seconds=1200.0, reason="nothing_granted", **overrides):
+    """A wait the producer says nothing explains."""
+    return _queue(
+        **{
+            "depth": 1,
+            "oldest_waiting_seconds": seconds,
+            "oldest_unexplained_wait_seconds": seconds,
+            "waiting_reason": reason,
+            **overrides,
+        }
+    )
 
 
 def titles(judgements):
@@ -583,9 +617,10 @@ class TestTheQueue:
     def test_depth_at_the_threshold_is_not_a_breach(self):
         assert judge_queue_invariants(_queue(depth=3), 3, 900.0) == []
 
-    def test_the_oldest_wait_is_judged(self):
-        out = judge_queue_invariants(_queue(oldest_waiting_seconds=1200.0), 3, 900.0)
+    def test_the_oldest_unexplained_wait_is_judged(self):
+        out = judge_queue_invariants(_starving(1200.0), 3, 900.0)
         assert titles(out) == {"Estate queue starved"}
+        assert out[0].details["wait_gauge"] == "unexplained"
 
     def test_a_null_wait_is_not_a_breach(self):
         """``NULL`` is what the producer's ``min(...) FILTER`` returns
@@ -598,6 +633,158 @@ class TestTheQueue:
         out = judge_queue_invariants(_queue(depth=9), 3, 900.0)
         assert out[0].details["dropped_total"] == 1
         assert out[0].details["grants_total"] == 2
+
+
+class TestTheWaitThatIsExplained:
+    """Estate message ``d1939cf7`` / their ADR-0076 and ADR-0077.
+
+    Their weekly review now takes a GPU lease instead of sampling a
+    counter, so it queues behind ``venture-enrich-nightly`` every Monday
+    05:30 and waits 915-1038 s — over this repository's 900 s threshold
+    every time, for a cause the "Estate queue starved" message does not
+    name and cannot: the queue working exactly as designed.
+    """
+
+    def test_the_monday_wait_is_not_starvation(self):
+        """The founding case, at the top of the measured band.
+
+        ``oldest_waiting_seconds`` is 1038 and over threshold; the
+        producer says a declared holder explains it, and this judges
+        nothing. Before 2026-08-30 it judged a row every Monday."""
+        payload = _queue(
+            depth=1,
+            oldest_waiting_seconds=1038.0,
+            oldest_unexplained_wait_seconds=None,
+            waiting_reason="behind_holder",
+        )
+        assert payload["oldest_waiting_seconds"] > 900.0
+        assert judge_queue_invariants(payload, 3, 900.0) == []
+
+    def test_the_threshold_did_not_move(self):
+        """Raising 900 was the other candidate and is refused in the
+        docstring: at a bigger number the gauge still cannot tell a
+        normal Monday from a stuck queue. So the same 900 that swallows
+        the Monday must still catch an unexplained wait one second over
+        it."""
+        assert judge_queue_invariants(_starving(900.5), 3, 900.0)
+        assert judge_queue_invariants(_starving(900.0), 3, 900.0) == []
+
+    def test_the_mask_is_read_and_never_recomputed(self):
+        """``waiting_reason == "behind_holder"`` plus the raw gauge
+        reconstructs the masked number, and reconstructing it here would
+        be a second implementation of the producer's derivation —
+        ``SNAG-DB-003``'s shape.
+
+        So an inconsistent payload is judged on the **field**, not on
+        the reason: this one says ``behind_holder`` and still publishes
+        an unexplained wait, and the row is raised. The estate owns that
+        derivation; disagreeing with it silently is how two statements
+        of one fact drift."""
+        payload = _queue(
+            depth=1,
+            oldest_waiting_seconds=1200.0,
+            oldest_unexplained_wait_seconds=1200.0,
+            waiting_reason="behind_holder",
+        )
+        assert titles(judge_queue_invariants(payload, 3, 900.0)) == {
+            "Estate queue starved"
+        }
+
+    def test_a_masked_wait_and_an_unpublished_one_are_not_the_same_fact(self):
+        """``ports_checked``'s rule, and the whole of the fallback.
+
+        Two payloads carrying the *same* ``oldest_waiting_seconds``.
+        One has the discriminator and says the wait is explained; the
+        other has no discriminator at all. ``payload.get(...)`` answers
+        ``None`` for both. Masked means looked-at-and-explained; absent
+        means not asked, and answering it with silence retires this
+        family the day the estate rolls back."""
+        masked = _queue(
+            depth=1,
+            oldest_waiting_seconds=1038.0,
+            oldest_unexplained_wait_seconds=None,
+            waiting_reason="behind_holder",
+        )
+        absent = _legacy_queue(depth=1, oldest_waiting_seconds=1038.0)
+        assert masked["oldest_waiting_seconds"] == absent["oldest_waiting_seconds"]
+        assert masked.get("oldest_unexplained_wait_seconds") is None
+        assert absent.get("oldest_unexplained_wait_seconds") is None
+
+        assert judge_queue_invariants(masked, 3, 900.0) == []
+        out = judge_queue_invariants(absent, 3, 900.0)
+        assert titles(out) == {"Estate queue starved"}
+
+    def test_the_fallback_row_says_which_gauge_it_read(self):
+        """A row that fell back must not claim a discrimination the
+        producer did not supply — in ``details`` for a machine and in
+        the message for the human the toast reaches."""
+        out = judge_queue_invariants(
+            _legacy_queue(depth=1, oldest_waiting_seconds=1038.0), 3, 900.0
+        )
+        assert out[0].details["wait_gauge"] == "total"
+        assert "oldest_unexplained_wait_seconds" in out[0].message
+        assert "cannot be ruled out" in out[0].message
+
+    @pytest.mark.parametrize(
+        "reason,phrase",
+        [
+            ("holder_overdue", "past its hold deadline"),
+            ("nothing_granted", "Nothing holds a lease"),
+        ],
+    )
+    def test_the_reason_is_named_because_the_producer_names_it(self, reason, phrase):
+        """The old message posed a disjunction. ``waiting_reason``
+        answers it, and leaving it unread is ``SNAG-UNITS-004``'s defect
+        — under-reading a field the producer had already filled in.
+
+        These two are exactly the disjunction's two limbs, which is why
+        the sentence stays true: they are the only reasons that can
+        still reach a row."""
+        out = judge_queue_invariants(_starving(1200.0, reason=reason), 3, 900.0)
+        assert phrase in out[0].message
+        assert "Either a holder never released" not in out[0].message
+        assert out[0].details["waiting_reason"] == reason
+
+    def test_an_unrecognised_reason_is_not_rendered(self):
+        """The vocabulary is the estate's. A fourth value means the
+        producer has moved, and naming it from a guess is the
+        ``subject`` fallback ``_port_of`` refuses. It falls back to the
+        disjunction, which is true of anything."""
+        out = judge_queue_invariants(_starving(1200.0, reason="quota_exhausted"), 3, 900.0)
+        assert "Either a holder never released" in out[0].message
+        assert out[0].details["waiting_reason"] == "quota_exhausted"
+        assert out[0].details["wait_gauge"] == "unexplained"
+
+    def test_both_wait_numbers_are_carried_as_evidence(self):
+        """The raw gauge is no longer judged and is still reported: it
+        is how long the request had actually been queued, which is the
+        figure a human takes to the arbiter."""
+        details = judge_queue_invariants(_starving(1200.0), 3, 900.0)[0].details
+        assert details["oldest_waiting_seconds"] == 1200.0
+        assert details["oldest_unexplained_wait_seconds"] == 1200.0
+
+    def test_the_title_did_not_move(self):
+        """Rule 2 of the module docstring. The title is the identity key
+        — dedup, the resolve and the tray's ``{severity}:{title}``
+        fingerprint all read it — so changing the gauge behind it must
+        not change it. A standing row raised before this sitting stays
+        the same row."""
+        out = judge_queue_invariants(_starving(1200.0), 3, 900.0)
+        assert out[0].title == "Estate queue starved"
+
+    def test_the_backlog_gauge_is_untouched(self):
+        """``depth`` was not part of the change and must not have moved
+        with it: a Monday wait behind a declared holder still backs the
+        queue up, and that is still worth a row."""
+        payload = _queue(
+            depth=9,
+            oldest_waiting_seconds=1038.0,
+            oldest_unexplained_wait_seconds=None,
+            waiting_reason="behind_holder",
+        )
+        assert titles(judge_queue_invariants(payload, 3, 900.0)) == {
+            "Estate queue backlog"
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -986,7 +1173,7 @@ def _every_title():
         26.0,
     )
     out += judge_audit_invariants({"audits_total": 0, "last_audit": None}, 26.0)
-    out += judge_queue_invariants(_queue(depth=9, oldest_waiting_seconds=9999.0), 3, 900.0)
+    out += judge_queue_invariants(_starving(9999.0, depth=9), 3, 900.0)
     # Both shapes of the ports family: one row per port, and the roll-up
     # that replaces them above `port_breach_max_rows`. The roll-up has a
     # title of its own and would otherwise never reach the partition

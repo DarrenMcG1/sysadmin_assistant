@@ -615,6 +615,20 @@ class EstateJudgeConfig(BaseModel):
       until estate-manager's Session 3 there was no queue; these are
       starting points to be moved once a busy day has been observed.
 
+      **The busy day arrived on 2026-08-30 and ``queue_max_wait_seconds``
+      deliberately did not move.**  estate-manager's message
+      ``d1939cf7`` announced that their weekly review now takes a GPU
+      lease, so it queues behind ``venture-enrich-nightly`` every Monday
+      and waits 915-1038 s — over this 900 every time.  Raising it is
+      the obvious response and buys nothing: at any larger number the
+      gauge still cannot tell a normal Monday from a stuck queue, and
+      the Monday wait is bounded by another repository's timer, so the
+      new number is one schedule change from being wrong again.  What
+      moved was the *gauge* — ``judge_queue_invariants`` now reads
+      ``oldest_unexplained_wait_seconds``, which is the same number with
+      that cause masked out by the producer.  So this leaf is still
+      invented and is now invented about a narrower question.
+
     - ``port_breach_max_rows`` is **invented** and is a shape guard
       rather than a tolerance — see its comment below.  It does not
       decide whether a breach is worth an alert (every one is); it

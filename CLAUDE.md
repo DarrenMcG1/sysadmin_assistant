@@ -2106,7 +2106,7 @@ Five rules, three of them the opposite of the obvious implementation:
    the whole `gpu_leases` table. `dropped_total` is 1 today, so a `> 0`
    rule raises a row no future state can clear — `redis unreachable`'s
    6,283 and `Critical disk usage on /`'s 13,971 arriving by a fourth
-   route. Only `depth` and `oldest_waiting_seconds` are gauges; the
+   route. Only `depth` and the oldest-wait gauge are judged; the
    totals are carried in `details` as evidence.
 2. **The sweep is scoped to the surfaces the run read.** Four independent
    surfaces come from one process, so three answering while one 500s is a
@@ -2141,7 +2141,78 @@ Five rules, three of them the opposite of the obvious implementation:
 are daily, plus the briefing's existing two-hour `stale_sources` margin);
 `queue_max_depth`/`queue_max_wait_seconds` are **invented** and say so in
 config, because until estate-manager's Session 3 there was no queue to
-measure. `base_url` duplicates `services.yaml` deliberately — deriving it
+measure.
+
+**The busy day arrived, and the gauge moved rather than the threshold**
+(2026-08-30, Session 139, estate message `d1939cf7` / their ADR-0076 and
+ADR-0077, filed *before* the commit that carried it — their rule 3).
+estate-manager's weekly review now **takes** a GPU lease instead of
+sampling a counter, so it queues behind `venture-enrich-nightly` every
+Monday 05:30 and waits **915–1038 s** across the five nights they
+measured — over this repository's 900 s threshold every time, for a
+third cause the "Estate queue starved" message does not name and cannot:
+*the queue working exactly as designed*. Their surface gained
+`waiting_reason` (`null`/`behind_holder`/`holder_overdue`/
+`nothing_granted`) and `oldest_unexplained_wait_seconds`, which is
+`oldest_waiting_seconds` with `behind_holder` masked to `null`.
+`judge_queue_invariants` reads the masked field now.
+
+Four rules, three of them the opposite of the obvious implementation and
+every one settled against the producer's own code rather than its prose:
+
+1. **The threshold did not move, and raising it was the wrong half.**
+   900 → 1200 is what anyone reaches for and it buys nothing: at a
+   bigger number the gauge still cannot separate a normal Monday from a
+   stuck queue, it only says so later — and the Monday wait is bounded
+   by *another repository's* timer, so any number clearing it is one
+   schedule change from being wrong again. `config.yaml` now carries
+   that refusal beside the leaf, because the leaf is where a future
+   Monday false alarm sends someone.
+2. **The mask is read, never recomputed.** `waiting_reason ==
+   "behind_holder"` plus the raw gauge reconstructs the masked number,
+   and reconstructing it makes this a second implementation of the
+   producer's derivation — `SNAG-DB-003`'s shape, `max_priority_for`
+   against `PRIORITY_MAP`. A test drives an *inconsistent* payload
+   (`behind_holder` beside an unexplained wait) and asserts the row is
+   still raised: the estate owns that derivation and disagreeing with it
+   silently is how two statements of one fact drift.
+3. **Absent is not masked, which is `ports_checked`'s rule at the size
+   of a dict key.** `payload.get(...)` answers `None` both for a
+   producer that looked and explained the wait and for one that does not
+   publish the field at all. Collapsing them retires this family in
+   silence the day the estate rolls back, so a payload with no such key
+   falls back to `oldest_waiting_seconds` and labels the row
+   `details['wait_gauge'] = "total"` — deliberately the **pre-fix**
+   behaviour rather than a refusal, because over-reporting on a Monday
+   is the failure this module survives and going quiet is not. The
+   fixture's 2026-08-16 `backlog` scenario is a *real* specimen of that
+   shape and is kept unmodified rather than re-captured; hand-editing it
+   into the new shape breaks a test.
+4. **The reason is named, because the producer names it.** The old
+   message posed a disjunction and `waiting_reason` answers it — leaving
+   it unread is `SNAG-UNITS-004`'s defect, under-reading a field the
+   producer had already filled in. The two values that can still reach a
+   row are exactly the disjunction's two limbs, which is why the
+   sentence stays true. A value this repository has not been told about
+   falls back to the disjunction rather than being rendered:
+   `_port_of`'s refusal to title a finding from `subject`.
+
+The trade the fallback makes is that the new field's **absence** is
+survivable and therefore silent everywhere — so the only place it can be
+loud is the live half, where
+`test_the_wait_discriminator_is_still_published` fails if 8400 stops
+publishing it. A graceful degradation with no separate alarm degrades
+unnoticed. The three states are pinned against payloads built by running
+`Arbiter.submit` → `tick` → `invariants` in estate-manager's own venv
+against a scratch database — never the live `estate` one, which estate
+rule 1 forbids writing and which two connections could not have been
+rolled back across anyway.
+
+`active_lease.hold_deadline` was rejected here as a threshold in Session
+45 and the estate has since made that same deadline its `holder_overdue`
+discriminator — asked of the database against the clock that set it, and
+published as a *classification* rather than as a column for a consumer
+to threshold. The rejection stands and the condition is named anyway. `base_url` duplicates `services.yaml` deliberately — deriving it
 would stop the judging silently when a service is renamed — and a test
 asserts the two agree.
 

@@ -67,6 +67,7 @@ from sysadmin.snag_claims import (
     check_dropin_blind_spot,
     check_estate_port_8500,
     check_health_path_guess,
+    check_review_slot_collides,
     check_run_status_cancelled,
     check_sysd_ollama_ordering,
     check_tray_report_unheard,
@@ -942,6 +943,159 @@ class TestChecksAgainstTheLiveBox:
 # ---------------------------------------------------------------------------
 # The real document
 # ---------------------------------------------------------------------------
+
+
+class TestTheReviewSlotCollisionCheck:
+    """``review_slot_collides`` — a check that must survive neither fix.
+
+    The entry names **two** fixes and they are independent: gate on the
+    card, or move the slot. A control watching one goes on reporting
+    *still holds* over the other, which is
+    ``check_review_schedule_unread``'s defect and one this repository has
+    already paid for — so the claim is a conjunction and both limbs are
+    driven here.
+    """
+
+    @staticmethod
+    def _schedules(**overrides):
+        base = snag_claims.get_config().schedules
+        fields = {
+            "health_review_hour": base.health_review_hour,
+            "health_review_minute": base.health_review_minute,
+            "log_review_hour": base.log_review_hour,
+            "log_review_minute": base.log_review_minute,
+            "disk_review_hour": base.disk_review_hour,
+            "disk_review_minute": base.disk_review_minute,
+        }
+        fields.update(overrides)
+        return SimpleNamespace(schedules=SimpleNamespace(**fields))
+
+    def test_it_holds_on_the_box_as_configured(self):
+        """05:45 sits inside the estate's granted band, and nothing here
+        gates on the card."""
+        measurement = check_review_slot_collides()
+        assert measurement.verdict == "match"
+        assert "colliding: disk_review" in "\n".join(measurement.detail)
+
+    def test_the_first_fix_refutes_it(self, tmp_path):
+        """A review path binding a GPU gate is the durable fix.
+
+        Driven at a **module**, not at a flag: the detector is an AST walk
+        over ``sysadmin/``, so the stand-in has to be a file it would
+        actually read."""
+        gated = tmp_path / "review.py"
+        gated.write_text("from estate import estate_queue\n", encoding="utf-8")
+        with patch.object(snag_claims, "_python_files", lambda roots: [gated]):
+            measurement = check_review_slot_collides()
+        assert measurement.verdict == "mismatch"
+        assert "first named fix" in measurement.note
+
+    def test_the_second_fix_refutes_it_too(self):
+        """Moving the slot out of the band leaves the first limb exactly
+        as filed, so a check watching only that limb would never move."""
+        moved = self._schedules(disk_review_hour=6, disk_review_minute=30)
+        with patch.object(snag_claims, "get_config", lambda: moved):
+            measurement = check_review_slot_collides()
+        assert measurement.verdict == "mismatch"
+        assert "second named fix" in measurement.note
+
+    def test_a_slot_one_spacing_away_is_still_a_collision(self):
+        """The band is bounded by the chain's own fifteen minutes, which
+        is derived rather than invented — so 06:00 is not clear of it and
+        a fix has to move further than the next slot."""
+        moved = self._schedules(disk_review_hour=6, disk_review_minute=0)
+        with patch.object(snag_claims, "get_config", lambda: moved):
+            assert check_review_slot_collides().verdict == "match"
+
+    def test_a_docstring_naming_a_gate_literal_is_not_a_gate(self, tmp_path):
+        """The regression this check shipped with, driven at the node
+        kind that can actually carry it.
+
+        A substring search read ``estate_queue_invariants.json`` named in
+        a docstring as a landed gate — a check that reads a *sentence
+        about* a fix as the fix retires its own entry, the harmful
+        direction. The first version of this test asserted that same
+        specimen and **passed against the mutation**, because
+        ``estate_queue`` is matched as an identifier and a docstring
+        cannot produce an ``ast.Name``: it was green for a reason it did
+        not name. Only a *literal* gate spelled in prose exercises the
+        exclusion, so that is what is built here."""
+        prose = tmp_path / "review.py"
+        prose.write_text(
+            '"""Mentions /api/queue/lease and wait-for-dgpu in prose only."""\n'
+            "\n"
+            "def f():\n"
+            '    """Wired to /api/queue/lease one day, not today."""\n',
+            encoding="utf-8",
+        )
+        with patch.object(snag_claims, "_python_files", lambda roots: [prose]):
+            assert check_review_slot_collides().verdict == "match"
+
+    def test_the_same_literal_in_code_is_a_gate(self, tmp_path):
+        """The exclusion's other side — without this the test above is
+        satisfied by a detector that has stopped reading literals at
+        all."""
+        gated = tmp_path / "review.py"
+        gated.write_text('URL = "/api/queue/lease"\n', encoding="utf-8")
+        with patch.object(snag_claims, "_python_files", lambda roots: [gated]):
+            assert check_review_slot_collides().verdict == "mismatch"
+
+    def test_an_identifier_cannot_be_forged_by_prose(self):
+        """``estate_queue`` in a docstring is structurally invisible, and
+        that is worth pinning rather than trusting: it is matched as an
+        ``ast.Name``/``ast.Attribute``/``ast.alias``, none of which a
+        string can be. The live specimen is this repository's own
+        judgements docstring."""
+        prose = Path(__file__).parent.parent / "sysadmin" / "estate" / "judgements.py"
+        assert "estate_queue_invariants.json" in prose.read_text(encoding="utf-8")
+        assert check_review_slot_collides().verdict == "match"
+
+    def test_it_is_unknown_when_the_estate_review_stops_taking_a_lease(self):
+        """The premise is *their* behaviour, and a premise that has died
+        is not a claim that still holds."""
+        with tempfile.TemporaryDirectory() as tmp:
+            sampled = Path(tmp) / "review.py"
+            sampled.write_text("gpu_busy_percent()\n", encoding="utf-8")
+            with patch.object(snag_claims, "ESTATE_REVIEW_SOURCE", sampled):
+                measurement = check_review_slot_collides()
+        assert measurement.verdict == "unknown"
+        assert "no longer acquires a GPU lease" in measurement.note
+
+    def test_it_is_unknown_when_their_review_module_will_not_read(self):
+        with patch.object(
+            snag_claims, "ESTATE_REVIEW_SOURCE", Path("/nonexistent/review.py")
+        ):
+            measurement = check_review_slot_collides()
+        assert measurement.verdict == "unknown"
+        assert "cannot see it" in measurement.note
+
+    def test_it_is_unknown_when_the_timer_is_not_loaded_here(self):
+        """``systemctl show`` answers for a unit that does not exist and
+        exits 0 — :func:`unit_load_state`'s trap, and the reason
+        ``LoadState`` is the gate rather than the calendar's absence."""
+        with patch.object(
+            snag_claims, "ESTATE_REVIEW_TIMER", "sysadmin-no-such-timer.timer"
+        ):
+            measurement = check_review_slot_collides()
+        assert measurement.verdict == "unknown"
+        assert "not loaded" in measurement.note
+
+    def test_it_is_unknown_when_systemd_will_not_answer(self):
+        def _boom(*_args, **_kwargs):
+            raise OSError("no systemctl")
+
+        with patch.object(snag_claims.subprocess, "run", _boom):
+            measurement = check_review_slot_collides()
+        assert measurement.verdict == "unknown"
+        assert "would not answer" in measurement.note
+
+    def test_a_timer_with_no_readable_time_is_unknown(self):
+        with patch.object(
+            snag_claims, "user_unit_calendar", lambda unit: ("{ OnCalendar=weekly }", "loaded")
+        ):
+            measurement = check_review_slot_collides()
+        assert measurement.verdict == "unknown"
+        assert "no readable time" in measurement.note
 
 
 class TestTheRealDocument:

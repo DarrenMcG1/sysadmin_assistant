@@ -674,6 +674,269 @@ def check_sysd_ollama_ordering() -> Measurement:
     )
 
 
+#: estate-manager's weekly review timer.  A **user** unit, so
+#: :func:`unit_load_state`'s system-scope ``systemctl show`` cannot see
+#: it — the one place this module needs ``--user``.
+ESTATE_REVIEW_TIMER = "estate-manager-review.timer"
+
+#: Where the estate declares that its review takes a lease rather than
+#: sampling a counter.  Read read-only, and read at all because the
+#: entry's premise is *their* behaviour: if the review goes back to
+#: sampling, the collision dissolves without anything here changing.
+#: ``ESTATE_REGISTRY``'s treatment, one file over.
+ESTATE_REVIEW_SOURCE = (
+    Path.home()
+    / "projects"
+    / "estate-manager"
+    / "service"
+    / "estate_service"
+    / "projects"
+    / "review.py"
+)
+
+#: The band estate-manager measured over five nights (their ADR-0077 and
+#: message ``d1939cf7``): a request queued at 05:30 is granted between
+#: 05:45:15 and 05:47:18, because ``venture-enrich-nightly`` releases
+#: there.  Carried as **their** measurement rather than re-derived — the
+#: rows are in the estate's database, which estate rule 1 forbids
+#: reading — so a check that recomputed it would be reading a number it
+#: cannot see.
+ESTATE_GRANT_BAND_SECONDS = (915, 1038)
+
+#: The spacing every slot in the Monday chain already assumes is enough
+#: for one generation.  **Derived, not invented**: 05:00, 05:15, 05:45
+#: and the 06:00 briefing are fifteen minutes apart, and Session 79 grew
+#: the chain at the front rather than shortening it.
+CHAIN_SPACING_SECONDS = 15 * 60
+
+#: Identifiers a review path here would bind to in order to gate on the
+#: card — the estate's queue client, or the estate's own wait helper.
+GPU_GATE_NAMES = frozenset({"estate_queue", "wait_for_dgpu"})
+
+#: The same gate spelled as data rather than as code: the helper's path
+#: on disk, and the lease route on 8400.  Both are string literals, which
+#: is why this check reads two node kinds rather than one.
+GPU_GATE_LITERALS = ("wait-for-dgpu", "/api/queue/lease")
+
+
+def user_unit_calendar(unit: str) -> tuple[str, str]:
+    """``OnCalendar`` for a user timer, and its ``LoadState``.
+
+    ``--user`` because the estate's timers are user units;
+    :func:`unit_load_state`'s trap applies unchanged, so ``not-found`` is
+    a measurement and the absence of a property is not.
+    """
+    try:
+        result = subprocess.run(
+            ["systemctl", "--user", "show", unit, "-p", "TimersCalendar", "-p", "LoadState"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return "", f"unmeasured ({exc.__class__.__name__})"
+    calendar = state = ""
+    for line in result.stdout.splitlines():
+        if line.startswith("TimersCalendar="):
+            calendar = line.split("=", 1)[1].strip()
+        elif line.startswith("LoadState="):
+            state = line.split("=", 1)[1].strip()
+    return calendar, state or "unmeasured (no LoadState)"
+
+
+def _slot_seconds(hour: int, minute: int) -> int:
+    return hour * 3600 + minute * 60
+
+
+def _calendar_seconds(calendar: str) -> int | None:
+    """Seconds past midnight from a ``TimersCalendar=`` property.
+
+    systemd renders it as ``{ OnCalendar=Mon *-*-* 05:30:00 ; ... }``, so
+    the time is matched rather than the whole expression parsed: this
+    check needs the wall clock the timer fires at and nothing else, and a
+    parser for the calendar grammar would be a second implementation of
+    systemd's.
+    """
+    match = re.search(r"(\d{2}):(\d{2}):(\d{2})", calendar)
+    if match is None:
+        return None
+    h, m, sec = (int(g) for g in match.groups())
+    return h * 3600 + m * 60 + sec
+
+
+def _docstring_nodes(tree: ast.Module) -> set[int]:
+    """``id()`` of every docstring constant in ``tree``.
+
+    Prose is the thing this detector must not read, and it was reading
+    it: ``estate_queue_invariants.json`` named in a docstring matched a
+    substring search for ``estate_queue`` and reported the entry's first
+    fix as landed. A check that reads a *sentence about* a gate as a gate
+    retires its own entry, which is the harmful direction — so the
+    detector is an AST walk and docstrings are excluded by identity
+    rather than by pattern.
+    """
+    found: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        body = getattr(node, "body", None)
+        if not body:
+            continue
+        first = body[0]
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+            if isinstance(first.value.value, str):
+                found.add(id(first.value))
+    return found
+
+
+def _gpu_gate_mentions() -> list[str]:
+    """Every place under ``sysadmin/`` that binds a way to gate on the card.
+
+    Two node kinds because the gate has two spellings: an identifier
+    (:data:`GPU_GATE_NAMES` — the estate's queue client, or their wait
+    helper) and a string literal (:data:`GPU_GATE_LITERALS` — the
+    helper's path, the lease route). A comment or a docstring naming
+    either is **not** a gate, and this module is skipped entirely because
+    it names all four in order to look for them.
+    """
+    found: list[str] = []
+    for path in _python_files([REPO_ROOT / "sysadmin"]):
+        if path.name == "snag_claims.py":
+            continue
+        tree = _parse(path)
+        if tree is None:
+            continue
+        docstrings = _docstring_nodes(tree)
+        for node in ast.walk(tree):
+            hit = False
+            if isinstance(node, ast.Name) and node.id in GPU_GATE_NAMES:
+                hit = True
+            elif isinstance(node, ast.Attribute) and node.attr in GPU_GATE_NAMES:
+                hit = True
+            elif isinstance(node, ast.alias) and node.name.split(".")[-1] in GPU_GATE_NAMES:
+                hit = True
+            elif (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and id(node) not in docstrings
+                and any(token in node.value for token in GPU_GATE_LITERALS)
+            ):
+                hit = True
+            if hit:
+                found.append(f"{_rel(path)}:{getattr(node, 'lineno', 0)}")
+    return sorted(set(found))
+
+
+def check_review_slot_collides() -> Measurement:
+    """``SNAG-SCHED-001`` — two generations aimed at one card.
+
+    The claim has two halves and **either** of the entry's two fixes must
+    refute it, or this is a control that survives its own remedy.  So it
+    is a conjunction:
+
+    1. **Nothing in this repository gates on the card.**  A review here
+       calls llama-server directly — no lease, no ``wait-for-dgpu`` — so
+       a gate appearing anywhere under ``sysadmin/`` is the first fix and
+       reports ``mismatch``.
+    2. **A slot of ours still lands inside the estate's granted band.**
+       Moving ``disk_review_minute`` out of it is the second fix, and it
+       leaves half 1 exactly as filed, so watching half 1 alone would go
+       on reporting *still holds* over a landed schedule change —
+       ``check_review_schedule_unread``'s defect, which this repository
+       has already paid for once.
+
+    The **premise** is the estate's, and it is measured rather than
+    assumed: if their review goes back to sampling a counter, or their
+    timer moves, the collision dissolves with nothing here edited.  That
+    is ``unknown`` and never ``match`` — a claim whose premise has died
+    is not a claim that still holds.
+    """
+    config = get_config()
+    schedules = config.schedules
+    slots = {
+        "health_review": _slot_seconds(
+            schedules.health_review_hour, schedules.health_review_minute
+        ),
+        "log_review": _slot_seconds(
+            schedules.log_review_hour, schedules.log_review_minute
+        ),
+        "disk_review": _slot_seconds(
+            schedules.disk_review_hour, schedules.disk_review_minute
+        ),
+    }
+
+    try:
+        review_source = ESTATE_REVIEW_SOURCE.read_text(encoding="utf-8")
+    except OSError as exc:
+        return Measurement(
+            "unknown",
+            f"the estate's review module would not read ({exc.__class__.__name__}) — "
+            "the premise is their behaviour and this check cannot see it",
+        )
+    if "estate_queue.acquire" not in review_source:
+        return Measurement(
+            "unknown",
+            "estate-manager's weekly review no longer acquires a GPU lease — the "
+            "premise has died rather than the claim being refuted, and the "
+            "displacement this entry is about goes with it",
+            (_rel(ESTATE_REVIEW_SOURCE),),
+        )
+
+    calendar, load_state = user_unit_calendar(ESTATE_REVIEW_TIMER)
+    if load_state.startswith("unmeasured"):
+        return Measurement("unknown", f"systemd would not answer for {ESTATE_REVIEW_TIMER}")
+    if load_state == "not-found":
+        return Measurement(
+            "unknown",
+            f"{ESTATE_REVIEW_TIMER} is not loaded — the estate's review is not "
+            "scheduled on this box, so nothing is displaced onto our slots",
+        )
+    fires_at = _calendar_seconds(calendar)
+    if fires_at is None:
+        return Measurement(
+            "unknown",
+            f"{ESTATE_REVIEW_TIMER} declares no readable time ({calendar!r})",
+        )
+
+    low, high = (fires_at + off for off in ESTATE_GRANT_BAND_SECONDS)
+    colliding = {
+        name: at
+        for name, at in slots.items()
+        if low - CHAIN_SPACING_SECONDS < at < high + CHAIN_SPACING_SECONDS
+    }
+
+    gates = sorted(_gpu_gate_mentions())
+
+    def _clock(seconds: int) -> str:
+        return f"{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
+
+    detail = (
+        f"{ESTATE_REVIEW_TIMER} fires {_clock(fires_at)}; granted "
+        f"{_clock(low)}-{_clock(high)} (estate-measured band)",
+        "our slots: "
+        + ", ".join(f"{n} {_clock(at)}" for n, at in sorted(slots.items(), key=lambda kv: kv[1])),
+        f"colliding: {', '.join(sorted(colliding)) or 'none'}",
+        f"gpu gates under sysadmin/: {', '.join(gates) or 'none'}",
+    )
+
+    if gates:
+        return Measurement(
+            "mismatch",
+            "a review path here now gates on the card, which is the entry's first "
+            "named fix — the two generations no longer overlap unarbitrated",
+            detail,
+        )
+    if not colliding:
+        return Measurement(
+            "mismatch",
+            "no review slot here falls within one chain-spacing of the estate's "
+            "granted band any more, which is the entry's second named fix",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 def _method(tree: ast.Module, name: str) -> ast.FunctionDef | None:
     """The first ``def name`` anywhere in ``tree``, or ``None``."""
     for node in ast.walk(tree):
@@ -6034,6 +6297,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-SYSD-003",
             "sysadmin.service orders after a retired unit",
             check_sysd_ollama_ordering,
+        ),
+        Check(
+            "review_slot_collides",
+            "SNAG-SCHED-001",
+            "the estate's displaced review generation lands on our disk review slot",
+            check_review_slot_collides,
         ),
         Check(
             "run_status_cancelled",

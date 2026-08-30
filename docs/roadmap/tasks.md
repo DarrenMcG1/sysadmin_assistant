@@ -16,6 +16,81 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 139 — the gauge moved and the threshold deliberately did
+      not.** *(2026-08-30.)* Estate message `d1939cf7` **acted on and
+      closed**. estate-manager's weekly review now *takes* a GPU lease
+      instead of sampling a counter (their ADR-0076/0077, filed **before**
+      the commit that carried it — their rule 3), so it queues behind
+      `venture-enrich-nightly` every Monday 05:30 and waits **915–1038 s**
+      over five measured nights. `judge_queue_invariants` judged
+      `oldest_waiting_seconds > 900` with the message *"Either a holder
+      never released, or the arbiter's tick loop has stopped granting"* —
+      neither of which is true of a queue working as designed, so the
+      first alert would have arrived on a Monday morning and been wrong.
+      The predicate reads `oldest_unexplained_wait_seconds` now, which is
+      the same number with `behind_holder` masked out by the producer.
+      **900 is unchanged**, and `config.yaml` says why beside the leaf:
+      at any larger number the gauge still cannot separate a normal
+      Monday from a stuck queue, and the wait is bounded by *another
+      repository's* timer, so the new number would be one schedule change
+      from being wrong again.
+      - **The mask is read, never recomputed.** `waiting_reason ==
+        "behind_holder"` plus the raw gauge reconstructs it, and doing so
+        makes this a second implementation of the producer's derivation —
+        `SNAG-DB-003`'s shape. A test drives an *inconsistent* payload
+        (`behind_holder` beside an unexplained wait) and asserts the
+        field wins; it is the one mutation that lands on a single test.
+      - **Absent is not masked** — `ports_checked`'s rule at the size of a
+        dict key. `payload.get(...)` answers `None` both for a producer
+        that explained the wait and for one that does not publish the
+        field. A payload without the key falls back to the old gauge and
+        labels the row `wait_gauge: "total"`, deliberately the *pre-fix*
+        behaviour rather than a refusal: over-reporting on a Monday is
+        the failure this module survives, going quiet is not.
+      - **The reason is named, because the producer names it** —
+        `SNAG-UNITS-004`'s defect otherwise. The two values that can
+        still reach a row are exactly the old disjunction's two limbs. A
+        value this repository has not been told about falls back to the
+        disjunction rather than being rendered, `_port_of`'s refusal.
+      - **The trade is stated: a survivable absence is a silent one.**
+        The fallback makes the field vanishing invisible to every
+        fixture-driven test, so the only place it is loud is the live
+        half — `test_the_wait_discriminator_is_still_published`, plus one
+        asserting the masked gauge never exceeds the gauge it masks.
+      - **The fixtures are the producer's.** The three states were built
+        by running `Arbiter.submit` → `tick` → `invariants` in
+        estate-manager's own venv against a **scratch** database created
+        and dropped by the capture — never the live `estate` one, which
+        estate rule 1 forbids writing and which two connections could not
+        have been rolled back across anyway. Only public symbols were
+        touched. The 2026-08-16 fixture is kept **unmodified** as the
+        legacy-producer specimen and a test fails if it is hand-edited
+        into the new shape; `test_every_scenario_is_claimed_by_exactly_
+        one_provenance_block` makes a two-capture fixture account for
+        every scenario.
+      - **One snag opened beside the work — `SNAG-SCHED-001`.** Reading
+        *why* their review takes a lease showed it displaces **where it
+        generates** from 05:30 to the grant, 05:45:15–05:47:18, which is
+        this repository's disk-review slot at 05:45. Neither party
+        gates — an AST walk finds zero GPU-gate bindings under
+        `sysadmin/`, and their lease arbitrates them against
+        `venture-enrich-nightly`, not against us. The entry claims only
+        that Session 79's fifteen-minute spacing is now false and
+        **unmeasured**, and names the measurement that decides between
+        its two fixes. Its check is a conjunction so that either fix
+        refutes it; its first draft read a docstring as a landed gate,
+        and the test written for *that* regression passed against the
+        mutation, because an identifier cannot be forged by prose.
+      - **Ships untriggered**: `alerts` holds **0** `Estate queue…` rows
+        all-time, so nothing standing needed reconciling. **+23 tests,
+        3125 → 3148**; ten predicate mutations and eight fixture/live
+        mutations each land red on the test that owns the rule.
+      - **No ADR.** `8462bcc5` got one because it carried
+        `needs_ruling=true` and asked a question; `d1939cf7` is
+        recommendation-only, and the reasoning lives in the docstring
+        beside the predicate where a future reader of that predicate
+        will meet it.
+
 - [x] **Session 138 — the measurement refuted the remedy rather than
       sizing it.** *(2026-08-30.)* `SNAG-TRAY-011` **decided, not
       fixed**: `sysadmin-tray` does **not** gain a `log:` block. The
