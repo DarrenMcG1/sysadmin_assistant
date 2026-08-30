@@ -2,7 +2,110 @@
 
 ## Next action
 
-Write the fourth sweep `SNAG-TEST-002` names, over `CHECKS` in `tests/test_snag_claims.py`, asserting that every registered check is reached by at least one test driving it to an `unknown` verdict, so the habit that holds 19 of 19 times today and is the whole reason `test_snag_claims.py` is exempt from the premise rule stops being a habit and becomes a guard.
+Answer estate-manager's open message `25be77ba` by repairing the 24 broken relative markdown links this repository's own docs carry — re-measured this sitting as exactly 24 across 3 files, every one citing `sysadmin/services`, `sysadmin/agents` or `sysadmin/routers`, which `512af01` deleted on 2026-08-08 — deciding per link whether the target moved (to `estate_service/` under ADR-0005, or to `estate-lib`) and takes a pointer, or is simply gone and takes prose, then closing the message with what was done.
+
+## Session 132 is complete — the habit that became a guard, and the two docstrings it refused
+
+**`SNAG-TEST-002` is fixed.** `TestEveryCheckCanSayItDoesNotKnow` in
+`tests/test_snag_claims.py` sweeps `CHECKS` and refuses a registered
+check that no test class drives to an `unknown` verdict — the fourth
+sweep over that registry, beside the three that ask whether the register
+and the registry agree about *which* entries are measured. **18 of 18**
+covered at the moment of the fix, and the register now reads **18 open**
+with every entry carrying a check.
+
+**The check retired with the entry and its walk did not**, which is
+`FROZEN_TABLES`' rule for the sixth time here.
+`check_unknown_branch_unenforced` was written to detect its own fix
+landing — `_sweep_enforces_unknown` looks for a `test_` function
+mentioning both `CHECKS` and the verdict — so the sweep could not be
+written without retiring it. `_unknown_branch_coverage` and
+`_unwritable_sentinel` moved into the drive; the check, its detector and
+its registration went from `sysadmin/snag_claims.py`.
+
+**The sweep's own class is one of the classes it walks, and that is the
+part no reading would have found.** The walk counts a class that names a
+key *and* asserts the verdict, so a docstring citing a check by key makes
+the sweep vouch for that check — itself. It fired on the docstring
+explaining the sweep, which cited `check_unmarked_sentence_invisible`,
+and again on the docstring written to explain the first firing, for
+naming the key while saying that naming it is what is forbidden.
+`test_live_drive_premises.py` exempts its own owner for exactly this
+reason; there is no exemption here, so the prose is written around the
+key.
+
+**Two guards passed against deliberately broken code and both were
+repaired**, which is this repository's standing failure mode caught
+twice in one sitting. The second witness asks whether the class pin is
+green because the class is clean or because the walk is blind *there*:
+its first draft spliced a key into the class's real source and
+**failed**, since this class asserts no bare `unknown` constant and could
+never have been seen — both halves are appended now. And the class's name
+was restated as a `SWEEP_CLASS` constant, so pointing it at a *different*
+clean class left all fourteen tests green; it reads
+`type(self).__name__` instead, which makes that mutation impossible
+rather than merely caught.
+
+**`UNKNOWABLE` is the declaration the entry asked for**, and it is empty
+by measurement rather than by omission. The entry forbids requiring an
+`unknown` branch of the *producer*, so a check whose every input is local
+discharges the sweep by a name and a stated reason — `PRE_CONVENTION`'s
+shape one file over, with the same two tripwires (a declared name since
+driven, a name no longer registered) plus one refusing a blank reason.
+Driven at a stand-in, because a mechanism with no members is
+`SNAG-UNITS-006`'s standing.
+
+**The looseness of the walk is stated rather than tightened.** It keys on
+the class, so a class naming a key only in passing while asserting the
+verdict about a different one counts —
+`TestChecksAgainstTheLiveBox` covers seven keys at once and
+`TestTheQueueTimezoneCheck` names `sysd_ollama_ordering` incidentally.
+Measured: **no key is covered only incidentally**, every one is also
+reported by the class that owns it. So the sweep is a floor on the habit
+and not a proof of it, which is the entry's measurement promoted rather
+than a stronger claim invented in its place.
+
+**Two mutations were wrong on the first attempt.** A comment naming a key
+changed nothing, because `ast.unparse` drops comments and the walk
+unparses too — inert mutation, not blind pin — and had to be respelled as
+a docstring. And a literal sentinel fails the mint test while leaving the
+coverage witness green, because a module-level literal sits outside every
+class the walk reads; the historical defect needed the literal written
+*into* a class, which is how it was originally found.
+
+**One decision taken and deliberately not extended.**
+`tests/test_snag_claims.py` stays the one name in `PRE_CONVENTION`. A
+`@pytest.mark.premise` on the sweep would empty that set, and it was
+refused: rule 1 is about a drive asserting *the box produced the state it
+reads*, while the sweep is a static walk over a source file — so the mark
+would discharge rule 2 with a witness about something else, and
+`test_live_drive_premises.py` could not tell. Its docstring now says so,
+and cites the sweep rather than the retired check as the reason the
+exemption is safe.
+
+**One drive-by, caused by the retirement.** Removing the now-unused
+`import uuid` from `sysadmin/snag_claims.py` would have deleted a
+`# noqa: S404` with it: `897355b` moved that comment off `import
+subprocess` when it inserted `uuid` alphabetically on the same line. It
+is back on the line it describes.
+
+**Verification.** **3055 → 3056**, +14 and 13 retired with the check,
+arithmetic checked against a stashed baseline rather than read off a
+green suite. Eleven mutations, each red on exactly the intended test.
+Ruff and mypy clean. `sysadmin-check-snags` exits 0 over 18 checks;
+`check-ops-claims.sh` is green on all eight claims and reports the
+**deploy** state check red — its documented false positive, since
+`sysadmin/snag_claims.py` is a console-script module and nothing under
+`sysadmin/` imports it, so the daemon serves identical behaviour and was
+deliberately not restarted. No production behaviour changed.
+
+**Not done, and not filed.** The estate's message `25be77ba` about 24
+broken relative doc links is still open; it was re-measured here and is
+accurate to the link (24, across 3 files) but repairing it is the next
+action rather than this sitting's, because the fix is a per-link decision
+about where each target went and belongs beside its own reasoning.
+
+---
 
 ## Session 131b is complete — the exemption that was earned rather than granted
 

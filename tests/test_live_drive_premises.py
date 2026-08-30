@@ -135,10 +135,22 @@ LIVE_DRIVES = sorted(TESTS.glob("test_*_live.py"))
 #: marker would name one check's premise and imply the other seventeen —
 #: which is less true than the exemption.  Measured 2026-08-30: **every**
 #: registered check is driven to ``unknown`` by a test in the class that
-#: names it — 18 of 18 when this was written — and the figure is served
-#: live by ``sysadmin-check-snags``' ``unknown_branch_unenforced`` rather
-#: than frozen here.  Nothing *enforces* the habit, which is the
-#: exemption's stated cost and is `SNAG-TEST-002`.
+#: names it — 18 of 18 when this was written.
+#:
+#: **And the habit is enforced now rather than observed** (`SNAG-TEST-002`,
+#: closed 2026-08-30).  ``TestEveryCheckCanSayItDoesNotKnow`` in that file
+#: sweeps its own registry and refuses a check no class drives to that
+#: branch, so the exemption rests on a guard rather than on a count
+#: somebody took once.  The figure is not frozen here: the sweep computes
+#: it, and a nineteenth check with no such drive is a red test rather than
+#: a silently weaker exemption.
+#:
+#: The mark is deliberately **not** taken there, which would empty this set
+#: entirely.  Rule 1 is about a drive asserting that *the box produced the
+#: state it reads*; the sweep is a static walk over a source file, so a
+#: ``premise`` mark on it would discharge rule 2 with a witness about
+#: something else — and this module could not tell.  The exemption stays,
+#: with a better reason than it had.
 #:
 #: It is also the one file the detector reports for the **wrong hit**.
 #: :func:`_opens_a_live_connection` matches a ``sync_url`` read that

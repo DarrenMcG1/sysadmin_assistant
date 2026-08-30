@@ -3,7 +3,66 @@
 **Last Updated**: 2026-08-30
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The six pre-convention files were decided one at a time, and it went
+> **The habit is a guard now, and it caught its author twice before it
+> caught anything else.** `SNAG-TEST-002` is **fixed**:
+> `TestEveryCheckCanSayItDoesNotKnow` sweeps `CHECKS` and refuses a
+> registered check that no test class drives to an `unknown` verdict —
+> the fourth sweep over that registry, beside the three asking whether
+> the register and the registry agree about *which* entries are
+> measured. **18 of 18** covered at the moment of the fix.
+>
+> **The check retired with the entry and its walk did not**
+> (`FROZEN_TABLES`' rule, the sixth time here).
+> `check_unknown_branch_unenforced` was written to detect its own fix
+> landing, so `_unknown_branch_coverage` and `_unwritable_sentinel` moved
+> into the drive and the check, `_sweep_enforces_unknown` and the
+> registration went. The register reads **18 open**, every one carrying
+> a check.
+>
+> **The sweep's own class is one of the classes it walks**, which is the
+> part no reading would have found. The walk counts a class that names a
+> key *and* asserts the verdict, so a docstring citing a check by key
+> makes the sweep vouch for that check — itself. It fired on the
+> docstring explaining the sweep, and again on the docstring written to
+> explain the first firing, for naming the key while saying that naming
+> it is what is forbidden. `test_live_drive_premises.py` exempts its own
+> owner for this reason; there is no exemption here, so the prose is
+> written around the key.
+>
+> **Two guards passed against deliberately broken code and both were
+> repaired.** The second witness — is the class pin green because the
+> class is clean, or because the walk is blind *here* — spliced a key
+> into the class's real source and **failed**, since this class asserts
+> no bare `unknown` constant and could never have been seen; both halves
+> are appended now. And the class's name was restated as a constant, so
+> pointing it at a *different* clean class left all fourteen green: it
+> is derived from `type(self).__name__` instead, which makes that
+> mutation impossible rather than merely caught.
+>
+> **`UNKNOWABLE` is the declaration the entry asked for**, empty by
+> measurement — a check whose every input is local discharges the sweep
+> by a name and a stated reason rather than by a branch that cannot
+> exist, `PRE_CONVENTION`'s shape one file over, with tripwires for a
+> stale name, an orphaned one and one with no reason. Driven at a
+> stand-in, because a mechanism with no members is `SNAG-UNITS-006`'s
+> standing.
+>
+> **The looseness is stated rather than tightened.** The walk keys on the
+> class, so a class naming a key in passing counts —
+> `TestChecksAgainstTheLiveBox` covers seven at once. Measured: **no key
+> is covered only incidentally**. It is a floor on the habit, which is
+> the measurement the entry named being promoted rather than a stronger
+> claim invented in its place.
+>
+> **3055 → 3056**, +14 and 13 retired with the check, arithmetic checked
+> against a stashed baseline. Eleven mutations, each red on exactly the
+> intended test. One drive-by: the previous sitting moved a
+> `# noqa: S404` off `import subprocess` onto `import uuid`, and
+> removing the now-unused import would have taken it with it — it is
+> back on the line it describes. No production behaviour changed; ruff
+> and mypy clean.
+>
+> *Previously —* **The six pre-convention files were decided one at a time, and it went
 > five ways to one.** The handoff asked whether they owe premise
 > assertions. **Four owed one and had none**; one owed **the marker and
 > never the premise**; one owes nothing. `test_schema_drift.py` is the
