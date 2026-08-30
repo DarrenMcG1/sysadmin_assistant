@@ -2,7 +2,104 @@
 
 ## Next action
 
-Add `len(notifier.sent)` to `tests/test_desktop_store_live.py`'s reading dict and re-drive it, because `SNAG-TRAY-010`'s six failures give every "did it speak" reading as `False` while the rows are stored and adopted, and that one number separates a sweep that never ran from a sweep that ran and found nothing due — the entry stops short of a mechanism deliberately, and this is the measurement it names first.
+Decide whether `tests/` should carry a guard asserting that no live drive reads an unsupplied singleton clock, because `SNAG-TRAY-010` was the third leaf in one file and `dnd_manager`, `tray_presence` and `dnd_manager.config` are all process-wide state that a drive can read without supplying, so the question is whether one AST sweep over the live-test files is worth more than the premise assertion each of them already carries.
+
+## Session 130 is complete — the leaf that did not look like a clock
+
+**`SNAG-TRAY-010` is fixed, and the entry's own named measurement is what
+found it.** The handoff asked for `len(notifier.sent)` in the reading
+dict on the grounds that it separates *the sweep never ran* from *it ran
+and found nothing due*. It does, and it read **0** — which is reachable
+only above `_handle`, so the sweep was never the subject.
+
+**The mechanism is a clock the drive could not see it was reading.**
+`tests/test_desktop_store_live.py` supplies **two** leaves and says so in
+its own docstring — the transport (a list rather than `notify-send`) and
+the two clock readings — and misses a **third**. `DndManager.is_active`
+calls `datetime.now()` *itself*, so `dnd_manager.should_suppress` reads
+the **real** wall clock whatever clock the notifier was handed. The
+shipped `notifications.dnd.schedule` is **`23:00 → 07:00`**, the probes
+are raised at `warning`, and `allow_critical: true` does not exempt them.
+Inside that window every send is refused.
+
+**Which is why bisecting was a dead end rather than evidence.** The entry
+drove it at `62f8e09`, the commit that added the file, and got the same
+six — correctly, and that reading is the *reason* it looked like a dead
+end. It is not a property of any revision. It is a property of the hour:
+Session 129 committed at **05:27** and wrote its handoff at **05:23**.
+Re-run at **09:37** on the same tree and the same commit, the file is
+**7 passed** with nothing changed. The suite this sitting opened on was
+already **3017 green, 0 red**.
+
+**The contradiction in the symptom was the discriminator all along.**
+*Silent, yet the rows are stored and adopted* looks impossible, because
+`_remember` runs only after a successful `send` — except in `_adopt`,
+which writes **unconditionally**. DND gates `_handle` before the send and
+the `due` filter before `_restate`, and gates adoption **nowhere**. So
+all three probe titles were adopted and stored by a notifier that had
+never spoken, and `inherited_adopted: True` is the same fact stated a
+second way.
+
+**Proved against the real cause, not a proxy for it.** Three drives at
+09:37 on an unchanged tree: `manual_override=True` reproduces the six
+failures verbatim, including which six and which one survives;
+`manual_override=False` gives seven green; and the **schedule itself**
+widened to `00:00 → 23:59` — the actual mechanism — also gives the six.
+
+**The fix is the third leaf, supplied the way the other two are.**
+`_hold_dnd_off()` sits beside `standing = understudy.tray_presence` and
+uses the manager's **public** `set_manual_override`, restoring **what it
+found** rather than `None`. That is not fussiness: the two are different
+states (`None` defers to the schedule, `False` overrides it), and a drive
+that walked away leaving it forced-off would silence the window for every
+test after it in the same process — invisibly, since the effect is a
+notification nobody receives. Two repairs were refused: skipping
+overnight hides a real regression for a third of every day, and failing
+overnight is the entry.
+
+**`sent_total` generalises past its own cause, which is why it is
+asserted rather than merely recorded.** Every other "did it speak"
+reading is a `bool` over a *slice* of `sent`, so all of them read `False`
+whether the sweep found nothing due or a gate above it refused the lot;
+the total can tell them apart, because a sweep that merely found nothing
+due still leaves the announce-time sends behind it. Driven at
+`min_severity: critical` with DND off — a **different** gate in the same
+position — it fires. It is asserted non-zero and not as a figure, since
+the figure is the roll-up's shape and `first_count` / `second_count`
+already own that. `dnd_suppressing` is ordered **ahead** of it so a
+failure names the gate: unfixed, the loudest line was `spoke_unwatched is
+False`, a sentence about the sweep for a fault entirely above it.
+
+**One thing only the falsification found.** At `min_severity: critical`
+the drive **errored** rather than failing — `stored[ANNOUNCED_TITLE]`
+raised `KeyError` while *building* the reading, because `_adopt` admits
+no rung below the threshold either — so the premise test written to name
+the cause never ran and seven errors said nothing at all. It is
+`.get`-shaped now. Absent is a reading; a traceback is not, which is this
+entry's own lesson arriving inside its fix.
+
+**No production change, and that was checked rather than assumed.** The
+daemon's behaviour in the window is correct: a fault raised during DND is
+not announced, is adopted by the sweep (which anchors its clock), and
+`desktop.py`'s own comment states that a suppressed reminder does not
+move the clock — so it speaks when the window lifts at 07:00 rather than
+a full interval later. The defect was entirely in what the harness
+supplied.
+
+**Numbers.** 3017 → **3018**, +1 and none retired, verified by stashing
+to HEAD and re-collecting. Three mutations driven, three killed, each red
+on exactly one intended guard. `ruff` clean, `mypy` clean over 95 source
+files. All 20 snag checks `ok`, all ops claims `ok`, and closing the one
+unchecked entry restores **18 open, 0 unchecked**.
+
+**Not claimed.** No deploy was owed — nothing under `sysadmin/` changed,
+so the daemon serves the same code and was not restarted. And the fix is
+a harness one: it buys back the control over `SNAG-TRAY-008` that six
+standing reds had cost, and changes nothing a user of this box can see.
+
+---
+
+*Previously —*
 
 ## Session 129 is complete — the second exception, and the filter it could not fit through
 

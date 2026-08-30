@@ -30,9 +30,31 @@ verdict a conjunction:
 5. another interval passes and the second sweep runs — the second
    witness, and the **second face** (its predecessor's fault, restored).
 
-Two leaves are supplied and everything the entry is about sits above
-both: the transport (a list rather than ``notify-send``) and the two
-clock readings.  The rows are real and the transaction is rolled back —
+**Three leaves are supplied** and everything the entry is about sits
+above all of them: the transport (a list rather than ``notify-send``),
+the two clock readings, and — since ``SNAG-TRAY-010`` — the DND gate.
+
+That third one was the entry, and it was missing because it does not
+*look* like a clock.  :meth:`DndManager.is_active` calls
+``datetime.now()`` itself, so it reads the **real** wall clock whatever
+clock the notifier was handed; the shipped ``notifications.dnd.schedule``
+is ``23:00 → 07:00`` and the probes are raised at ``warning``, which
+``allow_critical`` does not exempt.  Run inside that window every send
+was refused and this file failed **6 of 7** — the premise test among
+them — which is where Session 129 found it at 05:23.
+
+The symptom read as a contradiction and that is what made it worth
+recording: *silent, yet the rows are stored and adopted.*  DND gates
+:meth:`DesktopNotifier._handle` before the send and the ``due`` filter
+before :meth:`_restate`, and **not** :meth:`_adopt`, which writes
+unconditionally — so all three probe titles were adopted and stored by a
+notifier that had never spoken.  :data:`sent_total` in the reading is
+what tells the two apart at a glance, and it is asserted rather than
+merely recorded: **zero** means a gate above the sweep refused
+everything, where a sweep that ran and found nothing due leaves the
+announce-time sends behind it.
+
+The rows are real and the transaction is rolled back —
 and the session **joins the outer transaction by savepoint**, because
 ``DesktopNotifier._remember`` commits and a plain rollback-in-a-finally
 would leak.  That is not hypothetical: it happened once during this
@@ -49,6 +71,7 @@ from sysadmin.core.config import get_config
 from sysadmin.monitor import desktop as understudy
 from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.desktop import DesktopNotifier, TrayPresence
+from sysadmin.monitor.dnd import dnd_manager
 from sysadmin.monitor.models.desktop_notification import DesktopNotification
 
 UNHEARD_TITLE = "sysadmin-live-probe: a fault raised while the tray was watching"
@@ -133,6 +156,35 @@ def _supplied_presence(elapsed):
             return elapsed()
 
     return SuppliedPresence()
+
+
+def _hold_dnd_off() -> bool | None:
+    """The third leaf: DND held off.  Returns what to restore afterwards.
+
+    Shaped like ``standing = understudy.tray_presence`` beside it rather
+    than as a context manager, because the two leaves are installed and
+    restored by one ``try``/``finally`` and a second idiom for the second
+    leaf would read as a second mechanism.
+
+    ``set_manual_override`` rather than a monkeypatch, because it is the
+    manager's **public** way of saying exactly this and the route and the
+    tray both use it — a stand-in reaching past it would model a state
+    the box cannot be in.  ``None`` is restored rather than ``False``:
+    the two differ (``None`` defers to the schedule) and a drive that
+    left the singleton forced-off would silence the DND window for every
+    test after it in the same process, which is this file's own leak
+    class one object over.
+
+    Not a narrowing of what is under test.  Gate 1 (tray presence) is
+    supplied for the same reason one line up: the entry is about the
+    store and adoption, and a gate above them decides nothing about
+    either.  What is refused is the *other* two repairs — skipping
+    overnight hides a regression for a third of every day, and letting
+    it fail overnight is ``SNAG-TRAY-010``.
+    """
+    standing = dnd_manager.manual_override
+    dnd_manager.set_manual_override(False)
+    return standing
 
 
 def _recorded(session, clock):
@@ -253,6 +305,11 @@ async def _drive() -> dict:
         interval = config.reminder_hours * 3600
         standing = understudy.tray_presence
         understudy.tray_presence = _supplied_presence(clock)
+        # Captured, because the leak guard below asserts the drive put
+        # back *what it found* rather than a literal. Pinning ``None``
+        # would be an assertion about whatever ran before this file in
+        # the same process, and would fire at a correct restore.
+        standing_dnd = _hold_dnd_off()
         try:
             first = _recorded(session, clock)
 
@@ -304,12 +361,37 @@ async def _drive() -> dict:
                 for row in await session.scalars(select(DesktopNotification))
             }
             inherited = second._spoken.get(ANNOUNCED_TITLE)
+
+            # Read while the leaf is still held, because that is the only
+            # moment it says anything: it is the *supplied* verdict, so it
+            # witnesses that the override took rather than that the box
+            # happens to be outside the window. Asked of ``dnd_manager``
+            # and not of the notifier, which is the subject.
+            dnd_suppressing = dnd_manager.should_suppress("warning")
+            sent_total = len(first.sent) + len(second.sent)
         finally:
+            dnd_manager.set_manual_override(standing_dnd)
             understudy.tray_presence = standing
 
         return {
             "pre_existing": pre_existing,
             "quieted": quieted,
+            # **The one number that separates the two silences**
+            # (``SNAG-TRAY-010``).  Every other "did it speak" reading
+            # below is a ``bool`` over a *slice* of ``sent``, so all of
+            # them read ``False`` whether the sweep ran and found nothing
+            # due or a gate above the sweep refused the lot — and the
+            # entry's symptom was the whole set reading ``False`` at
+            # once, which no slice can attribute.  The total can: a sweep
+            # that merely found nothing due still leaves the two
+            # announce-time sends behind it, so **zero** is only
+            # reachable by a gate above ``_handle``.  Total across both
+            # instances, because the restart is inside the timeline.
+            "sent_total": sent_total,
+            # The gate that was actually shut, kept beside the number it
+            # explains rather than left to the next reader to guess.
+            "dnd_suppressing": dnd_suppressing,
+            "dnd_standing": standing_dnd,
             "spoke_while_watched": bool(watched),
             "spoke_unwatched": bool(unwatched),
             "spoke_after_restart": bool(after_restart),
@@ -332,7 +414,19 @@ async def _drive() -> dict:
             "inherited_reminders": (
                 None if inherited is None else inherited.reminders_sent
             ),
-            "stored_reminders": stored[ANNOUNCED_TITLE].reminders_sent,
+            # ``.get``, not ``[...]``, and that is ``SNAG-TRAY-010``'s
+            # lesson rather than defensive habit.  A gate above the sweep
+            # can leave this title unstored — ``min_severity: critical``
+            # does, since ``_adopt`` admits no rung below the threshold
+            # either — and a ``KeyError`` raised while *building* the
+            # reading takes the premise test down with everything else,
+            # so the one assertion written to name the cause never runs.
+            # Absent is a reading; a traceback is not.
+            "stored_reminders": (
+                None
+                if ANNOUNCED_TITLE not in stored
+                else stored[ANNOUNCED_TITLE].reminders_sent
+            ),
         }
 
 
@@ -351,8 +445,34 @@ class TestTheUnderstudyAgainstTheRealDatabase:
         stopped sweeping at all is silent in the same way a broken one
         is — so each sweep has to produce the fault its own instance
         announced before its other output means anything.
+
+        **The first two assertions are ordered ahead of the rest so a
+        failure names the gate rather than the symptom** — which is the
+        whole of ``SNAG-TRAY-010``.  Run inside the DND window this file
+        reported six failures whose loudest was ``spoke_unwatched is
+        False``, a sentence about the sweep, for a fault entirely above
+        it.  ``dnd_suppressing`` fires first and says so outright;
+        ``sent_total`` catches the class rather than the member, since
+        ``min_severity``, ``enabled`` and a future fourth gate all silence
+        the announce path the same way.
+
+        ``sent_total`` is asserted as *non-zero* and not as a figure.
+        The figure is the roll-up's shape, and ``first_count`` /
+        ``second_count`` below own that; what is claimed here is only
+        that something above the sweep did not refuse the lot, which is
+        exactly the discrimination the total was added for.
         """
         assert reading["pre_existing"] == set(), "a live row collides with a probe title"
+        assert reading["dnd_suppressing"] is False, (
+            "DND is suppressing the probe's rung — the drive's third leaf "
+            "did not take, so every reading below is about a gate above "
+            "the sweep (SNAG-TRAY-010)"
+        )
+        assert reading["sent_total"] > 0, (
+            "nothing was ever sent, at announce time or after — a gate "
+            "above _handle refused everything, so the sweep is not what "
+            "these readings are measuring"
+        )
         assert reading["spoke_while_watched"] is False
         assert reading["spoke_unwatched"] is True
         assert reading["spoke_after_restart"] is True
@@ -408,7 +528,35 @@ class TestTheUnderstudyAgainstTheRealDatabase:
         before anything reads it back — so the assertion is on the
         *stored* value, which is the one a restart depends on.
         """
-        assert reading["stored_reminders"] >= 2
+        assert (reading["stored_reminders"] or 0) >= 2
+
+    def test_the_dnd_leaf_is_put_back(self, reading):
+        """The third leaf is restored, and this is the discriminating half.
+
+        ``dnd_suppressing`` in the premise can only witness that the
+        override *took*; held permanently it would read the same. This is
+        the other direction, and it is the assertion with a live
+        population behind it: ``dnd_manager`` is a process-wide singleton
+        that :meth:`DndManager.set_manual_override` documents as taking
+        precedence over the schedule, so a drive that walked away leaving
+        it forced-off would silence the ``23:00 → 07:00`` window for
+        every test that ran after it in the same process — and would do
+        so *invisibly*, since the effect is a notification nobody
+        receives.  ``tests/test_dnd.py`` and ``tests/test_alerts_api.py``
+        both drive that singleton.
+
+        Asserted against **what the drive found**, never against
+        ``None``.  A literal would be a claim about whatever ran before
+        this file in the same process, and it fires at a *correct*
+        restore — measured: forcing the singleton on before the drive
+        turned this red while the restore was working perfectly.  It is
+        also still discriminating both ways, because ``None`` and
+        ``False`` are different states (``None`` defers to the schedule,
+        ``False`` overrides it), so dropping the restore leaves ``False``
+        against a standing ``None`` and this fires.
+        """
+        assert reading["sent_total"] > 0  # the drive really ran
+        assert dnd_manager.manual_override == reading["dnd_standing"]
 
     def test_nothing_survives_the_rollback(self):
         """The property that makes writing to the live database allowable.

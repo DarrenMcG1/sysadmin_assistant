@@ -16,6 +16,35 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 130 — the leaf that did not look like a clock.**
+      *(2026-08-30.)* `SNAG-TRAY-010` **fixed**, and the entry's own
+      named measurement is what found it.
+      `tests/test_desktop_store_live.py` supplies two leaves and says so
+      in its docstring — the transport, and the two clock readings — and
+      misses a **third**: `DndManager.is_active` calls `datetime.now()`
+      itself, so `should_suppress` reads the real wall clock whatever
+      clock the notifier was handed. The shipped window is
+      `23:00 → 07:00`, the probes are `warning`, and
+      `allow_critical: true` does not exempt them.
+      **Bisecting was a dead end rather than evidence**: it is not a
+      property of any revision, so `62f8e09` fails exactly as HEAD does.
+      It is a property of the hour — Session 129 committed at **05:27**;
+      the same tree at 09:37 is seven green.
+      **The contradiction in the symptom was the discriminator.** Silent
+      yet stored-and-adopted is impossible unless the write is
+      `_adopt`'s, which is the one DND does not gate. Proved three ways
+      on an unchanged tree, including the **schedule itself** widened to
+      `00:00 → 23:59` rather than an override standing in for it.
+      `sent_total` is in the reading and asserted non-zero — every other
+      speech reading is a `bool` over a *slice*, so none can separate a
+      sweep that found nothing due from a gate that refused everything —
+      ordered behind `dnd_suppressing` so a failure names the gate, and
+      driven at `min_severity: critical` so it catches the class.
+      **No production change**, checked rather than assumed: a fault
+      raised in the window is adopted, anchored, and speaks when the
+      window lifts. +1 test, 3 mutations, 3 kills — the third found the
+      drive **erroring** rather than failing, which takes the premise
+      test down before it can name the cause. Filed: nothing
 - [x] **Session 129 — the second exception.** *(2026-08-30.)* Answered
       estate-manager's message `8462bcc5` (`needs_ruling=true`) and their
       ADR-0068 §4: **`wiring` joins `ports`** as a check whose findings
@@ -39,7 +68,8 @@ debts that landing deliberately left behind._
       the test gained a witness that could discriminate. Message
       `3f2a0e0a` closed in the same sitting after re-running
       `parse_port_registry` against their edited document (18 rows,
-      unchanged). Filed: `SNAG-TRAY-010`
+      unchanged). Filed: `SNAG-TRAY-010` *(closed the next morning by
+      Session 130 — above)*
 - [x] **Session 46 — three snags.** *(2026-08-14.)* `SNAG-AGENT-006`
       (the raise-side pile-up), `SNAG-TRAY-006` (the untested 8400 seam)
       and `SNAG-ESTATE-002` (recorded in estate-manager, fixed nowhere,
