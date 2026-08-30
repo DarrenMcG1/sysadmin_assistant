@@ -16,6 +16,32 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 138 — the measurement refuted the remedy rather than
+      sizing it.** *(2026-08-30.)* `SNAG-TRAY-011` **decided, not
+      fixed**: `sysadmin-tray` does **not** gain a `log:` block. The
+      entry's own shape of a fix is inert at **two independent gates**.
+      **Gate one**, the priority stamp — `SNAG-AGENT-008`'s priority half
+      one program over: all **677,567** journal records over **19.49
+      days** are `PRIORITY=6`, because `basicConfig` writes text with no
+      `<N>` prefix, so `severity_filter: warning` reads
+      `journalctl -p 4` and ingests nothing, ever.
+      **Gate two**, the alert family: `FAULT_SEVERITIES = ("error",
+      "critical")`, so a `warning` line is stored and raises nothing even
+      if gate one is fixed.
+      **The prerequisite is refused** by Session 61 rule 2 —
+      `JournalLevelPrefixFormatter` extends `JsonFormatter` because only
+      JSON guarantees one line per record, so the tray would have to move
+      to JSON logging.
+      **The only reachable branch**, `severity_filter: info`, ingests
+      **34,762 rows a day** (~1.04 M at retention) for a source with
+      **zero** `WARNING`/`ERROR`/`CRITICAL` lines in its recorded life —
+      and still raises nothing. So `SNAG-LOG-004`'s warning bounds the
+      one branch that is not already inert, the reverse of how the entry
+      weighed it. Entry stays **open** as a deliberate non-fix with its
+      reason measured; both check channels unmoved, `match` preserved.
+      **No code changed** — docs only, **3125 unchanged**.
+
+
 - [x] **Session 137 — the allowlist is the authority, and the
       convention was copied without its formatter.** *(2026-08-30.)*
       `SNAG-CFG-005` **closed**. `sysadmin_tray/config.py`'s

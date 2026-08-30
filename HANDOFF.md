@@ -2,7 +2,116 @@
 
 ## Next action
 
-Decide `SNAG-TRAY-011` — whether `sysadmin-tray` should gain a `log: {type: journalctl, severity_filter: warning}` block in `services.yaml`, which is the whole of channel one and would turn the config-key warning `SNAG-CFG-005` just shipped into an alert row through the family that already owns this source, weighed against `SNAG-LOG-004`'s record that a fix widening what the monitor sees is a regression surface for whatever consumes it, so the sitting should first measure what the tray actually writes at `warning` and above across a few days rather than declaring the source from the one line we know about.
+Act on estate message `d1939cf7` before Monday 05:30 by pointing `judge_queue_invariants`'s wait predicate at `oldest_unexplained_wait_seconds` instead of `oldest_waiting_seconds` and keeping the 900-second threshold, because the estate's weekly review now takes a GPU lease and queues behind `venture-enrich-nightly` for a measured 915–1038 s every Monday — a third cause the "Estate queue starved" text does not name, namely the queue working as designed — and both new fields are already live on 8400 (verified 2026-08-30: `waiting_reason` and `oldest_unexplained_wait_seconds` both present on `GET :8400/api/queue/invariants`), so the change is a one-predicate edit plus its guard and the message is then closed with a note.
+
+## Session 138 is complete — the measurement refuted the remedy rather than sizing it
+
+**`SNAG-TRAY-011` is decided, not fixed.** `sysadmin-tray` does **not**
+gain a `log:` block. The sitting was told to measure the tray's
+`warning`-and-above volume before declaring the source; the measurement
+found the *mechanism* instead, and it refutes the entry's own shape of a
+fix at **two independent gates**. **No code changed** — this is a
+documented decision, and the entry stays **open** as a deliberate
+non-fix with its reason measured, the idiom `SNAG-LOG-002` and
+`SNAG-UNITS-002` already use.
+
+**Gate one: the priority stamp — `SNAG-AGENT-008`'s priority half, one
+program over.** `sysadmin-tray.service` has written **677,567 journal
+records** between 2026-08-11 07:08:12 and 2026-08-30 18:56:05 (19.49
+days) and **every one is `PRIORITY=6`**. `main()` configures
+`logging.basicConfig(format="%(asctime)s %(levelname)-8s %(name)s — %(message)s")`
+— a text formatter emitting no `<N>` prefix — so systemd stamps captured
+stdout `6` whatever the level inside says, and the unit's
+`SyslogLevelPrefix=yes` strips a prefix nothing writes.
+`max_priority_for("warning")` is **4**, so the declared source would read
+`journalctl -p 4` and ingest **nothing, ever**. Measured directly:
+`journalctl --user -u sysadmin-tray -p warning` over the unit's whole
+recorded life returns **no entries**. The block would have shipped
+green, stored zero rows, and left the warning as inaudible as the entry
+filed it.
+
+**Gate two: the alert family, which fails even if gate one is fixed.**
+The entry claims the block "makes the warning an alert row through the
+family that already owns this source". It does not —
+`FAULT_SEVERITIES = ("error", "critical")` (`log_aggregator.py:144`) and
+the ingest loop `continue`s on anything else, so a `warning` line is
+**stored and raises nothing**. A working prefix moves the line from
+`info` to `warning`; both are below the family's floor.
+
+**Decisions taken, and what was rejected.**
+
+- **The prerequisite for gate one was rejected on this repository's own
+  rule, not on cost.** Reusing `JournalLevelPrefixFormatter` is legal —
+  `sysadmin_tray/config.py` already imports from `sysadmin.core` and the
+  boundary forbids only the reverse. But that class extends
+  `JsonFormatter` deliberately: **Session 61 rule 2** holds that the JSON
+  gate is a precondition rather than a proxy for the destination, because
+  only the JSON formatter guarantees one line per record, and under a
+  text formatter a traceback's first line is stamped `ERROR` with its
+  body left `info` — *"worse than the uniform 6 because it looks fixed"*.
+  Making the tray's levels reach the journal means moving a GUI program
+  to JSON logging, for one dead presentation knob.
+- **`severity_filter: info` was rejected as the branch that pays
+  everything and buys nothing.** It is the only non-inert branch:
+  **34,762 rows a day**, ~**1.04 M** at the aggregator's 30-day
+  retention, for a source with **zero** `WARNING`/`ERROR`/`CRITICAL`
+  lines in its entire recorded life (677,516 ` INFO ` tokens in the
+  message text and no others; the 51-record difference is systemd's own
+  `Started SysAdmin Assistant - Tray.` lines, which carry no level
+  token). And it still raises nothing, by gate two.
+- **`SNAG-LOG-004`'s warning turned out to bound the wrong branch.** The
+  entry weighed "a fix widening what the monitor sees is a regression
+  surface" against declaring the source at `warning`. That branch is
+  inert and has no regression surface at all; the warning applies only to
+  the `info` branch, which is the reverse of how the entry weighed it.
+- **The entry was corrected rather than only annotated.** Its shape-of-fix
+  bullet is now marked refuted and points at the decision, because a
+  later sitting reading the original would re-derive a remedy that cannot
+  work.
+- **P3 is confirmed rather than inherited.** The population is one
+  warning about a dead presentation knob announced to an operator who is
+  by definition at a terminal, and the three changes needed to make it
+  audible — a JSON formatter in the tray, a `log:` block, and a widening
+  of `FAULT_SEVERITIES` or a level bump — are each larger than the thing
+  announced.
+
+**What no amount of reading would have said**, which is why the entry
+deferred this to a sitting that could measure: the priority stamp is
+invisible in the tray's source, in `services.yaml` and in the unit file
+— `SyslogLevelPrefix=yes` reads like the mechanism working. Only
+`journalctl -o json --output-fields=PRIORITY` over the real unit
+separates *the tray has nothing to say* from *nothing it says can be
+heard*, and the answer here is **both** — `ports_checked`'s rule
+arriving as a decision rather than as a field.
+
+**Verification.** `sysadmin-check-snags` reports
+`SNAG-TRAY-011 … still holds` with both channels unmoved (15 log
+sources, tray absent, one `load_tray_config` call site), so the check
+means what it says over a decided entry. `check-ops-claims.sh` is nine
+green — the new STATUS.md block carries 60 backticks, an even count, so
+no `<!--check:-->` marker after it was disarmed. **`uv run pytest`:
+3125 passed**, unchanged, since no code moved.
+
+## Blocked / open
+
+- **Estate message `d1939cf7` is open and its trigger is tomorrow.**
+  estate-manager's weekly review now takes a GPU lease and queues behind
+  `venture-enrich-nightly` on Mondays at 05:30, waiting a measured
+  915–1038 s over five nights — over this repository's
+  `queue_max_wait_seconds: 900` every Monday. Their recommendation is
+  explicitly *not* to raise 900, on the ground that the gauge itself
+  stops distinguishing the conditions; point the predicate at the new
+  `oldest_unexplained_wait_seconds` instead. **Both fields are already
+  live** — verified 2026-08-30 against `GET :8400/api/queue/invariants`,
+  which returns `waiting_reason` and `oldest_unexplained_wait_seconds`
+  alongside the unchanged `oldest_waiting_seconds`. Nothing breaks if
+  this is not done; the cost is one false `Estate queue starved`
+  critical every Monday morning.
+- `SNAG-TRAY-011` stays open by decision, not by neglect. Nothing further
+  is owed on it unless the tray moves to JSON logging for an unrelated
+  reason, at which point gate one dissolves and only gate two remains.
+
+---
 
 ## Session 137 is complete — the allowlist is the authority, and the convention was copied without its formatter
 

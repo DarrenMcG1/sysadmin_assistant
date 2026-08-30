@@ -3,7 +3,58 @@
 **Last Updated**: 2026-08-30
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The section neither program watched has a watcher, and the two
+> **The measurement refuted the remedy rather than sizing it, and the
+> entry stays open as a deliberate non-fix.** `SNAG-TRAY-011` asked
+> whether `sysadmin-tray` should gain a
+> `log: {type: journalctl, severity_filter: warning}` block so
+> `SNAG-CFG-005`'s config-key warning becomes an alert row. **It should
+> not.** The block is inert at **two independent gates**, and the sitting
+> that was told to measure volume found the mechanism instead.
+>
+> **Gate one is the priority stamp — `SNAG-AGENT-008`'s priority half,
+> one program over.** `sysadmin-tray.service` has written **677,567**
+> journal records over **19.49 days** (2026-08-11 → 2026-08-30), and
+> **every one is `PRIORITY=6`**. `main()` calls
+> `basicConfig(format="… %(levelname)-8s …")` — a text formatter emitting
+> no `<N>` prefix — so systemd stamps captured stdout `6` whatever the
+> level inside says, and `SyslogLevelPrefix=yes` on the unit strips a
+> prefix nothing writes. `max_priority_for("warning")` is **4**, so the
+> declared source reads `journalctl -p 4` and ingests **nothing, ever**.
+> `journalctl --user -u sysadmin-tray -p warning` over the unit's whole
+> recorded life returns **no entries**.
+>
+> **Gate two is the alert family, and it fails even if gate one is
+> fixed.** `FAULT_SEVERITIES = ("error", "critical")`, and the ingest
+> loop `continue`s on anything else — so a `warning` line is **stored and
+> raises nothing**. A working prefix moves the line from `info` to
+> `warning`, and both sit below the family's floor. The entry reached
+> neither gate because it reasoned from the tray's *Python* level rather
+> than from the journal's stamp and the consumer's floor.
+>
+> **The prerequisite is refused by the rule that established the
+> prefix.** Reusing `JournalLevelPrefixFormatter` is legal — the tray
+> already imports from `sysadmin.core` and the boundary forbids only the
+> reverse — but that class extends `JsonFormatter` deliberately: Session
+> 61 rule 2 holds that only the JSON formatter guarantees one line per
+> record, since under a text formatter a traceback's first line is
+> stamped `ERROR` and its body left `info`, *"worse than the uniform 6
+> because it looks fixed"*. Making the tray's levels reach the journal
+> means moving a GUI program to JSON logging.
+>
+> **The only reachable branch pays the whole cost and buys none of the
+> benefit.** `severity_filter: info` is not inert — it ingests
+> everything: **34,762 rows a day**, ~**1.04 M** at 30-day retention, for
+> a source with **zero** `WARNING`/`ERROR`/`CRITICAL` lines in its entire
+> recorded life. And it still raises nothing, by gate two. So
+> `SNAG-LOG-004`'s warning bounds the one branch that is not already
+> inert, which is the reverse of how the entry weighed it.
+>
+> **Nothing was fixed and nothing was closed.** Both of the check's
+> channels are unmoved, `check_tray_report_unheard` still reports
+> `match`, and its P3 is now confirmed rather than inherited. No code
+> changed this sitting.
+>
+> *Previously —* **The section neither program watched has a watcher, and the two
 > defects worth carrying were found by running it rather than reading
 > it.** `SNAG-CFG-005` is **closed**. `sysadmin_tray/config.py` reports
 > the keys under `config.yaml`'s `tray:` that its own allowlist does not
