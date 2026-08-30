@@ -41,7 +41,7 @@ Three rules run through everything below.
    ``truncated_sources``.
 
 3. **The estate's findings are mostly not this repository's alerts —
-   with one named exception.**  The audit publishes ``findings_total``,
+   with two named exceptions.**  The audit publishes ``findings_total``,
    and alerting on that *number* would double-count: the collation
    findings are the family :mod:`sysadmin.monitor.collation` already
    raises here, arriving a second time through a different producer, and
@@ -53,17 +53,25 @@ Three rules run through everything below.
    errored produced no finding at all, which is the difference between
    "nothing is wrong" and "nothing looked".
 
-   The exception is ``ports``, judged per finding by
-   :func:`judge_audit_findings`, and it is a **narrowing of this rule
-   rather than a reversal**: neither reason above reaches it.  A port is
-   not any repository's conformance — no repository owns one — and this
-   service raises nothing about ports itself, so there is nothing to
-   double-count.  What decided it is that the estate *may not alert*: it
-   files findings and never acts, this box's monitor is the only party
-   permitted to speak, and the alternative to judging it here is a
-   ``breach`` that is detected, correct, machine-readable and never said
-   out loud.  That is the shape Session 46 removed for units, one layer
-   up.
+   The exceptions are ``ports`` (:func:`judge_audit_findings`) and, since
+   2026-08-30, ``wiring`` (:func:`judge_audit_wiring`).  Each is a
+   **narrowing of this rule rather than a reversal**: neither reason above
+   reaches either subject.  A port is not any repository's conformance —
+   no repository owns one — and ``~/.claude/settings.json`` is in no
+   repository *at all*; this service raises nothing about either itself,
+   so there is nothing to double-count.  What decided both is that the
+   estate *may not alert*: it files findings and never acts, this box's
+   monitor is the only party permitted to speak, and the alternative to
+   judging them here is a finding that is detected, correct,
+   machine-readable and never said out loud.  That is the shape Session 46
+   removed for units, one layer up.
+
+   **The test is ownership, and it is applied per check rather than per
+   severity** — see :data:`JUDGED_AUDIT_CHECKS`, which had to become a
+   mapping for the second exception to be expressible at all.  Ten of the
+   audit's twelve checks are still excluded, and the two that are not were
+   each admitted by an ADR: ``docs/adr/0006-wiring-joins-ports.md`` holds
+   the second and the reasoning behind the first.
 """
 
 from __future__ import annotations
@@ -141,7 +149,12 @@ SURFACE_TITLE_PATTERNS: dict[str, tuple[str, ...]] = {
         NUDGE_ROLLUP_TITLE,
     ),
     "audit_invariants": ("Estate audit %",),
-    "audit_findings": ("Estate port %",),
+    # Two families, one surface — they arrive in one payload from one
+    # HTTP call, so they are read and swept together and no third
+    # pattern set is wanted. ``Estate hook %`` covers both wiring
+    # titles; it cannot reach ``Estate port %`` or ``Estate audit %``,
+    # which is what the partition test asserts rather than this comment.
+    "audit_findings": ("Estate port %", "Estate hook %"),
     "queue_invariants": ("Estate queue %",),
 }
 
@@ -713,24 +726,54 @@ def judge_audit_invariants(payload: dict[str, Any], max_age_hours: float) -> lis
     return out
 
 
-#: The one audit check whose findings this repository speaks for.
-#:
-#: Named explicitly rather than filtered on severity, and the difference
-#: is not cosmetic: **all four** of the estate's checks emit ``breach``,
-#: so a severity-only rule would re-import the collation family
-#: :mod:`sysadmin.monitor.collation` already raises here — the exact
-#: double-count rule 3 forbids — and pull in ``pointers`` and ``seams``,
-#: which are conformance breaches inside *other* repositories and belong
-#: to their own ADR processes.
-#:
-#: Ports are the exception because no repository owns a port.  A port is
-#: estate-wide by construction, the estate may not alert (it files
-#: findings and never acts), and this service is the only party on this
-#: box permitted to speak — so the alternative to judging it here is that
-#: nobody says it at all.
-JUDGED_AUDIT_CHECK = "ports"
+#: The estate's port registry, judged by :func:`judge_audit_findings`.
+PORTS_CHECK = "ports"
 
-#: The producer's own severity, used as the filter.
+#: The estate's hook wiring, judged by :func:`judge_audit_wiring`.
+#:
+#: Admitted 2026-08-30 by :doc:`ADR-0006 </adr/0006-wiring-joins-ports>`,
+#: answering estate-manager's message ``8462bcc5`` and their ADR-0068 §4.
+WIRING_CHECK = "wiring"
+
+#: The audit checks whose findings this repository speaks for, each
+#: mapped to **the producer's own severity that it speaks for**.
+#:
+#: Checks are named explicitly rather than filtered on severity, and the
+#: difference is not cosmetic: the estate's ``collation`` findings are
+#: the family :mod:`sysadmin.monitor.collation` already raises here — the
+#: exact double-count rule 3 forbids — and ``pointers``/``seams`` are
+#: conformance breaches inside *other* repositories, which belong to
+#: their own ADR processes.
+#:
+#: **This was two scalars until 2026-08-30 and the pair had gone wrong in
+#: two directions at once.**  It was written against a four-check audit
+#: in which *every* check emitted ``breach``, so a single
+#: ``JUDGED_AUDIT_SEVERITY`` was unambiguously a deference to the
+#: producer's rung.  The audit runs **twelve** checks now, at three rungs,
+#: and that constant had quietly acquired a second job nobody argued for:
+#: it was also a check filter.  So admitting a second check by name alone
+#: would have shipped green and inert — ``wiring`` emits no ``breach`` at
+#: any code (their ADR-0067 §4 refuses one, because a breach floors the
+#: board's grade through an instrument built for a different rule) — and
+#: widening the severity globally would have re-imported ``ports``'
+#: ``claimed_but_silent``, which is availability and already has an owner
+#: on this box.  A mapping is the only shape in which both stay true, and
+#: it is why the answer to *"does ``wiring`` join ``ports``?"* could not
+#: be a one-word yes.
+#:
+#: **What admits a check is not severity but ownership**, and the test is
+#: the one this constant has always applied: the subject belongs to no
+#: repository, it is estate-wide by construction, the estate may not
+#: alert (it files findings and never acts), this service is the only
+#: party on this box permitted to speak, and this service raises nothing
+#: about the subject itself — so the alternative to judging it here is
+#: that nobody says it at all.  A port satisfies every clause.  So does
+#: ``~/.claude/settings.json``, which is in no repository *at all*
+#: rather than merely unowned within one, and which the estate can own
+#: the hook script for and cannot wire (their ADR-0024).
+JUDGED_AUDIT_CHECKS: dict[str, str] = {PORTS_CHECK: "breach", WIRING_CHECK: "warn"}
+
+#: The producer's own severity for the ``ports`` check, used as its filter.
 #:
 #: The same deference :func:`judge_attention` gives a nudge's rung: the
 #: estate computed it against the contract it owns, and a second opinion
@@ -770,7 +813,13 @@ JUDGED_AUDIT_CHECK = "ports"
 #: silence: a consumer that declines to judge a published finding with
 #: nothing recording the decision is ``SNAG-CFG-001``'s shape, which is
 #: the reason this paragraph exists at all.
-JUDGED_AUDIT_SEVERITY = "breach"
+#:
+#: **Derived from the mapping, never written beside it** — the rule
+#: ``journal.max_priority_for`` applies to ``PRIORITY_MAP``.  The name
+#: survives because this paragraph is the argument for *why* ``ports`` is
+#: filtered at ``breach``, and an argument is worth reading at the point
+#: of use; the value is stated once, in :data:`JUDGED_AUDIT_CHECKS`.
+JUDGED_AUDIT_SEVERITY = JUDGED_AUDIT_CHECKS[PORTS_CHECK]
 
 #: The rung a breach gets when the sweep attributes its port to a
 #: transient session scope — an editor's dev server rather than a
@@ -954,7 +1003,7 @@ def judge_audit_findings(
     for finding in findings:
         if not isinstance(finding, dict):
             continue
-        if finding.get("check") != JUDGED_AUDIT_CHECK:
+        if finding.get("check") != PORTS_CHECK:
             continue
         if finding.get("severity") != JUDGED_AUDIT_SEVERITY:
             continue
@@ -1153,18 +1202,254 @@ def _breach_message(port: int, finding: dict[str, Any]) -> str:
     the ``ports`` contract and its wording explains the fault better than
     a paraphrase that has to be kept in step with it.
     """
-    summary = str(finding.get("summary") or f"port {port} is listening unclaimed")
+    return _with_standing(
+        str(finding.get("summary") or f"port {port} is listening unclaimed"), finding
+    )
+
+
+def _with_standing(summary: str, finding: dict[str, Any]) -> str:
+    """``summary``, plus how long the producer says it has stood.
+
+    Shared by both audit families rather than copied into the second
+    one.  The rule it encodes is not about ports: a first sighting is
+    stamped ``standing_days: 0.0`` by the estate, and *"Standing 0
+    days"* is true, reads as a rounding artefact, and says nothing the
+    row's own ``created_at`` does not.  That was found by driving the
+    real producer (Session 45) and applies to every finding it ages.
+    """
     standing = finding.get("standing_days")
     if not isinstance(standing, (int, float)) or isinstance(standing, bool):
         return summary
     days = f"{standing:.1f}".rstrip("0").rstrip(".")
     if days in ("0", ""):
-        # A first sighting. "Standing 0 days" is true, reads as a
-        # rounding artefact, and adds nothing the row's own
-        # ``created_at`` does not already say.
         return summary
     edge = " at least" if finding.get("age_truncated") else ""
     return f"{summary}. Standing{edge} {days} days."
+
+
+# --- the audit's hook wiring ---------------------------------------------
+
+
+#: Title for a finding about ``settings.json`` as a whole rather than
+#: about one hook.
+#:
+#: A fixed string, which is rule 2 read the way :data:`ATTENTION_ROLLUP_TITLES`
+#: reads it: the producer's ``subject`` here is a *configured path*
+#: (``~/.claude/settings.json``), so putting it in the title would fork
+#: the row on the day the estate re-spells its own config — a fault
+#: about one file, wearing two identities.  The path is in ``details``,
+#: where ``sources_unreachable`` puts the same kind of fact.
+WIRING_FILE_TITLE = "Estate hook wiring unreadable"
+
+
+def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
+    """The audit's hook-wiring findings — the second family, and the last.
+
+    **Admitted 2026-08-30, and the admission is narrow**: see
+    ``docs/adr/0006-wiring-joins-ports.md``, which answers
+    estate-manager's message ``8462bcc5`` and their ADR-0068 §4.  Their
+    argument is that every clause of :data:`JUDGED_AUDIT_CHECKS`' test
+    transfers from a port to ``~/.claude/settings.json``, and it does —
+    the file is in no repository at all, it carries the hook entries
+    binding all thirteen, the estate may not alert, only the owner can
+    repair it (their ADR-0024), and they measured on 2026-08-29 that
+    **nobody says it at all**: no code in any repository under
+    ``~/projects`` reads ``estate/audit/findings/{check}``, and the one
+    consumer of ``GET /api/audit/findings`` was this module, scoped out
+    by a single string.
+
+    So this is Session 26b-A's founding defect, one check over: a
+    finding that is detected, correct, machine-readable and never said
+    out loud.  The estate's own hooks cannot report it — all four fail
+    open by design, so a dead hook and a silent one are the same
+    observation from inside a session — and on 2026-08-25 a paste took
+    every hook on this box down, the blocking ``Stop`` one included,
+    with nothing able to say so.
+
+    Five rules, three of them the opposite of the obvious
+    implementation:
+
+    1. **The identity is ``subject`` plus ``detail['event']``, which is
+       the reverse of the ports family's rule 3.**  There, ``subject``
+       is producer prose (``"port 3300"``) and the machine-stable half
+       lives in ``detail``.  Here ``subject`` **is** the machine-stable
+       half — the estate's :class:`DeclaredHook` documents it as the
+       filename precisely because it is "stable across moves of the
+       repository in a way an absolute path is not" — and ``detail``
+       carries the qualifier.  Rule 2 is satisfied either way; what
+       changes is which field to trust, and it is read off the producer
+       rather than assumed to match the sibling family.
+
+    2. **The kind is discriminated by the shape of ``detail``, never by
+       ``code``.**  ``code`` is computed by the producer, folded into
+       ``fingerprint``, and then dropped — ``AuditFinding`` has no column
+       for it (``SNAG-ESTATE-006``), verified again against the live
+       payload on 2026-08-30.  A ``warn`` finding carrying
+       ``detail['event']`` is about one hook; one without is about the
+       file.  That is a fact this module can read, where ``code`` is a
+       field it would have to invent a source for.
+
+    3. **Only ``warn`` is judged, and the excluded rung is excluded for
+       the producer's own stated reason.**  ``wiring`` emits exactly one
+       ``info`` code, ``hook_wired_undeclared``, and the estate's check
+       says in writing that *"an extra event is the owner's prerogative
+       over their own config, and the estate records it rather than
+       judging it"*.  A consumer that judged it would be a second
+       opinion on a policy the producer already declined to hold — and
+       ``info`` is below ``tray.notify_min_severity`` here, so the row
+       would be silent in any case.  ``claimed_tool_default``'s
+       treatment one check over.
+
+    4. **There is no roll-up, and that is a measured difference rather
+       than an omission.**  ``judge_audit_findings`` rule 2 collapses
+       above ``max_rows`` because the port population is unbounded — any
+       listener on the box — so many at once means the registry itself
+       is wrong.  This population is bounded by the estate's own
+       ``hooks/`` directory: **four scripts, each declaring exactly one
+       event on 2026-08-30**, so the ceiling is four rows and each names
+       a hook a human can act on.  The collapse case is also already the
+       producer's: an unparseable ``settings.json`` short-circuits its
+       check to a *single* finding rather than one per hook.  What is
+       left uncollapsed is the 2026-08-25 shape — a well-formed block
+       pasted at the top level, which parses and wires nothing, so every
+       declared hook files — and four rows naming four hooks is not the
+       fifteen ``SNAG-UNITS-002`` refused to ship.  A threshold here
+       would be invented against a population that has never exceeded
+       it.
+
+    5. **``critical`` was considered and refused.**  An unparseable
+       ``settings.json`` does take the blocking ``Stop`` hook down,
+       which is the one fault on these surfaces that is genuinely about
+       *this* box rather than about the estate being a day behind — so
+       :data:`DEFAULT_SEVERITY`'s "nothing here is an outage of this
+       box" is narrower than it reads, and this is the exception.  It
+       still gets ``warning``: ``critical`` breaks the DND windows by
+       configuration and is what the tray leaves on screen, reserved for
+       a fault costing something *now*, and a dead hook costs the *next*
+       session rather than the running one.  The estate refused ``breach``
+       for this check on exactly that shape of argument — not borrowing
+       an instrument built for a different rule — and taking ``critical``
+       here would be that borrowing performed in this repository.
+
+    **The stated limit, measured and not fixed here.**  The producer's
+    ``fingerprint`` is ``<check>:<subject>:<code>`` and carries no event,
+    so two events declared by one hook would share one fingerprint and
+    therefore one ``standing_days``.  Empty population on 2026-08-30 —
+    all four hooks declare exactly one event — and it is the estate's
+    identity to change, not this module's to parse around
+    (``SNAG-ESTATE-002``'s rule).  ``standing_days`` is carried as
+    evidence, never as identity, so the row is correct either way.
+    """
+    findings = payload.get("findings")
+    if not isinstance(findings, list):
+        return []
+
+    judged: list[Judgement] = []
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        if finding.get("check") != WIRING_CHECK:
+            continue
+        if finding.get("severity") != JUDGED_AUDIT_CHECKS[WIRING_CHECK]:
+            continue
+
+        subject = finding.get("subject")
+        if not isinstance(subject, str) or not subject.strip():
+            # Rule 1 makes ``subject`` half the identity, so a finding
+            # without a usable one is skipped rather than titled from
+            # the summary — ``_port_of``'s refusal, applied to the field
+            # this family trusts instead.
+            continue
+        subject = subject.strip()
+
+        event = _wiring_event(finding)
+        if event is None:
+            judged.append(
+                Judgement(
+                    surface="audit_findings",
+                    title=WIRING_FILE_TITLE,
+                    message=_with_standing(
+                        str(
+                            finding.get("summary")
+                            or f"{subject} does not declare the estate's hooks"
+                        ),
+                        finding,
+                    ),
+                    details=_wiring_details(finding, subject, event=None),
+                )
+            )
+            continue
+
+        judged.append(
+            Judgement(
+                surface="audit_findings",
+                title=f"Estate hook {subject} not wired for {event}",
+                message=_with_standing(
+                    str(
+                        finding.get("summary")
+                        or f"{subject} declares it belongs behind {event} and "
+                        "nothing in ~/.claude/settings.json resolves to it"
+                    ),
+                    finding,
+                ),
+                details=_wiring_details(finding, subject, event=event),
+            )
+        )
+
+    return judged
+
+
+def _wiring_event(finding: dict[str, Any]) -> str | None:
+    """The event a wiring finding is about, or ``None`` for a file-level one.
+
+    Rule 2's discriminator.  A non-empty string is required rather than
+    truthiness alone, because ``detail`` reaches here through JSONB and
+    an ``event`` that arrived as a number or a list would otherwise be
+    formatted into a title — the forkable-title fallback rule 1 of
+    :func:`judge_audit_findings` refuses one field over.
+    """
+    detail = finding.get("detail")
+    if not isinstance(detail, dict):
+        return None
+    event = detail.get("event")
+    if not isinstance(event, str) or not event.strip():
+        return None
+    return event.strip()
+
+
+def _wiring_details(
+    finding: dict[str, Any], subject: str, event: str | None
+) -> dict[str, Any]:
+    """Everything the row carries as evidence rather than as identity.
+
+    ``event`` is present on **every** row, ``None`` on a file-level one,
+    rather than being omitted there.  A key that appears only sometimes
+    makes "the estate did not say" and "this row is not about one hook"
+    the same observation for a consumer — ``ports_checked``'s rule, at
+    the size of a dict key, and the collapse ``_reading_of`` exists to
+    remove one family over.
+
+    **The key is ``subject`` and not ``hook``, which the live drive
+    corrected.**  It was written as ``hook`` and reads correctly on
+    three of the four specimens; on the fourth — an unparseable
+    ``settings.json`` — the producer's subject is the *config file's
+    path*, so the key would have promised a hook name and delivered a
+    file.  One field meaning two things by row shape is
+    ``UnitFinding.enabled``'s trap, and naming the producer's own field
+    is what makes it impossible rather than merely unlikely.
+    """
+    return {
+        "subject": subject,
+        "event": event,
+        "code": finding.get("code"),
+        "fingerprint": finding.get("fingerprint"),
+        "standing_days": finding.get("standing_days"),
+        "runs_observed": finding.get("runs_observed"),
+        "age_truncated": finding.get("age_truncated"),
+        "first_seen_at": finding.get("first_seen_at"),
+        "audit_summary": finding.get("summary"),
+        "audit_detail": finding.get("detail"),
+    }
 
 
 # --- the queue -----------------------------------------------------------

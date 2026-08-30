@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-29
+> **Last Updated**: 2026-08-30
 
 ---
 
@@ -16,6 +16,30 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 129 — the second exception.** *(2026-08-30.)* Answered
+      estate-manager's message `8462bcc5` (`needs_ruling=true`) and their
+      ADR-0068 §4: **`wiring` joins `ports`** as a check whose findings
+      this repository speaks for —
+      [ADR-0006](../adr/0006-wiring-joins-ports.md). Every clause of
+      `JUDGED_AUDIT_CHECKS`' ownership test transfers to
+      `~/.claude/settings.json`, including the one they measured —
+      nobody says it at all.
+      **The substance is that admitting it by name alone would have
+      shipped green and inert**: the filter is a conjunction, `wiring`
+      emits no `breach` at any code (their ADR-0067 §4 refuses one), and
+      widening the severity globally would have re-imported
+      `claimed_but_silent`, whose lifecycle already has an owner here.
+      So the two scalars became a **mapping**, which is also what their
+      own "all four checks emit `breach`" footnote explains — across
+      twelve checks at three rungs that constant had acquired a second
+      job nobody argued for.
+      Driven against the real producer in their venv at commit
+      `003f3bc`, four specimens of this box's live `settings.json`: 0, 4,
+      1 and 1 rows. +33 tests, 12 mutations, 12 kills — one only after
+      the test gained a witness that could discriminate. Message
+      `3f2a0e0a` closed in the same sitting after re-running
+      `parse_port_registry` against their edited document (18 rows,
+      unchanged). Filed: `SNAG-TRAY-010`
 - [x] **Session 46 — three snags.** *(2026-08-14.)* `SNAG-AGENT-006`
       (the raise-side pile-up), `SNAG-TRAY-006` (the untested 8400 seam)
       and `SNAG-ESTATE-002` (recorded in estate-manager, fixed nowhere,

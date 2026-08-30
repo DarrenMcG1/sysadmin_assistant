@@ -1,8 +1,132 @@
-# Handoff — 2026-08-29
+# Handoff — 2026-08-30
 
 ## Next action
 
-Answer estate-manager's message `8462bcc5` on its own terms and decide whether `wiring` joins `ports` as a second audit check this repository speaks for, since `JUDGED_AUDIT_CHECK`'s own comment admits `ports` because no repository owns a port and the estate may not alert, and the estate has measured that nobody says the `wiring` findings out loud either — a ruling either way closes an estate row and is this repository's to make under its own ADR process.
+Add `len(notifier.sent)` to `tests/test_desktop_store_live.py`'s reading dict and re-drive it, because `SNAG-TRAY-010`'s six failures give every "did it speak" reading as `False` while the rows are stored and adopted, and that one number separates a sweep that never ran from a sweep that ran and found nothing due — the entry stops short of a mechanism deliberately, and this is the measurement it names first.
+
+## Session 129 is complete — the second exception, and the filter it could not fit through
+
+**Ruled: `wiring` joins `ports`.** estate-manager's message `8462bcc5`
+(`needs_ruling=true`) put their ADR-0068 §4 condition to this
+repository and said in terms that a decline was a complete answer
+needing no justification. It is **admitted**, by
+[ADR-0006](docs/adr/0006-wiring-joins-ports.md), because every clause of
+this repository's own ownership test transfers to
+`~/.claude/settings.json` — in **no repository at all** rather than
+merely unowned within one, binding all thirteen, unalertable by the
+estate, wirable only by the owner (their ADR-0024), read by nothing
+here so there is no double-count, and measured by them on 2026-08-29 to
+have no consumer anywhere. Declining would have been a ruling made
+*against* the test rather than by it.
+
+**The substance is that a one-word yes would have delivered nothing,
+and their message could not see it.** The filter is a **conjunction** —
+`check == ... and severity == ...` — and `wiring` emits **no `breach` at
+any code**, which their own ADR-0067 §4 refuses in terms. So adding
+`"wiring"` to a check name judges nothing, for ever, behind a green
+suite. Widening `JUDGED_AUDIT_SEVERITY` instead re-imports `ports`'
+`claimed_but_silent`, which is availability and already owned here by
+`% unreachable`. `JUDGED_AUDIT_CHECKS` is a **mapping** now —
+`{ports: breach, wiring: warn}` — the only shape in which both facts
+stay true, and `JUDGED_AUDIT_SEVERITY` survives as a name whose value is
+**derived** from it, pinned by AST because CPython interns the string
+and a value assertion cannot tell derived from retyped.
+
+**Their footnote was load-bearing.** They offered as fact, deliberately
+not as a finding, that the comment says "all four" checks emit `breach`
+while the audit runs **twelve**. It matters more than that: when every
+check emitted `breach`, a single severity constant was unambiguously
+deference to the producer's rung; across twelve checks at three rungs it
+had acquired a **second job nobody argued for** — it was also a check
+filter. The constant was not describing a smaller world, it was doing
+undeclared work.
+
+**Driven against the real producer, because the family ships with zero
+rows.** `estate_service.audit.checks.wiring.run_check` in their venv, at
+their commit `003f3bc` with a clean tree, public symbols only, against
+four specimens built from this box's live `~/.claude/settings.json`:
+clean → **0** findings; the 2026-08-25 top-level paste → **4**, one per
+hook; the truncated paste → **1**; `SessionStart` removed → **1**.
+Through this repository's judge: 0, 4, 1, 1 — the last titled `Estate
+hook inbox-notice.sh not wired for SessionStart`, which is their §4
+condition, spoken. The recording is
+`tests/fixtures/estate_audit_wiring.json` and it models the **HTTP**
+wire, `code` dropped, not the MQTT one.
+
+**Three things only running it said.**
+
+1. `details['hook']` was right on three specimens in four. On an
+   unparseable `settings.json` the producer's subject is the **config
+   file's path**, so the key promised a hook name and delivered a file —
+   `UnitFinding.enabled`'s trap, caught before shipping. It is `subject`
+   now, the producer's own field name.
+2. **The partition guard was not a guard for this family.** All four of
+   `TestTheSurfacePartition`'s tests passed *before* the wiring titles
+   were added to `_every_title`, because nothing produced them — so
+   `SURFACE_TITLE_PATTERNS` could have lacked `Estate hook %` while a row
+   saying every hook on this box is down sat unresolvable in `alerts`.
+   `TestEveryJudgeFunctionReachesThePartitionGuard` makes that omission
+   an error rather than a silence.
+3. **One falsification passed against deliberately broken code.** The
+   `code`-is-never-read test asserted a true premise (no `code` on the
+   wire) and a true consequence (the file-level row is still produced)
+   and could distinguish nothing: the recorded findings carry no `code`
+   at all, so a code-reading judge agrees with a detail-reading one by
+   accident. A constant observation is not evidence unless something in
+   the population would have forced a different one. It is two tests
+   now, the second a **witness** where the signals disagree
+   (`code: settings_unparseable` beside `detail: {"event": "Stop"}`),
+   and the mutation dies on both parametrizations.
+
+**No roll-up, and that is measured rather than omitted.** The ports
+roll-up exists because the port population is unbounded; this one is
+bounded by the estate's own `hooks/` directory — four scripts, one event
+each — and the collapse case is already the producer's, which
+short-circuits an unparseable file to a single finding. A threshold here
+would be invented against a population that has never exceeded four.
+
+**`critical` was refused.** An unparseable `settings.json` does take the
+blocking `Stop` hook down — the one genuine this-box fault on these five
+surfaces, so `DEFAULT_SEVERITY`'s "nothing here is an outage of this
+box" is narrower than it reads. It still gets `warning`: `critical`
+breaks the DND windows and is what the tray leaves on screen, reserved
+for a fault costing something *now*, and a dead hook costs the **next**
+session. The estate refused `breach` for this check on exactly that
+shape of argument.
+
+**Message `3f2a0e0a` closed too, after re-running its claim rather than
+accepting it.** Their rule-3 announcement says this repository's parser
+is unaffected by the §2.1/§2.2 edits; driven,
+`parse_port_registry` reads **18** claimed rows against the edited
+document, with the `health:` markers carried through as ordinary role
+prose and the new marker-vocabulary table not mistaken for registry
+rows. Their `health` check files nothing about 8500.
+
+**Filed, not fixed — `SNAG-TRAY-010`.** `tests/test_desktop_store_live.py`
+fails **6 of 7** here, the premise test among them, and it fails
+**identically at `62f8e09`, the commit that added it** — so it is not
+this sitting's regression and has never passed in this environment. Not
+residue (zero `sysadmin-live-probe%` rows in either table) and not the
+D-Bus transport (`send` is stubbed to a list, and the session bus is
+live). The mechanism is deliberately not guessed; the entry names the
+next measurement, which is the Next action above.
+
+**Numbers.** 2984 → **3017** tests, +33 and none retired, verified by
+stashing to HEAD and re-collecting — 90 → 123 in the file, both deltas
+33, which is the only arithmetic that can witness a clobber. Twelve
+mutations, twelve kills. `ruff` clean, `mypy` clean over 95 source
+files. The six reds are `SNAG-TRAY-010`'s and predate the sitting.
+
+**Not claimed, so a later session does not read "admitted" as
+"equivalent".** Whether to withdraw their `PreToolUse` carrier is
+theirs; and detection is still not delivery — the audit runs daily at
+05:00 and this agent polls hourly, so the worst case from a bad
+`settings.json` edit to a toast is a little over a day, where the
+carrier is immediate. Their §4 accepts that bargain explicitly.
+
+---
+
+*Previously —*
 
 ## Session 128 is complete — the sweep knew, and nobody asked it
 

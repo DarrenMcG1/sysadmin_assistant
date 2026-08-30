@@ -36,13 +36,19 @@ from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.estate.judgements import (
     DEFAULT_SEVERITY,
     HEALTH_ROLLUP_TITLE,
+    JUDGED_AUDIT_CHECKS,
+    JUDGED_AUDIT_SEVERITY,
     NEXT_ACTION_CHARS,
     NUDGE_ROLLUP_TITLE,
+    PORTS_CHECK,
     SURFACE_TITLE_PATTERNS,
     TRANSIENT_HOLDER_SEVERITY,
+    WIRING_CHECK,
+    WIRING_FILE_TITLE,
     judge_attention,
     judge_audit_findings,
     judge_audit_invariants,
+    judge_audit_wiring,
     judge_projects_invariants,
     judge_queue_invariants,
 )
@@ -994,6 +1000,13 @@ def _every_title():
     )
     out += judge_audit_findings({"findings": [_breach(port=8888)]}, 5)
     out += judge_audit_findings({"findings": [_breach(port=8880 + n) for n in range(6)]}, 5)
+    # Both shapes of the wiring family, which shares the ports family's
+    # surface: the per-hook row and the fixed-title file-level one. The
+    # second has no `%` anywhere in it, so a missing pattern would leave
+    # a row about *every hook on the box being down* sitting in the table
+    # with nothing able to resolve it.
+    out += judge_audit_wiring({"findings": _recorded_wiring("misplaced")})
+    out += judge_audit_wiring({"findings": _recorded_wiring("truncated")})
     return out
 
 
@@ -1097,3 +1110,370 @@ def _attribution(port: int, *, transient: bool, seen: set[int] | None = None):
         real=set() if transient else {port},
         seen=seen,
     )
+
+
+# ---------------------------------------------------------------------------
+# The wiring family — the audit's second judged check (ADR-0006)
+# ---------------------------------------------------------------------------
+
+
+def _recorded_wiring(specimen: str) -> list[dict]:
+    """Findings from a real run of estate-manager's ``wiring`` check.
+
+    **Recorded, not written.**  ``tests/fixtures/estate_audit_wiring.json``
+    was produced on 2026-08-30 by driving their
+    ``estate_service.audit.checks.wiring.run_check`` in their own venv
+    (repository at commit ``003f3bc``, clean tree) against four
+    specimens built from this box's live ``~/.claude/settings.json``:
+
+    - ``clean`` — the live file, unmutated.  **Zero findings**, which is
+      the family's live population and the reason the other three exist.
+    - ``misplaced`` — the 2026-08-25 paste's first shape: a well-formed
+      hooks block at the **top level**.  It parses, wires nothing, and
+      files **one finding per declared hook** — four.
+    - ``truncated`` — that paste's other shape, a missing ``]``.  The
+      producer short-circuits to **one** ``settings_unparseable``
+      finding rather than one per hook, which is why this family needs
+      no roll-up of its own.
+    - ``one_unwired`` — ``SessionStart`` removed, the single-row case
+      and the exact failure estate-manager's ADR-0068 §4 asks about.
+
+    Only **public** symbols were driven (``run_check``, ``WiringConfig``,
+    ``Finding.as_payload``): a private helper's name is what their next
+    fix renames.  The projection models the **HTTP** wire rather than
+    the MQTT one — ``code`` is dropped, because ``AuditFinding`` has no
+    column for it (``SNAG-ESTATE-006``, re-verified against the live
+    endpoint the same day) — so a judge that came to depend on ``code``
+    would fail here rather than in production.
+    """
+    path = Path(__file__).parent / "fixtures" / "estate_audit_wiring.json"
+    return json.loads(path.read_text())[specimen]["findings"]
+
+
+def _wiring(**overrides) -> dict:
+    """One recorded ``hook_not_wired`` finding, with fields overridden."""
+    finding = dict(_recorded_wiring("one_unwired")[0])
+    detail = overrides.pop("detail", ...)
+    finding.update(overrides)
+    if detail is not ...:
+        finding["detail"] = detail
+    return finding
+
+
+class TestTheWiringFamilyIsAdmitted:
+    """``wiring`` joins ``ports`` — ADR-0006, answering estate-manager's
+    message ``8462bcc5`` and their ADR-0068 §4.
+
+    The subject is ``~/.claude/settings.json``: in no repository at all,
+    estate-wide by construction, repairable only by the owner (their
+    ADR-0024), and measured on 2026-08-29 to have no consumer anywhere.
+    Every clause of :data:`JUDGED_AUDIT_CHECKS`' ownership test
+    transfers, so the alternative to judging it here is that nobody ever
+    says it.
+    """
+
+    def test_the_live_specimen_judges_nothing(self):
+        """The family ships with an empty population, like ``ports``
+        before it. Recorded from the real file rather than asserted, so
+        the day the box's wiring breaks this fixture stops being clean
+        and says so."""
+        assert judge_audit_wiring({"findings": _recorded_wiring("clean")}) == []
+
+    def test_the_2026_08_25_paste_gives_one_row_per_hook(self):
+        """The uncollapsed shape, and the reason rule 4 needs no
+        threshold: four declared hooks, four rows, each naming a hook a
+        human can act on."""
+        judged = judge_audit_wiring({"findings": _recorded_wiring("misplaced")})
+        assert [j.title for j in judged] == [
+            "Estate hook foreign-repo-write-notice.sh not wired for PreToolUse",
+            "Estate hook inbox-notice.sh not wired for SessionStart",
+            "Estate hook require-handoff.sh not wired for Stop",
+            "Estate hook session-notice-observe.sh not wired for Notification",
+        ]
+
+    def test_the_failure_the_estate_asked_about_is_spoken(self):
+        """Their ADR-0068 §4's whole condition: a dead ``SessionStart``
+        entry raises a judgement at the owner. Before this it was
+        detected, correct, machine-readable and said to nobody."""
+        [judged] = judge_audit_wiring({"findings": _recorded_wiring("one_unwired")})
+        assert judged.title == "Estate hook inbox-notice.sh not wired for SessionStart"
+        assert judged.surface == "audit_findings"
+        assert judged.details["event"] == "SessionStart"
+        assert judged.details["subject"] == "inbox-notice.sh"
+
+    def test_an_unparseable_settings_file_is_one_row_with_a_fixed_title(self):
+        """Rule 4's other half. The producer already collapses this case
+        to a single finding, and the title carries no path: ``subject``
+        is a *configured* path here, so an f-string title would fork the
+        row the day the estate re-spells its own config."""
+        [judged] = judge_audit_wiring({"findings": _recorded_wiring("truncated")})
+        assert judged.title == WIRING_FILE_TITLE
+        assert judged.details["event"] is None
+
+    def test_the_subject_key_names_the_producers_field_not_a_hook(self):
+        """Found by the live drive rather than by reading. The key was
+        written as ``hook`` and is right on three specimens; on this one
+        the producer's subject is the config file's path, so the name
+        would have promised a hook and delivered a file —
+        ``UnitFinding.enabled``'s trap, one dict key wide."""
+        [judged] = judge_audit_wiring({"findings": _recorded_wiring("truncated")})
+        assert judged.details["subject"].endswith("settings-truncated.json")
+
+    def test_every_row_carries_an_event_key(self):
+        """Present on both shapes, ``None`` on the file-level one, never
+        omitted. A key that appears only sometimes makes "the estate did
+        not say" and "this row is not about one hook" one observation —
+        ``ports_checked``'s rule at the size of a dict key."""
+        for specimen in ("misplaced", "truncated", "one_unwired"):
+            for judged in judge_audit_wiring({"findings": _recorded_wiring(specimen)}):
+                assert "event" in judged.details
+
+    def test_the_wire_carries_no_code_at_all(self):
+        """The premise of rule 2, measured rather than assumed. ``code``
+        is computed by the producer and folded into ``fingerprint``, and
+        ``AuditFinding`` has no column for it (``SNAG-ESTATE-006``) — so
+        a judge that discriminated on it would read ``None`` on every
+        row the estate can serve and put every finding on one branch."""
+        for specimen in ("misplaced", "truncated", "one_unwired"):
+            for finding in _recorded_wiring(specimen):
+                assert "code" not in finding
+
+    @pytest.mark.parametrize(
+        ("code", "detail", "expected_event"),
+        [
+            # The witness: `code` and the shape of `detail` disagree, so
+            # the two implementations part company. Without a specimen
+            # like this the test is a constant observation — the recorded
+            # findings carry no `code`, so a code-reading judge agrees
+            # with a detail-reading one by accident and the mutation
+            # survives. It did, on the first drive.
+            ("settings_unparseable", {"event": "Stop"}, "Stop"),
+            ("hook_not_wired", {"error": "Expecting ','", "line": 657}, None),
+        ],
+    )
+    def test_the_kind_is_read_from_detail_and_never_from_code(
+        self, code, detail, expected_event
+    ):
+        """Rule 2. ``detail``'s shape is a fact this module can read on
+        the live wire; ``code`` is a field it would have to invent a
+        source for."""
+        [judged] = judge_audit_wiring({"findings": [_wiring(code=code, detail=detail)]})
+        assert judged.details["event"] == expected_event
+        assert (judged.title == WIRING_FILE_TITLE) is (expected_event is None)
+
+
+class TestTheWiringFamilyIsNarrow:
+    """What the admission deliberately does not reach."""
+
+    def test_nothing_is_judged_at_info(self):
+        """``hook_wired_undeclared`` is the check's one ``info`` code,
+        and the estate says in writing that "an extra event is the
+        owner's prerogative over their own config, and the estate
+        records it rather than judging it". A consumer that judged it
+        would be a second opinion on a policy the producer declined to
+        hold — ``claimed_tool_default``'s treatment one check over.
+
+        Constructed rather than recorded: the estate's own check notes
+        that no live instance exists."""
+        undeclared = _wiring(
+            severity="info",
+            summary="inbox-notice.sh is wired behind Stop, which it does not declare",
+            detail={"event": "Stop", "declares": ["SessionStart"]},
+        )
+        assert judge_audit_wiring({"findings": [undeclared]}) == []
+
+    def test_a_wiring_finding_at_breach_is_not_judged(self):
+        """The mapping is a filter in both directions. ``wiring`` emits
+        no ``breach`` at any code — their ADR-0067 §4 refuses one — so a
+        breach arriving here means the producer's contract moved, and
+        the honest response is silence plus a suite that says so."""
+        assert judge_audit_wiring({"findings": [_wiring(severity="breach")]}) == []
+
+    def test_a_ports_finding_at_warn_is_still_not_judged(self):
+        """**The reason the constant had to become a mapping.** Widening
+        a single severity to admit ``wiring``'s ``warn`` would have
+        re-imported ``ports``' ``claimed_but_silent``, which is
+        availability — owned here by ``services.yaml`` plus the sysadmin
+        agent's ``% unreachable`` family. A second owner closes a row
+        while the first still holds it true."""
+        assert judge_audit_findings({"findings": [_breach(severity="warn")]}, 5) == []
+
+    def test_neither_family_reads_the_others_findings(self):
+        """One payload, one surface, two families. Each filters on its
+        own check name, so a wiring payload cannot produce a port row and
+        the reverse."""
+        wiring_payload = {"findings": _recorded_wiring("misplaced")}
+        assert judge_audit_findings(wiring_payload, 5) == []
+        assert judge_audit_wiring({"findings": [_breach()]}) == []
+
+    def test_a_finding_with_no_usable_subject_is_skipped(self):
+        """Rule 1 makes ``subject`` half the identity, so an unusable one
+        is skipped rather than titled from the summary — the forkable
+        title ``_port_of`` refuses one field over."""
+        for subject in (None, "", "   ", 42, ["inbox-notice.sh"]):
+            assert judge_audit_wiring({"findings": [_wiring(subject=subject)]}) == []
+
+    @pytest.mark.parametrize("event", [None, "", "   ", 5, ["Stop"], {"a": 1}, True])
+    def test_an_unusable_event_falls_back_to_the_file_level_row(self, event):
+        """Never formatted into a title. ``detail`` arrives through JSONB,
+        so an ``event`` that came back as a number or a list would
+        otherwise become ``Estate hook x not wired for ['Stop']`` — a
+        title that forks on the producer's serialisation."""
+        [judged] = judge_audit_wiring({"findings": [_wiring(detail={"event": event})]})
+        assert judged.title == WIRING_FILE_TITLE
+
+    def test_a_finding_with_no_detail_at_all_is_still_a_row(self):
+        """Fails *open*, like the ports family's attribution: missing
+        evidence costs the qualifier, never the alert."""
+        [judged] = judge_audit_wiring({"findings": [_wiring(detail=None)]})
+        assert judged.title == WIRING_FILE_TITLE
+
+    def test_there_is_no_rollup(self):
+        """Rule 4. The population is bounded by the estate's own
+        ``hooks/`` directory rather than by what is listening on the box,
+        so many-at-once is not a different fault — and a threshold here
+        would be invented against a population that has never exceeded
+        four."""
+        many = [
+            _wiring(subject=f"hook-{n}.sh", detail={"event": f"Event{n}"})
+            for n in range(20)
+        ]
+        assert len(judge_audit_wiring({"findings": many})) == 20
+
+    def test_nothing_reaches_critical(self):
+        """Rule 5. An unparseable ``settings.json`` does take the
+        blocking ``Stop`` hook down — the one genuine this-box fault on
+        these surfaces — and still gets ``warning``: ``critical`` breaks
+        the DND windows and is what the tray leaves on screen, reserved
+        for a fault costing something *now*, and a dead hook costs the
+        *next* session. The estate refused ``breach`` for this check on
+        the same shape of argument."""
+        for specimen in ("misplaced", "truncated", "one_unwired"):
+            for judged in judge_audit_wiring({"findings": _recorded_wiring(specimen)}):
+                assert judged.severity == DEFAULT_SEVERITY
+
+    def test_a_bad_payload_judges_nothing(self):
+        for payload in ({}, {"findings": None}, {"findings": "x"}, {"findings": [None, 7]}):
+            assert judge_audit_wiring(payload) == []
+
+
+class TestWiringStandingDays:
+    """``standing_days`` is carried as evidence, never as identity."""
+
+    def test_a_first_sighting_says_nothing_about_standing(self):
+        """The recorded specimens are all first sightings, stamped
+        ``0.0``. "Standing 0 days" is true, reads as a rounding artefact,
+        and says nothing ``created_at`` does not."""
+        [judged] = judge_audit_wiring({"findings": _recorded_wiring("one_unwired")})
+        assert "Standing" not in judged.message
+
+    def test_a_standing_fault_says_how_long(self):
+        [judged] = judge_audit_wiring({"findings": [_wiring(standing_days=3.0)]})
+        assert judged.message.endswith("Standing 3 days.")
+
+    def test_a_truncated_age_is_marked_a_lower_bound(self):
+        [judged] = judge_audit_wiring(
+            {"findings": [_wiring(standing_days=3.0, age_truncated=True)]}
+        )
+        assert judged.message.endswith("Standing at least 3 days.")
+
+    def test_the_producers_sentence_is_taken_verbatim(self):
+        """The estate owns the ``wiring`` contract and its wording
+        explains the fault better than a paraphrase kept in step with
+        it."""
+        finding = _recorded_wiring("one_unwired")[0]
+        [judged] = judge_audit_wiring({"findings": [finding]})
+        assert judged.message == finding["summary"]
+
+
+class TestTheJudgedCheckMapping:
+    """:data:`JUDGED_AUDIT_CHECKS` — what admits a check, and its shape."""
+
+    def test_exactly_two_checks_are_judged(self):
+        """Ten of the audit's twelve checks are still excluded, and each
+        admission needed an ADR. A third arriving without one is the
+        widening rule 3 exists to prevent."""
+        assert JUDGED_AUDIT_CHECKS == {PORTS_CHECK: "breach", WIRING_CHECK: "warn"}
+
+    def test_the_ports_severity_is_derived_rather_than_retyped(self):
+        """**Provenance, not value.** ``JUDGED_AUDIT_SEVERITY == "breach"``
+        is true whether the constant is derived from the mapping or
+        written beside it, and CPython interns the string either way — so
+        the only instrument that can tell them apart is the source.
+        ``max_priority_for`` against ``PRIORITY_MAP``'s rule, pinned the
+        way that rule has to be pinned."""
+        import ast
+
+        source = Path("sysadmin/estate/judgements.py").read_text()
+        assigned = [
+            node
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(t, ast.Name) and t.id == "JUDGED_AUDIT_SEVERITY"
+                for t in node.targets
+            )
+        ]
+        assert len(assigned) == 1, "one statement, or this test is measuring the wrong one"
+        value = assigned[0].value
+        assert isinstance(value, ast.Subscript), ast.dump(value)
+        assert isinstance(value.value, ast.Name)
+        assert value.value.id == "JUDGED_AUDIT_CHECKS"
+        # And the derivation still yields the rung the ports paragraph
+        # argues for, which the AST alone cannot say.
+        assert JUDGED_AUDIT_SEVERITY == "breach"
+
+    def test_every_recorded_finding_carries_the_rung_the_mapping_admits(self):
+        """The producer's own evidence rather than a pin against their
+        source: every finding a real run of their check produced is at
+        the rung this repository speaks for."""
+        recorded = [
+            finding
+            for specimen in ("misplaced", "truncated", "one_unwired")
+            for finding in _recorded_wiring(specimen)
+        ]
+        assert recorded
+        assert {f["severity"] for f in recorded} == {JUDGED_AUDIT_CHECKS[WIRING_CHECK]}
+        assert {f["check"] for f in recorded} == {WIRING_CHECK}
+
+
+class TestEveryJudgeFunctionReachesThePartitionGuard:
+    """``_every_title`` is hand-maintained, and that is how a stray
+    pattern ships.
+
+    The wiring family passed all four partition tests before it was
+    added here — because nothing produced its titles, so ``Estate hook %``
+    could have been missing from :data:`SURFACE_TITLE_PATTERNS` and the
+    suite would have stayed green while a row about every hook on the box
+    being down sat unresolvable in ``alerts``. Enumerating the rule
+    functions is what makes the omission an error rather than a silence.
+    """
+
+    def test_every_public_judge_function_is_driven(self):
+        import ast
+
+        from sysadmin.estate import judgements
+
+        rules = {
+            name
+            for name in dir(judgements)
+            if name.startswith("judge_") and callable(getattr(judgements, name))
+        }
+        source = Path(__file__).read_text()
+        driver = next(
+            node
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.FunctionDef) and node.name == "_every_title"
+        )
+        called = {
+            node.func.id
+            for node in ast.walk(driver)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        # One alias exists and is named rather than resolved: `attention`
+        # wraps `judge_attention` to supply the live `max_rows`. A second
+        # alias would leave its rule uncovered and fail here, which is
+        # the behaviour wanted — an alias is a way to hide a call.
+        aliases = {"attention": "judge_attention"}
+        covered = called | {aliases[name] for name in called & set(aliases)}
+        assert rules - covered == set(), f"not driven by _every_title: {rules - covered}"

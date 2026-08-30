@@ -270,9 +270,15 @@ class EstateJudgeAgent(BaseAgent):
                 payload, config.audit_max_age_hours
             )
         if (payload := payloads.get("audit_findings")) is not None:
+            # Two families off one payload, because it is one HTTP call
+            # and therefore one surface: they are read together, swept
+            # together, and a partial read darkens both honestly. Adding
+            # a sixth surface for the second family would claim two
+            # independent reads where there is one.
             out += judgements.judge_audit_findings(
                 payload, config.port_breach_max_rows, attribution
             )
+            out += judgements.judge_audit_wiring(payload)
         if (payload := payloads.get("queue_invariants")) is not None:
             out += judgements.judge_queue_invariants(
                 payload, config.queue_max_depth, config.queue_max_wait_seconds

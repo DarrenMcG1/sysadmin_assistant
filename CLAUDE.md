@@ -3650,6 +3650,21 @@ than this paragraph.
   first — and the `agents.project_organiser` config block that is still
   parsed and mostly unread. Estate side: their ADR-0004 (the decision) and ADR-0008
   (the migration's shape).
+- **[0006-wiring-joins-ports.md](docs/adr/0006-wiring-joins-ports.md)** —
+  **read this before adding a third check to `JUDGED_AUDIT_CHECKS`.**
+  The estate's `wiring` check joins `ports` as a second audit check whose
+  findings this repository speaks for, answering estate-manager's message
+  `8462bcc5` and their ADR-0068 §4. It records what admits a check — an
+  **ownership** test, never a severity — and why the constant had to stop
+  being two scalars: the filter is a conjunction, `wiring` emits no
+  `breach` at any code (their ADR-0067 §4 refuses one), and widening the
+  severity globally re-imports `ports`' `claimed_but_silent`, which is
+  availability and already owned here by `% unreachable`. Also records
+  the four places the wiring family departs from the ports family — the
+  identity is `subject` + `detail['event']`, which is the **reverse** of
+  the ports rule; the kind is read from `detail`'s shape and never from
+  `code`; there is no roll-up, because the population is bounded by the
+  estate's own `hooks/` directory; and `critical` was refused.
 
 Guides: only **api_auth.md** (bearer-token auth setup) still lives in
 this repository's `docs/guides/`. The four cross-repo guides —

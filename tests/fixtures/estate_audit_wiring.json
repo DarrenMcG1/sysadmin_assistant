@@ -1,0 +1,122 @@
+{
+  "clean": {
+    "error": null,
+    "findings": []
+  },
+  "misplaced": {
+    "error": null,
+    "findings": [
+      {
+        "check": "wiring",
+        "severity": "warn",
+        "subject": "foreign-repo-write-notice.sh",
+        "summary": "foreign-repo-write-notice.sh declares it belongs behind PreToolUse, and nothing under hooks.PreToolUse in /tmp/wiring-specimen/settings-misplaced.json resolves to it; the delivery path this repository's documents describe does not exist, and the hook cannot report its own absence",
+        "fingerprint": "wiring:foreign-repo-write-notice.sh:hook_not_wired",
+        "detail": {
+          "event": "PreToolUse",
+          "declared_by": "hooks/foreign-repo-write-notice.sh",
+          "events_wiring_it": []
+        },
+        "observed_at": "2026-08-30T04:04:14.805420+00:00",
+        "first_seen_at": "2026-08-30T04:04:14.805420+00:00",
+        "standing_days": 0.0,
+        "runs_observed": 1,
+        "age_truncated": false
+      },
+      {
+        "check": "wiring",
+        "severity": "warn",
+        "subject": "inbox-notice.sh",
+        "summary": "inbox-notice.sh declares it belongs behind SessionStart, and nothing under hooks.SessionStart in /tmp/wiring-specimen/settings-misplaced.json resolves to it; the delivery path this repository's documents describe does not exist, and the hook cannot report its own absence",
+        "fingerprint": "wiring:inbox-notice.sh:hook_not_wired",
+        "detail": {
+          "event": "SessionStart",
+          "declared_by": "hooks/inbox-notice.sh",
+          "events_wiring_it": []
+        },
+        "observed_at": "2026-08-30T04:04:14.805420+00:00",
+        "first_seen_at": "2026-08-30T04:04:14.805420+00:00",
+        "standing_days": 0.0,
+        "runs_observed": 1,
+        "age_truncated": false
+      },
+      {
+        "check": "wiring",
+        "severity": "warn",
+        "subject": "require-handoff.sh",
+        "summary": "require-handoff.sh declares it belongs behind Stop, and nothing under hooks.Stop in /tmp/wiring-specimen/settings-misplaced.json resolves to it; the delivery path this repository's documents describe does not exist, and the hook cannot report its own absence",
+        "fingerprint": "wiring:require-handoff.sh:hook_not_wired",
+        "detail": {
+          "event": "Stop",
+          "declared_by": "hooks/require-handoff.sh",
+          "events_wiring_it": []
+        },
+        "observed_at": "2026-08-30T04:04:14.805420+00:00",
+        "first_seen_at": "2026-08-30T04:04:14.805420+00:00",
+        "standing_days": 0.0,
+        "runs_observed": 1,
+        "age_truncated": false
+      },
+      {
+        "check": "wiring",
+        "severity": "warn",
+        "subject": "session-notice-observe.sh",
+        "summary": "session-notice-observe.sh declares it belongs behind Notification, and nothing under hooks.Notification in /tmp/wiring-specimen/settings-misplaced.json resolves to it; the delivery path this repository's documents describe does not exist, and the hook cannot report its own absence",
+        "fingerprint": "wiring:session-notice-observe.sh:hook_not_wired",
+        "detail": {
+          "event": "Notification",
+          "declared_by": "hooks/session-notice-observe.sh",
+          "events_wiring_it": []
+        },
+        "observed_at": "2026-08-30T04:04:14.805420+00:00",
+        "first_seen_at": "2026-08-30T04:04:14.805420+00:00",
+        "standing_days": 0.0,
+        "runs_observed": 1,
+        "age_truncated": false
+      }
+    ]
+  },
+  "truncated": {
+    "error": null,
+    "findings": [
+      {
+        "check": "wiring",
+        "severity": "warn",
+        "subject": "/tmp/wiring-specimen/settings-truncated.json",
+        "summary": "/tmp/wiring-specimen/settings-truncated.json is not valid JSON (Expecting ',' delimiter at line 657), so every hook on this box is down, including the blocking one \u2014 and no hook can say so, because all of them fail open",
+        "fingerprint": "wiring:/tmp/wiring-specimen/settings-truncated.json:settings_unparseable",
+        "detail": {
+          "error": "Expecting ',' delimiter",
+          "line": 657
+        },
+        "observed_at": "2026-08-30T04:04:14.805420+00:00",
+        "first_seen_at": "2026-08-30T04:04:14.805420+00:00",
+        "standing_days": 0.0,
+        "runs_observed": 1,
+        "age_truncated": false
+      }
+    ]
+  },
+  "one_unwired": {
+    "error": null,
+    "findings": [
+      {
+        "check": "wiring",
+        "severity": "warn",
+        "subject": "inbox-notice.sh",
+        "summary": "inbox-notice.sh declares it belongs behind SessionStart, and nothing under hooks.SessionStart in /tmp/wiring-specimen/settings-one_unwired.json resolves to it; the delivery path this repository's documents describe does not exist, and the hook cannot report its own absence",
+        "fingerprint": "wiring:inbox-notice.sh:hook_not_wired",
+        "detail": {
+          "event": "SessionStart",
+          "declared_by": "hooks/inbox-notice.sh",
+          "events_wiring_it": []
+        },
+        "observed_at": "2026-08-30T04:04:14.805420+00:00",
+        "first_seen_at": "2026-08-30T04:04:14.805420+00:00",
+        "standing_days": 0.0,
+        "runs_observed": 1,
+        "age_truncated": false
+      }
+    ]
+  }
+}

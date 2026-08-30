@@ -2464,11 +2464,15 @@ def quieten_finding(port: int) -> dict[str, object]:
     deliberately not chased: renaming a helper to match whichever caller
     survives is churn in a file two open checks read.
     """
-    from sysadmin.estate.judgements import JUDGED_AUDIT_CHECK, JUDGED_AUDIT_SEVERITY
+    from sysadmin.estate.judgements import JUDGED_AUDIT_CHECKS, PORTS_CHECK
 
     return {
-        "check": JUDGED_AUDIT_CHECK,
-        "severity": JUDGED_AUDIT_SEVERITY,
+        "check": PORTS_CHECK,
+        # Indexed rather than spelled, so the day the ports family's rung
+        # moves this payload moves with it. ``JUDGED_AUDIT_CHECKS`` gained
+        # a second entry on 2026-08-30 (ADR-0006); the ports one is the
+        # only member this probe is about.
+        "severity": JUDGED_AUDIT_CHECKS[PORTS_CHECK],
         "subject": f"port {port}",
         "summary": f"port {port} is listening inside the registry's range",
         "fingerprint": f"ports:port {port}:unclaimed_listener",
