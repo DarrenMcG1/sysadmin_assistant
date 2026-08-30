@@ -106,6 +106,18 @@ select = ["E", "F", "I", "N", "W", "UP"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# An unknown mark is applied silently, so a typo'd @pytest.mark.premise would
+# leave a live drive unguarded and green. This makes the runner refuse it at
+# collection; tests/test_live_drive_premises.py refuses the near miss from the
+# other side, and tests/test_live_drive_premises.py pins that both stay on.
+#
+# The ini option, NOT addopts = "--strict-markers": measured on pytest 9.0.2,
+# the flag works on the command line and is silently ignored from addopts here,
+# so the addopts spelling registers as configured and enforces nothing.
+strict_markers = true
+markers = [
+    "premise: the test (or class) asserting this live drive's harness really produced the state it believes negatives about",
+]
 
 [tool.mypy]
 # Lenient baseline — run with: uv run mypy sysadmin

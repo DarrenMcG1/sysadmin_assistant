@@ -2,7 +2,91 @@
 
 ## Next action
 
-Decide whether `tests/` should carry a guard asserting that no live drive reads an unsupplied singleton clock, because `SNAG-TRAY-010` was the third leaf in one file and `dnd_manager`, `tray_presence` and `dnd_manager.config` are all process-wide state that a drive can read without supplying, so the question is whether one AST sweep over the live-test files is worth more than the premise assertion each of them already carries.
+Decide whether the six pre-convention files that open the live database — `test_logs_routes.py`, `test_open_alert_predicate.py`, `test_retention.py`, `test_schema_drift.py`, `test_schema_guard.py` and `test_snag_claims.py` — owe premise assertions, because `tests/test_live_drive_premises.py` now measures that they hold the property the `_live` glob is a proxy for and exempts them by name in `PRE_CONVENTION`, so the exemption is a decision nobody has taken rather than one taken and recorded.
+
+## Session 131 is complete — the sweep that could not have seen it, and the one that can
+
+**The question was answered `no`, and the measurement that answers it is
+the pre-fix file itself.** The handoff asked whether `tests/` should
+carry an AST sweep refusing a live drive that reads an unsupplied
+singleton clock. It cannot exist. `SNAG-TRAY-010` was an **absence**, and
+at `62f8e09` — the commit that added the file — `test_desktop_store_live.py`
+named `dnd` **zero times**. There is no token whose presence marks the
+defect, so the sweep would be hunting a line nobody wrote.
+
+**Three further measurements, each of which alone would have settled
+it.** Inverted to *must supply*, the rule is **4 false positives out of
+5**: only `test_desktop_store_live.py` touches any of the three
+singletons (28 mentions against 0, 0, 0, 0), because two of the drives
+are subprocess drives against a real bus with no Python singleton in the
+process and two never reach `notifier.py`. Suppressing those needs a
+per-file allowlist, which is the hand-maintained classification the rule
+was supposed to remove. The read is **transitive** — `datetime.now()`
+sits in `dnd.py:73` inside `is_active`, reached as `send` →
+`should_suppress` → `is_active` — across **27** unsupplied clock reads in
+production, so deciding which a drive reaches is a call-graph analysis
+over `sysadmin/`, not a sweep over `tests/`. And `should_suppress`
+**already takes a `now=`** it does not forward, so a signature-level
+check reads it as injectable and passes.
+
+**The premise assertion is the stronger control, not the weaker one.** A
+sweep answers *did somebody write the supply line* and is green forever
+once written, including the day the supply stops taking. The premise
+answers *is the gate open now*, which is what the hour decides — and
+`sent_total > 0` catches the whole class, since `min_severity`, `enabled`
+and a future fourth gate silence the announce path identically and no
+sweep over test files can enumerate them in advance.
+
+**So what shipped is the narrower guard the decision named**, and it
+guards the convention rather than the clocks: `tests/test_live_drive_premises.py`,
+15 tests, requiring every `tests/test_*_live.py` to mark the test — or
+class — holding its premise with `@pytest.mark.premise`. Seven markers
+landed across the five drives at the level each premise actually lives.
+
+**The marker names the check and never the value**, which is
+`SNAG-ESTATE-011`'s rule. A name rule was measured first and reaches **3
+of 5**: two files carry `test_the_premises_hold_or_nothing_below_means_anything`,
+one carries `class TestThePremises`, and the other two neither do nor
+should — `TestTheHazardIsReal` names what it *proves*, and
+`test_failure_replay_live.py` asserts a different premise per test, so
+there is no single test to name. A decorator attaches at the level the
+premise lives, which is exactly the three shapes that exist.
+
+**The glob is a convention, so it is backed by a property.**
+`_opens_a_live_connection` finds the files that name this box's database
+rather than modelling it; **6** hold it outside the glob and sit in
+`PRE_CONVENTION`, whose members are re-asserted rather than trusted.
+Without that half the premise rule is opt-in by filename — a seventh
+drive against the live database called anything else would owe nothing.
+
+**Three things measurement changed mid-build.** The detector **reported
+itself**, because it must contain `postgresql+psycopg2://` in order to
+hunt for it — `test_open_alert_predicate`'s owner problem one level up,
+so the owner is exempted and then driven at, which proves the exemption
+necessary rather than assuming it. `addopts = "--strict-markers"` is
+**silently ignored on pytest 9.0.2**: the flag refuses a typo from the
+command line and does nothing from `addopts`, so a comment claiming it
+enforced anything was corrected to the ini option `strict_markers = true`
+and pinned by a test that fails if a future edit moves it back. And a
+falsification was **destroyed by its own revert** — `git checkout` on an
+uncommitted marker reverted the fix rather than the mutation, so mutation
+2 silently re-tested mutation 1's condition and a pass was read as a
+pass; reverse-patching is what caught it, which is *a harness that cannot
+survive the code it drives is a control the next fix breaks* met from the
+revert side.
+
+**Seven mutations, each red on exactly the intended test**: drop a
+marker, typo a marker, unregister the marker, move `strict_markers` to
+`addopts`, add a live-DSN file dodging the glob, break the glob, empty
+the DSN hints. **3018 → 3033**, +15 and none retired — arithmetic checked
+rather than assumed. No production change; ruff and mypy clean.
+
+**What was deliberately not filed.** The six pre-convention files are a
+**task and not a snag**: the convention was invented in this sitting, so
+"these predate it" is a decision to take rather than a defect to record,
+and filing it would have broken the register's *0 of 18 open entries
+carry no check* property without adding a signal. It is the next action
+above.
 
 ## Session 130 is complete — the leaf that did not look like a clock
 

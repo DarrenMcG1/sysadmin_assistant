@@ -171,6 +171,7 @@ def _notify_send(bus_path: str, timeout: float) -> tuple[bool, float]:
         return False, time.monotonic() - started
 
 
+@pytest.mark.premise
 class TestTheHazardIsReal:
     """Speaking to an unserved bus blocks; speaking to a served one does not.
 

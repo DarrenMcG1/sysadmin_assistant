@@ -3,7 +3,64 @@
 **Last Updated**: 2026-08-30
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The six reds were the hour, not the tree — `SNAG-TRAY-010` is
+> **The sweep the handoff asked for cannot exist, and the pre-fix file
+> is the proof.** `SNAG-TRAY-010` was an **absence**: at `62f8e09`, the
+> commit that added it, `tests/test_desktop_store_live.py` named `dnd`
+> **zero times**. An AST sweep keys on the *presence* of a token, so this
+> one would have been hunting a line nobody wrote.
+>
+> **Three further measurements, each of which alone settles it.**
+> Inverted to *must supply*, the rule is **4 false positives out of 5** —
+> only `test_desktop_store_live.py` touches any of the three singletons
+> (28 mentions against 0, 0, 0, 0), two of the drives being subprocess
+> drives against a real bus and two never reaching `notifier.py` — and
+> suppressing those needs the per-file allowlist the rule existed to
+> remove. The read is **transitive**, `datetime.now()` sitting in
+> `dnd.py:73` inside `is_active` among **27** unsupplied clock reads in
+> production, so deciding which a drive reaches is a call-graph analysis
+> over `sysadmin/`. And `should_suppress` **already takes a `now=`** it
+> does not forward, so a signature-level check reads it as injectable
+> and passes.
+>
+> **The premise assertion is the stronger control, not the weaker one.**
+> A sweep answers *did somebody write the supply line* and stays green
+> the day the supply stops taking; the premise answers *is the gate open
+> now*, which is what the hour decides. `sent_total > 0` catches the
+> class, since `min_severity`, `enabled` and a future fourth gate
+> silence the announce path identically.
+>
+> **So the narrower guard shipped instead.**
+> `tests/test_live_drive_premises.py`, 15 tests: every
+> `tests/test_*_live.py` marks the test — or class — holding its premise
+> with `@pytest.mark.premise`, seven markers across the five drives. The
+> marker **names the check and never the value**
+> (`SNAG-ESTATE-011`'s rule); a name rule was measured first and reaches
+> **3 of 5**, because `TestTheHazardIsReal` names what it *proves* and
+> `test_failure_replay_live.py` asserts a different premise per test.
+> **The glob is a convention, so it is backed by a property**:
+> `_opens_a_live_connection` finds the **6** files naming this box's
+> database outside the glob, held in `PRE_CONVENTION` and re-asserted
+> rather than trusted — without it the premise rule is opt-in by
+> filename.
+>
+> **Three things measurement changed mid-build.** The detector
+> **reported itself**, holding the spellings it hunts for, so the owner
+> is exempted and then driven at. `addopts = "--strict-markers"` is
+> **silently ignored on pytest 9.0.2** — the flag works from the command
+> line and does nothing from `addopts` — so a comment claiming it
+> enforced something was corrected to the ini option and pinned. And a
+> falsification was **destroyed by its own revert**: `git checkout` on an
+> uncommitted marker reverted the fix rather than the mutation, so one
+> mutation silently re-tested the previous one's condition.
+>
+> **Seven mutations, each red on exactly the intended test.**
+> **3018 → 3033**, +15 and none retired, arithmetic checked rather than
+> assumed. No production change; ruff and mypy clean. The six
+> pre-convention files are filed as a **task, not a snag** — the
+> convention was invented in this sitting, so their exemption is a
+> decision to take rather than a defect to record.
+>
+> *Previously —* **The six reds were the hour, not the tree — `SNAG-TRAY-010` is
 > fixed.** `tests/test_desktop_store_live.py` supplies two leaves and
 > says so in its own docstring: the transport, and the two clock
 > readings. It misses a **third**. `DndManager.is_active` calls
@@ -492,6 +549,39 @@
 ---
 
 ## Recently Completed
+
+### Session 131 — the sweep that could not have seen it, and the one that can (2026-08-30)
+
+**The handoff's question was answered `no`.** An AST sweep refusing a
+live drive that reads an unsupplied singleton clock cannot exist:
+`SNAG-TRAY-010` was an absence, and the pre-fix file named `dnd` zero
+times at the commit that added it. Inverted to *must supply* it is 4
+false positives out of 5; the read is transitive through 27 unsupplied
+clock reads in production; and `should_suppress` already takes a `now=`
+it does not forward, so a signature check passes.
+
+**`tests/test_live_drive_premises.py` shipped instead** — 15 tests
+requiring every `tests/test_*_live.py` to mark the test or class holding
+its premise with `@pytest.mark.premise`. Seven markers landed at the
+level each premise actually lives, because a name rule reaches only 3 of
+5: `TestTheHazardIsReal` names what it proves, and
+`test_failure_replay_live.py` asserts a different premise per test.
+
+**The glob is a convention, so a property backs it.**
+`_opens_a_live_connection` names the 6 files that open this box's
+database outside the glob; they sit in `PRE_CONVENTION` with their
+property re-asserted, so the premise rule is not opt-in by filename.
+
+**Three corrections from measurement.** The detector reported itself and
+is exempted-then-driven-at. `addopts = "--strict-markers"` is silently
+ignored on pytest 9.0.2 — the ini option `strict_markers = true` is what
+enforces it, and a test now fails if that moves. And `git checkout`
+destroyed a falsification by reverting an uncommitted marker, so one
+mutation re-tested the previous one's condition.
+
+**3018 → 3033**, seven mutations each red on the intended test, no
+production change.
+
 
 ### Session 129 — the second exception, and the filter it could not fit through (2026-08-30)
 

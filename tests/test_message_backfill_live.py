@@ -310,6 +310,7 @@ class TestTheShapeIsDecidedAtReadTime:
         )
 
 
+@pytest.mark.premise
 class TestThePremises:
     """A constant observation is not evidence unless something could move it."""
 

@@ -16,6 +16,76 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 131 — the sweep that could not have seen it, and the
+      one that can.** *(2026-08-30.)* The handoff asked whether `tests/`
+      should carry an AST sweep refusing a live drive that reads an
+      unsupplied singleton clock. **Answered `no`, and the pre-fix file
+      is the proof**: `SNAG-TRAY-010` was an *absence*, and at
+      `62f8e09` — the commit that added it —
+      `tests/test_desktop_store_live.py` named `dnd` **zero times**, so a
+      sweep keying on the presence of a token would be hunting a line
+      nobody wrote. Three further measurements each settle it alone.
+      Inverted to *must supply* the rule is **4 false positives out of
+      5** — only that one file touches any of the three singletons, 28
+      mentions against 0, 0, 0, 0 — and suppressing the rest needs the
+      per-file allowlist the rule existed to remove. The read is
+      **transitive**, `datetime.now()` inside `is_active` among **27**
+      unsupplied clock reads in production, so the analysis is a call
+      graph over `sysadmin/` and not a sweep over `tests/`. And
+      `should_suppress` **already takes a `now=`** it does not forward,
+      so a signature-level check reads it as injectable and passes.
+      **The premise assertion is the stronger control**: a sweep answers
+      *did somebody write the supply line* and stays green the day the
+      supply stops taking, while the premise answers *is the gate open
+      now*, and `sent_total > 0` catches the class rather than the
+      member.
+      **What shipped is the narrower guard the decision named** —
+      `tests/test_live_drive_premises.py`, 15 tests, every
+      `tests/test_*_live.py` marking the test or class that holds its
+      premise with `@pytest.mark.premise`; seven markers across the five
+      drives. **The marker names the check and never the value**
+      (`SNAG-ESTATE-011`'s rule): a name rule was measured first and
+      reaches **3 of 5**, because `TestTheHazardIsReal` names what it
+      *proves* and `test_failure_replay_live.py` asserts a different
+      premise per test, so there is no single test to name. **The glob is
+      a convention, so a property backs it**: `_opens_a_live_connection`
+      finds the **6** files naming this box's database outside the glob,
+      held in `PRE_CONVENTION` and re-asserted rather than trusted —
+      without that half the rule is opt-in by filename.
+      **Three corrections from measurement.** The detector **reported
+      itself**, holding the spellings it hunts for, so the owner is
+      exempted and then driven at, which proves the exemption necessary.
+      `addopts = "--strict-markers"` is **silently ignored on pytest
+      9.0.2** — it works from the command line and not from `addopts` —
+      so the comment claiming it enforced something was corrected to the
+      ini option `strict_markers = true` and pinned by a test. And a
+      falsification was **destroyed by its own revert**: `git checkout`
+      on an uncommitted marker reverted the fix rather than the mutation,
+      so one mutation silently re-tested the previous one's condition.
+      **3018 → 3033**, +15 and none retired; seven mutations, each red on
+      exactly the intended test. No production change, ruff and mypy
+      clean.
+
+- [ ] **Decide whether the six pre-convention live-connection files owe
+      premise assertions.** *(Opened 2026-08-30 by Session 131 as the
+      stated cost of the guard above; deliberately a task and not a
+      snag.)* `test_logs_routes.py`, `test_open_alert_predicate.py`,
+      `test_retention.py`, `test_schema_drift.py`, `test_schema_guard.py`
+      and `test_snag_claims.py` all name this box's database and none
+      marks a premise. They are exempted **by name** in `PRE_CONVENTION`,
+      so the exemption is currently a decision nobody has taken rather
+      than one taken and recorded. It is a task because the convention
+      was invented in the same sitting: "these predate it" is a
+      judgement to make, not a defect to file, and filing it as a snag
+      would have broken the register's *0 of 18 open entries carry no
+      check* property without adding a signal. The three shapes a
+      resolution can take: give each a premise and empty the set; rename
+      them `*_live.py` so the existing rule reaches them; or record in
+      `PRE_CONVENTION`'s docstring why a file that merely *reads* the
+      live box owes nothing, which is the answer if the convention is
+      really about drives that believe negatives rather than about
+      connections.
+
 - [x] **Session 130 — the leaf that did not look like a clock.**
       *(2026-08-30.)* `SNAG-TRAY-010` **fixed**, and the entry's own
       named measurement is what found it.

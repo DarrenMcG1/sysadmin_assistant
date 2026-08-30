@@ -222,6 +222,7 @@ def claim_name(tmp_path: Path):
 
 
 class TestTheWaitGivesUpWhenNothingArrives:
+    @pytest.mark.premise
     def test_a_bus_with_nothing_on_it_is_refused_within_the_budget(
         self, unserved_bus: str
     ):
@@ -247,6 +248,7 @@ class TestTheWaitGivesUpWhenNothingArrives:
 
 
 class TestTheWaitCatchesAServerThatArrivesLate:
+    @pytest.mark.premise
     def test_a_name_claimed_mid_wait_is_seen(self, unserved_bus: str, claim_name):
         """The claim that justifies waiting here at all.
 
@@ -276,6 +278,7 @@ class TestTheWaitCatchesAServerThatArrivesLate:
         assert elapsed >= CLAIM_AFTER, "it cannot have seen a name claimed later than this"
         assert elapsed < TEST_BUDGET
 
+    @pytest.mark.premise
     def test_what_arrives_is_the_notification_that_was_sent(
         self, unserved_bus: str, claim_name
     ):

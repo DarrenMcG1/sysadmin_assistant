@@ -438,6 +438,7 @@ def reading():
 
 
 class TestTheUnderstudyAgainstTheRealDatabase:
+    @pytest.mark.premise
     def test_the_premises_hold_or_nothing_below_means_anything(self, reading):
         """The witness, and the reason it is not optional.
 
