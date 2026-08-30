@@ -2,7 +2,89 @@
 
 ## Next action
 
-Answer estate-manager's remaining open message `df4113cb` by deciding whether `core/llm_client.py`'s single `ensure_gpu_idle` read at line 89 has a waiter — their `sustained_busy` docstring now states a test rather than a category, so a deferrable background job is an intended use of the window and a request held open on the answer is not — and, if the window is adopted for any caller, routing it through `asyncio.to_thread` because every call site here runs inside an event loop.
+Close `SNAG-CFG-002` by deciding whether `schedules.review_hour` and `schedules.review_minute` are wired to something or deleted, since they have been parsed by pydantic and read by nothing since the projects domain left on 2026-08-13 and the reload's classification test cannot see them — a path nothing reads is not a path it classifies, which is `SNAG-CFG-001`'s shape at the size of two leaves.
+
+## Session 134 is complete — one gate, two answers, and the library's own tie-breaker decides it
+
+**estate-manager's message `df4113cb` is closed.** It announced that
+`estate.gpu.sustained_busy`'s docstring now states a **test** rather
+than a category — spend the blocking ~1.5 s min-of-N window wherever
+nobody waits on the answer, never where a request is held open — and
+asked whether `core/llm_client.py`'s single `ensure_gpu_idle` read has a
+waiter. Nothing was required; the decision was ours.
+
+**It has both, at three gates rather than one.** Each of
+`files/review.py`, `monitor/log_review.py` and `monitor/health_review.py`
+exposes one `generate_review`, and each is reached by a Monday
+`run_weekly_review` with nobody waiting **and** by a
+`POST …/review/generate` that `await`s it inline and holds the request
+open across the gate. That is estate-manager's own `SNAG-ESTATE-090`
+shape, tripled. The library states its own tie-breaker — *a caller that
+cannot answer the question for every one of its invocations keeps the
+single read* — so the answer needed no judgement call, only the
+enumeration.
+
+**The split was costed and refused, and the arithmetic inverts the
+obvious ranking three ways.** The window's entire benefit is the
+~1-in-120 transient Alfred sampled. The waiterless path fires **three
+times a week** — one dispatch per weekly review, confirmed live in the
+restarted daemon's 12 scheduled jobs. And a false defer does not cost a
+review, it costs **prose**: the caller falls back to
+`build_fallback_narrative` and still stores, serves and briefs a
+deterministic digest at `llm_used=False`. Roughly one narrative every
+forty weeks, against a parameter threaded through three signatures and a
+seventh caller free to default it wrongly. Filed in `ideas.md` as
+available-and-not-taken, not declined — the argument for it is sound and
+only the arithmetic is against it.
+
+**The waiter is the majority invocation, and the docstring had it
+backwards.** It called this service's inference *"deferrable
+housekeeping"* — the one sentence that would have led the next reader
+straight to adopting the window. Of the six reviews this box has
+generated in its life, **five came from the routes and one from the
+Monday job**: three disk reviews three minutes apart on 2026-08-06, a
+log review at 07:54 on 08-24, a health review at 13:09 on 08-25, against
+one at 05:45 on a Monday. **Reading the code confirms the announcement;
+reading `health_reviews`/`log_reviews`/`disk_reviews` ranks it** — and
+the ranking is the opposite of what the code says about itself. That
+sentence is gone.
+
+**Both halves of the decision are pinned, because it has two ways to go
+stale.** `tests/test_gpu_gate_invocations.py` holds the **premise** —
+each gate still reached from both classes, keyed on the route *awaiting*
+rather than merely calling, since a handler that dispatched to a task
+and answered 202 would make every invocation waiterless and re-open the
+decision with nothing else to say so — and the **rule pre-staged** for
+the day someone adopts the window: `sustained_busy` must go through
+`asyncio.to_thread`, since every call site here runs inside an event
+loop. The detector exempts by descent, so both correct spellings pass
+(`to_thread(sustained_busy, slot)` never calls it; the lambda form calls
+it inside the shelter).
+
+**Its population is empty today, so the detector is driven at synthetic
+sources in both directions.** A sweep finding nothing over a population
+of zero is not evidence of anything — the lesson this repository has now
+paid for several times. Four mutations were driven and each lands on the
+**named** test: a route dispatching instead of awaiting, a job dropping
+the call, the gate adopting the window bare (red on **both** window
+guards), and a router renaming its alias. Test arithmetic **3060 → 3070**,
++10 and none retired, verified against the baseline with the new file
+ignored rather than against a green suite.
+
+**No production behaviour changed** — the edit is a docstring. The
+daemon was restarted anyway so the box and the checkout agree
+(`check-ops-claims.sh` reported the deploy check `no` after the mutation
+harness moved four mtimes; all four files restored byte-exact, confirmed
+by `git status`). Suite 3070 green, ruff and mypy clean, all 18 snag
+checks still hold, and the snag register parses unmoved at 107 entries,
+18 open.
+
+**What would change the answer**, recorded so it is not re-derived: the
+routes ceasing to hold the request open, or the transient's cost rising
+above one narrative in forty weeks. `DEFAULT_BUSY_THRESHOLD` stays 25
+and no power or clock term was adopted — both refused upstream on
+measurement (the clock term is *inverted*), recorded here so neither is
+re-proposed from this side.
 
 ## Session 133 is complete — twenty-four dead links were three classes, and the middle one is the trap
 

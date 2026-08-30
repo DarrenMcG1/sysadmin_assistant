@@ -73,10 +73,55 @@ class LLMClient:
 
         Returns the response text, or None if the server is unavailable
         — or if the dGPU is busy with foreground work (ADR-0004 as
-        amended 2026-08-12): this service's inference is deferrable
-        housekeeping, and it shares Alfred's server on a GPU someone may
-        be gaming on. A busy GPU degrades to "no narrative this run",
-        the same first-class outcome callers already handle.
+        amended 2026-08-12): it shares Alfred's server on a GPU someone
+        may be gaming on, and a busy GPU degrades to "no narrative this
+        run", the same first-class outcome callers already handle.
+
+        **The gate is the single read, and it stays one because this
+        call site cannot answer the window's question for every one of
+        its invocations** (``estate.gpu.sustained_busy``, estate
+        ADR-0074 §2, announced here as message ``df4113cb`` and decided
+        in Session 134). That docstring licenses the blocking ~1.5 s
+        min-of-N window wherever nobody is waiting on the answer and
+        refuses it where a request is held open — a test about the
+        *invocation*, not the function, which is the wording change the
+        announcement carried. All three producers here are reached both
+        ways: ``run_weekly_review`` in :mod:`sysadmin.monitor.log_review`,
+        :mod:`sysadmin.monitor.health_review` and
+        :mod:`sysadmin.files.review` is a Monday job with nobody
+        waiting, while ``POST /api/logs/review/generate``,
+        ``POST /api/sysadmin/review/generate`` and
+        ``POST /api/files/review/generate`` each ``await`` the same
+        function inline and hold the request open across it. That is
+        estate-manager's own ``SNAG-ESTATE-090`` shape at three gates
+        rather than one.
+
+        Pushing the choice up to the six callers is the available
+        remedy and was **costed and refused**, because the measurement
+        inverts the obvious ranking three ways. The window's entire
+        benefit is the ~1-in-120 transient Alfred sampled on an idle
+        desktop. The waiterless path fires **three times a week** — one
+        dispatch per weekly review. And a false defer here does not cost
+        a review, it costs *prose*: the caller falls back to
+        ``build_fallback_narrative`` and still stores, serves and briefs
+        a deterministic digest with ``llm_used=False``. So the window
+        would rescue roughly one narrative every forty weeks, in
+        exchange for a parameter threaded through three signatures and a
+        seventh caller free to default it wrongly.
+
+        The waiter is also the **majority** invocation rather than the
+        edge case, which is why no sentence here calls this service's
+        inference deferrable housekeeping any more: of the six reviews
+        this box has generated in its life, **five came from the routes
+        and one from the Monday job** (measured 2026-08-30 across
+        ``health_reviews``, ``log_reviews`` and ``disk_reviews``).
+
+        ``tests/test_gpu_gate_invocations.py`` holds both halves — the
+        premise that each gate is still reached from both classes, and
+        the pre-staged rule that an adopted window must go through
+        ``asyncio.to_thread``, since every call site here runs inside an
+        event loop and the window would otherwise stall it.
+
         Free-text path: ``temperature=None`` keeps the server's own
         sampling defaults — this call generates prose, not structured
         extraction, so the estate's structured-path temperature pin does

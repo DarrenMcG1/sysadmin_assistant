@@ -3,7 +3,53 @@
 **Last Updated**: 2026-08-30
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **Twenty-four dead links were three classes, not one, and the middle
+> **One gate, two answers, and the library's own tie-breaker decides
+> it.** estate-manager's message `df4113cb` is **closed**.
+> `estate.gpu.sustained_busy` now states a test rather than a category —
+> spend the blocking ~1.5 s window wherever nobody waits on the answer,
+> never where a request is held open — and asks whether
+> `core/llm_client.py`'s single `ensure_gpu_idle` read has a waiter.
+>
+> **It has both, at three gates rather than one.** Each of
+> `files/review.py`, `monitor/log_review.py` and `monitor/health_review.py`
+> exposes one `generate_review`, reached by a Monday `run_weekly_review`
+> with nobody waiting *and* by a `POST …/review/generate` that `await`s
+> it inline. That is estate-manager's own `SNAG-ESTATE-090` shape,
+> tripled — and the library's stated rule, *a caller that cannot answer
+> the question for every one of its invocations keeps the single read*,
+> settles it without a judgement call.
+>
+> **The split was costed and refused, and the arithmetic inverts the
+> obvious ranking three ways.** The window's whole benefit is a
+> ~1-in-120 transient; the waiterless path fires **three times a week**;
+> and a false defer costs *prose*, not a review — the caller falls back
+> to `build_fallback_narrative` and still stores, serves and briefs a
+> digest at `llm_used=False`. Roughly **one narrative every forty
+> weeks**, against a parameter threaded through three signatures and a
+> seventh caller free to default it wrongly. Filed in
+> [ideas.md](ideas.md), not declined.
+>
+> **The waiter is the majority invocation, which the docstring had
+> backwards.** It called this service's inference "deferrable
+> housekeeping"; of the six reviews this box has generated in its life,
+> **five came from the routes and one from the Monday job** — three disk
+> reviews three minutes apart on 2026-08-06, a log review at 07:54, a
+> health review at 13:09, against one at 05:45 on a Monday. Reading the
+> code confirms the announcement; reading the tables ranks it. That
+> sentence is gone.
+>
+> **3060 → 3070**, +10 and none retired, all in
+> `tests/test_gpu_gate_invocations.py` — the premise (each gate still
+> reached from both classes) and the rule pre-staged for the day someone
+> adopts the window (`asyncio.to_thread`, since every call site runs in
+> an event loop). Its population is empty today, so the detector is
+> driven at synthetic sources both ways — a sweep finding nothing over a
+> population of zero is not evidence. Four mutations, each red on the
+> named test and the window one on both guards. **No behaviour changed**;
+> ruff and mypy clean, and the snag register parses unmoved at **107
+> entries, 18 open**.
+>
+> *Previously —* **Twenty-four dead links were three classes, not one, and the middle
 > class is the one a plausible path would have made worse.**
 > estate-manager's message `25be77ba` is **closed**: all 24 inward links
 > in `snag_list.md` (14), `project-capability-audit.md` (8) and
@@ -559,7 +605,7 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-08-30 11:48:16**
+> Daemon restarted at **2026-08-30 13:53:01**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
 > `ERROR`/`CRITICAL` lines since. **Not owed on the merits**, and it is
 > said rather than left to be inferred: this sitting changed tests and

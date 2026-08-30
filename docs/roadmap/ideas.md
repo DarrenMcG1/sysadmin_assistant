@@ -4,13 +4,40 @@
 >
 > **Related**: [tasks.md](tasks.md) | [snag_list.md](snag_list.md)
 >
-> **Last Updated**: 2026-08-28
+> **Last Updated**: 2026-08-30
 
 ---
 
 ## Ideas Inbox
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
+
+### 🧠 2026-08-30 — split the GPU gate so the waiterless callers can take the window
+
+Announced by estate-manager in message `df4113cb` (their ADR-0074 §2) and
+**not adopted** when that message was closed on 2026-08-30. Filed rather
+than declined, because the remedy is sound and only the arithmetic is
+against it.
+
+**What it is.** `estate.gpu.sustained_busy` takes the minimum of four
+reads half a second apart, which discards the ~1-in-120 transient the
+single `ensure_gpu_idle` read cannot tell from real contention. The
+library licenses it wherever nobody waits on the answer. Our three
+`run_weekly_review` jobs qualify; the three `POST …/review/generate`
+routes that reach the same function do not — so adopting it means pushing
+the choice up to the six callers rather than classifying the function,
+which is estate-manager's own remedy for `SNAG-ESTATE-090`.
+
+**Why not now.** The full reasoning and every figure live in
+`LLMClient.generate`'s docstring
+([sysadmin/core/llm_client.py](../../sysadmin/core/llm_client.py)) — a
+pointer rather than a copy, so the two cannot come to disagree. The
+headline: it would rescue roughly one narrative every forty weeks.
+
+**What would change the answer.** The routes ceasing to hold the request
+open — dispatched to a task, answered 202 — which makes every invocation
+waiterless and the window the intended use.
+`tests/test_gpu_gate_invocations.py` is what notices.
 
 ### 🧠 2026-08-28 — adopt `estate.provenance.checkout()` for the cross-repo checks' evidence line
 

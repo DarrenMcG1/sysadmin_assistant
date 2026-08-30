@@ -16,6 +16,50 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 134 — one gate, two answers, and the library's own
+      tie-breaker decides it.** *(2026-08-30.)* estate-manager's message
+      `df4113cb` **closed**. `estate.gpu.sustained_busy`'s docstring now
+      states a test rather than a category — spend the blocking ~1.5 s
+      window wherever nobody waits on the answer, never where a request
+      is held open — and asks whether `core/llm_client.py`'s single
+      `ensure_gpu_idle` read has a waiter. **It has both, at three gates
+      rather than one.** Each of `files/review.py`,
+      `monitor/log_review.py` and `monitor/health_review.py` exposes one
+      `generate_review`, reached by a Monday `run_weekly_review` with
+      nobody waiting *and* by a `POST …/review/generate` that `await`s
+      it inline. That is estate-manager's own `SNAG-ESTATE-090` shape,
+      tripled, and the library's stated rule — *a caller that cannot
+      answer the question for every one of its invocations keeps the
+      single read* — decides it without a judgement call.
+      **The split was costed and refused, and the measurement inverts
+      the obvious ranking three ways.** The window's whole benefit is a
+      ~1-in-120 transient; the waiterless path fires **three times a
+      week**; and a false defer costs *prose*, not a review — the caller
+      falls back to `build_fallback_narrative` and still stores, serves
+      and briefs a digest at `llm_used=False`. Roughly one narrative
+      every forty weeks, against a parameter threaded through three
+      signatures and a seventh caller free to default it wrongly.
+      **The waiter is the majority invocation, which the docstring had
+      backwards.** It called this service's inference "deferrable
+      housekeeping"; of the six reviews this box has generated in its
+      life, **five came from the routes and one from the Monday job**
+      (`health_reviews`/`log_reviews`/`disk_reviews`, 2026-08-30) — three
+      disk reviews three minutes apart on 2026-08-06, a log review at
+      07:54 and a health review at 13:09, against one at 05:45 on a
+      Monday. Reading the code confirms the announcement; reading the
+      tables ranks it. That sentence is gone.
+      **Nothing changed in behaviour and both halves are pinned.**
+      `tests/test_gpu_gate_invocations.py` holds the premise (each gate
+      still reached from both classes — a route that dispatched to a
+      task instead of awaiting would re-open the decision and nothing
+      else would say so) and the rule pre-staged for the day someone
+      adopts the window: `sustained_busy` must go through
+      `asyncio.to_thread`, since every call site here runs in an event
+      loop. Its population is empty today, so the detector is driven at
+      synthetic sources in both directions — a sweep finding nothing
+      over a population of zero is not evidence. All four mutations land
+      on the named test, the window one on both guards.
+
 - [x] **Session 133 — twenty-four dead links were three classes, and
       the middle one is the trap.** *(2026-08-30.)* estate-manager's
       message `25be77ba` **closed**. All 24 inward links repaired across
