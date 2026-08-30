@@ -415,7 +415,24 @@ class TestTheTwoReadersAgree:
     because both new callers run outside a running application.  What
     must never diverge is the answer.  Asserting each side separately
     would pin the copy; this drives both against the same live table.
+
+    **Agreement on nothing is not agreement** (Session 132).  Both
+    readers return ``None`` for a schema that has never been migrated —
+    ``_interpret_version_rows([], …)`` is asserted to, one class up — so
+    ``None == None`` is green, says nothing about the two engines, and
+    says it loudest on a box in exactly the `SNAG-DB-001` state this
+    family exists for.  The premise is the revision being a revision, and
+    it was already in this class: ``test_the_sync_reader_agrees_with_alembic_itself``
+    asserts ``current is not None`` and the test beside it did not.
     """
+
+    @pytest.mark.premise
+    def test_there_is_a_revision_for_the_two_to_agree_about(self):
+        """Ordered first, because the comparison below is vacuous without it."""
+        assert live_revision_sync() is not None, (
+            "the sysadmin schema reports no revision, so both readers answer "
+            "None and the agreement below is agreement about nothing"
+        )
 
     @pytest.mark.asyncio
     async def test_same_revision_from_both_engines(self):

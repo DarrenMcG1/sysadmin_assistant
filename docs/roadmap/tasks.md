@@ -66,8 +66,53 @@ debts that landing deliberately left behind._
       exactly the intended test. No production change, ruff and mypy
       clean.
 
-- [ ] **Decide whether the six pre-convention live-connection files owe
-      premise assertions.** *(Opened 2026-08-30 by Session 131 as the
+- [x] **Session 131b — the exemption that was earned rather than
+      granted.** *(2026-08-30.)* The decision below, taken. **Five ways
+      to one**, and none of the three shapes the task named is what
+      shipped. Four owed a premise and had none; one owed the marker and
+      never the premise; one owes nothing.
+      **`test_schema_drift.py` is the strongest and was settled by
+      driving.** Its whole output is `diff == []`, and with
+      `FROZEN_TABLES` widened to cover all 13 mapped tables — the
+      blindfold that constant's own docstring warns about —
+      `compare_metadata` returns `[]` too. The witness is the same
+      comparison pointed at an empty `MetaData`: **13 `remove_table` ops
+      normally, nothing under the blindfold**. A second, finer premise
+      asserts every *mapped* table is among them, because reaching one
+      table is not reaching ours, and a partial blindfold turns only that
+      one red.
+      **`test_schema_guard.py`** owed one in a single test: both readers
+      answer `None` for a schema never migrated, so
+      `async_answer == sync_answer` is agreement about nothing — and the
+      fact was already in the class, asserted by the sibling test.
+      **`test_retention.py`** owed two, both the silent direction the
+      module is about. **`test_logs_routes.py`** owed one; measured 10
+      stored inside 15 declared, five names of slack.
+      **`test_open_alert_predicate.py`** already carried its witness.
+      **The shape that shipped is the one the task did not list.** Rule
+      2's sweep accepts a file off the `_live` glob that **marks a
+      premise**, so `PRE_CONVENTION` shrank **6 → 1** by five files
+      holding the property rather than by five names being trusted — the
+      task's shape 1 without emptying the set, and its shape 3 refuted
+      for four of the six by measurement rather than adopted. Falsified
+      both ways: dropping the clause reports exactly those five,
+      stripping one marker reports exactly that file.
+      **Two falsifications demonstrate the vacuous pass instead of
+      describing it**: under the blindfold the premise tests go red and
+      `test_models_match_migrated_schema` stays **green**, and over an
+      emptied `log_entries` the premise goes red while
+      `test_every_stored_source_is_declared` stays green. Seven mutations
+      in all, each red on exactly the intended test.
+      **One snag opened**, `SNAG-TEST-002`, the exemption's stated cost:
+      `test_snag_claims.py` owes no marker because its premises are
+      enforced at the producer, and nothing enforces that habit.
+      `unknown_branch_unenforced` measures both halves and **caught its
+      own author on its first run**; its witness had to be minted per
+      call after the literal version found the sentinel the test wrote
+      into the file under the walk. **3033 → 3042 → 3055**, none retired.
+
+- [ ] ~~**Decide whether the six pre-convention live-connection files owe
+      premise assertions.**~~ **Done above.** *(Opened 2026-08-30 by Session 131 as the
       stated cost of the guard above; deliberately a task and not a
       snag.)* `test_logs_routes.py`, `test_open_alert_predicate.py`,
       `test_retention.py`, `test_schema_drift.py`, `test_schema_guard.py`

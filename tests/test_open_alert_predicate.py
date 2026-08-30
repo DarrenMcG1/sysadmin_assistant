@@ -304,8 +304,14 @@ class TestThePlanOnTheLiveTable:
         finally:
             engine.dispose()
 
+    @pytest.mark.premise
     def test_the_removed_spelling_still_cannot_reach_an_index(self):
-        """The witness.  A constant observation is not evidence."""
+        """The witness.  A constant observation is not evidence.
+
+        Marked rather than written (Session 132): the assertion predates
+        the convention and is already the thing ``@pytest.mark.premise``
+        names, so this file owed the marker and never the premise.
+        """
         plan = self._plan("resolved IS false")
         assert "Seq Scan" in plan, (
             "the old spelling now reaches an index, so this box can no longer "

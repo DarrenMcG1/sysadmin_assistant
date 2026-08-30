@@ -216,39 +216,66 @@ class TestDeclaredSet:
         assert stored_source_name(LogSource(name="x", type="nonsense")) is None
 
 
+def _live_source_reading() -> tuple[set[str], set[str]]:
+    """The declared set and the stored set, read once for both tests below."""
+    from sysadmin.monitor import services as services_module
+    from sysadmin.monitor.services import default_services_path, load_services
+
+    # The autouse fixture installs a stub file; this claim is about the
+    # *real* declaration, so it is read here explicitly rather than left
+    # to whichever fixture ran last.
+    services_module._services = load_services(default_services_path())
+    declared = declared_source_names()
+
+    engine = create_engine(SYNC_URL)
+    try:
+        with engine.connect() as conn:
+            stored = {
+                row[0]
+                for row in conn.execute(
+                    text("SELECT DISTINCT source FROM sysadmin.log_entries")
+                )
+            }
+    finally:
+        engine.dispose()
+
+    return declared, stored
+
+
 @pytest.mark.skipif(
     not _db_available(),
     reason="local postgres (projects DB) not reachable — this claim needs the real rows",
 )
 class TestAgainstTheLiveTable:
-    """The claim the design rests on, checked against the real rows."""
+    """The claim the design rests on, checked against the real rows.
+
+    **The claim is a subset, and a subset of nothing holds** (Session
+    132).  ``stored <= declared`` is green over an emptied
+    ``log_entries`` and says the same thing it says over a table that
+    agrees — which is this file's own vacuity argument, already written
+    into the ``logging_services`` fixture and into
+    ``assert name_only`` above, applied at last to the half that reads
+    the box.  Measured 2026-08-30: 10 stored values inside 15 declared,
+    so five declared names carry no rows and the containment is a real
+    constraint rather than an identity.
+    """
+
+    @pytest.mark.premise
+    def test_the_table_holds_rows_to_be_declared(self):
+        """Ordered first, so a failure names the empty table and not a retirement."""
+        _, stored = _live_source_reading()
+        assert stored, (
+            "log_entries holds no distinct source at all, so the containment "
+            "below is a subset of nothing and would hold whatever the "
+            "validator admitted"
+        )
 
     def test_every_stored_source_is_declared(self):
         """Otherwise the validator 404s rows this box actually holds.
 
-        Measured 2026-08-24: 9 distinct values, all declared.  The day
+        Measured 2026-08-30: 10 distinct values, all declared.  The day
         this fails, a source was retired without its rows ageing out —
         the cost the route's docstring states, arriving.
         """
-        from sysadmin.monitor import services as services_module
-        from sysadmin.monitor.services import default_services_path, load_services
-
-        # The autouse fixture installs a stub file; this claim is about
-        # the *real* declaration, so it is read here explicitly rather
-        # than left to whichever fixture ran last.
-        services_module._services = load_services(default_services_path())
-        declared = declared_source_names()
-
-        engine = create_engine(SYNC_URL)
-        try:
-            with engine.connect() as conn:
-                stored = {
-                    row[0]
-                    for row in conn.execute(
-                        text("SELECT DISTINCT source FROM sysadmin.log_entries")
-                    )
-                }
-        finally:
-            engine.dispose()
-
+        declared, stored = _live_source_reading()
         assert stored <= declared, sorted(stored - declared)

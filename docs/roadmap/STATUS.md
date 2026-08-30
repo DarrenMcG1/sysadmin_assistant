@@ -3,7 +3,62 @@
 **Last Updated**: 2026-08-30
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The sweep the handoff asked for cannot exist, and the pre-fix file
+> **The six pre-convention files were decided one at a time, and it went
+> five ways to one.** The handoff asked whether they owe premise
+> assertions. **Four owed one and had none**; one owed **the marker and
+> never the premise**; one owes nothing. `test_schema_drift.py` is the
+> strongest and was settled by driving rather than reading — its whole
+> output is `diff == []`, and with `FROZEN_TABLES` widened to cover all
+> **13** mapped tables (the blindfold that constant's own docstring
+> warns about) `compare_metadata` returns `[]` as well. The guard could
+> certify a comparison it had stopped making.
+>
+> **The witness is the same comparison pointed at an empty `MetaData`**:
+> 13 `remove_table` ops normally, **nothing** under the blindfold. The
+> other three: `test_schema_guard.py`'s two readers both answer `None`
+> for a schema never migrated, so `async_answer == sync_answer` is
+> agreement about nothing — and the sibling test in the same class
+> already asserted `is not None`. `test_retention.py` owed two, both the
+> silent direction the module is about. `test_logs_routes.py`'s
+> `stored <= declared` is green over an emptied `log_entries`; measured
+> **10 stored inside 15 declared**, five names of slack.
+> `test_open_alert_predicate.py` already carried its witness, docstringed
+> *"A constant observation is not evidence"* a fortnight before the
+> convention existed.
+>
+> **The exemption is earned now rather than granted**, which is what
+> makes the decision recorded rather than remembered. Rule 2's sweep
+> accepts a file off the `_live` glob that **marks a premise**, so
+> `PRE_CONVENTION` shrank **6 → 1** by five files holding the property
+> instead of by five names being trusted. Driven both ways: dropping the
+> new clause reports exactly those five, and stripping one file's marker
+> reports exactly that file.
+>
+> **Two falsifications demonstrate the vacuous pass rather than
+> describing it.** Under the blindfold the two new premise tests go red
+> and `test_models_match_migrated_schema` stays **green**; over an
+> emptied `log_entries` the new premise goes red and
+> `test_every_stored_source_is_declared` stays green. Seven mutations in
+> all, each red on exactly the intended test.
+>
+> **`SNAG-TEST-002` is the one opening, and it is the exemption's stated
+> cost.** `test_snag_claims.py` owes no marker because its premises are
+> enforced at the producer — `query_one`'s every way of not-knowing is
+> `unknown` rather than `match` — and every registered check is driven to
+> that branch by a test in the class that names it. Nothing enforces it,
+> so `unknown_branch_unenforced` measures both halves and **caught its
+> own author on its first run**, reporting itself as the one check with
+> no `unknown` drive. 18 of 18 at filing, **19 of 19** once its own drive
+> landed. Its witness needed the same lesson: spelled as a literal, the
+> test asserting it wrote the sentinel into the file under the walk and
+> two checks were reported covered by a verdict that does not exist —
+> `_unwritable_sentinel()` mints one per call.
+>
+> **3042 → 3055**, +13 and none retired; **3033 → 3042** for the premise
+> work, arithmetic checked against a stashed baseline rather than a green
+> suite. No production behaviour changed. Ruff and mypy clean.
+>
+> *Previously —* **The sweep the handoff asked for cannot exist, and the pre-fix file
 > is the proof.** `SNAG-TRAY-010` was an **absence**: at `62f8e09`, the
 > commit that added it, `tests/test_desktop_store_live.py` named `dnd`
 > **zero times**. An AST sweep keys on the *presence* of a token, so this
@@ -398,10 +453,22 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-08-30 05:24:43**
+> Daemon restarted at **2026-08-30 11:48:16**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since. **Owed on the merits this time**, and
-> it is the deploy: `sysadmin/estate/judgements.py` and
+> `ERROR`/`CRITICAL` lines since. **Not owed on the merits**, and it is
+> said rather than left to be inferred: this sitting changed tests and
+> `sysadmin/snag_claims.py`, a console script the daemon never imports,
+> so the restart clears the mtime comparison and deploys nothing. That
+> is the stated cost of `ops_claims.py` rule 4 — the check asks the state
+> of the box rather than the content of the commit, and fails in the
+> direction that costs a needless `kill -TERM`. `/health` answered 200
+> within 8 s and the first `estate_judge` run after it was clean.
+>
+> *Previously —* the restart earlier the same day was **owed on the
+> merits**, and it was the deploy (its timestamp is dropped rather than
+> restated: two wall clocks inside the parsed region is `ops_claims.py`
+> rule 2's *"one figure stated two ways"*, and the check said so within a
+> minute of this paragraph being written): `sysadmin/estate/judgements.py` and
 > `sysadmin/estate/agent.py` are both in the daemon's import graph, so
 > the wiring family reaches the running process only here. 11.6 s of
 > downtime. **Verified live and untriggered**, which is the ports

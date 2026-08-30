@@ -5598,3 +5598,197 @@ class TestTheReloadCoherenceCheck:
         check = snag_claims.CHECKS["reload_unjudged_config"]
         assert check.snag == "SNAG-CFG-003"
         assert check.run is snag_claims.check_reload_unjudged_config
+
+
+#: Distinguishes "no keys" from "the default", which ``or`` cannot —
+#: an empty registry is the population this check must refuse.
+_UNSET = object()
+
+
+class TestUnknownBranchUnenforced:
+    """``SNAG-TEST-002`` — a discipline that holds, and nothing holding it.
+
+    The check is written against *this file*, which makes it the one
+    check in the registry whose subject is its own drive.  So every
+    stand-in below is a written-out module rather than a patch: pointing
+    the reader at a specimen is the only way to ask what it would say
+    about a file that had lapsed, and patching this file while it is
+    being read is the trap ``a-read-helper-may-install-what-it-reads``
+    names, one layer over.
+    """
+
+    KEYS = {"alpha", "beta"}
+
+    def _specimen(self, tmp_path, body: str):
+        path = tmp_path / "test_specimen.py"
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    def _at(self, tmp_path, body: str, keys=_UNSET):
+        """Run the real check against a written-out drive."""
+        path = self._specimen(tmp_path, body)
+        registry = {
+            key: snag_claims.Check(key, "SNAG-X-1", "a thing", lambda: None)
+            for key in (self.KEYS if keys is _UNSET else keys)
+        }
+        with (
+            patch.object(snag_claims, "SNAG_CLAIMS_TESTS", path),
+            patch.object(snag_claims, "CHECKS", registry),
+        ):
+            return snag_claims.check_unknown_branch_unenforced()
+
+    COVERED = (
+        "class TestAlpha:\n"
+        "    def test_it_holds(self):\n"
+        '        assert check_alpha().verdict == "match"\n'
+        "    def test_a_blind_reader_is_unknown(self):\n"
+        '        assert check_alpha().verdict == "unknown"\n'
+        "\n\n"
+        "class TestBeta:\n"
+        "    def test_a_blind_reader_is_unknown(self):\n"
+        '        assert check_beta().verdict == "unknown"\n'
+    )
+
+    # -- the box ---------------------------------------------------------
+
+    def test_it_holds_against_this_repositorys_own_drive(self):
+        """The entry as it stands, measured at the real file."""
+        measurement = snag_claims.check_unknown_branch_unenforced()
+        assert measurement.verdict == "match", measurement.note
+        assert any("sweeps over CHECKS naming the verdict: none" in line
+                   for line in measurement.detail)
+
+    def test_the_witness_is_reported_as_evidence(self):
+        """The coverage figure is only ever served beside what discriminates it."""
+        detail = snag_claims.check_unknown_branch_unenforced().detail
+        assert detail[0].startswith("witness:")
+        assert "reaches 0 of" in detail[0]
+
+    def test_the_coverage_figure_is_total_and_counts_this_check_too(self):
+        """The habit the entry rests on, asserted as a property not a literal.
+
+        A written-out ``18 of 18`` would go red on the day a nineteenth
+        check is registered, which is the check doing its job — so the
+        assertion is that nothing is uncovered, and the registry supplies
+        the denominator.  This check is inside it: it was written without
+        an ``unknown`` drive and its own first run reported itself, which
+        is the convention catching its author.
+        """
+        measurement = snag_claims.check_unknown_branch_unenforced()
+        total = len(snag_claims.CHECKS)
+        assert f"{total} of {total}" in measurement.detail[1], measurement.detail[1]
+        assert "unknown_branch_unenforced" in snag_claims.CHECKS
+
+    # -- the two opposite refutations ------------------------------------
+
+    def test_a_sweep_naming_the_verdict_is_the_fix(self, tmp_path):
+        """The entry's named remedy, landing."""
+        measurement = self._at(
+            tmp_path,
+            self.COVERED
+            + "\n\ndef test_every_check_can_say_it_does_not_know():\n"
+            '    assert all(k for k in CHECKS) and "unknown"\n',
+        )
+        assert measurement.verdict == "mismatch"
+        assert "the habit is enforced now" in measurement.note
+
+    def test_a_lapsed_habit_is_the_other_refutation(self, tmp_path):
+        """The premise dying, which is not the point being taken.
+
+        ``check_sysd_ollama_ordering``'s two halves: a single boolean
+        would report a file that had stopped driving unknown branches as
+        an entry still holding, when what has happened is that the thing
+        the exemption leans on is gone.
+        """
+        measurement = self._at(
+            tmp_path,
+            "class TestAlpha:\n"
+            "    def test_it_holds(self):\n"
+            '        assert check_alpha().verdict == "unknown"\n'
+            "\n\nclass TestBeta:\n"
+            "    def test_it_holds(self):\n"
+            '        assert check_beta().verdict == "match"\n',
+        )
+        assert measurement.verdict == "mismatch"
+        assert "has lapsed" in measurement.note
+        assert "beta" in measurement.note
+
+    # -- every way of not-knowing ----------------------------------------
+
+    def test_an_unreadable_drive_is_unknown(self, tmp_path):
+        """The file the check reads is the one thing it cannot do without."""
+        with patch.object(snag_claims, "SNAG_CLAIMS_TESTS", tmp_path / "absent.py"):
+            measurement = snag_claims.check_unknown_branch_unenforced()
+        assert measurement.verdict == "unknown"
+        assert "FileNotFoundError" in measurement.note
+
+    def test_an_unparseable_drive_is_unknown(self, tmp_path):
+        measurement = self._at(tmp_path, "class TestAlpha(:\n")
+        assert measurement.verdict == "unknown"
+        assert "SyntaxError" in measurement.note
+
+    def test_an_empty_registry_is_unknown_and_never_a_match(self, tmp_path):
+        """Rule 3 of the premises module: an empty population is a failure.
+
+        With no keys the coverage set is empty, the uncovered set is
+        empty, and full coverage is reported over nothing at all — which
+        reads exactly like a habit holding.
+        """
+        measurement = self._at(tmp_path, self.COVERED, keys=[])
+        assert measurement.verdict == "unknown"
+        assert "no checks are registered" in measurement.note
+
+    def test_a_walker_that_reads_nothing_is_unknown(self, tmp_path):
+        """The witness, falsified — and the reason it is inside the check.
+
+        A walk that matched a class by *name* rather than by its
+        assertions would report both specimen checks covered whatever
+        verdict they assert, and the coverage figure would be full for a
+        reader that had stopped reading.  Driven by making the sentinel
+        walk succeed, which is the state that must be impossible.
+        """
+        with patch.object(
+            snag_claims, "_unknown_branch_coverage", lambda *a, **k: {"alpha"}
+        ):
+            measurement = self._at(tmp_path, self.COVERED)
+        assert measurement.verdict == "unknown"
+        assert "means nothing" in measurement.note
+
+    # -- what the walk keys on -------------------------------------------
+
+    def test_coverage_is_keyed_on_the_class_and_not_the_method(self, tmp_path):
+        """The drives name the check in the class and its stand-ins in methods.
+
+        A method-level walk asks whether the one test asserting
+        ``unknown`` also happens to spell the check's key, which most do
+        not — it would report the file's naming habits rather than its
+        coverage.
+        """
+        tree = ast.parse(self.COVERED)
+        covered = snag_claims._unknown_branch_coverage(tree, self.KEYS)
+        assert covered == self.KEYS
+
+    def test_a_sentinel_no_test_contains_reaches_nothing(self):
+        """The witness as a unit, driven at the real drive rather than a specimen."""
+        tree = ast.parse(snag_claims.SNAG_CLAIMS_TESTS.read_text(encoding="utf-8"))
+        blind = snag_claims._unknown_branch_coverage(
+            tree, set(snag_claims.CHECKS), sentinel=snag_claims._unwritable_sentinel()
+        )
+        assert blind == set()
+
+    def test_the_sentinel_cannot_be_written_into_the_file_it_reads(self):
+        """Why the sentinel is minted rather than named — found by this drive.
+
+        The first version was a literal, and writing it into a test here
+        made the walk find it: two checks reported covered by a verdict
+        nothing returns, so the witness passed while measuring its own
+        source.  Two mints must differ, or the next literal is one
+        copy-paste away.
+        """
+        assert snag_claims._unwritable_sentinel() != snag_claims._unwritable_sentinel()
+        assert snag_claims._NOT_KNOWING not in snag_claims._unwritable_sentinel()
+
+    def test_the_check_is_registered_against_its_entry(self):
+        check = snag_claims.CHECKS["unknown_branch_unenforced"]
+        assert check.snag == "SNAG-TEST-002"
+        assert check.run is snag_claims.check_unknown_branch_unenforced

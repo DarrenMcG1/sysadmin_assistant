@@ -44,14 +44,52 @@ Three rules, two of them the opposite of the obvious implementation:
    a server present), so there is no single test to name.  A decorator
    attaches at the level the premise actually lives — function or class —
    which is exactly the three shapes that exist.
-2. **The population is a property, not the glob.**  ``tests/test_*_live.py``
-   is a naming convention, and a convention is dodgeable by not following
-   it — a seventh drive against the live database called anything else
-   would owe nothing.  :func:`_opens_a_live_connection` is the property,
-   and :data:`PRE_CONVENTION` is the six files that hold it today and
-   predate this file.  That set is a tripwire and not a classification:
-   nothing may be added to it without a sitting deciding to, which is
-   ``FROZEN_TABLES``' rule at the size of a filename.
+2. **The population is a property, not the glob, and the exemption is
+   earned rather than granted.**  ``tests/test_*_live.py`` is a naming
+   convention, and a convention is dodgeable by not following it — a
+   seventh drive against the live database called anything else would owe
+   nothing.  :func:`_opens_a_live_connection` is the property, and a file
+   holding it satisfies rule 2 by **marking a premise**, exactly as a
+   glob member does.  :data:`PRE_CONVENTION` is what remains: files that
+   hold the property and owe no marker, one of them today, each with the
+   reason recorded beside it.  That set is a tripwire and not a
+   classification — nothing may be added to it without a sitting deciding
+   to, which is ``FROZEN_TABLES``' rule at the size of a filename.
+
+   **It held six names for one day and now holds one** (Session 132).
+   Session 131 measured the six that open a live connection without being
+   named ``_live`` and exempted them wholesale, which is the state the
+   handoff called *"a decision nobody has taken"*.  Taken, one file at a
+   time, and it went five ways to one:
+
+   - ``test_schema_drift.py`` **owed one and had none**, the strongest of
+     the six.  Its whole output is ``diff == []``, and with
+     ``FROZEN_TABLES`` widened to cover all thirteen mapped tables — the
+     blindfold that constant's own docstring warns about — the comparison
+     returns ``[]`` as well.  Driven, not argued: the same opts against an
+     empty ``MetaData`` report thirteen ``remove_table`` ops normally and
+     **nothing** under the blindfold, so the witness discriminates exactly
+     the state the verdict cannot.
+   - ``test_schema_guard.py`` owed one in a single test.  Both readers
+     answer ``None`` for a schema that has never been migrated, so
+     ``async_answer == sync_answer`` is agreement about nothing — and the
+     fact was already in the class, asserted by the sibling test and not
+     by the one that needs it.
+   - ``test_retention.py`` owed two, both the silent direction the module
+     is about: an emptied ``TABLE_TIMESTAMP_MAP`` parses no statement, and
+     ``configured <= map`` holds over a ``retention_config`` with no rows.
+   - ``test_logs_routes.py`` owed one.  ``stored <= declared`` is green
+     over an emptied ``log_entries``; the file already argues this way in
+     its ``logging_services`` fixture and had not applied it to the half
+     that reads the box.  Measured 2026-08-30: 10 stored inside 15
+     declared, five names of slack.
+   - ``test_open_alert_predicate.py`` owed **the marker and never the
+     premise**.  ``test_the_removed_spelling_still_cannot_reach_an_index``
+     is docstringed *"The witness.  A constant observation is not
+     evidence"* and predates this file by a fortnight.
+   - ``test_snag_claims.py`` owes nothing, and is the one name left in
+     :data:`PRE_CONVENTION`.  Its reason is in that constant, and it is
+     also the one the detector reports for the **wrong hit**.
 3. **An empty population is a failure, never a pass.**  A glob that
    matched nothing satisfies rule 1 vacuously and reads identically to
    five compliant files — ``ports_checked``'s rule, and the reason
@@ -81,22 +119,38 @@ OWNER = pathlib.Path(__file__).resolve()
 #: The drives this file is the guard for.
 LIVE_DRIVES = sorted(TESTS.glob("test_*_live.py"))
 
-#: Files that open a live connection and are **not** named ``_live``.
+#: Files that open a live connection, are **not** named ``_live``, and owe
+#: no marker.  A name here is a decision, never a way to be green.
 #:
-#: Measured 2026-08-30, and every one predates the convention.  A seventh
-#: name appearing here is a drive that dodged the glob, which is the one
-#: thing rule 2 exists to catch — so it is added by a sitting that has
-#: decided it owes no premise, never to make this file green.
-PRE_CONVENTION = frozenset(
-    {
-        "test_logs_routes.py",
-        "test_open_alert_predicate.py",
-        "test_retention.py",
-        "test_schema_drift.py",
-        "test_schema_guard.py",
-        "test_snag_claims.py",
-    }
-)
+#: **One member, and its reason is that the premise is enforced in the
+#: producer** (Session 132).  Every live read in ``test_snag_claims.py``
+#: goes through :func:`sysadmin.snag_claims.query_one`, whose every way of
+#: not-knowing returns ``unknown`` rather than ``match`` —
+#: ``schema_guard``'s three verdicts, one module over — and the drive
+#: asserts those branches by name:
+#: ``test_an_emptied_source_is_unknown_and_never_a_refutation`` and
+#: ``test_a_reader_that_parsed_nothing_is_unknown_not_a_match`` are premise
+#: assertions that happen to be spelled as verdicts.  So the file holds
+#: the property this module is about, eighteen times over, and a single
+#: marker would name one check's premise and imply the other seventeen —
+#: which is less true than the exemption.  Measured 2026-08-30: **every**
+#: registered check is driven to ``unknown`` by a test in the class that
+#: names it — 18 of 18 when this was written — and the figure is served
+#: live by ``sysadmin-check-snags``' ``unknown_branch_unenforced`` rather
+#: than frozen here.  Nothing *enforces* the habit, which is the
+#: exemption's stated cost and is `SNAG-TEST-002`.
+#:
+#: It is also the one file the detector reports for the **wrong hit**.
+#: :func:`_opens_a_live_connection` matches a ``sync_url`` read that
+#: asserts a DSN's *shape* and never connects; the real connection is
+#: transitive, through ``query_one``.  Right by accident, and the blind
+#: spot it names is stated rather than fixed — deciding which drive
+#: reaches a connection is a call graph over ``sysadmin/``, not a sweep
+#: over ``tests/``, which is Session 131's own reason for refusing a
+#: sweep.  Measured 2026-08-30: of the nineteen files naming a
+#: transitively-connecting helper, this is the only one that reaches a
+#: connection, so the blind spot has a population of one and it is listed.
+PRE_CONVENTION = frozenset({"test_snag_claims.py"})
 
 #: Substrings that only appear in a real DSN for this box's database.
 _DSN_HINTS = ("postgresql+psycopg2://", "postgresql+asyncpg://")
@@ -159,6 +213,26 @@ def _opens_a_live_connection(path: pathlib.Path) -> bool:
     return False
 
 
+def _dodges_the_rule(path: pathlib.Path, named: frozenset[str] | set[str]) -> bool:
+    """Whether *path* holds the property and discharges it by neither route.
+
+    The two routes are the glob (*named*) and the marker, and they are
+    interchangeable on purpose: what rule 2 is about is a file reading the
+    live box with nothing asserting the box is as assumed, and a filename
+    is only ever a proxy for that.  Composed here rather than inline so
+    the clause can be driven at stand-ins — the sweep below reads the real
+    ``tests/`` directory and can only ever report what happens to be in
+    it, which is a detector nobody has watched fail.
+    """
+    return (
+        path.resolve() != OWNER
+        and path.name not in named
+        and path.name not in PRE_CONVENTION
+        and _opens_a_live_connection(path)
+        and not _marks_a_premise(path)
+    )
+
+
 class TestEveryLiveDriveNamesItsPremise:
     """The sweep, and the witness that makes it mean anything."""
 
@@ -190,20 +264,23 @@ class TestEveryLiveDriveNamesItsPremise:
         Without this, the premise rule is opt-in by filename: a drive
         against the real database called ``test_something_else.py`` owes
         nothing and looks like every unit test beside it.
+
+        A file off the glob discharges it the same way a member does, by
+        marking a premise — so the remedy is the convention rather than a
+        rename, and :data:`PRE_CONVENTION` shrinks to the files a sitting
+        has decided owe none.
         """
         named = {path.name for path in LIVE_DRIVES}
         strays = sorted(
             path.name
             for path in TESTS.rglob("test_*.py")
-            if path.resolve() != OWNER
-            and path.name not in named
-            and path.name not in PRE_CONVENTION
-            and _opens_a_live_connection(path)
+            if _dodges_the_rule(path, named)
         )
         assert strays == [], (
-            "these open a live connection without being named *_live.py, so "
-            "the premise rule above cannot see them. Rename them, or add "
-            f"them to PRE_CONVENTION with a reason: {strays}"
+            "these open a live connection without being named *_live.py and "
+            "mark no premise, so nothing asserts the harness produced the "
+            "state they read. Mark the test (or class) that does with "
+            f"@pytest.mark.premise: {strays}"
         )
 
 
@@ -325,6 +402,51 @@ class TestTheConnectionDetector:
         """
         assert _opens_a_live_connection(OWNER) is True
 
+    def test_a_live_reader_with_no_marker_is_a_stray(self, tmp_path):
+        """The clause as it stood before Session 132, still doing its job."""
+        path = tmp_path / "test_something_else.py"
+        path.write_text(
+            "def test_it(tmp_path):\n"
+            '    return create_engine("postgresql+psycopg2://gaddi@localhost:5432/projects")\n',
+            encoding="utf-8",
+        )
+        assert _dodges_the_rule(path, frozenset()) is True
+
+    def test_a_live_reader_that_marks_a_premise_is_not(self, tmp_path):
+        """The clause Session 132 added, and the reason the set could shrink.
+
+        Five of the six exempted names discharge rule 2 this way now, so
+        this is the assertion that makes their removal from
+        :data:`PRE_CONVENTION` mean something rather than merely leave
+        the sweep quiet.
+        """
+        path = tmp_path / "test_something_else.py"
+        path.write_text(
+            "import pytest\n\n\n"
+            "@pytest.mark.premise\n"
+            "def test_the_box_is_as_assumed():\n"
+            '    engine = create_engine("postgresql+psycopg2://gaddi@localhost:5432/projects")\n'
+            "    assert engine\n",
+            encoding="utf-8",
+        )
+        assert _dodges_the_rule(path, frozenset()) is False
+
+    def test_a_marker_alone_does_not_put_a_file_in_scope(self, tmp_path):
+        """The property is the connection; the marker only discharges it.
+
+        Without this the two halves are indistinguishable — a rule that
+        fired on the marker would report every ordinary unit test that
+        happened to mark one, which is rule 1's population wearing rule
+        2's clothes.
+        """
+        path = tmp_path / "test_something_else.py"
+        path.write_text(
+            "def test_it(tmp_path):\n"
+            '    return create_engine(f"sqlite:///{tmp_path}/probe.db")\n',
+            encoding="utf-8",
+        )
+        assert _dodges_the_rule(path, frozenset()) is False
+
     def test_the_pre_convention_set_still_holds_its_property(self):
         """A tripwire, so its members are asserted rather than trusted.
 
@@ -340,6 +462,25 @@ class TestTheConnectionDetector:
         assert lapsed == [], (
             f"these no longer open a live connection — drop them from "
             f"PRE_CONVENTION: {lapsed}"
+        )
+
+    def test_no_exempted_file_has_since_marked_a_premise(self):
+        """The other way an exemption outlives its reason.
+
+        A member that has gained a marker discharges rule 2 by the
+        ordinary route, so the entry is doing nothing and the next reader
+        cannot tell that from an entry doing the work.  ``FROZEN_TABLES``'
+        rule again: the set is a stage and not a destination, so leaving
+        it must be observable.
+        """
+        discharged = sorted(
+            name
+            for name in PRE_CONVENTION
+            if (TESTS / name).exists() and _marks_a_premise(TESTS / name)
+        )
+        assert discharged == [], (
+            "these mark a premise and are exempted as well — the exemption "
+            f"is no longer load-bearing, so drop them: {discharged}"
         )
 
 

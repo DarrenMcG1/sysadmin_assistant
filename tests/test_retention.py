@@ -342,6 +342,26 @@ def _db_available() -> bool:
     not _db_available(),
     reason="local postgres (projects DB) not reachable — the parse guard needs the real schema",
 )
+@pytest.mark.premise
+def test_the_map_is_a_population_and_not_an_empty_loop():
+    """Both live tests below iterate a set, so an empty one passes them green.
+
+    ``test_purge_statements_parse`` hands PostgreSQL every statement in
+    :data:`TABLE_TIMESTAMP_MAP` and an emptied map hands it none —
+    twelve tables of coverage and zero read identically from the outside.
+    The premises module's rule 3, at the size of a dict: an empty
+    population is a failure, never a pass.
+    """
+    assert TABLE_TIMESTAMP_MAP, (
+        "TABLE_TIMESTAMP_MAP is empty, so the parse guard parses nothing and "
+        "the pairing guard below is a subset of nothing"
+    )
+
+
+@pytest.mark.skipif(
+    not _db_available(),
+    reason="local postgres (projects DB) not reachable — the parse guard needs the real schema",
+)
 def test_purge_statements_parse():
     """Hand every statement ``run_retention`` builds to PostgreSQL.
 
@@ -476,6 +496,7 @@ class TestPurgeIsolation:
     not _db_available(),
     reason="local postgres (projects DB) not reachable — the pairing guard needs the real schema",
 )
+@pytest.mark.premise
 def test_every_configured_table_can_be_purged():
     """A ``retention_config`` row the map cannot resolve purges nothing, silently.
 
@@ -502,6 +523,14 @@ def test_every_configured_table_can_be_purged():
     so — the shape ``SNAG-CFG-001`` names, arriving as a database row.
     Migration 014 removed three of these by hand; this is the assertion
     it was making.
+
+    **The subset is a negative, so the row count is asserted first**
+    (Session 132).  ``configured <= map`` holds trivially when
+    ``configured`` is empty, and an empty read is what a purge that has
+    stopped being configured at all looks like — the silent direction
+    again, one layer up from the one this test was written for.  Measured
+    2026-08-30: twelve rows against a twelve-entry map, so the two sides
+    coincide exactly and the slack this guard watches is zero today.
     """
     from sqlalchemy import create_engine
     from sqlalchemy import text as sql_text
@@ -520,6 +549,11 @@ def test_every_configured_table_can_be_purged():
     finally:
         engine.dispose()
 
+    assert configured, (
+        "retention_config holds no rows, so the subset below is a subset of "
+        "nothing — the read found the wrong schema, or the table this guard "
+        "is about is empty and nothing is being purged at all"
+    )
     assert configured <= set(TABLE_TIMESTAMP_MAP), (
         "retention_config names tables absent from TABLE_TIMESTAMP_MAP: "
         f"{sorted(configured - set(TABLE_TIMESTAMP_MAP))} — run_retention "

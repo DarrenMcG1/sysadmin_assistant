@@ -2,7 +2,97 @@
 
 ## Next action
 
-Decide whether the six pre-convention files that open the live database — `test_logs_routes.py`, `test_open_alert_predicate.py`, `test_retention.py`, `test_schema_drift.py`, `test_schema_guard.py` and `test_snag_claims.py` — owe premise assertions, because `tests/test_live_drive_premises.py` now measures that they hold the property the `_live` glob is a proxy for and exempts them by name in `PRE_CONVENTION`, so the exemption is a decision nobody has taken rather than one taken and recorded.
+Write the fourth sweep `SNAG-TEST-002` names, over `CHECKS` in `tests/test_snag_claims.py`, asserting that every registered check is reached by at least one test driving it to an `unknown` verdict, so the habit that holds 19 of 19 times today and is the whole reason `test_snag_claims.py` is exempt from the premise rule stops being a habit and becomes a guard.
+
+## Session 131b is complete — the exemption that was earned rather than granted
+
+**The decision the handoff asked for was taken per file, and it went five
+ways to one.** Four of the six owed a premise and had none; one owed the
+**marker and never the premise**; one owes nothing. None of the three
+shapes the task listed is what shipped.
+
+**`test_schema_drift.py` is the strongest of the six, and reading it
+would not have said so.** Its whole output is `diff == []`. Driven
+rather than argued: with `FROZEN_TABLES` widened to cover all **13**
+mapped tables — the blindfold that constant's own docstring warns about
+— `compare_metadata` returns `[]` as well, so the guard could certify a
+comparison it had stopped making and nothing in the file could tell.
+`TestThePremises` is the discriminating witness: the same connection and
+the same opts pointed at an **empty `MetaData`**, which must report every
+live table as `remove_table` — **13 normally, nothing under the
+blindfold**. A second, finer premise asserts every *mapped* table is
+among them, because reaching one table is not reaching ours; a partial
+blindfold turns only that one red, which is what makes the pair fail
+apart rather than together.
+
+**The other three, each cheap and each already half-written in its own
+file.** `test_schema_guard.py`: both readers answer `None` for a schema
+never migrated, so `async_answer == sync_answer` is agreement about
+nothing — and `is not None` was already asserted by the sibling test in
+the same class. `test_retention.py` owed two, both the silent direction
+that module is about: an emptied `TABLE_TIMESTAMP_MAP` parses no
+statement, and `configured <= map` holds over a `retention_config` with
+no rows (measured: 12 rows against a 12-entry map, coinciding exactly).
+`test_logs_routes.py`: `stored <= declared` is green over an emptied
+`log_entries`, and the file already argues this way in its
+`logging_services` fixture — measured 10 stored inside 15 declared, five
+names of slack. `test_open_alert_predicate.py` owed **only the marker**;
+its witness is docstringed *"A constant observation is not evidence"* and
+predates the convention by a fortnight.
+
+**What shipped is the shape the task did not list, and it is what makes
+the decision recorded rather than remembered.** Rule 2's sweep now
+accepts a file off the `_live` glob that **marks a premise**, exactly as
+a glob member does — so `PRE_CONVENTION` shrank **6 → 1** by five files
+holding the property instead of by five names being trusted. The task's
+shape 1 without emptying the set; its shape 3 refuted for four of the six
+by measurement rather than adopted. Falsified in both directions:
+dropping the new clause reports exactly those five, and stripping one
+file's marker reports exactly that file.
+
+**Two of the seven mutations demonstrate the vacuous pass rather than
+describing it**, which is the part worth carrying. Under the blindfold
+the two new premise tests go red and `test_models_match_migrated_schema`
+stays **green**. Over an emptied `log_entries` the new premise goes red
+while `test_every_stored_source_is_declared` stays **green**. That is the
+failure this whole convention is about, produced on demand twice.
+
+**`SNAG-TEST-002` is the one opening and it is the exemption's stated
+cost.** `test_snag_claims.py` owes no marker because its premises are
+enforced at the **producer** — `query_one`'s every way of not-knowing
+returns `unknown` rather than `match` — and every registered check is
+driven to that branch by a test in the class that names it, 18 of 18 at
+filing. Nothing enforces it. `unknown_branch_unenforced` measures both
+halves, refuting the entry from either end (a sweep landing is the fix; a
+check losing its `unknown` drive is the premise dying), and **caught its
+own author on its first run** by reporting itself as the one check with
+no such drive. 19 of 19 once its drive landed.
+
+**Its witness needed the same lesson one level down.** Full coverage is
+what the entry rests on and a walk that had stopped reading assertions
+reports it too, so the same walk is driven with a verdict spelling
+nothing returns. Written as a **literal**, the test asserting that wrote
+the sentinel into `tests/test_snag_claims.py`, the walk found it, and two
+checks were reported covered by a verdict that does not exist — the
+witness refuted by the act of testing it. `_unwritable_sentinel()` mints
+one per call, so the zero is by construction.
+
+**One limit is stated rather than filed**, matching this repository's
+precedent for a guard's own blind spot: `_opens_a_live_connection` is
+syntactic, so a drive reaching the database only through a helper dodges
+the property as well as the glob. Population measured at **one** —
+`test_snag_claims.py` itself, whose detector hit is a `sync_url` read
+that asserts a DSN's shape and never connects, so it is in the set right
+by accident. Fixing it is a call graph over `sysadmin/`, which Session
+131 refused for its own reasons.
+
+**Verification.** **3033 → 3042 → 3055**, +22 and none retired, checked
+against a stashed baseline rather than a green suite. Ruff and mypy
+clean. Nine ops claims green after the restart. The daemon was restarted
+at **11:48:16** and it was **not owed on the merits** — this sitting
+changed tests and `sysadmin/snag_claims.py`, a console script the daemon
+never imports — so it clears the mtime comparison and deploys nothing,
+which is `ops_claims.py` rule 4's stated cost.
 
 ## Session 131 is complete — the sweep that could not have seen it, and the one that can
 

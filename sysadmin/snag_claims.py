@@ -107,9 +107,10 @@ import inspect
 import json
 import logging
 import re
-import subprocess  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
+import subprocess
 import sys
 import tempfile
+import uuid  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -5920,6 +5921,156 @@ class Check:
     run: Callable[[], Measurement]
 
 
+# ---------------------------------------------------------------------------
+# SNAG-TEST-002 — the discipline that holds and that nothing enforces
+# ---------------------------------------------------------------------------
+
+#: The drive this module's own checks are asserted by, and the file whose
+#: habit ``SNAG-TEST-002`` is about.
+SNAG_CLAIMS_TESTS = REPO_ROOT / "tests" / "test_snag_claims.py"
+
+#: The verdict a check returns when it cannot answer.  Written here rather
+#: than as a literal in the walk below, because the walk searches for this
+#: exact spelling and a second copy could drift from the one every check
+#: actually returns — ``max_priority_for`` against ``PRIORITY_MAP``.
+_NOT_KNOWING = "unknown"
+
+
+def _unwritable_sentinel() -> str:
+    """A verdict spelling no source file can contain, minted per call.
+
+    The witness asks what the walk reports for a verdict nothing asserts,
+    so the answer must be zero *by construction* rather than by nobody
+    having typed it.  A literal is not that: the first drive of this check
+    wrote its own sentinel into ``tests/test_snag_claims.py`` and the walk
+    duly found it, reporting coverage for a verdict that does not exist —
+    the witness refuted by the act of testing it, which is
+    ``a-control-a-fix-breaks-is-not-a-control`` at the size of a string.
+    """
+    return f"no verdict is spelled this {uuid.uuid4().hex}"
+
+
+def _unknown_branch_coverage(
+    tree: ast.Module, keys: set[str], sentinel: str = _NOT_KNOWING
+) -> set[str]:
+    """Check keys reached by a class asserting a *sentinel* verdict.
+
+    Keyed on the enclosing class rather than on the test, because the
+    drives put the check under test in the class name and its stand-ins
+    in the methods — so a method-level walk reports the shape of the file
+    rather than the coverage.
+
+    *sentinel* is a parameter for one reason: passing a spelling no test
+    contains must empty the result.  That is the witness the caller
+    drives, and without it a walker that had stopped seeing anything
+    reports full coverage exactly as a healthy one does.
+    """
+    covered: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        named = {key for key in keys if key in ast.unparse(node)}
+        if not named:
+            continue
+        asserts_sentinel = any(
+            isinstance(inner, ast.Constant) and inner.value == sentinel
+            for inner in ast.walk(node)
+        )
+        if asserts_sentinel:
+            covered |= named
+    return covered
+
+
+def _sweep_enforces_unknown(tree: ast.Module) -> list[str]:
+    """Test functions that walk ``CHECKS`` *and* name the not-knowing verdict.
+
+    The entry's named fix, detected by its shape.  Three sweeps over
+    ``CHECKS`` already exist and none of them mentions the verdict, so
+    the conjunction is what separates the fix from what is there — and a
+    fourth sweep about something else that happens to mention it would
+    read as the fix, which is stated rather than guarded against because
+    the failure direction is a check retiring itself early.
+    """
+    found = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if not node.name.startswith("test_"):
+            continue
+        body = ast.unparse(node)
+        if "CHECKS" in body and f"'{_NOT_KNOWING}'" in body:
+            found.append(f"{node.name}:{node.lineno}")
+    return found
+
+
+def check_unknown_branch_unenforced() -> Measurement:
+    """``SNAG-TEST-002`` — a total discipline with nothing holding it total.
+
+    The entry is an **absence**, so the check is the same two-part shape
+    ``check_unmarked_sentence_invisible`` uses: measure that the habit
+    still holds, and measure that nothing makes it hold.  A check
+    reporting only the second would say the same thing about a file where
+    the habit had collapsed, which is the entry's premise dying rather
+    than the entry being fixed — ``check_sysd_ollama_ordering``'s two
+    opposite halves, one family over.
+
+    The witness is inside the check rather than beside it.  Full coverage
+    is the observation this entry rests on and a walker that had stopped
+    seeing classes reports it too, so the same walk is driven with a
+    sentinel no test contains: that must come back empty, or nothing here
+    is evidence and the verdict is ``unknown``.
+    """
+    try:
+        source = SNAG_CLAIMS_TESTS.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+    except (OSError, SyntaxError) as exc:
+        return Measurement(
+            "unknown", f"{_rel(SNAG_CLAIMS_TESTS)} ({exc.__class__.__name__})"
+        )
+
+    keys = set(CHECKS)
+    if not keys:
+        return Measurement("unknown", "no checks are registered, so there is no habit to measure")
+
+    covered = _unknown_branch_coverage(tree, keys)
+    # The witness: a spelling no drive contains must reach nothing.
+    blind = _unknown_branch_coverage(tree, keys, sentinel=_unwritable_sentinel())
+    if blind:
+        return Measurement(
+            "unknown",
+            f"the walk reports {len(blind)} check(s) covered by a verdict no test "
+            "contains, so it is not reading assertions and its coverage figure "
+            "means nothing",
+        )
+
+    enforcing = _sweep_enforces_unknown(tree)
+    uncovered = sorted(keys - covered)
+    detail = (
+        f"witness: a sentinel verdict reaches 0 of {len(keys)} checks, "
+        f"so the walk is reading assertions",
+        f"checks driven to {_NOT_KNOWING} by the class that names them: "
+        f"{len(covered)} of {len(keys)}",
+        f"sweeps over CHECKS naming the verdict: {enforcing or 'none'}",
+    )
+
+    if enforcing:
+        return Measurement(
+            "mismatch",
+            f"{enforcing[0]} sweeps CHECKS and names the {_NOT_KNOWING} verdict — "
+            "the habit is enforced now, which is the entry's named fix",
+            detail,
+        )
+    if uncovered:
+        return Measurement(
+            "mismatch",
+            f"{len(uncovered)} check(s) are driven to no {_NOT_KNOWING} branch "
+            f"({', '.join(uncovered)}) — the discipline this entry calls total has "
+            "lapsed, so its premise is gone rather than its point taken",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 CHECKS: dict[str, Check] = {
     check.key: check
     for check in (
@@ -6024,6 +6175,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-006",
             "the audit's findings surface publishes no code key",
             check_audit_code_unpublished,
+        ),
+        Check(
+            "unknown_branch_unenforced",
+            "SNAG-TEST-002",
+            "nothing requires a check to be able to say it does not know",
+            check_unknown_branch_unenforced,
         ),
         Check(
             "reload_unjudged_config",
