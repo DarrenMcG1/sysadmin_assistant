@@ -524,11 +524,15 @@ class TestTheVacatedReviewLeavesStayGone:
 
         ``SchedulesConfig`` inherits pydantic's default ``extra="ignore"``
         — measured, and unlike ``services.yaml``'s models, which set
-        ``extra="forbid"``.  So ``review_hour: 6`` in ``config.yaml``
-        would be accepted, dropped, and have no effect, with nothing
-        reporting it.  That asymmetry is ``SNAG-CFG-004``; until it is
-        settled, this guard is the only thing standing between the
-        shipped file and a silently dead knob.
+        ``extra="forbid"``.  So ``review_hour: 6`` in ``config.yaml`` is
+        accepted, dropped, and has no effect.
+
+        ``SNAG-CFG-004`` settled the *reporting* half of that on
+        2026-08-30: :func:`sysadmin.core.config.unknown_config_keys` now
+        names such a key at boot and in the reload response, so a dead
+        knob is no longer silent.  It is still dead, which is why this
+        guard stays — the entry was closed by making the drop visible,
+        not by making the key work.
         """
         raw = yaml.safe_load(REPO_CONFIG.read_text(encoding="utf-8")) or {}
         schedules = raw.get("schedules") or {}
@@ -537,13 +541,21 @@ class TestTheVacatedReviewLeavesStayGone:
             "means it is dropped in silence"
         )
 
-    def test_an_unknown_schedules_key_is_still_dropped_in_silence(self):
+    def test_an_unknown_schedules_key_is_still_dropped(self):
         """``SNAG-CFG-004``'s measurement, pinned where it was taken.
 
-        Asserted rather than assumed, so the day someone flips these
-        models to ``extra="forbid"`` this test fails and names the entry
-        that wanted it — the fix arriving is what retires the guard,
-        which is the opposite of it going stale.
+        The entry closed on 2026-08-30 **without** flipping these models
+        to ``extra="forbid"``: the shipped ``config.yaml`` carries ten
+        keys the backend does not declare (the tray's), so a blanket
+        forbid is a daemon that does not start.  The parse therefore
+        behaves exactly as it did, and this test is unchanged apart from
+        its name — it used to say ``…_in_silence``, and the silence is
+        the half that went.
+
+        The report is asserted next door, in
+        ``tests/test_config_keys.py``.  Reading only this test would
+        suggest the entry is unfixed; reading only that one, that the key
+        now works.  Neither is true, so the pair is stated in both files.
         """
         parsed = SchedulesConfig(review_hour=9, briefing_hour=7)
         assert parsed.briefing_hour == 7

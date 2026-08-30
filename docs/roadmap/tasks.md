@@ -16,6 +16,44 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 136 — the headline fix does not boot, and the file said
+      so first.** *(2026-08-30.)* `SNAG-CFG-004` **closed by reporting**,
+      its own headline fix refuted before a line of it was written.
+      Walking the shipped `config.yaml` against `AppConfig`'s field tree
+      finds **ten keys the backend does not declare** — `tray:` and nine
+      leaves under `notifications.tray:`, every one read by
+      `sysadmin_tray/config.py`, which parses the same file for itself.
+      So `extra="forbid"` across the 37 models is not a trade-off to
+      weigh against `SNAG-DB-005`; it is a daemon that does not start on
+      this box today, and a test builds the strict subclass and asserts
+      it. **The asymmetry is structural**: `services.yaml` has one
+      modelled owner and no foreign region, `config.yaml` has two
+      parsers and neither model set is a superset. **What shipped
+      reports and cannot refuse** — `core/config_keys.py` returns a
+      list, the lifespan warns, and `ReloadReport.unknown_keys` carries
+      it to the reload response, which is the surface an operator who
+      has just edited the file is holding. `schema_guard`'s posture runs
+      the *other* way here, and the reason is the cost side: serving
+      with an ignored config key is not worse than not serving.
+      **`FOREIGN_KEYS` is declared and pinned** against the tray's own
+      key lists, which were lifted to constants for it — import where
+      you can, pin where you cannot — and exempted **by leaf, not
+      subtree**, because `mute_services` is read here. **The check
+      retires and its meaning inverts**: it counted `extra="forbid"` on
+      both sides and this fix moves neither count, so it would have
+      reported *still holds* over a landed closure — the defect Session
+      135 had just documented one entry earlier. **`SNAG-CFG-005`
+      filed** for the residue, measured rather than assumed: a typo
+      inside `tray:` is dropped by *both* parsers in silence, the tray
+      half having been expected to be strict and not being. Verified
+      live — daemon restarted 16:26:28 and booted clean, and a real
+      `briefing_hourr: 9` came back from `POST /api/sysadmin/reload` as
+      `{"ok": true, "unknown_keys": ["schedules.briefing_hourr"]}`.
+      Twelve mutations, each red on the tests about its own rule; **two
+      passed against deliberately broken code first**, one of them a
+      collection error wearing a green result. Suite 3079 → 3107
+      (+33 −5); snag list 108 → 109, open unmoved at 18
+
 - [x] **Session 135 — the leaves went, and the check could not have
       watched them go.** *(2026-08-30.)* `SNAG-CFG-002` **closed**.
       `schedules.review_hour`/`review_minute` deleted from

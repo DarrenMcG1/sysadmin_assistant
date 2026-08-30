@@ -8,6 +8,7 @@ import yaml
 from estate.gpu import DEFAULT_BUSY_THRESHOLD, DGPU_PCI_SLOT
 from pydantic import BaseModel, Field, model_validator
 
+from sysadmin.core.config_keys import KeyReport, report_for_file
 from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT
 
 logger = logging.getLogger(__name__)
@@ -889,6 +890,47 @@ class TrayNotificationsConfig(BaseModel):
     mute_services: list[str] = Field(default_factory=list)
 
 
+#: Keys in config.yaml that belong to another parser, and which this
+#: process must therefore neither declare nor judge (``SNAG-CFG-004``).
+#:
+#: ``config.yaml`` is read by two programs. The backend parses it through
+#: the models in this file; ``sysadmin_tray/config.py`` parses the same
+#: file for itself, with ``.get()`` walks, and owns the whole ``tray:``
+#: section plus nine calm tunables under ``notifications.tray:``. Neither
+#: model set is a superset of the other, which is why ``services.yaml``
+#: can set ``extra="forbid"`` and this file cannot: that file has one
+#: modelled owner and no foreign region.
+#:
+#: **Exempted by leaf, not by subtree.** ``mute_services`` is the one key
+#: under ``notifications.tray:`` the backend genuinely reads — reliability
+#: waives deductions for an expected-down service and this is the only
+#: place a service contributed by a project manifest can be declared one
+#: — so a subtree exemption would make ``mute_servicess`` silent, which is
+#: the defect rebuilt inside its own fix. ``tray:`` is exempt whole,
+#: because nothing here reads anything under it and holding a model of
+#: another parser's section is the second-owner defect.
+#:
+#: Hand-written because :mod:`sysadmin.core` must not import the tray
+#: (``tests/test_import_boundary.py``). Pinned instead against the tray's
+#: own key lists by ``tests/test_config_keys.py`` — import where you can,
+#: pin where you cannot, the treatment ``syslog_priority`` gets against
+#: ``journal.PRIORITY_MAP``.
+FOREIGN_KEYS: frozenset[str] = frozenset(
+    {
+        "tray",
+        "notifications.tray.flap_cooldown_minutes",
+        "notifications.tray.escalation_polls",
+        "notifications.tray.coalesce_threshold",
+        "notifications.tray.snooze_minutes",
+        "notifications.tray.digest_mode",
+        "notifications.tray.digest_interval_minutes",
+        "notifications.tray.respect_desktop_dnd",
+        "notifications.tray.reminder_hours",
+        "notifications.tray.backend_unreachable_grace_seconds",
+    }
+)
+
+
 class NotificationsConfig(BaseModel):
     desktop: DesktopNotificationsConfig = Field(
         default_factory=DesktopNotificationsConfig
@@ -1119,6 +1161,20 @@ def parse_config(config_path: Path | None = None) -> AppConfig:
         raw = yaml.safe_load(f)
 
     return AppConfig.model_validate(raw or {})
+
+
+def unknown_config_keys(config_path: Path | None = None) -> KeyReport:
+    """Keys in config.yaml no model declares (``SNAG-CFG-004``).
+
+    Reports; never refuses — see :mod:`sysadmin.core.config_keys` rule 1.
+    Callers run this *after* a successful :func:`parse_config`, so an
+    unknown key here is a line that was accepted and dropped rather than
+    one that failed, and the report is the only thing that will ever say
+    so out loud.
+    """
+    if config_path is None:
+        config_path = default_config_path()
+    return report_for_file(config_path, AppConfig, foreign=FOREIGN_KEYS)
 
 
 def set_config(config: AppConfig) -> AppConfig:

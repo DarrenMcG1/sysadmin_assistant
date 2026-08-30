@@ -2,7 +2,100 @@
 
 ## Next action
 
-Decide `SNAG-CFG-004` — whether `sysadmin/core/config.py`'s 37 pydantic models should set `extra="forbid"` as `sysadmin/monitor/services.py`'s four already do, since today a misspelt key in `config.yaml` is accepted, dropped and silent (measured: `briefing_hourr: 9` parses cleanly and the briefing stays at 6) while the same typo in `services.yaml` raises a `ValidationError` naming the line, and the cost of closing it is that a stale key anywhere in a file re-read on every boot and every `SIGHUP` becomes a refusal to start.
+Decide `SNAG-CFG-005` — whether `sysadmin_tray/config.py` should report the keys under `config.yaml`'s `tray:` section that its own allowlist does not read, since that section is now the one region of the file neither program reports on (the backend exempts it whole to avoid holding a model of another parser's section, and `load_tray_config` filters the raw section through `TRAY_SECTION_KEYS` before `TrayConfig` is ever constructed, so a measured `tray.status_poll_secondss: 99` is dropped by both with nothing logged), and the fix is one set difference against constants Session 136 already lifted out of the loops that consume them.
+
+## Session 136 is complete — the headline fix does not boot, and the file said so first
+
+**`SNAG-CFG-004` is closed by reporting, and the entry's own headline
+fix was refuted before a line of it was written.** It asked whether
+`sysadmin/core/config.py`'s 37 pydantic models should set
+`extra="forbid"` as `sysadmin/monitor/services.py`'s four do. Walking
+the shipped `config.yaml` against `AppConfig`'s field tree finds **ten
+keys the backend does not declare** — the top-level `tray:` section and
+nine leaves under `notifications.tray:`, every one read by
+`sysadmin_tray/config.py`, which parses the same file for itself. So the
+forbid is not a trade-off to weigh against `SNAG-DB-005`'s 23 hours; it
+is a daemon that will not start on this box **today**.
+`TestTheAsymmetryIsDeliberateAndStays::test_the_entrys_headline_fix_does_not_parse_the_shipped_file`
+builds the strict subclass and asserts exactly that, so the refutation
+is executed rather than argued.
+
+**The asymmetry the entry read as an inconsistency is structural.**
+`services.yaml` can forbid because every key in it belongs to the
+process holding the models; `config.yaml` cannot, because it carries a
+region this process does not own. One file, two parsers, neither model
+set a superset of the other. And the `schema_guard` analogy the entry
+reaches for runs the **other** way: that guard refuses because serving
+against the wrong schema is worse than not serving, and serving with an
+ignored config key is demonstrably not — it has been this daemon's
+behaviour for its whole life at a cost of one briefing at the wrong
+hour. Same posture, opposite answer, because the cost side differs.
+
+**What shipped reports and cannot refuse**, and that is settled by the
+shape of the mechanism rather than by a flag a later sitting could flip:
+`sysadmin/core/config_keys.py` walks the raw YAML against the model tree
+and **returns a list**. `unknown_config_keys()` is the entry point, the
+lifespan warns, and `ReloadReport.unknown_keys` carries it to
+`POST /api/sysadmin/reload` — the surface an operator who has just
+edited the file is actually holding. `unwalkable` is kept apart from
+`unknown` because a subtree the walker could not follow has zero unknown
+keys for the wrong reason, which is `ports_checked`'s rule.
+
+**The boundary is declared and pinned, never asserted.** `FOREIGN_KEYS`
+is hand-written because `sysadmin.core` must not import the tray, so
+`TRAY_SECTION_KEYS` and `NOTIFICATIONS_TRAY_KEYS` were lifted out of the
+loops that consumed them and a test asserts the two agree — import where
+you can, pin where you cannot. Exempted **by leaf, not by subtree**:
+`notifications.tray.mute_services` is read here, so a subtree exemption
+would silence `mute_servicess` on the one key under that section the
+backend depends on. The dividend was not designed for — because the
+correct spelling is exempt and a typo is not, a misspelt *tray-owned*
+leaf is reported too.
+
+**The check retired and its meaning inverted, which is the part worth
+carrying.** It counted `extra="forbid"` on both sides and **this fix
+moves neither count**, so it would have gone on reporting *still holds*
+over a landed closure indefinitely — `check_review_schedule_unread`'s
+defect from one entry earlier, and not a flaw in how it was written,
+since the entry closed by a route the check did not anticipate. The
+detector is re-homed as `TestTheAsymmetryIsDeliberateAndStays`, where
+those two counts must now **stay** where they are.
+
+**Two falsifications passed against deliberately broken code first.**
+The subtree-exemption mutation changed nothing, because
+`notifications.tray` is not itself in `FOREIGN_KEYS` — prefix matching
+alone matches nothing, so the faithful mutation had to replace the
+constant *and* the matcher. And adding `ConfigDict(extra="forbid")` to a
+config model produced a **collection error** rather than a red test,
+because that name is not imported in that module: a stand-in that cannot
+compile is silence wearing a result, this repository's own recorded trap
+met a second time. `SNAG-CFG-005`'s check had the same disease in its
+first draft — it read `getMessage()` while this repository's logging
+convention puts the key in `extra=`, so it did not move over a stand-in
+fix.
+
+**One slip cost work and is worth recording**: `git checkout
+sysadmin/core/config.py` was used to revert a mutation and discarded
+every edit to that file, which had to be rewritten. The `.bak` pattern
+used everywhere else in the sitting is the one that survives being
+wrong.
+
+**Verified live rather than only against fixtures.** Daemon restarted
+16:26:28, booted clean with no spurious warning; the warning line was
+driven through the real `configure_logging` and emits
+`<4>{… "message": "config_unknown_keys" …}`, so it carries Session 61's
+level prefix and a short readable signature rather than
+`SNAG-LOG-003`'s 252 characters of JSON. A real `briefing_hourr: 9`
+written into the shipped file returned
+`{"ok": true, "unknown_keys": ["schedules.briefing_hourr"]}` and the
+file was restored byte-identical.
+
+**Numbers.** Suite 3079 → 3107 (+33, −5 retired), twelve mutations each
+red on the tests about its own rule. Snag list 108 → 109 entries, open
+unmoved at 18 (one closed, one opened). Ruff and mypy clean. No route,
+table or migration moved.
+
+---
 
 ## Session 135 is complete — the leaves went, and the check could not have watched them go
 

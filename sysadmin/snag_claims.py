@@ -117,11 +117,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
+import yaml
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 from sysadmin import ops_claims
-from sysadmin.core.config import REPO_ROOT, get_config
+from sysadmin.core.config import (
+    FOREIGN_KEYS,
+    REPO_ROOT,
+    default_config_path,
+    get_config,
+)
 from sysadmin.core.escalation import humanise_hours
 from sysadmin.core.schema_guard import EXIT_STATUS, SchemaVerdict
 from sysadmin.core.text import strip_markdown
@@ -583,13 +589,6 @@ RETIRED_UNIT = "ollama.service"
 #: the regression guard in :mod:`tests.test_config_defaults`.
 REVIEW_SCHEDULE_LEAVES = frozenset({"review_hour", "review_minute"})
 
-#: ``SNAG-CFG-004``'s two files.  The claim is an *asymmetry*, so both
-#: sides are measured: a model that forbids unknown keys refuses a typo,
-#: one that ignores them drops it in silence.  Naming the files rather
-#: than a count means the check reports which side moved.
-EXTRA_STRICT_MODULE = REPO_ROOT / "sysadmin" / "monitor" / "services.py"
-EXTRA_LENIENT_MODULE = REPO_ROOT / "sysadmin" / "core" / "config.py"
-
 #: ``SNAG-DOCS-003``'s five names and the module holding them.
 DEPRECATED_MODULE = REPO_ROOT / "sysadmin_tray" / "_deprecated_contracts.py"
 DEPRECATED_NAMES = frozenset(
@@ -724,72 +723,86 @@ def check_run_status_cancelled() -> Measurement:
     )
 
 
-def _forbidding_models(path: Path) -> tuple[int, int]:
-    """``(pydantic models, those setting extra="forbid")`` in one module.
+def check_tray_section_unwatched() -> Measurement:
+    """``SNAG-CFG-005`` — the one region of config.yaml nobody reports on.
 
-    An AST walk rather than a substring count: ``"forbid"`` appears in
-    prose and in docstrings, and this entry turns on how many *classes*
-    carry the setting rather than how often the word is written.
+    ``SNAG-CFG-004`` made an undeclared key visible everywhere the backend
+    owns.  The top-level ``tray:`` section is exempt whole, because
+    holding a model of another parser's section here is the second-owner
+    defect — so that section is the residue, and both programs drop a
+    typo in it in silence: the backend by exemption, the tray because
+    ``load_tray_config`` copies an **allowlist** of keys out of the
+    section and never looks at what is left over.
+
+    **Driven rather than read**, because the fix has more than one shape
+    (a report in ``load_tray_config``, ``extra="forbid"`` on a model that
+    actually receives the raw section, a walk like the backend's) and a
+    check keyed on any single shape answers ``match`` over the other two.
+    A bogus key is put in a copy of the shipped file and the tray is
+    asked to load it; the entry holds while the value is dropped with
+    nothing said.
     """
-    tree = _parse(path)
-    if tree is None:
-        return (0, 0)
-    models = 0
-    strict = 0
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef):
-            continue
-        if not any(
-            getattr(base, "id", getattr(base, "attr", "")) == "BaseModel" for base in node.bases
-        ):
-            continue
-        models += 1
-        for sub in ast.walk(node):
-            if isinstance(sub, ast.Constant) and sub.value == "forbid":
-                strict += 1
-                break
-    return (models, strict)
+    from sysadmin_tray.config import load_tray_config
 
+    source = default_config_path()
+    if not source.exists():
+        return Measurement("unknown", f"{_rel(source)} is not readable")
+    try:
+        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        return Measurement("unknown", f"{_rel(source)} did not parse: {exc}")
 
-def check_config_extras_ignored() -> Measurement:
-    """``SNAG-CFG-004`` — one repository, two answers to an unknown key.
+    bogus = "status_poll_secondsss"
+    raw.setdefault("tray", {})[bogus] = 99
 
-    ``services.yaml``'s models refuse a key they do not declare;
-    ``config.yaml``'s accept and drop it.  So a typo in one file is a
-    boot-time ``ValidationError`` naming the line, and the same typo in
-    the other is an edit that does nothing with nothing reporting it.
+    with tempfile.TemporaryDirectory() as tmp:
+        specimen = Path(tmp) / "config.yaml"
+        specimen.write_text(yaml.safe_dump(raw), encoding="utf-8")
+        records: list[logging.LogRecord] = []
 
-    Both sides are required, because the asymmetry closes in two
-    opposite directions and the operator needs to be told which was
-    taken -- ``schema_guard``'s "every way of not-knowing gets its own
-    message", at the size of a config setting.
-    """
-    lenient_models, lenient_strict = _forbidding_models(EXTRA_LENIENT_MODULE)
-    strict_models, strict_strict = _forbidding_models(EXTRA_STRICT_MODULE)
-    if not lenient_models or not strict_models:
-        return Measurement(
-            "unknown",
-            "one of the two modules did not parse or holds no pydantic model",
-        )
+        class _Capture(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                records.append(record)
+
+        handler = _Capture()
+        root = logging.getLogger()
+        root.addHandler(handler)
+        try:
+            config = load_tray_config(specimen)
+        except Exception as exc:  # noqa: BLE001
+            return Measurement(
+                "mismatch",
+                f"the tray now refuses an unknown key under tray: ({exc}) — the "
+                "section is no longer dropped in silence",
+            )
+        finally:
+            root.removeHandler(handler)
+
+    # The whole record, not just its message: a fix following this
+    # repository's own logging convention puts the key in ``extra=``,
+    # where ``getMessage()`` cannot see it — which is how the first draft
+    # of this check answered ``match`` over a stand-in fix. A control a
+    # fix breaks is not a control, and neither is one a fix cannot move.
+    said = [r for r in records if bogus in str(vars(r))]
     detail = (
-        f"{_rel(EXTRA_LENIENT_MODULE)}: {lenient_strict} of {lenient_models} models forbid extras",
-        f"{_rel(EXTRA_STRICT_MODULE)}: {strict_strict} of {strict_models} models forbid extras",
+        f"bogus key: tray.{bogus}",
+        f"status_poll_seconds after load: {config.status_poll_seconds}",
+        f"log records naming it: {len(said)}",
     )
-    if lenient_strict == 0 and strict_strict == strict_models:
-        return Measurement("match", "", detail)
-    if lenient_strict:
+    if said:
         return Measurement(
             "mismatch",
-            f"{lenient_strict} model(s) in {_rel(EXTRA_LENIENT_MODULE)} now forbid unknown keys "
-            "— the asymmetry is closing from the config side, which is the entry's remedy",
+            "the tray now reports an unknown key under tray: — the entry's remedy",
             detail,
         )
-    return Measurement(
-        "mismatch",
-        f"only {strict_strict} of {strict_models} models in {_rel(EXTRA_STRICT_MODULE)} forbid "
-        "unknown keys — the asymmetry closed from the services side, which is the opposite fix",
-        detail,
-    )
+    if "tray" not in FOREIGN_KEYS:
+        return Measurement(
+            "mismatch",
+            "the backend no longer exempts tray: wholesale, so the section has "
+            "acquired a watcher on the other side",
+            detail,
+        )
+    return Measurement("match", "", detail)
 
 
 def check_deprecated_contracts() -> Measurement:
@@ -5986,10 +5999,10 @@ CHECKS: dict[str, Check] = {
             check_run_status_cancelled,
         ),
         Check(
-            "config_extras_ignored",
-            "SNAG-CFG-004",
-            "config.yaml ignores unknown keys, services.yaml forbids them",
-            check_config_extras_ignored,
+            "tray_section_unwatched",
+            "SNAG-CFG-005",
+            "a typo under tray: is dropped by both parsers in silence",
+            check_tray_section_unwatched,
         ),
         Check(
             "deprecated_contracts",

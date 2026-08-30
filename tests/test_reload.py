@@ -838,3 +838,74 @@ def test_main_hands_the_reload_a_real_syncer():
 
     assert "sync_jobs=_sync_jobs" in inspect.getsource(main._reload_configuration)
     assert main._sync_jobs(get_config()) is not None
+
+
+# ── SNAG-CFG-004 — an unknown key is named, and never refused ──────────
+#
+# The entry asked for ``extra="forbid"`` across config.py's 37 models.
+# Measured, the shipped config.yaml already carries ten keys the backend
+# does not declare — the tray's — so a blanket forbid does not boot. What
+# ships reports instead, and the reload response is the surface an
+# operator who has just edited the file is holding.
+
+
+def test_an_unknown_key_is_named_and_the_reload_still_succeeds(
+    files, restore_singletons
+):
+    """The whole decision, in one assertion pair.
+
+    ``ok`` stays true because the file is *valid*: refusing here would
+    install nothing while the daemon went on serving the same ignored
+    key, reporting the problem by withholding the fix for everything else
+    in the file.
+    """
+    config, _ = files
+    raw = yaml.safe_load(config.read_text())
+    raw["schedules"] = {"briefing_hourr": 9}
+    config.write_text(yaml.safe_dump(raw))
+
+    report = _reload(files)
+
+    assert report.ok, "an ignored key is not a reason to install nothing"
+    assert report.error is None
+    assert report.unknown_keys == ["schedules.briefing_hourr"]
+    assert get_config().schedules.briefing_hour == 6, "still dropped"
+
+
+def test_a_clean_file_reports_no_unknown_keys(files, restore_singletons):
+    report = _reload(files)
+    assert report.unknown_keys == []
+    assert report.unwalkable_sections == []
+
+
+def test_the_key_walk_cannot_fail_the_reload(files, restore_singletons, monkeypatch):
+    """Rule 5 — a report must never break what it reports on.
+
+    The same posture ``unit_failure._schema_diagnosis`` takes for an
+    alert annotation: the thing that explains a failure must not be able
+    to cause one.
+    """
+    import sysadmin.reload as reload_module
+
+    def explode(_path):
+        raise RuntimeError("walker is broken")
+
+    monkeypatch.setattr(reload_module, "unknown_config_keys", explode)
+
+    report = _reload(files)
+
+    assert report.ok, "a broken reporter must not refuse a valid reload"
+    assert [s.name for s in get_services().services] == ["alpha"]
+    assert report.unknown_keys == []
+
+
+def test_both_new_fields_cross_the_contract(files, restore_singletons):
+    config, _ = files
+    raw = yaml.safe_load(config.read_text())
+    raw["nonsense"] = 1
+    config.write_text(yaml.safe_dump(raw))
+
+    parsed = ReloadResponse.from_dict(_reload(files).to_payload())
+
+    assert parsed.unknown_keys == ["nonsense"]
+    assert parsed.unwalkable_sections == []

@@ -40,6 +40,7 @@ from unittest.mock import patch
 from urllib.parse import urlsplit
 
 import pytest
+import yaml
 
 import sysadmin.ops_claims as ops_claims
 import sysadmin.snag_claims as snag_claims
@@ -62,7 +63,6 @@ from sysadmin.snag_claims import (
     check_all,
     check_capped_signature_collides,
     check_code_spans_survive,
-    check_config_extras_ignored,
     check_convention,
     check_deprecated_contracts,
     check_dropin_blind_spot,
@@ -70,6 +70,7 @@ from sysadmin.snag_claims import (
     check_health_path_guess,
     check_run_status_cancelled,
     check_sysd_ollama_ordering,
+    check_tray_section_unwatched,
     check_unmarked_sentence_invisible,
     check_unswept_port_is_loud,
     closure_declared,
@@ -5721,119 +5722,80 @@ def _unknown_drive_gaps(
     return sorted(keys - _unknown_branch_coverage(tree, keys) - set(exempt))
 
 
-class TestTheConfigExtrasCheck:
-    """``SNAG-CFG-004``'s check — the ``config_extras_ignored`` key.
 
-    The entry is an **asymmetry**, so the check reports which side moved
-    rather than a single boolean: a config model gaining ``extra="forbid"``
-    is the entry's own remedy, and a services model losing it is the
-    asymmetry closing the opposite way. Both are driven below, because a
-    check that can only say "still holds" cannot tell an operator which
-    of two opposite fixes was taken — ``schema_guard``'s "every way of
-    not-knowing gets its own message", one directory over.
+class TestTheTraySectionCheck:
+    """``SNAG-CFG-005``'s check — the ``tray_section_unwatched`` key.
 
-    The instrument is an AST walk over ``BaseModel`` subclasses, never a
-    substring count of ``forbid``: that word appears in prose and in
-    docstrings, and this entry turns on how many *classes* carry the
-    setting.
+    The entry's residue is a section **two** programs read and neither
+    reports on, so the check is *driven* rather than read: the fix has at
+    least three shapes and a check keyed on one of them answers ``match``
+    over the other two.  Both fix directions are driven below, because
+    the first draft of this check moved for neither.
     """
 
-    @staticmethod
-    def _write(tmp_path: Path, name: str, body: str) -> Path:
-        path = tmp_path / name
-        path.write_text(body, encoding="utf-8")
-        return path
+    def test_it_holds_against_the_shipped_file(self):
+        assert check_tray_section_unwatched().verdict == "match"
 
-    @pytest.fixture
-    def strict_specimen(self, tmp_path: Path) -> Path:
-        """One model that forbids unknown keys."""
-        return self._write(
-            tmp_path,
-            "strict.py",
-            'from pydantic import BaseModel\n\n\n'
-            'class Strict(BaseModel):\n'
-            '    model_config = {"extra": "forbid"}\n'
-            "    hour: int = 5\n",
-        )
+    def test_a_tray_that_reports_the_stray_key_refutes_it(self, monkeypatch):
+        """The entry's own remedy, as a stand-in.
 
-    @pytest.fixture
-    def lenient_specimen(self, tmp_path: Path) -> Path:
-        """One model that does not."""
-        return self._write(
-            tmp_path,
-            "lenient.py",
-            "from pydantic import BaseModel\n\n\n"
-            "class Lenient(BaseModel):\n"
-            "    hour: int = 5\n",
-        )
-
-    @pytest.fixture
-    def decoy_specimen(self, tmp_path: Path) -> Path:
-        """A model that *says* forbid in prose and does not set it.
-
-        The specimen that separates the AST walk from a substring count.
+        The stand-in *performs* the report rather than announcing it, and
+        puts the key in ``extra=`` — this repository's logging
+        convention, and where the check's first draft could not see it.
         """
-        return self._write(
-            tmp_path,
-            "decoy.py",
-            "from pydantic import BaseModel\n\n\n"
-            "class Decoy(BaseModel):\n"
-            '    """We should probably forbid extras here one day."""\n\n'
-            "    hour: int = 5\n",
-        )
+        import logging as real_logging
 
-    def test_it_holds_against_the_real_checkout(self):
-        measurement = check_config_extras_ignored()
-        assert measurement.verdict == "match"
-        assert any("config.py" in line for line in measurement.detail)
-        assert any("services.py" in line for line in measurement.detail)
+        from sysadmin_tray import config as tray_config
 
-    def test_a_strict_config_model_is_the_entrys_own_remedy(self, strict_specimen: Path):
-        """Refuted from the side the entry wants to move."""
-        with patch.object(snag_claims, "EXTRA_LENIENT_MODULE", strict_specimen):
-            measurement = check_config_extras_ignored()
+        original = tray_config.load_tray_config
+
+        def reporting(path=None, api_url_override=None):
+            raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+            section = raw.get("tray", {}) or {}
+            for stray in set(section) - set(tray_config.TRAY_SECTION_KEYS):
+                real_logging.getLogger("sysadmin_tray.config").warning(
+                    "tray_unknown_key", extra={"key": stray}
+                )
+            return original(path, api_url_override)
+
+        monkeypatch.setattr(tray_config, "load_tray_config", reporting)
+        measurement = check_tray_section_unwatched()
         assert measurement.verdict == "mismatch"
-        assert "closing from the config side" in measurement.note
+        assert "reports an unknown key" in measurement.note
 
-    def test_a_lenient_services_model_is_the_opposite_fix(self, lenient_specimen: Path):
-        """Refuted from the side that must not move, and named apart.
+    def test_the_backend_watching_the_section_refutes_it_too(self, monkeypatch):
+        """The other direction — ``tray`` leaving ``FOREIGN_KEYS``.
 
-        Pointed at the lenient module both ways round, so the *services*
-        half is the one carrying no ``forbid``. A check reporting one
-        note for both directions would leave the operator reading
-        "the asymmetry moved" with no way to tell a fix from a
-        regression.
+        Not a fix this repository would take (it is the second-owner
+        defect), but a real way for the entry to stop holding, and a
+        check that could not see it would report ``match`` over a box
+        that had changed.
         """
-        with patch.object(snag_claims, "EXTRA_STRICT_MODULE", lenient_specimen):
-            measurement = check_config_extras_ignored()
-        assert measurement.verdict == "mismatch"
-        assert "opposite fix" in measurement.note
+        from sysadmin import snag_claims
 
-    def test_it_is_unknown_when_a_module_cannot_be_read(self):
-        """Not-knowing is never ``match`` — ``ports_checked``'s rule.
+        monkeypatch.setattr(
+            snag_claims,
+            "FOREIGN_KEYS",
+            frozenset(k for k in snag_claims.FOREIGN_KEYS if k != "tray"),
+        )
+        assert check_tray_section_unwatched().verdict == "mismatch"
 
-        A module that will not parse yields ``(0, 0)``, which is
-        indistinguishable from "no model forbids extras" — precisely the
-        reading that would report the entry holding while measuring
-        nothing.
-        """
-        with patch.object(snag_claims, "EXTRA_LENIENT_MODULE", Path("/nonexistent/gone.py")):
-            assert check_config_extras_ignored().verdict == "unknown"
-        with patch.object(snag_claims, "EXTRA_STRICT_MODULE", Path("/nonexistent/gone.py")):
-            assert check_config_extras_ignored().verdict == "unknown"
+    def test_an_unreadable_config_is_unknown_rather_than_match(self, monkeypatch):
+        """``ports_checked``'s rule — a check that could not look says so."""
+        from sysadmin import snag_claims
 
-    def test_the_walk_counts_classes_and_not_the_word(
-        self, decoy_specimen: Path, strict_specimen: Path
-    ):
-        """The instrument's own falsification.
+        monkeypatch.setattr(
+            snag_claims, "default_config_path", lambda: Path("/nonexistent/gone.yaml")
+        )
+        assert check_tray_section_unwatched().verdict == "unknown"
 
-        ``sysadmin/core/config.py`` holds the word ``forbid`` zero times
-        today, so a substring count and the AST walk agree by luck. The
-        specimens below separate them: one writes ``forbid`` in a
-        docstring on a model that does not set it.
-        """
-        assert snag_claims._forbidding_models(decoy_specimen) == (1, 0)
-        assert snag_claims._forbidding_models(strict_specimen)[1] == 1
+    def test_an_unparseable_config_is_unknown(self, monkeypatch, tmp_path):
+        from sysadmin import snag_claims
+
+        broken = tmp_path / "config.yaml"
+        broken.write_text("tray: {a: [unclosed\n", encoding="utf-8")
+        monkeypatch.setattr(snag_claims, "default_config_path", lambda: broken)
+        assert check_tray_section_unwatched().verdict == "unknown"
 
 
 class TestEveryCheckCanSayItDoesNotKnow:

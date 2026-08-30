@@ -3039,15 +3039,78 @@ no fields at all. The rule generalises past this entry: a control must
 be driven at a stand-in modelling the *fix*, not only at one modelling
 the defect.
 
-What the deletion does **not** reach is `SNAG-CFG-004`: `config.yaml`'s
-models inherit pydantic's `extra="ignore"` (**0 of 37** forbid unknown
-keys) while `services.yaml`'s all set `extra="forbid"` (**4 of 4**), so
-one repository answers an unknown key two ways and the silent answer is
-on the file an operator edits. Measured through the real `parse_config`:
-`briefing_hourr: 9` parses cleanly and the briefing stays at 6. So
-deleting a config field closes the ambiguity for whoever reads
-`config.py` and not for whoever writes `config.yaml` — the half that
-made this worth filing rather than shrugging at.
+What the deletion did **not** reach was `SNAG-CFG-004`, and the entry's
+own headline fix was refuted by the file it was about (Session 136).
+`config.yaml`'s models inherit `extra="ignore"` (**0 of 37**) while
+`services.yaml`'s all set `extra="forbid"` (**4 of 4**), so
+`briefing_hourr: 9` parses cleanly and the briefing stays at 6. **The
+counts have not moved and must not**: walking the shipped `config.yaml`
+against `AppConfig`'s field tree finds **ten keys the backend does not
+declare** — the top-level `tray:` section and nine leaves under
+`notifications.tray:`, every one read by `sysadmin_tray/config.py`,
+which parses the same file for itself. `extra="forbid"` across the 37 is
+therefore not a trade-off to weigh against `SNAG-DB-005`; it is a daemon
+that does not start on this box.
+
+**The asymmetry is structural rather than an inconsistency.**
+`services.yaml` can forbid because every key in it belongs to the
+process holding the models; `config.yaml` cannot, because it carries a
+region this process does not own. One file, two parsers, neither a
+superset — and `schema_guard`'s posture runs the *other* way here for a
+reason that is about the cost side rather than the shape: that guard
+refuses because serving against the wrong schema is worse than not
+serving, and serving with an ignored config key is demonstrably not,
+having been this daemon's behaviour for its whole life at a cost of one
+briefing at the wrong hour.
+
+`sysadmin/core/config_keys.py` is what shipped, and it **reports**.
+Five rules, three of them the opposite of the obvious implementation:
+
+1. **It cannot refuse**, and that is settled by the shape of the
+   mechanism rather than by a flag someone could flip — a walker returns
+   a list. The lifespan warns and `ReloadReport.unknown_keys` carries it
+   to `POST /api/sysadmin/reload`, which is the surface an operator who
+   has just edited the file is actually holding.
+2. **It derives from `model_fields`** rather than restating the schema.
+   A second hand-written list of valid keys is `SNAG-DB-003`'s shape,
+   and the entry is about a key nobody declared.
+3. **A shape it cannot classify is reported, never skipped.**
+   `unwalkable` names a subtree that went unread, so its zero unknown
+   keys are zero-because-blind — `ports_checked`'s rule, and a silent
+   skip is this module's own defect one level down.
+4. **Foreign keys are exempted by leaf, with `tray:` the one deliberate
+   subtree.** `notifications.tray.mute_services` is read *here*, so a
+   subtree exemption would silence `mute_servicess` on the one key under
+   that section the backend depends on — the defect rebuilt inside its
+   own fix. The dividend is unasked-for and real: because the correct
+   spelling is exempt and a typo is not, a misspelt *tray-owned* leaf is
+   reported too. `tray:` is exempt whole because holding a model of
+   another parser's section is the second-owner defect.
+5. **The boundary is pinned, not asserted.** `sysadmin.core` may not
+   import the tray, so `TRAY_SECTION_KEYS` and `NOTIFICATIONS_TRAY_KEYS`
+   were lifted out of the loops consuming them and a test asserts they
+   agree with `FOREIGN_KEYS` — import where you can, pin where you
+   cannot. A second test refuses an exemption naming a key `AppConfig`
+   declares, because a stale exemption stops describing a foreign key
+   and starts hiding one of ours.
+
+**The drop is unchanged and only the silence is gone**, which is the
+pair a later reader needs both halves of: no model gained
+`extra="forbid"`, so the typo is still accepted and still dropped, and
+`tests/test_config_defaults.py` keeps the parse half while
+`tests/test_config_keys.py` holds the report half, each naming the
+other. `SNAG-CFG-005` is the residue — a typo *inside* `tray:` is
+dropped by **both** parsers in silence, the tray because
+`load_tray_config` filters the raw section through an allowlist before
+`TrayConfig` is constructed.
+
+The entry's check retired with it and **its meaning inverted**. It
+counted `extra="forbid"` on both sides; this fix moves neither count, so
+it would have gone on reporting *still holds* over a landed closure —
+`check_review_schedule_unread`'s defect one entry earlier, and not a
+flaw in how it was written, since the entry closed by a route the check
+did not anticipate. `TestTheAsymmetryIsDeliberateAndStays` is the same
+walk guarding the opposite claim.
 
 A **service name** is deliberately not filtered through the digit gate
 `log_review` applies to a signature: a name is not a measurement, and a

@@ -85,7 +85,14 @@ from typing import Any, Protocol
 
 from estate.registry import load_registry
 
-from sysadmin.core.config import AppConfig, get_config, parse_config, set_config
+from sysadmin.core.config import (
+    AppConfig,
+    get_config,
+    parse_config,
+    set_config,
+    unknown_config_keys,
+)
+from sysadmin.core.config_keys import KeyReport
 from sysadmin.core.jobs import JOB_CONFIG_PATHS, JobSyncReport
 from sysadmin.monitor.services import (
     ServicesFile,
@@ -183,6 +190,19 @@ class ReloadReport:
     #: **and** untouched: ``reschedule_job`` recomputes the next fire from
     #: now, so re-applying an identical trigger would postpone the job.
     jobs_retimed: list[str] = field(default_factory=list)
+    #: Keys config.yaml sets that no model declares (``SNAG-CFG-004``).
+    #: The dual of ``requires_restart``: that list is what the operator
+    #: asked for and did not get *yet*, this is what they asked for and
+    #: will never get, because nothing reads the key they spelled. Both
+    #: are answered with ``ok: true`` — the file is valid, and refusing a
+    #: reload over an ignored key would install nothing while the daemon
+    #: went on serving the same ignored key, which reports the problem by
+    #: withholding the fix for everything else in the file.
+    unknown_keys: list[str] = field(default_factory=list)
+    #: Sections the key walk could not read. Empty is only good news when
+    #: it sits beside an ``unknown_keys`` that was actually computed —
+    #: ``ports_checked``'s rule.
+    unwalkable_sections: list[str] = field(default_factory=list)
 
     @property
     def config_unchanged(self) -> bool:
@@ -210,6 +230,8 @@ class ReloadReport:
             "jobs_added": list(self.jobs_added),
             "jobs_removed": list(self.jobs_removed),
             "jobs_retimed": list(self.jobs_retimed),
+            "unknown_keys": list(self.unknown_keys),
+            "unwalkable_sections": list(self.unwalkable_sections),
         }
 
 
@@ -321,6 +343,20 @@ def reload_configuration(
         except Exception as exc:  # noqa: BLE001 — the message is the product
             return _refused(now, f"config.yaml: {exc}")
 
+        # The file is valid; now say which of its keys nothing reads
+        # (``SNAG-CFG-004``). Deliberately after the parse and never
+        # instead of it: this is the report an operator who has just
+        # edited the file is looking at, and the surface they are holding
+        # is the response to their own POST. Wrapped because a report must
+        # never be able to break what it reports on — the rule
+        # ``unit_failure._schema_diagnosis`` states for an alert
+        # annotation, at the size of a reload.
+        try:
+            keys = unknown_config_keys(config_path)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("config_key_check_failed", extra={"error": str(exc)})
+            keys = KeyReport(walked=False)
+
         try:
             registry = load_registry(
                 new_config.agents.project_organiser.projects_root
@@ -385,6 +421,8 @@ def reload_configuration(
         jobs_added=jobs.added,
         jobs_removed=jobs.removed,
         jobs_retimed=jobs.retimed,
+        unknown_keys=keys.unknown,
+        unwalkable_sections=keys.unwalkable,
     )
     logger.info(
         "configuration_reloaded",

@@ -701,6 +701,17 @@ class ReloadResponse(Contract):
     jobs_added: list[str] = Field(default_factory=list)
     jobs_removed: list[str] = Field(default_factory=list)
     jobs_retimed: list[str] = Field(default_factory=list)
+    #: Dotted paths config.yaml sets that no model declares — accepted,
+    #: dropped, and until ``SNAG-CFG-004`` reported nowhere at all. The
+    #: dual of ``requires_restart``: that names what the operator asked
+    #: for and has not got *yet*, this names what they asked for and will
+    #: never get, because nothing reads the key as they spelled it. Both
+    #: arrive with ``ok: true`` — the file is valid.
+    unknown_keys: list[str] = Field(default_factory=list)
+    #: Sections the key walk could not read, so their subtrees went
+    #: unexamined. ``unknown_keys: []`` is a clean bill only when this is
+    #: empty too — ``ports_checked``'s rule, one contract over.
+    unwalkable_sections: list[str] = Field(default_factory=list)
 
 
 # ── /api/files/* mutating actions ────────────────────────────────────

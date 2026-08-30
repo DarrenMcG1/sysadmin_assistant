@@ -24,7 +24,7 @@ from sysadmin.briefing.data import send_morning_briefing
 from sysadmin.briefing.router import router as summary_router
 from sysadmin.core.agent import spawn_manual_run
 from sysadmin.core.auth import require_auth
-from sysadmin.core.config import get_config, load_config
+from sysadmin.core.config import get_config, load_config, unknown_config_keys
 from sysadmin.core.contracts import ReloadResponse, ScanAllResponse
 from sysadmin.core.database import (
     create_engine_and_session,
@@ -188,6 +188,33 @@ async def lifespan(app: FastAPI):
             "api.auth_token is not set — state-changing endpoints are UNAUTHENTICATED. "
             "Set api.auth_token in config.yaml to enable bearer-token auth."
         )
+
+    # Keys config.yaml carries that no model declares (SNAG-CFG-004).
+    # Reported, never refused: the file parsed, so these lines were
+    # accepted and dropped, and this is the only thing that says so. It
+    # cannot fail the boot — neither by design (a walker returns a list)
+    # nor by accident, which is what the catch is for: an annotation must
+    # never be able to break what it annotates.
+    try:
+        keys = unknown_config_keys()
+        if keys.unknown:
+            logger.warning(
+                "config_unknown_keys",
+                extra={
+                    "keys": keys.unknown,
+                    "detail": (
+                        "config.yaml sets keys no model reads; they are "
+                        "ignored. Check the spelling — the setting is not "
+                        "taking effect."
+                    ),
+                },
+            )
+        if keys.unwalkable:
+            logger.warning(
+                "config_unwalked_sections", extra={"paths": keys.unwalkable}
+            )
+    except Exception as exc:  # noqa: BLE001 — never fail a boot over a report
+        logger.warning("config_key_check_failed", extra={"error": str(exc)})
 
     # services.yaml, validated against the registry. An id that names no
     # project fails here, at startup, naming every bad reference at once —

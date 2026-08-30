@@ -63,6 +63,43 @@ class TrayConfig(BaseModel):
     muted_services: list[str] = Field(default_factory=list)
 
 
+#: Keys this program reads out of config.yaml's top-level ``tray:``
+#: section, and out of ``notifications.tray:``.
+#:
+#: Lifted out of the loops that consume them so the backend's
+#: :data:`sysadmin.core.config.FOREIGN_KEYS` can be *pinned* against them
+#: rather than merely agreeing by hand (``SNAG-CFG-004``). The backend
+#: cannot import this module — ``sysadmin.core`` must not depend on the
+#: tray — so the declaration is duplicated by necessity and the drift is
+#: caught by a test instead: import where you can, pin where you cannot.
+#:
+#: ``mute_services`` is deliberately absent from the second tuple. It is
+#: read here *and* by the backend (``TrayNotificationsConfig``), so it is
+#: not foreign, and listing it would make the backend exempt the one key
+#: under ``notifications.tray:`` it actually depends on.
+TRAY_SECTION_KEYS: tuple[str, ...] = (
+    "status_poll_seconds",
+    "resource_poll_seconds",
+    "alert_poll_seconds",
+    "show_notifications",
+    "notify_min_severity",
+    "dashboard_url",
+    "estate_api_url",
+)
+
+NOTIFICATIONS_TRAY_KEYS: tuple[str, ...] = (
+    "flap_cooldown_minutes",
+    "escalation_polls",
+    "coalesce_threshold",
+    "snooze_minutes",
+    "digest_mode",
+    "digest_interval_minutes",
+    "respect_desktop_dnd",
+    "reminder_hours",
+    "backend_unreachable_grace_seconds",
+)
+
+
 def _default_config_path() -> Path:
     """Walk upward from this file to find config.yaml in the project root."""
     here = Path(__file__).resolve().parent
@@ -148,18 +185,13 @@ def load_tray_config(
     kwargs: dict = {}
 
     # Poll intervals (and the estate URL) from tray section
-    for key in ("status_poll_seconds", "resource_poll_seconds",
-                "alert_poll_seconds", "show_notifications",
-                "notify_min_severity", "dashboard_url", "estate_api_url"):
+    for key in TRAY_SECTION_KEYS:
         if key in tray_section:
             kwargs[key] = tray_section[key]
 
     # Notification-calm tunables from notifications.tray:
     notif_section = (raw.get("notifications", {}) or {}).get("tray", {}) or {}
-    for key in ("flap_cooldown_minutes", "escalation_polls",
-                "coalesce_threshold", "snooze_minutes", "digest_mode",
-                "digest_interval_minutes", "respect_desktop_dnd",
-                "reminder_hours", "backend_unreachable_grace_seconds"):
+    for key in NOTIFICATIONS_TRAY_KEYS:
         if key in notif_section:
             kwargs[key] = notif_section[key]
 
