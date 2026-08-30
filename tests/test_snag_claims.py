@@ -62,12 +62,12 @@ from sysadmin.snag_claims import (
     check_all,
     check_capped_signature_collides,
     check_code_spans_survive,
+    check_config_extras_ignored,
     check_convention,
     check_deprecated_contracts,
     check_dropin_blind_spot,
     check_estate_port_8500,
     check_health_path_guess,
-    check_review_schedule_unread,
     check_run_status_cancelled,
     check_sysd_ollama_ordering,
     check_unmarked_sentence_invisible,
@@ -492,11 +492,22 @@ class TestInstruments:
 
         ``grep review_hour`` matches ``log_review_hour``,
         ``disk_review_hour`` and ``health_review_hour``, all of which are
-        read — so a substring instrument reports ``SNAG-CFG-002`` refuted
+        read — so a substring instrument reported ``SNAG-CFG-002`` refuted
         on its first run.  Pointing the AST walk at one of those leaves
-        finds those readers; pointing it at the entry's own leaves finds
+        finds those readers; pointing it at that entry's own leaves finds
         none.  Same instrument, two questions, and only the exact one is
         right.
+
+        **The demonstration outlived the entry**, which is why this test
+        did not retire with the check on 2026-08-30.  It turns on
+        ``review_hour`` being a *substring* of ``log_review_hour`` and
+        not its ``ast.Attribute.attr``, and neither fact needs the
+        deleted leaves to exist.  What it can no longer witness is the
+        deletion itself — an empty result now means "absent" as readily
+        as "unread", the blind spot that let the retired check report
+        ``match`` over its own closure — so the discriminating assertion
+        lives beside the model it is about, in
+        :class:`tests.test_config_defaults.TestTheVacatedReviewLeavesStayGone`.
         """
         assert snag_claims.attribute_reads(
             frozenset({"log_review_hour"}), (REPO_ROOT / "sysadmin",)
@@ -682,13 +693,6 @@ class TestChecksAgainstTheLiveBox:
         silent = (None, "the database did not answer")
         with patch.object(snag_claims, "query_one", return_value=silent):
             assert check_run_status_cancelled().verdict == "unknown"
-
-    def test_review_schedule_holds_and_is_refuted_by_a_reader(self):
-        assert check_review_schedule_unread().verdict == "match"
-        with patch.object(snag_claims, "REVIEW_SCHEDULE_LEAVES", frozenset({"log_review_hour"})):
-            measurement = check_review_schedule_unread()
-        assert measurement.verdict == "mismatch"
-        assert "reader(s)" in measurement.note
 
     def test_deprecated_contracts_holds_and_is_refuted_when_the_shim_goes(self):
         assert check_deprecated_contracts().verdict == "match"
@@ -5715,6 +5719,121 @@ def _unknown_drive_gaps(
     """
     exempt = UNKNOWABLE if exempt is None else exempt
     return sorted(keys - _unknown_branch_coverage(tree, keys) - set(exempt))
+
+
+class TestTheConfigExtrasCheck:
+    """``SNAG-CFG-004``'s check — the ``config_extras_ignored`` key.
+
+    The entry is an **asymmetry**, so the check reports which side moved
+    rather than a single boolean: a config model gaining ``extra="forbid"``
+    is the entry's own remedy, and a services model losing it is the
+    asymmetry closing the opposite way. Both are driven below, because a
+    check that can only say "still holds" cannot tell an operator which
+    of two opposite fixes was taken — ``schema_guard``'s "every way of
+    not-knowing gets its own message", one directory over.
+
+    The instrument is an AST walk over ``BaseModel`` subclasses, never a
+    substring count of ``forbid``: that word appears in prose and in
+    docstrings, and this entry turns on how many *classes* carry the
+    setting.
+    """
+
+    @staticmethod
+    def _write(tmp_path: Path, name: str, body: str) -> Path:
+        path = tmp_path / name
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    @pytest.fixture
+    def strict_specimen(self, tmp_path: Path) -> Path:
+        """One model that forbids unknown keys."""
+        return self._write(
+            tmp_path,
+            "strict.py",
+            'from pydantic import BaseModel\n\n\n'
+            'class Strict(BaseModel):\n'
+            '    model_config = {"extra": "forbid"}\n'
+            "    hour: int = 5\n",
+        )
+
+    @pytest.fixture
+    def lenient_specimen(self, tmp_path: Path) -> Path:
+        """One model that does not."""
+        return self._write(
+            tmp_path,
+            "lenient.py",
+            "from pydantic import BaseModel\n\n\n"
+            "class Lenient(BaseModel):\n"
+            "    hour: int = 5\n",
+        )
+
+    @pytest.fixture
+    def decoy_specimen(self, tmp_path: Path) -> Path:
+        """A model that *says* forbid in prose and does not set it.
+
+        The specimen that separates the AST walk from a substring count.
+        """
+        return self._write(
+            tmp_path,
+            "decoy.py",
+            "from pydantic import BaseModel\n\n\n"
+            "class Decoy(BaseModel):\n"
+            '    """We should probably forbid extras here one day."""\n\n'
+            "    hour: int = 5\n",
+        )
+
+    def test_it_holds_against_the_real_checkout(self):
+        measurement = check_config_extras_ignored()
+        assert measurement.verdict == "match"
+        assert any("config.py" in line for line in measurement.detail)
+        assert any("services.py" in line for line in measurement.detail)
+
+    def test_a_strict_config_model_is_the_entrys_own_remedy(self, strict_specimen: Path):
+        """Refuted from the side the entry wants to move."""
+        with patch.object(snag_claims, "EXTRA_LENIENT_MODULE", strict_specimen):
+            measurement = check_config_extras_ignored()
+        assert measurement.verdict == "mismatch"
+        assert "closing from the config side" in measurement.note
+
+    def test_a_lenient_services_model_is_the_opposite_fix(self, lenient_specimen: Path):
+        """Refuted from the side that must not move, and named apart.
+
+        Pointed at the lenient module both ways round, so the *services*
+        half is the one carrying no ``forbid``. A check reporting one
+        note for both directions would leave the operator reading
+        "the asymmetry moved" with no way to tell a fix from a
+        regression.
+        """
+        with patch.object(snag_claims, "EXTRA_STRICT_MODULE", lenient_specimen):
+            measurement = check_config_extras_ignored()
+        assert measurement.verdict == "mismatch"
+        assert "opposite fix" in measurement.note
+
+    def test_it_is_unknown_when_a_module_cannot_be_read(self):
+        """Not-knowing is never ``match`` — ``ports_checked``'s rule.
+
+        A module that will not parse yields ``(0, 0)``, which is
+        indistinguishable from "no model forbids extras" — precisely the
+        reading that would report the entry holding while measuring
+        nothing.
+        """
+        with patch.object(snag_claims, "EXTRA_LENIENT_MODULE", Path("/nonexistent/gone.py")):
+            assert check_config_extras_ignored().verdict == "unknown"
+        with patch.object(snag_claims, "EXTRA_STRICT_MODULE", Path("/nonexistent/gone.py")):
+            assert check_config_extras_ignored().verdict == "unknown"
+
+    def test_the_walk_counts_classes_and_not_the_word(
+        self, decoy_specimen: Path, strict_specimen: Path
+    ):
+        """The instrument's own falsification.
+
+        ``sysadmin/core/config.py`` holds the word ``forbid`` zero times
+        today, so a substring count and the AST walk agree by luck. The
+        specimens below separate them: one writes ``forbid`` in a
+        docstring on a model that does not set it.
+        """
+        assert snag_claims._forbidding_models(decoy_specimen) == (1, 0)
+        assert snag_claims._forbidding_models(strict_specimen)[1] == 1
 
 
 class TestEveryCheckCanSayItDoesNotKnow:

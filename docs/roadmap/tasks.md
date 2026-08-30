@@ -16,6 +16,35 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 135 — the leaves went, and the check could not have
+      watched them go.** *(2026-08-30.)* `SNAG-CFG-002` **closed**.
+      `schedules.review_hour`/`review_minute` deleted from
+      `SchedulesConfig`; `review_day_of_week` kept, read by all three
+      weekly reviews. **The handoff's wired-or-deleted question was
+      closed by measurement rather than decided**: every surviving review
+      already carries its own hour/minute pair (health 05:00, log 05:15,
+      disk 05:45), the project review these scheduled left under
+      ADR-0005, and 05:30 is `estate-manager-review.timer`'s —
+      re-verified live, `OnCalendar=Mon *-*-* 05:30:00`. **The entry's
+      check could not have witnessed its own closure**: it answered
+      `match` whenever it found no reader, which a deleted field also
+      satisfies, so the regression guard is keyed on **absence** and
+      carries a second test that the three surviving `*_review_*` pairs
+      are present — an empty intersection is satisfied by a model with no
+      fields at all. Rule 7's exact-versus-substring instrument is
+      re-homed rather than retired with the check, `FROZEN_TABLES`' rule.
+      **`SNAG-CFG-004` filed**: `config.yaml`'s models inherit
+      `extra="ignore"` (**0 of 37**) while `services.yaml`'s all forbid
+      (**4 of 4**), so `briefing_hourr: 9` parses cleanly and the
+      briefing stays at 6 — deleting a config field closes the ambiguity
+      for whoever reads `config.py` and not for whoever writes
+      `config.yaml`. Not fixed here at the owner's direction: 37 models,
+      and it turns a stale key into a refusal to boot. Nine mutations
+      driven, each red on exactly one intended test; suite 3070 → 3079
+      (+10 −1), and **the STATUS.md row read 3018 against a HEAD that
+      collected 3070**, four sessions stale, corrected in the same
+      sitting
+
 - [x] **Session 134 — one gate, two answers, and the library's own
       tie-breaker decides it.** *(2026-08-30.)* estate-manager's message
       `df4113cb` **closed**. `estate.gpu.sustained_busy`'s docstring now

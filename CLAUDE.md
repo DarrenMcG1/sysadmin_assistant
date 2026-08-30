@@ -3020,10 +3020,34 @@ construction" and both contain `1`, `2`, `3` and `150` from their own
 instruction block — the claim was always about the *data* half, which
 `tests/test_health_review.py::TestPromptIsFigureFree` now asserts for all
 three by partitioning each prompt at its own `REVIEW_INSTRUCTIONS`.
-`SNAG-CFG-002`: `schedules.review_hour`/`review_minute` have driven
+`SNAG-CFG-002`: `schedules.review_hour`/`review_minute` had driven
 nothing since the projects domain left, and the reload's classification
-test cannot see them, because a path nothing reads is not a path it
-classifies.
+test could not see them, because a path nothing reads is not a path it
+classifies. **Both leaves are gone (2026-08-30, Session 135)** —
+`review_day_of_week` stays, read by all three weekly reviews, and its
+name is generic because that is now accurate rather than vague.
+
+**A check that answers the same way either side of its fix is not a
+check**, which is what that closure is worth carrying for.
+`check_review_schedule_unread` returned `match` whenever it found no
+reader, and a deleted field has no reader — so it would have gone on
+reporting *still holds* over a landed closure, indefinitely. The
+regression guard is keyed on the **absence** of the fields instead, and
+carries a second assertion that the three surviving `*_review_*` pairs
+are present, because an empty intersection is satisfied by a model with
+no fields at all. The rule generalises past this entry: a control must
+be driven at a stand-in modelling the *fix*, not only at one modelling
+the defect.
+
+What the deletion does **not** reach is `SNAG-CFG-004`: `config.yaml`'s
+models inherit pydantic's `extra="ignore"` (**0 of 37** forbid unknown
+keys) while `services.yaml`'s all set `extra="forbid"` (**4 of 4**), so
+one repository answers an unknown key two ways and the silent answer is
+on the file an operator edits. Measured through the real `parse_config`:
+`briefing_hourr: 9` parses cleanly and the briefing stays at 6. So
+deleting a config field closes the ambiguity for whoever reads
+`config.py` and not for whoever writes `config.yaml` — the half that
+made this worth filing rather than shrugging at.
 
 A **service name** is deliberately not filtered through the digit gate
 `log_review` applies to a signature: a name is not a measurement, and a

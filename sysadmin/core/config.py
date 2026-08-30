@@ -907,14 +907,27 @@ class SchedulesConfig(BaseModel):
     briefing_minute: int = 0
     retention_hour: int = 3
     retention_minute: int = 0
-    # Weekly project review — before the Monday briefing so the briefing
-    # can carry the fresh narrative.
+    # The weekly day shared by all three review jobs below. It is read by
+    # each of them and named generically because that is now accurate:
+    # one day, three readers. It carried a `review_hour`/`review_minute`
+    # pair until 2026-08-30, scheduling the weekly *project* review; that
+    # review left for estate-manager on 2026-08-13 (ADR-0005) and the two
+    # leaves were parsed by pydantic and read by nothing for the
+    # seventeen days between (SNAG-CFG-002). They are not reused: each
+    # review names its own hour, so a leaf saying "review" generically
+    # while scheduling one review among three is the ambiguity that
+    # entry was about.
     review_day_of_week: str = "mon"
-    review_hour: int = 5
-    review_minute: int = 30
-    # Weekly disk review — after the project review rather than beside
-    # it, so the 3B model does one generation at a time; still ahead of
-    # the 06:00 briefing, which carries both narratives.
+    # Weekly disk review — last of this repository's three, and still
+    # ahead of the 06:00 briefing that carries their narratives. It was
+    # placed here to sit *after* the weekly project review at 05:30 so
+    # the 3B model did one generation at a time; that review left on
+    # 2026-08-13 (ADR-0005) and 05:30 is not free either —
+    # estate-manager-review.timer fires `Mon *-*-* 05:30:00` on this box
+    # (re-verified 2026-08-30 with `systemctl --user cat`), another
+    # repository's generation on the same 24 GB card. So the spacing
+    # still holds for the reason it was chosen, against a different
+    # neighbour.
     disk_review_hour: int = 5
     disk_review_minute: int = 45
     # Weekly log review — *ahead* of the other two rather than after

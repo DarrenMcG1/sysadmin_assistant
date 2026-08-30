@@ -25,6 +25,7 @@ from sysadmin.core.config import (
 )
 from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
 from sysadmin.monitor.services import ServiceEntry
+from sysadmin.snag_claims import REPO_ROOT, REVIEW_SCHEDULE_LEAVES, attribute_reads
 from sysadmin_tray.config import TrayConfig, load_tray_config
 
 
@@ -460,3 +461,90 @@ class TestTheSweepIsWhatMakesTheCeilingFinite:
             "the stored sweep never advances, so a dev server started now is "
             "never attributed and its breach stays loud indefinitely"
         )
+
+
+class TestTheVacatedReviewLeavesStayGone:
+    """``SNAG-CFG-002``'s regression guard, and the half its check could not see.
+
+    ``schedules.review_hour``/``review_minute`` scheduled the weekly
+    *project* review.  That review left for estate-manager on 2026-08-13
+    (ADR-0005) and the two leaves went on being parsed by pydantic and
+    read by nothing until 2026-08-30 — ``SNAG-CFG-001``'s shape at the
+    size of two leaves.
+
+    **The retired check could not have witnessed its own closure.**
+    ``check_review_schedule_unread`` answered ``match`` whenever it found
+    no reader, which is as true of a deleted field as of an unread one —
+    a control whose observation does not move across the fix.  So the
+    discriminating assertion is the *absence*, and it lives here rather
+    than with the detector, because ``SchedulesConfig`` is where someone
+    re-adding the leaves would be typing.
+
+    The names are imported rather than retyped: a guard that restates the
+    vocabulary it guards is free to drift from it, which is
+    ``max_priority_for`` against ``PRIORITY_MAP``'s rule.
+    """
+
+    def test_the_two_leaves_are_absent_from_the_model(self):
+        fields = set(SchedulesConfig.model_fields)
+        assert not (REVIEW_SCHEDULE_LEAVES & fields), (
+            "schedules.review_hour/review_minute are back; the weekly project "
+            "review they scheduled is estate-manager's since ADR-0005"
+        )
+
+    def test_the_siblings_that_took_over_the_job_are_all_present(self):
+        """The witness that makes the absence above discriminating.
+
+        An empty intersection proves nothing on its own — a model with no
+        fields at all would satisfy it.  Three surviving ``*_review_*``
+        pairs are what say the block is intact and only the vacated pair
+        went.
+        """
+        fields = set(SchedulesConfig.model_fields)
+        for prefix in ("disk_review", "log_review", "health_review"):
+            assert f"{prefix}_hour" in fields
+            assert f"{prefix}_minute" in fields
+        assert "review_day_of_week" in fields, (
+            "the shared weekly day is read by all three review jobs"
+        )
+
+    def test_nothing_reads_them(self):
+        """The retired check's own question, kept because it is cheap.
+
+        Trivially true while the fields are absent — which is exactly why
+        it is not the guard, only a companion to it.
+        """
+        assert not attribute_reads(
+            REVIEW_SCHEDULE_LEAVES,
+            (REPO_ROOT / "sysadmin", REPO_ROOT / "sysadmin_tray"),
+        )
+
+    def test_the_shipped_config_does_not_set_them(self):
+        """A leaf nothing reads is silently ignored, so the file must not set one.
+
+        ``SchedulesConfig`` inherits pydantic's default ``extra="ignore"``
+        — measured, and unlike ``services.yaml``'s models, which set
+        ``extra="forbid"``.  So ``review_hour: 6`` in ``config.yaml``
+        would be accepted, dropped, and have no effect, with nothing
+        reporting it.  That asymmetry is ``SNAG-CFG-004``; until it is
+        settled, this guard is the only thing standing between the
+        shipped file and a silently dead knob.
+        """
+        raw = yaml.safe_load(REPO_CONFIG.read_text(encoding="utf-8")) or {}
+        schedules = raw.get("schedules") or {}
+        assert not (REVIEW_SCHEDULE_LEAVES & set(schedules)), (
+            "config.yaml sets a schedules leaf no code reads; extra='ignore' "
+            "means it is dropped in silence"
+        )
+
+    def test_an_unknown_schedules_key_is_still_dropped_in_silence(self):
+        """``SNAG-CFG-004``'s measurement, pinned where it was taken.
+
+        Asserted rather than assumed, so the day someone flips these
+        models to ``extra="forbid"`` this test fails and names the entry
+        that wanted it — the fix arriving is what retires the guard,
+        which is the opposite of it going stale.
+        """
+        parsed = SchedulesConfig(review_hour=9, briefing_hour=7)
+        assert parsed.briefing_hour == 7
+        assert not hasattr(parsed, "review_hour")

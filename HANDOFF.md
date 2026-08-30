@@ -2,7 +2,81 @@
 
 ## Next action
 
-Close `SNAG-CFG-002` by deciding whether `schedules.review_hour` and `schedules.review_minute` are wired to something or deleted, since they have been parsed by pydantic and read by nothing since the projects domain left on 2026-08-13 and the reload's classification test cannot see them — a path nothing reads is not a path it classifies, which is `SNAG-CFG-001`'s shape at the size of two leaves.
+Decide `SNAG-CFG-004` — whether `sysadmin/core/config.py`'s 37 pydantic models should set `extra="forbid"` as `sysadmin/monitor/services.py`'s four already do, since today a misspelt key in `config.yaml` is accepted, dropped and silent (measured: `briefing_hourr: 9` parses cleanly and the briefing stays at 6) while the same typo in `services.yaml` raises a `ValidationError` naming the line, and the cost of closing it is that a stale key anywhere in a file re-read on every boot and every `SIGHUP` becomes a refusal to start.
+
+## Session 135 is complete — the leaves went, and the check could not have watched them go
+
+**`SNAG-CFG-002` is closed.** `schedules.review_hour` and
+`review_minute` are gone from `SchedulesConfig`. `review_day_of_week`
+stays, read by all three weekly review jobs, and its comment now says
+what is true: one leaf, three readers, generic because that is accurate
+rather than vague.
+
+**The handoff's question was closed by measurement rather than decided.**
+It asked whether the two leaves should be wired to something or deleted.
+Nothing was left to wire: every surviving review already carries its own
+hour/minute pair (health 05:00, log 05:15, disk 05:45), the weekly
+*project* review these two scheduled left for estate-manager under
+ADR-0005, and the 05:30 their default named is another repository's —
+`estate-manager-review.timer`, re-verified live with `systemctl --user
+cat` as `OnCalendar=Mon *-*-* 05:30:00`, next firing Mon 2026-08-31. The
+value the leaves carried had become a collision, not just a dead number.
+
+**The entry's own check could not have witnessed its closure**, which is
+the part worth carrying forward. `check_review_schedule_unread` answered
+`match` whenever it found no reader — and a deleted field has no reader
+— so it would have gone on reporting *still holds* over a landed fix
+indefinitely. A control whose observation does not move across the fix
+it guards is not a control. So the regression guard is keyed on
+**absence** (`TestTheVacatedReviewLeavesStayGone`), and it carries a
+second test asserting the three surviving `*_review_*` pairs are
+present, because an empty intersection is satisfied by a model with no
+fields at all. What survived the retirement is the *instrument*: rule
+7's exact-versus-substring demonstration never depended on the deleted
+leaves existing, so it is re-homed rather than deleted with the check —
+`FROZEN_TABLES`' rule.
+
+**Deleting a config field changes nothing for whoever edits the config
+file.** `SchedulesConfig` inherits pydantic's `extra="ignore"`: **0 of
+37** models in `sysadmin/core/config.py` forbid unknown keys against
+**4 of 4** in `sysadmin/monitor/services.py`. Driven through the real
+`parse_config` — never `load_config`, which is
+`set_config(parse_config(...))` and would have installed the broken
+specimen into the measuring process — `briefing_hourr: 9` parses cleanly
+and `briefing_hour` reads its default 6. The operator has moved the
+morning briefing and the briefing has not moved. Filed as
+`SNAG-CFG-004` with a check reporting **which of two opposite
+directions** the asymmetry closed in; not fixed here at the owner's
+direction, because it is 37 models and it turns a stale key into a
+refusal to boot, which is `SNAG-DB-005`'s trade taken without the
+operator being ready for it.
+
+**What was rejected, and why.** Renaming `review_day_of_week` to
+something saying "shared" was considered and refused: it is a second
+published-surface change in one sitting, `config.yaml` sets neither
+today so the rename buys naming only, and the generic name is now
+*correct* — the entry's complaint was about a generic name scheduling
+one specific thing among three, which stopped being true when the leaf
+gained three readers.
+
+**The adjacent comment had the same disease and was fixed too** —
+`disk_review_hour`'s said it was staggered *"after the project review"*,
+gone seventeen days, and that the briefing carries *"both narratives"*,
+which has been three since Session 79. Not scope creep: the same
+stale-comment defect, in the block being edited.
+
+**Numbers.** Suite 3070 → 3079 (+10, −1 retired), nine mutations driven
+and each red on exactly one intended test. **The STATUS.md Testing row
+read 3018 against a HEAD that collected 3070** — four sessions stale,
+`SNAG-ESTATE-008`'s shape in that cell for the second time, corrected
+here; it is also why the baseline is taken by *running* rather than by
+reading, since trusting 3018 would have made `baseline + added == total`
+report a clobber that never happened. Snag list 107 → 108 entries, open
+unmoved at 18 (one closed, one opened). Daemon restarted 14:29:19, owed
+on the merits and deploying nothing observable; all nine ops claims
+green.
+
+---
 
 ## Session 134 is complete — one gate, two answers, and the library's own tie-breaker decides it
 

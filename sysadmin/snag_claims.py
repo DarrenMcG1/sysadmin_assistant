@@ -573,11 +573,22 @@ SYSADMIN_UNIT = REPO_ROOT / "systemd" / "sysadmin.service"
 RETIRED_UNIT = "ollama.service"
 
 
-#: ``SNAG-CFG-002``'s two leaves.  The sibling leaves that *are* read
-#: (``review_day_of_week``, and the three ``*_review_hour`` pairs) are the
-#: reason rule 7 refuses a substring search.
+#: The two leaves ``SNAG-CFG-002`` was about, deleted from
+#: :class:`~sysadmin.core.config.SchedulesConfig` on 2026-08-30.  The set
+#: outlives its check because it is rule 7's founding vocabulary: the
+#: sibling leaves that *are* read (``review_day_of_week``, and the three
+#: ``*_review_hour`` pairs) are the reason rule 7 refuses a substring
+#: search, and that demonstration does not depend on these two existing.
+#: Its readers are now :mod:`tests.test_snag_claims`' instrument test and
+#: the regression guard in :mod:`tests.test_config_defaults`.
 REVIEW_SCHEDULE_LEAVES = frozenset({"review_hour", "review_minute"})
-REVIEW_SCHEDULE_YAML_RE = re.compile(r"(?m)^\s*review_(?:hour|minute)\s*:")
+
+#: ``SNAG-CFG-004``'s two files.  The claim is an *asymmetry*, so both
+#: sides are measured: a model that forbids unknown keys refuses a typo,
+#: one that ignores them drops it in silence.  Naming the files rather
+#: than a count means the check reports which side moved.
+EXTRA_STRICT_MODULE = REPO_ROOT / "sysadmin" / "monitor" / "services.py"
+EXTRA_LENIENT_MODULE = REPO_ROOT / "sysadmin" / "core" / "config.py"
 
 #: ``SNAG-DOCS-003``'s five names and the module holding them.
 DEPRECATED_MODULE = REPO_ROOT / "sysadmin_tray" / "_deprecated_contracts.py"
@@ -713,32 +724,71 @@ def check_run_status_cancelled() -> Measurement:
     )
 
 
-def check_review_schedule_unread() -> Measurement:
-    """``SNAG-CFG-002`` — two config leaves parsed and read by nothing.
+def _forbidding_models(path: Path) -> tuple[int, int]:
+    """``(pydantic models, those setting extra="forbid")`` in one module.
 
-    Rule 7's founding case.  ``grep review_hour`` matches
-    ``log_review_hour``, ``disk_review_hour`` and ``health_review_hour``
-    on this checkout and would report the entry refuted the first time it
-    ran; ``ast.Attribute.attr`` is the exact segment and matches none of
-    them.
+    An AST walk rather than a substring count: ``"forbid"`` appears in
+    prose and in docstrings, and this entry turns on how many *classes*
+    carry the setting rather than how often the word is written.
     """
-    readers = attribute_reads(
-        REVIEW_SCHEDULE_LEAVES,
-        (REPO_ROOT / "sysadmin", REPO_ROOT / "sysadmin_tray", REPO_ROOT / "tests"),
+    tree = _parse(path)
+    if tree is None:
+        return (0, 0)
+    models = 0
+    strict = 0
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        if not any(
+            getattr(base, "id", getattr(base, "attr", "")) == "BaseModel" for base in node.bases
+        ):
+            continue
+        models += 1
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Constant) and sub.value == "forbid":
+                strict += 1
+                break
+    return (models, strict)
+
+
+def check_config_extras_ignored() -> Measurement:
+    """``SNAG-CFG-004`` — one repository, two answers to an unknown key.
+
+    ``services.yaml``'s models refuse a key they do not declare;
+    ``config.yaml``'s accept and drop it.  So a typo in one file is a
+    boot-time ``ValidationError`` naming the line, and the same typo in
+    the other is an edit that does nothing with nothing reporting it.
+
+    Both sides are required, because the asymmetry closes in two
+    opposite directions and the operator needs to be told which was
+    taken -- ``schema_guard``'s "every way of not-knowing gets its own
+    message", at the size of a config setting.
+    """
+    lenient_models, lenient_strict = _forbidding_models(EXTRA_LENIENT_MODULE)
+    strict_models, strict_strict = _forbidding_models(EXTRA_STRICT_MODULE)
+    if not lenient_models or not strict_models:
+        return Measurement(
+            "unknown",
+            "one of the two modules did not parse or holds no pydantic model",
+        )
+    detail = (
+        f"{_rel(EXTRA_LENIENT_MODULE)}: {lenient_strict} of {lenient_models} models forbid extras",
+        f"{_rel(EXTRA_STRICT_MODULE)}: {strict_strict} of {strict_models} models forbid extras",
     )
-    config_path = REPO_ROOT / "config.yaml"
-    try:
-        if REVIEW_SCHEDULE_YAML_RE.search(config_path.read_text(encoding="utf-8")):
-            readers.append(f"{_rel(config_path)}: sets one of the leaves")
-    except OSError as exc:
-        return Measurement("unknown", f"config.yaml could not be read ({exc.__class__.__name__})")
-    if not readers:
-        return Measurement("match", "", ("no reader of schedules.review_hour/review_minute",))
+    if lenient_strict == 0 and strict_strict == strict_models:
+        return Measurement("match", "", detail)
+    if lenient_strict:
+        return Measurement(
+            "mismatch",
+            f"{lenient_strict} model(s) in {_rel(EXTRA_LENIENT_MODULE)} now forbid unknown keys "
+            "— the asymmetry is closing from the config side, which is the entry's remedy",
+            detail,
+        )
     return Measurement(
         "mismatch",
-        f"{len(readers)} reader(s) of schedules.review_hour/review_minute — the leaves "
-        "drive something now, or the entry's remedy has already been taken",
-        tuple(readers[:MAX_NAMED_ENTRIES]),
+        f"only {strict_strict} of {strict_models} models in {_rel(EXTRA_STRICT_MODULE)} forbid "
+        "unknown keys — the asymmetry closed from the services side, which is the opposite fix",
+        detail,
     )
 
 
@@ -5936,10 +5986,10 @@ CHECKS: dict[str, Check] = {
             check_run_status_cancelled,
         ),
         Check(
-            "review_schedule_unread",
-            "SNAG-CFG-002",
-            "schedules.review_hour/minute drive nothing",
-            check_review_schedule_unread,
+            "config_extras_ignored",
+            "SNAG-CFG-004",
+            "config.yaml ignores unknown keys, services.yaml forbids them",
+            check_config_extras_ignored,
         ),
         Check(
             "deprecated_contracts",
