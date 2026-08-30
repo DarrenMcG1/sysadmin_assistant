@@ -3,7 +3,54 @@
 **Last Updated**: 2026-08-30
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The habit is a guard now, and it caught its author twice before it
+> **Twenty-four dead links were three classes, not one, and the middle
+> class is the one a plausible path would have made worse.**
+> estate-manager's message `25be77ba` is **closed**: all 24 inward links
+> in `snag_list.md` (14), `project-capability-audit.md` (8) and
+> `tasks.md` (2) resolve, and `tests/test_doc_links.py` is the detector
+> that outlives the finding — the estate refused the check under its
+> ADR-0073, which is exactly what leaves it here.
+>
+> **The instruments disagreed by one before a line was repaired, and
+> mine was the narrow one.** A first scan found **23**: `line.startswith("    ")`
+> treats a six-space *list continuation* as an indented code block, and
+> `tasks.md`'s 24th link sits on one. CommonMark makes indentation a code
+> block only when no list is open. Repairing on the strength of the first
+> reading would have left one behind and reported twenty-four.
+>
+> **Three fates, and the middle one has no name in the filing.** **5**
+> targets survived the 2026-08-08 split and take a path repair. **16**
+> left under [ADR-0005](../adr/0005-project-state-leaves.md) and take a
+> pointer. **3** are the trap: the *file* survived and the *cited symbol*
+> did not — `config.py` lives at `sysadmin/core/config.py` and holds no
+> `ProjectsConfig`; `briefing.py` lives at `sysadmin/briefing/data.py`
+> and holds neither section builder. Repathing those three would have
+> produced links that **resolve**, look right, and point at code that
+> does not contain the claim — invisible to every instrument in play.
+>
+> **The true count is 27, and the estate said so in advance.** Their
+> message called 24 a floor because their check is existence-only. A
+> superset scan resolving `#L` anchors against the target found **3
+> more** that resolve while their anchor has rotted: `main.py:123-128`
+> at a blank line, `agent.py:391` at an unrelated docstring,
+> `retention.py:85` at `"health_reviews": WHOLE_TABLE`. All three
+> repaired.
+>
+> **No new line anchors were minted**, which is the rule rather than an
+> omission. 13 of the 24 carried one and every rotted anchor above was
+> once correct; an anchor decays invisibly to an existence check, so
+> re-pinning them manufactures more of the defect being repaired. Each
+> citation keeps its original line range as *text* — it is the evidence
+> the entry rests on — beside a live link to the file.
+>
+> **3056 → 3060**, +4 and none retired. Two mutations, each red on
+> exactly the intended test: a broken link reddens the corpus test, and
+> reverting to the naive indentation rule reddens the continuation test
+> and nothing else. Docs only — no production behaviour changed; ruff and
+> mypy clean, and the snag register parses unmoved at **107 entries, 18
+> open**.
+>
+> *Previously —* **The habit is a guard now, and it caught its author twice before it
 > caught anything else.** `SNAG-TEST-002` is **fixed**:
 > `TestEveryCheckCanSayItDoesNotKnow` sweeps `CHECKS` and refuses a
 > registered check that no test class drives to an `unknown` verdict —

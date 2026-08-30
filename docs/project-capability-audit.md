@@ -29,10 +29,21 @@ and nothing found here was fixed.
 
 ---
 
+**Code citations describe the tree as at this date.** The backend was split
+into domain packages the following day (`512af01`, 2026-08-08) and the whole
+project domain left for estate-manager on 2026-08-13
+([ADR-0005](adr/0005-project-state-leaves.md)). Each citation below therefore
+keeps its original path and line range as written — they are the evidence this
+audit rests on — and carries a live pointer to where that code is now. **Line
+ranges are not re-pinned to current files**: they were measured against the
+2026-08-07 tree and no longer hold anywhere.
+
+---
+
 ## 1. Capability inventory
 
 The scheduled trigger for most of this is one APScheduler interval job,
-`project_organiser_scan`, registered in [main.py:123-128](../sysadmin/main.py#L123-L128)
+`project_organiser_scan`, registered in `main.py:123-128` as at this date (the job left with the projects domain — [ADR-0005](adr/0005-project-state-leaves.md); scheduling is now [`sysadmin/core/jobs.py`](../sysadmin/core/jobs.py))
 at `agents.project_organiser.scan_interval_hours` (6, from `config.yaml`),
 with an explicit first run 60 s after startup. There is **no systemd timer
 and no CLI entry point** for any of this — the only unit is
@@ -106,7 +117,7 @@ answers, but its whole added value over `/overview` is gone.
 ### 2.1 Every input to the health score
 
 All in `ProjectOrganiserAgent._analyse_project`
-([project_organiser.py:170-312](../sysadmin/agents/project_organiser.py#L170-L312)).
+(`project_organiser.py:170-312` as at this date; [moved to estate-manager 2026-08-13](adr/0005-project-state-leaves.md)).
 Score starts at `100` and is clamped with `score = max(0, min(100, score))`.
 
 | Input | Condition | Contribution | Quoted from code | Waived by status? |
@@ -186,7 +197,7 @@ the file documents the mechanism in a comment and gives `some-archive` /
 `alert_threshold: 0` as a worked example only.
 
 **Matching order** — `ProjectsConfig._setting_for`
-([config.py:454-495](../sysadmin/config.py#L454-L495)) tries three keys,
+(`config.py:454-495` as at this date; `config.py` is now [`sysadmin/core/config.py`](../sysadmin/core/config.py) but no longer holds `ProjectsConfig`, which [moved to estate-manager 2026-08-13](adr/0005-project-state-leaves.md)) tries three keys,
 because the scanner names a project after its directory while `projects.yaml`
 names it freely:
 
@@ -200,7 +211,7 @@ candidates across the whole list and `by_name` beats `by_basename`. The same
 function serves `status_for` and `has_explicit_alert_threshold`.
 
 **Resolution** — `_effective_threshold`
-([project_organiser.py:145-159](../sysadmin/agents/project_organiser.py#L145-L159)):
+(`project_organiser.py:145-159` as at this date; [moved to estate-manager 2026-08-13](adr/0005-project-state-leaves.md)):
 
 ```
 if projects_config.has_explicit_alert_threshold(name, path):
@@ -211,7 +222,7 @@ return 0 if status == "archived" else agent_config.alert_threshold
 An explicit value wins outright, including over the archived suppression.
 
 **What firing an alert actually does** — `BaseAgent.raise_alert`
-([base.py:148-188](../sysadmin/agents/base.py#L148-L188)):
+(`base.py:148-188` as at this date; now [`sysadmin/core/agent.py`](../sysadmin/core/agent.py), `raise_alert`):
 
 1. inserts an `alerts` row (`agent='project_organiser'`, `severity='warning'`,
    title `Project {name} health critical`, message `Health score: {n}/100
@@ -230,7 +241,7 @@ separate path driven by the tray polling `GET /api/sysadmin/alerts` and by
 
 It is a **static rule set over parsed markdown**, not generated text, not a
 template and not a model call. `services/recommendations._roadmap_recommendations`
-([recommendations.py:181-240](../sysadmin/services/recommendations.py#L181-L240))
+(`recommendations.py:181-240` as at this date; [moved to estate-manager 2026-08-13](adr/0005-project-state-leaves.md))
 returns at most three hand-written `RecommendationInfo` objects, all with
 `points=0`:
 
@@ -303,7 +314,7 @@ in the **disk** review, that the model must be given *no numbers* — "do not
 merely instruct it not to use them" — verified live on 2026-08-06 after
 dria-agent-a-3b restated figures it had been told not to restate, and guarded
 by a test asserting no digit reaches the model. The **project** review's
-`build_review_prompt` ([project_review.py:147-168](../sysadmin/services/project_review.py#L147-L168))
+`build_review_prompt` (`project_review.py:147-168` as at this date; [moved to estate-manager 2026-08-13](adr/0005-project-state-leaves.md))
 does the other thing: it passes the totals dict, every project's score, every
 delta and every recommendation's point value into the prompt, and relies on
 `REVIEW_INSTRUCTIONS` telling the model "do NOT list, restate or summarise
@@ -347,7 +358,7 @@ imports another.
 | `_count_todos` (`grep --exclude-dir`) | `ProjectOrganiserAgent._EXCLUDE_DIRS` | the same 17 **plus** `egg-info` |
 | `discover_projects` | — | skips any entry whose name starts with `.`, and never descends into a directory that is itself a project |
 
-`discover_projects` ([project_organiser.py:37-70](../sysadmin/agents/project_organiser.py#L37-L70)):
+`discover_projects` (`project_organiser.py:37-70` as at this date; [moved to estate-manager 2026-08-13](adr/0005-project-state-leaves.md)):
 a directory containing any of `PROJECT_MARKERS = {".git", "pyproject.toml",
 "package.json", "Cargo.toml", "go.mod"}` **is** a project and is never
 descended into; a directory without markers is treated as a *category* and
@@ -522,7 +533,7 @@ Also live: 1,664 project alerts, none resolved, so none are eligible for the
 **Computed on request, from stored snapshots.** There is no board table and
 nothing writes a board row.
 
-`routers/projects.get_project_board` ([projects.py:369-509](../sysadmin/routers/projects.py#L369-L509)):
+`routers/projects.get_project_board` (`routers/projects.py:369-509` as at this date; [moved to estate-manager 2026-08-13](adr/0005-project-state-leaves.md)):
 
 1. `_latest_snapshot_query()` — newest row per `project_name`, self-join on
    `MAX(scanned_at)`. **No freshness predicate.**

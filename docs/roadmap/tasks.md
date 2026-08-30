@@ -16,6 +16,47 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 133 — twenty-four dead links were three classes, and
+      the middle one is the trap.** *(2026-08-30.)* estate-manager's
+      message `25be77ba` **closed**. All 24 inward links repaired across
+      `snag_list.md` (14), `project-capability-audit.md` (8) and this
+      file (2), plus **3** the filing could not see.
+      **The instruments disagreed by one before anything was repaired.**
+      A first scan found 23: `line.startswith("    ")` reads a six-space
+      *list continuation* as an indented code block, and this file's
+      24th link sits on one. CommonMark makes indentation a code block
+      only when no list is open. Repairing on that reading leaves one
+      behind and reports twenty-four.
+      **Three fates, not the two the handoff named.** **5** targets
+      survived the 2026-08-08 split (`512af01`) and take a path repair;
+      **16** left under [ADR-0005](../adr/0005-project-state-leaves.md)
+      and take a pointer; **3** are the class with no name in the
+      filing — the *file* survived and the *cited symbol* did not.
+      `config.py` is now `sysadmin/core/config.py` and holds no
+      `ProjectsConfig`; `briefing.py` is now `sysadmin/briefing/data.py`
+      and holds neither `_build_project_health_section` nor
+      `_build_next_actions_section`. A path repair there **resolves**,
+      reads correctly and points at code that does not carry the claim,
+      which is the "plausible path" fallback the message refused to
+      supply targets for.
+      **The true count is 27 and the estate said 24 was a floor.** Their
+      instrument is existence-only. Resolving `#L` anchors against the
+      target found 3 more that resolve with a rotted anchor:
+      `main.py:123-128` at a blank line, `agent.py:391` at an unrelated
+      docstring, `retention.py:85` at `"health_reviews": WHOLE_TABLE`.
+      **No new anchors were minted** — 13 of the 24 carried one and every
+      rotted anchor was once correct, so re-pinning manufactures more of
+      the defect. Each citation keeps its line range as text beside a
+      live link to the file.
+      **The detector outlives the finding** (`FROZEN_TABLES`' rule, the
+      seventh time here): `tests/test_doc_links.py` asserts every
+      relative link in a tracked `.md` resolves, and pins both sides of
+      the block rule. The estate refused this check under their ADR-0073
+      — the audit may falsify only a claim the *estate* makes — which is
+      what leaves it here. **3056 → 3060**; two mutations, each red on
+      exactly the intended test. Docs only; ruff and mypy clean, snag
+      register unmoved at 107 entries, 18 open.
+
 - [x] **Session 132 — the habit that became a guard, and the two
       docstrings it refused.** *(2026-08-30.)* `SNAG-TEST-002` **fixed**:
       `TestEveryCheckCanSayItDoesNotKnow` in `tests/test_snag_claims.py`
@@ -5229,7 +5270,7 @@ was then run over the **real** historical series for `sysadmin_assistant`
 ### Session 32: Start-versus-finish accounting ✅ (2026-08-11)
 
 `GET /api/projects/momentum` ships. The reasoning lives in
-[momentum.py](../../sysadmin/projects/momentum.py); what follows is what
+`momentum.py` ([moved to estate-manager 2026-08-13](../adr/0005-project-state-leaves.md)); what follows is what
 was decided rather than what was built.
 
 - [x] **The blocker named the wrong evidence and was already gone.** The
@@ -5771,7 +5812,7 @@ path the hook never touched.
 - [x] **The narrative history is now readable** (done 2026-08-10).
       `ProjectHistoryPoint` gained `next_action`, `next_action_source` and
       `next_action_changed`; `build_narrative_history` in
-      [router.py](../../sysadmin/projects/router.py) builds them. The data
+      `router.py` ([moved to estate-manager 2026-08-13](../adr/0005-project-state-leaves.md)) builds them. The data
       was already being collected — Session 28 wrote the whole roadmap
       findings block into `project_snapshots` and the history list exposed
       the score only. **This unblocks Session 32**, whose recorded blocker

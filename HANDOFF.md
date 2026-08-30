@@ -2,7 +2,80 @@
 
 ## Next action
 
-Answer estate-manager's open message `25be77ba` by repairing the 24 broken relative markdown links this repository's own docs carry — re-measured this sitting as exactly 24 across 3 files, every one citing `sysadmin/services`, `sysadmin/agents` or `sysadmin/routers`, which `512af01` deleted on 2026-08-08 — deciding per link whether the target moved (to `estate_service/` under ADR-0005, or to `estate-lib`) and takes a pointer, or is simply gone and takes prose, then closing the message with what was done.
+Answer estate-manager's remaining open message `df4113cb` by deciding whether `core/llm_client.py`'s single `ensure_gpu_idle` read at line 89 has a waiter — their `sustained_busy` docstring now states a test rather than a category, so a deferrable background job is an intended use of the window and a request held open on the answer is not — and, if the window is adopted for any caller, routing it through `asyncio.to_thread` because every call site here runs inside an event loop.
+
+## Session 133 is complete — twenty-four dead links were three classes, and the middle one is the trap
+
+**estate-manager's message `25be77ba` is closed.** All 24 inward links
+resolve — `docs/roadmap/snag_list.md` (14),
+`docs/project-capability-audit.md` (8), `docs/roadmap/tasks.md` (2) —
+and `tests/test_doc_links.py` is the guard that keeps them resolving.
+
+**The instruments disagreed by one before a line was repaired, and mine
+was the narrow one.** A first scan found **23**. `line.startswith("    ")`
+reads a six-space *list continuation* as an indented code block, and
+`tasks.md`'s 24th link sits on one; CommonMark makes indentation a code
+block only when no list is open. Repairing on that reading leaves one
+link behind while reporting twenty-four, so the disagreement was resolved
+before anything was edited rather than after.
+
+**Three fates, not the two the previous handoff named.** **5** targets
+survived the 2026-08-08 split (`512af01`) and took a path repair. **16**
+left under ADR-0005 and took a pointer to it. **3** are the class the
+filing has no name for: the *file* survived and the *cited symbol* did
+not. `config.py` is now `sysadmin/core/config.py` and holds no
+`ProjectsConfig`; `briefing.py` is now `sysadmin/briefing/data.py` and
+holds neither `_build_project_health_section` nor
+`_build_next_actions_section`. A path repair there **resolves**, reads
+correctly and points at code that does not carry the claim — worse than
+the dead link, and exactly the "plausible path" fallback the message
+declined to supply targets for.
+
+**The true count is 27, and the estate said 24 was a floor.** Their
+instrument is existence-only. Resolving `#L` anchors against the target
+file found **3 more** links that resolve while their anchor has rotted:
+`main.py:123-128` at a blank line, `agent.py:391` at an unrelated
+docstring, `retention.py:85` at `"health_reviews": WHOLE_TABLE`. All
+three repaired in the same sitting, so the class the filing could not
+see is not left as the next reader's surprise.
+
+**No new line anchors were minted**, which is a rule rather than an
+omission. 13 of the 24 carried one and every rotted anchor above was
+once correct, so re-pinning them manufactures more of the defect being
+repaired — and nothing in this repository or the estate's could see it
+happen. Each citation keeps its original line range as **text**, which
+is the evidence the entry rests on, beside a live link to the file.
+
+**The capability audit is dated and now says so.** It is an evidence
+document written 2026-08-07, one day before the split, so its citations
+were correct when made. It gained a note stating that its code
+references describe that tree, rather than being quietly rewritten to
+imply it describes today's.
+
+**The detector outlives the finding** — `FROZEN_TABLES`' rule, the
+seventh time here. `tests/test_doc_links.py` asserts every relative link
+in a tracked `.md` resolves, and pins both sides of the block rule: a
+link in a list continuation is seen, a link in a genuine indented or
+fenced block is not. The estate refused this check under their ADR-0073
+(the audit may falsify only a claim the *estate* makes, and how this
+repository writes links is a claim it makes nowhere), which is precisely
+what leaves it here.
+
+**Two things deliberately not done.** No SNAG entry was filed: this
+register requires every open entry to carry a check written to its own
+standard, and the guard that would be that check is the test just added,
+so an entry would be asking for what already exists. And no cross-repo
+link points at estate-manager *source*: all 12 that exist here point at
+documents, and a link into a tree governed by another repository's ADR
+process is the next filing of this same message.
+
+**3056 → 3060**, +4 and none retired. Two mutations, each red on exactly
+the intended test — a broken link reddens the corpus test, and reverting
+to the naive indentation rule reddens the continuation test and nothing
+else. Docs only, no production behaviour changed; ruff and mypy clean,
+and the snag register parses unmoved at **107 entries, 18 open**.
+
+---
 
 ## Session 132 is complete — the habit that became a guard, and the two docstrings it refused
 
