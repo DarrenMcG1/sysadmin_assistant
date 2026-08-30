@@ -40,7 +40,6 @@ from unittest.mock import patch
 from urllib.parse import urlsplit
 
 import pytest
-import yaml
 
 import sysadmin.ops_claims as ops_claims
 import sysadmin.snag_claims as snag_claims
@@ -70,7 +69,7 @@ from sysadmin.snag_claims import (
     check_health_path_guess,
     check_run_status_cancelled,
     check_sysd_ollama_ordering,
-    check_tray_section_unwatched,
+    check_tray_report_unheard,
     check_unmarked_sentence_invisible,
     check_unswept_port_is_loud,
     closure_declared,
@@ -1169,6 +1168,130 @@ class TestAgainstTheOwningParser:
         assert theirs["open"] == sorted(
             entry.snag_id for entry in load_entries()[0] if entry.is_open and entry.snag_id
         )
+
+
+class TestTheTrayReportUnheardCheck:
+    """``SNAG-TRAY-011``'s check — the tray's warning reaches no reader.
+
+    Two independent channels, so the check is driven at **both** fix
+    directions and at the reader failing.  A check that could only see
+    one would report ``match`` over a half-landed fix, which is the
+    ``a-control-a-fix-breaks-is-not-a-control`` shape.
+    """
+
+    @pytest.fixture
+    def real_services(self):
+        """The committed ``services.yaml``, not conftest's four stand-ins.
+
+        The autouse ``services`` fixture installs a synthetic list with
+        no tray unit and no ``log:`` block, so every question this check
+        asks would be answered by a file the operator never wrote.  It is
+        also what makes the witness guard visible: under the stand-ins
+        the check correctly returns ``unknown`` rather than reading their
+        silence as evidence.
+        """
+        from sysadmin.monitor import services as services_module
+        from sysadmin.monitor.services import default_services_path, load_services
+
+        previous = services_module._services
+        services_module._services = load_services(default_services_path())
+        yield
+        services_module._services = previous
+
+    def test_it_holds_against_the_shipped_files(self, real_services):
+        assert check_tray_report_unheard().verdict == "match"
+
+    def test_the_conftest_stand_ins_are_unknown_not_match(self):
+        """The witness guard, seen from the fixture that would have hidden it."""
+        assert check_tray_report_unheard().verdict == "unknown"
+
+    def test_ingesting_the_trays_journal_refutes_it(self, monkeypatch, real_services):
+        """Channel one: a ``log:`` block on ``sysadmin-tray``."""
+        from sysadmin.monitor.services import composed_log_sources as real
+
+        def with_tray(agent_config):
+            sources = list(real(agent_config))
+            forged = sources[0].model_copy(
+                update={"name": "sysadmin-tray", "unit": "sysadmin-tray.service"}
+            )
+            return [*sources, forged]
+
+        monkeypatch.setattr(
+            "sysadmin.monitor.services.composed_log_sources", with_tray
+        )
+        measurement = check_tray_report_unheard()
+        assert measurement.verdict == "mismatch"
+        assert "declared log source" in measurement.note
+
+    def test_a_second_caller_refutes_it_too(self, monkeypatch, real_services):
+        """Channel two: a reload path would make the report non-startup-only."""
+        from sysadmin import snag_claims
+
+        monkeypatch.setattr(snag_claims, "_load_tray_config_call_sites", lambda: 2)
+        measurement = check_tray_report_unheard()
+        assert measurement.verdict == "mismatch"
+        assert "call sites" in measurement.note
+
+    def test_both_channels_moving_says_so(self, monkeypatch, real_services):
+        from sysadmin import snag_claims
+        from sysadmin.monitor.services import composed_log_sources as real
+
+        def with_tray(agent_config):
+            sources = list(real(agent_config))
+            return [*sources, sources[0].model_copy(update={"unit": "sysadmin-tray.service"})]
+
+        monkeypatch.setattr("sysadmin.monitor.services.composed_log_sources", with_tray)
+        monkeypatch.setattr(snag_claims, "_load_tray_config_call_sites", lambda: 3)
+        assert "both" in check_tray_report_unheard().note
+
+    def test_a_reader_that_lost_our_own_unit_is_unknown_not_match(
+        self, monkeypatch, real_services
+    ):
+        """The discriminating witness.
+
+        An empty source list would otherwise report the tray's absence
+        from it as evidence, when it is only the reader failing —
+        ``a-check-needs-a-discriminating-witness``.
+
+        ``real_services`` is not decoration: without it the stand-in is
+        aimed *past* the decision, the check returns on the earlier "no
+        tray unit" gate, and the assertion passes having never reached
+        the guard it names.
+        """
+        monkeypatch.setattr(
+            "sysadmin.monitor.services.composed_log_sources", lambda _cfg: []
+        )
+        measurement = check_tray_report_unheard()
+        assert measurement.verdict == "unknown"
+        assert "reader failing" in measurement.note
+
+    def test_an_unreadable_services_yaml_is_unknown(self, monkeypatch):
+        """Patched at ``get_services``, which is what the check now calls.
+
+        Its first draft patched ``load_services`` and passed anyway — the
+        singleton was already installed, so nothing raised and the
+        verdict was ``unknown`` for the unrelated "no tray unit" reason.
+        A green test that never ran the branch it names.
+        """
+        from sysadmin.monitor import services as services_module
+
+        def boom():
+            raise OSError("gone")
+
+        monkeypatch.setattr(services_module, "get_services", boom)
+        measurement = check_tray_report_unheard()
+        assert measurement.verdict == "unknown"
+        assert "would not load" in measurement.note
+
+    def test_a_checkout_that_will_not_parse_cannot_read_as_one_caller(
+        self, monkeypatch, real_services
+    ):
+        """``-1`` rather than a count, so a broken tree is never ``match``."""
+        from sysadmin import snag_claims
+
+        monkeypatch.setattr(snag_claims, "_parse", lambda _path: None)
+        assert snag_claims._load_tray_config_call_sites() == -1
+        assert check_tray_report_unheard().verdict == "mismatch"
 
 
 class TestTheNudgeWordingCheck:
@@ -5721,81 +5844,6 @@ def _unknown_drive_gaps(
     exempt = UNKNOWABLE if exempt is None else exempt
     return sorted(keys - _unknown_branch_coverage(tree, keys) - set(exempt))
 
-
-
-class TestTheTraySectionCheck:
-    """``SNAG-CFG-005``'s check — the ``tray_section_unwatched`` key.
-
-    The entry's residue is a section **two** programs read and neither
-    reports on, so the check is *driven* rather than read: the fix has at
-    least three shapes and a check keyed on one of them answers ``match``
-    over the other two.  Both fix directions are driven below, because
-    the first draft of this check moved for neither.
-    """
-
-    def test_it_holds_against_the_shipped_file(self):
-        assert check_tray_section_unwatched().verdict == "match"
-
-    def test_a_tray_that_reports_the_stray_key_refutes_it(self, monkeypatch):
-        """The entry's own remedy, as a stand-in.
-
-        The stand-in *performs* the report rather than announcing it, and
-        puts the key in ``extra=`` — this repository's logging
-        convention, and where the check's first draft could not see it.
-        """
-        import logging as real_logging
-
-        from sysadmin_tray import config as tray_config
-
-        original = tray_config.load_tray_config
-
-        def reporting(path=None, api_url_override=None):
-            raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-            section = raw.get("tray", {}) or {}
-            for stray in set(section) - set(tray_config.TRAY_SECTION_KEYS):
-                real_logging.getLogger("sysadmin_tray.config").warning(
-                    "tray_unknown_key", extra={"key": stray}
-                )
-            return original(path, api_url_override)
-
-        monkeypatch.setattr(tray_config, "load_tray_config", reporting)
-        measurement = check_tray_section_unwatched()
-        assert measurement.verdict == "mismatch"
-        assert "reports an unknown key" in measurement.note
-
-    def test_the_backend_watching_the_section_refutes_it_too(self, monkeypatch):
-        """The other direction — ``tray`` leaving ``FOREIGN_KEYS``.
-
-        Not a fix this repository would take (it is the second-owner
-        defect), but a real way for the entry to stop holding, and a
-        check that could not see it would report ``match`` over a box
-        that had changed.
-        """
-        from sysadmin import snag_claims
-
-        monkeypatch.setattr(
-            snag_claims,
-            "FOREIGN_KEYS",
-            frozenset(k for k in snag_claims.FOREIGN_KEYS if k != "tray"),
-        )
-        assert check_tray_section_unwatched().verdict == "mismatch"
-
-    def test_an_unreadable_config_is_unknown_rather_than_match(self, monkeypatch):
-        """``ports_checked``'s rule — a check that could not look says so."""
-        from sysadmin import snag_claims
-
-        monkeypatch.setattr(
-            snag_claims, "default_config_path", lambda: Path("/nonexistent/gone.yaml")
-        )
-        assert check_tray_section_unwatched().verdict == "unknown"
-
-    def test_an_unparseable_config_is_unknown(self, monkeypatch, tmp_path):
-        from sysadmin import snag_claims
-
-        broken = tmp_path / "config.yaml"
-        broken.write_text("tray: {a: [unclosed\n", encoding="utf-8")
-        monkeypatch.setattr(snag_claims, "default_config_path", lambda: broken)
-        assert check_tray_section_unwatched().verdict == "unknown"
 
 
 class TestEveryCheckCanSayItDoesNotKnow:

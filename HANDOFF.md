@@ -2,7 +2,76 @@
 
 ## Next action
 
-Decide `SNAG-CFG-005` — whether `sysadmin_tray/config.py` should report the keys under `config.yaml`'s `tray:` section that its own allowlist does not read, since that section is now the one region of the file neither program reports on (the backend exempts it whole to avoid holding a model of another parser's section, and `load_tray_config` filters the raw section through `TRAY_SECTION_KEYS` before `TrayConfig` is ever constructed, so a measured `tray.status_poll_secondss: 99` is dropped by both with nothing logged), and the fix is one set difference against constants Session 136 already lifted out of the loops that consume them.
+Decide `SNAG-TRAY-011` — whether `sysadmin-tray` should gain a `log: {type: journalctl, severity_filter: warning}` block in `services.yaml`, which is the whole of channel one and would turn the config-key warning `SNAG-CFG-005` just shipped into an alert row through the family that already owns this source, weighed against `SNAG-LOG-004`'s record that a fix widening what the monitor sees is a regression surface for whatever consumes it, so the sitting should first measure what the tray actually writes at `warning` and above across a few days rather than declaring the source from the one line we know about.
+
+## Session 137 is complete — the allowlist is the authority, and the convention was copied without its formatter
+
+**`SNAG-CFG-005` is closed.** `SNAG-CFG-004` gave every region of
+`config.yaml` the backend owns a watcher and left the top-level `tray:`
+section as the residue — exempt whole by `FOREIGN_KEYS` because holding
+a model of another parser's section is the second-owner defect, and
+dropped in silence by the tray because `load_tray_config` copies an
+allowlist of seven keys out of the section and never looks at the
+remainder. `tray_section_report` is that set difference, warned in the
+loader and reported never refused. It ships **untriggered**: the shipped
+`tray:` carries six keys, every one read, and the real tray was
+restarted against the real file and said nothing.
+
+**Decisions taken, and what was rejected.**
+
+- **The audibility question was put to the owner and answered "warning
+  only, file the gap".** The alternative on the table was giving
+  `sysadmin-tray` a `log:` block so the aggregator ingests the line and
+  it becomes an alert row. Rejected for this sitting because that is a
+  decision about a **new log source** rather than about a set
+  difference, and `SNAG-LOG-004` is this repository's own record of a
+  fix widening a monitor's view becoming a regression surface. It is
+  `SNAG-TRAY-011` and it is the next action.
+- **A walk against `TrayConfig` was rejected on measurement, not
+  taste.** It is the shape `core/config_keys.py` uses for `AppConfig`,
+  it is legal here (the import boundary forbids only the reverse), and
+  it would have shipped green: the model declares **19** fields where
+  the section supplies **7**, so it calls `tray.reminder_hours: 5`
+  declared when setting it there does nothing.
+- **`notifications.tray:` is deliberately not reported here.** The
+  backend already names a typo in it — driven, not assumed. One fact,
+  one speaker.
+- **`tray.api_url` stays unread**, and the docstring promising it since
+  `81b3bfb` was corrected rather than the key being added. A second home
+  for the backend's address is two statements of one fact;
+  `service.host`/`port` is the one home, and `estate_api_url` is read
+  from `tray:` only because 8400 has no `service:` block.
+
+**What git cannot show.**
+
+- **The live drive is what found the real defect.** The first version
+  used `extra={"keys": …}` — this repository's logging idiom, readable
+  only because the backend's `JsonFormatter` folds `extra` in. The
+  tray's formatter is `basicConfig(format="… %(message)s")`, so the
+  journal line was the bare event name `tray_config_unknown_keys`,
+  announcing a dropped key and unable to say which. The retired check
+  had recorded the *opposite* lesson, so the wrong half of a two-sided
+  lesson got copied. Nothing in-process would have caught it.
+- **`tray: 5` used to crash the tray** — `key in 5` raising `TypeError`,
+  unhandled, in the one section this module hand-parses. Found by
+  probing shapes rather than by reading.
+- **An eighth mutation landed red by accident** and exposed a rule with
+  no guard: the test named for "notifications.tray is not our business"
+  drove the *backend*, proving the other speaker exists while doing
+  nothing to stop this one becoming a second.
+- **Two of the new check's own tests were false greens.** One aimed its
+  stand-in past the decision; the other patched `load_services` when the
+  check calls `get_services` — and that second one exposed the check
+  reading `services.yaml` twice, two ways, free to disagree about which
+  file it measured. One reader now.
+- **`SNAG-TRAY-009` was already taken**, by an entry fixed 2026-08-29.
+  The new one is `SNAG-TRAY-011`. Sweep the ids before minting.
+
+**Nothing is blocked.** Suite 3125 green, ruff clean, mypy clean, all 9
+ops claims and all 18 snag checks green. The daemon and the tray were
+both restarted; the daemon restart was owed by the mtime check rather
+than on the merits, since this sitting's only backend change is a
+console script the running application never imports.
 
 ## Session 136 is complete — the headline fix does not boot, and the file said so first
 

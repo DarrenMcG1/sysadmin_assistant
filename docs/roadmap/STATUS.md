@@ -3,7 +3,55 @@
 **Last Updated**: 2026-08-30
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The entry's headline fix does not boot, and one walk of the shipped
+> **The section neither program watched has a watcher, and the two
+> defects worth carrying were found by running it rather than reading
+> it.** `SNAG-CFG-005` is **closed**. `sysadmin_tray/config.py` reports
+> the keys under `config.yaml`'s `tray:` that its own allowlist does not
+> read — one set difference against `TRAY_SECTION_KEYS`, warned and never
+> refused. It ships **untriggered**: the shipped `tray:` carries six keys
+> and every one is read, verified by restarting the real tray.
+>
+> **The obvious fix shape would have shipped green.** A walk of `tray:`
+> against `TrayConfig`, the way `core/config_keys.py` walks `config.yaml`
+> against `AppConfig` — legal, since the import boundary only forbids the
+> reverse — and wrong: `TrayConfig` declares **19** fields and the section
+> supplies **7**, the other twelve arriving from `notifications.tray:`,
+> `api:` and `services.yaml`. A model walk calls `tray.reminder_hours: 5`
+> declared when setting it there does nothing. The model over-declares
+> relative to the section; the allowlist does not.
+>
+> **Two defects the entry did not know about.** `tray: 5` **crashed the
+> tray** — `key in 5` raised `TypeError` out of the one section this
+> module hand-parses, unhandled, while `_read_services` next door costs
+> "a mute list, not a launch"; it is `unwalkable` now. And
+> `tray.api_url` has **never** been read while the loader docstring
+> promised it since `81b3bfb`, the module's first commit — the
+> `if "api_url" not in kwargs` guard beneath was dead by construction and
+> its comment is what the docstring copied. Both went, because a reader
+> checking the new report against the old docstring concludes the
+> *report* is broken.
+>
+> **A convention copied without the formatter that makes it work.** The
+> first version wrote `logger.warning("tray_config_unknown_keys",
+> extra={"keys": …})` — the backend's idiom, readable only because
+> `JsonFormatter` folds `extra` in. The tray's formatter is
+> `basicConfig(format="… %(message)s")`, so the live journal line was the
+> bare event name, announcing that a key was dropped and unable to say
+> which: this entry's own defect one level down. Caught by driving it
+> through the real formatter, not by reading it.
+>
+> **`SNAG-TRAY-011` is the residue, filed rather than absorbed**: the
+> warning reaches `journalctl --user -u sysadmin-tray` and nothing else —
+> `composed_log_sources` returns **15** units and `sysadmin-tray.service`
+> is not among them — and fires once, at startup, where the backend
+> re-reports on every `POST /api/sysadmin/reload`. **3109 → 3125**, +21
+> and 5 retired. Seven mutations driven, each red on the test about its
+> own rule; an eighth landed red **by accident** and exposed a rule with
+> no guard, and two of the new check's own tests were false greens — one
+> aimed its stand-in past the decision, the other patched a function the
+> check no longer calls.
+>
+> *Previously —* **The entry's headline fix does not boot, and one walk of the shipped
 > file said so before a line of it was written.** `SNAG-CFG-004` is
 > **closed**. It asked whether `sysadmin/core/config.py`'s 37 models
 > should set `extra="forbid"` as `sysadmin/monitor/services.py`'s four
@@ -630,11 +678,22 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-08-30 16:26:28**
+> Daemon restarted at **2026-08-30 17:04:47**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since. **Owed on the merits and it deployed a
-> new surface**: `sysadmin/core/config_keys.py` and the lifespan's key
-> report, so `POST /api/sysadmin/reload` now carries `unknown_keys`.
+> `ERROR`/`CRITICAL` lines since. **Owed by the mtime check and not on
+> the merits**, which is worth saying plainly: this sitting's only
+> backend change is `sysadmin/snag_claims.py`, a console script the
+> running application never imports, so nothing the daemon serves moved.
+> `check-ops-claims.sh` compares mtimes and cannot know that, and the
+> restart is free (`kill -TERM`, `Restart=always`, no `sudo`), so it was
+> taken rather than argued about. **The tray restart is the one that
+> mattered** — `sysadmin_tray/config.py` is only live once the unit
+> restarts, and it came up clean against the real `config.yaml` with
+> nothing said, which is this fix shipping untriggered on the box rather
+> than in a fixture. *Previously 2026-08-30 16:26:28 — owed on the merits
+> and it deployed a new surface*: `sysadmin/core/config_keys.py` and the
+> lifespan's key report, so `POST /api/sysadmin/reload` carries
+> `unknown_keys`.
 > Boot was silent, which is the correct answer and not an absence of
 > wiring — the shipped `config.yaml` declares every key it sets once the
 > tray's region is exempt, and a live `briefing_hourr: 9` written into
@@ -676,10 +735,16 @@
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
 > packaged head <!--check:schema-->, and `alerts` holds **1** unresolved
-> row <!--check:alerts-->, `critical: venture-chat unreachable`, **1**
+> row <!--check:alerts-->, `warning: High disk usage on /`, **1**
 > named here <!--check:open_titles-->. *(Re-measured 2026-08-30 by
-> Session 136: the row is **open again** — another repository's service,
-> reported correctly, and this is the **rise** case rather than
+> Session 137: this is a **swap** — the count held at 1 while the row
+> changed, which is exactly what `check_open_titles` exists for and what
+> `check_alerts` alone cannot see. `venture-chat unreachable` resolved
+> and the disk row opened; the disk has been the standing figure on this
+> box for weeks, so this is a threshold row rather than news. Previously
+> re-measured by Session 136: the row was **open again** — another
+> repository's service, reported correctly, and this is the **rise**
+> case rather than
 > `ops_claims.py` rule 5's fall. It is named rather than counted, which
 > is what `check_open_titles` exists for: a swap holds the count still
 > while the sentence about *which* row is open goes wrong. Previously
@@ -819,6 +884,118 @@
 ---
 
 ## Recently Completed
+
+### Session 137 — the allowlist is the authority, and the convention was copied without its formatter (2026-08-30)
+
+**`SNAG-CFG-005` is closed.** `SNAG-CFG-004` gave every region of
+`config.yaml` the backend owns a watcher and left the top-level `tray:`
+section as the residue — exempt whole by `FOREIGN_KEYS`, because holding
+a model of another parser's section is the second-owner defect, and
+dropped in silence by the tray, because `load_tray_config` copies an
+allowlist of seven keys out and never looks at the remainder.
+`tray_section_report` is that set difference, warned in the loader and
+reported never refused.
+
+**The obvious fix shape would have shipped green, and the entry listed
+it as one of three.** A walk of `tray:` against `TrayConfig`, the way
+`core/config_keys.py` walks `config.yaml` against `AppConfig`. It is
+legal — `sysadmin.core` must not import the tray, and the reverse is
+fine — and wrong: `TrayConfig` declares **19** fields while the section
+supplies **7**, the other twelve arriving from `notifications.tray:`,
+`api:` and `services.yaml`. A model walk therefore calls
+`tray.reminder_hours: 5` declared, when the value is read from somewhere
+else and setting it there does nothing. The model over-declares relative
+to the section; `TRAY_SECTION_KEYS` does not, which is exactly what
+Session 136 lifting it out of the consuming loop made available.
+
+**`notifications.tray:` is deliberately not reported here, and the test
+that named that rule did not enforce it.** That region is exempt by
+*leaf*, so the backend already names a typo in it — driven rather than
+asserted, `notifications.tray.digest_modee` and `mute_servicess` both
+come back from `report_for_file`. One fact, one speaker. But the test
+asserting it drove the **backend**, which proves the other speaker
+exists and does nothing to stop this one becoming a second: the mutation
+that appends a `notifications.tray.*` path to the report went red on an
+unrelated test **by accident**. The negative half is
+`test_this_module_never_speaks_outside_its_own_section`, and it exists
+because the mutation exposed its absence rather than because anyone
+noticed.
+
+**Two defects the entry did not know about, both from measuring rather
+than reading, and both widening the fix past "one set difference".**
+`tray: 5` **crashed the tray**: `key in tray_section` raised
+`TypeError: argument of type 'int' is not iterable`, so the one section
+this module hand-parses failed unhandled while `_read_services` next
+door catches its own errors and costs "a mute list, not a launch". It is
+`unwalkable` now — `config_keys` rule 3 — and the honest consequence is
+stated in the docstring: a malformed section silently reverts **every**
+tray setting to its model default, a far wider blast radius than one
+misspelt key. And **`tray.api_url` has never been read**, while the
+loader docstring has listed the `tray:` section as resolution priority 2
+for it since `81b3bfb`, the module's first commit. The
+`if "api_url" not in kwargs` guard beneath was dead by construction and
+its comment is what the docstring copied. Both went, because a reader
+who checks the new report against the old docstring concludes the
+*report* is broken. It stays unread on purpose: `service.host`/`port` is
+the one home for the backend's address, and `estate_api_url` is read
+from `tray:` only because 8400 has no `service:` block — one statement
+each, in different places, rather than one fact in two.
+
+**The live drive found what no fixture would: a convention copied
+without the formatter that makes it work.** The first version wrote
+`logger.warning("tray_config_unknown_keys", extra={"keys": …})` — this
+repository's idiom, and readable only because the backend's
+`JsonFormatter` folds `extra` into the line. The tray's formatter is
+`main()`'s `basicConfig(format="… %(message)s")`, which renders `extra`
+nowhere, so the journal line was the bare event name: a report
+announcing that a key had been dropped and unable to say which. That is
+this entry's own defect one level down, and the retired check had
+recorded the *opposite* lesson (its first draft read `getMessage()` and
+missed the backend's `extra=`) — so the wrong half of a two-sided lesson
+was copied. The keys are in the message now, and the tests read
+`getMessage()` because that models the consumer.
+
+**The `None` / non-mapping split is the subtle half, and the first draft
+collapsed it.** `tray:` with nothing indented under it and `tray: []`
+both look empty and only the second is a mistake; `tray: []` and
+`tray: 0` are falsy *and* malformed, so the loader's original
+`raw.get("tray", {}) or {}` hands the report a clean `{}` and the shape
+can never be reported. The value reaches `tray_section_report`
+uncoerced, and one test separates them.
+
+**Seven mutations were driven and each lands red on the test about its
+own rule**; an eighth landed red by accident and forced the missing
+guard above. **Two of the new check's own tests were false greens
+first** — the witness test aimed its stand-in *past* the decision and
+passed having never reached the guard it names, and the unreadable-file
+test patched `load_services` when the check calls `get_services`, so
+nothing raised and its `unknown` came from an unrelated branch. That
+second one also found a defect in the check: it read `services.yaml`
+twice, two ways, so its two halves could disagree about which file they
+had measured. One reader now.
+
+**Verified live rather than only in fixtures.** The tray was restarted
+against the real `config.yaml` and came up saying **nothing**, which is
+this fix shipping untriggered on the box. Driven through the real
+`basicConfig` at a mutated copy it emits
+`tray_config_unknown_keys: config.yaml sets tray.dashbord_url,
+tray.status_poll_secondss under tray:, which the tray does not read —
+ignored.` and starts anyway.
+
+**`SNAG-TRAY-011` is the residue, filed rather than absorbed.** The
+warning reaches `journalctl --user -u sysadmin-tray` and nothing else:
+`composed_log_sources` returns **15** units and `sysadmin-tray.service`
+is not among them, so nothing ingests it, no alert row is raised and no
+endpoint serves it — and `load_tray_config` has one caller, at startup,
+where the backend re-reports on every `POST /api/sysadmin/reload`. Its
+check measures **both** channels, because a fix for either leaves the
+other standing.
+
+**The check retired with the entry and the detector did not.** It was
+driven, never read, which is why it moved cleanly over a fix whose shape
+it did not anticipate — where `SNAG-CFG-004`'s own check could not. Its
+two stand-in drives are now the fix's tests. **3109 → 3125**: 21 added,
+5 retired with the check.
 
 ### Session 136 — the headline fix does not boot, and the file said so first (2026-08-30)
 

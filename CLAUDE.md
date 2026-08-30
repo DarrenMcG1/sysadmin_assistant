@@ -3099,10 +3099,69 @@ pair a later reader needs both halves of: no model gained
 `extra="forbid"`, so the typo is still accepted and still dropped, and
 `tests/test_config_defaults.py` keeps the parse half while
 `tests/test_config_keys.py` holds the report half, each naming the
-other. `SNAG-CFG-005` is the residue — a typo *inside* `tray:` is
-dropped by **both** parsers in silence, the tray because
-`load_tray_config` filters the raw section through an allowlist before
-`TrayConfig` is constructed.
+other.
+
+**The residue had its own owner, and the fix belongs on the other side
+of the seam** (`SNAG-CFG-005`, closed 2026-08-30).
+`sysadmin_tray/config.py`'s `tray_section_report` names the keys under
+`tray:` this program does not read — a `WARNING`, never a refusal, for
+`config_keys` rule 1's reason. Four rules, three of them the opposite of
+the obvious implementation:
+
+1. **The allowlist is the authority, never the model.** A walk of
+   `tray:` against `TrayConfig` is the shape `config_keys` uses for
+   `AppConfig`, is legal here (`sysadmin.core` must not import the tray;
+   the reverse is fine and this module already does it for `defaults`)
+   and **would have shipped green**. `TrayConfig` declares **19** fields
+   and the section supplies **7** — the other twelve arrive from
+   `notifications.tray:`, `api:` and `services.yaml` — so a model walk
+   calls `tray.reminder_hours: 5` declared when setting it there does
+   nothing. The model over-declares relative to the section;
+   `TRAY_SECTION_KEYS` does not, which is what Session 136 lifting it
+   out of the consuming loop made available.
+2. **`notifications.tray:` is not reported here**, because that region
+   is exempt by *leaf* and the backend already names a typo in it —
+   driven, not assumed: `digest_modee` and `mute_servicess` both come
+   back from `report_for_file`. One fact, one speaker. The test that
+   named this rule drove the **backend**, which proves the other speaker
+   exists and does nothing to stop this one becoming a second, so a
+   mutation appending a `notifications.tray.*` path went red on an
+   unrelated test by accident. The negative half is a separate test and
+   exists because the mutation exposed its absence.
+3. **A shape it cannot read is reported, and that closed a crash.**
+   `tray: 5` raised `TypeError: argument of type 'int' is not iterable`
+   out of `key in tray_section` — the one section this module
+   hand-parses failing unhandled, while `_read_services` next door costs
+   "a mute list, not a launch". `None` is clean and a non-mapping is
+   `unwalkable`, and the split is only reachable because the caller
+   stopped coercing: `raw.get("tray", {}) or {}` hands the report a
+   clean `{}` for `tray: []`, which is falsy *and* malformed.
+4. **The payload is in the message, not in `extra=`, and only a live
+   drive said so.** The backend's idiom is readable because
+   `JsonFormatter` folds `extra` into the line; the tray's formatter is
+   `main()`'s `basicConfig(format="… %(message)s")`, so the first
+   version reached the journal as the bare event name
+   `tray_config_unknown_keys` — announcing a dropped key and unable to
+   say which, this entry's own defect one level down. The retired check
+   had recorded the *opposite* lesson (its first draft read
+   `getMessage()` and missed the backend's `extra=`), so the wrong half
+   of a two-sided lesson was copied. The convention is "use `extra=`
+   where a formatter renders it", never "always".
+
+Two things the sitting corrected in the module rather than around it.
+**`tray.api_url` has never been read** and the loader docstring listed
+the `tray:` section as its resolution priority 2 since `81b3bfb`, the
+module's first commit; the `if "api_url" not in kwargs` guard beneath
+was dead by construction and its comment is what the docstring copied.
+Both went — a reader checking the new report against the old docstring
+concludes the *report* is broken — and the key stays unread on purpose,
+because `service.host`/`port` is the one home for the backend's address
+while `estate_api_url` is read from `tray:` only because 8400 has no
+`service:` block. `SNAG-TRAY-011` is the residue in turn: the warning
+reaches `journalctl --user -u sysadmin-tray` and nothing else
+(`composed_log_sources` returns 15 units and `sysadmin-tray.service` is
+not among them) and fires once, at startup, where the backend
+re-reports on every `POST /api/sysadmin/reload`.
 
 The entry's check retired with it and **its meaning inverted**. It
 counted `extra="forbid"` on both sides; this fix moves neither count, so

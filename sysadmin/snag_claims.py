@@ -123,9 +123,7 @@ from sqlalchemy.engine import make_url
 
 from sysadmin import ops_claims
 from sysadmin.core.config import (
-    FOREIGN_KEYS,
     REPO_ROOT,
-    default_config_path,
     get_config,
 )
 from sysadmin.core.escalation import humanise_hours
@@ -723,86 +721,132 @@ def check_run_status_cancelled() -> Measurement:
     )
 
 
-def check_tray_section_unwatched() -> Measurement:
-    """``SNAG-CFG-005`` — the one region of config.yaml nobody reports on.
+#: This service's ``services.yaml`` name, the discriminating witness for
+#: the log-source reader in :func:`check_tray_report_unheard`.
+OWN_SERVICE_NAME = "sysadmin-service"
 
-    ``SNAG-CFG-004`` made an undeclared key visible everywhere the backend
-    owns.  The top-level ``tray:`` section is exempt whole, because
-    holding a model of another parser's section here is the second-owner
-    defect — so that section is the residue, and both programs drop a
-    typo in it in silence: the backend by exemption, the tray because
-    ``load_tray_config`` copies an **allowlist** of keys out of the
-    section and never looks at what is left over.
 
-    **Driven rather than read**, because the fix has more than one shape
-    (a report in ``load_tray_config``, ``extra="forbid"`` on a model that
-    actually receives the raw section, a walk like the backend's) and a
-    check keyed on any single shape answers ``match`` over the other two.
-    A bogus key is put in a copy of the shipped file and the tray is
-    asked to load it; the entry holds while the value is dropped with
-    nothing said.
+def _load_tray_config_call_sites() -> int:
+    """How many places in ``sysadmin_tray/`` call ``load_tray_config``.
+
+    The definition does not count, and neither does the import: an AST
+    walk for :class:`ast.Call` sees neither, which is
+    ``test_contract_reachability``'s rule — a root is a name *used*,
+    never a name *imported*.  ``-1`` when a file will not parse, so a
+    broken checkout cannot read as "one caller".
     """
-    from sysadmin_tray.config import load_tray_config
+    total = 0
+    for path in sorted((REPO_ROOT / "sysadmin_tray").rglob("*.py")):
+        tree = _parse(path)
+        if tree is None:
+            return -1
+        total += sum(
+            1
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "load_tray_config"
+        )
+    return total
 
-    source = default_config_path()
-    if not source.exists():
-        return Measurement("unknown", f"{_rel(source)} is not readable")
+
+def check_tray_report_unheard() -> Measurement:
+    """``SNAG-TRAY-011`` — the tray's config report reaches no reader.
+
+    ``SNAG-CFG-005`` gave the ``tray:`` section a watcher on the side
+    that owns it, and the warning it writes is quieter than the
+    backend's by two independent channels.  Both are measured, because
+    a fix for either leaves the other standing and the reader needs to
+    know which moved:
+
+    * **Nothing ingests it.**  ``sysadmin-tray.service`` carries no
+      ``log:`` block in ``services.yaml``, so it is not among the units
+      :func:`composed_log_sources` hands the aggregator — no
+      ``log_entries`` row, no alert, no ``GET /api/logs/*``.
+    * **It fires once, at startup.**  ``load_tray_config`` has a single
+      caller and the tray has no SIGHUP path, where the backend
+      re-reports on every ``POST /api/sysadmin/reload``.  An operator who
+      edits ``tray:`` hears this on their next tray restart, not on the
+      edit.
+
+    The unit name is **read off ``services.yaml``**, never written here:
+    a literal would be a second statement of that file's own row and
+    free to agree with the box while the file disagrees with both.  And
+    the reader is required to produce a **discriminating witness** — the
+    backend's own unit, which does declare a ``log:`` block — because an
+    empty or broken source list would otherwise report the tray's
+    absence from it as evidence, when it is only the reader failing.
+    """
+    from sysadmin.monitor.services import composed_log_sources, get_services
+
+    # One reader of services.yaml, not two. The unit and the source list
+    # are two questions about the same file, and ``composed_log_sources``
+    # resolves it through ``get_services()`` — so reading the path
+    # separately here would let the two halves disagree about which file
+    # they measured, which is the ``SNAG-DB-003`` shape inside a check.
     try:
-        raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError) as exc:
-        return Measurement("unknown", f"{_rel(source)} did not parse: {exc}")
+        services = get_services()
+    except Exception as exc:  # noqa: BLE001 — an unreadable services.yaml is "unknown"
+        return Measurement("unknown", f"services.yaml would not load ({exc})")
 
-    bogus = "status_poll_secondsss"
-    raw.setdefault("tray", {})[bogus] = 99
+    tray_units = [
+        entry.unit
+        for entry in services.services
+        if entry.unit and entry.unit.startswith("sysadmin-tray")
+    ]
+    if not tray_units:
+        return Measurement(
+            "unknown",
+            "services.yaml declares no sysadmin-tray unit, so there is no journal "
+            "to ask about",
+        )
+    tray_unit = tray_units[0]
 
-    with tempfile.TemporaryDirectory() as tmp:
-        specimen = Path(tmp) / "config.yaml"
-        specimen.write_text(yaml.safe_dump(raw), encoding="utf-8")
-        records: list[logging.LogRecord] = []
+    try:
+        sources = composed_log_sources(get_config().agents.log_aggregator)
+    except Exception as exc:  # noqa: BLE001
+        return Measurement("unknown", f"log sources would not compose ({exc})")
 
-        class _Capture(logging.Handler):
-            def emit(self, record: logging.LogRecord) -> None:
-                records.append(record)
+    units = {source.unit for source in sources}
+    witness = {entry.unit for entry in services.services if entry.name == OWN_SERVICE_NAME}
+    if not units or not (witness & units):
+        return Measurement(
+            "unknown",
+            "composed_log_sources did not return this service's own unit, so its "
+            "silence about the tray is the reader failing rather than evidence",
+            (f"sources: {len(units)}", f"tray unit: {tray_unit}"),
+        )
 
-        handler = _Capture()
-        root = logging.getLogger()
-        root.addHandler(handler)
-        try:
-            config = load_tray_config(specimen)
-        except Exception as exc:  # noqa: BLE001
-            return Measurement(
-                "mismatch",
-                f"the tray now refuses an unknown key under tray: ({exc}) — the "
-                "section is no longer dropped in silence",
-            )
-        finally:
-            root.removeHandler(handler)
+    tray_callers = _load_tray_config_call_sites()
 
-    # The whole record, not just its message: a fix following this
-    # repository's own logging convention puts the key in ``extra=``,
-    # where ``getMessage()`` cannot see it — which is how the first draft
-    # of this check answered ``match`` over a stand-in fix. A control a
-    # fix breaks is not a control, and neither is one a fix cannot move.
-    said = [r for r in records if bogus in str(vars(r))]
     detail = (
-        f"bogus key: tray.{bogus}",
-        f"status_poll_seconds after load: {config.status_poll_seconds}",
-        f"log records naming it: {len(said)}",
+        f"log sources: {len(units)}",
+        f"{tray_unit} ingested: {tray_unit in units}",
+        f"load_tray_config call sites in sysadmin_tray/: {tray_callers}",
     )
-    if said:
+    ingested = tray_unit in units
+    if not ingested and tray_callers == 1:
+        return Measurement("match", "", detail)
+    if ingested and tray_callers == 1:
         return Measurement(
             "mismatch",
-            "the tray now reports an unknown key under tray: — the entry's remedy",
+            f"{tray_unit} is now a declared log source, so the tray's warning is "
+            "ingested and can raise — the first of the entry's two channels",
             detail,
         )
-    if "tray" not in FOREIGN_KEYS:
+    if not ingested:
         return Measurement(
             "mismatch",
-            "the backend no longer exempts tray: wholesale, so the section has "
-            "acquired a watcher on the other side",
+            f"load_tray_config now has {tray_callers} call sites, so the report is "
+            "no longer startup-only — the second of the entry's two channels",
             detail,
         )
-    return Measurement("match", "", detail)
+    return Measurement(
+        "mismatch",
+        "both of the entry's channels have moved: the tray's journal is ingested "
+        f"and load_tray_config has {tray_callers} call sites",
+        detail,
+    )
 
 
 def check_deprecated_contracts() -> Measurement:
@@ -5680,7 +5724,6 @@ def reload_coherence_reading() -> tuple[ReloadReading | None, str]:
     would report the entry refuted by an edit that changed nothing about
     it.
     """
-    import yaml
 
     from sysadmin.core.config import get_config, parse_config, set_config
     from sysadmin.core.jobs import apply_jobs, plan_jobs
@@ -5999,10 +6042,10 @@ CHECKS: dict[str, Check] = {
             check_run_status_cancelled,
         ),
         Check(
-            "tray_section_unwatched",
-            "SNAG-CFG-005",
-            "a typo under tray: is dropped by both parsers in silence",
-            check_tray_section_unwatched,
+            "tray_report_unheard",
+            "SNAG-TRAY-011",
+            "the tray's config report reaches no reader",
+            check_tray_report_unheard,
         ),
         Check(
             "deprecated_contracts",

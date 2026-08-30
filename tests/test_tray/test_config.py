@@ -1,11 +1,51 @@
 """Tests for tray configuration loading."""
 
+import logging
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
+import yaml
 
-from sysadmin_tray.config import TrayConfig, load_tray_config
+from sysadmin.core.config import FOREIGN_KEYS, AppConfig
+from sysadmin.core.config_keys import report_for_file
+from sysadmin_tray.config import (
+    TRAY_SECTION_KEYS,
+    TrayConfig,
+    load_tray_config,
+    tray_section_report,
+)
+
+
+@contextmanager
+def caplog_at_warning():
+    """Every ``WARNING`` this module emits, as whole records.
+
+    Read through ``getMessage()`` by the tests below, which models the
+    consumer: the tray's formatter is ``main()``'s
+    ``basicConfig(format="… %(message)s")``, so a payload passed as
+    ``extra=`` — the *backend's* convention, readable only because
+    ``JsonFormatter`` folds it in — reaches the journal as a bare event
+    name naming no key.  A live drive is what caught that, and asserting
+    the rendered message is what keeps it caught.
+    """
+    records: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    logger = logging.getLogger("sysadmin_tray.config")
+    handler = _Capture()
+    logger.addHandler(handler)
+    previous, logger.level = logger.level, logging.WARNING
+    try:
+        yield records
+    finally:
+        logger.removeHandler(handler)
+        logger.level = previous
 
 
 @pytest.fixture
@@ -255,3 +295,165 @@ class TestNotificationCalmConfig:
         assert cfg.flap_cooldown_minutes == 30
         assert cfg.digest_mode is False
         assert cfg.muted_services == []
+
+
+class TestUnreadTraySectionKeys:
+    """``SNAG-CFG-005`` — the tray reports the keys it does not read.
+
+    The backend exempts ``tray:`` whole (``FOREIGN_KEYS``) because
+    holding a model of another parser's section is the second-owner
+    defect, so this program is the only one that can say a key under it
+    went unread.  Each test below was driven at code that fails it before
+    it was written down.
+    """
+
+    def test_an_unread_key_is_named(self):
+        report = tray_section_report({"status_poll_seconds": 5, "nope": 1})
+        assert report.unknown == ["tray.nope"]
+        assert report.unwalkable == []
+
+    def test_every_shipped_key_is_read(self):
+        """The fix ships untriggered — the committed file has no residue."""
+        repo_root = Path(__file__).resolve().parents[2]
+        raw = yaml.safe_load((repo_root / "config.yaml").read_text())
+        report = tray_section_report(raw.get("tray"))
+        assert report.clean, f"config.yaml's tray: has unread keys: {report.unknown}"
+
+    def test_the_allowlist_is_the_authority_not_the_model(self):
+        """Rule 1: ``TrayConfig`` over-declares relative to this section.
+
+        ``reminder_hours`` is a real field on the model and is read from
+        ``notifications.tray:``.  Setting it under ``tray:`` does
+        nothing, so a walk against the model — the obvious fix, and the
+        shape :mod:`sysadmin.core.config_keys` uses for ``AppConfig`` —
+        would call it declared and ship green.
+        """
+        assert "reminder_hours" in TrayConfig.model_fields
+        assert "reminder_hours" not in TRAY_SECTION_KEYS
+        assert tray_section_report({"reminder_hours": 5}).unknown == ["tray.reminder_hours"]
+
+    def test_notifications_tray_is_not_this_functions_business(self):
+        """Rule 2: that region is exempted by *leaf*, so the backend names it.
+
+        One fact, one speaker.  Driven at the backend rather than
+        asserted, because the claim is about what the other program does.
+        """
+        repo_root = Path(__file__).resolve().parents[2]
+        raw = yaml.safe_load((repo_root / "config.yaml").read_text())
+        raw["notifications"]["tray"]["digest_modee"] = True
+        path = repo_root / "config.yaml"
+        with tempfile.TemporaryDirectory() as tmp:
+            specimen = Path(tmp) / "config.yaml"
+            specimen.write_text(yaml.safe_dump(raw))
+            report = report_for_file(specimen, AppConfig, foreign=FOREIGN_KEYS)
+        assert "notifications.tray.digest_modee" in report.unknown
+        assert path.exists()
+
+    def test_this_module_never_speaks_outside_its_own_section(self):
+        """The negative half of rule 2, which the test above does not carry.
+
+        Driving the backend proves the other speaker *exists*; it does
+        not stop this one from becoming a second.  Without this,
+        appending a ``notifications.tray.*`` path to the report goes red
+        on an unrelated test by accident, which is a rule with no guard.
+        """
+        report = tray_section_report(
+            {"nope": 1, "reminder_hours": 2, "status_poll_seconds": 3}
+        )
+        assert report.unknown
+        assert all(path.startswith("tray.") for path in report.unknown), report.unknown
+        assert all(path == "tray" for path in report.unwalkable)
+
+    def test_a_non_mapping_section_is_unwalkable_not_clean(self):
+        """Rule 3: zero unknown keys because nothing was read."""
+        for shape in (5, [], ["a"], "text"):
+            report = tray_section_report(shape)
+            assert report.unwalkable == ["tray"], shape
+            assert report.unknown == []
+            assert not report.clean, shape
+
+    def test_an_absent_section_is_clean_not_unwalkable(self):
+        """``tray:`` with nothing under it carries no key to be wrong about.
+
+        Separated from the shape above because the remedies differ and
+        because reporting it blind would warn on every file that omits
+        the section — which is how a report gets filtered.
+        """
+        assert tray_section_report(None).clean
+
+    def test_the_loader_warns_and_still_loads(self, tmp_path: Path):
+        """Rule 4: it reports, it cannot refuse."""
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(dedent("""\
+            tray:
+              status_poll_seconds: 5
+              status_poll_secondss: 99
+        """))
+        with caplog_at_warning() as records:
+            cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.status_poll_seconds == 5
+        assert len(records) == 1
+        assert records[0].getMessage().startswith("tray_config_unknown_keys")
+        assert "tray.status_poll_secondss" in records[0].getMessage()
+
+    def test_a_malformed_section_no_longer_crashes_the_tray(self, tmp_path: Path):
+        """Until 2026-08-30 this raised ``TypeError`` out of ``key in 5``."""
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text("tray: 5\n")
+        with caplog_at_warning() as records:
+            cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.status_poll_seconds == TrayConfig().status_poll_seconds
+        assert len(records) == 1
+        assert records[0].getMessage().startswith("tray_config_unwalked_section")
+        assert "config.yaml's tray: is not a mapping" in records[0].getMessage()
+
+    def test_a_clean_file_says_nothing(self, tmp_config: Path):
+        with caplog_at_warning() as records:
+            load_tray_config(config_path=tmp_config)
+        assert records == []
+
+    def test_a_falsy_malformed_section_survives_the_call_site(self, tmp_path: Path):
+        """``tray: []`` is falsy *and* malformed.
+
+        The loader must not pre-coerce with ``or {}``: that hands the
+        report a clean ``{}`` and the shape goes unreported.  This is the
+        one test that separates the two, and it was red against the first
+        draft of the fix.
+        """
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text("tray: []\n")
+        with caplog_at_warning() as records:
+            load_tray_config(config_path=cfg_file)
+        assert records[0].getMessage().startswith("tray_config_unwalked_section")
+
+    def test_the_url_the_docstring_used_to_promise_is_reported(self, tmp_path: Path):
+        """``tray.api_url`` has never been read, since ``81b3bfb``.
+
+        The loader docstring listed the ``tray:`` section as resolution
+        priority 2 for ``api_url`` for the module's whole life, and the
+        ``if "api_url" not in kwargs`` guard beneath it was dead by
+        construction.  A reader who checks the report against the old
+        docstring concludes the report is broken, so the two had to move
+        together.
+        """
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(dedent("""\
+            service:
+              host: 127.0.0.1
+              port: 8500
+            tray:
+              api_url: http://bogus:1234
+        """))
+        with caplog_at_warning() as records:
+            cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.api_url == "http://127.0.0.1:8500"
+        assert "tray.api_url" in records[0].getMessage()
+
+    def test_the_estate_url_is_read_from_here_and_stays_silent(self, tmp_path: Path):
+        """The asymmetry with ``api_url`` is deliberate: 8400 has no ``service:``."""
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text("tray:\n  estate_api_url: http://127.0.0.1:8401\n")
+        with caplog_at_warning() as records:
+            cfg = load_tray_config(config_path=cfg_file)
+        assert cfg.estate_api_url == "http://127.0.0.1:8401"
+        assert records == []

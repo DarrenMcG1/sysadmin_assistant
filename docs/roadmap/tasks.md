@@ -16,6 +16,40 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 137 — the allowlist is the authority, and the
+      convention was copied without its formatter.** *(2026-08-30.)*
+      `SNAG-CFG-005` **closed**. `sysadmin_tray/config.py`'s
+      `tray_section_report` is one set difference against
+      `TRAY_SECTION_KEYS`, warned in `load_tray_config` and reported
+      never refused. Ships **untriggered** — the shipped `tray:` carries
+      six keys and every one is read, verified by restarting the real
+      tray.
+      **The obvious fix shape would have shipped green**: a walk of
+      `tray:` against `TrayConfig` is legal (the import boundary only
+      forbids the reverse) and wrong, because the model declares **19**
+      fields where the section supplies **7** and would call
+      `tray.reminder_hours: 5` declared.
+      **Two defects the entry did not know about**: `tray: 5` crashed
+      the tray on `key in 5`, unhandled, and `tray.api_url` has never
+      been read while the loader docstring promised it since `81b3bfb`
+      — the guard beneath was dead by construction and its comment is
+      what the docstring copied.
+      **The live drive found the one no fixture would**: `extra={"keys":
+      …}` is the backend's idiom and readable only because
+      `JsonFormatter` folds it in; the tray's formatter renders
+      `%(message)s`, so the journal line was the bare event name,
+      naming no key. The keys are in the message now and the tests read
+      `getMessage()`.
+      Seven mutations driven, each red on the test about its own rule;
+      an eighth landed red **by accident** and forced the missing
+      negative guard for rule 2. Two of the new check's own tests were
+      false greens first, and the second exposed the check reading
+      `services.yaml` twice, two ways. Residue filed as
+      `SNAG-TRAY-011`: the warning reaches
+      `journalctl --user -u sysadmin-tray` and nothing else, and fires
+      only at startup. **3109 → 3125**, 21 added and 5 retired with the
+      check.
+
 - [x] **Session 136 — the headline fix does not boot, and the file said
       so first.** *(2026-08-30.)* `SNAG-CFG-004` **closed by reporting**,
       its own headline fix refuted before a line of it was written.
