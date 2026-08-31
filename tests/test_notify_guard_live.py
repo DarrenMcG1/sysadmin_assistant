@@ -53,6 +53,50 @@ shapes were available and two were refused:
   toast still lands — the happy path is still exercised — and it lands
   for milliseconds rather than for ever.
 
+**Two operations used to escape this fixture's bus, and they were a
+cause of red rather than untidiness** (``SNAG-TEST-004``). The teardown
+killed waiters with a global ``pkill`` and
+:meth:`test_asking_does_not_start_the_waiter_that_calling_starts` counted
+them with a global ``pgrep``, so both asked a question about *the box*
+and reported it as a question about this fixture. Four tests take the
+fixture — pinned by an AST walk, because two of the four have multi-line
+signatures and a grep sees only two — and a body-level ``pytest.skip``
+runs *after* fixture setup, so all four teardowns fire on any box with
+``dbus-daemon``. Four global kills, against a threshold of three.
+
+The threshold is the mechanism, and one kill is not a small version of
+three. Measured 2026-08-31 against a private bus with a real blocked
+``notify-send``:
+
+===========  ==========================================================
+kills        outcome
+===========  ==========================================================
+0            blocked, rc=124, 8001 ms
+1            blocked, rc=124, 8001 ms
+3            **returned**, rc=1, 3082 ms
+4            **returned**, rc=1, 3082 ms
+===========  ==========================================================
+
+At one kill the bus simply **re-activates** the waiter mid-call — PID
+tracked, 1750881 killed and 1750920 in its place within a second — so
+the call stays blocked and the operation looks harmless. At three the bus
+stops re-activating, the activation fails
+(``StartServiceByName ... exited with status 255``), and the pending call
+is errored, so ``notify-send`` returns and ``assert not returned`` fails.
+
+**The interference needs an *offset*, which is why it was intermittent
+and is worth stating.** Two file runs started together are synchronised:
+both sit in the blocking test for the same eight seconds and both fire
+their teardown burst afterwards, so the burst never lands inside anybody's
+block. Measured — two simultaneous runs are green, twice. Offset so one
+run's teardowns land inside the other's block, the same code is red
+**3 for 3** at delays of 5 s, 6 s and 7 s, and always on exactly
+``test_notify_send_does_not_return_on_a_bus_with_nothing_listening``
+(the run returning in 1.76–3.73 s instead of 8.7 s). Scoped, the same
+three offsets are green **6 for 6** with both runs taking the full
+8.67 s, and no waiter is left on the box. A green pair proves nothing
+without the red pair first — the sequence is the evidence, not the green.
+
 The close is **asserted rather than attempted, and what that assertion
 covers is narrower than it looks.** Measured against Plasma 6.7.4 on
 2026-08-31: ``CloseNotification`` answers ``rc=0`` for an id that was
@@ -74,6 +118,7 @@ which is a defect in the server and not in this file.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import shutil
 import subprocess
@@ -104,8 +149,67 @@ _NO_LIVE_SERVER = (
 )
 
 
+#: The activation helper the unowned name starts. Matched against a full
+#: ``ps`` argument list rather than ``comm``, which truncates it to
+#: ``plasma_waitforn`` at fifteen characters.
+WAITER = "plasma_waitforname"
+
+
 def _have(binary: str) -> bool:
     return shutil.which(binary) is not None
+
+
+@dataclasses.dataclass(frozen=True)
+class UnservedBus:
+    """A private bus, and the pid that scopes every question asked about it.
+
+    The pid is carried beside the path because ``SNAG-TEST-004`` was two
+    operations that asked a question about *the box* while believing they
+    had asked it about this fixture. A path alone cannot scope either of
+    them, so the fixture hands out both and the call sites read which one
+    they meant.
+    """
+
+    path: str
+    pid: str
+
+
+def _waiters_under(root_pid: str) -> list[str]:
+    """The waiters this bus started — and no others.
+
+    **A descendant walk rather than ``pgrep -P``, and that is measured
+    rather than tidy.** ``dbus-daemon --fork --print-pid`` prints a pid
+    that is not the serving daemon: it forks once more, and the activation
+    helper hangs off the *child*. Observed 2026-08-31 — printed 1756159,
+    which parents a second ``dbus-daemon`` 1756174, which parents
+    ``plasma_waitforname`` 1756175. So the obvious scoping would find
+    nothing, report zero waiters, and make
+    :meth:`test_asking_does_not_start_the_waiter_that_calling_starts` pass
+    without looking — ``ports_checked``'s rule, zero-because-blind served
+    as zero-because-clean.
+
+    Callers must ask **before** killing the bus. Once the daemon dies its
+    children are reparented and the ppid chain that identifies them as
+    this fixture's is gone.
+    """
+    listing = subprocess.run(
+        ["ps", "-eo", "pid=,ppid=,args="], capture_output=True, text=True, check=False
+    ).stdout
+    children: dict[str, list[tuple[str, str]]] = {}
+    for line in listing.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) == 3:
+            pid, ppid, args = parts
+            children.setdefault(ppid, []).append((pid, args))
+
+    found: list[str] = []
+    stack = [root_pid]
+    while stack:
+        for pid, args in children.get(stack.pop(), []):
+            stack.append(pid)
+            if WAITER in args:
+                found.append(pid)
+    return found
 
 
 @pytest.fixture
@@ -129,14 +233,29 @@ def unserved_bus(tmp_path: Path):
     address, pid = proc.stdout.strip().splitlines()[:2]
     bus_path = address.removeprefix("unix:path=").split(",", 1)[0]
     try:
-        yield bus_path
+        yield UnservedBus(path=bus_path, pid=pid)
     finally:
         # The activation the hazard triggers outlives its caller — it is
         # started by the bus, not by notify-send — so it is cleaned up
         # explicitly rather than left for the next run to miscount.
-        subprocess.run(
-            ["pkill", "-f", "plasma_wait[f]orname"], capture_output=True, check=False
-        )
+        #
+        # **Scoped to this bus's own descendants** (``SNAG-TEST-004``). This
+        # was a global ``pkill -f plasma_waitforname``, which reached every
+        # waiter on the box including a concurrent run's, and that is not a
+        # tidiness point: measured 2026-08-31, one kill leaves the call
+        # blocked because the bus re-activates the waiter mid-call, but at
+        # **three** the bus stops re-activating, the activation fails
+        # (``StartServiceByName ... exited with status 255``) and the pending
+        # call is errored — so ``notify-send`` returns and
+        # ``test_notify_send_does_not_return_on_a_bus_with_nothing_listening``
+        # goes red. **Four** tests take this fixture, so one file run fired
+        # four global kills against a threshold of three, and two sessions
+        # sharing this box turned each other red.
+        #
+        # Asked before the bus is killed, because killing it reparents the
+        # children this identifies them by.
+        for waiter in _waiters_under(pid):
+            subprocess.run(["kill", waiter], capture_output=True, check=False)
         subprocess.run(["kill", pid], capture_output=True, check=False)
 
 
@@ -277,12 +396,12 @@ class TestTheHazardIsReal:
     """
 
     def test_notify_send_does_not_return_on_a_bus_with_nothing_listening(
-        self, unserved_bus: str
+        self, unserved_bus: UnservedBus
     ):
         if not _have("notify-send"):
             pytest.skip(_MISSING_NOTIFY)
 
-        returned, elapsed, _ = _notify_send(unserved_bus, BLOCK_PROBE_SECONDS)
+        returned, elapsed, _ = _notify_send(unserved_bus.path, BLOCK_PROBE_SECONDS)
 
         assert not returned, (
             f"notify-send returned after {elapsed:.2f}s on a bus with no "
@@ -328,17 +447,17 @@ class TestTheHazardIsReal:
 
 
 class TestTheGuardSeparatesThem:
-    def test_it_refuses_a_bus_with_nothing_listening(self, unserved_bus: str):
+    def test_it_refuses_a_bus_with_nothing_listening(self, unserved_bus: UnservedBus):
         """Exit 1 — the state this box is in at every boot before login."""
-        result = _run_guard(unserved_bus)
+        result = _run_guard(unserved_bus.path)
 
         assert result.returncode == 1, result.stdout + result.stderr
         assert "nothing owning" in result.stdout
 
-    def test_it_refuses_quickly_enough_to_matter(self, unserved_bus: str):
+    def test_it_refuses_quickly_enough_to_matter(self, unserved_bus: UnservedBus):
         """A refusal that takes 30 s is the bug wearing the fix's clothes."""
         started = time.monotonic()
-        _run_guard(unserved_bus)
+        _run_guard(unserved_bus.path)
         elapsed = time.monotonic() - started
 
         assert elapsed < GUARD_BUDGET_SECONDS, (
@@ -347,7 +466,7 @@ class TestTheGuardSeparatesThem:
         )
 
     def test_asking_does_not_start_the_waiter_that_calling_starts(
-        self, unserved_bus: str
+        self, unserved_bus: UnservedBus
     ):
         """The mechanism, asserted directly rather than inferred from speed.
 
@@ -355,6 +474,17 @@ class TestTheGuardSeparatesThem:
         the bus; ``Notify`` goes to an unowned name and activates
         ``plasma_waitforname``. Measured by hand at five guard calls → zero
         waiters, one notify-send → one waiter.
+
+        **Counted over this fixture's own bus, never over the box**
+        (``SNAG-TEST-004``). The count was a global ``pgrep -c -f``, which
+        asks a question about the machine and reports it as a question
+        about this bus: a concurrent run entering its blocking half inside
+        the five guard calls and the 0.5 s sleep raises the count and turns
+        this red, and one dying inside the same window lowers it and hides
+        a real regression. Scoping is what makes the observation belong to
+        the thing under test — and it strengthens the assertion, because
+        this bus starts with **no** waiter, so ``before`` is an empty set
+        rather than whatever the desktop happened to be doing.
 
         Skipped where no activation file for the name exists at all, since
         then there is nothing to avoid starting and a pass would mean
@@ -368,28 +498,18 @@ class TestTheGuardSeparatesThem:
         if not activatable:
             pytest.skip("nothing on this box activates org.freedesktop.Notifications")
 
-        before = subprocess.run(
-            ["pgrep", "-c", "-f", "plasma_wait[f]orname"],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip()
+        before = _waiters_under(unserved_bus.pid)
 
         for _ in range(5):
-            _run_guard(unserved_bus)
+            _run_guard(unserved_bus.path)
         time.sleep(0.5)
 
-        after = subprocess.run(
-            ["pgrep", "-c", "-f", "plasma_wait[f]orname"],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip()
+        after = _waiters_under(unserved_bus.pid)
 
         assert after == before, (
-            f"asking the guard's question started a waiter ({before} → {after}); "
-            "the question is being addressed to the notification name rather "
-            "than to the bus daemon"
+            f"asking the guard's question started a waiter ({before} → {after}) "
+            "under this fixture's own bus; the question is being addressed to "
+            "the notification name rather than to the bus daemon"
         )
 
     def test_it_reports_a_missing_socket_as_not_knowing_rather_than_as_no(
