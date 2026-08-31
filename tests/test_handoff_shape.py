@@ -174,6 +174,35 @@ class TestPreflightIsTheOnlyReaderAndSaysSo:
     prevent, and silently.
     """
 
+    def test_every_script_the_conventions_name_is_executable(self):
+        """A shell script is only a reader if it can be run.
+
+        Written after shipping the opposite in commit ``30bfbea``: a
+        falsification run wrote its backup with Python's ``open(..., "w")``,
+        which creates mode ``0644``, and ``mv``-ing that back over the
+        script dropped the execute bit. The suite was green, ruff was
+        clean, the pre-commit hook passed, and ``./scripts/claude-preflight.sh``
+        answered ``permission denied`` for the next sitting — a mode is
+        not content, so nothing that reads the file could see it.
+
+        Swept over every ``scripts/*.sh`` rather than the one that broke:
+        the failure is a property of how they are edited, not of which
+        one, and a guard naming a single file is one rename from
+        silence.
+        """
+        scripts = sorted(
+            (pathlib.Path(__file__).resolve().parent.parent / "scripts").glob("*.sh")
+        )
+        assert scripts, "no scripts/*.sh found — the sweep would pass vacuously"
+        import os
+
+        not_runnable = [
+            s.name for s in scripts if not os.access(s, os.X_OK)
+        ]
+        assert not not_runnable, (
+            f"these ship without the execute bit and fail at the shell: {not_runnable}"
+        )
+
     def test_preflight_reads_the_scheduled_section(self):
         script = (
             pathlib.Path(__file__).resolve().parent.parent

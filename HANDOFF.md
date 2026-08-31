@@ -2,7 +2,9 @@
 
 ## Next action
 
-Re-measure `SNAG-LOG-013` before touching it, because its own filing predicted that the 9-of-55 colliding signatures and the incident row listing 7 members identical after capping would age out of retention that same afternoon, so the first question is whether the population still exists rather than how to fix it.
+Write `SNAG-AGENT-011`'s check and then decide its fix: the check is a conjunction whose limb 1 must read the nightly shape out of `alerts` locally rather than asking 8400 for an active lease, because a sitting runs in the daytime and would see none — and the fix reads `active_lease.stopped_units` from `GET :8400/api/queue/invariants`, which the agent can see live at 00:03 when it decides the rung, failing open so a dead estate never silences a genuine outage.
+
+_Ranked alternative if that is blocked: re-measure `SNAG-LOG-013` before touching it — its own filing predicted the 9-of-55 colliding signatures and the incident row listing 7 identical members would age out of retention the same afternoon, so the first question is whether the population still exists._
 
 ## Scheduled action
 
@@ -146,6 +148,17 @@ copied-1800 arithmetic is over two constants and no code change can break
 it. Daemon restarted at 06:55:16, and **this restart was owed**, breaking
 a run of three that were the mtime check's blind spot — `gpu_lease.py` is
 imported by all three review entry points.
+
+**Two things found after the lease work and recorded rather than fixed.**
+`SNAG-AGENT-011` (P2) — the estate stops `venture-chat.service` under a
+lease and this repository announces it as `critical`, standing ~5h45m
+nightly, which is the drain's hold to the second; the discriminator is
+`active_lease.stopped_units`, live on a surface `sysadmin/estate/client.py`
+already reads. Its check is **owed rather than refused** and is the next
+action. And `30bfbea` shipped `claude-preflight.sh` **without its execute
+bit** — a falsification's Python-written backup was `mv`'d back over it,
+and a mode is not content, so the suite, ruff and the pre-commit hook were
+green over the one script every sitting starts with. Fixed and swept.
 
 **What is not done.** The observation, and it is one reading — see Next
 action. Nothing else was left: the estate's message is closed, both

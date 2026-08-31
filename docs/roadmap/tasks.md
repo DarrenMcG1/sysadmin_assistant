@@ -214,6 +214,30 @@ debts that landing deliberately left behind._
         branches driven. Announced as message **`8e693e05`** before this
         commit, with the estate-wide convention offered as a
         recommendation for them to rule on.
+      - **`SNAG-AGENT-011` filed (P2), and re-measuring before filing is
+        what made it accurate.** Verifying the ops claims surfaced
+        `venture-chat unreachable`: the estate's arbiter stops that unit
+        under a lease and the sysadmin agent announces it as `critical`,
+        the one rung the tray leaves on screen. Nightly it stands
+        **~5h45m**, the drain's hold to the second. The obvious figure was
+        **181 rows all-time** and it is wrong for today — **161 fall on
+        2026-08-11 → 08-14**, before the estate's queue owned the swap —
+        so the entry carries the current regime's **20 of 23** in the
+        whole `% unreachable` family. The discriminator is
+        `active_lease.stopped_units`, live on a surface
+        `sysadmin/estate/client.py` already reads. Its check is **owed
+        rather than refused** — a witness exists and its shape is named —
+        and the retrospective half is measured **impossible** from here:
+        `GET /openapi.json` on 8400 publishes four queue surfaces and none
+        is a lease history, while `gpu_leases` is theirs by estate rule 1.
+      - **A commit shipped a script without its execute bit**, found by
+        running it rather than by any check. A falsification wrote its
+        backup with Python's `open(..., "w")` — mode `0644` — and `mv`
+        put that back over `claude-preflight.sh`, so `30bfbea` left the
+        one script every sitting starts with answering `permission
+        denied`. A mode is not content, so the suite, ruff and the
+        pre-commit hook were all green over it. Guarded now by a sweep
+        over every `scripts/*.sh`, falsified in both directions.
       - **Still owed: one reading, on 2026-09-07.** `llm_used` on the
         three review tables, and the four grants and their order in
         `journalctl --user -u estate-manager-api.service`. Prediction:
