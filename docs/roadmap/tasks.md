@@ -80,9 +80,54 @@ debts that landing deliberately left behind._
         about. A second guard was strengthened before being driven, the
         threshold pin having asserted a *value* where it meant
         *provenance*.
-      - **Not observed yet, and the date is fixed**: no Monday has run in
-        the new regime. **2026-08-31** is the first, and the prediction
-        `SNAG-SCHED-003` makes is false, false, false.
+      - **Observed 2026-08-31 and the prediction held**: `health_reviews`
+        05:00:03.92, `log_reviews` 05:15:00.06 and `disk_reviews`
+        05:45:00.43 all wrote `llm_used=false`. Confirmed at the journal
+        rather than at the flag — `llm_gpu_busy` at **99, 97 and 98**
+        against `threshold: 25`, `alfred-inference.service` `active`
+        throughout, the drain finishing **05:46:11** — so the mechanism is
+        confirmed and not merely the outcome. See Session 141 below.
+- [x] **Session 141 — the prediction held and the headline's ranking did
+      not.** *(2026-08-31. Docs only; no code changed.)* Read the three
+      `llm_used` values `SNAG-SCHED-003` is dated on. All three `false`.
+      - **The flag is the prediction; the journal is the mechanism.**
+        Nothing on the three review surfaces separates *skipped for
+        contention* from *llama-server was down*, which is the entry's own
+        quieter half, so a false×3 alone confirms less than it looks like.
+        Each row is preceded by `llm_gpu_busy` carrying `busy_percent`
+        **99, 97, 98** against `threshold: 25` and followed within
+        milliseconds by its `*_llm_unavailable_used_fallback`;
+        `alfred-inference.service` was `active` with no start, stop or
+        failure in the window; `venture-enrich-nightly.service` finished
+        **05:46:11**, a sixth consecutive night in the recorded band.
+      - **A third witness, independent of the daemon's own gate.**
+        `resource_snapshots` over the dGPU — the card taken by
+        `max(vram_total_mb)`, never by key — gives **2 of 2** samples above
+        the gate at 05:00 (mean 100.0), **2 of 2** at 05:15 (99.0) and
+        **1 of 2** at 05:45 (53.5).
+      - **The estate kept its narrative on the identical fault, the same
+        morning.** Lease 38, polled **16 m 21 s**, granted **05:46:20** —
+        nine seconds after the release — generated in about a second. The
+        two nights the entry cites for them are 08-17 and 08-24, *before*
+        they changed; this is the first night the two designs have been
+        observed side by side under one holder. The lease fix is licensed.
+      - **The refuted claim is ours, and the error is the instrument.**
+        The entry's headline says *two of the three* are worse off and
+        ranks disk least affected at **5 of 12, 42.5 %** over ±300 s.
+        `ensure_gpu_idle` reads at the **dispatch instant**, 05:45:00.43,
+        **71 s** before the release — so disk lost too. A ±300 s mean
+        straddles the release and reports as half-clear a slot that was
+        fully occupied when sampled. Priority unmoved: it was argued from
+        three narratives, never from which is worst.
+      - **The check carries the refuted ranking and is still correctly
+        green.** It reads `disk_review 6/14 busy` and names `generating
+        into a held card: health_review, log_review`, by the same majority
+        rule. The conjunction holds through health and log, so the verdict
+        is right and the sentence beside it is not. Left as measured —
+        moving the sample to the dispatch instant changes the check's
+        witness and belongs with the fix. Its 6/14 is the 5/12 plus **1
+        busy of 2 new samples**, which is what `resource_snapshots`
+        independently gives for the 05:45 slot today.
 - [x] **Session 139 — the gauge moved and the threshold deliberately did
       not.** *(2026-08-30.)* Estate message `d1939cf7` **acted on and
       closed**. estate-manager's weekly review now *takes* a GPU lease

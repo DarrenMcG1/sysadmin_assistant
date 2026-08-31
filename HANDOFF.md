@@ -1,8 +1,89 @@
-# Handoff — 2026-08-30
+# Handoff — 2026-08-31
 
 ## Next action
 
-Read the three `llm_used` values this box writes on Monday 2026-08-31 — `GET /api/sysadmin/review` at 05:00, `GET /api/logs/review` at 05:15 and `GET /api/files/review` at 05:45, or `SELECT generated_at, llm_used FROM sysadmin.health_reviews UNION ALL ...` across the three tables — because `SNAG-SCHED-003` predicts all three come back **false** and 08-31 is the first Monday since `venture-enrich-nightly` moved to 00:00 and began holding the card until 05:45:15-05:47:18, so a false-false-false confirms the mechanism and licenses the lease fix outright while any single `true` refutes the mechanism rather than merely the scope and sends the next sitting back to the occupancy measurement before it changes any code.
+Build the lease fix `SNAG-SCHED-003` now licenses — have the three weekly reviews take a GPU lease from the estate's arbiter on 8400 and wait for the grant, the way `estate-manager-review.service` already does, instead of `ensure_gpu_idle` sampling the card once at dispatch and serving a digest — but settle the wait budget first, because the estate's single `REVIEW_WAIT_SECONDS` of 1800 cannot be copied here: the 06:00 briefing is a fixed boundary and the three slots have 60, 45 and 15 minutes of headroom before it, so either each review gets its own budget derived from its distance to 06:00 or the chain is re-slotted to share one, and that choice is the owner's rather than a number to invent.
+
+## Session 141 is complete — the prediction held, the mechanism came with it, and the headline's ranking did not survive
+
+**The reading `SNAG-SCHED-003` was dated on came back false, false,
+false.** `health_reviews` 05:00:03.92, `log_reviews` 05:15:00.06 and
+`disk_reviews` 05:45:00.43 all wrote `llm_used=false` on the first Monday
+since `venture-enrich-nightly` moved to 00:00. **No code changed this
+sitting** — the sitting was the measurement, and the three tracking
+documents carry it.
+
+**A false×3 is the prediction, not the mechanism, and the entry says so
+itself.** Its quieter half is that nothing on those three surfaces
+separates *skipped for contention* from *llama-server was down*, so the
+stored flag alone would have licensed the fix on an ambiguity. The
+journal is where the two part: each row is preceded by `llm_gpu_busy`
+from `sysadmin.core.llm_client` carrying `busy_percent` **99, 97 and 98**
+against `threshold: 25`, and followed within milliseconds by its own
+`*_llm_unavailable_used_fallback`. `alfred-inference.service` was
+`active` throughout with no start, stop or failure in the window, which
+refutes the alternative cause rather than assuming it away, and
+`venture-enrich-nightly.service` finished **05:46:11** — a sixth
+consecutive night inside the recorded band.
+
+**A third witness, independent of the daemon's own gate.**
+`resource_snapshots` read over the dGPU — the card taken by
+`max(vram_total_mb)`, never by key, which is the entry's own rule — gives
+**2 of 2** samples above the gate at 05:00 (mean 100.0), **2 of 2** at
+05:15 (99.0) and **1 of 2** at 05:45 (53.5). Three producers agree: the
+gate's own reading, the snapshot table, and the drain's journal.
+
+**The estate paid the identical fault the same morning and kept its
+narrative.** `estate-manager-review.service` took lease 38, polled it for
+**16 m 21 s**, was granted at **05:46:20** — nine seconds after the drain
+released — and generated in about a second
+(`weekly_project_review_generated`). Same card, same drain, same hour: it
+waited and got its narrative while this repository read the card once at
+each of three slots and served three digests into the 06:00 briefing. The
+two nights the entry cites for them are 08-17 and 08-24, *before* they
+changed; this is the first night the two designs have been observed side
+by side under one holder. **The lease fix is licensed outright.**
+
+**The claim that was refuted is ours, and the error is the instrument
+rather than the slot.** The entry's headline says *two of the three*
+reviews are worse off and ranks disk least affected at **5 of 12,
+42.5 %** over a ±300 s window. `ensure_gpu_idle` reads at the **dispatch
+instant**, which was 05:45:00.43 — **71 seconds** before the release — so
+disk lost too and all three narratives went. A ±300 s mean straddles the
+release and reports as half-clear a slot that was fully occupied when it
+was actually sampled. The priority does not move: P2 was argued from
+three narratives every Monday, never from which of them is worst.
+
+**The check reproduces the refuted ranking and is still correctly
+green.** Driven after the observation it reads `disk_review 6/14 busy`
+and names `generating into a held card: health_review, log_review`, by
+the same majority rule that produced the 5 of 12. The conjunction holds
+through health and log, so the verdict is `match` and the entry stays
+green for the right reason; what is wrong is the evidence sentence beside
+the verdict. Left as measured rather than re-instrumented here, because
+moving the sample to the dispatch instant changes the check's witness and
+belongs with the fix. It did supply one cross-check on the way out: its
+**6/14** is the previous **5/12** plus **1 busy of 2 new samples**, which
+is independently what `resource_snapshots` gives for the 05:45 slot
+today.
+
+**What the next sitting must settle before writing code.** The estate
+waits up to a single `REVIEW_WAIT_SECONDS` of 1800 against no downstream
+boundary of its own. This chain has one: the 06:00 briefing publishes
+what these three reviews write, and the slots sit 60, 45 and 15 minutes
+ahead of it. One shared budget is therefore wrong for at least one of the
+three, so the choice is between a per-review budget derived from each
+slot's distance to 06:00 and a re-slotting that lets one budget serve all
+three. That is a decision, not a number to invent — `queue_max_wait_seconds`
+is already this repository's one **invented** threshold and says so, and a
+second one would be the same debt at the surface the briefing publishes.
+
+**Both checks are green and the tree is otherwise untouched.**
+`./scripts/check-snag-claims.sh` exits 0 with 20 of 20 open entries
+checked, `./scripts/check-ops-claims.sh` exits 0 on all nine claims, and
+no `<!--check:-->` marker was disarmed — backtick parity was verified on
+the amended regions of both `STATUS.md` and `snag_list.md`, which is the
+failure mode that silently retires every marker after it.
 
 ## Session 140 is complete — the measurement named the wrong contender, and the box had already recorded the right one
 

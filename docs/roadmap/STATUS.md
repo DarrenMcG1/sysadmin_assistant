@@ -1,8 +1,58 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-08-30
+**Last Updated**: 2026-08-31
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The prediction came true and the mechanism came with it — and the
+> ranking in the entry's own headline did not survive the morning**
+> (2026-08-31, Session 141). `SNAG-SCHED-003` predicted **false, false,
+> false** for the three `llm_used` values this box writes on the first
+> Monday since the drain moved to 00:00. All three are `false`:
+> `health_reviews` 05:00:03.92, `log_reviews` 05:15:00.06,
+> `disk_reviews` 05:45:00.43. **No code changed this sitting.**
+>
+> **A false is not by itself a confirmation, which is the entry's own
+> quieter half.** Nothing on those three surfaces separates *skipped for
+> contention* from *llama-server was down*, so the stored flag is the
+> prediction and the journal is the mechanism: each row is preceded by
+> `llm_gpu_busy` from `sysadmin.core.llm_client` carrying `busy_percent`
+> **99, 97 and 98** against `threshold: 25`, and followed within
+> milliseconds by its own `*_llm_unavailable_used_fallback`.
+> `alfred-inference.service` was `active` throughout — the alternative
+> cause is refuted rather than assumed away — and
+> `venture-enrich-nightly.service` finished **05:46:11**, a sixth
+> consecutive night inside the recorded band.
+>
+> **The estate paid the identical fault the same morning and kept its
+> narrative.** It took lease 38, polled **16 m 21 s**, was granted at
+> **05:46:20** — nine seconds after the drain released — and generated in
+> about a second. Same card, same drain, same hour: it waited and got its
+> narrative while this repository read the card once at each of three
+> slots and served three digests into the 06:00 briefing. The two nights
+> the entry cites for them are 08-17 and 08-24, *before* they changed;
+> this is the first night the two designs have been seen side by side
+> under one holder. **The lease fix is licensed outright.**
+>
+> **The refutation is of our own headline, and the error is the
+> instrument.** That headline says *two of the three* reviews are worse
+> off, ranking disk least affected at **5 of 12, 42.5 %** over ±300 s.
+> `ensure_gpu_idle` reads at the **dispatch instant**, 05:45:00.43 —
+> **71 seconds** before the release — so disk lost too. A ±300 s mean
+> straddles the release and reports as half-clear a slot that was fully
+> occupied when it was actually sampled. The priority does not move: it
+> was argued from three narratives, never from which is worst.
+>
+> **The check reproduces the refuted ranking and its verdict is still
+> right.** Driven after the observation it reads `disk_review 6/14 busy`
+> and names `generating into a held card: health_review, log_review` — by
+> the same majority rule that produced the 5 of 12. The conjunction holds
+> through health and log, so the entry stays green for the right reason;
+> what is wrong is the sentence beside the verdict. Left as measured,
+> because moving the sample to the dispatch instant changes the check's
+> witness and belongs with the fix.
+>
+> ---
+>
 > **The measurement named the wrong contender, and the box had already
 > recorded the right one** — `SNAG-SCHED-001` owed one number before its
 > two fixes could be ranked. Taking it re-ranked the entry instead.
