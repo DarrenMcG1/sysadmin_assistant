@@ -155,19 +155,47 @@ id never issued (999999) and emits `NotificationClosed` reason 3, so
 `assert closed` is evidence the call was made and answered and **not**
 that a toast left the screen.
 
-**That commit refuted this sitting's own snag an hour after it was
-filed**, which is recorded in `SNAG-TEST-003` rather than quietly
-rewritten. Its two reds were blamed on **load**; the better-supported
-cause is that a peer session was running the same suite against the
-**shared** session bus while its accumulated backlog of never-expiring
-critical toasts grew. The entry's refutation of cross-session contention
-checked `unserved_bus` — which starts its own private `dbus-daemon`, so
-a peer genuinely cannot reach it — and then applied that conclusion to
-the other test, which uses the shared bus on purpose. One fixture
-checked, two tests concluded about. Post-fix the suite is **3
-consecutive full-suite greens**, so the entry is narrowed to the half no
-mechanism touches: a red there tells the reader the hazard is **gone**,
-so the flake reads as good news and invites deleting the guard.
+**That commit refuted this sitting's own snag, and then the peer refuted
+the replacement, and the third answer was driven with a control.** The
+sequence is the value here, so it is recorded rather than tidied.
+
+The entry was filed blaming **load**. `9efef79` refuted that: a peer
+session was running the same suite against the **shared** session bus
+while its own never-expiring toasts accumulated. This sitting then
+attributed **both** reds to that — and the peer pointed out that red 2
+(`…does_not_return_on_a_bus_with_nothing_listening`) never opens the
+shared bus at all, so the replacement mechanism structurally cannot reach
+it. **The same one-fixture-two-tests error, made while correcting the
+first instance of it.** They also had a candidate and eliminated it by
+measurement: one unscoped `pkill` at a blocked `notify-send` leaves it
+blocked, because the bus re-activates the waiter mid-call, PID-tracked.
+
+**That elimination is correct and does not generalise, which is the
+finding.** Driven here with a control: 0 kills and 1 kill both block the
+full **8.01 s** at `rc=124` — reproducing the peer's result exactly — and
+**three** kills, at 1.0 s and again at 1.5 s spacing, make the call
+**return** at 3.88 s and 5.38 s with `rc=1` and `Error calling
+StartServiceByName … Process org.freedesktop.Notifications exited with
+status 255`. Two kills 0.4 s apart do not. So the bus re-activates after
+one kill and stops after about three, erroring the pending call — which
+is exactly `assert not returned` failing. **Four** tests take the
+fixture, so an ordinary file run fires four unscoped kills, which is why
+red 2 needed no load: it was a *file-alone* run beside a peer running the
+same file. The entry had twice said "two full-suite runs"; that is
+corrected too.
+
+So the entry **split by remedy**. `SNAG-TEST-003` keeps the half no
+mechanism touches — the assertion's own text says a red means the hazard
+is **gone**, so a flake there reads as good news and invites relaxing the
+control, and `SNAG-TEST-004` now supplies a *measured* red that would
+have said exactly that on a box where the hazard is intact.
+`SNAG-TEST-004` is the cause: two operations escape the fixture's own bus
+— the teardown's global `pkill` and a global `pgrep -c` in
+`test_asking_does_not_start_the_waiter_that_calling_starts` (the second
+reported by the peer, code-confirmed here and **not** driven, and
+labelled so). Its remedy is **scoping**, not the differential the first
+version named: bound both to the fixture's own `dbus-daemon`, whose child
+the waiter is.
 
 ## Session 143 — `SNAG-AGENT-011`'s check, and a fix that cannot be written as filed (2026-08-31)
 

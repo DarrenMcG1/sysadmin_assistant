@@ -1337,13 +1337,17 @@ duplicate-claimed ports.
 `requires_restart: []`. The deploy check's "restart owed" was a false
 positive on an mtime with no content change.
 
-**`SNAG-TEST-003` opened and was rewritten an hour later.** Two reds in
-two full-suite runs on an unchanged tree were blamed on load; a parallel
-`sysadmin_assistant` session was in fact running the same suite against
-the **shared** session bus and committing `9efef79` to that very file.
-The entry is narrowed to what no mechanism touches — a red in
-`TestTheHazardIsReal` tells the reader `SNAG-SYSD-004`'s hazard is gone,
-so the flake reads as good news.
+**`SNAG-TEST-003` opened, rewritten twice, then split into
+`SNAG-TEST-004`.** Filed blaming load; a parallel `sysadmin_assistant`
+session refuted that; this sitting then attributed both reds to the
+shared session bus, which one of them never opens — the same
+one-fixture-two-tests error, made while correcting it. Settled by driving
+with a control: 0 and 1 unscoped `pkill` both leave `notify-send` blocked
+the full 8.01 s, and **3** make it return at `rc=1` with `Process
+org.freedesktop.Notifications exited with status 255`. Four tests take
+the fixture, so an ordinary run fires four. `SNAG-TEST-004` is the cause
+(two calls escape the fixture's private bus; remedy is scoping);
+`SNAG-TEST-003` keeps the wording defect, which no mechanism touches.
 
 **`9efef79` is that session's, folded in here at its request** (it
 committed one file by pathspec and left every document alone): the live
