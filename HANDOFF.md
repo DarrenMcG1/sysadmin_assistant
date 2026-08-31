@@ -179,9 +179,14 @@ StartServiceByName … Process org.freedesktop.Notifications exited with
 status 255`. Two kills 0.4 s apart do not. So the bus re-activates after
 one kill and stops after about three, erroring the pending call — which
 is exactly `assert not returned` failing. **Four** tests take the
-fixture, so an ordinary file run fires four unscoped kills, which is why
-red 2 needed no load: it was a *file-alone* run beside a peer running the
-same file. The entry had twice said "two full-suite runs"; that is
+fixture — AST-pinned at lines 279/331/338/349, because the peer flagged
+the figure as grep-fragile (a `def`-line grep returns **2**, two
+signatures being multi-line) and 4 against a threshold of 3 is the whole
+argument — so an ordinary file run fires four unscoped kills. Four is a
+**floor**, not a best case: a body-level `pytest.skip` runs after fixture
+setup, so its teardown still fires, verified with a two-test probe. That
+is why red 2 needed no load: it was a *file-alone* run beside a peer
+running the same file. The entry had twice said "two full-suite runs"; that is
 corrected too.
 
 So the entry **split by remedy**. `SNAG-TEST-003` keeps the half no
