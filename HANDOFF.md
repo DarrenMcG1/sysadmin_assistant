@@ -2,7 +2,126 @@
 
 ## Next action
 
-Build the lease fix `SNAG-SCHED-003` now licenses — have the three weekly reviews take a GPU lease from the estate's arbiter on 8400 and wait for the grant, the way `estate-manager-review.service` already does, instead of `ensure_gpu_idle` sampling the card once at dispatch and serving a digest — but settle the wait budget first, because the estate's single `REVIEW_WAIT_SECONDS` of 1800 cannot be copied here: the 06:00 briefing is a fixed boundary and the three slots have 60, 45 and 15 minutes of headroom before it, so either each review gets its own budget derived from its distance to 06:00 or the chain is re-slotted to share one, and that choice is the owner's rather than a number to invent.
+Read the first Monday under lease on 2026-09-07: `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews` should be true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning beside it, because the three refusals are logged apart precisely so that reading answers why.
+
+## Session 142 is complete — the reviews park now, and the budget is a deadline rather than a duration
+
+**`SNAG-SCHED-003` and `SNAG-SCHED-001` both closed.** The three weekly
+reviews take a GPU lease from the estate's arbiter through
+`estate.queue` and wait for the grant. `sysadmin/core/gpu_lease.py` is
+the module; `LLMClient.generate` gained `gpu_lease_held`, which is the
+**absence** of a gate rather than a third sampler — estate-manager's
+`GpuGate.HELD`, spelled as a `bool` because `SUSTAINED` was costed and
+refused here in Session 134 and an enum would carry a member nothing can
+reach. No slot moved: the entry's own ranking of its two candidate fixes
+was right, and the lease is the one that holds wherever the boundary
+lands.
+
+**The owner settled the budget and the shape is what makes it work.**
+One deadline — `briefing_hour` less `schedules.review_lease_margin_minutes`
+(5) — with each review deriving `wait_seconds = deadline − now` at its
+own dispatch: **3300, 2400 and 600 s**. Three independent leaves were
+offered and refused, because they say the wrong thing about the
+mechanism: `Arbiter.tick` returns early while **any** lease is granted
+and `_oldest_waiter` orders by `requested_at` across every profile, so
+the three reviews are not waiting three lengths — they are waiting for
+**one instant**, the holder's release, from three starting points. The
+deadline is derived from the briefing rather than written as `"05:55"`,
+so a briefing moved to 07:00 carries the budget with it.
+
+**estate-manager corrected the arithmetic and the correction does not
+bite, which is the cleanest argument for that shape.**
+`Arbiter._drop_overdue_waiters()` runs **first** in every tick, before
+the grant, so a waiter past its `wait_deadline` is dropped even if the
+card frees a second later — verified in their source rather than taken
+from their message. Copying their `REVIEW_WAIT_SECONDS` of 1800 would
+drop the 05:00 job at 05:30, fifteen minutes early, and the 05:15 job by
+22–72 s, which is the nasty one because it fails by a margin small
+enough to read as a fluke. Every deadline-derived budget ends at 05:55,
+past the whole recorded release band of 05:45:15 → 05:47:18.
+
+**The blocker was not in the handoff and it was another repository's to
+clear.** `POST /api/queue/acquire` answers `404 unknown profile` and
+`service/profiles.yaml` is estate-manager's by the estate rule that
+shared infrastructure gets an owner that is not an application. Filed as
+message **`dcae132c`** with the cost and the FIFO consequence stated
+**before** the commit; the code shipped pre-staged behind a test gated on
+the profile appearing, so the sitting was never parked. They landed
+`sysadmin-review` (`stop: []` / `start: []`) the same sitting and closed
+the message. Naming their `estate-review` was considered and refused —
+that profile's own comment names their timer and their job — and their
+note agreed for the same reason.
+
+**Two things their note added that this repository had not computed.**
+Our 05:45 disk review now queues *behind* estate-review, pushed back by
+their measured 4.00 s hold plus up to one 5 s tick; and only **two** of
+our generations are ahead of them rather than three, so their grant moves
+by ~2–22 s rather than the 15–45 s we announced. They accepted it
+explicitly and asked us **not** to re-slot behind them.
+
+**Our own queue alert sees ~2700 s waits every Monday now and raises
+nothing.** `judge_queue_invariants` has read
+`oldest_unexplained_wait_seconds` since Session 139, and `behind_holder`
+is masked out of it — so the gauge this fix moves is the one that had
+already been taught to expect exactly this. Verified in
+`sysadmin/estate/judgements.py` rather than assumed.
+
+**The checks were briefly wrong in the direction this family is named
+for, and that is the part worth carrying.** Both read source, and source
+cannot see a `404`: the moment `gpu_lease.py` existed they reported
+`mismatch` over a Monday that still cost three narratives. That is
+`SNAG-SCHED-002`'s false retirement one sitting later and by the
+**opposite** route — there the *symptom* was promoted to the remedy, here
+the *remedy* would have been promoted before it worked.
+`_review_profile_published` made the arbitration limb a conjunction with
+the arbiter's own roster, every way of not-knowing returning `None`
+rather than `False`, and both checks went back to `match` until the
+profile landed an hour later. They retired then, having been correct
+throughout.
+
+**Driven live, and the drive caught the fix working at a moment nobody
+arranged.** Lease 39 was requested at 06:39:30 with `wait 3300s, hold
+600s`; the arbiter logged `lease 39 waits: GPU floor 26% over threshold
+25%` and **parked it** — which is the whole entry in one line, because
+the old gate raised `GpuBusy` at that same 26 % and served a digest.
+`wait_deadline` came back `07:34:30`, the request plus exactly the
+derived 3300 s, so the budget reaches the arbiter unchanged. Cancelled
+rather than left to hold.
+
+**Writing the live drive found a defect reading the code had not.**
+`estate.queue.acquire` defaults `base_url` to its own
+`http://127.0.0.1:8400` and this module passed none — a second spelling
+of the estate's address inside a process that already reaches :8400
+through `agents.estate_judge.base_url`. Right on this box today and free
+to drift from the address the judging uses. `arbiter_url()` is the one
+reader now.
+
+**Both checks retired and the guard did not** — `FROZEN_TABLES`' rule,
+for the eighth time here — and it is **stronger than what it replaces**.
+Those checks swept `sysadmin/` for any mention of an arbitrating name,
+weak enough that a docstring nearly satisfied one;
+`TestTheWaiterlessInvocationTakesALease` asks, per review module, that
+the job acquires, passes `gpu_lease_held`, and releases from a `finally`.
+The middle assertion is load-bearing: a job that took a lease and let the
+flag default to `False` would wait for the card and *then* give up on it,
+which is strictly worse than not waiting and green in every behavioural
+test, because both paths store a review. `tests/test_gpu_lease_live.py`
+holds the other half — that the estate still publishes the profile, since
+its removal would degrade every review silently and raise nothing here.
+
+**3196 green** (3180 + 48 − 32, baseline measured by stashing rather than
+read off STATUS.md, which was right for the first time in five sittings).
+**Thirteen mutations driven and thirteen killed**, each on the intended
+tests and none passing against broken code — but one new test is a
+**recorded counterfactual rather than a guard and says so**: the
+copied-1800 arithmetic is over two constants and no code change can break
+it. Daemon restarted at 06:55:16, and **this restart was owed**, breaking
+a run of three that were the mtime check's blind spot — `gpu_lease.py` is
+imported by all three review entry points.
+
+**What is not done.** The observation, and it is one reading — see Next
+action. Nothing else was left: the estate's message is closed, both
+entries are closed, and no new snag was opened.
 
 ## Session 141 is complete — the prediction held, the mechanism came with it, and the headline's ranking did not survive
 

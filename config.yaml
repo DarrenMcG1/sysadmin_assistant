@@ -136,6 +136,28 @@ notifications:
 schedules:
   briefing_hour: 6      # morning briefing (generated; send dormant — see personal_assistant)
   briefing_minute: 0
+  # The weekly reviews take a GPU lease from the estate's arbiter on 8400
+  # and wait for the grant (SNAG-SCHED-003). Their wait budget ends this
+  # many minutes before the briefing above — one deadline, three budgets
+  # derived from it at dispatch, because the arbiter grants one lease at a
+  # time FIFO across every profile and all three are therefore waiting for
+  # the same instant.
+  #
+  # Past the deadline the deterministic digest is served and no lease is
+  # asked for. That is a real trade rather than a free one: the briefing
+  # runs daily and `_REVIEW_FRESH_DAYS` is 8, so a narrative landing at
+  # 06:10 would still reach Tuesday-to-Sunday's briefings — what the
+  # deadline gives up is the rest of the week to guarantee the Monday one.
+  #
+  # 5 minutes is ~15x the worst observed chain (a generation takes
+  # 0.78-5.85 s; the arbiter ticks every 5 s; three serialised grants land
+  # inside ~20 s) and every derived budget clears the whole measured
+  # release band of venture-enrich-nightly, 05:45:15 to 05:47:18. Do NOT
+  # replace this with estate-manager's REVIEW_WAIT_SECONDS of 1800:
+  # `Arbiter._drop_overdue_waiters()` runs before the grant in every tick,
+  # so 1800 s from 05:00 is dropped at 05:30 and from 05:15 at 05:45:00 —
+  # before five of the six recorded releases (their message dcae132c).
+  review_lease_margin_minutes: 5
   retention_hour: 3     # data retention purge
   retention_minute: 0
   # Daily reliability snapshot — deliberately an hour AHEAD of the retention

@@ -15,11 +15,34 @@ rather than one.  Session 134 costed the split and refused it: the
 window rescues a ~1-in-120 transient on a path that fires three times a
 week, and a false defer costs prose rather than a review.
 
-Two guards, because the decision has two ways to go stale:
+**The waiterless half took a lease on 2026-08-31 and that makes the
+refusal stronger, not weaker** (``SNAG-SCHED-003``).  The three Monday
+jobs now hold an estate GPU lease and pass ``gpu_lease_held=True``, so
+they skip the gate entirely — the arbiter has already read the card on
+their behalf, as a *retry* rather than a refusal, and it holds the card
+until release.  What is left in the gate's population is the three
+``POST …/review/generate`` routes alone, which is precisely the class the
+single read is right for.  So ``sustained_busy``'s population here is now
+**empty**, and the window is refused for a second, independent reason.
+
+That is why the first guard below is kept and reworded rather than
+deleted: it no longer asks whether the waiterless class reaches the
+*gate*, it asks whether it reaches the *review*, and a third guard asks
+whether it takes a lease on the way.  Deleting a control because its
+subject moved is how a repository stops noticing that the subject moved
+back.
+
+Three guards, because the decision has three ways to go stale:
 
 * **The premise.**  If the routes ever stop holding the request open —
   dispatched to a task, answered 202 — every invocation becomes
   waiterless and the refusal is re-openable.  Nothing else would say so.
+* **The lease.**  If a weekly job stops taking one, the waiterless class
+  is back in the gate's population and back to reading the card once
+  inside another repository's five-and-three-quarter-hour hold, which is
+  ``SNAG-SCHED-003``'s whole symptom.  Nothing else would say so: the job
+  still calls ``generate_review``, still stores a review, and still logs
+  ``weekly_*_review_generated`` — it just quietly serves a digest.
 * **The rule, pre-staged.**  Its population is empty today and it starts
   asserting the day somebody adopts the window: every call site here
   runs inside an event loop, so an unthreaded ``sustained_busy`` stalls
@@ -48,6 +71,9 @@ REVIEW_GATES = (
 
 GATED_CALL = "generate_review"
 JOB_ENTRY_POINT = "run_weekly_review"
+LEASE_ACQUIRE = "acquire_review_lease"
+LEASE_RELEASE = "release_review_lease"
+HELD_FLAG = "gpu_lease_held"
 WINDOW = "sustained_busy"
 SINGLE_READ = "ensure_gpu_idle"
 
@@ -153,7 +179,7 @@ class TestBothInvocationClassesReachTheGate:
     """
 
     @pytest.mark.parametrize("review_module,_router", REVIEW_GATES)
-    def test_the_weekly_job_reaches_it_with_nobody_waiting(
+    def test_the_weekly_job_is_still_the_waiterless_invocation(
         self, review_module: str, _router: str
     ):
         node = _function(_tree(review_module), JOB_ENTRY_POINT)
@@ -166,7 +192,7 @@ class TestBothInvocationClassesReachTheGate:
         ]
         assert called, (
             f"{review_module}.{JOB_ENTRY_POINT} no longer calls {GATED_CALL} — "
-            "the waiterless half of the gate's population has moved"
+            "the waiterless half of the population has moved"
         )
 
     @pytest.mark.parametrize("review_module,router_module", REVIEW_GATES)
@@ -244,3 +270,70 @@ class TestAnAdoptedWindowMustGoThroughAThread:
             "    other = await asyncio.to_thread(lambda: sustained_busy('x'))\n"
         )
         assert _unthreaded_window_calls(source) == []
+
+
+class TestTheWaiterlessInvocationTakesALease:
+    """``SNAG-SCHED-003`` — the job parks instead of reading the card.
+
+    The three assertions are separate because the three failures are:
+    a job that stops asking, a job that asks and then reads the counter
+    anyway, and a job that never gives the card back.
+    """
+
+    @pytest.mark.parametrize("review_module,_router", REVIEW_GATES)
+    def test_it_acquires_one(self, review_module: str, _router: str):
+        node = _function(_tree(review_module), JOB_ENTRY_POINT)
+        names = {
+            call.func.id
+            for call in ast.walk(node)
+            if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+        }
+        assert LEASE_ACQUIRE in names, (
+            f"{review_module}.{JOB_ENTRY_POINT} no longer takes a GPU lease — "
+            "it is back to reading the card once inside the drain's hold, which "
+            "costs a narrative every Monday and says nothing about why"
+        )
+
+    @pytest.mark.parametrize("review_module,_router", REVIEW_GATES)
+    def test_it_tells_the_client_it_holds_one(self, review_module: str, _router: str):
+        """Provenance, not behaviour.
+
+        A job that acquired a lease and then let ``generate_review``
+        default ``gpu_lease_held`` to ``False`` would wait for the card
+        and *then* give up on it — strictly worse than not waiting, and
+        green in every behavioural test, because both paths store a
+        review.
+        """
+        node = _function(_tree(review_module), JOB_ENTRY_POINT)
+        passed = [
+            kw
+            for call in ast.walk(node)
+            if isinstance(call, ast.Call)
+            for kw in call.keywords
+            if kw.arg == HELD_FLAG
+        ]
+        assert passed, (
+            f"{review_module}.{JOB_ENTRY_POINT} takes a lease and does not pass "
+            f"{HELD_FLAG} — it would wait for the card and then defer on it"
+        )
+
+    @pytest.mark.parametrize("review_module,_router", REVIEW_GATES)
+    def test_it_releases_in_a_finally(self, review_module: str, _router: str):
+        """A lease held to its deadline blocks every other consumer on
+        the box for the whole hold, and the arbiter's expiry is the
+        backstop rather than the design."""
+        node = _function(_tree(review_module), JOB_ENTRY_POINT)
+        released = [
+            call
+            for handler in ast.walk(node)
+            if isinstance(handler, ast.Try)
+            for call in ast.walk(ast.Module(body=handler.finalbody, type_ignores=[]))
+            if isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Name)
+            and call.func.id == LEASE_RELEASE
+        ]
+        assert released, (
+            f"{review_module}.{JOB_ENTRY_POINT} does not release its lease from a "
+            "finally — a generation that raises would hold the card until the "
+            "arbiter's hold deadline expired it"
+        )

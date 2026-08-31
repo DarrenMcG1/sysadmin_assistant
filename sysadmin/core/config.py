@@ -974,6 +974,27 @@ class SchedulesConfig(BaseModel):
     # while scheduling one review among three is the ambiguity that
     # entry was about.
     review_day_of_week: str = "mon"
+    # How long before the briefing the review chain's lease budget ends.
+    #
+    # **One number, three budgets.** Each weekly review derives its own
+    # ``wait_seconds`` at dispatch as *deadline minus now*, where the
+    # deadline is the briefing above less this margin — 55, 40 and 10
+    # minutes from the 05:00, 05:15 and 05:45 slots. Three independent
+    # budgets were refused: the estate's arbiter grants **one lease at a
+    # time, FIFO on ``requested_at``, across every profile**, so all three
+    # reviews are waiting for the same instant (the holder's release) and
+    # a single deadline is what says so. Three leaves would be three
+    # spellings of one boundary, free to drift apart.
+    #
+    # Derived rather than written as a clock time: the boundary is the
+    # briefing, so a briefing moved to 07:00 moves the budget with it. A
+    # literal ``"05:55"`` would go on being obeyed after it had stopped
+    # relating to the thing it was chosen for.
+    #
+    # Five minutes is ~15x the worst observed chain: a generation here
+    # takes 0.78-5.85 s and the arbiter ticks every 5 s, so three
+    # serialised grants and their generations land inside ~20 s.
+    review_lease_margin_minutes: int = 5
     # Weekly disk review — last of this repository's three, and still
     # ahead of the 06:00 briefing that carries their narratives. It was
     # placed here to sit *after* the weekly project review at 05:30 so

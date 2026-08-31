@@ -65,10 +65,15 @@ import logging
 import re
 from typing import Any
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.core.config import get_config
 from sysadmin.core.database import get_scheduler_session
+from sysadmin.core.gpu_lease import (
+    acquire_review_lease,
+    release_review_lease,
+)
 from sysadmin.core.text import strip_markdown
 from sysadmin.monitor.log_actions import (
     NOISE_MIN_OCCURRENCES,
@@ -497,6 +502,8 @@ async def generate_review(
     session: AsyncSession,
     llm_client=None,
     period_days: int | None = None,
+    *,
+    gpu_lease_held: bool = False,
 ) -> LogReview | None:
     """Generate, store and return a review; ``None`` when nothing was observed.
 
@@ -524,7 +531,9 @@ async def generate_review(
         await client.startup()
     try:
         narrative = await client.generate(
-            build_review_prompt(data), system=REVIEW_SYSTEM_PROMPT
+            build_review_prompt(data),
+            system=REVIEW_SYSTEM_PROMPT,
+            gpu_lease_held=gpu_lease_held,
         )
     finally:
         if owns_client:
@@ -571,10 +580,45 @@ async def run_weekly_review() -> None:
     announces this review is ``briefing/data.py``, which reads
     ``log_reviews`` directly and expires a stale one, which the alert
     never did.
+
+    **It takes a GPU lease and waits for the grant** (``SNAG-SCHED-003``,
+    2026-08-31).  It used to dispatch straight into
+    :func:`generate_review`, whose ``ensure_gpu_idle`` read the card once
+    and gave up; on a Monday inside ``venture-enrich-nightly``'s hold
+    that is a deterministic digest published into the 06:00 briefing,
+    with nothing on the stored row able to say whether the card was busy
+    or llama-server was down.  The argument is
+    :mod:`sysadmin.core.gpu_lease`'s and is not restated here.
+
+    Three orderings below are load-bearing:
+
+    * **The lease is taken before the scheduler session is opened.**  The
+      wait is minutes and this host enforces
+      ``idle_in_transaction_session_timeout`` at 1 min, which has already
+      killed a connection mid-generation once (rule 1 in
+      :func:`generate_review`).  Waiting inside the session would trade a
+      gate that gives up for a lease that arrives to a dead connection.
+    * **``gpu_lease_held`` is exactly "we hold one".**  With the lease in
+      hand the counter has already been read, by the arbiter, as a retry
+      rather than a refusal; reading it again here would put the give-up
+      back while holding the card.  Without one, every refusal degrades
+      to the gate that was there before.
+    * **The release is in a ``finally`` and is best-effort.**  A release
+      that raised would turn a stored review into a failed unit, and the
+      arbiter's hold deadline restores the baseline regardless.
     """
-    async with get_scheduler_session() as session:
-        review = await generate_review(session)
-        if review is None:
-            return
+    async with httpx.AsyncClient() as queue_client:
+        lease_id = await acquire_review_lease(queue_client, "log_review")
+        try:
+            async with get_scheduler_session() as session:
+                review = await generate_review(
+                    session, gpu_lease_held=lease_id is not None
+                )
+        finally:
+            if lease_id is not None:
+                await release_review_lease(queue_client, lease_id, "log_review")
+
+    if review is None:
+        return
 
     logger.info("weekly_log_review_generated")

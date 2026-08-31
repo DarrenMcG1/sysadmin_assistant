@@ -68,6 +68,8 @@ class LLMClient:
         prompt: str,
         model: str | None = None,
         system: str | None = None,
+        *,
+        gpu_lease_held: bool = False,
     ) -> str | None:
         """Generate a chat completion from llama-server.
 
@@ -122,6 +124,41 @@ class LLMClient:
         ``asyncio.to_thread``, since every call site here runs inside an
         event loop and the window would otherwise stall it.
 
+        **``gpu_lease_held`` is the absence of a gate, not a third
+        sampler** (``SNAG-SCHED-003``, 2026-08-31).  A caller holding an
+        estate GPU lease has already had the card read on its behalf, by
+        the arbiter, as a *retry* rather than a refusal — and the arbiter
+        holds the card until release.  Reading the counter again here
+        would put the give-up back while holding the card, which is
+        estate-manager's ADR-0076 §4 layering met from this side: a job
+        reading sysfs while a row in the estate's own database names the
+        holder.  This is estate-manager's ``GpuGate.HELD``; the value
+        below it, ``SUSTAINED``, does not exist here because the window
+        was costed and refused above, so a ``bool`` expresses everything
+        this service has and an enum would carry a member nothing can
+        reach.
+
+        It defaults to ``False`` — today's behaviour — so the seventh
+        caller the refusal above worries about defaults to the *safe*
+        direction: a lease-holder that forgets the flag reads the counter
+        once and may defer, which is a lost narrative and never a lost
+        review.  What the flag cannot do is the reverse: it is passed
+        only where :func:`sysadmin.core.gpu_lease.acquire_review_lease`
+        returned a lease id, so asserting a hold nobody has requires
+        writing the literal.
+
+        **Note what this does to the refusal above rather than leaving it
+        to be inferred.**  The window's argument turned on the gate being
+        reached from both invocation classes, so it could not answer
+        ``sustained_busy``'s question for all of them.  The waiterless
+        class now takes a lease and skips the gate entirely, which leaves
+        the gate's population as the three ``POST …/review/generate``
+        routes alone — precisely the class the single read is *right*
+        for.  The refusal is therefore stronger than when it was written,
+        not weaker, and the window's population here is now empty.
+        ``tests/test_gpu_gate_invocations.py`` holds that as a measured
+        premise rather than as prose.
+
         Free-text path: ``temperature=None`` keeps the server's own
         sampling defaults — this call generates prose, not structured
         extraction, so the estate's structured-path temperature pin does
@@ -130,18 +167,19 @@ class LLMClient:
         config = get_config()
         model = model or config.llm.model
 
-        try:
-            ensure_gpu_idle(config.llm.gpu_pci_slot, config.llm.gpu_busy_threshold)
-        except GpuBusy as e:
-            logger.warning(
-                "llm_gpu_busy",
-                extra={
-                    "busy_percent": e.busy_percent,
-                    "threshold": e.threshold,
-                    "model": model,
-                },
-            )
-            return None
+        if not gpu_lease_held:
+            try:
+                ensure_gpu_idle(config.llm.gpu_pci_slot, config.llm.gpu_busy_threshold)
+            except GpuBusy as e:
+                logger.warning(
+                    "llm_gpu_busy",
+                    extra={
+                        "busy_percent": e.busy_percent,
+                        "threshold": e.threshold,
+                        "model": model,
+                    },
+                )
+                return None
 
         messages: list[dict[str, str]] = []
         if system:
