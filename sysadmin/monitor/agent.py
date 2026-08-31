@@ -36,8 +36,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import AnomalyConfig, AppConfig, get_config
+from sysadmin.core.escalation import QUIETEST_SEVERITY, may_quieten_in_place
 from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.text import TRUNCATION_MARKER
+from sysadmin.estate import client as estate_client
 from sysadmin.monitor import collation, failures, stalls
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
@@ -92,6 +94,53 @@ SERVICE_ALERT_KINDS = (
     "critical",
     "unreachable",
     "auto-restarted",
+)
+
+
+#: The rung an outage gets when the estate's arbiter stopped the unit.
+#:
+#: ``SNAG-AGENT-011``.  ``venture-chat.service`` is stopped and restarted
+#: by estate-manager's arbiter whenever a lease names it in
+#: ``stopped_units``, so this box put a **persistent** critical toast on
+#: screen for most of every night — measured over the current regime, 6
+#: nightly rows at a mean of 346 minutes open — about a service that is
+#: down on purpose.  ``critical`` is the one severity
+#: ``sysadmin_tray/notifications.py`` leaves on screen, and it is
+#: reserved for a fault costing something now.
+#:
+#: **A quietening, never a suppression** — ``known_noise`` rule 2's rule
+#: and ``TRANSIENT_HOLDER_SEVERITY``'s reason, which is the same
+#: situation one domain over: the finding is *literally correct* and its
+#: remedy does not apply.  The row still exists, still counts, still
+#: reaches ``GET /api/sysadmin/alerts`` and ``GET
+#: /api/services/reliability``, and still resolves on the first healthy
+#: poll.  What it stops doing is interrupting.
+#:
+#: **Derived, and deliberately not imported from the judge.**  It is the
+#: same rung as
+#: :data:`~sysadmin.estate.judgements.TRANSIENT_HOLDER_SEVERITY` and it
+#: is *not* that constant: importing the estate judge's vocabulary to
+#: decide a service's rung is the thing ``judgements.py`` rule 3 read in
+#: reverse forbids — this family consults a fact the estate publishes,
+#: and the estate acquires no say in what that fact is worth.  So it
+#: comes from :data:`~sysadmin.core.escalation.QUIETEST_SEVERITY`, which
+#: both domains may import and which is genuinely derived from
+#: ``SEVERITY_ORDER`` rather than written as ``"info"``.  A test pins the
+#: two together, because two families that quieten to different floors
+#: would be a fact stated twice.
+ARBITRATED_STOP_SEVERITY = QUIETEST_SEVERITY
+
+#: The reading a run starts with, before anything asks the estate.
+#:
+#: ``unread`` rather than ``idle``, and the difference is the whole of
+#: ``ports_checked``'s rule at the size of a default: "nobody asked" and
+#: "the estate holds nothing" are both empty, and only the first must
+#: never be spent as good news.  It fails open either way —
+#: :meth:`~sysadmin.estate.client.ArbitratedStops.stopped` answers
+#: ``False`` for both — so what this decides is not the rung but what the
+#: row *says it knew*.
+_NO_ARBITRATION = estate_client.ArbitratedStops(
+    reading=estate_client.ARBITRATION_UNREAD
 )
 
 
@@ -216,6 +265,11 @@ class SysAdminAgent(BaseAgent):
     def __init__(self) -> None:
         self._degraded_counts: dict[str, int] = {}
         self._failure_counts: dict[str, int] = {}
+        # The estate arbiter's active lease, read at most once per run and
+        # only when something is actually down (SNAG-AGENT-011). `None`
+        # means "this run has not asked", which is why the reading itself
+        # cannot carry that state — see `_NO_ARBITRATION`.
+        self._arbitration: estate_client.ArbitratedStops | None = None
         # The HTTP client is owned by each run, never by the application —
         # runs happen on APScheduler threads under asyncio.run(), so a
         # client created once at startup would outlive its loop.
@@ -467,28 +521,63 @@ class SysAdminAgent(BaseAgent):
         suppressed by the snapshot either way; what the run reports is
         how many corrections it made, not how many it attempted.
 
-        **The judged rung is handed on, and its population here is empty
-        by construction rather than merely today** (``SNAG-ESTATE-010``).
-        Every family reaching this method pairs a rung with a *title
-        kind* — ``service_alert_title(name, "degraded")`` is ``warning``
-        and ``…(name, status)`` is ``critical``; a disk breach at the
-        critical threshold and one at the warning threshold are two
-        titles, not one row at two rungs — so a standing row and the
-        judgement that holds it can never disagree about severity, and
-        :func:`~sysadmin.core.escalation.may_quieten_in_place` can only
-        ever answer ``False`` from here.  It is wired regardless: the
-        rung is already a parameter, so passing it costs nothing, and the
-        alternative is a caller that quietly stops honouring the base
-        class's contract on the day a family gains a second rung — which
-        is the founding entry, one domain over.
+        **The judged rung is handed on, and the family that made that
+        population non-empty arrived on 2026-08-31** (``SNAG-ESTATE-010``,
+        then ``SNAG-AGENT-011``).  Until then every family reaching this
+        method paired a rung with a *title kind* —
+        ``service_alert_title(name, "degraded")`` is ``warning`` and
+        ``…(name, status)`` is ``critical``; a disk breach at the critical
+        threshold and one at the warning threshold are two titles, not one
+        row at two rungs — so a standing row and the judgement holding it
+        could not disagree about severity, and
+        :func:`~sysadmin.core.escalation.may_quieten_in_place` could only
+        ever answer ``False`` from here.  Session 117 wired it regardless,
+        on the grounds that the rung was already a parameter and the
+        alternative was a caller that quietly stops honouring the base
+        class's contract the day a family gains a second rung.
 
-        Note what would happen if such a family arrived and its rung
-        *fell* rather than climbing: a disk at 91 % dropping to 85 %
-        under one title would be refused, and rightly.  It is still
-        breaching, and a fresh ``warning`` toast about it is a less
-        urgent notification about a fault that has not improved —
+        **That day came, and the wiring is what made the fix a
+        two-line change rather than a design.**
+        :data:`ARBITRATED_STOP_SEVERITY` gives ``% unreachable`` a second
+        rung under **one** title: ``venture-chat unreachable`` is
+        ``critical`` on a poll where the estate could not be read and
+        :data:`ARBITRATED_STOP_SEVERITY` on the next one, where it could.
+        The title deliberately does not fork — it is the identity
+        (Session 42), and forking it would take the row out of
+        ``% unreachable``'s sweep — so the disagreement lands here, which
+        is the one place equipped for it.  A prediction of an empty
+        population is worth keeping in the record beside what refuted it:
+        the claim was not *wrong when written*, it was one family from
+        being wrong, and "empty by construction" is the phrase that made
+        it sound otherwise.
+
+        **The direction is one-way and the residue is filed rather than
+        hidden.**  A quietening reaches the standing row; the reverse —
+        an outage that began under a lease and outlives it, wanting
+        ``critical`` on a row open at the floor — is refused by
+        :func:`~sysadmin.core.escalation.may_quieten_in_place` and the row
+        stays quiet.  That is ``SNAG-AGENT-012``, filed with its
+        population measured at **zero** (181 of 181 rows in this family
+        have resolved, the nightly ones at the drain's hold to the
+        second) and with :func:`~sysadmin.core.escalation.step_for`'s
+        resolve-and-re-raise named as its shape if it ever stops being
+        zero.  A ladder tuned against zero observations is a guess with a
+        number on it — the ports family's rule 6 — so what ships instead
+        is a log line at ``warning``, loud enough to be stored, counted
+        and carried into ``GET /api/logs/trends``, and quiet enough
+        (``FAULT_SEVERITIES`` is ``error`` and ``critical``) to raise
+        nothing: ``manual_run_failed``'s cancellation rung, for its
+        reason.
+
+        Note what would happen to a family whose rung merely *fell* a
+        step: a disk at 91 % dropping to 85 % under one title would be
+        refused, and rightly.  It is still breaching, and a fresh
+        ``warning`` toast about it is a less urgent notification about a
+        fault that has not improved —
         :func:`~sysadmin.core.escalation.step_for`'s own refusal, which
-        rule 1 of that predicate keeps intact.
+        rule 1 of that predicate keeps intact.  Only the **floor** is
+        reachable in place, which is why the fix above quietens to it and
+        not to ``warning``.
         """
         alert = (
             await session.execute(
@@ -497,6 +586,32 @@ class SysAdminAgent(BaseAgent):
         ).scalars().first()
         if alert is None:
             return False
+        # SNAG-AGENT-012, said out loud rather than left to be inferred.
+        # `may_quieten_in_place` refuses an upward move, so a fault that
+        # began quiet and has since become genuinely urgent — an outage
+        # that started under an estate lease and outlived it — keeps the
+        # floor rung and stops interrupting. The row is still there and
+        # still true; what is stale is how loudly it says so.
+        #
+        # `warning` is the rung, and it is chosen rather than defaulted:
+        # `FAULT_SEVERITIES` is `error` and `critical`, so this line is
+        # stored, counted and carried into `GET /api/logs/trends` while
+        # raising no alert of its own. Announcing it as an alert would
+        # give one fault two speakers, which is the defect this
+        # repository has now found at six scales; saying nothing at all
+        # is what made the founding entry invisible for a night at a
+        # time.
+        if severity is not None and severity != alert.severity:
+            if not may_quieten_in_place(severity, alert.severity):
+                logger.warning(
+                    "alert_rung_left_stale",
+                    extra={
+                        "agent": self.name,
+                        "title": title,
+                        "open_severity": alert.severity,
+                        "judged_severity": severity,
+                    },
+                )
         if not self.refresh_alert(
             alert, message=message, details=details, severity=severity
         ):
@@ -509,6 +624,7 @@ class SysAdminAgent(BaseAgent):
         self._stall_counts = _NO_STALLS
         self._agent_failure_counts = _NO_AGENT_FAILURES
         self._collation_counts = _NO_COLLATION
+        self._arbitration = None
         self._judged_titles = set()
         self._written_titles = set()
         self._suppressed = 0
@@ -557,6 +673,28 @@ class SysAdminAgent(BaseAgent):
                 status, response_time_ms, details = await self._check_service(svc)
                 if status not in ("ok", SKIPPED):
                     unhealthy.add(svc.name)
+
+                # SNAG-AGENT-011. Ask the estate whether this outage was
+                # its doing — at most once per run, and only once
+                # something is down hard enough for the answer to change
+                # a rung.
+                #
+                # **Here rather than in `_handle_status`, and the reason
+                # is the savepoint three lines down.** This host sets
+                # `idle_in_transaction_session_timeout=1min`; two HTTP
+                # hops at `HTTP_CHECK_TIMEOUT_S` each is up to 20 s, and
+                # spending it inside `begin_nested()` is SNAG-AGENT-003's
+                # defect rebuilt in the fix for something else. The
+                # transaction opens after the answer is already in hand.
+                #
+                # **Not gated on `svc.systemd_unit`**, though only a unit
+                # can match. The read is memoised per run, so gating buys
+                # nothing the moment any *other* service has one — and it
+                # would leave a unitless service's row reading `unread`
+                # when the truth is "nobody asked about it", which is the
+                # distinction `_NO_ARBITRATION` exists to keep.
+                if status in ("critical", "unreachable"):
+                    await self._ensure_arbitration()
 
                 # One savepoint per service — SNAG-DB-001's second gap.
                 # These writes used to accumulate in the run's single
@@ -938,6 +1076,59 @@ class SysAdminAgent(BaseAgent):
 
     # --- Alerting logic ---
 
+    async def _ensure_arbitration(self) -> None:
+        """Read the estate's active lease once per run, failing open.
+
+        ``SNAG-AGENT-011``.  The question is *"did somebody stop this on
+        purpose"*, and the estate publishes the answer: a granted
+        ``gpu_leases`` row carries ``stopped_units``, the arbiter's own
+        record of which units it stopped to free the card.
+
+        **Once per run, not once per raise, and the snag's cost figure
+        was wrong.**  It priced the second call at *"once per incident,
+        not once per poll"* on the strength of the family having raised
+        23 rows in 17 days.  Those 23 are rows **after** dedup:
+        :meth:`_raise_judged` is entered on every poll for as long as the
+        fault stands and suppresses the *row*, so a read wired at the
+        raise would fire every 300 s for six hours a night — 72 pairs of
+        calls per nightly hold, not one.  Memoising on the run makes it
+        two calls per 300 s whatever is down, and the memo is reset in
+        :meth:`_execute` rather than being long-lived, because a lease
+        that ended between runs must not be believed.
+
+        **Once per poll is nevertheless the right cadence, which is the
+        half that is easy to miss.**  A row raised ``critical`` because
+        8400 happened to be unreadable on the first poll of an outage
+        would otherwise stay ``critical`` all night; consulting on every
+        run lets
+        :func:`~sysadmin.core.escalation.may_quieten_in_place` correct it
+        on the next one.  So the memo bounds the *cost* and must not
+        bound the *consultation*.
+
+        Nothing raises out of here and no failure is recorded as an
+        alert: an unreadable estate is somebody else's outage, already
+        owned by ``estate-manager-api``'s own ``% unreachable`` row, and
+        a second owner of that lifecycle is the defect this repository
+        has found at six scales.  It costs a reading of
+        :data:`~sysadmin.estate.client.ARBITRATION_UNREAD` and the rung
+        stays where it was.
+
+        The base URL comes from the estate judge's config leaf, which is
+        the one statement of 8400's address in this repository and is
+        already pinned against ``services.yaml`` by
+        ``tests/test_estate_judge_wiring.py``.  Reading a *leaf* the
+        judge also reads is not reading the judge — no import of
+        :mod:`sysadmin.estate.judgements` happens here or anywhere in
+        this module.
+        """
+        if self._arbitration is not None:
+            return
+        base_url = get_config().agents.estate_judge.base_url
+        async with self._http.borrow() as http:
+            self._arbitration = await estate_client.read_arbitrated_stops(
+                http, base_url
+            )
+
     async def _handle_status(
         self, session, svc: ServiceEntry, status: str, details: dict
     ) -> int:
@@ -1054,12 +1245,59 @@ class SysAdminAgent(BaseAgent):
                     dedup=False,
                 )
 
+            # SNAG-AGENT-011. The row is correct and the rung is not.
+            # `_check_service` measured this service down and it *is*
+            # down; what `critical` asserts on top of that is "this is
+            # costing something now", which a declared swap with a hold
+            # deadline is not.
+            #
+            # Quietened, never suppressed — `known_noise` rule 2. The row
+            # is still written, still deduplicated, still counted, still
+            # served by `GET /api/sysadmin/alerts`, and still resolved by
+            # `_resolve_recovered` on the first healthy poll; the title
+            # does not move, so it stays inside `% unreachable` and no
+            # sweep pattern changes. What it stops doing is holding a
+            # non-transient toast on screen all night.
+            #
+            # Muting the service was refused and is the obvious cheap
+            # fix: `mute_services` would delete the row for a genuine
+            # 14:00 outage as readily as for the arbitrated 00:00 one,
+            # which is the pile-up-wearing-a-declaration-as-an-excuse
+            # shape `_resolve_recovered` rule 4 already refuses.
+            stops = self._arbitration or _NO_ARBITRATION
+            arbitrated = stops.stopped(svc.systemd_unit)
+            severity = ARBITRATED_STOP_SEVERITY if arbitrated else "critical"
+            message = f"{service_name} is {status}"
+            if arbitrated:
+                message += (
+                    " — stopped by the estate's arbiter under lease "
+                    f"{stops.lease_id}"
+                )
+                if stops.profile:
+                    message += f" ({stops.profile})"
             return await self._raise_judged(
                 session,
-                severity="critical",
+                severity=severity,
                 title=service_alert_title(service_name, status),
-                message=f"{service_name} is {status}",
-                details={**details, "service_name": service_name},
+                message=message,
+                details={
+                    **details,
+                    "service_name": service_name,
+                    # Recorded on **every** row of this family, not only
+                    # the quietened one — Session 128's rule for
+                    # `details['attribution']`, and for its reason: a key
+                    # present only sometimes collapses "we asked and the
+                    # answer was no" into "nobody asked", which is the
+                    # distinction this whole block turns on. The *value*
+                    # carries the news.
+                    "arbitration": {
+                        "reading": stops.reading,
+                        "unit": svc.systemd_unit,
+                        "stopped_by_estate": arbitrated,
+                        "lease_id": stops.lease_id,
+                        "profile": stops.profile,
+                    },
+                },
             )
 
         return 0

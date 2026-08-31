@@ -5197,8 +5197,41 @@ class TestTheNightlyHoldCheck:
 
     # -- the live box -----------------------------------------------------
 
-    def test_it_holds_against_the_live_box(self):
-        assert snag_claims.check_nightly_hold_is_loud().verdict == "match"
+    def test_it_refutes_against_the_live_box_now_that_limb_2_has_landed(self):
+        """**Inverted on 2026-08-31, when the fix was written.**
+
+        This asserted ``match`` until the sitting that built
+        ``SNAG-AGENT-011``'s fix, and the entry predicted the moment
+        exactly: *"limb 2 flips on the commit, not the restart, so
+        ``sysadmin-check-snags`` reports ``mismatch`` from the moment the
+        first ``stopped_units`` read is written and before any night has
+        passed."*  So the check is not broken — it is doing the one thing
+        the conjunction was built to do, and a test still demanding
+        ``match`` would be pinning the **defect** as though it were the
+        contract.  Session 115 met this and inverted rather than deleted
+        (``test_a_fault_the_tray_announced_is_never_adopted``); the same
+        move, for the same reason.
+
+        **The entry stays open, and this test is why that is not a
+        contradiction.**  Limb 1 — the nightly population, off ``alerts``
+        — cannot flip until a night has passed under the deployed code,
+        which is the first morning after the restart.  So the verdict
+        asserted here is ``mismatch`` *by limb 2*, and the assertion on
+        the reason is what keeps the two apart: a ``mismatch`` arriving
+        because the population went quiet for one of the three reasons
+        the check enumerates (``mute_services``, the estate retiring the
+        swap, the profile losing its stops) would be a different fact
+        wearing the same verdict, and this would go on passing over it.
+        """
+        measurement = snag_claims.check_nightly_hold_is_loud()
+        assert measurement.verdict == "mismatch"
+        assert "read the estate's" in measurement.note, (
+            "the refutation must come from limb 2 (a reader of the "
+            f"discriminator exists), not from an empty population: {measurement.note}"
+        )
+        assert snag_claims.lease_discriminator_readers(), (
+            "limb 2 refutes only while sysadmin/ actually reads stopped_units"
+        )
 
     def test_the_check_is_pinned_to_its_entry(self):
         """Rule 4's pin, for the entry this sitting checked."""

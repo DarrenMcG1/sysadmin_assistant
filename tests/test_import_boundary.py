@@ -49,8 +49,16 @@ def test_core_and_registry_do_not_import_domains():
     turns every boundary above it into a fiction: monitor would reach
     projects through core while the test above stayed green.
     """
+    # `sysadmin.estate` joined this tuple on 2026-08-31 (SNAG-AGENT-011).
+    # It was missing from the day the package was created: it is a domain
+    # by its own module docstring's argument — *"a package rather than a
+    # module in monitor/ because it is a domain"* — and `core` importing
+    # it would have gone unremarked. Nothing had ever done so, so this
+    # adds a guard rather than fixing a breach; it is added now because
+    # that sitting gave `monitor` its first import edge into `estate`,
+    # and a boundary is easiest to state while somebody is looking at it.
     domains = ("sysadmin.monitor", "sysadmin.projects", "sysadmin.files",
-               "sysadmin.units", "sysadmin.briefing")
+               "sysadmin.units", "sysadmin.briefing", "sysadmin.estate")
     root = PACKAGE.parent
     offenders = []
     for layer in ("core", "registry"):
@@ -107,3 +115,74 @@ def test_no_domain_imports_a_composition_root():
         "a composition root must be imported by nothing below it:\n"
         + "\n".join(offenders)
     )
+
+
+def test_monitor_may_read_the_estate_client_but_never_its_judge():
+    """The service family consults a fact; it does not borrow a verdict.
+
+    ``SNAG-AGENT-011`` gave :mod:`sysadmin.monitor.agent` an import edge
+    into :mod:`sysadmin.estate`, so that a service measured unreachable
+    can ask whether the estate's arbiter stopped it on purpose.  The
+    entry names, as the first of three things the fix must not do, that
+    this must be *the service family consulting a fact* and never *the
+    estate judge acquiring a say in a service's rung* —
+    ``sysadmin/estate/judgements.py`` rule 3 read in reverse, that rule
+    having declined to judge estate unreachability precisely because the
+    service family owns it.
+
+    The edge is legal and has a mirror precedent:
+    :mod:`sysadmin.estate.agent` imports :mod:`sysadmin.units.ports` so
+    the judge reads the unit sweep's attribution rather than running
+    ``ss`` itself.  What makes it *safe* is which module is reached.
+    ``client`` is transport — it returns a reading and knows nothing
+    about severities.  ``judgements`` is the verdict half, and a
+    ``monitor`` module importing it is how the two would come to share a
+    ladder without anyone deciding to.
+
+    Stated as a rule rather than as an observation about today's one
+    import, because the failure mode is silent: nothing about
+    ``from sysadmin.estate import judgements`` in a monitor module would
+    look wrong in review.
+    """
+    allowed = {"sysadmin.estate", "sysadmin.estate.client"}
+    offenders = []
+    for path in PACKAGE.rglob("*.py"):
+        for module in imported_modules(path):
+            if not (module == "sysadmin.estate"
+                    or module.startswith("sysadmin.estate.")):
+                continue
+            if module not in allowed:
+                offenders.append(f"{path.relative_to(PACKAGE.parent.parent)}: {module}")
+    assert not offenders, (
+        "monitor may import sysadmin.estate.client (transport) and nothing "
+        "else from that domain — a verdict is not a fact:\n"
+        + "\n".join(offenders)
+    )
+
+
+def test_the_quietening_rung_is_not_borrowed_from_the_judge():
+    """``ARBITRATED_STOP_SEVERITY`` is derived, and equals the judge's floor.
+
+    Two halves, and they are different claims.  **Provenance**: the
+    constant is built from
+    :data:`~sysadmin.core.escalation.QUIETEST_SEVERITY`, a ``core``
+    symbol both domains may import, rather than from
+    :data:`~sysadmin.estate.judgements.TRANSIENT_HOLDER_SEVERITY` — the
+    test above is what enforces that, since it is the import that would
+    have to appear.  **Value**: the two must nonetheless name the same
+    rung, because they are one fact — *the quietest rung there is, which
+    is the only one below* ``tray.notify_min_severity`` *on this box* —
+    and two families quietening to different floors would be that fact
+    stated twice and free to drift.
+
+    Asserting the value here and the provenance there is deliberate: a
+    value assertion cannot see provenance, which this repository has now
+    recorded three times as the shape a falsification passes against
+    broken code.
+    """
+    from sysadmin.core.escalation import QUIETEST_SEVERITY
+    from sysadmin.estate.judgements import TRANSIENT_HOLDER_SEVERITY
+    from sysadmin.monitor.agent import ARBITRATED_STOP_SEVERITY
+
+    assert ARBITRATED_STOP_SEVERITY == QUIETEST_SEVERITY
+    assert ARBITRATED_STOP_SEVERITY == TRANSIENT_HOLDER_SEVERITY

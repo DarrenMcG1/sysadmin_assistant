@@ -16,6 +16,63 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 145 — the arbitrated stop is quietened, and the placement
+      question decomposed into three ownerships rather than one.**
+      *(2026-08-31.)* `SNAG-AGENT-011`'s decided two-call path is built:
+      `read_arbitrated_stops` in `sysadmin/estate/client.py` reads
+      `active_lease.id` from `GET :8400/api/queue/invariants` and
+      `stopped_units` from `GET :8400/api/queue/leases/{id}`, and
+      `SysAdminAgent._handle_status` quietens a matched unit to
+      `ARBITRATED_STOP_SEVERITY`. **The entry stays open**: limb 2 of its
+      check has flipped as predicted, limb 1 cannot until the first night
+      under the deployed code (2026-09-01), which is carried as a
+      *Scheduled action*.
+      - **Placement, which the handoff asked to be settled first.**
+        Transport went to `estate/client.py` because it already owns
+        every HTTP call to 8400 and a second caller is the second-owner
+        defect at the size of a client; the verdict stayed in
+        `monitor/agent.py`, which also holds the `services.yaml`→unit
+        identity. The edge `monitor → estate.client` is legal and mirrors
+        `estate/agent.py` importing `units.ports`. **What was missing is
+        the guard**, now written: `estate.client` is allowed and
+        `estate.judgements` refused, because *a verdict is not a fact* is
+        the entry's first prohibition and nothing enforced it.
+      - **Consulting `tests/test_import_boundary.py` found a gap older
+        than this sitting.** `sysadmin.estate` was absent from the
+        domains `core` may not import — a domain by its own module
+        docstring's argument, unguarded since the package was created.
+        Nothing had breached it, so this adds a guard rather than fixing
+        a breach.
+      - **The rung is derived, not borrowed.** `QUIETEST_SEVERITY` from
+        `core.escalation`, not `judgements.TRANSIENT_HOLDER_SEVERITY`
+        which the handoff named — the value pinned equal to the judge's
+        floor by one test and the provenance by another, since a value
+        assertion cannot see provenance.
+      - **The entry's cost figure was wrong.** `_raise_judged` runs every
+        poll and suppresses the *row*, not the call, so a read wired at
+        the raise is ~72 pairs of calls per nightly hold rather than one.
+        `_ensure_arbitration` memoises per run and is called **outside**
+        `session.begin_nested()`, because two HTTP hops inside a
+        savepoint is `SNAG-AGENT-003` rebuilt in somebody else's fix.
+      - **It falsifies a docstring Session 117 wrote.** `_refresh_open`
+        claimed its severity-disagreement population was *"empty by
+        construction"*; `% unreachable` now carries two rungs under one
+        title. Corrected in place, with the one-way residue filed as
+        `SNAG-AGENT-012` (population **zero across the whole family** —
+        30,716 rows, 11 titles, 0 open) and announced by an
+        `alert_rung_left_stale` log line rather than left silent.
+      - **`SNAG-AGENT-013` filed**: auto-restart does not consult the
+        arbiter and would fight it. 0 of 31 services enable it, so the
+        scope was deliberately not widened to reach an empty population.
+      - 14 mutations driven and killed on the intended tests, plus 2 on
+        the live half. One restore was masked by the bytecode cache —
+        `stopped_units` → `units_stopped` is a **same-length** rename —
+        which read as a live failure until `__pycache__` was cleared.
+      - Verified against the running 8400 and the live database in
+        rolled-back transactions, **0 rows of residue**. Deployed by
+        `kill -TERM`; the path ships untriggered, no service being
+        unreachable at the time.
+
 - [x] **Session 143 — `SNAG-AGENT-011`'s check, and the fix it names is
       unbuildable as written.** *(2026-08-31.)* The check is the
       twenty-seventh in `CHECKS` and takes the register to **19 of 19

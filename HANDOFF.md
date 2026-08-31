@@ -2,9 +2,9 @@
 
 ## Next action
 
-Build `SNAG-AGENT-011`'s decided fix: the two-call path — `GET :8400/api/queue/invariants` for `active_lease.id`, then `GET :8400/api/queue/leases/{id}` for `stopped_units`, both hops failing open so an unreadable estate leaves the rung at `critical`, quietening a matched unit to `judgements.TRANSIENT_HOLDER_SEVERITY` — and settle the placement first, because the service family must consult a fact while the estate judge must not acquire a say in a service's rung and `tests/test_import_boundary.py` decides whether `SysAdminAgent` may read `sysadmin/estate/client.py` at all.
+Close `SNAG-AGENT-011` by reading the first night under the deployed fix: on or after 2026-09-01, check that the nightly `venture-chat unreachable` row opened at `info` rather than `critical` and carries `details['arbitration']` with `stopped_by_estate: true`, then re-run `sysadmin-check-snags` and close the entry only if limb 1's population has gone quiet for the right reason — and if no night has passed yet, do not build `SNAG-AGENT-012` or `SNAG-AGENT-013`, both of which this sitting filed with measured-zero populations precisely so that nobody would.
 
-_The inbox is empty: Session 144 took the ranked alternative, so `76e0438b` and `218d765a` are both closed and the alternative above is spent. `SNAG-AGENT-011` is the only thing on this line now._
+_The inbox was empty at the start of this sitting and nothing was filed at another repository by it: the fix needed nothing from estate-manager, which is why the two-call path was ranked above asking them to put `stopped_units` on `/api/queue/invariants` — that request is still the field's better home and is still worth filing the day this box is not the only consumer._
 
 ## Scheduled action
 
@@ -32,7 +32,80 @@ Announced to estate-manager as message `8e693e05` before the commit that
 carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
+- **2026-09-01** — If the sitting that reads this is *not* the one that closes `SNAG-AGENT-011` above, the nightly row is still worth one query: `SELECT severity, details->'arbitration' FROM sysadmin.alerts WHERE title = 'venture-chat unreachable' AND created_at::date = '2026-09-01'` — a `critical` row there with `reading: "unread"` means the estate was down at 00:00 and the fix failed open exactly as designed, which is a different outcome from the fix not working and must not be read as one.
+
 - **2026-09-07** — Read the first Monday under lease: `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews` should be true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning beside it, because the three refusals are logged apart precisely so that reading answers why.
+
+## Session 145 is complete — the arbitrated stop is quiet, and the placement question was three questions
+
+**`SNAG-AGENT-011`'s decided fix is built, deployed and verified live —
+and the entry is still open on purpose.** Its check is a conjunction:
+limb 2 (a source walk) flipped on this commit, limb 1 (the nightly
+population) cannot flip until a night has passed under the deployed code.
+The entry said so in advance and this sitting obeyed it rather than
+closing on its own evidence.
+
+**What shipped.** `read_arbitrated_stops` in `sysadmin/estate/client.py`
+takes the two-call path: `active_lease.id` from
+`GET :8400/api/queue/invariants`, then `stopped_units` from
+`GET :8400/api/queue/leases/{id}`. `SysAdminAgent._handle_status`
+quietens a unit the estate names to `ARBITRATED_STOP_SEVERITY` and
+records `details['arbitration']` on **every** row of the family, not only
+the quiet one.
+
+**The placement question decomposed into three ownerships rather than
+one, which is the thing worth carrying.** Transport belongs to
+`estate/client.py` because it already owns every HTTP call to 8400; the
+verdict belongs to `monitor/agent.py`, which also holds the
+`services.yaml`-to-unit identity; and the *rung* belongs to neither
+domain's judge, so it is derived from `core.escalation.QUIETEST_SEVERITY`
+rather than imported from `judgements.TRANSIENT_HOLDER_SEVERITY` as the
+handoff line proposed. Taking the judge's constant would have been the
+right value from the wrong place — and the two are now asserted apart, a
+pin for the value and an import guard for the provenance, which is the
+distinction this repository has recorded itself failing to make three
+times.
+
+**Consulting `tests/test_import_boundary.py`, as the handoff asked, found
+a gap older than the sitting**: `sysadmin.estate` was missing from the
+domains `core` may not import. Nothing had breached it, so a guard was
+added rather than a breach fixed.
+
+**Two of the entry's own claims were refuted by measuring rather than
+reading.** Its cost figure was taken off post-dedup rows, but
+`_raise_judged` runs every poll and suppresses the *row*, not the call —
+so the read is memoised per run and made **outside** the per-service
+savepoint, two HTTP hops inside `begin_nested()` on a host with
+`idle_in_transaction_session_timeout=1min` being `SNAG-AGENT-003` rebuilt
+inside somebody else's fix. And the fix lands on machinery Session 117
+wired for a population it believed was *"empty by construction"*;
+`% unreachable` now carries two rungs under one title, so that docstring
+is corrected rather than left to rot.
+
+**Two costs filed, both with zero populations and both deliberately not
+built.** `SNAG-AGENT-012` — the quietening is one-directional, so a fault
+that begins under a lease and outlives it keeps the quiet rung; measured
+at **0 open rows across 30,716 in the whole `% unreachable` family**, and
+announced by an `alert_rung_left_stale` log line rather than left silent.
+`SNAG-AGENT-013` — auto-restart does not consult the arbiter and would
+fight it; 0 of 31 services enable it.
+
+**Verified live, and it ships untriggered.** A real granted lease (its
+`stopped_units` served by the real 8400) gives `info` naming the lease;
+an unread estate gives `critical`; a standing `critical` row is quietened
+**in place**, same row id, `created_at` unmoved, nothing raised and
+nothing resolved; the reverse transition is refused and logged. **0 rows
+of residue.** Nothing was unreachable at deploy time, so the deployed
+path has not yet fired on its own — which is precisely what tomorrow
+morning's read is for.
+
+**One process note worth keeping.** A mutation restore was masked by the
+bytecode cache: `stopped_units` → `units_stopped` is a **same-length**
+rename, so the repaired tree went on failing until `__pycache__` was
+cleared, and for several minutes that read as a live producer fault. The
+fourteen kills are unaffected — a stale cache can hide a restore and can
+never manufacture a red — but the minutes spent chasing the estate's
+lease table were real.
 
 ## Session 144 is complete — the founding measurement died, and its death was the design working
 
