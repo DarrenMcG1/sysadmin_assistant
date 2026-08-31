@@ -27,6 +27,49 @@ half needs ``dbus-daemon`` and ``notify-send``; the live half needs a
 notification server actually running, which no CI box has. A test asserting
 two observations agree has nothing to assert when one is unobtainable —
 so it skips, and says which observation was missing.
+
+**The live half cleans up after itself, and that is not tidiness.** The
+announcer's flags include ``--expire-time=0``, which the freedesktop
+specification defines as *never expire*, and ``--urgency=critical``, which
+Plasma never auto-dismisses either. So every full suite run parked one more
+toast on the owner's screen that only a human could clear — reported as
+spam on 2026-08-31, after two days and an unknown number of runs. Three
+shapes were available and two were refused:
+
+* **Soften the flags on the live half.** The cheapest, and it breaks the
+  only thing that makes this pair evidence: the two observations must
+  differ in *one* thing, whether a server owns the name. Different flags
+  on the two sides is a second difference, and ``--expire-time=0`` is
+  named in :func:`_notify_send` as the suspect that was cleared only by
+  measurement — so it is precisely the flag that must not vary.
+* **Drop the live call.** It is the discriminating witness; without it a
+  guard that refuses everything passes every other test in this file.
+  ``_live_server_present``'s own docstring refuses that trade one
+  function down.
+* **Send the identical call, then close the notification by id.** What
+  ships. ``--print-id`` is added to *both* halves, so the flags stay
+  uniform and the D-Bus ``Notify`` call is byte-for-byte the announcer's;
+  the live half then calls ``CloseNotification`` on what came back. The
+  toast still lands — the happy path is still exercised — and it lands
+  for milliseconds rather than for ever.
+
+The close is **asserted rather than attempted, and what that assertion
+covers is narrower than it looks.** Measured against Plasma 6.7.4 on
+2026-08-31: ``CloseNotification`` answers ``rc=0`` for an id that was
+never issued (999999) and even emits a ``NotificationClosed`` signal for
+it, reason 3. So a success here is evidence that the *call* was made and
+answered, and is **not** evidence that a toast left the screen — no
+discriminating witness for the second exists over D-Bus, because the
+server reports the same thing either way.
+
+What the assertion does catch is the reachable half, and it is the half
+that would otherwise fail silently: ``--print-id`` printing nothing
+parseable, and the close call itself erroring or timing out. Both yield
+``False`` and both mean the residue is back. That the id is the *right*
+one is true by construction rather than by assertion — it is whatever the
+server handed back from this call's own ``Notify`` — so the one case the
+assertion cannot see is a server that accepts a close and ignores it,
+which is a defect in the server and not in this file.
 """
 
 from __future__ import annotations
@@ -140,20 +183,34 @@ def _run_guard(bus_path: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _notify_send(bus_path: str, timeout: float) -> tuple[bool, float]:
-    """Return (returned_within_timeout, elapsed).
+def _notify_send(bus_path: str, timeout: float) -> tuple[bool, float, str | None]:
+    """Return (returned_within_timeout, elapsed, notification_id).
 
     The flags are the announcer's own, because the question is whether *its*
     call blocks, and libnotify's behaviour on an unowned name is not
     obviously independent of them — ``--expire-time=0`` in particular was
     the first suspect and was cleared only by measurement.
+
+    ``--print-id`` is the one addition, and it is made **here** rather than
+    at the live call site so that both halves send the same thing. It
+    changes no D-Bus traffic: libnotify issues the identical ``Notify``
+    method call either way and ``-p`` only prints the id the server
+    returned, so the blocking half blocks in the same place for the same
+    reason. What it buys is the live half's ability to take its own toast
+    back off the screen — see the module docstring.
+
+    The id is ``None`` whenever there is nothing to close: a call that was
+    killed at *timeout* never reached a server, and a server that answered
+    with something unparseable is a state this helper reports rather than
+    guesses at.
     """
     env = dict(os.environ, DBUS_SESSION_BUS_ADDRESS=f"unix:path={bus_path}")
     started = time.monotonic()
     try:
-        subprocess.run(
+        done = subprocess.run(
             [
                 "notify-send",
+                "--print-id",
                 "--app-name=sysadmin-test",
                 "--urgency=critical",
                 "--expire-time=0",
@@ -162,13 +219,52 @@ def _notify_send(bus_path: str, timeout: float) -> tuple[bool, float]:
                 "if you are reading this on screen, the live witness worked",
             ],
             capture_output=True,
+            text=True,
             env=env,
             timeout=timeout,
             check=False,
         )
-        return True, time.monotonic() - started
+        printed = done.stdout.strip()
+        return True, time.monotonic() - started, printed if printed.isdigit() else None
     except subprocess.TimeoutExpired:
-        return False, time.monotonic() - started
+        return False, time.monotonic() - started, None
+
+
+def _close_notification(notification_id: str | None) -> bool:
+    """Take the live half's own toast back off the screen.
+
+    ``CloseNotification`` is mandatory in the freedesktop specification and
+    goes to the notification name itself — which is safe *here* and would
+    not be in the guard, because this is only ever called on the live bus
+    after a server has been observed answering. On an unowned name it would
+    trigger the very activation ``test_asking_does_not_start_the_waiter``
+    exists to keep out of the guard's path.
+
+    ``False`` for every way of not-closing, including having no id at all:
+    a cleanup that cannot say whether it ran is the residue coming back
+    silently.
+    """
+    if notification_id is None:
+        return False
+    done = subprocess.run(
+        [
+            "busctl",
+            "--user",
+            "call",
+            "org.freedesktop.Notifications",
+            "/org/freedesktop/Notifications",
+            "org.freedesktop.Notifications",
+            "CloseNotification",
+            "u",
+            notification_id,
+        ],
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, DBUS_SESSION_BUS_ADDRESS=f"unix:path={LIVE_BUS}"),
+        timeout=10,
+        check=False,
+    )
+    return done.returncode == 0
 
 
 @pytest.mark.premise
@@ -186,7 +282,7 @@ class TestTheHazardIsReal:
         if not _have("notify-send"):
             pytest.skip(_MISSING_NOTIFY)
 
-        returned, elapsed = _notify_send(unserved_bus, BLOCK_PROBE_SECONDS)
+        returned, elapsed, _ = _notify_send(unserved_bus, BLOCK_PROBE_SECONDS)
 
         assert not returned, (
             f"notify-send returned after {elapsed:.2f}s on a bus with no "
@@ -200,17 +296,35 @@ class TestTheHazardIsReal:
 
         It puts a real notification on screen, which is the point: the
         happy path is asserted by exercising it, not by trusting that the
-        unhappy one implies it.
+        unhappy one implies it. It then takes it off again, because the
+        announcer's ``--expire-time=0`` means the server would otherwise
+        hold it there until a human dismissed it — one more every time
+        anybody ran the suite.
+
+        The close runs **before** the assertions rather than in a
+        ``finally``, so the screen is cleared on the failing path too
+        without a failed cleanup being able to mask the real verdict:
+        ``returned`` is asserted first and names the actual fault, and the
+        cleanup's own assertion comes last.
         """
         if not _have("notify-send"):
             pytest.skip(_MISSING_NOTIFY)
         if not _live_server_present():
             pytest.skip(_NO_LIVE_SERVER)
 
-        returned, elapsed = _notify_send(str(LIVE_BUS), BLOCK_PROBE_SECONDS)
+        returned, elapsed, notification_id = _notify_send(
+            str(LIVE_BUS), BLOCK_PROBE_SECONDS
+        )
+        closed = _close_notification(notification_id)
 
         assert returned, "notify-send blocked against a bus that has a server"
         assert elapsed < GUARD_BUDGET_SECONDS
+        assert closed, (
+            f"the probe notification (id {notification_id!r}) is still on "
+            "screen. Every run leaves another one: the announcer's flags "
+            "make it persistent, so this cleanup is the only thing that "
+            "removes it"
+        )
 
 
 class TestTheGuardSeparatesThem:
