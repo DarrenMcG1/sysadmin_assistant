@@ -4,7 +4,7 @@
 >
 > **Related**: [tasks.md](tasks.md) | [snag_list.md](snag_list.md)
 >
-> **Last Updated**: 2026-08-30
+> **Last Updated**: 2026-08-31
 
 ---
 
@@ -12,7 +12,7 @@
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
 
-### 🧠 2026-08-30 — split the GPU gate so the waiterless callers can take the window
+### ⛔ 2026-08-30 — split the GPU gate so the waiterless callers can take the window — **DEAD 2026-08-31, premise removed by the lease fix**
 
 Announced by estate-manager in message `df4113cb` (their ADR-0074 §2) and
 **not adopted** when that message was closed on 2026-08-30. Filed rather
@@ -38,6 +38,42 @@ headline: it would rescue roughly one narrative every forty weeks.
 open — dispatched to a task, answered 202 — which makes every invocation
 waiterless and the window the intended use.
 `tests/test_gpu_gate_invocations.py` is what notices.
+
+---
+
+**DEAD 2026-08-31 (Session 142), and it is the premise that went rather
+than the arithmetic.** `SNAG-SCHED-003`'s fix gave the three
+`run_weekly_review` jobs a GPU lease, and a lease-holder passes
+`gpu_lease_held=True` and **skips the gate entirely** — the arbiter has
+already read the card on its behalf, as a retry rather than a refusal,
+and holds it until release. So the sentence above that *"our three
+`run_weekly_review` jobs qualify"* is false as of `53342dd`: the
+waiterless invocation no longer reaches the gate at all.
+
+**Three consequences, and the middle one is why this is dead rather than
+deferred.**
+
+1. `sustained_busy`'s population here is now **empty** — what is left in
+   the gate is the three `POST …/review/generate` routes alone, which is
+   precisely the class the single read is *right* for. The refusal
+   recorded in `LLMClient.generate` is therefore **stronger** than when
+   it was written, not weaker.
+2. The window's entire benefit was rescuing the ~1-in-120 transient on
+   the waiterless path. That path is gone, so the benefit is not smaller
+   — it is **zero**, and no arithmetic can move it.
+3. The "what would change the answer" clause above is stale in its own
+   right. The routes going 202 would now make every invocation waiterless
+   *and leaseless*, which argues for extending the lease rather than
+   adopting the window.
+
+**Not deleted, and not reopened as a task.** The estate announced it
+(message `df4113cb`, their ADR-0074 §2) and this repository declined it
+with a measurement; deleting the entry would take the record of that
+exchange with it, and a future sitting reading their ADR would have no
+answer here. What it must not stay is an idea that reads as available —
+a document stating what is owed after it stopped being owed is
+`SNAG-ESTATE-008`'s shape, and `ideas.md` is the one roadmap file with no
+claims-checker over it, so nothing but a sitting would ever have said so.
 
 ### 🧠 2026-08-28 — adopt `estate.provenance.checkout()` for the cross-repo checks' evidence line
 

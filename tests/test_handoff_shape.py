@@ -1,0 +1,187 @@
+"""`HANDOFF.md` is parsed by another repository, so its shape is a surface.
+
+estate-manager's `estate_service/projects/roadmap.py` reads this file and
+publishes one line from it to the estate board.  Two of its behaviours
+make the shape of this document load-bearing, and both were driven
+against their parser on 2026-08-31 rather than read out of it:
+
+* ``next_action_from_handoff`` returns the first meaningful line under
+  the **first heading containing "next"**, case-insensitively.  A second
+  such heading earlier in the file would silently take over the board
+  line.
+* Failing that, it falls back to ``first_unchecked_task`` — **any**
+  ``- [ ]`` anywhere in the document, prefixed with its heading.
+
+So the `## Scheduled action` section added the same day carries two
+rules, and this file is what enforces them:
+
+1. **Plain bullets, never ``- [ ]``.**  Driven as a counterfactual: with
+   the scheduled item written as a checkbox and the ``## Next action``
+   heading renamed, their parser published *"Scheduled action →
+   **2026-09-07** — Read the first Monday under lease…"* as this
+   repository's next action.  A week-out measurement on the estate board
+   is not a next action, and nothing on either side would have said so.
+2. **No heading containing "next" but the real one.**  "Scheduled
+   action" is deliberately not "Next up" or "Coming next".
+
+The rules are asserted as properties of *this document*, never as a copy
+of their parser's logic — that would be a second statement of somebody
+else's rule, free to drift.  What is restated here is only which
+document shapes are allowed, and the reason is cited rather than
+reimplemented.
+
+``scripts/claude-preflight.sh`` prints the section and is the only reader
+of it on this box; there is no hook, no check and no estate surface, so
+an item that reaches neither the print nor a sitting's eye reaches
+nothing.
+"""
+
+from __future__ import annotations
+
+import pathlib
+import re
+
+import pytest
+
+HANDOFF = pathlib.Path(__file__).resolve().parent.parent / "HANDOFF.md"
+
+#: The heading their parser is allowed to find, and the only one.
+NEXT_HEADING = "## Next action"
+SCHEDULED_HEADING = "## Scheduled action"
+
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
+_UNCHECKED_RE = re.compile(r"^\s*[-*]\s+\[\s\]")
+
+
+def _text() -> str:
+    return HANDOFF.read_text(encoding="utf-8")
+
+
+def _headings(text: str) -> list[str]:
+    return [m.group(0) for line in text.splitlines() if (m := _HEADING_RE.match(line))]
+
+
+def _section_body(text: str, heading: str) -> list[str] | None:
+    """The lines under *heading*, up to the next heading of any level."""
+    out: list[str] | None = None
+    for line in text.splitlines():
+        if _HEADING_RE.match(line):
+            if out is not None:
+                return out
+            out = [] if line.strip() == heading else None
+            continue
+        if out is not None:
+            out.append(line)
+    return out
+
+
+class TestOnlyOneHeadingCanClaimTheBoardLine:
+    def test_the_document_has_exactly_one_next_heading(self):
+        claimants = [h for h in _headings(_text()) if "next" in h.lower()]
+        assert claimants == [NEXT_HEADING], (
+            "estate-manager's next_action_from_handoff takes the FIRST heading "
+            f"containing 'next' and publishes its first line to the board: {claimants}"
+        )
+
+    def test_it_is_the_first_heading_after_the_title(self):
+        """Ordering is not what their parser keys on, and it is asserted
+        anyway: a `## Next action` pushed below a session write-up still
+        parses, and a reader opening the file has to hunt for the one
+        line that is not history."""
+        headings = _headings(_text())
+        assert headings[0].startswith("# Handoff — ")
+        assert headings[1] == NEXT_HEADING
+
+    def test_the_scheduled_heading_cannot_claim_it(self):
+        assert "next" not in SCHEDULED_HEADING.lower()
+        assert SCHEDULED_HEADING in _headings(_text())
+
+
+class TestTheScheduledSectionCarriesNoCheckbox:
+    """Rule 1, and its population is whatever the section holds today.
+
+    An empty section passes this vacuously, which is why
+    :class:`TestTheDetectorWouldSeeOne` sits beneath it — a sweep that
+    finds nothing over a population of zero is not evidence
+    (``ports_checked``'s rule).
+    """
+
+    def test_no_scheduled_item_is_an_unchecked_task(self):
+        body = _section_body(_text(), SCHEDULED_HEADING)
+        assert body is not None, f"{SCHEDULED_HEADING} is gone from {HANDOFF.name}"
+        offenders = [line for line in body if _UNCHECKED_RE.match(line)]
+        assert not offenders, (
+            "a `- [ ]` here is published to the estate board as this "
+            "repository's next action whenever the `## Next action` heading is "
+            f"absent — first_unchecked_task takes any unchecked box: {offenders}"
+        )
+
+    def test_nowhere_else_in_the_document_either(self):
+        """The fallback is document-wide, so the rule is too.
+
+        Session write-ups below have carried unchecked boxes before; the
+        assertion is that they do not *now*, because the fallback would
+        reach them first only if `## Next action` were removed — the same
+        compound failure, one section further down.
+        """
+        offenders = [line for line in _text().splitlines() if _UNCHECKED_RE.match(line)]
+        assert not offenders, (
+            f"an unchecked box in HANDOFF.md is a board line waiting to happen: {offenders}"
+        )
+
+
+class TestTheDetectorWouldSeeOne:
+    """Both rules driven at documents that break them.
+
+    Without these, a green suite is satisfied by a detector that has
+    stopped reading — and the real file is deliberately clean, so it can
+    witness neither rule on its own.
+    """
+
+    @pytest.mark.parametrize(
+        "bullet", ["- [ ] **2026-09-07** — a task", "  * [ ] indented and starred"]
+    )
+    def test_it_catches_a_checkbox(self, bullet):
+        assert _UNCHECKED_RE.match(bullet)
+
+    @pytest.mark.parametrize("bullet", ["- **2026-09-07** — a plain bullet", "- [x] done"])
+    def test_it_passes_what_the_rule_allows(self, bullet):
+        assert not _UNCHECKED_RE.match(bullet)
+
+    def test_it_catches_a_second_next_heading(self):
+        forged = "# Handoff — 2026-08-31\n\n## Coming next\n\nsomething\n\n## Next action\n\nreal\n"
+        claimants = [h for h in _headings(forged) if "next" in h.lower()]
+        assert claimants == ["## Coming next", "## Next action"]
+        assert claimants[0] != NEXT_HEADING
+
+    def test_the_section_reader_finds_a_body_and_stops_at_the_next_heading(self):
+        forged = (
+            "# Handoff — 2026-08-31\n\n"
+            f"{SCHEDULED_HEADING}\n\n- **2026-09-07** — one\n\n"
+            "## Session 1\n\n- [ ] not in the section\n"
+        )
+        body = _section_body(forged, SCHEDULED_HEADING)
+        assert body is not None
+        assert [line for line in body if line.strip()] == ["- **2026-09-07** — one"]
+
+
+class TestPreflightIsTheOnlyReaderAndSaysSo:
+    """The section's whole mechanism is a print, and that is stated.
+
+    A scheduled item is enforced by nothing — no hook, no check, no
+    estate surface — so if `claude-preflight.sh` stopped printing it, an
+    item would be invisible in exactly the way the section exists to
+    prevent, and silently.
+    """
+
+    def test_preflight_reads_the_scheduled_section(self):
+        script = (
+            pathlib.Path(__file__).resolve().parent.parent
+            / "scripts"
+            / "claude-preflight.sh"
+        ).read_text(encoding="utf-8")
+        assert "scheduled" in script.lower(), (
+            "claude-preflight.sh no longer looks for the scheduled section — "
+            "nothing else on this box reads it"
+        )
+        assert "SCHEDULED=" in script

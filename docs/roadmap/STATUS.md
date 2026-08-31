@@ -60,6 +60,19 @@
 > second spelling of the estate's address in a process that already
 > reaches it through `agents.estate_judge.base_url`.
 >
+> **Two follow-ons in the same sitting.** `ideas.md`'s GPU-gate-split
+> entry is **dead by premise rather than by arithmetic** — the waiterless
+> callers no longer reach the gate, so the window's population is zero
+> and no recalculation revives it; marked rather than deleted, because it
+> records estate message `df4113cb` being declined. And `HANDOFF.md`
+> gained a **`## Scheduled action`** section, so a dated measurement stops
+> occupying the one line the estate board publishes. Its two shape rules
+> come from estate-manager's `roadmap.py`, and the second was driven as a
+> counterfactual and fires: a `- [ ]` there, with `## Next action`
+> renamed, made their parser publish the 2026-09-07 reading as this
+> repository's next action. Guarded by `tests/test_handoff_shape.py`;
+> announced as message **`8e693e05`** before the commit.
+>
 > **Still owed: one reading, on 2026-09-07** — `llm_used` on the three
 > review tables and the four grants and their order in the estate's
 > journal. Prediction: **true, true, true**, health granted first at
@@ -1041,9 +1054,22 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **1** unresolved
-> row <!--check:alerts-->, `warning: High disk usage on /`, **1**
-> named here <!--check:open_titles-->. *(Re-measured 2026-08-30 by
+> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
+> rows <!--check:alerts-->, `warning: High disk usage on /` and
+> `critical: venture-chat unreachable`, **2**
+> named here <!--check:open_titles-->. *(Re-measured 2026-08-31 by
+> Session 142, and the second row is the **third** consecutive sitting to
+> narrate the same title here, which is the signal rather than the state.
+> It is a true observation of an arbitrated swap: lease 42
+> (`venture-nightly-24b`) stopped `venture-chat.service` at 07:26:01 and
+> restored it at 07:31:01, and this row will resolve on the next healthy
+> poll as its 180 predecessors did. What makes it worth a snag rather
+> than a fourth paragraph is the **nightly** instance: measured over five
+> consecutive nights it opens just after 00:00 and resolves at ~05:48,
+> open for **5h45m to the second** — the drain's hold — at `critical`,
+> the one severity the tray leaves on screen. 181 rows all-time, every
+> one `critical`, every one resolved. Filed rather than narrated again.
+> Previously re-measured 2026-08-30 by
 > Session 137: this is a **swap** — the count held at 1 while the row
 > changed, which is exactly what `check_open_titles` exists for and what
 > `check_alerts` alone cannot see. `venture-chat unreachable` resolved

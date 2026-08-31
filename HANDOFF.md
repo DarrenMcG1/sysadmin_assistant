@@ -2,7 +2,35 @@
 
 ## Next action
 
-Read the first Monday under lease on 2026-09-07: `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews` should be true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning beside it, because the three refusals are logged apart precisely so that reading answers why.
+Re-measure `SNAG-LOG-013` before touching it, because its own filing predicted that the 9-of-55 colliding signatures and the incident row listing 7 members identical after capping would age out of retention that same afternoon, so the first question is whether the population still exists rather than how to fix it.
+
+## Scheduled action
+
+_Dated work that is not the next thing to pick up. It lives here rather
+than under "Next action" so a week-out measurement cannot stall the
+pipeline, and so it is not lost by being the thing a sitting scrolled
+past. **Nothing enforces this section** — it is read by whoever opens the
+handoff and printed by `./scripts/claude-preflight.sh`, which flags an
+item as due, overdue or *n* days out against today. Deliberately not
+machine-read: a scheduled item published to the estate board would
+compete with the next action for the same slot, which is the second shape
+rule below happening on purpose._
+
+_Two shape rules, both about the readers this file already has.
+**Plain bullets, never `- [ ]`**: estate-manager's `roadmap.py` falls
+back to `first_unchecked_task()` when a handoff has no "next" heading, so
+a checkbox here would publish a week-out measurement to the estate board
+as this repository's next action the day somebody deleted that section.
+**No heading containing the word "next"**: `next_action_from_handoff`
+returns the first meaningful line under the first such heading, so
+"Scheduled action" is deliberately not "Next up" or "Coming next".
+Verified by driving their parser either side of this edit — the published
+line is unchanged — and guarded by `tests/test_handoff_shape.py`.
+Announced to estate-manager as message `8e693e05` before the commit that
+carried it, with the estate-wide convention offered as a recommendation
+for them to rule on._
+
+- **2026-09-07** — Read the first Monday under lease: `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews` should be true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning beside it, because the three refusals are logged apart precisely so that reading answers why.
 
 ## Session 142 is complete — the reviews park now, and the budget is a deadline rather than a duration
 

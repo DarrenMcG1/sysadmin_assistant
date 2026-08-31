@@ -39,6 +39,49 @@ if [ -n "$HANDOFF_FILE" ] && [ -f "$HANDOFF_FILE" ]; then
         echo ""
         awk '/^## / { if (seen) exit; if (tolower($0) ~ /next/) { seen=1; print; next } }
              seen { print }' "$HANDOFF_FILE" 2>/dev/null | head -8 | sed 's/^/  /'
+
+        # "## Scheduled action" — dated work that is deliberately NOT the next
+        # thing to pick up. It is a separate section so a week-out measurement
+        # cannot stall the pipeline, and it is printed here because nothing
+        # else reads it: no hook, no check, no estate surface.
+        #
+        # Two shape rules the handoff states and this loop depends on. Items
+        # are PLAIN bullets, never "- [ ]", because estate-manager's
+        # roadmap.py falls back to first_unchecked_task() when a handoff has
+        # no "next" heading — a checkbox here would publish a week-out
+        # measurement to the estate board as this repository's next action.
+        # And the heading must not contain "next", or the awk above (and
+        # their next_action_from_handoff, which uses the same test) would
+        # return a scheduled item instead of the live one.
+        #
+        # Dates are compared with `date -d`, so an unparseable date is
+        # printed unlabelled rather than silently dropped — a scheduled item
+        # nobody can see is the thing this section exists to stop.
+        SCHEDULED=$(awk '/^## / { if (seen) exit; if (tolower($0) ~ /scheduled/) { seen=1; next } }
+                         seen && /^- / { print }' "$HANDOFF_FILE" 2>/dev/null)
+        if [ -n "$SCHEDULED" ]; then
+            echo ""
+            echo -e "  ${BLUE}📅 Scheduled action (not the next thing to pick up):${NC}"
+            TODAY_S=$(date +%s)
+            printf '%s\n' "$SCHEDULED" | while IFS= read -r ITEM; do
+                WHEN=$(printf '%s' "$ITEM" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+                BODY=$(printf '%s' "$ITEM" | sed 's/^- //')
+                LABEL="   "
+                if [ -n "$WHEN" ] && WHEN_S=$(date -d "$WHEN" +%s 2>/dev/null); then
+                    DAYS=$(( (WHEN_S - TODAY_S) / 86400 ))
+                    if [ "$DAYS" -lt 0 ]; then
+                        LABEL="${RED}⚠️  OVERDUE by $(( -DAYS ))d${NC}"
+                    elif [ "$DAYS" -le 0 ]; then
+                        LABEL="${YELLOW}⏰ DUE TODAY${NC}"
+                    else
+                        LABEL="${GREEN}   in ${DAYS}d${NC}"
+                    fi
+                fi
+                echo -e "  $LABEL"
+                printf '%s\n' "$BODY" | fold -s -w 72 | sed 's/^/      /'
+            done
+        fi
+
         echo -e "\n  ${BLUE}Full handoff: $HANDOFF_FILE${NC}"
         echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
     fi

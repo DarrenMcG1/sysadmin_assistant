@@ -189,6 +189,31 @@ debts that landing deliberately left behind._
         a **recorded counterfactual rather than a guard** and says so: the
         copied-1800 arithmetic is over two constants and no code change
         can break it.
+      - **The idea file went stale by this commit and was closed the same
+        sitting.** `ideas.md`'s 2026-08-30 entry — split the GPU gate so
+        the waiterless callers take `sustained_busy`'s window — rests on
+        *"our three `run_weekly_review` jobs qualify"*, and they no longer
+        reach the gate at all. Marked **dead by premise rather than by
+        arithmetic**: the window's benefit did not shrink, its population
+        went to zero, so no recalculation revives it. Not deleted — it is
+        the record of estate message `df4113cb` being declined, and
+        `ideas.md` is the one roadmap file with no claims-checker over it.
+      - **`HANDOFF.md` gained a `## Scheduled action` section**, so a
+        week-out measurement stops occupying the one line the estate board
+        publishes. Two shape rules, both derived from estate-manager's
+        `roadmap.py` rather than guessed: no heading containing "next"
+        (their `next_action_from_handoff` takes the first such heading),
+        and plain bullets rather than `- [ ]` (their fallback
+        `first_unchecked_task` takes any unchecked box anywhere). The
+        second was **driven as a counterfactual and it fires** — with a
+        checkbox and the `## Next action` heading renamed, their parser
+        published the 2026-09-07 reading as this repository's next action.
+        `tests/test_handoff_shape.py` guards both (12 tests, three
+        falsifications driven); `claude-preflight.sh` prints the section
+        and flags each item overdue / due today / in *n* days, its four
+        branches driven. Announced as message **`8e693e05`** before this
+        commit, with the estate-wide convention offered as a
+        recommendation for them to rule on.
       - **Still owed: one reading, on 2026-09-07.** `llm_used` on the
         three review tables, and the four grants and their order in
         `journalctl --user -u estate-manager-api.service`. Prediction:
