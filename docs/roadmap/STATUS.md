@@ -3,6 +3,35 @@
 **Last Updated**: 2026-08-31
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **`SNAG-AGENT-011` has a check, and the fix its own body names cannot
+> be written** (2026-08-31, Session 143). The check is the twenty-seventh
+> in `CHECKS` and takes the register to **19 of 19 open entries checked**
+> — every open entry now names something that would refute it. It is a
+> conjunction whose halves refute at different moments on purpose: the
+> source walk for `stopped_units` flips on the **commit**, the nightly
+> population off `alerts` flips the first night after the **deploy**.
+> Live: `match`.
+>
+> **The entry is wrong about the surface, and reading the producer is
+> what said so.** `GET :8400/api/queue/invariants` projects
+> `active_lease` to five keys and `stopped_units` is not among them;
+> estate-manager's own test pins that set. It is on
+> `GET /api/queue/leases/{id}`, which also answers for a **released**
+> lease — so the entry's other stated limit, that there is no lease
+> history, is wrong too: leases 30/31/32 name `venture-chat.service` and
+> are the six nightly rows' causes. **Fix decided: the two-call path,
+> here, needing nothing from estate-manager.** Placement deliberately
+> left to the build sitting.
+>
+> **The window is derived rather than invented**, which the owed shape
+> did not ask for: the drain's next firing as an **epoch**
+> (`--timestamp=unix`, never the default wall clock — `SNAG-LOG-009`'s
+> trap) plus `agents.sysadmin.health_check_interval_seconds`. 00:00:00
+> +300 s live, admitting all six nightly rows, which open 54 s to
+> 4 min 48 s after it. **No restart is owed**: nothing the daemon imports
+> reaches `snag_claims.py`, and the deploy check compares mtimes and
+> cannot tell.
+>
 > **The reviews park now, and the number the owner settled is a deadline
 > rather than a duration — which is what makes it work** (2026-08-31,
 > Session 142). `SNAG-SCHED-003` and `SNAG-SCHED-001` both **closed**.

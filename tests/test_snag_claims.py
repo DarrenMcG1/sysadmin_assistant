@@ -5176,6 +5176,383 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         assert "audit_code_unpublished" in entry.markers
 
 
+class TestTheNightlyHoldCheck:
+    """``SNAG-AGENT-011``'s check — a conjunction whose halves refute at different moments.
+
+    Limb 2 is a source walk and flips the instant the fix is *written*;
+    limb 1 reads the population and flips the first night after it is
+    *deployed*.  Neither is redundant, and the tests below are grouped by
+    which half they falsify because the two fail in opposite directions:
+    a source walk alone reports the entry dead over a fix nobody
+    restarted into, and a population read alone goes on reporting *still
+    holds* over a fix landing where this repository cannot see it —
+    ``notifications.tray.mute_services``, or the estate retiring the swap.
+
+    The order below is load-bearing for the same reason
+    :class:`TestEveryCheckCanSayItDoesNotKnow`'s is: the live drive comes
+    first, because every stand-in beneath it is a claim about what the
+    check does to a reading, and none of them means anything if the
+    reading it substitutes for is not the one the box produces.
+    """
+
+    # -- the live box -----------------------------------------------------
+
+    def test_it_holds_against_the_live_box(self):
+        assert snag_claims.check_nightly_hold_is_loud().verdict == "match"
+
+    def test_the_check_is_pinned_to_its_entry(self):
+        """Rule 4's pin, for the entry this sitting checked."""
+        check = snag_claims.CHECKS["nightly_hold_is_loud"]
+        assert check.snag == "SNAG-AGENT-011"
+        entry = next(e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-AGENT-011")
+        assert "nightly_hold_is_loud" in entry.markers
+
+    # -- limb 2: the mechanism --------------------------------------------
+
+    def test_both_spellings_of_the_fix_refute_the_entry(self):
+        """The fix has two plausible shapes and a walk blind to either is blind.
+
+        A raw payload read is an ``ast.Constant``; a contract model gives
+        an ``ast.Attribute``.  Driven at a stand-in *modelling the fix*
+        rather than at one modelling the defect —
+        ``a-control-a-fix-breaks-is-not-a-control`` — and asserted per
+        line, so a walk that found one shape and stopped is red rather
+        than merely under-counting.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "raw.py").write_text(
+                'def held(lease):\n    return lease.get("stopped_units", [])\n',
+                encoding="utf-8",
+            )
+            (root / "typed.py").write_text(
+                "def held(lease):\n    return lease.stopped_units\n", encoding="utf-8"
+            )
+            found = snag_claims.lease_discriminator_readers([root])
+        assert [hit.rsplit("/", 1)[-1] for hit in found] == ["raw.py:2", "typed.py:2"]
+
+    def test_prose_naming_the_discriminator_does_not_refute(self):
+        """``SNAG-SCHED-002``'s lesson, and what actually pays for it here.
+
+        That check's first draft was a *substring* search, so
+        ``estate_queue`` matched ``estate_queue_invariants.json`` named in
+        a docstring and a sentence about a fix retired the entry the
+        sentence described.  What keeps prose out of *this* walk is the
+        exactness — ``node.value == LEASE_DISCRIMINATOR`` — so the test
+        has to be **discriminating** rather than merely green: the
+        specimen is asserted to be exactly what a grep would have found,
+        and then asserted absent.  Without the first half this passes
+        against a file that mentions nothing.
+
+        **The third mention is outside a docstring and is the one that
+        matters**, found by driving the exactness away: softening the
+        comparison to ``LEASE_DISCRIMINATOR in node.value`` passed
+        against a two-docstring specimen, because the docstring exclusion
+        caught what the softening had let through.  Two guards that mask
+        each other is one guard nothing witnesses, so the log line is
+        here to make the exactness the only thing keeping this file out.
+        """
+        prose = (
+            '"""A module about stopped_units that binds nothing."""\n\n'
+            "def held(lease):\n"
+            '    """Reads stopped_units one day, not today."""\n'
+            '    logger.info("no stopped_units on this lease")\n'
+            "    return []\n"
+        )
+        assert prose.count(snag_claims.LEASE_DISCRIMINATOR) == 3, (
+            "the specimen no longer names the discriminator, so its absence "
+            "from the report witnesses nothing"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "prose.py").write_text(prose, encoding="utf-8")
+            assert snag_claims.lease_discriminator_readers([root]) == []
+
+    def test_the_docstring_exclusion_has_a_witness_of_its_own(self):
+        """The half a mutation found, and reading did not.
+
+        Removing ``id(node) not in docstrings`` was driven against the
+        test above and **passed**: a docstring *mentioning* the name is
+        not equal to it, so the exclusion never fired.  A guard nothing
+        can witness is ``ports_checked``'s rule at the size of a
+        conjunct, so the pathological case is built — a docstring that
+        **is** the name — and it is the only shape the exclusion can act
+        on.  Contrived on purpose: it is the exclusion's whole
+        population, and the exclusion is kept because a later reader
+        reaching for ``in`` would reintroduce ``SNAG-SCHED-002``'s defect
+        with nothing left standing against it.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "pathological.py").write_text(
+                f'"""{snag_claims.LEASE_DISCRIMINATOR}"""\n', encoding="utf-8"
+            )
+            assert snag_claims.lease_discriminator_readers([root]) == []
+            # ...and the same constant outside a docstring is found, or
+            # the test above passes because nothing matches at all.
+            (root / "pathological.py").write_text(
+                f'x = "{snag_claims.LEASE_DISCRIMINATOR}"\n', encoding="utf-8"
+            )
+            found = snag_claims.lease_discriminator_readers([root])
+        assert [hit.rsplit("/", 1)[-1] for hit in found] == ["pathological.py:1"]
+
+    def test_the_exclusion_is_exactly_this_module_and_not_a_shape(self):
+        """The self-exclusion, and the reason it has to be narrow.
+
+        Limb 2 is a claim about a *name*, so the check has to spell the
+        name to look for it, and a walk including its own definition
+        reports the fix landed on the commit adding the check.  The
+        exclusion is one file; a wider one — anything assigning the
+        name, say — would hide the fix landing in a neighbour.
+
+        Both halves are asserted, because either alone passes over a
+        broken exclusion: that the owner really does contain the literal
+        (or the exclusion is excluding nothing), and that no site in it
+        reaches the report.
+        """
+        owner = Path(snag_claims.__file__)
+        assert snag_claims.LEASE_DISCRIMINATOR in owner.read_text(encoding="utf-8")
+        assert not [
+            hit for hit in snag_claims.lease_discriminator_readers() if hit.endswith(owner.name)
+        ]
+        # ...and a file that merely *assigns* the name elsewhere is not
+        # excluded by the same rule, which is what makes it narrow.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "elsewhere.py").write_text(
+                'DISCRIMINATOR = "stopped_units"\n', encoding="utf-8"
+            )
+            elsewhere = snag_claims.lease_discriminator_readers([root])
+        assert [hit.rsplit("/", 1)[-1] for hit in elsewhere] == ["elsewhere.py:1"]
+
+    def test_a_reader_refutes_while_the_nightly_row_is_still_loud(self):
+        """The conjunction's ordering, and why limb 2 is asked first.
+
+        The fix lands as a commit and reaches the box at a restart, so
+        for at least one night both halves are true at once: the code
+        reads the discriminator and last night's row is still
+        ``critical``.  A check taking the population's answer as final
+        would report *still holds* over a landed fix — the shape
+        ``check_review_schedule_unread`` was, and one this repository has
+        already paid for.
+        """
+        loud = snag_claims.NightlyHoldReading(
+            fires_at=datetime(2026, 9, 1, tzinfo=UTC),
+            grace_seconds=300,
+            rows=(
+                ("venture-chat unreachable", "critical", datetime(2026, 8, 31, tzinfo=UTC), None),
+            ),
+            latest_observed_night=datetime(2026, 8, 31, tzinfo=UTC).date(),
+            observed_nights=6,
+        )
+        with (
+            patch.object(snag_claims, "nightly_hold_reading", return_value=(loud, "")),
+            patch.object(snag_claims, "lease_discriminator_readers", return_value=["a.py:1"]),
+        ):
+            measurement = snag_claims.check_nightly_hold_is_loud()
+        assert measurement.verdict == "mismatch"
+        assert "whatever last night's rung was" in measurement.note
+
+    # -- limb 1: the population -------------------------------------------
+
+    def _reading(self, **over):
+        night = datetime(2026, 8, 31, tzinfo=UTC)
+        fields = {
+            "fires_at": datetime(2026, 9, 1, tzinfo=UTC),
+            "grace_seconds": 300,
+            "rows": (("venture-chat unreachable", "critical", night, None),),
+            "latest_observed_night": night.date(),
+            "observed_nights": 6,
+        }
+        return snag_claims.NightlyHoldReading(**(fields | over))
+
+    def _drive(self, reading):
+        with (
+            patch.object(snag_claims, "nightly_hold_reading", return_value=(reading, "")),
+            patch.object(snag_claims, "lease_discriminator_readers", return_value=[]),
+        ):
+            return snag_claims.check_nightly_hold_is_loud()
+
+    def test_a_quietened_nightly_row_refutes_the_entry(self):
+        """The fix the entry actually asks for, and the row surviving it.
+
+        ``known_noise`` rule 2 and ``TRANSIENT_HOLDER_SEVERITY``'s
+        reason: a quietening, never a suppression, so the row still
+        exists and still reaches ``GET /api/services/reliability``.  A
+        check keyed on the row's *absence* would therefore never see this
+        fix at all.
+        """
+        night = datetime(2026, 8, 31, tzinfo=UTC)
+        measurement = self._drive(
+            self._reading(rows=(("venture-chat unreachable", "info", night, None),))
+        )
+        assert measurement.verdict == "mismatch"
+        assert "no longer critical" in measurement.note
+
+    def test_a_vanished_population_refutes_and_names_both_readings(self):
+        """Rule 2 — a refuted claim is a candidate for closure, never a closure.
+
+        Three things empty the population without a line of this
+        repository's code moving: ``mute_services`` gaining the service,
+        the estate retiring the swap, or the profile losing its
+        ``stopped_units``.  This module cannot separate them, so the note
+        names the judgement rather than making it.
+        """
+        measurement = self._drive(self._reading(rows=()))
+        assert measurement.verdict == "mismatch"
+        assert "judge whether the estate stopped swapping" in measurement.note
+
+    def test_an_unwatched_window_is_unknown_and_never_a_refutation(self):
+        """The coverage half, and the asymmetry it rests on.
+
+        The monitor being down can hide a row and can never invent one —
+        ``reliability.py``'s "a gap in the series never costs points" and
+        ``health_review``'s refusal of a fall the coverage cannot
+        support.  Without this a daemon outage closes the entry, which is
+        the calendar's verdict wearing the check's clothes.
+        """
+        measurement = self._drive(
+            self._reading(rows=(), latest_observed_night=None, observed_nights=0)
+        )
+        assert measurement.verdict == "unknown"
+        assert "this daemon having been down" in measurement.note
+
+    def test_a_row_on_a_night_nothing_watched_does_not_hold_the_entry_open(self):
+        """The falsification of the test above, from the other side.
+
+        A nightly row exists, and it is not on the latest observed night
+        — so the last time anything looked, nothing was announced.  A
+        check keyed on "are there any nightly rows" would answer ``match``
+        off a row a week old and go on doing so for the length of the
+        lookback.
+        """
+        stale = datetime(2026, 8, 20, tzinfo=UTC)
+        measurement = self._drive(
+            self._reading(rows=(("venture-chat unreachable", "critical", stale, None),))
+        )
+        assert measurement.verdict == "mismatch"
+        assert "no service was announced unreachable in it" in measurement.note
+
+    # -- the derivations ---------------------------------------------------
+
+    def test_the_window_is_read_as_an_epoch_and_never_as_a_wall_clock(self):
+        """``--timestamp=unix``, and why the default rendering is refused.
+
+        ``NextElapseUSecRealtime`` normally prints ``Tue 2026-09-01
+        00:00:00 BST`` — a local wall clock with a zone abbreviation,
+        which names two instants at an autumn fold and a different one in
+        every zone.  That is the token
+        ``service_recommendations._timer_stale_row`` refuses to parse for
+        ``SNAG-LOG-009``'s reason, and the flag is what keeps this check
+        from rebuilding it.  Asserted at the invocation, because on this
+        box the two readings agree and only the argument can say which
+        was asked for.
+        """
+        recorded = []
+
+        def _run(argv, **kwargs):
+            recorded.append(argv)
+            return SimpleNamespace(stdout="NextElapseUSecRealtime=@1788217200\n")
+
+        with patch.object(snag_claims.subprocess, "run", _run):
+            fires_at, problem = snag_claims.timer_fires_at("anything.timer")
+        assert problem == ""
+        assert "--timestamp=unix" in recorded[0]
+        assert fires_at == datetime.fromtimestamp(1788217200, UTC).astimezone()
+
+    def test_the_calendar_spec_is_not_parsed(self):
+        """A reader of ``OnCalendar`` is a second implementation of a grammar.
+
+        ``schema_guard``'s refusal to regex ``alembic/versions/*.py`` at
+        the size of a timer: systemd has already resolved the spec, so
+        this asks it for the answer rather than for the question.
+        """
+        source = inspect.getsource(snag_claims.timer_fires_at)
+        body = source.split('"""', 2)[-1]
+        assert "TimersCalendar" not in body
+        assert "OnCalendar" not in body
+
+    def test_the_loud_rung_is_derived_from_the_ladder(self):
+        """``max_priority_for`` against ``PRIORITY_MAP``'s rule.
+
+        Asserted by **provenance** rather than by value: a literal
+        ``"critical"`` and this derivation both read ``critical``, and
+        only the source separates them — the shape recorded after Session
+        59's guards, where two of six passed against broken code for
+        exactly this reason.
+        """
+        assert snag_claims.LOUDEST_SEVERITY == "critical"
+        assignment = next(
+            node
+            for node in ast.walk(ast.parse(Path(snag_claims.__file__).read_text(encoding="utf-8")))
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(t, ast.Name) and t.id == "LOUDEST_SEVERITY" for t in node.targets
+            )
+        )
+        assert not isinstance(assignment.value, ast.Constant), (
+            "LOUDEST_SEVERITY is written down rather than derived from SEVERITY_ORDER"
+        )
+        assert "SEVERITY_ORDER" in ast.unparse(assignment.value)
+
+    def test_the_windowing_is_pythons_and_not_the_sessions_timezone(self):
+        """``created_at::time`` resolves through an inherited ``TimeZone``.
+
+        ``an-observation-can-be-seasonal``'s warning at the size of a
+        cast: the same statement answers differently on a connection
+        nobody configured, and neither reading announces itself.  Both
+        instants come back aware and the comparison is made in Python
+        against one zone, the process's — so the SQL must carry no cast
+        at all.
+        """
+        for statement in (snag_claims.UNREACHABLE_ROWS_SQL, snag_claims.SYSADMIN_RUN_STARTS_SQL):
+            assert "::time" not in statement
+            assert "TimeZone" not in statement
+            assert "AT TIME ZONE" not in statement
+
+    def test_the_population_is_every_unreachable_title_and_not_one_service(self):
+        """Rule 1 — the mechanism, never the population it happens to have.
+
+        20 of the family's 23 rows are one service today, and scoping the
+        read to it would make the check blind to the estate swapping a
+        different unit tomorrow.  The unit the lease names is carried as
+        evidence and reaches no query.
+        """
+        assert "% unreachable" in snag_claims.UNREACHABLE_ROWS_SQL
+        assert snag_claims.NIGHTLY_STOPPED_UNIT not in snag_claims.UNREACHABLE_ROWS_SQL
+
+    # -- every way of not-knowing -----------------------------------------
+
+    def test_a_timer_that_is_not_armed_is_unknown(self):
+        """The premise is another repository's schedule.
+
+        ``SNAG-SCHED-001``'s check rule, inherited with its holder: a
+        claim whose premise has died is not a claim that still holds, so
+        an unarmed timer is ``unknown`` and never ``match``.
+        """
+        with patch.object(
+            snag_claims.subprocess,
+            "run",
+            return_value=SimpleNamespace(stdout="NextElapseUSecRealtime=n/a\n"),
+        ):
+            measurement = snag_claims.check_nightly_hold_is_loud()
+        assert measurement.verdict == "unknown"
+        assert "the timer is not armed" in measurement.note
+
+    def test_a_timer_systemd_does_not_know_is_unknown(self):
+        with patch.object(
+            snag_claims.subprocess, "run", return_value=SimpleNamespace(stdout="")
+        ):
+            measurement = snag_claims.check_nightly_hold_is_loud()
+        assert measurement.verdict == "unknown"
+        assert "is not a timer systemd knows" in measurement.note
+
+    def test_a_silent_database_is_unknown(self):
+        silent = ([], "the database did not answer (OperationalError)")
+        with patch.object(snag_claims, "query_rows", return_value=silent):
+            assert snag_claims.check_nightly_hold_is_loud().verdict == "unknown"
+
+
 # ---------------------------------------------------------------------------
 # Movement — the header paragraph's figure, derived
 # ---------------------------------------------------------------------------

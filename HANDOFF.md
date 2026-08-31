@@ -2,9 +2,11 @@
 
 ## Next action
 
-Write `SNAG-AGENT-011`'s check and then decide its fix: the check is a conjunction whose limb 1 must read the nightly shape out of `alerts` locally rather than asking 8400 for an active lease, because a sitting runs in the daytime and would see none — and the fix reads `active_lease.stopped_units` from `GET :8400/api/queue/invariants`, which the agent can see live at 00:03 when it decides the rung, failing open so a dead estate never silences a genuine outage.
+Build `SNAG-AGENT-011`'s decided fix: the two-call path — `GET :8400/api/queue/invariants` for `active_lease.id`, then `GET :8400/api/queue/leases/{id}` for `stopped_units`, both hops failing open so an unreadable estate leaves the rung at `critical`, quietening a matched unit to `judgements.TRANSIENT_HOLDER_SEVERITY` — and settle the placement first, because the service family must consult a fact while the estate judge must not acquire a say in a service's rung and `tests/test_import_boundary.py` decides whether `SysAdminAgent` may read `sysadmin/estate/client.py` at all.
 
-_Ranked alternative if that is blocked: re-measure `SNAG-LOG-013` before touching it — its own filing predicted the 9-of-55 colliding signatures and the incident row listing 7 identical members would age out of retention the same afternoon, so the first question is whether the population still exists._
+_Ranked alternative if that is blocked: estate message **`76e0438b`** is unread and is a one-line change — estate-manager-api.service's journal lines became JSON on 2026-08-31, and this repository's `services.yaml` entry for it declares no `format`, so `alert_title` will build titles out of raw JSON, which is `SNAG-LOG-003` and is exactly why `sysadmin-service` declares `format: json` at `services.yaml:200`. `218d765a` is the other, and needs only a re-run of the registry parse to confirm it is a no-op._
+
+_Both inbox messages were deliberately **not** absorbed into this sitting: mixing another repository's ask into a commit about `SNAG-AGENT-011` is the bundling the estate rules forbid, and the one-session rule says finish and stop._
 
 ## Scheduled action
 
@@ -33,6 +35,85 @@ carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
 - **2026-09-07** — Read the first Monday under lease: `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews` should be true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning beside it, because the three refusals are logged apart precisely so that reading answers why.
+
+## Session 143 — `SNAG-AGENT-011`'s check, and a fix that cannot be written as filed (2026-08-31)
+
+**What was asked**: write the check, then decide the fix. Both done; the
+fix is decided and **not built** — the placement question was explicitly
+deferred to the build sitting by the owner.
+
+**The check.** `check_nightly_hold_is_loud`, the twenty-seventh in
+`CHECKS`, taking the register to **19 of 19 open entries checked**. A
+conjunction whose halves refute at different moments *on purpose*: limb 2
+(an AST walk for `stopped_units` under `sysadmin/`, both the dict-key and
+the attribute spelling) flips on the **commit**; limb 1 (the nightly
+population off `alerts`) flips the first night after the **deploy**.
+Neither is redundant — a source walk alone reports the entry dead over a
+fix nobody restarted into, and a population read alone is blind to a fix
+landing in `mute_services` or to the estate retiring the swap. Live:
+`match`, 6 nightly rows in 30 days across 1 service, latest 2026-08-31 at
+`critical`, no reader of the discriminator.
+
+**Three things the sitting found by reading the producer rather than the
+entry, and they change what gets built.**
+
+- **`GET :8400/api/queue/invariants` does not publish `stopped_units`.**
+  `Arbiter.invariants` selects an explicit column list and pops
+  `hold_overdue`, so `active_lease` reaches the wire with five keys;
+  their own `test_the_old_gauge_is_unchanged_and_still_published` pins
+  that set. The entry's one-call fix — and the handoff line that sent
+  this sitting — cannot be written.
+- **The lease history *is* reachable, so the entry's other stated limit
+  is wrong in the opposite direction.** `GET /api/queue/leases/{id}` is
+  `_public(SELECT * …)` and answers for a **released** lease; leases 30,
+  31 and 32 all name `["venture-chat.service"]` against grants at
+  00:00:03–00:00:05, which are three of the six nightly rows' causes.
+  The check deliberately does **not** use it: it would make a report
+  printed at both ends of every sitting depend on another service being
+  up, and enumerating lease ids is walking a key space the estate
+  publishes no listing for.
+- **The window is derived, which the owed shape did not ask for.** The
+  bullet asked for a *duration and time-of-day* shape — two hand-picked
+  numbers. Both halves come off the box instead: the drain's next firing
+  from `systemctl --user show … --timestamp=unix`, and the grace from
+  `agents.sysadmin.health_check_interval_seconds`. `--timestamp=unix` is
+  load-bearing: the default rendering is a local wall clock with a zone
+  abbreviation, `SNAG-LOG-009`'s trap, and `@1788217200` carries no zone
+  at all. The `OnCalendar` spec is **not** parsed — that would be a
+  second implementation of systemd's calendar grammar.
+
+**Two of ten mutations passed against deliberately broken code, and they
+were masking each other.** The docstring exclusion is inherited from
+`SNAG-SCHED-002`, whose detector was a *substring* search; against an
+*equality* match a docstring mentioning the name cannot match anyway, so
+removing the exclusion changed nothing. Softening the equality to a
+substring also changed nothing — because the docstring exclusion caught
+what it let through. The prose specimen gained a **non-docstring**
+mention and the exclusion gained a pathological witness of its own, after
+which each mutation lands red on its own test. Suite 3209 → 3228, which
+is the 19 added and nothing clobbered.
+
+**Decisions taken, and what was rejected.** The two-call path here, over
+filing at estate-manager for the field on `invariants`: that filing is
+one call rather than two and is arguably the field's right home
+(`waiting_reason` arrived by exactly that route after our `d1939cf7`),
+but it parks a **nightly** `critical` behind another repository's
+sitting, and nightly is why the entry is P2. Reading `gpu_leases` is
+estate rule 1 and was never a candidate. The second call's cost was
+measured rather than assumed: it fires on the **raise** path only, and
+the family raised 23 rows in 17 days.
+
+**Blocked / open.** Placement — the service family must consult a fact
+while the estate judge must not acquire a say in a service's rung
+(`judgements.py` rule 3 in reverse). `sysadmin/estate/client.py` owns
+every HTTP call to 8400, so it is either a cross-domain read from
+`SysAdminAgent` or a reader the service family owns outright, and
+`tests/test_import_boundary.py` has not been consulted.
+
+**No restart owed.** Nothing the daemon imports reaches `snag_claims.py`;
+the deploy check compares file mtimes and cannot tell, which is a cost
+its own entry states.
+
 
 ## Session 142 is complete — the reviews park now, and the budget is a deadline rather than a duration
 

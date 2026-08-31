@@ -16,6 +16,52 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 143 — `SNAG-AGENT-011`'s check, and the fix it names is
+      unbuildable as written.** *(2026-08-31.)* The check is the
+      twenty-seventh in `CHECKS` and takes the register to **19 of 19
+      open entries checked**. Three findings, every one from reading the
+      producer rather than the entry.
+      - **`GET :8400/api/queue/invariants` does not publish
+        `stopped_units`.** `Arbiter.invariants` selects an explicit
+        column list — `id, profile, requester, granted_at,
+        hold_deadline, hold_overdue` — and pops the last, so
+        `active_lease` reaches the wire with **five** keys;
+        estate-manager's own
+        `test_the_old_gauge_is_unchanged_and_still_published` pins that
+        set. The entry's one-call fix cannot be written.
+      - **And its stated limit is wrong in the other direction: the
+        lease history *is* reachable.** `GET /api/queue/leases/{id}` is
+        `_public(SELECT * …)` and answers for a **released** lease —
+        leases 30, 31 and 32 all name `["venture-chat.service"]` in
+        `stopped_units` against grants at 00:00:03–00:00:05, which are
+        the six nightly alert rows' causes. So the fix is a **two-call
+        path**, decided this sitting and needing nothing from
+        estate-manager.
+      - **The window is derived rather than invented**, which the owed
+        shape did not ask for: the drain's next firing from `systemctl
+        --user show … --timestamp=unix` (an epoch, never the default
+        wall-clock rendering — `SNAG-LOG-009`'s trap) plus
+        `agents.sysadmin.health_check_interval_seconds`. Live **00:00:00
+        +300 s**, and the six nightly rows open **54 s to 4 min 48 s**
+        after it.
+      - **Two of ten mutations passed against deliberately broken code**,
+        and they were masking each other: the docstring exclusion is
+        inherited from `SNAG-SCHED-002`'s *substring* detector and cannot
+        fire against an *equality* match, so removing it changed nothing;
+        and softening the equality to a substring changed nothing either,
+        because the docstring exclusion caught what it let through. The
+        prose specimen gained a **non-docstring** mention and the
+        exclusion gained a pathological witness of its own, after which
+        each mutation lands red on its own test.
+      - [ ] **Build the fix.** Two calls on the raise path, both failing
+        open, rung `judgements.TRANSIENT_HOLDER_SEVERITY`. **Placement is
+        deliberately open**: the service family must consult a fact and
+        the estate judge must not acquire a say in a service's rung
+        (`judgements.py` rule 3 in reverse), and
+        `tests/test_import_boundary.py` decides whether
+        `SysAdminAgent` may read `sysadmin/estate/client.py` or needs a
+        reader of its own.
+
 - [x] **Session 140 — the measurement named the wrong contender, and the
       box had already recorded the right one.** *(2026-08-30.)*
       `SNAG-SCHED-001` owed one number before its two fixes could be
