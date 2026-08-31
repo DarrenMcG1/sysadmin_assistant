@@ -4,9 +4,7 @@
 
 Build `SNAG-AGENT-011`'s decided fix: the two-call path — `GET :8400/api/queue/invariants` for `active_lease.id`, then `GET :8400/api/queue/leases/{id}` for `stopped_units`, both hops failing open so an unreadable estate leaves the rung at `critical`, quietening a matched unit to `judgements.TRANSIENT_HOLDER_SEVERITY` — and settle the placement first, because the service family must consult a fact while the estate judge must not acquire a say in a service's rung and `tests/test_import_boundary.py` decides whether `SysAdminAgent` may read `sysadmin/estate/client.py` at all.
 
-_Ranked alternative if that is blocked: estate message **`76e0438b`** is unread and is a one-line change — estate-manager-api.service's journal lines became JSON on 2026-08-31, and this repository's `services.yaml` entry for it declares no `format`, so `alert_title` will build titles out of raw JSON, which is `SNAG-LOG-003` and is exactly why `sysadmin-service` declares `format: json` at `services.yaml:200`. `218d765a` is the other, and needs only a re-run of the registry parse to confirm it is a no-op._
-
-_Both inbox messages were deliberately **not** absorbed into this sitting: mixing another repository's ask into a commit about `SNAG-AGENT-011` is the bundling the estate rules forbid, and the one-session rule says finish and stop._
+_The inbox is empty: Session 144 took the ranked alternative, so `76e0438b` and `218d765a` are both closed and the alternative above is spent. `SNAG-AGENT-011` is the only thing on this line now._
 
 ## Scheduled action
 
@@ -35,6 +33,141 @@ carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
 - **2026-09-07** — Read the first Monday under lease: `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews` should be true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning beside it, because the three refusals are logged apart precisely so that reading answers why.
+
+## Session 144 is complete — the founding measurement died, and its death was the design working
+
+**Both inbox messages are closed and neither needed the code changed.**
+`76e0438b` asked for one line in `services.yaml`; `218d765a` asked for
+nothing and was verified rather than believed.
+
+**What shipped.** `estate-manager-api`'s log block gains `format: json`.
+The estate's four entry points began emitting one JSON document per
+record on 2026-08-31 (their ADR-0079), and without the declaration
+`alert_title` builds the title out of the whole document — `SNAG-LOG-003`,
+the defect the `sysadmin-service` entry twelve rows up already declares
+against. Driven against the unit's real journal, paired record by record
+with `logged_at` asserted as the premise: **166 of 600 records change**,
+titles fall from **167–249 characters of JSON to 55–70 readable ones**,
+`logger` goes to metadata and `raw_line` keeps the envelope. The other
+**434** — uvicorn's access lines and systemd's own — pass through
+untouched, which is `unwrap_json_message` failing open, not a shortfall.
+
+**It ships untriggered, twice over, and the second reason is the one
+worth carrying.** `FAULT_SEVERITIES` is `error` and `critical`, so the
+`warning` filter's entire live population for this unit is systemd's own
+28 stored `Failed with result 'exit-code'.` rows, which raise no alert
+and are plain text anyway. And **no estate application line has yet
+arrived above priority 6** — all 34 non-6 records in 14 days were written
+by systemd — so the producer's new `<N>` prefix has no witness here
+either. The declaration is a statement about what the application writes,
+not a repair of an observed row. Verified in our own table: **0** stored
+messages for that unit are JSON-shaped.
+
+**The interesting half was a guard, and its claim was the design's
+founding measurement.** `test_no_other_source_declares_a_format` asserted
+`{"sysadmin-service"}` and read *"this daemon is the only JSON-writing
+journal source on this box, which is the whole reason the fix went to a
+per-source declaration rather than into the reader"*. That observation is
+now false — **and its falsification is the design's vindication, not its
+refutation.** A reader that had sniffed a leading `{` would now carry a
+special case keyed on *two* applications' log formats; the per-source
+declaration absorbed the second producer in one line of YAML and no code
+at all. The guard is widened, not deleted: a third name appearing without
+a measurement behind it still turns it red.
+
+**The same dying claim was stated in a second file, and it had taken a
+premise hostage.** `test_message_backfill_live.py`'s
+`TestThePremises` asserted `declared == (PROBE_UNIT,)`, which stated the
+anti-vacuity premise *and*, incidentally, the only-one-source fact. The
+premise is **membership** — if the probe unit is undeclared the scan
+cannot see the probe rows — and never depended on the rest of the estate.
+Relaxed to `in`, and falsified by undeclaring the probe unit, where it
+still goes red for its own reason.
+
+**The two declarations are not equally well supported, and that asymmetry
+earned a live witness.** This daemon's is pinned against
+`service.log_format`, a fact this repository owns. The estate's cannot
+be — a repository may not import another's config — and
+`unwrap_json_message` **fails open**, so an estate rollback to plain text
+would leave every record untouched, every test green and `services.yaml`
+carrying a false statement about another repository indefinitely. This
+repository has settled that shape once already, in the queue wait-gauge
+fix: *a graceful degradation with no separate alarm degrades unnoticed*,
+and the only place it can be loud is the live half.
+`test_a_declared_source_really_writes_json` reads the raw `MESSAGE`
+rather than going through `read_journal`, which would already have
+unwrapped it and so could only agree with itself. Falsified by declaring
+`format: json` on `estate-broker-provision`: **red at 13 records read and
+0 JSON-shaped**, with the premise intact — which independently confirms
+the estate's own measurement that the broker provisioner is a
+`print()`-based script.
+
+**The declaration widens a population nobody mentioned, and it was driven
+rather than reasoned about.** `plan_backfill`'s candidate set is the
+sources declaring `json` *today*, so it goes **256 → 284 rows scanned**.
+The 28 added are systemd's plain-text lines, which fail open, so
+`frozen`, `unwitnessed` and `unrecoverable` are all **0**.
+
+**`218d765a` is a no-op and was verified as a differential, not a count.**
+Their `dormant` marker must now be last in the Role cell. Our
+`parse_port_registry` was run against their document either side of
+`2b63122`: **19 rows both sides, ports identical and in order, projects
+identical**. Three Role cells changed *text*, which their message did not
+mention, so the last gap was closed by asking who consumes `role` —
+exactly one caller, the `duplicate_claim` finding's detail blob — and
+there are **no duplicate-claimed ports**, so the reworded cells reach
+nothing.
+
+**Deployed as a reload, not a restart.** `configuration_reloaded` reports
+`changed: ["estate-manager-api"]`, `requires_restart: []`,
+`jobs_synced: true`. The deploy check's "restart owed" is a **false
+positive** and was checked rather than obeyed: it names
+`sysadmin/snag_claims.py`, whose mtime moved with no content change
+(`git diff HEAD` empty) — the documented failure direction of an
+mtime comparison.
+
+**Suite 3230**, measured by running rather than read off STATUS.md:
+baseline **3228** at `263c160` plus the **2** added, so the arithmetic
+witnesses no clobber. Ruff and mypy clean. Note the cell said **3209**
+against a measured 3228 — stale by 19 from earlier sittings, this table's
+own recurring defect, and corrected here.
+
+**A parallel session was in this tree throughout, and it changed one of
+this sitting's conclusions.** `sysadmin-assistant-fa` committed `9efef79`
+to `tests/test_notify_guard_live.py` — and to nothing else, deliberately
+leaving every document alone because these edits were mid-sitting. Its
+subject: `test_notify_send_returns_at_once_on_the_live_bus` fires the
+announcer's **real** `notify-send` at the live session bus with the
+announcer's own flags, and `--expire-time=0` is *never expire* per the
+freedesktop spec while `--urgency=critical` is never auto-dismissed by
+Plasma either — so **every full suite run since 2026-08-29 parked one
+more permanent toast** reading "SNAG-SYSD-004 probe" on the owner's
+screen, reported as spam. The fix keeps the control intact rather than
+weakening it: `--print-id` goes into `_notify_send` so **both** halves
+stay flag-uniform (the pair must differ in exactly one thing — whether a
+server owns the name — and `--expire-time=0` is the flag that docstring
+names as the suspect cleared only by measurement, so it is the one that
+must not vary), and the live half then calls `CloseNotification` on the
+id. Softening the flags and dropping the live call were both refused in
+writing. **The new assertion's limit is stated rather than implied**:
+measured against Plasma 6.7.4, `CloseNotification` answers `rc=0` for an
+id never issued (999999) and emits `NotificationClosed` reason 3, so
+`assert closed` is evidence the call was made and answered and **not**
+that a toast left the screen.
+
+**That commit refuted this sitting's own snag an hour after it was
+filed**, which is recorded in `SNAG-TEST-003` rather than quietly
+rewritten. Its two reds were blamed on **load**; the better-supported
+cause is that a peer session was running the same suite against the
+**shared** session bus while its accumulated backlog of never-expiring
+critical toasts grew. The entry's refutation of cross-session contention
+checked `unserved_bus` — which starts its own private `dbus-daemon`, so
+a peer genuinely cannot reach it — and then applied that conclusion to
+the other test, which uses the shared bus on purpose. One fixture
+checked, two tests concluded about. Post-fix the suite is **3
+consecutive full-suite greens**, so the entry is narrowed to the half no
+mechanism touches: a red there tells the reader the hazard is **gone**,
+so the flake reads as good news and invites deleting the guard.
 
 ## Session 143 — `SNAG-AGENT-011`'s check, and a fix that cannot be written as filed (2026-08-31)
 

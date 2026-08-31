@@ -30,6 +30,40 @@ def entry(**overrides) -> ServiceEntry:
     return ServiceEntry.model_validate(base | overrides)
 
 
+
+def _journal_message_shapes(unit: str, *, user: bool) -> tuple[int, int] | None:
+    """(records read, of which JSON-shaped), or ``None`` if unreadable.
+
+    Deliberately a raw ``journalctl`` read: the point is the shape of
+    ``MESSAGE`` as journald holds it, which is exactly what the ``json``
+    declaration is a statement about.
+    """
+    import json as _json
+    import subprocess
+
+    command = ["journalctl", "-u", unit, "--since", "7 days ago",
+               "-n", "500", "-a", "-o", "json", "--no-pager"]
+    if user:
+        command.insert(1, "--user")
+    try:
+        result = subprocess.run(command, capture_output=True, text=True,
+                                timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    total = json_shaped = 0
+    for line in result.stdout.splitlines():
+        try:
+            message = _json.loads(line).get("MESSAGE")
+        except ValueError:
+            continue
+        if not isinstance(message, str):
+            continue
+        total += 1
+        json_shaped += message.lstrip().startswith("{")
+    return total, json_shaped
+
 def make_registry(tmp_path: Path, *ids: str):
     for project_id in ids:
         path = tmp_path / project_id
@@ -354,15 +388,82 @@ class TestLiveServicesYaml:
         assert len(own) == 1, f"expected exactly one log source for {OWN_UNIT}"
         assert own[0].log.format == get_config().service.log_format
 
-    def test_no_other_source_declares_a_format(self):
-        """Measured, not assumed: this daemon is the only JSON-writing
-        journal source on this box, which is the whole reason the fix went
-        to a per-source declaration rather than into the reader."""
+    def test_only_measured_sources_declare_a_format(self):
+        """The set is measured, and the claim it used to make is dead.
+
+        Until 2026-08-31 this asserted ``{"sysadmin-service"}`` and read
+        *"this daemon is the only JSON-writing journal source on this
+        box, which is the whole reason the fix went to a per-source
+        declaration rather than into the reader"*.  The estate's four
+        entry points began emitting one JSON document per record that day
+        (their ADR-0079, announced here as message ``76e0438b``), so the
+        founding observation is false.
+
+        **Its falsification is the design's vindication, not its
+        refutation.**  A reader that had sniffed a leading ``{`` would
+        now be carrying a special case keyed on *two* applications' log
+        formats; the per-source declaration absorbed the second producer
+        in one line of services.yaml and no code at all.  That is the
+        property this test still guards: a third name appearing here
+        without a measurement behind it turns it red.
+
+        The two declarations are **not** equally well supported, and the
+        asymmetry is the reason the live witness below exists.  This
+        daemon's is pinned against ``service.log_format`` by the test
+        above — a fact this repository owns.  The estate's cannot be:
+        a repository may not import another's config, so nothing in this
+        checkout can state what estate code emits.
+        """
         services = load_services(LIVE_SERVICES_YAML)
         declared = {
             e.name for e in services.services if e.log and e.log.format != "text"
         }
-        assert declared == {"sysadmin-service"}
+        assert declared == {"sysadmin-service", "estate-manager-api"}
+
+    @pytest.mark.parametrize("declared_name", ["sysadmin-service",
+                                               "estate-manager-api"])
+    def test_a_declared_source_really_writes_json(self, declared_name):
+        """The witness for a statement this repository cannot pin.
+
+        ``unwrap_json_message`` **fails open at every step**, and that is
+        what makes a wrong declaration silent: were the estate to revert
+        to plain text, every record would pass through untouched, every
+        test would stay green, and services.yaml would carry a false
+        statement about another repository indefinitely.  This repository
+        has already settled that shape once — the queue wait-gauge fix
+        made the producer's new field loud *only* in its live half,
+        because "a graceful degradation with no separate alarm degrades
+        unnoticed".  Same argument, a journal instead of a payload.
+
+        It reads the raw ``MESSAGE`` rather than going through
+        ``read_journal``, which would already have unwrapped it and so
+        could only agree with itself.
+
+        Every way of not-knowing is a **skip** with its own reason, never
+        a pass; and the premise — that the read returned records at all —
+        is asserted separately, because an empty read satisfies "no
+        non-JSON records" vacuously.
+        """
+        services = load_services(LIVE_SERVICES_YAML)
+        entries = [e for e in services.services if e.name == declared_name]
+        assert len(entries) == 1, declared_name
+        source = entries[0]
+        assert source.log is not None and source.log.format == "json"
+
+        found = _journal_message_shapes(source.log_unit,
+                                        user=source.scope == "user")
+        if found is None:
+            pytest.skip(f"journalctl cannot read {source.log_unit}")
+        total, json_shaped = found
+        assert total > 0, (
+            f"premise failed: no records read for {source.log_unit}, so "
+            "this test witnessed nothing"
+        )
+        assert json_shaped > 0, (
+            f"{declared_name} declares format: json but none of {total} "
+            f"recent records in {source.log_unit} is a JSON document — "
+            "the declaration has gone stale"
+        )
 
     def test_it_contains_no_paths(self):
         """The property that makes a dead-path entry impossible."""

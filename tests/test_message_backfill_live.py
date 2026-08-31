@@ -314,8 +314,31 @@ class TestTheShapeIsDecidedAtReadTime:
 class TestThePremises:
     """A constant observation is not evidence unless something could move it."""
 
-    def test_this_box_declares_the_format_for_one_unit(self, reading):
-        assert reading["declared"] == (PROBE_UNIT,), (
+    def test_this_box_declares_the_format_for_the_probe_unit(self, reading):
+        """The premise is membership, and it used to be stated as equality.
+
+        Until 2026-08-31 this read ``== (PROBE_UNIT,)``, which asserted
+        the anti-vacuity premise *and*, incidentally, that this daemon is
+        the only source on this box declaring a format.  The estate's
+        entry points began emitting JSON that day (message ``76e0438b``)
+        and ``services.yaml`` gained a second declaration, so the second
+        half died and took a premise with it that never depended on it.
+
+        Membership is the whole premise: the probe rows are stamped with
+        this unit, so if *this* unit is undeclared the scan cannot see
+        them and every assertion below passes vacuously.  What the rest
+        of the estate declares is not this file's business — and is
+        pinned where it belongs, by
+        ``test_only_measured_sources_declare_a_format``.
+
+        The widened population was driven before this was relaxed rather
+        than argued about: ``plan_backfill`` goes from 256 rows scanned
+        to 284, and the 28 added rows are systemd's own plain-text lines
+        in the estate's journal, which ``unwrap_json_message`` fails open
+        on, so they produce no frozen row, no unwitnessed row and no
+        unrecoverable one.
+        """
+        assert PROBE_UNIT in reading["declared"], (
             "the probe rows are stamped with this unit; if nothing declares it "
             "the scan is empty and every assertion below passes vacuously"
         )

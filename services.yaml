@@ -265,7 +265,27 @@ services:
     url: http://localhost:8400/api/health
     port: 8400
     systemd: { unit: estate-manager-api.service, scope: user }
-    log: { type: journalctl, severity_filter: warning }
+    # `format: json` from 2026-08-31, on estate-manager's announcement
+    # `76e0438b` (their ADR-0079, closing their SNAG-ESTATE-092): the
+    # estate's four entry points now emit one JSON document per record,
+    # prefixed `<N>` so journald stamps a real PRIORITY. Without the
+    # declaration `alert_title` builds the title out of the whole
+    # document — SNAG-LOG-003, the defect the `sysadmin-service` entry
+    # above already declares against. Driven against this unit's real
+    # journal before the edit: 166 of 600 records change, titles fall
+    # from 167-249 characters of JSON to 55-70 readable ones, `logger`
+    # goes to metadata and `raw_line` keeps the envelope.
+    #
+    # It ships **untriggered, twice over**, and the second reason is the
+    # one worth carrying: `FAULT_SEVERITIES` is error and critical, so
+    # the `warning` filter's whole live population here is systemd's own
+    # 28 stored `Failed with result 'exit-code'.` rows, which raise
+    # nothing and are plain text anyway. And no estate application line
+    # has yet arrived above priority 6 — all 34 non-6 records in 14 days
+    # were written by systemd — so the producer's new prefix has no
+    # witness here either. The declaration is a statement about what the
+    # application writes, not a repair of an observed row.
+    log: { type: journalctl, severity_filter: warning, format: json }
 
   # The estate's scan/review timers (Session 4: the scanner and the
   # weekly portfolio review moved to the 8400 service, replacing

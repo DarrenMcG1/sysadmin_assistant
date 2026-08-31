@@ -12,6 +12,51 @@
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
 
+### 🧠 2026-08-31 — read the estate's three timer journals, now that their warnings are legible
+
+Raised by estate-manager in message `76e0438b` §3 and **explicitly left
+to us**: *"the estate is not asking for it and will not judge whether
+they are there."* Filed rather than built, because the trade changed
+today and the population is still empty.
+
+`estate-manager-scan.service`, `-audit.service` and `-review.service`
+have **no `log:` block at all** in `services.yaml`, so this repository
+reads none of them. Until 2026-08-31 that cost nothing and the reason is
+worth keeping: every line they wrote sat at `PRIORITY=6`, so a
+`severity_filter: warning` entry would have read zero rows and looked
+exactly like a working one. Their ADR-0079 puts a `<N>` prefix on the
+records, so `llm_gpu_busy` and
+`project_review_llm_unavailable_used_fallback` now arrive at priority 4
+with their `extra=` numbers attached — the two records their ADR-0075 is
+about.
+
+**What makes this an idea and not a snag**: we already watch both timers
+as `kind: timer`, which asserts the schedule is armed. Reading their
+journals is a *different* question — whether the run did its job — and
+that is `ideas.md`'s standing "silent-degradation detection" entry
+arriving with a concrete first instance rather than a new defect.
+
+Three things to settle before building it, none of them measured yet:
+
+1. **The three units are `Type=oneshot`.** The sweep's own rule is that
+   a oneshot is reported under its **timer**; a `log:` block hangs off
+   the service, which holds no `[Install]`. Whether the two conventions
+   collide here is unchecked.
+2. **`format: json` would need the same live witness the API entry now
+   has**, and its population would be genuinely empty rather than merely
+   untriggered — the API's journal at least carries JSON at
+   `PRIORITY=6`, and a weekly review's does not until it next runs.
+3. **The 2026-09-07 scheduled action reads these by hand.** It says to
+   read the `review_lease_*` warnings out of the review's journal with
+   `journalctl --user`, so the first evidence about whether ingest is
+   worth having arrives that morning **for free**. Building before then
+   would be guessing at a population one already-scheduled reading will
+   measure.
+
+**Do not build this before 2026-09-07.** The scheduled action is the
+measurement, and this repository has filed three entries whose ranking
+was wrong because the population was assumed rather than counted.
+
 ### ⛔ 2026-08-30 — split the GPU gate so the waiterless callers can take the window — **DEAD 2026-08-31, premise removed by the lease fix**
 
 Announced by estate-manager in message `df4113cb` (their ADR-0074 §2) and
