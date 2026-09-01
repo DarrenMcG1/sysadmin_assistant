@@ -11,9 +11,59 @@ import pytest
 
 from sysadmin.monitor.agent import SysAdminAgent, _timer_facts
 from sysadmin.monitor.services import SKIPPED, ServiceEntry
-from sysadmin.monitor.systemd import UserBusUnavailableError
+from sysadmin.monitor.systemd import SystemdQueryError, UserBusUnavailableError
 
 _UNIT_STATUS = "sysadmin.monitor.agent.get_unit_status"
+
+
+def two_units(timer: dict, triggered: dict | None):
+    """A ``get_unit_status`` stand-in that can tell two units apart.
+
+    SNAG-SYSD-005.  A ``kind: timer`` check reads the timer **and** the
+    unit it starts, so a stub answering every call with one dict answers
+    the second question with the first unit's facts — which is the defect
+    itself, wearing a mock's clothes.  Three tests here were green for the
+    life of that bug because their stub could not hold two units.
+
+    ``triggered=None`` models a triggered unit systemd will not answer for.
+    """
+    served = {"Unit": timer.get("Unit", "nightly.service"), **timer}
+
+    async def _dispatch(unit, user=False):
+        if unit == served["Unit"]:
+            if triggered is None:
+                raise SystemdQueryError(f"systemctl show {unit} exited with code 1")
+            return triggered
+        return served
+
+    return _dispatch
+
+
+def armed_timer(**overrides) -> dict:
+    """An armed timer's own properties: active, waiting, fired this morning."""
+    return {
+        "is_active": True,
+        "ActiveState": "active",
+        "SubState": "waiting",
+        "Unit": "nightly.service",
+        "LastTriggerUSec": "Sat 2026-08-08 08:00:01 BST",
+        "NextElapseUSecRealtime": "Sun 2026-08-09 08:00:00 BST",
+        # The timer's own Result. `success` on ten of ten timers on this
+        # box, including the one whose service had failed twelve mornings
+        # running — which is why nothing may read it as a run outcome.
+        "Result": "success",
+    } | overrides
+
+
+def triggered_unit(**overrides) -> dict:
+    """The started unit's properties: a oneshot that exited cleanly."""
+    return {
+        "is_active": False,
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "Result": "success",
+        "ExecMainStatus": "0",
+    } | overrides
 
 
 def http_svc(**overrides) -> ServiceEntry:
@@ -118,23 +168,169 @@ class TestTimerInspection:
     async def test_a_timer_records_its_last_run(self, agent):
         svc = ServiceEntry(name="nightly", kind="timer",
                            systemd={"unit": "nightly.timer"})
-        with patch(_UNIT_STATUS, new_callable=AsyncMock, return_value={
-            "is_active": True,
-            "LastTriggerUSec": "Thu 2026-08-07 02:00:01 BST",
-            "Result": "success",
-        }):
+        with patch(_UNIT_STATUS, new=two_units(
+            armed_timer(LastTriggerUSec="Thu 2026-08-07 02:00:01 BST"),
+            triggered_unit(),
+        )):
             status, _, details = await agent._check_service(svc)
         assert status == "ok"
         assert details["last_run_recorded"] is True
         assert details["last_result"] == "success"
 
     def test_a_timer_that_has_never_fired_says_so(self):
-        facts = _timer_facts({"LastTriggerUSec": "0", "Result": "success"})
+        facts = _timer_facts({"LastTriggerUSec": "0"}, triggered_unit())
         assert facts["last_run_recorded"] is False
         assert "last_run" not in facts
 
     def test_unset_properties_are_dropped(self):
-        assert _timer_facts({"LastTriggerUSec": "[not set]"})["last_run_recorded"] is False
+        facts = _timer_facts({"LastTriggerUSec": "[not set]"}, triggered_unit())
+        assert facts["last_run_recorded"] is False
+
+
+class TestTheTimerIsNotTheJob:
+    """SNAG-SYSD-005 — the check reads the unit the timer *starts*.
+
+    Alfred's `alfred-career-mail.service` failed on twelve consecutive
+    mornings while this check wrote 3,988 unbroken `ok` rows, because it
+    read `Result` off the `.timer`.  Measured on this box the day it was
+    fixed: `Result=success` on ten of ten declared timers, and one of the
+    ten triggered services at `exit-code`.  The field the check read was
+    constant across the whole population; the field it did not read
+    discriminated exactly the broken one.
+    """
+
+    @pytest.mark.asyncio
+    async def test_an_armed_timer_whose_job_failed_is_critical(self, agent):
+        """The founding case, in the shape the live box had it."""
+        svc = ServiceEntry(name="career-mail", kind="timer",
+                           systemd={"unit": "career-mail.timer"})
+        with patch(_UNIT_STATUS, new=two_units(
+            armed_timer(Unit="career-mail.service"),
+            triggered_unit(ActiveState="failed", SubState="failed",
+                           Result="exit-code", ExecMainStatus="1"),
+        )):
+            status, _, details = await agent._check_service(svc)
+
+        assert status == "critical"
+        # The timer is genuinely fine and the row says so — the news is
+        # that being fine is not the question.
+        assert details["ActiveState"] == "active"
+        assert details["last_result"] == "exit-code"
+        assert details["triggered_unit"] == "career-mail.service"
+        assert details["triggered_exit_status"] == "1"
+
+    @pytest.mark.asyncio
+    async def test_the_timers_own_result_is_never_the_answer(self, agent):
+        """The exact live shape: timer `success`, job `exit-code`.
+
+        Falsified against the pre-fix code, where `last_result` came from
+        the timer and this returned `ok` with `last_result == "success"`.
+        """
+        svc = ServiceEntry(name="career-mail", kind="timer",
+                           systemd={"unit": "career-mail.timer"})
+        with patch(_UNIT_STATUS, new=two_units(
+            armed_timer(Unit="career-mail.service", Result="success"),
+            triggered_unit(Result="exit-code", ExecMainStatus="1"),
+        )):
+            status, _, details = await agent._check_service(svc)
+
+        assert status == "critical"
+        assert details["last_result"] != "success"
+
+    @pytest.mark.asyncio
+    async def test_a_clean_run_leaves_the_timer_ok(self, agent):
+        """A oneshot at rest is `inactive (dead)` with `Result=success`.
+
+        The resting state of every healthy timer here, so reading
+        `ActiveState` rather than `Result` on the triggered unit would
+        report all ten as down.
+        """
+        svc = ServiceEntry(name="nightly", kind="timer",
+                           systemd={"unit": "nightly.timer"})
+        with patch(_UNIT_STATUS, new=two_units(armed_timer(), triggered_unit())):
+            status, _, details = await agent._check_service(svc)
+
+        assert status == "ok"
+        assert details["triggered_active_state"] == "inactive"
+        assert details["last_result"] == "success"
+
+    @pytest.mark.asyncio
+    async def test_an_unreadable_triggered_unit_is_error_not_ok(self, agent):
+        """`ports_checked`'s rule: zero-because-blind is not zero-because-clean.
+
+        `error` raises no alert and is excluded from the reliability
+        rates, which is SNAG-SYSD-001's decision for an unqueryable unit.
+        Reporting `ok` would rebuild this check's founding defect one
+        level down.
+        """
+        svc = ServiceEntry(name="nightly", kind="timer",
+                           systemd={"unit": "nightly.timer"})
+        with patch(_UNIT_STATUS, new=two_units(armed_timer(), None)):
+            status, _, details = await agent._check_service(svc)
+
+        assert status == "error"
+        assert "triggered_error" in details
+        assert details["triggered_result_recorded"] is False
+        assert "last_result" not in details
+
+    @pytest.mark.asyncio
+    async def test_a_timer_naming_no_unit_is_error(self, agent):
+        """A timer that publishes no `Unit=` is a way of not-knowing too."""
+        timer = armed_timer()
+        del timer["Unit"]
+        svc = ServiceEntry(name="nightly", kind="timer",
+                           systemd={"unit": "nightly.timer"})
+
+        async def _only_the_timer(unit, user=False):
+            return timer
+
+        with patch(_UNIT_STATUS, new=_only_the_timer):
+            status, _, details = await agent._check_service(svc)
+
+        assert status == "error"
+        assert "Unit=" in details["triggered_error"]
+
+    @pytest.mark.asyncio
+    async def test_an_inactive_timer_is_still_critical_on_the_timer(self, agent):
+        """A disarmed schedule is a fault the timer itself carries.
+
+        It returns before the triggered unit is ever consulted, so a
+        stopped timer is not misreported as an unreadable job.
+        """
+        svc = ServiceEntry(name="nightly", kind="timer",
+                           systemd={"unit": "nightly.timer"})
+        with patch(_UNIT_STATUS, new=two_units(
+            armed_timer(is_active=False, ActiveState="inactive",
+                        SubState="dead"),
+            triggered_unit(),
+        )):
+            status, _, details = await agent._check_service(svc)
+
+        assert status == "critical"
+        assert "triggered_error" not in details
+
+    @pytest.mark.asyncio
+    async def test_a_non_timer_service_reads_only_itself(self, agent):
+        """`inspect_timer` is set by `check_plan` for `kind: timer` alone.
+
+        A plain `kind: systemd` service must not gain a second subprocess
+        or a `triggered_unit` key it has no business carrying.
+        """
+        calls: list[str] = []
+
+        async def _record(unit, user=False):
+            calls.append(unit)
+            return {"is_active": True, "ActiveState": "active",
+                    "Unit": "somewhere.service", "Result": "success"}
+
+        svc = ServiceEntry(name="api", kind="systemd",
+                           systemd={"unit": "api.service"})
+        with patch(_UNIT_STATUS, new=_record):
+            status, _, details = await agent._check_service(svc)
+
+        assert status == "ok"
+        assert calls == ["api.service"]
+        assert "triggered_unit" not in details
 
 
 class TestSkipped:
@@ -195,30 +391,52 @@ class TestTimerPropertiesAreActuallyFetched:
     """
 
     def test_every_property_timer_facts_reads_is_requested(self):
+        """The coupling itself, over **both** units' property sets.
+
+        It covered `_TIMER_PROPS` alone until SNAG-SYSD-005, which is one
+        of the two reasons the fix needed a new request: `Unit` resolves
+        the triggered unit and `_TRIGGERED_PROPS` describes it, and a
+        property this walk cannot see would make `_timer_facts` record
+        nothing while reporting success — the original defect exactly.
+        """
         import inspect
 
         from sysadmin.monitor import systemd
-        from sysadmin.monitor.agent import _TIMER_PROPS
+        from sysadmin.monitor.agent import _TIMER_PROPS, _TRIGGERED_PROPS
 
         source = inspect.getsource(systemd.get_unit_status)
-        missing = [prop for prop in _TIMER_PROPS if f'"{prop}"' not in source]
+        wanted = [*_TIMER_PROPS, *_TRIGGERED_PROPS, "Unit"]
+        missing = [prop for prop in wanted if f'"{prop}"' not in source]
         assert not missing, (
             "get_unit_status does not request: " + ", ".join(missing) +
             " — _timer_facts would silently record nothing"
+        )
+
+    def test_the_timers_own_result_is_not_read_as_a_run_outcome(self):
+        """Provenance, not value — the shape Session 59's guards recorded.
+
+        `_timer_facts({"Result": ...}, triggered)` must take `last_result`
+        from the *second* argument.  Asserting the value alone passes
+        against the pre-fix code whenever the two agree, which they do on
+        nine of this box's ten timers.
+        """
+        from sysadmin.monitor.agent import _TIMER_PROPS
+
+        facts = _timer_facts(
+            armed_timer(Result="success"),
+            triggered_unit(Result="exit-code"),
+        )
+        assert facts["last_result"] == "exit-code"
+        assert "Result" not in _TIMER_PROPS, (
+            "the timer's own Result is back in the schedule's fact set — "
+            "it reports whether the timer unit started, not the job"
         )
 
     @pytest.mark.asyncio
     async def test_a_timer_that_has_fired_records_its_last_run(self, agent):
         svc = ServiceEntry(name="nightly", kind="timer",
                            systemd={"unit": "nightly.timer"})
-        with patch(_UNIT_STATUS, new_callable=AsyncMock, return_value={
-            "is_active": True,
-            "ActiveState": "active",
-            "SubState": "waiting",
-            "LastTriggerUSec": "Sat 2026-08-08 08:00:01 BST",
-            "NextElapseUSecRealtime": "Sun 2026-08-09 08:00:00 BST",
-            "Result": "success",
-        }):
+        with patch(_UNIT_STATUS, new=two_units(armed_timer(), triggered_unit())):
             status, _, details = await agent._check_service(svc)
 
         assert status == "ok"
@@ -233,11 +451,14 @@ class TestTimerPropertiesAreActuallyFetched:
         That is correct, not a fault."""
         svc = ServiceEntry(name="fresh", kind="timer",
                            systemd={"unit": "fresh.timer"})
-        with patch(_UNIT_STATUS, new_callable=AsyncMock, return_value={
-            "is_active": True, "SubState": "waiting",
-            "LastTriggerUSec": "", "Result": "success",
-            "NextElapseUSecRealtime": "Sun 2026-08-09 04:33:53 BST",
-        }):
+        with patch(_UNIT_STATUS, new=two_units(
+            armed_timer(Unit="fresh.service", LastTriggerUSec="",
+                        NextElapseUSecRealtime="Sun 2026-08-09 04:33:53 BST"),
+            # A unit systemd has loaded but never started: `Result` is
+            # `success` from the outset, which is why "has it ever run"
+            # is `timer_stale`'s question and not this check's.
+            triggered_unit(ExecMainStatus="0"),
+        )):
             status, _, details = await agent._check_service(svc)
 
         assert status == "ok"

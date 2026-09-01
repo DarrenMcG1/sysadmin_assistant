@@ -1,10 +1,116 @@
-# Handoff — 2026-09-01
+# Handoff — 2026-09-01 (Session 147)
 
 ## Next action
 
-Act on estate message `00b631ec` by re-measuring how many checks the estate audit actually runs — it says thirteen since 2026-08-31 under their ADR-0086, which adds `restatements` — and correct every site in this repository that still states twelve, which is at least `sysadmin/estate/judgements.py:74`, `docs/adr/0006-wiring-joins-ports.md` (twice) and `docs/roadmap/STATUS.md`, reading the live `/api/audit/findings` rather than their prose before writing a number and remembering that ADR-0006 admits a check on an **ownership** test and never on a severity, so a thirteenth check is not automatically one this repository speaks for.
+Decide whether `SNAG-SYSD-006` is real by re-reading `GET /api/services/actions` on or after 2026-09-02 and counting the rows for `alfred-career-mail-timer`: two rows (`outage` beside `timer_failed`) confirms the prediction that a failed job is now scored as a service and read as a timer, one row refutes it and the entry retires, and the population is down to that single service because the pgbackrest half was repaired and auto-resolved at 22:33:29 on 2026-09-01.
 
-_The inbox held one open message at the start of this sitting (`00b631ec`, filed 2026-08-31 by estate-manager) and it is deliberately left open: this sitting closed `SNAG-AGENT-011` and did not touch the check-count claim, so closing the message would report work nobody did. Nothing was filed at another repository — the closure needed nothing from estate-manager, and no friction crossed a boundary._
+_`SNAG-SYSD-005` is fixed, deployed and **demonstrated end to end**: `pgbackrest-backup-timer` was raised `critical` at 21:08 off a fault standing since March, the owner repaired both units at 22:19–22:29, the backup ran in 16.4 s, and `_resolve_recovered` closed the row unaided at **22:33:29** on the first healthy poll — detect, alert, fix, observe, resolve, in 85 minutes. `alfred-career-mail-timer` stays `critical` and is Alfred's to close._
+
+_Two estate messages filed at the owner's direction: **`e5d17a89`** to `alfred` (SNAG-50's *"nothing surfaces this"* was our blindness, not their missing surface; no action requested of them) and **`aacd7e33`** to `estate-manager` (the backup, routed there under the shared-infrastructure rule because `pg1-path=/var/lib/postgres/data` is the whole cluster while the stanza is merely *named* `alfred` — the message says so and invites reassignment). The register normalises names: `sysadmin_assistant` is stored as `sysadmin-assistant`, `Alfred` as `alfred`, with both spellings kept. The inbox message `00b631ec` (check-count, filed 2026-08-31) is **still open and still untouched**, for the second sitting running._
+
+## Session 147 — the timer was armed and the job was dead
+
+**Found by reading another repository's snag, which is the part worth
+carrying.** Alfred's SNAG-50 says `alfred-career-mail.service` has failed
+every morning for 20 days and *"nothing surfaces this"*. The unit **is**
+declared in this repository's `services.yaml` as `kind: timer`, and this
+monitor wrote **3,988 unbroken `ok` rows** across the outage. So the
+finding was never Alfred's missing surface; it was ours reporting health.
+
+**The mechanism, and the docstring asserted its opposite.**
+`_check_systemd` queried `svc.systemd_unit`, which for `kind: timer` is
+the `.timer`, and an armed timer is `active (waiting)` whatever its job
+did. Worse than blind: `_timer_facts` mapped the **timer's** `Result` to
+a field called `last_result`, so every one of those rows carried a
+positive claim that the last run succeeded. The docstring read *"the
+properties say which"* — they do not, and had not since the check was
+written.
+
+**Three layers, each sufficient alone**, and the third is the one that
+explains the eight weeks. `service_recommendations._timer_failed_row`
+(Session 78) exists precisely for this fault, states the mechanism
+correctly in its own `detail`, and gates on `latest.last_result` — so its
+population was **structurally empty**. Its drive built a *synthetic*
+subject, which is why nobody noticed.
+
+**The discriminating measurement.** `Result=success` on **10 of 10**
+declared timers; one of the ten triggered services at `exit-code`. The
+field the check read is constant over the whole population; the field it
+did not read separates exactly the broken one.
+
+**What shipped.** `get_unit_status` requests `Unit` and `ExecMainStatus`
+(same subprocess, ~4 ms, measured). `_triggered_status` resolves the
+started unit from systemd's own `Unit=` rather than rewriting `.timer` to
+`.service` — systemd does not require the two to correspond, and the
+rewrite was a second statement of a published fact, which
+`_timer_failed_row`'s own `action` string was also doing.
+`_timer_facts` takes `last_result`, `triggered_active_state` and
+`triggered_exit_status` from that unit and records `triggered_unit`
+beside them. `last_result` was **redefined in place** rather than
+renamed, and the blast radius was measured first: the only reader is
+`_timer_rows`, which reads `points[-1]`, so contamination from stored
+rows is bounded to one poll interval and is dead within 300 s.
+
+**An unreadable triggered unit is `error`, never `ok`** —
+`ports_checked`'s rule, and `error` raises no alert and leaves the
+reliability rates alone, which is SNAG-SYSD-001's decision for an
+unqueryable unit. Reporting clean would rebuild the founding defect one
+level down. A timer publishing no `Unit=` is a distinct reason and says
+so in `triggered_error`.
+
+**The stand-ins were the work.** Three existing tests patched
+`get_unit_status` with one dict for every call, so the second question
+was answered with the first unit's facts — the defect wearing a mock's
+clothes — and they were green for the life of the bug. `two_units()`
+dispatches on unit name. Five mutations driven, each red on the right
+tests: pre-fix `Result` sourcing (4 red), `ok` on an unreadable job (2),
+never consulting `last_result` (2), suffix-rewriting the unit (3),
+dropping `Unit` from the request (1).
+
+**The backup's real state is a half-state, and only `pg_stat_archiver`
+says so.** WAL archiving *works* — `archived_count=5356, failed_count=0`,
+last push minutes ago — so the repo grows, nothing errors, and there is
+no base backup for any of it to restore onto; `repo1-retention-full=4`
+expires during a backup, so it cannot shrink either. One authoring error
+has **three instances across two files**, found by `systemd-analyze
+verify` rather than by reading: `ExecStart=` loses `backup`,
+`Description=` loses `Alfred`, and the **timer**'s `OnCalendar=*-*-*`
+loses `02:00:00`, so a backup written to run off-peak at 02:00 has been
+firing at **midnight**. Corrected in-sitting: the `pgbackrest.conf`
+placeholder comment was read as a second defect and is cosmetic.
+
+**Deployed, and the first live run raised two criticals rather than
+one.** `pgbackrest-backup.service` — which `services.yaml`'s own comment
+calls *the only database backup on the box* — has failed **28 times and
+succeeded zero times since 2026-08-02**, under 4,697 `ok` rows. Its unit
+file breaks `ExecStart=` across two lines with no trailing backslash, so
+`/usr/bin/pgbackrest --stanza=alfred` runs with no command and exits 30,
+`ERROR: [030]: no command found`. A fix that widens what a monitor can
+see is a regression surface for whatever reads it — the fourth time this
+repository has recorded that ordering, and the first time the widening
+found something worse than what it was aimed at.
+
+**The sitting's own claim was overstated twice and the fix refuted
+both, which is the part to carry.** The estate message said *zero base
+backups* and *nothing to restore onto*; the successful run printed
+`last backup label = 20260307-141905F`. The repository held a full taken
+**by hand** on 2026-03-07 at 14:19:05 — three minutes before the timer
+was enabled and three and a half before the broken unit was written — so
+recovery was possible throughout, to a 178-day-old base plus ~5,356 WAL
+segments of replay. The error was inferring the *store's* contents from
+the *caller's* failure count, because `/var/lib/pgbackrest` needs root:
+`ports_checked`'s rule turned around and pointed at this repository.
+Corrected at estate-manager as `cc5f26e7` rather than edited quietly.
+
+**Left open, deliberately.** `SNAG-SYSD-006`: a failed job is now scored
+as an outage *and* read as a timer, so one fault will produce two advice
+rows once downtime rounds above zero. Filed as a **timed prediction, not
+a measurement** — at 21:08 the endpoint served exactly two rows, both
+`timer_failed`, and the entry names the date to re-read and what would
+refute it. Not fixed here because the cheap fix (drop the `outage` row
+for timers) deletes the only figure that ranks the two live findings
+against each other.
+
 
 ## Scheduled action
 

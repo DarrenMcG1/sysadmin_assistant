@@ -238,22 +238,68 @@ _NO_COLLATION: dict[str, int] = {"mismatched": 0, "raised": 0, "resolved": 0}
 #: Timer properties worth recording, under readable names.  ``systemctl
 #: show`` returns microseconds-since-epoch as strings and "0" for "never",
 #: neither of which is worth carrying into the details blob raw.
+#:
+#: **These are the schedule's own facts and only those.**  ``Unit`` names
+#: the unit the timer starts and is read into :data:`_TRIGGERED_PROPS`'
+#: subject rather than recorded as a timer fact in its own right.
 _TIMER_PROPS = {
     "LastTriggerUSec": "last_run",
     "NextElapseUSecRealtime": "next_run",
+}
+
+#: Properties read from the unit the timer *starts*, under readable names.
+#:
+#: ``SNAG-SYSD-005``.  ``Result`` used to be read from the **timer**, and a
+#: timer's ``Result`` reports whether the timer unit itself started — it is
+#: ``success`` on all ten declared timers on this box while one of the ten
+#: triggered services sits at ``exit-code``.  So the field named
+#: ``last_result`` asserted that a run had succeeded on every one of the
+#: 3,988 consecutive ``ok`` checks written across the twenty days
+#: ``alfred-career-mail.service`` failed every morning.  It is the
+#: triggered unit's ``Result`` now, which is the fact the name always
+#: claimed.
+_TRIGGERED_PROPS = {
     "Result": "last_result",
+    "ActiveState": "triggered_active_state",
+    "ExecMainStatus": "triggered_exit_status",
 }
 
 
-def _timer_facts(props: dict) -> dict:
-    """The last-run picture for a timer, from ``systemctl show`` output."""
+def _timer_facts(props: dict, triggered: dict | None = None) -> dict:
+    """The last-run picture for a timer, from ``systemctl show`` output.
+
+    ``props`` is the timer's own properties; ``triggered`` those of the
+    unit it starts, or ``None`` when that unit could not be read.
+
+    **A triggered unit that could not be read omits ``last_result``
+    rather than defaulting it.**  ``ports_checked``'s rule: a run whose
+    outcome is unknown must not be served as a run that succeeded, which
+    is precisely the collapse this function shipped for the life of the
+    ``kind: timer`` check.  ``triggered_result_recorded`` carries the
+    distinction for a reader of a stored row.
+    """
     facts: dict = {}
     for prop, label in _TIMER_PROPS.items():
         raw = props.get(prop)
         if raw in (None, "", "0", "[not set]", "n/a"):
             continue
         facts[label] = raw
+
+    unit = (props.get("Unit") or "").strip()
+    if unit:
+        facts["triggered_unit"] = unit
+
+    # Note the sentinel set differs from the timer's by one member: "0"
+    # is dropped there because it is systemd's "never" for a timestamp,
+    # and kept here because it is `ExecMainStatus`' "exited cleanly".
+    for prop, label in _TRIGGERED_PROPS.items():
+        raw = (triggered or {}).get(prop)
+        if raw in (None, "", "[not set]", "n/a"):
+            continue
+        facts[label] = raw
+
     facts["last_run_recorded"] = "last_run" in facts
+    facts["triggered_result_recorded"] = "last_result" in facts
     return facts
 
 
@@ -1025,15 +1071,56 @@ class SysAdminAgent(BaseAgent):
         except (ConnectionRefusedError, OSError) as e:
             return "unreachable", None, {"error": str(e)}
 
+    async def _triggered_status(
+        self, timer_props: dict, user: bool
+    ) -> tuple[dict | None, str | None]:
+        """The state of the unit a timer starts, or why it is unknown.
+
+        Returns ``(props, None)`` or ``(None, reason)`` — never a partial
+        answer, because a caller holding half of one cannot tell it from
+        a whole one.  Every way of not-knowing is a distinct ``reason``
+        rather than a bare ``None``, since "the timer names no unit" and
+        "the unit would not answer" have different remedies.
+
+        The unit comes from the timer's ``Unit=`` property.  Deriving it
+        as ``name.removesuffix('.timer') + '.service'`` is a second
+        statement of a fact systemd publishes, and systemd does not
+        require the two to correspond.
+        """
+        unit = (timer_props.get("Unit") or "").strip()
+        if not unit:
+            return None, "the timer published no Unit= property"
+        try:
+            triggered = await get_unit_status(unit, user=user)
+        except SystemdQueryError as e:
+            return None, f"could not query {unit}: {e}"
+        if not triggered.get("Result"):
+            return None, f"{unit} reported no Result"
+        return triggered, None
+
     async def _check_systemd(
         self, svc: ServiceEntry, inspect_timer: bool = False
     ) -> tuple[str, int | None, dict]:
         """Systemd unit status check.
 
-        ``inspect_timer`` adds the timer's schedule to the recorded
-        details. An armed timer is ``active (waiting)``, so the active
-        test alone cannot tell a schedule that is about to fire from one
-        whose last run failed — the properties say which.
+        ``inspect_timer`` reads the unit the timer *starts* as well as the
+        timer, and is the whole of what makes a ``kind: timer`` check
+        answer the question it is asked.
+
+        **An armed timer is ``active (waiting)`` whether or not its last
+        run worked, and the timer's own properties do not say which.**
+        That sentence used to end "— the properties say which", which was
+        false for the life of the check: ``Result`` on a ``.timer`` reports
+        whether the *timer unit* started.  Measured on this box, it is
+        ``success`` on ten of ten declared timers while
+        ``alfred-career-mail.service`` had failed on twelve consecutive
+        mornings, so the check wrote 3,988 unbroken ``ok`` rows across a
+        twenty-day outage and raised nothing (``SNAG-SYSD-005``; Alfred's
+        SNAG-50 is the fault it could not see).
+
+        The discriminating fact is the triggered unit's ``Result``, and
+        ``Unit=`` is asked of systemd rather than derived by rewriting the
+        suffix — see :func:`sysadmin.monitor.systemd.get_unit_status`.
         """
         if not svc.systemd_unit:
             return "error", None, {"error": "no systemd_unit configured for systemd check"}
@@ -1041,17 +1128,52 @@ class SysAdminAgent(BaseAgent):
         start = time.monotonic()
         try:
             status_info = await get_unit_status(svc.systemd_unit, user=svc.user)
+
+            triggered_error: str | None = None
+            if inspect_timer:
+                triggered, triggered_error = await self._triggered_status(
+                    status_info, user=svc.user
+                )
+                status_info = {
+                    **status_info,
+                    **_timer_facts(status_info, triggered),
+                }
+                if triggered_error is not None:
+                    status_info["triggered_error"] = triggered_error
+
             elapsed_ms = int((time.monotonic() - start) * 1000)
 
-            if inspect_timer:
-                status_info = {**status_info, **_timer_facts(status_info)}
-
-            if status_info.get("is_active"):
-                return "ok", elapsed_ms, status_info
-            elif status_info.get("ActiveState") == "activating":
-                return "degraded", elapsed_ms, status_info
-            else:
+            if not status_info.get("is_active"):
+                if status_info.get("ActiveState") == "activating":
+                    return "degraded", elapsed_ms, status_info
                 return "critical", elapsed_ms, status_info
+
+            # The timer is armed, which settles the *schedule* and says
+            # nothing about the job.  Only a timer reaches the rest of
+            # this: `inspect_timer` is set by `check_plan` for `kind:
+            # timer` alone.
+            if inspect_timer:
+                if triggered_error is not None:
+                    # The triggered unit's state is *unknown*, which is
+                    # neither a success nor a failure — `error` raises no
+                    # alert against the service and is excluded from the
+                    # reliability rates, exactly as SNAG-SYSD-001's fix
+                    # decided for an unqueryable unit.  Reporting `ok`
+                    # here would rebuild this check's founding defect one
+                    # level down.
+                    logger.warning(
+                        "timer_triggered_unit_unreadable",
+                        extra={
+                            "service": svc.name,
+                            "timer": svc.systemd_unit,
+                            "error": triggered_error,
+                        },
+                    )
+                    return "error", elapsed_ms, status_info
+                if status_info.get("last_result") != "success":
+                    return "critical", elapsed_ms, status_info
+
+            return "ok", elapsed_ms, status_info
         except SystemdQueryError as e:
             # systemctl could not be queried, so the unit's state is
             # *unknown* — reporting "critical" here is how a live user

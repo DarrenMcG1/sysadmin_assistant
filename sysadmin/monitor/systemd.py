@@ -146,10 +146,18 @@ async def get_unit_status(unit: str, user: bool = False) -> dict:
     # and a second call to fetch them would double the subprocess count
     # for the estate's six timers.  ``Result`` is meaningful for services
     # too — it is how a oneshot reports the outcome of its last run.
+    #
+    # ``Unit`` is a *timer* property naming the unit the timer starts.
+    # It is asked for here rather than derived by stripping ``.timer``
+    # and appending ``.service`` because that derivation is a second
+    # statement of a fact systemd already publishes, and systemd does not
+    # require the two names to correspond — ``Unit=`` may name anything.
+    # SNAG-SYSD-005.
     props = [
         "ActiveState", "SubState", "MainPID",
         "MemoryCurrent", "CPUUsageNSec", "LoadState",
         "LastTriggerUSec", "NextElapseUSecRealtime", "Result",
+        "Unit", "ExecMainStatus",
     ]
     prop_args = ",".join(props)
 

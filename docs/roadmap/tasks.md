@@ -16,6 +16,32 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 147 — the timer check read the timer and never the job,
+      and two silent failures were standing behind it.** *(2026-09-01.)*
+      Opened by reading **Alfred's SNAG-50** — a career-mail ingest failing
+      every morning for 20 days with *"nothing surfaces this"*. The unit
+      **is** declared here and the `kind: timer` check wrote **3,988
+      unbroken `ok` rows** across the outage, because it asserted the timer
+      was armed and read the **timer's** `Result` under the name
+      `last_result`. Measured: `Result=success` on **10 of 10** declared
+      timers while one of the ten jobs sat at `exit-code` — the field the
+      check read was constant across the population, the field it did not
+      read discriminated exactly the broken one. `SNAG-SYSD-005` fixed:
+      `get_unit_status` requests `Unit=` and `ExecMainStatus`,
+      `_triggered_status` resolves the started unit from systemd's own
+      property rather than by rewriting the suffix, and `_timer_facts`
+      takes `last_result` from that unit. An unreadable triggered unit is
+      `error`, never `ok` — `ports_checked`'s rule, since reporting clean
+      would rebuild the founding defect one level down. Five mutations
+      driven, each red on the right tests; three existing tests had stubs
+      that could not hold two units and were green for the life of the bug.
+      Deployed and measured live: **8 ok, 2 critical**, and the second
+      critical is a fault nobody had filed — `pgbackrest-backup.service`,
+      *the only database backup on the box*, has failed **28 times and
+      succeeded zero times since 2026-08-02** on a missing
+      line-continuation backslash in `ExecStart=`. Neither fault is this
+      repository's to fix. `SNAG-SYSD-006` opened as the stated residue
+
 - [x] **Session 146 — the first night under the fix, and the check could
       not close its own entry.** *(2026-09-01.)* `SNAG-AGENT-011` **closed**
       on limb 1: the nightly `venture-chat unreachable` row opened

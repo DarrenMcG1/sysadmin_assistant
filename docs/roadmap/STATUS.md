@@ -3,6 +3,74 @@
 **Last Updated**: 2026-09-01
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A `kind: timer` check read the wrong unit for its whole life, and
+> two silent failures were standing behind it** (2026-09-01, Session
+> 147). `SNAG-SYSD-005` is fixed and deployed. The check asserted the
+> **timer** was armed and recorded the **timer's** `Result` under the
+> name `last_result` — a timer's `Result` reports whether the timer unit
+> started, so it read `success` on **10** of
+> 10 declared timers while one of the ten jobs had failed on twelve
+> consecutive mornings. It now resolves the started unit from systemd's
+> own `Unit=` property and reads that unit's `Result`.
+>
+> **It was found by reading another repository's snag, and it found a
+> second fault nobody had filed.** Alfred's SNAG-50 reports
+> `alfred-career-mail.service` failing every morning for 20 days with
+> *"nothing surfaces this"* — the unit is declared in this repository's
+> `services.yaml` and this check wrote **3,988 unbroken `ok` rows**
+> across the outage. The first live run under the fix raised two
+> criticals, not one: `pgbackrest-backup.service`, which
+> `services.yaml`'s own comment calls *the only database backup on the
+> box*, has failed **28** times and
+> succeeded **zero** times since 2026-08-02, under 4,697 `ok` rows.
+>
+> **The half-state is what made it invisible from every other angle.**
+> `pg_stat_archiver` reads `archived_count=5356, failed_count=0` with the
+> last push minutes ago — **WAL archiving works**. So the repository grew,
+> nothing errored anywhere, and nothing could expire, because
+> `repo1-retention-full=4` is applied *during a backup*. Disk at 85 %.
+>
+> ***Two claims this entry made were overstated and the successful run
+> refuted both — recorded here rather than quietly edited.*** It said
+> *zero base backups* and *nothing to restore onto*. The run printed
+> `last backup label = 20260307-141905F`: the repository held a **full
+> backup from 2026-03-07**, taken **by hand at 14:19:05** — three minutes
+> before the timer was enabled and three and a half before the broken
+> unit was written. So recovery was possible throughout, to a
+> **178-day-old** base plus ~5,356 WAL segments of replay: slow and
+> fragile, not impossible. The error was inferring an empty repository
+> from 28 unit failures without being able to read `/var/lib/pgbackrest`,
+> which needs root — a population measured from the *caller's* failures
+> rather than from the store, which is `ports_checked`'s rule turned
+> around and pointed at this repository. Corrected at estate-manager as
+> message `cc5f26e7`. *The `pgbackrest.conf` placeholder comment was also
+> read as a second defect and is cosmetic — 5,356 archive-pushes prove
+> pgbackrest parses that file.*
+>
+> **One authoring error, three instances, two files** — a directive split
+> across two lines with no trailing backslash, found by
+> `systemd-analyze verify` rather than by reading. `ExecStart=` loses
+> `backup` (hence `[030] no command found`); `Description=` loses
+> `Alfred`; and in the **timer**, `OnCalendar=*-*-*` loses `02:00:00`, so
+> systemd resolved it to `*-*-* 00:00:00` and the backup that was written
+> to run off-peak at 02:00 — `IOSchedulingClass=idle`, `Nice=10` — has
+> been firing at **midnight** all along.
+>
+> **Neither fault is this repository's to fix** — the monitor does not
+> own what it monitors, the units need `sudo`, and both were spoken and
+> filed: estate messages `e5d17a89` (Alfred, the career-mail record),
+> `aacd7e33` (estate-manager, the backup, routed there because
+> `pg1-path` is the whole cluster and the stanza is merely *named*
+> `alfred`) and `cc5f26e7` (the correction above).
+>
+> **The backup half is resolved.** The owner applied
+> `scripts/fix-systemd-continuations.py` to both units at 22:19 and
+> reloaded at 22:29; the run took **16.4 s**, `Result=success`,
+> `ExecMainStatus=0`, wrote `20260307-141905F_20260901-222905I` and ran
+> `expire` for the first time since March. `next_elapse` is now **02:00**
+> rather than midnight. The career-mail half is Alfred's and stands
+> open.
+>
 > **`SNAG-AGENT-011` is closed, and it closed on the limb that needed a
 > night rather than on the commit** (2026-09-01, Session 146). The
 > nightly `venture-chat unreachable` row opened at **00:01:16** at
@@ -1039,7 +1107,7 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-08-31 09:36:14**
+> Daemon restarted at **2026-09-01 21:03:19**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
 > `ERROR`/`CRITICAL` lines since. **This one was owed too**, and for the
 > same kind of reason as the last: `sysadmin/monitor/agent.py` and
@@ -1117,9 +1185,19 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **1** unresolved
-> row <!--check:alerts-->, `warning: High disk usage on /`, **1**
-> named here <!--check:open_titles-->. *(Session 146 saw the same
+> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
+> rows <!--check:alerts-->, `warning: High disk usage on /` and
+> `critical: alfred-career-mail-timer critical`, **2**
+> named here <!--check:open_titles-->. *(The critical is Session 147's,
+> and it is a **rise the monitor caused rather than a fault that
+> began**: the job had been failing for 20 days and only became sayable
+> when `SNAG-SYSD-005` was fixed. It is Alfred's to close, not ours. Its
+> twin — `pgbackrest-backup-timer critical` — was raised at 21:08,
+> the unit was repaired at 22:19–22:29, and `_resolve_recovered` closed
+> the row unaided at **22:33:29** on the first healthy poll. That is the
+> whole family demonstrated end to end in 85 minutes on a fault that had
+> stood since March, which is the strongest evidence this sitting
+> produced that the fix works.)* *(Session 146 saw the same
 > volatility Session 144 recorded and from the same source: the count
 > read 1, then 2, then 1 again inside one sitting, the second row being
 > `High VRAM usage on AMD Radeon RX 7900 XTX` — **5** rows created on

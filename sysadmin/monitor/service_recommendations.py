@@ -204,11 +204,18 @@ class TimerPoint:
     opaque token here — see the module docstring.  ``None`` means the
     timer has never fired, which ``_timer_facts`` reports by omitting the
     key rather than by writing a sentinel.
+
+    ``last_run`` is the **timer's** and ``last_result`` the **triggered
+    unit's**, which is not a mixture but the whole point: the schedule and
+    the job are two things, and reading both from the timer is what
+    SNAG-SYSD-005 was.  ``triggered_unit`` names whose result it is, and
+    is ``None`` on any observation stored before that fix.
     """
 
     checked_at: datetime
     last_run: str | None = None
     last_result: str | None = None
+    triggered_unit: str | None = None
     is_active: bool = True
 
 
@@ -503,20 +510,36 @@ def _timer_failed_row(
     ``EVENT_ARGUED``: ``Result`` is a recorded outcome, not a rate.  A
     gappy window cannot manufacture a failed result, and the property is
     read from the *latest* observation, so it describes now.
+
+    **This row had a structurally empty population until SNAG-SYSD-005.**
+    Its own ``detail`` states the mechanism exactly and the field it gated
+    on could not express it: ``last_result`` was the **timer's**
+    ``Result``, which reports whether the timer unit started.  The
+    docstring was right, the wiring was not, and the drive exercising this
+    row built a synthetic subject — which is why the emptiness went eight
+    weeks unnoticed while a real one failed every morning.
     """
+    # The fallback is unreachable by construction and kept because a row
+    # that cannot name its unit is a row no execution sitting can close.
+    # A stored observation predating SNAG-SYSD-005 carries the *timer's*
+    # `Result`, which is `success` on every timer this box has ever had,
+    # so it cannot reach this branch; one written since carries
+    # `triggered_unit` alongside the `last_result` that admits it.
+    triggered = latest.triggered_unit or series.unit.removesuffix(".timer") + ".service"
     return ServiceRecommendationInfo(
         kind="timer_failed",
         severity="advice",
         service=series.service,
         title=f"{series.service}: last scheduled run reported '{latest.last_result}'",
         detail=(
-            f"systemd records Result={latest.last_result} for {series.unit}. "
+            f"systemd records Result={latest.last_result} for {triggered}, "
+            f"started by {series.unit}. "
             "The schedule is firing; what it starts is not succeeding, which "
             "an active-state check cannot see — an armed timer is 'active "
             "(waiting)' whether or not its last run worked."
         ),
         action=(
-            f"journalctl --user -u {series.unit.removesuffix('.timer')}.service "
+            f"journalctl --user -u {triggered} "
             "-n 100 — the failure is in the service the timer starts, not in "
             "the timer."
         ),

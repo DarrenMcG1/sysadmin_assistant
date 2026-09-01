@@ -121,10 +121,15 @@ async def fetch_timer_series(
     pure and parses no clock.  Two things this pulls that
     :func:`compute_reliability` deliberately does not:
 
-    **``details``, for its ``last_run`` token only.**  The scorer needs a
-    status and a timestamp and nothing else in the row changes a score;
-    timer staleness needs the one field that says whether the schedule
-    fired.  The token is passed through verbatim and is never parsed —
+    **``details``, for its ``last_run`` token and the triggered unit's
+    outcome.**  The scorer needs a status and a timestamp and nothing else
+    in the row changes a score; timer staleness needs the one field that
+    says whether the schedule fired, and ``timer_failed`` the one that
+    says whether what it started worked.  Those are properties of two
+    different units — ``last_run`` is the timer's, ``last_result`` and
+    ``triggered_unit`` the started unit's — and reading both off the timer
+    is what SNAG-SYSD-005 was.  The token is passed through verbatim and
+    is never parsed —
     ``systemctl show`` renders ``LastTriggerUSec`` as a local wall clock
     with a zone abbreviation, so its only sound operation is inequality
     between two observations.  The clock is ``checked_at``, which this
@@ -177,6 +182,7 @@ async def fetch_timer_series(
                 checked_at=checked_at,
                 last_run=blob.get("last_run"),
                 last_result=blob.get("last_result"),
+                triggered_unit=blob.get("triggered_unit"),
                 # Absent means the check could not say, and an armed
                 # timer is the default reading — the *inactive* case is
                 # already a failing check the outage family owns, so
