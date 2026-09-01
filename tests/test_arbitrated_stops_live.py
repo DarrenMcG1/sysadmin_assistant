@@ -241,3 +241,186 @@ class TestTheArbiterSeamLive:
         assert stops.reading == ARBITRATION_UNREAD
         assert stops.known is False
         assert stops.stopped("venture-chat.service") is False
+
+
+# ---------------------------------------------------------------------------
+# The deployed path, read off the live ``alerts`` table
+# ---------------------------------------------------------------------------
+#
+# Re-homed from ``snag_claims.check_nightly_hold_is_loud``'s limb 1 when
+# ``SNAG-AGENT-011`` closed on 2026-09-01 — ``FROZEN_TABLES``' rule, which
+# this repository has now spent six times: the check retires with its
+# entry and the *detector* does not, or the guard against the defect
+# coming back leaves with the last finding of it.
+#
+# **It is stronger than the check it replaces, and in the axis that
+# matters.**  Limb 1 reconstructed a nightly window from
+# ``venture-enrich-nightly.timer`` and asked whether the latest observed
+# night's row was loud.  That keys the guard on *another project's
+# schedule*: the drain moved 02:00 → 00:00 on 2026-08-25 and the window
+# moved with it, so a guard shaped that way reports on a population that
+# empties whenever the estate re-times its own timer.  These read the
+# thing the fix actually writes — ``details['arbitration']`` — so they
+# hold whatever hour the drain fires at, and they would witness an
+# arbitrated stop of a unit nobody has thought of yet.
+#
+# **Why a live read at all**, when ``tests/test_arbitrated_stops.py``
+# already drives every branch deterministically: a recorded test cannot
+# tell a fix that works from a fix that has never executed.  This
+# repository has shipped that exact shape — ``_still_open`` carried a
+# loop-affinity defect from Session 55 to Session 115 and *never once
+# ran* on this box, because a cheap gate returned before reaching it, and
+# `SNAG-TRAY-007`'s reminder could not have worked here for a fault the
+# daemon had announced.  Only the production table can say the path fired.
+#
+# Anti-vacuity is the whole discipline here.  A sweep that finds no
+# arbitrated row and passes is a constant observation over an empty
+# population, which is not evidence — ``a-check-needs-a-discriminating-
+# witness``.  So the population is asserted *first*, in its own test, and
+# the assertions skip rather than pass when it is empty.
+
+
+ARBITRATION_KEY = "arbitration"
+
+#: How far back the sweep reaches.  Bounded well inside ``alerts``' 180-day
+#: retention and deliberately not tied to the drain's cadence: what is
+#: being witnessed is that the deployed code writes the blob at all, and a
+#: window spanning two schedules would hold nights no shape can describe.
+ARBITRATION_LOOKBACK_DAYS = 30
+
+#: Every ``% unreachable`` row in the window that the deployed fix
+#: annotated.  ``severity`` and the blob come back together because the
+#: property under test is a *relation* between them — a row's rung is
+#: judged against its own reading and never against the table's.
+ARBITRATED_ROWS_SQL = f"""
+    SELECT title,
+           severity,
+           details -> '{ARBITRATION_KEY}' ->> 'reading'   AS reading,
+           details -> '{ARBITRATION_KEY}' ->> 'stopped_by_estate' AS stopped,
+           created_at
+    FROM sysadmin.alerts
+    WHERE title LIKE '%% unreachable'
+      AND details ? '{ARBITRATION_KEY}'
+      AND created_at > now() - interval '{ARBITRATION_LOOKBACK_DAYS} days'
+    ORDER BY created_at DESC
+"""
+
+
+def _db_available() -> bool:
+    """True when the live ``projects`` database answers inside 2 s.
+
+    ``tests/test_message_backfill_live.py::_db_available``'s shape — one
+    way to say "this needs the real table" in this suite.
+    """
+    from sqlalchemy import create_engine
+
+    try:
+        engine = create_engine(
+            "postgresql+psycopg2://gaddi@localhost:5432/projects",
+            connect_args={"connect_timeout": 2},
+        )
+        try:
+            with engine.connect():
+                return True
+        finally:
+            engine.dispose()
+    except Exception:
+        return False
+
+
+def _arbitrated_rows() -> list:
+    """Annotated ``% unreachable`` rows off the live table, newest first."""
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine("postgresql+psycopg2://gaddi@localhost:5432/projects")
+    try:
+        with engine.connect() as conn:
+            return list(conn.execute(text(ARBITRATED_ROWS_SQL)).fetchall())
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.skipif(not _db_available(), reason="live projects database unreachable")
+class TestTheDeployedQuieteningLive:
+    """What the running daemon actually wrote, asked of ``alerts``."""
+
+    def test_the_deployed_path_has_annotated_at_least_one_row(self):
+        """The anti-vacuity pin, and it runs first for a reason.
+
+        Every assertion below is satisfied by an empty table.  A green
+        class over no rows says only that the daemon has not raised a
+        ``% unreachable`` row since the fix deployed — which is a fact
+        about the box's health, never evidence about the fix.  This test
+        is what separates the two, and it *fails* rather than skips: a
+        box that has gone a month without one arbitrated row has either
+        stopped swapping the unit or stopped monitoring it, and both are
+        worth a red rather than a silent pass.
+        """
+        rows = _arbitrated_rows()
+        assert rows, (
+            "no '% unreachable' row in the last "
+            f"{ARBITRATION_LOOKBACK_DAYS} days carries details['{ARBITRATION_KEY}'] — "
+            "either the daemon predates SNAG-AGENT-011's fix, or nothing has been "
+            "unreachable since it deployed; the assertions below are vacuous until "
+            "one exists"
+        )
+
+    def test_an_arbitrated_stop_is_never_loud(self):
+        """The defect, asked of production rather than of a stand-in.
+
+        ``stopped_by_estate`` true is the estate's own record that it
+        stopped the unit under a granted lease, which is the one case
+        ``critical`` must not describe.  Scoped to that flag rather than
+        to a service name for the check's own rule 1: what the entry
+        claimed is a *mechanism*, and keying on ``venture-chat`` would go
+        blind the day the estate swaps something else.
+        """
+        arbitrated = [row for row in _arbitrated_rows() if row.stopped == "true"]
+        if not arbitrated:
+            pytest.skip("no arbitrated stop in the window")
+        loud = [
+            (row.title, row.severity, row.created_at)
+            for row in arbitrated
+            if row.severity == "critical"
+        ]
+        assert not loud, f"arbitrated stops announced at critical: {loud}"
+
+    def test_a_row_the_estate_could_not_explain_is_left_alone(self):
+        """Fail-open, witnessed rather than assumed.
+
+        The quietening must never become a suppression: a reading of
+        ``unread`` is an unreachable 8400, and ``_attribution``'s rule —
+        *the enrichment is not allowed to become a dependency of the
+        alert* — says the rung stays where it was.  So this asserts the
+        **absence of a quietening**, which is the direction a fix of this
+        shape fails in.  Empty population on a healthy box, and that is
+        the point of stating it: the day it is not empty, the row must
+        still be loud.
+        """
+        unexplained = [row for row in _arbitrated_rows() if row.stopped != "true"]
+        if not unexplained:
+            pytest.skip("the estate answered on every raise in the window")
+        quietened = [
+            (row.title, row.severity, row.reading)
+            for row in unexplained
+            if row.severity == "info"
+        ]
+        assert not quietened, (
+            f"rows quietened without the estate claiming the stop: {quietened}"
+        )
+
+    def test_every_annotated_row_carries_a_reading_this_release_knows(self):
+        """The blob is a vocabulary, not free text.
+
+        A reading this checkout cannot name is a producer or a predecessor
+        writing a shape nothing here classifies, and ``is_fault``'s rule
+        applies at the size of a dict value: a monitor going quiet about a
+        state it does not understand is worse than a false alarm.  Pinned
+        against ``estate.client``'s own constants rather than string
+        literals — ``max_priority_for`` against ``PRIORITY_MAP``.
+        """
+        known = {ARBITRATION_GRANTED, ARBITRATION_IDLE, ARBITRATION_UNREAD}
+        strange = {
+            row.reading for row in _arbitrated_rows() if row.reading not in known
+        }
+        assert not strange, f"readings this release cannot classify: {sorted(strange)}"

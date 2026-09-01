@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-08-31
+> **Last Updated**: 2026-09-01
 
 ---
 
@@ -15,6 +15,27 @@ _Project state left this repository — [ADR-0005](../adr/0005-project-state-lea
 the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
+
+- [x] **Session 146 — the first night under the fix, and the check could
+      not close its own entry.** *(2026-09-01.)* `SNAG-AGENT-011` **closed**
+      on limb 1: the nightly `venture-chat unreachable` row opened
+      00:01:16 at `info`, resolved 05:51:19, and carries
+      `details['arbitration']` with `stopped_by_estate: true` against
+      lease 48. The daemon had served the fix since 2026-08-31 09:36:14 —
+      8m36s *before* the commit that carried it, this repository restarting
+      to verify and committing afterwards, which is why the deploy check
+      compares mtimes. `sysadmin-check-snags` still reports limb 2's
+      reason because `if readers:` returns first, so limb 1 was read by
+      neutralising the outer gate; it refutes as *a quietening rather than
+      a suppression*. The three readings the check cannot separate were
+      separated by hand and all three refuted — `mute_services` empty,
+      three real granted leases, `stopped_by_estate` true throughout. The
+      check retired and the detector did not:
+      `TestTheDeployedQuieteningLive` reads the live `alerts` table and
+      is schedule-free where limb 1 keyed on another project's timer, with
+      an anti-vacuity pin that is the only thing separating "the fix
+      works" from "the fix never ran". `SNAG-AGENT-012` and
+      `SNAG-AGENT-013` deliberately not built.
 
 - [x] **Session 145 — the arbitrated stop is quietened, and the placement
       question decomposed into three ownerships rather than one.**

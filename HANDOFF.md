@@ -1,10 +1,10 @@
-# Handoff — 2026-08-31
+# Handoff — 2026-09-01
 
 ## Next action
 
-Close `SNAG-AGENT-011` by reading the first night under the deployed fix: on or after 2026-09-01, check that the nightly `venture-chat unreachable` row opened at `info` rather than `critical` and carries `details['arbitration']` with `stopped_by_estate: true`, then re-run `sysadmin-check-snags` and close the entry only if limb 1's population has gone quiet for the right reason — and if no night has passed yet, do not build `SNAG-AGENT-012` or `SNAG-AGENT-013`, both of which this sitting filed with measured-zero populations precisely so that nobody would.
+Act on estate message `00b631ec` by re-measuring how many checks the estate audit actually runs — it says thirteen since 2026-08-31 under their ADR-0086, which adds `restatements` — and correct every site in this repository that still states twelve, which is at least `sysadmin/estate/judgements.py:74`, `docs/adr/0006-wiring-joins-ports.md` (twice) and `docs/roadmap/STATUS.md`, reading the live `/api/audit/findings` rather than their prose before writing a number and remembering that ADR-0006 admits a check on an **ownership** test and never on a severity, so a thirteenth check is not automatically one this repository speaks for.
 
-_The inbox was empty at the start of this sitting and nothing was filed at another repository by it: the fix needed nothing from estate-manager, which is why the two-call path was ranked above asking them to put `stopped_units` on `/api/queue/invariants` — that request is still the field's better home and is still worth filing the day this box is not the only consumer._
+_The inbox held one open message at the start of this sitting (`00b631ec`, filed 2026-08-31 by estate-manager) and it is deliberately left open: this sitting closed `SNAG-AGENT-011` and did not touch the check-count claim, so closing the message would report work nobody did. Nothing was filed at another repository — the closure needed nothing from estate-manager, and no friction crossed a boundary._
 
 ## Scheduled action
 
@@ -32,9 +32,97 @@ Announced to estate-manager as message `8e693e05` before the commit that
 carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
-- **2026-09-01** — If the sitting that reads this is *not* the one that closes `SNAG-AGENT-011` above, the nightly row is still worth one query: `SELECT severity, details->'arbitration' FROM sysadmin.alerts WHERE title = 'venture-chat unreachable' AND created_at::date = '2026-09-01'` — a `critical` row there with `reading: "unread"` means the estate was down at 00:00 and the fix failed open exactly as designed, which is a different outcome from the fix not working and must not be read as one.
-
 - **2026-09-07** — Read the first Monday under lease: `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews` should be true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning beside it, because the three refusals are logged apart precisely so that reading answers why.
+
+## Session 146 is complete — the first night under the fix, and the check could not close its own entry
+
+**`SNAG-AGENT-011` is closed.** The nightly `venture-chat unreachable`
+row opened **2026-09-01 00:01:16** at `info` — not `critical` — resolved
+at **05:51:19**, and carries `details['arbitration']` =
+`{unit: venture-chat.service, profile: venture-nightly-24b,
+reading: granted, lease_id: 48, stopped_by_estate: true}`. With
+`tray.notify_min_severity` at `warning`, the persistent nightly toast
+the entry was filed for no longer reaches a screen, while the row still
+exists, still resolves and still reaches `GET /api/services/reliability`
+— a quietening, which is the fix the entry asked for, and not a
+suppression, which is what it forbade.
+
+**The deploy question was answered before the data question, and the two
+timestamps invert.** The fix's commit landed 09:44:50 and the daemon
+started **09:36:14**, 8m36s *earlier*, because this repository restarts
+to verify and commits afterwards. That is exactly why `ops_claims` rule
+4 compares file mtimes rather than commit times; reading commit times
+would have said a restart was owed and the night would have been
+discarded as not-under-the-fix.
+
+**The check reports `mismatch` and its reason is the wrong limb, which
+is the conjunction working rather than failing.** `if readers:` returns
+before any limb-1 branch can run, so the headline has said *"a reader of
+`stopped_units` exists"* since the commit — a short-circuit gate hiding
+what is behind it. Limb 1's verdict was taken by neutralising the outer
+gate (`patch.object(snag_claims, "lease_discriminator_readers",
+lambda: [])`), with the stand-in confirmed to move the output before its
+verdict was believed, and it refutes by the third of three branches:
+*the nightly row is still raised and is no longer critical*.
+
+**The three readings the check says it cannot separate were separated by
+hand.** A quiet population would equally follow from `mute_services`
+gaining the service, from the estate retiring the swap, or from the
+profile losing `stopped_units`. Live: `mute_services` is `[]`; the three
+post-deploy rows each name a real granted lease; `stopped_by_estate` is
+`true` on all three. So the population did not go quiet, and only the
+rung moved — the one outcome that closes this entry rather than merely
+emptying it.
+
+**The check retired and the detector did not**, the sixth time this
+repository has spent `FROZEN_TABLES`' rule.
+`TestTheDeployedQuieteningLive` in `tests/test_arbitrated_stops_live.py`
+reads the live `alerts` table and is stronger than the limb it replaces
+in a **named** axis: limb 1 rebuilt its window from
+`venture-enrich-nightly.timer`, which keys this repository's guard on
+another project's schedule, and that timer moved 02:00 → 00:00 on
+2026-08-25. The re-homed tests read `details['arbitration']`, the blob
+the fix writes, so they hold at whatever hour the drain fires and would
+witness the estate swapping a unit nobody has thought of yet. A live
+read is needed at all because a recorded test cannot tell a fix that
+works from one that has never executed — `_still_open` carried that
+shape from Session 55 to Session 115 without running once on this box.
+
+**Its anti-vacuity pin is the load-bearing half.** Driven at five
+stand-ins: a pre-fix world with no blob reddens **only**
+`test_the_deployed_path_has_annotated_at_least_one_row`, while the two
+behavioural tests *skip* — so without the pin a box that never deployed
+the fix reads green, which is `a-check-needs-a-discriminating-witness`
+arriving inside the guard written for it. The other four cases redden
+exactly one test each and nothing else, including the over-quietening
+direction, where the **absence** of a quietening on an `unread` row is
+what is asserted, because suppression is how a fix of this shape fails.
+
+**An adjacent observation, recorded rather than filed.** The unresolved
+count read 1 → 2 → 1 inside this sitting, which is exactly what Session
+144 measured two days earlier and from the same source: `High VRAM usage
+on AMD Radeon RX 7900 XTX` opened and resolved **5** times on 2026-09-01
+between 16:06 and 20:31. It is not a snag — the row is correct each time
+and `_resolve_recovered` closes it each time — but it means the block's
+alert figure is only stable between GPU bursts, so the **steady** value
+is what belongs in it and a sitting re-measuring mid-burst should not
+"correct" the block. That is the falling direction `check_alerts` exists
+to notice, arriving as a false alarm rather than as a stale claim.
+
+**What was deliberately not done.** `SNAG-AGENT-012` and
+`SNAG-AGENT-013` were filed by Session 145 with measured-zero
+populations precisely so that a later sitting would not build them off
+this closure, and the previous handoff said so by name; neither was
+touched. The one open estate message (`00b631ec`, the audit's check
+count) is left open for the next sitting rather than closed unactioned.
+
+**Numbers.** 3264 − 19 retired + 4 added = **3249** = 3248 passed + 1
+skipped, so the arithmetic witnesses that no file was clobbered.
+`sysadmin-check-snags` reports no `no` verdicts and *-1 open since
+9f73627*; `check-ops-claims.sh` is clean apart from the documented mtime
+false positive — `snag_claims.py` was edited and `sysadmin.main` does
+not import it, verified rather than asserted, so **no restart is owed**.
+The register is 18 checks over 22 open entries, 18 of them checked.
 
 ## Session 145 is complete — the arbitrated stop is quiet, and the placement question was three questions
 
