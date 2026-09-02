@@ -16,6 +16,56 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 156 — the red said the hazard was gone whatever had
+      happened.** *(2026-09-02.)* `SNAG-TEST-003` **fixed**:
+      `test_notify_send_does_not_return_on_a_bus_with_nothing_listening`
+      asserts the activation fired **before** it asserts the call
+      blocked. Open entries with no check: **1 → 0**, and it was the
+      last one — by the entry closing rather than by a check being
+      written, which is the only way that figure may fall for an entry
+      whose claim is an assertion's wording.
+      - **A precondition, not a differential**, which is the form the
+        entry named once `SNAG-TEST-004` had removed its one measured
+        cause. `returned` is common to both failing readings; whether
+        `plasma_waitforname` started under this fixture's own bus is
+        not. Three states driven before the fix was written — intact:
+        activated, blocked, **8.03 s**; disturbed by three kills:
+        **activated**, returned at **3.06 s**,
+        `exited with status 255`; genuinely gone, on a bus whose config
+        declares no service directory: **not** activated, returned at
+        **0.03 s**, `ServiceUnknown`. Each falsification lands on its
+        own assertion with its own message.
+      - **The sampling had to move inside the call.** The disturbed
+        row's waiter is dead by the time `notify-send` returns, because
+        killing it is what errored the call, so a single check
+        afterwards reports "no activation" for a disturbed box and a
+        fixed one alike — the collapse being removed, one line later.
+        `subprocess.run(timeout=…)` cannot do it; `_notify_send` is a
+        polled `Popen` now, at an interval derived from a measured
+        48–50 ms activation latency (four trials for four) against a
+        waiter that then persists for the whole 8 s block.
+      - **The budget was not raised**, which the entry named as the
+        thing that must not happen, and `stderr` decides nothing — it
+        is quoted into both failures as evidence, while `activated`
+        holds the judgement. One argv serves both halves (`watch_pid`
+        is a parameter, not a sibling function), because the module's
+        evidence rests on the two observations differing in exactly one
+        thing.
+      - **`TestTheRedSaysWhichReadingItIs` is what outlives the
+        finding** — an `ast` pin on the assertion order, killed by both
+        a swap and a deletion. It reads each assert's `test` and never
+        its `msg`: both messages quote `outcome.elapsed`, so a
+        whole-node walk would report agreement whatever the order was —
+        `test_live_drive_scoping.py`'s prose problem one node deeper,
+        where the confusable thing is an f-string rather than a
+        docstring.
+      - **`SNAG-TEST-004`'s scoping property was re-measured under the
+        new probe** rather than assumed to survive it: two offset
+        concurrent runs at 5 s and 6 s, **4 for 4 green** at the full
+        8.7 s, zero stray waiters. All 22 existing snag checks driven
+        before and after, none moved. Suite **3349 passed, 1 skipped**;
+        the changed file went 7 → 8 tests.
+
 - [x] **Session 155 — the fold said whose step leads only in prose.**
       *(2026-09-02.)* `SNAG-SVC-004` **fixed**:
       `ServiceRecommendationInfo.action_from` published by `_folded_row`

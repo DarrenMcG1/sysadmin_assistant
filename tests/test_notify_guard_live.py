@@ -110,6 +110,48 @@ three offsets are green **6 for 6** with both runs taking the full
 8.67 s, and no waiter is left on the box. A green pair proves nothing
 without the red pair first — the sequence is the evidence, not the green.
 
+**A red on the blocking half now says which of two things happened**
+(``SNAG-TEST-003``). Its assertion read *"the D-Bus activation that causes
+SNAG-SYSD-004 is gone from this box and the guard's urgency should be
+re-derived"*, so any red at all — from any cause — reported good news, and
+the honest response to good news is to relax the control. The entry
+survived two refutations of its own evidence because it never rested on
+one: the claim was about the sentence.
+
+The separator is a **precondition rather than a differential**, which is
+what the entry named as the cheapest form once ``SNAG-TEST-004`` had
+removed the one measured cause. ``notify-send`` returning is common to both
+readings; the *activation* is not, so the probe watches for
+``plasma_waitforname`` under this fixture's own bus while the call runs and
+:meth:`TestTheHazardIsReal.test_notify_send_does_not_return_on_a_bus_with_nothing_listening`
+asserts that first. Three states, measured 2026-09-02 rather than reasoned
+about:
+
+===============================  =========  ========  =======  ===========
+state                            activated  returned  elapsed  notify-send
+===============================  =========  ========  =======  ===========
+hazard intact (the control)      yes        no        8.03 s   —
+reading disturbed (3 kills)      **yes**    yes       3.06 s   ``status 255``
+hazard gone (no .service files)  **no**     yes       0.03 s   ``ServiceUnknown``
+===============================  =========  ========  =======  ===========
+
+**Sampled during the call, and that is forced rather than tidy.** Row 2's
+waiter is dead by the time the call returns — killing it is what errored
+the call — so a single check *afterwards* reports ``activated=False`` for
+rows 2 and 3 alike and reproduces the collapse being removed. Polling is
+therefore the cheapest thing that discriminates at all, and it is why
+:func:`_notify_send` is a :class:`subprocess.Popen` rather than the
+``subprocess.run(timeout=...)`` it was: that call hands back only what the
+process ended with.
+
+**The budget was not raised**, which the entry named as the thing that must
+not happen: a larger :data:`BLOCK_PROBE_SECONDS` makes the red rarer
+without changing what it means. Nor is ``stderr`` what decides anything.
+The two shapes do carry distinct messages and both are quoted into the
+failure, but keying on them would be a second implementation of a
+judgement ``activated`` already states — the reader gets the evidence, the
+assertion gets the fact.
+
 The close is **asserted rather than attempted, and what that assertion
 covers is narrower than it looks.** Measured against Plasma 6.7.4 on
 2026-08-31: ``CloseNotification`` answers ``rc=0`` for an id that was
@@ -131,6 +173,7 @@ which is a defect in the server and not in this file.
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import os
 import shutil
@@ -315,8 +358,59 @@ def _run_guard(bus_path: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _notify_send(bus_path: str, timeout: float) -> tuple[bool, float, str | None]:
-    """Return (returned_within_timeout, elapsed, notification_id).
+#: How often the blocking probe asks whether the activation has started.
+#: Derived from the latency rather than picked: measured 2026-09-02 against
+#: this fixture's own bus, ``plasma_waitforname`` appears **48-50 ms** after
+#: the call, four trials for four, and then persists for the whole block
+#: (124 consecutive sightings across one 8 s probe). At 20 ms the first
+#: sighting lands on the second or third poll.
+#:
+#: What the interval bounds is the one thing this observation can get wrong,
+#: and it is worth naming because it fails in the *unsafe* direction: a
+#: waiter both started and reaped inside a single poll reads as no
+#: activation at all, which is precisely the reading
+#: :class:`TestTheHazardIsReal`'s precondition exists to refuse. Two orders
+#: of magnitude between the interval and the observed lifetime is what makes
+#: that unreachable here rather than merely unlikely.
+_ACTIVATION_POLL_SECONDS = 0.02
+
+
+@dataclasses.dataclass(frozen=True)
+class NotifySendOutcome:
+    """What one probe call saw — including whether the hazard actually fired.
+
+    ``activated`` is why this is a record and not the tuple it replaced.
+    ``SNAG-TEST-003``: ``returned`` alone cannot tell *the hazard is gone*
+    from *this reading was disturbed*, because both shapes return. The
+    activation can, and it is carried beside the outcome because the two are
+    only meaningful together — the same argument :class:`UnservedBus` makes
+    one field over.
+
+    ``activated`` is ``None`` when no ``watch_pid`` was given, never
+    ``False``. Nobody looked and nothing was there are different facts and a
+    caller must not be able to read the first as the second —
+    ``ports_checked``'s rule. The live half passes no pid because a bus with
+    a server on the name activates nothing, so the question does not arise
+    there.
+
+    ``stderr`` is evidence for a reader triaging a red and decides nothing.
+    The two failing shapes are separated by ``activated``; that they *also*
+    carry distinct messages (``exited with status 255`` against
+    ``ServiceUnknown``) is a convenience, and keying on it would be a second
+    implementation of a judgement this record already states.
+    """
+
+    returned: bool
+    elapsed: float
+    notification_id: str | None
+    activated: bool | None
+    stderr: str
+
+
+def _notify_send(
+    bus_path: str, timeout: float, watch_pid: str | None = None
+) -> NotifySendOutcome:
+    """Send the announcer's own notification, watching for the activation.
 
     The flags are the announcer's own, because the question is whether *its*
     call blocks, and libnotify's behaviour on an unowned name is not
@@ -335,31 +429,61 @@ def _notify_send(bus_path: str, timeout: float) -> tuple[bool, float, str | None
     killed at *timeout* never reached a server, and a server that answered
     with something unparseable is a state this helper reports rather than
     guesses at.
+
+    **``watch_pid`` is sampled while the call runs, and that is forced
+    rather than convenient** (``SNAG-TEST-003``). In the disturbed shape the
+    waiter is killed and the pending call is errored, so by the time
+    ``notify-send`` returns there is nothing left to see: a single check
+    after the call reports *no activation* for both a box where the hazard
+    is gone and a box where it fired and was interrupted, which is the
+    reading being separated. Polling is therefore the cheapest form that
+    discriminates at all, not a refinement of a post-hoc check.
+
+    ``subprocess.run(timeout=...)`` cannot do it — it hands back only what
+    the call ended with — so the probe is a :class:`subprocess.Popen` and
+    the timeout is this loop's. The cost is that *elapsed* is quantised by
+    :data:`_ACTIVATION_POLL_SECONDS`, which is 20 ms against a 2 s budget on
+    the live half and an 8 s bound on this one.
     """
     env = dict(os.environ, DBUS_SESSION_BUS_ADDRESS=f"unix:path={bus_path}")
+    activated: bool | None = None if watch_pid is None else False
     started = time.monotonic()
+    call = subprocess.Popen(
+        [
+            "notify-send",
+            "--print-id",
+            "--app-name=sysadmin-test",
+            "--urgency=critical",
+            "--expire-time=0",
+            "--icon=dialog-error",
+            "SNAG-SYSD-004 probe",
+            "if you are reading this on screen, the live witness worked",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
     try:
-        done = subprocess.run(
-            [
-                "notify-send",
-                "--print-id",
-                "--app-name=sysadmin-test",
-                "--urgency=critical",
-                "--expire-time=0",
-                "--icon=dialog-error",
-                "SNAG-SYSD-004 probe",
-                "if you are reading this on screen, the live witness worked",
-            ],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=timeout,
-            check=False,
-        )
-        printed = done.stdout.strip()
-        return True, time.monotonic() - started, printed if printed.isdigit() else None
-    except subprocess.TimeoutExpired:
-        return False, time.monotonic() - started, None
+        while call.poll() is None and time.monotonic() - started < timeout:
+            if watch_pid is not None and not activated and _waiters_under(watch_pid):
+                activated = True
+            time.sleep(_ACTIVATION_POLL_SECONDS)
+        returned = call.poll() is not None
+        elapsed = time.monotonic() - started
+    finally:
+        if call.poll() is None:
+            call.kill()
+    stdout, stderr = call.communicate()
+
+    printed = stdout.strip()
+    return NotifySendOutcome(
+        returned=returned,
+        elapsed=elapsed,
+        notification_id=printed if (returned and printed.isdigit()) else None,
+        activated=activated,
+        stderr=stderr.strip(),
+    )
 
 
 def _close_notification(notification_id: str | None) -> bool:
@@ -414,13 +538,29 @@ class TestTheHazardIsReal:
         if not _have("notify-send"):
             pytest.skip(_MISSING_NOTIFY)
 
-        returned, elapsed, _ = _notify_send(unserved_bus.path, BLOCK_PROBE_SECONDS)
+        outcome = _notify_send(
+            unserved_bus.path, BLOCK_PROBE_SECONDS, watch_pid=unserved_bus.pid
+        )
 
-        assert not returned, (
-            f"notify-send returned after {elapsed:.2f}s on a bus with no "
-            "notification server. If this fails, the D-Bus activation that "
-            "causes SNAG-SYSD-004 is gone from this box and the guard's "
-            "urgency should be re-derived rather than assumed"
+        assert outcome.activated, (
+            f"nothing started {WAITER} under this fixture's own bus in "
+            f"{outcome.elapsed:.2f}s, so the call was answered without the "
+            "D-Bus activation SNAG-SYSD-004 turns on ever running. Read this "
+            "as the hazard being gone from this box — the guard's urgency "
+            "should be re-derived rather than assumed — unless the waiter "
+            f"lived and died inside one {_ACTIVATION_POLL_SECONDS}s poll, "
+            "which the measured 48-50ms start and whole-block lifetime make "
+            f"unreachable here. notify-send said: {outcome.stderr or 'nothing'}"
+        )
+        assert not outcome.returned, (
+            f"notify-send returned after {outcome.elapsed:.2f}s on a bus with "
+            f"no notification server — but a {WAITER} was started under this "
+            "fixture's own bus first, so the activation is intact and "
+            "something errored the pending call. That is this reading being "
+            "disturbed, not the hazard being fixed: SNAG-TEST-004's shape is "
+            "three kills landing inside this window, after which the bus "
+            "stops re-activating and the call comes back with "
+            f"'exited with status 255'. notify-send said: {outcome.stderr or 'nothing'}"
         )
 
     def test_notify_send_returns_at_once_on_the_live_bus(self):
@@ -444,15 +584,13 @@ class TestTheHazardIsReal:
         if not _live_server_present():
             pytest.skip(_NO_LIVE_SERVER)
 
-        returned, elapsed, notification_id = _notify_send(
-            str(LIVE_BUS), BLOCK_PROBE_SECONDS
-        )
-        closed = _close_notification(notification_id)
+        outcome = _notify_send(str(LIVE_BUS), BLOCK_PROBE_SECONDS)
+        closed = _close_notification(outcome.notification_id)
 
-        assert returned, "notify-send blocked against a bus that has a server"
-        assert elapsed < GUARD_BUDGET_SECONDS
+        assert outcome.returned, "notify-send blocked against a bus that has a server"
+        assert outcome.elapsed < GUARD_BUDGET_SECONDS
         assert closed, (
-            f"the probe notification (id {notification_id!r}) is still on "
+            f"the probe notification (id {outcome.notification_id!r}) is still on "
             "screen. Every run leaves another one: the announcer's flags "
             "make it persistent, so this cleanup is the only thing that "
             "removes it"
@@ -551,3 +689,72 @@ class TestTheGuardSeparatesThem:
 
         assert result.returncode == 0, result.stdout + result.stderr
         assert "owns org.freedesktop.Notifications" in result.stdout
+
+
+class TestTheRedSaysWhichReadingItIs:
+    """The precondition is asserted first, or the block assertion's message lies.
+
+    ``SNAG-TEST-003``, closed 2026-09-02. The entry's claim was never about
+    a mechanism — both of its candidate causes were refuted while it stood —
+    but about the assertion's *wording*: a red on
+    :meth:`TestTheHazardIsReal.test_notify_send_does_not_return_on_a_bus_with_nothing_listening`
+    said the D-Bus activation *"is gone from this box"*, so **any** red there
+    read as good news and the honest response to good news is to relax the
+    control.
+
+    Two assertions separate the readings now, and the order is what makes
+    the second one true. The block assertion's message states that a waiter
+    *was* started; it can only state that because the precondition has
+    already run. Swap them and, on a box where the activation is genuinely
+    gone, the block assertion fires first and asserts something false about
+    a box nobody looked at — the original defect wearing the fix's clothes.
+
+    **Only the assert's ``test`` is read, never its message**, and that is
+    the whole reason this pin says anything. Both messages quote
+    ``outcome.elapsed`` and ``outcome.stderr``, so a walk over the whole
+    :class:`ast.Assert` node would find every field in both and report
+    agreement whatever the order was — ``test_live_drive_scoping.py``'s
+    prose problem arriving one node deeper, where the confusable thing is an
+    f-string rather than a docstring.
+
+    No snag check accompanies this. One would have to reproduce an
+    intermittent fault on demand, and the entry is closed by the wording
+    changing rather than by an observation. The two readings were driven by
+    hand instead — a bus with no ``.service`` files at all gives
+    ``activated=False`` and ``ServiceUnknown`` in 0.03 s, and three kills
+    landing inside the window give ``activated=True`` with
+    ``exited with status 255`` at 3.06 s — and each lands on its own
+    assertion. This pin is what survives them: ``FROZEN_TABLES``' rule, the
+    detector outliving the finding.
+    """
+
+    #: The two readings, in the order that keeps the second one honest.
+    EXPECTED_ORDER = [["activated"], ["returned"]]
+
+    @staticmethod
+    def _outcome_fields(expression: ast.expr) -> list[str]:
+        return [
+            node.attr
+            for node in ast.walk(expression)
+            if isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "outcome"
+        ]
+
+    def _asserts(self) -> list[ast.Assert]:
+        tree = ast.parse(Path(__file__).resolve().read_text())
+        wanted = "test_notify_send_does_not_return_on_a_bus_with_nothing_listening"
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == wanted:
+                return [s for s in node.body if isinstance(s, ast.Assert)]
+        raise AssertionError(f"{wanted} is gone; this pin has nothing to guard")
+
+    def test_the_precondition_is_asserted_before_the_block(self):
+        order = [self._outcome_fields(a.test) for a in self._asserts()]
+
+        assert order == self.EXPECTED_ORDER, (
+            f"the blocking probe asserts {order} where it must assert "
+            f"{self.EXPECTED_ORDER}. The activation is the precondition: "
+            "without it first, a red cannot say whether the hazard is gone "
+            "or whether this reading was disturbed, which is SNAG-TEST-003"
+        )

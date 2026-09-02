@@ -3,6 +3,50 @@
 **Last Updated**: 2026-09-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A red now says which of two things happened, and the observation had
+> to move inside the call to say it** (2026-09-02, Session 156).
+> `SNAG-TEST-003` is **fixed**, and it was the last open entry naming no
+> check: **0 of 20**, down from 1 — by the entry closing, not by a check
+> being written, which is the only way that figure may fall for an entry
+> whose claim is an assertion's wording. A check would have to reproduce
+> an intermittent fault on demand.
+>
+> **The separator is a precondition, not a differential.**
+> `test_notify_send_does_not_return_on_a_bus_with_nothing_listening` said
+> a red meant the D-Bus activation *"is gone from this box"*, so any red
+> read as good news and the honest response to good news is to relax the
+> guard. It now asserts that `plasma_waitforname` was started under this
+> fixture's own bus **before** it asserts the call blocked. Three states,
+> measured rather than reasoned about: hazard intact — activated, blocked,
+> **8.03 s**; reading disturbed by three kills, which is `SNAG-TEST-004`'s
+> own mechanism replayed — **activated**, returned at **3.06 s** with
+> `exited with status 255`; hazard genuinely gone on a bus whose config
+> declares no service directory — **not** activated, returned at
+> **0.03 s** with `ServiceUnknown`. `returned` is common to both failing
+> readings; the activation is what tells them apart.
+>
+> **Sampling during the call is forced rather than a refinement.** The
+> disturbed row's waiter is dead by the time the call returns, because
+> killing it is what errored the call — so one check afterwards reports
+> "no activation" for a disturbed box and a fixed one alike, which is the
+> collapse being removed, one line later. `_notify_send` is a `Popen`
+> polled at 20 ms, an interval derived from a measured 48–50 ms activation
+> latency against a waiter that then persists for the whole block. Its
+> failure direction is the unsafe one and is stated in the assertion
+> itself. The budget was **not** raised, which the entry named as the
+> thing that must not happen.
+>
+> **What outlives the finding is the ordering.**
+> `TestTheRedSaysWhichReadingItIs` pins that the two asserts read
+> `outcome.activated` then `outcome.returned` — swap them and the block
+> assertion's message asserts a waiter was started on a box nobody looked
+> at. It reads each assert's `test` and never its `msg`, because both
+> messages quote the same fields and a whole-node walk would report
+> agreement whatever the order was. Both mutations land red. And
+> `SNAG-TEST-004`'s scoping property was re-measured under the new probe
+> rather than assumed to survive it: two offset concurrent runs, **4 for 4
+> green** at the full 8.7 s, zero stray waiters.
+
 > **The fold's second fact was published rather than derived, and the
 > difference is whether a consumer restates a judgement** (2026-09-02,
 > Session 155). `SNAG-SVC-004` is **fixed**.
@@ -120,7 +164,7 @@
 
 > **The entry named its own trigger and had no instrument for it, and
 > the instrument found the entry understating its own residue**
-> (2026-09-02, Session 153). `SNAG-AGENT-012` has the **nineteenth**
+> (2026-09-02, Session 156). `SNAG-AGENT-012` has the **nineteenth**
 > check. Its last bullet reads *"what would raise it is the first
 > `alert_rung_left_stale` line that is not a test's"* — a mechanical
 > trigger nothing could answer. It is a query now, and *"that is not a
@@ -1693,6 +1737,42 @@
 ---
 
 ## Recently Completed
+
+### Session 156 — the red said the hazard was gone whatever had happened (2026-09-02)
+
+**`SNAG-TEST-003` is closed by the wording changing, which is the only way
+it could close.** Its claim was never about a mechanism — both candidate
+causes were refuted while it stood — but about a sentence: the blocking
+probe's assertion read *"the D-Bus activation that causes SNAG-SYSD-004 is
+gone from this box and the guard's urgency should be re-derived"*, so
+**any** red reported good news and the honest response to good news is to
+relax the control.
+
+**The fix is the precondition the entry named, and the three states were
+driven before it was written.** A bus with no service directory gives
+`activated=False` and `ServiceUnknown` in **0.03 s**; three scoped kills
+landing inside the window give `activated=True` and
+`exited with status 255` at **3.06 s**; the control blocks the full
+**8.03 s**. Each falsification lands on its own assertion with its own
+message. The activation had to be sampled **during** the call — the
+disturbed row's waiter is dead by the time the call returns — so
+`subprocess.run(timeout=…)` was replaced by a polled `Popen`, the 20 ms
+interval derived from a measured 48–50 ms activation latency.
+
+**One argv is kept for both halves and `stderr` decides nothing.**
+`watch_pid` is a parameter rather than a sibling function, because the
+module's evidence rests on the two observations differing in exactly one
+thing; the two failing shapes do carry distinct messages and both are
+quoted into the failure, but keying on them would restate a judgement
+`activated` already makes. `TestTheRedSaysWhichReadingItIs` is the
+durable half — an `ast` pin on the assertion order, killed by both a swap
+and a deletion — and it reads each assert's `test` and never its `msg`,
+which is `test_live_drive_scoping.py`'s prose problem one node deeper.
+
+**The register's every-open-entry-names-a-check property is restored**:
+20 open, **0** without a check. All 22 existing checks were driven before
+and after and none moved. Suite **3349 passed, 1 skipped**; the changed
+file went 7 → 8 tests.
 
 ### Session 152 — the fix had been in the tree for two days and the pin it claimed had never existed (2026-09-02)
 
