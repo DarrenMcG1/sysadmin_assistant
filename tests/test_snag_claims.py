@@ -6401,7 +6401,7 @@ class TestTheStaleRungCheck:
             snag_claims.UNREACHABLE_OPEN_SQL,
         ):
             assert "{schema}" in template
-            answer, problem = snag_claims.query_one(snag_claims.rung_sql(template))
+            answer, problem = snag_claims.query_one(snag_claims.schema_sql(template))
             assert not problem, template
             assert answer is not None or "max(" in template
 
@@ -6460,7 +6460,7 @@ class TestTheStaleRungCheck:
         """Writing to the live database is allowable only because of this."""
         snag_claims.check_rung_left_stale()
         left, problem = snag_claims.query_one(
-            snag_claims.rung_sql(
+            snag_claims.schema_sql(
                 "SELECT count(*) FROM {schema}.alerts "
                 "WHERE title LIKE 'snag-agent-012 probe%'"
             )
@@ -6535,6 +6535,475 @@ class TestTheStaleRungCheck:
         """Rule 4: the marker names a check and the check names its entry."""
         entry = next(
             e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-AGENT-012"
+        )
+        assert self.KEY in entry.markers
+        assert CHECKS[self.KEY].snag == entry.snag_id
+
+
+class TestTheArbitratedRestartCheck:
+    """``SNAG-AGENT-013`` — the twentieth check, and the first whose
+    subject is an action rather than a row.
+
+    Every other drive in this module writes something and rolls it back.
+    This one enters a branch whose *whole point* is that it starts a unit
+    on this box, in a module a shell script runs at both ends of every
+    sitting — so the instrument and the safety catch are the same swap,
+    and that is the thing these tests are mostly about.  The counter is
+    read beside the call precisely because they must not be: if the only
+    witness were the patched name, an instrument that stopped binding
+    would report the defect fixed *and* let the restart through.
+
+    The entry's shape decides the rest.  Its population is zero **by
+    configuration** — 0 of 31 services set the leaf — and its own
+    ``Why P3`` says so, so a check keyed on it would report the entry
+    refuted on the day it was filed and would then retire it, silently,
+    on the first day it became live.  Rule 1, for the eighth time here,
+    and in the direction that makes it easy to get wrong for the second
+    entry running.
+    """
+
+    KEY = "arbitrated_restart"
+
+    @staticmethod
+    def _arm(label, **kwargs):
+        """One arm in the defect's shape, with anything changed."""
+        base = {
+            "world": "granted" if label != "unread" else "unread",
+            "arbitrated": label == "stopped",
+            "restarted": True,
+            "unit_asked": f"probe-{label}.service",
+            "failures_left": 0,
+            "titles": (f"probe-{label} auto-restarted",),
+            "severities": ("warning",),
+        }
+        return snag_claims.RestartArm(**{**base, **kwargs})
+
+    @classmethod
+    def _reading(cls, **arms):
+        return snag_claims.RestartReading(
+            unread=arms.get("unread", cls._arm("unread")),
+            other=arms.get("other", cls._arm("other")),
+            stopped=arms.get("stopped", cls._arm("stopped")),
+            threshold=3,
+        )
+
+    @staticmethod
+    def _through(reading):
+        return patch.object(
+            snag_claims, "arbitrated_restart_reading", return_value=(reading, "")
+        )
+
+    @staticmethod
+    def _fix(repair):
+        """Run the real drive with ``_handle_status`` wrapped by ``repair``.
+
+        A fabricated reading exercises the classifier and says nothing
+        about whether the probe can *see* a fix, which is the whole
+        reason ``check_review_schedule_unread`` could not tell either
+        side of its own closure apart.  Each stand-in below is one
+        condition wide, lands where the fix would land, and leaves the
+        rest of ``_handle_status`` untouched.
+        """
+        from sysadmin.monitor.agent import SysAdminAgent
+
+        original = SysAdminAgent._handle_status
+
+        async def wrapped(self, session, svc, status, details):
+            return await repair(original, self, session, svc, status, details)
+
+        return patch.object(SysAdminAgent, "_handle_status", wrapped)
+
+    # -- the box ---------------------------------------------------------
+
+    def test_it_holds_on_this_box(self):
+        assert snag_claims.check_arbitrated_restart().verdict == "match"
+
+    def test_the_branch_is_reachable_and_that_is_the_premise(self):
+        """Rule 2 of the drive, asserted rather than assumed.
+
+        ``restart_unit`` not being called is ambiguous between *a fix
+        landed* and *the fixture never met the gate*: ``auto_restart``,
+        ``controllable``, a unit and the streak are four conditions and
+        three of them are the harness's.  The ``unread`` arm is the
+        everyday state, where arbitration decides nothing, so a restart
+        that does not fire there is a broken harness and a reading about
+        nothing.
+        """
+        reading, problem = snag_claims.arbitrated_restart_reading()
+        assert reading is not None, problem
+        assert reading.reachable
+        assert reading.reading == "restarted_anyway"
+        assert all(arm.restarted for arm in reading.arms)
+
+    def test_the_three_arms_really_are_three_worlds(self):
+        """``a-premise-needs-a-third-party-witness``, inside the harness.
+
+        The differential rests on ``other`` and ``stopped`` differing in
+        exactly one boolean.  A fixture that built one world twice would
+        answer *identically in both arms and read as a clean result* —
+        two arms restarting is the defect's own signature and two arms
+        declining is ``suppressed_on_the_lease``'s, and neither would
+        have been about arbitration at all.
+        """
+        reading, problem = snag_claims.arbitrated_restart_reading()
+        assert reading is not None, problem
+        assert reading.worlds_built
+        assert (reading.unread.world, reading.unread.arbitrated) == ("unread", False)
+        assert (reading.other.world, reading.other.arbitrated) == ("granted", False)
+        assert (reading.stopped.world, reading.stopped.arbitrated) == ("granted", True)
+
+    def test_a_world_built_twice_is_unknown_and_not_a_reading(self):
+        with self._through(self._reading(stopped=self._arm("stopped", arbitrated=False))):
+            measurement = snag_claims.check_arbitrated_restart()
+        assert measurement.verdict == "unknown"
+        assert "not three worlds" in measurement.note
+
+    # -- the safety catch --------------------------------------------------
+
+    def test_the_real_restart_never_reaches_systemd(self):
+        """The instrument is the safety catch, and this is the assertion.
+
+        The branch under drive exists to run ``systemctl restart``, and
+        this module's report runs at both ends of every sitting.  A
+        sentinel is planted one layer *below* the patched name, so it
+        witnesses the swap having actually bound rather than the drive
+        having merely intended it.
+        """
+        from sysadmin.monitor import systemd
+
+        reached: list[tuple] = []
+
+        async def sentinel(*args, **kwargs):
+            reached.append((args, kwargs))
+            return False, "the probe must never get here"
+
+        with patch.object(systemd, "_control_unit", sentinel):
+            reading, problem = snag_claims.arbitrated_restart_reading()
+
+        assert reading is not None, problem
+        # The premise: the branch really did fire, so an empty sentinel is
+        # a swap that held rather than a poll that stopped short.
+        assert all(arm.restarted for arm in reading.arms)
+        assert reached == []
+
+    def test_the_probe_unit_is_minted_and_could_not_name_a_real_service(self):
+        """The second guard, for the case where the first one fails.
+
+        A swap that silently failed to bind would send ``systemctl`` at
+        whatever the fixture named, so the fixture names a unit that does
+        not exist and cannot — ``a-witness-must-be-unwritable`` at the
+        size of a unit file.  Two drives must also not collide, which is
+        what makes ``uuid`` the right shape rather than a constant.
+        """
+        from sysadmin.monitor.services import default_services_path, load_services
+
+        assert "uuid.uuid4()" in inspect.getsource(
+            snag_claims.arbitrated_restart_reading
+        )
+        first, _ = snag_claims.arbitrated_restart_reading()
+        second, _ = snag_claims.arbitrated_restart_reading()
+        assert first is not None and second is not None
+        assert first.stopped.unit_asked != second.stopped.unit_asked
+
+        real = {svc.systemd_unit for svc in load_services(default_services_path()).services}
+        assert not {arm.unit_asked for arm in first.arms} & real
+
+    def test_the_module_global_is_restored(self):
+        """A harness that cannot survive the code it drives is not a control."""
+        from sysadmin.monitor import agent as monitor_agent
+
+        before = monitor_agent.restart_unit
+        snag_claims.check_arbitrated_restart()
+        assert monitor_agent.restart_unit is before
+
+    # -- the two witnesses -------------------------------------------------
+
+    def test_the_run_counts_the_restart_itself_and_the_drive_reads_that_too(self):
+        """``_failure_counts`` is this check's ``_suppressed``.
+
+        The patched call is the *harness's* observation; the counter is
+        the *subject's*.  They can only disagree if the branch reaches
+        systemd by a name this drive no longer patches — at which point
+        the safety catch is gone as well, so reporting it as a fix would
+        be wrong twice over.
+        """
+        assert self._arm("stopped").branch_ran
+        assert self._arm("stopped").instrument_agrees
+        assert not self._arm("stopped", restarted=False, failures_left=3).branch_ran
+        assert self._arm("stopped", restarted=False, failures_left=3).instrument_agrees
+        # The blind pair, in both directions.
+        assert not self._arm("stopped", restarted=False).instrument_agrees
+        assert not self._arm("stopped", failures_left=3).instrument_agrees
+
+    def test_a_call_the_drive_cannot_see_is_unknown_and_not_a_fix(self):
+        with self._through(self._reading(stopped=self._arm("stopped", restarted=False))):
+            measurement = snag_claims.check_arbitrated_restart()
+        assert measurement.verdict == "unknown"
+        assert "blind instrument" in measurement.note
+
+    # -- the fixes ---------------------------------------------------------
+
+    def test_the_named_fix_flips_the_verdict_and_still_writes_the_row(self):
+        """The load-bearing falsification: one condition, driven for real.
+
+        The entry says the fix *is* one condition — the consult is
+        already in hand at that point in ``_handle_status`` — so the
+        stand-in adds exactly one and lets the rest of the method run.
+        The row it then writes is ``SNAG-AGENT-011``'s quietened
+        ``% unreachable`` at the floor rung, which is ``known_noise``
+        rule 2 honoured and is what separates this fix from the next
+        test's.
+        """
+        async def repair(original, self, session, svc, status, details):
+            stops = self._arbitration
+            if (
+                status in ("critical", "unreachable")
+                and stops is not None
+                and stops.stopped(svc.systemd_unit)
+            ):
+                svc = svc.model_copy(update={"auto_restart": False})
+            return await original(self, session, svc, status, details)
+
+        with self._fix(repair):
+            reading, problem = snag_claims.arbitrated_restart_reading()
+            assert reading is not None, problem
+            assert reading.reading == "deferred_to_row"
+            measurement = snag_claims.check_arbitrated_restart()
+
+        assert measurement.verdict == "mismatch"
+        assert "scoped to the unit" in measurement.note
+        # The fault is still on the board, at the rung SNAG-AGENT-011 set.
+        assert reading.stopped.severities == (snag_claims.FLOOR_RUNG,)
+        assert not reading.stopped.restarted and reading.other.restarted
+
+    def test_the_same_fix_with_the_row_dropped_is_named_as_the_worse_shape(self):
+        """``known_noise`` rule 2: quietened, never dropped.
+
+        Both shapes make the entry's sentence false and only one of them
+        is a fix a sitting should tick.  A service the estate stopped
+        that this daemon then says nothing about is a monitor taught to
+        be silent about a class of outage, so the verdict is the same and
+        the note is not.
+        """
+        async def repair(original, self, session, svc, status, details):
+            stops = self._arbitration
+            if stops is not None and stops.stopped(svc.systemd_unit):
+                return 0
+            return await original(self, session, svc, status, details)
+
+        with self._fix(repair):
+            reading, problem = snag_claims.arbitrated_restart_reading()
+            assert reading is not None, problem
+            assert reading.reading == "suppressed_silently"
+            measurement = snag_claims.check_arbitrated_restart()
+
+        assert measurement.verdict == "mismatch"
+        assert "known_noise rule 2" in measurement.note
+        assert reading.stopped.titles == ()
+
+    def test_a_gate_on_the_lease_rather_than_the_unit_is_refuted_and_named(self):
+        """Why the control arm holds a lease instead of holding none.
+
+        A differential against ``unread`` alone cannot separate a gate on
+        ``stops.stopped(unit)`` from a gate on *"a lease is granted"* —
+        and the second stops restarting ``alfred-backend`` because the
+        estate stopped ``venture-chat``.  Two granted arms differing in
+        one boolean is what makes the distinction observable, and this is
+        the test that would fail if the control were changed back.
+        """
+        async def repair(original, self, session, svc, status, details):
+            stops = self._arbitration
+            if stops is not None and stops.known and stops.units:
+                svc = svc.model_copy(update={"auto_restart": False})
+            return await original(self, session, svc, status, details)
+
+        with self._fix(repair):
+            reading, problem = snag_claims.arbitrated_restart_reading()
+            assert reading is not None, problem
+            assert reading.reading == "suppressed_on_the_lease"
+            measurement = snag_claims.check_arbitrated_restart()
+
+        assert measurement.verdict == "mismatch"
+        assert "on the lease rather than on the unit" in measurement.note
+        assert reading.unread.restarted and not reading.other.restarted
+
+    # -- the ways of not knowing -------------------------------------------
+
+    def test_a_branch_the_drive_never_reached_is_unknown(self):
+        """``ports_checked``: a poll that stopped short measured nothing."""
+        blank = {"restarted": False, "failures_left": 3, "unit_asked": None,
+                 "titles": (), "severities": ()}
+        with self._through(
+            self._reading(
+                unread=self._arm("unread", **blank),
+                other=self._arm("other", **blank),
+                stopped=self._arm("stopped", **blank),
+            )
+        ):
+            measurement = snag_claims.check_arbitrated_restart()
+        assert measurement.verdict == "unknown"
+        assert "did not fire even with no lease in play" in measurement.note
+
+    def test_a_drive_that_would_not_run_is_unknown(self):
+        with patch.object(
+            snag_claims, "arbitrated_restart_reading", return_value=(None, "no database")
+        ):
+            measurement = snag_claims.check_arbitrated_restart()
+        assert measurement.verdict == "unknown"
+        assert measurement.note == "no database"
+
+    # -- the population ----------------------------------------------------
+
+    def test_every_statement_is_schema_qualified_and_runs(self):
+        """``SNAG-AGENT-012``'s first draft, which shipped unqualified.
+
+        ``query_one`` sets no ``search_path``, so an unqualified table
+        name resolves to ``public`` and comes back as *the database did
+        not answer* — a sentence about an unreachable box over a wrong
+        statement, under a green verdict.
+        """
+        for template in (snag_claims.ARBITRATED_UNITS_SQL, snag_claims.ARBITRATED_ROWS_SQL):
+            assert "{schema}" in template
+            answer, problem = snag_claims.query_one(snag_claims.schema_sql(template))
+            assert not problem, template
+            assert answer is not None or "string_agg" in template
+
+    def test_a_live_leaf_raises_the_entry_and_does_not_move_the_verdict(self):
+        """Rule 1, in the direction that makes it easy to get wrong.
+
+        The entry's ``Why P3`` rests on nobody having set the leaf, and
+        a service setting it makes the claim in the title *more* true.
+        Wiring the count to the verdict could only ever retire the entry
+        at the moment it became live.
+        """
+        with patch.object(
+            snag_claims, "auto_restart_services", return_value=(("venture-chat",), 31, "")
+        ):
+            measurement = snag_claims.check_arbitrated_restart()
+        assert measurement.verdict == "match"
+        assert "under-ranked rather than refuted" in measurement.note
+        assert any("venture-chat" in line for line in measurement.detail)
+
+    def test_the_population_is_zero_by_configuration_on_this_box(self):
+        enabled, total, problem = snag_claims.auto_restart_services()
+        assert not problem
+        assert enabled == ()
+        assert total > 0
+
+    def test_only_a_service_that_could_reach_the_branch_is_counted(self):
+        """The filter, driven — because the box cannot witness it.
+
+        Every assertion about this population on this box is satisfied by
+        ``()`` whatever the filter does, since nothing sets the leaf: a
+        constant observation is not evidence unless something in the
+        population would have forced a different one.  The gate is
+        ``auto_restart and controllable and systemd_unit``, and a service
+        failing either of the last two cannot reach the branch at all, so
+        naming it would over-report the distance between this box and the
+        defect in the direction that raises the entry.
+        """
+        from sysadmin.monitor import services as services_module
+        from sysadmin.monitor.services import ServiceEntry, SystemdRef
+
+        def entry(name, **kwargs):
+            return ServiceEntry(
+                name=name,
+                kind="systemd",
+                systemd=SystemdRef(unit=f"{name}.service", scope="user"),
+                **kwargs,
+            )
+
+        population = SimpleNamespace(
+            services=[
+                entry("reaches-it", auto_restart=True),
+                entry("not-controllable", auto_restart=True, controllable=False),
+                entry("leaf-unset"),
+                ServiceEntry(
+                    name="no-unit",
+                    kind="http",
+                    url="http://127.0.0.1:1/",
+                    auto_restart=True,
+                ),
+            ]
+        )
+        with patch.object(services_module, "load_services", return_value=population):
+            enabled, total, problem = snag_claims.auto_restart_services()
+        assert not problem
+        assert enabled == ("reaches-it",)
+        assert total == 4
+
+    def test_an_unreadable_services_file_is_reported_and_never_guessed(self):
+        from sysadmin.monitor import services as services_module
+
+        with patch.object(services_module, "load_services", side_effect=OSError("gone")):
+            enabled, total, problem = snag_claims.auto_restart_services()
+            clauses = snag_claims.arbitrated_restart_population()
+        assert (enabled, total) == ((), 0)
+        assert "would not parse" in problem
+        assert any("could not be counted" in clause for clause in clauses)
+
+    def test_a_box_that_has_never_seen_a_stop_reads_as_blind(self):
+        """``ports_checked``, at the size of a note clause.
+
+        No arbitrated unit because the arbiter has stopped nothing, and
+        none because this daemon never wrote the key, are the same empty
+        answer and only one of them is evidence about the population.
+        """
+        real = snag_claims.query_one
+        with patch.object(
+            snag_claims,
+            "query_one",
+            side_effect=lambda s: (None, "") if "stopped_by_estate" in s else real(s),
+        ):
+            clauses = snag_claims.arbitrated_restart_population()
+        assert any("zero-because-blind" in clause for clause in clauses)
+
+    def test_the_two_halves_meeting_is_reported_as_such(self):
+        """The distance between this box and the defect, in one clause."""
+        real = snag_claims.query_one
+        with (
+            patch.object(
+                snag_claims, "auto_restart_services", return_value=(("venture-chat",), 31, "")
+            ),
+            patch.object(
+                snag_claims,
+                "query_one",
+                side_effect=lambda s: ("venture-chat", "")
+                if "string_agg" in s
+                else real(s),
+            ),
+        ):
+            clauses = snag_claims.arbitrated_restart_population()
+        assert any("the two halves have met" in clause for clause in clauses)
+
+    # -- the harness -------------------------------------------------------
+
+    def test_the_drive_leaves_nothing_behind(self):
+        """Writing to the live database is allowable only because of this."""
+        snag_claims.check_arbitrated_restart()
+        for statement in (
+            "SELECT count(*) FROM {schema}.alerts WHERE title LIKE 'snag-agent-013-probe%'",
+            "SELECT count(*) FROM {schema}.alerts "
+            f"WHERE details->'arbitration'->>'lease_id' = '{snag_claims.RESTART_PROBE_LEASE}'",
+        ):
+            left, problem = snag_claims.query_one(snag_claims.schema_sql(statement))
+            assert not problem
+            assert left == 0
+
+    def test_the_probe_lease_id_is_one_the_box_cannot_mint(self):
+        """``gpu_leases.id`` is a serial, so a negative id is this probe's.
+
+        The rollback is what stops a row escaping; this is what makes a
+        row that did escape *identifiable* rather than merely regretted.
+        """
+        assert snag_claims.RESTART_PROBE_LEASE < 0
+
+    # -- the registry ------------------------------------------------------
+
+    def test_the_entry_names_this_check(self):
+        """Rule 4: the marker names a check and the check names its entry."""
+        entry = next(
+            e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-AGENT-013"
         )
         assert self.KEY in entry.markers
         assert CHECKS[self.KEY].snag == entry.snag_id

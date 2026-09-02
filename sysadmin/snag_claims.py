@@ -575,6 +575,31 @@ def query_one(statement: str) -> tuple[object | None, str]:
         engine.dispose()
 
 
+def schema_sql(template: str) -> str:
+    """A ``{schema}``-templated statement, qualified for :func:`query_one`.
+
+    **A property of that connection, not of any one entry**, which is why
+    it lives here rather than beside the first check that needed it.  The
+    engine above is short-lived and sets no ``search_path``, so an
+    unqualified ``log_entries`` resolves to ``public``, raises
+    ``ProgrammingError``, and comes back as *"the database did not
+    answer"* — a sentence about an unreachable box sitting over a wrong
+    statement.  ``SNAG-AGENT-012``'s first draft shipped exactly that,
+    green verdict and silent population, and the second entry to need a
+    live count would otherwise have copied the fix rather than the rule.
+
+    Qualifying also keeps the ``projects`` database's *other*
+    application's tables out of reach by construction —
+    ``schema_guard``'s rule 2 at the size of a note.
+
+    Read at call time rather than at import: the schema is configuration,
+    and a module-level ``f"{get_config()...}"`` pins whatever happened to
+    be loaded when this module was first imported — which for a report
+    run by a shell script is before anything has chosen a config at all.
+    """
+    return template.format(schema=get_config().database.schema_)
+
+
 # ---------------------------------------------------------------------------
 # The checks
 # ---------------------------------------------------------------------------
@@ -6056,7 +6081,7 @@ STALE_PROBE_ROW_CAP = 8
 #: construction the running daemon's.
 #:
 #: The schema is a ``{schema}`` placeholder rather than a literal, filled
-#: by :func:`rung_sql` at call time: ``query_one`` opens a connection with
+#: by :func:`schema_sql` at call time: ``query_one`` opens a connection with
 #: no ``search_path`` set, so an unqualified name resolves to ``public``
 #: and every one of these answers ``ProgrammingError`` — which
 #: :func:`query_one` reports as "the database did not answer", a sentence
@@ -6084,17 +6109,6 @@ UNREACHABLE_OPEN_SQL = (
     "SELECT count(*) FROM {schema}.alerts "
     "WHERE title LIKE '% unreachable' AND resolved = FALSE"
 )
-
-
-def rung_sql(template: str) -> str:
-    """One of the statements above, qualified with the configured schema.
-
-    Read at call time rather than at import: the schema is configuration,
-    and a module-level ``f"{get_config()...}"`` pins whatever happened to
-    be loaded when this module was first imported — which for a report
-    run by a shell script is before anything has chosen a config at all.
-    """
-    return template.format(schema=get_config().database.schema_)
 
 
 @dataclass(frozen=True)
@@ -6318,8 +6332,8 @@ def rung_stale_population() -> tuple[str, ...]:
     guessing.
     """
     clauses: list[str] = []
-    fired, problem = query_one(rung_sql(RUNG_STALE_LINES_SQL))
-    witness, witness_problem = query_one(rung_sql(RUNG_STALE_WITNESS_SQL))
+    fired, problem = query_one(schema_sql(RUNG_STALE_LINES_SQL))
+    witness, witness_problem = query_one(schema_sql(RUNG_STALE_WITNESS_SQL))
     if problem or witness_problem:
         return (f"the trigger could not be counted — {problem or witness_problem}",)
 
@@ -6327,7 +6341,7 @@ def rung_stale_population() -> tuple[str, ...]:
         return ("the trigger count did not come back as a number",)
 
     if fired:
-        newest, _ = query_one(rung_sql(RUNG_STALE_NEWEST_SQL))
+        newest, _ = query_one(schema_sql(RUNG_STALE_NEWEST_SQL))
         clauses.append(
             f"the trigger has fired: {fired} {RUNG_LEFT_STALE_EVENT} row(s) under "
             f"{OWN_UNIT}, newest {newest} — the entry's own condition for re-ranking it"
@@ -6345,7 +6359,7 @@ def rung_stale_population() -> tuple[str, ...]:
             "zero-because-blind as much as zero-because-quiet"
         )
 
-    standing, standing_problem = query_one(rung_sql(UNREACHABLE_OPEN_SQL))
+    standing, standing_problem = query_one(schema_sql(UNREACHABLE_OPEN_SQL))
     if standing_problem or not isinstance(standing, int):
         clauses.append("the % unreachable family's open count did not come back")
     else:
@@ -6454,6 +6468,567 @@ def check_rung_left_stale() -> Measurement:
             f"{reading.judged} **and nothing announced it** — the entry's fourth bullet "
             f"says a {RUNG_LEFT_STALE_EVENT} line is what shipped, so its stated trigger "
             "now has no emitter and the entry is under-ranked rather than refuted",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
+# ---------------------------------------------------------------------------
+# SNAG-AGENT-013 — auto-restart never asks whether the estate stopped it
+# ---------------------------------------------------------------------------
+
+#: The status the drive feeds :meth:`SysAdminAgent._handle_status`.  Both
+#: ``critical`` and ``unreachable`` enter the branch and only one of them
+#: is the family the entry is about: ``SNAG-AGENT-011`` quietened
+#: ``% unreachable``, and the arbitrated stop this check models is what
+#: that fix reads.  Picking the other would test the same branch against a
+#: title no lease has ever produced on this box.
+RESTART_PROBE_STATUS = "unreachable"
+
+#: How many rows one arm's service name is allowed to reach — bounded by
+#: the judgement rather than by the table (``SNAG-AGENT-005``), and
+#: generous enough that a fix writing *two* rows is counted rather than
+#: truncated into looking like one.
+RESTART_PROBE_ROW_CAP = 8
+
+#: The lease id the two granted worlds carry.  Negative because no lease
+#: has one: ``gpu_leases.id`` is a serial, so a row bearing this in
+#: ``details['arbitration']['lease_id']`` came from this probe and from
+#: nothing else.  :func:`rolled_back_drive` means none should ever exist,
+#: and a witness that is unwritable by the box is what makes that
+#: checkable rather than merely promised.
+RESTART_PROBE_LEASE = -1
+
+#: The three arbitration worlds one poll is put in, in the order the
+#: reading argues from.  ``unread`` is the premise — the everyday state,
+#: where nothing about arbitration is in play, so a restart that does not
+#: fire there is a broken harness rather than a landed fix.  ``other`` and
+#: ``stopped`` differ in exactly one boolean, which is what lets the note
+#: separate a fix scoped to the *unit* from one scoped to the *lease*.
+RESTART_ARMS = ("unread", "other", "stopped")
+
+#: Units this daemon has recorded the arbiter stopping, and how many rows
+#: say so.  Our own table rather than the estate's — estate rule 1 forbids
+#: reading theirs, and this is the better evidence anyway: it is what this
+#: box *observed*, written by the code the entry is about.
+ARBITRATED_UNITS_SQL = (
+    "SELECT string_agg(DISTINCT details->'arbitration'->>'unit', ', ') "
+    "FROM {schema}.alerts "
+    "WHERE details->'arbitration'->>'stopped_by_estate' = 'true'"
+)
+ARBITRATED_ROWS_SQL = (
+    "SELECT count(*) FROM {schema}.alerts "
+    "WHERE details->'arbitration'->>'stopped_by_estate' = 'true'"
+)
+
+
+@dataclass(frozen=True)
+class RestartArm:
+    """One poll of :meth:`_handle_status`, under one arbitration reading.
+
+    Attributes:
+        world: the arbitration reading the run was handed.
+        arbitrated: whether that reading names *this* arm's unit.  With
+            :attr:`world` this is the harness's own premise, asserted
+            rather than assumed — a drive whose granted arms both answer
+            ``False`` has built one world twice and measured nothing.
+        restarted: the patched ``restart_unit`` was called.  The
+            *harness's* observation.
+        unit_asked: what it was asked to restart, or ``None``.
+        failures_left: ``_failure_counts`` for this service afterwards.
+            The *subject's* observation — see :attr:`branch_ran`.
+        titles: rows written for this service, oldest first.
+        severities: their rungs, in the same order.
+    """
+
+    world: str
+    arbitrated: bool
+    restarted: bool
+    unit_asked: str | None
+    failures_left: int
+    titles: tuple[str, ...]
+    severities: tuple[str, ...]
+
+    @property
+    def branch_ran(self) -> bool:
+        """The run's own account of whether the restart branch executed.
+
+        ``_failure_counts`` is incremented at the top of the
+        ``critical``/``unreachable`` block and reset to zero three lines
+        into the restart branch — *"to avoid restart loop"*, and nothing
+        else in ``_handle_status`` writes a zero on this path.  The
+        harness sets it to ``auto_restart_after_checks - 1``, so after
+        the poll it is either the threshold (no restart) or zero.
+
+        This is :attr:`RungReading.suppressed`'s role one entry over: a
+        witness the subject computes, against an observation the harness
+        supplies.
+        """
+        return self.failures_left == 0
+
+    @property
+    def instrument_agrees(self) -> bool:
+        """Whether the patched call and the counter tell the same story.
+
+        They can only disagree if the branch stopped calling the name
+        this drive patches — a restructure that reaches ``systemctl``
+        some other way.  That is not a fix and must not read as one: the
+        instrument has gone blind, which is ``unknown``.
+        """
+        return self.restarted == self.branch_ran
+
+
+@dataclass(frozen=True)
+class RestartReading:
+    """What one drive of the auto-restart gate saw, in three worlds."""
+
+    unread: RestartArm
+    other: RestartArm
+    stopped: RestartArm
+    threshold: int
+
+    @property
+    def arms(self) -> tuple[RestartArm, ...]:
+        return (self.unread, self.other, self.stopped)
+
+    @property
+    def instrument_agrees(self) -> bool:
+        return all(arm.instrument_agrees for arm in self.arms)
+
+    @property
+    def worlds_built(self) -> bool:
+        """The harness's own premise: the three arms really are three worlds.
+
+        ``a-premise-needs-a-third-party-witness`` — before believing a
+        negative, assert the harness produced the state it claims.  The
+        differential rests on ``other`` and ``stopped`` differing in
+        exactly one boolean, and a fixture that built one world twice
+        would answer identically in both arms **and read as a clean
+        result**: two arms restarting is the defect's own signature, and
+        two arms declining is ``suppressed_on_the_lease``'s.  Neither
+        would have been about arbitration at all.
+        """
+        return (
+            not self.unread.arbitrated
+            and not self.other.arbitrated
+            and self.stopped.arbitrated
+            and self.other.world == self.stopped.world != self.unread.world
+        )
+
+    @property
+    def reachable(self) -> bool:
+        """The premise: the branch is reachable at all in this harness.
+
+        ``restart_unit`` not being called is ambiguous between *a fix
+        landed* and *the fixture never met the gate* — four conditions
+        guard it, and three of them are the harness's to satisfy.  The
+        ``unread`` arm answers that, and it answers it in the everyday
+        production state, where arbitration decides nothing.
+        """
+        return self.unread.restarted
+
+    @property
+    def reading(self) -> str:
+        """Which of five worlds the drive landed in.
+
+        Named rather than scored, because three of the five are
+        refutations of *different shapes* and rule 2 makes this a
+        candidate for closure and never a closure — a sitting judging the
+        entry needs to know which fix it is looking at, and one of the
+        three is a fix this repository would refuse.
+        """
+        if not self.worlds_built:
+            return "misbuilt"
+        if not self.instrument_agrees:
+            return "instrument_blind"
+        if not self.reachable:
+            return "unreached"
+        if self.stopped.restarted:
+            return "restarted_anyway"
+        if not self.other.restarted:
+            return "suppressed_on_the_lease"
+        if not self.stopped.titles:
+            return "suppressed_silently"
+        return "deferred_to_row"
+
+
+def arbitrated_restart_reading() -> tuple[RestartReading | None, str]:
+    """Drive one ``unreachable`` poll of an auto-restarting service, thrice.
+
+    The scenario is the entry's, built rather than waited for: a service
+    with ``auto_restart: true`` whose failure streak has just been met,
+    while the estate's arbiter is holding a lease under which it stopped
+    that very unit.  The box cannot supply it — **0 of 31** services set
+    the leaf — so the world is constructed and the *gate* is what is
+    measured.
+
+    Six rules, four of them the opposite of the obvious implementation:
+
+    1. **``restart_unit`` is patched, never reached, and the patch is the
+       safety catch as much as the instrument.**  Every other drive in
+       this module observes a write it then rolls back; this one observes
+       a branch whose whole point is that it starts a unit on this box,
+       and the report runs at both ends of every sitting.  Patching the
+       name :mod:`sysadmin.monitor.agent` resolves at call time is what
+       stops it, and the **unit name is minted per call** so that a patch
+       which silently failed to bind could only ever aim ``systemctl`` at
+       a unit that does not exist.  Two independent guards, because the
+       first one failing is the case the second exists for.
+    2. **The premise has its own arm.**  A restart that did not happen is
+       ambiguous between a landed fix and a fixture that never met the
+       gate — ``svc.auto_restart``, ``svc.controllable``,
+       ``svc.systemd_unit`` and the streak are four conditions and three
+       of them are the harness's.  The ``unread`` arm is the everyday
+       state, where arbitration decides nothing, so a restart that does
+       not fire *there* is a broken harness.  ``ports_checked``'s rule:
+       that is ``unknown``, never ``mismatch``.
+    3. **The two granted arms differ in exactly one boolean.**  Both hold
+       a lease; one stops this unit and one stops a decoy.  A
+       differential probe that changed two things at once could not tell
+       a gate on ``stops.stopped(unit)`` from a gate on *"a lease is
+       granted"* — and those are different fixes, the second of which
+       stops restarting ``alfred-backend`` because the estate stopped
+       ``venture-chat``.
+    4. **The counter is read as well as the call.**
+       :attr:`RestartArm.branch_ran` is the subject's own account and
+       :attr:`RestartArm.restarted` the harness's; a disagreement means
+       the branch reaches ``systemctl`` by a name this drive no longer
+       patches, which is a blind instrument and not a fix.  Without it
+       the safety catch and the observation would be the same fact, so
+       an instrument that stopped binding would report the defect fixed
+       *and* let the restart through.
+    5. **Each arm gets its own service name, and therefore its own
+       titles.**  Three arms share one transaction, and
+       ``service_alert_title`` is ``f"{name} {kind}"`` — one name would
+       make the third arm's rows unreadable behind the first's.  The
+       arms carry no underscore for the same reason the read uses
+       ``LIKE``: ``_`` is a single-character wildcard.
+    6. **Nothing is committed.**  :func:`rolled_back_drive` owns that,
+       and :data:`RESTART_PROBE_LEASE` is negative so a row that ever did
+       escape is identifiable as this probe's rather than a lease's —
+       ``a-witness-must-be-unwritable`` at the size of a foreign key.
+
+    There is no logger fiddling here, deliberately, where
+    :func:`rung_ladder_reading` sever ``propagate``.  That drive's
+    *trigger* was a journal line this daemon ingests, so a probe line
+    would have written into the count its own note reads back; this
+    drive's trigger is a ``systemctl`` call, and the population it
+    reports is a table no log line touches.
+    """
+    from sqlalchemy import select
+
+    from sysadmin.core.models.alert import Alert
+    from sysadmin.estate import client as estate_client
+    from sysadmin.monitor import agent as monitor_agent
+    from sysadmin.monitor.services import ServiceEntry, SystemdRef
+
+    stem = f"snag-agent-013-probe-{uuid.uuid4().hex}"
+
+    async def arm(session: AsyncSession, label: str) -> RestartArm:
+        name = f"{stem}-{label}"
+        probe_unit = f"{name}.service"
+        svc = ServiceEntry(
+            name=name,
+            kind="systemd",
+            systemd=SystemdRef(unit=probe_unit, scope="user"),
+            auto_restart=True,
+        )
+        if label == "unread":
+            stops = estate_client.ArbitratedStops(
+                reading=estate_client.ARBITRATION_UNREAD
+            )
+        else:
+            stops = estate_client.ArbitratedStops(
+                reading=estate_client.ARBITRATION_GRANTED,
+                units=frozenset(
+                    {probe_unit if label == "stopped" else f"{name}-decoy.service"}
+                ),
+                lease_id=RESTART_PROBE_LEASE,
+                profile="snag-agent-013-probe",
+            )
+
+        agent = monitor_agent.SysAdminAgent()
+        agent._judged_titles = set()
+        agent._written_titles = set()
+        agent._open_titles = set()
+        agent._suppressed = 0
+        agent._refreshed = 0
+        agent._degraded_counts = {}
+        # One check short of the threshold, so this poll's own increment
+        # is what meets it — the streak is the harness's to satisfy and
+        # rule 2's premise is what proves it did.
+        agent._failure_counts = {name: svc.auto_restart_after_checks - 1}
+        agent._arbitration = stops
+
+        asked: list[str] = []
+
+        # The parameter is spelled ``unit`` because the real one is: a
+        # stand-in that is not *substitutable* for the name it replaces is
+        # a control the next caller breaks, and mypy is what says so here
+        # — it rejected ``target`` on exactly that ground.
+        async def probe_restart(unit: str, user: bool = False) -> tuple[bool, str]:
+            asked.append(unit)
+            return True, "probe — nothing was restarted"
+
+        # Swapped by hand rather than with ``unittest.mock``: a module a
+        # shell script runs at both ends of every sitting has no business
+        # importing a testing library, and the ``finally`` is the point —
+        # a harness that cannot survive the code it drives is a control
+        # the next fix breaks, and this one is also the safety catch.
+        original_restart = monitor_agent.restart_unit
+        monitor_agent.restart_unit = probe_restart
+        try:
+            await agent._handle_status(
+                session, svc, RESTART_PROBE_STATUS, {"snag": "SNAG-AGENT-013"}
+            )
+        finally:
+            monitor_agent.restart_unit = original_restart
+        await session.flush()
+
+        rows = (
+            await session.execute(
+                select(Alert)
+                .where(Alert.title.like(f"{name} %"))
+                .order_by(Alert.created_at)
+                .limit(RESTART_PROBE_ROW_CAP)
+            )
+        ).scalars().all()
+        return RestartArm(
+            world=stops.reading,
+            arbitrated=stops.stopped(probe_unit),
+            restarted=bool(asked),
+            unit_asked=asked[0] if asked else None,
+            failures_left=agent._failure_counts.get(name, -1),
+            titles=tuple(row.title for row in rows),
+            severities=tuple(row.severity for row in rows),
+        )
+
+    async def drive(session: AsyncSession) -> RestartReading:
+        arms = {label: await arm(session, label) for label in RESTART_ARMS}
+        return RestartReading(
+            unread=arms["unread"],
+            other=arms["other"],
+            stopped=arms["stopped"],
+            threshold=ServiceEntry.model_fields["auto_restart_after_checks"].default,
+        )
+
+    return rolled_back_drive(drive)
+
+
+def auto_restart_services() -> tuple[tuple[str, ...], int, str]:
+    """Which configured services set the leaf, out of how many, or why not.
+
+    Read from the shipped ``services.yaml`` rather than from
+    :func:`~sysadmin.monitor.services.get_services`, because a report run
+    by a shell script has installed no singleton and the claim is about
+    the file a sitting would edit.
+    """
+    from sysadmin.monitor.services import default_services_path, load_services
+
+    try:
+        services = load_services(default_services_path()).services
+    except Exception as exc:  # noqa: BLE001 — an unreadable file is "unknown"
+        return (), 0, f"services.yaml would not parse ({exc.__class__.__name__})"
+    enabled = tuple(
+        svc.name
+        for svc in services
+        if svc.auto_restart and svc.controllable and svc.systemd_unit
+    )
+    return enabled, len(services), ""
+
+
+def arbitrated_restart_population() -> tuple[str, ...]:
+    """The entry's second bullet, re-measured — and never scored.
+
+    Rule 1, in the direction that makes it easy to get wrong for the
+    second entry running.  This entry's population is zero *by
+    configuration*: **0 of 31** services set ``auto_restart``, and the
+    entry's own ``Why P3`` says it is *"unreachable until somebody sets
+    one leaf"*.  A check keyed on that would report the entry dead on the
+    day it was filed; worse, a leaf appearing would **raise** it, so
+    wiring the count to the verdict could only ever retire a claim at the
+    moment it became live.  It goes in the detail, and the note picks it
+    up separately.
+
+    The second clause is the half the entry does not state: which units
+    the arbiter has actually been observed stopping here.  That is our
+    own ``alerts`` rows — estate rule 1 forbids reading ``gpu_leases``,
+    and this is better evidence anyway, being what the code under
+    discussion recorded. The distance between this box and the defect is
+    the intersection of the two clauses, and today it is one leaf wide.
+    """
+    clauses: list[str] = []
+    enabled, total, problem = auto_restart_services()
+    if problem:
+        clauses.append(f"the auto_restart population could not be counted — {problem}")
+    elif enabled:
+        clauses.append(
+            f"{len(enabled)} of {total} configured services set auto_restart with a "
+            f"controllable unit ({', '.join(enabled)}) — the leaf the entry's Why P3 "
+            "says is all that stands between this box and the defect"
+        )
+    else:
+        clauses.append(
+            f"0 of {total} configured services set auto_restart with a controllable "
+            "unit, so the guard in place today is a default rather than a design"
+        )
+
+    units, units_problem = query_one(schema_sql(ARBITRATED_UNITS_SQL))
+    rows, rows_problem = query_one(schema_sql(ARBITRATED_ROWS_SQL))
+    if units_problem or rows_problem:
+        clauses.append(
+            "the units the arbiter has been observed stopping could not be counted — "
+            f"{units_problem or rows_problem}"
+        )
+    elif units:
+        overlap = sorted(set(enabled) & {u.strip() for u in str(units).split(",")})
+        clauses.append(
+            f"this daemon has recorded the arbiter stopping {units} across {rows} row(s)"
+            + (
+                f", and {', '.join(overlap)} sets auto_restart — the two halves have met"
+                if overlap
+                else ", none of which belongs to an auto_restart service"
+            )
+        )
+    else:
+        clauses.append(
+            "this daemon has never recorded the arbiter stopping a unit, so the "
+            "arbitrated half of the population is zero-because-blind as much as "
+            "zero-because-quiet"
+        )
+    return tuple(clauses)
+
+
+def check_arbitrated_restart() -> Measurement:
+    """``SNAG-AGENT-013`` — auto-restart would fight the estate's arbiter.
+
+    **The mechanism is driven and the population is only reported**, the
+    same way round as its sibling and for a sharper reason.  This entry
+    says in its own body that its population is zero — *"0 of 31
+    configured services set ``auto_restart: true``"* — and that the leaf
+    is *"one a future sitting would set for an unrelated reason"*.  A
+    check keyed on the count would report it refuted on the day it was
+    filed and would then retire it, silently, on the first day it became
+    live.  Rule 1, for the eighth time in this registry.
+
+    **The gate is what is driven, not the box.**  Nothing here waits for
+    a service to enable the leaf: the drive builds one, meets its streak,
+    hands the run a granted lease that names its unit, and asks whether
+    ``restart_unit`` is called anyway.  That is
+    :func:`check_dropin_blind_spot`'s treatment — build the condition the
+    entry describes rather than look for one — and it is what makes an
+    entry with a measured-empty population checkable at all.
+
+    **The obvious instrument would have shipped green.** ``self._arbitration``
+    is consulted a dozen lines below the auto-restart branch, so a source
+    walk finding ``_arbitration`` in ``_handle_status`` reports it
+    consulted; and a walk asserting it is *absent above* the branch
+    refutes the moment somebody moves a line, whether or not the gate
+    changed. What the entry claims is about the **order of two
+    conditions**, and only running the branch can say which one won.
+
+    **Five readings, and three of them are not the verdict's business.**
+    ``deferred_to_row`` is the fix the entry names — one condition, the
+    row still written at the quietened rung, ``known_noise`` rule 2
+    honoured. ``suppressed_silently`` is that fix with the row dropped,
+    which is a **worse** shape and reported as such, because a service
+    the estate stopped and this daemon then said nothing about is a
+    monitor that has learned to be quiet about a class of outage.
+    ``suppressed_on_the_lease`` is a gate on the lease rather than on the
+    unit: correct for ``venture-chat`` and wrong for every other service
+    on the box while the card is busy. All three are ``mismatch`` and the
+    note says which — rule 2, a candidate for closure and never a
+    closure.
+
+    **A live leaf raises the entry and does not touch the verdict.**  If
+    a service starts setting ``auto_restart`` while the branch still
+    restarts, the claim in the title is more true than when it was
+    written and the *priority* is what moved.  ``match``, and the note
+    carries the news — :func:`check_rung_left_stale`'s silent-world
+    clause, arrived at from the opposite direction.
+    """
+    reading, problem = arbitrated_restart_reading()
+    if reading is None:
+        return Measurement("unknown", problem)
+
+    enabled, total, _ = auto_restart_services()
+    detail = (
+        "one unreachable poll at the restart threshold, in three arbitration worlds: "
+        + "; ".join(
+            f"{label} (lease {arm.world}, this unit stopped: {arm.arbitrated}) → "
+            f"restarted {arm.restarted}, unit {arm.unit_asked}, "
+            f"failures_left {arm.failures_left}, rows {list(arm.severities)}"
+            for label, arm in zip(RESTART_ARMS, reading.arms, strict=True)
+        ),
+        f"the branch is reachable in this harness: {reading.reachable} "
+        f"(the premise — the everyday arbitration reading, where nothing is stopped); "
+        f"the call and the run's own counter agree: {reading.instrument_agrees}",
+        f"the auto_restart threshold the drive met is {reading.threshold} consecutive "
+        "failures, and the patched restart_unit is what kept it off this box",
+        *arbitrated_restart_population(),
+    )
+
+    if reading.reading == "misbuilt":
+        return Measurement(
+            "unknown",
+            "the three arms are not three worlds — the granted pair must differ in "
+            "exactly one boolean and the drive did not build them that way, so whatever "
+            "the arms agreed about was not arbitration",
+            detail,
+        )
+    if reading.reading == "instrument_blind":
+        return Measurement(
+            "unknown",
+            "the patched restart_unit and the run's own _failure_counts disagree about "
+            "whether the restart branch ran, so the branch reaches systemd by a name "
+            "this drive no longer patches — a blind instrument, not a fix, and the "
+            "safety catch is gone with it",
+            detail,
+        )
+    if reading.reading == "unreached":
+        return Measurement(
+            "unknown",
+            "the auto-restart branch did not fire even with no lease in play, so the "
+            "drive never met the gate it is about — auto_restart, controllable, a unit "
+            "and the streak are four conditions and three of them are the harness's, "
+            "and a poll that stopped short of the branch measured nothing",
+            detail,
+        )
+    if reading.reading == "deferred_to_row":
+        return Measurement(
+            "mismatch",
+            "the restart was withheld for the unit the arbiter had stopped and still "
+            "fired for one it had not, and the fault was written anyway — the one-"
+            "condition fix this entry names, scoped to the unit and quietened rather "
+            "than dropped, and nothing is owed here",
+            detail,
+        )
+    if reading.reading == "suppressed_silently":
+        return Measurement(
+            "mismatch",
+            "the restart was withheld for the arbitrated unit and **no row was written "
+            "at all**, so the entry's claim is false and the shape that made it false "
+            "is the wrong one: known_noise rule 2 quietens and never drops, and a "
+            "service the estate stopped that this daemon then says nothing about is a "
+            "monitor taught to be silent about a class of outage",
+            detail,
+        )
+    if reading.reading == "suppressed_on_the_lease":
+        return Measurement(
+            "mismatch",
+            "the restart was withheld for a unit the arbiter had **not** stopped as "
+            "readily as for one it had, so the claim is false and the gate is on the "
+            "lease rather than on the unit — right for venture-chat and wrong for every "
+            "other auto-restarting service on the box while the card is busy",
+            detail,
+        )
+    if enabled:
+        return Measurement(
+            "match",
+            f"the restart fired against a unit the arbiter had stopped under lease "
+            f"{RESTART_PROBE_LEASE} **and {len(enabled)} of {total} configured services "
+            f"now set auto_restart** ({', '.join(enabled)}) — the entry's Why P3 rests "
+            "on nobody having set that leaf, so it is under-ranked rather than refuted",
             detail,
         )
     return Measurement("match", "", detail)
@@ -6601,6 +7176,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-AGENT-012",
             "a fault that outlives its lease keeps the quiet rung",
             check_rung_left_stale,
+        ),
+        Check(
+            "arbitrated_restart",
+            "SNAG-AGENT-013",
+            "auto-restart fires without asking whether the estate stopped it",
+            check_arbitrated_restart,
         ),
     )
 }

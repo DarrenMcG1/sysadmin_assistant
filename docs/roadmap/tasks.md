@@ -16,6 +16,70 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 154 — the check's instrument was also its safety catch.**
+      *(2026-09-02.)* The **twentieth** snag check,
+      `check_arbitrated_restart` for `SNAG-AGENT-013`, plus `rung_sql`
+      generalised to `schema_sql` and moved beside `query_one`, whose
+      missing `search_path` is the fault it prevents — a property of that
+      connection rather than of the entry that first hit it, so the second
+      caller borrows the rule instead of copying the fix. Open entries
+      with no check: **3 → 2**.
+      - **The first check here whose subject is an action rather than a
+        row.** Every other drive writes something and rolls it back; this
+        one enters the branch whose whole point is that it starts a unit,
+        in a module a shell script runs at both ends of every sitting.
+        `restart_unit` is **patched rather than reached**, and the probe's
+        unit is minted per call so a swap that silently failed to bind
+        could only ever aim `systemctl` at a unit that does not exist.
+      - **The patched call is the harness's witness and `_failure_counts`
+        is the subject's**, read beside it. They disagree only if the
+        branch reaches systemd by a name the drive no longer patches —
+        a blind instrument, not a fix, and without that second witness an
+        instrument that stopped binding would report the entry fixed
+        *and* let the restart through. `_suppressed`'s role one entry
+        over.
+      - **The obvious instrument would have shipped green.**
+        `self._arbitration` *is* consulted a dozen lines below the
+        branch, so a source walk finding it in `_handle_status` reports it
+        consulted; a walk asserting it is absent *above* the branch
+        refutes the moment a line moves. The claim is about the **order
+        of two conditions** and only running the branch can settle it.
+      - **Three arms, and the control holds a lease rather than holding
+        none.** `unread` is the premise — four conditions guard that
+        branch and three are the harness's — while `other` and `stopped`
+        differ in exactly one boolean, which is what separates a gate on
+        the *unit* from a gate on *"a lease is granted"*; the second
+        would stop restarting `alfred-backend` because the estate stopped
+        `venture-chat`. Driven: changing the premise arm to a granted one
+        reddens exactly the lease-gate test and nothing else.
+      - **The population is reported and never scored**, rule 1 in the
+        direction this entry makes easy to invert: the leaf being set
+        *raises* it, so wiring the count to the verdict could only retire
+        it at the moment it became live. Live: all three arms restarted,
+        **0 of 31** services set `auto_restart` with a controllable unit,
+        and `venture-chat.service` is the one unit this daemon has
+        recorded the arbiter stopping (**4** rows) — the two halves have
+        not met and the distance is one leaf.
+      - **Thirteen mutations driven, all thirteen red on their intended
+        test.** Removing the swap let the real `restart_unit` run and
+        `systemctl --user restart` failed harmlessly against the minted
+        unit, demonstrating the second guard rather than arguing for it;
+        and re-recording the call while still delegating to the real one
+        is the only mutation that lands on the sentinel assertion, which
+        is what makes it evidence.
+      - **mypy chose the stand-in's parameter name.** It rejected
+        `target` against `restart_unit(unit, user)` — a stand-in that is
+        not substitutable for the name it replaces is a control the next
+        caller breaks, and the type checker is what says so.
+      - **The population filter has no discriminating witness on this
+        box**: every assertion about it is satisfied by `()` whatever the
+        filter does, since nothing sets the leaf, so it is driven against
+        a synthetic services file instead.
+      - Suite **3342 passed, 1 skipped** against a stashed baseline of
+        3319 collected (3319 + 24, none retired); `ruff`, `mypy` and
+        `check-migrations.sh` clean; 20 snag checks with the other 19
+        unmoved by stash.
+
 - [x] **Session 153 — the entry named its own trigger and had no
       instrument for it.** *(2026-09-02.)* The **nineteenth** snag check,
       `check_rung_left_stale` for `SNAG-AGENT-012`, plus

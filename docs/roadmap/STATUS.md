@@ -3,6 +3,68 @@
 **Last Updated**: 2026-09-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The instrument was also the safety catch, and the check that needed
+> two witnesses is the one whose subject is an action** (2026-09-02,
+> Session 154). `SNAG-AGENT-013` has the **twentieth** check. Every
+> other drive in this registry writes something and rolls it back; this
+> one enters `_handle_status`'s auto-restart branch, whose whole point
+> is that it starts a unit on this box — in a module a shell script runs
+> at both ends of every sitting. So `restart_unit` is **patched rather
+> than reached**, and the probe's unit is minted per call, because a
+> swap that silently failed to bind could then only aim `systemctl` at a
+> unit that does not exist. Open entries with no check: **2 of 22**,
+> down from 3.
+>
+> **The patched call is the harness's witness and `_failure_counts` is
+> the subject's.** They can disagree only if the branch reaches systemd
+> by a name the drive no longer patches — a blind instrument, not a fix.
+> Without the second witness an instrument that stopped binding would
+> have reported this entry fixed *and* let the restart through, so the
+> two are read side by side and a disagreement is `unknown`.
+>
+> **The obvious instrument would have shipped green.**
+> `self._arbitration` *is* consulted a dozen lines below the branch, so
+> a source walk finding it in `_handle_status` reports it consulted; and
+> a walk asserting it is absent *above* the branch refutes the moment
+> somebody moves a line. What the entry claims is about the **order of
+> two conditions**, and only running the branch can say which won.
+>
+> **Three arms, and the control holds a lease rather than holding
+> none.** `unread` is the premise — four conditions guard that branch
+> and three of them are the harness's — while `other` and `stopped`
+> differ in exactly one boolean, which is what separates a gate on the
+> *unit* from a gate on *"a lease is granted"*. The second would stop
+> restarting `alfred-backend` because the estate stopped `venture-chat`.
+> Driven: moving the premise to a granted arm reddens exactly the
+> lease-gate test and nothing else.
+>
+> **The population is reported and never scored**, which is rule 1 in
+> the direction this entry makes easy to invert — the leaf being set
+> *raises* the entry, so wiring the count to the verdict could only
+> retire it at the moment it became live. Live: all three arms
+> restarted, **0 of 31** services set `auto_restart` with a controllable
+> unit, and `venture-chat.service` is the one unit this daemon has
+> recorded the arbiter stopping, across **4** rows. The two halves have
+> not met and the distance between this box and the defect is one leaf.
+>
+> **Two things only driving it could have said.** Thirteen mutations
+> were driven and all thirteen land red on their intended test — one of
+> them removed the swap altogether, letting the real `restart_unit` run
+> and `systemctl --user restart` fail harmlessly against the minted
+> unit, which *demonstrated* the second guard rather than arguing for
+> it; and re-recording the call while still delegating to the real one
+> is the only mutation that lands on the sentinel assertion, which is
+> what makes it evidence rather than decoration. **mypy chose the
+> stand-in's parameter name**, rejecting `target` against
+> `restart_unit(unit, user)`: a stand-in that is not substitutable for
+> the name it replaces is a control the next caller breaks.
+>
+> **`rung_sql` became `schema_sql` and moved beside `query_one`.** The
+> fault it prevents — no `search_path`, so an unqualified name resolves
+> to `public` and fails as *"the database did not answer"* — is a
+> property of that connection, not of the entry that first hit it, so
+> the second caller borrows the rule rather than copying the fix.
+
 > **The entry named its own trigger and had no instrument for it, and
 > the instrument found the entry understating its own residue**
 > (2026-09-02, Session 153). `SNAG-AGENT-012` has the **nineteenth**
@@ -1272,11 +1334,16 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-02 13:06:58**
+> Daemon restarted at **2026-09-02 16:53:22**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since. Once this sitting, to deploy Session
-> 153's two lifted event-name constants; `/health` answered 200 within
-> 22 s. *(The unresolved count read **5** at 13:06 and **3** at 13:12
+> `ERROR`/`CRITICAL` lines since. Once this sitting, to clear the deploy
+> claim after Session 154 touched `sysadmin/snag_claims.py` — which the
+> daemon does not import, so the restart is owed to the claim rather
+> than to the code, and the check compares file mtimes and cannot know
+> the difference. `/health` answered 200 within 24 s, and the two reads
+> taken *inside* that window (`MainPID 0`, a `ConnectError` on
+> `/health`) are the restart gap and not a fault. *(Session 153's
+> restart was 13:06:58.)* *(The unresolved count read **5** at 13:06 and **3** at 13:12
 > inside this one sitting — the two `Estate port 311x`/`811x` dev-server
 > breaches opening and closing with an editor window, which is the
 > volatility this block already records. The block was **not** corrected
