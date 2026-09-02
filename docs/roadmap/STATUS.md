@@ -3,6 +3,59 @@
 **Last Updated**: 2026-09-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The fold's second fact was published rather than derived, and the
+> difference is whether a consumer restates a judgement** (2026-09-02,
+> Session 155). `SNAG-SVC-004` is **fixed**.
+> `_folded_row` rule 5 wrote *whose* step is leading into the folded
+> `detail`; `health_review._service_facts` projects `title` and
+> `action` and not `detail`, so the weekly review printed one finding's
+> remedy under another finding's title with nothing saying the subject
+> had changed. `ServiceRecommendationInfo.action_from` is that fact as
+> its own field. Open entries with no check: **1 of 21**, down from 2 —
+> by the entry closing, not by a check being written.
+>
+> **The entry's own last bullet decided where the guard goes.** A check
+> asserting the *fix* cannot serve a registry whose `ok` means *"the bug
+> is still real"*, so the drive is `TestTheStepsProvenanceIsProjected`
+> rather than a twenty-first check — `FROZEN_TABLES`' rule met from the
+> other end, and `SNAG-SVC-003`'s own closure one sitting earlier.
+>
+> **`stands_for`'s treatment is a derivation, and copying it literally
+> would have been the defect.** That field is
+> `m.title for m in members if m.kind != r.kind` — a restatement of what
+> *swallowed* means, which is structural. The same shape here is
+> `next(m.kind for m in members if m.kind in STEP_SUPERSEDES)`, which
+> restates which member **won**: a judgement `_folded_row` already took,
+> free to drift the day that tuple widens. `SNAG-DB-003`'s shape, and
+> `judge_queue_invariants`' *"the mask is read, never recomputed"*. So
+> the producer publishes it. One of the seven mutations is exactly that
+> recomputing projection and exactly one test is red on it.
+>
+> **Both fold shapes were live at the moment of the fix**, which is the
+> discrimination a specimen of one could not have supplied.
+> `alfred-career-mail-timer` (`outage` + `timer_failed`) reads
+> `action_from: "timer_failed"`; `venture-chat` (`outage` + `flapping`)
+> reads `""`, because `flapping` promotes nothing. The digest line the
+> entry quoted as *reading correctly by luck of one string* now says so
+> in its own words.
+>
+> **Empty is deliberately not `ports_checked`'s not-knowing.** The field
+> is `""` both for a row whose step is its own and for a producer that
+> does not publish it; every other absent-vs-present collapse here hides
+> a *blind* reading, and this one cannot, because both spellings mean
+> "render nothing extra". Spelling it as the row's own `kind` was
+> refused — it fires the renderer's clause on every folded row and makes
+> every consumer compare two fields to learn nothing.
+>
+> **The refused fix is pinned rather than merely avoided**, and the
+> audience for a published surface was measured. Projecting `detail`
+> would carry the provenance *and* every swallowed row's own body into
+> the review's blob, so a test asserts `detail` is absent from the
+> projection. Outside this repository the route is named in one place —
+> estate-manager's parser corpus copy of `snag_list.md`, a fixture and
+> not a reader — and `estate-map.md` records one consumed route from
+> 8500. A measured-empty audience files nothing.
+
 > **The instrument was also the safety catch, and the check that needed
 > two witnesses is the one whose subject is an action** (2026-09-02,
 > Session 154). `SNAG-AGENT-013` has the **twentieth** check. Every
@@ -1334,13 +1387,16 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-02 16:53:22**
+> Daemon restarted at **2026-09-02 17:25:00**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since. Once this sitting, to clear the deploy
-> claim after Session 154 touched `sysadmin/snag_claims.py` — which the
-> daemon does not import, so the restart is owed to the claim rather
-> than to the code, and the check compares file mtimes and cannot know
-> the difference. `/health` answered 200 within 24 s, and the two reads
+> `ERROR`/`CRITICAL` lines since. Once this sitting, to deploy Session
+> 155's `action_from`, which the daemon *does* import: `GET
+> /api/services/actions` served the field within a second of coming
+> back, `timer_failed` on `alfred-career-mail-timer` and `""` on
+> `venture-chat`. *(Session 154's restart was 16:53:22, and was owed to
+> the claim rather than to the code — it touched
+> `sysadmin/snag_claims.py`, which the daemon does not import, and the
+> check compares file mtimes and cannot know the difference.)* `/health` answered 200 within 24 s, and the two reads
 > taken *inside* that window (`MainPID 0`, a `ConnectError` on
 > `/health`) are the restart gap and not a fault. *(Session 153's
 > restart was 13:06:58.)* *(The unresolved count read **5** at 13:06 and **3** at 13:12

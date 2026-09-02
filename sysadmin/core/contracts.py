@@ -1633,6 +1633,27 @@ class ServiceRecommendationInfo(Contract):
     #: fold — an estate figure that fell when two rows became one would
     #: report the same box as cheaper to fix.
     members: list[ServiceRecommendationMemberInfo] = Field(default_factory=list)
+    #: The ``kind`` of the finding whose step ``action`` is, when a fold
+    #: promoted it over the anchor's own (``SNAG-SVC-003``/``SNAG-SVC-004``);
+    #: empty on every row whose step is its own, which is every unfolded
+    #: row and every fold with no superseding member.
+    #:
+    #: ``stands_for``'s treatment for a second fact.  The fold names the
+    #: findings it swallowed in ``members`` and states *whose step leads*
+    #: only in ``detail``, so a consumer projecting fields rather than
+    #: prose — ``health_review._service_facts`` is one — renders a step
+    #: under a title belonging to a different finding and nothing says
+    #: so.  Published rather than left to be derived: ``_folded_row``
+    #: already decides it against :data:`STEP_SUPERSEDES`, and a
+    #: consumer recomputing that decision from ``members`` would be a
+    #: second statement of it, free to drift the day the set widens.
+    #:
+    #: Empty is deliberately **not** distinguished from "this producer
+    #: does not publish the field".  Both mean *render nothing extra*,
+    #: and no consumer can act on the difference — so unlike
+    #: ``ports_checked`` there is no zero-because-blind reading for the
+    #: absence to hide.
+    action_from: str = ""
 
     @field_validator("recoverable_points", "outage_episodes", mode="before")
     @classmethod

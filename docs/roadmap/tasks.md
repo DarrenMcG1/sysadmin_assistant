@@ -16,6 +16,34 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 155 — the fold said whose step leads only in prose.**
+      *(2026-09-02.)* `SNAG-SVC-004` **fixed**:
+      `ServiceRecommendationInfo.action_from` published by `_folded_row`
+      (rule 6), projected by `health_review._service_facts` and rendered
+      by the digest. Open entries with no check: **2 → 1**, by the entry
+      closing rather than by a check being written.
+      - **The entry's last bullet decided where the guard goes.** A
+        check asserting the *fix* cannot serve a registry whose `ok`
+        means "the bug is still real", so the drive is
+        `TestTheStepsProvenanceIsProjected` in
+        `tests/test_health_review.py` — `FROZEN_TABLES`' rule met from
+        the other end, and `SNAG-SVC-003`'s own closure one sitting
+        earlier.
+      - **Published, never derived, which is the one thing the entry
+        left open.** `stands_for`'s literal treatment is a derivation at
+        projection time, and the same shape here would restate a
+        decision `_folded_row` already took against `STEP_SUPERSEDES` —
+        `SNAG-DB-003`'s shape, and `judge_queue_invariants`' *"the mask
+        is read, never recomputed"*. `stands_for` re-derives what
+        *swallowed* means, which is structural; this would re-derive
+        which member **won**, which is a judgement.
+      - **Both fold shapes were live at the moment of the fix**, which a
+        specimen of one could not have discriminated:
+        `alfred-career-mail-timer` promoting a `timer_failed` step, and
+        `venture-chat` folding a `flapping` row that promotes nothing.
+      - Seven mutations driven, each red on exactly the intended test;
+        the 20 snag checks unmoved by stash-diff; suite 3342 → 3348.
+
 - [x] **Session 154 — the check's instrument was also its safety catch.**
       *(2026-09-02.)* The **twentieth** snag check,
       `check_arbitrated_restart` for `SNAG-AGENT-013`, plus `rung_sql`

@@ -267,7 +267,11 @@ Seven rules, four of them the opposite of the obvious implementation:
    subject, and no service-level step can reach it.  And the anchor's
    superseded step is named in the ``detail``
    (:func:`_folded_row` rule 5), because the fold would otherwise drop
-   a remedy in the one direction rule 4 does not look.
+   a remedy in the one direction rule 4 does not look — and published
+   as ``action_from`` (rule 6), because ``detail`` is prose and a
+   consumer projecting fields renders the promoted step under the
+   anchor's title with nothing saying the subject changed
+   (``SNAG-SVC-004``).
 """
 
 from __future__ import annotations
@@ -585,6 +589,23 @@ def _folded_row(
        leading step belongs to, because a step under another finding's
        title is otherwise a sentence about a subject the reader was not
        told had changed.
+
+    6. **That provenance is published as a field as well as narrated**
+       (``SNAG-SVC-004``).  Rule 5 puts it in the ``detail``, which is
+       prose: a consumer projecting *fields* rather than the body — and
+       ``health_review._service_facts`` is exactly that, projecting
+       ``title`` and ``action`` and not ``detail`` — renders the
+       promoted step under the anchor's title with nothing saying the
+       subject changed.  ``action_from`` is ``stands_for``'s treatment
+       for the second fact, and it is set **here** rather than derived
+       downstream because this is where the decision is taken: a
+       consumer recomputing it from ``members`` and
+       :data:`STEP_SUPERSEDES` would be a second statement of one fact,
+       free to drift the day that set widens.  Empty when the step is
+       the anchor's own — ``stands_for``'s empty list rather than
+       ``ports_checked``' not-knowing, because no consumer can act on
+       the difference between "the step is this row's own" and "the
+       producer does not publish the field".
     """
     anchor = group[0]
     others = list(group[1:])
@@ -622,6 +643,12 @@ def _folded_row(
         title=anchor.title,
         detail="\n".join(lines),
         action=anchor.action if leader is None else leader.action,
+        # Rule 6.  Empty rather than ``anchor.kind`` when nothing was
+        # promoted: the fact being published is "the step belongs to a
+        # finding other than this row", and spelling that as the row's
+        # own kind makes every consumer compare two fields to learn
+        # nothing.
+        action_from="" if leader is None else leader.kind,
         recoverable_points=points,
         grade=anchor.grade,
         confidence=anchor.confidence,

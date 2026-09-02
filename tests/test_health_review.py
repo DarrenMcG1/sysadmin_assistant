@@ -780,6 +780,207 @@ class TestFallback:
         ]
 
 
+class TestTheStepsProvenanceIsProjected:
+    """``SNAG-SVC-004`` — the fold says whose step leads only in prose.
+
+    ``SNAG-SVC-003`` promoted the ``timer_failed`` step over the
+    ``outage`` anchor's and ``_folded_row`` rule 5 wrote *which* finding
+    it belongs to into the folded ``detail``.  This projection takes
+    ``title`` and ``action`` and **not** ``detail``, so that sentence
+    reached ``GET /api/services/actions`` and stopped there: the review
+    printed one finding's remedy under another finding's title with
+    nothing saying the subject had changed.
+
+    It read correctly on the live specimen by luck of one string —
+    ``_timer_failed_row``'s step ends *"the failure is in the service
+    the timer starts, not in the timer"*, so it explained its own
+    subject.  A superseding kind whose step is a bare command puts an
+    unexplained instruction under another finding's title, which is why
+    the entry was filed rather than left.
+
+    The obvious fix — projecting ``detail`` — is refused by
+    ``test_the_projection_still_carries_no_prose_body``: it would send
+    every swallowed row's own detail and step into the review's blob,
+    which is a different rule to weigh.  What ships is
+    ``action_from``, ``stands_for``'s treatment for a second fact.
+    """
+
+    def _timer_fold(self, now):
+        """The live 2026-09-02 shape: an ``outage`` anchor whose step the
+        ``timer_failed`` member supersedes."""
+        from sysadmin.monitor.service_recommendations import (
+            TimerPoint,
+            TimerSeries,
+            recommend,
+        )
+
+        scores = [_timer_fold_score()]
+        advice = recommend(
+            scores,
+            ServiceActionsConfig(),
+            timers=[
+                TimerSeries(
+                    service="cm",
+                    unit="cm.timer",
+                    points=[
+                        TimerPoint(
+                            checked_at=now,
+                            last_run="t1",
+                            last_result="exit-code",
+                            is_active=True,
+                            triggered_unit="cm.service",
+                        )
+                    ],
+                )
+            ],
+            check_interval_seconds=300,
+            now=now,
+        )
+        return scores, advice
+
+    def test_the_projection_names_the_finding_the_leading_step_came_from(self):
+        """The entry's own shape of fix, driven at the real producer.
+
+        The discrimination is that ``action_from`` and ``kind`` differ:
+        a field that merely echoed the row's own kind would pass an
+        assertion on either one alone and tell a reader nothing.
+        """
+        from sysadmin.monitor.health_review import _service_facts
+
+        now = datetime(2026, 9, 2, 9, 0, tzinfo=UTC)
+        scores, advice = self._timer_fold(now)
+        top = _service_facts(scores, advice)["top"][0]
+
+        assert len(advice.recommendations) == 1
+        assert top["kind"] == "outage"
+        assert top["action_from"] == "timer_failed"
+        assert "journalctl --user -u cm.service" in top["action"]
+
+    def test_the_digest_says_the_step_belongs_to_another_finding(self):
+        """The consumer half.  ``SNAG-SYSD-006`` had to land twice
+        because the fold's promise was kept at the endpoint and broken
+        one projection downstream; this is the same seam for the second
+        fact, so the field is asserted *through* the renderer rather
+        than only where it is filled in."""
+        from sysadmin.monitor.health_review import _service_facts
+
+        now = datetime(2026, 9, 2, 9, 0, tzinfo=UTC)
+        scores, advice = self._timer_fold(now)
+
+        data = copy.deepcopy(DATA)
+        data["services"] = _service_facts(scores, advice)
+        narrative = build_fallback_narrative(data)
+
+        assert "The step is the timer_failed finding's, not the outage" in narrative
+
+    def test_a_fold_that_promoted_nothing_says_nothing(self):
+        """The discriminator, and the reason the field is empty rather
+        than the row's own kind.
+
+        ``venture-chat``'s fold swallows a ``flapping`` row, which is
+        not in ``STEP_SUPERSEDES``, so its step is the anchor's and
+        there is no provenance to state.  A field carrying ``outage``
+        here would be true, useless, and would make the renderer's
+        clause fire on every folded row — the news being *which* rows
+        differ, not that the field exists.
+        """
+        from sysadmin.monitor.health_review import _service_facts
+        from sysadmin.monitor.service_recommendations import recommend
+
+        scores = [_folding_score()]
+        advice = recommend(
+            scores,
+            ServiceActionsConfig(),
+            check_interval_seconds=300,
+            now=datetime(2026, 9, 2, 9, 0, tzinfo=UTC),
+        )
+        facts = _service_facts(scores, advice)
+
+        assert len(advice.recommendations) == 1
+        assert facts["top"][0]["stands_for"]  # it did fold
+        assert facts["top"][0]["action_from"] == ""
+
+        data = copy.deepcopy(DATA)
+        data["services"] = facts
+        assert "The step is the" not in build_fallback_narrative(data)
+
+    def test_an_unfolded_row_carries_no_provenance(self):
+        """The majority case — most rows are not folds at all."""
+        from sysadmin.monitor.health_review import _service_facts
+        from sysadmin.monitor.service_recommendations import recommend
+
+        scores = [_timer_fold_score()]
+        advice = recommend(
+            scores,
+            ServiceActionsConfig(),
+            check_interval_seconds=300,
+            now=datetime(2026, 9, 2, 9, 0, tzinfo=UTC),
+        )
+        facts = _service_facts(scores, advice)
+
+        assert [r.kind for r in advice.recommendations] == ["outage"]
+        assert facts["top"][0]["action_from"] == ""
+
+    def test_the_provenance_is_read_from_the_producer_never_recomputed(self):
+        """Provenance, not value — the distinction two earlier guards in
+        this repository got wrong.
+
+        ``_folded_row`` rule 6 decides this against ``STEP_SUPERSEDES``.
+        A projection re-deriving it from ``members`` would agree with
+        the producer today and drift the day that set widens —
+        ``SNAG-DB-003``'s shape.  So the row handed in carries an
+        ``action_from`` that **no** derivation from ``members`` could
+        produce: its one member is the row's own kind, and ``flapping``
+        is not in ``STEP_SUPERSEDES``.  A recomputing projection emits
+        ``""`` here; a reading one emits what it was given.
+        """
+        from sysadmin.core.contracts import (
+            ServiceRecommendationInfo,
+            ServiceRecommendationMemberInfo,
+        )
+        from sysadmin.monitor.health_review import _service_facts
+        from sysadmin.monitor.service_recommendations import (
+            STEP_SUPERSEDES,
+            AdviceReport,
+        )
+
+        assert "flapping" not in STEP_SUPERSEDES
+
+        row = ServiceRecommendationInfo(
+            kind="outage",
+            service="vc",
+            title="vc: made up",
+            action="a step from somewhere else",
+            action_from="flapping",
+            members=[
+                ServiceRecommendationMemberInfo(kind="outage", title="vc: made up")
+            ],
+        )
+        facts = _service_facts([], AdviceReport(recommendations=[row]))
+
+        assert facts["top"][0]["action_from"] == "flapping"
+
+    def test_the_projection_still_carries_no_prose_body(self):
+        """The shape the entry refused, pinned so a later sitting cannot
+        reach for it.
+
+        Projecting ``detail`` would carry the provenance too — and with
+        it every swallowed row's own detail and step, into the blob the
+        review is built from.  The fold's body is prose with figures in
+        it; the field is one kind name.  That is the whole reason this
+        is its own field rather than the cheaper edit.
+        """
+        from sysadmin.monitor.health_review import _service_facts
+
+        now = datetime(2026, 9, 2, 9, 0, tzinfo=UTC)
+        scores, advice = self._timer_fold(now)
+        top = _service_facts(scores, advice)["top"][0]
+
+        assert "detail" not in top
+        assert "Also stands for" in advice.recommendations[0].detail
+        assert "Also stands for" not in " ".join(str(v) for v in top.values())
+
+
 # ── Generation ───────────────────────────────────────────────────────
 
 

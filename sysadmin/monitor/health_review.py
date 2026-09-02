@@ -515,6 +515,16 @@ def _service_facts(scores: list[ReliabilityScore], advice: Any) -> dict[str, Any
                 "stands_for": [
                     m.title for m in r.members if m.kind != r.kind
                 ],
+                # ``SNAG-SVC-004``: the same rule for the second fact
+                # the fold states only in prose.  ``action`` above is
+                # the *promoted* step where ``STEP_SUPERSEDES`` moved
+                # it, so without this the review prints one finding's
+                # remedy under another finding's title and nothing
+                # says the subject changed.  Read from the producer,
+                # never recomputed from ``members``: ``_folded_row``
+                # rule 6 takes that decision and a second derivation
+                # here would be free to drift from it.
+                "action_from": r.action_from,
             }
             for r in advice.recommendations[:TOP_ACTIONS]
         ],
@@ -968,6 +978,17 @@ def build_fallback_narrative(data: dict[str, Any]) -> str:
         )
     for row in services["top"][:3]:
         line = f"Look at first: {row['title']} — {row['action']}"
+        # ``SNAG-SVC-004``.  Gated on truthiness alone, not on
+        # ``!= row["kind"]``: the producer already writes the field
+        # only when the step was promoted, so a second test here would
+        # restate its rule, and a payload that does not carry the field
+        # at all reads as "the step is this row's own" — the one
+        # meaning both spellings share.
+        if row.get("action_from"):
+            line += (
+                f" The step is the {row['action_from']} finding's, "
+                f"not the {row['kind']} finding's."
+            )
         if row.get("stands_for"):
             line += " Also stands for: " + "; ".join(row["stands_for"]) + "."
         lines.append(line)

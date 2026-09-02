@@ -3097,6 +3097,67 @@ injected the field into a fixture and therefore pinned the renderer
 while saying nothing about the projection that fills it; it drives the
 real `recommend` at the folding shape now.
 
+**That consumer had a second fact to flatten, and the question was
+whether to read it or work it out again** (Session 155,
+`SNAG-SVC-004`). `SNAG-SVC-003` let a `timer_failed` member's step
+supersede the anchor's, and `_folded_row` rule 5 wrote *whose* step is
+leading into the folded `detail` — which this projection does not carry,
+so the review printed one finding's remedy under another finding's title
+and nothing said the subject had changed.
+`ServiceRecommendationInfo.action_from` is that fact as its own field:
+the promoted member's `kind`, empty when the step is the anchor's own.
+
+Four rules, three of them the opposite of the obvious implementation:
+
+1. **`stands_for`'s treatment is a *derivation*, and copying it
+   literally would have been the defect.** That field is
+   `m.title for m in members if m.kind != r.kind` — a restatement of
+   what *swallowed* means, which is structural and cannot disagree with
+   the producer. The same shape here is
+   `next(m.kind for m in members if m.kind in STEP_SUPERSEDES)`, which
+   restates which member **won**: a judgement `_folded_row` already
+   took, free to drift the day that tuple widens. `SNAG-DB-003`'s
+   shape, and `judge_queue_invariants`' *"the mask is read, never
+   recomputed"*. So the producer publishes it (`_folded_row` rule 6) and
+   every consumer reads it. One mutation is exactly the recomputing
+   projection and exactly one test is red on it.
+2. **Empty is deliberately *not* `ports_checked`'s not-knowing.** The
+   field reads `""` both for a row whose step is its own and for a
+   producer that does not publish it at all. Every other absent-vs-present
+   collapse in this repository hides a *blind* reading; this one cannot,
+   because both spellings mean "render nothing extra" and no consumer
+   can act on the difference. So the renderer gates on truthiness alone
+   rather than on `action_from != kind`, which would restate the
+   producer's rule and print `The step is the  finding's` for an
+   unfolded row.
+3. **Spelling it as the row's own `kind` was refused**, which is where
+   Session 128's *"uniform on every row"* does not transfer: that rule
+   is about a `details` **key** whose presence is the only signal, and a
+   pydantic field is always present. The uniform-scalar version fires
+   the renderer's clause on every folded row and makes every consumer
+   compare two fields to learn nothing — `stands_for`'s empty list is
+   the right analogue, not a value.
+4. **The refused fix is pinned rather than merely avoided.** Projecting
+   `detail` carries the provenance *and* every swallowed row's own
+   detail and step into the blob the review is built from, so a test
+   asserts `detail` is absent from the projection.
+
+**Both fold shapes were live at the moment of the fix**, which is the
+discrimination a specimen of one could not have supplied:
+`alfred-career-mail-timer` (`outage` + `timer_failed`) reads
+`action_from: "timer_failed"` and `venture-chat` (`outage` + `flapping`)
+reads `""`, because `flapping` promotes nothing. The entry had described
+the live line as *reading correctly by luck of one string* —
+`_timer_failed_row`'s step happens to explain its own subject — and it
+now says so in its own words instead.
+
+**The guard is a test rather than a twenty-first snag check, and the
+entry's own last bullet is why.** What one would drive asserts the
+**fix**, and `check-snag-claims.sh`'s `ok` means *the bug is still
+real*, so such a check can only report a landed fix for ever —
+`check_review_schedule_unread`'s defect. `FROZEN_TABLES`' rule met from
+the other end: `TestTheStepsProvenanceIsProjected` outlives the finding.
+
 **The week the box had is narrated now, and the number it nearly
 reported was off by three orders of magnitude** (Session 79, Tier 3).
 `GET /api/sysadmin/review` is the **fourth** Tier 3 here, after the
