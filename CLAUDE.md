@@ -211,7 +211,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/units/status` | `UnitScanResponse` (+`UnitScanSummary`, `UnitFindingInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/units/actions` | `UnitActionsResponse` (+`UnitRecommendationInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/services/reliability` | `ReliabilityResponse` (+`ReliabilitySummary`, `ServiceReliabilityInfo`, `ReliabilityDeduction`) | response_model (computed live — never 404s) |
-| `GET /api/services/actions` | `ServiceActionsResponse` (+`ServiceRecommendationInfo`) | response_model (computed live off the same call `/reliability` serves) |
+| `GET /api/services/actions` | `ServiceActionsResponse` (+`ServiceRecommendationInfo`, `ServiceRecommendationMemberInfo`) | response_model (computed live off the same call `/reliability` serves) |
 
 **Consumed from estate-manager on 8400** — parsed here, served there:
 
@@ -2986,6 +2986,116 @@ broken scorer for the wrong reason, since a `skipped` row also failed to
 split an episode by counting as *down*. All three repaired, plus an
 invariant test pinning `reliability._deductions`' `waived=muted` at its
 owner, since this module leans on a fact another module holds.
+
+**One fault occupies one row, and the entry asking for it had measured
+half of its own population** (Session 149, `SNAG-SYSD-006`).
+`recommend` runs `_service_rows` over every scored service and
+`_timer_rows` over the subset that are timers, so a `kind: timer`
+service is in **both** loops; once `SNAG-SYSD-005` let a failed job
+reach `service_health.status`, `GET /api/services/actions` served
+`alfred-career-mail-timer` twice — `outage` at 6 recoverable points
+beside `timer_failed` at 0, one fault named twice. `group_faults` and
+`_folded_row` are `log_actions.group_incidents`' treatment applied to a
+relation with no clock and no systemd graph in it. Live either side:
+**8 rows → 6**.
+
+Six rules, four of them the opposite of the obvious implementation and
+two of them settled by controls belonging to a different entry:
+
+1. **The key is the service plus `EVENT_ARGUED`, and the entry's own
+   scope was the smaller half.** It describes a timer collision;
+   `venture-chat` had been serving `outage` 26 beside `flapping` 25
+   since the endpoint shipped on 2026-08-25 — **eight days**, one
+   service named twice, no timer in it. Reading the entry finds one
+   instance, running the endpoint finds two. `RATE_ARGUED` rows never
+   join: `check_interval` and `timer_stale` argue about how a service is
+   *watched*, which `KIND_ORDER`'s docstring already separates, and
+   fixing the service lapses neither.
+
+2. **That narrowing was decided by a live control, not by taste.**
+   `snag_claims.check_check_interval_looks_away` finds its row with
+   `next(r for r in recommendations if r.kind == "check_interval")` — a
+   **top-level** scan — and its synthetic subject produces exactly
+   `flapping` + `check_interval`. The obvious "one row per service"
+   makes that `None` and reports `SNAG-SVC-001` **refuted** by a change
+   with nothing to say about it: a landed fix for one entry deleting
+   another entry's instrument. Its third limb reads this module's
+   **import set** as the instrument for *"the advice has the service's
+   own log data now"*, so reaching for `group_incidents` by *importing*
+   it refutes the same entry from the other side. The treatment is
+   therefore applied and the module is not imported, pinned by an `ast`
+   walk — a docstring mention is an `ast.Constant`, and this module
+   names `log_actions` in prose four times. Driven by stash before and
+   after: all 18 checks report `still holds`, unmoved.
+
+3. **Points are summed, and the invariant is what decided it.** Every
+   member shares one currency and one subject, so the sum is the
+   service's applied deductions — exactly `100 - score` — and one fix
+   lapses them together, which is the honesty
+   `_incident_recommendation` says summing would *not* have across
+   kinds. It is also what keeps `total_recoverable_points` **invariant**:
+   78 before and 78 after, where an anchor keeping its own share alone
+   would have reported the same box at 53 on the day the list got easier
+   to read. `members` carries the anchor too, so the figure decomposes.
+
+4. **The anchor is `KIND_ORDER`'s first surviving kind, doing one job
+   rather than two.** That constant already answers "which claim is more
+   urgent to read" for rows tying on points; which claim leads a fold is
+   the same question. Cause-first anchoring was put to the owner and
+   refused — `timer_failed` genuinely causes the checks the `outage` row
+   is computed from, which is `group_incidents`' anchor rule read
+   literally, but it needs a declared cause-to-consequence pairing this
+   module has not got and would put the summed points on the row whose
+   evidence did not compute them. `SNAG-SVC-003` is the cost, filed
+   rather than implied: for a timer fault the anchor's step names a
+   *restart* the swallowed row's own detail explains cannot help.
+
+5. **The title stays the anchor's, where an incident row's does not.**
+   `_incident_recommendation` rewrites its title because its members are
+   *other units*; every member here is about the **same service**, so
+   the anchor's sentence already has the right subject and appending a
+   count to it is the count-that-names-nothing `SNAG-ESTATE-001`
+   removed. What is named is named whole: each swallowed finding's kind,
+   title, detail, action and points, in `members` **and** in the folded
+   `detail`, because the steps differ in kind and cannot be merged the
+   way six `journalctl` invocations can.
+
+6. **Nothing is capped and it cannot need to be.** A service has at most
+   three `EVENT_ARGUED` rows, so a fold names at most two members — the
+   roll-up that cannot name what it swallowed is unreachable by
+   construction rather than by a threshold, which every other roll-up
+   here needed.
+
+**Two of the six are vacuous, in opposite directions, and both say so.**
+*Loudest-rung-wins* is implemented and cannot currently lose: `outage`
+is the only `risk`-capable kind and is `KIND_ORDER`'s first, so the
+anchor is always at least as loud as what it swallows — a proof about
+today's five kinds that a sixth invalidates in silence, so the rule is
+written and a test pins the coincidence. *Gate-before-fold* is
+**unobservable**: driven both ways on one low-confidence subject the
+output is identical, because rule 1 makes the suppressible set and the
+foldable set disjoint — so the test pins the **disjointness that makes
+it vacuous** rather than an ordering nothing could distinguish.
+
+**The fix had to land twice, because a consumer flattened it back.**
+`health_review._service_facts` projects `title` and `action` — both the
+**anchor's** — into the weekly review's `top`, so the first version
+named one finding and never told the reader the other existed: the
+roll-up that cannot name anything, rebuilt one consumer downstream of
+the fold that promised not to. `stands_for` carries the swallowed titles
+through, keyed on the **kind** rather than on position, so it is not a
+second statement of how `group_faults` sorts.
+
+**Two of eleven falsifications passed against deliberately broken code.**
+Anchoring by points instead of `KIND_ORDER` broke nothing, because the
+live specimen cannot discriminate the rule — `outage` leads
+`KIND_ORDER` *and* carries all 6 of career-mail's points — so a subject
+with 1 point of downtime against 25 of instability had to be added
+before the anchor rule was tested at all. And emptying the review
+projection's `stands_for` passed cleanly, because the digest test
+injected the field into a fixture and therefore pinned the renderer
+while saying nothing about the projection that fills it; it drives the
+real `recommend` at the folding shape now.
 
 **The week the box had is narrated now, and the number it nearly
 reported was off by three orders of magnitude** (Session 79, Tier 3).

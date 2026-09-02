@@ -95,6 +95,30 @@ def run(scores, *, timers=None, cfg=None):
     )
 
 
+def offered_kinds(report) -> set[str]:
+    """Every kind the report offers — leading, or folded beneath one.
+
+    Required rather than convenient, and the fold is why.  Since
+    ``SNAG-SYSD-006`` a kind's absence from ``[r.kind for r in rows]``
+    means only that it is not *leading*: a row it was folded into is
+    still offering it, named in ``members``.  An absence assertion
+    written the old way therefore passes both when the row was never
+    produced and when it was produced and swallowed — two opposite
+    outcomes reaching one verdict, which is ``ports_checked``'s rule
+    arriving inside a test helper.
+
+    ``snag_claims`` carries the same hazard against the live registry:
+    ``check_check_interval_looks_away`` finds its row with a top-level
+    scan by kind, which is why :func:`group_faults` refuses to fold a
+    ``RATE_ARGUED`` row at all.
+    """
+    kinds: set[str] = set()
+    for row in report.recommendations:
+        kinds.add(row.kind)
+        kinds.update(member.kind for member in row.members)
+    return kinds
+
+
 def series(
     *offsets_and_tokens,
     service: str = "tmr",
@@ -168,12 +192,22 @@ class TestCurrency:
         assert outage[0].recoverable_points == 17
 
     def test_flapping_row_carries_the_instability_deduction(self):
+        """The attribution survives the fold, which is the readable half.
+
+        This service carries both deductions, so since ``SNAG-SYSD-006``
+        its two findings are one row.  The claim is unchanged — the
+        flapping finding must carry the *instability* points and not the
+        downtime ones — and it is read off ``members``, which is where
+        the fold keeps a share it did not itself compute.
+        """
         rows = run(
             [score(episodes=3, longest=205.0, downtime=17, instability=15)]
         ).recommendations
-        flap = [r for r in rows if r.kind == "flapping"]
+        assert len(rows) == 1
+        flap = [m for m in rows[0].members if m.kind == "flapping"]
         assert len(flap) == 1
         assert flap[0].recoverable_points == 15
+        assert rows[0].recoverable_points == 32
 
     def test_a_waived_deduction_is_never_charged(self):
         """The ``waived`` filter, exercised without the muted skip in front.
@@ -355,16 +389,30 @@ class TestRanking:
         assert [r.service for r in rows] == ["big", "small"]
 
     def test_kind_order_breaks_a_points_tie(self):
-        """``outage`` before ``flapping`` at equal points.
+        """``outage`` before ``flapping`` at equal points, across services.
 
         Both are real failures; the one saying "it was not there" is the
-        one to read first.
+        one to read first.  The tie is built from **two** services
+        because since ``SNAG-SYSD-006`` one service carrying both kinds
+        folds them into a single row — and this claim is about the
+        list's order, not about which finding leads a fold.  The two
+        were the same fact only while the fold did not exist; the fold's
+        own version is
+        ``TestOneFaultOneRow::test_kind_order_picks_the_anchor``.
+
+        It pins the second half of the key at the same time: ``a``
+        sorts before ``b`` alphabetically and comes second here, so kind
+        genuinely outranks the service name.
         """
         rows = run(
-            [score("s", grade="degraded", episodes=3, longest=9.0,
-                   downtime=15, instability=15)]
+            [score("b", grade="degraded", downtime=15),
+             score("a", grade="degraded", episodes=3, longest=9.0,
+                   instability=15)]
         ).recommendations
-        assert [r.kind for r in rows] == ["outage", "flapping"]
+        assert [(r.kind, r.service) for r in rows] == [
+            ("outage", "b"),
+            ("flapping", "a"),
+        ]
 
     def test_ordering_is_stable_on_the_service_name(self):
         rows = run(
@@ -388,11 +436,11 @@ class TestFlapThreshold:
         assert "flapping" not in [r.kind for r in rows]
 
     def test_at_the_threshold_it_fires(self):
-        rows = run(
+        report = run(
             [score(episodes=3, longest=9.0, downtime=1, instability=15)],
             cfg=settings(flap_min_episodes=3),
-        ).recommendations
-        assert "flapping" in [r.kind for r in rows]
+        )
+        assert "flapping" in offered_kinds(report)
 
     def test_flapping_needs_an_instability_deduction_not_only_a_count(self):
         """Episodes with no instability points cannot happen and are refused.
@@ -402,11 +450,11 @@ class TestFlapThreshold:
         off the count alone would make this module a second opinion on
         an arithmetic the scorer owns.
         """
-        rows = run(
+        report = run(
             [score(episodes=3, longest=9.0, downtime=1)],
             cfg=settings(flap_min_episodes=3),
-        ).recommendations
-        assert "flapping" not in [r.kind for r in rows]
+        )
+        assert "flapping" not in offered_kinds(report)
 
 
 class TestCheckIntervalRow:
@@ -597,8 +645,8 @@ class TestTimerStale:
         fix themselves.
         """
         s = daily_series(fires=5, since_last_fire_h=48.0)
-        rows = run([score("tmr", grade="reliable")], timers=[s]).recommendations
-        assert "timer_stale" not in [r.kind for r in rows]
+        report = run([score("tmr", grade="reliable")], timers=[s])
+        assert "timer_stale" not in offered_kinds(report)
 
     def test_no_cadence_means_no_row_however_long_it_has_been(self):
         """The weekly-timer case, live on this box today.
@@ -608,8 +656,8 @@ class TestTimerStale:
         ``_observed_cadence`` refuses.
         """
         s = daily_series(fires=1, since_last_fire_h=500.0)
-        rows = run([score("tmr", grade="reliable")], timers=[s]).recommendations
-        assert "timer_stale" not in [r.kind for r in rows]
+        report = run([score("tmr", grade="reliable")], timers=[s])
+        assert "timer_stale" not in offered_kinds(report)
 
     def test_an_inactive_timer_is_left_to_the_outage_family(self):
         """A timer whose unit went inactive is already a failing check.
@@ -618,8 +666,8 @@ class TestTimerStale:
         second-owner defect this repository has found at six scales.
         """
         s = daily_series(fires=5, since_last_fire_h=96.0, active=False)
-        rows = run([score("tmr", grade="reliable")], timers=[s]).recommendations
-        assert "timer_stale" not in [r.kind for r in rows]
+        report = run([score("tmr", grade="reliable")], timers=[s])
+        assert "timer_stale" not in offered_kinds(report)
 
     def test_the_row_says_a_gap_makes_the_figure_read_short(self):
         """The failure direction, stated on the row.
@@ -644,8 +692,8 @@ class TestTimerFailed:
 
     def test_success_is_silent(self):
         s = daily_series(fires=5, since_last_fire_h=2.0, result="success")
-        rows = run([score("tmr", grade="reliable")], timers=[s]).recommendations
-        assert "timer_failed" not in [r.kind for r in rows]
+        report = run([score("tmr", grade="reliable")], timers=[s])
+        assert "timer_failed" not in offered_kinds(report)
 
     def test_an_absent_result_is_not_a_failure(self):
         """Fails open, ``collation.py``'s posture.
@@ -655,8 +703,8 @@ class TestTimerFailed:
         looked at.
         """
         s = daily_series(fires=5, since_last_fire_h=2.0, result=None)
-        rows = run([score("tmr", grade="reliable")], timers=[s]).recommendations
-        assert "timer_failed" not in [r.kind for r in rows]
+        report = run([score("tmr", grade="reliable")], timers=[s])
+        assert "timer_failed" not in offered_kinds(report)
 
     def test_it_survives_low_confidence(self):
         """``Result`` is a recorded outcome, not a rate."""
@@ -678,6 +726,307 @@ class TestTimerFailed:
             if r.kind == "timer_failed"
         )
         assert "alfred-evaluate.service" in row.action
+
+
+class TestOneFaultOneRow:
+    """``SNAG-SYSD-006`` — the fold, and the four things it must not do.
+
+    The founding specimen is live: ``alfred-career-mail-timer`` served
+    ``outage`` at 6 recoverable points beside ``timer_failed`` at 0 on
+    2026-09-02, one failing job named twice, because a ``kind: timer``
+    service is in both of ``recommend``'s loops.
+    """
+
+    def _timer_fault(self):
+        """The live specimen's shape: a scored outage and a failed job."""
+        return run(
+            [score("tmr", grade="degraded", downtime=6, uptime=94.92)],
+            timers=[series((0, "t1"), service="tmr", result="exit-code")],
+        )
+
+    def test_two_findings_about_one_service_become_one_row(self):
+        report = self._timer_fault()
+        assert len(report.recommendations) == 1
+        assert offered_kinds(report) == {"outage", "timer_failed"}
+
+    def test_kind_order_picks_the_anchor(self):
+        """The fold's leading claim, which is the list ordering's question
+        asked inside a single service — one statement of one fact."""
+        row = self._timer_fault().recommendations[0]
+        assert row.kind == "outage"
+        assert row.title.startswith("tmr:")
+        assert [m.kind for m in row.members] == ["outage", "timer_failed"]
+
+    def test_the_anchor_is_kind_order_and_not_the_bigger_number(self):
+        """The discriminating case, because the live one cannot discriminate.
+
+        On ``alfred-career-mail-timer`` the two rules agree — ``outage``
+        leads ``KIND_ORDER`` *and* carries all 6 points — so the
+        specimen above would pass against an anchor picked by
+        magnitude.  Here a service is down briefly and bounces a lot:
+        1 point of downtime against 25 of instability.  ``KIND_ORDER``
+        still says the finding that reads "it was not there" leads,
+        which is a statement about what to read first rather than about
+        which number is larger.
+        """
+        row = run(
+            [score("s", grade="degraded", episodes=3, longest=205.0,
+                   downtime=1, instability=25)]
+        ).recommendations[0]
+        assert row.kind == "outage"
+        assert row.recoverable_points == 26
+        assert [m.kind for m in row.members] == ["outage", "flapping"]
+
+    def test_the_swallowed_finding_is_named_not_counted(self):
+        """``SNAG-ESTATE-001``'s rule: a roll-up must name what it swallows.
+
+        Named in three places, because three different consumers read
+        three different fields and none of them reads all three: the
+        member's own title, its detail and its step all reach the folded
+        ``detail``, and the whole finding is in ``members``.
+        """
+        row = self._timer_fault().recommendations[0]
+        swallowed = [m for m in row.members if m.kind == "timer_failed"][0]
+
+        assert swallowed.title in row.detail
+        assert swallowed.detail in row.detail
+        assert swallowed.action in row.detail
+        assert swallowed.action  # not merely present-and-empty
+        assert "1 other finding" in row.detail
+
+    def test_points_are_summed_across_the_fold(self):
+        row = run(
+            [score("s", grade="failing", episodes=3, longest=205.0,
+                   downtime=26, instability=25)]
+        ).recommendations[0]
+        assert row.recoverable_points == 51
+
+    def test_the_members_decompose_the_summed_points(self):
+        """``_folded_row`` rule 2 — the anchor's share is stated too.
+
+        Listing only the swallowed rows would leave the leading claim's
+        contribution the one figure nothing states, so ``members``
+        carries the anchor and the sum is exact.
+        """
+        row = run(
+            [score("s", grade="failing", episodes=3, longest=205.0,
+                   downtime=26, instability=25)]
+        ).recommendations[0]
+        assert sum(m.recoverable_points for m in row.members) == row.recoverable_points
+
+    def test_total_recoverable_points_is_invariant_under_the_fold(self):
+        """The estate figure must not move when the list gets tidier.
+
+        ``total_recoverable_points`` is summed over rows and served as
+        "what this box costs to fix".  An anchor keeping only its own
+        share would drop the same box's total the day two rows became
+        one — a figure that fell for a reason nothing to do with the
+        box.  Driven against a service whose findings fold and one whose
+        findings do not, so the invariant is about the fold rather than
+        about the arithmetic of a single row.
+        """
+        folding = [score("s", grade="failing", episodes=3, longest=205.0,
+                         downtime=26, instability=25)]
+        apart = [score("a", grade="degraded", downtime=26),
+                 score("b", grade="degraded", episodes=3, longest=205.0,
+                       instability=25)]
+
+        assert total_recoverable_points(run(folding).recommendations) == 51
+        assert total_recoverable_points(run(apart).recommendations) == 51
+
+    def test_a_lone_finding_carries_no_members(self):
+        """A fold begins at two — Session 52's rule, ``is_incident``'s shape."""
+        rows = run([score("s", grade="degraded", downtime=5)]).recommendations
+        assert len(rows) == 1
+        assert rows[0].members == []
+
+    def test_the_fold_is_per_service(self):
+        rows = run(
+            [score("a", grade="degraded", episodes=3, longest=205.0,
+                   downtime=26, instability=25),
+             score("b", grade="degraded", episodes=3, longest=205.0,
+                   downtime=10, instability=25)]
+        ).recommendations
+        assert [(r.service, r.recoverable_points) for r in rows] == [
+            ("a", 51),
+            ("b", 35),
+        ]
+
+
+class TestTheFoldLeavesWatchAdviceAlone:
+    """Rule 1 — ``RATE_ARGUED`` rows are never folded, and the reason is
+    a control belonging to a different entry.
+
+    ``snag_claims.check_check_interval_looks_away`` finds its row with
+    ``next(r for r in recommendations if r.kind == "check_interval")`` —
+    a **top-level** scan — and its synthetic subject produces exactly
+    ``flapping`` + ``check_interval``.  Folding that row would make a
+    still-live entry read as refuted: a landed fix for one entry
+    deleting another entry's instrument.  ``SNAG-SVC-002``'s check has
+    the same shape one kind over.
+    """
+
+    def test_check_interval_stays_a_row_of_its_own(self):
+        rows = run(
+            [score("s", grade="degraded", episodes=3, longest=0.0,
+                   instability=15)],
+            cfg=settings(flap_min_episodes=3),
+        ).recommendations
+        assert [r.kind for r in rows] == ["flapping", "check_interval"]
+        assert all(r.members == [] for r in rows)
+
+    def test_the_control_finds_its_row_by_a_top_level_scan(self):
+        """The control's own extraction, driven here rather than trusted.
+
+        Written as the check writes it, so this test fails on the day a
+        future widening of the fold breaks ``SNAG-SVC-001``'s instrument
+        — in this repository's own suite, rather than as a verdict flip
+        in a registry nobody re-reads.
+        """
+        report = run(
+            [score("s", grade="degraded", episodes=3, longest=0.0,
+                   instability=15)],
+            cfg=settings(flap_min_episodes=3),
+        )
+        blip = next(
+            (r for r in report.recommendations if r.kind == "check_interval"),
+            None,
+        )
+        assert blip is not None
+        assert blip.evidence == "rate"
+
+    def test_timer_stale_stays_a_row_of_its_own(self):
+        """Beside an ``outage`` row it could have been folded into."""
+        rows = run(
+            [score("tmr", grade="degraded", downtime=6)],
+            timers=[daily_series(fires=5, since_last_fire_h=96.0)],
+        ).recommendations
+        assert [r.kind for r in rows] == ["outage", "timer_stale"]
+        stale = [r for r in rows if r.kind == "timer_stale"][0]
+        assert stale.members == []
+
+    def test_the_suppressible_set_and_the_foldable_set_are_disjoint(self):
+        """Rule 2's real content, because its ordering claim is vacuous.
+
+        The module gates before it folds so that a withheld row can
+        never reach a reader as somebody else's member while
+        ``suppressed_by_confidence`` goes on reporting it withheld.
+        That ordering is **currently unobservable**: driven both ways on
+        this very subject the output is identical, because rule 1 folds
+        only ``EVENT_ARGUED`` rows and the gate withholds only
+        ``RATE_ARGUED`` ones.  A test written against the ordering would
+        pass whichever way round the two ran — a constant observation
+        with nothing in the population able to force a different one.
+
+        So what is pinned is the disjointness itself, in both
+        directions: the two tuples do not overlap, and no member of any
+        folded row is ever a kind the gate can withhold.  Either half
+        moving is what makes the ordering start to matter.
+        """
+        assert not set(EVENT_ARGUED) & set(RATE_ARGUED)
+
+        report = run(
+            [score("s", grade="degraded", confidence="low", episodes=3,
+                   longest=0.0, downtime=1, instability=15)],
+            cfg=settings(flap_min_episodes=3),
+        )
+        assert report.suppressed_by_confidence == 1
+        assert "check_interval" not in offered_kinds(report)
+        assert not [
+            member
+            for row in report.recommendations
+            for member in row.members
+            if member.kind in RATE_ARGUED
+        ]
+
+
+class TestTheFoldsRung:
+    """Rule 3 — the loudest rung wins, and today it cannot lose."""
+
+    def test_the_anchor_is_already_the_loudest_today(self):
+        """The vacuity, pinned rather than relied on.
+
+        ``outage`` is the only kind whose severity can be ``risk`` and
+        it is ``KIND_ORDER``'s first, so the anchor is always at least
+        as loud as anything it swallows.  That is a proof about today's
+        five kinds, and exactly the kind of proof a sixth invalidates in
+        silence — so the rule is implemented and this test states the
+        coincidence it currently rests on.
+        """
+        risk_capable = {
+            run([score("s", grade="failing", downtime=60)]).recommendations[0].kind
+        }
+        assert risk_capable == {"outage"}
+        assert KIND_ORDER[0] == "outage"
+
+    def test_the_loudest_swallowed_rung_wins(self):
+        """Driven at the rule rather than at the reachable population.
+
+        No configuration of the scorer produces a louder member than its
+        anchor today (the test above says why), so the rule is exercised
+        against constructed rows — the only way to see the branch that
+        stops a future kind being quietened by being folded.
+        """
+        from sysadmin.monitor.service_recommendations import _folded_row
+
+        anchor = ServiceRecommendationInfo(
+            kind="outage", severity="advice", service="s",
+            title="s: quiet", detail="d", action="a", recoverable_points=5,
+        )
+        louder = ServiceRecommendationInfo(
+            kind="flapping", severity="risk", service="s",
+            title="s: loud", detail="d", action="a", recoverable_points=1,
+        )
+        assert _folded_row([anchor, louder]).severity == "risk"
+
+    def test_an_unfamiliar_rung_cannot_promote_a_row(self):
+        from sysadmin.monitor.service_recommendations import _folded_row
+
+        anchor = ServiceRecommendationInfo(
+            kind="outage", severity="risk", service="s",
+            title="s: loud", detail="d", action="a", recoverable_points=5,
+        )
+        odd = ServiceRecommendationInfo(
+            kind="flapping", severity="apocalyptic", service="s",
+            title="s: odd", detail="d", action="a", recoverable_points=1,
+        )
+        assert _folded_row([anchor, odd]).severity == "risk"
+
+
+class TestTheTreatmentIsAppliedAndNotImported:
+    """The fold applies ``group_incidents``' treatment and imports none
+    of it — and the reason is a live control, not module hygiene.
+
+    ``snag_claims.check_check_interval_looks_away`` uses this module's
+    **import set** as its instrument for "the advice has the service's
+    own log data now", listing ``sysadmin.monitor.log_actions`` and
+    ``sysadmin.monitor.log_trends``.  An import taken for convenience
+    would report ``SNAG-SVC-001`` refuted by a change that says nothing
+    about it.  A docstring mention is an ``ast.Constant`` and does not
+    count, which is why this walks imports rather than grepping — the
+    module names ``log_actions`` in prose four times.
+    """
+
+    def test_no_log_family_is_imported(self):
+        import ast
+        from pathlib import Path
+
+        import sysadmin.monitor.service_recommendations as module
+
+        tree = ast.parse(Path(module.__file__).read_text())
+        imported: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module)
+
+        assert not {
+            name
+            for name in imported
+            if name.startswith(("sysadmin.monitor.log_actions",
+                                "sysadmin.monitor.log_trends"))
+        }
 
 
 class TestContracts:

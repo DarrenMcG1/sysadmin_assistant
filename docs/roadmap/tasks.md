@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-01
+> **Last Updated**: 2026-09-02
 
 ---
 
@@ -16,6 +16,33 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 149 — one fault occupies one row, and the entry had
+      measured half its own population.** *(2026-09-02.)*
+      `SNAG-SYSD-006` **fixed**: `group_faults` + `_folded_row` in
+      `service_recommendations.py`, `ServiceRecommendationMemberInfo` in
+      `contracts.py`, `stands_for` in `health_review._service_facts`.
+      Live either side, `GET /api/services/actions` went **8 rows → 6**
+      and `alfred-career-mail-timer` occupies one row naming both
+      findings, with `total_recoverable_points` **78 before and 78
+      after** — the invariant that decided the arithmetic, since an
+      anchor keeping only its own share would have taken the same box
+      from 78 to 53 on the day the list got tidier. The entry scoped the
+      defect to timers; **`venture-chat` has served `outage` 26 beside
+      `flapping` 25 since 2026-08-25**, eight days, no timer in it — so
+      the fold is keyed on the service plus `EVENT_ARGUED` rather than on
+      the timer collision. **Two controls belonging to `SNAG-SVC-001`
+      decided the design**: its check finds its row by a top-level scan
+      by kind, so "one row per service" would have reported a live entry
+      refuted, and its third limb reads this module's import set, so
+      importing `group_incidents` would have refuted it from the other
+      side — hence the treatment is applied and the module is not
+      imported, pinned by an `ast` walk. All 18 snag checks unmoved,
+      driven by stash. Two of the six rules are **vacuous in opposite
+      directions** and both say so. Eleven mutations driven; **two
+      passed against broken code first** — the anchor rule needed a
+      subject where `KIND_ORDER` and points disagree, and the review
+      test injected `stands_for` into a fixture instead of driving the
+      projection. `SNAG-SVC-003` filed as the residue
 - [x] **Session 148 — the prediction came true on schedule, and the
       instrument that settled it had a hole.** *(2026-09-02.)*
       `SNAG-SYSD-006` **confirmed and left open**: `GET

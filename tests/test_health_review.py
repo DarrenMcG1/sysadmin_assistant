@@ -24,12 +24,18 @@ rule itself is stated once, in :mod:`tests.review_prompts`; each module
 asserts its own prompt against it.
 """
 
+import copy
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sysadmin.core.config import AgentsConfig, AppConfig, SysAdminAgentConfig
+from sysadmin.core.config import (
+    AgentsConfig,
+    AppConfig,
+    ServiceActionsConfig,
+    SysAdminAgentConfig,
+)
 from sysadmin.monitor.health_review import (
     COVERAGE_AGENT,
     NARRATED_METRICS,
@@ -601,6 +607,32 @@ class TestFactsSection:
         assert "no service met a threshold" in build_facts_section(quiet)
 
 
+def _folding_score():
+    """One service carrying both deductions — the shape that folds.
+
+    ``venture-chat``'s live shape on 2026-09-02: an outage row and a
+    flapping row about one service, which ``SNAG-SYSD-006``'s fold turns
+    into one row standing for two findings.
+    """
+    from sysadmin.monitor.reliability import Deduction, ReliabilityScore
+
+    return ReliabilityScore(
+        service="vc",
+        score=49,
+        grade="failing",
+        uptime_percent=74.04,
+        checks_measured=1988,
+        failed_checks=516,
+        outage_episodes=13,
+        longest_outage_minutes=205.0,
+        confidence="high",
+        deductions=[
+            Deduction(kind="downtime", points=26, detail=""),
+            Deduction(kind="instability", points=25, detail=""),
+        ],
+    )
+
+
 class TestFallback:
     def test_the_digest_carries_the_facts_and_says_it_is_a_digest(self):
         narrative = build_fallback_narrative(DATA)
@@ -611,6 +643,63 @@ class TestFallback:
         """``SNAG-ESTATE-001``: a roll-up that cannot name anything is a
         count, and a count is not news."""
         assert "venture-chat: 84.38% uptime this window" in build_fallback_narrative(DATA)
+
+    def test_the_digest_names_what_a_folded_row_stands_for(self):
+        """The same rule, one consumer downstream of the fold.
+
+        ``SNAG-SYSD-006``'s fold promises to name every finding it
+        swallows; this projection keeps ``title`` and ``action``, which
+        are the **anchor's**, so without ``stands_for`` the digest names
+        one finding and never tells the reader the other exists — the
+        roll-up that cannot name anything, rebuilt inside the fix for
+        it.  Live shape: ``alfred-career-mail-timer``'s ``outage`` row
+        stands for the ``timer_failed`` finding whose step is the
+        useful one.
+        """
+        data = copy.deepcopy(DATA)
+        data["services"]["top"][0]["stands_for"] = [
+            "venture-chat: 13 separate outages this window"
+        ]
+        narrative = build_fallback_narrative(data)
+        assert "venture-chat: 13 separate outages this window" in narrative
+        assert "Also stands for" in narrative
+
+    def test_a_row_standing_only_for_itself_says_nothing_extra(self):
+        """The majority case: no fold, no clause."""
+        assert "Also stands for" not in build_fallback_narrative(DATA)
+
+    def test_the_projection_carries_the_fold_through_from_the_real_rows(self):
+        """The wiring, driven rather than injected.
+
+        The test above hands ``build_fallback_narrative`` a fixture with
+        ``stands_for`` already in it, so it pins the **renderer** and
+        says nothing about the projection that fills the field —
+        emptying ``_service_facts``' list passes it cleanly.  This
+        drives the real ``recommend`` at the live specimen's shape and
+        asserts the swallowed finding survives into the digest, which is
+        the only assertion that fails when the two halves stop being
+        connected.
+        """
+        from sysadmin.monitor.health_review import _service_facts
+        from sysadmin.monitor.service_recommendations import recommend
+
+        scores = [_folding_score()]
+        advice = recommend(
+            scores,
+            ServiceActionsConfig(),
+            check_interval_seconds=300,
+            now=datetime(2026, 9, 2, 9, 0, tzinfo=UTC),
+        )
+        facts = _service_facts(scores, advice)
+
+        assert len(advice.recommendations) == 1
+        assert facts["top"][0]["stands_for"] == [
+            "vc: 13 separate outages this window"
+        ]
+
+        data = copy.deepcopy(DATA)
+        data["services"] = facts
+        assert "13 separate outages" in build_fallback_narrative(data)
 
 
 # ── Generation ───────────────────────────────────────────────────────

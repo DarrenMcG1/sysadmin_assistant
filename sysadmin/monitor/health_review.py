@@ -501,6 +501,20 @@ def _service_facts(scores: list[ReliabilityScore], advice: Any) -> dict[str, Any
                 "grade": r.grade,
                 "confidence": r.confidence,
                 "evidence": r.evidence,
+                # ``SNAG-SYSD-006``: a folded row stands for findings
+                # this projection would otherwise drop.  It keeps
+                # ``title`` and ``action``, which are the anchor's, so
+                # without this the digest names one finding and the
+                # reader is never told the other exists — the roll-up
+                # that cannot name what it swallowed, rebuilt one
+                # consumer downstream of the fold that promised not to.
+                # Keyed on the kind rather than on position, because a
+                # service cannot produce two rows of one kind and an
+                # order-dependent slice would be a second statement of
+                # how ``group_faults`` sorts.
+                "stands_for": [
+                    m.title for m in r.members if m.kind != r.kind
+                ],
             }
             for r in advice.recommendations[:TOP_ACTIONS]
         ],
@@ -953,7 +967,10 @@ def build_fallback_narrative(data: dict[str, Any]) -> str:
             f"{len(risky)} of these are ranked risk — look at those first."
         )
     for row in services["top"][:3]:
-        lines.append(f"Look at first: {row['title']} — {row['action']}")
+        line = f"Look at first: {row['title']} — {row['action']}"
+        if row.get("stands_for"):
+            line += " Also stands for: " + "; ".join(row["stands_for"]) + "."
+        lines.append(line)
     if not services["recommendations_total"]:
         lines.append("No service needed attention this period.")
 

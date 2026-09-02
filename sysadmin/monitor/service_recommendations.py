@@ -143,22 +143,121 @@ rather than the schedule, so it is dropped — ``reliability.py``'s rule 4
 score.  With fewer than :data:`MIN_CADENCE_SAMPLES` clean samples there
 is no cadence and no ``timer_stale`` row is produced, whatever the
 elapsed time.
+
+One fault occupies one row, and the fold names what it swallows
+---------------------------------------------------------------
+
+``SNAG-SYSD-006``.  ``recommend`` runs :func:`_service_rows` over every
+scored service and :func:`_timer_rows` over the subset that are timers,
+so a ``kind: timer`` service is in **both** loops.  Before
+``SNAG-SYSD-005`` that could not collide — a failed job never reached
+``service_health.status``, so ``timer_failed`` had a structurally empty
+population — and the moment it could, ``GET /api/services/actions``
+served ``alfred-career-mail-timer`` twice: ``outage`` at 6 recoverable
+points beside ``timer_failed`` at 0, one fault named twice.
+
+:func:`group_faults` is ``log_actions.group_incidents``' treatment, and
+that module is **applied and never imported**.  The two rules have
+nothing in common mechanically — there is no time window here and no
+systemd graph — and an import would trip a live control belonging to a
+different entry: ``snag_claims.check_check_interval_looks_away`` uses
+this module's import set as its instrument for "the advice has the
+service's own log data now", so importing ``log_actions`` for
+convenience would report ``SNAG-SVC-001`` refuted by a change that has
+nothing to say about it.
+
+Six rules, four of them the opposite of the obvious implementation:
+
+1. **The grouping key is the service, and the relation is
+   :data:`EVENT_ARGUED`.**  Grouping every row of a service is the
+   obvious version and is wrong in a way only the controls could say:
+   ``check_interval`` and ``timer_stale`` argue about *how the service
+   is watched* rather than about the fault — :data:`KIND_ORDER`'s own
+   docstring already draws that line — and fixing the service lapses
+   neither.  Measured rather than reasoned: ``SNAG-SVC-001``'s check
+   finds its row with ``next(r for r in recommendations if r.kind ==
+   "check_interval")``, a **top-level** scan, and its synthetic subject
+   produces exactly ``flapping`` + ``check_interval``.  Swallowing that
+   row makes a still-live entry read as refuted, which is a landed fix
+   for one entry deleting another's instrument.
+
+2. **The fold runs after the confidence gate and before the sort, and
+   only the second half of that is observable.**  Sorting after is
+   load-bearing: the ranking must see the folded points rather than
+   rank rows that are about to merge.  Gating first is defensive and
+   currently **cannot be told from gating second** — driven both ways
+   on a low-confidence service carrying all three shapes, the output
+   is identical, because rule 1 makes the suppressible set
+   (``RATE_ARGUED``) and the foldable set (``EVENT_ARGUED``) disjoint.
+   It is written this way anyway, since the day rule 1 widens is the
+   day a withheld row could reach a reader as somebody else's member
+   while ``suppressed_by_confidence`` went on reporting it withheld —
+   the count and the payload disagreeing about one row.  What the test
+   pins is therefore the **disjointness**, which is the fact that
+   makes the ordering vacuous, rather than an ordering no observation
+   can distinguish: a constant observation is not evidence unless
+   something in the population would have forced a different one.
+
+3. **Points are summed; everything else is the anchor's.**  Summing is
+   honest here in the way ``_incident_recommendation`` says it would
+   *not* be across kinds, and for that rule's reason read from the other
+   end: every member shares one currency and one subject, so the sum is
+   this service's applied deductions — exactly ``100 - score`` — and
+   fixing the service lapses all of them.  It is also what keeps
+   :func:`total_recoverable_points` **invariant** under the fold; a
+   figure that fell when two rows became one would report the same box
+   as cheaper to fix on the day it got tidier to read.
+
+4. **The anchor is :data:`KIND_ORDER`'s first surviving kind, and that
+   constant is doing one job rather than two.**  It already answers
+   "which claim is more urgent to read" for rows that tie on points;
+   which claim leads a folded row is the same question, so stating it
+   twice is what would be the second job.  The cause-first alternative
+   was considered and refused: ``timer_failed`` genuinely *causes* the
+   critical checks the ``outage`` row is computed from, which is
+   ``group_incidents``' anchor rule read literally, but it would need a
+   declared cause-to-consequence pairing this module has not got and
+   would put the summed points on the row whose own evidence did not
+   compute them.
+
+5. **The title stays the anchor's, where an incident row's does not.**
+   ``_incident_recommendation`` rewrites its title because its members
+   are *other units* and the anchor's title would understate the scope.
+   Every member here is about the **same service**, so the subject of
+   the anchor's sentence is already right and appending a count to it
+   would be the count-that-names-nothing this repository spent
+   ``SNAG-ESTATE-001`` removing.  What is named is named properly: each
+   member's kind, title, detail, action and points, in
+   :class:`~sysadmin.core.contracts.ServiceRecommendationMemberInfo` and
+   in the folded ``detail``.
+
+6. **Nothing is capped, and it cannot need to be.**  A service has at
+   most three ``EVENT_ARGUED`` rows, so a fold names at most two
+   members and the roll-up that cannot name what it swallowed is
+   unreachable by construction rather than by a threshold — which is
+   worth stating, because every other roll-up in this repository needed
+   one.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from statistics import median
 from typing import TYPE_CHECKING
 
-from sysadmin.core.contracts import ServiceRecommendationInfo
+from sysadmin.core.contracts import (
+    ServiceRecommendationInfo,
+    ServiceRecommendationMemberInfo,
+)
 from sysadmin.monitor.reliability import ReliabilityScore
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from sysadmin.core.config import ServiceActionsConfig
 
 __all__ = [
+    "ADVICE_SEVERITIES",
     "EVENT_ARGUED",
     "KIND_ORDER",
     "MIN_CADENCE_SAMPLES",
@@ -167,6 +266,7 @@ __all__ = [
     "AdviceReport",
     "TimerPoint",
     "TimerSeries",
+    "group_faults",
     "recommend",
 ]
 
@@ -194,6 +294,14 @@ MIN_CADENCE_SAMPLES = 2
 #: intervals is a hole in the series rather than a poll.  2.5 admits one
 #: missed poll and a little jitter, and refuses two.
 SERIES_HOLE_FACTOR = 2.5
+
+#: This family's severity vocabulary, quietest first.  Two values, and
+#: it is stated once because two things read it: the list ordering below
+#: and :func:`_loudest`, which decides a folded row's rung.  Written out
+#: as ``r.severity != "risk"`` in both places it would be one fact with
+#: two statements free to disagree — ``max_priority_for`` against
+#: ``PRIORITY_MAP``, at the size of a two-element tuple.
+ADVICE_SEVERITIES = ("advice", "risk")
 
 
 @dataclass(frozen=True)
@@ -291,20 +399,72 @@ def recommend(
                     continue
                 recs.append(rec)
 
-    recs.sort(
+    # Rule 2: after the gate, before the sort.
+    folded = [
+        group[0] if len(group) == 1 else _folded_row(group)
+        for group in group_faults(recs)
+    ]
+
+    folded.sort(
         key=lambda r: (
-            r.severity != "risk",
+            -_severity_rank(r.severity),
             -r.recoverable_points,
             _kind_rank(r.kind),
             r.service,
         )
     )
     return AdviceReport(
-        recommendations=recs,
+        recommendations=folded,
         muted_skipped=muted_skipped,
         suppressed_by_confidence=suppressed,
         services_considered=len(scores) - muted_skipped,
     )
+
+
+def group_faults(
+    rows: Sequence[ServiceRecommendationInfo],
+) -> list[list[ServiceRecommendationInfo]]:
+    """Collapse the rows that are one fault into one group.
+
+    ``log_actions.group_incidents``' treatment, applied rather than
+    imported — see the module docstring for why the import is refused.
+    Every group is returned, including groups of one, so a caller can see
+    that a row was considered and left alone; that module's shape, and
+    for its reason.
+
+    The relation is **the subject plus :data:`EVENT_ARGUED`**: two rows
+    are one fault when they name the same service *and* both argue from
+    that service's observed failures.  A ``RATE_ARGUED`` row is about how
+    the service is watched, or about something not happening, so it is
+    returned alone whatever else the service produced — rule 1, which is
+    the rule the controls decided rather than taste.
+
+    Within a group the anchor sorts first by :func:`_kind_rank`, ties
+    broken on the title so a fold's leading claim cannot depend on dict
+    ordering upstream — ``group_incidents`` rule 5, which exists for the
+    same reason here even though the tie is currently unreachable (no
+    service can produce two rows of one kind).
+
+    Fails **open** in the one direction it can: an unrecognised kind is
+    in neither tuple, so it is left alone rather than folded on a guess.
+    ``collation.py``'s posture — not knowing means not collapsing, so the
+    failure mode is the status quo rather than a false merge.
+    """
+    groups: list[list[ServiceRecommendationInfo]] = []
+    faults: dict[str, list[ServiceRecommendationInfo]] = {}
+
+    for row in rows:
+        if row.kind not in EVENT_ARGUED:
+            groups.append([row])
+            continue
+        faults.setdefault(row.service, []).append(row)
+
+    for members in faults.values():
+        groups.append(
+            sorted(members, key=lambda r: (_kind_rank(r.kind), r.title))
+        )
+
+    return groups
 
 
 def total_recoverable_points(recs: list[ServiceRecommendationInfo]) -> int:
@@ -315,6 +475,95 @@ def total_recoverable_points(recs: list[ServiceRecommendationInfo]) -> int:
     service's 60.
     """
     return sum(r.recoverable_points for r in recs)
+
+
+def _folded_row(
+    group: Sequence[ServiceRecommendationInfo],
+) -> ServiceRecommendationInfo:
+    """One row for the findings that are one fault (``SNAG-SYSD-006``).
+
+    ``group`` arrives ordered by :func:`_kind_rank`, so ``group[0]`` is
+    the anchor — the strongest claim, which for the founding specimen is
+    ``alfred-career-mail-timer``'s ``outage`` row rather than the
+    ``timer_failed`` row beside it.
+
+    Four rules, three of them stated in the module docstring and one
+    only reachable here:
+
+    1. **Points are summed and everything else is the anchor's** —
+       docstring rule 3.  The per-service fields (``service``, ``grade``,
+       ``confidence``, ``outage_episodes``) are identical across the
+       group by construction, so taking the anchor's is a choice with no
+       alternative rather than a preference.
+
+    2. **``members`` carries the anchor too**, which is
+       ``LogRecommendation.members``' shape and is what makes the summed
+       figure decomposable: ``recoverable_points`` is exactly the sum of
+       the members' shares, and a consumer wanting to know what the
+       leading claim contributed can read it off the list.  Listing only
+       the swallowed rows would leave the anchor's share the one number
+       nothing states.
+
+    3. **The rung is the loudest swallowed** — ``judge_attention``'s
+       rule, the roll-up rule this repository has written down at four
+       scales.  It is **vacuous today and implemented anyway**: the only
+       ``risk``-capable kind is ``outage`` (severity follows the
+       scorer's ``failing`` grade) and ``outage`` is :data:`KIND_ORDER`'s
+       first, so the anchor is already at least as loud as anything it
+       swallows.  That is a proof rather than an accident, and it is the
+       kind of proof a future kind invalidates silently — so the rule is
+       written, and a test pins the coincidence rather than the code
+       relying on it.
+
+    4. **The swallowed rows are named in the ``detail`` as well as in
+       ``members``.**  A consumer rendering one field must not lose a
+       finding: the tray and ``health_review`` read ``title``,
+       ``detail`` and ``action``, none of which is ``members``.  Each
+       swallowed row contributes its kind, its title, its own detail and
+       its own step, because those steps are different in kind and
+       cannot be merged the way an incident row merges six
+       ``journalctl`` invocations into one.
+    """
+    anchor = group[0]
+    others = list(group[1:])
+    points = sum(row.recoverable_points for row in group)
+
+    lines = [
+        anchor.detail,
+        f"Also stands for {len(others)} other finding"
+        f"{'s' if len(others) != 1 else ''} about {anchor.service}, named "
+        f"below with its own step. The {points} recoverable points are the "
+        f"sum across all {len(group)}; one fix lapses them together.",
+    ]
+    for row in others:
+        lines.append(f"  - {row.kind}: {row.title}")
+        lines.append(f"    {row.detail}")
+        lines.append(f"    Step: {row.action}")
+
+    return ServiceRecommendationInfo(
+        kind=anchor.kind,
+        severity=_loudest(group),
+        service=anchor.service,
+        title=anchor.title,
+        detail="\n".join(lines),
+        action=anchor.action,
+        recoverable_points=points,
+        grade=anchor.grade,
+        confidence=anchor.confidence,
+        outage_episodes=anchor.outage_episodes,
+        evidence=anchor.evidence,
+        members=[
+            ServiceRecommendationMemberInfo(
+                kind=row.kind,
+                severity=row.severity,
+                title=row.title,
+                detail=row.detail,
+                action=row.action,
+                recoverable_points=row.recoverable_points,
+            )
+            for row in group
+        ],
+    )
 
 
 # --- service rows ---
@@ -720,3 +969,20 @@ def _hours(seconds: float) -> str:
 def _kind_rank(kind: str) -> int:
     """Position in :data:`KIND_ORDER`; unknown kinds sort last."""
     return KIND_ORDER.index(kind) if kind in KIND_ORDER else len(KIND_ORDER)
+
+
+def _severity_rank(severity: str) -> int:
+    """Position in :data:`ADVICE_SEVERITIES`; an unknown rung is quietest.
+
+    Reading an unrecognised severity as the **quietest** keeps the list
+    ordering it replaced exactly: ``r.severity != "risk"`` sorted
+    ``advice`` and any unknown value together, behind ``risk``.  It is
+    also the direction that cannot lie in the fold — an unknown rung
+    cannot promote a row it was swallowed into.
+    """
+    return ADVICE_SEVERITIES.index(severity) if severity in ADVICE_SEVERITIES else 0
+
+
+def _loudest(rows: Sequence[ServiceRecommendationInfo]) -> str:
+    """The loudest rung in a fold — :func:`_folded_row` rule 3."""
+    return max((row.severity for row in rows), key=_severity_rank)

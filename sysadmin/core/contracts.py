@@ -1518,6 +1518,41 @@ class ReliabilityResponse(Contract):
 # ── /api/services/actions (Session 25, Tier 2) ────────────────────────
 
 
+class ServiceRecommendationMemberInfo(Contract):
+    """One finding a folded service row stands for.
+
+    ``LogIncidentMemberInfo``'s model, one endpoint over, and it exists
+    for that model's reason: a roll-up must **name** what it swallowed,
+    never merely count it (``SNAG-ESTATE-001``).  Present only on the
+    folded rows ``SNAG-SYSD-006`` introduced, and empty on the ordinary
+    one-finding rows, which are the majority.
+
+    It carries ``action`` where its log sibling does not, and the
+    difference is not decoration.  An incident row merges its members'
+    steps into one ``journalctl`` invocation because every member's step
+    was "read the journal"; the steps here are different in **kind** —
+    read a unit's logs, look for a shared dependency, ask systemd what
+    the last run returned — so there is nothing to merge and dropping
+    them would make the fold a deletion rather than a deduplication.
+
+    The per-service fields are deliberately absent.  ``service``,
+    ``grade``, ``confidence`` and ``outage_episodes`` are properties of
+    the subject rather than of the finding, and every member of a fold
+    shares one subject by construction — restating them here would be
+    four fields free to disagree with the row that owns them.
+    """
+
+    # outage | flapping | timer_failed
+    kind: str = ""
+    # risk | advice
+    severity: str = "advice"
+    title: str = ""
+    detail: str = ""
+    action: str = ""
+    #: This member's own share of the folded row's ``recoverable_points``.
+    recoverable_points: int = 0
+
+
 class ServiceRecommendationInfo(Contract):
     """One ranked, executable piece of service-reliability advice.
 
@@ -1584,6 +1619,20 @@ class ServiceRecommendationInfo(Contract):
     outage_episodes: int = 0
     # event | rate | absence
     evidence: str = "event"
+    #: Every other finding this row stands for, when one fault produced
+    #: more than one of them (``SNAG-SYSD-006``); empty on the ordinary
+    #: rows.  ``kind``/``title``/``detail``/``action`` above stay the
+    #: **anchor's** rather than becoming lists, so a consumer that
+    #: ignores this field entirely still gets a correct row about the
+    #: strongest claim — ``LogRecommendationInfo.members``' rule.
+    #:
+    #: ``recoverable_points`` is the exception and is **summed** across
+    #: the fold, because the members share one currency and one subject:
+    #: fixing the service lapses every deduction it stands for.  That is
+    #: also what keeps ``total_recoverable_points`` invariant under the
+    #: fold — an estate figure that fell when two rows became one would
+    #: report the same box as cheaper to fix.
+    members: list[ServiceRecommendationMemberInfo] = Field(default_factory=list)
 
     @field_validator("recoverable_points", "outage_episodes", mode="before")
     @classmethod

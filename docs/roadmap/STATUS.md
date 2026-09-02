@@ -1,7 +1,46 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-01
+**Last Updated**: 2026-09-02
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **One fault occupies one row now, and the entry that asked for it had
+> measured half of its own population** (2026-09-02, Session 149).
+> `SNAG-SYSD-006` is **fixed**: `group_faults` and `_folded_row` in
+> `service_recommendations.py` fold a service's `EVENT_ARGUED` findings
+> into one row that **names** every finding it swallows —
+> `log_actions.group_incidents`' treatment, applied at a relation that
+> has no clock and no systemd graph in it. Live either side,
+> `GET /api/services/actions` went **8 rows → 6** and
+> `alfred-career-mail-timer` occupies one row carrying both its
+> findings.
+>
+> **`total_recoverable_points` is 78 before and 78 after**, which is the
+> invariant that decided the arithmetic rather than a happy result: an
+> anchor keeping only its own share would have taken the same box's
+> total to **53** on the day the list got easier to read.
+>
+> **The entry scoped the defect to timers, and running the endpoint
+> found a second instance it never named.** `venture-chat` has served
+> `outage` at 26 points beside `flapping` at 25 since the endpoint
+> shipped on 2026-08-25 — eight days, one service named twice, no timer
+> in it anywhere.
+>
+> **Two controls belonging to a *different* open entry decided the
+> design.** `SNAG-SVC-001`'s check finds its row by a **top-level** scan
+> for `kind == "check_interval"` and its subject produces exactly
+> `flapping` + `check_interval`, so the obvious "one row per service"
+> would have reported a live entry refuted; its third limb reads this
+> module's **import set**, so reaching for `group_incidents` by
+> importing it would have refuted the same entry from the other side.
+> Driven by stash before and after: all 18 snag checks unmoved.
+>
+> **The fix had to land twice.** `health_review._service_facts` projects
+> the anchor's `title` and `action` into the weekly review, so the first
+> version named one finding and never said the other existed — the
+> roll-up that cannot name anything, one consumer downstream of the fold
+> that promised not to. `SNAG-SVC-003` is the filed residue: the folded
+> row leads with the anchor's step, and for a timer fault the swallowed
+> step is the better one.
 
 > **A `kind: timer` check read the wrong unit for its whole life, and
 > two silent failures were standing behind it** (2026-09-01, Session
@@ -1120,10 +1159,12 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-01 21:03:19**
+> Daemon restarted at **2026-09-02 06:46:10**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since. **This one was owed too**, and for the
-> same kind of reason as the last: `sysadmin/monitor/agent.py` and
+> `ERROR`/`CRITICAL` lines since. Twice this sitting, to deploy
+> `SNAG-SYSD-006`'s fold and then the review projection that was
+> flattening it back. *Previously 2026-09-01 21:03:19, which was owed
+> for the same kind of reason as the one before it:* `sysadmin/monitor/agent.py` and
 > `sysadmin/estate/client.py` are both loaded by the running daemon, so
 > until the restart it was polling `venture-chat` with no idea the
 > estate had stopped it. *Previously 2026-08-31 06:55:16, where the
@@ -1198,18 +1239,19 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **5** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
 > rows <!--check:alerts-->, `warning: High disk usage on /`,
-> `critical: alfred-career-mail-timer critical`,
-> `info: venture-chat unreachable`,
-> `info: Project ImbaBots next action idle` and
-> `info: Estate port 8000 registry breach`, **5**
+> `critical: alfred-career-mail-timer critical` and
+> `info: Project ImbaBots next action idle`, **3**
 > named here <!--check:open_titles-->. *(Re-counted 2026-09-02 by Session
-> 148; the block said 2 and the checker read 5. The three added are all
-> `info` and all quietened by design — the nightly arbitrated swap
-> `SNAG-AGENT-011` closed, an idle nudge the estate publishes, and a
-> transient dev-server port holder — so the rise is the quietening
-> families working, not three new faults.)* *(The critical is Session 147's,
+> 149; the block said 5 and the checker read 3 — `SNAG-ESTATE-008`'s
+> founding case, a **fall**, which is the direction that reads as
+> "an action this block asks for may already be done". Both departures
+> are `info` rows whose subject went away rather than fixes: the
+> nightly arbitrated `venture-chat` swap resolved at its usual hour, and
+> the transient dev-server port holder closed when the editor window
+> did. Session 148 counted 5 the same morning, so the two families that
+> produced the rise it recorded are the two that produced this fall.)* *(The critical is Session 147's,
 > and it is a **rise the monitor caused rather than a fault that
 > began**: the job had been failing for 20 days and only became sayable
 > when `SNAG-SYSD-005` was fixed. It is Alfred's to close, not ours. Its

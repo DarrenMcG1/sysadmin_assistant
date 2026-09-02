@@ -1,6 +1,26 @@
-# Handoff — 2026-09-02 (Session 148)
+# Handoff — 2026-09-02 (Session 149)
 
 ## Next action
+
+Act on the estate inbox message `00b631ec`, open since 2026-08-31 and untouched for three sittings: correct the three live sites in this repository that state the estate audit runs twelve checks — `sysadmin/estate/judgements.py:74` is one — to the thirteen it has run since their ADR-0086 added `restatements`, then close the message with a note naming what was corrected.
+
+_**`SNAG-SYSD-006` is fixed, deployed and verified live.** `group_faults` and `_folded_row` in `service_recommendations.py` fold a service's `EVENT_ARGUED` findings into one row that names every finding it swallows — `log_actions.group_incidents`' treatment applied at a relation with no clock and no systemd graph in it, and deliberately **not** imported from it. `GET /api/services/actions` went **8 rows → 6**; `alfred-career-mail-timer` occupies one row carrying both findings, and `total_recoverable_points` reads **78 before and 78 after** — the invariant that decided the arithmetic, since an anchor keeping only its own share would have taken the same box to 53 on the day the list got easier to read._
+
+_**The entry had measured half of its own population.** It scopes the defect to timers; `venture-chat` has served `outage` at 26 points beside `flapping` at 25 since the endpoint shipped on 2026-08-25 — eight days, one service named twice, no timer in it anywhere. Reading the entry finds one instance; running the endpoint finds two. So the fold keys on the service plus `EVENT_ARGUED` rather than on the timer collision._
+
+_**Two controls belonging to `SNAG-SVC-001` decided the design, and one of them nearly decided it wrongly.** That check finds its row with a **top-level** scan for `kind == "check_interval"` and its synthetic subject produces exactly `flapping` + `check_interval`, so the obvious "one row per service" would have made it `None` and reported a live entry refuted. Its third limb reads this module's **import set**, so reaching for `group_incidents` by importing it would have refuted the same entry from the other side. All 18 snag checks were driven before and after by stash and report `still holds`, unmoved._
+
+_**The fix had to land twice.** `health_review._service_facts` projects the anchor's `title` and `action` into the weekly review, so the first version named one finding and never said the other existed — the roll-up that cannot name anything, rebuilt one consumer downstream of the fold that promised not to. `stands_for` carries the swallowed titles through, and the generated review now reads *"Also stands for: alfred-career-mail-timer: last scheduled run reported 'exit-code'."*_
+
+_**Two of eleven falsifications passed against deliberately broken code and both were repaired.** Anchoring by points instead of `KIND_ORDER` broke nothing, because the live specimen cannot discriminate the rule — `outage` leads `KIND_ORDER` *and* carries all 6 of career-mail's points — so a subject with 1 point of downtime against 25 of instability had to be added before the anchor rule was tested at all. And emptying the review projection's `stands_for` passed cleanly, because the digest test injected the field into a fixture and pinned the renderer rather than the projection that fills it._
+
+_**Two of the six rules are vacuous in opposite directions and both say so.** Loudest-rung-wins is implemented and cannot currently lose (`outage` is the only `risk`-capable kind and is `KIND_ORDER`'s first), so a test pins the coincidence the proof rests on; gate-before-fold is **unobservable**, driven both ways to identical output, so its test pins the disjointness that makes it vacuous rather than an ordering nothing could distinguish._
+
+_**Also done**: `SNAG-SVC-003` filed as the stated residue — the folded row leads with the anchor's step, and for a timer fault that step names a restart the swallowed row's own detail explains cannot help. `HANDOFF.md` carried **two** `## Next action` headings since Session 148, so `tests/test_handoff_shape.py` had been red on arrival; Session 147's superseded heading is demoted and its duplicated `## Session 147` heading removed. STATUS.md's alert claims re-counted **5 → 3** — a *fall*, `SNAG-ESTATE-008`'s founding case — both departures `info` rows whose subject went away. `./scripts/check-ops-claims.sh` green on all eight. The daemon was restarted twice, at 06:41:37 and 06:46:10. **Four** inbox messages are open and untouched, two of them new today (`b0d602e1`, `68ff9116`)._
+
+## Session 148 — the prediction landed and the instrument had a hole
+
+### The action Session 148 filed (done by Session 149)
 
 Design the roll-up that lets one fault occupy one row in `GET /api/services/actions` — `log_actions.group_incidents`' treatment applied to `KIND_ORDER`, where the swallowed row is **named** rather than dropped — because `SNAG-SYSD-006` is now confirmed by measurement and its cheap fix (suppressing the `outage` row for timers) is ruled out by the control that repaired itself.
 
@@ -14,15 +34,13 @@ _**No code changed.** STATUS.md's alert claims were re-counted: the block said 2
 
 ## Session 147 — the timer was armed and the job was dead
 
-## Next action
+### The action Session 147 filed (answered by Session 148)
 
 Decide whether `SNAG-SYSD-006` is real by re-reading `GET /api/services/actions` on or after 2026-09-02 and counting the rows for `alfred-career-mail-timer`: two rows (`outage` beside `timer_failed`) confirms the prediction that a failed job is now scored as a service and read as a timer, one row refutes it and the entry retires, and the population is down to that single service because the pgbackrest half was repaired and auto-resolved at 22:33:29 on 2026-09-01.
 
 _`SNAG-SYSD-005` is fixed, deployed and **demonstrated end to end**: `pgbackrest-backup-timer` was raised `critical` at 21:08 off a fault standing since March, the owner repaired both units at 22:19–22:29, the backup ran in 16.4 s, and `_resolve_recovered` closed the row unaided at **22:33:29** on the first healthy poll — detect, alert, fix, observe, resolve, in 85 minutes. `alfred-career-mail-timer` stays `critical` and is Alfred's to close._
 
 _Two estate messages filed at the owner's direction: **`e5d17a89`** to `alfred` (SNAG-50's *"nothing surfaces this"* was our blindness, not their missing surface; no action requested of them) and **`aacd7e33`** to `estate-manager` (the backup, routed there under the shared-infrastructure rule because `pg1-path=/var/lib/postgres/data` is the whole cluster while the stanza is merely *named* `alfred` — the message says so and invites reassignment). The register normalises names: `sysadmin_assistant` is stored as `sysadmin-assistant`, `Alfred` as `alfred`, with both spellings kept. The inbox message `00b631ec` (check-count, filed 2026-08-31) is **still open and still untouched**, for the second sitting running._
-
-## Session 147 — the timer was armed and the job was dead
 
 **Found by reading another repository's snag, which is the part worth
 carrying.** Alfred's SNAG-50 says `alfred-career-mail.service` has failed
