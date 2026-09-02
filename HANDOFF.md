@@ -1,4 +1,18 @@
-# Handoff — 2026-09-01 (Session 147)
+# Handoff — 2026-09-02 (Session 148)
+
+## Next action
+
+Design the roll-up that lets one fault occupy one row in `GET /api/services/actions` — `log_actions.group_incidents`' treatment applied to `KIND_ORDER`, where the swallowed row is **named** rather than dropped — because `SNAG-SYSD-006` is now confirmed by measurement and its cheap fix (suppressing the `outage` row for timers) is ruled out by the control that repaired itself.
+
+_**`SNAG-SYSD-006` is confirmed and stays open.** The prediction Session 147 filed with a dated re-read as its instrument came true on schedule: `GET /api/services/actions` serves `alfred-career-mail-timer` **twice** — `outage` at 5 recoverable points beside `timer_failed` at 0 — off **101** `critical` checks in **1,988** measured, standing unbroken from **21:08:21 on 2026-09-01**, the first poll under `SNAG-SYSD-005`'s fix. At 21:08 there was one such check and downtime rounded to zero, which is exactly the arithmetic the entry named._
+
+_**`pgbackrest-backup-timer` became a control nobody designed.** Repaired and auto-resolved at 22:33:29, it serves **one** row — and the survivor is the `outage` one (1 point, 17 failed checks), not `timer_failed`, because `_timer_rows` gates on the latest observation while `_service_rows` argues from the series. That is the entry's own argument against the cheap fix, demonstrated instead of asserted._
+
+_**The instrument had a hole and only the split population exposed it.** Its refutation limb read "one row for both refutes it", and a repaired timer serves one row without refuting anything — so had the career-mail unit also been fixed, this re-read would have reported the entry dead over a live defect. The discriminating condition is a timer whose job is failing **at the moment of the read**. Recorded in the entry rather than quietly corrected._
+
+_**No code changed.** STATUS.md's alert claims were re-counted: the block said 2 unresolved rows and the checker read 5, all three additions `info` and quietened by design (the arbitrated nightly swap, an estate idle nudge, a transient dev-server port holder), so the rise is the quietening families working rather than three new faults. `./scripts/check-ops-claims.sh` is green on all eight claims. The inbox messages `00b631ec` (check-count, 2026-08-31) and `c3228a22` (by-name project routes, 2026-09-01) are **both still open and untouched**, `00b631ec` for the third sitting running._
+
+## Session 147 — the timer was armed and the job was dead
 
 ## Next action
 

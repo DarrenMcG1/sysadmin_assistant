@@ -16,6 +16,29 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 148 — the prediction came true on schedule, and the
+      instrument that settled it had a hole.** *(2026-09-02.)*
+      `SNAG-SYSD-006` **confirmed and left open**: `GET
+      /api/services/actions` serves `alfred-career-mail-timer` **twice** —
+      `outage` at 5 recoverable points beside `timer_failed` at 0 — off
+      **101** `critical` checks in **1,988** measured, unbroken from
+      **21:08:21 on 2026-09-01**, the first poll under `SNAG-SYSD-005`'s
+      fix. At 21:08 there was one such check and downtime rounded to zero,
+      which is precisely the arithmetic the entry named, so the row
+      appeared when the boundary moved and for no other reason.
+      `pgbackrest-backup-timer`, repaired and auto-resolved at 22:33:29,
+      is the control nobody designed: it serves **one** row and the
+      survivor is the `outage` one, because `_timer_rows` gates on the
+      latest observation while `_service_rows` argues from the series —
+      the entry's own case against the cheap fix, demonstrated instead of
+      asserted. The **hole**: the refutation limb read *"one row for both
+      refutes it"*, and a repaired timer serves one row without refuting
+      anything, so a fix to the career-mail unit would have retired a live
+      entry; the discriminating condition is a timer failing **at the
+      moment of the read**. STATUS.md's alert claims re-counted 2 → 5, all
+      three additions `info` and quietened by design, and
+      `check-ops-claims.sh` is green on all eight. No code changed
+
 - [x] **Session 147 — the timer check read the timer and never the job,
       and two silent failures were standing behind it.** *(2026-09-01.)*
       Opened by reading **Alfred's SNAG-50** — a career-mail ingest failing

@@ -63,6 +63,19 @@
 > `pg1-path` is the whole cluster and the stanza is merely *named*
 > `alfred`) and `cc5f26e7` (the correction above).
 >
+> **`SNAG-SYSD-006` is confirmed and stays open** (2026-09-02, Session
+> 148). The entry opened as a *prediction* — that once a failed job's
+> `critical` checks accumulated past a rounding boundary, one fault would
+> produce two advice rows — and named the re-read that would settle it.
+> It did: `GET /api/services/actions` now serves `alfred-career-mail-timer`
+> **twice**, an `outage` row at 5 recoverable points beside a
+> `timer_failed` row at 0, off 101 `critical` checks standing unbroken
+> since the first poll under the fix. `pgbackrest-backup-timer` serves
+> one row and the survivor is the `outage` one, which is the entry's
+> argument for refusing the cheap fix demonstrated rather than asserted.
+> The remedy is `group_incidents`' treatment — a roll-up that names what
+> it swallows — and that is a `KIND_ORDER` design question, not a patch.
+>
 > **The backup half is resolved.** The owner applied
 > `scripts/fix-systemd-continuations.py` to both units at 22:19 and
 > reloaded at 22:29; the run took **16.4 s**, `Result=success`,
@@ -1185,10 +1198,18 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
-> rows <!--check:alerts-->, `warning: High disk usage on /` and
-> `critical: alfred-career-mail-timer critical`, **2**
-> named here <!--check:open_titles-->. *(The critical is Session 147's,
+> packaged head <!--check:schema-->, and `alerts` holds **5** unresolved
+> rows <!--check:alerts-->, `warning: High disk usage on /`,
+> `critical: alfred-career-mail-timer critical`,
+> `info: venture-chat unreachable`,
+> `info: Project ImbaBots next action idle` and
+> `info: Estate port 8000 registry breach`, **5**
+> named here <!--check:open_titles-->. *(Re-counted 2026-09-02 by Session
+> 148; the block said 2 and the checker read 5. The three added are all
+> `info` and all quietened by design — the nightly arbitrated swap
+> `SNAG-AGENT-011` closed, an idle nudge the estate publishes, and a
+> transient dev-server port holder — so the rise is the quietening
+> families working, not three new faults.)* *(The critical is Session 147's,
 > and it is a **rise the monitor caused rather than a fault that
 > began**: the job had been failing for 20 days and only became sayable
 > when `SNAG-SYSD-005` was fixed. It is Alfred's to close, not ours. Its
