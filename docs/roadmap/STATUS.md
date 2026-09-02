@@ -35,8 +35,13 @@
 > detect"*. What ships is not a different spelling but a **sweep**:
 > `convention:disposition` reports absence over the whole open population
 > in every state, so forgetting is a number rather than a silence.
-> Today it reads **20 of 20 open entries declare no disposition**, and
-> entries gain the field as they are touched.
+> It read **20 of 20 open entries declare no disposition** on the day it
+> shipped; Session 158 annotated the seventeen entries owed nothing and
+> it now reads **3 of 20**, `blocked 4, decided 8, delegated 5`. The
+> three that remain are exactly the three measured `owed` —
+> `SNAG-LOG-013`, `SNAG-SVC-002` and `SNAG-DB-006` — so the undeclared
+> set and the work queue are the same set, which is what the sweep was
+> for.
 >
 > **The field is Alfred's, not a new one** — 60 of them there, none here,
 > and `estate.snags` has parsed it since it moved to the library. **The
@@ -1582,11 +1587,21 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
-> rows <!--check:alerts-->, `warning: High disk usage on /`,
-> `critical: alfred-career-mail-timer critical` and
-> `info: Project ImbaBots next action idle`, **3**
+> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
+> rows <!--check:alerts-->, `warning: High disk usage on /` and
+> `info: Project ImbaBots next action idle`, **2**
 > named here <!--check:open_titles-->. *(Re-counted 2026-09-02 by Session
+> 158, four hours after the re-count below and the same direction — a
+> **fall**, `SNAG-ESTATE-008`'s founding case twice in one day. The
+> departure is the `critical` the paragraph below calls Alfred's to
+> close, and Alfred closed it: `alfred-career-mail.service` was run by
+> hand at **20:47:54**, finished `Result=success` with `ExecMainStatus=0`,
+> and `_resolve_recovered` closed the row unaided at **20:50:08** on the
+> first healthy poll. The timer's `last_run` is **unchanged** at
+> `Wed 2026-09-02 08:20:00 BST` — the timer never fired, and what the
+> check reads since `SNAG-SYSD-005` is the service's result rather than
+> the timer's, which is that fix demonstrated on a fault it created the
+> visibility for.)* *(Re-counted 2026-09-02 by Session
 > 149; the block said 5 and the checker read 3 — `SNAG-ESTATE-008`'s
 > founding case, a **fall**, which is the direction that reads as
 > "an action this block asks for may already be done". Both departures

@@ -16,6 +16,45 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 158 — the seventeen entries owed nothing say so, and
+      the undeclared set is now the work queue.** *(2026-09-02.)*
+      `convention:disposition` went **20 of 20 → 3 of 20** by annotating
+      every open entry Session 157 measured as owing no work with
+      `- **Status:** Open — <disposition>`: **decided 8, delegated 5,
+      blocked 4**. What is left undeclared is exactly the three measured
+      `owed` — `SNAG-LOG-013`, `SNAG-SVC-002`, `SNAG-DB-006` — so the
+      sweep's residue and the work queue are the same set, which is the
+      property it was built for and not a coincidence to leave unstated.
+      **Each of the seventeen was read before it was classified**, not
+      taken off the tally: the four blocked divide into *a population*
+      (`SNAG-AGENT-012`, `SNAG-AGENT-013` — both fixes are one condition
+      waiting for something to test against), *an operational fact*
+      (`SNAG-DOCS-003`, where the wheel went) and *the owner*
+      (`SNAG-SVC-001`, whose two honest resolutions are both theirs).
+      **The remainder carries the reason, and the word carries the
+      verdict**, because `check_dispositions` reads only the first token
+      after `Open — ` — so a value can be honest about a residue without
+      moving its own bucket, which `SNAG-ESTATE-006` needed: delegated,
+      and never handed over in writing.
+      **The cross-repo hazard was proved rather than trusted**, twice.
+      The checker calls estate-manager's public `status_is_done` per
+      value and reported no closure; independently, their `read_snags`
+      was driven over the finished document and reads **122 entries, 20
+      open** — identical to `HEAD` — so none of the seventeen closed an
+      entry in the reader that publishes this estate's movement figures.
+      **Two live claims in `STATUS.md` were corrected in the same
+      sitting**, one of them this edit's own: the block's
+      `20 of 20` figure, and a **fall** the checker caught four hours
+      after Session 149's — `alfred-career-mail-timer critical` resolved
+      at **20:50:08** after the service was run by hand at 20:47:54 and
+      finished `Result=success`, with the timer's `last_run` unchanged
+      because the timer never fired. All **9** ops claims read `ok`
+      after and the claim *set* is identical either side, driven by stash
+      rather than counted — a disarmed marker removes a claim, and a
+      shorter list of `ok`s reads exactly like a clean one. Suite **3362 passed, 1 skipped**,
+      unmoved — a documentation change adds no test — with `ruff` and
+      `mypy` clean and all **22** other checks unmoved.
+
 - [x] **Session 157 — the register measured the condition and nothing
       measured the disposition.** *(2026-09-02.)* The next action this
       sitting was handed named `SNAG-TRAY-011`, whose remedy **Session 138
