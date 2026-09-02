@@ -3,6 +3,52 @@
 **Last Updated**: 2026-09-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The register measured whether each entry still holds and nothing
+> measured whether work was owed** (2026-09-02, Session 157). The next
+> action this sitting was handed named `SNAG-TRAY-011`, whose remedy
+> Session 138 had measured and refused on 2026-08-30 at `7be7643`, 25
+> commits back — and the refusal has sat in the entry's own **Decided**
+> bullet ever since. Session 156 read the bullet above it, *"Shape of a
+> fix as originally proposed"*, and stopped one short of the
+> `— refuted 2026-08-30, see the decision below` that closes its heading.
+> The refused remedy then went out estate-wide:
+> `GET :8400/api/projects/sysadmin_assistant` was serving it at
+> `findings.roadmap.next_action` when this sitting looked.
+>
+> **Re-measured rather than taken from the entry**, three days and 48,325
+> records on: **725,892** journal records over **22.52 days**, every one
+> `PRIORITY=6`, and **zero** at `WARNING` or above across the unit's whole
+> recorded life. Both of Session 138's gates are unmoved. The entry stays
+> open and its check still reports `ok`, which is a deliberate non-fix
+> working exactly as designed.
+>
+> **So the gap was never that entry's.** Classified across all twenty open
+> entries, four of them read in full rather than off their bullet
+> lead-ins: **3 owed**, **4 blocked**, **5 delegated**, **8 decided**. A
+> ranker picking off the open count alone had a **15 %** chance of landing
+> on work. `priority` cannot answer it and neither can a check — a check
+> answers *does this still hold*.
+>
+> **The obvious marker was already refused by an entry in this document.**
+> `SNAG-ESTATE-012` rejected a marker whose *"absence is
+> indistinguishable from forgetting it — the thing it is meant to
+> detect"*. What ships is not a different spelling but a **sweep**:
+> `convention:disposition` reports absence over the whole open population
+> in every state, so forgetting is a number rather than a silence.
+> Today it reads **20 of 20 open entries declare no disposition**, and
+> entries gain the field as they are touched.
+>
+> **The field is Alfred's, not a new one** — 60 of them there, none here,
+> and `estate.snags` has parsed it since it moved to the library. **The
+> hazard is their parser**: its completion vocabulary contains
+> `won't fix`, the natural English for the `decided` disposition, so such
+> a value would close the entry in the reader that publishes this
+> estate's movement figures. Every value is anchored with `Open — ` and
+> the check proves it per value by calling their **public**
+> `status_is_done` rather than restating their word list. Announced
+> before the commit at a measured audience — message
+> `70377694-c7e6-4cb8-9c92-7c9c3258f82b`.
+
 > **A red now says which of two things happened, and the observation had
 > to move inside the call to say it** (2026-09-02, Session 156).
 > `SNAG-TEST-003` is **fixed**, and it was the last open entry naming no
@@ -1431,13 +1477,21 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-02 17:25:00**
+> Daemon restarted at **2026-09-02 20:25:02**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since. Once this sitting, to deploy Session
-> 155's `action_from`, which the daemon *does* import: `GET
-> /api/services/actions` served the field within a second of coming
-> back, `timer_failed` on `alfred-career-mail-timer` and `""` on
-> `venture-chat`. *(Session 154's restart was 16:53:22, and was owed to
+> `ERROR`/`CRITICAL` lines since. Once this sitting, and **owed to the
+> claim rather than to the code** — Session 157 touched
+> `sysadmin/snag_claims.py`, which the daemon does not import, so the
+> deploy check reported a restart owed on a file it never loads; this is
+> Session 154's case exactly and the check's own stated cost, failing in
+> the direction that spends a needless `kill -TERM`. The two reads taken
+> *inside* the gap (`MainPID=0`, `ActiveState=activating`, `health=000`)
+> are the restart window and not a fault, which is the note two sentences
+> down read a second time. *(Session 155's restart was 17:25:00, and did
+> deploy code the daemon imports: `GET /api/services/actions` served
+> `action_from` within a second of coming back, `timer_failed` on
+> `alfred-career-mail-timer` and `""` on `venture-chat`.)*
+> *(Session 154's restart was 16:53:22, and was owed to
 > the claim rather than to the code — it touched
 > `sysadmin/snag_claims.py`, which the daemon does not import, and the
 > check compares file mtimes and cannot know the difference.)* `/health` answered 200 within 24 s, and the two reads

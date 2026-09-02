@@ -194,6 +194,54 @@ MARKER_RE = re.compile(r"<!--\s*check:\s*([a-z0-9_]+)\s*-->")
 #: :func:`strip_code_spans`.
 CODE_SPAN_RE = re.compile(r"(`+)[\s\S]*?\1")
 
+#: The four dispositions an open entry may declare about itself.  Not a
+#: severity and not a status: ``priority`` says how much the condition
+#: costs and :attr:`Entry.is_open` says whether it still obtains, and
+#: neither answers *is a sitting owed work here*.  Measured 2026-09-02
+#: against the twenty open entries, **three** were owed and the other
+#: seventeen were owed nothing — eight decided, five delegated, four
+#: blocked — so a ranker picking off the open count alone had a 15 %
+#: chance of landing on work.  It landed on ``SNAG-TRAY-011``, whose
+#: remedy a sitting had measured and refused three days earlier, and
+#: published that as this repository's next action.
+#:
+#: The vocabulary is **this repository's and deliberately small** (the
+#: owner's ruling of 2026-09-02, "fine only for me and you reading it").
+#: It is not offered to the estate as a convention, so nothing here
+#: derives from another repository's list and nothing publishes one.
+DISPOSITIONS: tuple[str, ...] = ("owed", "blocked", "decided", "delegated")
+
+#: What every declared status must open with.  **Load-bearing against
+#: another repository's parser, not decoration.**  ``estate.snags``
+#: reads a ``Status`` field in an entry's body as one of the two places
+#: an entry may declare its own closure, and its completion vocabulary
+#: contains ``won't fix`` — so the most natural English for the
+#: ``decided`` disposition would close the entry in the reader that
+#: publishes this estate's movement figures.  Anchoring every value with
+#: the word the parser leaves open makes that unreachable rather than
+#: merely documented, and :func:`check_dispositions` proves it per value
+#: by asking their ``status_is_done`` rather than by restating the word
+#: list — ``max_priority_for`` against ``PRIORITY_MAP``'s rule, across a
+#: repository boundary.
+DISPOSITION_PREFIX = "Open — "
+
+#: A ``Status`` field in an entry's body.  Written here rather than
+#: imported because estate-manager's equivalent is ``_STATUS_FIELD_RE``,
+#: a **private** name — and a private helper's name is what their next
+#: fix renames, which is the rule a cross-repo instrument is chosen by.
+#:
+#: The copy is safe in both directions, which is why the public symbol
+#: this module *does* import is the closure rule and not this.  Narrower
+#: than theirs, a declaration goes unseen and the entry is reported
+#: **undeclared** — loud, and the failure this check exists to make
+#: loud.  Wider than theirs, a line they do not read as a status is
+#: accepted here — and their closure rule never sees it, so the hazard
+#: the prefix exists for cannot arrive by that route either.
+STATUS_FIELD_RE = re.compile(
+    r"^\s*[-*]\s+\*{0,2}\s*status\b[^:*]{0,24}\*{0,2}\s*:\s*\*{0,2}\s*(.*)$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 #: A snag id, in this document's dialect.
 SNAG_ID_RE = re.compile(r"\b(SNAG-(?:[A-Z]+-)?\d+)\b")
 
@@ -7832,6 +7880,190 @@ def check_convention(entries: list[Entry], entries_problem: str) -> list[Finding
     return findings
 
 
+def owning_closure_rule() -> tuple[Callable[[str], bool] | None, str]:
+    """estate-manager's ``status_is_done``, or ``None`` and why not.
+
+    :func:`owning_parser`'s argument for one more public symbol.  The
+    hazard :data:`DISPOSITION_PREFIX` exists for belongs to *their*
+    reader — a ``Status`` value opening with a completion word closes
+    the entry in the parser that publishes this estate's movement — so
+    the question "would this value close the entry" is theirs to answer
+    and restating their word list here would be a second implementation
+    of somebody else's rule, free to drift the day they add one.
+
+    ``status_is_done`` is exported in ``estate.snags.__all__``.  That
+    matters rather than being a nicety: a private helper's name is what
+    their next fix renames, and an instrument that disappears under a
+    rename reports the hazard gone when nothing about it moved.
+    """
+    try:
+        from estate.snags import status_is_done
+    except Exception as exc:  # noqa: BLE001 — another repository's import graph
+        return None, f"estate.snags could not be imported ({exc.__class__.__name__}: {exc})"
+    return status_is_done, ""
+
+
+def declared_disposition(body: str) -> str | None:
+    """The first ``Status`` value an entry's body declares, or ``None``."""
+    match = STATUS_FIELD_RE.search(body)
+    if match is None:
+        return None
+    return match.group(1).strip() or None
+
+
+def check_dispositions(entries: list[Entry], entries_problem: str) -> list[Finding]:
+    """Does every open entry say whether a sitting is owed work on it?
+
+    **The register measures the condition and nothing measured the
+    disposition**, which is the gap this closes.  Every open entry
+    carries a check, and a check answers *does this still hold* — so
+    ``check_tray_report_unheard`` reporting ``ok`` is an entry working
+    exactly as designed, and says nothing about whether the remedy was
+    refused three days ago.  ``priority`` does not answer it either: a
+    P3 is a P3 whether it is owed, delegated or decided against.
+
+    Measured 2026-09-02 across the twenty open entries: **3 owed, 4
+    blocked, 5 delegated, 8 decided**.  ``SNAG-TRAY-011`` is in the
+    largest of those and its remedy had been measured and refused by
+    Session 138 on 2026-08-30; Session 156 read the entry's *"Shape of a
+    fix as originally proposed"* bullet, stopped one bullet short of the
+    *"— refuted 2026-08-30, see the decision below"* that follows it, and
+    published the refuted remedy as this repository's next action —
+    which ``claude-preflight.sh`` prints and ``roadmap.py`` republishes
+    verbatim.  So the cost is not hypothetical and it is not one
+    sitting's inattention: nothing in the document could have stopped it.
+
+    **The obvious marker was already refused by an entry in this
+    document, and it is refused here for that reason.**
+    ``SNAG-ESTATE-012`` rejected a ``<!--check:none reason-->`` marker as
+    *"a marker whose absence is indistinguishable from forgetting it —
+    the thing it is meant to detect"*.  A bare ``<!--disposition:x-->``
+    is that shape exactly.  What makes this one different is not the
+    spelling but the **sweep**: absence is reported over the whole open
+    population, in every state, so forgetting is a number rather than a
+    silence — ``ports_checked``'s rule, and :func:`check_convention`'s
+    ``SNAG-DOCS-006`` line one question along.
+
+    **The field is Alfred's convention, not a new one.**  Alfred writes
+    **60** ``Status:`` fields in its own snag list and one of them reads
+    *"Open — deliberately left unfixed, not missed"*; this repository
+    wrote **none**.  ``estate.snags`` has parsed that field since it
+    moved to the library.  So what ships is an adoption, which is why
+    the vocabulary in :data:`DISPOSITIONS` is local and unpublished
+    while the field it rides in is not.
+
+    Four states, and the last is the one a first draft gets wrong:
+
+    1. **A value their rule would close** is the hazard and leads the
+       note wherever it appears.  Population is zero today by
+       construction — no entry declares a status at all — which is
+       precisely why it is wired now rather than when the first one
+       does, since the value that closes an entry is invisible here and
+       loud only in another repository's published count.
+    2. **A value outside the vocabulary** is reported and not guessed at.
+    3. **Undeclared entries** are ``unknown``, counted against the open
+       total and named, capped at :data:`MAX_NAMED_ENTRIES` — a count
+       that cannot name anything is ``SNAG-ESTATE-001``'s defect.
+    4. **Every open entry declaring one** is ``match`` only *over a
+       population*.  A document with no open entries is ``unknown``, not
+       a clean sweep: nothing could have forced the other answer, and
+       zero-because-blind served as zero-because-clean is the defect one
+       function up.
+    """
+    if entries_problem:
+        return [
+            _convention(
+                "convention:disposition",
+                "Open entries declaring no disposition",
+                f"the sweep could not run — {entries_problem}",
+            )
+        ]
+
+    status_is_done, closure_problem = owning_closure_rule()
+
+    undeclared: list[str] = []
+    unknown_words: list[str] = []
+    would_close: list[str] = []
+    counts: dict[str, int] = {}
+    open_total = 0
+
+    for entry in entries:
+        if not entry.is_open:
+            continue
+        open_total += 1
+        name = entry.snag_id or entry.title[:40]
+        value = declared_disposition(entry.body)
+        if value is None:
+            undeclared.append(name)
+            continue
+        if status_is_done is not None and status_is_done(value):
+            would_close.append(f"{name}: {value[:60]!r} closes the entry in estate.snags")
+        remainder = value[len(DISPOSITION_PREFIX):] if value.startswith(DISPOSITION_PREFIX) else ""
+        word = remainder.split(",")[0].split(" ")[0].strip().lower()
+        if word in DISPOSITIONS:
+            counts[word] = counts.get(word, 0) + 1
+        else:
+            unknown_words.append(f"{name}: {value[:60]!r} declares no known disposition")
+
+    tally = ", ".join(f"{word} {counts[word]}" for word in DISPOSITIONS if word in counts)
+
+    if not open_total:
+        return [
+            _convention(
+                "convention:disposition",
+                "Open entries declaring no disposition",
+                "the document holds no open entry, so nothing could have been reported "
+                "undeclared — the absence of a population, not a clean one",
+            )
+        ]
+
+    detail: list[str] = [*would_close, *unknown_words]
+    if closure_problem:
+        detail.append(f"the closure hazard went unchecked — {closure_problem}")
+    if tally:
+        detail.append(f"declared: {tally}")
+
+    if would_close:
+        note = (
+            f"{len(would_close)} of {open_total} open entries declare a status that "
+            "estate.snags reads as a closure — their movement figures under-report by that many"
+        )
+    elif undeclared:
+        named = undeclared[:MAX_NAMED_ENTRIES]
+        if len(undeclared) > MAX_NAMED_ENTRIES:
+            named = [*named, f"… and {len(undeclared) - MAX_NAMED_ENTRIES} more"]
+        detail = [*named, *detail]
+        note = (
+            f"{len(undeclared)} of {open_total} open entries declare no disposition — "
+            "whether a sitting is owed work on them is not written down"
+        )
+    elif unknown_words:
+        note = (
+            f"{len(unknown_words)} of {open_total} open entries declare a status outside "
+            f"the vocabulary ({', '.join(DISPOSITIONS)})"
+        )
+    else:
+        return [
+            _convention(
+                "convention:disposition",
+                "Open entries declaring no disposition",
+                f"0 of {open_total} open entries declare no disposition — every one says "
+                "whether work is owed, and none of them closes itself in estate.snags",
+                tuple(detail),
+                verdict="match",
+            )
+        ]
+
+    return [
+        _convention(
+            "convention:disposition",
+            "Open entries declaring no disposition",
+            note,
+            tuple(detail),
+        )
+    ]
+
+
 def check_all(path: Path | None = None) -> list[Finding]:
     """Every check, then the convention findings, then the movement.
 
@@ -7849,6 +8081,7 @@ def check_all(path: Path | None = None) -> list[Finding]:
     return [
         *(run_check(CHECKS[key]) for key in sorted(CHECKS)),
         *check_convention(entries, problem),
+        *check_dispositions(entries, problem),
         check_movement(entries, path),
     ]
 

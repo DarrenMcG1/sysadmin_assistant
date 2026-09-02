@@ -16,6 +16,38 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 157 — the register measured the condition and nothing
+      measured the disposition.** *(2026-09-02.)* The next action this
+      sitting was handed named `SNAG-TRAY-011`, whose remedy **Session 138
+      had measured and refused** on 2026-08-30 at `7be7643`, 25 commits
+      back, in a **Decided** bullet the entry has carried ever since.
+      Session 156 read the bullet above it and stopped one short of the
+      `— refuted 2026-08-30, see the decision below` closing its heading;
+      the refused remedy went out estate-wide at
+      `findings.roadmap.next_action`. **Re-measured**: 725,892 journal
+      records over 22.52 days, every one `PRIORITY=6`, **zero** at
+      `WARNING` or above — both gates unmoved, the entry correctly still
+      open. **The gap is structural**: classified across all twenty open
+      entries (four read in full, three of which moved on reading),
+      **3 owed, 4 blocked, 5 delegated, 8 decided** — a 15 % chance of a
+      blind pick landing on work. `check_dispositions` sweeps the open
+      population and reports **20 of 20 undeclared** in every state,
+      because `SNAG-ESTATE-012` already refused a marker *"whose absence
+      is indistinguishable from forgetting it"* and a sweep is what
+      separates this from that. The field is **Alfred's** (60 there, none
+      here) and `estate.snags` parses it; its completion vocabulary
+      contains `won't fix`, so the natural English for `decided` would
+      close the entry in the reader publishing this estate's movement —
+      every value is anchored `Open — ` and proved per value against
+      their **public** `status_is_done`. **Check first at the owner's
+      direction**; entries gain the field as they are touched. Announced
+      before the commit at a measured audience —
+      `70377694-c7e6-4cb8-9c92-7c9c3258f82b`. **3349 → 3362**, 13 added
+      and none retired; four mutations each red on the tests about their
+      own rule, and the fully-declared stand-in returns `match` so the
+      check is not coupled to the unfixed document. All 22 existing
+      checks unmoved.
+
 - [x] **Session 156 — the red said the hazard was gone whatever had
       happened.** *(2026-09-02.)* `SNAG-TEST-003` **fixed**:
       `test_notify_send_does_not_return_on_a_bus_with_nothing_listening`

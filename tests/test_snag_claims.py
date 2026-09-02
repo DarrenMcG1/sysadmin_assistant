@@ -65,6 +65,7 @@ from sysadmin.snag_claims import (
     check_code_spans_survive,
     check_convention,
     check_deprecated_contracts,
+    check_dispositions,
     check_dropin_blind_spot,
     check_estate_port_8500,
     check_health_path_guess,
@@ -253,6 +254,142 @@ class TestQuotedMarkers:
         body = "  - ``the `<!--check:routes-->` marker`` would register as a claim"
         entries = read_entries(f"## Open Issues\n\n- [P1] SNAG-X-1: a thing (2026-08-01)\n{body}\n")
         assert entries[0].markers == ()
+
+
+# ---------------------------------------------------------------------------
+# The disposition
+# ---------------------------------------------------------------------------
+
+
+def _open(snag_id, body):
+    return snag_claims.Entry(
+        snag_id=snag_id, priority="P3", title=f"- [P3] {snag_id}: a thing", body=body, is_open=True
+    )
+
+
+def _status(value):
+    return f"  - **Status:** {value}\n  - **Symptom**: something"
+
+
+class TestDispositions:
+    """``SNAG-TRAY-011``'s sitting: the register measured the condition
+    and nothing measured whether work was owed.
+
+    Every test here is driven at a stand-in modelling the **fix** as well
+    as the defect, because a control that cannot report a landed fix
+    reports one for ever — ``check_review_schedule_unread``'s defect, and
+    the reason this class exists rather than a twenty-first check.
+    """
+
+    def test_an_undeclared_population_is_counted_and_named(self):
+        findings = check_dispositions([_open("SNAG-X-1", "  - **Symptom**: x")], "")
+        assert findings[0].verdict == "unknown"
+        assert "1 of 1 open entries declare no disposition" in findings[0].note
+        assert "SNAG-X-1" in findings[0].detail
+
+    def test_a_fully_declared_population_reports_match(self):
+        """The stand-in modelling the fix.  Without this the check is
+        coupled to the unfixed document and can only ever say ``??``."""
+        findings = check_dispositions(
+            [
+                _open("SNAG-X-1", _status("Open — decided, refused 2026-08-30")),
+                _open("SNAG-X-2", _status("Open — delegated to estate-manager")),
+            ],
+            "",
+        )
+        assert findings[0].verdict == "match"
+        assert "0 of 2" in findings[0].note
+        assert "decided 1, delegated 1" in findings[0].detail[-1]
+
+    def test_a_value_the_owning_parser_would_close_leads_the_note(self):
+        """The hazard the prefix exists for, asked of *their* rule.
+
+        ``won't fix`` is the natural English for ``decided`` and is in
+        ``estate.snags``' completion vocabulary, so the entry would leave
+        the open count in the reader that publishes this estate's
+        movement figures.  Population is zero today by construction.
+        """
+        findings = check_dispositions([_open("SNAG-X-1", _status("Won't fix — measured"))], "")
+        assert findings[0].verdict == "unknown"
+        assert "estate.snags reads as a closure" in findings[0].note
+        assert any("closes the entry" in item for item in findings[0].detail)
+
+    def test_the_anchored_form_of_the_same_refusal_does_not_close(self):
+        """The falsification of the test above — same judgement, anchored."""
+        findings = check_dispositions(
+            [_open("SNAG-X-1", _status("Open — decided, won't fix, measured"))], ""
+        )
+        assert findings[0].verdict == "match"
+
+    def test_a_word_outside_the_vocabulary_is_reported_not_guessed(self):
+        findings = check_dispositions([_open("SNAG-X-1", _status("Open — wontfix, measured"))], "")
+        assert findings[0].verdict == "unknown"
+        assert "outside the vocabulary" in findings[0].note
+
+    def test_every_disposition_in_the_vocabulary_is_accepted(self):
+        """Falsifies the parse rather than one word of it: a reader that
+        split on the wrong token would pass for some and not others."""
+        entries = [
+            _open(f"SNAG-X-{n}", _status(f"{snag_claims.DISPOSITION_PREFIX}{word}, because"))
+            for n, word in enumerate(snag_claims.DISPOSITIONS)
+        ]
+        findings = check_dispositions(entries, "")
+        assert findings[0].verdict == "match", findings[0].note
+
+    def test_a_closed_entry_is_outside_the_population(self):
+        closed = dataclasses.replace(_open("SNAG-X-1", "  - **Symptom**: x"), is_open=False)
+        findings = check_dispositions([closed], "")
+        assert "no open entry" in findings[0].note
+
+    def test_no_open_entries_is_unknown_and_never_a_clean_sweep(self):
+        """``ports_checked``'s rule — zero-because-blind is not zero-because-clean."""
+        findings = check_dispositions([], "")
+        assert findings[0].verdict == "unknown"
+        assert "absence of a population" in findings[0].note
+
+    def test_an_unreadable_document_reports_why_rather_than_going_silent(self):
+        findings = check_dispositions([], "the file could not be read (OSError)")
+        assert findings[0].verdict == "unknown"
+        assert "OSError" in findings[0].note
+
+    def test_the_overflow_is_stated_rather_than_dropped(self):
+        """``SNAG-ESTATE-001``'s rule, inherited from the sibling above."""
+        entries = [_open(f"SNAG-X-{n}", "  - **Symptom**: x") for n in range(12)]
+        findings = check_dispositions(entries, "")
+        assert any("and 4 more" in item for item in findings[0].detail)
+
+    def test_the_closure_rule_is_the_owning_parsers_public_symbol(self):
+        """Not a restatement of ``won't fix`` here.
+
+        A cross-repo instrument must be public — a private helper's name
+        is what their next fix renames — so this asserts the symbol is
+        exported rather than merely importable.
+        """
+        import estate.snags
+
+        assert "status_is_done" in estate.snags.__all__
+        rule, problem = snag_claims.owning_closure_rule()
+        assert problem == "" and rule is not None
+        assert rule("Won't fix — x") and not rule("Open — decided, won't fix")
+
+    def test_the_hazard_going_unchecked_is_reported_and_not_assumed_absent(self):
+        """A missing owning parser must not read as a clean hazard sweep."""
+        with patch.object(snag_claims, "owning_closure_rule", lambda: (None, "estate.snags gone")):
+            findings = check_dispositions([_open("SNAG-X-1", _status("Open — owed"))], "")
+        assert any("went unchecked" in item for item in findings[0].detail)
+
+    def test_the_finding_is_published_in_every_state(self):
+        """``SNAG-DOCS-006``'s rule.  A check silent when all is well is
+        indistinguishable from one deleted, renamed or failing to run."""
+        for entries, problem in (
+            ([], ""),
+            ([], "unreadable"),
+            ([_open("SNAG-X-1", "  - **Symptom**: x")], ""),
+            ([_open("SNAG-X-1", _status("Open — owed"))], ""),
+        ):
+            findings = check_dispositions(entries, problem)
+            assert len(findings) == 1
+            assert findings[0].key == "convention:disposition"
 
 
 # ---------------------------------------------------------------------------
