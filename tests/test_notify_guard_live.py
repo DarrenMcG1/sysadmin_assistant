@@ -59,10 +59,23 @@ killed waiters with a global ``pkill`` and
 :meth:`test_asking_does_not_start_the_waiter_that_calling_starts` counted
 them with a global ``pgrep``, so both asked a question about *the box*
 and reported it as a question about this fixture. Four tests take the
-fixture — pinned by an AST walk, because two of the four have multi-line
-signatures and a grep sees only two — and a body-level ``pytest.skip``
-runs *after* fixture setup, so all four teardowns fire on any box with
-``dbus-daemon``. Four global kills, against a threshold of three.
+fixture — counted by an ``ast`` walk when the entry was filed, because two
+of the four have multi-line signatures and a ``def``-line grep sees only
+two — and a body-level ``pytest.skip`` runs *after* fixture setup, so all
+four teardowns fire on any box with ``dbus-daemon``. Four global kills,
+against a threshold of three.
+
+**That count is not pinned by anything, and deliberately is not.** Both
+the entry and an earlier draft of this docstring said it was; nothing in
+the repository ever walked this file for it. It is left unpinned rather
+than built, because the number stopped deciding anything the moment the
+kills were scoped: four scoped kills reach four processes this fixture
+started, and forty would. Pinning it now would be pinning an arithmetic
+whose threshold no longer exists. What *is* pinned is the property that
+replaced it — ``tests/test_live_drive_scoping.py`` refuses a box-wide
+process selector in any live drive, which is the thing a future edit can
+break and whose failure mode is silent: a reintroduced global ``pkill``
+leaves this file green in isolation and turns a **peer's** run red.
 
 The threshold is the mechanism, and one kill is not a small version of
 three. Measured 2026-08-31 against a private bus with a real blocked
