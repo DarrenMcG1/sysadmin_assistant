@@ -16,6 +16,36 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 150 — the filed action was already done, and the
+      reassurance about our own surface was wrong.** *(2026-09-02.)*
+      Estate message `00b631ec` was found **already closed** (07:11:24
+      local) with its three corrections sitting **uncommitted**;
+      verified against the box — `last_audit.checks_run` reads **13**
+      for the 05:35 UTC run — and committed as `47ae71f`. Both sites
+      stating the *excluded* count moved to "Eleven" as well, since
+      moving the named numeral alone would have traded a stale figure
+      for a wrong sum. **Inbox cleared**: `b0d602e1`, `68ff9116` and
+      `c3228a22` closed with notes naming the artefact each verdict was
+      read from; nothing was owed by any of them, and `sysadmin-review`
+      was confirmed no-swap in their shipped `service/profiles.yaml`.
+      **One correction filed back** as `5c3258a4`: `68ff9116` claims
+      `/api/queue/invariants` projects `active_lease` to five columns,
+      but `arbiter.py:223` is `SELECT *`, `api.py:55` `_public` drops no
+      key and `schema.sql:20` makes `started_units` a real column — so
+      the surface this repository judges **does** gain the key on the
+      next grant. It reads `null` live and always has, so only the
+      source could witness the key set.
+- [ ] **Pre-stage the `started_units` assertion.** Nothing here asserts
+      that `active_lease` gains `started_units` when a lease is granted,
+      and the population is empty until one is — this repository's
+      idiom for cross-repo work it cannot trigger is a pre-staged
+      assertion that begins running the first day it could catch
+      anything (`judge_attention`'s live half is the precedent). It
+      costs nothing today: `judgements.py:1675` carries `active_lease`
+      into `details` verbatim, and `snag_claims.QUEUE_LEASE_STAMPS`
+      already reports an unpublished field as an absence rather than
+      raising. Offered to Session 150 as a next action and **refused a
+      sitting**, not forgotten.
 - [x] **Session 149 — one fault occupies one row, and the entry had
       measured half its own population.** *(2026-09-02.)*
       `SNAG-SYSD-006` **fixed**: `group_faults` + `_folded_row` in
