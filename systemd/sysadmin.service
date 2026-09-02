@@ -1,7 +1,18 @@
 [Unit]
 Description=SysAdmin Infrastructure Monitoring Service
 Documentation=file:///home/gaddi/projects/sysadmin_assistant/docs/roadmap/tasks.md
-After=network.target postgresql.service ollama.service
+# Session 158, closing SNAG-SYSD-003. `ollama.service` was named here
+# until 2026-09-02 and had been retired on 2026-07-24, when the LLM
+# runtime moved to llama.cpp. Nothing replaces it, and that question was
+# settled by measurement rather than by argument: `alfred-inference.service`
+# is a USER unit at ~/.config/systemd/user/ and reports
+# `LoadState=not-found` in the system manager, which is where this unit
+# lives — a system unit cannot order against a user unit, so naming it
+# would rebuild the same defect under a newer name. Nor is it wanted:
+# this service does not need inference to start, and all three weekly
+# reviews fall back to a deterministic digest when llama-server is
+# absent. `Wants=` is where a real need is expressed, and it names one.
+After=network.target postgresql.service
 Wants=postgresql.service
 
 # Session 39. Restart=always below never gives up, so a daemon that

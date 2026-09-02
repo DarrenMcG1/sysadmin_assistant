@@ -16,6 +16,52 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 158b — a `decided` entry closed by measuring the question
+      it reserved.** *(2026-09-02.)* `SNAG-SYSD-003` **fixed** at the
+      owner's direction, an hour after being annotated `decided`, which is
+      the disposition field behaving correctly rather than a contradiction
+      — a `decided` value records a decision that can be re-opened, and
+      the register said whose call it was. `sysadmin.service` ordered
+      `After=… ollama.service` for a runtime retired 2026-07-24. **The
+      successor question the entry reserved is not a matter of
+      preference**: `alfred-inference.service` is a **user** unit at
+      `~/.config/systemd/user/` and reads `LoadState=not-found` in the
+      **system** manager where `sysadmin.service` lives, so a system unit
+      cannot order against it and naming it would have rebuilt this
+      entry's own defect under a newer name. One name removed, nothing
+      put in its place, and the removal carries an eleven-line comment so
+      the next reader does not re-open it.
+      **The check retired and the detector did not** —
+      `check_sysd_ollama_ordering` left `CHECKS`
+      (`test_every_checked_entry_is_open` makes that mandatory, not tidy)
+      and `tests/test_unit_ordering_live.py` is where it went, **wider
+      than the entry on purpose**: the entry's stated cost was never the
+      one name but that the unit file is read as the record and whoever
+      derives a unit from it copies the staleness forward, so the guard
+      asserts *every* unit named in `After=` resolves.
+      **`RETIRED_UNIT` outlived its check by acquiring a second job** —
+      the guard's negative control, because a sweep asserting every
+      ordered unit resolves cannot tell health from a `systemctl` that
+      says `loaded` to everything. Five mutations driven, each red on the
+      tests about its own rule; the two worth carrying are the reader
+      answering `loaded` to everything, which turns the control red
+      **alone** while the sweep stays green, and naming
+      `alfred-inference.service`, which is the successor ruling
+      demonstrated rather than asserted.
+      **`SNAG-ESTATE-006` keeps its `delegated` value and loses the
+      handover clause** (owner's ruling): no filing is wanted, the cost is
+      measured at none, and `check_audit_code_unpublished` reads their live
+      route every sitting — so the delegation is watched rather than
+      merely remembered, which is what a message would have bought.
+      `convention:disposition` **3 of 19**, `blocked 4, decided 7,
+      delegated 5`; the estate's own `read_snags` agrees at 122 entries /
+      19 open with `SNAG-SYSD-003` `is_open=False, fixed_at=2026-09-02`.
+      Suite **3363** (3362 + 4 new − 3 retired), `ruff` and `mypy` clean.
+      **The box was one `sudo` behind and is said so in `STATUS.md`**:
+      `/etc/systemd/system/sysadmin.service` still carries the old line
+      and no restart is implied by it, since `After=` decides ordering at
+      start and nothing else.
+
 - [x] **Session 158 — the seventeen entries owed nothing say so, and
       the undeclared set is now the work queue.** *(2026-09-02.)*
       `convention:disposition` went **20 of 20 → 3 of 20** by annotating

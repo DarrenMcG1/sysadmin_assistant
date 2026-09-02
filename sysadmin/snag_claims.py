@@ -652,8 +652,21 @@ def schema_sql(template: str) -> str:
 # The checks
 # ---------------------------------------------------------------------------
 
-#: The unit file whose ordering ``SNAG-SYSD-003`` is about, and the unit
-#: it names that no longer exists.
+#: The unit file whose ordering ``SNAG-SYSD-003`` was about, and the unit
+#: it named that no longer exists.
+#:
+#: **Both outlive the check that retired with that entry on 2026-09-02**,
+#: which is ``FROZEN_TABLES``' rule and ``RETIRED_LEAVES``' precedent one
+#: constant over: their consumer is now
+#: ``tests/test_unit_ordering_live.py``, the regression guard the closure
+#: re-homed the detector as.  :data:`RETIRED_UNIT` earns its keep by
+#: acquiring a **second job** rather than by being kept for sentiment —
+#: it is that guard's negative control.  A sweep asserting that every
+#: unit named in ``After=`` resolves cannot tell a healthy answer from a
+#: ``systemctl`` that says ``loaded`` to everything, so the guard reads a
+#: name it knows to be absent and requires ``not-found`` back.  The day
+#: Ollama is reinstalled here the control resolves and the premise fails
+#: loudly, which is the retired check's second limb surviving its first.
 SYSADMIN_UNIT = REPO_ROOT / "systemd" / "sysadmin.service"
 RETIRED_UNIT = "ollama.service"
 
@@ -715,44 +728,6 @@ ESTATE_NUDGE_MODULES = (
 #: over", and a check that could not see that would report such a fix as
 #: a clean closure.
 NUDGE_WORDING = ("title", "message", "details")
-
-
-def check_sysd_ollama_ordering() -> Measurement:
-    """``SNAG-SYSD-003`` — a retired unit still named in ``After=``.
-
-    Two halves, and they are reported apart because they refute the entry
-    for opposite reasons: the ordering line losing ``ollama.service`` is
-    the *fix*, and ``ollama.service`` coming back is the claim's premise
-    dying while the line stands.  A single boolean would report a
-    reinstalled Ollama as a job well done.
-    """
-    try:
-        unit_text = SYSADMIN_UNIT.read_text(encoding="utf-8")
-    except OSError as exc:
-        return Measurement("unknown", f"{_rel(SYSADMIN_UNIT)} ({exc.__class__.__name__})")
-    ordering = [line for line in unit_text.splitlines() if line.startswith("After=")]
-    if not ordering:
-        return Measurement("unknown", f"{_rel(SYSADMIN_UNIT)} declares no After=")
-    named = any(RETIRED_UNIT in line for line in ordering)
-    state = unit_load_state(RETIRED_UNIT)
-    detail = (f"{ordering[0]}", f"{RETIRED_UNIT} LoadState={state}")
-    if state.startswith("unmeasured"):
-        return Measurement("unknown", f"systemd would not answer for {RETIRED_UNIT}", detail)
-    if named and state == "not-found":
-        return Measurement("match", "", detail)
-    if not named:
-        return Measurement(
-            "mismatch",
-            f"the After= line no longer names {RETIRED_UNIT} — the entry describes an "
-            "ordering that has been edited",
-            detail,
-        )
-    return Measurement(
-        "mismatch",
-        f"{RETIRED_UNIT} is {state} rather than not-found — the ordering is stale "
-        "prose no longer, it is a live dependency, and the entry's remedy is wrong",
-        detail,
-    )
 
 
 def _docstring_nodes(tree: ast.Module) -> set[int]:
@@ -2339,7 +2314,9 @@ def check_health_path_guess() -> Measurement:
     say which: the generator learning to *look* is the **fix**, while
     the box's services converging on the contract's path is the claim's
     **premise** dying with the generator unchanged.
-    :func:`check_sysd_ollama_ordering`'s split, one entry over.
+    ``check_sysd_ollama_ordering``'s split, one entry over — that check
+    left the registry with ``SNAG-SYSD-003`` on 2026-09-02 and its split
+    survives as ``tests/test_unit_ordering_live.py``'s two assertions.
 
     **The counted figures are re-measured and never restated.**  4, 7
     and 11 appear nowhere here.  What stops the entry's figure
@@ -4642,9 +4619,11 @@ def check_queue_stamps_local() -> Measurement:
 
     **The complaint and the premise refute the entry for opposite
     reasons**, so they are reported apart —
-    :func:`check_sysd_ollama_ordering`'s rule, which
+    ``check_sysd_ollama_ordering``'s rule, which
     ``SNAG-ESTATE-004``'s check also carried until it left the registry
-    with its entry on 2026-08-27.  The queue starting to stamp
+    with its entry on 2026-08-27, and which that check followed out on
+    2026-09-02.  Two of the three founders are gone and the rule is not;
+    it is stated here because this is where it is still applied.  The queue starting to stamp
     UTC is the fix.  The *sibling* engine ceasing to is the entry's
     premise dying with its complaint intact — the two surfaces would
     agree again, at the wrong end — and a single boolean would file that
@@ -7111,12 +7090,6 @@ class Check:
 CHECKS: dict[str, Check] = {
     check.key: check
     for check in (
-        Check(
-            "sysd_ollama_ordering",
-            "SNAG-SYSD-003",
-            "sysadmin.service orders after a retired unit",
-            check_sysd_ollama_ordering,
-        ),
         Check(
             "run_status_cancelled",
             "SNAG-DB-006",

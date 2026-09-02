@@ -70,7 +70,6 @@ from sysadmin.snag_claims import (
     check_estate_port_8500,
     check_health_path_guess,
     check_run_status_cancelled,
-    check_sysd_ollama_ordering,
     check_tray_report_unheard,
     check_unmarked_sentence_invisible,
     check_unswept_port_is_loud,
@@ -781,33 +780,6 @@ class TestChecksAgainstTheLiveBox:
     grep and Session 81's fix-word predictor both passed while measuring
     the wrong thing.
     """
-
-    def test_sysd_ordering_holds_and_is_refuted_by_an_edited_after_line(self):
-        assert check_sysd_ollama_ordering().verdict == "match"
-        with tempfile.TemporaryDirectory() as tmp:
-            unit = Path(tmp) / "sysadmin.service"
-            unit.write_text("[Unit]\nAfter=network.target postgresql.service\n", encoding="utf-8")
-            with patch.object(snag_claims, "SYSADMIN_UNIT", unit):
-                measurement = check_sysd_ollama_ordering()
-        assert measurement.verdict == "mismatch"
-        assert "no longer names" in measurement.note
-
-    def test_sysd_ordering_is_refuted_the_other_way_when_ollama_returns(self):
-        """The two refutations are opposite and must not share a sentence.
-
-        The line losing ``ollama.service`` is the fix; ``ollama.service``
-        resolving again is the claim's premise dying while the line
-        stands, and reporting a reinstalled Ollama as a job well done is
-        the failure a single boolean would produce.
-        """
-        with patch.object(snag_claims, "unit_load_state", lambda unit: "loaded"):
-            measurement = check_sysd_ollama_ordering()
-        assert measurement.verdict == "mismatch"
-        assert "rather than not-found" in measurement.note
-
-    def test_sysd_ordering_is_unknown_when_systemd_will_not_answer(self):
-        with patch.object(snag_claims, "unit_load_state", lambda unit: "unmeasured (OSError)"):
-            assert check_sysd_ollama_ordering().verdict == "unknown"
 
     def test_run_status_holds_and_is_refuted_by_a_written_row(self):
         assert check_run_status_cancelled().verdict == "match"
@@ -4220,7 +4192,7 @@ def create_engine_and_session(dsn):
     ):
         """Both surfaces agreeing at the wrong end is a closure to judge.
 
-        :func:`check_sysd_ollama_ordering`'s rule, which
+        ``check_sysd_ollama_ordering``'s rule, which
         ``SNAG-ESTATE-004``'s check carried until it left the registry
         with its entry on 2026-08-27: a single boolean over the two
         halves would file a *deleted* guarantee as a job well done.
@@ -5934,8 +5906,11 @@ def _unknown_branch_coverage(
 
     **The looseness is deliberate and is stated rather than tightened.** A
     class that names a key only in passing while asserting ``unknown``
-    about a different one counts as coverage: ``TestTheQueueTimezoneCheck``
-    names ``sysd_ollama_ordering`` that way today.  So this is a floor on
+    about a different one counts as coverage.  ``TestTheQueueTimezoneCheck``
+    named ``sysd_ollama_ordering`` that way until 2026-09-02, when that key
+    left the registry with ``SNAG-SYSD-003``; the looseness is a property
+    of the walker rather than of that example, so the sentence outlives
+    the instance it was measured on.  So this is a floor on
     the habit and not a proof of it — every key it reports is also
     reported by the class that owns it, measured, and a sweep that
     demanded sole ownership would be a different claim from the one

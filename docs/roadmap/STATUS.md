@@ -3,6 +3,43 @@
 **Last Updated**: 2026-09-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A `decided` entry closed by measuring the question it reserved**
+> (2026-09-02, Session 158). `SNAG-SYSD-003` is **fixed**:
+> `sysadmin.service` ordered `After=… ollama.service` for a runtime
+> retired on 2026-07-24, and the entry reserved *"whether this service
+> should order against `alfred-inference.service` at all"* as the
+> question to settle first. It is not a question about preference. That
+> unit is a **user** unit at `~/.config/systemd/user/` and reads
+> `LoadState=not-found` in the **system** manager, where
+> `sysadmin.service` lives — a system unit cannot order against a user
+> unit, so the named successor would have rebuilt this entry's own defect
+> under a newer name. One name removed, nothing put in its place.
+>
+> **The check retired and the detector did not**, `FROZEN_TABLES`' rule a
+> fourth time — and the guard is **wider than the entry** on purpose.
+> `tests/test_unit_ordering_live.py` asserts that *every* unit named in
+> `After=` resolves, because the entry's stated cost was never the one
+> name but that the unit file is read as the record and whoever derives a
+> unit from it copies the staleness forward. `RETIRED_UNIT` outlived its
+> check by taking a **second job**: a sweep asserting every ordered unit
+> resolves cannot tell health from a `systemctl` that says `loaded` to
+> everything, so `ollama.service` is now that guard's negative control and
+> must come back `not-found`. Five mutations driven, each red on the tests
+> about its own rule — including the reader answering `loaded` to
+> everything, which turns the control red **alone** while the sweep stays
+> green, and naming `alfred-inference.service`, which is the successor
+> ruling demonstrated rather than asserted.
+>
+> **The box is one `sudo` behind the checkout and it is said rather than
+> left to be found**: `/etc/systemd/system/sysadmin.service` was
+> byte-identical to the repo copy before this edit and still carries the
+> old line. The install is
+> `sudo cp systemd/sysadmin.service /etc/systemd/system/ && sudo systemctl daemon-reload`,
+> which this session could not run (`sudo -n` wants a password here), and
+> **no restart is implied** — `After=` decides ordering at start and
+> nothing else, so the running daemon is unaffected either way.
+> `systemd-analyze verify` is clean on the edited file.
+
 > **The register measured whether each entry still holds and nothing
 > measured whether work was owed** (2026-09-02, Session 157). The next
 > action this sitting was handed named `SNAG-TRAY-011`, whose remedy
@@ -37,11 +74,13 @@
 > in every state, so forgetting is a number rather than a silence.
 > It read **20 of 20 open entries declare no disposition** on the day it
 > shipped; Session 158 annotated the seventeen entries owed nothing and
-> it now reads **3 of 20**, `blocked 4, decided 8, delegated 5`. The
+> it now reads **3 of 19**, `blocked 4, decided 7, delegated 5`. The
 > three that remain are exactly the three measured `owed` —
 > `SNAG-LOG-013`, `SNAG-SVC-002` and `SNAG-DB-006` — so the undeclared
 > set and the work queue are the same set, which is what the sweep was
-> for.
+> for. The nineteenth is `SNAG-SYSD-003`, closed the same afternoon: a
+> `decided` disposition records a decision that can be re-opened, not a
+> closure, and this one was re-opened by the owner within the hour.
 >
 > **The field is Alfred's, not a new one** — 60 of them there, none here,
 > and `estate.snags` has parsed it since it moved to the library. **The
@@ -1482,17 +1521,28 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-02 20:25:02**
+> Daemon restarted at **2026-09-02 21:25:02**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since. Once this sitting, and **owed to the
-> claim rather than to the code** — Session 157 touched
+> `ERROR`/`CRITICAL` lines since; PID 3412364 → 3524153, back in 10 s on
+> `Restart=always`, no `sudo`. Owed to the claim rather than to the code,
+> which is now **three of the last five sittings** (154, 157, 158b; 155
+> deployed code the daemon really does import) — Session 158b touched
+> `sysadmin/snag_claims.py` retiring a check, and nothing under
+> `sysadmin/` imports that module: measured, its only four mentions there
+> are docstring prose, and its single entry point is the
+> `sysadmin-check-snags` console script. Three in five is a pattern rather
+> than a run of bad luck, and the mechanism is the check's own stated
+> cost — it compares file mtimes across all of `sysadmin/`, and the module
+> this repository edits most often for register work is one the daemon
+> never loads. *(Session 157's restart was
+> 20:25:02, and was owed to the claim rather than to the code — it touched
 > `sysadmin/snag_claims.py`, which the daemon does not import, so the
 > deploy check reported a restart owed on a file it never loads; this is
 > Session 154's case exactly and the check's own stated cost, failing in
 > the direction that spends a needless `kill -TERM`. The two reads taken
 > *inside* the gap (`MainPID=0`, `ActiveState=activating`, `health=000`)
 > are the restart window and not a fault, which is the note two sentences
-> down read a second time. *(Session 155's restart was 17:25:00, and did
+> down read a second time.)* *(Session 155's restart was 17:25:00, and did
 > deploy code the daemon imports: `GET /api/services/actions` served
 > `action_from` within a second of coming back, `timer_failed` on
 > `alfred-career-mail-timer` and `""` on `venture-chat`.)*
@@ -1601,7 +1651,26 @@
 > `Wed 2026-09-02 08:20:00 BST` — the timer never fired, and what the
 > check reads since `SNAG-SYSD-005` is the service's result rather than
 > the timer's, which is that fix demonstrated on a fault it created the
-> visibility for.)* *(Re-counted 2026-09-02 by Session
+> visibility for. **Whether the repair holds is not measured yet and is
+> deliberately not claimed**: the evidence is one hand-run success, and
+> the next *scheduled* firing at 08:20 is the first observation the
+> timer itself supplies, so a sitting re-counting before then reads the
+> same 2 and must not read it as confirmation.)* *(A third row —
+> `warning: Unusual CPU usage` — opened at **21:20:04** while this block
+> was being rewritten and is deliberately **not** counted into the figure
+> above. That family is resolved by id in `_check_anomalies` and its
+> historic rows have a **5m08s median lifetime across 37 of them**
+> (min 5m02s, max 1h15m), which is exactly the volatility the paragraph
+> below says to write the **steady** figure through, and a rise is the
+> direction that costs nothing — it is the *fall* that reads as "an
+> action this block asks for may already be done". It cleared at
+> **21:30:04**, on the first `sysadmin` run after the restart, and *why
+> it outlived its own median is the restart rather than the CPU*: that
+> agent has no first-run delay, so a `kill -TERM` resets the 300 s cycle
+> and nothing re-measured the anomaly between 21:25:02 and 21:30:04.
+> A sitting that restarts the daemon should expect every by-id-resolved
+> family to look stuck for one interval, which is an artefact of the
+> restart and not a fault.)* *(Re-counted 2026-09-02 by Session
 > 149; the block said 5 and the checker read 3 — `SNAG-ESTATE-008`'s
 > founding case, a **fall**, which is the direction that reads as
 > "an action this block asks for may already be done". Both departures
