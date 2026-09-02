@@ -110,6 +110,7 @@ import re
 import subprocess  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
 import sys
 import tempfile
+import uuid
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -122,13 +123,20 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 from sysadmin import ops_claims
+from sysadmin.core.agent import ALERT_RAISED_EVENT
 from sysadmin.core.config import (
     REPO_ROOT,
     get_config,
 )
-from sysadmin.core.escalation import humanise_hours
+from sysadmin.core.escalation import (
+    QUIETEST_SEVERITY,
+    humanise_hours,
+    may_quieten_in_place,
+)
 from sysadmin.core.schema_guard import EXIT_STATUS, SchemaVerdict
 from sysadmin.core.text import strip_markdown
+from sysadmin.core.unit_failure import OWN_UNIT
+from sysadmin.monitor.agent import RUNG_LEFT_STALE_EVENT
 
 if TYPE_CHECKING:  # pragma: no cover — annotations only
     from collections.abc import Awaitable, Mapping
@@ -6016,6 +6024,442 @@ def check_reload_unjudged_config() -> Measurement:
 
 
 # ---------------------------------------------------------------------------
+# SNAG-AGENT-012 — a fault that outlives its lease keeps the quiet rung
+# ---------------------------------------------------------------------------
+
+#: The rung a standing ``% unreachable`` row is left at once
+#: ``SNAG-AGENT-011`` has quietened it under an estate lease, and the one
+#: the drive below opens its probe row at.  Derived rather than written,
+#: :func:`~sysadmin.core.escalation.may_quieten_in_place`'s own rule 1
+#: read from the caller's side: ``info`` and ``QUIETEST_SEVERITY`` are
+#: spelled identically and only provenance separates them.
+FLOOR_RUNG = QUIETEST_SEVERITY
+
+#: What the run judges the probe fault to be on the poll after the lease
+#: releases — the arbiter's ``_restore`` having failed to start the unit
+#: back.  The loudest rung, because that is the case the entry is about:
+#: a genuine outage refused at the floor.
+STALE_JUDGED_RUNG = "critical"
+
+#: How many rows the drive's probe title is allowed to reach.  A read
+#: bounded by the judgement rather than by the table
+#: (``SNAG-AGENT-005``), and generous enough that the resolve-and-re-raise
+#: fix's two rows are counted rather than truncated into looking like one.
+STALE_PROBE_ROW_CAP = 8
+
+#: Rows in ``log_entries`` carrying the trigger event, and the witness
+#: that such a row would be visible there at all.  Both scoped to
+#: :data:`~sysadmin.core.unit_failure.OWN_UNIT`, because
+#: ``log_entries.source`` holds the **unit** — which is also what makes
+#: the entry's *"that is not a test's"* answerable: a test runs in the
+#: sitting's own process and never under this unit, so a row here is by
+#: construction the running daemon's.
+#:
+#: The schema is a ``{schema}`` placeholder rather than a literal, filled
+#: by :func:`rung_sql` at call time: ``query_one`` opens a connection with
+#: no ``search_path`` set, so an unqualified name resolves to ``public``
+#: and every one of these answers ``ProgrammingError`` — which
+#: :func:`query_one` reports as "the database did not answer", a sentence
+#: about the wrong fault.  Deriving it also keeps the ``projects``
+#: database's *other* application's tables out of reach by construction,
+#: which is ``schema_guard``'s rule 2 at the size of a note.
+RUNG_STALE_LINES_SQL = (
+    "SELECT count(*) FROM {schema}.log_entries "
+    f"WHERE source = '{OWN_UNIT}' AND message = '{RUNG_LEFT_STALE_EVENT}'"
+)
+RUNG_STALE_NEWEST_SQL = (
+    "SELECT max(logged_at) FROM {schema}.log_entries "
+    f"WHERE source = '{OWN_UNIT}' AND message = '{RUNG_LEFT_STALE_EVENT}'"
+)
+RUNG_STALE_WITNESS_SQL = (
+    "SELECT count(*) FROM {schema}.log_entries "
+    f"WHERE source = '{OWN_UNIT}' AND message = '{ALERT_RAISED_EVENT}'"
+)
+
+#: The family the entry is about, for the note's ranking clause.  Its
+#: population being zero is what makes this a ``P3``; the entry measured
+#: it at 30,716 rows and 0 open on 2026-08-31, and the total falls by
+#: retention while the *open* count is the half that matters.
+UNREACHABLE_OPEN_SQL = (
+    "SELECT count(*) FROM {schema}.alerts "
+    "WHERE title LIKE '% unreachable' AND resolved = FALSE"
+)
+
+
+def rung_sql(template: str) -> str:
+    """One of the statements above, qualified with the configured schema.
+
+    Read at call time rather than at import: the schema is configuration,
+    and a module-level ``f"{get_config()...}"`` pins whatever happened to
+    be loaded when this module was first imported — which for a report
+    run by a shell script is before anything has chosen a config at all.
+    """
+    return template.format(schema=get_config().database.schema_)
+
+
+@dataclass(frozen=True)
+class RungReading:
+    """What one drive of the hold saw.
+
+    Attributes:
+        raised: rows :meth:`_raise_judged` wrote.  0 is the hold.
+        suppressed: the run's own count of raises the snapshot held.
+        refreshed: the run's own count of standing rows it corrected.
+        open_rungs: severities of the probe title's unresolved rows,
+            oldest first.
+        resolved_rungs: severities of its resolved rows, oldest first.
+        announced: the trigger event fired during the drive.
+        judged: the rung the run judged the fault to be.
+        opened: the rung the standing row was open at before the drive.
+    """
+
+    raised: int
+    suppressed: int
+    refreshed: int
+    open_rungs: tuple[str, ...]
+    resolved_rungs: tuple[str, ...]
+    announced: bool
+    judged: str = STALE_JUDGED_RUNG
+    opened: str = FLOOR_RUNG
+
+    @property
+    def held(self) -> bool:
+        """The raise was held by the standing row, on the run's own count.
+
+        **Not ``raised == 0`` alone, and a mutation is why.**  A drive
+        aimed at :meth:`_refresh_open` — the inner function, where the
+        decision is actually taken — bypasses the dedup hold entirely and
+        an author writing that drive supplies the zero themselves, since
+        they know the row is standing.  Driven at exactly that, every
+        test in this check's class passed: a premise read off a number
+        the harness controls is not a premise.
+
+        :attr:`suppressed` is the third-party witness inside the subject.
+        :meth:`_raise_judged` increments it in the branch that holds;
+        :meth:`_refresh_open` never touches it.  So it says *which entry
+        point ran*, which is what rule 1 of :func:`rung_ladder_reading` is
+        about — the fix may land in either function, and a drive that
+        entered below the fork would report a fix above it as no fix.
+
+        **:attr:`refreshed` is deliberately not in the predicate, and it
+        was, for one run.**  That counter is incremented *inside*
+        :meth:`_refresh_open`, so a fix replacing that method — which is
+        exactly ``step_for``'s resolve-and-re-raise — leaves it at zero
+        while the hold has plainly fired.  Driven at the fix, the premise
+        answered ``not_held`` and the check reported ``unknown`` over a
+        landed fix: a control the fix breaks, caught by the one stand-in
+        written to model the fix rather than the defect.  It stays in the
+        reading as evidence and out of the question.
+        """
+        return self.raised == 0 and self.suppressed == 1
+
+    @property
+    def reading(self) -> str:
+        """Which of five worlds the drive landed in.
+
+        Named rather than returned as a verdict, because two of the five
+        are refutations of *different shapes* and a sitting judging the
+        entry needs to know which — rule 2's "a candidate for closure and
+        never a closure" applied to the evidence rather than to the
+        document.
+        """
+        if not self.held:
+            return "not_held"
+        if self.open_rungs == (self.opened,) and not self.resolved_rungs:
+            return "held_quiet"
+        if self.open_rungs == (self.judged,) and self.resolved_rungs == (self.opened,):
+            return "escalated"
+        if self.open_rungs == (self.judged,) and not self.resolved_rungs:
+            return "escalated_in_place"
+        return "unclassifiable"
+
+
+def rung_ladder_reading() -> tuple[RungReading | None, str]:
+    """Drive one poll that judges a standing floor-rung row ``critical``.
+
+    The scenario is the entry's, built rather than waited for: a
+    ``% unreachable`` row standing at the floor because
+    ``SNAG-AGENT-011`` quietened it under an estate lease, and a poll on
+    which the fault is genuinely urgent — the arbiter's ``_restore``
+    having failed to start the unit back after the lease released.
+
+    Five rules, four of them the opposite of the obvious
+    implementation:
+
+    1. **The drive enters at :meth:`_raise_judged`, one level above the
+       decision.**  The predicate that refuses is
+       :func:`~sysadmin.core.escalation.may_quieten_in_place`, called
+       from :meth:`_refresh_open`; but the fix the entry names —
+       ``step_for``'s resolve-and-re-raise — could land in either, and a
+       drive aimed at the inner one would report a fix in the outer one
+       as no fix at all.  The production caller is the dedup hold, so
+       that is where the probe enters and both candidate sites are
+       inside it.
+    2. **The hold is a premise, not an assumption.**  A raise that
+       returns 1 means the snapshot never held the title and the drive
+       judged a fault with nothing standing — no rung to leave stale, and
+       a reading about nothing.  ``ports_checked``'s rule: that is
+       ``unknown``, never ``match``.
+    3. **The trigger event is captured, and the capture is what keeps
+       the instrument out of its own population.**  The line is what the
+       entry names as the thing that would raise it, so a drive that
+       could not see it would be measuring the fix's symptom without its
+       announcement.  Severing ``propagate`` for the duration is not
+       merely terminal hygiene: this daemon's journal is an ingested
+       source, so a probe whose line escaped to a root handler under the
+       unit would write into the very count the note reads back —
+       :func:`check_code_spans_survive`'s probe-counts-itself defect,
+       reached from the other side.
+    4. **The rung is read off the row, never off the return value.**
+       :meth:`_refresh_open` answers whether it *wrote*, and a write that
+       corrected the message while leaving the rung is exactly the
+       defect; a check reading the boolean would report the row brought
+       up to date.  That is the sharpest thing the drive says and the
+       entry does not: the sentence moves and the rung does not, so the
+       standing row ends up carrying a critical message at the floor.
+    5. **Nothing is committed.**  :func:`rolled_back_drive` owns that,
+       and the probe title is minted per call so two sittings driving at
+       once cannot read each other's row — ``a-witness-must-be-unwritable``
+       at the size of a title.
+    """
+    from sysadmin.core.models.alert import Alert
+    from sysadmin.monitor import agent as monitor_agent
+
+    title = f"snag-agent-012 probe {uuid.uuid4()} unreachable"
+
+    async def drive(session: AsyncSession) -> RungReading:
+        from sqlalchemy import select
+
+        agent = monitor_agent.SysAdminAgent()
+        agent._judged_titles = set()
+        agent._written_titles = set()
+        agent._suppressed = 0
+        agent._refreshed = 0
+
+        session.add(
+            Alert(
+                agent=agent.name,
+                severity=FLOOR_RUNG,
+                title=title,
+                message="quietened while the estate held a GPU lease",
+                details={"snag": "SNAG-AGENT-012", "probe": True},
+            )
+        )
+        await session.flush()
+        # The snapshot the run would have taken at its top, with the
+        # probe row already standing in it.
+        agent._open_titles = {title}
+
+        seen: list[str] = []
+
+        class _Collector(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                seen.append(record.getMessage())
+
+        collector = _Collector()
+        emitter = monitor_agent.logger
+        propagate, disabled = emitter.propagate, logging.root.manager.disable
+        emitter.addHandler(collector)
+        emitter.propagate = False
+        logging.disable(logging.NOTSET)
+        try:
+            raised = await agent._raise_judged(
+                session,
+                severity=STALE_JUDGED_RUNG,
+                title=title,
+                message="the unit did not come back when the lease released",
+                details={"snag": "SNAG-AGENT-012", "probe": True},
+            )
+        finally:
+            logging.disable(disabled)
+            emitter.propagate = propagate
+            emitter.removeHandler(collector)
+
+        await session.flush()
+        rows = (
+            await session.execute(
+                select(Alert)
+                .where(Alert.title == title)
+                .order_by(Alert.created_at)
+                .limit(STALE_PROBE_ROW_CAP)
+            )
+        ).scalars().all()
+        return RungReading(
+            raised=raised,
+            suppressed=agent._suppressed,
+            refreshed=agent._refreshed,
+            open_rungs=tuple(row.severity for row in rows if not row.resolved),
+            resolved_rungs=tuple(row.severity for row in rows if row.resolved),
+            announced=RUNG_LEFT_STALE_EVENT in seen,
+        )
+
+    return rolled_back_drive(drive)
+
+
+def rung_stale_population() -> tuple[str, ...]:
+    """The entry's trigger, counted — and what a zero is allowed to mean.
+
+    The entry names its trigger and has no instrument for it: *"the first
+    ``alert_rung_left_stale`` line that is not a test's"*.  This is that
+    instrument, and every clause it returns is **evidence for the note**
+    rather than a limb of the verdict.  Rule 1: a check tests the entry's
+    mechanism, never its population — and here the direction is the
+    telling one, because a line appearing would *raise* the entry rather
+    than refute it, so wiring it to the verdict could only ever report a
+    strengthened claim as a dead one.
+
+    **The witness is not optional.**  A zero count of the trigger and a
+    source nothing is ingesting from are the same zero, and only one of
+    them says the fault has not happened.
+    :data:`~sysadmin.core.agent.ALERT_RAISED_EVENT` is the discriminator:
+    the same daemon, the same rung, the same bare-event-name shape, the
+    same journal.  Its presence makes the trigger's absence mean
+    something; its own absence makes the clause say so instead of
+    guessing.
+    """
+    clauses: list[str] = []
+    fired, problem = query_one(rung_sql(RUNG_STALE_LINES_SQL))
+    witness, witness_problem = query_one(rung_sql(RUNG_STALE_WITNESS_SQL))
+    if problem or witness_problem:
+        return (f"the trigger could not be counted — {problem or witness_problem}",)
+
+    if not isinstance(fired, int) or not isinstance(witness, int):
+        return ("the trigger count did not come back as a number",)
+
+    if fired:
+        newest, _ = query_one(rung_sql(RUNG_STALE_NEWEST_SQL))
+        clauses.append(
+            f"the trigger has fired: {fired} {RUNG_LEFT_STALE_EVENT} row(s) under "
+            f"{OWN_UNIT}, newest {newest} — the entry's own condition for re-ranking it"
+        )
+    elif witness:
+        clauses.append(
+            f"the trigger has never fired: 0 {RUNG_LEFT_STALE_EVENT} rows under "
+            f"{OWN_UNIT}, against {witness} {ALERT_RAISED_EVENT} rows that show a "
+            "warning-level event name from this daemon does reach log_entries"
+        )
+    else:
+        clauses.append(
+            f"the trigger cannot be counted: 0 {RUNG_LEFT_STALE_EVENT} rows and "
+            f"0 {ALERT_RAISED_EVENT} rows under {OWN_UNIT}, so the zero is "
+            "zero-because-blind as much as zero-because-quiet"
+        )
+
+    standing, standing_problem = query_one(rung_sql(UNREACHABLE_OPEN_SQL))
+    if standing_problem or not isinstance(standing, int):
+        clauses.append("the % unreachable family's open count did not come back")
+    else:
+        clauses.append(
+            f"{standing} open row(s) in the % unreachable family — the population that "
+            "has to stop being zero before a rung can go stale on this box"
+        )
+    return tuple(clauses)
+
+
+def check_rung_left_stale() -> Measurement:
+    """``SNAG-AGENT-012`` — a fault outliving its lease keeps the quiet rung.
+
+    **The mechanism is driven and the population is only reported**, and
+    getting that round the wrong way is the one mistake this check could
+    make that a green report would hide.  The entry's population is
+    measured at zero by its own body and the trigger it names has never
+    fired; a check keyed on either would report the entry dead on the
+    day it was filed — rule 1, refused here for the seventh time in this
+    registry.
+
+    **The predicate is a premise and could not have been the verdict.**
+    The obvious instrument is
+    :func:`~sysadmin.core.escalation.may_quieten_in_place`, which refuses
+    an upward move and is the root of the whole mechanism.  It is also
+    what the named fix deliberately leaves alone: ``step_for``'s
+    resolve-and-re-raise exists *because* an in-place escalation is
+    inaudible, so that predicate must go on refusing after the fix lands.
+    A check asserting it would answer ``match`` either side —
+    ``check_review_schedule_unread``'s defect, and the reason a control
+    must be driven at a stand-in modelling the fix rather than only at
+    one modelling the defect.
+
+    **Five readings, and three of them are not the verdict's business.**
+    ``escalated`` is the fix the entry names, ``escalated_in_place`` is a
+    fix it explicitly refuses (Session 39's ban, and a rung the tray
+    would speak at a fingerprint it has already suppressed) — both
+    ``mismatch``, and the note says which, because rule 2 makes this a
+    candidate for closure and never a closure.  ``not_held`` and
+    ``unclassifiable`` are ``unknown``: a drive that never reached the
+    decision has measured nothing.
+
+    **Silence is worse than the defect and is called out rather than
+    scored.**  The entry's fourth bullet is that the fault is *not*
+    silent — a ``warning`` line, stored, counted, carried into
+    ``GET /api/logs/trends`` and raising nothing.  If the row is held
+    quiet and no line fires, the defect is intact and its only witness is
+    gone, which is a reason to raise the entry rather than to close it.
+    That stays ``match`` and the note names it, because the claim in the
+    title is still true and it is the priority that moved.
+    """
+    reading, problem = rung_ladder_reading()
+    if reading is None:
+        return Measurement("unknown", problem)
+
+    detail = (
+        f"a standing {reading.opened} row judged {reading.judged} on the next poll: "
+        f"open {list(reading.open_rungs)}, resolved {list(reading.resolved_rungs)}",
+        f"the hold fired: {reading.held} (raised {reading.raised}, suppressed "
+        f"{reading.suppressed}, refreshed {reading.refreshed}); "
+        f"{RUNG_LEFT_STALE_EVENT} announced: {reading.announced}",
+        f"may_quieten_in_place({reading.judged!r}, {reading.opened!r}) is "
+        f"{may_quieten_in_place(reading.judged, reading.opened)} — the premise, not the "
+        "verdict: the named fix leaves this predicate refusing",
+        *rung_stale_population(),
+    )
+
+    if reading.reading == "not_held":
+        return Measurement(
+            "unknown",
+            f"the dedup hold did not fire as the run counts it — raised "
+            f"{reading.raised}, suppressed {reading.suppressed}, refreshed "
+            f"{reading.refreshed} — so the drive judged a fault with nothing open to "
+            "leave stale, or entered below the fork, and measured nothing about the "
+            "ladder either way",
+            detail,
+        )
+    if reading.reading == "escalated":
+        return Measurement(
+            "mismatch",
+            "the standing quiet row was resolved and a louder one raised — step_for's "
+            "shape, which is the fix this entry names, and nothing is owed here",
+            detail,
+        )
+    if reading.reading == "escalated_in_place":
+        return Measurement(
+            "mismatch",
+            f"the standing row's rung was moved to {reading.judged} in place, so the "
+            "entry's claim is false — but this is the shape Session 39 bans, because the "
+            "tray keeps a fingerprint it has already suppressed and the escalation is "
+            "recorded and never spoken",
+            detail,
+        )
+    if reading.reading == "unclassifiable":
+        return Measurement(
+            "unknown",
+            f"the drive left open {list(reading.open_rungs)} and resolved "
+            f"{list(reading.resolved_rungs)} for one title, which is neither the defect "
+            "nor either fix this check knows how to read",
+            detail,
+        )
+    if not reading.announced:
+        return Measurement(
+            "match",
+            f"the rung was left at {reading.opened} against a judgement of "
+            f"{reading.judged} **and nothing announced it** — the entry's fourth bullet "
+            f"says a {RUNG_LEFT_STALE_EVENT} line is what shipped, so its stated trigger "
+            "now has no emitter and the entry is under-ranked rather than refuted",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
+# ---------------------------------------------------------------------------
 # The registry
 # ---------------------------------------------------------------------------
 
@@ -6151,6 +6595,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-CFG-003",
             "a reload installs a configuration nothing judged coherent",
             check_reload_unjudged_config,
+        ),
+        Check(
+            "rung_left_stale",
+            "SNAG-AGENT-012",
+            "a fault that outlives its lease keeps the quiet rung",
+            check_rung_left_stale,
         ),
     )
 }

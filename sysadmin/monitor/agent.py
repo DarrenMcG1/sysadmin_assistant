@@ -51,6 +51,26 @@ from sysadmin.monitor.systemd import SystemdQueryError, get_unit_status, restart
 
 logger = logging.getLogger(__name__)
 
+#: The log event :meth:`SysAdminAgent._refresh_open` writes when a
+#: standing row is judged **louder** than the rung it is open at.
+#:
+#: A constant rather than a literal because it is read twice and the two
+#: readers must not be able to disagree: this module emits it, and
+#: :func:`sysadmin.snag_claims.check_rung_left_stale` counts it in
+#: ``log_entries`` to answer the one question ``SNAG-AGENT-012`` names as
+#: its trigger — *"the first ``alert_rung_left_stale`` line that is not a
+#: test's"*.  :data:`~sysadmin.core.agent.AGENT_RUN_FAILED_EVENT`'s rule
+#: for its reason, and the failure mode of a rename is the one that
+#: matters here: a check spelling the old name reports the trigger as
+#: never having fired, for ever, and nothing says otherwise.
+#:
+#: It is also the **signature** the journal family deduplicates on.
+#: :func:`~sysadmin.monitor.log_signature.signature` maps digit runs to
+#: ``N``, so a name carrying no digits survives normalisation unchanged
+#: and the stored ``message`` is this string exactly — which is what lets
+#: the count above be an equality rather than a pattern.
+RUNG_LEFT_STALE_EVENT = "alert_rung_left_stale"
+
 #: Ceiling on the DBAPI error text carried into a ``service_health``
 #: row.  A SQLAlchemy exception embeds the failing statement and its
 #: bound parameters, which for a rejected health row is several hundred
@@ -650,7 +670,7 @@ class SysAdminAgent(BaseAgent):
         if severity is not None and severity != alert.severity:
             if not may_quieten_in_place(severity, alert.severity):
                 logger.warning(
-                    "alert_rung_left_stale",
+                    RUNG_LEFT_STALE_EVENT,
                     extra={
                         "agent": self.name,
                         "title": title,

@@ -193,6 +193,19 @@ def _drive():
                 (new_row.details or {}).get("holder") if new_row is not None else None
             ),
             "raised": result.alerts_raised,
+            # **Scoped to the two titles this drive owns, and the
+            # box-wide counter is deliberately not asserted on.**
+            # ``result.details["resolved"]`` counts every row the run's
+            # sweep closed, and this payload judges only the probe's two
+            # ports — so the judge's *live* rows fall outside it and are
+            # swept, correctly.  On 2026-09-02 that was 2: the 3110 and
+            # 8110 dev-server breaches Session 57 was written for, which
+            # exist exactly when somebody has an editor open.  A green
+            # assertion that depends on whether VS Code is running is
+            # ``SNAG-TEST-004``'s box-wide selector one file over, and
+            # the claim it was making — no resolve-and-re-raise under
+            # *this* title — is what the scoped count states.
+            "probe_resolved": sum(1 for row in rows if row.resolved),
             "resolved": result.details["resolved"],
             "refreshed": result.details["refreshed"],
         }
@@ -255,11 +268,21 @@ class TestTheQuieteningAgainstTheRealDatabase:
         ``{severity}:{title}`` fingerprint and notifies.  The retired
         check could not tell the two apart — it asserted the disjunction
         on purpose, because any of three shapes would have been a fix.
+
+        **The count is scoped to this drive's own titles.**  It read
+        ``result.details["resolved"]`` until 2026-09-02, which is the
+        whole run's sweep — so the judge's two live dev-server breaches
+        made it 2 and turned this test red on any box with an editor
+        open, while saying nothing about the probe either way.  See the
+        comment beside ``probe_resolved``.
         """
         assert reading["standing_rows"] == 1
         assert reading["standing_resolved"] is False
         assert reading["raised"] == 1, "the fresh port, and only the fresh port"
-        assert reading["resolved"] == 0
+        assert reading["probe_resolved"] == 0, (
+            "a row under one of this drive's own titles was resolved — which is the "
+            "resolve-and-re-raise shape, whatever the box-wide sweep did"
+        )
         assert reading["refreshed"] == 1
 
     def test_the_blob_arrived_with_it(self, reading):

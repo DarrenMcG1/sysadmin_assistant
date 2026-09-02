@@ -16,6 +16,63 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 153 — the entry named its own trigger and had no
+      instrument for it.** *(2026-09-02.)* The **nineteenth** snag check,
+      `check_rung_left_stale` for `SNAG-AGENT-012`, plus
+      `RUNG_LEFT_STALE_EVENT` and `ALERT_RAISED_EVENT` lifted to
+      constants at their emitters so the check pins the names rather than
+      restating them — a rename would otherwise leave the population
+      query counting a name nothing writes and reporting *the trigger has
+      never fired*, for ever. Open entries with no check: **4 → 3**.
+      - **The mechanism is driven and the population only reported**, and
+        the direction is what makes that easy to get wrong here: a
+        trigger line appearing *strengthens* this entry, so wiring the
+        count to the verdict could only ever report a claim that had just
+        become more true as a dead one. Live: **0** trigger rows against
+        **135** `alert_raised` rows as the witness that the path works,
+        and **0** open `% unreachable` rows.
+      - **The obvious instrument would have shipped green and inert.**
+        `may_quieten_in_place('critical', 'info')` is the root of the
+        mechanism *and* is what `step_for`'s fix deliberately leaves
+        alone, so a check asserting it answers `match` either side —
+        `check_review_schedule_unread`'s defect. Carried as a premise in
+        the detail; the verdict is driven, entering at `_raise_judged`
+        because the fix may land in either function.
+      - **The drive says something sharper than the entry does.**
+        `SNAG-AGENT-009` made a held row's sentence correctable, so what
+        a poll leaves is an *internally inconsistent* row — a critical
+        message at `severity: info` — not merely a stale one.
+      - **The trigger's "that is not a test's" needs no clause.**
+        `log_entries.source` holds the unit and a test runs in the
+        sitting's own process, so a row there is the daemon's by
+        construction. The probe is kept out of its own count by severing
+        `logger.propagate`, which is `check_code_spans_survive`'s
+        probe-counts-itself defect from the other side.
+      - **One of fourteen mutations passed against every test in the
+        class.** A drive aimed at `_refresh_open`, below the fork, which
+        supplies its own `raised = 0`; `_suppressed` is the third-party
+        witness that separates the entry points. And `_refreshed` had to
+        come **out** of the repaired premise — it lives inside
+        `_refresh_open`, so the fix stand-in reported `unknown` over a
+        landed fix, which only a stand-in modelling the *fix* could say.
+      - **Two weak tests repaired before mutating**: one assertion that
+        existed only to name the check key, and a before/after count of
+        trigger rows that is constant here whatever the drive does.
+      - **The first draft's four statements were unqualified**, so
+        `query_one` resolved `log_entries` to `public` and every one
+        answered `ProgrammingError`, reported as "the database did not
+        answer" — a wrong statement wearing an unreachable database's
+        sentence, with a green verdict above it.
+      - **A pre-existing red repaired**:
+        `tests/test_quietened_judgement_live.py` asserted the run's
+        box-wide resolve count where it meant its own two titles, so it
+        was red exactly while an editor held 3110/8110 and green
+        otherwise. Verified pre-existing at HEAD by stashing before
+        blaming this sitting; the scoped form still reddens under a
+        modelled resolve-and-re-raise.
+      - Daemon restarted and verified (`/health` 200); all nine ops
+        claims green; 19 snag checks, `SNAG-AGENT-012` reading `match`.
+
 - [x] **Session 150 — the filed action was already done, and the
       reassurance about our own surface was wrong.** *(2026-09-02.)*
       Estate message `00b631ec` was found **already closed** (07:11:24

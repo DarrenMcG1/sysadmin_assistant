@@ -26,6 +26,7 @@ import contextlib
 import dataclasses
 import inspect
 import itertools
+import logging
 import re
 import socket
 import tempfile
@@ -5733,7 +5734,7 @@ class TestTheReloadCoherenceCheck:
 # whole file leans on: every live read here reaches the database through
 # ``snag_claims.query_one``, whose every way of not-knowing returns
 # ``unknown`` rather than ``match``, and each drive asserts that branch by
-# name.  Eighteen checks, eighteen classes doing it — by habit.
+# name.  Nineteen checks, nineteen classes doing it — by habit.
 #
 # ``tests/test_live_drive_premises.py`` exempts this file from rule 2 on
 # exactly that habit (:data:`~tests.test_live_drive_premises.PRE_CONVENTION`),
@@ -5764,8 +5765,8 @@ NOT_KNOWING = "unknown"
 #: :meth:`TestEveryCheckCanSayItDoesNotKnow.test_no_exemption_is_stale`
 #: refuses one that has since been driven after all.
 #:
-#: **Empty, and measured rather than assumed** — all eighteen registered
-#: checks read something they can fail to read, and all eighteen are
+#: **Empty, and measured rather than assumed** — all nineteen registered
+#: checks read something they can fail to read, and all nineteen are
 #: driven to the branch that says so.
 UNKNOWABLE: dict[str, str] = {}
 
@@ -5845,7 +5846,7 @@ class TestEveryCheckCanSayItDoesNotKnow:
 
     Every check in the registry must be driven to a ``unknown`` verdict by
     a test in the class that names it, or be declared unable to reach one
-    in :data:`UNKNOWABLE`.  The habit held eighteen of eighteen times
+    in :data:`UNKNOWABLE`.  The habit held nineteen of nineteen times
     before this existed; what it did not have was anything making it hold
     for a nineteenth.
 
@@ -6086,3 +6087,454 @@ class TestEveryCheckCanSayItDoesNotKnow:
         )
         assert _unknown_branch_coverage(ast.parse(spliced), {key}) == {key}
 
+
+
+class TestTheStaleRungCheck:
+    """``SNAG-AGENT-012`` — the nineteenth check, and the first whose
+    entry names its own trigger and has no instrument for it.
+
+    The entry's shape is what decides everything here.  Its population is
+    **zero and measured** — 0 open ``% unreachable`` rows, 0
+    ``alert_rung_left_stale`` lines — and it says so in its own body, so a
+    check keyed on either half would report it refuted on the day it was
+    filed.  Rule 1, for the seventh time in this registry.
+
+    What is easy to get wrong and would ship green is the *premise*.
+    :func:`~sysadmin.core.escalation.may_quieten_in_place` refusing an
+    upward move is the root of the mechanism, and it is also what the
+    named fix deliberately leaves alone — ``step_for``'s
+    resolve-and-re-raise exists **because** an in-place escalation is
+    inaudible, so that predicate goes on refusing afterwards.  A check
+    asserting it answers ``match`` either side of the fix, which is
+    ``check_review_schedule_unread``'s defect.  So the fix is modelled by
+    patching the code the drive runs, not by fabricating a reading, and
+    the predicate is asserted *unmoved* in the same test that watches the
+    verdict flip.
+    """
+
+    KEY = "rung_left_stale"
+
+    @staticmethod
+    def _reading(**kwargs):
+        """A reading in the defect's shape, with one thing changed."""
+        base = {
+            "raised": 0,
+            "suppressed": 1,
+            "refreshed": 1,
+            "open_rungs": (snag_claims.FLOOR_RUNG,),
+            "resolved_rungs": (),
+            "announced": True,
+        }
+        return snag_claims.RungReading(**{**base, **kwargs})
+
+    @staticmethod
+    def _through(reading):
+        return patch.object(
+            snag_claims, "rung_ladder_reading", return_value=(reading, "")
+        )
+
+    # -- the box ---------------------------------------------------------
+
+    def test_it_holds_on_this_box(self):
+        assert snag_claims.check_rung_left_stale().verdict == "match"
+
+    def test_the_hold_is_the_premise_and_the_drive_reaches_it(self):
+        """Rule 2, asserted rather than assumed.
+
+        A raise that was not held judged a fault with nothing standing,
+        so there was no rung to leave stale and the drive measured
+        nothing.  The whole check rests on the dedup firing, and a
+        harness silently stopping short of it would report the defect
+        from a run that never met it.
+        """
+        reading, problem = snag_claims.rung_ladder_reading()
+        assert reading is not None, problem
+        assert reading.held
+        assert reading.reading == "held_quiet"
+        # The witness, and the reason it is not ``raised == 0`` alone: a
+        # drive entering at ``_refresh_open`` supplies that zero itself.
+        # ``_raise_judged`` is the only writer of ``_suppressed``.
+        assert (reading.raised, reading.suppressed, reading.refreshed) == (0, 1, 1)
+
+    def test_the_hold_is_witnessed_by_the_runs_own_counter(self):
+        """The mutation that passed against every other test here.
+
+        A drive aimed at :meth:`_refresh_open` — one level below the
+        fork, where the decision is genuinely taken — bypasses the hold,
+        and the author of such a drive writes the ``raised = 0`` in by
+        hand because they put the standing row there.  All twenty tests
+        passed against exactly that.  ``_suppressed`` is incremented only
+        in :meth:`_raise_judged`'s holding branch, so it says which entry
+        point ran.
+
+        **``_refreshed`` is not in the predicate and briefly was.**  It is
+        incremented inside :meth:`_refresh_open`, so the fix below —
+        which replaces that method — leaves it at zero with the hold
+        plainly fired, and the check reported ``unknown`` over a landed
+        fix.  Both directions are pinned here so it cannot come back.
+        """
+        assert not self._reading(raised=0, suppressed=0, refreshed=1).held
+        assert not self._reading(raised=1, suppressed=0, refreshed=0).held
+        assert self._reading().held
+        assert self._reading(refreshed=0).held
+
+    def test_the_message_moves_and_the_rung_does_not(self):
+        """The sharpest thing the drive says, and the entry does not.
+
+        ``SNAG-AGENT-009`` made a held row's *sentence* correctable, so
+        what a poll leaves behind is not a stale row but an internally
+        inconsistent one: the message says the unit did not come back and
+        the rung says ``info``.  A check reading
+        :meth:`_refresh_open`'s boolean would report the row brought up
+        to date, which is rule 4 of the drive.
+        """
+        reading, problem = snag_claims.rung_ladder_reading()
+        assert reading is not None, problem
+        assert reading.open_rungs == (snag_claims.FLOOR_RUNG,)
+        assert reading.judged == "critical"
+        assert reading.announced
+
+    # -- the fixes -------------------------------------------------------
+
+    def test_the_named_fix_flips_the_verdict_while_the_predicate_is_unmoved(self):
+        """The load-bearing falsification, and both halves are the point.
+
+        ``step_for``'s resolve-and-re-raise is patched over the real
+        ``_refresh_open`` and the **real drive runs against it**, because
+        a fabricated reading would exercise the classifier and say
+        nothing about whether the probe can see a fix.  The predicate is
+        asserted unchanged in the same test: if the verdict could only
+        move by moving it, this check would be
+        ``check_review_schedule_unread`` again.
+        """
+        from sysadmin.core.escalation import may_quieten_in_place
+        from sysadmin.core.models.alert import Alert
+        from sysadmin.monitor.agent import SysAdminAgent
+
+        before = may_quieten_in_place("critical", snag_claims.FLOOR_RUNG)
+        original = SysAdminAgent._refresh_open
+
+        async def resolve_and_reraise(
+            self, session, *, title, message, details, severity=None
+        ):
+            from sqlalchemy import select
+
+            standing = (
+                await session.execute(
+                    select(Alert).where(
+                        *self._open_alert_criteria(), Alert.title == title
+                    )
+                )
+            ).scalars().first()
+            if standing is None:
+                return False
+            if severity is not None and severity != standing.severity:
+                standing.resolved = True
+                session.add(
+                    Alert(
+                        agent=self.name,
+                        severity=severity,
+                        title=title,
+                        message=message,
+                        details=details,
+                    )
+                )
+                await session.flush()
+                return True
+            return await original(
+                self,
+                session,
+                title=title,
+                message=message,
+                details=details,
+                severity=severity,
+            )
+
+        with patch.object(SysAdminAgent, "_refresh_open", resolve_and_reraise):
+            reading, problem = snag_claims.rung_ladder_reading()
+            assert reading is not None, problem
+            assert reading.reading == "escalated"
+            measurement = snag_claims.check_rung_left_stale()
+
+        assert measurement.verdict == "mismatch"
+        assert "step_for" in measurement.note
+        # The predicate the obvious check would have asserted, unmoved
+        # across a landed fix.
+        assert may_quieten_in_place("critical", snag_claims.FLOOR_RUNG) is before is False
+
+    def test_an_in_place_escalation_is_refuted_and_named_as_the_wrong_shape(self):
+        """The entry's claim is false and the fix is one it refuses.
+
+        Reported ``mismatch``, because the sentence in the title — the
+        row keeps the quiet rung — is genuinely untrue there.  Rule 2
+        makes that a candidate for closure and never a closure, so the
+        note has to carry the reason a sitting must not simply tick it:
+        the tray fingerprints on ``{severity}:{title}`` and would keep one
+        it has already suppressed.
+        """
+        with self._through(self._reading(open_rungs=("critical",), announced=False)):
+            measurement = snag_claims.check_rung_left_stale()
+        assert measurement.verdict == "mismatch"
+        assert "Session 39" in measurement.note
+
+    # -- the ways of not knowing -----------------------------------------
+
+    def test_a_raise_that_was_not_held_is_unknown(self):
+        """Rule 2 of the drive, at the size of a verdict.
+
+        ``ports_checked``: a drive that never reached the decision has
+        measured nothing, and reporting that as ``match`` would credit
+        the entry to a poll with no standing row in it.
+        """
+        with self._through(self._reading(raised=1, suppressed=0, refreshed=0)):
+            measurement = snag_claims.check_rung_left_stale()
+        assert measurement.verdict == "unknown"
+        assert "nothing open" in measurement.note
+
+    def test_a_row_state_this_check_cannot_read_is_unknown(self):
+        """Neither the defect nor either fix — and the classifier says so.
+
+        A reading it cannot place is the one shape where guessing is
+        worst, because both wrong answers are actionable: ``match``
+        credits a defect that may have been fixed some third way, and
+        ``mismatch`` retires a live entry.
+        """
+        with self._through(self._reading(open_rungs=("info", "critical"))):
+            measurement = snag_claims.check_rung_left_stale()
+        assert measurement.verdict == "unknown"
+        assert "neither the defect nor either fix" in measurement.note
+
+    def test_a_drive_that_would_not_run_is_unknown(self):
+        with patch.object(
+            snag_claims, "rung_ladder_reading", return_value=(None, "no database")
+        ):
+            measurement = snag_claims.check_rung_left_stale()
+        assert measurement.verdict == "unknown"
+        assert measurement.note == "no database"
+
+    # -- the silent world -------------------------------------------------
+
+    def test_a_defect_nothing_announces_is_still_match_and_says_so(self):
+        """The entry's fourth bullet, guarded.
+
+        *"It is not silent, which is the whole of what shipped."*  If the
+        line stops firing the defect is intact and its only witness is
+        gone, so the population query below is measuring an emitter that
+        no longer exists and would report ``never fired`` for ever.  That
+        raises the entry rather than refuting it, so the verdict stays
+        ``match`` and the note carries the news.
+        """
+        with self._through(self._reading(announced=False)):
+            measurement = snag_claims.check_rung_left_stale()
+        assert measurement.verdict == "match"
+        assert "no emitter" in measurement.note
+
+    # -- the instrument ---------------------------------------------------
+
+    def test_the_event_name_is_the_emitters_and_not_a_copy(self):
+        """Provenance, not value — the split this file has failed three times.
+
+        ``"alert_rung_left_stale"`` spelled here and spelled in
+        ``monitor/agent.py`` are the same string and only the source can
+        tell them apart.  A rename would then leave the population query
+        counting a name nothing writes and reporting *the trigger has
+        never fired* for ever, which is the silent direction.
+        """
+        from sysadmin.monitor.agent import RUNG_LEFT_STALE_EVENT
+
+        assert snag_claims.RUNG_LEFT_STALE_EVENT is RUNG_LEFT_STALE_EVENT
+        tree = ast.parse(Path(snag_claims.__file__).read_text(encoding="utf-8"))
+        imported = {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module == "sysadmin.monitor.agent"
+            for alias in node.names
+        }
+        assert "RUNG_LEFT_STALE_EVENT" in imported
+
+    def test_the_emitter_still_writes_the_constant(self):
+        """…and the constant is still what reaches the journal.
+
+        An import proves the two names agree and says nothing about the
+        call.  Driven at the real ``_refresh_open`` through the real hold,
+        the message the emitter produced must be that constant exactly —
+        which is also what makes the ``message =`` equality in the
+        population query legitimate rather than a pattern.
+        """
+        reading, problem = snag_claims.rung_ladder_reading()
+        assert reading is not None, problem
+        assert reading.announced
+
+    def test_the_floor_rung_is_derived_and_not_typed(self):
+        """``info`` and ``QUIETEST_SEVERITY`` are spelled identically."""
+        from sysadmin.core.escalation import QUIETEST_SEVERITY
+
+        assert snag_claims.FLOOR_RUNG is QUIETEST_SEVERITY
+        tree = ast.parse(Path(snag_claims.__file__).read_text(encoding="utf-8"))
+        assignment = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(t, ast.Name) and t.id == "FLOOR_RUNG" for t in node.targets
+            )
+        )
+        assert isinstance(assignment.value, ast.Name)
+        assert assignment.value.id == "QUIETEST_SEVERITY"
+
+    # -- the population ---------------------------------------------------
+
+    def test_every_statement_is_schema_qualified_and_runs(self):
+        """The fault that shipped in the first draft, pinned.
+
+        ``query_one`` opens a connection with no ``search_path``, so an
+        unqualified ``log_entries`` resolves to ``public`` and every
+        statement answered ``ProgrammingError`` — which ``query_one``
+        reports as *the database did not answer*, a sentence about an
+        unreachable database rather than about a wrong statement.  Green
+        checks and a silent population.
+        """
+        for template in (
+            snag_claims.RUNG_STALE_LINES_SQL,
+            snag_claims.RUNG_STALE_NEWEST_SQL,
+            snag_claims.RUNG_STALE_WITNESS_SQL,
+            snag_claims.UNREACHABLE_OPEN_SQL,
+        ):
+            assert "{schema}" in template
+            answer, problem = snag_claims.query_one(snag_claims.rung_sql(template))
+            assert not problem, template
+            assert answer is not None or "max(" in template
+
+    def test_a_zero_with_no_witness_reads_as_blind_and_not_as_quiet(self):
+        """``ports_checked``, at the size of a note clause.
+
+        Zero trigger rows because the fault has not happened and zero
+        because nothing from this unit reaches ``log_entries`` are the
+        same zero, and only one of them is evidence.
+        """
+        real = snag_claims.query_one
+
+        def blind(statement):
+            if snag_claims.ALERT_RAISED_EVENT in statement:
+                return 0, ""
+            if snag_claims.RUNG_LEFT_STALE_EVENT in statement:
+                return 0, ""
+            return real(statement)
+
+        with patch.object(snag_claims, "query_one", side_effect=blind):
+            clauses = snag_claims.rung_stale_population()
+        assert any("zero-because-blind" in clause for clause in clauses)
+
+        with patch.object(
+            snag_claims,
+            "query_one",
+            side_effect=lambda s: (0, "")
+            if snag_claims.RUNG_LEFT_STALE_EVENT in s
+            else real(s),
+        ):
+            clauses = snag_claims.rung_stale_population()
+        assert any("never fired" in clause for clause in clauses)
+
+    def test_a_fired_trigger_is_reported_without_moving_the_verdict(self):
+        """Rule 1, in the direction that makes it easy to get wrong.
+
+        A line appearing *strengthens* the entry, so wiring the
+        population to the verdict could only ever report a claim that has
+        just become more true as a dead one.
+        """
+        real = snag_claims.query_one
+        with patch.object(
+            snag_claims,
+            "query_one",
+            side_effect=lambda s: (3, "")
+            if snag_claims.RUNG_LEFT_STALE_EVENT in s and "max(" not in s
+            else real(s),
+        ):
+            measurement = snag_claims.check_rung_left_stale()
+        assert measurement.verdict == "match"
+        assert any("the trigger has fired" in line for line in measurement.detail)
+
+    # -- the harness ------------------------------------------------------
+
+    def test_the_drive_leaves_nothing_behind(self):
+        """Writing to the live database is allowable only because of this."""
+        snag_claims.check_rung_left_stale()
+        left, problem = snag_claims.query_one(
+            snag_claims.rung_sql(
+                "SELECT count(*) FROM {schema}.alerts "
+                "WHERE title LIKE 'snag-agent-012 probe%'"
+            )
+        )
+        assert not problem
+        assert left == 0
+
+    def test_the_probe_does_not_write_into_its_own_population(self):
+        """Rule 3 of the drive, and the reason ``propagate`` is severed.
+
+        This daemon's journal is an ingested source, so a probe line that
+        escaped to a root handler *under the unit* would land in the very
+        count the note reads back —
+        :func:`check_code_spans_survive`'s probe-counts-itself defect,
+        reached from the other side.
+
+        **The obvious assertion cannot witness its own mutation and was
+        written first.**  Counting the trigger rows either side of a check
+        run is constant here whatever the drive does, because a test runs
+        in the sitting's process and not under ``sysadmin.service``, so it
+        could never reach ``log_entries`` from here — a constant
+        observation is not evidence unless something in the population
+        would have forced a different one.  What *is* observable is the
+        mechanism: whether the record reaches a root handler at all.  Not
+        reaching one is what makes the journal unreachable, under this
+        unit or any other.
+        """
+        escaped: list[str] = []
+
+        class _Root(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                escaped.append(record.getMessage())
+
+        sentinel = _Root()
+        logging.root.addHandler(sentinel)
+        try:
+            reading, problem = snag_claims.rung_ladder_reading()
+        finally:
+            logging.root.removeHandler(sentinel)
+
+        assert reading is not None, problem
+        # The premise: the line really did fire during that drive, so an
+        # empty root is silence rather than an absent event.
+        assert reading.announced
+        assert snag_claims.RUNG_LEFT_STALE_EVENT not in escaped
+
+    def test_the_probe_title_is_minted_per_call(self):
+        """``a-witness-must-be-unwritable``, at the size of a title.
+
+        Two sittings driving at once must not read each other's row, and
+        a literal would additionally be findable by anything that reads
+        this source.
+        """
+        source = inspect.getsource(snag_claims.rung_ladder_reading)
+        assert "uuid.uuid4()" in source
+
+    def test_the_emitters_logger_is_restored(self):
+        """A harness that cannot survive the code it drives is not a control."""
+        from sysadmin.monitor import agent as monitor_agent
+
+        propagate = monitor_agent.logger.propagate
+        handlers = list(monitor_agent.logger.handlers)
+        disabled = logging.root.manager.disable
+        snag_claims.check_rung_left_stale()
+        assert monitor_agent.logger.propagate is propagate
+        assert monitor_agent.logger.handlers == handlers
+        assert logging.root.manager.disable == disabled
+
+    # -- the registry -----------------------------------------------------
+
+    def test_the_entry_names_this_check(self):
+        """Rule 4: the marker names a check and the check names its entry."""
+        entry = next(
+            e for e in snag_claims.load_entries()[0] if e.snag_id == "SNAG-AGENT-012"
+        )
+        assert self.KEY in entry.markers
+        assert CHECKS[self.KEY].snag == entry.snag_id

@@ -43,6 +43,23 @@ logger = logging.getLogger(__name__)
 #: silently unkey the exclusion rather than break it.
 AGENT_RUN_FAILED_EVENT = "agent_run_failed"
 
+#: The log event :meth:`BaseAgent.raise_alert` writes for every row it
+#: inserts, at ``warning``.
+#:
+#: Lifted to a constant for a reader rather than for this emitter:
+#: :func:`sysadmin.snag_claims.check_rung_left_stale` uses its presence in
+#: ``log_entries`` as the **witness** that a bare event name written at
+#: ``warning`` by this daemon reaches that table at all.  Without it a
+#: zero count of :data:`~sysadmin.monitor.agent.RUNG_LEFT_STALE_EVENT` is
+#: zero-because-quiet and zero-because-blind at once, which is
+#: ``ports_checked``'s rule at the size of a note clause.
+#:
+#: This event and that one are emitted from different loggers and share
+#: the handler chain, the ``<N>`` level prefix and the ``format: json``
+#: declaration ``services.yaml`` makes for this unit — so the witness is
+#: about the path, not about the module.
+ALERT_RAISED_EVENT = "alert_raised"
+
 #: The log event :func:`spawn_manual_run`'s supervisor writes when
 #: :meth:`BaseAgent.run` *itself* raises — the bookkeeping around the
 #: work, never the work.
@@ -344,7 +361,7 @@ class BaseAgent(ABC):
         await session.flush()
 
         logger.warning(
-            "alert_raised",
+            ALERT_RAISED_EVENT,
             extra={
                 "agent": self.name,
                 "severity": severity,
