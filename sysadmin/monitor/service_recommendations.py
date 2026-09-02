@@ -166,7 +166,7 @@ service's own log data now", so importing ``log_actions`` for
 convenience would report ``SNAG-SVC-001`` refuted by a change that has
 nothing to say about it.
 
-Six rules, four of them the opposite of the obvious implementation:
+Seven rules, four of them the opposite of the obvious implementation:
 
 1. **The grouping key is the service, and the relation is
    :data:`EVENT_ARGUED`.**  Grouping every row of a service is the
@@ -218,7 +218,8 @@ Six rules, four of them the opposite of the obvious implementation:
    ``group_incidents``' anchor rule read literally, but it would need a
    declared cause-to-consequence pairing this module has not got and
    would put the summed points on the row whose own evidence did not
-   compute them.
+   compute them.  That refusal stands and rule 7 does not reverse it:
+   what moves there is the ``action``, and nothing else.
 
 5. **The title stays the anchor's, where an incident row's does not.**
    ``_incident_recommendation`` rewrites its title because its members
@@ -237,6 +238,36 @@ Six rules, four of them the opposite of the obvious implementation:
    unreachable by construction rather than by a threshold — which is
    worth stating, because every other roll-up in this repository needed
    one.
+
+7. **The step can be superseded where the claim cannot**
+   (``SNAG-SVC-003``).  Rule 4 settles the anchor and says nothing
+   about the ``action``, and the live specimen showed the anchor's
+   naming a remedy that *cannot work*: restarting
+   ``alfred-career-mail-timer`` re-arms a schedule that was never the
+   problem, which the swallowed ``timer_failed`` row's own detail says
+   in as many words — one row contradicting the row above it inside a
+   fold built to make them one fault.  :data:`STEP_SUPERSEDES` is the
+   narrow answer.
+
+   **The discriminator is the member, not the subject, and that is
+   measured rather than reasoned.**  On 2026-09-02 two timers carried
+   an ``outage`` row: ``alfred-career-mail-timer``, folded, and
+   ``pgbackrest-backup-timer``, whose last run had started succeeding
+   the day before and which therefore produced no ``timer_failed`` row
+   at all.  Both were handed the identical restart step and only the
+   folded one's was wrong — for an armed timer whose *unit* went
+   inactive the restart is the right step.  So the condition under
+   which the anchor's step is refuted is exactly the condition under
+   which the fold happens, which is what makes this rule local to
+   :func:`_folded_row` rather than a repair to ``_outage_row``.
+
+   Two consequences worth stating.  The set is a **statable property
+   of a kind** rather than a causal claim: ``timer_failed``'s step
+   operates on the triggered unit, one unit deeper than the row's own
+   subject, and no service-level step can reach it.  And the anchor's
+   superseded step is named in the ``detail``
+   (:func:`_folded_row` rule 5), because the fold would otherwise drop
+   a remedy in the one direction rule 4 does not look.
 """
 
 from __future__ import annotations
@@ -263,6 +294,7 @@ __all__ = [
     "MIN_CADENCE_SAMPLES",
     "RATE_ARGUED",
     "SERIES_HOLE_FACTOR",
+    "STEP_SUPERSEDES",
     "AdviceReport",
     "TimerPoint",
     "TimerSeries",
@@ -282,6 +314,22 @@ RATE_ARGUED = ("check_interval", "timer_stale")
 #: Ranking order within an equal ``recoverable_points``.  Faults the box
 #: is suffering now come before advice about how it is watched.
 KIND_ORDER = ("outage", "flapping", "timer_failed", "timer_stale", "check_interval")
+
+#: Kinds whose **step** supersedes the anchor's inside a fold
+#: (``SNAG-SVC-003``).  A kind belongs here when its step reaches a unit
+#: the anchor's step cannot: ``timer_failed``'s names the *triggered*
+#: service, which is a different unit from the one every other row in
+#: this module is about, so a step operating on the service can never
+#: reach it.
+#:
+#: Deliberately **not** :data:`KIND_ORDER` with one element moved.  That
+#: constant answers which *claim* leads; this one answers which *step*
+#: does, and the two have different answers only because a fold can
+#: carry a finding whose subject is one unit deeper than the row's.
+#: Anchoring itself was put to the owner on 2026-09-02 and stays with
+#: ``KIND_ORDER`` — the title, the points, the rung, the grade and the
+#: evidence are all still the anchor's.  See module docstring rule 7.
+STEP_SUPERSEDES = ("timer_failed",)
 
 #: Clean fire-to-fire intervals needed before a cadence is claimed.  Two,
 #: because one interval is a coincidence and cannot be a median — the
@@ -487,14 +535,18 @@ def _folded_row(
     ``alfred-career-mail-timer``'s ``outage`` row rather than the
     ``timer_failed`` row beside it.
 
-    Four rules, three of them stated in the module docstring and one
+    Five rules, four of them stated in the module docstring and one
     only reachable here:
 
-    1. **Points are summed and everything else is the anchor's** —
-       docstring rule 3.  The per-service fields (``service``, ``grade``,
-       ``confidence``, ``outage_episodes``) are identical across the
-       group by construction, so taking the anchor's is a choice with no
-       alternative rather than a preference.
+    1. **Points are summed and everything else is the anchor's, with
+       ``action`` the one exception** — docstring rules 3 and 7.  The
+       per-service fields (``service``, ``grade``, ``confidence``,
+       ``outage_episodes``) are identical across the group by
+       construction, so taking the anchor's is a choice with no
+       alternative rather than a preference.  ``title``, ``severity``,
+       ``kind`` and ``evidence`` are the anchor's by decision.  Only the
+       step can be superseded, and only by a member whose kind is in
+       :data:`STEP_SUPERSEDES`.
 
     2. **``members`` carries the anchor too**, which is
        ``LogRecommendation.members``' shape and is what makes the summed
@@ -523,10 +575,27 @@ def _folded_row(
        its own step, because those steps are different in kind and
        cannot be merged the way an incident row merges six
        ``journalctl`` invocations into one.
+
+    5. **A superseded anchor step is named in the ``detail`` too**, and
+       for rule 4's reason read the other way round (``SNAG-SVC-003``).
+       The moment the anchor's step stops leading it is a finding's
+       remedy that no rendered field carries — ``members`` is not one of
+       the three — so the fold would drop it exactly as it would have
+       dropped a swallowed one.  The line also says *which* finding the
+       leading step belongs to, because a step under another finding's
+       title is otherwise a sentence about a subject the reader was not
+       told had changed.
     """
     anchor = group[0]
     others = list(group[1:])
     points = sum(row.recoverable_points for row in group)
+
+    # Rule 5.  ``others`` is already ordered by ``_kind_rank``, so this
+    # takes the ``KIND_ORDER``-first superseding member and invents no
+    # second ordering.  Scanning ``others`` rather than ``group`` is
+    # what makes an anchor that is itself a superseding kind a no-op:
+    # its step already leads.
+    leader = next((row for row in others if row.kind in STEP_SUPERSEDES), None)
 
     lines = [
         anchor.detail,
@@ -535,6 +604,12 @@ def _folded_row(
         f"below with its own step. The {points} recoverable points are the "
         f"sum across all {len(group)}; one fix lapses them together.",
     ]
+    if leader is not None:
+        lines.append(
+            f"The step above is the {leader.kind} finding's, because it "
+            f"reaches a unit the {anchor.kind} step cannot. The "
+            f"{anchor.kind} finding's own step was: {anchor.action}"
+        )
     for row in others:
         lines.append(f"  - {row.kind}: {row.title}")
         lines.append(f"    {row.detail}")
@@ -546,7 +621,7 @@ def _folded_row(
         service=anchor.service,
         title=anchor.title,
         detail="\n".join(lines),
-        action=anchor.action,
+        action=anchor.action if leader is None else leader.action,
         recoverable_points=points,
         grade=anchor.grade,
         confidence=anchor.confidence,

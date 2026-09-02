@@ -1,6 +1,28 @@
-# Handoff — 2026-09-02 (Session 150)
+# Handoff — 2026-09-02 (Session 151)
 
 ## Next action
+
+Close `SNAG-TEST-004` — `tests/test_notify_guard_live.py` reaches outside its own private D-Bus twice and one of the two is measured to produce a red in a concurrent session's run, which makes this repository's suite unreliable exactly when two sittings share the tree, and it is the only open entry whose cost lands on every future sitting rather than on a surface a reader visits.
+
+_**`SNAG-SVC-003` is closed and the fix is one field wide.** `_folded_row` took `action` from the anchor, so `alfred-career-mail-timer` led with *"POST /api/sysadmin/services/alfred-career-mail-timer/restart is the deliberate manual step"* — a remedy that re-arms a schedule that was never the problem — while the step reaching the failing job sat three lines below it in the row it had swallowed. `STEP_SUPERSEDES` names the kinds whose step reaches a unit the anchor's cannot, and `timer_failed` is the only one, because its step operates on the **triggered** service. Live either side: the timer leads with `journalctl --user -u alfred-career-mail.service -n 100`, `venture-chat` is unmoved, and the endpoint holds **6 rows and 83 points** both before and after._
+
+_**Rule 4's refusal stands and the owner chose the shape.** Cause-first anchoring was refused in Session 149 for want of a declared cause-to-consequence pairing; the declared supersession set was put to the owner against a full `STEP_ORDER` and against a new contract field, and the title, points, rung, grade and evidence are all still the anchor's — driven field by field, because that was the whole objection._
+
+_**The entry's discriminator was one it did not name.** It scopes the defect to "a timer fault", which points at repairing `_outage_row` whenever the subject is a timer. Two timers carried an `outage` row: `alfred-career-mail-timer`, folded, and `pgbackrest-backup-timer`, whose job had started succeeding the day before and which therefore produced no `timer_failed` row at all. **Both got the identical restart step and only the folded one's was wrong**, because for an armed timer whose unit went inactive the restart is right. The condition that refutes the step is exactly the condition that folds, which is what makes the rule local to `_folded_row`; the subject-keyed implementation is a driven mutation and `pgbackrest-backup-timer` is the only thing in the population that lands it red._
+
+_**The promotion would have dropped the anchor's step**, which is `_folded_row` rule 4 facing the other way: the tray and `health_review` render `title`, `detail` and `action`, and `members` is none of the three. Rule 5 names the superseded step in the `detail` with the finding the leading step belongs to. The consumer half needed its own drive at the **timer** shape, because `venture-chat`'s fold has no superseding member and its projected action is the anchor's either way — `SNAG-SYSD-006` had to land twice for the same reason one entry earlier._
+
+_**The step was run.** `journalctl --user -u alfred-career-mail.service -n 100` returns a SQLAlchemy insert error at 08:20:25 followed by `Failed with result 'exit-code'` — Alfred's to fix and already its SNAG-50; what is verified here is that the leading step now reaches it, where the superseded one would have re-armed a timer that was firing correctly._
+
+_**One of the nine tests was written twice and the first could not have failed.** It drove a lone `timer_failed` row and asserted it kept its own step — true of every implementation, since `recommend` never calls `_folded_row` on a group of one. The discriminating form declares `outage` superseding and reads the **detail**, because `action` comes out identical either way. Nine mutations driven, each red on the right test; two of them exist only because a first pass left two tests unreached._
+
+_**Also done**: `SNAG-SVC-004` filed as the stated residue — the provenance line lives in `detail`, and `health_review._service_facts` projects every other field, so it reads correctly today only by luck of `_timer_failed_row`'s action explaining its own subject. Suite **3285 passed, 1 skipped** against a baseline measured by stashing to HEAD (3276 + 9); ruff and mypy clean; **19 snag checks unmoved** by stash, which matters because this module carries two other entries' instruments. STATUS.md's Testing cell was **27 tests stale** across Sessions 147–149 and is re-measured. `./scripts/check-ops-claims.sh` green on all **nine**. The daemon was restarted twice, at 11:44:51 and 11:51:13. The inbox holds **one** message, `95027c07`, a correction to our own `cc5f26e7` that asks nothing and leaves our conclusion unchanged._
+
+_**Refused a third time, not forgotten**: the pre-staged `started_units` assertion. It is cheap and it is not what the filed action asked for, and this repository's rule is one roadmap session per sitting._
+
+## Session 150 — the filed action was already done, and the board had been told otherwise
+
+### The action Session 150 filed (done by Session 151)
 
 Close `SNAG-SVC-003` — the folded service row leads with the anchor's step, and for a timer fault that step names a restart the swallowed row's own detail explains cannot help — most likely by promoting the better step inside `_folded_row` rather than by moving the anchor, since cause-first anchoring was put to the owner in Session 149 and refused for want of a declared cause-to-consequence pairing this module has not got.
 

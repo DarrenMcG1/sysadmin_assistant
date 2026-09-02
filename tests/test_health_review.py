@@ -607,6 +607,28 @@ class TestFactsSection:
         assert "no service met a threshold" in build_facts_section(quiet)
 
 
+def _timer_fold_score():
+    """``alfred-career-mail-timer``'s live shape on 2026-09-02.
+
+    A scored outage on a ``kind: timer`` service whose triggered job is
+    failing — the fold whose leading step ``SNAG-SVC-003`` was about.
+    """
+    from sysadmin.monitor.reliability import Deduction, ReliabilityScore
+
+    return ReliabilityScore(
+        service="cm",
+        score=92,
+        grade="degraded",
+        uptime_percent=91.65,
+        checks_measured=1988,
+        failed_checks=166,
+        outage_episodes=1,
+        longest_outage_minutes=45.0,
+        confidence="high",
+        deductions=[Deduction(kind="downtime", points=8, detail="")],
+    )
+
+
 def _folding_score():
     """One service carrying both deductions — the shape that folds.
 
@@ -700,6 +722,62 @@ class TestFallback:
         data = copy.deepcopy(DATA)
         data["services"] = facts
         assert "13 separate outages" in build_fallback_narrative(data)
+
+    def test_the_projection_carries_the_promoted_step_through(self):
+        """``SNAG-SVC-003``'s consumer half, driven rather than assumed.
+
+        This projection takes ``action`` from the folded row, so a step
+        superseded by ``STEP_SUPERSEDES`` must reach the review as the
+        promoted one.  The test above pins the *swallowed titles*; a fix
+        that promoted the step inside ``_folded_row`` and stopped at the
+        endpoint would pass it and still hand the weekly review a
+        restart the swallowed finding's own detail says cannot help —
+        which is exactly how ``SNAG-SYSD-006`` had to land twice.
+
+        Driven at the timer shape rather than ``venture-chat``'s,
+        because that one has no superseding member and cannot
+        discriminate: its projected action is the anchor's either way.
+        """
+        from sysadmin.monitor.health_review import _service_facts
+        from sysadmin.monitor.service_recommendations import (
+            TimerPoint,
+            TimerSeries,
+            recommend,
+        )
+
+        now = datetime(2026, 9, 2, 9, 0, tzinfo=UTC)
+        scores = [_timer_fold_score()]
+        advice = recommend(
+            scores,
+            ServiceActionsConfig(),
+            timers=[
+                TimerSeries(
+                    service="cm",
+                    unit="cm.timer",
+                    points=[
+                        TimerPoint(
+                            checked_at=now,
+                            last_run="t1",
+                            last_result="exit-code",
+                            is_active=True,
+                            triggered_unit="cm.service",
+                        )
+                    ],
+                )
+            ],
+            check_interval_seconds=300,
+            now=now,
+        )
+        facts = _service_facts(scores, advice)
+        top = facts["top"][0]
+
+        assert len(advice.recommendations) == 1
+        assert top["title"].startswith("cm: 91.65% uptime")
+        assert "journalctl --user -u cm.service" in top["action"]
+        assert "/restart" not in top["action"]
+        assert top["stands_for"] == [
+            "cm: last scheduled run reported 'exit-code'"
+        ]
 
 
 # ── Generation ───────────────────────────────────────────────────────

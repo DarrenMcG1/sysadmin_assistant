@@ -46,6 +46,33 @@ debts that landing deliberately left behind._
       already reports an unpublished field as an absence rather than
       raising. Offered to Session 150 as a next action and **refused a
       sitting**, not forgotten.
+- [x] **Session 151 — the fold's leading step names a remedy that cannot
+      work, and the fix is one field wide.** *(2026-09-02.)*
+      `SNAG-SVC-003` **fixed**: `STEP_SUPERSEDES` and the promotion in
+      `_folded_row` (`service_recommendations.py`), plus `_folded_row`
+      rule 5 naming the superseded step in the `detail`. A kind
+      supersedes when its step reaches a unit the anchor's cannot;
+      `timer_failed`'s names the *triggered* service. Rule 4's refusal
+      of cause-first anchoring **stands** — the title, points, rung,
+      grade and evidence stay the anchor's, and only `action` moves; the
+      shape was put to the owner against a full `STEP_ORDER` and against
+      a new contract field. Live: `alfred-career-mail-timer` leads with
+      `journalctl --user -u alfred-career-mail.service -n 100`,
+      `venture-chat` unmoved, **6 rows and 83 points either side**.
+      **The entry's discriminator was one it did not name**: two timers
+      carried an `outage` row and only the folded one's step was wrong,
+      so the condition is the *member*, not the subject being a timer —
+      `pgbackrest-backup-timer` is the only thing in the population that
+      lands the refused subject-keyed implementation red. The promotion
+      would have **dropped** the anchor's step, which is rule 4 facing
+      the other way, so it is named in the `detail`. Consumer half
+      driven at the timer shape, because `venture-chat`'s fold cannot
+      discriminate it. The step was **run** and reaches the fault. Nine
+      mutations, each red on the right test; **one test was written
+      twice** — the first version could not have failed, since
+      `recommend` never folds a group of one. 19 snag checks unmoved by
+      stash. `SNAG-SVC-004` filed as the residue: the provenance line
+      lives in `detail`, which the weekly review does not project
 - [x] **Session 149 — one fault occupies one row, and the entry had
       measured half its own population.** *(2026-09-02.)*
       `SNAG-SYSD-006` **fixed**: `group_faults` + `_folded_row` in

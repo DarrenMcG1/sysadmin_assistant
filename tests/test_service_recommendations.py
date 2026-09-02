@@ -30,6 +30,7 @@ from sysadmin.monitor.service_recommendations import (
     MIN_CADENCE_SAMPLES,
     RATE_ARGUED,
     SERIES_HOLE_FACTOR,
+    STEP_SUPERSEDES,
     TimerPoint,
     TimerSeries,
     _observed_cadence,
@@ -991,6 +992,184 @@ class TestTheFoldsRung:
             title="s: odd", detail="d", action="a", recoverable_points=1,
         )
         assert _folded_row([anchor, odd]).severity == "risk"
+
+
+class TestTheStepCanBeSuperseded:
+    """``SNAG-SVC-003`` — rule 7, the one field the anchor does not keep.
+
+    The founding specimen is live.  ``alfred-career-mail-timer`` folded
+    ``outage`` over ``timer_failed`` on 2026-09-02 and led with
+    *"POST /api/sysadmin/services/alfred-career-mail-timer/restart is
+    the deliberate manual step"* — a remedy that re-arms a schedule that
+    was never the problem, while the step that reaches the failing job
+    sat three lines down in the swallowed row.
+
+    The discriminator is pinned as measured: two timers carried an
+    ``outage`` row that morning and only the folded one's step was
+    wrong, so what refutes the step is the **member**, not the subject
+    being a timer.  ``test_a_timer_outage_with_no_failed_job_keeps_the_restart``
+    is that second timer.
+    """
+
+    def _timer_fault(self):
+        """The live specimen: a scored outage and a failed scheduled job."""
+        return run(
+            [score("tmr", grade="degraded", downtime=6, uptime=94.92)],
+            timers=[series((0, "t1"), service="tmr", result="exit-code")],
+        )
+
+    def test_the_fold_leads_with_the_step_that_reaches_the_job(self):
+        row = self._timer_fault().recommendations[0]
+        swallowed = [m for m in row.members if m.kind == "timer_failed"][0]
+
+        assert row.action == swallowed.action
+        assert "journalctl" in row.action
+        assert "/restart" not in row.action
+
+    def test_the_anchor_keeps_every_field_but_the_step(self):
+        """Rule 4's refusal stands: only ``action`` moves.
+
+        Driven field by field rather than by a summary assertion,
+        because the whole objection to cause-first anchoring was that it
+        would take the title, the points and the rung with it.
+        """
+        row = self._timer_fault().recommendations[0]
+        anchor = [m for m in row.members if m.kind == "outage"][0]
+
+        assert row.kind == "outage"
+        assert row.title == anchor.title
+        assert row.severity == anchor.severity
+        assert row.recoverable_points == 6
+        assert row.grade == "degraded"
+        assert row.evidence == "event"
+
+    def test_a_fold_with_no_superseding_member_is_untouched(self):
+        """``venture-chat``'s live shape, which the fix must not move.
+
+        Its anchor's step is already the right one for both findings —
+        1 of the 6 live rows was affected on 2026-09-02 and this is one
+        of the five that were not.
+        """
+        row = run(
+            [score("s", grade="failing", episodes=3, longest=205.0,
+                   downtime=26, instability=25)]
+        ).recommendations[0]
+        anchor = [m for m in row.members if m.kind == "outage"][0]
+
+        assert [m.kind for m in row.members] == ["outage", "flapping"]
+        assert row.action == anchor.action
+        assert "/restart" in row.action
+
+    def test_a_timer_outage_with_no_failed_job_keeps_the_restart(self):
+        """``pgbackrest-backup-timer``: the discriminating witness.
+
+        A timer whose *unit* went inactive is an ordinary outage and the
+        restart step is the right one, so this must not be caught by a
+        rule keyed on the subject being a timer.  It produces no fold at
+        all, which is the point: the condition that refutes the step is
+        exactly the condition that folds.
+        """
+        rows = run(
+            [score("tmr", grade="degraded", downtime=1, uptime=99.14)],
+            timers=[series((0, "t1"), service="tmr", result="success")],
+        ).recommendations
+
+        assert [r.kind for r in rows] == ["outage"]
+        assert rows[0].members == []
+        assert "/restart" in rows[0].action
+
+    def test_the_superseded_step_is_named_in_the_detail(self):
+        """``_folded_row`` rule 5 — rule 4 read the other way round.
+
+        The tray and ``health_review`` render ``title``, ``detail`` and
+        ``action``; ``members`` is none of the three.  So the moment the
+        anchor's step stops leading it is a remedy no rendered field
+        carries, and the fold would drop it exactly as it would have
+        dropped a swallowed one.
+        """
+        row = self._timer_fault().recommendations[0]
+        anchor = [m for m in row.members if m.kind == "outage"][0]
+
+        assert anchor.action in row.detail
+        assert "The step above is the timer_failed finding's" in row.detail
+
+    def test_an_anchor_of_a_superseding_kind_does_not_supersede_itself(
+        self, monkeypatch
+    ):
+        """The scan is over ``others``, and the ``detail`` is what says so.
+
+        Written twice.  The first version drove a lone ``timer_failed``
+        row and asserted it kept its own step — true, and true of every
+        implementation, because ``recommend`` never calls
+        ``_folded_row`` on a group of one.  A constant observation is
+        not evidence unless something in the population would have
+        forced a different one.
+
+        This is the discriminating form.  With ``outage`` declared
+        superseding, the anchor of a two-row fold is itself a candidate:
+        scanning ``group`` finds it and scanning ``others`` does not,
+        and the two agree about ``action`` — the anchor's step either
+        way — so the **detail** is the only place the difference shows.
+        A scan over ``group`` announces a supersession that did not
+        happen, which is a row explaining its own step to a reader as
+        somebody else's.
+        """
+        import sysadmin.monitor.service_recommendations as mod
+
+        monkeypatch.setattr(mod, "STEP_SUPERSEDES", ("outage",))
+        row = run(
+            [score("s", grade="failing", episodes=3, longest=205.0,
+                   downtime=26, instability=25)]
+        ).recommendations[0]
+        anchor = [m for m in row.members if m.kind == "outage"][0]
+
+        assert [m.kind for m in row.members] == ["outage", "flapping"]
+        assert row.action == anchor.action
+        assert "The step above is" not in row.detail
+
+    def test_every_superseding_kind_is_one_the_fold_can_reach(self):
+        """A ``RATE_ARGUED`` member here would be a rule that never fires.
+
+        ``group_faults`` folds only ``EVENT_ARGUED`` rows, so a kind in
+        both :data:`STEP_SUPERSEDES` and ``RATE_ARGUED`` would be a
+        declared behaviour with no path to it — ``SNAG-CFG-001``'s shape
+        at the size of a tuple.  Pinned structurally rather than by
+        listing today's one member, which would pin the population
+        instead of the property.
+        """
+        assert set(STEP_SUPERSEDES) <= set(EVENT_ARGUED)
+        assert not set(STEP_SUPERSEDES) & set(RATE_ARGUED)
+
+    def test_the_leading_step_is_kind_order_first_among_superseding_members(
+        self, monkeypatch
+    ):
+        """Unreachable today, implemented anyway — ``_loudest``'s treatment.
+
+        No service can produce two members of superseding kinds, because
+        :data:`STEP_SUPERSEDES` has one member.  So the ordering is
+        driven against a widened constant, which is the only way to see
+        the branch: with ``flapping`` added, a fold of all three offers
+        two candidates and the ``KIND_ORDER``-first one must lead —
+        ``group_faults`` has already sorted the group, so this invents
+        no second ordering and a future widening cannot depend on tuple
+        position.
+        """
+        import sysadmin.monitor.service_recommendations as mod
+
+        monkeypatch.setattr(mod, "STEP_SUPERSEDES", ("timer_failed", "flapping"))
+        row = run(
+            [score("tmr", grade="failing", episodes=3, longest=205.0,
+                   downtime=26, instability=25)],
+            timers=[series((0, "t1"), service="tmr", result="exit-code")],
+        ).recommendations[0]
+
+        assert [m.kind for m in row.members] == [
+            "outage",
+            "flapping",
+            "timer_failed",
+        ]
+        flapping = [m for m in row.members if m.kind == "flapping"][0]
+        assert row.action == flapping.action
 
 
 class TestTheTreatmentIsAppliedAndNotImported:
