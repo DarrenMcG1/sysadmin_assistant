@@ -70,8 +70,8 @@ Three rules run through everything below.
 
    **The test is ownership, and it is applied per check rather than per
    severity** — see :data:`JUDGED_AUDIT_CHECKS`, which had to become a
-   mapping for the second exception to be expressible at all.  Ten of the
-   audit's twelve checks are still excluded, and the two that are not were
+   mapping for the second exception to be expressible at all.  Eleven of the
+   audit's thirteen checks are still excluded, and the two that are not were
    each admitted by an ADR: ``docs/adr/0006-wiring-joins-ports.md`` holds
    the second and the reasoning behind the first.
 """
@@ -751,8 +751,12 @@ WIRING_CHECK = "wiring"
 #: two directions at once.**  It was written against a four-check audit
 #: in which *every* check emitted ``breach``, so a single
 #: ``JUDGED_AUDIT_SEVERITY`` was unambiguously a deference to the
-#: producer's rung.  The audit runs **twelve** checks now, at three rungs,
-#: and that constant had quietly acquired a second job nobody argued for:
+#: producer's rung.  The audit runs **thirteen** checks now, at three rungs
+#: (their ``estate_service/audit/agent.py`` numbers them; the live count
+#: is ``last_audit.checks_run`` on ``GET :8400/api/audit/invariants`` —
+#: this figure is a restatement of another repository's cardinality and
+#: went stale once already, estate message ``00b631ec``), and that
+#: constant had quietly acquired a second job nobody argued for:
 #: it was also a check filter.  So admitting a second check by name alone
 #: would have shipped green and inert — ``wiring`` emits no ``breach`` at
 #: any code (their ADR-0067 §4 refuses one, because a breach floors the

@@ -1577,7 +1577,7 @@ class TestTheJudgedCheckMapping:
     """:data:`JUDGED_AUDIT_CHECKS` — what admits a check, and its shape."""
 
     def test_exactly_two_checks_are_judged(self):
-        """Ten of the audit's twelve checks are still excluded, and each
+        """Eleven of the audit's thirteen checks are still excluded, and each
         admission needed an ADR. A third arriving without one is the
         widening rule 3 exists to prevent."""
         assert JUDGED_AUDIT_CHECKS == {PORTS_CHECK: "breach", WIRING_CHECK: "warn"}
