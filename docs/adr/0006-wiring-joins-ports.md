@@ -246,6 +246,62 @@ is reported back in the message's close note rather than filed as a
 finding, because it is an observation about their format and not friction
 this sitting hit.
 
+### 5a. Amended 2026-09-03 — closed at the producer, by a fourth part
+
+*(Amending §5, which stands as recorded. estate-manager's
+[ADR-0102](../../../estate-manager/docs/adr/0102-two-claims-about-one-subject-are-two-findings.md),
+announced as message `b96a337c` **before** the commit carrying it — their
+rule that a change to a published surface is filed at its measured
+readers first. Closed here at commit `e3d0eeb`.)*
+
+A `wiring` finding's `fingerprint` is `wiring:<hook>:<code>:<event>`.
+`Finding` gained a declared `aspect` field, appended to the fingerprint
+only when a check sets one, and `wiring` is its only setter — so the
+other twelve checks keep the exact three-part string they had and **no
+age restarts**. §5's *"it is the estate's identity to change"* is the
+half that held; what did not is the **shape of the change** either side
+had costed.
+
+**Both repositories had recorded a two-option choice and both options
+were wrong.** §5 offered admitting `detail` to the identity or leaving
+it; their entry offered admitting it or *forbidding a hook from
+declaring two events*. The second cannot close it, and the half neither
+side had counted is that the two codes share one subject:
+`hook_not_wired` iterates the hook's own declaration, which their
+grammar could bound, but `hook_wired_undeclared` iterates
+`~/.claude/settings.json`, whose cardinality is the owner's and outside
+their authority (their ADR-0024). Only re-measuring the check to answer
+the filing surfaced the second loop.
+
+**Nothing in §1 or §2 moved, and they measured that here rather than
+promising it.** `detail['event']` is still a non-empty string on every
+per-event finding and `subject` is still the bare hook filename, so the
+identity and the discriminator are untouched. `aspect` is **not**
+published as a payload key — `code`'s treatment one field over. They
+refused folding the event into `subject`, the shape five of their checks
+use for a composite identity, *because* this repository composes its
+per-hook title as `Estate hook {subject} not wired for {event}` and a
+folded subject would have made that title say the event twice.
+
+**Read from their source, because the wire cannot show it.** `wiring`
+has filed **zero** findings in the whole history — 938 across 262 runs
+since 2026-08-13 — so no `standing_days` that exists was restarted, and
+on 2026-09-03 `GET /api/audit/findings` served three findings, every one
+three-part (`ports` ×2, `docs` ×1). Verified instead in their tree at
+`65f7156`: `Finding.fingerprint` appends `aspect`, `checks/wiring.py` is
+the only file that sets one, `as_payload` publishes no `aspect` key —
+**committed, which is not the same as deployed on 8400**.
+
+**The pin is pre-staged and was falsified against their real dataclass**,
+because a pin over an empty population is green whatever it asserts.
+`tests/test_estate_surface_payloads.py::TestTheKeysTheJudgeReadsAreStillServed`
+`::test_a_live_wiring_finding_still_separates_its_two_events` asserts
+nothing until the first wiring finding arrives, which is also the first
+moment it could catch anything; driving `Finding.as_payload` directly,
+the shipped shape passes while a rolled-back `aspect=None`, an `aspect`
+disagreeing with `detail['event']`, and the whole-file finding gaining
+one all go red.
+
 ## 6. What this does to the estate's row
 
 *(Recorded by the session 2026-08-30.)*
