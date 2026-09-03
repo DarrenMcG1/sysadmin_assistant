@@ -48,6 +48,10 @@ debts that landing deliberately left behind._
         findings ever and the three live ones are all three-part — with
         a **pre-staged** pin falsified against their real
         `Finding.as_payload` in four directions
+      - **ADR-0006 gained §5a rather than a rewrite.** Their close
+        pointed at §5, which carries the same present-tense sentence;
+        the section stands as recorded and the amendment sits beneath
+        it, which is their ADR-0102's own treatment of their ADR-0067 §9
 
 - [x] **Session 160 — the two families' disjointness was a handover, and
       nobody had enumerated it.** *(2026-09-03, `SNAG-SVC-002` decided,
