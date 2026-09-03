@@ -298,6 +298,12 @@ services:
     kind: timer
     systemd: { unit: estate-manager-scan.timer, scope: user }
     controllable: false
+    # `project_organiser` is in AGENT_NAMES and deliberately absent from
+    # agent_schedules: this timer runs its work now. Declaring it makes
+    # the handover a fact the daemon checks rather than one this comment
+    # asserts — sysadmin/monitor/handover.py reads it, and would speak if
+    # anything put that agent back on this daemon's schedule.
+    agent: project_organiser
 
   - project: estate-manager
     name: estate-manager-review-timer

@@ -3877,6 +3877,159 @@ def _answering(payload: dict) -> Callable[..., object]:
     return answer
 
 
+class TestTheHandoverReachCheck:
+    """``SNAG-SVC-005`` — the guard sees exactly what a key declares.
+
+    The check's difficulty is that its own observation is a **constant**:
+    "an undeclared timer produces no finding" is equally consistent with
+    a guard that is blind and one that was never wired. So it drives the
+    same entry three times and limb 2 is the witness, and the tests below
+    are ordered witness-first for that reason.
+    """
+
+    def _services_without_the_link(self, tmp_path):
+        """The shipped file with its one ``agent:`` key removed."""
+        import yaml
+
+        from sysadmin.monitor.services import default_services_path
+
+        raw = yaml.safe_load(default_services_path().read_text(encoding="utf-8"))
+        for entry in raw["services"]:
+            entry.pop("agent", None)
+        path = tmp_path / "services.yaml"
+        path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+        return path
+
+    # -- every way of not knowing ----------------------------------------
+
+    def test_a_file_that_will_not_read_is_unknown(self, tmp_path):
+        from sysadmin.monitor import services as services_mod
+
+        missing = tmp_path / "absent.yaml"
+        with patch.object(services_mod, "default_services_path", lambda: missing):
+            result = snag_claims.check_handover_reach_is_declared()
+        assert result.verdict == "unknown"
+        assert "would not read" in result.note
+
+    def test_a_file_declaring_no_link_is_unknown_not_match(self, tmp_path):
+        """With no link there is nothing to re-point, so limb 2 cannot exist."""
+        from sysadmin.monitor import services as services_mod
+
+        stripped = self._services_without_the_link(tmp_path)
+        with patch.object(services_mod, "default_services_path", lambda: stripped):
+            result = snag_claims.check_handover_reach_is_declared()
+        assert result.verdict == "unknown"
+        assert "0 handover link(s)" in result.note
+
+    def test_no_enabled_agent_is_unknown(self):
+        from sysadmin.monitor import self_monitor
+
+        with patch.object(self_monitor, "agent_schedules", lambda config: {}):
+            result = snag_claims.check_handover_reach_is_declared()
+        assert result.verdict == "unknown"
+        assert "nothing to re-point the link at" in result.note
+
+    def test_a_witness_that_does_not_fire_is_unknown(self):
+        """A guard that reports no breach makes the silence measure nothing."""
+        from sysadmin.monitor import handover
+
+        real = handover.handover_report
+
+        def never_breaches(services, config):
+            report = real(services, config)
+            return dataclasses.replace(report, breached=[])
+
+        with patch.object(handover, "handover_report", never_breaches):
+            result = snag_claims.check_handover_reach_is_declared()
+        assert result.verdict == "unknown"
+        assert "the witness did not fire" in result.note
+
+    # -- the entry -------------------------------------------------------
+
+    def test_the_reach_is_bounded_by_the_declaration_today(self):
+        result = snag_claims.check_handover_reach_is_declared()
+        assert result.verdict == "match", result.note
+        evidence = "\n".join(result.detail)
+        assert "as shipped" in evidence
+        assert "re-pointed at" in evidence
+        assert "with the key removed" in evidence
+
+    def test_a_guard_that_reads_undeclared_timers_refutes_it(self):
+        """The entry's named fix, which is what deriving the link looks like."""
+        from sysadmin.monitor import handover
+
+        real = handover.handover_report
+
+        def also_reports_undeclared(services, config):
+            report = real(services, config)
+            extra = [
+                f"{entry.name} -> <undeclared>"
+                for entry in services.services
+                if entry.kind == handover.LINKABLE_KIND and entry.agent is None
+            ]
+            return dataclasses.replace(
+                report, unknown_agents=[*report.unknown_agents, *extra]
+            )
+
+        with patch.object(handover, "handover_report", also_reports_undeclared):
+            result = snag_claims.check_handover_reach_is_declared()
+        assert result.verdict == "mismatch"
+        assert "no longer bounded by the declaration" in result.note
+
+
+class TestTheStartLimiterCheck:
+    """``SNAG-SYSD-007`` — recovery from a tripped limiter needs a challenge.
+
+    Both subprocesses are stood in for, because the real answers are
+    properties of this box's polkit policy and sudoers: driving the live
+    pair is what the check does, and driving the *branches* is what these
+    do. The remedy is never attempted — a check that ran ``systemctl
+    start`` would change the state it measures.
+    """
+
+    def _driven(self, pk_stdout: str, sudo_rc: int, pk_raises=None):
+        real_run = snag_claims.subprocess.run
+
+        def fake(argv, **kwargs):
+            if argv and argv[0] == "pkcheck":
+                if pk_raises is not None:
+                    raise pk_raises
+                return SimpleNamespace(stdout=pk_stdout, stderr="", returncode=0)
+            if argv and argv[0] == "sudo":
+                return SimpleNamespace(stdout="", stderr="", returncode=sudo_rc)
+            return real_run(argv, **kwargs)
+
+        with patch.object(snag_claims.subprocess, "run", fake):
+            return snag_claims.check_start_after_limit_needs_admin()
+
+    def test_a_missing_pkcheck_is_unknown_not_open(self):
+        result = self._driven("", 1, pk_raises=OSError("no pkcheck"))
+        assert result.verdict == "unknown"
+        assert "pkcheck would not run" in result.note
+
+    def test_an_answer_naming_no_result_is_unknown(self):
+        result = self._driven("nothing useful\n", 1)
+        assert result.verdict == "unknown"
+        assert "without naming a result" in result.note
+
+    def test_the_pair_holds_on_this_box(self):
+        result = self._driven("polkit.result=auth_admin_keep\n", 1)
+        assert result.verdict == "match"
+        assert "auth_admin_keep" in "\n".join(result.detail)
+
+    def test_an_action_needing_no_challenge_refutes_it(self):
+        result = self._driven("polkit.result=yes\n", 1)
+        assert result.verdict == "mismatch"
+        assert "no longer requires an admin challenge" in result.note
+
+    def test_passwordless_sudo_refutes_it(self):
+        """Either limb alone is survivable; the pair is what costs a sitting."""
+        result = self._driven("polkit.result=auth_admin_keep\n", 0)
+        assert result.verdict == "mismatch"
+        assert "passwordless sudo is available" in result.note
+
+
+
 class TestTheQueueTimezoneCheck:
     """``SNAG-ESTATE-007``'s check — the twenty-third, and the fifth across a boundary.
 

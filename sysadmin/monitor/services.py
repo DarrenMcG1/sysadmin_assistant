@@ -123,6 +123,14 @@ class ServiceEntry(BaseModel):
     log: LogRef | None = None
     monitor: bool = True
     reason: str | None = None
+    #: The agent whose work this timer runs, when a scheduled job has
+    #: been moved out of this process (``SNAG-SVC-002``).  Declared here
+    #: rather than beside the agent because this entry is what an author
+    #: *adds* during the move and the agent side is what they delete —
+    #: see :mod:`sysadmin.monitor.handover`, which reads it.  A name from
+    #: ``self_monitor.AGENT_NAMES``; a name this daemon still schedules
+    #: and has enabled means the job runs twice.
+    agent: str | None = None
     mute: bool = False
     controllable: bool = True
     auto_restart: bool = False
@@ -146,6 +154,16 @@ class ServiceEntry(BaseModel):
             raise ValueError(
                 f"{self.name}: kind timer must name a .timer unit, got "
                 f"{self.systemd.unit!r}"
+            )
+        if self.agent and self.kind != "timer":
+            # A handover replaces a *schedule*, so only the thing that
+            # holds one can stand in for it. A oneshot is inactive
+            # between runs by design and this file already watches it
+            # through its timer; a `systemd` entry asserts a running
+            # process, which is not a firing.
+            raise ValueError(
+                f"{self.name}: agent: is only meaningful on kind timer, "
+                f"got kind {self.kind}"
             )
         return self
 

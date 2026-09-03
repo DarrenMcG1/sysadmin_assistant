@@ -3,6 +3,74 @@
 **Last Updated**: 2026-09-03
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The two families' disjointness was a handover, and git says so**
+> (2026-09-03, Session 160). `SNAG-SVC-002` is **decided**, not closed.
+> The entry says `timer_stale` and `stalls.py` do not overlap here and
+> calls that "a property of this box rather than of the design". The
+> enumeration nobody had done: **10** services are declared `kind:
+> timer`, and none intersects `AGENT_NAMES` (6) or `agent_schedules` (5)
+> by service name, by unit stem, **or by what its `ExecStart` actually
+> runs** — the third key being the one a name comparison cannot reach.
+> Live at the same moment `stalls.py` watched 5 agents with 0 stalled and
+> `GET /api/services/actions` served 5 rows with the `timer_stale`
+> population still **zero**. The two families have named **zero** common
+> subjects on this box.
+>
+> **But the scenario the entry calls hypothetical already happened.**
+> Commit `5cc04cc` (2026-08-08) installed `sysadmin-organiser.timer`,
+> declared it `kind: timer`, and set `agents.project_organiser.enabled:
+> false` in the same sitting — for the *same subject* the daemon was
+> scheduling as an agent. Its message states the rule: *"Monitoring the
+> timer **replaces** the self-monitor's stall watch over that agent."*
+> So the disjointness is a **handover**, performed deliberately on the
+> one subject that could ever have been both, and `estate-manager-scan.timer`
+> runs that agent's work today under ADR-0005. What is fragile is what
+> *carried* it: `summarise_agent` gates on `schedule.enabled`, so one
+> config flag was the whole separation — the fragility
+> `agent_schedules`' own docstring already names.
+>
+> **`sysadmin/monitor/handover.py` makes the handover a fact the daemon
+> checks.** An `agent:` key on a `kind: timer` entry, three rungs:
+> `breached` (the agent is scheduled **and** enabled — the job runs
+> twice, both families speak), `flag_carried` (the `5cc04cc` state,
+> silent and one edit away), `unknown_agents`. A link naming a
+> **retired** agent is silent, which is the key's purpose —
+> `AGENT_NAMES` and `agent_schedules` answer different questions and both
+> are read. **Reported, never refused** (`config_keys` rule 1): a boot
+> refused over a coherence finding is `SNAG-DB-005`'s twenty-three hours
+> bought for a job that runs twice. `handover_walked` keeps
+> zero-because-blind apart from zero-because-clean.
+>
+> **The cross-reference the entry recommends has a cost it does not
+> price**: `sysadmin-organiser-timer` and `project_organiser` share no
+> string, so feeding `stalls.py` a timer-backed population needs the same
+> declared link — a schema key, not a wiring change — and once the key
+> exists the cheaper thing to spend it on is a config-time report rather
+> than the alert-time machinery the entry itself calls "the second owner
+> arriving with more machinery".
+>
+> **It does not close the entry and the check correctly says so.** The
+> guard imports neither family, so all three instruments are unmoved:
+> both still speak on the synthetic subject, `timer_stale` still owns no
+> ladder, the importer sets are still disjoint. What moved is that the
+> state in which they speak about a *real* subject is now detected before
+> it is served. Driven live: `POST /api/sysadmin/reload` reports
+> `handover_breached: []` with `handover_walked: true`, and against the
+> same file with the link re-pointed reports the breach; a **restart** in
+> that state writes `handover_agent_still_scheduled` at `WARNING` —
+> stored, counted, raising nothing, which is the right rung for a
+> tidiness finding. The loud path was driven by restarting into the bad
+> state, because a clean report proves nothing about it.
+>
+> **The residue is `SNAG-SVC-005`**, filed with the twenty-second check:
+> the key is a declaration, so an agent moved to a timer with no key is
+> invisible. Both closures were priced and refused — deriving the link
+> needs a subprocess in a parse path and *recognises an application*
+> where the key **honours a statement**, and making the key mandatory
+> puts `agent: null` on nine of ten entries as ceremony. Its check
+> answers the same entry three times (as shipped, re-pointed, key
+> removed) because the obvious observation is a constant.
+
 > **A constraint value nothing wrote had a referent, and dating seven
 > rows is what found it** (2026-09-03, Session 159b). `SNAG-DB-006` is
 > **fixed**. `chk_run_status` has admitted `cancelled` since migration
@@ -1630,10 +1698,33 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-03 08:44:09**
+> Daemon restarted at **2026-09-03 11:49:26**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since; PID 150293 → 153706, back in 14 s on
-> `Restart=always`, no `sudo`. *(Session 159b restarted **three** times,
+> `ERROR`/`CRITICAL` lines since; PID 274133 → 279728, back in 16 s on
+> `Restart=always`, no `sudo`. **Seven restarts, and the last two were
+> owed to this claim rather than to the code** — `sysadmin/snag_claims.py`
+> and then `sysadmin/core/abandoned_runs.py`, the latter reverted from a
+> mutation `.bak` with byte-identical content and a moved mtime, neither
+> imported by anything the daemon loads. That is the documented
+> false-positive direction and it cost two of the seven, which is worth
+> knowing beside `SNAG-SYSD-007`: the claim's conservatism and the start
+> limiter pull against each other. **The fifth was the finding.**
+> The start at **11:31:57** (PID 226296 → 258518) was not a `kill -TERM`: Session 160 restarted
+> **five** times — the clean reload path, the breach path, the lifespan
+> warning path either side of a mutated `services.yaml`, and this claim
+> — which tripped `StartLimitBurst=5` inside `StartLimitIntervalSec=600`
+> and left the unit `failed` with `start-limit-hit`. That is the Session
+> 39 machinery working exactly as designed on a healthy box:
+> `sysadmin-failed.service` fired and raised `critical | sysadmin.service
+> failed`, and the lifespan resolved it on the next start, which is the
+> pairing that makes that row legitimate. **The documented "the restart
+> needs no `sudo`" claim is true only while the daemon is running**:
+> `kill -TERM` needs none, `systemctl reset-failed` needs none, and the
+> `start` from `inactive` that follows needs polkit `auth_admin_keep`
+> (measured with `pkcheck --action-id
+> org.freedesktop.systemd1.manage-units`), which `sudo -n` cannot supply
+> and a session with no agent is refused for. Filed as
+> `SNAG-SYSD-007`. *(Session 159b restarted **three** times,
 > which is unusual and deliberate: the first two are the live
 > verification of `SNAG-DB-006`'s fix — a code path that had never run on
 > this box — and the third is this claim. Previously **2026-09-03
@@ -1756,11 +1847,46 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
-> rows <!--check:alerts-->, `warning: High disk usage on /`,
-> `info: Project ImbaBots next action idle` and
-> `warning: Unusual RAM usage`, **3**
-> named here <!--check:open_titles-->. *(Re-counted 2026-09-03 by Session
+> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
+> rows <!--check:alerts-->, `High disk usage on /` and
+> `Project ImbaBots next action idle`, **2**
+> named here <!--check:open_titles-->.
+>
+> **It read 14 an hour ago and the fall is the one this block predicted,
+> which is the whole point of writing a prediction into it.** Twelve rows
+> opened at **11:33:00**, the first `log_aggregator` run after the daemon
+> came back, and none of them happened then: the kernel logged an amdgpu
+> ring-reset at **11:24:55**, seven minutes *inside* the 77-minute outage
+> this sitting caused (`SNAG-SYSD-007`). So they were a **catch-up read**
+> — `_resume_floor()` sizing the window by how long since that source
+> last stored a row, across a gap the monitor did not choose, which this
+> document has written about at length and never observed doing this job.
+> Eleven rows for one fault is `SNAG-AGENT-005`'s design working as
+> intended: one per distinct signature, not one per line. The twelfth was
+> `Failed to start SysAdmin…`, this sitting's own start-limiter trip
+> arriving through the log family.
+>
+> **The prediction was written at 11:44 and came true at 11:48:50.** These
+> are *events*, so silence is their only recovery signal: `_resolve_quiet`
+> closes a row unobserved for `alert_quiet_minutes`, **15** here, against
+> a last sighting of **11:33:05** — so the block said **2026-09-03 11:48**
+> and a count of **2** afterwards, and both are what happened. The
+> `expires` marker that carried it is **removed rather than left**, which
+> is that family's own rule read forward: after its moment a standing
+> prediction reports `unknown` for ever, and a prediction that has been
+> measured is no longer one. A fall nobody wrote about in advance is `SNAG-ESTATE-008`'s
+> founding case; a fall named before it happened is the mechanism
+> working. *(Re-counted 2026-09-03 by Session
+> 160 at 11:33. Two rows moved and **both were chased rather than
+> counted**: `warning: Unusual RAM usage` resolved itself at 10:04:14 by
+> `_check_anomalies`' resolve-by-id, which is the previous block's "it
+> clears when the rolling mean catches up" **now confirmed**; and
+> `critical | sysadmin.service failed` opened at 10:14:32 when this
+> sitting tripped the start limiter and was resolved by the lifespan at
+> 11:31:57. So the net fall from 3 to 2 is one genuine recovery and one
+> row this sitting both caused and closed — neither is
+> `SNAG-ESTATE-008`'s founding case, and saying which is which is what
+> that entry exists for. Previously re-counted by Session
 > 159b at 08:45. The fall from 4 is the **predicted** one and not
 > `SNAG-ESTATE-008`'s founding case: the paragraph below named
 > `warning: Estate port 8110 registry breach` as `SNAG-ESTATE-009`

@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-02
+> **Last Updated**: 2026-09-03
 
 ---
 
@@ -15,6 +15,57 @@ _Project state left this repository — [ADR-0005](../adr/0005-project-state-lea
 the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
+
+- [x] **Session 160 — the two families' disjointness was a handover, and
+      nobody had enumerated it.** *(2026-09-03, `SNAG-SVC-002` decided,
+      `SNAG-SVC-005` opened.)* `sysadmin/monitor/handover.py` reports the
+      only state in which `stalls.py` and `service_recommendations.py`
+      can speak about one real subject: a services.yaml `kind: timer`
+      entry whose `agent:` key names an agent this daemon still schedules
+      and has enabled.
+      - **The entry was taken by measuring rather than by reasoning, and
+        the measurement refuted its stated reason.** **10** timers are
+        configured; none intersects `AGENT_NAMES` or `agent_schedules` by
+        service name, unit stem, **or `ExecStart` subject**, and live the
+        two families named **zero** common subjects. But the scenario the
+        entry calls hypothetical happened here: commit `5cc04cc`
+        (2026-08-08) declared `sysadmin-organiser.timer` as `kind: timer`
+        for the same subject the daemon scheduled as `project_organiser`,
+        and its message states the rule — *"Monitoring the timer replaces
+        the self-monitor's stall watch over that agent."* The
+        disjointness is a **handover**, not a property of the box.
+      - **What is fragile is what carried it.** `summarise_agent` gates
+        on `schedule.enabled`, so one config flag was the whole
+        separation — the fragility `agent_schedules`' own docstring
+        names. Three rungs: `breached` (enabled — the job runs twice),
+        `flag_carried` (the `5cc04cc` state, one edit away),
+        `unknown_agents`. A link to a **retired** agent is silent, which
+        is the key's purpose and why both sets are read.
+      - **Reported, never refused** — `config_keys` rule 1 — by the
+        lifespan and by four fields on `POST /api/sysadmin/reload`.
+        Driven live either side of a mutated copy, and the lifespan
+        warning path was driven by restarting into the breach state,
+        because a clean report proves nothing about the loud path.
+      - **It does not close the entry and the check correctly says so**:
+        the guard imports neither family, so all three instruments are
+        unmoved. The residue is `SNAG-SVC-005`, the declarative blind
+        spot, filed with the twenty-second check and both closures priced
+        and refused.
+      - **A live test was made differential.**
+        `test_refusing_something_is_not_finding_nothing` asserts
+        `closed == 0` over the whole live table, so an in-flight daemon
+        run — stamped with another instance's id — closes and the test
+        goes red on an unchanged tree. Every restart opens a ~110 s
+        window for it. A baseline sweep runs first now and the
+        assertions are on the delta, which also sharpens `refused` from
+        `>= 1` to exactly one more than the baseline.
+      - **The sitting also took the box down and filed why.** Five
+        restarts in ten minutes tripped `StartLimitBurst=5`, and recovery
+        from `inactive` needs polkit `auth_admin_keep` that `sudo -n`
+        cannot supply — a limit on the documented "a restart needs no
+        `sudo`" claim, filed as `SNAG-SYSD-007` with the twenty-third
+        check. The Session 39 machinery worked throughout: the failure
+        was announced and the lifespan resolved its row.
 
 - [x] **Session 159 — the register declared dispositions and nothing read
       one back.** *(2026-09-03.)* `convention:next-action` resolves every

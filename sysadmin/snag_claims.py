@@ -106,6 +106,7 @@ import asyncio
 import inspect
 import json
 import logging
+import os
 import re
 import subprocess  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
 import sys
@@ -4146,6 +4147,263 @@ def check_timer_agent_two_owners() -> Measurement:
     return Measurement("match", "", detail)
 
 
+def check_start_after_limit_needs_admin() -> Measurement:
+    """``SNAG-SYSD-007`` — the no-sudo restart claim holds only while the daemon runs.
+
+    This repository has written down four times that a restart here needs
+    no ``sudo``: ``kill -TERM`` plus ``Restart=always`` on a unit whose
+    ``User=`` is the owner.  True, and true only of a **running** daemon.
+    Once ``StartLimitBurst`` trips, the unit sits ``failed`` with
+    ``start-limit-hit``; ``systemctl reset-failed`` clears that and
+    leaves it ``inactive``, and nothing restarts an inactive unit — so
+    recovery is a ``systemctl start``, which is a state change on a
+    *system* unit and goes to polkit.
+
+    **Two limbs, because either alone is survivable and the pair is
+    what costs a sitting.**  The action must require an admin challenge
+    *and* passwordless ``sudo`` must be unavailable; with either absent a
+    session can bring the box back by itself.  ``pkcheck`` is asked
+    rather than ``systemctl start`` being attempted, for the obvious
+    reason: a check that ran the remedy would change the state it
+    measures, and on a healthy box would be a no-op that proves nothing.
+
+    **Exit status cannot see polkit**, which is why the *action id* is
+    read rather than a return code interpreted.  A privileged
+    ``systemctl`` call returning 0 may have been authorised by a dialog
+    the calling session cannot observe, and ``auth_admin_keep`` means a
+    retry inside the retention window agrees for free — so a probe built
+    on "did it work" answers differently depending on whether somebody
+    happened to click something recently.
+
+    Refuted when the action no longer requires authentication, or when
+    ``sudo -n`` succeeds.  ``unknown`` when ``pkcheck`` is missing or
+    will not answer, which is not the same as the box being open.
+    """
+    detail: list[str] = []
+    try:
+        completed = subprocess.run(  # noqa: S603 — fixed argv, read-only
+            [
+                "pkcheck",
+                "--action-id",
+                "org.freedesktop.systemd1.manage-units",
+                "--process",
+                str(os.getpid()),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return Measurement(
+            "unknown",
+            f"pkcheck would not run ({exc}), so what the start needs is unmeasured "
+            "— which is not the same as it needing nothing",
+            tuple(detail),
+        )
+
+    combined = f"{completed.stdout}\n{completed.stderr}"
+    result = next(
+        (
+            line.split("=", 1)[1].strip()
+            for line in combined.splitlines()
+            if "result" in line and "=" in line
+        ),
+        None,
+    )
+    if result is None:
+        return Measurement(
+            "unknown",
+            "pkcheck answered without naming a result for "
+            "org.freedesktop.systemd1.manage-units, so the authorisation this "
+            "action needs is unread",
+            tuple(detail),
+        )
+    detail.append(f"polkit result for manage-units: {result}")
+
+    try:
+        sudo = subprocess.run(  # noqa: S603 — fixed argv, and -n never prompts
+            ["sudo", "-n", "true"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        sudo_free = sudo.returncode == 0
+    except (OSError, subprocess.SubprocessError) as exc:
+        return Measurement(
+            "unknown",
+            f"sudo -n would not run ({exc}), so the second limb is unmeasured "
+            "and the pair cannot be judged",
+            tuple(detail),
+        )
+    detail.append(f"sudo -n true: {'succeeds' if sudo_free else 'refused'}")
+
+    needs_admin = result.startswith("auth_admin")
+    if not needs_admin:
+        return Measurement(
+            "mismatch",
+            f"manage-units no longer requires an admin challenge (result {result!r}), "
+            "so a session that has tripped the start limiter can bring the daemon "
+            "back by itself",
+            tuple(detail),
+        )
+    if sudo_free:
+        return Measurement(
+            "mismatch",
+            "passwordless sudo is available, so the admin challenge is reachable "
+            "without a polkit agent and the pair that costs a sitting is broken",
+            tuple(detail),
+        )
+    return Measurement(
+        "match",
+        f"a start from inactive needs {result} and sudo -n is refused, so a session "
+        "that trips StartLimitBurst cannot restore the daemon on its own",
+        tuple(detail),
+    )
+
+
+def check_handover_reach_is_declared() -> Measurement:
+    """``SNAG-SVC-005`` — the handover guard sees exactly what was declared.
+
+    ``SNAG-SVC-002``'s guard reads an ``agent:`` key on a ``kind: timer``
+    services.yaml entry and reports when the named agent is still on this
+    daemon's schedule.  It is a **declaration**, so an author who moves a
+    scheduled job to a ``oneshot`` + ``.timer`` and writes no key gets no
+    warning — the state the guard exists for, arriving unseen.
+
+    **The witness is the shipped file's own link, and the same timer
+    answers twice.**  A check that merely observed "an undeclared timer
+    produces no finding" would be a constant observation: it is equally
+    consistent with the guard being blind and with the guard being
+    absent, and neither is what the entry claims.  So the same entry is
+    driven at three keys against the real ``services.yaml`` and
+    ``config.yaml``:
+
+    1. as shipped — a link to a **retired** agent, silent, which is the
+       completed handover the key exists to record;
+    2. re-pointed at an agent this daemon schedules and has enabled —
+       ``breached``, which proves the guard can see this very entry;
+    3. with the key **removed** — nothing, which is the entry.
+
+    Limb 2 is what makes limb 3 evidence.  Without it the silence is the
+    silence of a check that was never wired.
+
+    Refuted when the same timer with no ``agent:`` key produces a finding
+    — which is what deriving the link rather than declaring it would look
+    like, and is the entry's named fix.  ``unknown`` for every way of not
+    knowing: files that will not read, and a shipped file that declares
+    no link at all, which leaves nothing to build the witness from.
+    """
+    from sysadmin.monitor.handover import handover_report
+    from sysadmin.monitor.self_monitor import agent_schedules
+    from sysadmin.monitor.services import default_services_path, parse_services
+
+    detail: list[str] = []
+    try:
+        services_raw = yaml.safe_load(
+            default_services_path().read_text(encoding="utf-8")
+        )
+        config = get_config()
+    except Exception as exc:  # noqa: BLE001
+        return Measurement(
+            "unknown",
+            f"the two files this check compares would not read ({exc})",
+            tuple(detail),
+        )
+
+    linked = [
+        entry
+        for entry in services_raw.get("services", [])
+        if entry.get("agent")
+    ]
+    if len(linked) != 1:
+        return Measurement(
+            "unknown",
+            f"the shipped services.yaml declares {len(linked)} handover link(s), "
+            "and the witness needs exactly one to re-point and then remove — "
+            "with none there is nothing to prove the guard can see this entry, "
+            "and with several the three drives stop being about one subject",
+            tuple(detail),
+        )
+    subject = linked[0]["name"]
+    detail.append(f"subject: the one declared link, on {subject}")
+
+    enabled = sorted(
+        name for name, sched in agent_schedules(config).items() if sched.enabled
+    )
+    if not enabled:
+        return Measurement(
+            "unknown",
+            "no agent is both scheduled and enabled, so limb 2 has nothing to "
+            "re-point the link at and the silence of limb 3 cannot be told "
+            "apart from a guard that was never wired",
+            tuple(detail),
+        )
+    live_agent = enabled[0]
+
+    def _report(agent: str | None):
+        raw = yaml.safe_load(yaml.safe_dump(services_raw))
+        for entry in raw["services"]:
+            if entry["name"] != subject:
+                continue
+            if agent is None:
+                entry.pop("agent", None)
+            else:
+                entry["agent"] = agent
+        return handover_report(parse_services(raw), config)
+
+    try:
+        shipped = _report(linked[0]["agent"])
+        repointed = _report(live_agent)
+        stripped = _report(None)
+    except Exception as exc:  # noqa: BLE001
+        return Measurement(
+            "unknown",
+            f"one of the three drives would not parse ({exc})",
+            tuple(detail),
+        )
+
+    detail.append(
+        f"as shipped (agent: {linked[0]['agent']}, retired): "
+        f"declared={shipped.declared}, findings={not shipped.clean}"
+    )
+    detail.append(
+        f"re-pointed at {live_agent} (scheduled, enabled): "
+        f"breached={repointed.breached}"
+    )
+    detail.append(
+        f"with the key removed: declared={stripped.declared}, "
+        f"findings={not stripped.clean}"
+    )
+
+    if not repointed.breached:
+        return Measurement(
+            "unknown",
+            "the witness did not fire — re-pointing the link at a scheduled, "
+            f"enabled agent ({live_agent}) produced no breach, so the guard "
+            "cannot be shown to see this entry at all and the silence below "
+            "measures nothing",
+            tuple(detail),
+        )
+    if not stripped.clean or stripped.declared:
+        return Measurement(
+            "mismatch",
+            "the same timer with no `agent:` key now produces a finding "
+            f"({stripped.breached or stripped.flag_carried or stripped.unknown_agents}) "
+            "— the guard's reach is no longer bounded by the declaration, "
+            "which is the entry's named fix",
+            tuple(detail),
+        )
+    return Measurement(
+        "match",
+        f"the guard sees {subject} when the key names an enabled agent and says "
+        "nothing about the same timer when the key is absent — its reach is "
+        "exactly what was declared",
+        tuple(detail),
+    )
+
+
 #: ``SNAG-ESTATE-007``'s two engines, which is where a fix to either half
 #: would land: the queue's psycopg pool and the project domain's
 #: SQLAlchemy engine.  Both are named for :data:`ESTATE_NUDGE_MODULES`'
@@ -7128,6 +7386,18 @@ CHECKS: dict[str, Check] = {
             "SNAG-SVC-002",
             "a timer-backed agent is judged by two families at once",
             check_timer_agent_two_owners,
+        ),
+        Check(
+            "start_after_limit_needs_admin",
+            "SNAG-SYSD-007",
+            "recovering from a tripped start limiter needs an admin challenge",
+            check_start_after_limit_needs_admin,
+        ),
+        Check(
+            "handover_reach_is_declared",
+            "SNAG-SVC-005",
+            "the handover guard sees only what a services.yaml key declares",
+            check_handover_reach_is_declared,
         ),
         Check(
             "check_interval_looks_away",

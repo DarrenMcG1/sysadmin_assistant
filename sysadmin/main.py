@@ -55,6 +55,7 @@ from sysadmin.files.router import router as files_router
 from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.desktop import desktop_notifier
 from sysadmin.monitor.dnd import dnd_manager
+from sysadmin.monitor.handover import handover_report
 from sysadmin.monitor.health_review import run_weekly_review as run_weekly_health_review
 from sysadmin.monitor.log_aggregator import LogAggregatorAgent
 from sysadmin.monitor.log_review import run_weekly_review as run_weekly_log_review
@@ -234,6 +235,47 @@ async def lifespan(app: FastAPI):
             ),
         },
     )
+
+    # The agent-to-timer handover, asserted rather than remembered
+    # (``SNAG-SVC-002``). Reported, never refused, for the same reason as
+    # the key walk above: a walker returns a list, and the state this
+    # finds costs a job run twice rather than a wrong answer served.
+    # Wrapped because a report must never be able to break what it
+    # reports on.
+    try:
+        handover = handover_report(services, config)
+        if handover.breached:
+            logger.warning(
+                "handover_agent_still_scheduled",
+                extra={
+                    "links": handover.breached,
+                    "detail": (
+                        "a services.yaml timer declares an agent this "
+                        "daemon still schedules and has enabled — the job "
+                        "runs twice, and both the stall family and the "
+                        "timer advice family speak about it"
+                    ),
+                },
+            )
+        if handover.flag_carried:
+            logger.warning(
+                "handover_carried_by_config_flag",
+                extra={
+                    "links": handover.flag_carried,
+                    "detail": (
+                        "the timer has taken over, but only "
+                        "agents.<name>.enabled: false keeps the agent off "
+                        "this daemon's schedule — one edit from a double "
+                        "run. Remove the agent from agent_schedules."
+                    ),
+                },
+            )
+        if handover.unknown_agents:
+            logger.warning(
+                "handover_names_no_agent", extra={"links": handover.unknown_agents}
+            )
+    except Exception as exc:  # noqa: BLE001 — never fail a boot over a report
+        logger.warning("handover_check_failed", extra={"error": str(exc)})
 
     # Agents publish change events from scheduler threads (each with its own
     # event loop) — bind the API loop so SSE clients are woken on it.

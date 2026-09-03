@@ -239,15 +239,35 @@ class TestAnUnstampedRowIsRefusedAndCounted:
         there, and would go vacuous when they age out of the 30-day
         retention window on 2026-09-27.  A test whose discriminator
         expires is one that reports success for the wrong reason.
+
+        **The *sweep* is differential for the same reason, added by
+        Session 160 after this went red on an unchanged tree.**  The
+        minted row is isolated; the sweep is not — it runs over the whole
+        table, so a genuinely in-flight run belonging to the *live*
+        daemon carries a stamp from another instance and is closed,
+        giving ``closed == 1`` with nothing wrong. Reproducible rather
+        than theoretical: ``agent_first_run_delay_seconds`` re-runs every
+        agent 60 s after each daemon start, so every restart opens a
+        ~110 s window in which ``file_organiser`` is mid-scan, and this
+        sitting restarted six times. So a baseline sweep runs **first**
+        — it closes whatever the live table was holding and leaves the
+        second with nothing to find — and the assertions are on the
+        *delta* the minted row makes. That also sharpens ``refused``,
+        which was ``>= 1`` over a live population and is now exactly one
+        more than the baseline.
         """
         async def work(session):
+            baseline = await close_abandoned_runs(session, instance_id=INSTANCE_ID)
             session.add(_row(None))
             await session.flush()
-            return await close_abandoned_runs(session, instance_id=INSTANCE_ID)
+            return baseline, await close_abandoned_runs(session, instance_id=INSTANCE_ID)
 
-        out, problem = rolled_back_drive(work)
+        outcome, problem = rolled_back_drive(work)
         assert not problem, problem
+        baseline, out = outcome
         assert out.closed == 0
+        assert out.refused == baseline.refused + 1
+        assert not out.found_nothing
         assert out.refused >= 1
         assert not out.found_nothing
 

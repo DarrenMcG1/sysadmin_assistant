@@ -94,6 +94,7 @@ from sysadmin.core.config import (
 )
 from sysadmin.core.config_keys import KeyReport
 from sysadmin.core.jobs import JOB_CONFIG_PATHS, JobSyncReport
+from sysadmin.monitor.handover import HandoverReport, handover_report
 from sysadmin.monitor.services import (
     ServicesFile,
     default_services_path,
@@ -203,6 +204,22 @@ class ReloadReport:
     #: it sits beside an ``unknown_keys`` that was actually computed —
     #: ``ports_checked``'s rule.
     unwalkable_sections: list[str] = field(default_factory=list)
+    #: ``"<service> -> <agent>"`` for a timer whose agent this daemon
+    #: still schedules and has enabled (``SNAG-SVC-002``): the job runs
+    #: twice, and the stall family and the timer advice family both speak
+    #: about it. Answered with ``ok: true`` for ``unknown_keys``' reason —
+    #: the pair of files is valid and the operator asked for something
+    #: incoherent rather than unreadable.
+    handover_breached: list[str] = field(default_factory=list)
+    #: Links where the timer has taken over but only
+    #: ``agents.<name>.enabled: false`` keeps the agent off the schedule.
+    #: One edit from the line above, which is why it is reported at all.
+    handover_flag_carried: list[str] = field(default_factory=list)
+    #: Links naming a string that is no agent in any sense.
+    handover_unknown_agents: list[str] = field(default_factory=list)
+    #: Whether the handover walk ran. ``False`` makes the three lists
+    #: above zero-because-blind rather than zero-because-clean.
+    handover_walked: bool = False
 
     @property
     def config_unchanged(self) -> bool:
@@ -232,6 +249,10 @@ class ReloadReport:
             "jobs_retimed": list(self.jobs_retimed),
             "unknown_keys": list(self.unknown_keys),
             "unwalkable_sections": list(self.unwalkable_sections),
+            "handover_breached": list(self.handover_breached),
+            "handover_flag_carried": list(self.handover_flag_carried),
+            "handover_unknown_agents": list(self.handover_unknown_agents),
+            "handover_walked": self.handover_walked,
         }
 
 
@@ -367,6 +388,18 @@ def reload_configuration(
         except Exception as exc:  # noqa: BLE001
             return _refused(now, f"services.yaml: {exc}")
 
+        # Both files parsed, so the pair can be judged coherent before
+        # either is installed — the same ordering rule 1 applies to
+        # validation, asked of the configuration about to be served
+        # rather than of the one currently being served. Wrapped for
+        # ``unknown_config_keys``' reason: a report must never be able to
+        # break what it reports on.
+        try:
+            handover = handover_report(new_services, new_config)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("handover_check_failed", extra={"error": str(exc)})
+            handover = HandoverReport()
+
         requires_restart = changed_restart_only(old_config, new_config)
         added, removed, changed = diff_services(old_services, new_services)
 
@@ -423,6 +456,10 @@ def reload_configuration(
         jobs_retimed=jobs.retimed,
         unknown_keys=keys.unknown,
         unwalkable_sections=keys.unwalkable,
+        handover_breached=handover.breached,
+        handover_flag_carried=handover.flag_carried,
+        handover_unknown_agents=handover.unknown_agents,
+        handover_walked=handover.walked,
     )
     logger.info(
         "configuration_reloaded",

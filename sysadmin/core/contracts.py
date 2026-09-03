@@ -712,6 +712,22 @@ class ReloadResponse(Contract):
     #: unexamined. ``unknown_keys: []`` is a clean bill only when this is
     #: empty too — ``ports_checked``'s rule, one contract over.
     unwalkable_sections: list[str] = Field(default_factory=list)
+    #: ``"<service> -> <agent>"`` for a services.yaml timer declaring an
+    #: agent this daemon still schedules and has enabled (``SNAG-SVC-002``).
+    #: The job runs twice and two alert families speak about it — the
+    #: handover that commit ``5cc04cc`` performed by hand, undone.
+    handover_breached: list[str] = Field(default_factory=list)
+    #: Links where the timer has taken over but only
+    #: ``agents.<name>.enabled: false`` holds the agent off the schedule.
+    #: Silent today and one edit from the line above.
+    handover_flag_carried: list[str] = Field(default_factory=list)
+    #: Links naming a string that is no agent in any sense — a typo in a
+    #: key whose whole job is to be checked.
+    handover_unknown_agents: list[str] = Field(default_factory=list)
+    #: Whether the handover walk ran at all. Read it before reading the
+    #: three lists above — ``ports_checked``'s rule again, and the reason
+    #: this field exists rather than being inferred from an empty list.
+    handover_walked: bool = False
 
 
 # ── /api/files/* mutating actions ────────────────────────────────────
