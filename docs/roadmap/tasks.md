@@ -16,6 +16,30 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 161 — the entry with no disposition had a producible
+      class and a refuted obstacle.** *(2026-09-03, `SNAG-LOG-013`
+      declared `owed`; nothing opened, nothing fixed.)* The last open
+      entry declaring no disposition now declares one, so the register
+      reads 20 of 20 declared.
+      - **Producibility measured, not reasoned.** 8 of 79 retained
+        signatures are cut against the entry's last-recorded 2 of 50, and
+        4 of the 8 are stack traces. `systemd-coredump`'s 70–73-character
+        preamble plus 29–46-character frames means the 120 cap admits one
+        and a half frames; it falls inside frame 2 of all three live
+        dumps. The producer is no longer the JSON envelope the entry
+        blames — it is boilerplate-first stack traces, the opposite shape
+      - **Population empty, margin 43 characters.** Closest live pair is
+        two `mosquitto.service` dumps at 77 of 120, separated only by a
+        symbol in frame 1
+      - **Residue narrowed to prose.** Driven with the *real*
+        `alert_title` (the check stubs it), `members[].alert_title` and
+        `members[].signature` already disambiguate; only the rendered
+        `detail` lines and the row title collide
+      - **`owed`, because the stated obstacle is gone.** The digest
+        `alert_title` carries is per-row and pure — the property the
+        entry says a divergence-aware cap cannot have — and
+        `capped_signature` is where it has not been applied
+
 - [x] **Session 160 — the two families' disjointness was a handover, and
       nobody had enumerated it.** *(2026-09-03, `SNAG-SVC-002` decided,
       `SNAG-SVC-005` opened.)* `sysadmin/monitor/handover.py` reports the

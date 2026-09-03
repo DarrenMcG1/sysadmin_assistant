@@ -3,6 +3,54 @@
 **Last Updated**: 2026-09-03
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The class was still producible and the entry's own obstacle was
+> refuted** (2026-09-03, Session 161). `SNAG-LOG-013` declares
+> **`owed`** — the last of twenty open entries to declare a disposition,
+> so the register reads `owed 1, blocked 4, decided 10, delegated 5` and
+> every open entry now says whether a sitting is owed work on it.
+>
+> **The producer changed and nobody had looked.** The entry blames
+> `SNAG-LOG-008`'s JSON envelopes and that class is gone; driving the
+> real `signature()` over all 80,380 retained rows, **8 of the 79**
+> distinct signatures are cut today against the **2 of 50** the entry
+> last recorded, and **4 of the 8 are stack traces** — one Python
+> traceback and three core dumps. `systemd-coredump` spends **70–73
+> characters** on `Process N (X) of user N dumped core. Stack trace of
+> thread N:` before the first frame, and a frame renders `#N NxN
+> <symbol> (<object> + NxN)` at 29–46 characters, so the 120-character
+> cap admits **one and a half frames** and falls inside frame 2 of all
+> three live dumps. Two `abort()`-path crashes of one binary are
+> identical to the cap by construction. A stack trace is
+> boilerplate-first, which is the exact **opposite** of the envelope
+> class that was fixed.
+>
+> **The live margin is 43 characters and it is luck.** No pair on the box
+> shares a capped prefix; the closest is two `mosquitto.service` dumps
+> agreeing over **77** of 120, and the survivor survives only because its
+> frame 1 carries a symbol (`sub__clean_session`) where the other carries
+> `n/a`. An empty population is not a closure — this document's rule,
+> stated for this entry twice already.
+>
+> **The residue is prose alone, which no bullet said and the check cannot
+> see.** Driven at a colliding pair through the real `recommend()` with
+> the **real** `alert_title` — the check stubs it with a fixed string —
+> the roll-up's structured members already come apart:
+> `members[].alert_title` reads `… (truncated) [a028de53]` against
+> `[d9aa53f0]` and `members[].signature` carries all 247 characters. So
+> Session 122's discriminator reaches this surface's machine-readable
+> half for free, and what still collides is the rendered `detail` member
+> lines and the row `title`.
+>
+> **Which is why the disposition is `owed` and not `decided`.** The entry
+> says a divergence-aware cap *"needs the sibling set and so cannot live
+> in a per-row pure function"* — true of that remedy, and its own alert
+> half already shipped one that is per-row and pure. `capped_signature`
+> is simply where the digest has not been applied. Nothing was fixed this
+> sitting and nothing was refuted: all **20** snag verdicts and the
+> register's four conventions are unmoved, the suite is **3429** either
+> side, and the ops block's unresolved-alert claim was corrected 2 → 3
+> (`Unusual RAM usage` opened after Session 160 wrote it).
+
 > **The two families' disjointness was a handover, and git says so**
 > (2026-09-03, Session 160). `SNAG-SVC-002` is **decided**, not closed.
 > The entry says `timer_stale` and `stalls.py` do not overlap here and
@@ -1847,9 +1895,9 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
-> rows <!--check:alerts-->, `High disk usage on /` and
-> `Project ImbaBots next action idle`, **2**
+> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
+> rows <!--check:alerts-->, `High disk usage on /`,
+> `Project ImbaBots next action idle` and `Unusual RAM usage`, **3**
 > named here <!--check:open_titles-->.
 >
 > **It read 14 an hour ago and the fall is the one this block predicted,

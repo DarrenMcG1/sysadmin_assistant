@@ -1,8 +1,29 @@
-# Handoff — 2026-09-03 (Session 160)
+# Handoff — 2026-09-03 (Session 161)
 
 ## Next action
 
-Take `SNAG-LOG-013` by declaring a disposition for it before deciding anything else, because it is now the only open entry of nineteen that declares none and its own check reports the population empties by retention the same afternoon it was filed, so the first thing to measure is whether the class it names is still producible at all rather than whether the capped-prefix collision is worth a fix.
+Apply `capped_signature`'s missing discriminator by stamping a cut member line and a cut advice title with the digest `alert_title` already carries, because `SNAG-LOG-013` now declares `owed` on the measured ground that its stated obstacle is gone — the fix is per-row and pure, which is the property the entry says a divergence-aware cap cannot have.
+
+_**The last entry with no disposition declares `owed`, and the measurement is why.**_ _`SNAG-LOG-013` was 1 of 20 open entries declaring nothing; the register now reads `owed 1, blocked 4, decided 10, delegated 5`. The next action asked whether the class is still **producible** rather than whether the collision is worth fixing, and it is — by a producer the entry does not name._
+
+_**The producer changed and the entry still blames the fixed one.**_ _Driving the real `signature()` over all 80,380 retained rows: **8 of 79** distinct signatures are cut today against the **2 of 50** the entry last recorded, and **4 of the 8 are stack traces** — one Python traceback, three core dumps. `systemd-coredump` spends **70–73 characters** on `Process N (X) of user N dumped core. Stack trace of thread N:` before frame 1, and a frame renders `#N NxN <symbol> (<object> + NxN)` at 29–46 characters, so the 120-character cap admits **one and a half frames** and falls inside frame 2 of all three live dumps. Two `abort()`-path crashes of one binary (`n/a (libc.so.N)` → `raise` → `abort`) are identical to the cap by construction. A stack trace is boilerplate-first — the exact opposite of the JSON-envelope class `SNAG-LOG-008` closed._
+
+_**The live margin is 43 characters and it is luck, not design.**_ _No pair shares a capped prefix; the closest is two `mosquitto.service` dumps agreeing over **77** of 120, and the survivor survives only because its frame 1 carries a symbol (`sub__clean_session`) where the other carries `n/a`. An empty population is not a closure, which is this entry's own rule twice over._
+
+_**The residue is prose alone, and the entry's own check cannot see that.**_ _Driven at a colliding pair through the real `recommend()` with the **real** `alert_title` — `check_capped_signature_collides` stubs it with a fixed string, so it has never exercised this — the roll-up's structured members already come apart: `members[].alert_title` reads `… (truncated) [a028de53]` against `[d9aa53f0]`, `members[].signature` carries all 247 characters. Session 122's discriminator reaches the machine-readable half for free; what still collides is the rendered `detail` member lines and the row `title`, which is the whole of what the roll-up promises to name._
+
+_**`owed` rather than `decided`, at the owner's call on that evidence.**_ _The entry says a divergence-aware cap "needs the sibling set and so cannot live in a per-row pure function" — true of that remedy, and its own alert half shipped one that **is** per-row and pure. `capped_signature` is simply where it has not been applied. Both readings were put to the owner with the measurement; `decided` would have rested on the residue being prose-only at P3._
+
+_**Nothing was fixed and nothing was refuted, checked rather than assumed.**_ _All **20** snag verdicts and the register's four conventions are unmoved, and the suite is **3429 passed, 1 skipped** either side — this sitting changed no code. `ruff` and `mypy` were not re-run for that reason._
+
+_**One ops claim was stale and is corrected.**_ _`check-ops-claims` read `no` on the unresolved-alert count: the block said **2**, the box held **3** — `Unusual RAM usage` opened after Session 160 wrote the block. Corrected to 3 and all three named; all **9** claims now `ok`._
+
+_**One estate message is open and deliberately not closed.**_ _`b96a337c` announces that `wiring` findings' `fingerprint` becomes `wiring:<hook>:<code>:<event>` (their ADR-0102). Verified in their tree rather than taken: `service/estate_service/audit/finding.py:77` appends `aspect`, and `checks/wiring.py` is the only setter — **committed, which is not deployed on 8400**. Our judge is untouched, as they say; what is now stale is the docstring at `sysadmin/estate/judgements.py:1340-1347`, which states the producer's fingerprint carries no event in the present tense. That is a separate piece of work and the message stays open until it is done._
+
+---
+
+## Session 160 — the disjointness was a handover, not a property of the box
+
 
 _**The box is up and the sitting took it down first, which is `SNAG-SYSD-007`.**_ _Five restarts in ten minutes — the guard's clean reload path, its breach path, the lifespan warning path either side of a mutated `services.yaml`, and the ops-claim restart — tripped `StartLimitBurst=5` inside `StartLimitIntervalSec=600`, and `sysadmin.service` was down **10:14:32 → 11:31:57**. The Session 39 machinery worked exactly as designed: `sysadmin-failed.service` fired, raised `critical | sysadmin.service failed`, and the lifespan resolved it on the next start. **What nobody had recorded is the limit on the documented "a restart needs no `sudo`" claim**: `kill -TERM` needs none while the daemon is *running*, `systemctl reset-failed` needs none, and the `start` from `inactive` that follows needs polkit `auth_admin_keep` — measured with `pkcheck --action-id org.freedesktop.systemd1.manage-units`, which `sudo -n` cannot supply and a session with no agent is refused for. Filed at P4 with the twenty-third check, which asks the **action id** rather than attempting the remedy: a check that ran `systemctl start` would change the state it measures, and exit status cannot see polkit anyway._
 
