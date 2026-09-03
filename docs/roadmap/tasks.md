@@ -16,6 +16,42 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 159 — the register declared dispositions and nothing read
+      one back.** *(2026-09-03.)* `convention:next-action` resolves every
+      `SNAG-` id in `HANDOFF.md`'s published next action against the
+      register **as it is now** and refuses one whose entry declares
+      `decided` or `delegated` — the guard Session 157 pre-staged and
+      Session 158 made reachable by taking the disposition population
+      from zero to seventeen.
+      - **Every id, and both narrower rules were refuted by the corpus
+        rather than rejected by taste.** Over the **21** distinct next
+        actions in `HANDOFF.md`'s history the broad rule fires **once**,
+        on Session 156's line naming `SNAG-TRAY-011`, with zero other
+        refusals. *First id* is refuted by the live line, whose first id
+        is a citation; *ids before the first em-dash* is blind on 2 of
+        21.
+      - **The reading is taken now, and a list would have been wrong
+        within the hour.** `SNAG-SYSD-003` declared `Open — decided` at
+        `4d8a464` and closed at `3f5af0d` an hour later, its `Status`
+        line going with it — one line, one id, two registers, opposite
+        verdicts, driven both ways as a test.
+      - **A closed entry is reported and never refused**, at the owner's
+        ruling: nothing separates an id cited as evidence from one named
+        as the work, and 12 of the 21 lines name an entry closed today.
+      - **Two consumers, one implementation.** The module reports at
+        preflight and postflight; `tests/test_handoff_shape.py` calls
+        `check_next_action` rather than restating the rule, and refuses
+        the commit. `disposition_word` was lifted out of
+        `check_dispositions` for the same reason and the provenance is
+        asserted rather than the value.
+      - **The pin skips on the tree, never on the import** —
+        `pytest.importorskip` would have disarmed it on the one box where
+        it matters the moment a `uv sync` pruned an undeclared `.pth`.
+      - Ten code mutations and four test-level ones driven, each red on
+        the tests about its own rule. Suite **3363 → 3387** (20 + 4
+        added, none retired), `ruff` and `mypy` clean, all 22 prior snag
+        verdicts unmoved by stash-diff, all 9 ops claims `ok`.
+
 - [x] **Session 158b — a `decided` entry closed by measuring the question
       it reserved.** *(2026-09-02.)* `SNAG-SYSD-003` **fixed** at the
       owner's direction, an hour after being annotated `decided`, which is

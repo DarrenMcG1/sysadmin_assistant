@@ -38,10 +38,13 @@ nothing.
 
 from __future__ import annotations
 
+import importlib
 import pathlib
 import re
 
 import pytest
+
+import sysadmin.snag_claims as snag_claims
 
 HANDOFF = pathlib.Path(__file__).resolve().parent.parent / "HANDOFF.md"
 
@@ -214,3 +217,104 @@ class TestPreflightIsTheOnlyReaderAndSaysSo:
             "nothing else on this box reads it"
         )
         assert "SCHEDULED=" in script
+
+
+class TestThePublishedLineNamesNoWorkNobodyIsOwed:
+    """The blocking half of Session 159's guard.
+
+    ``sysadmin.snag_claims.check_next_action`` is the one implementation
+    and this class is its second **consumer**, never a second statement
+    of the rule: the module reports at preflight and postflight, where a
+    refusal is news to judge, and these tests refuse the commit.  Two
+    speakers for one fact is the defect this repository has recorded at
+    six scales; ``action_from``'s publish-and-read shape is what makes
+    the owner's "both" one owner rather than two.
+
+    What it stops is measured rather than imagined.  Session 138 refused
+    ``SNAG-TRAY-011``'s proposed remedy on 2026-08-30; Session 156 read
+    one bullet short of the refusal, published the remedy as this
+    repository's next action, and their ``roadmap.py`` republished it to
+    the estate board verbatim.  Driven over the 21 distinct next actions
+    in this file's history, the guard fires on that line and on no other.
+    """
+
+    def test_the_register_could_have_answered(self):
+        """The premise, asserted separately.
+
+        A guard whose subject is unreadable passes vacuously, and an
+        assertion that no id was refused is satisfied by having found no
+        entries at all — so what makes the test below evidence is stated
+        here rather than assumed.
+        """
+        entries, problem = snag_claims.load_entries()
+        assert not problem, problem
+        declared = [
+            entry
+            for entry in entries
+            if entry.is_open and snag_claims.declared_disposition(entry.body)
+        ]
+        assert declared, (
+            "no open entry declares a disposition, so nothing in the register "
+            "could have forced a refusal — the guard below would pass blind"
+        )
+
+    def test_the_line_could_be_read_at_all(self):
+        """The second premise.  A blocking guard that cannot see its own
+        subject blocks nothing — ``ports_checked``'s rule at the size of
+        a test."""
+        line, problem = snag_claims.next_action_line()
+        assert not problem, problem
+        assert line
+
+    def test_the_next_action_names_no_entry_that_is_owed_nothing(self):
+        """Scoped to the refusal and no wider.
+
+        An id this register cannot answer for is reported by
+        ``check_next_action`` at preflight and does **not** block a
+        commit: that is a different fault with a different remedy, and
+        widening a blocking guard onto it would refuse a next action that
+        cites another repository's id — which ``SNAG-ESTATE-*``'s two
+        minters make an ordinary thing to want to do.
+        """
+        entries, problem = snag_claims.load_entries()
+        line, _ = snag_claims.next_action_line()
+        refused = [
+            item.note
+            for item in snag_claims.read_named_entries(line or "", entries)
+            if item.refused
+        ]
+        assert not refused, (
+            "HANDOFF.md's next action names an entry whose own body says no sitting "
+            f"is owed work on it, and the estate board publishes that line: {refused}"
+        )
+
+    def test_the_local_read_is_the_line_the_board_publishes(self):
+        """The pin.  ``next_action_line`` reads this document directly
+        rather than importing ``next_action_from_handoff``, because
+        ``estate_service`` is on this checkout's path by an editable
+        ``.pth`` that is in no lockfile — a production path that goes
+        quiet when an undeclared install is pruned is worse than a local
+        read pinned against the owner's parser.  "Import where you can,
+        pin where you cannot", with the import only *usually* available,
+        which is not the same thing.
+
+        Byte equality rather than a comparison of the ids they name: a
+        set of ids stays equal through a divergence that changed the
+        sentence, and the sentence is what a reader matches against the
+        document.
+
+        **The skip is gated on the tree, never on the import**, which is
+        the difference between a pin that stops and a pin that goes
+        quiet.  ``pytest.importorskip`` would pass on the box where the
+        pin matters the moment a ``uv sync`` prunes that ``.pth`` — a
+        control disarmed by routine housekeeping, with the suite green.
+        A checkout without estate-manager beside it has nothing to pin
+        against and skips; one *with* it and no importable module is a
+        red, because that is the state where the pin was silently lost.
+        """
+        if not snag_claims.ESTATE_SERVICE.is_dir():
+            pytest.skip(f"{snag_claims.ESTATE_SERVICE} is not on this box — nothing to pin against")
+        roadmap = importlib.import_module("estate_service.projects.roadmap")
+        ours, problem = snag_claims.next_action_line()
+        assert not problem, problem
+        assert ours == roadmap.next_action_from_handoff(HANDOFF.read_text(encoding="utf-8"))

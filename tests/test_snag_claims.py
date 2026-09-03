@@ -46,6 +46,7 @@ import sysadmin.ops_claims as ops_claims
 import sysadmin.snag_claims as snag_claims
 from sysadmin.core.config import REPO_ROOT, get_config
 from sysadmin.core.schema_guard import EXIT_STATUS
+from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.core.text import strip_markdown as real_strip_markdown
 from sysadmin.snag_claims import (
     CHECKS,
@@ -69,6 +70,7 @@ from sysadmin.snag_claims import (
     check_dropin_blind_spot,
     check_estate_port_8500,
     check_health_path_guess,
+    check_next_action,
     check_run_status_cancelled,
     check_tray_report_unheard,
     check_unmarked_sentence_invisible,
@@ -394,6 +396,231 @@ class TestDispositions:
 # ---------------------------------------------------------------------------
 # The convention
 # ---------------------------------------------------------------------------
+
+
+def _handoff(tmp_path, line, heading="## Next action"):
+    """A handoff carrying *line* as the one thing the board would publish."""
+    path = tmp_path / "HANDOFF.md"
+    path.write_text(
+        f"# Handoff — 2026-09-03 (Session 1)\n\n{heading}\n\n{line}\n", encoding="utf-8"
+    )
+    return path
+
+
+class TestTheNextActionIsJudged:
+    """Session 158b's guard: the register declared dispositions and
+    nothing read one back.
+
+    Every test is driven at a stand-in modelling the **fix** as well as
+    the defect — a control that cannot report a landed fix reports one
+    for ever, which is ``check_review_schedule_unread``'s defect and this
+    class's reason for existing rather than a twenty-first check.
+    """
+
+    def test_a_line_naming_a_decided_entry_is_refused(self, tmp_path):
+        """The founding case.  Session 156 published exactly this."""
+        entries = [_open("SNAG-X-1", _status("Open — decided, refused 2026-08-30"))]
+        findings = check_next_action(
+            entries, "", _handoff(tmp_path, "Close `SNAG-X-1` by doing the thing.")
+        )
+        assert findings[0].verdict == "unknown"
+        assert "declare decided or delegated" in findings[0].note
+        assert any("SNAG-X-1: open — decided" in item for item in findings[0].detail)
+
+    def test_a_line_naming_a_delegated_entry_is_refused(self, tmp_path):
+        entries = [_open("SNAG-X-1", _status("Open — delegated to estate-manager"))]
+        findings = check_next_action(
+            entries, "", _handoff(tmp_path, "Close `SNAG-X-1` by doing the thing.")
+        )
+        assert findings[0].verdict == "unknown"
+
+    def test_a_line_naming_an_owed_entry_holds(self, tmp_path):
+        """The stand-in modelling the fix.  Without it the guard is
+        coupled to a bad line and can only ever say ``??``."""
+        entries = [_open("SNAG-X-1", _status("Open — owed, the work queue"))]
+        findings = check_next_action(
+            entries, "", _handoff(tmp_path, "Close `SNAG-X-1` by doing the thing.")
+        )
+        assert findings[0].verdict == "match"
+        assert "none of them declares decided or delegated" in findings[0].note
+
+    def test_a_line_naming_a_blocked_entry_holds(self, tmp_path):
+        """The narrowing, driven rather than asserted.  ``blocked`` is
+        work intended and waiting on a precondition, and ``6ac0a72``'s
+        next action named one and was right to — so a guard refusing the
+        complement of the two would have refused a good sitting."""
+        entries = [_open("SNAG-X-1", _status("Open — blocked, on an empty population"))]
+        findings = check_next_action(
+            entries, "", _handoff(tmp_path, "Write the check for `SNAG-X-1`.")
+        )
+        assert findings[0].verdict == "match"
+
+    def test_a_closed_entry_is_reported_and_never_refused(self, tmp_path):
+        """The owner's ruling of 2026-09-03, and the live line's own
+        shape: nothing separates an entry cited as evidence from one
+        named as the work, so a closed id is named and not refused."""
+        closed = dataclasses.replace(_open("SNAG-X-1", _status("Open — decided")), is_open=False)
+        findings = check_next_action(
+            [closed], "", _handoff(tmp_path, "Build the guard — because `SNAG-X-1` shows why.")
+        )
+        assert findings[0].verdict == "match"
+        assert any("SNAG-X-1: closed, and named anyway" in item for item in findings[0].detail)
+
+    def test_the_reading_is_taken_now_and_not_when_the_guard_was_built(self, tmp_path):
+        """``SNAG-SYSD-003`` in two states, which is the whole reason the
+        guard reads the document rather than a list.
+
+        It declared ``Open — decided`` at ``4d8a464`` and closed an hour
+        later at ``3f5af0d``, its ``Status`` line going with it.  One
+        line, one id, two registers, opposite verdicts — so a set
+        snapshotted at annotation time refuses the live next action.
+        """
+        line = "Build the guard — because `SNAG-X-1` closing is the case that shows why."
+        handoff = _handoff(tmp_path, line)
+        annotated = [_open("SNAG-X-1", _status("Open — decided, deliberately left"))]
+        closed = [dataclasses.replace(annotated[0], is_open=False, body="  - **Symptom**: x")]
+        assert check_next_action(annotated, "", handoff)[0].verdict == "unknown"
+        assert check_next_action(closed, "", handoff)[0].verdict == "match"
+
+    def test_every_id_is_read_and_not_the_first(self, tmp_path):
+        """Falsifies the rule the live line refutes.  Its own first id is
+        ``SNAG-SYSD-003``, cited as evidence rather than named as the
+        work, so a first-id guard reads the citation and stops."""
+        entries = [
+            _open("SNAG-X-1", _status("Open — owed, the work queue")),
+            _open("SNAG-X-9", _status("Open — decided, refused")),
+        ]
+        findings = check_next_action(
+            entries, "", _handoff(tmp_path, "Close `SNAG-X-1` — as `SNAG-X-9` shows.")
+        )
+        assert findings[0].verdict == "unknown"
+        assert "1 of 2 entries" in findings[0].note
+
+    def test_an_id_after_the_em_dash_is_read_too(self, tmp_path):
+        """Falsifies the other narrow rule.  The house form is *"Verb
+        `SNAG-ID` — reason"*, so a leading-clause guard catches the same
+        single true positive in the corpus and is blind on 2 of the 21
+        lines whose only id sits after an em-dash."""
+        entries = [_open("SNAG-X-9", _status("Open — decided, refused"))]
+        findings = check_next_action(
+            entries, "", _handoff(tmp_path, "Do the thing — by closing `SNAG-X-9`.")
+        )
+        assert findings[0].verdict == "unknown"
+
+    def test_an_id_this_document_does_not_hold_is_unsayable_not_fine(self, tmp_path):
+        """``SNAG-ESTATE-*`` ids have two minters on this box and every
+        pair names a different defect, so resolving a foreign id here
+        would answer plausibly and wrongly."""
+        findings = check_next_action(
+            [_open("SNAG-X-1", _status("Open — owed"))],
+            "",
+            _handoff(tmp_path, "Close `SNAG-ESTATE-042` over there."),
+        )
+        assert findings[0].verdict == "unknown"
+        assert "could not be read against this register" in findings[0].note
+        assert any("no such entry" in item for item in findings[0].detail)
+
+    def test_a_value_outside_the_vocabulary_takes_no_reading(self, tmp_path):
+        findings = check_next_action(
+            [_open("SNAG-X-1", _status("Won't fix — measured"))],
+            "",
+            _handoff(tmp_path, "Close `SNAG-X-1`."),
+        )
+        assert findings[0].verdict == "unknown"
+        assert any("outside the vocabulary" in item for item in findings[0].detail)
+
+    def test_an_undeclared_entry_is_not_this_guards_fault_to_report(self, tmp_path):
+        """``check_dispositions`` is what makes an undeclared entry loud.
+        A second speaker for one fact is the defect this repository has
+        recorded at six scales, so the reading is printed and the verdict
+        is not moved."""
+        findings = check_next_action(
+            [_open("SNAG-X-1", "  - **Symptom**: x")], "", _handoff(tmp_path, "Close `SNAG-X-1`.")
+        )
+        assert findings[0].verdict == "match"
+        assert any("declaring no disposition" in item for item in findings[0].detail)
+
+    def test_a_line_naming_no_entry_is_a_clean_reading_and_not_a_blind_one(self, tmp_path):
+        """The deliberate departure from the two sibling sweeps.
+
+        There the population is the register's open entries and an empty
+        one means the reader was blind; here the population is the
+        **line**, which was read in full and could have named a
+        ``decided`` entry.  Reachable in 5 of 21 measured sittings, so
+        reporting ``??`` would teach the reader to filter this line.
+        """
+        findings = check_next_action(
+            [_open("SNAG-X-1", _status("Open — decided"))],
+            "",
+            _handoff(tmp_path, "Annotate the seventeen entries that are owed nothing."),
+        )
+        assert findings[0].verdict == "match"
+        assert "names no entry" in findings[0].note
+
+    def test_one_id_named_twice_is_read_once(self, tmp_path):
+        findings = check_next_action(
+            [_open("SNAG-X-1", _status("Open — owed"))],
+            "",
+            _handoff(tmp_path, "Close `SNAG-X-1`, because `SNAG-X-1` is the oldest."),
+        )
+        assert findings[0].detail == ("SNAG-X-1: open — owed",)
+
+    def test_a_handoff_with_no_next_heading_is_unknown(self, tmp_path):
+        findings = check_next_action(
+            [_open("SNAG-X-1", _status("Open — owed"))],
+            "",
+            _handoff(tmp_path, "Close `SNAG-X-1`.", heading="## What happened"),
+        )
+        assert findings[0].verdict == "unknown"
+        assert "names no line under" in findings[0].note
+
+    def test_an_unreadable_handoff_is_unknown_and_says_so(self, tmp_path):
+        findings = check_next_action([], "", tmp_path / "absent.md")
+        assert findings[0].verdict == "unknown"
+        assert "could not be read" in findings[0].note
+
+    def test_an_unreadable_register_reports_the_line_it_could_not_judge(self, tmp_path):
+        """The two failures are distinguishable, because the remedies are:
+        one is a missing document and the other a missing sentence."""
+        findings = check_next_action(
+            [], "the file could not be read (OSError)", _handoff(tmp_path, "Close `SNAG-X-1`.")
+        )
+        assert findings[0].verdict == "unknown"
+        assert "the line was read and the register was not" in findings[0].note
+        assert any("Close `SNAG-X-1`." in item for item in findings[0].detail)
+
+    def test_a_long_line_is_cut_at_a_word_and_marked(self, tmp_path):
+        """``SNAG-BRIEF-002``'s rule, and it bites harder here because a
+        reader's next move is to match this string against the document
+        by eye."""
+        line = "Do the thing " + "and then some more words " * 20
+        findings = check_next_action([], "", _handoff(tmp_path, line))
+        printed = findings[0].detail[0]
+        assert TRUNCATION_MARKER in printed
+        body = printed.removeprefix("published: ").removesuffix(TRUNCATION_MARKER).strip()
+        assert line.startswith(body), "the printed prefix is not the line's"
+        assert line[len(body)] == " ", "the cut did not fall on a word boundary"
+
+    def test_the_refused_set_is_a_subset_of_the_vocabulary(self):
+        """A refusal naming a word the sweep never counts is a guard and
+        a register disagreeing about what an entry said."""
+        assert set(snag_claims.REFUSED_DISPOSITIONS) < set(snag_claims.DISPOSITIONS)
+
+    def test_both_readers_take_the_disposition_from_one_parse(self):
+        """``SNAG-DB-003``'s shape, and it would fail green in both
+        directions: the sweep counting an entry ``decided`` while a guard
+        splitting on another token read the same line as declaring
+        nothing.  Asserted as **provenance** — a value test passes
+        against a second copy that happens to agree."""
+        source = inspect.getsource(snag_claims.check_dispositions)
+        assert "disposition_word(value)" in source
+        assert "DISPOSITION_PREFIX" not in source.split('"""')[-1]
+
+    def test_an_unanchored_value_yields_no_word_rather_than_a_guess(self):
+        """The anchor is what keeps a value their closure rule reads as a
+        completion out of this guard's vocabulary."""
+        assert snag_claims.disposition_word("Won't fix — measured") == ""
+        assert snag_claims.disposition_word("Open — decided, because") == "decided"
 
 
 class TestConvention:

@@ -1,7 +1,58 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-02
+**Last Updated**: 2026-09-03
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **The register declared dispositions and nothing read one back**
+> (2026-09-03, Session 159). `convention:next-action` is the guard
+> Session 157 pre-staged: it resolves every `SNAG-` id in `HANDOFF.md`'s
+> published next action against the register **as it is now**, and
+> refuses one whose entry declares `decided` or `delegated`. The failure
+> is measured, not imagined — Session 138 refused `SNAG-TRAY-011`'s
+> proposed remedy on 2026-08-30, Session 156 stopped one bullet short of
+> the refusal and published that remedy as this repository's next action,
+> and `roadmap.py` republished it to the estate board verbatim.
+>
+> **Every id, and the two narrower rules were refuted rather than
+> rejected.** Driven over the **21** distinct next actions in
+> `HANDOFF.md`'s history: reading every id fires **once**, on Session
+> 156's line, with **zero** other refusals. *First id* is refuted by the
+> live line, whose first id is `SNAG-SYSD-003` cited as evidence rather
+> than named as the work. *Ids before the first em-dash* catches the same
+> single true positive — the house form is `Verb SNAG-ID — reason` — and
+> is blind on **2 of 21** whose only id sits after one, which is a guard
+> whose failure direction is silence.
+>
+> **It reads the entry's value now, and a list would have been wrong
+> about it within the hour.** At `4d8a464`, the commit that took the
+> disposition population from zero to seventeen, `SNAG-SYSD-003` declared
+> `Open — decided`; at `3f5af0d` an hour later it closed and its `Status`
+> line went with it. One line, one id, two registers, **opposite
+> verdicts** — driven both ways as a test. A **closed** entry is reported
+> and never refused, at the owner's ruling: nothing separates an id cited
+> as evidence from one named as the work, and **12 of 21** historic lines
+> name an entry that is closed today.
+>
+> **Two consumers, one implementation**, which is what makes the owner's
+> "both" one owner rather than two. `check_next_action` reports at
+> preflight and postflight, where a refusal is news to judge;
+> `tests/test_handoff_shape.py` calls *that function* rather than
+> restating the rule and refuses the commit. Ten mutations driven, each
+> red on the tests about its own rule, and two are worth carrying: the
+> first-id reader leaves the em-dash test green (correctly — its specimen
+> has no id before the dash, which is what isolates the two rules), and
+> ignoring `is_open` cannot reach the now-versus-snapshot test, because
+> that test's closed stand-in drops its `Status` line faithfully to
+> `SNAG-SYSD-003`.
+>
+> **The pin skips on the tree, never on the import.** `next_action_line`
+> reads this document rather than importing their
+> `next_action_from_handoff`, because `estate_service` is on this path by
+> an editable `.pth` that is in **no lockfile** — so the pin is a test,
+> and `pytest.importorskip` would have disarmed it on the one box where
+> it matters the moment a `uv sync` pruned that install. It skips only
+> when estate-manager is absent from the box entirely; present-and-
+> unimportable is a **red**. The two reads are byte-identical today.
 
 > **A `decided` entry closed by measuring the question it reserved**
 > (2026-09-02, Session 158). `SNAG-SYSD-003` is **fixed**:
@@ -1521,12 +1572,18 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-02 21:25:02**
+> Daemon restarted at **2026-09-03 08:05:58**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since; PID 3412364 → 3524153, back in 10 s on
+> `ERROR`/`CRITICAL` lines since; PID 1654 → 85280, back in 12 s on
 > `Restart=always`, no `sudo`. Owed to the claim rather than to the code,
-> which is now **three of the last five sittings** (154, 157, 158b; 155
-> deployed code the daemon really does import) — Session 158b touched
+> which is now **four of the last six sittings** (154, 157, 158b, 159; 155
+> deployed code the daemon really does import) — Session 159 touched
+> `sysadmin/snag_claims.py` to add `check_next_action`, and nothing under
+> `sysadmin/` imports that module, so this is Session 158b's paragraph
+> below with one more instance under it. *(The box also **rebooted** at
+> 07:35:12 and the daemon came up at 07:36:30 on its own; the start-time
+> claim was already `no` when this sitting opened, for that reason and
+> not for an edit.)* Session 158b touched
 > `sysadmin/snag_claims.py` retiring a check, and nothing under
 > `sysadmin/` imports that module: measured, its only four mentions there
 > are docstring prose, and its single entry point is the
@@ -1637,10 +1694,28 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
-> rows <!--check:alerts-->, `warning: High disk usage on /` and
-> `info: Project ImbaBots next action idle`, **2**
-> named here <!--check:open_titles-->. *(Re-counted 2026-09-02 by Session
+> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> rows <!--check:alerts-->, `warning: High disk usage on /`,
+> `info: Project ImbaBots next action idle`,
+> `warning: Unusual RAM usage` and
+> `warning: Estate port 8110 registry breach`, **4**
+> named here <!--check:open_titles-->. *(Re-counted 2026-09-03 by Session
+> 159, and **both** new rows are expected to fall — said here so the fall
+> is not read as news, which is what this claim's own founding case was.
+> The 8110 row is `SNAG-ESTATE-009` behaving as filed: it carries
+> `attribution.reading: unswept` against an `observed_at` of 06:37:33, so
+> the six-hourly sweep predates the listener and the hourly judge could
+> not know it is a dev server — Alfred's `uvicorn --reload`, which
+> `TRANSIENT_HOLDER_SEVERITY` would have put at `info`. It clears at the
+> next sweep. The RAM row is the reboot: `details` reads
+> `direction: below`, `z_score: -4.6`, `value: 7.4` against a
+> `mean: 19.73` over `samples: 1878` — RAM usage anomalously **low**
+> because 07:35:12 emptied it, which is a correct detection and not a
+> fault on the box. It is written into the block rather than waited out,
+> departing from Session 158b's rule for the reason that rule gives: at
+> **24 minutes** it is 4.7× the 5m16s median lifetime of the 51 resolved
+> `Unusual %` rows, so it is not a burst. It clears when the rolling mean
+> catches up, and `_check_anomalies` resolves it by id.)* *(Re-counted 2026-09-02 by Session
 > 158, four hours after the re-count below and the same direction — a
 > **fall**, `SNAG-ESTATE-008`'s founding case twice in one day. The
 > departure is the `critical` the paragraph below calls Alfred's to

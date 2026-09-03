@@ -134,7 +134,7 @@ from sysadmin.core.escalation import (
     may_quieten_in_place,
 )
 from sysadmin.core.schema_guard import EXIT_STATUS, SchemaVerdict
-from sysadmin.core.text import strip_markdown
+from sysadmin.core.text import strip_markdown, truncate_at_word
 from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.agent import RUNG_LEFT_STALE_EVENT
 
@@ -7971,8 +7971,7 @@ def check_dispositions(entries: list[Entry], entries_problem: str) -> list[Findi
             continue
         if status_is_done is not None and status_is_done(value):
             would_close.append(f"{name}: {value[:60]!r} closes the entry in estate.snags")
-        remainder = value[len(DISPOSITION_PREFIX):] if value.startswith(DISPOSITION_PREFIX) else ""
-        word = remainder.split(",")[0].split(" ")[0].strip().lower()
+        word = disposition_word(value)
         if word in DISPOSITIONS:
             counts[word] = counts.get(word, 0) + 1
         else:
@@ -8037,6 +8036,351 @@ def check_dispositions(entries: list[Entry], entries_problem: str) -> list[Findi
     ]
 
 
+# ---------------------------------------------------------------------------
+# The next action: does the line the board publishes name work anyone owes?
+# ---------------------------------------------------------------------------
+
+#: The document the estate board's next-action line is read from.
+#: ``estate_service/projects/roadmap.py``'s ``next_action_from_handoff``
+#: publishes the first meaningful line under the first heading containing
+#: "next", and ``tests/test_handoff_shape.py`` already guards that this
+#: document has exactly one such heading and that it is ``## Next
+#: action`` — so :func:`next_action_line` may read that heading directly
+#: rather than restating their three widening attempts.
+HANDOFF_PATH = REPO_ROOT / "HANDOFF.md"
+
+#: The heading their parser is allowed to find here, pinned by
+#: ``tests/test_handoff_shape.py`` rather than asserted again.
+NEXT_ACTION_HEADING = "## Next action"
+
+#: How much of the published line the report prints beside a verdict
+#: about it.  Cut with ``truncate_at_word``, never sliced:
+#: ``SNAG-BRIEF-002``'s rule, and it bites harder here than usual because
+#: the reader's next move is to match this string against ``HANDOFF.md``
+#: by eye.
+MAX_LINE_CHARS = 160
+
+#: The two dispositions that say **no sitting is owed work here**, and so
+#: the two a published next action must not name.  Deliberately a subset
+#: of :data:`DISPOSITIONS` rather than its complement: ``owed`` is the
+#: work queue and ``blocked`` is work intended and waiting on a
+#: precondition, both of which a sitting may legitimately be pointed at —
+#: ``SNAG-AGENT-012``'s next action named a ``blocked`` entry and was
+#: right to.
+REFUSED_DISPOSITIONS: tuple[str, ...] = ("decided", "delegated")
+
+
+@dataclass(frozen=True)
+class NamedEntry:
+    """One ``SNAG-`` id the published next action names, read **today**.
+
+    Attributes:
+        snag: the id as the line spells it, upper-cased.
+        refused: the line should not have been published naming it.
+        unsayable: the register cannot answer for it — a different fault
+            from either, and never folded into "fine".
+        note: the sentence the report prints.
+    """
+
+    snag: str
+    refused: bool
+    unsayable: bool
+    note: str
+
+
+def disposition_word(value: str) -> str:
+    """The bare disposition a ``Status`` value declares, or ``""``.
+
+    Lifted out of :func:`check_dispositions` when
+    :func:`check_next_action` became its second reader.  Two readers of
+    one parse is ``SNAG-DB-003``'s shape and it would fail *silently* in
+    the direction that matters: the sweep would count an entry among its
+    ``decided`` tally while a guard splitting on a different token read
+    the same line as declaring nothing, and both would be green.
+
+    Only :data:`DISPOSITION_PREFIX`-anchored values yield a word.  A
+    value that is not anchored is a hazard the sweep reports in its own
+    right — it may be one their closure rule reads as a completion — and
+    quietly extracting a word from it here would hand this guard a
+    disposition the register never counted.
+    """
+    if not value.startswith(DISPOSITION_PREFIX):
+        return ""
+    remainder = value[len(DISPOSITION_PREFIX) :]
+    return remainder.split(",")[0].split(" ")[0].strip().lower()
+
+
+def next_action_line(path: Path | None = None) -> tuple[str | None, str]:
+    """The line the estate board publishes, or ``None`` and why not.
+
+    The read is local and the reason is cited rather than reimplemented,
+    which is ``tests/test_handoff_shape.py``'s stated rule for this
+    document.  ``estate_service`` **is** importable in this checkout —
+    there is an editable ``.pth`` for it — but it is not in ``uv.lock``
+    and is not a dependency of ``estate-lib``, so the install is
+    incidental and a ``uv sync`` may take it.  A production path that
+    goes quiet on a dependency nobody declared is worse than a local read
+    pinned against the owner's parser, so the pin lives in
+    ``tests/test_handoff_shape.py`` and runs over the live document —
+    "import where you can, pin where you cannot", and here the import is
+    only *usually* available, which is not the same thing.
+
+    The cheap read is legitimate because two guards already hold the
+    shape it assumes: that exactly one heading contains "next", and that
+    it is :data:`NEXT_ACTION_HEADING`.  Both are asserted of this
+    document, so what is left for their parser to do differently is the
+    placeholder skip — reachable only for a next action written entirely
+    in emphasis, which is ``SNAG-ROADMAP-001``'s subject and which the
+    pin would report the day it happened.
+    """
+    target = path or HANDOFF_PATH
+    try:
+        document = target.read_text(encoding="utf-8")
+    except OSError as exc:
+        return None, f"{target} could not be read ({exc.__class__.__name__})"
+    in_section = False
+    for line in document.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            if in_section:
+                break
+            in_section = stripped == NEXT_ACTION_HEADING
+            continue
+        if in_section and stripped:
+            return stripped, ""
+    return None, f"{target} names no line under '{NEXT_ACTION_HEADING}'"
+
+
+def read_named_entries(line: str, entries: list[Entry]) -> tuple[NamedEntry, ...]:
+    """Every id the line names, resolved against the register as it is now.
+
+    **Every id, never the one that looks like the subject.**  Measured
+    2026-09-03 over the 21 distinct next actions in this file's history,
+    resolving each id against the live document: the broad rule fires
+    **once**, on ``6e6b11e``'s ``SNAG-TRAY-011`` — the entry whose remedy
+    Session 138 had measured and refused three days earlier and which
+    Session 156 then did the work of — and on nothing else.  Zero other
+    refusals in 21 lines, so breadth costs no measured false positive
+    here.
+
+    The two narrower rules were driven against the same corpus and both
+    lose.  **First id** is refuted by the line this guard was written
+    under: its first id is ``SNAG-SYSD-003``, cited as evidence for a
+    rule rather than named as the work.  **Ids before the first em-dash**
+    catches the same single true positive — the house form is *"Verb
+    `SNAG-ID` — reason"* — but is blind on 2 of the 21 whose only id sits
+    after one, and a guard whose failure direction is silence is the
+    shape this whole sequence exists to remove.
+
+    Four readings, and the middle two are the ones a first draft folds
+    together:
+
+    1. **``decided`` or ``delegated``** is the refusal.  The entry says
+       in its own body that no sitting is owed work on it.
+    2. **Absent from the document, or declaring a value outside the
+       vocabulary**, is ``unsayable`` — the guard looked and cannot
+       answer.  Not "fine": ``SNAG-ESTATE-*`` ids have two minters on
+       this box and every pair names a different defect, so an id this
+       document does not hold may be another repository's, resolved here
+       plausibly and wrongly if it were guessed at.
+    3. **Closed** is reported and never refused, at the owner's ruling of
+       2026-09-03.  Nothing can separate an entry cited as evidence from
+       one named as the work, and the live line is the counterexample
+       that makes the false refusal reachable rather than theoretical —
+       12 of the 21 historic lines name an entry that is closed today.
+    A ``Status`` value is printed the way :func:`check_dispositions`
+    prints one — a bare 60-character ``repr`` — and deliberately *not*
+    cut at a word like the published line above it.  One value rendering
+    two ways inside one report is ``SNAG-LOG-010``'s defect, where the
+    module lending the constant was the one slicing; the line has no
+    sibling and is matched against the document by eye, so it is marked.
+
+    4. **``owed``, ``blocked`` or undeclared** is a next action pointing
+       at work, which is what one is for.  Undeclared is not silently
+       accepted either: :func:`check_dispositions` is what makes it loud,
+       and a second speaker for that fact is the defect this repository
+       has recorded at six scales.
+    """
+    by_id = {entry.snag_id: entry for entry in entries if entry.snag_id}
+    seen: set[str] = set()
+    readings: list[NamedEntry] = []
+    for match in SNAG_ID_RE.finditer(line):
+        snag = match.group(1).upper()
+        if snag in seen:
+            continue
+        seen.add(snag)
+        entry = by_id.get(snag)
+        if entry is None:
+            readings.append(
+                NamedEntry(
+                    snag,
+                    False,
+                    True,
+                    f"{snag}: this document holds no such entry — a typo, or another "
+                    "repository's id, which this one must not resolve for it",
+                )
+            )
+            continue
+        if not entry.is_open:
+            readings.append(NamedEntry(snag, False, False, f"{snag}: closed, and named anyway"))
+            continue
+        value = declared_disposition(entry.body)
+        if value is None:
+            readings.append(
+                NamedEntry(snag, False, False, f"{snag}: open, declaring no disposition")
+            )
+            continue
+        word = disposition_word(value)
+        if word in REFUSED_DISPOSITIONS:
+            readings.append(
+                NamedEntry(
+                    snag,
+                    True,
+                    False,
+                    f"{snag}: open — {word}, so no sitting is owed work on it: {value[:60]!r}",
+                )
+            )
+        elif word in DISPOSITIONS:
+            readings.append(NamedEntry(snag, False, False, f"{snag}: open — {word}"))
+        else:
+            readings.append(
+                NamedEntry(
+                    snag,
+                    False,
+                    True,
+                    f"{snag}: declares {value[:60]!r}, which is outside the vocabulary "
+                    f"({', '.join(DISPOSITIONS)}) — no reading was taken",
+                )
+            )
+    return tuple(readings)
+
+
+def check_next_action(
+    entries: list[Entry], entries_problem: str, path: Path | None = None
+) -> list[Finding]:
+    """Does the published next action name an entry that is owed nothing?
+
+    **The register measures the disposition and nothing read it back**,
+    which is the half :func:`check_dispositions` left and its own last
+    paragraph named: that sweep makes a *missing* disposition loud and
+    can say nothing about what is done with a declared one.  The failure
+    it is pointed at is measured rather than hypothetical.  Session 138
+    measured ``SNAG-TRAY-011``'s proposed remedy and refused it on
+    2026-08-30; Session 156 read the entry's *"Shape of a fix as
+    originally proposed"* bullet, stopped one bullet short of the *"—
+    refuted 2026-08-30"* that follows it, and published the refused
+    remedy as this repository's next action, which
+    ``claude-preflight.sh`` prints and their ``roadmap.py`` republishes
+    to the estate board verbatim.
+
+    **It reads the entry's value now, never a list written when it was
+    built**, and the two disagree on the first line this guard ever saw.
+    At ``4d8a464`` — the commit that took the disposition population from
+    zero to seventeen — ``SNAG-SYSD-003`` declared ``Open — decided``.
+    At ``3f5af0d`` an hour later it closed and its ``Status`` line went
+    with it.  A set snapshotted at annotation time therefore refuses the
+    live next action, which cites that id as evidence for a rule; the
+    live read returns ``closed`` and holds.  A guard built from the
+    measurement that motivated it would have been wrong about it within
+    the hour.
+
+    **Two consumers, one implementation.**  This function is advisory and
+    prints where the line is written and where it is read — postflight
+    and preflight; ``tests/test_handoff_shape.py`` calls *it* rather than
+    restating the rule, so the blocking half cannot come to disagree with
+    the reported half.  ``action_from``'s publish-and-read shape, and the
+    reason the owner's "both" is not a second owner.
+
+    Four states, and the third is the one that departs from this family's
+    siblings deliberately:
+
+    1. **An unreadable document, or no line at all**, is ``unknown``
+       naming which — the truly blind case, and :func:`check_convention`'s
+       "absence of a population" exactly.
+    2. **A refusal, or an id nothing here can answer for**, is
+       ``unknown``, with the refusals leading the note because they are
+       the reason the guard exists.
+    3. **A line naming no id at all** is ``match``, where the two sibling
+       sweeps would report ``unknown``.  The population there is the
+       register's open entries and an empty one means the reader was
+       blind; the population here is **the line**, and the line was read
+       in full.  Something could have forced the other answer — the
+       sentence could have named a ``decided`` entry — and did not, which
+       is ``check_convention``'s own test for ``match``.  It is also
+       reachable in 5 of 21 measured sittings, so reporting ``??`` for it
+       would teach the reader to filter this line, which is
+       ``known_noise`` rule 2's objection to a warning that fires
+       whatever happened.
+    4. **Every id it names points at work** is ``match`` over a
+       population, with each reading printed.
+    """
+    line, line_problem = next_action_line(path)
+    if line is None:
+        return [
+            _convention(
+                "convention:next-action",
+                "The next action names work nobody is owed",
+                f"the line could not be read — {line_problem}",
+            )
+        ]
+    if entries_problem:
+        return [
+            _convention(
+                "convention:next-action",
+                "The next action names work nobody is owed",
+                f"the line was read and the register was not — {entries_problem}",
+                (f"published: {truncate_at_word(line, MAX_LINE_CHARS)}",),
+            )
+        ]
+
+    readings = read_named_entries(line, entries)
+    refused = [item for item in readings if item.refused]
+    unsayable = [item for item in readings if item.unsayable]
+    detail = tuple(item.note for item in readings)
+
+    if refused:
+        note = (
+            f"{len(refused)} of {len(readings)} entries the line names declare "
+            f"{' or '.join(REFUSED_DISPOSITIONS)} — the board is publishing work no sitting is owed"
+        )
+    elif unsayable:
+        note = (
+            f"{len(unsayable)} of {len(readings)} entries the line names could not be read "
+            "against this register — no verdict was taken on them"
+        )
+    elif readings:
+        return [
+            _convention(
+                "convention:next-action",
+                "The next action names work nobody is owed",
+                f"the line names {len(readings)} "
+                f"{'entry' if len(readings) == 1 else 'entries'} and none of them declares "
+                f"{' or '.join(REFUSED_DISPOSITIONS)}",
+                detail,
+                verdict="match",
+            )
+        ]
+    else:
+        return [
+            _convention(
+                "convention:next-action",
+                "The next action names work nobody is owed",
+                "the line names no entry, so it publishes no entry's disposition",
+                (f"published: {truncate_at_word(line, MAX_LINE_CHARS)}",),
+                verdict="match",
+            )
+        ]
+
+    return [
+        _convention(
+            "convention:next-action",
+            "The next action names work nobody is owed",
+            note,
+            detail,
+        )
+    ]
+
+
 def check_all(path: Path | None = None) -> list[Finding]:
     """Every check, then the convention findings, then the movement.
 
@@ -8055,6 +8399,7 @@ def check_all(path: Path | None = None) -> list[Finding]:
         *(run_check(CHECKS[key]) for key in sorted(CHECKS)),
         *check_convention(entries, problem),
         *check_dispositions(entries, problem),
+        *check_next_action(entries, problem),
         check_movement(entries, path),
     ]
 
