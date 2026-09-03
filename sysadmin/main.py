@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from sysadmin import __version__
 from sysadmin.briefing.data import send_morning_briefing
 from sysadmin.briefing.router import router as summary_router
+from sysadmin.core.abandoned_runs import close_abandoned_runs
 from sysadmin.core.agent import spawn_manual_run
 from sysadmin.core.auth import require_auth
 from sysadmin.core.config import get_config, load_config, unknown_config_keys
@@ -271,6 +272,28 @@ async def lifespan(app: FastAPI):
             await resolve_unit_failures(session, OWN_UNIT)
     except Exception as exc:  # noqa: BLE001
         logger.warning("could not resolve unit-failure alerts: %s", exc)
+
+    # A run the previous process was executing when it died is still
+    # `running` and always will be — `scheduler.shutdown(wait=False)`
+    # abandons the worker thread, so `_record_outcome` never runs
+    # (SNAG-DB-006). This is the only moment at which "that run will
+    # never finish" is knowable, which is the argument three lines up
+    # applied to a different table. Deliberately BEFORE `scheduler.start()`
+    # and not merely by habit: the instance filter already makes it
+    # impossible for the sweep to touch this process's own rows, and
+    # running it first means that guarantee is never the only thing
+    # standing between a sweep and a live run.
+    #
+    # Caught for `resolve_unit_failures`' reason and the opposite of
+    # `verify_schema_revision`'s: a stale `running` row is worth less
+    # than a boot, and serving against the wrong schema is not.
+    try:
+        async with get_async_session() as session:
+            sweep = await close_abandoned_runs(session)
+        if sweep.found_nothing:
+            logger.info("abandoned_runs_none")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("could not close abandoned agent runs: %s", exc)
 
     # Start services.  Agents deliberately have no startup hook: they run
     # on scheduler threads, each with its own event loop, so anything

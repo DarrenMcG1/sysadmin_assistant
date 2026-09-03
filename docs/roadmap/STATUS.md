@@ -3,6 +3,64 @@
 **Last Updated**: 2026-09-03
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A constraint value nothing wrote had a referent, and dating seven
+> rows is what found it** (2026-09-03, Session 159b). `SNAG-DB-006` is
+> **fixed**. `chk_run_status` has admitted `cancelled` since migration
+> 001; the entry named two *opposite* fixes — drop the value, or find the
+> path that fills it — and left the choice open because nothing recorded
+> which was intended. The seven live `running` rows decide it. Every one
+> is followed by a **clean** daemon death within **0.032–61.2 s**, and for
+> every one the next `agent_run_completed` for that agent comes from a
+> **different PID**. The mechanism is `scheduler.shutdown(wait=False)` in
+> `main.py`, read rather than inferred: the first row was inserted **19 ms
+> before** `scheduler_shutdown` in the journal.
+>
+> **The control is what makes that evidence.** Of 40,383 `completed` runs
+> **162 (0.401 %)** started that close to a death, and the separation is
+> total — no run starting more than 61 s from a death has ever got stuck.
+> `file_organiser` is the sharpest line at **0 of 112** completed against
+> **3 of 3** stuck, the widest exposure of any agent at ~108 s a scan.
+> Conditioning cuts the right way: a run killed at shutdown *cannot* be
+> `completed`, so the depressed base rate is the argument rather than a
+> bias against it. Live rate **4.9 %** of daemon deaths (7 of 144).
+>
+> **The shape that won is a third one the entry does not name.** A
+> shutdown-path write is what anyone reaches for and it **races the thing
+> it describes** — `shutdown(wait=False)` returns while the worker thread
+> is still in `_execute`, and three of the seven had 30–60 s of scan left
+> — so `sysadmin/core/abandoned_runs.py` sweeps at **startup**, which is
+> `unit_failure.py`'s argument one table over. Its reach into SIGKILL and
+> power-off is stated as **theoretical**: all ten crash deaths in the
+> journal died 2.1–4.8 s in, before the scheduler could fire anything, so
+> on the live population both shapes reach 7 of 7 and the race is the
+> only discriminator that is not hypothetical.
+>
+> **Forward-only by refusal, never by a constant.** The seven predate the
+> stamp, so the sweep cannot attribute them and **counts** them —
+> `ports_checked`'s rule — where an age cutoff would have been an invented
+> constant expressing a fact the row already carries. The id is minted
+> in-process rather than read from systemd's `INVOCATION_ID`, because this
+> service reads no environment variables and a lone exception is a
+> convention that has stopped being one.
+>
+> **Verified live, twice, because the path had never run here.** Restart 1
+> reported `abandoned_runs_unattributable count=7` with no closures;
+> `POST /api/files/scan` was then killed 2 s in and restart 2 reported
+> `abandoned_runs_closed count=1 agents=['file_organiser']`, writing **the
+> first `cancelled` row in this database's life**. The seven are still at
+> seven.
+>
+> **Three of thirteen falsifications passed against deliberately broken
+> code.** Deleting the `IS NOT NULL` conjunct changed nothing — `NULL <>
+> 'x'` is `NULL`, so rule 3's refusal was carried by three-valued logic
+> rather than by the clause written for it; the clause stays and is pinned
+> by compiling the statement, since no behavioural test can see it go.
+> `status == CANCELLED_STATUS` compared the constant to itself. And
+> **nothing drove `_record_start`**, so deleting the stamp passed all
+> twenty tests. The check retired with the entry after reporting
+> `refuted` correctly, and its detector is re-homed as
+> `tests/test_abandoned_runs.py`, `FROZEN_TABLES`' rule a fifth time.
+
 > **The register declared dispositions and nothing read one back**
 > (2026-09-03, Session 159). `convention:next-action` is the guard
 > Session 157 pre-staged: it resolves every `SNAG-` id in `HANDOFF.md`'s
@@ -1572,10 +1630,14 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-03 08:05:58**
+> Daemon restarted at **2026-09-03 08:44:09**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since; PID 1654 → 85280, back in 12 s on
-> `Restart=always`, no `sudo`. Owed to the claim rather than to the code,
+> `ERROR`/`CRITICAL` lines since; PID 150293 → 153706, back in 14 s on
+> `Restart=always`, no `sudo`. *(Session 159b restarted **three** times,
+> which is unusual and deliberate: the first two are the live
+> verification of `SNAG-DB-006`'s fix — a code path that had never run on
+> this box — and the third is this claim. Previously **2026-09-03
+> 08:05:58**, PID 1654 → 85280.)* Owed to the claim rather than to the code,
 > which is now **four of the last six sittings** (154, 157, 158b, 159; 155
 > deployed code the daemon really does import) — Session 159 touched
 > `sysadmin/snag_claims.py` to add `check_next_action`, and nothing under
@@ -1694,12 +1756,19 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
 > rows <!--check:alerts-->, `warning: High disk usage on /`,
-> `info: Project ImbaBots next action idle`,
-> `warning: Unusual RAM usage` and
-> `warning: Estate port 8110 registry breach`, **4**
+> `info: Project ImbaBots next action idle` and
+> `warning: Unusual RAM usage`, **3**
 > named here <!--check:open_titles-->. *(Re-counted 2026-09-03 by Session
+> 159b at 08:45. The fall from 4 is the **predicted** one and not
+> `SNAG-ESTATE-008`'s founding case: the paragraph below named
+> `warning: Estate port 8110 registry breach` as `SNAG-ESTATE-009`
+> behaving as filed and said it clears at the next sweep, and it has —
+> which is what writing a prediction into the block is for. The RAM row
+> is still open at 1h25m, so the same paragraph's "it clears when the
+> rolling mean catches up" is **not** yet confirmed and is not claimed
+> here.)* *(Re-counted 2026-09-03 by Session
 > 159, and **both** new rows are expected to fall — said here so the fall
 > is not read as news, which is what this claim's own founding case was.
 > The 8110 row is `SNAG-ESTATE-009` behaving as filed: it carries

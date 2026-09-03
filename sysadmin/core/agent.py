@@ -17,6 +17,7 @@ from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from typing import Any
 
+from sysadmin.core.abandoned_runs import INSTANCE_DETAIL_KEY, INSTANCE_ID
 from sysadmin.core.database import get_scheduler_session
 from sysadmin.core.escalation import may_quieten_in_place
 from sysadmin.core.event_bus import event_bus
@@ -200,6 +201,22 @@ class BaseAgent(ABC):
         The id is generated client-side (``UUIDPrimaryKeyMixin`` sets
         ``default=uuid.uuid4``), so it is known here without a round trip
         and the outcome can be written from a different session later.
+
+        **The row records which process wrote it** (``SNAG-DB-006``).
+        Session 41 stated the cost of the three-transaction split in
+        writing — *"a process killed mid-run leaves a permanent
+        ``running`` row"* — and this stamp is what lets the next process
+        close it as ``cancelled`` instead.  It is written **here** rather
+        than by the sweep because the only moment at which "this row
+        belongs to this process" is knowable is the moment the row is
+        inserted; a sweep inferring it from a clock would need an
+        invented constant to express a fact the row can simply carry.
+        See :mod:`sysadmin.core.abandoned_runs`.
+
+        ``details`` is otherwise untouched here and is *replaced* whole
+        by :meth:`_record_outcome`, so the stamp lives exactly as long as
+        the row is a candidate for the sweep and no longer.  That is not
+        a leak: a finished run's details belong to the run.
         """
         run_id = uuid.uuid4()
         async with get_scheduler_session() as session:
@@ -210,6 +227,7 @@ class BaseAgent(ABC):
                     run_type=run_type,
                     status="running",
                     started_at=started_at,
+                    details={INSTANCE_DETAIL_KEY: INSTANCE_ID},
                 )
             )
         return run_id

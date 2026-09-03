@@ -71,7 +71,6 @@ from sysadmin.snag_claims import (
     check_estate_port_8500,
     check_health_path_guess,
     check_next_action,
-    check_run_status_cancelled,
     check_tray_report_unheard,
     check_unmarked_sentence_invisible,
     check_unswept_port_is_loud,
@@ -1007,29 +1006,6 @@ class TestChecksAgainstTheLiveBox:
     grep and Session 81's fix-word predictor both passed while measuring
     the wrong thing.
     """
-
-    def test_run_status_holds_and_is_refuted_by_a_written_row(self):
-        assert check_run_status_cancelled().verdict == "match"
-        with patch.object(
-            snag_claims, "query_one", side_effect=[("CHECK (… cancelled …)", ""), (3, "")]
-        ):
-            measurement = check_run_status_cancelled()
-        assert measurement.verdict == "mismatch"
-        assert "something writes it now" in measurement.note
-
-    def test_run_status_is_refuted_the_other_way_by_a_dropped_value(self):
-        """The entry's two fixes are opposite, so the check names which was taken."""
-        with patch.object(
-            snag_claims, "query_one", side_effect=[("CHECK (running, completed)", ""), (0, "")]
-        ):
-            measurement = check_run_status_cancelled()
-        assert measurement.verdict == "mismatch"
-        assert "no longer admits" in measurement.note
-
-    def test_run_status_is_unknown_when_the_database_will_not_answer(self):
-        silent = (None, "the database did not answer")
-        with patch.object(snag_claims, "query_one", return_value=silent):
-            assert check_run_status_cancelled().verdict == "unknown"
 
     def test_deprecated_contracts_holds_and_is_refuted_when_the_shim_goes(self):
         assert check_deprecated_contracts().verdict == "match"

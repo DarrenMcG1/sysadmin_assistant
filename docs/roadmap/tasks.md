@@ -107,6 +107,11 @@ debts that landing deliberately left behind._
       `owed` — `SNAG-LOG-013`, `SNAG-SVC-002`, `SNAG-DB-006` — so the
       sweep's residue and the work queue are the same set, which is the
       property it was built for and not a coincidence to leave unstated.
+      *(**Two of three** on 2026-09-03: Session 159b closed
+      `SNAG-DB-006`. The property held through the closure — the entry
+      left the undeclared set by being **fixed** rather than by being
+      annotated, which is the one exit route this sweep never had to be
+      taught about.)*
       **Each of the seventeen was read before it was classified**, not
       taken off the tally: the four blocked divide into *a population*
       (`SNAG-AGENT-012`, `SNAG-AGENT-013` — both fixes are one condition
@@ -1729,6 +1734,77 @@ debts that landing deliberately left behind._
       an exact one.
 
 ## Active Sessions
+
+## Session 159b — a constraint value nothing wrote had a referent (2026-09-03) ✅
+
+_`SNAG-DB-006` decided by dating seven rows against the daemon's restarts.
+The entry named two opposite fixes; the measurement chose the second, and
+then chose a **shape** the entry does not name._
+
+- [x] **Date the seven `running` rows against the daemon's deaths.** All
+      seven are followed by a **clean** death within **0.032–61.2 s**,
+      and for each the next `agent_run_completed` for that agent comes
+      from a **different PID** — the successor instance. The mechanism is
+      `scheduler.shutdown(wait=False)` in `main.py`, read rather than
+      inferred: row 1 was inserted **19 ms before** `scheduler_shutdown`
+- [x] **Establish the base rate, or the dating is a constant
+      observation.** Of 40,383 `completed` runs **162 (0.401 %)** started
+      that close to a death, and the separation is **total** — no run
+      starting more than 61 s from a death has ever got stuck.
+      `file_organiser` is the sharpest line at **0 of 112** completed
+      against **3 of 3** stuck. Conditioning cuts the right way: a run
+      killed at shutdown *cannot* be `completed`, so the depressed base
+      rate is the argument rather than a bias against it
+- [x] **Refute the drive hypothesis with a third-party witness.** Two of
+      the seven sit beside `failed` rows reading `"induced failure to
+      verify covered_by"`, a string in neither the repo nor its git
+      history. `_PID` settled it: every line came from PID 2623454, the
+      daemon — a session had edited `units/agent.py:179` to raise and
+      restarted to watch it
+- [x] **Build the third shape: a sweep at *startup*.** A shutdown-path
+      write **races the thing it describes** — `shutdown(wait=False)`
+      returns while the worker thread is still in `_execute`, and three
+      of the seven had 30–60 s of scan left. `sysadmin/core/abandoned_runs.py`
+      sweeps from the lifespan's startup half, `unit_failure.py`'s
+      argument one table over. The SIGKILL/power-off reach is stated as
+      **theoretical**: all ten crash deaths died 2.1–4.8 s in, before the
+      scheduler could fire anything
+- [x] **Forward-only by refusal rather than by a constant.** The seven
+      predate the stamp, so the sweep cannot attribute them, refuses them
+      and **counts** them (`ports_checked`'s rule). The id is minted
+      in-process, not read from systemd's `INVOCATION_ID`, because this
+      service reads no environment variables
+- [x] **Verify live, twice.** Restart 1 reported
+      `abandoned_runs_unattributable count=7` with no closures; then
+      `POST /api/files/scan` was killed 2 s in and restart 2 reported
+      `abandoned_runs_closed count=1 agents=['file_organiser']` — **the
+      first `cancelled` row in this database's life**
+- [x] **Retire the check, re-home the detector.** It reported `refuted`
+      correctly, naming which of the two opposite fixes landed;
+      `tests/test_abandoned_runs.py` is the detector, and it is
+      **stronger** — the check asserted a disjunction because either fix
+      was legitimate, and a disjunction would now be satisfied by the
+      shutdown-path write this fix refuses
+- [x] **Falsify, and repair the three that passed.** Thirteen mutations:
+      deleting the `IS NOT NULL` conjunct changed nothing (`NULL <> 'x'`
+      is `NULL`, so three-valued logic was carrying rule 3's refusal, not
+      the clause — kept, and pinned by compiling the statement);
+      `status == CANCELLED_STATUS` compared the constant to itself; and
+      **nothing drove `_record_start`**, so deleting the stamp passed all
+      twenty tests
+- [ ] **A finished run does not record which process ran it, and this
+      sitting wanted exactly that.** `_record_outcome` replaces `details`
+      wholesale, so the instance stamp lives only while the row is a
+      sweep candidate. Correct for the sweep and a near miss for
+      forensics: dating the seven took a hand-built join of `started_at`
+      against journal `_PID`s, which `details['instance']` on a
+      `completed` row would have answered directly — and it is the join
+      that refuted the drive hypothesis, so it is not hypothetical work.
+      Cost is one `||` in `_record_outcome`; the argument against is that
+      a finished run's `details` belongs to the run and this would be the
+      first field in it that does not. Not a defect — nothing is worse
+      than before — so a task rather than a SNAG
+
 
 ## Session 127 — the grace period the box already knew (2026-08-29) ✅
 

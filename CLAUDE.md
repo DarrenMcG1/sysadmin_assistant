@@ -1904,6 +1904,84 @@ run. Note the rule already existed one layer up, in `files/review.py`
 ("commit the read transaction before calling the LLM") — learned for
 inference and never generalised to the framework beneath it.
 
+**That permanent `running` row is closed now, and the value for it had
+been sitting in the constraint since migration 001** (Session 159b,
+`SNAG-DB-006`). `chk_run_status` admitted `cancelled` and nothing wrote
+one; the entry named two *opposite* fixes — drop the value or fill it —
+and nothing recorded which was intended. The seven live rows decide it:
+each is followed by a **clean** daemon death within **0.032–61.2 s** and
+for each the next `agent_run_completed` for that agent comes from a
+**different PID**. Against a base rate of **0.401 %** (162 of 40,383
+`completed` runs) the separation is total, and `file_organiser` — the
+widest exposure at ~108 s a scan — is **0 of 112** completed against
+**3 of 3** stuck. So the value has a referent, at **4.9 %** of daemon
+deaths. `sysadmin/core/abandoned_runs.py` is the sweep.
+
+Six rules, four of them the opposite of the obvious implementation:
+
+1. **It runs at *startup*, which is a third shape the entry does not
+   name, and the discriminator is a race rather than coverage.** A
+   shutdown-path write is what anyone reaches for and
+   `scheduler.shutdown(wait=False)` returns while the worker thread is
+   still inside `_execute` — three of the seven had 30–60 s of scan left
+   — so it can land *after* a `completed` that thread commits. A startup
+   sweep cannot race a process that is gone, and it is
+   `core/unit_failure.py`'s argument one table over: the service
+   starting is the only moment at which "that run will never finish"
+   exists. Its reach into SIGKILL and power-off is **theoretical and
+   says so** — all ten crash deaths in the journal died 2.1–4.8 s in
+   (`SNAG-DB-005`'s schema-guard refusals), before the scheduler could
+   fire anything, so on the live population both shapes reach 7 of 7.
+2. **The instance id is minted in-process, never read from the
+   environment.** systemd stamps `INVOCATION_ID` into this unit and it
+   would do the job; this service reads no environment variables, and a
+   lone exception is a convention that has stopped being one. A
+   per-process UUID is also more general — an agent driven by hand from
+   a session gets an identity, where an environment read gives every
+   such drive the same absent value.
+3. **A row with no stamp is refused, not swept**, which is what makes
+   the fix forward-only *by construction* rather than by a constant. The
+   seven predate the stamp, so the sweep cannot attribute them;
+   `refused` **counts** them, because zero-because-blind must not read as
+   zero-because-clean (`ports_checked`'s rule). The obvious alternative
+   — an age cutoff — is an invented constant expressing a fact the row
+   already carries.
+4. **Nothing is capped and it cannot need to be.** The sweep runs on
+   every start, so what it finds is one instance's in-flight runs, which
+   `max_instances: 1` bounds; what is *logged* is the agent names, held
+   at five by `AGENT_NAMES` whatever the volume, with `count` carrying
+   it. `details['truncated_sources']`' rule.
+5. **The status is a literal pinned to the constraint, not derived.**
+   The constraint lists four values and says nothing about which means
+   "abandoned", so `STATUS_READINGS`' treatment does not transfer; a test
+   asserts `chk_run_status` still admits it, so a migration dropping the
+   value — the entry's *other* fix landing by accident — is a red test
+   rather than an `IntegrityError` on the next restart.
+6. **It reports and never refuses.** Caught in the lifespan for
+   `resolve_unit_failures`' reason and the exact opposite of
+   `schema_guard`'s: a stale `running` row is worth less than a boot.
+
+Verified live because the path had never run here: restart 1 gave
+`abandoned_runs_unattributable count=7` and no closures, then a
+`POST /api/files/scan` killed 2 s in gave restart 2
+`abandoned_runs_closed count=1 agents=['file_organiser']` — the first
+`cancelled` row in this database's life, carrying the dead instance's id
+beside `cancelled_by: startup_sweep`.
+
+**Three of thirteen falsifications passed against deliberately broken
+code, and the first is the one worth carrying.** Deleting the
+`IS NOT NULL` conjunct changed **nothing**: `NULL <> 'x'` is `NULL`, so
+rule 3's refusal was being carried by SQL's three-valued logic rather
+than by the clause written for it. The clause stays — its visibility is
+what stops a reader "fixing" the NULL case with a `COALESCE` and
+sweeping the seven silently — and it is pinned by **compiling the
+statement**, because a clause whose removal is invisible in behaviour
+cannot be reached by a behavioural test. The other two are the shapes
+this repository keeps finding: `status == CANCELLED_STATUS` compared the
+module's constant to itself, and **nothing drove `_record_start`**, so
+deleting the stamp passed all twenty tests while the sweep went on being
+proved correct about rows nothing in production would produce.
+
 **Idle nudges are raised by the estate now, and judged here.** The nudge
 — an `active` project whose human-written next action has not changed for
 N days — was this repository's from Session 31 until the domain left on

@@ -763,45 +763,6 @@ def _method(tree: ast.Module, name: str) -> ast.FunctionDef | None:
     return None
 
 
-def check_run_status_cancelled() -> Measurement:
-    """``SNAG-DB-006`` — a constraint value nothing writes.
-
-    Both halves again, and again for opposite reasons: the constraint
-    losing ``cancelled`` is one of the entry's two named fixes, and a row
-    appearing is the other.
-    """
-    definition, problem = query_one(
-        "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'chk_run_status'"
-    )
-    if problem:
-        return Measurement("unknown", problem)
-    if definition is None:
-        return Measurement("unknown", "no constraint named chk_run_status exists")
-    admitted = "cancelled" in str(definition)
-    written, problem = query_one(
-        f"SELECT count(*) FROM {get_config().database.schema_}.agent_runs "  # noqa: S608
-        "WHERE status = 'cancelled'"
-    )
-    if problem:
-        return Measurement("unknown", problem)
-    detail = (f"chk_run_status admits 'cancelled': {admitted}", f"rows written: {written}")
-    if admitted and written == 0:
-        return Measurement("match", "", detail)
-    if not admitted:
-        return Measurement(
-            "mismatch",
-            "chk_run_status no longer admits 'cancelled' — the value was dropped, "
-            "which is the first of the entry's two opposite fixes",
-            detail,
-        )
-    return Measurement(
-        "mismatch",
-        f"{written} agent_runs row(s) carry status='cancelled' — something writes it now, "
-        "which is the second of the entry's two opposite fixes",
-        detail,
-    )
-
-
 #: This service's ``services.yaml`` name, the discriminating witness for
 #: the log-source reader in :func:`check_tray_report_unheard`.
 OWN_SERVICE_NAME = "sysadmin-service"
@@ -7090,12 +7051,6 @@ class Check:
 CHECKS: dict[str, Check] = {
     check.key: check
     for check in (
-        Check(
-            "run_status_cancelled",
-            "SNAG-DB-006",
-            "chk_run_status admits a value nothing writes",
-            check_run_status_cancelled,
-        ),
         Check(
             "tray_report_unheard",
             "SNAG-TRAY-011",
