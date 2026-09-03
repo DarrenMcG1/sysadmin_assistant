@@ -1936,8 +1936,16 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-03 18:49:07**
-> <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
+> Daemon restarted at **2026-09-03 22:49:29**
+> <!--check:deploy--> <!--check:daemon_start--> to deploy Session 164's
+> widened kernel `severity_filter` and `CRITICAL_SIGNATURES`, both of
+> which take effect only at start; PID 1794 → 131872, back in 10 s on
+> `RestartSec`, no `sudo`, restart counter 1 of `StartLimitBurst=5`.
+> Verified live either side: `journalctl -k -p 3` returns **0** lines
+> carrying `VRAM is lost due to GPU reset!` and `-p 6` returns **1**, and
+> that line hits the declared key with `arrives_at` agreeing. The
+> previous restart at 18:49:07 was the reboot onto mainline 7.2.2, clean
+> journal — **0**
 > `ERROR`/`CRITICAL` lines since; PID 416365 → 423232, back in 16 s on
 > `Restart=always`, no `sudo`. **Twice this sitting, and the second was
 > owed to `git stash pop`.** The first (13:26:56, PID 329947 → 416365)
