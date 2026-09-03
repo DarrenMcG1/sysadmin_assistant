@@ -47,9 +47,46 @@
 > half already shipped one that is per-row and pure. `capped_signature`
 > is simply where the digest has not been applied. Nothing was fixed this
 > sitting and nothing was refuted: all **20** snag verdicts and the
-> register's four conventions are unmoved, the suite is **3429** either
-> side, and the ops block's unresolved-alert claim was corrected 2 → 3
-> (`Unusual RAM usage` opened after Session 160 wrote it).
+> register's four conventions are unmoved, and the ops block's
+> unresolved-alert claim was corrected 2 → 3 (`Unusual RAM usage` opened
+> after Session 160 wrote it).
+>
+> **And a docstring stopped being true while nothing about it moved.**
+> Estate message `b96a337c` announces their ADR-0102: a `wiring`
+> finding's `fingerprint` becomes `wiring:<hook>:<code>:<event>`, so the
+> limit `judge_audit_wiring` filed — *two events declared by one hook
+> would share one fingerprint and therefore one `standing_days`* — is
+> **closed at the producer**. Corrected there, and in
+> `judge_audit_findings` rule 4, whose incidental claim that `code` is
+> the fingerprint's last `:`-separated segment is now true of twelve
+> checks and false of one.
+>
+> **Verified in their tree rather than taken, and the wire cannot show
+> it.** `wiring` has filed **zero** findings in 938 across 262 runs, and
+> live `GET /api/audit/findings` served three, every one three-part
+> (`ports` ×2, `docs` ×1). So the correction reads their source:
+> `Finding.fingerprint` appends `aspect`, `checks/wiring.py` is its only
+> setter, and `as_payload` publishes no `aspect` key — **committed,
+> which is not deployed on 8400**. `detail['event']` and `subject` are
+> unchanged, so rule 1's identity and rule 2's discriminator are
+> untouched.
+>
+> **Both repositories had recorded a two-option choice and both options
+> were wrong**, which is what the round trip bought. Their entry framed
+> it as *admit `detail` to the identity* or *forbid a hook declaring two
+> events*; the second cannot close it, because `hook_wired_undeclared`
+> iterates `~/.claude/settings.json`, whose cardinality is the owner's,
+> and both codes share one subject.
+>
+> **The pin is pre-staged and was falsified against their real
+> dataclass**, because a pin over an empty population is green whatever
+> it asserts. Driving `Finding.as_payload` here: the shipped shape
+> passes, a rolled-back `aspect=None` goes red, an `aspect` disagreeing
+> with `detail['event']` goes red, and the whole-file finding gaining
+> one goes red on the colon count. Suite **3429 → 3430**, `ruff` and
+> `mypy` clean, 24 register verdicts and 9 ops claims `ok`. The daemon
+> was restarted for a docstring — the deploy check compares mtimes, and
+> paying it beats leaving a `no` a reader learns to skip.
 
 > **The two families' disjointness was a handover, and git says so**
 > (2026-09-03, Session 160). `SNAG-SVC-002` is **decided**, not closed.
@@ -1746,10 +1783,15 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-03 11:49:26**
+> Daemon restarted at **2026-09-03 12:41:04**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since; PID 274133 → 279728, back in 16 s on
-> `Restart=always`, no `sudo`. **Seven restarts, and the last two were
+> `ERROR`/`CRITICAL` lines since; PID 279728 → 329947, back in 20 s on
+> `Restart=always`, no `sudo`. *(Session 161 owed this one to a
+> docstring: `judgements.py`'s stale claim about a producer's
+> fingerprint changes nothing at runtime, and the deploy check compares
+> mtimes rather than behaviour — its own stated cost, paid here rather
+> than left as a `no` the next preflight teaches a reader to skip.)*
+> *Previously 11:49:26, PID 274133 → 279728, back in 16 s.* **Seven restarts, and the last two were
 > owed to this claim rather than to the code** — `sysadmin/snag_claims.py`
 > and then `sysadmin/core/abandoned_runs.py`, the latter reverted from a
 > mutation `.bak` with byte-identical content and a moved mtime, neither

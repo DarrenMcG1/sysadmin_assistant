@@ -907,8 +907,10 @@ def judge_audit_findings(
        ``details['code']`` is read for that day and is **``None`` on
        every payload the estate can serve today** — measured, not
        assumed (Session 54).  ``Finding.code`` is a real field on the
-       producer's dataclass, folded into ``fingerprint`` as its last
-       ``:``-separated segment, and then dropped: ``AuditFinding`` has no
+       producer's dataclass, folded into ``fingerprint`` — as its last
+       ``:``-separated segment for every check but ``wiring``, which
+       appends an ``aspect`` after it since their ADR-0102 — and then
+       dropped: ``AuditFinding`` has no
        ``code`` column and the findings route publishes none.  It is
        ``SNAG-ESTATE-002``'s shape one surface over — a value the
        producer computes and the wire discards — and it is filed as
@@ -1337,14 +1339,56 @@ def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
        an instrument built for a different rule — and taking ``critical``
        here would be that borrowing performed in this repository.
 
-    **The stated limit, measured and not fixed here.**  The producer's
-    ``fingerprint`` is ``<check>:<subject>:<code>`` and carries no event,
-    so two events declared by one hook would share one fingerprint and
-    therefore one ``standing_days``.  Empty population on 2026-08-30 —
-    all four hooks declare exactly one event — and it is the estate's
-    identity to change, not this module's to parse around
-    (``SNAG-ESTATE-002``'s rule).  ``standing_days`` is carried as
-    evidence, never as identity, so the row is correct either way.
+    **The limit this rule filed is closed at the producer, and the
+    answer is a fourth part rather than either option both sides had
+    counted** (2026-09-03; estate-manager's ADR-0102, announced as
+    message ``b96a337c`` *before* the commit carrying it — their rule
+    that a change to a published surface is filed at its measured
+    readers first).  This paragraph read: *the producer's*
+    ``fingerprint`` *is* ``<check>:<subject>:<code>`` *and carries no
+    event, so two events declared by one hook would share one
+    fingerprint and therefore one* ``standing_days``.  A ``wiring``
+    finding's fingerprint is ``wiring:<hook>:<code>:<event>`` now —
+    ``Finding`` gained a declared ``aspect`` field, appended only when a
+    check sets one, and ``wiring`` is its only setter, so the other
+    twelve checks keep the exact three-part string they had and no age
+    restarts.
+
+    **Nothing in this module changed, and they measured that here rather
+    than promising it.**  ``detail['event']`` is still a non-empty
+    string on every per-event finding and ``subject`` is still the bare
+    hook filename, so rule 1's identity and rule 2's discriminator are
+    untouched.  ``aspect`` is folded into the fingerprint and **not**
+    published as a payload key — ``code``'s treatment one field over
+    (:func:`judge_audit_findings` rule 4).  They refused folding the
+    event into ``subject``, the shape five of their checks use for a
+    composite identity, *because* this module composes its per-hook
+    title as ``Estate hook {subject} not wired for {event}`` and a
+    folded subject would have made that title say the event twice.
+
+    **Both repositories had recorded a two-option choice and both
+    options were wrong**, which is the part worth carrying.  This
+    paragraph called it the estate's identity to change; their entry
+    framed it as *admit* ``detail`` *to the identity* or *forbid a hook
+    declaring two events*.  The second cannot close it, and the half
+    neither side had counted is that the two codes share one subject:
+    ``hook_not_wired`` iterates the hook's own declaration, which their
+    grammar could bound, but ``hook_wired_undeclared`` iterates
+    ``~/.claude/settings.json``, whose cardinality is the owner's and
+    outside their authority (their ADR-0024).  Only re-measuring the
+    check to answer the filing surfaced the second loop.
+
+    **Read from their source, because the wire cannot show it.**
+    ``wiring`` has filed **zero** findings in the whole history — 938
+    findings across 262 runs since 2026-08-13 — so no ``standing_days``
+    that exists was restarted, and on 2026-09-03 ``GET
+    /api/audit/findings`` served three findings, every one three-part
+    (``ports`` ×2, ``docs`` ×1).  Verified instead in their tree, at
+    ``65f7156``: ``Finding.fingerprint`` appends ``aspect`` and
+    ``checks/wiring.py`` is the only file that sets one — **committed,
+    which is not the same as deployed on 8400**.  ``standing_days`` is
+    carried as evidence here and never as identity, so the row was
+    correct on either side of the change.
     """
     findings = payload.get("findings")
     if not isinstance(findings, list):

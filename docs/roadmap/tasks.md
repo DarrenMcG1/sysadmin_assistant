@@ -39,6 +39,15 @@ debts that landing deliberately left behind._
         `alert_title` carries is per-row and pure — the property the
         entry says a divergence-aware cap cannot have — and
         `capped_signature` is where it has not been applied
+      - **Then estate message `b96a337c`, closed.** Their ADR-0102 makes
+        a `wiring` fingerprint `wiring:<hook>:<code>:<event>`, so
+        `judge_audit_wiring`'s stated limit is closed at the producer.
+        Corrected there and in `judge_audit_findings` rule 4, whose
+        "last `:`-separated segment" claim is now true of twelve checks
+        and false of one. Read from their tree — `wiring` has filed zero
+        findings ever and the three live ones are all three-part — with
+        a **pre-staged** pin falsified against their real
+        `Finding.as_payload` in four directions
 
 - [x] **Session 160 — the two families' disjointness was a handover, and
       nobody had enumerated it.** *(2026-09-03, `SNAG-SVC-002` decided,

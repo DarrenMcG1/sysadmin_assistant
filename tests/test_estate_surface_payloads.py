@@ -604,6 +604,54 @@ class TestTheKeysTheJudgeReadsAreStillServed:
                 port = finding["detail"]["port"]
                 assert isinstance(port, int) and not isinstance(port, bool)
 
+    def test_a_live_wiring_finding_still_separates_its_two_events(self):
+        """Pre-staged, and it pins the correction rather than the claim.
+
+        ``judge_audit_wiring``'s stated limit was closed at the producer
+        on 2026-09-03 (their ADR-0102, message ``b96a337c``): a
+        ``wiring`` fingerprint became ``wiring:<hook>:<code>:<event>``,
+        where the event had lived in ``detail`` alone.  That correction
+        is written into the docstring from **their source**, because
+        ``wiring`` has filed zero findings in the whole history and the
+        wire here cannot show it — so this asserts nothing until the
+        first one arrives, which is also the first moment it could catch
+        anything.
+
+        Both halves, because they can fail apart.  ``detail['event']``
+        is what rule 1 builds the identity from, so a producer promoting
+        it *out* of ``detail`` and into the fingerprint alone would
+        silence this family rather than break it — the ports test's
+        argument one check over.  The fourth segment is what the
+        docstring now asserts about a format this repository does not
+        own; a red there is a conversation with estate-manager, not a
+        bug in this module.
+
+        **Falsified against their real dataclass rather than a
+        reconstruction of it**, because a pin over an empty population
+        is otherwise green whatever it asserts.  Driving
+        ``estate_service.audit.finding.Finding.as_payload`` here: the
+        shape they ship passes; a rolled-back ``aspect=None`` goes red
+        (``wiring:require-handoff.sh:hook_not_wired``); an ``aspect``
+        disagreeing with ``detail['event']`` goes red; and the
+        whole-file finding gaining one goes red on the colon count.
+        """
+        for finding in self._get("/api/audit/findings")["findings"]:
+            if finding["check"] != "wiring":
+                continue
+            event = finding["detail"].get("event")
+            if event is None:
+                # The whole-file finding, which declares no event and
+                # takes no aspect.  rule 2's discriminator.
+                assert finding["fingerprint"].count(":") == 2, finding["fingerprint"]
+                continue
+            assert isinstance(event, str) and event
+            assert finding["fingerprint"].endswith(f":{event}"), (
+                "estate-manager has stopped appending the event to a wiring "
+                "fingerprint — the limit judge_audit_wiring records as closed "
+                "is open again, and two events from one hook share an age. "
+                f"got {finding['fingerprint']!r}"
+            )
+
     def test_the_queues_two_gauges_are_still_gauges(self):
         payload = self._get("/api/queue/invariants")
         assert set(payload) >= {
