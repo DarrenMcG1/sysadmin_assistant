@@ -545,7 +545,43 @@ agents:
       - name: kernel
         type: journalctl
         unit: kernel
-        severity_filter: error
+        # `info`, not `error`, and the reason is a whole class of fault
+        # that was unreadable at `error`. amdgpu stamps the *diagnosis*
+        # of a GPU hang at `err` and the **event** at `info`: measured
+        # across the 2026-09-03 boot, `GPU reset begin!`, `MODE1 reset`,
+        # `VRAM is lost due to GPU reset!` and `device wedged, but
+        # recovered through reset` are all PRIORITY=6, while `Illegal
+        # opcode in command stream` and `ring gfx_0.0.0 timeout` are
+        # PRIORITY=3. `severity_filter` becomes `journalctl -p N`, so at
+        # `error` this reader passed `-p 3` and `log_entries` held 0 rows
+        # for all four event lines against 4 apiece for the two symptoms
+        # — the wreckage stored and none of the event. See
+        # `CRITICAL_SIGNATURES` in sysadmin/monitor/log_aggregator.py,
+        # which is the half that makes the widened read worth having.
+        #
+        # The cost is measured, not waved at. Over the 9-hour boot that
+        # produced three resets: -p 3 = 41 lines, -p 4 = 175, -p 5 = 207,
+        # -p 6 = 1,845. That is ~3.4 lines per 60-second poll against
+        # `max_entries_per_read: 500`, and ~4,900 rows a day against 627k
+        # already in `log_entries` at 30 days' retention (+23 %).
+        #
+        # A storm is the real exposure and it is bounded rather than
+        # avoided: the 2026-08-12 kernel storm ran ~510 raw lines a
+        # *minute*, which is what the ceiling exists for, and hitting it
+        # is already reported as `details['truncated_sources']` and
+        # already lowers `_confidence` (SNAG-LOG-002). What changes is
+        # that a storm now costs truncation sooner.
+        #
+        # **The narrow alternative was measured and refused.** These
+        # lines carry `_KERNEL_DEVICE=+pci:0000:03:00.0`, so a second
+        # source matched on that field reads at `info` for 214 lines
+        # instead of 1,845 — 8.6x cheaper. It also **overlaps**: 27 of
+        # those lines are the PRIORITY=3 ones this source already takes,
+        # and journalctl has no negation for a field match, so the two
+        # sources would both ingest them. That is one fault with two
+        # speakers under two `source` names — the defect this repository
+        # has now found at six scales — bought for 1,631 lines a day.
+        severity_filter: info
     retention_days: 30
     # Session 27, Tier 3 — the weekly LLM-narrated log review at
     # GET /api/logs/review. Replaces summarise_with_llm, which gated a

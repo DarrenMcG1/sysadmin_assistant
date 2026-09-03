@@ -3,6 +3,40 @@
 **Last Updated**: 2026-09-03
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The monitor could not say the GPU had been reset** (2026-09-03,
+> Session 164). The dGPU took three full amdgpu MODE1 resets in 8.2
+> hours — each one destroying every GPU client's VRAM on a 24 GB card
+> shared by four services — and the loudest thing this service said was
+> a `warning` log row. Two independent reasons, and fixing either alone
+> is not half the benefit but none.
+>
+> **The event was below the reading threshold.** amdgpu stamps the
+> diagnosis at `err` and the event at `info`: `GPU reset begin!`, `MODE1
+> reset`, `VRAM is lost due to GPU reset!` and `device wedged, but
+> recovered through reset` are all `PRIORITY=6`, and `severity_filter:
+> error` becomes `journalctl -p 3`. Counted in `log_entries`: **0** rows
+> for all four event lines, **4** apiece for the two symptoms. The
+> wreckage was stored and the event was not.
+>
+> **And `critical` was unreachable regardless.** `chk_alert_severity`
+> admits three rungs, journal `error` maps to alert `warning`, and
+> amdgpu never uses `PRIORITY` 0–2 — so all **44** amdgpu alert rows on
+> this box are `warning`.
+>
+> `CRITICAL_SIGNATURES` is the mirror that did not exist: `known_noise`
+> and `COVERED_SIGNATURES` both move a rung *down*, nothing moved one
+> up. A declared entry widens the gate **and** the rung. The first
+> incident opens at `warning` and the second inside
+> `critical_repeat_hours` escalates — `failures.py`'s two-failures rule
+> applied to an event family, because one reset is survivable and three
+> in eight hours is a different claim.
+>
+> Three opened: `SNAG-LOG-015` (one reset still occupies twelve rows),
+> `SNAG-CFG-006` (a SIGHUP can disarm the declaration with the suite
+> green), `SNAG-SYSD-008` (the daemon runs at 91.5 % of `MemoryMax` and
+> its cgroup has forced reclaim 59,388 times). **A restart is owed** —
+> the widened filter and the declaration both take effect at start.
+
 > **The blocker was the part that was wrong** (2026-09-03, Session 163).
 > `SNAG-DOCS-003` is **unblocked**, not closed. It says closing it needs
 > *"an operational fact this repository cannot check"* — where the wheel
@@ -1902,7 +1936,7 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-03 13:31:27**
+> Daemon restarted at **2026-09-03 18:49:07**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
 > `ERROR`/`CRITICAL` lines since; PID 416365 → 423232, back in 16 s on
 > `Restart=always`, no `sudo`. **Twice this sitting, and the second was

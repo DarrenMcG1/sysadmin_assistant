@@ -774,6 +774,30 @@ class LogAggregatorConfig(BaseModel):
     #: occurrences, which is the flap the tray's cooldown exists to damp.
     alert_quiet_minutes: int = 15
 
+    #: How long a declared signature's previous sighting still counts as
+    #: "the last one", for the second-occurrence rung in
+    #: :data:`~sysadmin.monitor.log_aggregator.CRITICAL_SIGNATURES`.
+    #:
+    #: **Invented, and it says so** — ``NOISE_MIN_OCCURRENCES``' and
+    #: ``flap_min_episodes``' status, stated the same way.  What is
+    #: measured is the population it has to separate: the three amdgpu
+    #: MODE1 resets on 2026-09-03 fell at 11:24:55, 14:56:12 and
+    #: 15:36:12, so the widest gap inside one bad session is **3 h 31 m**
+    #: and the nearest previous reset is **five days** earlier
+    #: (2026-08-29 22:00).  Every value between 4 h and ~100 h produces
+    #: identical output on that population, so 24 h is chosen at the
+    #: order-of-magnitude midpoint rather than fitted — and it is the
+    #: same 24 h as ``self_monitor.escalate_after_hours`` and
+    #: ``reminder_hours``, which is the only escalation gap this box
+    #: otherwise has.
+    #:
+    #: Note what it deliberately is **not**: a window over which
+    #: occurrences are summed.  A fault that fires twice inside one
+    #: incident folds into one open row by ``alert_quiet_minutes``, so
+    #: what this counts is *distinct raises* — a second incident, not a
+    #: second line.
+    critical_repeat_hours: float = 24.0
+
     #: Maximum entries taken from one read of one source.  A ceiling is
     #: unavoidable (this box has sustained 8.5 kernel messages a second
     #: for days); what was missing is that hitting it is now reported as

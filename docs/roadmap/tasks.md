@@ -16,6 +16,63 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 164 — the monitor could not say the GPU had been reset.**
+      *(2026-09-03, three opened — `SNAG-LOG-015`, `SNAG-CFG-006`,
+      `SNAG-SYSD-008`; none closed.)* The dGPU took three full amdgpu
+      MODE1 resets in 8.2 hours and the loudest thing this service said
+      was a `warning` log row. Two independent reasons, and a fix for
+      either alone is not half the benefit but none — `SNAG-AGENT-008`'s
+      multiplicative shape, met again.
+      - **The event was below the reading threshold.** amdgpu stamps the
+        *diagnosis* at `err` and the **event** at `info`: `GPU reset
+        begin!`, `MODE1 reset`, `VRAM is lost due to GPU reset!` and
+        `device wedged, but recovered through reset` are all
+        `PRIORITY=6`. `severity_filter: error` becomes `journalctl -p 3`,
+        so `log_entries` held **0** rows for all four against **4** apiece
+        for `Illegal opcode` and `ring gfx_0.0.0 timeout`. The monitor
+        stored the wreckage and none of the event.
+      - **`critical` was unreachable anyway.** `chk_alert_severity` admits
+        three rungs and journal `error` maps to alert `warning`, so a log
+        fault reaches `critical` only from `PRIORITY` 0–2, which amdgpu
+        never uses. All **44** amdgpu alert rows on this box are
+        `warning`.
+      - **`CRITICAL_SIGNATURES` is the mirror nothing had.** `known_noise`
+        and `COVERED_SIGNATURES` both move a rung *down*; nothing moved
+        one up. A declared entry widens the gate **and** the rung, because
+        neither half is any use alone.
+      - **The second incident is the news, not the first.** A single reset
+        is survivable — `device wedged, but recovered through reset` — and
+        the box produced one in ten days without anyone needing to be
+        interrupted. Three in eight hours is a different claim. So a
+        declared signature opens at `warning` and escalates on the next
+        incident inside `critical_repeat_hours`, which is `failures.py`'s
+        "two consecutive failures" rule applied to an event family.
+      - **The title carries no rung, and that is forced.** `alert_title`
+        builds `"Log {severity}: {source} — "` from the *journal* rung, so
+        a line arriving at `info` and raised at `critical` would read
+        `Log info:` on the one toast the tray leaves on screen. And the
+        rung cannot go in the title instead: `step_for` escalates by
+        raising a fresh row **under the same title**, so a rung-derived
+        title forks the identity exactly when the ladder climbs it.
+      - **The narrow alternative was measured and refused.** These lines
+        carry `_KERNEL_DEVICE=+pci:0000:03:00.0`, so a second source
+        matched on that field reads 214 lines instead of 1,845 — 8.6×
+        cheaper — and **overlaps on 27**, which journalctl cannot negate.
+        One fault, two speakers, two `source` names, for 1,631 lines a
+        day.
+      - **The count is of rows, never of lines.** One reset writes eleven
+        signatures in one second; a line count would escalate the first
+        reset on the strength of its own noise. It counts *resolved* rows
+        too — the previous incident's row is closed by definition, so
+        reading `unresolved()` would count exactly the rows that cannot be
+        there and give an escalation that never fires.
+      - **Seven mutations driven, all seven red on the intended test**,
+        and the query verified live against the real 667k-row table: a
+        title read from `alerts` returns **4**, agreeing with the table.
+        The first live probe returned `0` for a title that exists — the
+        probe was wrong, not the query, and a constant zero is not
+        evidence.
+
 - [x] **Session 163 — the blocker was the part that was wrong.**
       *(2026-09-03, `SNAG-DOCS-003` **unblocked**, not closed; nothing
       opened, no code touched.)* The entry's closure was filed as needing
@@ -54,7 +111,7 @@ debts that landing deliberately left behind._
         uncheckable here; the verdict is unaffected and still `match`, so
         it is a wrong sentence rather than a wrong answer
 
-- [ ] **Session 164 — carry out `SNAG-DOCS-003`'s removal.** Delete
+- [ ] **Next session — carry out `SNAG-DOCS-003`'s removal.** Delete
       `sysadmin_tray/_deprecated_contracts.py` and the `__getattr__` in
       `sysadmin_tray/models.py`, drop `TestDeprecatedNamesLeftTheRegistry`'s
       three behaviour tests, and cite `e045373e` in the commit.

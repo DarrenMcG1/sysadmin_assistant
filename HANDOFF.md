@@ -1,3 +1,27 @@
+# Handoff — 2026-09-03 (Session 164)
+
+## Next action
+
+Restart `sysadmin.service` with `kill -TERM` so the widened kernel `severity_filter` and the new `CRITICAL_SIGNATURES` declaration take effect, then confirm info-level kernel lines are being stored by comparing `journalctl -k -p 6 --since -1h | grep -c amdgpu` against a count of `sysadmin.log_entries` rows for source `kernel`.
+
+_**The GPU was resetting and the monitor watched it happen three times in silence.**_ _Investigating why the box crashed mid-game found an amdgpu fault chain — `Illegal opcode in command stream` wedging the shared `gfx_0.0.0` ring, the per-queue reset failing (`MES failed to respond to msg=RESET`, `The CPFW hasn't support pipe reset yet.`), and amdgpu escalating to a full `MODE1 reset` that destroys every client's VRAM. The root cause was a **boot default**, not this repository's: a `linux 7.1.9 → 7.2.2` upgrade deleted the entry `LoaderEntryDefault` named, systemd-boot fell back to sort-key order (`endeavouros-6.18.48-1-lts` sorts before `endeavouros-7.2.2-arch1-1`), and the box came up on the LTS branch unasked. Three resets in 8.2 h on `6.18.48-lts` against one in ~240 h on mainline, same game and same Mesa. Rebooted to 7.2.2: clean under load, 100 % GPU and 19.9 GB VRAM._
+
+_**The monitoring gap is what this sitting fixed, and it was two gaps.**_ _`severity_filter: error` meant `journalctl -p 3` while every line naming the reset is `PRIORITY=6` — `log_entries` held 0 rows for `VRAM is lost`, `GPU reset begin`, `MODE1 reset` and `device wedged`, and 4 apiece for the two symptoms. Separately, `critical` was unreachable: `chk_alert_severity` admits three rungs, journal `error` maps to `warning`, and amdgpu never uses `PRIORITY` 0–2, so all 44 amdgpu rows on this box are `warning`. Widening without declaring adds 1,804 lines a day and still raises nothing louder; declaring without widening declares a signature the reader cannot see._
+
+_**The owner chose the shape and the rung.**_ _A declared escalation list over a dedicated family or symptom-only escalation, and a toast **only on the second reset** — so `CRITICAL_SIGNATURES` opens at `DECLARED_FLOOR_SEVERITY` and escalates inside `critical_repeat_hours` (24 h, invented and says so; the live population separates at 3 h 31 m within a session against five days between sessions, so every value from 4 h to ~100 h is identical on it)._
+
+_**The title carries no rung, and that was forced rather than chosen.**_ _`alert_title` builds its prefix from the journal rung, which would print `Log info:` on a `critical` toast; and the alert rung cannot go there instead, because `step_for` escalates by raising a fresh row under the **same** title, so a rung-derived title forks the dedup identity at the moment the ladder climbs it. A declared fault is named after the fault._
+
+_**The narrow alternative was measured and refused.**_ _The reset lines carry `_KERNEL_DEVICE=+pci:0000:03:00.0`, so a second source matched on that field reads 214 lines against 1,845 — 8.6x cheaper — and overlaps on **27**, which journalctl has no negation for. One fault with two speakers under two `source` names, bought for 1,631 lines a day._
+
+_**Falsified rather than merely green.**_ _Seven mutations driven and all seven land red on the intended test — the gate ignoring the declaration, `alert_title` used instead of the declared title, provenance only on the escalated row, the declaration overriding `known_noise`, the count filtered by `unresolved()`, escalation on the first incident, and the window hard-coded past config. The suite is **3442 passed** against a 3431 baseline plus 11 new, which is the clobber check. `ruff` and `mypy` clean._
+
+_**And driven live, where the first probe was wrong.**_ _`_recent_incidents` was run against the real 667k-row `alerts` table: a title read from the table returns **4**, agreeing with it. The first attempt probed a `Log warning:` title and got `0` — the title carries the journal rung (`Log error:`) while the row's severity column reads `warning`, so the probe was wrong rather than the query, and a constant zero would not have been evidence either way._
+
+_**Three opened, none closed.**_ _`SNAG-LOG-015`: one reset still occupies twelve alert rows, and `group_incidents` — which already folds this exact population for `GET /api/logs/actions` — operates on recommendations, not alerts. `SNAG-CFG-006`: `arrives_at` is pinned by a test against the shipped file, and `severity_filter` is not `RESTART_ONLY`, so a SIGHUP can disarm the declaration with the suite still green — `SNAG-CFG-003`'s class, second member. `SNAG-SYSD-008`: the daemon sits at 491 MB of a 512 MB `MemoryMax` with `memory.events` reading `max 59388`, found beside the work and not caused by it._
+
+---
+
 # Handoff — 2026-09-03 (Session 163)
 
 ## Next action

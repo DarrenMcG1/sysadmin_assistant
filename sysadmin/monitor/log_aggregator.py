@@ -9,7 +9,7 @@ Pipeline: parse → filter → store → alert → periodic LLM summarise
 
 import asyncio
 import logging
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -147,6 +147,141 @@ COVERED_SIGNATURES: dict[tuple[str, str], str] = {
     (OWN_UNIT, AGENT_RUN_FAILED_EVENT): "sysadmin/monitor/failures.py — "
     "'<agent> agent failing', at two consecutive failures",
 }
+
+
+@dataclass(frozen=True)
+class CriticalSignature:
+    """A line this family speaks for, louder than its journal rung.
+
+    The mirror of :data:`COVERED_SIGNATURES` and of
+    ``agents.log_aggregator.known_noise``, which both move a rung
+    *down*.  Nothing moved one up, and on this box that left a whole
+    class of fault unsayable: a full-card amdgpu MODE1 reset kills every
+    GPU client on a 24 GB card shared by four services, and
+    :data:`FAULT_SEVERITIES` could not reach it from either direction.
+
+    **Two independent reasons, and fixing one alone fixes nothing** —
+    ``SNAG-AGENT-008``'s multiplicative shape, met again:
+
+    1. The kernel stamps the *diagnosis* at ``err`` and the **event** at
+       ``info``.  Measured across the 2026-09-03 boot: ``GPU reset
+       begin!``, ``MODE1 reset``, ``VRAM is lost due to GPU reset!`` and
+       ``device wedged, but recovered through reset`` are all
+       ``PRIORITY=6``, while ``Illegal opcode in command stream`` and
+       ``ring gfx_0.0.0 timeout`` are ``PRIORITY=3``.  With the kernel
+       source at ``severity_filter: error`` the reader passed
+       ``journalctl -p 3``, so ``log_entries`` held **0** rows for all
+       four event lines and **4** apiece for the two symptoms.  The
+       monitor stored the wreckage and none of the event.
+    2. ``critical`` was unreachable anyway.  ``chk_alert_severity``
+       admits three rungs and journal ``error`` maps to alert
+       ``warning``, so a log fault reaches ``critical`` only from
+       ``PRIORITY`` 0–2, which amdgpu never uses.  All **44** amdgpu
+       alert rows on this box are ``warning``.
+
+    So the declaration widens what may raise *and* what rung it may
+    reach, and neither half is any use alone.
+
+    Attributes:
+        title: What the row is called, at every rung.  Deliberately
+            **not** :func:`~sysadmin.monitor.log_signature.alert_title`'s
+            ``"Log {severity}: {source} — "``, for two reasons that point
+            the same way.  That prefix interpolates the *journal* rung,
+            so a line arriving at ``info`` and raised at ``critical``
+            would carry ``Log info:`` on the one toast the tray leaves on
+            screen — a row contradicting itself, which is the defect
+            ``SNAG-LOG-010`` removed from the ``noise`` title.  And the
+            rung cannot go in the title instead, because
+            :func:`~sysadmin.core.escalation.step_for` escalates by
+            resolving the quiet row and raising a louder one **under the
+            same title**; a rung-derived title would fork the identity at
+            exactly the moment the ladder is climbing it.  A declared
+            fault is named after the fault.
+        reason: Why this line is worth interrupting for, carried into
+            ``details['escalated_reason']`` — ``known_noise``'s rule 2,
+            for its reason: a judgement taken by a consumer with nothing
+            recording that it was taken is ``SNAG-CFG-001``'s shape.
+        arrives_at: The journal rung the producer stamps this line with.
+            Declared rather than discovered so the pairing can be
+            *checked*: a signature the configured ``severity_filter``
+            cannot see is a declaration that silently does nothing, which
+            is this entry's own defect rebuilt inside its own fix.
+            ``tests/test_critical_signatures.py`` drives it against
+            :func:`~sysadmin.monitor.journal.max_priority_for`.
+    """
+
+    title: str
+    reason: str
+    arrives_at: str
+
+
+#: Signatures this family raises above their journal rung, and the only
+#: place an alert rung is chosen by declaration rather than by mapping.
+#:
+#: Five rules, four of them the opposite of the obvious implementation:
+#:
+#: 1. **The second sighting is the news, not the first.**  A single MODE1
+#:    reset is survivable — the card comes back, ``device wedged, but
+#:    recovered through reset`` — and the box has produced one in ten days
+#:    without anybody needing to be interrupted.  Three in eight hours is
+#:    a different claim.  So a declared signature raises at
+#:    :data:`DECLARED_FLOOR_SEVERITY` on its first raise inside
+#:    ``critical_repeat_hours`` and escalates on the next, which is
+#:    ``failures.py``'s "two consecutive failures" rule — *"the news is
+#:    reproducible rather than happened"* — applied to an event family
+#:    rather than a run table.
+#: 2. **It climbs the existing ladder rather than picking a rung.**
+#:    :func:`~sysadmin.core.escalation.step_for` resolves the quiet row
+#:    and raises a louder one, because the tray fingerprints on
+#:    ``{severity}:{title}`` and an in-place bump keeps a fingerprint it
+#:    has already suppressed.  Session 39's rule, and the reason this is
+#:    a *count* feeding a ladder and not a second severity map.
+#: 3. **The count is of raises, never of lines.**  One reset writes
+#:    eleven distinct signatures in the same second and this family opens
+#:    one row per signature; counting lines would escalate the first
+#:    reset on the strength of its own noise.  Counting rows carrying the
+#:    declared title is counting *incidents*, which is what the rule
+#:    means.
+#: 4. **Bounded to what a producer already writes.**  Every key is a
+#:    signature this box has actually emitted, verified against
+#:    ``log_entries``/``raw_line`` rather than typed from documentation —
+#:    a hand-maintained set is the ``SNAG-CFG-001`` shape, so it is small,
+#:    and a test pins that :func:`signature` still maps the real line to
+#:    the key (the failure mode of a kernel reword is *silence*, not an
+#:    error).
+#: 5. **The event, never the symptoms.**  ``Illegal opcode`` and ``ring
+#:    gfx_0.0.0 timeout`` are the two symptom signatures already reaching
+#:    ``warning``, and they were deliberately left there: they fire for
+#:    hangs that recover without a reset, so declaring them would make
+#:    this family speak for faults it cannot vouch for.  ``VRAM is lost
+#:    due to GPU reset!`` is emitted by ``amdgpu`` only after the reset
+#:    has happened, which is the one line that means what the row claims.
+CRITICAL_SIGNATURES: dict[tuple[str, str], CriticalSignature] = {
+    (
+        "kernel",
+        "amdgpu N:N:N.N: amdgpu: VRAM is lost due to GPU reset!",
+    ): CriticalSignature(
+        title="GPU was reset — every client lost its VRAM",
+        reason=(
+            "a full-card MODE1 reset: the graphics ring wedged, the "
+            "per-queue reset failed, and amdgpu reset the device. Every "
+            "GPU client's memory was destroyed — the foreground "
+            "application and any resident inference server alike."
+        ),
+        arrives_at="info",
+    ),
+}
+
+#: The rung a declared signature opens at, before the ladder moves it.
+#:
+#: ``warning`` rather than ``info`` because the first sighting is still a
+#: fault that happened, and ``info`` is below ``tray.notify_min_severity``
+#: on this box — an opening rung nobody can hear makes the escalation the
+#: *only* audible rung, which is the "warning that fires once" defect
+#: read backwards.  It is not derived from :data:`SEVERITY_ORDER`: the
+#: floor of that mapping is ``debug``, and what this names is a policy
+#: choice about how loud a first sighting is, not the bottom of a scale.
+DECLARED_FLOOR_SEVERITY = "warning"
 
 
 class LogAggregatorAgent(BaseAgent):
@@ -291,16 +426,32 @@ class LogAggregatorAgent(BaseAgent):
                 session.add(log_entry)
                 total_ingested += 1
 
-                if entry["severity"] not in FAULT_SEVERITIES:
+                # The signature is computed for every stored line now,
+                # where it used to be computed only for a line that had
+                # already passed the rung gate.  It has to be: a declared
+                # signature is precisely one whose *rung* does not admit
+                # it, so the gate cannot be asked before the key exists.
+                # The cost is a regex pass per ingested line rather than
+                # per new fault — bounded by ``max_entries_per_read``, and
+                # `signature` collapses 626,906 rows in 91 ms, so a full
+                # 500-entry storm read spends well under a millisecond
+                # here.
+                sig = signature(entry["message"])
+                key = (entry["source"], sig)
+                declared = CRITICAL_SIGNATURES.get(key)
+
+                if declared is None and entry["severity"] not in FAULT_SEVERITIES:
                     continue
 
-                title = alert_title(
-                    entry["severity"], entry["source"], entry["message"]
+                title = (
+                    declared.title
+                    if declared is not None
+                    else alert_title(
+                        entry["severity"], entry["source"], entry["message"]
+                    )
                 )
                 fault = faults.get(title)
                 if fault is None:
-                    sig = signature(entry["message"])
-                    key = (entry["source"], sig)
                     noise = known_noise.get(key)
                     # Two independent reasons to be quiet, kept apart in
                     # ``details`` because they answer different questions:
@@ -310,13 +461,34 @@ class LogAggregatorAgent(BaseAgent):
                     # over-determined rather than ambiguous.
                     covered_by = COVERED_SIGNATURES.get(key)
                     faults[title] = {
+                        # A declared signature opens at the floor and is
+                        # moved by the ladder in the raise phase, which is
+                        # where the count of previous incidents can be
+                        # read.  Deciding it here would need one query per
+                        # ingested line.
+                        #
+                        # **Both quietenings still win, and the ordering is
+                        # deliberate.**  ``known_noise`` is an operator
+                        # saying this is harmless and
+                        # :data:`COVERED_SIGNATURES` is a structural fact
+                        # that another family speaks for it; a declaration
+                        # here is this family's own judgement, and a
+                        # module's judgement about its own rung must not
+                        # override an operator's or another owner's.  A
+                        # signature carrying both is over-determined rather
+                        # than ambiguous — the same reading the two
+                        # quietenings already give each other — and
+                        # ``details`` records which applied.
                         "severity": (
                             NOISE_SEVERITY
                             if noise is not None or covered_by is not None
+                            else DECLARED_FLOOR_SEVERITY
+                            if declared is not None
                             else "critical"
                             if entry["severity"] == "critical"
                             else "warning"
                         ),
+                        "declared": declared,
                         "source": entry["source"],
                         "message": entry["message"],
                         "count": 1,
@@ -338,6 +510,29 @@ class LogAggregatorAgent(BaseAgent):
             if existing is not None:
                 self._record_recurrence(existing, fault, now)
                 continue
+
+            # The ladder, for a declared signature only, and only from
+            # the floor — a row quietened by ``known_noise`` or by
+            # :data:`COVERED_SIGNATURES` is left where those put it.
+            #
+            # This is a *raise*, not an in-place bump: ``existing`` is
+            # ``None`` above, so the previous incident's row has already
+            # been resolved by ``_resolve_quiet``.  Session 39's ban is
+            # about rewriting a standing row's rung and does not reach
+            # here; what the ladder contributes is the rule that the
+            # louder statement is a fresh row under the same title, which
+            # is what a declared title being rung-free makes possible.
+            prior_incidents = 0
+            if (
+                fault["declared"] is not None
+                and fault["severity"] == DECLARED_FLOOR_SEVERITY
+            ):
+                prior_incidents = await self._recent_incidents(
+                    session, title, now, agent_config.critical_repeat_hours
+                )
+                if prior_incidents:
+                    fault["severity"] = "critical"
+
             await self.raise_alert(
                 session,
                 severity=fault["severity"],
@@ -349,6 +544,25 @@ class LogAggregatorAgent(BaseAgent):
                     "first_seen_at": now.isoformat(),
                     "last_seen_at": now.isoformat(),
                     "occurrences": fault["count"],
+                    # Why this family is speaking above the rung the
+                    # producer stamped, carried on the row rather than
+                    # left to be inferred from the title — ``known_noise``
+                    # rule 2's argument, in the loud direction.
+                    #
+                    # ``prior_incidents`` is uniform on every declared row
+                    # including the first, where it is ``0``: a key
+                    # present only on the escalated row would make its
+                    # absence carry the news, which is the
+                    # absent-vs-present collapse ``ports_checked``'s rule
+                    # refuses.  The *value* carries it.
+                    **(
+                        {
+                            "escalated_reason": fault["declared"].reason,
+                            "prior_incidents": prior_incidents,
+                        }
+                        if fault["declared"] is not None
+                        else {}
+                    ),
                     # Present only when config.yaml says so, so a reader
                     # of the row can see *why* it is quiet without going
                     # to look — the reason SNAG-CFG-001 was a defect
@@ -509,6 +723,56 @@ class LogAggregatorAgent(BaseAgent):
             )
         )
         return floor, set(stored.scalars().all())
+
+    async def _recent_incidents(
+        self, session, title: str, now: datetime, window_hours: float
+    ) -> int:
+        """How many rows this family already raised under ``title``.
+
+        The count behind :data:`CRITICAL_SIGNATURES`' rule 1 — a first
+        sighting is survivable and a repeat is the news.
+
+        Four things decided its shape:
+
+        1. **Rows, never occurrences.**  ``details['occurrences']``
+           counts *lines*, and one MODE1 reset writes eleven signatures
+           in the same second; a line count would escalate the first
+           reset on the strength of its own noise.  A row exists once
+           per incident, because ``alert_quiet_minutes`` folds the lines
+           of one incident into it and only silence closes it.
+        2. **Resolved rows count.**  The previous incident's row is
+           closed by definition — this method is only reached when
+           ``_open_alerts`` found nothing, which is what makes this a new
+           incident rather than a recurrence.  Reading
+           :func:`~sysadmin.core.models.alert.unresolved` here would
+           count exactly the rows that cannot be here and return ``0``
+           for ever, an escalation that can never fire.
+        3. **Scoped to this agent.**  ``Alert.agent`` keeps the count off
+           any other family that happens to choose the same title — the
+           scoping ``_resolve_recovered`` and the estate judge both apply
+           for the same reason.
+        4. **The scan is accepted and stated rather than indexed
+           around.**  There is no index on ``(title, created_at)``;
+           ``idx_alerts_active`` is partial on ``resolved = false``,
+           which rule 2 has just excluded, so this is a sequential scan —
+           **41,644 buffers, 33.3 ms** at this table's 667k rows, the
+           figure ``SNAG-AGENT-007`` measured.  It runs once per declared
+           incident, not once per poll: this family raised **4** rows in
+           thirty days.  An index for a query that runs four times a
+           month is a write cost on every alert insert to save 33 ms a
+           week.
+        """
+        cutoff = now - timedelta(hours=window_hours)
+        result = await session.execute(
+            select(func.count())
+            .select_from(Alert)
+            .where(
+                Alert.agent == self.name,
+                Alert.title == title,
+                Alert.created_at >= cutoff,
+            )
+        )
+        return int(result.scalar_one())
 
     async def _open_alerts(self, session, titles: set[str]) -> dict[str, Alert]:
         """Unresolved alerts among ``titles``, keyed by title.
