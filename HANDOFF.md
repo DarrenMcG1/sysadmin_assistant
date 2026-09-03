@@ -1,8 +1,26 @@
-# Handoff — 2026-09-03 (Session 162)
+# Handoff — 2026-09-03 (Session 163)
 
 ## Next action
 
-Answer `SNAG-DOCS-003`'s operational blocker by sweeping this box for importers of the five deprecated contract names and filing the off-box half at estate-manager, because it is now the only open entry whose blocker is an answerable fact with a documented route rather than a population that has to arrive on its own.
+Carry out `SNAG-DOCS-003`'s removal — delete `sysadmin_tray/_deprecated_contracts.py` and the `__getattr__` in `sysadmin_tray/models.py`, drop `TestDeprecatedNamesLeftTheRegistry`'s three behaviour tests while keeping `test_none_of_them_are_defined_in_contracts`, and cite estate message `e045373e` in the commit — because the audience is now measured empty, every off-box route is closed and the announcement is already filed, so the entry's only remaining cost is the deletion nobody has made.
+
+_**`SNAG-DOCS-003` is unblocked, and the blocker was the part that was wrong.**_ _The entry says closing it needs "an operational fact this repository cannot check" — where the wheel went. It was checkable here in one sitting, and the answer is that there is nowhere the artefact could have gone: **no git remote and no branch upstream**, so the repository has never been pushed; **not one of the 31** `sysadmin_service` wheels on this box contains `sysadmin_tray/` code, every one being a uv *editable* stub of a `.pth` and dist-info, checked by `unzip` rather than by name; CI has no publish step; `syncthing@gaddi` is running but shares only `/srv/seedvault-backups` and `~/Documents/DMDocs/Self`, neither covering `~/projects`; and `~/projects/.backups/sysadmin_assistant.git` is a leaf whose only remote is a local path and whose newest ref is 2026-08-04, three weeks before the module existed. The published surface the entry protects has never actually been published._
+
+_**Zero importers box-wide, and the sweep keys on the import rather than the name.**_ _Not one `from`/`import` statement reaching `sysadmin` or `sysadmin_tray` exists outside this checkout, across `~/projects`, `~/.claude`, `~/.local` and `~/.config` — `test_contract_reachability`'s rule 2 applied to a whole box. The distinction decides the answer rather than decorating it: **estate-manager defines all five names itself** in `service/estate_service/projects/contracts.py` off its own local `Contract` base, so a **name**-keyed sweep finds 5/5 over there and names them the importer, plausibly and wrongly. They went across with ADR-0005; nothing of theirs breaks._
+
+_**The negative was falsified before it was believed.**_ _A constant observation is not evidence unless something in the population would have forced a different one, so a planted `from sysadmin_tray.models import RecommendationInfo, PortfolioAction` was run through the same sweep beside a decoy **local** `class RecommendationInfo` — the importer reported, the decoy correctly ignored, the plant removed by a shell trap. Without it, zero-because-clean reads exactly like zero-because-the-pattern-never-matched._
+
+_**Filed at estate-manager as `e045373e`, before the commit that will carry the removal.**_ _No filing was **owed** — the import audience is measured empty, and a measured-empty audience files nothing. It was sent because estate-manager holds the only two surviving references and is the party that wrote them down: their **ADR-0069** names this module inside its own rule-3 audience measurement, and `GET :8400/api/audit/readers` carries **two rows** for it (lines 3 and 47, `kind: authority`, `usage: docstring`, of 127 rows over 6 repositories). Neither breaks; both stop being true, and amending them is theirs to decide._
+
+_**Their inventory is not a second opinion on the audience.**_ _`/api/audit/readers` is keyed on port and document authority references, never on Python imports — it reaches this module only because the docstring mentions `:8400` — and holds **zero** rows referencing 8500 from any repository. So the estate's instrument cannot answer the question the entry was blocked on, and saying which half an instrument measured is `ports_checked`'s rule turned on someone else's tool._
+
+_**The removal was deliberately not carried out and one code edit is owed.**_ _The owner's call, asked and answered mid-sitting: record the answer, leave the deletion of a published surface to its own sitting. So `check_deprecated_contracts`'s docstring still says the operational fact is one "this repository cannot check", which the measurement above refutes — its **verdict** is unaffected and still `match`, so it is a wrong sentence rather than a wrong answer, and it is recorded in the entry rather than fixed here._
+
+_**Measured either side, and nothing moved that should not have.**_ _Docs only, no code touched: the live parser reads **124 entries / 19 open** before and after the edit, `SNAG-DOCS-003` still open at `P3` with its body carrying the message id; **9 of 9** ops claims `ok`; the entry's own check still reports `still holds`, correctly, because the five are still defined and still unread. No restart owed._
+
+---
+
+## Session 162 — a marked cut said an identity was lost; now it gives one back
 
 _**`SNAG-LOG-013` is closed, by the discriminator the entry said could not exist at this level.**_ _`capped_signature` stamps a cut signature with `signature_digest` of the **whole** signature — the eight characters `alert_title` has carried since Session 122 — so the roll-up's member lines, the incident title and the three single-signature titles all come apart. Open entries **20 → 19**; nothing opened, nothing else moved._
 

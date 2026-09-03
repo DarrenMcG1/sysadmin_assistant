@@ -3,6 +3,57 @@
 **Last Updated**: 2026-09-03
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The blocker was the part that was wrong** (2026-09-03, Session 163).
+> `SNAG-DOCS-003` is **unblocked**, not closed. It says closing it needs
+> *"an operational fact this repository cannot check"* — where the wheel
+> went. It was checkable here in one sitting: **no git remote and no
+> branch upstream**, so the repository has never been pushed; **not one
+> of the 31** `sysadmin_service` wheels on this box contains
+> `sysadmin_tray/` code, every one a uv *editable* stub of a `.pth` and
+> dist-info, checked by `unzip` rather than by name; CI has no publish
+> step; `syncthing@gaddi` runs but shares only `/srv/seedvault-backups`
+> and `~/Documents/DMDocs/Self`, neither covering `~/projects`; and
+> `~/projects/.backups/sysadmin_assistant.git` is a leaf whose only
+> remote is a local path and whose newest ref predates the module by
+> three weeks. The published surface the entry protects has never
+> actually been published.
+>
+> **Zero importers box-wide, and the sweep keys on the import rather
+> than the name.** Not one `from`/`import` statement reaching `sysadmin`
+> or `sysadmin_tray` exists outside this checkout, across `~/projects`,
+> `~/.claude`, `~/.local` and `~/.config`. The distinction decides the
+> answer: **estate-manager defines all five names itself** in
+> `service/estate_service/projects/contracts.py` off its own local
+> `Contract` base, so a **name**-keyed sweep finds 5/5 over there and
+> names them the importer, plausibly and wrongly. They went across with
+> ADR-0005; nothing of theirs breaks.
+>
+> **The negative was falsified before it was believed.** A planted
+> importer beside a decoy *local* class of the same name went through
+> the same sweep — the importer reported, the decoy ignored, the plant
+> removed by a shell trap. Without it, zero-because-clean reads exactly
+> like zero-because-the-pattern-never-matched.
+>
+> **Announced as `e045373e`, before the commit that will carry the
+> removal.** No filing was *owed* — a measured-empty audience files
+> nothing. It was sent because estate-manager holds the only two
+> surviving references and wrote them down itself: **ADR-0069** names
+> this module inside its own rule-3 audience measurement, and
+> `GET :8400/api/audit/readers` carries **two rows** for it, of 127 over
+> 6 repositories. Neither breaks; both stop being true. Their inventory
+> is **not** a second opinion on the audience — it keys on port and
+> document authority, never on Python imports, and holds **zero** rows
+> referencing 8500 from any repository.
+>
+> **One code edit is owed and was deliberately not made.**
+> `check_deprecated_contracts`'s docstring still says the fact is one
+> *"this repository cannot check"*. Its verdict is unaffected and still
+> `match`, so it is a wrong sentence rather than a wrong answer, and it
+> is recorded in the entry rather than fixed by a sitting scoped to
+> answering the blocker. Docs only, no code touched: the live parser
+> reads **124 entries / 19 open** either side, **9 of 9** ops claims
+> `ok`, and no restart is owed.
+
 > **A marked cut said an identity was lost; now it gives one back**
 > (2026-09-03, Session 162). `SNAG-LOG-013` is **closed**. A cut
 > signature carries `signature_digest` of the **whole** signature — the

@@ -16,6 +16,55 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 163 — the blocker was the part that was wrong.**
+      *(2026-09-03, `SNAG-DOCS-003` **unblocked**, not closed; nothing
+      opened, no code touched.)* The entry's closure was filed as needing
+      *"an operational fact this repository cannot check"*. It was
+      checkable here, and every off-box route is closed, so what remains
+      is the two deletions and a test edit.
+      - **There is nowhere the artefact could have gone.** No git remote
+        and no branch upstream, so the repository has never been pushed;
+        **not one of the 31** `sysadmin_service` wheels on this box
+        contains `sysadmin_tray/` code, every one a uv *editable* stub of
+        a `.pth` and dist-info, checked by `unzip` rather than by name;
+        no publish step in CI; `syncthing@gaddi` shares two folders and
+        neither covers `~/projects`; and the on-box mirror is a leaf
+        whose newest ref predates the module by three weeks
+      - **Zero importers box-wide, keyed on the import and not the
+        name.** `test_contract_reachability`'s rule 2 applied to a whole
+        box. It decides the answer rather than decorating it —
+        **estate-manager defines all five names itself**, so a
+        name-keyed sweep finds 5/5 over there and names them the
+        importer, plausibly and wrongly
+      - **The negative was falsified before it was believed.** A planted
+        importer beside a decoy *local* class of the same name: the
+        importer reported, the decoy ignored, the plant removed by a
+        shell trap
+      - **Announced as `e045373e` before the commit that will carry the
+        removal.** No filing was *owed* — a measured-empty audience files
+        nothing — but estate-manager holds the only two surviving
+        references and wrote them down itself, in **ADR-0069**'s own
+        rule-3 audience measurement and in two rows of
+        `GET :8400/api/audit/readers`
+      - **Their inventory cannot answer this question**, which is stated
+        rather than implied: it keys on port and document authority,
+        never on Python imports, and holds zero rows referencing 8500
+      - **One code edit is owed and deliberately not made.**
+        `check_deprecated_contracts`'s docstring still claims the fact is
+        uncheckable here; the verdict is unaffected and still `match`, so
+        it is a wrong sentence rather than a wrong answer
+
+- [ ] **Session 164 — carry out `SNAG-DOCS-003`'s removal.** Delete
+      `sysadmin_tray/_deprecated_contracts.py` and the `__getattr__` in
+      `sysadmin_tray/models.py`, drop `TestDeprecatedNamesLeftTheRegistry`'s
+      three behaviour tests, and cite `e045373e` in the commit.
+      - **Keep `test_none_of_them_are_defined_in_contracts`** — it is the
+        only cover for the three names `test_contract_reachability` cannot
+        judge, for the reason that file's docstring measures
+      - **Correct `check_deprecated_contracts`'s docstring** in the same
+        sitting, and retire the check with the entry while re-homing its
+        detector — `FROZEN_TABLES`' rule, as every closure here does
+
 - [x] **Session 162 — a marked cut says an identity was lost; now it
       gives one back.** *(2026-09-03, `SNAG-LOG-013` **closed**;
       nothing opened.)* `capped_signature` stamps a cut signature with
