@@ -1046,214 +1046,6 @@ def check_dropin_blind_spot() -> Measurement:
     )
 
 
-#: ``SNAG-LOG-013``'s probe, and the live record shape it reproduces.
-#: This box's one JSON-writing journal source puts a whole record on a
-#: line (``SNAG-LOG-008``), so nine of its signatures agree as far as
-#: ``"logger": "sysadmin.core.agent", "message": "alert_raised`` and
-#: diverge only past the cap.
-PROBE_SOURCE = "snagcheck.service"
-PROBE_RECORD_HEAD = (
-    '{"timestamp": "N-N-NTN:N:N.N", "level": "ERROR", '
-    '"logger": "sysadmin.core.agent", "message": "alert_raised", "detail": "'
-)
-PROBE_FILLER = "field value "
-
-#: The offsets the two halves put between the probe's first sightings,
-#: both derived from ``INCIDENT_WINDOW_SECONDS`` rather than picked: one
-#: comfortably inside the window, one comfortably outside it.  The
-#: constant is derived from a *gap* in the live separations (349 ms
-#: against 64.4 s), so anything within an order of magnitude of it is a
-#: number this check would have to keep in step by hand.
-PROBE_INSIDE_FRACTION = 0.1
-PROBE_OUTSIDE_MULTIPLE = 2.0
-
-
-def probe_signatures(cap: int) -> tuple[str, str]:
-    """Two signatures that agree past ``cap`` and diverge only after it.
-
-    **Derived from the constant rather than written beside it** —
-    :func:`sysadmin.core.journal.max_priority_for` against
-    ``PRIORITY_MAP``, and load-bearing here in a way it is not in most of
-    this registry.  ``SNAG-LOG-013`` says in its own body that *raising
-    the cap is not the fix*, because any bound is defeated by two records
-    that differ past it and a larger number only moves where.  A probe
-    with a hard-coded prefix would therefore report the entry refuted the
-    day somebody moved
-    :data:`~sysadmin.monitor.log_actions.SIGNATURE_DETAIL_CHARS` to 400 —
-    reporting a fix in the one remedy the entry argues against.
-    """
-    filler = PROBE_FILLER * (cap // len(PROBE_FILLER) + 2)
-    prefix = (PROBE_RECORD_HEAD + filler)[: cap * 2]
-    return f'{prefix}alpha"}}', f'{prefix}bravo"}}'
-
-
-def check_capped_signature_collides() -> Measurement:
-    """``SNAG-LOG-013`` — a capped signature can name two faults at once.
-
-    **Rule 1's second case, and the entry Session 83 kept open to state
-    the rule.**  Its population is empty at the live endpoint — all ten
-    raw-JSON rows were ingested inside eleven minutes on 2026-08-17 and
-    left the seven-day ``current`` window the same afternoon it was filed
-    — so a check that asked *does any pair collide today* would report it
-    refuted for the reason that mis-ranked its parent ``SNAG-LOG-010``.
-    What the entry claims is a mechanism, so the mechanism is driven:
-    two signatures that agree past the cap, through the real
-    :func:`~sysadmin.monitor.log_actions.recommend`, twice.
-
-    **Two halves, and they are reported apart because they fail to
-    different fixes.**  The entry's title is a conjunction — capping *can*
-    put two rows back where ``SNAG-LOG-010`` found them, and inside one
-    roll-up it *already has* — so the halves are the two clauses:
-
-    - **grouped**, where the pair lands inside
-      ``INCIDENT_WINDOW_SECONDS`` and the roll-up's own member lines are
-      compared.  This is the "one level down it is already visible"
-      bullet, and it is the half a divergence-aware cap would close.
-    - **apart**, where the same pair lands outside the window and becomes
-      two rows whose *titles* are compared.  This is the headline, and it
-      is the half a disambiguator in
-      :func:`~sysadmin.monitor.log_actions.quoted_signature` would close
-      while leaving the roll-up naming none of its members.
-
-    The probe varies **only the signature**.  The first draft of the
-    second half used two different sources, and the titles came apart —
-    ``_new_recommendation`` opens a title with the source name, so the
-    fixture reported the claim refuted for a reason that has nothing to
-    do with the cap.  A check whose fixture moves two things at once
-    cannot say which one it measured.
-
-    **Both halves are the advice surface, and a third one has closed.**
-    Session 122 measured the entry's stated scope and found
-    :func:`~sysadmin.monitor.log_signature.alert_title` cutting the same
-    signature — the dedup key, so two faults agreeing past *its* budget
-    were one row and one toast rather than one advice line.  That half is
-    fixed, by a discriminator on cut titles, and is guarded in
-    ``tests/test_log_alert_dedup.py`` rather than here: this check exists
-    because the entry's advice population is empty and its claim is a
-    mechanism, and a closed half belongs to the suite.  Read the verdict
-    as *the roll-up and the advice titles still collide*, never as *the
-    entry is untouched*.
-
-    What it cannot reach is the entry's first candidate fix: making the
-    signature readable at the producer removes the *population* and
-    leaves the mechanism exactly as it is, so this check would go on
-    reporting *still holds*.  That is rule 1 rather than a gap —
-    ``SNAG-LOG-008``'s fix retires the class on this box and not the
-    property — and it is why the live table is deliberately not consulted
-    here at all.
-    """
-    from sysadmin.monitor.log_actions import (
-        INCIDENT_WINDOW_SECONDS,
-        SIGNATURE_DETAIL_CHARS,
-        capped_signature,
-        recommend,
-    )
-    from sysadmin.monitor.log_trends import (
-        ChangeKind,
-        Confidence,
-        LogTrendReport,
-        SignatureTrend,
-    )
-
-    first, second = probe_signatures(SIGNATURE_DETAIL_CHARS)
-    if capped_signature(first) == first:
-        return Measurement(
-            "unknown",
-            "the probe's signatures come back uncapped, so it no longer isolates the "
-            "truncation the entry is about",
-        )
-
-    anchor = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
-
-    def _rows(offset: float):
-        def _trend(signature: str, seconds: float) -> SignatureTrend:
-            seen = anchor + timedelta(seconds=seconds)
-            return SignatureTrend(
-                signature=signature,
-                alert_title=f"Log error: {PROBE_SOURCE}",
-                source=PROBE_SOURCE,
-                severity="error",
-                sample=signature,
-                current=1,
-                previous=0,
-                total=1,
-                first_seen=seen,
-                last_seen=seen,
-                change=ChangeKind.NEW,
-            )
-
-        return recommend(
-            LogTrendReport(
-                window_days=7,
-                window_start=anchor - timedelta(days=7),
-                previous_start=anchor - timedelta(days=14),
-                generated_at=anchor,
-                confidence=Confidence.HIGH,
-                signatures=[_trend(first, 0.0), _trend(second, offset)],
-            )
-        )
-
-    grouped = _rows(INCIDENT_WINDOW_SECONDS * PROBE_INSIDE_FRACTION)
-    apart = _rows(INCIDENT_WINDOW_SECONDS * PROBE_OUTSIDE_MULTIPLE)
-
-    if len(grouped) != 1 or len(grouped[0].members) != 2:
-        return Measurement(
-            "unknown",
-            f"the probe's pair produced {len(grouped)} row(s) inside the incident window "
-            "rather than one roll-up of two — the grouping rule has moved and this half "
-            "no longer measures the cap",
-        )
-    if len(apart) != 2:
-        return Measurement(
-            "unknown",
-            f"the probe's pair produced {len(apart)} row(s) outside the incident window "
-            "rather than two — the grouping rule has moved and this half no longer "
-            "measures the cap",
-        )
-
-    members = [line for line in grouped[0].detail.splitlines() if line.startswith("  - ")]
-    if len(members) != 2:
-        return Measurement(
-            "unknown",
-            f"the roll-up named {len(members)} member line(s) rather than two — its detail "
-            "no longer names what it swallows, which is a different entry",
-        )
-    members_collide = members[0] == members[1]
-    titles_collide = apart[0].title == apart[1].title
-
-    detail = (
-        f"cap {SIGNATURE_DETAIL_CHARS}; the pair agrees over "
-        f"{len(probe_signatures(SIGNATURE_DETAIL_CHARS)[0]) - len('alpha"}')} characters",
-        f"roll-up member lines identical: {members_collide}",
-        f"separate rows' titles identical: {titles_collide}",
-        f"as rendered: {members[0].strip()}",
-    )
-
-    if members_collide and titles_collide:
-        return Measurement("match", "", detail)
-    if members_collide:
-        return Measurement(
-            "mismatch",
-            "two separate rows no longer share a title — the headline half is closed and "
-            "the roll-up still names none of its members, so the entry needs narrowing "
-            "rather than closing",
-            detail,
-        )
-    if titles_collide:
-        return Measurement(
-            "mismatch",
-            "the roll-up now distinguishes its members — the entry's second candidate fix "
-            "has landed for the detail and not for the titles",
-            detail,
-        )
-    return Measurement(
-        "mismatch",
-        "neither half collides — two signatures that agree past the cap now render "
-        "apart, which is the divergence-aware cap the entry asks for",
-        detail,
-    )
-
-
 def estate_module_state(modules: Iterable[Path]) -> str:
     """Whether the modules the probe just ran are committed over there.
 
@@ -6014,8 +5806,9 @@ def reload_coherence_reading() -> tuple[ReloadReading | None, str]:
     """Drive the reload twice and read back what it installed.
 
     The specimens are **derived from the installed values, never
-    written** — ``probe_signatures`` against ``SIGNATURE_DETAIL_CHARS``'s
-    rule, and load-bearing for the same reason.  The violating interval
+    written** — the rule ``SNAG-LOG-013``'s retired probe stated
+    against ``SIGNATURE_DETAIL_CHARS``, and load-bearing for the same
+    reason.  The violating interval
     is ``reminder_hours`` itself, so the sum is ``reminder_hours +
     poll_interval_hours`` and exceeds the restatement by the poll
     interval whatever either leaf currently reads; a written ``24`` would
@@ -7332,12 +7125,6 @@ CHECKS: dict[str, Check] = {
             "SNAG-UNITS-006",
             "the unit sweep cannot read a drop-in",
             check_dropin_blind_spot,
-        ),
-        Check(
-            "capped_signature_collides",
-            "SNAG-LOG-013",
-            "a capped signature can name two faults at once",
-            check_capped_signature_collides,
         ),
         Check(
             "nudge_wording_unpublished",

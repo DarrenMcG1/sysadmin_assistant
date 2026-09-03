@@ -16,6 +16,54 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 162 — a marked cut says an identity was lost; now it
+      gives one back.** *(2026-09-03, `SNAG-LOG-013` **closed**;
+      nothing opened.)* `capped_signature` stamps a cut signature with
+      `signature_digest` of the **whole** signature — the eight
+      characters `alert_title` has carried since Session 122 — so the
+      roll-up's member lines, the incident title and the three
+      single-signature titles all come apart.
+      - **The obstacle the entry filed was refuted by its own alert
+        half.** It argues a divergence-aware cap *"needs the sibling
+        set and so cannot live in a per-row pure function"*; the digest
+        is per-row and pure, and this function was simply where it had
+        not been applied
+      - **Imported, never restated.** `log_signature._digest` became
+        public. A local `sha256(...)[:8]` gives the identical value, so
+        all five value-asserting tests pass against the copy — only an
+        AST walk asserting the import catches it, and the sixth
+        mutation lands red on that test alone
+      - **Digested over the whole signature, never the cut.** The
+        colliding pair's cuts are one string, so a digest of what
+        survives is identical for both — a discriminator that
+        discriminates nothing and is trusted anyway
+      - **Appended past the bound, the opposite of `alert_title`**,
+        which subtracts because `TITLE_MAX` is a column. So the cut
+        point does not move and no existing member line lost a
+        character
+      - **The weekly review takes the cut without the stamp**, and the
+        population deciding it is not empty: **8 of 79** retained
+        signatures are cut and **8 of 8** are figure-free, so gating on
+        the rendered line would have deleted every cut signature from a
+        prompt that is figure-free by construction. Live, two such
+        lines reach the real prompt today and its data half carries
+        **zero** digits
+      - **`figure_free`'s stated exception is unreachable**, measured on
+        the way past: `_NUM` runs after `_HEX` and eats the `0`, so
+        `0x1f` arrives as `NxN` and a signature is digit-free by
+        construction. Docstring corrected; the gate stays, because its
+        input is only *typed* as a signature
+      - **Check retired, detector re-homed** as
+        `TestACutSignatureCarriesItsDiscriminator` — `FROZEN_TABLES`'
+        rule, with `probe_signatures`' derive-the-prefix-from-the-
+        constant argument, which is what stops a future
+        `SIGNATURE_DETAIL_CHARS = 400` reading as a fix in the one
+        remedy the entry rules out
+      - **Verified live**: 3 cut titles and 2 cut member lines on
+        `GET /api/logs/actions`, every one stamped, and each title's
+        eight characters are the same eight in that row's own
+        `alert_title`. **0** duplicate titles either side
+
 - [x] **Session 161 — the entry with no disposition had a producible
       class and a refuted obstacle.** *(2026-09-03, `SNAG-LOG-013`
       declared `owed`; nothing opened, nothing fixed.)* The last open

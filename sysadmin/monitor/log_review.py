@@ -177,9 +177,26 @@ def figure_free(text: str) -> bool:
 
     The gate rule 3 rests on.  Applied to every signature before it
     reaches the prompt rather than trusted from the measurement, because
-    the measurement is a property of this box's log lines and the
-    exception is a property of the normaliser: ``_HEX`` rewrites a hex
-    literal to ``0xN``, which is digit-free in intent and not in fact.
+    the measurement is a property of this box's log lines while the gate
+    should be a property of the text.
+
+    **The exception it named is unreachable, and it was never a property
+    of this box** (measured 2026-09-03).  This said ``_HEX`` rewrites a
+    hex literal to ``0xN``, *"which is digit-free in intent and not in
+    fact"* — but :func:`~sysadmin.monitor.log_signature.signature`
+    applies ``_NUM`` **after** ``_HEX``, over its result, so the ``0``
+    is eaten too and ``0x1f`` arrives as ``NxN``.  Every digit run in a
+    message becomes ``N``, so a signature is digit-free by construction
+    and this gate has an empty population: **79 of 79** retained
+    signatures on the live table pass it.
+
+    It stays, and not out of caution.  The gate's input is *typed* as a
+    signature and nothing enforces that it is one — the one caller
+    reads ``item["signature"]`` out of a JSON facts blob — so it is the
+    last thing standing between a mis-projected field and a prompt whose
+    whole contract is that it carries no figure.  What it must **not**
+    become is a gate on the *rendered* line: see
+    :func:`_quoted_signature`.
     """
     return not _DIGIT.search(text)
 
@@ -210,10 +227,35 @@ def _quoted_signature(signature: str) -> str:
 
     What stays here is the ``figure_free`` gate alone, because it is
     about what may reach a *model* and applies to no other caller.
+
+    **And ``discriminate=False``, which is the one property this render
+    gives up and the reason it may** (``SNAG-LOG-013``, closed
+    2026-09-03).  A cut signature now carries eight hex characters of
+    its own digest so that two faults agreeing past the cap stop
+    rendering as one; those characters are digits, and this prompt
+    carries none from the data by construction.  The identity they
+    restore is for a reader who carries it to another surface and
+    matches it, and **nothing matches a review line against anything** —
+    the line is colour in a narrative, and its own ``member_count``
+    clause already says "one incident covering several related faults"
+    without naming which.
+
+    The alternative was to gate on the *rendered* text rather than on
+    the input, which is the shape that looks tidier and is measurably
+    worse: **8 of 79** retained signatures are cut at
+    :data:`~sysadmin.monitor.log_actions.SIGNATURE_DETAIL_CHARS` and
+    **8 of 8** are figure-free, so it would have deleted every cut
+    signature from the prompt outright.  A line reading
+    ``sysadmin.service: a new fault appeared`` with the fault's text
+    removed is the surface with nothing else to say what happened.
+
+    So the two renders differ, and they differ in exactly one direction
+    and by exactly one token.  That is a narrower divergence than the
+    one this gate already permits, which is to emit nothing at all.
     """
     if not figure_free(signature):
         return ""
-    return quoted_signature(signature)
+    return quoted_signature(signature, discriminate=False)
 
 
 def occurrence_band(count: int) -> str:

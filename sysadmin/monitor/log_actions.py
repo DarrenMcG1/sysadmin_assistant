@@ -69,6 +69,7 @@ from enum import StrEnum
 
 from sysadmin.core.text import truncate_at_word
 from sysadmin.monitor.journal import since_timestamp
+from sysadmin.monitor.log_signature import signature_digest
 from sysadmin.monitor.log_trends import (
     ChangeKind,
     Confidence,
@@ -156,8 +157,9 @@ SIGNATURE_DETAIL_CHARS = 120
 SAMPLE_DETAIL_CHARS = 200
 
 
-def capped_signature(signature: str) -> str:
-    """A signature bounded at :data:`SIGNATURE_DETAIL_CHARS`, cut marked.
+def capped_signature(signature: str, *, discriminate: bool = True) -> str:
+    """A signature bounded at :data:`SIGNATURE_DETAIL_CHARS`, cut marked
+    and — when it was cut — discriminated.
 
     ``truncate_at_word`` rather than a slice, and that is a fix rather
     than a tidying.
@@ -170,11 +172,73 @@ def capped_signature(signature: str) -> str:
     2026-08-12 window before the change: **12 member signatures cut
     mid-word at exactly 120 characters**, one ending ``"message":
     "alert_raised", "service"`` with nothing to say it had been cut.
+
+    **A marked cut says that an identity was lost; it does not give one
+    back** (``SNAG-LOG-013``, closed here).  Two signatures agreeing past
+    this bound render as one string, so the roll-up that promises to
+    *name* every member it swallows named none of them — one live row
+    listed **7 members word-for-word identical after capping** — and two
+    separate rows carried one title.  That entry argues its own remedy
+    is out of reach, because a cap aware of where the group diverges
+    *"needs the sibling set and so cannot live in a per-row pure
+    function"*.  True of that remedy, and its own alert half then
+    shipped one that **is** per-row and pure: since 2026-08-29 a cut
+    :func:`~sysadmin.monitor.log_signature.alert_title` carries
+    :func:`~sysadmin.monitor.log_signature.signature_digest` of the whole
+    signature.  This function is simply where it had not been applied.
+
+    Five rules, three of them the opposite of the obvious
+    implementation:
+
+    1. **The digest is imported, never restated.**  The eight characters
+       here and the eight in that fault's ``alert_title`` are the same
+       eight, so a reader carrying ``[a028de53]`` from a member line to
+       the alert row finds it — which is the whole of what the stamp
+       buys.  A local ``sha256(...)[:8]`` would be two statements of one
+       identity, ``SNAG-DB-003``'s shape.
+    2. **It digests the whole signature, never the cut.**  A digest of
+       the surviving prefix is identical across exactly the pairs it
+       exists to separate: it would look like a discriminator and
+       discriminate nothing, which is worse than the marked cut it
+       replaced because the reader would then trust it.
+    3. **Only a cut carries one, and the cut is *asked* rather than
+       re-derived.**  ``truncate_at_word`` returns the text unchanged
+       when it fits, so comparing its answer to the input is the
+       producer's own statement of what it did; re-testing
+       ``len(signature) > SIGNATURE_DETAIL_CHARS`` restates its rule and
+       is free to drift from it.  An uncut signature is already total
+       and a stamp on it would be noise on every short row.
+    4. **It is appended past the bound rather than taken out of it** —
+       deliberately the opposite of ``alert_title``, and the difference
+       is what the two bounds *are*.  ``TITLE_MAX`` is a ``String(255)``
+       column and a title assembled past it raises; this is a
+       readability bound with nothing behind it, so ``truncate_at_word``'s
+       own rule applies — *"a cap that had to swallow the marker to stay
+       under itself would be a cap on the wrong thing"* — and the
+       discriminator is the part carrying the information exactly as
+       the marker is.  The consequence is worth stating: the cut point
+       does not move, so no existing member line loses a character to
+       this fix.
+    5. **One caller wants the cut without the stamp, and it is not an
+       oversight.**  :func:`~sysadmin.monitor.log_review._quoted_signature`
+       gates on ``figure_free`` because its render reaches a *model*
+       under a prompt that carries no digit from the data by
+       construction, and a digest is eight hex characters.  It passes
+       ``discriminate=False`` and says why; nothing matches a review
+       line against another surface, so the identity it gives up is one
+       that surface never had a use for.  Measured on the live table
+       when this was written: **8 of 79** retained signatures are cut
+       here and **8 of 8 are figure-free**, so that gate would otherwise
+       have deleted every cut signature from the prompt rather than
+       merely un-stamping it.
     """
-    return truncate_at_word(signature, SIGNATURE_DETAIL_CHARS)
+    cut = truncate_at_word(signature, SIGNATURE_DETAIL_CHARS)
+    if cut == signature or not discriminate:
+        return cut
+    return f"{cut} [{signature_digest(signature)}]"
 
 
-def quoted_signature(signature: str) -> str:
+def quoted_signature(signature: str, *, discriminate: bool = True) -> str:
     """The signature as a *title* carries it (``SNAG-LOG-010``).
 
     **A row's identity is the fault, not the source** — ``SNAG-AGENT-005``'s
@@ -206,9 +270,12 @@ def quoted_signature(signature: str) -> str:
     review line naming one signature read the same way.
     ``log_review._quoted_signature`` keeps only its ``figure_free``
     gate, which is about what may reach a *model* and applies nowhere
-    else.
+    else — and, since ``SNAG-LOG-013`` closed, ``discriminate=False``
+    for the same reason: see :func:`capped_signature` rule 5.  The
+    keyword is threaded rather than absorbed here so that the two
+    renders differ in exactly one property and a reader can see which.
     """
-    return f' — "{capped_signature(signature)}"'
+    return f' — "{capped_signature(signature, discriminate=discriminate)}"'
 
 
 class RecommendationKind(StrEnum):

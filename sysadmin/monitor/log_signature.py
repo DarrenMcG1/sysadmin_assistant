@@ -43,7 +43,13 @@ import re
 
 from sysadmin.core.text import TRUNCATION_MARKER, truncate_at_word
 
-__all__ = ["SIGNATURE_DIGEST_CHARS", "TITLE_MAX", "alert_title", "signature"]
+__all__ = [
+    "SIGNATURE_DIGEST_CHARS",
+    "TITLE_MAX",
+    "alert_title",
+    "signature",
+    "signature_digest",
+]
 
 #: ``sysadmin.alerts.title`` is ``String(255)``.  A title assembled past
 #: that raises ``StringDataRightTruncation``, so the budget is computed
@@ -68,8 +74,9 @@ def signature(message: str) -> str:
     return _WS.sub(" ", _NUM.sub("N", _HEX.sub("0xN", message))).strip()
 
 
-#: How many hex characters of the full signature's digest a **cut** title
-#: carries.
+#: How many hex characters of the full signature's digest a **cut**
+#: render carries — a title here, and since 2026-09-03 a member line
+#: and an advice title in :mod:`sysadmin.monitor.log_actions`.
 #:
 #: Eight is the smallest width at which the discriminator is not itself a
 #: source of collisions at any volume this table can reach: 32 bits over
@@ -80,8 +87,8 @@ def signature(message: str) -> str:
 SIGNATURE_DIGEST_CHARS = 8
 
 
-def _digest(signature_text: str) -> str:
-    """A stable discriminator for a signature the title cannot hold whole.
+def signature_digest(signature_text: str) -> str:
+    """A stable discriminator for a signature a render cannot hold whole.
 
     ``hashlib`` rather than the builtin :func:`hash`, and the reason is
     not style: ``hash()`` is salted per process by ``PYTHONHASHSEED``, so
@@ -90,6 +97,23 @@ def _digest(signature_text: str) -> str:
     processes, or one process either side of a restart — would disagree
     about the identity of one fault.  That is the defect this suffix
     exists to remove, arriving through its own fix.
+
+    **Public since 2026-09-03 because a second render needed the same
+    eight characters, not eight of its own** (``SNAG-LOG-013``).
+    :func:`~sysadmin.monitor.log_actions.capped_signature` cuts the same
+    signature at a smaller bound for the advice surface, and the whole
+    value of stamping it there is that a reader can carry
+    ``[a028de53]`` from a roll-up's member line to the alert row for the
+    same fault and find it again.  A second ``sha256(...)[:8]`` written
+    beside this one is two statements of one identity free to drift —
+    ``SNAG-DB-003``'s shape, and :func:`sysadmin.core.journal.max_priority_for`
+    against ``PRIORITY_MAP``'s rule.
+
+    Both callers digest the **whole** signature and never the cut they
+    are about to emit: a digest of the surviving prefix is by
+    construction *identical* across exactly the pairs it exists to
+    separate, so it would discriminate nothing while looking as though
+    it did.
     """
     return hashlib.sha256(signature_text.encode("utf-8")).hexdigest()[:SIGNATURE_DIGEST_CHARS]
 
@@ -124,7 +148,8 @@ def alert_title(severity: str, source: str, message: str) -> str:
     faults**.  The sixteen are ``warning`` and so stored rather than
     raised; one of the pairs is ``error`` and did raise.
 
-    So a cut title carries :func:`_digest` of the **whole** signature.
+    So a cut title carries :func:`signature_digest` of the **whole**
+    signature.
     Three things decided that shape:
 
     1. **Only a cut title carries one.**  An uncut signature is already
@@ -154,6 +179,6 @@ def alert_title(severity: str, source: str, message: str) -> str:
     text = signature(message)
     if len(text) <= budget:
         return f"{prefix}{text}"
-    suffix = f" [{_digest(text)}]"
+    suffix = f" [{signature_digest(text)}]"
     cut = truncate_at_word(text, max(budget - len(suffix), 1))
     return f"{prefix}{cut}{suffix}"

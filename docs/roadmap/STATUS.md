@@ -3,6 +3,74 @@
 **Last Updated**: 2026-09-03
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A marked cut said an identity was lost; now it gives one back**
+> (2026-09-03, Session 162). `SNAG-LOG-013` is **closed**. A cut
+> signature carries `signature_digest` of the **whole** signature — the
+> eight characters `alert_title` has stamped since Session 122 — so the
+> roll-up's member lines, the incident title and the three
+> single-signature titles all come apart. Open entries **20 → 19**;
+> nothing opened.
+>
+> **The obstacle was refuted by the entry's own alert half.** It argues
+> a divergence-aware cap *"needs the sibling set and so cannot live in a
+> per-row pure function"*. True of that remedy — and the digest is
+> per-row and pure, so `capped_signature` was simply where it had not
+> been applied. The entry's *"two candidate fixes, neither cheap"* is now
+> false in both limbs: the producer fix landed for a different entry and
+> emptied the population without touching the class, and the second was
+> never the only per-row option, only the only divergence-aware one.
+>
+> **Four rules, three of them the opposite of the obvious
+> implementation.** The digest is **imported, never restated** — a local
+> `sha256(...)[:8]` gives the identical value, so all five
+> value-asserting tests pass against the copy and only an AST walk
+> catches it. It digests the **whole** signature and never the cut,
+> because the colliding pair's cuts are one string and a digest of what
+> survives would render as a discriminator and separate nothing. It is
+> **appended past the bound**, deliberately the opposite of
+> `alert_title`, which subtracts because `TITLE_MAX` is a column — so
+> the cut point does not move and no existing member line lost a
+> character. And **only a cut carries one**, asked of `truncate_at_word`
+> rather than re-derived from the constant.
+>
+> **The weekly review takes the cut without the stamp, and the
+> population deciding that is not empty.** `log_review._quoted_signature`
+> gates on `figure_free` because its render reaches a *model* under a
+> prompt that carries no digit from the data by construction. Measured:
+> **8 of 79** retained signatures are cut and **8 of 8** are figure-free,
+> so gating on the *rendered* line — the tidier-looking shape — would
+> have deleted every cut signature from the prompt rather than
+> un-stamping it. Live, **two** such lines reach the real prompt today
+> and its data half carries **zero** digits.
+>
+> **`figure_free`'s stated exception is unreachable**, measured on the
+> way past. Its docstring said `_HEX` leaves `0xN`, *"digit-free in
+> intent and not in fact"*; `signature()` runs `_NUM` **after** `_HEX`,
+> over its result, so the `0` is eaten and `0x1f` arrives as `NxN`.
+> **79 of 79** live signatures pass the gate. The gate stays — its input
+> is only *typed* as a signature — and the docstring is corrected.
+>
+> **A measurement bug nearly mis-ranked the fix, and it was in the
+> reader.** The first sweep read `log_entries` with a `psql -F`
+> separator and dropped every row whose `message` carries a newline —
+> which is every core dump and every traceback, the exact class this
+> entry is about — reporting **3** cut signatures against the true
+> **8**. `row_to_json` puts each row on one line.
+>
+> **Six mutations, each red on the right test**, and the last is the one
+> worth carrying: a second digest of its own lands red on the AST walk
+> **alone**. The check retired with the entry and the detector did not —
+> `TestACutSignatureCarriesItsDiscriminator`, `FROZEN_TABLES`' rule for
+> the eighth time here, carrying `probe_signatures`' derive-the-prefix-
+> from-the-constant argument so a future `SIGNATURE_DETAIL_CHARS = 400`
+> cannot read as a fix in the one remedy the entry rules out. Suite
+> **3430 → 3430**, and the total holding still is a coincidence rather
+> than a green: counted per file by stashing to HEAD, **9 added**
+> (`test_log_actions` 57 → 65, `test_log_review` 35 → 36) against **9
+> retired with the check** (`test_snag_claims` 384 → 375). `ruff` and
+> `mypy` clean, **19 of 19** snag verdicts and the register's four
+> conventions unmoved either side, **9 of 9** ops claims `ok`.
+
 > **The class was still producible and the entry's own obstacle was
 > refuted** (2026-09-03, Session 161). `SNAG-LOG-013` declares
 > **`owed`** — the last of twenty open entries to declare a disposition,
@@ -1783,15 +1851,22 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-03 12:41:04**
+> Daemon restarted at **2026-09-03 13:31:27**
 > <!--check:deploy--> <!--check:daemon_start-->, clean journal — **0**
-> `ERROR`/`CRITICAL` lines since; PID 279728 → 329947, back in 20 s on
-> `Restart=always`, no `sudo`. *(Session 161 owed this one to a
-> docstring: `judgements.py`'s stale claim about a producer's
-> fingerprint changes nothing at runtime, and the deploy check compares
-> mtimes rather than behaviour — its own stated cost, paid here rather
-> than left as a `no` the next preflight teaches a reader to skip.)*
-> *Previously 11:49:26, PID 274133 → 279728, back in 16 s.* **Seven restarts, and the last two were
+> `ERROR`/`CRITICAL` lines since; PID 416365 → 423232, back in 16 s on
+> `Restart=always`, no `sudo`. **Twice this sitting, and the second was
+> owed to `git stash pop`.** The first (13:26:56, PID 329947 → 416365)
+> deployed `capped_signature`'s discriminator and the HTTP surface was
+> read back: **3** cut titles and **2** cut member lines on
+> `GET /api/logs/actions`, every one stamped, **0** duplicate titles.
+> The second restored nothing — counting the suite per file by stashing
+> to HEAD and popping rewrites every `sysadmin/*.py` mtime with
+> identical bytes, and the deploy check compares mtimes rather than
+> content, so it reported a restart owed over a checkout it was already
+> serving. Its own stated cost, met by a technique this repository uses
+> deliberately; the pairing had not been recorded. *Previously 12:41:04,
+> PID 279728 → 329947, owed to a docstring.* *Before that 11:49:26, PID
+> 274133 → 279728, back in 16 s.* **Seven restarts, and the last two were
 > owed to this claim rather than to the code** — `sysadmin/snag_claims.py`
 > and then `sysadmin/core/abandoned_runs.py`, the latter reverted from a
 > mutation `.bak` with byte-identical content and a moved mtime, neither
@@ -1937,10 +2012,12 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
-> rows <!--check:alerts-->, `High disk usage on /`,
-> `Project ImbaBots next action idle` and `Unusual RAM usage`, **3**
-> named here <!--check:open_titles-->.
+> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
+> rows <!--check:alerts-->, `High disk usage on /` and
+> `Project ImbaBots next action idle`, **2**
+> named here <!--check:open_titles-->. *(3 until 2026-09-03 13:26 —
+> `Unusual RAM usage` resolved itself across Session 162's restart,
+> which is `check_alerts`' fall note doing the job it was written for.)*
 >
 > **It read 14 an hour ago and the fall is the one this block predicted,
 > which is the whole point of writing a prediction into it.** Twelve rows

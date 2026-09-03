@@ -6,24 +6,33 @@ minutes by the first run against real data — the commands in
 ``journal_command``'s docstring.
 """
 
+import pathlib
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from sysadmin.core.text import TRUNCATION_MARKER
+from sysadmin.core.text import TRUNCATION_MARKER, truncate_at_word
+from sysadmin.monitor import log_actions
 from sysadmin.monitor.log_actions import (
     INCIDENT_WINDOW_SECONDS,
     NOISE_MIN_OCCURRENCES,
     SAMPLE_DETAIL_CHARS,
     SIGNATURE_DETAIL_CHARS,
     RecommendationKind,
+    capped_signature,
     group_incidents,
     journal_command,
     quoted_signature,
     recommend,
 )
 from sysadmin.monitor.log_review import _quoted_signature
+from sysadmin.monitor.log_signature import (
+    SIGNATURE_DIGEST_CHARS,
+    alert_title,
+    signature,
+    signature_digest,
+)
 from sysadmin.monitor.log_trends import (
     Confidence,
     MessageGroup,
@@ -960,10 +969,14 @@ class TestTitlesNameTheSignature:
         assert len(latest) <= SAMPLE_DETAIL_CHARS + len(TRUNCATION_MARKER) + 1
 
     def test_the_review_and_the_advice_write_a_signature_one_way(self):
-        """Two surfaces naming one signature must name it identically.
+        """Two surfaces naming one signature must name it identically —
+        up to the one token the review is forbidden to carry.
 
-        ``log_review`` keeps only the ``figure_free`` gate; the cap, the
-        marker and the quoting are this module's.
+        ``log_review`` keeps only the ``figure_free`` gate and, since
+        ``SNAG-LOG-013`` closed, ``discriminate=False``; the cap, the
+        marker and the quoting are this module's.  So the divergence is
+        bounded to the discriminator and asserted as such rather than
+        the equality being relaxed to something weaker.
         """
         short = "Bluetooth: hciN: Failed to set up firmware (-N)"
         assert _quoted_signature(short) == quoted_signature(short)
@@ -976,8 +989,190 @@ class TestTitlesNameTheSignature:
             "until something releases one"
         )
         assert len(long) > SIGNATURE_DETAIL_CHARS
-        assert _quoted_signature(long) == quoted_signature(long)
-        assert TRUNCATION_MARKER in quoted_signature(long)
+        advice = quoted_signature(long)
+        review = _quoted_signature(long)
+        assert TRUNCATION_MARKER in advice
+        assert TRUNCATION_MARKER in review
+        # The review's line is the advice's with the discriminator
+        # removed, and nothing else: an equality after stripping the
+        # suffix, not a containment, so a second divergence anywhere in
+        # the cut still fails.
+        assert advice.replace(f" [{signature_digest(long)}]", "") == review
+        assert signature_digest(long) not in review
         # …and the gate is still the review's alone.
         assert _quoted_signature("cannot reserve 0xN") == ""
         assert quoted_signature("cannot reserve 0xN") != ""
+
+
+def _pair_agreeing_past_the_cap():
+    """Two signatures that agree past the cap and diverge only after it.
+
+    **Derived from the constant, never written beside it.**
+    ``SNAG-LOG-013`` argues in its own body that *raising the cap is not
+    the fix*, because any bound is defeated by two records differing
+    past it and a larger number only moves where.  A hard-coded prefix
+    would therefore report this class fixed the day somebody moved
+    :data:`SIGNATURE_DETAIL_CHARS` to 400 — declaring a success in the
+    one remedy the entry rules out.  Inherited from the check this test
+    class replaces, whose ``probe_signatures`` made the same argument.
+
+    Letters and spaces only, so :func:`signature` is the identity on
+    them and the pair the recommender sees is the pair written here.
+    """
+    filler = "field value " * (SIGNATURE_DETAIL_CHARS // 12 + 2)
+    prefix = filler[: SIGNATURE_DETAIL_CHARS * 2]
+    return f"{prefix}alpha", f"{prefix}bravo"
+
+
+class TestACutSignatureCarriesItsDiscriminator:
+    """``SNAG-LOG-013``, closed 2026-09-03.
+
+    A marked cut says an identity was lost; it does not give one back.
+    Two signatures agreeing past :data:`SIGNATURE_DETAIL_CHARS` rendered
+    as one string, so the roll-up that promises to *name* every member
+    it swallows named none of them — one live row listed **7 members
+    word-for-word identical after capping** — and two separate rows
+    carried one title.
+
+    **This class is the re-homed drive of the check that watched the
+    entry.**  ``snag_claims.check_capped_signature_collides`` retired
+    with the finding, because every member of ``CHECKS`` names an open
+    entry; the detector did not, which is ``FROZEN_TABLES``' rule —
+    deleting a guard along with its last finding takes the guard against
+    the defect coming back.  Its two halves are kept apart here for the
+    reason the check kept them apart: they closed to different fixes,
+    and only one of them was ever visible on this box.
+    """
+
+    def test_two_members_of_one_roll_up_no_longer_read_the_same(self):
+        """The half the entry says *already happened* — one live row
+        naming seven members that were word-for-word identical."""
+        first, second = _pair_agreeing_past_the_cap()
+        anchor = NOW - timedelta(hours=2)
+        rows = _recommend([
+            _group(first, source="sysadmin.service", current=1,
+                   first_seen=anchor, last_seen=anchor),
+            _group(second, source="sysadmin.service", current=1,
+                   first_seen=anchor + timedelta(
+                       seconds=INCIDENT_WINDOW_SECONDS / 10),
+                   last_seen=anchor),
+        ])
+        assert len(rows) == 1
+        assert len(rows[0].members) == 2
+        lines = [
+            line for line in rows[0].detail.splitlines()
+            if line.startswith("  - ")
+        ]
+        assert len(lines) == 2
+        assert lines[0] != lines[1]
+        assert all(TRUNCATION_MARKER in line for line in lines)
+
+    def test_two_separate_rows_no_longer_share_a_title(self):
+        """The headline half — outside the incident window the pair is
+        two rows, and until this fix two titles that were one string."""
+        first, second = _pair_agreeing_past_the_cap()
+        anchor = NOW - timedelta(hours=2)
+        rows = _recommend([
+            _group(first, source="sysadmin.service", current=1,
+                   first_seen=anchor, last_seen=anchor),
+            _group(second, source="sysadmin.service", current=1,
+                   first_seen=anchor + timedelta(
+                       seconds=INCIDENT_WINDOW_SECONDS * 2),
+                   last_seen=anchor),
+        ])
+        assert len(rows) == 2
+        assert rows[0].title != rows[1].title
+
+    def test_the_digest_is_of_the_whole_signature_and_not_of_the_cut(self):
+        """Rule 2, and it is the rule the fix could most easily have got
+        wrong while looking right.
+
+        The two signatures' *cuts* are one string — that is the defect —
+        so a digest computed over what survives the cut is identical for
+        both.  It would render as a discriminator, be trusted as one,
+        and separate nothing.
+        """
+        first, second = _pair_agreeing_past_the_cap()
+        plain_first = capped_signature(first, discriminate=False)
+        plain_second = capped_signature(second, discriminate=False)
+        assert plain_first == plain_second
+
+        assert capped_signature(first).endswith(f"[{signature_digest(first)}]")
+        assert not capped_signature(first).endswith(
+            f"[{signature_digest(plain_first)}]"
+        )
+        assert signature_digest(first) != signature_digest(second)
+
+    def test_a_member_line_carries_the_alert_rows_own_eight_characters(self):
+        """Rule 1 — the stamp is only worth anything if it is *the same*
+        stamp, so a reader can carry it from the advice surface to the
+        row the aggregator wrote."""
+        long = _pair_agreeing_past_the_cap()[0] * 3
+        title = alert_title("error", "sysadmin.service", long)
+        assert TRUNCATION_MARKER in title
+        stamp = signature_digest(signature(long))
+        assert len(stamp) == SIGNATURE_DIGEST_CHARS
+        assert f"[{stamp}]" in title
+        assert f"[{stamp}]" in capped_signature(signature(long))
+
+    def test_only_a_cut_signature_carries_one(self):
+        """Rule 3.  An uncut signature is already total, and the flag
+        cannot be observed on one — which is also what keeps every short
+        member line unchanged by this fix."""
+        short = "Bluetooth: hciN: Failed to set up firmware (-N)"
+        assert len(short) <= SIGNATURE_DETAIL_CHARS
+        assert capped_signature(short) == short
+        assert capped_signature(short, discriminate=False) == short
+
+    def test_the_cut_point_did_not_move(self):
+        """Rule 4 — appended past the bound rather than taken out of it,
+        deliberately the opposite of ``alert_title``, which subtracts
+        because ``TITLE_MAX`` is a column and this is a readability
+        bound.  So the unstamped render is the pre-fix render exactly,
+        and no existing member line lost a character."""
+        first, _ = _pair_agreeing_past_the_cap()
+        plain = capped_signature(first, discriminate=False)
+        assert plain == truncate_at_word(first, SIGNATURE_DETAIL_CHARS)
+        assert capped_signature(first).startswith(plain)
+        assert capped_signature(first) == (
+            f"{plain} [{signature_digest(first)}]"
+        )
+
+    def test_the_digest_is_imported_and_not_a_second_one(self):
+        """Rule 1 is about **provenance**, and every assertion above it
+        is about a value.
+
+        A local ``hashlib.sha256(...)[:8]`` produces the same eight
+        characters as the imported one, so all six tests here pass
+        against the copy this rule exists to refuse — the shape this
+        repository has now found twice (``SERVICES_SKIPPED is SKIPPED``
+        is ``True`` whether or not the value was re-typed, because
+        CPython interns short strings).  Only the source can answer it.
+        """
+        import ast
+
+        module = ast.parse(
+            pathlib.Path(log_actions.__file__).read_text(encoding="utf-8")
+        )
+        imported = {
+            alias.name
+            for node in ast.walk(module)
+            if isinstance(node, ast.ImportFrom)
+            and node.module == "sysadmin.monitor.log_signature"
+            for alias in node.names
+        }
+        assert "signature_digest" in imported
+        assert not any(
+            isinstance(node, ast.Attribute)
+            and node.attr in {"sha256", "md5", "blake2b", "sha1"}
+            for node in ast.walk(module)
+        ), "log_actions computes a digest of its own rather than importing one"
+
+    def test_raising_the_cap_is_still_not_the_fix(self):
+        """The entry's own argument, asserted rather than assumed: the
+        pair is derived from the constant, so the property has to hold
+        at whatever the constant is — a bound is defeated by two records
+        differing past it, and only the discriminator survives that."""
+        first, second = _pair_agreeing_past_the_cap()
+        assert len(first) > SIGNATURE_DETAIL_CHARS
+        assert capped_signature(first) != capped_signature(second)

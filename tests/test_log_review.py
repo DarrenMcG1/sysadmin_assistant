@@ -17,7 +17,10 @@ import pytest
 
 from sysadmin.core.config import AgentsConfig, AppConfig, LogAggregatorConfig
 from sysadmin.core.text import TRUNCATION_MARKER
-from sysadmin.monitor.log_actions import NOISE_MIN_OCCURRENCES
+from sysadmin.monitor.log_actions import (
+    NOISE_MIN_OCCURRENCES,
+    SIGNATURE_DETAIL_CHARS,
+)
 from sysadmin.monitor.log_review import (
     REVIEW_INSTRUCTIONS,
     STORM_OCCURRENCES,
@@ -30,6 +33,7 @@ from sysadmin.monitor.log_review import (
     generate_review,
     occurrence_band,
 )
+from sysadmin.monitor.log_signature import signature_digest
 from sysadmin.monitor.log_trends import RATIO_MIN_COUNT, Confidence
 from tests.review_prompts import (
     assert_no_figure_reaches_the_model,
@@ -283,6 +287,38 @@ class TestPromptIsFigureFree:
     def test_a_figure_free_signature_is_handed_over_verbatim(self):
         """Rule 3: this is the string the reader will match on."""
         assert "Bluetooth: hciN" in build_review_prompt(DATA)
+
+    def test_a_cut_signature_reaches_the_prompt_without_its_discriminator(self):
+        """``SNAG-LOG-013``'s fix stamps a cut signature with eight hex
+        characters, and this prompt carries no digit from the data.
+
+        The two facts are settled here rather than left to the general
+        digit sweep above, because the general sweep's fixture holds no
+        cut signature and would go on passing while the leak shipped.
+        Both halves are asserted: the discriminator does **not** arrive,
+        and the signature still does — gating on the *rendered* line
+        instead of on the input would have satisfied the first half by
+        deleting every cut signature from the prompt, which is the
+        surface with nothing else to say what the fault was.
+        """
+        long = (
+            "cannot allocate memory for the incoming request because the "
+            "pool is exhausted and no further connection may be accepted "
+            "until something releases one"
+        )
+        assert len(long) > SIGNATURE_DETAIL_CHARS
+        data = {
+            **DATA,
+            "actions": {
+                **DATA["actions"],
+                "top": [{**DATA["actions"]["top"][0], "signature": long}],
+            },
+        }
+        prompt = build_review_prompt(data)
+        assert "cannot allocate memory" in prompt
+        assert TRUNCATION_MARKER in prompt
+        assert signature_digest(long) not in prompt
+        assert_no_figure_reaches_the_model(prompt, REVIEW_INSTRUCTIONS)
 
     def test_a_signature_carrying_a_digit_is_dropped_from_the_prompt(self):
         data = {
