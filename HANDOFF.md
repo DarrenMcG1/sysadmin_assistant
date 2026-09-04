@@ -1,6 +1,26 @@
-# Handoff — 2026-09-03 (Session 164)
+# Handoff — 2026-09-04 (Session 165)
 
 ## Next action
+
+Close `SNAG-LOG-015` by folding the eleven fragment rows a single amdgpu MODE1 reset opens into the one declared `VRAM is lost due to GPU reset!` row, reusing `log_actions.group_incidents`' relation rather than re-implementing it, and settle before any code is written what resolves a swallowed member — each is a separate open row with its own dedup lifecycle, and `monitor/collation.py`'s flip-flop is what a careless answer rebuilds.
+
+_**Session 164's filed action was already done when this sitting opened, and the board had been told otherwise.**_ _The restart it asks for happened at **22:49:29** on 2026-09-03 — seventeen minutes after the commit that wrote the handoff line, and recorded in `457d011` — so the sentence `roadmap.py` publishes verbatim to the estate board asked for a `kill -TERM` that had already been sent, for nine hours. `check-ops-claims.sh` read **9 of 9 ok** throughout, including `daemon_start` and `deploy`, because it checks the STATUS.md block and nothing checks this line. Session 150's shape exactly, and the second instance._
+
+_**The verification it asks for was outstanding, and it holds.**_ _Since the restart the kernel journal at `-p 6` offers **9** lines and `log_entries` holds **9** rows for source `kernel`, matching byte-for-byte on `x86/split lock detection: #DB: CJobMgr::m_Work/12232 took a …`. Nothing is behind: `journalctl -k -p 6 --since '2026-09-04 06:04:50'` returns **0** lines against a newest stored row of 06:04:49. **597** `log_aggregator` runs, **1** truncated — the startup catch-up, which stored exactly `max_entries_per_read` at 500 and reported it, `SNAG-LOG-002` working as written._
+
+_**The probe as filed was measured empty, and the discriminating witness was a different line.**_ _`journalctl -k -p 6 --since -1h | grep -c amdgpu` returns **0**, and so does the database half — there has been no amdgpu line at any priority since the reboot onto mainline 7.2.2, which is the reboot working. `0 = 0` is not evidence. What discriminates is that **all 9** stored lines are `PRIORITY=4`, so the old `severity_filter: error` (`-p 3`) would have stored **none** of them; and the catch-up read stored **144 amdgpu `info` rows** from the 18:48–18:49 boot, a class that held 0 rows before the widening. The widening is proven twice and neither proof is the one the line named._
+
+_**The declaration is deployed and cannot yet witness itself, by construction rather than by fault.**_ _`VRAM is lost due to GPU reset!` has **0 rows** in `log_entries` and `log_aggregator` has raised **no alert** since the restart. The only occurrences are the 11:24:55 resets, which predate `_resume_floor()` — the reader moves forward only, so those lines are in the journal permanently and in the table never. `CRITICAL_SIGNATURES`' population is empty until the next reset, which is the fix shipping untriggered rather than the fix not working, and `SNAG-LOG-004`'s ordering again._
+
+_**One claim in Session 164's own account is narrower than it was written.**_ _"`critical` was unreachable" is true of **amdgpu** and not of the kernel source: `log_entries` holds **4** `critical` kernel rows — `RDSEED32 is broken. Disabling the corresponding CPUID bit.` at `PRIORITY=2`, from 08-23 and three times on 09-03. Read as the new declaration firing on the catch-up read at first, and refuted by looking at the messages; the rung was always reachable for a line the kernel actually stamps `crit`._
+
+_**Docs only, no code touched, no restart owed.**_ _`9 of 9` ops claims `ok`, schema at head `018`, **22** open snag entries unmoved, and the daemon still serving PID 131872 from 22:49:29 with restart counter 1 of `StartLimitBurst=5`. Nothing was committed against `sysadmin/`, so `SNAG-SYSD-007`'s budget is untouched._
+
+---
+
+# Handoff — 2026-09-03 (Session 164)
+
+### The action Session 164 filed (done by Session 165)
 
 Restart `sysadmin.service` with `kill -TERM` so the widened kernel `severity_filter` and the new `CRITICAL_SIGNATURES` declaration take effect, then confirm info-level kernel lines are being stored by comparing `journalctl -k -p 6 --since -1h | grep -c amdgpu` against a count of `sysadmin.log_entries` rows for source `kernel`.
 
