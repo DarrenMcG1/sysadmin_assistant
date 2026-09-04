@@ -3,9 +3,12 @@
 import asyncio
 import json
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+
+from sysadmin.monitor.log_signature import signature
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +75,84 @@ def max_priority_for(severity_filter: str) -> int:
     # An unknown filter admits everything, matching the Python filter's own
     # ``.get(severity_filter, 0)`` above rather than failing differently.
     return max(admitted) if admitted else max(int(c) for c in PRIORITY_MAP)
+
+
+def read_ceiling(
+    severity_filter: str, declared: Mapping[str, str] | None = None
+) -> int:
+    """The ``-p`` ceiling wide enough for the filter *and* every declaration.
+
+    **Derived, so a declaration cannot be made invisible by a config
+    edit** (``SNAG-CFG-006``).  ``arrives_at`` used to be *asserted*
+    against the shipped ``config.yaml`` by a test, and
+    :mod:`sysadmin.reload` re-reads that file on ``SIGHUP`` — so
+    narrowing the kernel source back to ``error`` disarmed the
+    declaration on the running daemon with the suite still green.  A
+    relation that is derived cannot be broken by an edit, which is why
+    this is a computation rather than a second verdict in ``reload.py``:
+    ``max_priority_for`` against ``PRIORITY_MAP``'s rule, one level up.
+
+    ``journalctl -p N`` admits ``0..N``, so *wider* is a **larger**
+    number and the composition is a ``max``.  Note the wording that
+    reads backwards: the declaration needing the widest read is the
+    **quietest** one, because a quiet rung sits at a high priority
+    number.
+
+    ``declared`` maps a normalised signature to the rung its producer
+    stamps it with.  Empty or ``None`` returns ``max_priority_for``
+    unchanged, so a source that declares nothing reads exactly as it did
+    before this existed — :func:`read_journal`'s ``log_format``
+    precedent.
+    """
+    ceiling = max_priority_for(severity_filter)
+    for rung in (declared or {}).values():
+        ceiling = max(ceiling, max_priority_for(rung))
+    return ceiling
+
+
+def admits(
+    severity: str,
+    severity_filter: str,
+    message: str,
+    declared: Mapping[str, str] | None = None,
+) -> bool:
+    """Is this line stored — by its rung, or by a declaration below it?
+
+    **The reader has two gates and widening one alone is inert.**
+    ``SNAG-CFG-006`` named only the ``-p`` ceiling; measured against the
+    live kernel journal with ``severity_filter`` at ``error``, forcing
+    ``-p 6`` returns the same 32 entries and the same **zero** ``VRAM is
+    lost due to GPU reset!`` lines, because this filter — which
+    :func:`read_journal` calls the authority on what is stored — drops
+    them one loop later.  So both gates move together, and they move from
+    one argument so they cannot drift apart.
+
+    **Widened per signature, never wholesale.**  Lowering the floor to
+    the declaration's rung would store all 1,823 info-level kernel lines
+    a boot while ``config.yaml`` said ``error`` — a config edit that does
+    nothing, which is worse than the gap it closes.  A line below the
+    floor is admitted only when its own signature is declared, so an
+    operator's narrowing still governs everything nobody has spoken for.
+
+    **The signature is computed only when the rung gate has already
+    failed and something is declared.**  :meth:`LogAggregatorAgent._execute`
+    already had to make this move one layer up — *"a declared signature
+    is precisely one whose rung does not admit it, so the gate cannot be
+    asked before the key exists"* — and the same argument arrives here.
+    The cost is a regex pass over lines that were about to be discarded,
+    bounded by the read limit; with nothing declared it is not paid at
+    all.
+
+    ``severity_filter`` is read through ``.get(..., 0)`` so an unknown
+    filter admits everything, which is what :func:`max_priority_for`
+    already does with the same value on the other side of the same
+    read.
+    """
+    if SEVERITY_ORDER.get(severity, 0) >= SEVERITY_ORDER.get(severity_filter, 0):
+        return True
+    if not declared:
+        return False
+    return signature(message) in declared
 
 
 def message_text(value: Any) -> str:
@@ -206,6 +287,7 @@ async def read_journal(
     after_cursor: str | None = None,
     limit: int = DEFAULT_READ_LIMIT,
     log_format: str = "text",
+    declared: Mapping[str, str] | None = None,
 ) -> JournalRead:
     """Read journal entries for a systemd unit.
 
@@ -234,6 +316,15 @@ async def read_journal(
             record through :func:`unwrap_json_message`. Defaults to
             ``text``, so a source that declares nothing is read exactly as
             it was before the field existed.
+        declared: signatures this source speaks for below its own floor,
+            mapped to the rung their producer stamps them with — the
+            :data:`~sysadmin.monitor.log_aggregator.CRITICAL_SIGNATURES`
+            entries for this source, keyed the way ``log_entries.source``
+            is keyed. It widens **both** gates together
+            (:func:`read_ceiling` and :func:`admits`), because widening
+            either alone is measurably inert. ``None`` is ``log_format``'s
+            default read again: a source that declares nothing is read
+            exactly as it was before this existed.
 
     Returns:
         A :class:`JournalRead`.
@@ -282,7 +373,16 @@ async def read_journal(
         # stays the authority on what is stored, so the two cannot
         # disagree about a record journalctl admits and this module would
         # not.
-        "-p", str(max_priority_for(severity_filter)),
+        #
+        # The ceiling is :func:`read_ceiling` rather than
+        # ``max_priority_for`` alone, so a signature this family has
+        # declared cannot be filtered out by a ``severity_filter`` edit
+        # that a ``SIGHUP`` installs (``SNAG-CFG-006``).  It is half the
+        # fix: journalctl handing the line over is worth nothing while
+        # the Python gate below still drops it, which is what
+        # :func:`admits` is for, and measuring that is what refuted the
+        # entry's own named remedy.
+        "-p", str(read_ceiling(severity_filter, declared)),
     ]
     # Kernel messages use -k/--dmesg rather than -u
     if unit == "kernel":
@@ -307,7 +407,6 @@ async def read_journal(
     lines = [ln for ln in stdout.strip().split("\n") if ln]
     entries = []
     cursor = None
-    min_severity = SEVERITY_ORDER.get(severity_filter, 0)
 
     for line in lines:
         try:
@@ -321,19 +420,35 @@ async def read_journal(
         # noise, and the next read would parse it all again — the
         # duplicate-ingest defect rebuilt one layer down.
         #
-        # Since ``-p`` was added the noise is no longer *returned*, so the
-        # two sets coincide and this line cannot currently fall behind.
-        # It is kept as written rather than simplified to the filtered
-        # set, because the rule is about what was read and the pre-filter
-        # is an optimisation on the ceiling — collapsing them would make
-        # dropping ``-p`` silently reintroduce the defect.
+        # ``-p`` made the two sets coincide for a source that declares
+        # nothing, and ``SNAG-CFG-006`` has pulled them apart again: a
+        # source with a ``declared`` mapping reads at the declaration's
+        # rung and stores at its own, so journalctl now returns lines
+        # ``admits`` drops.  The rule was kept as written while it was
+        # merely defensive and is load-bearing once more — it is about
+        # what was **read**, and the pre-filter is an optimisation on the
+        # ceiling rather than a second statement of what is stored.
         cursor = data.get("__CURSOR") or cursor
 
         try:
             priority = data.get("PRIORITY", "6")
             severity = PRIORITY_MAP.get(str(priority), "info")
 
-            if SEVERITY_ORDER.get(severity, 0) < min_severity:
+            # The message is composed **before** the rung gate now, where
+            # it used to be composed after it.  It has to be: a declared
+            # signature is precisely one whose rung does not admit it, so
+            # the gate cannot be asked before the key exists — the same
+            # reordering ``LogAggregatorAgent._execute`` already had to
+            # make one layer up, arriving here for the same reason.  The
+            # cost is a compose plus a regex over lines that were about
+            # to be discarded, bounded by ``limit``, and ``admits``
+            # short-circuits it away entirely when nothing is declared.
+            message = message_text(data.get("MESSAGE"))
+            envelope: dict[str, str] = {}
+            if log_format == "json":
+                message, envelope = unwrap_json_message(message)
+
+            if not admits(severity, severity_filter, message, declared):
                 continue
 
             # Parse timestamp
@@ -342,11 +457,6 @@ async def read_journal(
                 ts = datetime.fromtimestamp(int(usec) / 1_000_000, tz=UTC)
             else:
                 ts = datetime.now(UTC)
-
-            message = message_text(data.get("MESSAGE"))
-            envelope: dict[str, str] = {}
-            if log_format == "json":
-                message, envelope = unwrap_json_message(message)
 
             entries.append({
                 "source": unit,

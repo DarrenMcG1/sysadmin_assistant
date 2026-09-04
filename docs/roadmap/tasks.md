@@ -2143,6 +2143,82 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 169 — the relation was dissolved rather than judged (2026-09-04) ✅
+
+_`SNAG-CFG-006` closed by derivation. Its own named fix was measured
+against the live journal and refuted: it names one of the reader's two
+gates, and widening that one alone stores nothing new. One entry opened,
+`SNAG-LOG-018`._
+
+- [x] **Both gates move, and from one argument.** `read_ceiling` widens
+      `journalctl -p` to whatever the loudest `arrives_at` needs;
+      `admits` lets a declared signature past the rung gate. They take
+      the same `declared` mapping, so a future edit cannot widen one and
+      leave the other — which is exactly the failure the entry described
+      and then reproduced in its own remedy.
+- [x] **Widened per signature, never wholesale.** Lowering the floor to
+      the declaration's rung would store all 1,823 info-level kernel
+      lines a boot while `config.yaml` said `error` — a config edit that
+      does nothing, worse than the gap. Live at the narrowed config: 35
+      stored, 3 VRAM lines, **1,788** undeclared info lines still
+      dropped.
+- [x] **`declared_rungs_for` keys on `stored_source_name`, not on
+      `source.name`.** `CRITICAL_SIGNATURES` is matched against
+      `entry["source"]`, which is the **unit** for a journal source and
+      the **name** for a file one. The old visibility test used
+      `source.name` and was green because `kernel`'s two identities
+      coincide — the `log_source_scopes` trap, from the other side.
+- [x] **The file reader shares the gate.** Empty population — every
+      declared source here is `type: journalctl` — and written from the
+      producer for `stored_source_name`'s stated reason: a rule derived
+      from the live table would omit the branch and stay green until the
+      first file source was declared.
+- [x] **The old pairing test was replaced, not kept.** Its rung
+      comparison is now vacuous, so it would answer the same way either
+      side of the fix. What survives is the half no derivation can
+      supply — that a declaration names a source somebody actually reads
+      — plus a drive at the *narrowed* source, which is the stand-in
+      modelling the fix.
+- [x] **Ten mutations, two of which passed against broken code**, both
+      the wiring: `declared=None` at either call site left 74 tests
+      green. Two behavioural drives through the real readers now close
+      it. The AST guard's first draft keyed on the constant's **name**
+      and reported `core/escalation.py`, which owns a different
+      `SEVERITY_ORDER`; it keys on the import's provenance now.
+- [x] **`SNAG-ESTATE-016` filed, found by a green check disagreeing with
+      a hand-corrected block.** `check_open_titles` matches a title as a
+      substring of the printed region, which is **178,301 characters** of
+      accumulated history — so a name written once satisfies it for ever.
+      At `9a3fe30` the sentence named a row that was not open and omitted
+      one that was, and the check said `match`. The fall note the
+      docstring delegates the other direction to fires on a *count*, and
+      the count was right.
+- [x] **`SNAG-LOG-018` filed as the measured cost.** A narrowed
+      declaring source reads at `-p 6` and stores at `error`, spending
+      **1.9 %** of its budget on entries it keeps against the 40 %
+      Session 62 named as a defect. Inherent — journalctl has no
+      "this priority plus these messages" selector — and empty today.
+
+### Not done, and why
+
+- **No snag check for `SNAG-CFG-006`.** The handoff asked for one; the
+  entry closed instead, and `check-snag-claims.sh`'s `ok` means *the bug
+  is still real*, so a check driven at a landed fix reports `still
+  holds` for ever (`check_review_schedule_unread`'s defect). The guard
+  is a test, `FROZEN_TABLES`' rule. `SNAG-LOG-018` carries one, driven
+  at a narrowed copy of the shipped config.
+- **The handoff's "three open entries still lacking" was not
+  reproducible.** This sitting's first attempt to re-measure it used
+  `<!--check:[a-z_]+-->` and missed `estate_port_8500` — its own
+  measurement error, found by reading the entry. Of the 23 entries whose
+  `**Status:**` bullet says Open, exactly one lacks a marker
+  (`SNAG-LOG-016`, which refuses one and says why), unmoved either side.
+  What `SNAG-CFG-006` lacked was **both** a `**Status:**` bullet and a
+  marker, which is what kept it out of every count.
+- **`SNAG-CFG-003` is untouched and now carries why.** Its terms straddle
+  an ownership boundary, so it cannot dissolve the way its sibling did.
+
+
 ## Session 159b — a constraint value nothing wrote had a referent (2026-09-03) ✅
 
 _`SNAG-DB-006` decided by dating seven rows against the daemon's restarts.

@@ -7351,6 +7351,92 @@ class TestHandoffShapeUnguarded:
         assert snag_claims.check_handoff_shape_unguarded().verdict == "match"
 
 
+class TestTheDeclaringSourceReadsWideCheck:
+    """``SNAG-LOG-018`` — a narrowed declaring source still reads wide.
+
+    Four stand-ins, because three of the four readings are the ones that
+    would let something pass unnoticed: a reader that has stopped paying
+    must read ``mismatch``; a ``read_ceiling`` that has stopped deriving
+    must read ``unknown`` rather than borrowing that verdict, since it
+    means ``SNAG-CFG-006``'s fix has broken and not that this entry has
+    closed; and a declaration the narrowed filter already admits has *no
+    residue to observe*, which is a third thing again.
+
+    That last one is here because it caught the check's own first draft:
+    the "no residue" sentence went into the same list the verdict was
+    computed from, so a source with nothing to observe was reported as a
+    source that had observed the residue — ``ports_checked``'s rule
+    broken inside a check written to honour it.
+    """
+
+    def test_the_live_ceiling_is_still_the_declarations(self):
+        """The entry as filed, against the shipped code and config."""
+        measured = snag_claims.check_declaring_source_reads_wide()
+        assert measured.verdict == "match"
+        assert any("-p 6 with its" in line for line in measured.detail)
+        assert any("-p 3 without" in line for line in measured.detail)
+
+    def test_a_reader_that_stops_paying_refutes_it(self, monkeypatch):
+        """The stand-in modelling the **fix**.
+
+        A real fix narrows what is *read* while keeping the declaration
+        visible — a second scoped read, or a selector journalctl does not
+        have today.  Whatever route it takes, the observable is the same:
+        the ceiling stops being decided by the declaration.  So the
+        stand-in is a ``read_ceiling`` that ignores what it is handed,
+        which is what any of those fixes leaves behind at this call site.
+        """
+        monkeypatch.setattr(
+            snag_claims_journal := __import__(
+                "sysadmin.monitor.journal", fromlist=["read_ceiling"]
+            ),
+            "read_ceiling",
+            lambda severity_filter, declared=None: (
+                snag_claims_journal.max_priority_for(severity_filter)
+            ),
+        )
+        measured = snag_claims.check_declaring_source_reads_wide()
+        assert measured.verdict == "unknown"
+        assert "has stopped deriving" in measured.note
+
+    def test_a_declaration_the_filter_already_admits_is_not_evidence(
+        self, monkeypatch
+    ):
+        """No residue to observe is not the residue having gone.
+
+        The branch is reachable only for a declaration arriving at or
+        above the narrowed filter, so it is driven by rewriting the rung
+        rather than by hoping the shipped one supplies it.
+        """
+        from sysadmin.monitor.log_aggregator import CriticalSignature
+
+        loud = CriticalSignature(
+            title="a loud declaration", reason="a stand-in", arrives_at="critical"
+        )
+        monkeypatch.setattr(
+            __import__(
+                "sysadmin.monitor.log_aggregator", fromlist=["CRITICAL_SIGNATURES"]
+            ),
+            "CRITICAL_SIGNATURES",
+            {("kernel", "some signature"): loud},
+        )
+        measured = snag_claims.check_declaring_source_reads_wide()
+        assert measured.verdict == "unknown"
+        assert "no residue to observe" in " ".join(measured.detail)
+
+    def test_nothing_declared_says_it_did_not_measure(self, monkeypatch):
+        monkeypatch.setattr(
+            __import__(
+                "sysadmin.monitor.log_aggregator", fromlist=["CRITICAL_SIGNATURES"]
+            ),
+            "CRITICAL_SIGNATURES",
+            {},
+        )
+        measured = snag_claims.check_declaring_source_reads_wide()
+        assert measured.verdict == "unknown"
+        assert measured.detail == ()
+
+
 class TestTheIncidentFoldSplitCheck:
     """``SNAG-LOG-017`` — a chain astride a poll boundary folds one half.
 

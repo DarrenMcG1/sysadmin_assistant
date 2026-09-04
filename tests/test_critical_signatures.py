@@ -44,14 +44,22 @@ from sqlalchemy.dialects import postgresql
 
 from sysadmin.core.config import LogSource, parse_config
 from sysadmin.core.models.alert import Alert
-from sysadmin.monitor.journal import JournalRead, max_priority_for
+from sysadmin.monitor.journal import (
+    JournalRead,
+    admits,
+    max_priority_for,
+    read_ceiling,
+)
 from sysadmin.monitor.log_aggregator import (
     CRITICAL_SIGNATURES,
     DECLARED_FLOOR_SEVERITY,
     NOISE_SEVERITY,
+    CriticalSignature,
     LogAggregatorAgent,
+    declared_rungs_for,
 )
 from sysadmin.monitor.log_signature import signature
+from sysadmin.monitor.services import stored_source_name
 
 #: The live lines, verbatim from ``journalctl -k -b`` on 2026-09-03.
 #: Typed from the journal rather than from documentation, because what a
@@ -74,6 +82,12 @@ RING_USES_VM = "amdgpu 0000:03:00.0: amdgpu: ring gfx_0.0.0 uses VM inv eng 0 on
 DECLARED_KEY = ("kernel", signature(VRAM_LOST))
 SOURCE = LogSource(name="kernel", type="journalctl", unit="kernel",
                    severity_filter="info")
+
+#: A declaration whose *content* is irrelevant: the key tests below are
+#: about which string a signature is filed under, not about what it says.
+_GPU_RESET_STANDIN = CriticalSignature(
+    title="a declared fault", reason="a stand-in", arrives_at="info"
+)
 
 
 def _entry(message: str, severity: str = "info", source: str = "kernel"):
@@ -161,31 +175,114 @@ async def _run(agent, session, entries, *, known_noise=None, repeat_hours=24.0):
 # --- The declaration reaches the reader --------------------------------
 
 
-def test_every_declaration_is_visible_to_its_source():
-    """A signature the configured filter cannot see does nothing.
+def _shipped_sources() -> dict[str, LogSource]:
+    """The shipped log sources, keyed the way ``log_entries.source`` is.
 
-    This is the entry's own defect rebuilt inside its own fix: the whole
-    reason the reset was unsayable is that the line naming it sat below
-    ``severity_filter``.  ``arrives_at`` is declared so the pairing can
-    be checked against the *shipped* config rather than against a
-    fixture — ``max_priority_for`` admits ``0..N``, so a source is
-    wide enough when its ceiling is at least the declaration's.
+    **Not by ``source.name``**, which is what this file asserted until
+    ``SNAG-CFG-006`` was closed.  ``CRITICAL_SIGNATURES`` is matched in
+    ``_execute`` against ``entry["source"]`` — the **unit** for a journal
+    source, the **name** for a file one — so a name-keyed lookup agrees
+    with the runtime only while the two strings coincide.  They do for
+    ``kernel``, the only declared source today, which is exactly why the
+    wrong key was green.
     """
     from pathlib import Path
 
     shipped = parse_config(Path("config.yaml")).agents.log_aggregator
-    by_name = {s.name: s for s in shipped.sources}
+    keyed = {}
+    for source in shipped.sources:
+        key = stored_source_name(source)
+        if key is not None:
+            keyed[key] = source
+    return keyed
 
-    for (source_name, sig), declared in CRITICAL_SIGNATURES.items():
-        assert source_name in by_name, (
-            f"{source_name!r} declares {sig!r} and is not a configured source"
+
+def test_every_declaration_names_a_source_that_is_actually_read():
+    """The half of the old pairing test that is not now vacuous.
+
+    A declaration for a source nobody reads produces nothing whatever
+    the rungs say, and no derivation can fix that — the source has to
+    exist.  What *is* vacuous now is the rung comparison this used to
+    make: the reader derives its ceiling from the declaration, so the
+    two cannot disagree and asserting that they agree would answer the
+    same way either side of the fix — ``check_review_schedule_unread``'s
+    defect.
+    """
+    keyed = _shipped_sources()
+
+    for (source_key, sig), _declared in CRITICAL_SIGNATURES.items():
+        assert source_key in keyed, (
+            f"{source_key!r} declares {sig!r} and is not a source this "
+            f"agent reads — configured sources store as {sorted(keyed)}"
         )
-        ceiling = max_priority_for(by_name[source_name].severity_filter)
-        needed = max_priority_for(declared.arrives_at)
-        assert ceiling >= needed, (
-            f"{source_name} reads -p {ceiling}; {sig!r} arrives at "
-            f"{declared.arrives_at} (-p {needed}) and would never be read"
+
+
+def test_a_narrowed_source_still_reads_its_declaration():
+    """The fix, modelled at the edit that used to disarm it.
+
+    ``sysadmin/reload.py`` re-reads ``config.yaml`` on ``SIGHUP``, and
+    ``severity_filter`` is not ``RESTART_ONLY`` — it is re-read per run.
+    So this drives the shipped source *narrowed to the value the
+    declaration was written to survive* and asserts both gates still
+    admit it.  Driven at a stand-in modelling the **fix**, not the
+    defect: against the shipped ``info`` every assertion here passes for
+    free.
+
+    Live, either side of the change: at ``error`` the old reader stored
+    32 kernel lines and **0** ``VRAM is lost due to GPU reset!``; the new
+    one stores 35 and all **3**, with 1,788 undeclared info lines still
+    dropped.
+    """
+    keyed = _shipped_sources()
+
+    for (source_key, sig), declaration in CRITICAL_SIGNATURES.items():
+        narrowed = keyed[source_key].model_copy(update={"severity_filter": "error"})
+        rungs = declared_rungs_for(narrowed)
+
+        assert sig in rungs, (
+            f"{sig!r} is declared for {source_key!r} and "
+            f"declared_rungs_for did not hand it to the reader"
         )
+        # Half one: journalctl is asked for the line at all.
+        assert read_ceiling(narrowed.severity_filter, rungs) >= max_priority_for(
+            declaration.arrives_at
+        )
+        # Half two, which is the one the entry's own remedy omitted: the
+        # Python gate stores it.  A line for which only the ceiling moved
+        # is read and then discarded, measurably.
+        assert admits(declaration.arrives_at, narrowed.severity_filter, sig, rungs)
+        assert not admits(
+            declaration.arrives_at, narrowed.severity_filter, sig, None
+        ), "widening the ceiling alone stores nothing new"
+
+
+def test_declared_rungs_are_keyed_the_way_the_runtime_keys_them():
+    """A file source stores under its *name* and a journal source under
+    its *unit*, and a declaration must reach both.
+
+    Empty population — every declared source on this box is
+    ``type: journalctl`` with ``name == unit`` — so this is driven at
+    sources whose two identities differ, which is the only shape that can
+    tell the right key from the wrong one.
+    """
+    journal = LogSource(name="gpu-watch", type="journalctl", unit="amdgpu.service")
+    logfile = LogSource(name="legacy-app", type="file", path="/var/log/legacy.log")
+    never_read = LogSource(name="half-declared", type="journalctl")
+
+    declared = {
+        ("amdgpu.service", "a unit-keyed signature"): _GPU_RESET_STANDIN,
+        ("gpu-watch", "a name-keyed signature"): _GPU_RESET_STANDIN,
+        ("legacy-app", "a file signature"): _GPU_RESET_STANDIN,
+    }
+    with patch(
+        "sysadmin.monitor.log_aggregator.CRITICAL_SIGNATURES", declared
+    ):
+        assert declared_rungs_for(journal) == {"a unit-keyed signature": "info"}
+        assert declared_rungs_for(logfile) == {"a file signature": "info"}
+        # A source declaring neither a unit nor a path is never read, so
+        # it can produce no rows — ``stored_source_name``'s ``None``, not
+        # silently unioned into the map.
+        assert declared_rungs_for(never_read) == {}
 
 
 def test_signature_still_normalises_the_line_the_way_the_key_is_written():
@@ -411,3 +508,120 @@ async def test_one_incident_of_many_lines_asks_once():
         a for a in session.alerts if a.title == CRITICAL_SIGNATURES[DECLARED_KEY].title
     )
     assert declared_row.details["occurrences"] == 2
+
+
+class TestTheFileReaderSharesTheSameGate:
+    """A declaration must not work for one source type and not the other.
+
+    Empty population — every declared source on this box is
+    ``type: journalctl`` — and written from the *producer* for
+    ``stored_source_name``'s stated reason: a rule derived from the live
+    table would omit this half and be green in every test until the
+    first file source was declared.  A declaration that silently does
+    nothing for a file source is ``SNAG-CFG-006`` wearing a second hat.
+    """
+
+    LINE = "some quiet line a declaration speaks for"
+
+    def _read(self, tmp_path, declared):
+        log = tmp_path / "legacy.log"
+        log.write_text(f"{self.LINE}\nERROR something loud\nundeclared chatter\n")
+        agent = LogAggregatorAgent()
+        return agent._read_log_file("legacy-app", str(log), "error", 500, declared)
+
+    def test_a_declared_line_below_the_floor_is_read(self, tmp_path) -> None:
+        read = self._read(tmp_path, {signature(self.LINE): "info"})
+        assert [e["message"] for e in read.entries] == [
+            self.LINE,
+            "ERROR something loud",
+        ]
+
+    def test_an_undeclared_line_below_the_floor_is_still_dropped(self, tmp_path) -> None:
+        read = self._read(tmp_path, {signature(self.LINE): "info"})
+        assert "undeclared chatter" not in [e["message"] for e in read.entries]
+
+    def test_nothing_declared_reads_exactly_as_before(self, tmp_path) -> None:
+        read = self._read(tmp_path, None)
+        assert [e["message"] for e in read.entries] == ["ERROR something loud"]
+
+
+class TestTheDerivedMappingActuallyReachesBothReaders:
+    """The wiring, which nothing was driving.
+
+    Every other test here hands ``declared`` to a reader itself, so
+    ``declared=None`` at either call site passed the lot — the shape this
+    repository keeps finding (*"nothing drove ``_record_start``, so
+    deleting the stamp passed all twenty tests"*).  Both of these are
+    behavioural rather than argument assertions: they go through the real
+    ``read_journal`` and the real ``_read_log_file`` with a source
+    narrowed to ``error``, and ask whether the declared line survived.
+    """
+
+    DECLARED = "amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!"
+
+    @staticmethod
+    def _record(priority: str, message: str, cursor: str) -> str:
+        import json
+
+        return json.dumps(
+            {
+                "__CURSOR": cursor,
+                "__REALTIME_TIMESTAMP": "1788514537787407",
+                "PRIORITY": priority,
+                "MESSAGE": message,
+            }
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_journal_reader_is_handed_the_declaration(self) -> None:
+        narrowed = SOURCE.model_copy(update={"severity_filter": "error"})
+        agent = LogAggregatorAgent()
+        # A cursor, so ``_resume_floor`` is never asked and no session is
+        # needed — the resume path is a different rule and is tested with
+        # its own file.
+        agent._cursors[narrowed.name] = "c0"
+        stdout = "\n".join(
+            [
+                self._record("3", "ring gfx_0.0.0 timeout", "c1"),
+                self._record("6", self.DECLARED, "c2"),
+                self._record("6", "undeclared kernel chatter", "c3"),
+            ]
+        )
+
+        with patch(
+            "sysadmin.monitor.journal._run", new=AsyncMock(return_value=stdout)
+        ) as run:
+            read = await agent._read_journal_source(None, narrowed, 500)
+
+        assert run.call_args[0][0][run.call_args[0][0].index("-p") + 1] == "6"
+        assert [e["message"] for e in read.entries] == [
+            "ring gfx_0.0.0 timeout",
+            self.DECLARED,
+        ]
+
+    @pytest.mark.asyncio
+    async def test_the_file_reader_is_handed_the_declaration(self, tmp_path) -> None:
+        line = "a quiet line a declaration speaks for"
+        log = tmp_path / "legacy.log"
+        log.write_text(f"{line}\nundeclared chatter\n")
+        source = LogSource(
+            name="legacy-app", type="file", path=str(log), severity_filter="error"
+        )
+        agent = LogAggregatorAgent()
+        session = _CountingSession()
+
+        declared = {("legacy-app", signature(line)): _GPU_RESET_STANDIN}
+        with (
+            patch(
+                "sysadmin.monitor.log_aggregator.get_config", return_value=_config()
+            ),
+            patch.object(
+                LogAggregatorAgent, "_sources", staticmethod(lambda _c: [source])
+            ),
+            patch("sysadmin.monitor.log_aggregator.CRITICAL_SIGNATURES", declared),
+        ):
+            await agent._execute(session)
+
+        ingested = [e.message for e in session.added if hasattr(e, "raw_line")]
+        assert line in ingested
+        assert "undeclared chatter" not in ingested

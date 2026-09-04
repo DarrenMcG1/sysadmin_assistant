@@ -8,7 +8,9 @@ actually executes was unasserted, which is how ``-n 500`` came to bound
 raw lines while the severity filter ran in Python over what was left.
 """
 
+import ast
 import json
+import pathlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -16,11 +18,14 @@ import pytest
 from sysadmin.monitor.journal import (
     PRIORITY_MAP,
     SEVERITY_ORDER,
+    admits,
     max_priority_for,
     message_text,
+    read_ceiling,
     read_journal,
     unwrap_json_message,
 )
+from sysadmin.monitor.log_signature import signature
 
 
 class TestMaxPriorityFor:
@@ -479,3 +484,284 @@ class TestDeclaredFormatIsHonouredByReadJournal:
             "Failed to start SysAdmin Monitoring Service.",
             "scheduler_job_error",
         ]
+
+
+# --- A declaration cannot be narrowed out of the read (SNAG-CFG-006) ----
+
+
+class TestReadCeilingIsWidenedByADeclaration:
+    """The ``-p`` half, derived so a ``SIGHUP`` cannot disarm it.
+
+    ``arrives_at`` used to be *asserted* against the shipped
+    ``config.yaml``.  ``sysadmin/reload.py`` re-reads that file on
+    ``SIGHUP`` and ``severity_filter`` is not ``RESTART_ONLY``, so
+    narrowing the kernel source back to ``error`` disarmed the
+    declaration on the running daemon with the suite still green.  A
+    derived relation cannot be broken by an edit.
+    """
+
+    def test_nothing_declared_is_max_priority_for_unchanged(self) -> None:
+        for severity in SEVERITY_ORDER:
+            assert read_ceiling(severity) == max_priority_for(severity)
+            assert read_ceiling(severity, {}) == max_priority_for(severity)
+
+    def test_a_quieter_declaration_widens_the_ceiling(self) -> None:
+        """Wider is a **larger** ``-p``, because ``-p N`` admits ``0..N``.
+
+        The wording reads backwards and is worth pinning as a value: the
+        declaration needing the widest read is the *quietest* one, since
+        a quiet rung sits at a high priority number.
+        """
+        assert read_ceiling("error") == 3
+        assert read_ceiling("error", {"sig": "info"}) == 6
+
+    def test_the_widest_declaration_wins(self) -> None:
+        assert read_ceiling("error", {"a": "warning", "b": "info"}) == 6
+        assert read_ceiling("error", {"a": "warning"}) == 4
+
+    def test_a_declaration_never_narrows_the_configured_read(self) -> None:
+        """One direction only.
+
+        A declaration says where a line *arrives*, so it can only ever
+        ask for more.  Reading it as a floor would let a declaration at
+        ``critical`` shrink a source configured at ``info`` — a
+        declaration silencing the source it was added to.
+        """
+        assert read_ceiling("info", {"sig": "critical"}) == 6
+
+
+class TestAdmitsIsTheHalfTheEntryMissed:
+    """Both gates move together, and widening one alone is inert.
+
+    ``SNAG-CFG-006`` named only the ``-p`` ceiling.  Measured against the
+    live kernel journal with ``severity_filter`` at ``error``, forcing
+    ``-p 6`` returned the same 32 entries and the same **zero** ``VRAM is
+    lost due to GPU reset!`` lines, because the Python filter — which
+    ``read_journal`` calls the authority on what is stored — drops them
+    one loop later.
+    """
+
+    SIG = "amdgpu N:N:N.N: VRAM is lost due to GPU reset!"
+    LINE = "amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!"
+
+    def test_a_line_at_or_above_the_floor_is_admitted(self) -> None:
+        assert admits("error", "error", "boom", None) is True
+        assert admits("critical", "error", "boom", None) is True
+
+    def test_a_line_below_the_floor_is_dropped_with_nothing_declared(self) -> None:
+        assert admits("info", "error", self.LINE, None) is False
+        assert admits("info", "error", self.LINE, {}) is False
+
+    def test_a_declared_signature_below_the_floor_is_admitted(self) -> None:
+        assert signature(self.LINE) == self.SIG
+        assert admits("info", "error", self.LINE, {self.SIG: "info"}) is True
+
+    def test_the_widening_is_per_signature_and_never_wholesale(self) -> None:
+        """The narrowing must still govern everything nobody declared.
+
+        Lowering the floor to the declaration's rung instead would store
+        all 1,823 info-level kernel lines a boot while ``config.yaml``
+        said ``error`` — a config edit that does nothing, which is worse
+        than the gap it closes.  Measured live: the fixed reader stores
+        35 where the wide one stores 1,823.
+        """
+        declared = {self.SIG: "info"}
+        assert admits("info", "error", self.LINE, declared) is True
+        assert admits("info", "error", "an undeclared info line", declared) is False
+
+    def test_an_unknown_filter_still_admits_everything(self) -> None:
+        """The same fallback ``max_priority_for`` makes on the other side
+        of the same read, so a typo in ``services.yaml`` cannot narrow one
+        gate and widen the other."""
+        assert admits("debug", "nonsense", "anything", None) is True
+
+
+class TestBothGatesMoveTogetherInReadJournal:
+    """End to end, which is the assertion the entry's fix would fail."""
+
+    @pytest.mark.asyncio
+    async def test_the_ceiling_and_the_store_both_widen(self) -> None:
+        sig = signature("amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!")
+        stdout = "\n".join(
+            [
+                _entry("3", "ring gfx_0.0.0 timeout", "c1"),
+                _entry("6", "amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!", "c2"),
+                _entry("6", "amdgpu 0000:03:00.0: GPU reset begin!", "c3"),
+            ]
+        )
+        with patch(
+            "sysadmin.monitor.journal._run", new=AsyncMock(return_value=stdout)
+        ) as run:
+            read = await read_journal(
+                "kernel", severity_filter="error", declared={sig: "info"}
+            )
+
+        cmd = run.call_args[0][0]
+        # Half one: journalctl is asked for the line at all...
+        assert cmd[cmd.index("-p") + 1] == "6"
+        # ...half two: and the Python gate lets it through, while its
+        # equally-quiet, undeclared sibling is still dropped.
+        assert [e["message"] for e in read.entries] == [
+            "ring gfx_0.0.0 timeout",
+            "amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_widening_the_ceiling_alone_would_store_nothing_new(self) -> None:
+        """The entry's own named fix, modelled and refuted.
+
+        A read whose ceiling is wide and whose declaration is absent is
+        exactly what ``max(max_priority_for(...), arrives_at)`` alone
+        produces once journalctl has handed the lines over.  It stores
+        neither of them.
+        """
+        stdout = "\n".join(
+            [
+                _entry("3", "ring gfx_0.0.0 timeout", "c1"),
+                _entry("6", "amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!", "c2"),
+            ]
+        )
+        with patch("sysadmin.monitor.journal._run", new=AsyncMock(return_value=stdout)):
+            read = await read_journal("kernel", severity_filter="error", declared=None)
+
+        assert [e["message"] for e in read.entries] == ["ring gfx_0.0.0 timeout"]
+
+    @pytest.mark.asyncio
+    async def test_a_declaration_is_matched_against_the_unwrapped_message(self) -> None:
+        """The reorder, pinned where it is observable.
+
+        The message is composed before the rung gate now, so a
+        ``format: json`` source's declaration is matched against what
+        ``unwrap_json_message`` returns rather than against the envelope
+        — which is the string ``_execute`` computes its own key from.
+        Matching the envelope would put a signature nobody can declare on
+        one side of the gate and the declaration on the other.
+        """
+        envelope = json.dumps(
+            {"timestamp": "2026-09-04T10:36:31", "level": "INFO",
+             "logger": "sysadmin.core.agent", "message": "manual_run_cancelled"}
+        )
+        stdout = _entry("6", envelope, "c1")
+        with patch("sysadmin.monitor.journal._run", new=AsyncMock(return_value=stdout)):
+            read = await read_journal(
+                "sysadmin.service",
+                severity_filter="error",
+                log_format="json",
+                declared={signature("manual_run_cancelled"): "info"},
+            )
+
+        assert [e["message"] for e in read.entries] == ["manual_run_cancelled"]
+
+    @pytest.mark.asyncio
+    async def test_the_cursor_still_advances_over_a_line_the_gate_drops(self) -> None:
+        """``-p`` used to make the two sets coincide; this pulls them apart.
+
+        A declaring source reads at the declaration's rung and stores at
+        its own, so journalctl now returns lines ``admits`` drops — which
+        makes the cursor rule load-bearing again rather than merely
+        defensive.  Advancing only past *kept* entries would leave the
+        resume point behind the undeclared quiet lines and re-read them
+        for ever.
+        """
+        sig = signature("amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!")
+        stdout = "\n".join(
+            [
+                _entry("6", "amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!", "c1"),
+                _entry("6", "undeclared chatter", "c2"),
+            ]
+        )
+        with patch("sysadmin.monitor.journal._run", new=AsyncMock(return_value=stdout)):
+            read = await read_journal(
+                "kernel", severity_filter="error", declared={sig: "info"}
+            )
+
+        assert len(read.entries) == 1
+        assert read.cursor == "c2"
+
+
+class TestNoReaderGatesOnSeverityByHand:
+    """One statement of when a line is stored, and a sweep that keeps it.
+
+    There were exactly two hand-rolled floor comparisons before
+    ``SNAG-CFG-006`` — ``read_journal``'s and ``_read_log_file``'s — and
+    the whole defect was that widening one of them was not enough.  A
+    third would be the same shape again, and the failure mode of the
+    copy is *silence*: a declared line simply never stored.
+
+    ``test_autogenerate_config.py``'s idiom, reused: the walker is run at
+    its own owner as well, which must trip every rule, so a detector
+    that has stopped detecting cannot pass by finding nothing.
+    """
+
+    OWNER = "sysadmin/monitor/journal.py"
+
+    @staticmethod
+    def _hand_rolled(path: pathlib.Path, *, owner: bool = False) -> list[str]:
+        """Comparisons of **this module's** ``SEVERITY_ORDER`` by hand.
+
+        An ``ast`` walk rather than a text sweep, because ``journal.py``
+        and ``log_aggregator.py`` both name the constant in prose and a
+        docstring is an ``ast.Constant`` that falls out for free.
+
+        **Keyed on provenance, never on the name**, which the first draft
+        got wrong and the walker itself reported.
+        ``sysadmin/core/escalation.py`` defines a *different*
+        ``SEVERITY_ORDER`` — three alert rungs against five log
+        severities — and compares it twice, correctly; the aggregator's
+        own import comment records that collision as a trap.  A
+        name-keyed sweep names the module that avoided it.  So a file is
+        examined only when it imports the constant **from
+        ``sysadmin.monitor.journal``**, and the owner is examined because
+        it is where the constant lives.
+        """
+        tree = ast.parse(path.read_text())
+        if not owner:
+            imported = any(
+                isinstance(node, ast.ImportFrom)
+                and node.module == "sysadmin.monitor.journal"
+                and any(alias.name == "SEVERITY_ORDER" for alias in node.names)
+                for node in ast.walk(tree)
+            )
+            if not imported:
+                return []
+
+        found = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Compare):
+                continue
+            for side in (node.left, *node.comparators):
+                if not isinstance(side, ast.Call):
+                    continue
+                func = side.func
+                if (
+                    isinstance(func, ast.Attribute)
+                    and func.attr == "get"
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id == "SEVERITY_ORDER"
+                ):
+                    found.append(f"{path}:{node.lineno}")
+                    break
+        return found
+
+    def test_no_module_outside_the_owner_compares_a_rung_by_hand(self) -> None:
+        offenders = []
+        for path in pathlib.Path("sysadmin").rglob("*.py"):
+            if path.as_posix() == self.OWNER:
+                continue
+            offenders += self._hand_rolled(path)
+
+        assert offenders == [], (
+            "these compare a log severity against a floor by hand; "
+            f"call journal.admits instead: {offenders}"
+        )
+
+    def test_the_walker_trips_at_its_own_owner(self) -> None:
+        """Driven at the module that *is* the hand-written form.
+
+        Without this the sweep above passes for a detector that matches
+        nothing at all — the shape this repository has shipped twice.
+        """
+        assert self._hand_rolled(pathlib.Path(self.OWNER), owner=True), (
+            "the detector found no comparison in the one module that "
+            "must contain one — it has stopped detecting"
+        )

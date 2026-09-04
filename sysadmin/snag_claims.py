@@ -916,6 +916,118 @@ def check_estate_port_8500() -> Measurement:
     )
 
 
+def check_declaring_source_reads_wide() -> Measurement:
+    """``SNAG-LOG-018`` — a narrowed declaring source still reads wide.
+
+    **Driven at a narrowed copy of the shipped source, never at the
+    shipped file.**  ``config.yaml`` reads ``severity_filter: info`` for
+    the kernel, where the read ceiling and the storage floor coincide and
+    the wasted fraction is nil — so a check reading the shipped file
+    alone would observe a clean box on every run and say nothing whatever
+    about the claim.  A constant observation is not evidence unless
+    something in the population would have forced a different one, and
+    here the discriminating population has to be constructed: the entry
+    is about the config edit nobody has made.
+
+    **The witness is the pair, and the unnarrowed half is what makes the
+    narrowed half mean anything.**  ``read_ceiling`` is asked twice — at
+    the narrowed source with its declaration, and at the same source with
+    the declaration withheld.  The entry holds only when the first is
+    *wider* than the second, which is the residue stated as an
+    inequality: the ceiling is decided by the declaration rather than by
+    the operator's filter.  Withholding the declaration and still getting
+    a wide ceiling is neither verdict — it would mean ``read_ceiling``
+    has stopped deriving anything, which is ``SNAG-CFG-006``'s fix having
+    broken rather than this entry having closed.
+
+    **What refutes it is a reader that stops paying**, whatever route it
+    takes — a second narrow read, a selector journalctl does not have
+    today, or a declaration that stops needing a rung the filter
+    excludes.  The check watches the ceiling rather than any one of them,
+    so it cannot be satisfied by the shape a fix happens to arrive in.
+
+    Every way of not-knowing is ``unknown``: an unreadable ``config.yaml``,
+    a shipped source that declares nothing, and a declaration whose rung
+    is already inside the narrowed filter — the last because there is
+    then no residue to observe rather than because there is none.
+    """
+    from pathlib import Path as _Path
+
+    from sysadmin.core.config import parse_config
+    from sysadmin.monitor.journal import SEVERITY_ORDER, admits, read_ceiling
+    from sysadmin.monitor.log_aggregator import declared_rungs_for
+
+    #: The filter the entry's own edit narrows to — the value
+    #: ``config.yaml`` carried before ``SNAG-CFG-006``'s parent widened
+    #: it, so this is the real historical setting rather than an invented
+    #: one.
+    narrowed_to = "error"
+
+    try:
+        sources = parse_config(_Path("config.yaml")).agents.log_aggregator.sources
+    except Exception as exc:  # noqa: BLE001 - every failure is one verdict
+        return Measurement("unknown", f"config.yaml did not parse: {exc}")
+
+    # Two lists, never one.  A source with nothing to observe is not a
+    # source that observed nothing — collapsing them is ``ports_checked``'s
+    # rule broken inside a check written to honour it, and it is how the
+    # first draft of this function reported ``match`` for a declaration
+    # the narrowed filter already admits.  Caught by mutating
+    # ``arrives_at`` to a rung above the filter, which is the only shape
+    # that reaches the branch.
+    observed: list[str] = []
+    no_residue: list[str] = []
+    for source in sources:
+        narrowed = source.model_copy(update={"severity_filter": narrowed_to})
+        declared = declared_rungs_for(narrowed)
+        if not declared:
+            continue
+        quietest = min(
+            declared.values(), key=lambda rung: SEVERITY_ORDER.get(rung, 0)
+        )
+        # ``admits`` rather than a second comparison of the two rungs.
+        # The question — would this filter have excluded a line arriving
+        # here? — is the gate's own, and asking it any other way is the
+        # hand-rolled floor ``TestNoReaderGatesOnSeverityByHand`` refuses.
+        # That guard caught this function's first draft, which is the
+        # detector working on the sitting that wrote it.  ``message`` is
+        # unread with nothing declared, which is why it can be empty.
+        if admits(quietest, narrowed_to, "", None):
+            no_residue.append(
+                f"{source.name}: every declaration arrives at {quietest}, which "
+                f"{narrowed_to} already admits — no residue to observe"
+            )
+            continue
+        with_declaration = read_ceiling(narrowed_to, declared)
+        without = read_ceiling(narrowed_to, None)
+        if with_declaration <= without:
+            return Measurement(
+                "unknown",
+                f"{source.name} reads -p {with_declaration} with its declaration "
+                f"and -p {without} without it — read_ceiling has stopped "
+                "deriving, which is SNAG-CFG-006's fix rather than this entry",
+            )
+        observed.append(
+            f"{source.name} narrowed to {narrowed_to}: -p {with_declaration} "
+            f"with its {len(declared)} declaration(s) against -p {without} "
+            f"without, so the ceiling is the declaration's and every line "
+            f"between the two rungs is read and discarded"
+        )
+
+    if not observed:
+        return Measurement(
+            "unknown",
+            "no shipped log source declares a signature its own filter would "
+            "exclude, so nothing can read wider than it stores",
+            tuple(no_residue),
+        )
+    return Measurement(
+        "match",
+        "a narrowed declaring source still reads at its declaration's rung",
+        tuple(observed + no_residue),
+    )
+
+
 def check_incident_fold_splits_at_a_poll() -> Measurement:
     """``SNAG-LOG-017`` — a chain astride a poll boundary folds one half.
 
@@ -7391,6 +7503,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-AGENT-013",
             "auto-restart fires without asking whether the estate stopped it",
             check_arbitrated_restart,
+        ),
+        Check(
+            "declaring_source_reads_wide",
+            "SNAG-LOG-018",
+            "a narrowed source that declares a signature still reads at its rung",
+            check_declaring_source_reads_wide,
         ),
     )
 }

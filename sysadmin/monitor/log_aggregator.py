@@ -34,8 +34,8 @@ from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.text import truncate_at_word
 from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.journal import (
-    SEVERITY_ORDER,
     JournalRead,
+    admits,
     read_journal,
     since_timestamp,
 )
@@ -54,7 +54,7 @@ from sysadmin.monitor.log_actions import correlate
 from sysadmin.monitor.log_query import unit_relations
 from sysadmin.monitor.log_signature import alert_title, signature
 from sysadmin.monitor.models.log_entry import LogEntry
-from sysadmin.monitor.services import composed_log_sources
+from sysadmin.monitor.services import composed_log_sources, stored_source_name
 
 logger = logging.getLogger(__name__)
 
@@ -316,6 +316,39 @@ CRITICAL_SIGNATURES: dict[tuple[str, str], CriticalSignature] = {
 #: floor of that mapping is ``debug``, and what this names is a policy
 #: choice about how loud a first sighting is, not the bottom of a scale.
 DECLARED_FLOOR_SEVERITY = "warning"
+
+
+def declared_rungs_for(source) -> dict[str, str]:
+    """The rungs :data:`CRITICAL_SIGNATURES` declares for one source.
+
+    Signature -> ``arrives_at``, which is the shape both readers widen
+    themselves with (:func:`~sysadmin.monitor.journal.read_ceiling` and
+    :func:`~sysadmin.monitor.journal.admits`).  ``SNAG-CFG-006``: the
+    pairing used to be *asserted* against the shipped ``config.yaml`` by
+    a test, so a ``SIGHUP`` narrowing a source disarmed the declaration
+    on the running daemon with the suite still green.  Derived here, the
+    relation cannot be broken by an edit at all.
+
+    **Keyed on** :func:`~sysadmin.monitor.services.stored_source_name`,
+    **never on** ``source.name``.  ``CRITICAL_SIGNATURES`` is matched in
+    :meth:`LogAggregatorAgent._execute` against ``entry["source"]``,
+    which is the **unit** for a journal source and the **name** for a
+    file one — the trap ``stored_source_name`` exists for and
+    ``log_source_scopes`` records from the other side.  They coincide for
+    ``kernel``, the only declared source today, so the wrong key would
+    have been green here and silent for the first declaration whose name
+    and unit differ.  A source that is never read returns ``None`` from
+    that function and gets an empty mapping, which is the same read it
+    would have had.
+    """
+    key = stored_source_name(source)
+    if key is None:
+        return {}
+    return {
+        sig: declared.arrives_at
+        for (source_key, sig), declared in CRITICAL_SIGNATURES.items()
+        if source_key == key
+    }
 
 
 #: How long after the first line of a declared incident a sibling fault
@@ -784,6 +817,7 @@ class LogAggregatorAgent(BaseAgent):
                     source.path,
                     source.severity_filter,
                     agent_config.max_entries_per_read,
+                    declared_rungs_for(source),
                 )
             else:
                 continue
@@ -1065,6 +1099,10 @@ class LogAggregatorAgent(BaseAgent):
             after_cursor=cursor,
             limit=limit,
             log_format=source.format,
+            # Derived per read rather than captured at startup, for the
+            # reason ``known_noise`` is rebuilt every run: this is the
+            # half that has to survive a ``SIGHUP``.
+            declared=declared_rungs_for(source),
         )
         if read.cursor:
             self._cursors[source.name] = read.cursor
@@ -1352,7 +1390,8 @@ class LogAggregatorAgent(BaseAgent):
         return resolved
 
     def _read_log_file(
-        self, source_name: str, path: str, severity_filter: str, limit: int
+        self, source_name: str, path: str, severity_filter: str, limit: int,
+        declared: Mapping[str, str] | None = None,
     ) -> JournalRead:
         """Read new lines from a log file, tracking byte offset.
 
@@ -1361,13 +1400,22 @@ class LogAggregatorAgent(BaseAgent):
         carries no cursor: a byte offset already resumes exactly, and it is
         durable across a restart only in the sense that the file is — a
         rotation resets it, which the size check below detects.
+
+        It shares the journal reader's rung gate rather than restating
+        it.  The population is **empty** — every declared source on this
+        box is ``type: journalctl`` — and the branch is written from the
+        producer for :func:`~sysadmin.monitor.services.stored_source_name`'s
+        stated reason: a rule derived from the live table would omit this
+        half and be green in every test until the first file source was
+        declared.  A declaration that works for one source type and
+        silently does nothing for the other is ``SNAG-CFG-006`` wearing a
+        second hat.
         """
         filepath = Path(path)
         if not filepath.exists():
             return JournalRead(entries=[])
 
         entries = []
-        min_severity = SEVERITY_ORDER.get(severity_filter, 0)
 
         try:
             file_size = filepath.stat().st_size
@@ -1381,7 +1429,10 @@ class LogAggregatorAgent(BaseAgent):
                 f.seek(current_offset)
                 for line in f:
                     parsed = self._parse_log_line(source_name, line.strip())
-                    if parsed and SEVERITY_ORDER.get(parsed["severity"], 0) >= min_severity:
+                    if parsed and admits(
+                        parsed["severity"], severity_filter,
+                        parsed["message"], declared,
+                    ):
                         entries.append(parsed)
 
                 self._file_offsets[source_name] = f.tell()

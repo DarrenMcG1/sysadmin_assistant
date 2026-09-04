@@ -3,6 +3,73 @@
 **Last Updated**: 2026-09-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A derived relation cannot be broken by a config edit, and the entry's
+> own named fix was measurably inert** (2026-09-04, Session 169).
+> `SNAG-CFG-006` is **closed**. `CriticalSignature.arrives_at` was
+> *asserted* against the shipped `config.yaml` by a test, and
+> `sysadmin/reload.py` installs a config no test has seen — so a `SIGHUP`
+> narrowing the kernel source back to `error` disarmed the GPU-reset
+> declaration with the suite green. `read_journal` now **derives** its
+> ceiling from the declaration (`read_ceiling`) and admits a declared
+> signature past the rung gate (`admits`), so the relation the test was
+> guarding no longer exists to be broken.
+>
+> **The entry named one of the reader's two gates, and measuring it is
+> what said so.** Driven against the live kernel journal with
+> `severity_filter` at `error`, forcing `-p 6` returns the **same 32
+> entries** and the **same zero** `VRAM is lost due to GPU reset!` lines
+> — journalctl hands the line over and the Python filter, which
+> `read_journal`'s own docstring calls the authority on what is stored,
+> drops it one loop later. Both gates move now, and from **one argument**
+> so they cannot drift apart. Live either side: at the narrowed config
+> the reader goes **32 → 35** stored with **0 → 3** VRAM lines, and
+> **1,788** undeclared info lines are still dropped — the narrowing still
+> governs everything nobody has spoken for, which a wholesale floor drop
+> would have destroyed.
+>
+> **Two of ten falsifications passed against deliberately broken code,
+> and both were the wiring.** Handing `declared=None` at either call site
+> left all 74 tests green, because every one of them passed `declared` to
+> a reader itself — *"nothing drove `_record_start`"*, a fifth time. Two
+> behavioural drives now go through the real `read_journal` and the real
+> `_read_log_file` with a narrowed source and ask whether the declared
+> line survived. A third first draft was caught by its own detector: the
+> AST guard keyed on the **name** `SEVERITY_ORDER` and reported
+> `core/escalation.py`, which owns a *different* constant — three alert
+> rungs against five log severities — so it keys on **provenance**, the
+> import from `sysadmin.monitor.journal`. **That guard then caught the
+> sitting's own new snag check**, which compared two configured rungs by
+> hand; it asks `admits` now, which is the gate's own question. Suite
+> **3478 → 3504**, `ruff` and `mypy` clean; the 20 pre-existing snag
+> checks unmoved either side by stash-diff.
+>
+> **Two entries opened, and the first's own draft claimed no remedy existed** —
+> `SNAG-LOG-018`, the read budget a narrowed declaring source spends on
+> lines it discards: **1.9 %** efficiency against the 40 % Session 62
+> named as a defect, empty today because the shipped config reads
+> `info`. Checking took a minute and found one: `journalctl --grep`
+> filters *within* a priority selection and returns **3 lines of the
+> 1,825**. It is refused on cost rather than absence — the key is the
+> *normalised* signature, so the pattern would be a second
+> implementation of `signature()` as a regex, and two reads fork the
+> cursor `SNAG-AGENT-005` exists to keep single. **21 checks now**: the
+> new entry carries one, driven at a *narrowed* copy of the shipped
+> config because the shipped one cannot exhibit the residue. One of its
+> three falsifications passed against broken code and found a defect in
+> the check itself — the "no residue to observe" sentence went into the
+> list the verdict was computed from.
+>
+> **The second entry came from a green check disagreeing with a
+> hand-corrected block.** `SNAG-ESTATE-016`: `check_open_titles` matches
+> a title as a substring of the *printed region*, which is **178,301
+> characters** of accumulated history, so a name written down once
+> satisfies it for ever. At `9a3fe30` the block's sentence named `GPU was
+> reset — every client lost its VRAM` while the open row carried `High
+> VRAM usage on AMD Radeon RX 7900 XTX`; the check reported `4 named, 4
+> open`, `match`, because both strings appear somewhere in the region.
+> The fall note the docstring delegates the other direction to fires on a
+> **count**, and the count was right.
+
 > **A published surface that was never published is gone** (2026-09-04,
 > Session 168). `SNAG-DOCS-003` is **closed**. The five contract models
 > describing estate-manager's 8400 routes survived a year of tidying
@@ -2128,15 +2195,30 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-04 14:59:43**
-> <!--check:deploy--> <!--check:daemon_start--> by Session 168, so the box
-> matches the checkout after `SNAG-DOCS-003`'s deletions; PID 545156 →
+> Daemon restarted at **2026-09-04 16:05:31**
+> <!--check:deploy--> <!--check:daemon_start--> by Session 169, so the box
+> serves `SNAG-CFG-006`'s derived read ceiling; PID 621239 → 658806 →
+> 704516 — **twice in one sitting**, the second only to pick up
+> `snag_claims.py`, a console script the daemon never imports, because
+> the deploy check compares mtimes and cannot know that. Restart counter
+> **7**, both well outside the 600 s limiter window `SNAG-SYSD-007` is
+> about;
+> `/health` 200, clean `log_aggregator` runs with
+> `truncated_sources []`. **The fix's own branch is invisible at the
+> shipped config and says so**: `severity_filter: info` already admits
+> the declared line, so the daemon can only witness *no regression*. The
+> branch was driven against the real `journalctl` in-process at the
+> narrowed config instead — 32 → 35 stored, 0 → 3 VRAM lines — which is
+> where the evidence for it is.
+>
+> *(Previously **2026-09-04 14:59:43**, by Session 168, so the box
+> matched the checkout after `SNAG-DOCS-003`'s deletions; PID 545156 →
 > 621239, `/health` 200, restart counter **5** of `StartLimitBurst=5`
 > with **zero** restarts inside the 600 s limiter window beforehand — the
 > counter is cumulative and the limiter is the window, which
-> `SNAG-SYSD-007` is about. Nothing the daemon serves changed
-> behaviourally: `snag_claims` is a console script and `sysadmin_tray` is
-> not in this process. *(Previously **2026-09-04 12:23:38**, to deploy
+> `SNAG-SYSD-007` is about. Nothing the daemon served changed
+> behaviourally then: `snag_claims` is a console script and
+> `sysadmin_tray` is not in this process.)* *(Previously **2026-09-04 12:23:38**, to deploy
 > Session 166's
 > `fold_declared_incidents`, which takes effect only at start; PID
 > 435156 → 545156, back in 10 s on `RestartSec`, no `sudo`, restart
@@ -2331,8 +2413,19 @@
 > rows <!--check:alerts-->, `High disk usage on /`,
 > `Project ImbaBots next action idle`,
 > `Estate port 3110 registry breach` and
-> `GPU was reset — every client lost its VRAM`, **4**
-> named here <!--check:open_titles-->. *(3 until 14:58 on 2026-09-04,
+> `High VRAM usage on AMD Radeon RX 7900 XTX`, **4**
+> named here <!--check:open_titles-->. *(the VRAM row **flapped inside
+> one sitting** — resolved 15:52:37 on the first sysadmin run after
+> Session 169's restart, re-raised 16:02:35 ten minutes later, the card
+> being shared by four services and the threshold being crossed in both
+> directions; a fall and a rise in one afternoon, each caught by
+> `check_alerts` and neither by anything else.)* *(the block named `GPU
+> was reset — every client lost its VRAM` as its fourth from 14:58 until
+> this sitting, while the row actually open carried the VRAM-usage
+> title. Corrected by hand, and `check_open_titles` said `match`
+> throughout — which is `SNAG-ESTATE-016`, filed today: the substring
+> test runs over the whole 178 kB printed region, so a title any past
+> sitting wrote down satisfies it for ever.)* *(3 until 14:58 on 2026-09-04,
 > when a **genuine** amdgpu MODE1 reset opened the fourth — journal rows
 > at 14:58:13 on kernel `7.2.2-arch1-1`, the second reset of the day,
 > and not a resume-boundary re-read: it predates Session 168's 14:59:43
@@ -2643,6 +2736,49 @@
 ---
 
 ## Recently Completed
+
+### Session 169 — the relation was dissolved rather than judged (2026-09-04)
+
+`SNAG-CFG-006` closed by **derivation**, not by a verdict. The entry
+filed itself as a second member of `SNAG-CFG-003`'s class — *a coherence
+relation guarded by a test, installed by a `SIGHUP` no test sees* — and
+the two turn out to take **opposite** fixes. `SNAG-CFG-003`'s terms
+straddle an ownership boundary (`may_quieten_in_place` rule 3 forbids the
+daemon reading the tray's `reminder_hours`), so no production code may
+hold both and a semantic verdict is the only shape available. This
+entry's terms are both the reader's, so the reader computes one from the
+other and the relation stops existing. Only the member whose terms share
+an owner can dissolve, and that is now written on `SNAG-CFG-003`.
+
+**No check was added *for the closed entry*, and the reason is this
+file's own precedent.**
+`check-snag-claims.sh`'s `ok` means *the bug is still real*, so a check
+driven at a landed fix can only report `still holds` for ever —
+`check_review_schedule_unread`'s defect, recorded here three times. The
+guard is a test, `FROZEN_TABLES`' rule:
+`TestNoReaderGatesOnSeverityByHand` refuses a third hand-rolled severity
+floor, and `test_a_narrowed_source_still_reads_its_declaration` drives the
+shipped source *narrowed to the value that used to disarm it* — a
+stand-in modelling the **fix**, since against the shipped `info` every
+assertion in it passes for free.
+
+**The handoff's "three open entries still lacking" could not be
+reproduced, and the first attempt to reproduce it was wrong in this
+sitting's own hand.** A marker scan written here read
+`<!--check:[a-z_]+-->` and so missed `estate_port_8500`, reporting
+`SNAG-ESTATE-005` as unchecked when it carries one — a measurement error
+of exactly the kind this file spends itself on, caught by reading the
+entry rather than trusting the count. Re-measured with digits admitted:
+of the **23** entries whose `**Status:**` bullet says Open, exactly
+**one** lacks a check marker, `SNAG-LOG-016`, which documents its refusal
+and gives the reason. That figure is unmoved either side.
+
+**What `SNAG-CFG-006` was actually missing is both halves at once**: it
+carried **no `**Status:**` bullet and no marker**, which is what put it
+outside every count and is what the handoff was pointing at. It has a
+disposition now — in the Fixed table — and its successor carries a
+check.
+
 
 ### Session 156 — the red said the hazard was gone whatever had happened (2026-09-02)
 
