@@ -7078,6 +7078,93 @@ def check_arbitrated_restart() -> Measurement:
 # ---------------------------------------------------------------------------
 
 
+#: The pre-commit path, and the only one: ``.git/hooks/pre-commit`` is two
+#: lines delegating to this script.  Read as text rather than run, because
+#: running it would stage nothing and prove nothing.
+PRECOMMIT_SCRIPT = REPO_ROOT / "scripts" / "claude-precommit.sh"
+
+#: What a line has to name to be running the suite.  ``pytest`` is the
+#: command and ``test_handoff_shape`` the one file that would answer this
+#: entry alone — either closes it, so either refutes the check.
+SUITE_INVOCATIONS = ("pytest", "test_handoff_shape")
+
+#: The witness.  This script *does* gate on things, so "it runs no guard"
+#: is false and a sweep finding nothing at all has stopped reading rather
+#: than found the file open.  ``ports_checked``'s rule: zero-because-blind
+#: must not be served as zero-because-clean.
+GUARD_INVOCATIONS = ("lint_check.sh", "check-migrations.sh")
+
+
+def _shell_executable_lines(path: Path) -> list[str] | None:
+    """A script's lines with comments and blanks dropped, or ``None``.
+
+    ``test_schema_guard``'s idiom, which reads the same scripts directory
+    for the opposite claim — that ``upgrade`` appears in none of them.  A
+    comment naming ``pytest`` is prose about the suite, and this entry is
+    precisely about a guard that is documented and not wired.
+    """
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return [line for line in raw.splitlines() if (s := line.strip()) and not s.startswith("#")]
+
+
+def check_handoff_shape_unguarded() -> Measurement:
+    """``SNAG-TEST-005`` — nothing between the handoff edit and the commit runs the suite.
+
+    **The claim is about a moment, not about a file.**
+    ``tests/test_handoff_shape.py`` works; it was red at ``457d011`` and
+    nobody heard it, because ``HANDOFF.md`` is written at the *end* of a
+    sitting — after the suite has been run and reported green — and the
+    only thing standing between that edit and the commit is
+    ``claude-precommit.sh``, which runs lint, the schema check and the
+    docs gate and never pytest.
+
+    **So the check reads the gate rather than the guard.**  Asserting the
+    test still fails on a broken document would measure the detector,
+    which is not what is broken; asserting the real document is clean
+    would report the entry refuted the moment a sitting tidied the file,
+    which is Session 83's reading of ``SNAG-LOG-013`` again.  What is
+    refutable is whether anything on the commit path runs it.
+
+    **Discriminating witness**: the script gates on ``lint_check.sh`` and
+    ``check-migrations.sh``, so a sweep that finds no guard at all has
+    stopped reading and answers ``unknown`` — the constant observation
+    this check would otherwise be making about a file it could not parse.
+    """
+    lines = _shell_executable_lines(PRECOMMIT_SCRIPT)
+    if lines is None:
+        return Measurement(
+            "unknown",
+            f"{PRECOMMIT_SCRIPT.name} will not read, so the commit path cannot be measured",
+        )
+
+    guards = sorted({g for g in GUARD_INVOCATIONS if any(g in line for line in lines)})
+    suite = sorted({s for s in SUITE_INVOCATIONS if any(s in line for line in lines)})
+    detail = (
+        f"{PRECOMMIT_SCRIPT.name}: {len(lines)} executable lines",
+        f"guards wired: {', '.join(guards) or 'none'}",
+        f"suite invocations: {', '.join(suite) or 'none'}",
+    )
+    if not guards:
+        return Measurement(
+            "unknown",
+            "the pre-commit script names none of the guards it is known to run, so this "
+            "sweep is not reading what it thinks it is — zero suite invocations here is "
+            "zero-because-blind",
+            detail,
+        )
+    if suite:
+        return Measurement(
+            "mismatch",
+            "the commit path now runs the suite, so a handoff edit that breaks "
+            f"test_handoff_shape is caught before the commit: {', '.join(suite)}",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 @dataclass(frozen=True)
 class Check:
     """One check, and the entry it is about.
@@ -7102,6 +7189,12 @@ class Check:
 CHECKS: dict[str, Check] = {
     check.key: check
     for check in (
+        Check(
+            "handoff_shape_unguarded",
+            "SNAG-TEST-005",
+            "nothing on the commit path runs the handoff shape guard",
+            check_handoff_shape_unguarded,
+        ),
         Check(
             "tray_report_unheard",
             "SNAG-TRAY-011",

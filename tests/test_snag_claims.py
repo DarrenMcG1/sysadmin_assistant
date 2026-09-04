@@ -7282,3 +7282,92 @@ class TestTheArbitratedRestartCheck:
         )
         assert self.KEY in entry.markers
         assert CHECKS[self.KEY].snag == entry.snag_id
+
+
+class TestHandoffShapeUnguarded:
+    """``SNAG-TEST-005`` — the commit path never runs the shape guard.
+
+    Driven at three stand-ins rather than one, because two of the three
+    readings this check can return are the ones that would let a landed
+    fix go unnoticed: a script that has been fixed must read
+    ``mismatch``, and a script this sweep cannot parse must read
+    ``unknown`` rather than borrowing ``match``'s meaning.
+    """
+
+    @staticmethod
+    def _script(tmp_path, body: str):
+        path = tmp_path / "claude-precommit.sh"
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    def test_the_live_script_still_carries_the_gap(self):
+        """The entry as filed: guards wired, suite never run."""
+        measured = snag_claims.check_handoff_shape_unguarded()
+        assert measured.verdict == "match"
+        assert "suite invocations: none" in measured.detail
+
+    def test_a_script_that_runs_the_suite_refutes_it(self, tmp_path, monkeypatch):
+        """The stand-in modelling the **fix**.
+
+        Without this the check is coupled to the unfixed behaviour and a
+        landed fix reads as a broken probe rather than as a closure.
+        """
+        monkeypatch.setattr(
+            snag_claims,
+            "PRECOMMIT_SCRIPT",
+            self._script(
+                tmp_path,
+                "./scripts/lint_check.sh\n./scripts/check-migrations.sh\nuv run pytest -q\n",
+            ),
+        )
+        measured = snag_claims.check_handoff_shape_unguarded()
+        assert measured.verdict == "mismatch"
+        assert "pytest" in measured.note
+
+    def test_the_one_file_that_would_answer_it_alone_also_refutes_it(self, tmp_path, monkeypatch):
+        """A fix need not run the whole suite to close this entry."""
+        monkeypatch.setattr(
+            snag_claims,
+            "PRECOMMIT_SCRIPT",
+            self._script(
+                tmp_path,
+                "./scripts/lint_check.sh\nuv run pytest tests/test_handoff_shape.py\n",
+            ),
+        )
+        assert snag_claims.check_handoff_shape_unguarded().verdict == "mismatch"
+
+    def test_a_script_naming_no_guard_is_unknown_rather_than_match(self, tmp_path, monkeypatch):
+        """`ports_checked`'s rule: zero-because-blind is not zero-because-clean.
+
+        The live script gates on two guards, so finding none means this
+        sweep has stopped reading the file it thinks it is reading — and
+        reporting ``match`` there would be a confident statement about a
+        commit path nobody looked at.
+        """
+        monkeypatch.setattr(
+            snag_claims, "PRECOMMIT_SCRIPT", self._script(tmp_path, "echo hello\n")
+        )
+        measured = snag_claims.check_handoff_shape_unguarded()
+        assert measured.verdict == "unknown"
+        assert "zero-because-blind" in measured.note
+
+    def test_an_unreadable_script_is_unknown(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(snag_claims, "PRECOMMIT_SCRIPT", tmp_path / "absent.sh")
+        assert snag_claims.check_handoff_shape_unguarded().verdict == "unknown"
+
+    def test_a_commented_out_pytest_does_not_refute_it(self, tmp_path, monkeypatch):
+        """The entry is about a guard that is documented and not wired.
+
+        `test_schema_guard`'s idiom, for the opposite claim: a comment
+        naming the suite is prose about it, and a check that read prose
+        would report this entry closed by the paragraph describing it.
+        """
+        monkeypatch.setattr(
+            snag_claims,
+            "PRECOMMIT_SCRIPT",
+            self._script(
+                tmp_path,
+                "# TODO: uv run pytest here one day\n./scripts/lint_check.sh\n",
+            ),
+        )
+        assert snag_claims.check_handoff_shape_unguarded().verdict == "match"
