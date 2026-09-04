@@ -256,20 +256,39 @@ class CriticalSignature:
 #:    this family speak for faults it cannot vouch for.  ``VRAM is lost
 #:    due to GPU reset!`` is emitted by ``amdgpu`` only after the reset
 #:    has happened, which is the one line that means what the row claims.
-CRITICAL_SIGNATURES: dict[tuple[str, str], CriticalSignature] = {
-    (
-        "kernel",
-        "amdgpu N:N:N.N: amdgpu: VRAM is lost due to GPU reset!",
-    ): CriticalSignature(
-        title="GPU was reset — every client lost its VRAM",
-        reason=(
-            "a full-card MODE1 reset: the graphics ring wedged, the "
-            "per-queue reset failed, and amdgpu reset the device. Every "
-            "GPU client's memory was destroyed — the foreground "
-            "application and any resident inference server alike."
-        ),
-        arrives_at="info",
+#: 6. **One fault, every spelling its producer has on this box.**  The
+#:    key is the *whole* normalised line, so it carries amdgpu's device
+#:    prefix as well as its message — and that prefix moved between
+#:    kernel branches.  ``6.18-lts`` logs ``amdgpu 0000:03:00.0: amdgpu:
+#:    VRAM is lost…``; mainline dropped the redundant second ``amdgpu:``
+#:    by ``7.2.2``, which the box was already running when this
+#:    declaration was written from the LTS journal.  The result was rule
+#:    4's stated failure mode arriving immediately: on 2026-09-04 a real
+#:    MODE1 reset stored the line for the first time and matched nothing,
+#:    so the widened filter delivered the event to a declaration that
+#:    could not see it — the multiplicative shape above, with both halves
+#:    shipped and one inert.  **Both spellings are current, not one
+#:    legacy**: ``linux`` and ``linux-lts`` are both installed, and a
+#:    ``linux`` upgrade invalidates ``LoaderEntryDefault`` so the box can
+#:    silently boot either.  They share one value rather than two equal
+#:    literals, because the title and reason are one fact.
+_GPU_RESET = CriticalSignature(
+    title="GPU was reset — every client lost its VRAM",
+    reason=(
+        "a full-card MODE1 reset: the graphics ring wedged, the "
+        "per-queue reset failed, and amdgpu reset the device. Every "
+        "GPU client's memory was destroyed — the foreground "
+        "application and any resident inference server alike."
     ),
+    arrives_at="info",
+)
+
+CRITICAL_SIGNATURES: dict[tuple[str, str], CriticalSignature] = {
+    # linux-lts (6.18.x): amdgpu repeats its own name after the BDF.
+    ("kernel", "amdgpu N:N:N.N: amdgpu: VRAM is lost due to GPU reset!"): _GPU_RESET,
+    # linux (>= 7.2): the redundant prefix is gone. This is the spelling
+    # the box emitted on 2026-09-04 and matched nothing.
+    ("kernel", "amdgpu N:N:N.N: VRAM is lost due to GPU reset!"): _GPU_RESET,
 }
 
 #: The rung a declared signature opens at, before the ladder moves it.

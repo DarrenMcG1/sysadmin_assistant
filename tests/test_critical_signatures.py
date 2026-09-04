@@ -56,7 +56,15 @@ from sysadmin.monitor.log_signature import signature
 #: The live lines, verbatim from ``journalctl -k -b`` on 2026-09-03.
 #: Typed from the journal rather than from documentation, because what a
 #: declaration keys on is what the producer actually emits.
+#:
+#: **That journal was ``6.18.48-1-lts``, and the box reboots between
+#: branches.**  Mainline dropped the redundant second ``amdgpu:`` by
+#: ``7.2.2``, so this constant is one of *two* real spellings and pinning
+#: the declaration against it alone is what let 2026-09-04's reset match
+#: nothing.  Both are kept: both kernels are installed, and neither is
+#: legacy.
 VRAM_LOST = "amdgpu 0000:03:00.0: amdgpu: VRAM is lost due to GPU reset!"
+VRAM_LOST_MAINLINE = "amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!"
 RESET_BEGIN = "amdgpu 0000:03:00.0: amdgpu: GPU reset begin!. Source:  1"
 ILLEGAL_OPCODE = (
     "[drm:gfx_v11_0_bad_op_irq [amdgpu]] *ERROR* Illegal opcode in command stream "
@@ -180,15 +188,52 @@ def test_every_declaration_is_visible_to_its_source():
         )
 
 
-def test_the_producer_still_emits_what_the_key_matches():
-    """A kernel reword fails silently, so the mapping is pinned.
+def test_signature_still_normalises_the_line_the_way_the_key_is_written():
+    """``signature``'s treatment of the line, pinned as a value.
 
-    ``signature`` maps digit runs to ``N``, and the key is stored
-    normalised — so this asserts the real line still lands on it.  The
-    failure mode being silence is why this is a test and not a comment.
+    This is the *narrow* half and it is worth naming what it cannot do.
+    It pins :func:`signature` — digit runs to ``N``, the rest verbatim —
+    so a change to the normaliser turns it red.  It says nothing about
+    whether the **producer** still emits either of these lines, because
+    both sides are constants typed on one day from one kernel.
+
+    The version this replaced asserted ``DECLARED_KEY in
+    CRITICAL_SIGNATURES`` with ``DECLARED_KEY`` derived from the same
+    constant, which is a value compared against itself: green on every
+    kernel, including the one that had already reworded the line.
+    ``tests/test_critical_signature_live.py`` is the discriminating
+    half — it reads what this box actually stored.
     """
-    assert DECLARED_KEY in CRITICAL_SIGNATURES
     assert signature(VRAM_LOST) == "amdgpu N:N:N.N: amdgpu: VRAM is lost due to GPU reset!"
+    assert signature(VRAM_LOST_MAINLINE) == "amdgpu N:N:N.N: VRAM is lost due to GPU reset!"
+
+
+def test_both_kernel_spellings_are_declared():
+    """Neither branch is legacy, so dropping either is a regression.
+
+    ``linux`` and ``linux-lts`` are both installed and a ``linux``
+    upgrade invalidates ``LoaderEntryDefault``, so the box can boot
+    either without anybody choosing — the mechanism that put it on LTS
+    on 2026-09-03.  A declaration covering one spelling is silent on
+    roughly half of this box's boots.
+    """
+    for line in (VRAM_LOST, VRAM_LOST_MAINLINE):
+        assert ("kernel", signature(line)) in CRITICAL_SIGNATURES, (
+            f"{line!r} is emitted by an installed kernel and matches no "
+            "declaration — the 2026-09-04 defect, in the other direction"
+        )
+
+
+def test_the_two_spellings_name_one_fault():
+    """One reset must not explain itself two ways.
+
+    Two equal literals are two statements of one fact and are free to
+    drift — ``SNAG-DB-003``'s shape.  The keys share a value object, so
+    a reworded ``reason`` cannot reach one kernel and miss the other.
+    """
+    declared = [CRITICAL_SIGNATURES[("kernel", signature(line))]
+                for line in (VRAM_LOST, VRAM_LOST_MAINLINE)]
+    assert declared[0] is declared[1]
 
 
 def test_the_declared_title_carries_no_rung():

@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-03
+> **Last Updated**: 2026-09-04
 
 ---
 
@@ -15,6 +15,44 @@ _Project state left this repository — [ADR-0005](../adr/0005-project-state-lea
 the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
+
+- [x] **Session 165b — the declaration was written from the wrong kernel.**
+      *(2026-09-04, one opened — `SNAG-LOG-016`; none closed, `SNAG-LOG-015`
+      corrected.)* Session 164's `CRITICAL_SIGNATURES` shipped at 22:32 and
+      was deployed at 22:49; at **10:35:32** the next morning the dGPU took a
+      real MODE1 reset and the monitor still said nothing louder than
+      `warning`. The key carried amdgpu's device prefix and that prefix moved
+      between kernel branches — `6.18-lts` repeats `amdgpu:` after the BDF,
+      mainline dropped it by `7.2.2`, and the box was already on `7.2.2` when
+      the key was typed from the LTS journal. The widened filter delivered the
+      event to a declaration that could not see it: both halves shipped, one
+      inert, the multiplicative shape inside its own fix.
+      - [x] Declare both spellings, sharing one `CriticalSignature` value —
+            two equal literals are two statements of one fact, and neither
+            branch is legacy while both kernels are installed and a `linux`
+            upgrade can flip `LoaderEntryDefault` unasked
+      - [x] Replace the tautological guard. It read `DECLARED_KEY in
+            CRITICAL_SIGNATURES` with `DECLARED_KEY` derived from the same
+            constant — provenance meant, value asserted, green on every
+            kernel. `tests/test_critical_signature_live.py` reads what this
+            box actually stored and is keyed on the payload, the half that
+            did not move
+      - [x] Falsify in both directions: four mutations, each red on the
+            intended test, plus one deliberately green (dropping the LTS key
+            leaves the live test passing, because only the mainline spelling
+            has ever been stored here — the documented limit, confirmed)
+      - [x] Correct the branch story. The identical signature occurs on
+            `7.1.9` mainline (2026-08-29, blaming `kwin_wayland`),
+            `6.18.48-lts` and `7.2.2`, so the boot-default flip did not cause
+            the resets — the memory note claiming it did is corrected
+      - [x] Verify the estate survived: both GPU-resident llama-servers died
+            on `vk::DeviceLostError` 3m22s later (next submit, not the reset)
+            and restarted through `wait-for-dgpu` onto the GPU, 37/37 and
+            41/41 layers asserted from the startup log; `venture-embed` runs
+            `-ngl 0` and was never on the card
+      - [ ] `SNAG-SYSD-008` has stopped being a forecast — the daemon
+            exceeded `MemoryMax=512M` at 10:50:15 mid-sitting and systemd
+            restarted it. Rank it against `SNAG-LOG-015`
 
 - [x] **Session 164 — the monitor could not say the GPU had been reset.**
       *(2026-09-03, three opened — `SNAG-LOG-015`, `SNAG-CFG-006`,

@@ -1,7 +1,52 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-03
+**Last Updated**: 2026-09-04
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **The declaration was written from the wrong kernel, and the first real
+> reset found it** (2026-09-04, Session 165). Session 164 shipped
+> `CRITICAL_SIGNATURES` the night before; at 10:35:32 the next morning
+> the dGPU took a full amdgpu MODE1 reset — `Illegal opcode in command
+> stream` from a `vkd3d_queue` thread, the per-queue reset refused by
+> firmware that does not implement it, `VRAM is lost due to GPU reset!`
+> — and the monitor said nothing louder than `warning`, which is the
+> defect Session 164 existed to remove.
+>
+> **The key carried a device prefix that had moved between kernel
+> branches.** `6.18-lts` logs `amdgpu 0000:03:00.0: amdgpu: VRAM is
+> lost…`; mainline dropped the redundant second `amdgpu:` by `7.2.2`,
+> which the box was *already running* when the declaration was typed
+> from the LTS journal. So the widened filter worked — the line reached
+> `log_entries` for the first time in that table's life — and delivered
+> it to a declaration that could not see it. Both halves shipped and one
+> was inert, which is the multiplicative shape stated one block down,
+> arriving inside its own fix.
+>
+> **The guard could not have caught it.** It read `DECLARED_KEY in
+> CRITICAL_SIGNATURES` with `DECLARED_KEY = ("kernel",
+> signature(VRAM_LOST))` — a value compared against itself, green on
+> every kernel including one that has reworded the line. It meant
+> *provenance* and asserted a *value*. Both spellings are declared now,
+> sharing one value object because the title and reason are one fact,
+> and `tests/test_critical_signature_live.py` is the discriminating
+> half: it reads what this box actually stored and turns red on the
+> first reset after a reword. Driven at the pre-fix state, the live test
+> goes red where the old assertion still returns `True`.
+>
+> **Neither spelling is legacy.** `linux` and `linux-lts` are both
+> installed and a `linux` upgrade invalidates `LoaderEntryDefault`, so
+> the box can boot either without anybody choosing — the mechanism that
+> put it on LTS on 2026-09-03.
+>
+> **The branch is not the fault, either.** The identical signature
+> occurs on `7.1.9` mainline (2026-08-29, blaming `kwin_wayland`),
+> `6.18.48-lts` (2026-09-03) and `7.2.2` (2026-09-04) — so the boot-default
+> flip did not cause the resets, and the note saying it did is corrected.
+> What 7.2.2 changed is diagnostics, not failure rate.
+>
+> Opened `SNAG-LOG-016` (a reword of the *payload* empties the live
+> test's population and it skips). **A restart is owed** — the
+> declaration takes effect at start.
 
 > **The monitor could not say the GPU had been reset** (2026-09-03,
 > Session 164). The dGPU took three full amdgpu MODE1 resets in 8.2
@@ -1942,11 +1987,18 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-03 22:49:29**
-> <!--check:deploy--> <!--check:daemon_start--> to deploy Session 164's
+> Daemon restarted at **2026-09-04 10:59:25**
+> <!--check:deploy--> <!--check:daemon_start--> to deploy Session 165b's
+> both-spellings `CRITICAL_SIGNATURES`, which takes effect only at start;
+> PID 427832 → 435156, back in 10 s on `RestartSec`, no `sudo`, restart
+> counter 3 of `StartLimitBurst=5`. **Counter 2 was not this sitting's**:
+> the daemon exceeded `MemoryMax=512M` at 10:50:15 unprompted and systemd
+> restarted it, which is `SNAG-SYSD-008` firing rather than forecasting.
+>
+> _Previously restarted at 2026-09-03 22:49:29 to deploy Session 164's
 > widened kernel `severity_filter` and `CRITICAL_SIGNATURES`, both of
 > which take effect only at start; PID 1794 → 131872, back in 10 s on
-> `RestartSec`, no `sudo`, restart counter 1 of `StartLimitBurst=5`.
+> `RestartSec`, no `sudo`, restart counter 1 of `StartLimitBurst=5`._
 > Verified live either side: `journalctl -k -p 3` returns **0** lines
 > carrying `VRAM is lost due to GPU reset!` and `-p 6` returns **1**, and
 > that line hits the declared key with `arrives_at` agreeing. The
@@ -2111,10 +2163,16 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
-> rows <!--check:alerts-->, `High disk usage on /` and
-> `Project ImbaBots next action idle`, **2**
-> named here <!--check:open_titles-->. *(3 until 2026-09-03 13:26 —
+> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> rows <!--check:alerts-->, `High disk usage on /`,
+> `Project ImbaBots next action idle`,
+> `Estate port 3110 registry breach` and
+> `Estate hook session-notice.sh not wired for Notification`, **4**
+> named here <!--check:open_titles-->. *(15 at 10:36 on 2026-09-04 — the
+> ten `warning` rows one amdgpu MODE1 reset opens, plus the
+> `alfred-inference` core dump it caused; all eleven resolved themselves
+> by 10:56 on `alert_quiet_minutes`, which is the event family's silence
+> rule working and `check_alerts`' fall note catching it.)* *(3 until 2026-09-03 13:26 —
 > `Unusual RAM usage` resolved itself across Session 162's restart,
 > which is `check_alerts`' fall note doing the job it was written for.)*
 >
