@@ -3,6 +3,44 @@
 **Last Updated**: 2026-09-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A published surface that was never published is gone** (2026-09-04,
+> Session 168). `SNAG-DOCS-003` is **closed**. The five contract models
+> describing estate-manager's 8400 routes survived a year of tidying
+> only because `sysadmin_tray` ships in the wheel, so an import list is a
+> published surface. Re-measured on the day rather than quoted from the
+> sitting that refuted the blocker: **31** `sysadmin_service` wheels on
+> this box, **0** carrying `sysadmin_tray/` code; no git remote and no
+> upstream; and an AST sweep of **20,795** `.py` files outside the
+> checkout finds **0** importers — keyed on the import and never on the
+> name, because estate-manager defines all five names itself and a
+> name-keyed sweep answers 5/5 and names the wrong party. Falsified with
+> a planted importer beside a same-named local decoy, because a constant
+> observation is not evidence until something would have forced a
+> different one.
+>
+> **The removal moved a measurement nobody was aiming at.**
+> `test_contract_reachability`'s docstring recorded that the walker, driven
+> at the **pre-fix** registry, could judge only **12** of the 15
+> unreachable models — three leaking in as roots from the shim's own
+> annotations and from the shim tests. Both sources went with the fix, and
+> the same drive at the same file now reports **15 of 15**. So the entry's
+> stated reason for keeping `test_none_of_them_are_defined_in_contracts`
+> expired on the commit that closed it; the test stays on what
+> reachability still cannot do — refuse a name that comes back *with a
+> reader wired to it*.
+>
+> **Four tests went where the entry said three, and two of the four would
+> have passed.** `test_a_live_re_export_does_not_warn` and
+> `test_an_unknown_name_still_raises_attribute_error` assert, after the
+> removal, a Python language guarantee about a module with no
+> `__getattr__` — a vacuous green reading as coverage of a mechanism that
+> no longer exists. A second empty population arrived with it and is
+> stated: `PortfolioAction` over `RecommendationInfo` was the registry's
+> only subclassing pair, so rule 3's base-class edge now has no member in
+> `contracts.py` and is exercised only by the synthetic. Suite
+> **3485 → 3478**, `ruff` and `mypy` clean; commit cites estate message
+> `e045373e`.
+
 > **The daemon's 462 MB is mostly page cache, and the entry's cost was
 > never in it** (2026-09-04, Session 167). `SNAG-SYSD-008` ranked
 > **P3 → P4** and measured. `memory.stat` answers it in two lines:
@@ -230,7 +268,9 @@
 > *"this repository cannot check"*. Its verdict is unaffected and still
 > `match`, so it is a wrong sentence rather than a wrong answer, and it
 > is recorded in the entry rather than fixed by a sitting scoped to
-> answering the blocker. Docs only, no code touched: the live parser
+> answering the blocker. *(Discharged 2026-09-04 by deletion rather than
+> by correction: the check retired with the entry, so the wrong sentence
+> went with it and none was written to a function nothing calls.)* Docs only, no code touched: the live parser
 > reads **124 entries / 19 open** either side, **9 of 9** ops claims
 > `ok`, and no restart is owed.
 
@@ -2088,8 +2128,16 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-04 12:23:38**
-> <!--check:deploy--> <!--check:daemon_start--> to deploy Session 166's
+> Daemon restarted at **2026-09-04 14:59:43**
+> <!--check:deploy--> <!--check:daemon_start--> by Session 168, so the box
+> matches the checkout after `SNAG-DOCS-003`'s deletions; PID 545156 →
+> 621239, `/health` 200, restart counter **5** of `StartLimitBurst=5`
+> with **zero** restarts inside the 600 s limiter window beforehand — the
+> counter is cumulative and the limiter is the window, which
+> `SNAG-SYSD-007` is about. Nothing the daemon serves changed
+> behaviourally: `snag_claims` is a console script and `sysadmin_tray` is
+> not in this process. *(Previously **2026-09-04 12:23:38**, to deploy
+> Session 166's
 > `fold_declared_incidents`, which takes effect only at start; PID
 > 435156 → 545156, back in 10 s on `RestartSec`, no `sudo`, restart
 > counter 4 of `StartLimitBurst=5` with **zero** restarts inside the
@@ -2100,7 +2148,9 @@
 > **0.51 and 0.52 s** against a pre-deploy median of **0.52 s** over 142
 > runs, so the fold and the graph read cost nothing measurable. The fold
 > itself cannot fire until the next reset, which is `SNAG-LOG-004`'s
-> ordering for the fourth time.
+> ordering for the fourth time. That reset arrived at 14:58:13 on
+> 2026-09-04 and the fold fired: one row naming ten further
+> signatures.)*
 >
 > _Previously restarted at 2026-09-04 10:59:25 to deploy Session 165b's
 > both-spellings `CRITICAL_SIGNATURES`, which takes effect only at start;
@@ -2277,11 +2327,19 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
 > rows <!--check:alerts-->, `High disk usage on /`,
-> `Project ImbaBots next action idle` and
-> `Estate port 3110 registry breach`, **3**
-> named here <!--check:open_titles-->. *(4 until 2026-09-04 — `Estate
+> `Project ImbaBots next action idle`,
+> `Estate port 3110 registry breach` and
+> `GPU was reset — every client lost its VRAM`, **4**
+> named here <!--check:open_titles-->. *(3 until 14:58 on 2026-09-04,
+> when a **genuine** amdgpu MODE1 reset opened the fourth — journal rows
+> at 14:58:13 on kernel `7.2.2-arch1-1`, the second reset of the day,
+> and not a resume-boundary re-read: it predates Session 168's 14:59:43
+> restart by 90 s and was raised by the process that died. It is
+> `SNAG-LOG-015`'s fix observed live and unplanned — **one** row reading
+> "One incident: 10 further signature(s)" where the 10:36 outbreak below
+> opened eleven.)* *(4 until 2026-09-04 — `Estate
 > hook session-notice.sh not wired for Notification` resolved itself,
 > which is `check_alerts`' fall note doing its job for the third
 > sitting running.)* *(15 at 10:36 on 2026-09-04 — the
@@ -5842,7 +5900,10 @@ contiguous regions. 83 classes → 68, 1,846 lines → 1,460. Suite **2229 →
   which teaches the reader to filter the category rather than act on it.
   The set is closed under its own field references, so the move cannot
   strand a served payload, and a test asserts that rather than a
-  docstring claiming it.
+  docstring claiming it. *(Past tense since 2026-09-04: the module, the
+  `__getattr__` and four of the five tests are gone with `SNAG-DOCS-003`.
+  The surface was never published — 0 of 31 wheels carry the code and no
+  importer exists on this box.)*
 - **Falsified at the real pre-fix file, which is the only way the guard's
   blind spot was visible.** A fresh unreachable model is reported
   exactly. Driven at the pre-fix registry the walker reports **12** of the

@@ -50,7 +50,6 @@ from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.core.text import strip_markdown as real_strip_markdown
 from sysadmin.snag_claims import (
     CHECKS,
-    DEPRECATED_MODULE,
     MAX_NAMED_ENTRIES,
     REVIEW_SCHEDULE_LEAVES,
     SNAG_PATH,
@@ -64,7 +63,6 @@ from sysadmin.snag_claims import (
     check_all,
     check_code_spans_survive,
     check_convention,
-    check_deprecated_contracts,
     check_dispositions,
     check_dropin_blind_spot,
     check_estate_port_8500,
@@ -998,22 +996,6 @@ class TestChecksAgainstTheLiveBox:
     the wrong thing.
     """
 
-    def test_deprecated_contracts_holds_and_is_refuted_when_the_shim_goes(self):
-        assert check_deprecated_contracts().verdict == "match"
-        with patch.object(snag_claims, "DEPRECATED_MODULE", Path("/nonexistent/gone.py")):
-            measurement = check_deprecated_contracts()
-        assert measurement.verdict == "mismatch"
-        assert "gone" in measurement.note
-
-    def test_deprecated_contracts_is_refuted_when_a_name_is_trimmed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            shim = Path(tmp) / "_deprecated_contracts.py"
-            shim.write_text("class RecommendationInfo:\n    pass\n", encoding="utf-8")
-            with patch.object(snag_claims, "DEPRECATED_MODULE", shim):
-                measurement = check_deprecated_contracts()
-        assert measurement.verdict == "mismatch"
-        assert "no longer defined" in measurement.note
-
     def test_estate_port_holds_and_is_refuted_when_the_row_is_edited(self):
         assert check_estate_port_8500().verdict == "match"
         with patch.object(snag_claims, "ESTATE_PORT_CLAIMANT", "sysadmin-assistant"):
@@ -1119,10 +1101,6 @@ class TestTheRealDocument:
             if check.snag in entries and not entries[check.snag].is_open
         ]
         assert not closed, f"checks name closed entries: {closed}"
-
-    def test_the_deprecated_module_still_holds_the_five_names(self):
-        """The one check whose constant is a list rather than a count."""
-        assert DEPRECATED_MODULE.exists()
 
     def test_check_all_reports_every_registered_check(self):
         findings = check_all()

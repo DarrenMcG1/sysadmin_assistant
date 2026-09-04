@@ -1,6 +1,32 @@
-# Handoff — 2026-09-04 (Session 167)
+# Handoff — 2026-09-04 (Session 168)
 
 ## Next action
+
+Take `SNAG-CFG-006`'s own named runtime fix in the sitting it asks for — derive `read_journal`'s read ceiling as the louder of `max_priority_for(source.severity_filter)` and the loudest `arrives_at` any `CRITICAL_SIGNATURES` entry declares for that source, so a `SIGHUP` narrowing the kernel source back to `error` cannot disarm a declaration while the suite stays green — and give the entry the disposition and the check it is one of three open entries still lacking.
+
+_**`SNAG-DOCS-003` is closed, and the surface it protected had never been published.**_ _`sysadmin_tray/_deprecated_contracts.py`, the PEP 562 `__getattr__` in `sysadmin_tray/models.py` (with the `warnings` and `Any` imports it was the only reader of), `check_deprecated_contracts` with `DEPRECATED_MODULE`, `DEPRECATED_NAMES` and the `_names_used` helper, and four of the five guard tests are gone. Open entries **24 → 23**; nothing opened. The commit cites estate message `e045373e`, filed by Session 163 before the change it announces._
+
+_**The blocker was re-measured on the day rather than quoted from the sitting that refuted it.**_ _**31** `sysadmin_service` wheels on this box and **0** carrying `sysadmin_tray/` code, checked by `unzip -l` rather than by name; **no git remote and no upstream** for `main`; and an AST sweep of **20,795** `.py` files outside this checkout across `~/projects`, `~/.claude`, `~/.local` and `~/.config` finds **0** importers. Keyed on the **import** and never on the name, because estate-manager defines all five names itself off its own `Contract` base — a name-keyed sweep answers 5/5 over there and names the wrong party. Falsified before it was believed: a planted `from sysadmin_tray.models import RecommendationInfo, PortfolioAction` beside a decoy **local** `class RecommendationInfo` gave importer reported, decoy ignored._
+
+_**The removal moved a measurement nobody was aiming at, which is the part worth carrying.**_ _`test_contract_reachability`'s docstring recorded that the walker, driven at the **pre-fix** registry, could judge only **12** of the 15 unreachable models — `PortfolioAction` and `RecommendationInfo` leaking in as roots from the shim's own annotations and base class, and `PortfolioActionsResponse` from `models.PortfolioActionsResponse` in the shim tests. Both sources went with the fix, and the same drive at `2bfa5c8~1:sysadmin/core/contracts.py` now reports **15 of 15** — measured either side, not inferred from the deletion. So the entry's stated reason for keeping `test_none_of_them_are_defined_in_contracts` (*the only cover for three names reachability cannot judge*) **expired on the commit that closed it**; the test stays on a stronger claim, refusing a name that comes back **with a reader wired to it**, which reachability would pass._
+
+_**Four tests went where the entry said three, and the discrepancy is instructive in both directions.**_ _`test_the_deprecated_set_is_closed_under_its_own_references` imports the deleted module, so it could not survive whatever one calls it; the three the entry counted are the ones exercising attribute access on `sysadmin_tray.models`. Two of those three **would have gone on passing** — after the removal, `test_a_live_re_export_does_not_warn` and `test_an_unknown_name_still_raises_attribute_error` assert a Python language guarantee about a module with no `__getattr__`, which is worse than a red test because a vacuous green reads as coverage of a mechanism that no longer exists._
+
+_**A second empty population arrived with it and is stated rather than left as silence.**_ _`PortfolioAction` over `RecommendationInfo` was the registry's **only** subclassing pair, measured by walking every `ClassDef`'s bases in `contracts.py`, so rule 3's base-class edge now has no member there. The edge is still exercised — by the synthetic falsification, where `Contract` is reachable by that edge alone and named by no reader — and the docstring says so, because an untested rule and a rule with an empty population read identically from outside._
+
+_**Writing the marker's own text into the closing bullet re-armed the guard the closure retires.**_ _The first draft of the snag entry's retirement bullet quoted `<!--check:deprecated_contracts-->` verbatim to say it was gone, and `test_no_marker_in_the_real_file_names_a_check_nobody_implements` went red: the marker vocabulary is **document-wide**, not entry-scoped, so a bullet reproducing one names a check nobody implements whatever the sentence around it says. The bullet names the check *key* instead — which is what `SNAG-ESTATE-013`'s own retirement bullet had already done, and reading it first would have saved the red._
+
+_**The check retired and no detector needed re-homing**, which is the first closure here where `FROZEN_TABLES`' rule is satisfied by something that already existed: the guard against this class returning is `test_none_of_them_are_defined_in_contracts`, kept. Note it would **not** have gone on reporting `still holds` over a landed closure — its first branch answers `mismatch` naming the missing module — so it went because every member of `CHECKS` names an open entry, not because it had stopped discriminating._
+
+_**One edit the previous sitting recorded as owed is discharged by deletion rather than correction.**_ _`check_deprecated_contracts`'s docstring still said the operational fact was one "this repository cannot check", which Session 161 refuted; the check is gone, so the wrong sentence went with it and none was written into a function nothing calls._
+
+_**Measured either side.**_ _Suite **3485 → 3478**, which is the arithmetic and not a coincidence: 4 retired from `test_contract_reachability` and 3 from `test_snag_claims` (the check's two falsifications plus `test_the_deprecated_module_still_holds_the_five_names`). `ruff check .` and `mypy sysadmin` clean. Entry checks **21 → 20** with every survivor unmoved, ops claims green, and the daemon restarted so the deploy claim reads `ok` — nothing the daemon serves changed behaviourally, `snag_claims` being a console script, but the box matching the checkout is the claim that gets checked._
+
+---
+
+# Handoff — 2026-09-04 (Session 167)
+
+### The action Session 167 filed (done by Session 168)
 
 Delete the five deprecated contract models from `sysadmin_tray/_deprecated_contracts.py` and close `SNAG-DOCS-003`, whose removal has been unblocked since 2026-09-03 with the audience measured empty, every off-box route closed and the change already announced at estate-manager as `e045373e`, so what remains is two deletions and a test edit.
 
@@ -124,7 +150,7 @@ _**Three opened, none closed.**_ _`SNAG-LOG-015`: one reset still occupies twelv
 
 # Handoff — 2026-09-03 (Session 163)
 
-### The action Session 163 filed (still open — `SNAG-DOCS-003`)
+### The action Session 163 filed (`SNAG-DOCS-003` — closed by Session 168 on 2026-09-04)
 
 Carry out `SNAG-DOCS-003`'s removal — delete `sysadmin_tray/_deprecated_contracts.py` and the `__getattr__` in `sysadmin_tray/models.py`, drop `TestDeprecatedNamesLeftTheRegistry`'s three behaviour tests while keeping `test_none_of_them_are_defined_in_contracts`, and cite estate message `e045373e` in the commit — because the audience is now measured empty, every off-box route is closed and the announcement is already filed, so the entry's only remaining cost is the deletion nobody has made.
 

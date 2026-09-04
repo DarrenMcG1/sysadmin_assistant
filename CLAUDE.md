@@ -286,28 +286,47 @@ Four rules, three of them corrections to how the entry was measured:
    what made `RecommendationInfo` look alive off one line of prose in
    `units/recommendations.py`), and `response_model=` needs no special
    case because it is already an `ast.Name` in a keyword.
-3. **Five names left the registry without leaving the wheel.**
-   `sysadmin_tray` ships in it, so removing a name from
-   `sysadmin_tray/models.py` is a change to a published surface;
-   `sysadmin_tray/_deprecated_contracts.py` holds
+3. **Five names left the registry without leaving the wheel, and left
+   the wheel on 2026-09-04** (`SNAG-DOCS-003` closed).
    `RecommendationInfo`, `ProjectRecommendationsResponse`,
    `PortfolioAction`, `PortfolioActionsResponse` and
-   `ProjectReviewResponse`, resolved by a PEP 562 module `__getattr__`
-   that warns on **access** rather than at import — warning at import
-   fires on every tray start whether or not anything touched a
-   deprecated name, which teaches the reader to filter the category.
-   The set is closed under its own references, so the move cannot strand
-   a served payload. Removal is `SNAG-DOCS-003`.
-4. **The guard's own blind spot is measured and stated rather than
-   implied.** `tests` is a consumer package on purpose — a model
-   exercised only by its round-trip test is consumed — so a name this
-   suite mentions is a root by that mention alone. Driven at the
-   **pre-fix** registry the walker reports **12** of the 15: three leak
-   in from the shim's own annotations and from `models.PortfolioActionsResponse`
-   in the new test. `test_none_of_them_are_defined_in_contracts` is what
-   covers those three — two tests composing rather than one doing both,
-   and visible only because the falsification was driven at the real
-   pre-fix file instead of a synthetic name, which passes cleanly.
+   `ProjectReviewResponse` spent ten days in
+   `sysadmin_tray/_deprecated_contracts.py` behind a PEP 562 module
+   `__getattr__` warning on **access** rather than at import, because
+   `sysadmin_tray` ships in the wheel and an import list is a published
+   surface. **It had never been published**: 0 of 31 `sysadmin_service`
+   wheels on this box carry `sysadmin_tray/` code (every one a uv
+   *editable* stub), there is no git remote, and an AST sweep of 20,795
+   `.py` files outside the checkout finds 0 importers — keyed on the
+   **import**, because estate-manager defines all five names itself and
+   a name-keyed sweep answers 5/5 and names the wrong party. The module,
+   the `__getattr__`, `check_deprecated_contracts` and four of the five
+   guard tests are gone; `test_none_of_them_are_defined_in_contracts`
+   stays, on the half reachability cannot reach — a name returning
+   *with a reader wired to it*.
+4. **The guard's own blind spot was measured, and the removal closed
+   it.** `tests` is a consumer package on purpose — a model exercised
+   only by its round-trip test is consumed — so a name this suite *uses*
+   is a root by that use alone. Driven at the **pre-fix** registry while
+   the shim existed the walker reported **12** of the 15: three leaked in
+   as roots, `PortfolioAction` and `RecommendationInfo` from the shim's
+   own annotations and base class and `PortfolioActionsResponse` from
+   `models.PortfolioActionsResponse` in the shim tests. Both sources went
+   with `SNAG-DOCS-003` on 2026-09-04 and **the same drive at the same
+   file now reports 15 of 15** — re-measured either side, not inferred.
+   So the stated reason for keeping
+   `test_none_of_them_are_defined_in_contracts` — *the only cover for
+   three names reachability cannot judge* — **expired on the commit that
+   closed the entry**, and the test now stands on a stronger claim:
+   reachability asks whether a model is read, and this asks whether it
+   belongs here at all, which is the case a name returning **with a
+   reader wired to it** would pass and this would fail. The blind spot
+   was visible at all only because the falsification was driven at the
+   real pre-fix file rather than at a synthetic name, which passes
+   cleanly — and a rule 3 base-class illustration went with it: that pair
+   was the registry's only one, so the edge now has an **empty
+   population** in `contracts.py` and is exercised by the synthetic
+   alone, which the docstring states rather than leaving as silence.
 
 **Two things speak on this box, and only one of them at a time.** The tray
 polls `GET /api/sysadmin/alerts` and owns the notification policy (dedup,

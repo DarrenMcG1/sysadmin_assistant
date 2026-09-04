@@ -36,36 +36,55 @@ is an **AST walk rather than a grep**.  Three rules:
    in a keyword argument, so rule 1 already catches it.  A second rule
    naming it would be a second statement of one fact.
 3. **The closure follows field annotations and base classes**, which is
-   how a served payload keeps its members alive.  ``PortfolioAction``
-   subclasses ``RecommendationInfo``; deleting the parent while the child
-   lives is the failure this direction of the edge prevents.
+   how a served payload keeps its members alive: deleting a parent while
+   its child lives is the failure this direction of the edge prevents.
+   The base-class half has an **empty population in the registry** since
+   ``SNAG-DOCS-003``'s removal on 2026-09-04 — measured, the one
+   subclassing pair was ``PortfolioAction`` over ``RecommendationInfo``
+   and both left with it — so it is the synthetic below that exercises
+   it, where ``Contract`` is reachable by that edge alone and named by no
+   reader.  An empty population is stated rather than left as silence to
+   be read as coverage.
 
 Two of the tests below exist so the detector can be seen to fail —
 ``tests/test_autogenerate_config.py``'s rule, for its reason: a walker
 that reports nothing is indistinguishable from a walker that finds
 nothing.
 
-**One limit, measured rather than reasoned about.**  ``tests`` is a
+**One cost, measured rather than reasoned about.**  ``tests`` is a
 consumer package on purpose — a model exercised only by its round-trip
 test is consumed, and excluding them would report every parse-side
-contract as dead.  The cost is that a name this suite mentions is a root
-by that mention alone.  Driving the walker at the pre-fix registry
-reports **12** of the 15, not 15: ``PortfolioAction`` and
-``RecommendationInfo`` leak in from ``_deprecated_contracts``'s own field
-annotations and base class, and ``PortfolioActionsResponse`` from
-``models.PortfolioActionsResponse`` in ``TestDeprecatedNamesLeftTheRegistry``
-below.  So those three cannot be judged by reachability any more, and
-``test_none_of_them_are_defined_in_contracts`` is what covers them —
-two tests composing rather than one doing both.  A synthetic name is not
-subject to it, which is why the falsification below uses one and why
-this had to be driven at the real pre-fix file to be seen at all.
+contract as dead.  The cost is that a name this suite *uses* is a root by
+that use alone, so a synthetic falsification has to use a name the suite
+does not otherwise name.
+
+**That cost was load-bearing until 2026-09-04 and is not any more**,
+which is worth carrying because it moved without anyone aiming at it.
+Driven at the pre-fix registry **while the shim existed**, the walker
+reported **12** of the 15: ``PortfolioAction`` and ``RecommendationInfo``
+leaked in from ``_deprecated_contracts``'s own field annotations and base
+class, and ``PortfolioActionsResponse`` from
+``models.PortfolioActionsResponse`` in this class's shim tests.
+``SNAG-DOCS-003``'s removal deleted both sources, and the same drive at
+the same pre-fix file now reports **15 of 15** — measured either side,
+not inferred from the deletion.  Every surviving mention of the five is a
+docstring or a string literal in ``DEPRECATED_NAMES``, and neither is an
+``ast.Name``.
+
+So ``test_none_of_them_are_defined_in_contracts`` keeps its place on a
+**stronger claim than the one it was written for**, and its old reason
+has expired.  It was the only cover for three names reachability could
+not judge; reachability judges all five again, and what it still cannot
+do is refuse a name that comes back *with a reader wired to it* — which
+for these five would be this repository serving an estate-manager route
+it gave away under ADR-0005.  Reachability asks whether a model is read;
+this asks whether it belongs here at all.
 """
 
 from __future__ import annotations
 
 import ast
 import pathlib
-import warnings
 
 import pytest
 
@@ -77,9 +96,10 @@ CONTRACTS = REPO / "sysadmin/core/contracts.py"
 #: excluding them would report every parse-side contract as dead.
 CONSUMER_PACKAGES = ("sysadmin", "sysadmin_tray", "tests")
 
-#: Names ``sysadmin_tray.models`` still resolves, deprecated, pending
-#: removal under ``SNAG-DOCS-003``.  They must not be back in the
-#: registry — that is what this session moved them out of.
+#: The five that left the registry on 2026-08-25 and this repository
+#: altogether on 2026-09-04, when ``SNAG-DOCS-003``'s deprecation shim
+#: was removed.  They describe estate-manager's routes on 8400; nothing
+#: here resolves them any more, and they must not come back.
 DEPRECATED_NAMES = frozenset(
     {
         "RecommendationInfo",
@@ -210,42 +230,15 @@ class TestDetectorCanFail:
 
 
 class TestDeprecatedNamesLeftTheRegistry:
+    """They left the registry on 2026-08-25 and the wheel on 2026-09-04.
+
+    Reachability can judge all five again since the shim went, so this is
+    no longer their only cover — it is the half reachability cannot
+    reach: a name re-added *with* a reader passes that walk and fails
+    this, and for these five a reader here would be this repository
+    serving a route it gave away under ADR-0005.
+    """
+
     def test_none_of_them_are_defined_in_contracts(self) -> None:
         classes, _ = model_graph(CONTRACTS.read_text())
         assert classes & DEPRECATED_NAMES == set()
-
-    def test_the_deprecated_set_is_closed_under_its_own_references(self) -> None:
-        """Moving them cannot strand a member behind in the registry."""
-        from sysadmin_tray import _deprecated_contracts as dep
-
-        assert dep.DEPRECATED_NAMES == DEPRECATED_NAMES
-        classes, edges = model_graph(
-            (REPO / "sysadmin_tray/_deprecated_contracts.py").read_text()
-        )
-        for name in DEPRECATED_NAMES:
-            assert edges[name] <= classes, name
-
-    def test_a_deprecated_name_resolves_and_warns(self) -> None:
-        from sysadmin_tray import models
-
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            parsed = models.PortfolioActionsResponse.model_validate({})
-        assert parsed.count == 0
-        assert [w.category for w in caught] == [DeprecationWarning]
-        assert "SNAG-DOCS-003" in str(caught[0].message)
-
-    def test_a_live_re_export_does_not_warn(self) -> None:
-        """``__getattr__`` runs only after normal lookup fails."""
-        from sysadmin_tray import models
-
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            models.ManagedProjectsResponse.model_validate({})
-        assert caught == []
-
-    def test_an_unknown_name_still_raises_attribute_error(self) -> None:
-        from sysadmin_tray import models
-
-        with pytest.raises(AttributeError, match="NoSuchContract"):
-            models.NoSuchContract

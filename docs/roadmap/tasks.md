@@ -240,18 +240,51 @@ debts that landing deliberately left behind._
       - **One code edit is owed and deliberately not made.**
         `check_deprecated_contracts`'s docstring still claims the fact is
         uncheckable here; the verdict is unaffected and still `match`, so
-        it is a wrong sentence rather than a wrong answer
+        it is a wrong sentence rather than a wrong answer. *(Discharged
+        2026-09-04 by Session 168, by deletion rather than correction.)*
 
-- [ ] **Next session — carry out `SNAG-DOCS-003`'s removal.** Delete
-      `sysadmin_tray/_deprecated_contracts.py` and the `__getattr__` in
-      `sysadmin_tray/models.py`, drop `TestDeprecatedNamesLeftTheRegistry`'s
-      three behaviour tests, and cite `e045373e` in the commit.
-      - **Keep `test_none_of_them_are_defined_in_contracts`** — it is the
-        only cover for the three names `test_contract_reachability` cannot
-        judge, for the reason that file's docstring measures
-      - **Correct `check_deprecated_contracts`'s docstring** in the same
-        sitting, and retire the check with the entry while re-homing its
-        detector — `FROZEN_TABLES`' rule, as every closure here does
+- [x] **Session 168 — a published surface that was never published is
+      gone.** *(2026-09-04, `SNAG-DOCS-003` **closed**; nothing opened.)*
+      `sysadmin_tray/_deprecated_contracts.py`, the PEP 562 `__getattr__`
+      in `sysadmin_tray/models.py`, `check_deprecated_contracts` with its
+      two constants and `_names_used`, and four of the five guard tests
+      are deleted; commit cites estate message `e045373e`.
+      - **The blocker was re-measured on the day rather than quoted.**
+        31 `sysadmin_service` wheels, **0** carrying `sysadmin_tray/`
+        code by `unzip -l`; no git remote and no upstream; an AST sweep
+        of **20,795** `.py` files outside the checkout finds **0**
+        importers — keyed on the import, never the name, because
+        estate-manager defines all five names itself and a name-keyed
+        sweep answers 5/5 and names the wrong party. Falsified with a
+        planted importer beside a same-named local decoy
+      - **The removal moved a measurement nobody was aiming at.** The
+        reachability walker, driven at the **pre-fix** registry, judged
+        **12** of the 15 unreachable models; the shim and its tests were
+        the three roots leaking in, and the same drive now reports
+        **15 of 15**. So the entry's stated reason for keeping
+        `test_none_of_them_are_defined_in_contracts` expired on the
+        commit that closed it — the test stays on the half reachability
+        still cannot reach, a name returning *with a reader wired to it*
+      - **Four tests went where the entry said three, and two of the four
+        would have passed.** `test_the_deprecated_set_is_closed_under_its_own_references`
+        imports the deleted module and could not survive; the two that
+        exercise attribute access after the removal assert a Python
+        language guarantee about a module with no `__getattr__`, which is
+        a vacuous green reading as coverage of a mechanism that is gone
+      - **A second empty population is stated rather than left as
+        silence.** `PortfolioAction` over `RecommendationInfo` was the
+        registry's only subclassing pair, so rule 3's base-class edge now
+        has no member in `contracts.py`; the synthetic falsification is
+        what exercises it, and the docstring says so
+      - **The check retired and no detector needed re-homing** —
+        `FROZEN_TABLES`' rule met by a guard that already existed. The
+        owed docstring correction was discharged by deletion rather than
+        by rewriting a sentence in a function nothing calls
+      - **Writing the marker's own text into the closing bullet re-armed
+        the guard the closure retires.** The marker vocabulary is
+        document-wide rather than entry-scoped, so a bullet quoting
+        `<!--check:NAME-->` verbatim names a check nobody implements; the
+        bullet names the check *key* instead
 
 - [x] **Session 162 — a marked cut says an identity was lost; now it
       gives one back.** *(2026-09-03, `SNAG-LOG-013` **closed**;

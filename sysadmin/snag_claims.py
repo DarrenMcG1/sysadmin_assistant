@@ -682,18 +682,6 @@ RETIRED_UNIT = "ollama.service"
 #: the regression guard in :mod:`tests.test_config_defaults`.
 REVIEW_SCHEDULE_LEAVES = frozenset({"review_hour", "review_minute"})
 
-#: ``SNAG-DOCS-003``'s five names and the module holding them.
-DEPRECATED_MODULE = REPO_ROOT / "sysadmin_tray" / "_deprecated_contracts.py"
-DEPRECATED_NAMES = frozenset(
-    {
-        "RecommendationInfo",
-        "ProjectRecommendationsResponse",
-        "PortfolioAction",
-        "PortfolioActionsResponse",
-        "ProjectReviewResponse",
-    }
-)
-
 #: ``SNAG-ESTATE-005``'s row and the name it gives the port.
 ESTATE_PORT = "8500"
 ESTATE_PORT_CLAIMANT = "sysadmin-service"
@@ -889,70 +877,6 @@ def check_tray_report_unheard() -> Measurement:
         f"and load_tray_config has {tray_callers} call sites",
         detail,
     )
-
-
-def check_deprecated_contracts() -> Measurement:
-    """``SNAG-DOCS-003`` — five deprecated models with no reader here.
-
-    The entry's closure needs an *operational* fact this repository cannot
-    check — where the wheel went — so what is measurable is the other
-    half: that the five are still defined and still unread inside this
-    checkout.  A check that cannot answer the whole question answers the
-    part it can and says which part, which is ``ports_checked``'s rule.
-    """
-    tree = _parse(DEPRECATED_MODULE)
-    if tree is None:
-        return Measurement(
-            "mismatch",
-            f"{_rel(DEPRECATED_MODULE)} does not parse or is gone — the removal the entry "
-            "describes may already have happened",
-        )
-    defined = {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
-    missing = DEPRECATED_NAMES - defined
-    if missing:
-        return Measurement(
-            "mismatch",
-            f"{len(missing)} of the five names are no longer defined — the shim has been "
-            "trimmed and the entry's population has moved",
-            tuple(sorted(missing)),
-        )
-    readers = [
-        f"{_rel(path)}"
-        for path in _python_files((REPO_ROOT / "sysadmin", REPO_ROOT / "sysadmin_tray"))
-        if path not in (DEPRECATED_MODULE, REPO_ROOT / "sysadmin_tray" / "models.py")
-        and _names_used(path) & DEPRECATED_NAMES
-    ]
-    if not readers:
-        return Measurement("match", "", (f"five names defined in {_rel(DEPRECATED_MODULE)}",))
-    return Measurement(
-        "mismatch",
-        f"{len(readers)} module(s) name one of the five — the entry's *"
-        "nothing reads any of the five* no longer holds",
-        tuple(sorted(set(readers))[:MAX_NAMED_ENTRIES]),
-    )
-
-
-def _names_used(path: Path) -> set[str]:
-    """Every identifier a module *uses*, imports excluded.
-
-    ``test_contract_reachability``'s rule 2, borrowed whole: a name in an
-    import list is not a reader, and a docstring is an ``ast.Constant``
-    that falls out for free — which is exactly what made
-    ``RecommendationInfo`` look alive off one line of prose the last time
-    this question was asked.
-    """
-    tree = _parse(path)
-    if tree is None:
-        return set()
-    used: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            continue
-        if isinstance(node, ast.Name):
-            used.add(node.id)
-        elif isinstance(node, ast.Attribute):
-            used.add(node.attr)
-    return used
 
 
 def check_estate_port_8500() -> Measurement:
@@ -3633,11 +3557,11 @@ TIMER_ADVICE_MODULE = "sysadmin.monitor.service_recommendations"
 def imported_modules(path: Path) -> set[str]:
     """Every module one file imports, dotted, both statement forms.
 
-    The exact opposite selection from :func:`_names_used`, and
-    deliberately: that function excludes imports because a name in an
-    import list is not a *reader*, and this one keeps only imports because
-    a module that has wired two families together has to have named both
-    of them at the top of the file.
+    The exact opposite selection from a *reader* sweep, and deliberately:
+    such a sweep excludes imports because a name in an import list is not
+    a reader (``tests/test_contract_reachability.py``'s rule 2), and this
+    one keeps only imports because a module that has wired two families
+    together has to have named both of them at the top of the file.
 
     Absolute imports only.  A relative one cannot be resolved to a dotted
     name without knowing the package root, and this repository writes none
@@ -7359,12 +7283,6 @@ CHECKS: dict[str, Check] = {
             "SNAG-TRAY-011",
             "the tray's config report reaches no reader",
             check_tray_report_unheard,
-        ),
-        Check(
-            "deprecated_contracts",
-            "SNAG-DOCS-003",
-            "five deprecated models, no reader here",
-            check_deprecated_contracts,
         ),
         Check(
             "estate_port_8500",
