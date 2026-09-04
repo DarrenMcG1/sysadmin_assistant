@@ -2143,6 +2143,54 @@ debts that landing deliberately left behind._
 
 ## Active Sessions
 
+## Session 170 — the haystack was the defect, not the rule (2026-09-04) ✅
+
+_`SNAG-ESTATE-016` closed. The entry's stated fix was right; what it did
+not say is where a sentence ends, which is where the sitting went. None
+opened._
+
+- [x] **The haystack is one sentence, and the region is why.**
+      `claim_sentence` locates the sentence bearing the `open_titles`
+      marker and matches titles against that alone: **178,301 → 290**
+      characters at `9a3fe30`. The substring rule is untouched, and so is
+      the direction — a *name with no row* still belongs to
+      `check_alerts`' fall note, which is what lets the block's
+      parentheticals go on naming resolved titles harmlessly.
+- [x] **Falsified against the real commit, with the premise asserted
+      first.** `TestTheBlockThatOpenedTheEntry` reads
+      `9a3fe30:docs/roadmap/STATUS.md` out of git, pins its flattened
+      length, and then asserts the sentence named a row that was not open
+      while the omitted title's one occurrence sat **5,000+** characters
+      below the marker. Skipped only when the commit does not resolve;
+      red for every other way `git show` can fail.
+- [x] **The control that separates discrimination from loudness.** The
+      *same* block still matches the four rows its sentence describes.
+      Without it, any change making the check noisier passes the
+      refutation test — which the "can never match" mutation confirmed by
+      taking eight tests down and leaving that one standing.
+- [x] **Rule 7 survives the marker becoming load-bearing.** It decides
+      *where* to look, never *whether*: the population is the alert
+      table's. So no marker is `unknown` naming the remedy and can never
+      be `match`, driven at one block in both spellings. Two markers with
+      one key are refused, `read_claim`'s rule — a live shape here, since
+      `migration_head` is marked twice.
+- [x] **A test credited the wrong mechanism and stayed green when it was
+      removed.** The quoted-title test is saved by the code-span veil,
+      not by the lookahead. The lookahead's real population is a bold
+      decimal in prose — and the figure has to sit *between* the titles
+      and the marker, since a cut ahead of the list leaves every title
+      inside the sentence and the fixture agrees with the mutation.
+- [x] **The terminator's trailing class was measured, not chosen.**
+      `[.!?](?=\s|$)` agrees with the shipped pattern on **both** real
+      blocks, so nothing here would have caught it. The region carries
+      **290** prose full stops with no space after them, overwhelmingly
+      `.` closing a bolded lead-in — without the class the sentence runs
+      backwards through the whole paragraph.
+- [x] **Thirteen mutations, thirteen killed.** Suite **3504 → 3526**,
+      `ruff` and `mypy` clean, snag register 24 open → 23. No check was
+      owed for the closed entry (it carried none), so nothing was
+      re-homed; the guard is the test above, `FROZEN_TABLES`' rule.
+
 ## Session 169 — the relation was dissolved rather than judged (2026-09-04) ✅
 
 _`SNAG-CFG-006` closed by derivation. Its own named fix was measured

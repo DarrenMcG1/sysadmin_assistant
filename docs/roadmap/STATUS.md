@@ -3,6 +3,70 @@
 **Last Updated**: 2026-09-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A membership claim is read from one sentence, because the region it
+> was read from is append-only** (2026-09-04, Session 170).
+> `SNAG-ESTATE-016` is **closed**. `check_open_titles` asked whether every
+> unresolved title appeared *anywhere* in the printed region, and that
+> region has grown to **178,301** characters of accumulated sittings — so
+> a recurring fault's title satisfied the test on the strength of having
+> been written down once, four sittings ago. `claim_sentence` narrows the
+> haystack to the sentence bearing the `open_titles` marker: **290**
+> characters at `9a3fe30`, and the two blocks then differ in exactly the
+> one title.
+>
+> **Falsified against the real commit rather than against a fixture of its
+> shape.** At `9a3fe30` the sentence named `GPU was reset — every client
+> lost its VRAM`, which had resolved, and omitted
+> `High VRAM usage on AMD Radeon RX 7900 XTX`, which was open; the missing
+> title's **one** occurrence in the region sits more than **5,000**
+> characters below the marker, in an account of a fault four sittings old.
+> The narrowed check reports `3 named` against `4 open` there and names
+> the missing row. **The same block still matches the four rows its own
+> sentence describes**, which is the control that separates a check that
+> discriminates from one that merely got louder — without it, any change
+> making the check noisier would pass.
+>
+> **The marker became load-bearing and rule 7 survives it.** A marker may
+> never gate a check; here it decides *where* to look rather than
+> *whether*, since the population comes from the alert table and is read
+> either way. So deleting it turns a `mismatch` into an `unknown` naming
+> the remedy and **can never yield a `match`** — driven at one block in
+> both spellings. Rule 2's tri-state is what lets a marker be
+> load-bearing without being a switch. Two markers with one key are
+> refused rather than resolved (`read_claim`'s rule), which is a live
+> shape here: `migration_head` is marked in two places.
+>
+> **Two of the tests had to be repaired before they could kill anything,
+> and the first is the one worth carrying.** A test asserting that a full
+> stop inside a quoted title does not end the sentence stayed **green**
+> when the lookahead it credits was removed — a quoted title is blanked
+> by the code-span veil before any boundary is looked for, so it asserted
+> a behaviour and named the wrong mechanism. Its real population is a
+> **bold decimal in prose**, which the veil cannot reach, and the figure
+> has to sit *between* the titles and the marker or the cut lands
+> harmlessly ahead of the list. The second placed a parenthetical after
+> the marked sentence, where the extraction stops at the marker's own full
+> stop and the terminator class decides nothing.
+>
+> **The sentence terminator gained a trailing class on a measurement.**
+> The first pattern demanded whitespace immediately after the stop and
+> agrees with the final one on **both** real blocks, so nothing here would
+> have caught it. The region carries **290** prose full stops with no
+> space after them, overwhelmingly the bolded lead-in — the shape almost
+> every paragraph in this block opens with — and without the class the
+> terminator is refused and the marked sentence runs backwards through the
+> whole lead-in. That is this entry's defect at one paragraph instead of
+> at 178 kB.
+>
+> **This block is its own regression test.** Writing it puts a fourth copy
+> of `High VRAM usage on AMD Radeon RX 7900 XTX` and a third of
+> `GPU was reset — every client lost its VRAM` into the region, above the
+> sentence that claims them — which under the old rule was exactly how a
+> name got written down for ever, and under the new one changes nothing.
+> Thirteen mutations driven and thirteen killed; suite **3504 → 3526**,
+> `ruff` and `mypy` clean; the snag register moves 24 open to 23 and the
+> closed entry carried no check, so nothing had to be re-homed.
+
 > **A derived relation cannot be broken by a config edit, and the entry's
 > own named fix was measurably inert** (2026-09-04, Session 169).
 > `SNAG-CFG-006` is **closed**. `CriticalSignature.arrives_at` was
@@ -2195,14 +2259,19 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-04 16:05:31**
-> <!--check:deploy--> <!--check:daemon_start--> by Session 169, so the box
-> serves `SNAG-CFG-006`'s derived read ceiling; PID 621239 → 658806 →
-> 704516 — **twice in one sitting**, the second only to pick up
-> `snag_claims.py`, a console script the daemon never imports, because
-> the deploy check compares mtimes and cannot know that. Restart counter
-> **7**, both well outside the 600 s limiter window `SNAG-SYSD-007` is
-> about;
+> Daemon restarted at **2026-09-04 16:45:07**
+> <!--check:deploy--> <!--check:daemon_start--> by Session 170, PID
+> 704516 → 829338, restart counter **8**. It buys the box nothing and is
+> paid anyway: `ops_claims.py` is a console script the daemon never
+> imports, so this is the third restart in two sittings owed entirely to
+> the deploy check comparing mtimes over `sysadmin/` — rule 4's stated
+> cost, which is one `kill -TERM` and no `sudo`, against a check that
+> would otherwise open every future sitting with a `no` nobody should
+> act on. *(Previously **16:05:31** by Session 169, so the box serves
+> `SNAG-CFG-006`'s derived read ceiling; PID 621239 → 658806 → 704516,
+> twice in one sitting and the second for the same reason. Both were
+> well outside the 600 s limiter window `SNAG-SYSD-007` is about, and so
+> is this one.)*;
 > `/health` 200, clean `log_aggregator` runs with
 > `truncated_sources []`. **The fix's own branch is invisible at the
 > shipped config and says so**: `severity_filter: info` already admits
@@ -2736,6 +2805,63 @@
 ---
 
 ## Recently Completed
+
+### Session 170 — the haystack was the defect, not the rule (2026-09-04)
+
+`SNAG-ESTATE-016` closed. The substring test in `check_open_titles` was
+right; what was never weighed is that the region it ran over is
+**append-only**. `printed_region` flattened to **178,301** characters at
+`9a3fe30`, because every past sitting's account accumulates below the
+sentence that states what is open — so a recurring fault's title
+satisfied the test on the strength of having been written down once.
+`claim_sentence` narrows it to the sentence bearing the `open_titles`
+marker: **290** characters, and the discrimination is back.
+
+**The specimen is the real commit, and the premise is asserted before
+either verdict is believed.** `TestTheBlockThatOpenedTheEntry` reads
+`9a3fe30:docs/roadmap/STATUS.md` out of git and pins its flattened length
+first, because a specimen that had drifted would let both verdicts pass
+for the wrong reason. It then asserts the sentence named a row that was
+not open, that the omitted title's **one** occurrence sits more than
+**5,000** characters below the marker, that the narrowed check reports
+`3 named` against `4 open` — and, as the control that matters, that the
+**same block still matches the four rows its sentence describes**.
+Without that last one, any change making the check louder would pass.
+
+**Rule 7 survives the marker becoming load-bearing, and rule 2 is why.**
+A marker may never gate a check. Here it decides *where* to look rather
+than *whether*: the population is the alert table's and is read either
+way, so an absent marker is `unknown` with the remedy named and **never**
+`match`. Deleting a marker cannot make a failing check pass, which is the
+property pinned rather than the wording. Two markers sharing one key are
+refused rather than resolved — `read_claim`'s rule, and a live shape in
+this document, where `migration_head` is marked twice.
+
+**Two tests were repaired before they could kill anything, and the first
+is the shape this repository keeps finding.** A test asserting that a
+full stop inside a quoted title does not end the sentence stayed green
+when the lookahead it credits was removed: the title is quoted, so the
+code-span veil had already blanked it and the lookahead was never
+reached. It asserted a behaviour and named the wrong mechanism. The
+lookahead's real population is a **bold decimal in prose**, and the
+figure must sit *between* the titles and the marker — the first attempt
+put it ahead of the list, where the cut is harmless and the fixture
+agreed with the mutation it was written to kill.
+
+**The terminator's trailing class came from a measurement that nothing
+else in this sitting would have made.** The first pattern demanded
+whitespace immediately after the stop, and it agrees with the shipped one
+on **both** real blocks. The region carries **290** prose full stops with
+no space after them, overwhelmingly a bolded lead-in — how nearly every
+paragraph in the session block opens — so without the class the
+terminator is refused and the marked sentence runs backwards through the
+lead-in: this entry's defect at one paragraph instead of at 178 kB.
+
+**Thirteen mutations driven, thirteen killed**, each by a test that names
+it. Suite **3504 → 3526**, `ruff` and `mypy` clean, snag register 24 open
+to 23. No check was added for the closed entry and none was owed — it was
+one of the three carrying none — so nothing had to be re-homed; the guard
+is the test above, `FROZEN_TABLES`' rule.
 
 ### Session 169 — the relation was dissolved rather than judged (2026-09-04)
 

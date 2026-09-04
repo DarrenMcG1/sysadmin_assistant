@@ -17,6 +17,7 @@ sentence would otherwise retire the check in silence.
 import contextlib
 import os
 import re
+import subprocess
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -47,7 +48,9 @@ from sysadmin.ops_claims import (
     check_expiry,
     check_markers,
     check_open_titles,
+    claim_sentence,
     compare_claim,
+    flatten,
     load_region,
     main,
     measure_routes,
@@ -961,9 +964,16 @@ class TestOpenTitlesAreNamed:
 
     One row resolving as another opens holds the total still while the
     block's sentence about *which* rows are open goes silently wrong.
+
+    ``BLOCK`` carries the marker because the real document does, and has
+    since ``SNAG-ESTATE-011``.  The fixture went without one for as long
+    as the check read the whole region, which is the shape recorded
+    against ``UnitFinding.enabled``'s stand-ins: a fixture that omits a
+    field the production artefact always carries is not a smaller
+    document, it is a different one.
     """
 
-    BLOCK = "> `Estate scan could not reach sources` is expected."
+    BLOCK = "> `Estate scan could not reach sources` is expected <!--check:open_titles-->."
 
     def test_a_row_the_block_never_mentions_is_named(self):
         facts = DatabaseFacts(
@@ -991,6 +1001,452 @@ class TestOpenTitlesAreNamed:
         facts = DatabaseFacts(None, None, (), "the database did not answer (OperationalError)")
         claim = check_open_titles(self.BLOCK, "", facts)
         assert claim.verdict == "unknown"
+
+
+class TestTheHaystackIsOneSentence:
+    """``SNAG-ESTATE-016`` — rule 10.
+
+    The substring test was right and the region it ran over is
+    append-only, so a title written down once was named for ever.  These
+    pin the narrowing itself; :class:`TestTheBlockThatOpenedTheEntry`
+    drives it at the real document that produced the finding.
+    """
+
+    #: The entry's shape at fixture size: the marked sentence names one
+    #: row, and a past sitting's account below it names the other.  Every
+    #: test here is falsified by matching against ``flatten(BLOCK)``, which
+    #: is what the check did before.
+    BLOCK = (
+        "> `alerts` holds **2** unresolved rows, `Estate scan could not reach\n"
+        "> sources` and `Project Alfred next action idle`, **2** named here\n"
+        "> <!--check:open_titles-->.\n"
+        "> *(1 until 09:00 — `High VRAM usage on AMD Radeon RX 7900 XTX`\n"
+        "> resolved, which is `check_alerts`' fall note doing its job.)*\n"
+        "> Previously: the sitting spent itself on\n"
+        "> `High VRAM usage on AMD Radeon RX 7900 XTX`, four sittings ago.\n"
+    )
+
+    def test_a_title_only_a_past_sitting_wrote_down_does_not_count(self):
+        """The founding case, at fixture size.
+
+        Falsified against the pre-fix rule: the title is in the region
+        twice, so the whole-region test answers ``match`` and this
+        answers ``mismatch``.
+        """
+        open_now = (
+            "warning: Estate scan could not reach sources",
+            "warning: Project Alfred next action idle",
+            "warning: High VRAM usage on AMD Radeon RX 7900 XTX",
+        )
+        claim = check_open_titles(self.BLOCK, "", DatabaseFacts(11, 3, open_now))
+        assert claim.verdict == "mismatch"
+        assert claim.detail == ("unnamed: warning: High VRAM usage on AMD Radeon RX 7900 XTX",)
+        assert "past sitting" in claim.note
+        # The pre-fix reading, spelled out rather than described.
+        assert "High VRAM usage on AMD Radeon RX 7900 XTX" in flatten(self.BLOCK)
+
+    def test_the_rows_the_sentence_names_still_match(self):
+        """The narrowing discriminates; it did not merely get stricter.
+
+        Same block, same 178 kB-shaped history, a different population —
+        and the verdict moves with the population rather than with the
+        change.
+        """
+        open_now = (
+            "warning: Estate scan could not reach sources",
+            "warning: Project Alfred next action idle",
+        )
+        assert check_open_titles(self.BLOCK, "", DatabaseFacts(11, 2, open_now)).verdict == "match"
+
+    def test_a_resolved_title_the_fall_note_names_is_not_an_offence(self):
+        """The direction the docstring reserves stays reserved.
+
+        ``check_alerts``' fall note legitimately names a row that has
+        since resolved, and the parenthetical carrying it sits outside the
+        marked sentence — so it neither satisfies this check nor breaks
+        it.  Falsified by asserting on the sentence rather than the
+        verdict: a rule that refused an unmatched *name* would fire here.
+        """
+        open_now = ("warning: Estate scan could not reach sources",
+                    "warning: Project Alfred next action idle")
+        sentence, _ = claim_sentence(self.BLOCK, "open_titles")
+        assert "resolved, which is" not in sentence
+        assert check_open_titles(self.BLOCK, "", DatabaseFacts(11, 2, open_now)).verdict == "match"
+
+
+class TestTheMarkerDecidesWhereNotWhether:
+    """Rule 10's half of rule 7 — the marker may never yield ``match``.
+
+    A marker is additive and cannot gate a check.  Here it decides the
+    haystack, so its absence is a genuine not-knowing; what rule 2 buys is
+    that not-knowing is a third verdict, so ``delete the marker`` cannot
+    be used to make a failing check pass.
+    """
+
+    UNMARKED = "> `alerts` holds **1** unresolved row, `Disk full on /`, **1** named here."
+
+    def test_no_marker_is_unknown_and_names_the_remedy(self):
+        claim = check_open_titles(
+            self.UNMARKED, "", DatabaseFacts(11, 1, ("critical: Disk full on /",))
+        )
+        assert claim.verdict == "unknown"
+        assert "<!--check:open_titles-->" in claim.note
+
+    def test_deleting_the_marker_cannot_turn_a_mismatch_into_a_match(self):
+        """The property, driven at both spellings of one block.
+
+        Falsified by falling back to the whole region when no marker is
+        found — which is the pre-fix behaviour and would answer ``match``
+        here, since the row is named further down.
+        """
+        marked = (
+            "> `alerts` holds **1** unresolved row, `Disk full on /`, **1** named\n"
+            "> here <!--check:open_titles-->.\n"
+            "> Previously: `Estate scan could not reach sources` was open too.\n"
+        )
+        unmarked = marked.replace(" <!--check:open_titles-->", "")
+        facts = DatabaseFacts(
+            11, 2,
+            ("critical: Disk full on /", "warning: Estate scan could not reach sources"),
+        )
+        assert check_open_titles(marked, "", facts).verdict == "mismatch"
+        assert check_open_titles(unmarked, "", facts).verdict == "unknown"
+
+    def test_two_markers_are_refused_rather_than_resolved(self):
+        """``read_claim``'s rule for a span instead of a value.
+
+        The live document carries the shape today — ``migration_head`` is
+        marked in two places — so this is not a hypothetical.  Falsified
+        by taking the first hit, which answers ``match`` here.
+        """
+        block = (
+            "> `alerts` holds **1** unresolved row, `Disk full on /`, **1** named\n"
+            "> here <!--check:open_titles-->.\n"
+            "> Later: `Estate scan could not reach sources` <!--check:open_titles-->.\n"
+        )
+        sentence, problem = claim_sentence(block, "open_titles")
+        assert sentence is None
+        assert "twice" in problem
+        claim = check_open_titles(block, "", DatabaseFacts(11, 1, ("critical: Disk full on /",)))
+        assert claim.verdict == "unknown"
+
+    def test_the_real_document_still_carries_exactly_one(self):
+        """The live half — this fires the day the block loses its marker.
+
+        Which is the whole point of the verdict being ``unknown``: the
+        check goes loud rather than agreeable, and this says so first.
+        """
+        region, problem = load_region()
+        assert region, problem
+        sentence, why = claim_sentence(region, "open_titles")
+        assert sentence is not None, why
+        assert len(sentence) < len(flatten(region)) / 100
+
+
+class TestTheSentenceBoundary:
+    """What may and may not end a sentence — :data:`SENTENCE_END_RE`."""
+
+    def test_a_full_stop_inside_a_quoted_title_does_not_end_it(self):
+        """Alert titles carry full stops and this is not hypothetical.
+
+        ``sysadmin.service failed`` and ``Estate hook session-notice.sh not
+        wired for Notification`` are both real titles on this box.  **The
+        veil is what saves them, not the lookahead** — this test was
+        written crediting the lookahead and stayed green when it was
+        removed, because a quoted title is blanked before any boundary is
+        looked for.  Falsified by veiling with a single space instead.
+        The lookahead's own population is
+        :meth:`test_a_bolded_lead_in_sentence_is_not_swallowed`.
+        """
+        block = (
+            "> `alerts` holds **2** unresolved rows, `sysadmin.service failed` and\n"
+            "> `Estate hook session-notice.sh not wired for Notification`, **2**\n"
+            "> named here <!--check:open_titles-->.\n"
+        )
+        facts = DatabaseFacts(
+            11, 2,
+            ("critical: sysadmin.service failed",
+             "warning: Estate hook session-notice.sh not wired for Notification"),
+        )
+        assert check_open_titles(block, "", facts).verdict == "match"
+
+    def test_a_full_stop_with_a_space_inside_a_quoted_title_is_veiled(self):
+        """The half the lookahead alone cannot reach.
+
+        Falsified by veiling with a single space the way
+        :func:`read_markers` does: the offsets stop indexing the original
+        and the slice lands in the wrong place.
+        """
+        block = (
+            "> `alerts` holds **1** unresolved row,\n"
+            "> `Log error: sysadmin.service — Failed with result. Retrying now`,\n"
+            "> **1** named here <!--check:open_titles-->.\n"
+        )
+        facts = DatabaseFacts(
+            11, 1,
+            ("warning: Log error: sysadmin.service — Failed with result. Retrying now",),
+        )
+        assert check_open_titles(block, "", facts).verdict == "match"
+
+    def test_a_bolded_lead_in_sentence_is_not_swallowed(self):
+        """:data:`SENTENCE_END_RE`'s trailing class, at its live shape.
+
+        Every paragraph in this block opens with a bolded lead-in, so
+        ``.**`` is how a sentence ends here **290 times** in the printed
+        region.  A terminator that insists on whitespace immediately after
+        the stop refuses all of them, and the marked sentence then runs
+        backwards through the lead-in — rule 10's defect at one paragraph.
+
+        Falsified against ``[.!?](?=\\s|$)``, which is what shipped first
+        and which swallows the lead-in whole.
+        """
+        block = (
+            "> **The estate wrote nothing overnight and `Disk full on /` cleared.**\n"
+            "> `alerts` holds **1** unresolved row, `Project Alfred next action\n"
+            "> idle`, **1** named here <!--check:open_titles-->.\n"
+        )
+        sentence, _ = claim_sentence(block, "open_titles")
+        assert "cleared" not in sentence
+        facts = DatabaseFacts(
+            11, 2,
+            ("critical: Disk full on /", "warning: Project Alfred next action idle"),
+        )
+        claim = check_open_titles(block, "", facts)
+        assert claim.verdict == "mismatch"
+        assert claim.detail == ("unnamed: critical: Disk full on /",)
+
+    def test_a_decimal_figure_in_prose_does_not_end_the_sentence(self):
+        """The lookahead's own population, and it is not the quoted title.
+
+        A figure the block measures is written in **bold**, not in a code
+        span — ``median uptime **1.77 h**`` is the shape — so the veil
+        does not reach it and only the lookahead does.  Without one the
+        sentence is cut at ``1.`` and every title after it reads unnamed,
+        which is a false ``mismatch`` a sitting cannot fix by rewording.
+
+        Falsified against ``[.!?]``, which is the pattern with no
+        lookahead at all.  **The figure has to sit between the titles and
+        the marker**, which the first version of this test got wrong: a
+        cut ahead of the list leaves every title inside the sentence and
+        the check answers ``match`` either way, so the fixture agreed with
+        the mutation it was written to kill.
+        """
+        block = (
+            "> `alerts` holds **1** unresolved row, `Project Alfred next action\n"
+            "> idle`, and the daemon's median life is **1.77 h**, **1** named\n"
+            "> here <!--check:open_titles-->.\n"
+        )
+        facts = DatabaseFacts(11, 1, ("warning: Project Alfred next action idle",))
+        assert check_open_titles(block, "", facts).verdict == "match"
+
+    def test_a_parenthetical_closes_before_the_marked_sentence(self):
+        """``.)*`` is why ``)`` and ``*`` are both in the class.
+
+        The block's fall notes are written ``*(… doing its job.)*``, and a
+        note that cannot close is joined to the sentence *after* it — so
+        the marked sentence would inherit every title the note names,
+        which is the direction that yields ``match``.  The note is placed
+        before the marked sentence deliberately: after it, the extraction
+        ends at the marker's own full stop and the class decides nothing.
+        The first version of this test made that mistake and passed
+        against ``[.!?](?=\\s|$)``.
+
+        Falsified against that pattern, which swallows the note.
+        """
+        block = (
+            "> *(2 until 09:00 — `Disk full on /` cleared, the fall note doing\n"
+            "> its job.)* `alerts` holds **1** unresolved row, `Project Alfred\n"
+            "> next action idle`, **1** named here <!--check:open_titles-->.\n"
+        )
+        sentence, _ = claim_sentence(block, "open_titles")
+        assert "fall note" not in sentence
+        facts = DatabaseFacts(
+            11, 2,
+            ("critical: Disk full on /", "warning: Project Alfred next action idle"),
+        )
+        claim = check_open_titles(block, "", facts)
+        assert claim.verdict == "mismatch"
+        assert claim.detail == ("unnamed: critical: Disk full on /",)
+
+    def test_the_previous_sentence_is_not_part_of_the_haystack(self):
+        block = (
+            "> The estate wrote nothing overnight and `Disk full on /` cleared.\n"
+            "> `alerts` holds **1** unresolved row, `Project Alfred next action\n"
+            "> idle`, **1** named here <!--check:open_titles-->.\n"
+        )
+        facts = DatabaseFacts(
+            11, 2,
+            ("critical: Disk full on /", "warning: Project Alfred next action idle"),
+        )
+        claim = check_open_titles(block, "", facts)
+        assert claim.verdict == "mismatch"
+        assert claim.detail == ("unnamed: critical: Disk full on /",)
+
+    def test_a_block_with_no_terminator_at_all_is_the_whole_region(self):
+        """The degenerate case fails toward the old behaviour, not a crash.
+
+        A marked sentence with nothing to bound it is the whole block,
+        which is exactly what the check did before rule 10 — no worse, and
+        reachable only by a document nobody would write.
+        """
+        block = "> `Disk full on /` is open <!--check:open_titles-->"
+        facts = DatabaseFacts(11, 1, ("critical: Disk full on /",))
+        assert check_open_titles(block, "", facts).verdict == "match"
+
+
+class TestTheSentenceIsReadTheWayMarkersAre:
+    """The veil is one rule read twice — ``SNAG-DOCS-005`` and rule 10."""
+
+    def test_a_quoted_marker_does_not_anchor_the_check(self):
+        """Quoting a marker re-arms nothing, here either.
+
+        ``read_markers`` already refuses a marker inside a code span; a
+        second reader that accepted one would put the two at odds about
+        which sentences the document marks.
+        """
+        block = "> The `<!--check:open_titles-->` marker names this check."
+        sentence, problem = claim_sentence(block, "open_titles")
+        assert sentence is None
+        assert "no sentence carries" in problem
+
+    def test_the_two_readers_agree_on_the_real_document(self):
+        """Import where you can, pin where you cannot.
+
+        :func:`read_markers` veils with a single space and this veils with
+        a run of the span's own length; they must still see the same
+        markers, or a sentence could be anchored by a marker
+        ``check_markers`` never reported.
+        """
+        region, problem = load_region()
+        assert region, problem
+        from sysadmin.ops_claims import _veiled
+
+        veiled = _veiled(flatten(region))
+        seen = [(m.group(1), m.group(2).strip()) for m in MARKER_RE.finditer(veiled)]
+        assert seen == [(m.key, m.argument) for m in read_markers(region)]
+
+    def test_a_marker_in_the_sentence_cannot_satisfy_the_check(self):
+        """``prose_without_markers``' reason, one span narrower.
+
+        An ``expires`` argument is free text naming what the prediction is
+        about, so a marker sharing the sentence could put a title into it
+        and have the check agree with the checker's own words.  Falsified
+        by returning the slice unstripped.
+        """
+        block = (
+            "> `alerts` holds **1** unresolved row <!--check:expires\n"
+            "> 2026-09-05T03:32+01:00 the Disk full on / row clears-->, **1**\n"
+            "> named here <!--check:open_titles-->.\n"
+        )
+        claim = check_open_titles(block, "", DatabaseFacts(11, 1, ("critical: Disk full on /",)))
+        assert claim.verdict == "mismatch"
+
+
+#: The commit ``SNAG-ESTATE-016`` was found at — the block hand-corrected
+#: that afternoon, and the last revision in which the marked sentence named
+#: a row that was not open.
+SPECIMEN_COMMIT = "9a3fe30"
+
+
+@pytest.fixture(scope="module")
+def region():
+    """``docs/roadmap/STATUS.md``'s printed region as it stood at the commit.
+
+    Skipped when the commit does not resolve — a shallow clone or a
+    rewritten history — and a **red** for every other way ``git show``
+    can fail, since a gate that swallows those goes green on exactly the
+    box where the pin matters.
+    """
+    resolved = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{SPECIMEN_COMMIT}^{{commit}}"],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=False,
+    )
+    if resolved.returncode != 0:
+        pytest.skip(f"{SPECIMEN_COMMIT} is not in this checkout — the specimen is unreadable")
+    shown = subprocess.run(
+        ["git", "show", f"{SPECIMEN_COMMIT}:docs/roadmap/STATUS.md"],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+    )
+    printed = printed_region(shown.stdout)
+    assert printed is not None, "the specimen has no '## Quick Status' heading"
+    return printed
+
+
+class TestTheBlockThatOpenedTheEntry:
+    """The specimen, driven at the real document rather than at its shape.
+
+    ``SNAG-ESTATE-016`` was found because a hand-corrected block disagreed
+    with a green check.  This reads ``docs/roadmap/STATUS.md`` as it stood
+    at ``9a3fe30`` — 178,301 characters flattened — and asserts the two
+    verdicts the entry reports: the sentence named a row that was not open
+    and omitted one that was, and the check said ``match``.
+
+    Skipped, never failed, when the commit is not in this checkout: a
+    shallow clone or a rewritten history is a reason to know less about
+    the specimen, and :class:`TestTheHaystackIsOneSentence` carries the
+    rules regardless.  Gated on the **commit resolving**, never on
+    ``git show`` working — a subprocess that fails for any other reason is
+    a red, because ``importorskip``-shaped gates go green on the one box
+    where the pin matters.
+    """
+
+    #: The four rows unresolved at that commit, per the entry.  The fourth
+    #: is the discriminator: the sentence names ``GPU was reset — every
+    #: client lost its VRAM`` instead, which had already resolved.
+    OPEN_THEN = (
+        "critical: High disk usage on /",
+        "warning: Project ImbaBots next action idle",
+        "warning: Estate port 3110 registry breach",
+        "warning: High VRAM usage on AMD Radeon RX 7900 XTX",
+    )
+    MISSING = "High VRAM usage on AMD Radeon RX 7900 XTX"
+    NAMED_INSTEAD = "GPU was reset — every client lost its VRAM"
+
+    def test_the_specimen_is_the_one_the_entry_measured(self, region):
+        """The premise, asserted before either verdict is believed.
+
+        The entry's number is what makes the mechanism a mechanism, and a
+        specimen that had drifted would let both assertions below pass for
+        the wrong reason.
+        """
+        assert len(flatten(region)) == 178301
+
+    def test_the_marked_sentence_named_a_row_that_was_not_open(self, region):
+        sentence, problem = claim_sentence(region, "open_titles")
+        assert sentence is not None, problem
+        assert self.NAMED_INSTEAD in sentence
+        assert self.MISSING not in sentence
+
+    def test_the_missing_title_was_in_the_region_once_and_far_below(self, region):
+        """Why the pre-fix check said ``match``, measured rather than said.
+
+        One occurrence, in an account of a fault four sittings old — so
+        the whole-region test was satisfied by history and the marked
+        sentence was never consulted.
+        """
+        prose = flatten(region)
+        assert prose.count(self.MISSING) == 1
+        marker = prose.index("<!--check:open_titles-->")
+        assert prose.index(self.MISSING) > marker
+        # Far enough below that no sentence boundary could reach it.
+        assert prose.index(self.MISSING) - marker > 5000
+
+    def test_the_narrowed_check_refutes_the_block_the_old_one_passed(self, region):
+        claim = check_open_titles(region, "", DatabaseFacts(14, 4, self.OPEN_THEN))
+        assert claim.verdict == "mismatch"
+        assert claim.documented == "3 named"
+        assert claim.measured == "4 open"
+        assert claim.detail == (f"unnamed: warning: {self.MISSING}",)
+
+    def test_the_same_block_still_matches_the_rows_it_claimed(self, region):
+        """The narrowing discriminates rather than merely refusing.
+
+        Same 178 kB, same sentence, the population the sentence describes
+        — and the verdict moves with the population.  Without this the
+        test above is satisfied by any change that makes the check louder.
+        """
+        claimed = self.OPEN_THEN[:3] + (f"warning: {self.NAMED_INSTEAD}",)
+        assert check_open_titles(region, "", DatabaseFacts(14, 4, claimed)).verdict == "match"
 
 
 class TestTheConventionAgainstTheRealDocument:

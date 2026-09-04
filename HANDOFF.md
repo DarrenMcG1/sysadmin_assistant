@@ -1,6 +1,30 @@
-# Handoff — 2026-09-04 (Session 169)
+# Handoff — 2026-09-04 (Session 170)
 
 ## Next action
+
+Decide whether `check_expiry`'s instant pin should move to `claim_sentence` as well — rule 9 already admits searching the whole printed region is "the weaker half", a block naming one wall clock twice for two different reasons satisfies it, and the narrow reader now exists — measuring first whether a per-marker anchor is even expressible, since `expires` is the one family whose members the document declares and several markers may legitimately share one key, which is the shape `claim_sentence` refuses outright.
+
+_**`SNAG-ESTATE-016` is closed, and the entry's stated fix was right about the rule and silent about the sentence.**_ _`claim_sentence` locates the sentence bearing the `open_titles` marker and matches each unresolved title against that alone: **178,301 → 290** characters at `9a3fe30`. Nothing about the substring test changed, and nothing about the reserved direction did either — a *name with no row* still belongs to `check_alerts`' fall note, which is what lets the block's parentheticals go on naming resolved titles without offending anything. Suite **3504 → 3526**, `ruff` and `mypy` clean, register 24 open → 23, none opened._
+
+_**Falsified against the real commit, and the premise is asserted before either verdict is believed.**_ _`TestTheBlockThatOpenedTheEntry` reads `9a3fe30:docs/roadmap/STATUS.md` out of git rather than modelling its shape: it pins the flattened length first, because a specimen that had drifted would let both verdicts pass for the wrong reason, then shows the sentence named `GPU was reset — every client lost its VRAM` (resolved) while omitting `High VRAM usage on AMD Radeon RX 7900 XTX` (open), whose **one** occurrence in the region sits more than **5,000** characters below the marker._
+
+_**The control is what makes the refutation mean anything.**_ _The **same** block still matches the four rows its own sentence describes — same 178 kB, same sentence, a different population — so the verdict moves with the population rather than with the change. The "can never match" mutation proved it load-bearing: it took eight tests down and left the refutation test standing, which is exactly the reading a check that had merely got louder would produce._
+
+_**Rule 7 survives the marker becoming load-bearing, and rule 2 is the reason.**_ _A marker may never gate a check. Here it decides *where* to look rather than *whether*, since the population comes from the alert table and is read either way — so an absent marker is `unknown` with the remedy named and **never** `match`, driven at one block in both spellings. Two markers sharing one key are refused rather than resolved (`read_claim`'s rule), which is a live shape in this document: `migration_head` is marked in two places._
+
+_**A test credited the wrong mechanism and was green when that mechanism was deleted.**_ _The quoted-title test names the lookahead; what actually saves `sysadmin.service` is the code-span veil, which blanks the span before any boundary is looked for. The lookahead's own population is a **bold decimal in prose** — and the figure has to sit *between* the titles and the marker, because a cut ahead of the list leaves every title inside the sentence and the fixture then agrees with the mutation it was written to kill. Both halves were wrong on the first attempt._
+
+_**The terminator's trailing class came from a measurement nothing else would have made.**_ _The first pattern demanded whitespace immediately after the stop and agrees with the shipped one on **both** real blocks. The region carries **290** prose full stops with no space after them, overwhelmingly a full stop closing a bolded lead-in — how nearly every paragraph in the session block opens — so without the class the terminator is refused and the marked sentence runs backwards through the whole lead-in: this entry's defect at one paragraph instead of at 178 kB._
+
+_**No check for the closed entry, and none was owed.**_ _It was one of the three open entries carrying none, so nothing had to be re-homed — and a check driven at a landed fix reports `still holds` for ever anyway (`check_review_schedule_unread`'s defect). The guard is a test, `FROZEN_TABLES`' rule._
+
+_**Deployed, and this sitting's own STATUS.md block is a regression test.**_ _Writing it puts a fourth copy of `High VRAM usage on AMD Radeon RX 7900 XTX` into the printed region, above the sentence that claims it — under the old rule that is precisely how a name got written down for ever. The region grew **178,301 → 187,789** characters with the marked sentence unmoved at **289**. Thirteen mutations driven and thirteen killed, each by a test that names it._
+
+---
+
+# Handoff — 2026-09-04 (Session 169)
+
+### The action Session 169 filed (done by Session 170)
 
 Close `SNAG-ESTATE-016` by narrowing where `check_open_titles` looks — match each unresolved title against the sentence carrying `<!--check:open_titles-->` rather than against the whole 178 kB printed region, so a title written down by a past sitting stops satisfying the check for ever, and falsify it against the real `9a3fe30` block, where the sentence named a row that was not open and the check still reported `match`.
 

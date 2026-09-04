@@ -129,6 +129,38 @@ decides whether a marker beside prose is a defect or a convention:
    hour from the moment predicted.  With one, they visibly disagree, and
    the note says which of them is in which clock.
 
+``SNAG-ESTATE-016`` added the tenth, and it is the correction rule 9
+predicted against itself:
+
+10. **A claim about prose is read from one sentence, because the region
+    is append-only.**  Rule 1 says the parsed region is exactly what
+    preflight prints, and that is right for a *figure*: bold emphasis
+    separates the current number from the history the same block carries,
+    and :func:`read_claim` refuses two matches outright.  A **membership**
+    claim has no such anchor.  ``check_open_titles`` asked whether every
+    open row's title appeared anywhere in the region, and the region grew
+    to **178,301 characters** of accumulated sittings — so a title
+    satisfied the test on the strength of having been written down once,
+    four sittings ago, and the check reported ``match`` over a sentence
+    naming a row that was not open.  :func:`claim_sentence` narrows the
+    haystack to the sentence bearing the marker: 290 characters at the
+    commit that opened the entry, and the discrimination back.
+
+    **The marker decides where to look, never whether to look.**  That is
+    what keeps this inside rule 7 rather than making it the exception: the
+    population comes from the alert table and is measured either way, so
+    an absent marker yields ``unknown`` with the remedy named, and can
+    never yield ``match``.  Rule 2's tri-state is what makes a marker
+    load-bearing without making it a switch.
+
+    **Rule 9's pin is left as it is, and the asymmetry is deliberate.**
+    That rule already admits searching the whole region is "the weaker
+    half"; narrowing it now would be a second change riding on this one,
+    and the two fail in different directions — a pin that cannot find its
+    instant is ``unknown`` and loud, where a membership test that finds a
+    title anywhere is ``match`` and silent.  Population today is **zero**:
+    the block carries no ``expires`` marker.
+
 **This module sits beside main.py** for the reason :mod:`sysadmin.reload`
 and :mod:`sysadmin.metadata` do: it composes ``core`` with every domain
 (the route count comes from :func:`sysadmin.main.create_app`, which
@@ -190,9 +222,10 @@ CLAIM_PATTERNS: dict[str, str] = {
 #: Checks a marker may name that carry no pattern of their own, and why
 #: each one has none.  ``schema`` and ``deploy`` test the box against this
 #: checkout, so there is no sentence to read (rule 3).  ``open_titles`` is
-#: answered from the alert table against the whole block rather than from
-#: one figure.  ``expires`` is the one family whose *members* are declared
-#: by the marker rather than by this module — rule 8.
+#: answered from the alert table against the block's *membership* sentence
+#: rather than from a figure — it reads no value, only a haystack, which is
+#: rule 10.  ``expires`` is the one family whose *members* are declared by
+#: the marker rather than by this module — rule 8.
 KEYLESS_CHECKS: frozenset[str] = frozenset({"schema", "deploy", "open_titles", "expires"})
 
 #: Every name a marker may carry, **derived** from the two sets above
@@ -235,6 +268,21 @@ MARKER_RE = re.compile(r"<!--\s*check:\s*([a-z_]+)\s*([^>]*?)\s*-->")
 #: Behaviour is pinned across the two by ``tests/test_ops_claims.py``
 #: instead: import where you can, pin where you cannot.
 CODE_SPAN_RE = re.compile(r"(`+)[\s\S]*?\1")
+
+#: Where one sentence of the flattened block ends: a terminator, any closing
+#: emphasis or bracket it carries, then whitespace or the end of the region.
+#:
+#: **The lookahead alone is not enough, and the shape that says so is this
+#: document's own.**  A quoted ``sysadmin.service`` is already safe, because
+#: :func:`_veiled` blanks the span around it — so the lookahead's real
+#: population is a full stop in *prose*.  Measured on the live region: **290**
+#: full stops there carry no space after them, and the overwhelming shape is
+#: ``.**`` — a bolded lead-in sentence, which is how nearly every paragraph
+#: in this block opens.  Without the trailing class the terminator is refused
+#: and the sentence runs backwards through the whole lead-in, which is rule
+#: 10's defect at one paragraph instead of at 178 kB.  ``)`` and ``*`` are
+#: both in the class because the block's parentheticals close ``.)*``.
+SENTENCE_END_RE = re.compile(r"""[.!?][*_)\]"'’”]*(?=\s|$)""")
 
 #: The instant an ``expires`` marker carries: minute resolution,
 #: unambiguous about the *date* — which is the whole reason the marker
@@ -435,6 +483,63 @@ def prose_without_markers(region: str) -> str:
     green throughout.
     """
     return MARKER_RE.sub(" ", flatten(region))
+
+
+def _veiled(prose: str) -> str:
+    """The flattened region with every code span blanked, length preserved.
+
+    :func:`read_markers` blanks spans with a single space because it only
+    needs the *set* of markers.  Locating a sentence needs offsets that
+    still index the original, so this substitutes a run of spaces of the
+    span's own length instead — the mask and the text are the same string
+    twice, and a position found in one is the same position in the other.
+
+    Both jobs are the same rule read twice: **what is inside backticks is
+    quoted, not stated.**  ``SNAG-DOCS-005`` applied it to a marker; rule
+    10 applies it to a full stop, which is what lets ``sysadmin.service``
+    sit inside a sentence without ending it.
+    """
+    return CODE_SPAN_RE.sub(lambda match: " " * len(match.group(0)), prose)
+
+
+def claim_sentence(region: str, key: str) -> tuple[str | None, str]:
+    """The one sentence standing behind ``<!--check:key-->``, or why not.
+
+    Rule 10.  :func:`read_claim` narrows the block to a *value* by
+    pattern; this narrows it to a *span* by marker, for the checks whose
+    subject is prose rather than a figure.
+
+    **Two markers with one key are refused rather than resolved** —
+    :func:`read_claim`'s rule, for its reason.  A block naming the same
+    check twice has two candidate sentences and taking the first would
+    report agreement with whichever was written first; the document
+    carries a live instance of the shape today, ``migration_head`` being
+    marked in two places.
+
+    The markers are stripped out of what comes back.  An ``expires``
+    argument is free text describing what the prediction is about, so a
+    marker sharing this sentence could put a title into it and satisfy a
+    check with the checker's own words — :func:`prose_without_markers`'
+    reason, one span narrower.
+    """
+    prose = flatten(region)
+    veiled = _veiled(prose)
+    hits = [match for match in MARKER_RE.finditer(veiled) if match.group(1) == key]
+    if not hits:
+        return None, (
+            f"no sentence carries <!--check:{key}--> — the block states no "
+            "claim this check can be pointed at"
+        )
+    if len(hits) > 1:
+        return None, (
+            f"{len(hits)} sentences carry <!--check:{key}--> — the block names "
+            "the check twice and only one of them can be the claim"
+        )
+    marker = hits[0]
+    ends = [match.end() for match in SENTENCE_END_RE.finditer(veiled)]
+    start = max((end for end in ends if end <= marker.start()), default=0)
+    stop = min((end for end in ends if end >= marker.end()), default=len(prose))
+    return MARKER_RE.sub(" ", prose[start:stop]).strip(), ""
 
 
 def load_region(path: Path | None = None) -> tuple[str | None, str]:
@@ -865,21 +970,55 @@ def check_health(region: str, region_problem: str) -> Claim:
 
 
 def check_open_titles(region: str, region_problem: str, facts: DatabaseFacts) -> Claim:
-    """Is every unresolved row named somewhere in the block?
+    """Is every unresolved row named in the sentence that claims to name them?
 
     :func:`check_alerts` compares the *count*, which is what moves when a
     row opens or closes.  This asks the finer question the count cannot:
     a swap — one row resolving as another opens — holds the total still
     while the block's sentence about *which* rows are open goes silently
-    wrong.  Today's block names both of its two and explains why each is
-    expected; the count alone would agree with a block naming neither.
+    wrong.  Today's block names all four of its four and explains why each
+    is expected; the count alone would agree with a block naming none.
 
     **One direction only, and the other has an owner.**  A row the block
     names that has since resolved is ``SNAG-ESTATE-008``'s founding case
     and is already reported, by :func:`check_alerts`'s *fall* note.  What
     that note cannot say is that a row nobody wrote about is open, so this
     is the direction taken here — and a title is matched as a substring
-    because the block quotes it inside backticks and prose around it.
+    because the block quotes it inside backticks with prose around it.
+
+    **The haystack is one sentence, and it used to be the whole region**
+    (``SNAG-ESTATE-016``, rule 10).  The substring test is right; what was
+    never weighed is that the region it ran over is **append-only**.  It
+    flattened to **178,301 characters** at ``9a3fe30``, because every past
+    sitting's account accumulates below the current sentence — so a
+    recurring fault's title has been written down before and satisfied the
+    test whatever the current sentence said.  Measured at that commit, not
+    reasoned about: the sentence named ``GPU was reset — every client lost
+    its VRAM``, which was **not** open, and omitted
+    ``High VRAM usage on AMD Radeon RX 7900 XTX``, which was — and the
+    check reported ``4 named, 4 open``, ``match``.  The missing title's one
+    occurrence in the region sat **126 lines below the marker**, in an
+    account of a fault four sittings old.  :func:`claim_sentence` narrows
+    the haystack to 290 characters and the two blocks then differ in
+    exactly the one title, which is the whole discrimination.
+
+    **What it deliberately did not become** is a check that also refuses a
+    *name with no row*.  That is the direction the paragraph above
+    reserves for the fall note, and the block legitimately names a
+    resolved title while explaining a fall — today's carries three such
+    parentheticals.  Narrowing the sentence is what makes them harmless:
+    they sit outside it, so they neither satisfy this check nor offend it.
+
+    **The marker cannot make this check quieter than ``unknown``, which is
+    what keeps it inside rule 7.**  A marker is additive and may never gate
+    a check, and here it decides *where to look* rather than *whether to
+    look* — the population is the alert table's and is read either way.
+    Deleting the marker therefore turns a ``mismatch`` into an ``unknown``
+    that names the remedy, never into a ``match``: rule 2's tri-state doing
+    the job an on/off switch could not.  This is the only enforcement
+    ``open_titles`` has, since it carries no pattern and
+    :func:`check_markers`' *unclaimed figure* finding runs over
+    :data:`CLAIM_PATTERNS` alone.
     """
     if facts.open_titles is None or facts.unresolved is None:
         return Claim(
@@ -891,12 +1030,19 @@ def check_open_titles(region: str, region_problem: str, facts: DatabaseFacts) ->
             "open_titles", "Open rows named in the block", "claim", None,
             f"{facts.unresolved} open", "unknown", region_problem,
         )
-    prose = flatten(region)
+    sentence, sentence_problem = claim_sentence(region, "open_titles")
+    if sentence is None:
+        return Claim(
+            "open_titles", "Open rows named in the block", "claim", None,
+            f"{facts.unresolved} open", "unknown",
+            f"{sentence_problem} — add <!--check:open_titles--> beside the sentence "
+            "that lists them",
+        )
     # ``open_titles`` are rendered "severity: title" for the alert report;
     # the block quotes the title alone, so the severity is dropped before
     # the substring test rather than being written into the document.
     unnamed = tuple(
-        entry for entry in facts.open_titles if entry.split(": ", 1)[-1] not in prose
+        entry for entry in facts.open_titles if entry.split(": ", 1)[-1] not in sentence
     )
     documented = f"{len(facts.open_titles) - len(unnamed)} named"
     measured = f"{len(facts.open_titles)} open"
@@ -911,8 +1057,9 @@ def check_open_titles(region: str, region_problem: str, facts: DatabaseFacts) ->
         documented,
         measured,
         "mismatch",
-        f"{len(unnamed)} unresolved row(s) the block does not mention — a row "
-        "nobody wrote about is the one a sitting will not account for",
+        f"{len(unnamed)} unresolved row(s) the marked sentence does not name — a row "
+        "nobody wrote about is the one a sitting will not account for, and a title "
+        "written down by a past sitting further down the block does not count",
         tuple(f"unnamed: {title}" for title in unnamed),
     )
 
