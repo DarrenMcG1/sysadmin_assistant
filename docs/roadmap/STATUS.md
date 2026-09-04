@@ -2259,15 +2259,21 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-04 16:45:07**
-> <!--check:deploy--> <!--check:daemon_start--> by Session 170, PID
-> 704516 → 829338, restart counter **8**. It buys the box nothing and is
-> paid anyway: `ops_claims.py` is a console script the daemon never
-> imports, so this is the third restart in two sittings owed entirely to
-> the deploy check comparing mtimes over `sysadmin/` — rule 4's stated
-> cost, which is one `kill -TERM` and no `sudo`, against a check that
-> would otherwise open every future sitting with a `no` nobody should
-> act on. *(Previously **16:05:31** by Session 169, so the box serves
+> Daemon restarted at **2026-09-04 21:14:32**
+> <!--check:deploy--> <!--check:daemon_start--> by Session 171, PID
+> 829338 → 1055352, restart counter **9**. It buys the box nothing and is
+> paid anyway, for the **fourth** sitting running: `ops_claims.py` is a
+> console script the daemon never imports — verified this time rather
+> than repeated, by importing `sysadmin.main` and calling `create_app()`
+> and finding no `ops_claims` in `sys.modules` either side — so this is
+> owed entirely to the deploy check comparing mtimes over `sysadmin/`,
+> rule 4's stated cost, which is one `kill -TERM` and no `sudo`, against
+> a check that would otherwise open every future sitting with a `no`
+> nobody should act on. Four consecutive payments for one module is
+> itself worth noticing: the check cannot ask what the daemon imports,
+> and a rule that could would stop being the cheap mtime test rule 4
+> chose. *(Previously **16:45:07** by Session 170 and **16:05:31** by
+> Session 169, so the box serves
 > `SNAG-CFG-006`'s derived read ceiling; PID 621239 → 658806 → 704516,
 > twice in one sitting and the second for the same reason. Both were
 > well outside the 600 s limiter window `SNAG-SYSD-007` is about, and so
@@ -2478,12 +2484,17 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
 > rows <!--check:alerts-->, `High disk usage on /`,
-> `Project ImbaBots next action idle`,
-> `Estate port 3110 registry breach` and
-> `High VRAM usage on AMD Radeon RX 7900 XTX`, **4**
-> named here <!--check:open_titles-->. *(the VRAM row **flapped inside
+> `Project ImbaBots next action idle` and
+> `Estate port 3110 registry breach`, **3**
+> named here <!--check:open_titles-->. *(**4 → 3** at some point before
+> 21:00 on 2026-09-04: the VRAM row resolved again, the card being
+> shared by four services and the threshold crossed in both directions
+> twice in two sittings. Caught by `check_alerts`' fall note, which is
+> the founding case, and the named list corrected in the same edit —
+> the two claims move together or `check_open_titles` reports the
+> difference.)* *(the VRAM row **flapped inside
 > one sitting** — resolved 15:52:37 on the first sysadmin run after
 > Session 169's restart, re-raised 16:02:35 ten minutes later, the card
 > being shared by four services and the threshold being crossed in both
@@ -2805,6 +2816,65 @@
 ---
 
 ## Recently Completed
+
+### Session 171 — the same haystack, one function over (2026-09-04)
+
+`SNAG-DOCS-008`. Session 170 narrowed rule 10's membership test and
+deliberately left rule 9's pin wide, giving a reason: *"the two fail in
+different directions — a pin that cannot find its instant is `unknown`
+and loud, where a membership test that finds a title anywhere is `match`
+and silent."* That is true of **one** of the pin's two directions.
+Finding the instant in an **unrelated** sentence is `match` and silent,
+which is rule 10's own defect with a five-character needle.
+
+**Measured before deciding, and the curve is the one rule 10 closed
+on.** The printed region states **86** distinct wall clocks, **28** of
+them more than once, across 144 occurrences — 6.0 % of the 1440-minute
+day, up from **5 clocks** eight days and 150 kB earlier. The collision is
+not random either: a prediction names this box's schedule, and so does
+the block, so `05:45`, `05:15` and `03:00` are exactly the values both
+carry.
+
+**Driven at the live block rather than at a fixture, because the fixture
+cannot have the property.** A marker reading `2026-09-05T04:45+00:00`
+beside a sentence saying `04:45` — a UTC stamp copied into a BST
+sentence, `SNAG-ESTATE-013`'s founding fault — came back **`match`**,
+swallowed by eleven unrelated mentions of `05:45`. Against a block that
+does not happen to say `05:45`, the same marker returns `unknown`
+carrying that entry's own diagnostic. Narrowed, both directions are
+loud: the haystack goes **187,933 → 167** characters and a prediction
+whose clock sits in a neighbouring sentence is reported with the remedy
+named.
+
+**`claim_sentence` could not be called, which is what the handoff asked
+to be measured first.** It finds a sentence *by key* and refuses a key
+stated twice; `expires` is the one family whose members the **document**
+declares, so two predictions are two markers with one key — the shape
+that reader exists to refuse. A `Marker` carries the sentence it stands
+in now, which asks about the **occurrence** rather than the name, and
+`claim_sentence` became a key lookup over `read_markers`: one locator,
+so the sentence a membership claim is read from and the sentence a
+prediction is pinned against are the same string by construction.
+
+**Two silent widenings were found by writing the fixture the new message
+asks for.** The note tells an author to move the marker into the
+sentence naming the clock, and the obvious way is to write it flush
+against the full stop — where `SENTENCE_END_RE` sees no terminator,
+because it wants whitespace after one and a marker is neither, so the
+sentence ran *backwards* through the preceding paragraph. Blanking the
+marker then moved the anchor **past** the terminator and the sentence
+became the next one, which is empty. `_unmarked` and `_anchor` are the
+two halves: what is a marker is not prose, and a marker belongs to the
+sentence it **closes**. Both failures were in the direction the entry
+exists to close, arriving through the fix for it.
+
+**Filed as `SNAG-DOCS-008`, not `SNAG-ESTATE-017`.** estate-manager's
+message `153c1c96` records that namespace as having two minters and no
+owner — they are at **131** — and this is the claims machinery rather
+than the estate, which is what that ruling says the area should have
+been all along. Suite **3526 → 3534**, `ruff` and `mypy` clean; ten
+mutations driven, each red on the named test, and the shared-locator one
+red across **both** narrowings. Register 23 open, none opened.
 
 ### Session 170 — the haystack was the defect, not the rule (2026-09-04)
 

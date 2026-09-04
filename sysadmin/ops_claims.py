@@ -117,10 +117,13 @@ decides whether a marker beside prose is a defect or a convention:
    ``journal.PRIORITY_MAP``: not asserted on each side, *pinned* — the
    wall clock the marker renders **in this box's zone** must appear in the
    block, or the claim is ``unknown`` and says which two moments disagree.
-   The pin is against the whole region rather than the marker's own
-   sentence, which is the weaker half and is stated rather than hidden: a
-   block naming ``03:32`` twice for two different reasons would satisfy
-   it.
+   The pin is against **the marker's own sentence**, since
+   ``SNAG-DOCS-008``.  It searched the whole printed region for as long
+   as rule 10 stood alone, and said so — "the weaker half; a block naming
+   ``03:32`` twice for two different reasons would satisfy it" — which
+   turned out to describe the document rather than a hypothetical: 28 of
+   its 86 distinct wall clocks are already stated more than once.  See
+   :func:`check_expiry` for the drive that settled it.
 
    The offset is what makes the pin more than a spelling check
    (``SNAG-ESTATE-013``).  Without one, a UTC stamp copied into a
@@ -130,7 +133,13 @@ decides whether a marker beside prose is a defect or a convention:
    the note says which of them is in which clock.
 
 ``SNAG-ESTATE-016`` added the tenth, and it is the correction rule 9
-predicted against itself:
+predicted against itself.  ``SNAG-DOCS-008`` then applied it to rule 9 —
+filed in *this* repository's namespace rather than as a seventeenth
+``SNAG-ESTATE-*``, which estate-manager's message ``153c1c96`` records as
+having two minters and no owner (they are at 131; every colliding pair
+names a different defect).  Both are about this module's own claims
+machinery rather than about the estate, which is what that ruling says
+the area should have been all along:
 
 10. **A claim about prose is read from one sentence, because the region
     is append-only.**  Rule 1 says the parsed region is exactly what
@@ -153,13 +162,19 @@ predicted against itself:
     never yield ``match``.  Rule 2's tri-state is what makes a marker
     load-bearing without making it a switch.
 
-    **Rule 9's pin is left as it is, and the asymmetry is deliberate.**
-    That rule already admits searching the whole region is "the weaker
-    half"; narrowing it now would be a second change riding on this one,
-    and the two fail in different directions — a pin that cannot find its
-    instant is ``unknown`` and loud, where a membership test that finds a
-    title anywhere is ``match`` and silent.  Population today is **zero**:
-    the block carries no ``expires`` marker.
+    **Rule 9's pin was left as it was, and the reason given was half of
+    one** — corrected by ``SNAG-DOCS-008`` the next day.  Deferring a
+    second change was right; the argument offered for it was not.  It
+    read "the two fail in different directions — a pin that cannot find
+    its instant is ``unknown`` and loud, where a membership test that
+    finds a title anywhere is ``match`` and silent", which is true of one
+    of the pin's two directions and silent about the other.  A pin that
+    finds its instant *in an unrelated sentence* is ``match`` and silent,
+    which is this rule's own defect with a five-character needle instead
+    of a title — and a needle drawn from 1440 values, in a block already
+    spending 6 % of them.  Both narrowings now read one sentence, through
+    the one locator; :func:`Marker.sentence` records why ``expires`` could
+    not simply call :func:`claim_sentence` to get there.
 
 **This module sits beside main.py** for the reason :mod:`sysadmin.reload`
 and :mod:`sysadmin.metadata` do: it composes ``core`` with every domain
@@ -441,10 +456,28 @@ class Marker:
             — see rule 7 for why that distinction is the whole design.
         argument: whatever followed it, empty for every check but
             ``expires``.
+        sentence: the one sentence it stands in, markers stripped.
+
+    **The sentence is carried rather than looked up, and that is what
+    makes rule 9's narrowing expressible at all** (``SNAG-DOCS-008``).
+    :func:`claim_sentence` finds a sentence *by key* and so must refuse a
+    key stated twice; ``expires`` is the one family whose members the
+    document declares, and two predictions in one block are two markers
+    with one key — the shape that reader exists to refuse.  Reading the
+    sentence off the marker asks about the **occurrence** instead of
+    about the name, which is the question a per-marker check has.
+
+    It is a field rather than a ``(region, marker)`` helper because a
+    span is only meaningful against the string it was measured in, and a
+    helper taking both invites a caller to pass a region the markers did
+    not come from — :func:`sysadmin.monitor.journal.since_timestamp`'s
+    argument for taking a ``datetime``: make the mistake unrepresentable
+    rather than merely unlikely.
     """
 
     key: str
     argument: str
+    sentence: str
 
 
 def read_markers(region: str) -> list[Marker]:
@@ -464,25 +497,103 @@ def read_markers(region: str) -> list[Marker]:
     an avoidance rather than a measurement.  See :data:`CODE_SPAN_RE` for
     why the pattern closes on a run of its own length, and why it is a
     copy rather than an import.
+
+    **The veiling is length-preserving, where it used to collapse each
+    span to one space.**  Both see the same markers — the live document
+    is pinned either way by ``tests/test_ops_claims.py`` — but only the
+    length-preserving one yields offsets that still index the prose, and
+    a marker that cannot say *where* it is cannot carry the sentence it
+    stands in.  So the two veilings became one when rule 9's pin was
+    narrowed (``SNAG-DOCS-008``); a second veiling that agrees with the
+    first is a second statement of one fact, waiting to stop agreeing.
     """
+    prose = flatten(region)
+    veiled = _veiled(prose)
+    unmarked = _unmarked(veiled)
+    ends = [match.end() for match in SENTENCE_END_RE.finditer(unmarked)]
     return [
-        Marker(match.group(1), match.group(2).strip())
-        for match in MARKER_RE.finditer(CODE_SPAN_RE.sub(" ", flatten(region)))
+        Marker(
+            match.group(1),
+            match.group(2).strip(),
+            _sentence_at(prose, ends, _anchor(unmarked, match.start())),
+        )
+        for match in MARKER_RE.finditer(veiled)
     ]
 
 
-def prose_without_markers(region: str) -> str:
-    """The flattened region with every marker removed.
+def _anchor(unmarked: str, start: int) -> int:
+    """Where a marker sits for the purpose of finding its sentence.
 
-    Rule 9 pins an ``expires`` instant against the sentence beside it, and
-    a pin that searches text *containing the marker* matches the marker's
-    own copy of the instant — so it passes whatever the prose says, which
-    is the check agreeing with itself by construction.  Found by driving
-    a reworded block through the real script rather than a fixture: the
-    fixture in :class:`TestExpiry` happens to strip the marker and so was
-    green throughout.
+    **The last non-space character before it, not the marker's own
+    start** — which is to say a marker belongs to the sentence it
+    *closes*, never to the one after it.  An author attaches a marker by
+    writing the sentence and then the marker, so
+    ``…nothing done.**<!--check:expires …-->`` must anchor on the sentence
+    that ends at ``done.**``; anchoring on the marker's own offset lands
+    it past that terminator and yields the **next** sentence, which in
+    that specimen is empty.
+
+    Both failure modes are silent in the direction ``SNAG-DOCS-008``
+    closed, which is why this is arithmetic rather than a convention
+    asked of authors: an empty sentence pins nothing, and before
+    :func:`_unmarked` the same shape ran the sentence *backwards* through
+    the preceding paragraph.  Whitespace is skipped on the **unmarked**
+    string, so a marker following another marker anchors past both.
     """
-    return MARKER_RE.sub(" ", flatten(region))
+    return len(unmarked[:start].rstrip())
+
+
+def _unmarked(veiled: str) -> str:
+    """``veiled`` with every marker blanked, length preserved.
+
+    :data:`SENTENCE_END_RE` ends a sentence at a terminator followed by
+    whitespace or the end of the region, and a marker is neither — so
+    ``…clears at 03:32.**<!--check:expires …-->`` has no terminator the
+    reader can see, and the sentence runs *backwards* through whatever
+    precedes it.  That is the pin getting quietly **wider**, which is the
+    direction ``SNAG-DOCS-008`` exists to close, arriving through the
+    fix for it: the note this module now prints tells an author to move
+    the marker into the sentence naming the clock, and writing it flush
+    against the full stop is the obvious way to do that.
+
+    Blanking is the same rule :func:`_veiled` applies to a code span, one
+    span over — **what is a marker is not prose** — and it is a second
+    veil rather than a wider first one because :func:`read_markers` has to
+    *find* the markers in the string it searches.  Both preserve length,
+    so a position in one is that position in all three.
+
+    Found by writing the fixture in the style the new note recommends and
+    watching two predictions come back sharing one sentence.
+    """
+    return MARKER_RE.sub(lambda match: " " * len(match.group(0)), veiled)
+
+
+def _sentence_at(prose: str, ends: list[int], anchor: int) -> str:
+    """The sentence of ``prose`` containing ``anchor``, markers stripped.
+
+    The one locator both narrowings use — :func:`claim_sentence` for a
+    membership claim (rule 10) and :func:`read_markers` for a marker's own
+    sentence (rule 9, since ``SNAG-DOCS-008``).  Two implementations of
+    "where does this sentence begin" is ``SNAG-DB-003``'s shape, and this
+    module has refused that copy three times already.
+
+    ``ends`` is computed once by the caller rather than per marker: it is
+    a property of the region, and a block with ten markers would otherwise
+    scan the whole flattened document ten times.
+
+    **The markers are stripped out of what comes back**, which is the job
+    the deleted ``prose_without_markers`` used to do one span wider.  A
+    pin that searches text *containing* the marker matches the marker's
+    own copy of the instant and passes whatever the sentence says — the
+    check agreeing with itself by construction, found by driving a
+    reworded block through the real script rather than a fixture.  It
+    matters twice over here, because an ``expires`` argument is free text
+    describing the prediction: a marker sharing the sentence could put
+    the answer into it.
+    """
+    begin = max((end for end in ends if end < anchor), default=0)
+    finish = min((end for end in ends if end >= anchor), default=len(prose))
+    return MARKER_RE.sub(" ", prose[begin:finish]).strip()
 
 
 def _veiled(prose: str) -> str:
@@ -516,30 +627,31 @@ def claim_sentence(region: str, key: str) -> tuple[str | None, str]:
     carries a live instance of the shape today, ``migration_head`` being
     marked in two places.
 
-    The markers are stripped out of what comes back.  An ``expires``
-    argument is free text describing what the prediction is about, so a
-    marker sharing this sentence could put a title into it and satisfy a
-    check with the checker's own words — :func:`prose_without_markers`'
-    reason, one span narrower.
+    The markers are stripped out of what comes back — see
+    :func:`_sentence_at`, which does the stripping for both narrowings.
+
+    **This asks about a name; :attr:`Marker.sentence` asks about an
+    occurrence**, and the refusal below is the whole difference.  A key
+    stated twice leaves this reader two candidate sentences and no way to
+    choose, so it refuses (:func:`read_claim`'s rule, for its reason).
+    That is right for every check whose key names one claim, and it is
+    exactly wrong for ``expires``, whose members the *document* declares:
+    two predictions are two markers with one key.  So rule 9's pin reads
+    the sentence off its own marker rather than calling this
+    (``SNAG-DOCS-008``).
     """
-    prose = flatten(region)
-    veiled = _veiled(prose)
-    hits = [match for match in MARKER_RE.finditer(veiled) if match.group(1) == key]
-    if not hits:
+    markers = [marker for marker in read_markers(region) if marker.key == key]
+    if not markers:
         return None, (
             f"no sentence carries <!--check:{key}--> — the block states no "
             "claim this check can be pointed at"
         )
-    if len(hits) > 1:
+    if len(markers) > 1:
         return None, (
-            f"{len(hits)} sentences carry <!--check:{key}--> — the block names "
+            f"{len(markers)} sentences carry <!--check:{key}--> — the block names "
             "the check twice and only one of them can be the claim"
         )
-    marker = hits[0]
-    ends = [match.end() for match in SENTENCE_END_RE.finditer(veiled)]
-    start = max((end for end in ends if end <= marker.start()), default=0)
-    stop = min((end for end in ends if end >= marker.end()), default=len(prose))
-    return MARKER_RE.sub(" ", prose[start:stop]).strip(), ""
+    return markers[0].sentence, ""
 
 
 def load_region(path: Path | None = None) -> tuple[str | None, str]:
@@ -1164,7 +1276,7 @@ def _malformed_instant(text: str) -> str:
     )
 
 
-def check_expiry(marker: Marker, region: str, now: datetime) -> Claim:
+def check_expiry(marker: Marker, now: datetime) -> Claim:
     """One prediction, against the clock — rules 8 and 9.
 
     ``SNAG-ESTATE-011`` was opened by a block asserting a retention
@@ -1200,6 +1312,32 @@ def check_expiry(marker: Marker, region: str, now: datetime) -> Claim:
     Refusing at the entry point puts the failure where the mistake is.
     ``TypeError`` because that is what comparing the two raises already:
     this brings the same fault forward, it does not invent a new one.
+
+    **The pin is against the marker's own sentence, and it used to be
+    against the whole printed region** (``SNAG-DOCS-008``).  Rule 9
+    always admitted the wide search was "the weaker half" — *"a block
+    naming 03:32 twice for two different reasons would satisfy it"* — and
+    on 2026-09-04 that was measured rather than supposed: the region
+    states **86** distinct wall clocks, **28** of them more than once, so
+    an arbitrary instant already had a 6 % chance of being pinned by a
+    sentence about something else, rising with every sitting the block
+    accretes.  Driven at the live region, a marker reading
+    ``2026-09-05T04:45+00:00`` beside a sentence saying ``04:45`` — a UTC
+    stamp copied into a BST sentence, ``SNAG-ESTATE-013``'s founding
+    fault exactly — came back **``match``**, swallowed by eleven
+    unrelated mentions of ``05:45``.  Against a block that does not
+    happen to say ``05:45`` the same marker returns ``unknown`` carrying
+    that entry's own diagnostic.
+
+    So the two failure directions are not symmetric, which is what rule
+    10 got half right when it left this alone.  *Not* finding the instant
+    is ``unknown`` and loud, as that rule said; *finding it elsewhere* is
+    ``match`` and silent, which is the direction rule 10 was itself
+    opened for and did not carry across.  Narrowed, both directions are
+    loud: a prediction whose clock sits in a neighbouring sentence is
+    reported, and the remedy is to move the marker or restate the clock —
+    one edit, and it fails in the direction that costs an edit rather
+    than in the direction that hides a zone error.
     """
     if now.tzinfo is None:
         raise TypeError(
@@ -1222,15 +1360,17 @@ def check_expiry(marker: Marker, region: str, now: datetime) -> Claim:
     key = f"expires:{parts[0]}"
     clock = moment.astimezone().strftime(EXPIRY_CLOCK_FORMAT)
     stated = moment.strftime(EXPIRY_CLOCK_FORMAT)
-    prose = prose_without_markers(region)
-    if region and clock not in prose:
+    prose = marker.sentence
+    if clock not in prose:
         note = (
-            f"the marker names {clock} and the block's prose does not — pinned rather "
-            "than trusted, because the instant is the one fact stated twice here"
+            f"the marker names {clock} and the sentence it stands in does not — pinned "
+            "rather than trusted, because the instant is the one fact stated twice here. "
+            "Move the marker into the sentence naming the clock, or name the clock in "
+            "this one; the whole block is deliberately not searched (SNAG-DOCS-008)"
         )
         if stated != clock and stated in prose:
             note = (
-                f"the marker's instant is {clock} on this box and the block's prose says "
+                f"the marker's instant is {clock} on this box and the sentence says "
                 f"{stated}, which is that moment in the marker's own zone — the sentence "
                 "and the stamp are in different clocks, which is the copy "
                 "SNAG-ESTATE-013 was opened by"
@@ -1282,7 +1422,7 @@ def check_all(path: Path | None = None, now: datetime | None = None) -> list[Cla
         check_health(region_text, region_problem),
         check_open_titles(region_text, region_problem, facts),
         *(
-            check_expiry(marker, region_text, moment)
+            check_expiry(marker, moment)
             for marker in markers
             if marker.key == "expires"
         ),

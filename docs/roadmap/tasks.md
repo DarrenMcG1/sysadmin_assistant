@@ -8,6 +8,46 @@
 
 ---
 
+## Session 171: rule 9's pin reads one sentence ✅ (2026-09-04)
+
+_`SNAG-DOCS-008`. Session 170's handoff asked whether `check_expiry`'s
+instant pin should follow `check_open_titles` onto `claim_sentence`, and
+said to measure whether a per-marker anchor is even expressible first._
+
+- [x] **Measured the wide pin's collision rate before deciding.** 86
+      distinct wall clocks in the printed region, 28 stated more than
+      once, 6.0 % of the day — up from 5 clocks eight days earlier, the
+      same append-only curve `SNAG-ESTATE-016` closed on
+- [x] **Drove `SNAG-ESTATE-013`'s founding fault at the live block.** A
+      UTC stamp copied into a BST sentence returns `match`, swallowed by
+      eleven unrelated mentions of `05:45`; the same marker against a
+      block that does not say `05:45` returns that entry's own diagnostic
+- [x] **Established that `claim_sentence` cannot serve this family.** It
+      refuses a key stated twice, and `expires` is the one check whose
+      members the document declares — so `Marker` carries its sentence,
+      which asks about the occurrence rather than the name
+- [x] **Folded the two narrowings onto one locator.** `claim_sentence` is
+      a key lookup over `read_markers`; `_sentence_at` is the single
+      answer to "where does this sentence begin"
+- [x] **Fixed two silent widenings the new message would have caused** —
+      `_unmarked` (a marker is not prose, so it cannot hide a terminator)
+      and `_anchor` (a marker belongs to the sentence it closes)
+- [x] **Ten mutations driven**, each red on the named test; the
+      shared-locator mutation red across both narrowings. Suite 3526 →
+      3534
+
+- [ ] **The narrowing is only as good as the terminators.** A block with
+      no full stop at all is one sentence, so the pin degrades to the old
+      wide search there rather than failing — stated in `_sentence_at`
+      and pinned by an existing test, not fixed, because a region with no
+      sentence boundaries genuinely has one sentence
+- [ ] **The `expires` population is still zero.** Every claim above is
+      driven at planted markers and at the live region; the block has
+      never carried a prediction, so the family ships untriggered — the
+      position `judge_audit_findings` and the ports family both shipped in
+
+---
+
 ## After the Session 4 cutover (estate-manager, 2026-08-13)
 
 _Project state left this repository — [ADR-0005](../adr/0005-project-state-leaves.md).

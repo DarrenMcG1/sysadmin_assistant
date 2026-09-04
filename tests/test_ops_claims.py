@@ -19,7 +19,7 @@ import os
 import re
 import subprocess
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -466,8 +466,10 @@ class TestMarkers:
         markers = read_markers(
             "<!--check:expires 2026-08-25T03:32 the estate row--> <!--check:alerts-->"
         )
-        assert markers[0] == Marker("expires", "2026-08-25T03:32 the estate row")
-        assert markers[1] == Marker("alerts", "")
+        assert [(m.key, m.argument) for m in markers] == [
+            ("expires", "2026-08-25T03:32 the estate row"),
+            ("alerts", ""),
+        ]
 
     def test_the_known_names_are_derived_not_written_beside_the_patterns(self):
         """``max_priority_for`` against ``PRIORITY_MAP``'s rule.
@@ -597,7 +599,7 @@ class TestTheConventionsTwoFailures:
         sentence looks verified and is not, which is worse than prose —
         prose never claimed to have been checked.
         """
-        findings = check_markers(self.BLOCK, [Marker("helth", "")])
+        findings = check_markers(self.BLOCK, [Marker("helth", "", "")])
         assert [claim.key for claim in findings][0] == "marker:helth"
         assert findings[0].verdict == "unknown"
         assert "nothing implements 'helth'" in findings[0].note
@@ -632,7 +634,7 @@ class TestTheConventionsTwoFailures:
 
     def test_convention_findings_carry_no_sides_to_compare(self):
         """Rule 3's third kind: the remedy is a marker, not a reword or a restart."""
-        finding = check_markers(self.BLOCK, [Marker("nope", "")])[0]
+        finding = check_markers(self.BLOCK, [Marker("nope", "", "")])[0]
         assert finding.kind == "convention"
         assert finding.documented is None and finding.measured is None
 
@@ -656,15 +658,31 @@ class TestExpiry:
         "> the estate row clears at 03:32 with nothing done "
         "<!--check:expires 2026-08-25T03:32+01:00 estate scan row-->"
     )
-    MARKER = Marker("expires", "2026-08-25T03:32+01:00 estate scan row")
+    #: Read out of the block rather than hand-built.  Since
+    #: ``SNAG-DOCS-008`` a marker carries the sentence it stands in, and
+    #: a hand-built marker paired with a separate block is exactly the
+    #: region/marker mismatch that field exists to make unrepresentable —
+    #: these tests used to do it four times.
+    MARKER = read_markers(BLOCK)[0]
     BST = timezone(timedelta(hours=1))
+
+    def _marker(self, argument: str) -> Marker:
+        """A marker standing in the block's sentence, carrying ``argument``.
+
+        The convention findings — no instant, unparseable instant — return
+        before the pin, so the sentence cannot reach them.  It is the
+        block's own anyway, so that a test which later *did* come to
+        depend on it would be depending on something real rather than on
+        an empty string chosen because nothing read it.
+        """
+        return Marker("expires", argument, self.MARKER.sentence)
 
     def _at(self, hour: int, minute: int) -> datetime:
         """A clock in the marker's own zone, so the arithmetic is readable."""
         return datetime(2026, 8, 25, hour, minute, tzinfo=self.BST)
 
     def test_before_its_moment_the_prediction_stands(self):
-        claim = check_expiry(self.MARKER, self.BLOCK, self._at(0, 30))
+        claim = check_expiry(self.MARKER, self._at(0, 30))
         assert claim.verdict == "match"
         assert "to run" in (claim.measured or "")
         assert claim.subject.endswith("estate scan row")
@@ -676,7 +694,7 @@ class TestExpiry:
         prediction may well have come true.  What nobody did is look, and
         rule 2 reserves ``unknown`` for exactly that.
         """
-        claim = check_expiry(self.MARKER, self.BLOCK, self._at(6, 32))
+        claim = check_expiry(self.MARKER, self._at(6, 32))
         assert claim.verdict == "unknown"
         assert "nobody re-measured it" in claim.note
 
@@ -688,8 +706,11 @@ class TestExpiry:
         the way ``syslog_priority`` is handled against ``PRIORITY_MAP``:
         pinned by a check, not asserted on each side.
         """
-        drifted = "> the estate row clears at 04:15 with nothing done"
-        claim = check_expiry(self.MARKER, drifted, self._at(0, 30))
+        drifted = (
+            "> the estate row clears at 04:15 with nothing done "
+            "<!--check:expires 2026-08-25T03:32+01:00 estate scan row-->"
+        )
+        claim = check_expiry(read_markers(drifted)[0], self._at(0, 30))
         assert claim.verdict == "unknown"
         assert "03:32" in claim.note and "does not" in claim.note
 
@@ -700,21 +721,22 @@ class TestExpiry:
         contains the marker, so ``03:32`` matched the marker's own text
         and the pin passed whatever the sentence said.  A pin that
         searches text containing the thing it is pinning is the check
-        agreeing with itself by construction.  Falsified by dropping
-        :func:`prose_without_markers`: this is the only test of the four
-        pin assertions that fails, because the other fixtures happen not
-        to carry a marker.
+        agreeing with itself by construction.  Falsified by dropping the
+        ``MARKER_RE.sub`` in :func:`_sentence_at`, which is where that
+        stripping moved when the pin narrowed (``SNAG-DOCS-008``); the
+        test above shares this fixture now and is falsified by skipping
+        the pin instead, so the two remain two mutations rather than one.
         """
         only_in_the_marker = (
             "> the estate row clears at 04:15 with nothing done "
             "<!--check:expires 2026-08-25T03:32+01:00 estate scan row-->"
         )
-        claim = check_expiry(self.MARKER, only_in_the_marker, self._at(0, 30))
+        claim = check_expiry(read_markers(only_in_the_marker)[0], self._at(0, 30))
         assert claim.verdict == "unknown"
-        assert "the block's prose does not" in claim.note
+        assert "the sentence it stands in does not" in claim.note
 
     def test_a_marker_with_no_instant_is_a_convention_finding(self):
-        claim = check_expiry(Marker("expires", ""), self.BLOCK, self._at(0, 30))
+        claim = check_expiry(self._marker(""), self._at(0, 30))
         assert claim.kind == "convention"
         assert "carries no instant" in claim.note
 
@@ -726,15 +748,13 @@ class TestExpiry:
         author has then written the marker twice and been refused twice.
         Falsified by rendering the example with ``EXPIRY_NAIVE_FORMAT``.
         """
-        claim = check_expiry(Marker("expires", ""), self.BLOCK, self._at(0, 30))
+        claim = check_expiry(self._marker(""), self._at(0, 30))
         offered = re.search(r"<!--check:expires (\S+)", claim.note)
         assert offered, claim.note
         assert datetime.strptime(offered.group(1), EXPIRY_FORMAT).tzinfo is not None
 
     def test_an_unparseable_instant_names_the_form_it_wanted(self):
-        claim = check_expiry(
-            Marker("expires", "tomorrow-ish"), self.BLOCK, self._at(0, 30)
-        )
+        claim = check_expiry(self._marker("tomorrow-ish"), self._at(0, 30))
         assert claim.kind == "convention"
         assert "tomorrow-ish" in claim.note
 
@@ -746,12 +766,195 @@ class TestExpiry:
             "<!--check:expires 2026-08-25T14:11+01:00 log rows-->"
         )
         markers = [m for m in read_markers(block) if m.key == "expires"]
-        claims = [check_expiry(m, block, self._at(0, 30)) for m in markers]
+        claims = [check_expiry(m, self._at(0, 30)) for m in markers]
         assert [claim.key for claim in claims] == [
             "expires:2026-08-25T03:32+01:00",
             "expires:2026-08-25T14:11+01:00",
         ]
         assert all(claim.verdict == "match" for claim in claims)
+
+
+class TestThePinIsNarrowedToOneSentence:
+    """SNAG-DOCS-008 — rule 9's pin reads the marker's sentence, not the block.
+
+    Rule 9 always said searching the whole printed region was "the weaker
+    half", and rule 10 declined to narrow it on the grounds that the two
+    narrowings *"fail in different directions — a pin that cannot find its
+    instant is ``unknown`` and loud, where a membership test that finds a
+    title anywhere is ``match`` and silent"*.  That is true of one of the
+    pin's two directions.  A pin that finds its instant in an **unrelated**
+    sentence is ``match`` and silent, which is rule 10's own defect with a
+    five-character needle drawn from 1440 values.
+
+    Measured on 2026-09-04 rather than supposed: the printed region states
+    **86** distinct wall clocks, **28** of them more than once, and it grew
+    from 38.5 kB to 188 kB in the preceding eight days — the same
+    append-only curve rule 10 closed on.
+    """
+
+    #: The founding SNAG-ESTATE-013 fault: a UTC-stamped instant copied off
+    #: an estate surface into a sentence written in BST.  05:45 is the disk
+    #: review slot on this box, so ``04:45+00:00`` is exactly what such a
+    #: surface publishes for it — which is why the local rendering collides
+    #: with eleven unrelated mentions of the schedule.
+    COPIED = "2026-09-05T04:45+00:00"
+
+    def _claim(self, block: str, now: datetime | None = None) -> Claim:
+        marker = next(m for m in read_markers(block) if m.key == "expires")
+        return check_expiry(marker, now or datetime(2026, 9, 1, tzinfo=UTC))
+
+    def test_a_clock_in_another_sentence_does_not_pin_the_marker(self):
+        """Falsified by pinning against the whole region: the claim passes.
+
+        The two sentences are the smallest specimen of the shape rule 9
+        admitted and rule 10 left standing — the block states the clock,
+        for a different reason, somewhere the marker is not.
+        """
+        block = (
+            "> **The estate row clears at 03:32, which is the boundary.** "
+            "Nothing further is owed."
+            "<!--check:expires 2026-09-05T03:32+01:00 the estate row-->"
+        )
+        claim = self._claim(block)
+        assert claim.verdict == "unknown"
+        assert "the sentence it stands in does not" in claim.note
+        assert "SNAG-DOCS-008" in claim.note
+
+    def test_the_same_clock_in_the_markers_own_sentence_still_pins(self):
+        """The narrowing must not cost the correct case.
+
+        Falsified by returning ``None`` from :func:`_sentence_at`: this
+        goes ``unknown`` and the endpoint reports every prediction unpinned.
+        """
+        block = (
+            "> **The estate row clears at 03:32 with nothing done.**"
+            "<!--check:expires 2026-09-05T03:32+01:00 the estate row-->"
+        )
+        assert self._claim(block).verdict == "match"
+
+    def test_the_live_region_no_longer_swallows_the_zone_fault(self):
+        """The drive that settled the entry, against the real document.
+
+        Wide, this returns ``match``: the marker renders 05:45 locally and
+        the block says 05:45 eleven times for reasons that have nothing to
+        do with the prediction, so ``SNAG-ESTATE-013``'s founding fault is
+        reported as a healthy claim.  Narrow, the sentence says 04:45 and
+        the check reaches that entry's own diagnostic.
+
+        Falsified by pinning against the whole region.  Driven at the real
+        188 kB block rather than a fixture, because the fixture cannot
+        *have* the property under test — an unrelated sentence naming the
+        clock is what accumulates, and no fixture accumulates.
+        """
+        region, problem = load_region()
+        assert region, problem
+        planted = region + (
+            "\n> **The disk review row clears at 04:45 with nothing done.**"
+            f"<!--check:expires {self.COPIED} the disk review row-->\n"
+        )
+        assert "05:45" in region, "the collision this test turns on has aged out"
+        claim = self._claim(planted)
+        assert claim.verdict == "unknown"
+        assert "different clocks" in claim.note
+
+    def test_two_predictions_are_each_pinned_to_their_own_sentence(self):
+        """The family ``claim_sentence`` cannot serve — the reason for the field.
+
+        ``expires`` is the one check whose members the *document* declares,
+        so two predictions are two markers with one key, which is the shape
+        :func:`claim_sentence` refuses outright.  Falsified by routing the
+        pin through it: both claims become ``unknown`` naming the refusal
+        rather than the clock.
+        """
+        block = (
+            "> **One clears at 03:32.**"
+            "<!--check:expires 2026-09-05T03:32+01:00 the estate row--> "
+            "**Another leaves the window at 14:11.**"
+            "<!--check:expires 2026-09-05T14:11+01:00 the log rows-->"
+        )
+        markers = [m for m in read_markers(block) if m.key == "expires"]
+        claims = [check_expiry(m, datetime(2026, 9, 1, tzinfo=UTC)) for m in markers]
+        assert [c.verdict for c in claims] == ["match", "match"]
+        assert "03:32" in markers[0].sentence and "14:11" not in markers[0].sentence
+        assert "14:11" in markers[1].sentence and "03:32" not in markers[1].sentence
+
+    def test_the_key_lookup_still_refuses_a_key_stated_twice(self):
+        """The refusal that is *right* for every other check, kept intact.
+
+        Narrowing rule 9 must not reach :func:`claim_sentence` and soften
+        it: a membership claim named twice has two candidate sentences and
+        taking the first reports agreement with whichever was written
+        first.  Falsified by resolving the ambiguity there instead of here.
+        """
+        block = (
+            "> **One clears at 03:32.**"
+            "<!--check:expires 2026-09-05T03:32+01:00 a--> "
+            "**Another at 14:11.**<!--check:expires 2026-09-05T14:11+01:00 b-->"
+        )
+        sentence, problem = claim_sentence(block, "expires")
+        assert sentence is None
+        assert "names the check twice" in problem
+
+    def test_the_two_narrowings_share_one_locator(self):
+        """Two implementations of "where does this sentence begin" is drift.
+
+        :func:`claim_sentence` is now a key lookup over :func:`read_markers`,
+        so the sentence a membership claim is read from and the sentence a
+        prediction is pinned against are the same string by construction.
+        Falsified by giving either its own scan.
+        """
+        region, problem = load_region()
+        assert region, problem
+        looked_up, why = claim_sentence(region, "open_titles")
+        assert looked_up, why
+        carried = next(m for m in read_markers(region) if m.key == "open_titles")
+        assert carried.sentence == looked_up
+        assert len(looked_up) < len(flatten(region)) / 100
+
+
+    def test_a_marker_written_flush_against_the_full_stop_closes_its_sentence(self):
+        """Two silent widenings, found by writing the fixture the note asks for.
+
+        The new note tells an author to move the marker into the sentence
+        naming the clock, and the obvious way to do that is to write it
+        straight after the full stop.  :data:`SENTENCE_END_RE` wants
+        whitespace or the end of the region after a terminator and a
+        marker is neither, so the terminator went unseen and the sentence
+        ran *backwards* through the preceding paragraph — the pin getting
+        wider, arriving through the fix for the pin being too wide.
+        :func:`_unmarked` is that half.
+
+        Blanking the marker then moved the anchor past the terminator, so
+        the sentence became the **next** one, which here is empty and pins
+        nothing.  :func:`_anchor` is that half: a marker belongs to the
+        sentence it closes.  Falsified by dropping either.
+        """
+        block = (
+            "> **The row was already gone.** "
+            "**The estate row clears at 03:32 with nothing done.**"
+            "<!--check:expires 2026-09-05T03:32+01:00 the estate row-->"
+        )
+        marker = read_markers(block)[0]
+        assert marker.sentence.startswith("**The estate row clears")
+        assert "already gone" not in marker.sentence
+        assert self._claim(block).verdict == "match"
+
+    def test_the_anchor_skips_a_marker_that_precedes_it(self):
+        """Whitespace is skipped on the unmarked string, not the prose.
+
+        Two markers closing one sentence is the live document's own shape
+        — ``deploy`` and ``daemon_start`` sit side by side — so the second
+        must anchor past the first rather than landing inside a blank.
+        Falsified by taking the probe on ``prose`` instead of ``unmarked``.
+        """
+        block = (
+            "> **The estate row clears at 03:32 with nothing done.**"
+            "<!--check:alerts--> <!--check:expires 2026-09-05T03:32+01:00 row-->"
+        )
+        assert {m.sentence for m in read_markers(block)} == {
+            "**The estate row clears at 03:32 with nothing done.**"
+        }
+        assert self._claim(block).verdict == "match"
 
 
 class TestTheInstantCarriesItsZone:
@@ -798,7 +1001,7 @@ class TestTheInstantCarriesItsZone:
             f"<!--check:expires {instant} estate scan row-->"
         )
         marker = next(m for m in read_markers(region) if m.key == "expires")
-        return check_expiry(marker, region, now)
+        return check_expiry(marker, now)
 
     def test_the_producer_stamp_is_the_entrys_own(self):
         """The specimen is quoted, never invented — the defect is a copy."""
@@ -933,7 +1136,7 @@ class TestTheClockItIsJudgedAgainst:
         the entire argument for putting it at the entry point.
         """
         with pytest.raises(TypeError, match="aware clock"):
-            check_expiry(Marker("expires", ""), "", datetime(2026, 8, 25, 0, 30))
+            check_expiry(Marker("expires", "", ""), datetime(2026, 8, 25, 0, 30))
 
     def test_check_all_judges_predictions_against_an_aware_clock(self, tmp_path):
         """The default is aware, so the module's own caller is not the bug.
@@ -943,7 +1146,7 @@ class TestTheClockItIsJudgedAgainst:
         """
         seen: list[datetime] = []
 
-        def _spy(marker, region, now):
+        def _spy(marker, now):
             seen.append(now)
             return Claim("expires:x", "s", "claim", None, None, "match", "")
 
@@ -1309,21 +1512,29 @@ class TestTheSentenceIsReadTheWayMarkersAre:
         assert sentence is None
         assert "no sentence carries" in problem
 
-    def test_the_two_readers_agree_on_the_real_document(self):
-        """Import where you can, pin where you cannot.
+    def test_the_two_veilings_would_still_agree_on_the_real_document(self):
+        """The fact that licensed collapsing them into one.
 
-        :func:`read_markers` veils with a single space and this veils with
-        a run of the span's own length; they must still see the same
-        markers, or a sentence could be anchored by a marker
-        ``check_markers`` never reported.
+        :func:`read_markers` used to blank each code span with a *single*
+        space, because it wanted only the set of markers; locating a
+        sentence needs offsets that still index the prose, so it reads the
+        length-preserving veil now (``SNAG-DOCS-008``).  That swap is
+        behaviour-preserving only while the two see the same markers —
+        26.5 kB of the live block is code spans — so the discarded veiling
+        is driven here rather than deleted along with its call site.
+        Falsified by collapsing spans to the empty string, which lets a
+        marker straddling one re-form.
         """
         region, problem = load_region()
         assert region, problem
         from sysadmin.ops_claims import _veiled
 
-        veiled = _veiled(flatten(region))
-        seen = [(m.group(1), m.group(2).strip()) for m in MARKER_RE.finditer(veiled)]
+        prose = flatten(region)
+        discarded = CODE_SPAN_RE.sub(" ", prose)
+        assert len(discarded) < len(prose), "the block carries no code spans to veil"
+        seen = [(m.group(1), m.group(2).strip()) for m in MARKER_RE.finditer(discarded)]
         assert seen == [(m.key, m.argument) for m in read_markers(region)]
+        assert len(_veiled(prose)) == len(prose)
 
     def test_a_marker_in_the_sentence_cannot_satisfy_the_check(self):
         """``prose_without_markers``' reason, one span narrower.
@@ -1477,6 +1688,6 @@ class TestTheConventionAgainstTheRealDocument:
         for marker in read_markers(region):
             if marker.key != "expires":
                 continue
-            claim = check_expiry(marker, region, datetime.now().astimezone())
+            claim = check_expiry(marker, datetime.now().astimezone())
             assert "does not" not in claim.note, f"unpinned: {marker.argument}"
             assert "different clocks" not in claim.note, f"zone drift: {marker.argument}"

@@ -1,6 +1,32 @@
-# Handoff — 2026-09-04 (Session 170)
+# Handoff — 2026-09-04 (Session 171)
 
 ## Next action
+
+Give the `expires` family its first live member by writing a prediction into the STATUS.md block for the 2026-09-16 retention boundary that clears the two journal rows a resume boundary duplicated, measuring first whether the prose can name the local wall clock the marker renders without restating a figure rule 7 forbids — the family has shipped untriggered since 2026-08-24 and every guarantee about it, this sitting's included, is driven at planted markers rather than at one the document actually carries.
+
+_**`SNAG-DOCS-008` is closed, and Session 170's reason for leaving it open described one of the pin's two directions.**_ _That handoff asked whether rule 9's instant pin should follow rule 10 onto one sentence. It should: **not** finding the instant is `unknown` and loud, as rule 10 said, but finding it in an **unrelated** sentence is `match` and silent — rule 10's own defect with a five-character needle drawn from 1440 values._
+
+_**Measured before deciding, and the curve is the one rule 10 closed on.**_ _The printed region states **86** distinct wall clocks, **28** of them more than once — 6.0 % of the day, up from **5** eight days and 150 kB earlier. The collision is not random: a prediction names this box's schedule and so does the block, so `05:45`, `05:15` and `03:00` are values both carry._
+
+_**Driven at the live block, because the fixture cannot have the property under test.**_ _A marker reading `2026-09-05T04:45+00:00` beside a sentence saying `04:45` — a UTC stamp copied into a BST sentence, `SNAG-ESTATE-013`'s founding fault — came back **`match`**, swallowed by eleven unrelated mentions of `05:45`; against a block that does not happen to say `05:45` the same marker returns that entry's own diagnostic. The haystack is **187,933 → 167** characters._
+
+_**`claim_sentence` could not be called, which is exactly what the handoff said to measure first.**_ _It finds a sentence by **key** and refuses a key stated twice; `expires` is the one family whose members the document declares, so two predictions are two markers with one key. `Marker` carries the sentence it stands in now — a question about the **occurrence** rather than the name — and `claim_sentence` became a key lookup over `read_markers`, so both narrowings share one locator by construction._
+
+_**Two silent widenings were found by writing the fixture the new message asks for.**_ _The note tells an author to move the marker into the sentence naming the clock; written flush against the full stop, `SENTENCE_END_RE` saw no terminator (it wants whitespace after one, and a marker is neither) and the sentence ran **backwards** through the preceding paragraph. Blanking the marker then moved the anchor **past** the terminator and the sentence became the next one, which is empty. `_unmarked` and `_anchor` are the halves: what is a marker is not prose, and a marker belongs to the sentence it **closes**._
+
+_**Filed in this repository's own namespace.**_ _`SNAG-ESTATE-017` would have been the fifteenth collision with estate-manager, who are at **131**; their message `153c1c96` records that namespace as having two minters and no owner, and this is the claims machinery rather than the estate._
+
+_**Ten mutations driven, each red on the named test.**_ _Pinning the whole region again turns **12** red; routing the pin through `claim_sentence` turns the same 12 red; emptying the shared locator turns **31** red across *both* narrowings, which is the signature of a locator that is genuinely shared. Suite **3526 → 3534**, `ruff` and `mypy` clean, register **23** open and none opened._
+
+_**The block's own claims moved while the sitting ran.**_ _`High VRAM usage on AMD Radeon RX 7900 XTX` resolved again — the second crossing in two sittings on a card four services share — so `alerts` went **4 → 3** and the named list lost a title in the same edit; `check_alerts`' fall note caught it, which is `SNAG-ESTATE-008`'s founding case for the third time this week._
+
+_**No restart is owed in substance and the deploy check reports one anyway.**_ _`ops_claims.py` is a console script the daemon never imports, so this is rule 4's stated cost rather than stale code on the box — the fourth such report in three sittings, and `SNAG-SYSD-007`'s restart budget is the reason it was not paid reflexively._
+
+---
+
+# Handoff — 2026-09-04 (Session 170)
+
+### The action Session 170 filed (done by Session 171)
 
 Decide whether `check_expiry`'s instant pin should move to `claim_sentence` as well — rule 9 already admits searching the whole printed region is "the weaker half", a block naming one wall clock twice for two different reasons satisfies it, and the narrow reader now exists — measuring first whether a per-marker anchor is even expressible, since `expires` is the one family whose members the document declares and several markers may legitimately share one key, which is the shape `claim_sentence` refuses outright.
 
