@@ -3,6 +3,59 @@
 **Last Updated**: 2026-09-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The daemon's 462 MB is mostly page cache, and the entry's cost was
+> never in it** (2026-09-04, Session 167). `SNAG-SYSD-008` ranked
+> **P3 → P4** and measured. `memory.stat` answers it in two lines:
+> `anon 155 MB` against `file 298 MB`, with `inactive_file 298 MB` and
+> `active_file 0` — the file half cold and reclaimable, so
+> `memory.current` was never the daemon's demand. The process reads
+> `VmRSS 178 MB`.
+>
+> **The first suspect is refuted and was costed against a row count 8×
+> too high.** `GET /api/logs/trends` serves in **44–48 ms** with zero
+> anon growth over five requests, because the `GROUP BY` runs in
+> PostgreSQL. `log_entries` holds **84,265 rows**, not 627k — retention
+> purged it — though the table is still 602 MB of dead-tuple bloat and
+> `alerts` is 374 MB for **13 live tuples**, which is PostgreSQL's
+> resident set and invisible to this cgroup.
+>
+> **The source is the file organiser.** `file_hash` reads the first 1 MB
+> of every file ≥ 1 KB under the scan root for its duplicate
+> fingerprint — **317,180 files**, of which the daemon faulted
+> **5.07 GB from disk** in one 97-second scan. `journalctl` inherits the
+> cgroup too, but its startup catch-up reported `truncated_sources []`.
+>
+> **Steady state costs nothing, and a driven scan prices the rest.**
+> Across 23 idle minutes `read_bytes`, `memory.events max` and the
+> pressure counter were all frozen. A manual scan pinned
+> `memory.current` at **511.6–512.0 MB for 95 seconds**, took reclaim
+> **17,331 → 34,804** and `memory.pressure full` **83,055 →
+> 165,871 µs** — **82.8 ms of stall**, against 83 ms for the 2.4 hours
+> before it.
+>
+> **There is no leak: peak does not track uptime.** A 4 min 33 s
+> invocation peaked at **512M**; an 11 h 3 min one at **230.5M**;
+> 9 h 55 m → 224.9M, 12 h 28 m → 226.5M. What does ratchet is the *anon*
+> half — the scan took it 146.4 → **230.8 MB** and it fell back only to
+> 203.2 MB — and that is the half that could OOM, at roughly **4×**
+> today's file count.
+>
+> **It has never been killed, and the proposed rerank rested on a
+> misread line.** Every stop in the unit's recorded history is
+> `Deactivated successfully`, with `oom_kill 0`; systemd prints
+> `Consumed … 512M memory peak` on every stop as routine accounting, so
+> it is a postmortem statistic and not a kill notice.
+>
+> **Raising `MemoryMax` is refused on measurement**, which inverts the
+> entry's own ranking of its two candidates: the box has **186 GB RAM,
+> 166 GB available and zero memory pressure**, so the cap is 0.27 % of
+> RAM and a bigger number buys a bigger throwaway cache. The fix that
+> matches the cause is `posix_fadvise(POSIX_FADV_DONTNEED)` at the hash
+> read. One residual is stated rather than explained: across
+> **2026-08-28 → 08-31** every invocation peaked at 222–246 MB while the
+> scan ran 14 times on 08-28 alone, and nothing here measures what
+> separates those days from these.
+
 > **One GPU reset now occupies one alert row** (2026-09-04, Session
 > 166). `SNAG-LOG-015` is **closed**. A full-card amdgpu MODE1 reset
 > writes eleven distinct signatures in six seconds and this family opened

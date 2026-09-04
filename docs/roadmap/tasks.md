@@ -16,6 +16,51 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 167 — the daemon's 462 MB is mostly page cache, and the
+      entry's cost was never in it.** *(2026-09-04, none closed, none
+      opened; `SNAG-SYSD-008` ranked **P3 → P4** and measured.)* The
+      brief was rank-then-measure and both halves changed the entry.
+      - [x] Decompose the resident set before touching `MemoryMax`.
+            `memory.stat` answers it: `anon 155 MB` against `file
+            298 MB`, `inactive_file 298 MB` / `active_file 0`, so the
+            file half is cold and reclaimable and `memory.current` was
+            never the daemon's demand. `VmRSS` is 178 MB.
+      - [x] Test the entry's own first suspect. **Refuted**: `GET
+            /api/logs/trends` is 44–48 ms with zero anon growth over
+            five requests, because the `GROUP BY` runs in PostgreSQL —
+            and `log_entries` holds 84,265 rows, not the 627k the entry
+            costed it against.
+      - [x] Find the resident set. `file_hash` reads the first 1 MB of
+            every file >= 1 KB under the scan root: 317,180 files,
+            **5.07 GB faulted from disk** in one 97-second scan, charged
+            to the cgroup because `create_subprocess_exec` and the scan
+            thread both run inside it.
+      - [x] Price it rather than assert it. Steady state is **zero** —
+            `read_bytes`, `memory.events max` and the pressure counter
+            all frozen across 23 idle minutes. A driven `POST
+            /api/files/scan` pinned `memory.current` at 511.6–512.0 MB
+            for 95 s and cost **82.8 ms** of stall.
+      - [x] Rule out a leak. Peak does not track uptime: 4 min 33 s ->
+            512M, 11 h 3 min -> 230.5M, 12 h 28 m -> 226.5M. The *anon*
+            half does ratchet (146.4 -> 230.8 -> 203.2 MB) and is the
+            half that could OOM, at roughly 4x today's file count.
+      - [x] Check the rerank Session 165 proposed. **Refuted**: every
+            stop in the unit's recorded history is `Deactivated
+            successfully` with `oom_kill 0`; systemd prints `Consumed …
+            512M memory peak` on every stop as routine accounting, so it
+            is a postmortem statistic and not a kill notice.
+      - [x] Cost the entry's preferred remedy. **Refused**: the box has
+            186 GB RAM, 166 GB available and zero memory pressure, so
+            the cap is 0.27 % of RAM and a bigger number buys a bigger
+            throwaway cache. `posix_fadvise(POSIX_FADV_DONTNEED)` at the
+            hash read is the fix that matches the cause; untaken here,
+            because the brief was to rank and measure.
+      - [x] Declare the disposition the register said was missing, and
+            state the one residual rather than explaining it away: the
+            2026-08-28 -> 08-31 window peaked at 222–246 MB while the
+            scan ran 14 times on 08-28 alone, and nothing here measures
+            what separates those days from these.
+
 - [x] **Session 166 — one GPU reset now occupies one alert row.**
       *(2026-09-04, one closed — `SNAG-LOG-015`; one opened —
       `SNAG-LOG-017`.)* A full-card amdgpu MODE1 reset writes eleven
