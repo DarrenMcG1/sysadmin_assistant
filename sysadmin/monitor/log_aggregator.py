@@ -9,6 +9,7 @@ Pipeline: parse → filter → store → alert → periodic LLM summarise
 
 import asyncio
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -28,8 +29,9 @@ from sysadmin.core.config import get_config
 # predicate instead of the ordering removes the collision rather than
 # renaming around it, and there is now one statement of when a rung may
 # move under a standing row.
-from sysadmin.core.escalation import may_quieten_in_place
+from sysadmin.core.escalation import is_louder_than, may_quieten_in_place
 from sysadmin.core.models.alert import Alert, unresolved
+from sysadmin.core.text import truncate_at_word
 from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.journal import (
     SEVERITY_ORDER,
@@ -37,6 +39,19 @@ from sysadmin.monitor.journal import (
     read_journal,
     since_timestamp,
 )
+
+# The correlation rule ``GET /api/logs/actions`` already applies to this
+# exact population, reached rather than copied — ``SNAG-LOG-015``.  The
+# direction of this import is the surprising half: the *ingest* agent
+# depending on the *advice* module reads backwards, and the alternative
+# was to rehome the rule in a third module, which
+# ``snag_claims.check_check_interval_looks_away`` measures
+# ``SNAG-SVC-001`` against by watching which modules the advice side
+# imports.  Moving it would have let a later correlation fix satisfy that
+# entry while the check went on reporting *still holds*.  A backwards
+# import is cheaper than a broken control.
+from sysadmin.monitor.log_actions import correlate
+from sysadmin.monitor.log_query import unit_relations
 from sysadmin.monitor.log_signature import alert_title, signature
 from sysadmin.monitor.models.log_entry import LogEntry
 from sysadmin.monitor.services import composed_log_sources
@@ -303,6 +318,308 @@ CRITICAL_SIGNATURES: dict[tuple[str, str], CriticalSignature] = {
 DECLARED_FLOOR_SEVERITY = "warning"
 
 
+#: How long after the first line of a declared incident a sibling fault
+#: from the same source may still belong to it.
+#:
+#: **A second constant rather than a reuse of
+#: :data:`~sysadmin.monitor.log_actions.INCIDENT_WINDOW_SECONDS`, and the
+#: measurement is why.**  That constant is 5.0 s, derived on the advice
+#: surface's population, where the two clusters it separates are three
+#: orders of magnitude apart: every genuinely-one-incident pair lands
+#: inside **349 ms** and the nearest genuinely-two-incidents pair is
+#: **64.4 s** away, so 5.0 s is the geometric midpoint of a gap nothing
+#: sits near.
+#:
+#: This family's population is not that one, and 5.0 s does not sit
+#: comfortably in it.  Measured 2026-09-04 over every amdgpu MODE1 reset
+#: in the journal — five of them, 2026-08-29 through 2026-09-04, across
+#: both installed kernel branches:
+#:
+#: * the span from the first error line to ``VRAM is lost due to GPU
+#:   reset!`` is **4.9579, 4.9597, 4.9599, 4.9614 and 4.9675 s** — a
+#:   ten-millisecond spread, because it is amdgpu's fixed reset timeout
+#:   schedule rather than anything about load;
+#: * the nearest genuinely-two-incidents separation among kernel error
+#:   lines is **7.04 s** (``virt/tdx: TDX not supported`` at boot,
+#:   followed by a USB enumeration failure), against **0** consecutive
+#:   gaps anywhere in the 81,509-line population landing between 4.9 and
+#:   5.1 s.
+#:
+#: So 5.0 s does clear this population — by **32 ms, 0.6 % of its own
+#: value**.  A reset a thirty-third of a second slower drops the very
+#: line that names the fault out of its own incident, and the failure is
+#: **silent in both directions**: the declared row stands alone, the ten
+#: fragments come back, and no test goes red because every fixture was
+#: written from a reset that fitted.  The same derivation that produced
+#: 5.0 s produces ``sqrt(4.9675 * 7.04) = 5.914`` here, which sits
+#: **1.19x** from each cluster instead of 1.007x and 1.408x.
+#:
+#: Widening the shared constant instead was weighed and refused: it
+#: changes ``GET /api/logs/actions``' behaviour for a reason that came
+#: from a different table, and a constant re-derived to serve two
+#: populations is one that describes neither.  Two numbers, each with
+#: its own measurement, is the honest cost — and it is the cost
+#: :data:`~sysadmin.monitor.log_actions.SAMPLE_DETAIL_CHARS` already
+#: paid one module over for the same reason.
+ALERT_INCIDENT_WINDOW_SECONDS = 5.9
+
+
+@dataclass(frozen=True)
+class _FaultMoment:
+    """One run's fault, in the shape
+    :func:`~sysadmin.monitor.log_actions.correlate` reads.
+
+    The alert family's answer to that function's
+    :class:`~sysadmin.monitor.log_actions.Correlatable` protocol.  It
+    carries ``title`` as well, because ``title`` is this family's
+    identity — dedup, the resolve and the tray's ``{severity}:{title}``
+    fingerprint all key on it (``SNAG-AGENT-005`` rule 2) — and the fold
+    has to hand a group back as the dict keys it was built from.
+    """
+
+    title: str
+    source: str
+    signature: str
+    first_seen: datetime
+
+
+def _member_of(fault: dict[str, Any]) -> dict[str, Any]:
+    """One swallowed fault, as it is recorded on the row that swallowed it.
+
+    **The signature is stored whole, deliberately un-capped**, which is
+    the opposite of what :func:`~sysadmin.monitor.log_actions.capped_signature`
+    does for the advice surface's members.  That cap exists because a
+    ``detail`` string is *rendered* and seven 250-character signatures is
+    a paragraph no reader reaches the end of; ``details`` is JSONB read
+    by an API client, has no such budget, and ``SNAG-LOG-013`` is what
+    capping here would rebuild — 9 of 55 signatures on this box share
+    their first 120 characters, so a capped machine-readable field would
+    name several members identically and the roll-up that promises to
+    name what it swallows would name none of them.
+
+    ``alert_title`` is carried as well as ``signature`` because it is the
+    row this member *would have opened*: a reader who saw the fragment
+    rows before this fix, or who is holding a ``GET /api/logs/trends``
+    line, matches on that string and not on the signature.
+    """
+    return {
+        "source": fault["source"],
+        "signature": fault["signature"],
+        "alert_title": fault["title"],
+        "occurrences": fault["count"],
+    }
+
+
+#: How much of the latest verbatim line a folded row's message keeps.
+#:
+#: ``alert.message`` reaches a notification body verbatim and is capped
+#: at 500 characters by the column's consumers, so a row that has to say
+#: two things needs a budget for the first.  ``NEXT_ACTION_CHARS``'
+#: argument at a different size: the cut is *marked*, because
+#: ``SNAG-BRIEF-002`` is what an unmarked one is.
+FOLDED_SAMPLE_CHARS = 300
+
+
+def _fault_message(fault: dict[str, Any]) -> str:
+    """The row's message, composed in exactly one place.
+
+    Both the raise and :meth:`LogAggregatorAgent._record_recurrence`
+    write ``alert.message``, and a folded row's message says something an
+    ordinary row's does not.  Composing it at each site would be two
+    statements of one sentence, free to drift in the direction nobody
+    notices — the first recurrence of a folded fault would silently
+    rewrite the message back to the un-folded form, which is
+    ``SNAG-DB-003``'s shape at the size of a string.
+
+    **The members are counted here and named in ``details``**, which is
+    not the count-that-names-nothing ``SNAG-ESTATE-001`` forbids: that
+    defect is a row whose *only* content is a number, and this row's
+    title names the fault outright.  What the sentence adds is the one
+    thing a reader of the toast could not otherwise know — that the row
+    stands for more than itself — together with where the names are.
+    ``judge_audit_findings`` rule 3 takes exactly this shape when it
+    collapses a ports breach to *"one row naming the ports in
+    ``details``"*.
+    """
+    if not fault["members"]:
+        return str(fault["message"])[:500]
+    return truncate_at_word(str(fault["message"]), FOLDED_SAMPLE_CHARS) + (
+        f"\n\nOne incident: {len(fault['members'])} further signature(s) "
+        f"from {fault['source']} folded into this row, named in "
+        f"details['members']."
+    )
+
+
+def _merge_members(
+    existing: Any, incoming: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Union two member lists, keyed on ``(source, signature)``.
+
+    Occurrences are summed on a collision, which is the treatment
+    ``details['occurrences']`` already gets one field up: a member seen
+    in two incidents of one open row has genuinely been seen that many
+    times, and the row's own count says so about the anchor.
+
+    ``existing`` is whatever JSONB handed back, so it is typed ``Any``
+    and validated rather than trusted — a row written before this fix
+    has no ``members`` key at all, and a row written by a future shape
+    must not make an agent run raise.  A malformed entry is dropped
+    rather than repaired: this field is evidence, and a guess about what
+    a broken member meant is worse than its absence.
+    """
+    merged: dict[tuple[str, str], dict[str, Any]] = {}
+    for member in [*(existing or []), *incoming]:
+        if not isinstance(member, dict):
+            continue
+        key = (str(member.get("source", "")), str(member.get("signature", "")))
+        if key in merged:
+            merged[key] = {
+                **merged[key],
+                "occurrences": int(merged[key].get("occurrences") or 0)
+                + int(member.get("occurrences") or 0),
+            }
+        else:
+            merged[key] = dict(member)
+    return list(merged.values())
+
+
+def fold_declared_incidents(
+    faults: dict[str, dict[str, Any]],
+    related: Mapping[str, frozenset[str]] | None = None,
+    window_seconds: float = ALERT_INCIDENT_WINDOW_SECONDS,
+) -> dict[str, dict[str, Any]]:
+    """Fold a declared fault's siblings into it, before anything is raised.
+
+    ``SNAG-LOG-015``.  One amdgpu MODE1 reset writes eleven distinct
+    signatures in the same six seconds and this family opened a row for
+    each: live on 2026-09-04, one reset produced **ten** ``warning`` rows
+    and ten tray fingerprints, and on the three 2026-09-03 resets eleven
+    apiece.  The declared row — the twelfth, the only one that names the
+    fault — was the news, and it arrived beside eleven fragments of its
+    own wreckage.
+
+    Six rules, four of them the opposite of the obvious implementation:
+
+    1. **This is a raise rule, not a resolve rule, and that is what
+       dissolves the entry's hardest question.**  ``SNAG-LOG-015`` asks
+       what resolves a swallowed member, *"since each is a separate open
+       row with its own dedup lifecycle and ``monitor/collation.py``'s
+       flip-flop is what a careless answer rebuilds"*.  The answer is
+       **nothing, because none is opened**: the fold runs over the
+       ``faults`` dict before :meth:`LogAggregatorAgent._open_alerts` is
+       called, so a swallowed member is never a row and has no lifecycle
+       to reconcile.  That flip-flop needs two owners of one row and
+       there is exactly one.  It is also the shape this family already
+       chose once: ``SNAG-AGENT-005`` records that a log line *"cannot
+       un-write itself"*, so there is no run at which "this would not be
+       raised" becomes true and the fix there was likewise a raise rule.
+
+    2. **Only a declaration may name a folded row.**  The advice
+       surface's :func:`~sysadmin.monitor.log_actions._incident_recommendation`
+       titles its roll-up after the **anchor** — the fault that happened
+       first — which is free there because an advice row is recomputed
+       live and persists nothing.  Here the title *is* the identity, so
+       an anchor-derived title forks the dedup key the moment two resets
+       begin with different lines: the 2026-09-04 chain opens on ``ring
+       gfx_0.0.0 timeout`` and nothing guarantees the next one does.
+       :data:`CRITICAL_SIGNATURES` is the only place on this box where a
+       line is given a stable name, so a group carrying no declaration
+       is returned untouched and a group carrying **two distinct**
+       declarations is too — two names is no name, and picking one is
+       exactly the arbitrary choice the declaration exists to remove.
+       (Empty population both ways today: there is one declaration, and
+       both of its spellings share one
+       :class:`CriticalSignature` and therefore one title, so the two
+       kernel branches cannot produce two names for one reset.)
+
+    3. **The fold may never quieten anything, so a louder sibling is
+       left standing rather than swallowed.**  ``judge_attention``'s
+       roll-up rule is "take the loudest rung you swallow"; applying it
+       verbatim here would let a fold *override a quietening* — a
+       declared row an operator has put in ``known_noise`` would be
+       dragged back up to ``warning`` by a fragment, which is a
+       consumer's judgement beating an operator's and the exact ordering
+       the raise block one function down refuses.  Refusing to swallow
+       the louder member gets the same guarantee with no ordering
+       question: nothing is ever made quieter, and a quietened
+       declaration silences only itself.  Reachable rather than
+       theoretical — ``RDSEED32 is broken`` arrives from the kernel at
+       ``PRIORITY=2`` and would raise ``critical`` — and empty today,
+       since every fragment of every observed reset is ``warning``
+       against a declared floor of ``warning``.
+
+    4. **Occurrences are not summed onto the anchor**, which is where
+       this departs from ``_incident_recommendation`` rule 1.  There the
+       sum is a *sort key* across advice rows and summing is honest
+       because every member shares one currency.  Here
+       ``details['occurrences']`` is compared across incidents of the
+       same fault — a reset writes ``VRAM is lost`` exactly once — so
+       summing would make the row's own count depend on how many
+       fragments happened to fall inside the window.  Each member's
+       count is carried in ``details['members']`` instead, which is
+       strictly more information than a total and decomposes back into
+       one.  Nothing is lost either way: ``log_entries`` is untouched by
+       the fold, so ``GET /api/logs/trends`` and ``GET /api/logs/actions``
+       still see every line.
+
+    5. **Every member is named, in full, in ``details``** —
+       ``SNAG-ESTATE-001``'s rule, and the shape ``judge_audit_findings``
+       rule 3 already uses when it collapses a ports breach *"to one row
+       naming the ports in ``details``"*.  The tray's toast is
+       ``title`` + ``message``, so the message says the row stands for
+       more than itself and points at the field holding the names; the
+       row's ``title``, ``source`` and ``signature`` stay the
+       **declaration's**, so a consumer that ignores ``members``
+       entirely still gets a correct row about the fault that actually
+       happened.
+
+    6. **The relation is reused, not restated.**  Membership is
+       :func:`~sysadmin.monitor.log_actions.correlate`'s — same source,
+       or a source systemd declares a direct relation with, inside
+       :data:`ALERT_INCIDENT_WINDOW_SECONDS` of the anchor.  For the one
+       declaration that exists the graph contributes **nothing**
+       measurable: ``kernel`` is not a systemd unit, so
+       ``unit_relations()`` has no entry for it and the rule degenerates
+       to same-source.  It is wired anyway, at 0.4 ms a poll measured,
+       because the day a unit-source line is declared the graph is the
+       half that matters — ``correlate`` rule 1 — and an input read only
+       when someone remembers to wire it is the ``SNAG-CFG-001`` shape.
+    """
+    moments = [
+        _FaultMoment(
+            title=title,
+            source=fault["source"],
+            signature=fault["signature"],
+            first_seen=fault["first_logged_at"],
+        )
+        for title, fault in faults.items()
+    ]
+
+    folded = dict(faults)
+    for group in correlate(moments, related, window_seconds):
+        if len(group) < 2:
+            continue
+        declared = [m for m in group if folded.get(m.title, {}).get("declared")]
+        if len(declared) != 1:
+            # Rule 2: no name, or two.  Either way the group is returned
+            # exactly as it arrived.
+            continue
+        anchor = folded[declared[0].title]
+        swallowed = [
+            folded[m.title]
+            for m in group
+            if m.title != declared[0].title
+            and not is_louder_than(folded[m.title]["severity"], anchor["severity"])
+        ]
+        if not swallowed:
+            continue
+        anchor["members"] = [*anchor["members"], *(_member_of(f) for f in swallowed)]
+        for member in swallowed:
+            del folded[member["title"]]
+
+    return folded
+
+
 class LogAggregatorAgent(BaseAgent):
     """Collects and summarises logs from configured sources."""
 
@@ -341,6 +658,47 @@ class LogAggregatorAgent(BaseAgent):
             self._cursors.pop(name, None)
             self._file_offsets.pop(name, None)
         return dropped
+
+    @staticmethod
+    def _relations() -> Mapping[str, frozenset[str]]:
+        """The declared systemd graph, for :func:`fold_declared_incidents`.
+
+        Read per poll, at a measured **0.4 ms** warm (9.4 ms on the first
+        call, which is the page cache rather than the walk), for the
+        reason :func:`~sysadmin.monitor.log_query.unit_relations` is read
+        per request one module over: a unit file is a *document*, not
+        live state, so re-reading it is not a second observation of a
+        moving target, and taking the six-hourly sweep's copy would mean
+        a unit installed this morning does not correlate until this
+        evening and fails silently when it doesn't.
+
+        **It fails open and it may never take a run down with it.**  The
+        graph is an enrichment of the fold, and the fold is an
+        enrichment of the raise; ``estate/judgements.py`` states the rule
+        this borrows — *"the enrichment is not allowed to become a
+        dependency of the alert"* — and ``SNAG-LOG-004`` is what this
+        module costs when one source's exception kills the ingest of
+        every other.  So an unreadable unit directory costs cross-source
+        folding, leaves same-source folding working, and says so in the
+        journal rather than passing silently.
+
+        Its population is measured and currently empty: ``kernel`` is not
+        a systemd unit, so it has no entry in the graph and the one
+        declared signature there is folds by source alone.  It is wired
+        anyway because ``correlate`` rule 1 makes the graph the *filter*
+        and the window merely a bound, so the day a unit-source line is
+        declared this is the half that decides correctness — and an
+        input wired only when somebody remembers is the
+        ``SNAG-CFG-001`` shape this repository keeps paying for.
+        """
+        try:
+            return unit_relations()
+        except Exception as exc:  # noqa: BLE001 - see the docstring
+            logger.warning(
+                "log_incident_graph_unread",
+                extra={"error": str(exc), "consequence": "same-source folding only"},
+            )
+            return {}
 
     @staticmethod
     def _sources(agent_config) -> list:
@@ -480,6 +838,24 @@ class LogAggregatorAgent(BaseAgent):
                     # over-determined rather than ambiguous.
                     covered_by = COVERED_SIGNATURES.get(key)
                     faults[title] = {
+                        # The dict key, carried on the value as well so
+                        # ``fold_declared_incidents`` can hand a group
+                        # back as the keys it was built from without
+                        # every member growing a second lookup.
+                        "title": title,
+                        # When this fault was *logged*, which is not when
+                        # it is raised: every row of the 2026-09-04 reset
+                        # carries ``created_at`` 10:36:31.494 — one poll,
+                        # 53 s after the event — so the run's own clock
+                        # cannot separate an incident from the rest of a
+                        # sixty-second window.  ``correlate`` needs the
+                        # producer's moment and this is where it enters.
+                        "first_logged_at": entry["logged_at"],
+                        # Filled by ``fold_declared_incidents`` and empty
+                        # on every ordinary row, which is the vast
+                        # majority — the shape ``LogRecommendation.members``
+                        # already uses one module over.
+                        "members": [],
                         # A declared signature opens at the floor and is
                         # moved by the ladder in the raise phase, which is
                         # where the count of previous incidents can be
@@ -521,6 +897,22 @@ class LogAggregatorAgent(BaseAgent):
                     # rather than whichever arrived first.
                     fault["message"] = entry["message"]
                     fault["count"] += 1
+                    # ``correlate``'s anchor is the *earliest* member, so
+                    # a fault seen repeatedly in one poll keeps its first
+                    # moment while its message keeps the last.  A source
+                    # read arrives in ascending order, so this is almost
+                    # always the value already there — ``min`` is written
+                    # anyway because the ordering is journalctl's promise
+                    # rather than this module's, and two sources are read
+                    # one after another into one dict.
+                    fault["first_logged_at"] = min(
+                        fault["first_logged_at"], entry["logged_at"]
+                    )
+
+        # Before anything is read back or raised: a swallowed member must
+        # never become a row, which is what makes this a *raise* rule and
+        # what dissolves ``SNAG-LOG-015``'s question about resolving one.
+        faults = fold_declared_incidents(faults, self._relations())
 
         open_alerts = await self._open_alerts(session, set(faults))
         now = datetime.now(UTC)
@@ -556,7 +948,7 @@ class LogAggregatorAgent(BaseAgent):
                 session,
                 severity=fault["severity"],
                 title=title,
-                message=fault["message"][:500],
+                message=_fault_message(fault),
                 details={
                     "source": fault["source"],
                     "signature": fault["signature"],
@@ -582,6 +974,15 @@ class LogAggregatorAgent(BaseAgent):
                         if fault["declared"] is not None
                         else {}
                     ),
+                    # Every signature this row swallowed, named in full
+                    # — ``SNAG-ESTATE-001``'s rule, and the shape
+                    # ``judge_audit_findings`` rule 3 uses when it
+                    # collapses to *"one row naming the ports in
+                    # details"*.  Present only when the row stands for
+                    # more than itself, because a key that is ``[]`` on
+                    # every ordinary row is a field whose value carries
+                    # no news on the 99 % of rows that have none.
+                    **({"members": fault["members"]} if fault["members"] else {}),
                     # Present only when config.yaml says so, so a reader
                     # of the row can see *why* it is quiet without going
                     # to look — the reason SNAG-CFG-001 was a defect
@@ -882,8 +1283,23 @@ class LogAggregatorAgent(BaseAgent):
             details["covered_by"] = fault["covered_by"]
         else:
             details.pop("covered_by", None)
+        # Members **accumulate** and are never replaced.  A row that is
+        # already open and folds again is a second incident inside
+        # ``alert_quiet_minutes``, and a member this row named on the
+        # first one was genuinely part of it — dropping it because the
+        # second incident happened to have different fragments is the
+        # roll-up losing a name it had already given, which is
+        # ``SNAG-ESTATE-001`` inside the fix for ``SNAG-LOG-015``.  This
+        # is deliberately the *opposite* treatment from ``noise_reason``
+        # and ``covered_by`` three lines up, which are set-or-popped
+        # because each states the row's **present** classification and a
+        # stale one would be a false claim about now.
+        if fault["members"]:
+            details["members"] = _merge_members(
+                details.get("members"), fault["members"]
+            )
         alert.details = details
-        alert.message = fault["message"][:500]
+        alert.message = _fault_message(fault)
 
         wanted = fault["severity"]
         if may_quieten_in_place(wanted, alert.severity):

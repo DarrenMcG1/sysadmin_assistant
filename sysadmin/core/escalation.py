@@ -110,6 +110,34 @@ def step_for(wanted: str, open_severity: str | None) -> Step:
     return Step.HOLD
 
 
+def is_louder_than(rung: str, other: str) -> bool:
+    """Is ``rung`` a louder statement than ``other``?
+
+    The bare comparison :func:`step_for` performs, exposed on its own
+    because a caller can need the *ordering* without needing a ladder
+    decision.  ``SNAG-LOG-015``'s fold is the first: it asks whether a
+    signature it is about to swallow speaks louder than the row that
+    will swallow it, which is a question about two judgements neither of
+    which is a standing row, so ``step_for``'s vocabulary of
+    raise/escalate/hold does not fit and reading it as though it did
+    would put a ladder's meaning on a roll-up's decision.
+
+    **A predicate rather than the map**, and that is this module's own
+    standing rule rather than a preference.
+    :mod:`sysadmin.monitor.log_aggregator` records why in the comment
+    over its import: :mod:`sysadmin.monitor.journal` exports a
+    *different* ``SEVERITY_ORDER`` — five log severities against the
+    three ``chk_alert_severity`` admits — and a module importing both
+    compares a log level against an alert level, wrong only for
+    ``error``, which has no alert rung at all.  That collision was
+    removed by importing the predicate; handing the ordering out again
+    to the same module would rebuild it under a new alias.
+
+    Unknown rungs read as the floor, as they do throughout this module.
+    """
+    return SEVERITY_ORDER.get(rung, 0) > SEVERITY_ORDER.get(other, 0)
+
+
 #: The quietest rung there is.
 #:
 #: Derived from :data:`SEVERITY_ORDER` rather than written as ``"info"``

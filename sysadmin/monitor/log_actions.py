@@ -66,6 +66,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from typing import Protocol
 
 from sysadmin.core.text import truncate_at_word
 from sysadmin.monitor.journal import since_timestamp
@@ -83,7 +84,9 @@ __all__ = [
     "LogRecommendation",
     "SAMPLE_DETAIL_CHARS",
     "SIGNATURE_DETAIL_CHARS",
+    "Correlatable",
     "capped_signature",
+    "correlate",
     "group_incidents",
     "journal_command",
     "quoted_signature",
@@ -351,17 +354,63 @@ class LogRecommendation:
         return tuple(seen)
 
 
-def group_incidents(
-    trends: Sequence[SignatureTrend],
+class Correlatable(Protocol):
+    """The three facts :func:`correlate` reads about a fault.
+
+    Declared as a protocol rather than as a base class because the two
+    callers hold genuinely different objects and neither should acquire
+    the other's fields.  ``GET /api/logs/actions`` correlates
+    :class:`~sysadmin.monitor.log_trends.SignatureTrend` rows — twelve
+    fields, most of them about two comparison windows — while
+    :mod:`sysadmin.monitor.log_aggregator` correlates the faults of a
+    single 60-second poll, which have no windows and no change kind at
+    all.  Building a ``SignatureTrend`` on the alert side to reach this
+    rule would mean stamping ``ChangeKind.NEW`` on a fault that may be a
+    recurrence, and inventing ``current``/``previous``/``ratio`` — a
+    fabricated classification, which is worse than a copied rule rather
+    than better.
+
+    The members are ``@property`` so a frozen dataclass satisfies them:
+    what the rule needs is to *read* three fields, and a protocol
+    spelling them as plain attributes would additionally demand that
+    they be settable.
+    """
+
+    @property
+    def source(self) -> str: ...
+
+    @property
+    def signature(self) -> str: ...
+
+    @property
+    def first_seen(self) -> datetime: ...
+
+
+def correlate[T: Correlatable](
+    items: Sequence[T],
     related: Mapping[str, frozenset[str]] | None = None,
     window_seconds: float = INCIDENT_WINDOW_SECONDS,
-) -> list[list[SignatureTrend]]:
-    """Collapse first sightings that are one incident into one group.
+) -> list[list[T]]:
+    """Group faults that are one incident, by relation and window.
+
+    The correlation rule itself, lifted out of :func:`group_incidents`
+    in Session 166 so the alert family could reach it without either
+    copying it or faking a trend — ``SNAG-LOG-015``.  It stays in this
+    module rather than moving to a shared one, and that placement is
+    load-bearing in a way that has nothing to do with taste:
+    ``snag_claims.check_check_interval_looks_away`` measures
+    ``SNAG-SVC-001``'s second resolution by watching whether
+    ``service_recommendations.py`` imports ``sysadmin.monitor.log_actions``
+    or ``sysadmin.monitor.log_trends``.  Rehoming this function would let
+    a future correlation fix import a *third* module and leave that check
+    reporting *still holds* over a landed fix — another entry's control
+    broken by an unrelated tidy-up, which is the shape this repository
+    has already paid for once.
 
     ``related`` maps a source to the sources systemd declares it has a
     relation with, already resolved to the source's own scope by the
     caller — :func:`journal_command`'s ``scopes`` argument's posture, and
-    for its reason: this module stays pure and the router owns the read.
+    for its reason: this module stays pure and the caller owns the read.
     Every group is returned, including groups of one, so the caller can
     see that a signature was considered and left alone.
 
@@ -376,7 +425,7 @@ def group_incidents(
     replaces: the reader is told a dependency failed and, separately,
     that a broker crashed.
 
-    Five rules, four of them the opposite of the obvious implementation:
+    Four rules, three of them the opposite of the obvious implementation:
 
     1. **Membership needs the declared graph, not a longer window.**
        ``estate-broker-provision.service`` declares
@@ -400,27 +449,17 @@ def group_incidents(
        close to something already admitted — lets a chain walk
        arbitrarily far from where it started, so a restart loop retrying
        every 5 s would grow one incident across a whole outage.  The
-       anchor is the earliest first sighting and the window is measured
-       from it alone, which is also what an incident *is*: something
-       failed at a moment, and consequences landed shortly after.
+       anchor is the earliest fault and the window is measured from it
+       alone, which is also what an incident *is*: something failed at a
+       moment, and consequences landed shortly after.
 
-    4. **First sightings only.**  ``first_seen`` is the moment the fault
-       happened only for a signature seen for the first time.  A
-       ``SURGED`` signature's ``first_seen`` is weeks old and says
-       nothing about when it surged, and grouping surges on ``last_seen``
-       instead would put every currently-active surge in one "incident",
-       since they all last fired moments ago.  So a surge is never a
-       member and never an anchor — which also means every member of a
-       group shares one kind, and the rung arithmetic a roll-up normally
-       needs (``judge_attention``'s "take the loudest rung you swallow")
-       has nothing to decide here.  It is absent because it is vacuous,
-       not because it was forgotten.
-
-    5. **Ties are broken on the signature, so the anchor is
+    4. **Ties are broken on the signature, so the anchor is
        deterministic.**  Seven of ``sysadmin.service``'s rows share a
        timestamp to the millisecond; without a total order the anchor —
        and therefore the row's title — would depend on dict ordering
-       upstream.
+       upstream.  The sort happens **here** rather than at each caller,
+       because a caller that forgot it would produce output that is
+       correct on most runs and unstable on the runs that matter.
 
     Fails **open**: with no graph, or a graph that reaches neither
     source, the rule still groups by source and otherwise leaves rows
@@ -430,27 +469,24 @@ def group_incidents(
     merge.
     """
     edges = related or {}
-    firsts = sorted(
-        (t for t in trends if t.change is ChangeKind.NEW),
-        key=lambda t: (t.first_seen, t.source, t.signature),
-    )
+    ordered = sorted(items, key=lambda i: (i.first_seen, i.source, i.signature))
 
-    groups: list[list[SignatureTrend]] = []
+    groups: list[list[T]] = []
     claimed: set[int] = set()
 
-    for index, anchor in enumerate(firsts):
+    for index, anchor in enumerate(ordered):
         if index in claimed:
             continue
         claimed.add(index)
         group = [anchor]
         neighbours = edges.get(anchor.source, frozenset())
-        for other_index in range(index + 1, len(firsts)):
+        for other_index in range(index + 1, len(ordered)):
             if other_index in claimed:
                 continue
-            other = firsts[other_index]
+            other = ordered[other_index]
             gap = (other.first_seen - anchor.first_seen).total_seconds()
             if gap > window_seconds:
-                # Rule 3: measured from the anchor, and ``firsts`` is
+                # Rule 3: measured from the anchor, and ``ordered`` is
                 # sorted, so nothing later can qualify either.
                 break
             if other.source == anchor.source or other.source in neighbours:
@@ -459,6 +495,39 @@ def group_incidents(
         groups.append(group)
 
     return groups
+
+
+def group_incidents(
+    trends: Sequence[SignatureTrend],
+    related: Mapping[str, frozenset[str]] | None = None,
+    window_seconds: float = INCIDENT_WINDOW_SECONDS,
+) -> list[list[SignatureTrend]]:
+    """Collapse **first sightings** that are one incident into one group.
+
+    The advice surface's caller of :func:`correlate`, and the one rule
+    that does not belong to the shared machinery lives here:
+
+    **First sightings only.**  ``first_seen`` is the moment the fault
+    happened only for a signature seen for the first time.  A ``SURGED``
+    signature's ``first_seen`` is weeks old and says nothing about when
+    it surged, and grouping surges on ``last_seen`` instead would put
+    every currently-active surge in one "incident", since they all last
+    fired moments ago.  So a surge is never a member and never an anchor
+    — which also means every member of a group shares one kind, and the
+    rung arithmetic a roll-up normally needs (``judge_attention``'s "take
+    the loudest rung you swallow") has nothing to decide here.  It is
+    absent because it is vacuous, not because it was forgotten.
+
+    That is a property of *this* population and does not transfer: the
+    alert family correlates one poll's faults, where every member is a
+    fault observed in the last sixty seconds whatever its history, so it
+    has to answer the rung question rather than inherit an exemption
+    from it.  The filter therefore sits at this caller and not inside
+    :func:`correlate`.
+    """
+    return correlate(
+        [t for t in trends if t.change is ChangeKind.NEW], related, window_seconds
+    )
 
 
 def _noise_snippet(trend: SignatureTrend) -> str:

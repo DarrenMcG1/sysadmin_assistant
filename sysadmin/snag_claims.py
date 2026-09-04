@@ -992,6 +992,165 @@ def check_estate_port_8500() -> Measurement:
     )
 
 
+def check_incident_fold_splits_at_a_poll() -> Measurement:
+    """``SNAG-LOG-017`` — a chain astride a poll boundary folds one half.
+
+    **The entry's population is empty and measured so, which decides the
+    check's shape.**  All five amdgpu resets in the journal raised their
+    rows at a single ``created_at`` instant apiece — 5 of 5 in one poll —
+    so a check that looked in ``alerts`` for a split chain would report
+    the entry refuted on the day it was filed, and would go on doing so
+    for as long as the box behaves.  ``check_dropin_blind_spot``'s
+    treatment, and Session 83's reading of ``SNAG-LOG-013``: what the
+    entry claims is a *mechanism*, so the mechanism is reproduced.
+
+    **The declared line is taken out of :data:`CRITICAL_SIGNATURES`
+    rather than typed**, and it can be because
+    :func:`~sysadmin.monitor.log_signature.signature` is idempotent on
+    its own output — the normalised form has no digit runs left to
+    collapse, verified rather than assumed.  So the probe cannot drift
+    from the declaration it exercises, and it inherits a reworded key for
+    free.  ``SNAG-LOG-015``'s parent is precisely an entry where a
+    hand-typed spelling of this line was wrong for the running kernel.
+
+    **The fragments are deliberately synthetic and unrelated to amdgpu.**
+    What the entry claims is about a *poll boundary*, not about which
+    lines a reset writes, and reproducing the real eleven here would be a
+    second copy of a fixture ``tests/test_log_incident_fold.py`` owns —
+    which this module must not import in any case, since it ships in the
+    wheel and the tests do not.
+
+    **The witness is the un-split drive, and it is what makes the split
+    one mean anything.**  A constant observation is not evidence unless
+    something in the population would have forced a different one, so the
+    same chain is driven twice through the real
+    ``LogAggregatorAgent._execute`` — once whole, once cut — and the
+    entry holds only when the whole chain folds *and* the cut one does
+    not.  A whole chain that fails to fold is neither verdict: it means
+    ``SNAG-LOG-015``'s fix has itself stopped working, which this check
+    is not about and must not silently absorb.
+    """
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from sysadmin.core.config import LogSource
+    from sysadmin.core.models.alert import Alert
+    from sysadmin.monitor.journal import JournalRead
+    from sysadmin.monitor.log_aggregator import CRITICAL_SIGNATURES, LogAggregatorAgent
+
+    declared = next(iter(CRITICAL_SIGNATURES), None)
+    if declared is None:
+        return Measurement(
+            "unknown",
+            "CRITICAL_SIGNATURES is empty — there is no declared line for a fold to "
+            "be named after, so the mechanism cannot be reproduced",
+        )
+    source_name, declared_signature = declared
+    base = datetime(2026, 9, 4, 9, 35, 32, tzinfo=UTC)
+
+    def entry(message: str, offset: float, severity: str) -> dict[str, Any]:
+        return {
+            "source": source_name,
+            "severity": severity,
+            "message": message,
+            "logged_at": base + timedelta(seconds=offset),
+            "raw_line": message,
+            "metadata": {},
+        }
+
+    chain = [
+        entry("snag-claims fold probe: the first fragment", 0.0, "error"),
+        entry("snag-claims fold probe: the second fragment", 0.5, "error"),
+        entry(declared_signature, 1.0, "info"),
+    ]
+
+    class _Session:
+        """Records adds and answers the three reads ``_execute`` makes."""
+
+        def __init__(self) -> None:
+            self.added: list[object] = []
+            self.flush = AsyncMock()
+
+        def add(self, obj: object) -> None:
+            self.added.append(obj)
+
+        async def execute(self, statement: Any, *_a: Any, **_k: Any) -> Any:
+            text = str(statement)
+            result = MagicMock()
+            if text.startswith("UPDATE"):
+                result.rowcount = 0
+            elif "count(" in text:
+                result.scalar_one.return_value = 0
+            elif "max(" in text:
+                result.scalar_one_or_none.return_value = None
+            else:
+                result.scalars.return_value.all.return_value = []
+            return result
+
+        @property
+        def rows(self) -> list[Alert]:
+            return [a for a in self.added if isinstance(a, Alert)]
+
+    config = SimpleNamespace(
+        agents=SimpleNamespace(
+            log_aggregator=SimpleNamespace(
+                sources=[], alert_quiet_minutes=15, max_entries_per_read=500,
+                known_noise=[], critical_repeat_hours=24.0,
+            )
+        )
+    )
+    probe_source = LogSource(
+        name=source_name, type="journalctl", unit=source_name,
+        severity_filter="info", user=False, path=None,
+    )
+
+    async def drive(batches: list[list[dict[str, Any]]]) -> int:
+        agent = LogAggregatorAgent()
+        session = _Session()
+        for batch in batches:
+            read = JournalRead(entries=batch, cursor="probe", truncated=False)
+            with (
+                patch("sysadmin.monitor.log_aggregator.get_config", return_value=config),
+                patch.object(
+                    LogAggregatorAgent, "_sources", staticmethod(lambda _c: [probe_source])
+                ),
+                patch(
+                    "sysadmin.monitor.log_aggregator.read_journal",
+                    AsyncMock(return_value=read),
+                ),
+            ):
+                await agent._execute(session)
+        return len(session.rows)
+
+    try:
+        whole = asyncio.run(drive([chain]))
+        split = asyncio.run(drive([chain[:-1], chain[-1:]]))
+    except Exception as exc:  # noqa: BLE001 - every way of not-knowing is unknown
+        return Measurement("unknown", f"the agent could not be driven: {exc}")
+
+    detail = (
+        f"declared line probed: {declared_signature[:70]}",
+        f"the whole chain in one poll: {whole} alert row(s)",
+        f"the same chain cut before the declared line: {split} alert row(s)",
+    )
+    if whole != 1:
+        return Measurement(
+            "unknown",
+            f"the witness failed — an un-split chain produced {whole} rows rather than 1, "
+            "so SNAG-LOG-015's fold is not working and this check cannot speak about the "
+            "boundary case at all",
+            detail,
+        )
+    if split > 1:
+        return Measurement("match", "", detail)
+    return Measurement(
+        "mismatch",
+        "a chain split across two polls now folds to one row — the boundary case the "
+        "entry describes is closed",
+        detail,
+    )
+
+
 def check_dropin_blind_spot() -> Measurement:
     """``SNAG-UNITS-006`` — the sweep cannot read a drop-in.
 
@@ -7212,6 +7371,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-ESTATE-005",
             "the estate's 8500 row names no project id",
             check_estate_port_8500,
+        ),
+        Check(
+            "incident_fold_splits_at_a_poll",
+            "SNAG-LOG-017",
+            "a reset chain astride a poll boundary folds only one half",
+            check_incident_fold_splits_at_a_poll,
         ),
         Check(
             "dropin_blind_spot",

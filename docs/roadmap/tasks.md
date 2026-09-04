@@ -16,6 +16,54 @@ the estate's 8400 service, the second to `estate-lib` as `estate.registry`,
 which `units/` and `monitor/` now import from there. These three are the
 debts that landing deliberately left behind._
 
+- [x] **Session 166 — one GPU reset now occupies one alert row.**
+      *(2026-09-04, one closed — `SNAG-LOG-015`; one opened —
+      `SNAG-LOG-017`.)* A full-card amdgpu MODE1 reset writes eleven
+      distinct signatures in six seconds and this family opened a row for
+      each: ten `warning` rows at a single `created_at` instant on
+      2026-09-04, ten tray fingerprints, and the declared row that names
+      the fault arriving beside ten fragments of its own wreckage. Driven
+      against the real chain read out of `log_entries`: **11 → 1**.
+      - [x] Settle the entry's hardest question before writing code. It
+            dissolves: the fold runs over the `faults` dict **before**
+            `_open_alerts`, so a swallowed member is never a row and has
+            no lifecycle to reconcile. `monitor/collation.py`'s flip-flop
+            needs two owners of one row and there is exactly one —
+            `SNAG-AGENT-005`'s reasoning, which reached the same shape
+            because a log line cannot un-write itself
+      - [x] Reuse the relation rather than re-implement it.
+            `log_actions.correlate` is `group_incidents`' machinery
+            lifted out of it, first-sightings filter left at the advice
+            caller. Kept in `log_actions` **deliberately**:
+            `check_check_interval_looks_away` measures `SNAG-SVC-001` by
+            the advice module's import set, and rehoming would let a
+            later fix satisfy that entry while its check reported *still
+            holds*
+      - [x] Measure the window rather than inherit it. Five resets span
+            **4.9579–4.9675 s**; the nearest two-incident separation
+            among 81,509 kernel error lines is **7.04 s**; zero gaps land
+            in 4.9–5.1 s. The shared 5.0 clears by **32 ms**, so
+            `ALERT_INCIDENT_WINDOW_SECONDS = 5.9` is the same derivation
+            on this population, pinned by a test because the failure mode
+            is silent
+      - [x] Refuse the roll-up rule that would override a quietening. A
+            member louder than the anchor is left standing rather than
+            swallowed, so the fold can never make anything quieter and an
+            operator's `known_noise` entry on the reset silences only
+            itself
+      - [x] Falsify: **15 mutations, each red on exactly the intended
+            test**. Two were green on the first attempt and both are
+            repaired — the ordering test folded correctly for the wrong
+            reason under a reversed input, and nothing pinned that
+            `_record_recurrence` calls `_merge_members` rather than
+            replacing the list
+      - [x] File the residue with a check. `SNAG-LOG-017`: a chain astride
+            a poll boundary folds only the half arriving with the
+            declaration — measured empty (5 of 5 resets landed in one
+            poll), worst case is the pre-fix count, and
+            `incident_fold_splits_at_a_poll` reproduces the mechanism
+            rather than counting a population
+
 - [x] **Session 165b — the declaration was written from the wrong kernel.**
       *(2026-09-04, one opened — `SNAG-LOG-016`; none closed, `SNAG-LOG-015`
       corrected.)* Session 164's `CRITICAL_SIGNATURES` shipped at 22:32 and

@@ -3,6 +3,54 @@
 **Last Updated**: 2026-09-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **One GPU reset now occupies one alert row** (2026-09-04, Session
+> 166). `SNAG-LOG-015` is **closed**. A full-card amdgpu MODE1 reset
+> writes eleven distinct signatures in six seconds and this family opened
+> a row for each: live on 2026-09-04, ten `warning` rows at a single
+> `created_at` instant, ten tray fingerprints, and the declared row that
+> names the fault arriving beside ten fragments of its own wreckage.
+> Driven against the real chain out of `log_entries`: **11 → 1**, with
+> every swallowed signature named in `details['members']`.
+>
+> **The entry's hardest question dissolved rather than got answered.** It
+> asks what resolves a swallowed member *"since each is a separate open
+> row with its own dedup lifecycle"*. The fold runs over the `faults`
+> dict **before** `_open_alerts`, so a swallowed member is never a row —
+> nothing to resolve, and `monitor/collation.py`'s flip-flop needs two
+> owners of one row where there is exactly one. `SNAG-AGENT-005` reached
+> the same shape for the same reason: a log line cannot un-write itself,
+> so this family's fixes are raise rules.
+>
+> **The relation is reused, not restated.** `log_actions.correlate` is
+> `group_incidents`' machinery lifted out of it, with the first-sightings
+> filter left behind at the advice caller where it belongs. It stays in
+> `log_actions` deliberately: `check_check_interval_looks_away` measures
+> `SNAG-SVC-001` by which modules the advice side imports, and rehoming
+> it would let a later fix satisfy that entry while its check went on
+> reporting *still holds*.
+>
+> **The window is a second constant, and the measurement is why.**
+> `INCIDENT_WINDOW_SECONDS` is 5.0, derived where one incident spans
+> 349 ms and two are 64.4 s apart. This population is not that one: all
+> five resets in the journal span **4.9579–4.9675 s** from first error
+> line to `VRAM is lost` — amdgpu's fixed timeout schedule, which is why
+> they agree to ten milliseconds — and the nearest genuinely-two-incidents
+> separation among 81,509 kernel error lines is **7.04 s**. So 5.0 clears
+> by **32 ms, 0.6 % of its own value**, and the knife edge was driven:
+> at 4.9674 s the real chain gives eleven rows, at 4.9676 s one.
+> `ALERT_INCIDENT_WINDOW_SECONDS = 5.9` is the same derivation applied to
+> this population, and a test pins it against the measurement because the
+> failure mode is silent — a slower reset would quietly reopen the entry
+> with nothing going red.
+>
+> **The fold may never quieten anything**, so a louder sibling is left
+> standing rather than swallowed — which is what stops an operator's
+> `known_noise` entry on the reset being overridden by a fragment.
+> Opened `SNAG-LOG-017`: a chain astride a poll boundary folds only the
+> half arriving with the declaration. Measured empty (5 of 5 resets
+> landed in one poll), worst case is the pre-fix count, and both
+> candidate fixes are worse than the 8 % they would buy.
+
 > **The declaration was written from the wrong kernel, and the first real
 > reset found it** (2026-09-04, Session 165). Session 164 shipped
 > `CRITICAL_SIGNATURES` the night before; at 10:35:32 the next morning
@@ -1987,13 +2035,26 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-04 10:59:25**
-> <!--check:deploy--> <!--check:daemon_start--> to deploy Session 165b's
+> Daemon restarted at **2026-09-04 12:23:38**
+> <!--check:deploy--> <!--check:daemon_start--> to deploy Session 166's
+> `fold_declared_incidents`, which takes effect only at start; PID
+> 435156 → 545156, back in 10 s on `RestartSec`, no `sudo`, restart
+> counter 4 of `StartLimitBurst=5` with **zero** restarts inside the
+> 600 s limiter window beforehand. **Verified live and untriggered** —
+> three `log_aggregator` runs, all `completed`, no
+> `log_incident_graph_unread` and no traceback, so the new per-poll
+> `unit_relations()` read works in the daemon; steady-state duration
+> **0.51 and 0.52 s** against a pre-deploy median of **0.52 s** over 142
+> runs, so the fold and the graph read cost nothing measurable. The fold
+> itself cannot fire until the next reset, which is `SNAG-LOG-004`'s
+> ordering for the fourth time.
+>
+> _Previously restarted at 2026-09-04 10:59:25 to deploy Session 165b's
 > both-spellings `CRITICAL_SIGNATURES`, which takes effect only at start;
 > PID 427832 → 435156, back in 10 s on `RestartSec`, no `sudo`, restart
 > counter 3 of `StartLimitBurst=5`. **Counter 2 was not this sitting's**:
 > the daemon exceeded `MemoryMax=512M` at 10:50:15 unprompted and systemd
-> restarted it, which is `SNAG-SYSD-008` firing rather than forecasting.
+> restarted it, which is `SNAG-SYSD-008` firing rather than forecasting._
 >
 > _Previously restarted at 2026-09-03 22:49:29 to deploy Session 164's
 > widened kernel `severity_filter` and `CRITICAL_SIGNATURES`, both of
@@ -2163,12 +2224,14 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
 > rows <!--check:alerts-->, `High disk usage on /`,
-> `Project ImbaBots next action idle`,
-> `Estate port 3110 registry breach` and
-> `Estate hook session-notice.sh not wired for Notification`, **4**
-> named here <!--check:open_titles-->. *(15 at 10:36 on 2026-09-04 — the
+> `Project ImbaBots next action idle` and
+> `Estate port 3110 registry breach`, **3**
+> named here <!--check:open_titles-->. *(4 until 2026-09-04 — `Estate
+> hook session-notice.sh not wired for Notification` resolved itself,
+> which is `check_alerts`' fall note doing its job for the third
+> sitting running.)* *(15 at 10:36 on 2026-09-04 — the
 > ten `warning` rows one amdgpu MODE1 reset opens, plus the
 > `alfred-inference` core dump it caused; all eleven resolved themselves
 > by 10:56 on `alert_quiet_minutes`, which is the event family's silence

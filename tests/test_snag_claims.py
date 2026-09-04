@@ -7371,3 +7371,90 @@ class TestHandoffShapeUnguarded:
             ),
         )
         assert snag_claims.check_handoff_shape_unguarded().verdict == "match"
+
+
+class TestTheIncidentFoldSplitCheck:
+    """``SNAG-LOG-017`` — a chain astride a poll boundary folds one half.
+
+    Driven at four stand-ins, because three of the four readings are the
+    ones that would let something go unnoticed: a fold that has learned
+    to cross polls must read ``mismatch``, a fold that has stopped
+    working must read ``unknown`` rather than borrowing either verdict,
+    and an empty declaration set must say so.
+    """
+
+    def test_the_live_fold_still_splits_at_a_boundary(self):
+        """The entry as filed, against the shipped code."""
+        measured = snag_claims.check_incident_fold_splits_at_a_poll()
+        assert measured.verdict == "match"
+        assert any("in one poll: 1 alert row" in line for line in measured.detail)
+        assert any("cut before the declared line: 3" in line for line in measured.detail)
+
+    def test_a_fold_that_defers_across_polls_refutes_it(self, monkeypatch):
+        """The stand-in modelling the **fix**.
+
+        Without it the check is coupled to the unfixed behaviour and a
+        landed fix reads as a broken probe rather than as a closure — the
+        shape this repository has already paid for twice.
+
+        **What a real fix has to look like decided this stand-in.**  A
+        cross-poll fold cannot reduce the count by reaching backwards:
+        the earlier poll's fragments are already rows, and un-raising
+        them means resolving a swallowed member, which is the flip-flop
+        the entry itself refuses.  The only shape that gets to one row is
+        to *withhold* a fragment for a poll, so that is what is modelled
+        — and the check must not be able to tell how the withholding was
+        implemented, only that the split chain came out as one row.
+        """
+        from sysadmin.monitor import log_aggregator
+
+        real = log_aggregator.fold_declared_incidents
+        held: dict = {}
+
+        def deferring(faults, related=None, window=None):
+            merged = {**held, **faults}
+            held.clear()
+            if not any(f.get("declared") for f in merged.values()):
+                held.update(merged)
+                return {}
+            return real(merged, related) if window is None else real(
+                merged, related, window
+            )
+
+        monkeypatch.setattr(log_aggregator, "fold_declared_incidents", deferring)
+        measured = snag_claims.check_incident_fold_splits_at_a_poll()
+        assert measured.verdict == "mismatch"
+        assert "folds to one row" in measured.note
+
+    def test_a_fold_that_has_stopped_working_is_unknown(self, monkeypatch):
+        """``ports_checked``'s rule: the witness failing is not a verdict.
+
+        If the un-split chain does not fold, ``SNAG-LOG-015``'s fix has
+        regressed — a different fault from this entry being closed, and
+        reporting either verdict would hide it behind a sentence about
+        poll boundaries.
+        """
+        from sysadmin.monitor import log_aggregator
+
+        monkeypatch.setattr(
+            log_aggregator,
+            "fold_declared_incidents",
+            lambda faults, related=None, window=None: faults,
+        )
+        measured = snag_claims.check_incident_fold_splits_at_a_poll()
+        assert measured.verdict == "unknown"
+        assert "SNAG-LOG-015's fold is not working" in measured.note
+
+    def test_an_empty_declaration_set_is_unknown(self, monkeypatch):
+        """No declared line means no fold to reproduce.
+
+        Reachable rather than defensive: ``CRITICAL_SIGNATURES`` is a
+        hand-maintained set of one, and a kernel reword is what emptied
+        its predecessor's *effective* population on 2026-09-04.
+        """
+        from sysadmin.monitor import log_aggregator
+
+        monkeypatch.setattr(log_aggregator, "CRITICAL_SIGNATURES", {})
+        measured = snag_claims.check_incident_fold_splits_at_a_poll()
+        assert measured.verdict == "unknown"
+        assert "CRITICAL_SIGNATURES is empty" in measured.note
