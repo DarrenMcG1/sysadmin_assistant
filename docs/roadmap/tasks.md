@@ -725,7 +725,9 @@ debts that landing deliberately left behind._
 - [x] **Session 147 — the timer check read the timer and never the job,
       and two silent failures were standing behind it.** *(2026-09-01.)*
       Opened by reading **Alfred's SNAG-50** — a career-mail ingest failing
-      every morning for 20 days with *"nothing surfaces this"*. The unit
+      on five of 21 mornings across 20 days with *"nothing surfaces this"*
+      (SNAG-50 said "every morning"; Alfred re-measured and corrected it on
+      2026-09-04, estate message `8c6da00e`). The unit
       **is** declared here and the `kind: timer` check wrote **3,988
       unbroken `ok` rows** across the outage, because it asserted the timer
       was armed and read the **timer's** `Result` under the name

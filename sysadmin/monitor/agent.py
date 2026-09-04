@@ -274,10 +274,10 @@ _TIMER_PROPS = {
 #: ``success`` on all ten declared timers on this box while one of the ten
 #: triggered services sits at ``exit-code``.  So the field named
 #: ``last_result`` asserted that a run had succeeded on every one of the
-#: 3,988 consecutive ``ok`` checks written across the twenty days
-#: ``alfred-career-mail.service`` failed every morning.  It is the
-#: triggered unit's ``Result`` now, which is the fact the name always
-#: claimed.
+#: 3,988 consecutive ``ok`` checks written across the twenty-day window
+#: in which ``alfred-career-mail.service`` failed on five mornings.  It
+#: is the triggered unit's ``Result`` now, which is the fact the name
+#: always claimed.
 _TRIGGERED_PROPS = {
     "Result": "last_result",
     "ActiveState": "triggered_active_state",
@@ -1133,10 +1133,24 @@ class SysAdminAgent(BaseAgent):
         false for the life of the check: ``Result`` on a ``.timer`` reports
         whether the *timer unit* started.  Measured on this box, it is
         ``success`` on ten of ten declared timers while
-        ``alfred-career-mail.service`` had failed on twelve consecutive
-        mornings, so the check wrote 3,988 unbroken ``ok`` rows across a
-        twenty-day outage and raised nothing (``SNAG-SYSD-005``; Alfred's
-        SNAG-50 is the fault it could not see).
+        ``alfred-career-mail.service`` was failing intermittently, so the
+        check wrote 3,988 unbroken ``ok`` rows across a twenty-day window
+        and raised nothing (``SNAG-SYSD-005``; Alfred's SNAG-50 is the
+        fault it could not see).
+
+        **The fault was intermittent, and that is the stronger claim.**
+        This paragraph read "twelve consecutive mornings" until
+        2026-09-04, taken in good faith from SNAG-50, whose own
+        reproduction line was ``grep -c UniqueViolationError`` — each
+        failed run writes the traceback three times, so twelve lines
+        were four runs, and the same grep was structurally blind to two
+        further failures with an unrelated cause.  Alfred re-measured
+        from systemd's per-invocation accounting and handed the
+        correction back (estate message ``8c6da00e``): **five** failures
+        on 21 mornings, with 13 successful runs inside the same window.
+        A unit failing every morning is noticed by its owner eventually;
+        one failing on five mornings in twenty-one is exactly what a
+        monitor exists for, and this check reported ``ok`` on all five.
 
         The discriminating fact is the triggered unit's ``Result``, and
         ``Unit=`` is asked of systemd rather than derived by rewriting the

@@ -827,7 +827,13 @@
 > `alfred-career-mail.service` failing every morning for 20 days with
 > *"nothing surfaces this"* — the unit is declared in this repository's
 > `services.yaml` and this check wrote **3,988 unbroken `ok` rows**
-> across the outage. The first live run under the fix raised two
+> across the window. *(Alfred re-measured on 2026-09-04 and corrected
+> that figure to **five** failures on 21 mornings, estate message
+> `8c6da00e`: their reproduction counted traceback lines, not runs. The
+> intermittency makes this finding stronger — a job failing every
+> morning is noticed eventually; one failing five mornings in
+> twenty-one is what a monitor is for, and this check said `ok` on all
+> five.)* The first live run under the fix raised two
 > criticals, not one: `pgbackrest-backup.service`, which
 > `services.yaml`'s own comment calls *the only database backup on the
 > box*, has failed **28** times and
@@ -2210,7 +2216,7 @@
 > did. Session 148 counted 5 the same morning, so the two families that
 > produced the rise it recorded are the two that produced this fall.)* *(The critical is Session 147's,
 > and it is a **rise the monitor caused rather than a fault that
-> began**: the job had been failing for 20 days and only became sayable
+> began**: the job had been failing intermittently across 20 days and only became sayable
 > when `SNAG-SYSD-005` was fixed. It is Alfred's to close, not ours. Its
 > twin — `pgbackrest-backup-timer critical` — was raised at 21:08,
 > the unit was repaired at 22:19–22:29, and `_resolve_recovered` closed
