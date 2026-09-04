@@ -8,6 +8,71 @@
 
 ---
 
+## Session 172: the `expires` family's first live member ✅ (2026-09-04)
+
+_Session 171's handoff asked for a prediction in the STATUS.md block for
+`SNAG-LOG-014`'s retention boundary, and to measure first whether the
+prose can name the marker's wall clock without restating a figure rule 7
+forbids._
+
+- [x] **Measured the boundary rather than copying the entry's date, and
+      it moved by a day.** Retention purges `log_entries` on
+      `ingested_at` at a **fixed** 03:00; the newest of the four residue
+      rows was ingested at **19:50:19** on 2026-08-17, so thirty days
+      lands that evening, after that morning's run. Driven at the real
+      `purge_statement` against the live table at four candidate cutoffs:
+      **0 of 4** on 2026-09-16, **4 of 4** on 2026-09-17
+- [x] **Answered the rule 7 question by measurement, not judgement.** The
+      wall clock is not a figure this module can test — `03:00` matches
+      **none** of the six `CLAIM_PATTERNS`, every one of which is
+      anchored on lexical context (`N routes`, `head N`, `holds N
+      unresolved`) rather than on bold alone — so naming it adds no
+      `unclaimed:` finding. The instant stays rule 9's single licensed
+      exception: stated twice, pinned rather than trusted
+- [x] **Wrote the prediction and the family reports `match`.**
+      `sysadmin-check-claims` now carries a tenth claim reading
+      `12 days to run`, and it turns `unknown` the morning after the
+      boundary, which is rule 8's whole point
+- [x] **The first live member is exactly the case `SNAG-DOCS-008`
+      closed, by a route that entry did not predict.** The region stated
+      `03:00` **once** at `305152a` and it is not a clock: it is the PCI
+      bus address in `amdgpu 0000:03:00.0`. Driven both ways — the
+      sentence-scoped pin returns `unknown` naming the remedy, the
+      pre-`SNAG-DOCS-008` region-wide pin returns `match` against a
+      device identifier. A five-character needle cannot tell a time from
+      a bus address, so the hazard is wider than a count of clocks sees
+- [x] **Corrected the wrong date in five live statements** — the entry
+      twice, `message_backfill.py`, `snag_claims.py` and
+      `tests/test_snag_claims.py`, one cause behind all five. The three
+      inside the **closed** `SNAG-LOG-008` are left standing on this
+      file's precedent that rewriting a closed entry edits the record of
+      the sitting that wrote it
+- [x] **Added the guarantee driven at the marker the document actually
+      carries** — `TestTheLiveBlockCarriesAPrediction`, four tests, with
+      `now` taken from each marker's **own** instant so a passing
+      boundary can never redden the suite
+- [x] **Closed a half-guard a concurrent sitting found.**
+      `TestTheConventionAgainstTheRealDocument`'s prediction test had
+      never executed its loop body, and keys on note substrings — so a
+      naive instant, an unparseable one and a marker with no instant all
+      passed. Verified here before acting, then closed on `kind`
+- [x] **Repaired a Session 170 guard this sitting's own marker broke.**
+      `_claim` took the *first* `expires` marker, unambiguous only
+      against an empty population; keyed on the argument now, and
+      asserting it matches exactly one
+
+- [ ] **The prediction has not yet been read at its moment.** The claim
+      goes `unknown` on 2026-09-17 and a sitting has to go and look —
+      which is the family working, not a defect, but nothing schedules
+      the looking and the register has no reader for a passed boundary
+- [ ] **The block is its own regression test and nothing measures that.**
+      Writing this prediction put its own needle into the region five
+      more times; the pin is unaffected because it reads one sentence,
+      but no check asserts that a *future* block cannot pin a marker
+      against a clock the same block introduced elsewhere
+
+---
+
 ## Session 171: rule 9's pin reads one sentence ✅ (2026-09-04)
 
 _`SNAG-DOCS-008`. Session 170's handoff asked whether `check_expiry`'s
@@ -41,7 +106,7 @@ said to measure whether a per-marker anchor is even expressible first._
       wide search there rather than failing — stated in `_sentence_at`
       and pinned by an existing test, not fixed, because a region with no
       sentence boundaries genuinely has one sentence
-- [ ] **The `expires` population is still zero.** Every claim above is
+- [x] **The `expires` population is still zero.** Every claim above is
       driven at planted markers and at the live region; the block has
       never carried a prediction, so the family ships untriggered — the
       position `judge_audit_findings` and the ports family both shipped in

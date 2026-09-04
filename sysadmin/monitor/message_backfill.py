@@ -79,7 +79,7 @@ Six rules, four of them the opposite of what the entry proposed:
 Measured on this box 2026-08-28, which is what decided this was a backfill
 and not a closure as moot: the population is **10 rows and intact**.  They
 left the trend's current window on 2026-08-24, leave ``GET /api/logs/trends``
-altogether on 2026-08-31 and ``log_entries`` at retention on 2026-09-16 — so
+altogether on 2026-08-31 and ``log_entries`` at retention on 2026-09-17 — so
 the calendar was going to empty it, and had not.  All ten unwrap, all ten are
 witnessed, ``logger`` is recovered for all ten, and the ten distinct
 signatures they serve today collapse to **two** (``alert_raised`` nine times,

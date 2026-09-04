@@ -1644,7 +1644,7 @@ def check_duplicate_ingest_residue() -> Measurement:
 
     **The witness is the source still having rows**, and it is not
     optional.  This entry's population empties by *retention* on
-    2026-09-16 with nothing done, so a check that read "no duplicate
+    2026-09-17 with nothing done, so a check that read "no duplicate
     groups" as a refutation would report the entry dead on the morning
     the last row aged out — ``SNAG-LOG-013``'s reading, refused here for
     the fourth time in this registry.  An empty source is ``unknown``:

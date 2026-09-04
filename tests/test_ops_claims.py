@@ -799,9 +799,34 @@ class TestThePinIsNarrowedToOneSentence:
     #: with eleven unrelated mentions of the schedule.
     COPIED = "2026-09-05T04:45+00:00"
 
-    def _claim(self, block: str, now: datetime | None = None) -> Claim:
-        marker = next(m for m in read_markers(block) if m.key == "expires")
-        return check_expiry(marker, now or datetime(2026, 9, 1, tzinfo=UTC))
+    def _claim(
+        self, block: str, now: datetime | None = None, argument: str | None = None
+    ) -> Claim:
+        """The claim for one prediction, selected by what it is about.
+
+        **Selected rather than taken first, since 2026-09-04.**  This read
+        ``next(m for m in read_markers(block) if m.key == "expires")``, and
+        "the first prediction in the block" was "the one this test planted"
+        only because the real document carried none — the family shipped
+        untriggered on 2026-08-24 and gained its first live member the day
+        this was repaired.  So the live drive below silently began measuring
+        *that* marker instead of its own, which is a guard broken by the
+        document doing the thing the guard exists to encourage:
+        ``SNAG-LOG-004``'s ordering, a fix that widens what a reader can see
+        being a regression surface for whatever reads it.
+
+        The count is asserted rather than the first match taken, because an
+        ambiguous selector is the defect being removed and picking one of
+        two is how it stayed quiet.
+        """
+        markers = [m for m in read_markers(block) if m.key == "expires"]
+        if argument is not None:
+            markers = [m for m in markers if m.argument.endswith(argument)]
+        assert len(markers) == 1, (
+            f"{len(markers)} expires marker(s) match {argument!r} — the selector "
+            "no longer names one prediction"
+        )
+        return check_expiry(markers[0], now or datetime(2026, 9, 1, tzinfo=UTC))
 
     def test_a_clock_in_another_sentence_does_not_pin_the_marker(self):
         """Falsified by pinning against the whole region: the claim passes.
@@ -853,7 +878,7 @@ class TestThePinIsNarrowedToOneSentence:
             f"<!--check:expires {self.COPIED} the disk review row-->\n"
         )
         assert "05:45" in region, "the collision this test turns on has aged out"
-        claim = self._claim(planted)
+        claim = self._claim(planted, argument="the disk review row")
         assert claim.verdict == "unknown"
         assert "different clocks" in claim.note
 
@@ -955,6 +980,92 @@ class TestThePinIsNarrowedToOneSentence:
             "**The estate row clears at 03:32 with nothing done.**"
         }
         assert self._claim(block).verdict == "match"
+
+
+class TestTheLiveBlockCarriesAPrediction:
+    """Rules 8 and 9, driven at the marker the document actually carries.
+
+    Every other guarantee in this file is driven at a **planted** marker.
+    The family shipped on 2026-08-24 and had no live member until
+    2026-09-04, so the whole of it — the pin, the offset refusal, the
+    timing — was pinned against blocks these tests wrote themselves,
+    which is the strongest evidence available and is not the same as an
+    observation.  ``SNAG-ESTATE-002``'s position exactly, one module
+    over.
+
+    **The verdict is deliberately not asserted against the wall clock.**
+    A test reading ``match`` off ``datetime.now()`` turns red the morning
+    the boundary passes, which is a red suite with nothing wrong — the
+    calendar writing a verdict, which is the reading this repository has
+    refused four times in ``snag_claims``.  So ``now`` is taken from the
+    marker's **own** instant and moved a minute either side: what is
+    guaranteed is that the shipped marker is well-formed and pins its
+    clock in its own sentence, at any date, and the verdict a human reads
+    stays the checker's to report at both ends of a sitting.
+    """
+
+    MINUTE = timedelta(minutes=1)
+
+    def _markers(self) -> list[Marker]:
+        region = printed_region(STATUS_PATH.read_text())
+        assert region is not None, "the Quick Status heading moved"
+        return [m for m in read_markers(region) if m.key == "expires"]
+
+    def test_the_block_states_at_least_one_prediction(self):
+        """The anti-vacuity premise, and it is the whole point of the class.
+
+        Without it every assertion below is satisfied by a document
+        carrying no prediction at all, and the class reports health over
+        the untriggered family it exists to end.
+        """
+        assert self._markers(), (
+            "docs/roadmap/STATUS.md carries no <!--check:expires ...--> marker — "
+            "the family is untriggered again and every guarantee here is vacuous"
+        )
+
+    def test_every_prediction_carries_an_offset(self):
+        """Falsified by writing the instant naive: the claim is a convention finding.
+
+        ``SNAG-ESTATE-013``'s founding fault is a stamp copied off a
+        UTC-publishing surface with the offset dropped on the way in, and
+        it is invisible in the verdict — a naive marker is *recognised*,
+        so what it produces is a ``convention`` claim rather than a
+        parse error.
+        """
+        for marker in self._markers():
+            instant = marker.argument.split(None, 1)[0]
+            moment = datetime.strptime(instant, EXPIRY_FORMAT)
+            assert moment.tzinfo is not None
+            assert check_expiry(marker, moment - self.MINUTE).kind == "claim"
+
+    def test_every_prediction_pins_its_clock_in_its_own_sentence(self):
+        """Rule 9 at the real document — falsified by moving the marker.
+
+        Driven a minute *before* each marker's own moment, so a passing
+        boundary can never redden it: at that clock a pinned prediction
+        is ``match`` and an unpinned one is ``unknown`` carrying the
+        remedy.  The two are distinguishable by verdict alone, which is
+        why nothing here reads the note.
+        """
+        for marker in self._markers():
+            moment = datetime.strptime(marker.argument.split(None, 1)[0], EXPIRY_FORMAT)
+            claim = check_expiry(marker, moment - self.MINUTE)
+            assert claim.verdict == "match", claim.note
+            assert "to run" in (claim.measured or "")
+
+    def test_each_prediction_goes_unknown_once_its_moment_passes(self):
+        """The timing half, at the shipped marker rather than a planted one.
+
+        This is what the block buys: after the boundary the claim stops
+        agreeing, so *nobody went back* is loud at the next preflight
+        instead of being indistinguishable from a prediction that came
+        true.
+        """
+        for marker in self._markers():
+            moment = datetime.strptime(marker.argument.split(None, 1)[0], EXPIRY_FORMAT)
+            claim = check_expiry(marker, moment + self.MINUTE)
+            assert claim.verdict == "unknown"
+            assert "nobody re-measured it" in (claim.note or "")
 
 
 class TestTheInstantCarriesItsZone:
@@ -1682,6 +1793,25 @@ class TestTheConventionAgainstTheRealDocument:
         A marker whose wall clock has drifted out of the prose is the one
         way the expiry family can go quiet, so it is asserted here as well
         as in :class:`TestExpiry`.
+
+        **The loop body ran for the first time on 2026-09-04**, the family
+        having shipped untriggered on 2026-08-24 — so what this asserted
+        for eleven days was that an empty ``for`` completes.  Driving it at
+        the first live marker found it **half a guard**: it keyed on two
+        note substrings, and every :func:`_convention` refusal writes a
+        note carrying neither, so a naive instant (``SNAG-ESTATE-013``'s
+        own founding shape), an unparseable one and a marker carrying no
+        instant at all *all passed*.  Measured, not reasoned — all three
+        driven at the real document.
+
+        ``kind`` is what separates them, and it is deliberately not a
+        verdict test: a prediction whose moment has passed earns
+        ``unknown`` by rule 8, so asserting the verdict would turn this red
+        on the morning a prediction came true — the calendar writing a
+        failure, which is the reading this repository has refused four
+        times over.  A convention finding is the third *kind* (rule 7), so
+        the axis that separates a broken marker from a passed one is the
+        one that carries no date in it.
         """
         region, problem = load_region()
         assert region is not None, problem
@@ -1689,5 +1819,6 @@ class TestTheConventionAgainstTheRealDocument:
             if marker.key != "expires":
                 continue
             claim = check_expiry(marker, datetime.now().astimezone())
+            assert claim.kind != "convention", f"malformed: {claim.note}"
             assert "does not" not in claim.note, f"unpinned: {marker.argument}"
             assert "different clocks" not in claim.note, f"zone drift: {marker.argument}"

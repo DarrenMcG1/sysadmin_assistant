@@ -3,6 +3,101 @@
 **Last Updated**: 2026-09-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The `expires` family has its first live member, and measuring the
+> boundary moved it by a day** (2026-09-04, Session 172). `SNAG-LOG-014`
+> predicts its own residue away — four rows purged on `ingested_at` — and
+> states the moment as a *date*, which a fixed-hour purge turns into an
+> instant. The newest copy was ingested at **19:50:19** on 2026-08-17, so
+> thirty days lands that evening, *after* the 03:00 purge of 09-16 has
+> already run. Driven at the real `purge_statement` against the live table
+> rather than re-derived by hand: the 2026-09-16 run deletes **0 of 4**
+> and the following one deletes **4 of 4**. The pair clears at 03:00 on
+> 2026-09-17.
+> <!--check:expires 2026-09-17T03:00+01:00 the SNAG-LOG-014 residue clears at retention-->
+>
+> **Rule 7 is not engaged, which is the question this sitting was told to
+> measure first.** The wall clock rule 9 requires in the prose is not a
+> figure this module can test — `03:00` matches **none** of the six
+> `CLAIM_PATTERNS` — so naming it adds no `unclaimed:` finding and creates
+> no second producer of a fact some check reads. The instant stays the
+> single licensed exception rule 9 already names: stated twice, in the
+> marker and in the sentence, and *pinned* rather than trusted.
+>
+> **The first live member is exactly the case `SNAG-DOCS-008` closed, and
+> by a route that entry did not predict.** It measured that 28 of the
+> block's distinct wall clocks are stated more than once — 88 distinct at
+> `305152a`, up from 86 — so an arbitrary instant already had a 6 % chance
+> of being pinned by an unrelated sentence. The region stated `03:00`
+> exactly **once** before this paragraph existed, and it was not a clock
+> at all: it is the PCI bus address in `amdgpu 0000:03:00.0`, which no
+> pattern over four digits and a colon can tell from a time. Driven both
+> ways at the live region, with the
+> marker on a sentence that omits the clock — the sentence-scoped pin
+> returns `unknown` naming the remedy, and the pre-`SNAG-DOCS-008`
+> region-wide pin finds the string and returns `match` with the prediction
+> never having been written down anywhere. A five-character needle cannot
+> tell a time from a device identifier, so the hazard was wider than a
+> count of clocks could see.
+>
+> **And this block is its own regression test, which is why the count
+> above is dated to a commit.** Writing it puts the needle into the region
+> **five** more times — six in all, one of them a second copy of the bus
+> address. Under the old rule that is exactly how a clock got written down
+> for ever; under the new one it changes nothing, because exactly one of
+> the six is the marker's own sentence and the other five sit in
+> neighbouring ones. The sitting as a whole moves the collided set
+> **28 → 31** and the distinct count **88 → 93**, and only part of that is
+> this paragraph: correcting the daemon-start and alert claims below wrote
+> six further wall clocks. The figures are attributed rather than given as
+> one delta, because a paragraph that states a property of a region it
+> goes on editing can be falsified by its own author an hour later — which
+> is how the *once* above came to be wrong before it was caught. Session
+> 170 recorded the same self-reference for a title; a needle five
+> characters wide reaches it faster, and a paragraph measuring a region it
+> is about to join has to say which region it measured.
+>
+> **A concurrent sitting found the half of this the tests could not, and
+> the live marker is what let either of us see it.**
+> `TestTheConventionAgainstTheRealDocument`'s prediction guard has stood
+> since 2026-08-24 and its loop body **had never executed** — the family
+> being empty, what it asserted for eleven days is that an empty `for`
+> completes. Driven at the first live marker it is *half a guard*: it
+> keys on two note substrings, and every `_convention` refusal writes a
+> note carrying neither, so a naive instant (`SNAG-ESTATE-013`'s own
+> founding shape), an unparseable one and a marker carrying **no**
+> instant all passed. Verified here before acting rather than taken on
+> trust — all three driven at the real document — and closed with a
+> `kind` test, which is deliberately not a verdict test: a prediction
+> whose moment has passed earns `unknown` by rule 8, so asserting the
+> verdict would turn this red the morning a prediction came *true*, the
+> calendar writing a failure. Found by the concurrent session
+> `sysadmin-assistant-38`, which stood down on the documents rather than
+> duplicate them and wrote nothing.
+>
+> **The same live member broke a Session 170 guard, and the break is the
+> hazard read from the other end.**
+> `TestThePinIsNarrowedToOneSentence._claim` took the *first* `expires`
+> marker, which named the marker that test had planted only because the
+> real block carried none — so the zone-fault drive silently began
+> measuring this sitting's prediction instead of its own subject, and
+> asserted `match` where it wanted `unknown`. Repaired by keying the
+> selector on the marker's argument and **asserting it matches exactly
+> one**, rather than by taking the last, which would restate the
+> positional assumption the document has just falsified. `SNAG-LOG-004`'s
+> ordering a fifth time: a change that widens what a reader can see is a
+> regression surface for whatever reads it — here the reader was the test
+> suite and the widening was a document edit.
+>
+> Seven mutations driven and seven killed, each on its intended test —
+> four at the new class (marker deleted, offset dropped, marker moved off
+> its sentence, a passed boundary reported as agreement) and three at the
+> widened guard. Suite **3534 → 3538**, the baseline measured by stashing
+> to `305152a` and re-collecting rather than read off the cell below,
+> which is **216** stale; `ruff` and `mypy` clean; all ten ops claims
+> green and all **21** snag entry checks holding beside the register's
+> three meta-checks, with the register unmoved at 134
+> entries and 23 open — this sitting closed nothing and corrected a date.
+
 > **A membership claim is read from one sentence, because the region it
 > was read from is append-only** (2026-09-04, Session 170).
 > `SNAG-ESTATE-016` is **closed**. `check_open_titles` asked whether every
@@ -2259,8 +2354,21 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-04 21:14:32**
-> <!--check:deploy--> <!--check:daemon_start--> by Session 171, PID
+> Daemon restarted at **2026-09-04 22:49:11**
+> <!--check:deploy--> <!--check:daemon_start--> by Session 172, PID
+> 1055352 → 1097551, restart counter **10** — the **fifth** consecutive
+> sitting to pay for a restart that buys the box nothing, and the first
+> able to name a second cause for it. Session 172 changed two docstrings
+> under `sysadmin/` and nothing else, so the deploy the restart delivers
+> is prose; what actually *raised* the check was `ops_claims.py`, whose
+> bytes are identical to `305152a` and whose mtime moved at 22:43:32 when
+> a mutation drive restored it from its own `.bak`. That is the recorded
+> `git stash pop` shape reached by a second route, and it is the deploy
+> check being **right about its question** — the box did not serve those
+> bytes — while the answer costs a restart nobody needed. Session 171's
+> record of the previous restart, below, stands.
+>
+> Previously: restarted at 21:14:32 by Session 171, PID
 > 829338 → 1055352, restart counter **9**. It buys the box nothing and is
 > paid anyway, for the **fourth** sitting running: `ops_claims.py` is a
 > console script the daemon never imports — verified this time rather
@@ -2488,7 +2596,21 @@
 > rows <!--check:alerts-->, `High disk usage on /`,
 > `Project ImbaBots next action idle` and
 > `Estate port 3110 registry breach`, **3**
-> named here <!--check:open_titles-->. *(**4 → 3** at some point before
+> named here <!--check:open_titles-->. *(**3 → 4 → 3** inside Session
+> 172's own sitting, which is the pair doing exactly what it was built
+> for. The VRAM row rose at 22:33:34 and was named; it resolved at
+> 22:50:17 and the count was corrected again — and the second correction
+> was found by `check_alerts`' **fall** note, `SNAG-ESTATE-008`'s
+> founding case, firing on a live row rather than on a fixture. Note
+> which of the two moved: the fall left `check_open_titles` reading
+> `ok`, because naming a row that has since resolved is not an unnamed
+> open row, so the finer half is silent in exactly the direction the
+> count is loud. That row is the log aggregator's, an **event** family
+> resolved by `alert_quiet_minutes` after 15 minutes' silence — three
+> occurrences on 2026-09-04, at 14:58:40, 15:29:46 and 22:33:34, each
+> living about a quarter of an hour — so its absence from a steady-state
+> block is the normal reading and not a row anyone closed.)* *(**4 → 3**
+> at some point before
 > 21:00 on 2026-09-04: the VRAM row resolved again, the card being
 > shared by four services and the threshold crossed in both directions
 > twice in two sittings. Caught by `check_alerts`' fall note, which is

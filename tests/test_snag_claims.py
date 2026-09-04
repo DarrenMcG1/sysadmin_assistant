@@ -1655,7 +1655,7 @@ class TestTheNudgeWordingCheck:
 class TestTheDuplicateIngestCheck:
     """``SNAG-LOG-014`` — and the reason it cannot read an empty table.
 
-    This entry's population empties by *retention* on 2026-09-16 with
+    This entry's population empties by *retention* on 2026-09-17 with
     nothing done, so "no duplicates" and "the entry is dead" are only the
     same statement while the source still has rows.  The witness is those
     rows, and it is what keeps the check from reporting a refutation the
