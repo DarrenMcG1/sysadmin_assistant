@@ -421,8 +421,11 @@ class TestTheRepairAgainstRealRows:
         ``MESSAGE``, so the witness answers ``False`` and rule 2 leaves
         it alone — with nothing recording that it was ever repaired.
         """
-        repaired = {name: rid for name, rid in reading["ids"].items()
-                    if name != "moved"}
+        repaired = {
+            name: rid
+            for name, rid in reading["ids"].items()
+            if name != "moved"
+        }
         assert not (set(repaired.values()) & reading["second_frozen"])
 
     def test_the_two_refusals_survive_a_second_pass(self, reading):

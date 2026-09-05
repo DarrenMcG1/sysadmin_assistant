@@ -261,8 +261,10 @@ def _assert_detail_usable(payload: dict[str, Any], *, name: str) -> ProjectDetai
     # of null stamps renders "No snapshots recorded" — indistinguishable
     # from a project that was never scanned.
     assert all(p.scanned_at for p in points), f"{name} has history points with no scanned_at"
-    stamps = [_assert_iso(p.scanned_at or "", f"history[{i}].scanned_at")
-              for i, p in enumerate(points)]
+    stamps = [
+        _assert_iso(p.scanned_at or "", f"history[{i}].scanned_at")
+        for i, p in enumerate(points)
+    ]
 
     # `ProjectDetailResponse`'s docstring promises newest-first and the
     # tab `reversed()`s on that promise alone. Ascending order would

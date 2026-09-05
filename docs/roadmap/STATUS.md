@@ -3,6 +3,66 @@
 **Last Updated**: 2026-09-05
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The fourteen undecidable sites are gone, and the entry that
+> replaced them names one shape when there are two** (2026-09-05,
+> Session 180). `scripts/check-vacuous-guards.sh` reports **865 of 881**
+> comprehension sites turned, with **no undecidable block at all** —
+> exit 0, suite green at 3651. The old 851 plus the 14 is exactly the
+> new 865, so every site that was refused now reads as having turned.
+>
+> **Undecidability is a property of the tree, not of the run**, which is
+> what made the fix cheap. All three refusals in `_loop_turned` are
+> syntactic — an element on the comprehension's own first line, two
+> comprehensions sharing an element line, two generator frames on one
+> line — and none reads an arc. Driving the real function with an
+> **empty** arc set therefore enumerates the same fourteen the
+> ninety-second gate names, so each candidate reformatting was settled
+> statically at no cost and the suite run was spent confirming the
+> answer rather than finding it.
+>
+> **Ten locations, and the nested one is the trap.** Six had an element
+> on the first line with the clauses spilling below; four were pairs
+> sharing an element line, reported twice each. For
+> `all(any(d in c for d in denials) for c in clauses)` the outer
+> element **is** the inner comprehension, so moving the outer element
+> down lands it exactly on the inner's own line and trades one refusal
+> for the other — measured, not guessed. Both had to drop a line. The
+> three adjacent pairs took a bound name instead of a hanging bracket,
+> which leaves each comprehension alone on its line and reads as
+> ordinary test code.
+>
+> **`SNAG-TEST-010`'s upper bound is 296 of 881 sites carrying an `if`
+> clause** — and **311** once the second shape is counted, leaving
+> **570** for which the measure is exact. That last number is the one
+> the entry could not state and the one that ranks it.
+>
+> **The entry names a filter and the mechanism is wider.** A
+> comprehension with more than one `for` whose inner iterable is empty
+> for every outer item is blind identically: no filter is involved, the
+> element never evaluates, and the detector answers *turned*. What both
+> shapes share is that the loop turns **without the element running**.
+> Established with a witness rather than read off the arcs — the
+> fixture's element appends to a list and the fixture asserts that list
+> is empty **inside itself**, with an empty *outer* iterable beside it
+> answering *did not turn* as the control that stops the drive agreeing
+> with itself.
+>
+> **So the entry's reason for carrying no check is refuted too.** It
+> said a check would have to reproduce the discriminator the measure
+> lacks; the witness fixture reproduces the **defect** instead, in about
+> two seconds, which is this register's *reproduced, never counted*
+> idiom. One is writable and is not written here — this sitting was
+> asked to measure and to close the fourteen. Open entries carrying no
+> check reads **3 of 24** off `sysadmin-check-snags`, so Session 179's
+> handoff saying `3 → 4` is the stale half of a disagreement its own
+> entry had already settled.
+>
+> **The cost is stated rather than implied**: nothing in this repository
+> runs a formatter, so the ten reformatted sites stand — but a
+> comprehension has no magic trailing comma, so adopting `ruff format`
+> would collapse every one of them back onto a single line and rebuild
+> the fourteen in a commit that changed no logic.
+
 > **A guard that ran over nothing is visible now, and the rule the
 > entry left behind was wrong** (2026-09-05, Session 179).
 > `SNAG-TEST-009` is **fixed**. `coverage run --branch` on the run the
@@ -3390,6 +3450,18 @@
 ---
 
 ## Recently Completed
+
+### Session 180 — the fourteen, and what the residue really is (2026-09-05)
+
+The two halves Session 179's handoff asked for, and they range over one
+population. `scripts/check-vacuous-guards.sh` now reports **865 of 881**
+sites turned with **no undecidable block**, and `SNAG-TEST-010`'s upper
+bound is **296** sites carrying an `if` clause — **311** counting the
+second shape the entry does not name, leaving **570** for which the arc
+measure is exact. The second shape is a multi-`for` comprehension whose
+inner iterable is empty for every outer item; it was established with a
+witness asserting the element never ran, not inferred from the arcs the
+detector reads. 3651 tests, unchanged.
 
 ### Session 173 — the vacuity sweep (2026-09-05)
 

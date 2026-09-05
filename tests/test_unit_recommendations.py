@@ -86,7 +86,8 @@ def test_orphans_rank_above_gaps_which_rank_above_host_units():
         _finding("o.service", ORPHANED, dead_path="/gone"),
     ]
     recs = recommendations_for_scan(findings, ALFRED)
-    assert [r.kind for r in recs] == [k for k in KIND_ORDER if k != "port"]
+    expected = [k for k in KIND_ORDER if k != "port"]
+    assert [r.kind for r in recs] == expected
 
 
 def test_only_orphans_are_risks():

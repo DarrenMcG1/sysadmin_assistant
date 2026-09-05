@@ -367,7 +367,13 @@ class TestConfidencePhrase:
 
         clauses = [c for c in re.split(r"[.]", phrase) if "machine" in c]
         assert clauses, "the inference must be denied, not merely avoided"
-        assert all(any(d in c for d in denials) for c in clauses), clauses
+        assert all(
+            any(
+                d in c
+                for d in denials
+            )
+            for c in clauses
+        ), clauses
         assert any("says nothing about" in c for c in clauses), clauses
 
     def test_the_two_claims_are_separable(self):

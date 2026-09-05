@@ -2725,7 +2725,8 @@ class TestTheUnsweptPortCheck:
         shape = snag_claims._detail_shape
         swept = {"port": 65008, "attribution": {"reading": "transient"}}
         unswept = {"port": 65009, "attribution": {"reading": "unswept"}}
-        assert {k for k, _ in shape(swept, 65008)} == {k for k, _ in shape(unswept, 65009)}
+        unswept_keys = {k for k, _ in shape(unswept, 65009)}
+        assert {k for k, _ in shape(swept, 65008)} == unswept_keys
         assert shape(swept, 65008) != shape(unswept, 65009)
 
     def test_the_holder_is_exempt_because_it_owns_a_limb(self):

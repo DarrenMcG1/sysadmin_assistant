@@ -228,8 +228,11 @@ def _with_reminder_hours(destination: Path, which: int, value: float) -> Path:
     a reordering of the ``notifications:`` blocks would fail.
     """
     lines = REPO_CONFIG.read_text().splitlines()
-    hits = [i for i, line in enumerate(lines)
-            if line.strip().startswith("reminder_hours:")]
+    hits = [
+        i
+        for i, line in enumerate(lines)
+        if line.strip().startswith("reminder_hours:")
+    ]
     assert len(hits) == 2, f"expected two reminder_hours leaves, found {len(hits)}"
 
     line = lines[hits[which]]

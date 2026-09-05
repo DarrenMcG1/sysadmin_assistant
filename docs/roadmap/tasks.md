@@ -8,6 +8,72 @@
 
 ---
 
+## Session 180: the fourteen, and what the residue really is ✅ (2026-09-05)
+
+_Session 179's handoff asked for two things over one population: measure
+`SNAG-TEST-010`'s upper bound — the count of comprehension sites under
+`tests/` carrying an `if` clause — and close the fourteen sites
+`scripts/check-vacuous-guards.sh` names as undecidable, by moving each
+element expression below its own first line._
+
+- [x] **The fourteen are closed and the gate's undecidable block is
+      gone.** `865 of 881` sites turned, exit 0, against `851 of 881`
+      with fourteen refused — the old count plus the fourteen exactly,
+      so every refused site now reads as having turned rather than
+      quietly changing category.
+- [x] **Undecidability is a property of the tree, so it cost no suite
+      run to enumerate.** All three refusals in `_loop_turned` are
+      syntactic and read no arc, so driving it with an **empty** arc set
+      names the same fourteen the ninety-second gate does. Each
+      candidate reformatting was settled statically before a single
+      test ran; the gate was spent confirming the answer, not finding
+      it.
+- [x] **Ten locations in two shapes, and the nested one is the trap.**
+      Six carried the element on the comprehension's own first line with
+      the clauses below. Four were pairs sharing an element line —
+      reported twice each, which is why fourteen sites are ten places.
+      In `all(any(d in c for d in denials) for c in clauses)` the outer
+      element *is* the inner comprehension, so moving the outer element
+      down lands it on the inner's own line and trades one refusal for
+      the other; both had to drop a line. The three adjacent pairs took
+      a bound name rather than a hanging bracket.
+- [x] **`SNAG-TEST-010`'s upper bound is 296 of 881**, taken over the
+      population `_comprehension_sites` itself walks — imported rather
+      than re-walked, because a second walker is a second statement of
+      what a site is.
+- [x] **The entry names one shape and there are two.** A comprehension
+      with more than one `for` whose inner iterable is empty for every
+      outer item is blind identically — no filter, element never
+      evaluated, detector answers *turned*. That takes the bound to
+      **311 of 881** and leaves **570** exact. Measured with a witness:
+      the fixture's element appends to a list and the fixture asserts
+      that list is empty **inside itself**, with an empty outer iterable
+      beside it answering *did not turn* as the control.
+- [x] **The entry's stated reason for carrying no check is refuted.** A
+      check need not reproduce the missing discriminator — the witness
+      fixture reproduces the **defect**, in about two seconds, which is
+      this register's *reproduced, never counted* idiom. Left unwritten
+      deliberately: one roadmap session per sitting, and this one was
+      asked to measure and to close the fourteen.
+- [x] **The counter was measured, not copied.** Open entries carrying no
+      check reads `3 of 24` off `sysadmin-check-snags`, naming
+      `SNAG-TEST-010`, `SNAG-LOG-016` and `SNAG-SYSD-008`. Session 179's
+      handoff says `3 → 4`; the register says 3, and the entry's own
+      line had already been corrected to 3.
+- [x] **Cost filed rather than implied**: no formatter runs in this
+      repository, and a comprehension has no magic trailing comma — so
+      adopting `ruff format` would collapse all ten sites back and
+      rebuild the fourteen in a commit that changed no logic.
+
+**Verification**: `uv run ruff check .` clean; `uv run pytest -q`
+**3651 passed**, the recorded baseline unchanged, so no test was added
+and none clobbered; `./scripts/check-vacuous-guards.sh` exit **0** with
+`865 of 881` turned and no undecidable block; `./scripts/check-ops-claims.sh`
+all `ok`. No file under `sysadmin/` changed, so **no restart is owed**
+and no migration was written.
+
+---
+
 ## Session 179: the arc that says a loop turned ✅ (2026-09-05)
 
 _Session 178's handoff asked for `SNAG-TEST-009`'s runtime half — add

@@ -328,8 +328,10 @@ def test_the_two_spellings_name_one_fault():
     drift — ``SNAG-DB-003``'s shape.  The keys share a value object, so
     a reworded ``reason`` cannot reach one kernel and miss the other.
     """
-    declared = [CRITICAL_SIGNATURES[("kernel", signature(line))]
-                for line in (VRAM_LOST, VRAM_LOST_MAINLINE)]
+    declared = [
+        CRITICAL_SIGNATURES[("kernel", signature(line))]
+        for line in (VRAM_LOST, VRAM_LOST_MAINLINE)
+    ]
     assert declared[0] is declared[1]
 
 

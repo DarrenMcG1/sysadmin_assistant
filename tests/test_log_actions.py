@@ -785,8 +785,10 @@ class TestIncidentRules:
                           related=BROKER_GRAPH)
         assert len(rows) == 1
         assert len(rows[0].members) == 5
-        assert all("Failed to start Mosquitto" not in m.signature
-                   for m in rows[0].members)
+        assert all(
+            "Failed to start Mosquitto" not in m.signature
+            for m in rows[0].members
+        )
 
 
 class TestIncidentJournalCommand:

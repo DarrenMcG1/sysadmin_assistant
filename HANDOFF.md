@@ -1,6 +1,82 @@
-# Handoff — 2026-09-05 (Session 179)
+# Handoff — 2026-09-05 (Session 180)
 
 ## Next action
+
+Write `SNAG-TEST-010`'s check — the twenty-first — driving both blind shapes at the real `coverage run --branch` and refuting the entry when `_loop_turned` stops answering `turned` over an element a third-party witness proves never ran, because this sitting refuted in two seconds the entry's stated reason for carrying no check.
+
+_**The fourteen undecidable sites are closed and the gate's block is
+gone.**_ _`scripts/check-vacuous-guards.sh` reports **865 of 881**
+comprehension sites turned at exit 0, against `851 of 881` with fourteen
+refused — the old count plus the fourteen exactly, so every refused site
+now reads as having turned rather than quietly changing category. Suite
+**3651 passed**, the recorded baseline unchanged._
+
+_**Undecidability is a property of the tree, not of the run, and that is
+what made the fix cheap.**_ _All three refusals in `_loop_turned` are
+syntactic and read no arc, so driving the real function with an **empty**
+arc set enumerates the same fourteen the ninety-second gate names. Every
+candidate reformatting was settled statically before a test ran; the gate
+run was spent confirming the answer rather than finding it._
+
+_**Ten locations in two shapes, and the nested one is the trap.**_ _Six
+carried the element on the comprehension's own first line with the
+clauses spilling below; four were pairs sharing an element line, reported
+twice each, which is why fourteen sites are ten places. In
+`all(any(d in c for d in denials) for c in clauses)` the outer element
+**is** the inner comprehension, so moving the outer element down lands it
+on the inner's own line and trades one refusal for the other — measured,
+not guessed, so both had to drop a line. The three adjacent pairs took a
+bound name rather than a hanging bracket, which leaves each comprehension
+alone on its line and reads as ordinary test code._
+
+_**`SNAG-TEST-010`'s upper bound is 296 of 881 sites carrying an `if`
+clause**, taken over the population `_comprehension_sites` itself walks —
+imported rather than re-walked, because a second walker is a second
+statement of what a site is._
+
+_**The entry names one shape and there are two, which is the correction
+this sitting owes it.**_ _A comprehension with more than one `for` whose
+inner iterable is empty for every outer item is blind identically: no
+filter is involved, the element never evaluates, and the detector answers
+`turned`. That takes the bound to **311 of 881** and leaves **570** for
+which the measure is exact — the number the entry could not state and the
+one that ranks it. Established with a witness rather than read off the
+arcs the detector reads: the fixture's element appends to a list and the
+fixture asserts that list is empty **inside itself**, with an empty
+*outer* iterable beside it answering `did NOT turn` as the control that
+stops the drive agreeing with itself._
+
+_**So the entry's reason for carrying no check is refuted, which is what
+the next action is.**_ _It said a check would have to reproduce the
+discriminator the measure lacks; the witness fixture reproduces the
+**defect** instead, in about two seconds, which is `SNAG-LOG-017`'s
+*reproduced, never counted* idiom. Not written here — one roadmap session
+per sitting, and this one was asked to measure and to close the
+fourteen._
+
+_**Two documents disagreed and the register settled it.**_ _Session 179's
+handoff says open entries with no check went `3 → 4`; its own entry says
+`stays at 3`. `sysadmin-check-snags` reads **3 of 24**, naming
+`SNAG-TEST-010`, `SNAG-LOG-016` and `SNAG-SYSD-008`, so the handoff is
+the stale half. The entry's disposition also moved `owed`, not `decided`:
+the discriminator is not owed and is not ranked, but the **check** is, by
+rule 6 — and `decided` would publish "no work here" over an entry the
+register's own counter is naming. Written first as `**owed**` and caught
+by the check itself, which reads the disposition literally and put bold
+markup outside the vocabulary._
+
+_**Cost filed rather than implied**: nothing in this repository runs a
+formatter, so the ten reformatted sites stand — but a comprehension has
+no magic trailing comma, so adopting `ruff format` would collapse every
+one of them back onto a single line and rebuild the fourteen in a commit
+that changed no logic._
+
+_**No restart is owed**: nothing under `sysadmin/` changed — the edits are
+ten test files and four documents — and no migration was written._
+
+# Handoff — 2026-09-05 (Session 179)
+
+### The action Session 179 filed (done by Session 180)
 
 Measure `SNAG-TEST-010`'s upper bound — the count of comprehension sites under `tests/` carrying an `if` clause, which is the only cheap figure here that is not the missing discriminator itself — and in the same sitting close the fourteen sites `scripts/check-vacuous-guards.sh` names as undecidable, by moving each element expression below its own first line, because both range over the one population that gate already walks.
 

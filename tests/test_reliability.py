@@ -270,7 +270,8 @@ def test_a_muted_service_has_its_deductions_waived_not_hidden():
     assert scored.score == 100
     assert scored.muted is True
     assert scored.waived_points == unmuted.waived_points + (100 - unmuted.score)
-    assert [d.kind for d in scored.deductions] == [d.kind for d in unmuted.deductions]
+    unmuted_kinds = [d.kind for d in unmuted.deductions]
+    assert [d.kind for d in scored.deductions] == unmuted_kinds
     assert all(d.waived for d in scored.deductions)
 
 

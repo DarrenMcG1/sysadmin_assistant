@@ -425,8 +425,11 @@ async def test_no_lookup_when_nothing_alerted():
     agent = LogAggregatorAgent()
     session = _Session()
     await _run(agent, session, [_entry("all is well", severity="info")])
-    assert not [s for s in session.statements if "alerts" in str(s)
-                and str(s).startswith("SELECT")]
+    assert not [
+        s
+        for s in session.statements
+        if "alerts" in str(s) and str(s).startswith("SELECT")
+    ]
 
 
 @pytest.mark.asyncio
