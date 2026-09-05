@@ -1,7 +1,51 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-04
+**Last Updated**: 2026-09-05
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **A guard that asserts nothing is green, and the suite is the last
+> thing able to tell you** (2026-09-05, Session 173). The sweep Session
+> 172 asked for is done, and the instrument is the part worth keeping:
+> coverage over a green full suite, then an AST walk mapping every
+> unexecuted line back to the statement enclosing it. At 3538 tests,
+> **8** `assert` statements under `tests/` had never once been evaluated
+> and **0** `for` loops had never iterated.
+>
+> **The founding shape had moved on, and the one live instance was
+> somewhere nobody was looking.** The prediction guard that opened this
+> hunt now runs — the block gained its first `expires` member on
+> 2026-09-04 — so the sweep found its successor instead.
+> `test_a_live_wiring_finding_still_separates_its_two_events` filters the
+> estate's audit findings down to the `wiring` check, a family that has
+> filed **nothing** in its whole history, so its three assertions had
+> never executed. Its docstring said so to the reader; nothing said so to
+> the runner.
+>
+> **The premise reports and never refuses, which is the opposite of its
+> sibling's.** Zero wiring findings is the estate's hooks being correctly
+> wired, so failing on an empty population would turn a healthy estate
+> into a red suite — the calendar writing a failure. What must not pass
+> unnoticed is the other road to zero: the producer *retiring* the check,
+> which reads exactly like a clean run. `last_audit.checks` separates
+> them, which is `ports_checked`'s rule asked of another repository's
+> audit.
+>
+> **Direction is the whole discrimination.** A `for` missing the arc
+> *into* its body never iterated; one missing the arc *out of* it always
+> returned early — the ordinary shape of a helper walking an AST and
+> returning its match. Both are spelled "partial branch", and read
+> without direction this sweep reports thirteen findings of which twelve
+> are wrong.
+>
+> **Two limits are filed rather than implied.** `SNAG-TEST-006`: nothing
+> here can see the next one, and line coverage cannot see the second
+> shape at all — `assert all(f(x) for x in live)` is true over an empty
+> `live` and the line *executes*, so the **309** asserts here carrying a
+> comprehension needed a hand sweep, ten of them over a live iterable.
+> `SNAG-TEST-007`: the premise convention's population is a DSN literal,
+> so the file holding this finding owed nothing — and neither does
+> `test_abandoned_runs.py`, whose own docstring says it drives the live
+> database.
 
 > **The `expires` family has its first live member, and measuring the
 > boundary moved it by a day** (2026-09-04, Session 172). `SNAG-LOG-014`
@@ -2938,6 +2982,57 @@
 ---
 
 ## Recently Completed
+
+### Session 173 — the vacuity sweep (2026-09-05)
+
+The sweep Session 172 asked for, and the instrument is the part worth
+keeping. An AST walk would have to *guess* which iterables are live;
+coverage answers the question directly — did this assertion ever
+execute — and so reaches shapes nobody predicted. Measured at 3538
+tests: **8** `assert` statements under `tests/` had never been
+evaluated, **0** `for` loops had never iterated, and a complete
+statement-level pass found **282** unexecuted lines, every one
+categorised and no further member of the class among them.
+
+**The founding guard now runs, so the hunt found its successor.**
+`test_a_live_wiring_finding_still_separates_its_two_events` filters the
+estate's audit findings to the `wiring` check — measured live at **0**
+findings against 4 total — so its three assertions had never executed.
+The sibling `ports` guard claimed the same of itself in its docstring
+and was **wrong**: coverage says its assertion evaluates, and the live
+audit carries `ports:port 3110:unclaimed_listener`.
+
+**The premise reports and never refuses.** Zero wiring findings is the
+estate's hooks being correctly wired, so failing on an empty population
+would turn a healthy estate into a red suite — the calendar writing a
+failure. What must not pass unnoticed is the other road to zero: the
+producer *retiring* the check, identical at `/api/audit/findings` to a
+clean run. `_check_ran` reads `last_audit.checks`, where the estate
+publishes both the membership and the `error` — `ports_checked`'s rule
+asked of another repository's audit.
+
+**Direction is the whole discrimination.** A `for` missing the arc
+*into* its body never iterated; one missing the arc *out of* it always
+returned early, the ordinary shape of a helper walking an AST and
+returning its match. Read without direction the sweep reports **13**
+findings and **12** are wrong.
+
+Four tests added, stubbed rather than gated on the estate so both roads
+are driven on any box; four mutations driven and four killed, each on
+its intended test. Two findings recorded rather than changed —
+`test_arbitrated_stops_live.py`'s documented both-ways contract and
+`test_sse.py`'s deadline guards. Two limits filed as `SNAG-TEST-006`
+and `SNAG-TEST-007`, the second of which is why this vacuity had no
+owner: the premise convention's population is a DSN literal, so the
+file holding the finding was in neither half of it.
+
+**A guard caught the write-up rather than the code**, which is worth
+recording. The first draft filed both entries `Open — decided` and then
+asked the next sitting to close one of them;
+`test_the_next_action_names_no_entry_that_is_owed_nothing` refused it,
+because `decided` means no sitting is owed work. Running out of budget
+is not the same as having weighed a fix and declined it, and `owed`
+against `decided` is exactly that difference.
 
 ### Session 171 — the same haystack, one function over (2026-09-04)
 

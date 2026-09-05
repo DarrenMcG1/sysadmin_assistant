@@ -4,7 +4,62 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-04
+> **Last Updated**: 2026-09-05
+
+---
+
+## Session 173: the vacuity sweep ✅ (2026-09-05)
+
+_Session 172's handoff asked for a sweep of the suite for live-document
+guards whose loop body has never executed — measuring, per test that
+iterates a live artefact's members, whether that population is non-empty
+on this box, and deciding per finding between an anti-vacuity premise and
+an honest record of emptiness._
+
+- [x] **Measured rather than inferred, and the instrument was chosen for
+      what it can answer.** An AST walk would have to *guess* which
+      iterables are live; coverage answers the question directly — did
+      this assertion ever execute. Run through an ephemeral
+      `uv run --with coverage` overlay, which leaves `.venv` untouched:
+      **122** packages and an unchanged lock either side, the distinction
+      the `uv run --active` memory is about.
+- [x] **The sweep, at 3538 tests.** **8** `assert` statements under
+      `tests/` had never been evaluated; **0** `for` loops had never
+      iterated; all **13** partial-branch loops were early-exit helpers.
+      A complete statement-level pass found **282** unexecuted lines,
+      every one of them categorised — 86 multi-line `with (` artefacts,
+      44 untaken `pytest.skip` gates, 41 helper early returns, 14
+      deliberate failure paths, and no further member of the hunted class.
+- [x] **The founding guard now runs, so the sweep found its successor.**
+      `test_a_live_wiring_finding_still_separates_its_two_events` filters
+      the estate's audit findings to the `wiring` check — measured live at
+      **0** findings, against 4 total — so its three assertions had never
+      executed. The sibling `ports` guard's docstring claimed the same of
+      itself and was **wrong**: coverage says its assertion evaluates, and
+      the live audit carries one breach.
+- [x] **Both guards gained a premise that reports and never refuses.**
+      `_check_ran` reads `last_audit.checks`, which separates a check that
+      ran clean from one that **errored** and from one the producer has
+      **retired** — three roads to an empty filter that are identical at
+      `/api/audit/findings`. Failing on an empty population was refused:
+      zero wiring findings is a correctly wired estate.
+- [x] **Four tests added, stubbed rather than gated on the estate**, so
+      both roads are driven on every run and on any box — the live class
+      can only exercise whichever branch the box is in. Four mutations
+      driven and four killed, each on its intended test, plus three
+      falsifications of the assertions themselves before they were
+      written into the suite.
+- [x] **Two findings recorded rather than changed.**
+      `test_arbitrated_stops_live.py`'s three unevaluated assertions are
+      a documented both-ways contract with a `@pytest.mark.premise`
+      companion — the model this fix followed. `test_sse.py`'s two are
+      deadline guards inside polling helpers, where non-execution means
+      the wait completed at once.
+- [x] **Two limits filed**: `SNAG-TEST-006` (nothing here can see the
+      next one, and line coverage is blind to the comprehension shape)
+      and `SNAG-TEST-007` (the premise convention's population is a DSN
+      literal, so live HTTP drives — and `test_abandoned_runs.py`, which
+      drives the live database — owe nothing).
 
 ---
 

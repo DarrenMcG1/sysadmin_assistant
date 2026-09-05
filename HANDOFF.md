@@ -1,6 +1,32 @@
-# Handoff — 2026-09-04 (Session 172)
+# Handoff — 2026-09-05 (Session 173)
 
 ## Next action
+
+Close `SNAG-TEST-007` by widening `tests/test_live_drive_premises.py`'s `_opens_a_live_connection` past the DSN literal it keys on today, so that a drive reaching the box over HTTP and a drive reaching PostgreSQL through a helper both hold the property, and then take the six per-file judgements that widening owes — a `@pytest.mark.premise` or a reasoned name in `PRE_CONVENTION` for each of `test_estate_surface_payloads.py`, `test_estate_project_contracts.py`, `test_alert_dedup.py`, `test_service_write_isolation.py`, `test_ops_claims.py` and `test_abandoned_runs.py`.
+
+_**The sweep is done and its one live finding was not where the handoff pointed.**_ _`TestTheConventionAgainstTheRealDocument`'s prediction guard now runs, the block having gained its first `expires` member on 2026-09-04, so the hunt found the successor rather than the founder: `test_a_live_wiring_finding_still_separates_its_two_events` filters the estate's audit findings to the `wiring` check, which has filed **nothing** in its whole history, so its three assertions had never executed. Measured live at **0** wiring findings against 4 total._
+
+_**Coverage was the instrument, chosen for what it can answer.**_ _An AST walk would have to guess which iterables are live; coverage answers directly whether an assertion ever executed, and so catches shapes nobody predicted. At 3538 tests: **8** `assert` statements under `tests/` never evaluated, **0** `for` loops never iterated, **282** unexecuted statements in total and every one categorised — 86 multi-line `with (` artefacts, 44 untaken skip gates, 41 helper early returns, 14 deliberate failure paths, and no further member of the class. Run through an ephemeral `uv run --with` overlay: **122** packages and an unchanged lock either side._
+
+_**Direction is the whole discrimination, and reading the symbol without it inverts the answer.**_ _A `for` missing the arc into its body never iterated; one missing the arc out of it always returned early, which is the ordinary shape of a helper walking an AST and returning its match. Both are spelled "partial branch". Read without direction the sweep reports **13** findings and **12** are wrong._
+
+_**The premise reports and never refuses, which is the opposite of the sibling live drive's.**_ _`test_arbitrated_stops_live.py` fails when no lease names `stopped_units`, because such a lease is expected to exist; zero wiring findings is the estate's hooks being correctly wired, so refusing an empty population would turn a healthy estate into a red suite. What must not pass unnoticed is the other road to zero — the producer **retiring** the check, identical at `/api/audit/findings` to a clean run — and `_check_ran` reads `last_audit.checks`, where the estate publishes both the membership and the `error`. `ports_checked`'s rule, asked of another repository's audit._
+
+_**The sibling guard's docstring was wrong about itself, in the good direction.**_ _`test_a_live_ports_breach_still_carries_an_integer_port` read "the ports check has never reached `breach` on this box"; coverage says its assertion evaluates and the live audit carries `ports:port 3110:unclaimed_listener`. It can go back — 3110 is a transient dev-server holder and the finding set moved from 6 to 4 inside this sitting — so the branch was added there too rather than the sentence merely corrected._
+
+_**Four tests added and stubbed rather than gated on the estate**, so both roads are driven on every run and on any box: the live class can only exercise whichever branch the box happens to be in, which is the empty one for `wiring` and the populated one for `ports`. Four mutations driven and four killed, each on its intended test — dropping the empty branch reproduces the pre-fix behaviour and turns two red, an unconditional return turns the populated-filter test red, and a premise that refuses an empty population turns the clean-check test red._
+
+_**Two findings were recorded rather than changed.**_ _`test_arbitrated_stops_live.py`'s three unevaluated assertions are a documented both-ways contract with a marked premise companion — the model this fix followed. `test_sse.py`'s two are deadline guards inside polling helpers, where non-execution means the wait completed at once._
+
+_**The instrument's own blind spots are stated, because two of them bit.**_ _The first socket probe tested `isinstance(address, tuple)` and so dropped every AF_UNIX address, reading zero-because-blind as zero-because-clean inside the tool written to find exactly that. And `socket.connect` is blind to psycopg2, whose libpq connects in C — which is why four files carrying premise markers report zero connections for connections they genuinely make. Line coverage is blind to the comprehension shape for a third reason: `assert all(f(x) for x in live)` is true over an empty `live` and the line executes, so the **309** asserts carrying a comprehension needed a hand sweep, ten of them over a live iterable and two over the real block, whose population is a measured **11** markers._
+
+_**No restart, and none owed.**_ _This sitting touched no file under `sysadmin/` — only `tests/test_estate_surface_payloads.py` and the four roadmap documents — so the deploy check stays green at the 2026-09-04 22:49:11 start. Suite **3538 → 3542**, the baseline measured by running it before anything was edited rather than read off the STATUS cell; ruff and mypy clean; all ten ops claims green with **11** markers still read; register **134 → 136** entries, **23 → 25** open, nothing closed._
+
+---
+
+# Handoff — 2026-09-04 (Session 172)
+
+### The action Session 172 filed (done by Session 173)
 
 Sweep the suite for live-document guards whose loop body has never executed — the shape `TestTheConventionAgainstTheRealDocument`'s prediction test was in for eleven days, where what it asserted was that an empty `for` completes — by measuring, for every test that iterates over a live artefact's members rather than over a fixture's, whether that population is non-empty on this box, and deciding per finding whether the guard gains an anti-vacuity premise naming the emptiness or is honestly recorded as unreachable here.
 

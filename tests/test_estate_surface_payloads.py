@@ -536,6 +536,33 @@ class TestTheKeysTheJudgeReadsAreStillServed:
         response.raise_for_status()
         return response.json()
 
+    def _check_ran(self, check: str) -> dict[str, Any]:
+        """What the last audit says about one check — a filtered guard's discriminator.
+
+        A guard that filters ``/api/audit/findings`` down to one check
+        asserts nothing while that check files nothing, and an empty
+        filter cannot be told apart from a check the producer has
+        **retired**: both are a loop that runs and executes no body.
+        ``last_audit.checks`` is where the estate says which checks ran
+        and whether each errored, so it is the one surface that
+        separates zero-because-clean from zero-because-blind and from
+        zero-because-gone — ``ports_checked``'s rule, asked of another
+        repository's audit.
+
+        The membership assertion lives here rather than at each call
+        site so the sentence is stated once; the ``error`` reading is
+        left to the caller, because what a blind check costs differs per
+        family and the message should name it.
+        """
+        checks = self._get("/api/audit/invariants")["last_audit"]["checks"]
+        assert check in checks, (
+            f"estate-manager's audit no longer runs a {check!r} check, so every "
+            f"guard here that filters /api/audit/findings down to it has been "
+            f"silently retired — and judge_audit_findings speaks for it by "
+            f"ADR-0006. ran: {sorted(checks)}"
+        )
+        return checks[check]
+
     def test_the_scans_gauges_are_all_present(self):
         payload = self._get("/api/projects/invariants")
         assert "scans_total" in payload
@@ -592,17 +619,46 @@ class TestTheKeysTheJudgeReadsAreStillServed:
             }
 
     def test_a_live_ports_breach_still_carries_an_integer_port(self):
-        """Pre-staged: the ports check has never reached ``breach`` on
-        this box (today's one finding is ``warn``), so this asserts
-        nothing until the day it does — which is also the first day it
-        could catch anything.  ``_port_of`` refuses a finding whose port
-        will not parse rather than titling it from ``subject``, so a
-        producer moving the port out of ``detail`` would silence the
-        family rather than break it."""
-        for finding in self._get("/api/audit/findings")["findings"]:
-            if finding["check"] == "ports" and finding["severity"] == "breach":
-                port = finding["detail"]["port"]
-                assert isinstance(port, int) and not isinstance(port, bool)
+        """No longer pre-staged, and the empty branch is what keeps it honest.
+
+        ``_port_of`` refuses a finding whose port will not parse rather
+        than titling it from ``subject``, so a producer moving the port
+        out of ``detail`` would silence the family rather than break it.
+
+        **The population arrived and this docstring was the last thing
+        to know** (2026-09-05).  It read *"the ports check has never
+        reached ``breach`` on this box (today's one finding is
+        ``warn``), so this asserts nothing until the day it does"* —
+        false when measured: the live audit carries one ``breach``,
+        ``ports:port 3110:unclaimed_listener``, and coverage over a
+        green full suite reports the assertion below as **evaluated**.
+        So the guard is live and its own prose said it was not.
+
+        It can go back, which is why the branch is here rather than the
+        sentence merely being corrected.  Port 3110 is a transient
+        holder — Session 57's dev-server shape — and the finding set
+        moved from 6 to 4 inside the sitting that wrote this, so this
+        filter oscillates between evaluated and vacuous with nothing but
+        an editor's window deciding which.  A guard whose status depends
+        on the hour must state its status to the runner, not to the
+        reader: see :meth:`_check_ran`.
+        """
+        breaches = [
+            finding
+            for finding in self._get("/api/audit/findings")["findings"]
+            if finding["check"] == "ports" and finding["severity"] == "breach"
+        ]
+        if not breaches:
+            assert self._check_ran("ports")["error"] is None, (
+                "the ports check errored, so its zero breaches are "
+                "zero-because-blind rather than a clean estate, and the "
+                "assertion below stayed unevaluated for a reason nothing "
+                "else on this surface reports"
+            )
+            return
+        for finding in breaches:
+            port = finding["detail"]["port"]
+            assert isinstance(port, int) and not isinstance(port, bool)
 
     def test_a_live_wiring_finding_still_separates_its_two_events(self):
         """Pre-staged, and it pins the correction rather than the claim.
@@ -634,10 +690,41 @@ class TestTheKeysTheJudgeReadsAreStillServed:
         (``wiring:require-handoff.sh:hook_not_wired``); an ``aspect``
         disagreeing with ``detail['event']`` goes red; and the
         whole-file finding gaining one goes red on the colon count.
+
+        **The pre-staging is stated to the runner now, not only to the
+        reader** (2026-09-05).  ``wiring`` has filed zero findings in
+        the whole history, so for the life of this test the loop has run
+        its filter over every finding and executed **none** of its
+        assertions — measured rather than reasoned: under coverage
+        across a green full suite the three ``assert`` lines below are
+        three of the eight statements in ``tests/`` never evaluated.
+        A docstring saying "this asserts nothing until the day it does"
+        is read by whoever opens the file and by nobody who runs it.
+
+        The premise **reports and never refuses**, which is the opposite
+        of the sibling live drive's.  ``test_arbitrated_stops_live.py``
+        fails when no lease names ``stopped_units``, because such a lease
+        is expected to exist; zero wiring findings is the estate's hooks
+        being correctly wired, so a premise that failed here would turn a
+        healthy estate into a red suite — the calendar writing a failure,
+        which this repository has refused four times over.  What must not
+        pass unnoticed is the *other* road to zero, and it is
+        :meth:`_check_ran` that separates them.
         """
-        for finding in self._get("/api/audit/findings")["findings"]:
-            if finding["check"] != "wiring":
-                continue
+        findings = [
+            finding
+            for finding in self._get("/api/audit/findings")["findings"]
+            if finding["check"] == "wiring"
+        ]
+        if not findings:
+            assert self._check_ran("wiring")["error"] is None, (
+                "the wiring check errored, so its zero findings are "
+                "zero-because-blind rather than a correctly wired estate, and "
+                "the assertions below stayed unevaluated for a reason nothing "
+                "else on this surface reports"
+            )
+            return
+        for finding in findings:
             event = finding["detail"].get("event")
             if event is None:
                 # The whole-file finding, which declares no event and
@@ -697,3 +784,119 @@ class TestTheKeysTheJudgeReadsAreStillServed:
         payload = self._get("/api/queue/invariants")
         unexplained = payload["oldest_unexplained_wait_seconds"]
         assert unexplained is None or unexplained == payload["oldest_waiting_seconds"]
+
+
+class TestTheFilteredGuardsReportTheirOwnEmptiness:
+    """The discriminator, driven at stubs so it outlives the finding.
+
+    Two guards in :class:`TestTheKeysTheJudgeReadsAreStillServed` filter
+    ``/api/audit/findings`` down to one check and assert about the
+    members.  While the filtered set is empty they run and assert
+    nothing — the shape a green suite cannot report, since an empty
+    ``for`` completes.  Measured 2026-09-05 under coverage across a
+    green full suite: ``wiring``'s three assertions were three of the
+    **eight** statements in ``tests/`` never once evaluated, and they had
+    been so since the guard was written.
+
+    This class is deliberately **not** gated on estate availability.  The
+    live class can only exercise whichever branch the box happens to be
+    in — today that is the empty one for ``wiring`` and the populated one
+    for ``ports`` — so the branch it does not take is unasserted exactly
+    when it matters.  ``_get`` is stubbed here so both roads to zero are
+    driven on every run, on any box, with no audit in the way.
+
+    The rule the four tests pin is that **the premise reports and never
+    refuses**.  A clean check filing nothing must stay green — a failing
+    premise would make a correctly wired estate a red suite — while a
+    check that has been *retired* or has *errored* must go red, because
+    those reach zero by roads that silently retire the guard.
+    ``ports_checked``'s rule: zero-because-clean is never served as
+    zero-because-blind.
+    """
+
+    OK = {"error": None, "status": "ok", "findings": 0}
+    ERRORED = {"error": "hook directory unreadable", "status": "error", "findings": 0}
+
+    def _driver(self, checks, findings):
+        """A live-class instance whose only wire is a dict."""
+        instance = TestTheKeysTheJudgeReadsAreStillServed()
+        instance._get = lambda path: (  # type: ignore[method-assign]
+            {"last_audit": {"checks": checks}}
+            if path == "/api/audit/invariants"
+            else {"findings": findings}
+        )
+        return instance
+
+    def test_a_clean_check_filing_nothing_is_not_a_failure(self):
+        """The half that must not fire, and the reason the premise is a report.
+
+        Zero ``wiring`` findings is the estate's hooks being correctly
+        wired.  ``test_arbitrated_stops_live.py``'s premise fails on an
+        empty population because a lease naming ``stopped_units`` is
+        expected to exist; here the empty population *is* the good news,
+        so refusing it would be the calendar writing a failure.
+        """
+        driver = self._driver({"wiring": self.OK, "ports": self.OK}, [])
+        driver.test_a_live_wiring_finding_still_separates_its_two_events()
+        driver.test_a_live_ports_breach_still_carries_an_integer_port()
+
+    def test_a_retired_check_is_a_silently_retired_guard(self):
+        """The road to zero no count can see.
+
+        A producer dropping the check empties the filter for ever, and
+        the loop goes on completing.  ``judge_audit_findings`` speaks for
+        both checks by ADR-0006, so this is a conversation with
+        estate-manager rather than a bug here — which is why the message
+        names them and lists the checks that did run.
+        """
+        driver = self._driver({"ports": self.OK}, [])
+        with pytest.raises(AssertionError, match="no longer runs a 'wiring' check"):
+            driver.test_a_live_wiring_finding_still_separates_its_two_events()
+
+    def test_a_check_that_errored_is_zero_because_blind(self):
+        """The second road, and the one that looks most like health.
+
+        An errored check files no findings, so the filter is empty and
+        every assertion is skipped — identical output to a clean estate.
+        The producer already publishes the difference in
+        ``last_audit.checks[...]['error']``; the defect was never a
+        missing signal, only an unread one.
+        """
+        driver = self._driver({"wiring": self.ERRORED, "ports": self.ERRORED}, [])
+        with pytest.raises(AssertionError, match="zero-because-blind"):
+            driver.test_a_live_wiring_finding_still_separates_its_two_events()
+        with pytest.raises(AssertionError, match="zero-because-blind"):
+            driver.test_a_live_ports_breach_still_carries_an_integer_port()
+
+    def test_a_populated_filter_still_reaches_the_members(self):
+        """The fix must not buy its premise by skipping the work.
+
+        The empty branch returns, so a mistake there — returning
+        unconditionally, or filtering on the wrong key — would leave both
+        guards green for ever with a premise standing in for the
+        assertions.  Driven at a member that is deliberately **wrong** so
+        a reached body is observable rather than inferred.
+        """
+        malformed = [
+            {
+                "check": "wiring",
+                "severity": "warn",
+                "detail": {"event": "post_commit"},
+                "fingerprint": "wiring:require-handoff.sh:hook_not_wired",
+            }
+        ]
+        driver = self._driver({"wiring": self.OK}, malformed)
+        with pytest.raises(AssertionError, match="stopped appending the event"):
+            driver.test_a_live_wiring_finding_still_separates_its_two_events()
+
+        bad_port = [
+            {
+                "check": "ports",
+                "severity": "breach",
+                "detail": {"port": True},
+                "fingerprint": "ports:port 1:unclaimed_listener",
+            }
+        ]
+        driver = self._driver({"ports": self.OK}, bad_port)
+        with pytest.raises(AssertionError):
+            driver.test_a_live_ports_breach_still_carries_an_integer_port()
