@@ -8,6 +8,77 @@
 
 ---
 
+## Session 178: the second pass that does not exist ✅ (2026-09-05)
+
+_Session 177's handoff asked for a decision on `SNAG-TEST-009` — whether
+counting comprehension iterations at runtime is worth a second pass over
+an 86-second suite, or whether the cheap AST half (a comprehension whose
+iterable is a `Call`) is the whole of the fix. No code was written: the
+sitting was asked to decide, and both limbs of the question turned out to
+be false._
+
+- [x] **Decided: build the runtime half, drop the AST half.** Recorded in
+      the entry with every figure below. The build is left to a sitting
+      that can budget it, and the entry stays `owed` rather than moving to
+      `decided` — what is owed changed from a decision to a build, and
+      `decided` is where `SNAG-TEST-005` sits and means no sitting is
+      queued.
+- [x] **There is no second pass, which was the entire cost side.**
+      Coverage records a loop **back-edge** as an arc, so `--branch` on the
+      run the gate already makes is the whole mechanism. Measured: plain
+      **68.3 s**, `coverage run` as the gate does it today **90.2 s**,
+      `coverage run --branch` **88.3 s**. `sys.monitoring` and
+      `sys.settrace` are both unnecessary.
+- [x] **The refuted sentence is named rather than edited.**
+      `sysadmin/vacuous_guards.py`'s docstring and
+      `check-vacuous-guards.sh`'s header both say branch coverage cannot
+      reach this. It is not a branch *of the assert statement* and coverage
+      records it anyway. Left in place for the build sitting, so nothing
+      under `sysadmin/` moved and no restart is owed.
+- [x] **`coverage json` erases the discriminator**, which is the one real
+      implementation constraint. A file whose only loops are comprehensions
+      reports `num_branches: 0` with `executed_branches: []`, and the
+      report lists only *statement* lines. So **line coverage answers 0 of
+      them, not some.** The arcs survive in the `.coverage` SQLite and read
+      with stdlib `sqlite3`, so the module's "never imports coverage" rule
+      survives.
+- [x] **Three arc rules written down so a build sitting does not
+      re-derive them** — a backward arc inside the comprehension's line
+      span; a short-circuited genexp emitting neither back-edge nor exit
+      arc, so started-and-never-returned means it yielded; and inlined
+      comprehensions being decidable on the back-edge alone.
+- [x] **The detector was wrong three times before it was right** — 110 →
+      43 → 26 → 23 findings — and every version returned a plausible
+      number, which is why the count alone cannot tell a working detector
+      from a broken one. That is the honest cost: the writing, not the
+      running.
+- [x] **Measured payoff**: **858** comprehension sites under `tests/`,
+      **835** turned, **23** did not — 6 in an assert *message*, 9 negative
+      asserts, 7 assign-then-assert, and **1** positive assert.
+- [x] **The one live finding is invisible to the AST rule that was
+      proposed.** `tests/test_tray/test_config.py:365` asserts
+      `all(path == "tray" for path in report.unwalkable)` at an input where
+      nothing is unwalkable. Its iterable is an `ast.Attribute` — one of
+      the **114** the `Call` rule discards against the **37** it selects.
+      Not fixed here; the verdict is the gate's to hand a human.
+- [x] **The entry's provenance claim is refuted.** Session 173's handoff
+      records a **hand sweep** of all 309, not a `Call` filter — and two of
+      the ten (`tests/test_ops_claims.py:1804` and `:579`) bind the
+      comprehension to a local and assert on the *name*, so they sit
+      outside `ast.Assert.test` and outside the 323 entirely.
+- [x] **The published population is the wrong one.** `323 of 6334 asserts
+      across 53 files` reproduces exactly and counts only
+      `ast.Assert.test`; the union with assign-then-assert is **673 across
+      74 files**, and the arc measure ranges over **858** sites.
+- [x] **The alert pair was corrected twice in one sitting**: **3 → 4 →
+      3**, the second time that round trip has happened inside one. The
+      VRAM row was open at preflight with both halves firing — the count
+      rose *and* the marked sentence did not name it — was written in, and
+      had resolved for a fifth time by the close, where `check_alerts`'
+      **fall** note caught it.
+
+---
+
 ## Session 177: the gate the entry owed ✅ (2026-09-05)
 
 _Session 176's handoff asked for the coverage gate `SNAG-TEST-006` still

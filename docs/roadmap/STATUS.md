@@ -2943,7 +2943,18 @@
 > rows <!--check:alerts-->, `High disk usage on /`,
 > `Project ImbaBots next action idle` and
 > `Estate port 3110 registry breach`, **3**
-> named here <!--check:open_titles-->. *(**3 → 4** again between Session
+> named here <!--check:open_titles-->. *(**4 → 3 → 5 → 3** inside
+> Session 178's own sitting, and the VRAM row is three of those four
+> moves. It was open at preflight with both halves of the pair firing —
+> the count rose *and* the marked sentence did not name it — was written
+> in, resolved for a fifth time, re-opened, and had resolved again by the
+> close. **The 5 is the one reading not to write down**: it carried
+> `Unusual CPU usage`, raised by this sitting's own five full-suite runs
+> and resolved by `_check_anomalies` on the next poll, which is a figure
+> about the instrument and not about the box — Session 175's precedent,
+> held here for its reason. The block was corrected twice and settled at
+> what the close measured.)* *(**3 → 4**
+> again between Session
 > 173's close and Session 174's preflight, which is the third crossing
 > of that threshold in three sittings and the second time the VRAM row
 > has been the one moving. Both halves of the pair fired this time — the

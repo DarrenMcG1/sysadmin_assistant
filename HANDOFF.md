@@ -1,6 +1,99 @@
-# Handoff — 2026-09-05 (Session 177)
+# Handoff — 2026-09-05 (Session 178)
 
 ## Next action
+
+Build `SNAG-TEST-009`'s runtime half — add `--branch` to `scripts/check-vacuous-guards.sh`, read the loop back-edge out of the `.coverage` SQLite with stdlib `sqlite3` rather than from `coverage json`, which erases it, and implement the three arc rules the entry records, falsifying each against comprehensions driven at 0, 1 and 2 iterations and at `any()`/`next()`, because every wrong version of the detector returned a plausible number.
+
+_**`SNAG-TEST-009` is decided and both limbs of the question were
+false.**_ _It asked whether counting comprehension iterations at runtime
+is worth **a second pass over an 86-second suite**, or whether the cheap
+AST half is the whole of the fix. There is no second pass: coverage
+records a loop **back-edge** as an arc, so `--branch` on the run the gate
+already makes is the entire mechanism. Measured — plain **68.3 s**,
+`coverage run` as the gate does it today **90.2 s**, `coverage run
+--branch` **88.3 s**. `sys.monitoring` and `sys.settrace` are both
+unnecessary, and the cost the whole question turned on does not exist._
+
+_**The sentence saying otherwise is still in the tree, deliberately.**_
+_`sysadmin/vacuous_guards.py`'s docstring and `check-vacuous-guards.sh`'s
+header both say branch coverage cannot reach this, "because the
+comprehension's own iteration is not a branch of the assert statement".
+It is not a branch of the assert, and coverage records it regardless.
+Left for the build sitting so that nothing under `sysadmin/` moved and no
+restart is owed — this sitting touched four documents and no code._
+
+_**`coverage json` erases the discriminator, which is the one real
+constraint on the build.**_ _A file whose only loops are comprehensions
+reports `num_branches: 0` with `executed_branches: []`, because
+coverage's static analysis does not model a comprehension as a branch
+point — and the report lists only *statement* lines, so a comprehension's
+element expression never appears there either. **Line coverage therefore
+answers 0 of them, not some.** The arcs survive in the `.coverage`
+SQLite and read with stdlib `sqlite3`, so the module's "it reads a report
+and never imports coverage" rule survives untouched._
+
+_**The AST half is aimed at the wrong population, and the one live
+finding proves it.**_ _`tests/test_tray/test_config.py:365` asserts
+`all(path == "tray" for path in report.unwalkable)` at an input where
+nothing is unwalkable, so it asserts nothing while the test below it
+covers the real case. Its iterable is an `ast.Attribute` — one of the
+**114** the proposed `Call` rule discards against the **37** it selects.
+The hand sweep of 2026-09-05 concluded the finding set was empty and
+there was one thing in it._
+
+_**The entry's provenance claim is refuted and its population is the
+wrong one.**_ _Session 173's handoff records a **hand sweep** of all 309,
+not a `Call` filter; and two of the ten — `tests/test_ops_claims.py:1804`
+and `:579` — bind the comprehension to a local and assert on the *name*,
+so they sit outside `ast.Assert.test` and outside the 323 entirely. The
+`323 of 6334 asserts across 53 files` the gate republishes on every run
+reproduces exactly and counts only `ast.Assert.test`: the union with
+assign-then-assert is **673 across 74 files**, and the arc measure ranges
+over **858** sites._
+
+_**Measured payoff, driven at the real suite**: **858** comprehension
+sites, **835** turned, **23** did not — **6** in an assert *message*
+firing only on failure, **9** negative asserts where empty is the
+asserted-healthy state, **7** assign-then-assert, and **1** positive
+assert. So the measure hands a human **17** sites and finds **1**._
+
+_**The honest cost is the writing, not the running.**_ _The detector was
+wrong three times before it was right — **110 → 43 → 26 → 23** findings —
+and both surviving bugs are now rules: the back-edge of a multi-line
+comprehension is a **two-line cycle** rather than a self-arc, because
+`FOR_ITER` lives on the `for … in …` line and not on the comprehension's
+own `lineno`; and a **short-circuited** genexp (`any`, `next`) is
+abandoned mid-yield and emits **neither** back-edge **nor** exit arc, so
+started-and-never-returned means it yielded at least once. Every wrong
+version returned a plausible number, which is why the count cannot
+falsify the detector and controlled fixtures must._
+
+_**The entry stays `owed` rather than moving to `decided`.**_ _What is
+owed changed from a decision to a build; `decided` is where
+`SNAG-TEST-005` sits and means no sitting is queued on it, and the
+board's next-action check refuses a line naming one. Register **138
+entries, 24 open**, unmoved — nothing opened and nothing closed. Open
+entries with no check stays at **3**._
+
+_**No restart, and none owed.**_ _Four documents changed and no file
+under `sysadmin/`, so the deploy check stays green at the 2026-09-05
+16:24:42 start. All ten ops claims green, **and the alert block was
+corrected twice**: **4 → 3 → 5 → 3** inside this sitting, the VRAM row
+accounting for three of the four moves. It was open at preflight with
+both halves of the pair firing — the count rose *and* the marked sentence
+failed to name it — was written in, resolved for a fifth time, re-opened,
+and had resolved again by the close. **The 5 is the reading that was
+deliberately not written down**: it carried `Unusual CPU usage`, raised
+by this sitting's own five full-suite runs and cleared by
+`_check_anomalies` on the next poll, so it is a figure about the
+instrument and not about the box — Session 175's precedent, held for its
+reason rather than rediscovered. The suite was
+run three times for the timing measurement and was green each time; no
+test was added, because nothing was built._
+
+# Handoff — 2026-09-05 (Session 177)
+
+### The action Session 177 filed (done by Session 178)
 
 Decide `SNAG-TEST-009` — whether counting comprehension iterations at runtime is worth a second pass over an 86-second suite, or whether the cheap AST half is the whole of the fix: a comprehension whose iterable is a *call* rather than a literal or a parameter is the only sub-population worth a human's time, and it is how the only ten worth reading were found.
 
