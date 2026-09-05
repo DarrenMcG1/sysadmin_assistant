@@ -3,6 +3,58 @@
 **Last Updated**: 2026-09-05
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A convention's population decides what it can ask for, and this one
+> was asking a DSN** (2026-09-05, Session 174). `SNAG-TEST-007` is
+> closed. The premise rule refuses a live drive carrying no
+> `@pytest.mark.premise`, over a population that was the `_live` glob
+> plus "the file spells a connection string" — so it under-read on
+> **both** of its own axes, and the sharper miss was the database one:
+> `test_abandoned_runs.py` says in its own docstring that it drives the
+> live database inside a rolled-back transaction, and it was invisible
+> because it goes through a helper.
+>
+> **The obvious HTTP widening was measured and refused.** Matching
+> `http://localhost:<port>` the way the DSN rule matches a connection
+> string does not transfer, and the reason is what the fix rests on:
+> nothing in this tree *models* a DSN — a fake database is spelled
+> `sqlite:///` — while a loopback URL is exactly how a fake service is
+> spelled here. Fourteen files carry one with a port and four connect to
+> it, so the literal rule reports ten stand-ins. A name whose job is to
+> dial cannot be written by accident, and the four in `_LIVE_HANDLES`
+> reach six of six connecting files with no false positive.
+>
+> **The instrument was a socket probe, per nodeid, across a green full
+> suite** — the same shape Session 173 used coverage for, and chosen for
+> the same reason: it answers directly whether a connection happened
+> rather than asking an AST walk to guess. Fourteen files connect; four
+> hold no token, and all four are reconciled rather than counted.
+>
+> **The tripwire refused a handle within one test run**, which is the
+> part worth carrying. `query_one` looked like the obvious member — it is
+> the reader every registered snag check goes through — and it is named
+> in exactly one file, as the string inside `patch.object`. A name whose
+> only appearance is a stub is the *opposite* of evidence: it marks the
+> connection being taken out.
+>
+> **Two of the six owe nothing, and that was driven rather than read.**
+> `test_alert_dedup.py` and `test_service_write_isolation.py` reach the
+> estate through an unstubbed fail-open call inside the method under
+> test, so they carry no token and no sweep over `tests/` can reach them.
+> Forging the producer's own `ArbitratedStops` three ways — unread, a
+> lease holding nothing, and a lease naming every unit spelling in sight
+> — leaves nineteen of nineteen passing in all three, because a
+> `kind: http` entry has no unit for a lease to name. Filed as
+> `SNAG-TEST-008`, whose cost is the clock and only on a box unlike this
+> one: an estate that drops packets rather than refusing them turns a
+> 0.35 s pair of files into some minutes of ten-second timeouts.
+>
+> **One mutation of nine survived and bought a test.** Deleting the
+> clause that reads a *qualified* use broke nothing, because every handle
+> in this tree happens to be imported by name today — so the clause was
+> carried by a coincidence in the current tree, and `import ops_claims`
+> plus `ops_claims.check_all(...)` was a way out of the rule that nobody
+> would have chosen and nothing would have reported.
+
 > **A guard that asserts nothing is green, and the suite is the last
 > thing able to tell you** (2026-09-05, Session 173). The sweep Session
 > 172 asked for is done, and the instrument is the part worth keeping:
@@ -2636,11 +2688,18 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
 > rows <!--check:alerts-->, `High disk usage on /`,
-> `Project ImbaBots next action idle` and
-> `Estate port 3110 registry breach`, **3**
-> named here <!--check:open_titles-->. *(**3 → 4 → 3** inside Session
+> `Project ImbaBots next action idle`,
+> `Estate port 3110 registry breach` and
+> `High VRAM usage on AMD Radeon RX 7900 XTX`, **4**
+> named here <!--check:open_titles-->. *(**3 → 4** again between Session
+> 173's close and Session 174's preflight, which is the third crossing
+> of that threshold in three sittings and the second time the VRAM row
+> has been the one moving. Both halves of the pair fired this time — the
+> count rose *and* the marked sentence failed to name the new row — which
+> is the direction the finer half exists for and the direction the fall
+> note is silent in.)* *(**3 → 4 → 3** inside Session
 > 172's own sitting, which is the pair doing exactly what it was built
 > for. The VRAM row rose at 22:33:34 and was named; it resolved at
 > 22:50:17 and the count was corrected again — and the second correction

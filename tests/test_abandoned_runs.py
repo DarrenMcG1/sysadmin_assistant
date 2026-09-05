@@ -343,11 +343,28 @@ class TestTheStatusIsPinnedToTheConstraint:
     def test_the_constraint_admits_the_status_it_moves_from(self):
         assert RUNNING_STATUS in self._sqltext()
 
+    @pytest.mark.premise
     def test_the_database_really_rejects_a_fifth_status(self):
         """The premise the pin rests on.
 
         Without this the pin asserts a string is present in a string,
         which is true of a constraint the database does not enforce.
+
+        **Marked rather than written** (`SNAG-TEST-007`, 2026-09-05).
+        This file's docstring has named three properties *"a fake agrees
+        with by construction"* since it was written, and this is the test
+        that refuses the first of them; what it lacked was the marker
+        that makes ``tests/test_live_drive_premises.py`` able to see it.
+        The file was invisible to that sweep for its whole life because
+        it reaches PostgreSQL through :func:`rolled_back_drive` and never
+        spells a DSN — the sharper half of `SNAG-TEST-007`, since the
+        under-read was on the convention's *own* axis rather than only on
+        HTTP.
+
+        It is also the premise the other twelve drives here lean on and
+        do not restate: every one of them ends ``assert not problem``,
+        which says the harness ran, and only this one says the thing it
+        ran against is the database the module is written for.
         """
         from sqlalchemy.exc import IntegrityError
 

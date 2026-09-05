@@ -317,6 +317,7 @@ class TestOverall:
 class TestAgainstTheRealDocument:
     """The live half.  These are what fire the day the block is reworded."""
 
+    @pytest.mark.premise
     def test_every_pattern_finds_its_claim_in_the_real_status_file(self):
         """A check whose subject silently disappears is no check at all.
 
@@ -324,6 +325,28 @@ class TestAgainstTheRealDocument:
         file: it reads ``docs/roadmap/STATUS.md`` as it stands.  If it
         fails, either the block moved or a sentence was rewritten, and the
         answer is to re-anchor the pattern — not to delete the claim.
+
+        **The premise for this class, and it is about the document rather
+        than the box** (`SNAG-TEST-007`, 2026-09-05).  ``assert region is
+        not None`` is ordered first so a failure names the missing block;
+        everything after it is a dict comprehension over
+        :data:`CLAIM_PATTERNS`, which is empty — and therefore green —
+        for a region nothing could be read out of.
+
+        The file reaches the box too: :func:`check_all` runs the state
+        checks, which dial 8500 and query the live ``alerts`` table, and
+        that is the property ``tests/test_live_drive_premises.py`` now
+        keys on.  No premise is owed for *that* half and the reason is
+        worth stating rather than leaving as silence — nothing here
+        believes a negative about the box.  ``test_the_state_checks_run
+        _even_with_no_document`` asserts the ``schema`` verdict is one of
+        the three the vocabulary admits and that the document-shaped
+        claims all read ``unknown``; ``test_main_exits_through_the_shared
+        _map`` asserts the exit code is in the map.  Both hold whether or
+        not 8500 answered, deliberately, because ``unknown`` is what this
+        module returns for every way of not-knowing — the premise is
+        enforced in the producer, which is :data:`PRE_CONVENTION`'s
+        argument for ``test_snag_claims.py`` arriving one module over.
         """
         region, problem = load_region()
         assert region is not None, problem

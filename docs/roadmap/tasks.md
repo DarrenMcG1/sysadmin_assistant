@@ -8,6 +8,56 @@
 
 ---
 
+## Session 174: the premise convention's population ✅ (2026-09-05)
+
+_Session 173's handoff asked for `SNAG-TEST-007` to be closed by widening
+`_opens_a_live_connection` past the DSN literal it keyed on, and then for
+the six per-file judgements that widening owes._
+
+- [x] **Widened on names rather than on addresses, and the refusal is the
+      measured half.** The obvious HTTP rule is the DSN rule's own shape —
+      match `http://localhost:<port>`. It does not transfer: nothing here
+      *models* a DSN, while a loopback URL is exactly how a fake service
+      is spelled. Measured over `tests/`: **14** files carry one with a
+      port and **4** connect to it, so the literal rule reports ten
+      stand-ins. `_LIVE_HANDLES` names the things that dial instead, and
+      reaches **6 of 6** connecting files with no false positive.
+- [x] **The instrument was a `socket.connect` probe per nodeid across a
+      green full suite.** Fourteen files connect; four hold no token and
+      all four are reconciled rather than counted — one dials a server it
+      started itself on an ephemeral port, one is covered by the glob, and
+      two are `SNAG-TEST-008`.
+- [x] **Four premises taken one file at a time**, which is how
+      `PRE_CONVENTION` went from six names to one in Session 132.
+      `test_abandoned_runs.py` owed the marker and already had the premise;
+      `test_estate_project_contracts.py` owed one its skip gate looks like
+      and is not; `test_ops_claims.py` owed one for the **document** and
+      none for the box; and `test_estate_surface_payloads.py` owed the
+      strongest — it held `SNAG-TEST-006`'s one live finding, and its
+      `_check_ran` discriminator ran only in the branch where a filter came
+      back empty.
+- [x] **Two of the six owe nothing, driven rather than read.** Forging the
+      producer's own `ArbitratedStops` three ways leaves **19 of 19**
+      passing in all three, because a `kind: http` entry has no unit for a
+      lease to name. Neither a premise nor a `PRE_CONVENTION` name is
+      right: that set is for files that *hold* the property and its
+      tripwire asserts exactly that.
+- [x] **The handle tripwire refused a member within one test run.**
+      `query_one` is named in exactly one file and only as the string
+      inside `patch.object` — a name whose only appearance is a stub is
+      the opposite of evidence.
+- [x] **Nine mutations driven, one survived and bought a test.** Deleting
+      the qualified-use clause broke nothing, because every handle here
+      happens to be imported by name today. Each of the four gained files
+      was also driven unmarked, and each goes red post-fix and **green**
+      pre-fix — the blindness reproduced four times.
+- [x] **One limit filed**: `SNAG-TEST-008` (two unit tests make a real
+      network call to 8400 through a fail-open read inside the method
+      under test; inert here, and up to some minutes on a box that drops
+      packets rather than refusing them).
+
+---
+
 ## Session 173: the vacuity sweep ✅ (2026-09-05)
 
 _Session 172's handoff asked for a sweep of the suite for live-document

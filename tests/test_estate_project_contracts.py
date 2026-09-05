@@ -460,7 +460,30 @@ class TestLiveEstate:
     own — a box without estate-manager running has no fault to report.
     """
 
+    @pytest.mark.premise
     def test_live_overview_is_usable(self):
+        """Ordered first, because it is the premise the other two rest on.
+
+        :func:`_assert_overview_usable` asserts ``payload["projects"]`` is
+        non-empty before it reads a field, so this is the one test here
+        that separates *the producer answered with an estate* from *the
+        producer answered*.  Everything below it is a loop, and
+        ``test_an_empty_payload_would_pass_every_shape_assertion`` is the
+        recorded half's proof that a loop over nothing satisfies the lot
+        — the same argument, made about the wire.
+
+        The skip gate above is not this, and cannot be: ``_estate_available``
+        is evaluated once, at **collection**, and asks only whether
+        ``/api/health`` answered 200.  An estate that came up between
+        collection and this line, or one serving health off an empty
+        database, passes that gate and fails here — which is the gap a
+        marked premise exists to hold.
+
+        `SNAG-TEST-007`: the marker is what makes the sweep in
+        ``tests/test_live_drive_premises.py`` able to see the assertion.
+        The file was invisible to it until 2026-09-05 because it reaches
+        8400 over HTTP and a live drive on that axis spells no DSN.
+        """
         resp = httpx.get(f"{ESTATE_URL}/api/projects/overview", timeout=10.0)
         assert resp.status_code == 200
         _assert_overview_usable(resp.json())

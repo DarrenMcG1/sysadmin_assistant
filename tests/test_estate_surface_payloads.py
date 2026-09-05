@@ -563,6 +563,42 @@ class TestTheKeysTheJudgeReadsAreStillServed:
         )
         return checks[check]
 
+    @pytest.mark.premise
+    def test_the_checks_these_guards_filter_on_still_ran(self):
+        """Ordered first, so a failure names the audit and not the keys.
+
+        Two tests below filter ``/api/audit/findings`` down to one check,
+        and a filter that matches nothing is a loop that runs and
+        executes no body — `SNAG-TEST-006`'s shape, which this class held
+        the founding instance of.  :meth:`_check_ran` is the
+        discriminator for that, and until this test existed it ran **only
+        in the branch where the filter came back empty**: measured
+        2026-09-05, the live audit carries a ``ports`` breach and no
+        ``wiring`` finding, so the ports guard took its populated branch
+        and never asked whether ``ports`` had run at all.  A discriminator
+        that is consulted only when it happens to be needed is one whose
+        own failure is invisible on the days it is not, so it is asked
+        here unconditionally and on every box.
+
+        The skip gate above is a different fact and a weaker one: it says
+        ``/api/health`` answered 200 at **collection**.  An estate serving
+        health while its audit has never run, or has dropped a check,
+        passes that gate and fails here.
+
+        `SNAG-TEST-007`: the marker is what makes the sweep in
+        ``tests/test_live_drive_premises.py`` able to see this.  The file
+        reaches 8400 over HTTP and spells no DSN, so it was outside that
+        sweep's population for its whole life — which is why the one
+        vacuous guard `SNAG-TEST-006` found had no owner to report it.
+        """
+        for check in ("ports", "wiring"):
+            summary = self._check_ran(check)
+            assert summary["error"] is None, (
+                f"estate-manager's {check!r} check errored on its last run, so "
+                f"its findings here are zero-because-blind and every guard "
+                f"filtered to it is asserting nothing: {summary}"
+            )
+
     def test_the_scans_gauges_are_all_present(self):
         payload = self._get("/api/projects/invariants")
         assert "scans_total" in payload

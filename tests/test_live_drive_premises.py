@@ -88,8 +88,48 @@ Three rules, two of them the opposite of the obvious implementation:
      is docstringed *"The witness.  A constant observation is not
      evidence"* and predates this file by a fortnight.
    - ``test_snag_claims.py`` owes nothing, and is the one name left in
-     :data:`PRE_CONVENTION`.  Its reason is in that constant, and it is
-     also the one the detector reports for the **wrong hit**.
+     :data:`PRE_CONVENTION`.  Its reason is in that constant.
+
+   **The property under-read on both of its own axes, and the DSN was
+   why** (`SNAG-TEST-007`, closed 2026-09-05).  Measured with a plugin
+   recording every ``socket.connect`` per nodeid across a green full
+   suite: **14** files open a real connection and **6** were in neither
+   half of the population.  Four reach 8400 or 8500 over HTTP, which
+   spells no DSN — and the sixth is the sharper one, because
+   ``test_abandoned_runs.py``'s own docstring reads *"these run against
+   the live database inside a rolled-back transaction"*: the exact axis
+   the property claimed to cover, invisible because it reaches
+   PostgreSQL through :func:`rolled_back_drive` and never writes a
+   connection string out.  :data:`_LIVE_HANDLES` is the widening, and
+   the URL literal it refuses is measured rather than argued about.
+
+   Four of the six now hold the property and each was judged one file at
+   a time, which is how this rule's exemption set went from six names to
+   one.  All four owed a premise and none had one:
+
+   - ``test_estate_surface_payloads.py`` owed the strongest of the four,
+     and this module is why: it held the one live instance
+     `SNAG-TEST-006`'s sweep found — a guard filtering the estate's
+     audit findings down to a check that has filed nothing in its whole
+     history — and **no existing guard could have asked it for a
+     premise**, which is why that vacuity had no owner.  Its
+     :meth:`_check_ran` discriminator existed and ran only in the branch
+     where a filter came back empty; the marked premise asks it
+     unconditionally.
+   - ``test_estate_project_contracts.py`` owed one that its skip gate
+     looks like and is not.  ``_estate_available()`` is evaluated once,
+     at collection, and asks only whether ``/api/health`` answered 200;
+     ``test_live_overview_is_usable`` is the assertion that the producer
+     answered with an *estate*, and every shape test below it is a loop
+     over what it proves non-empty.
+   - ``test_abandoned_runs.py`` owed the marker and had the premise:
+     ``test_the_database_really_rejects_a_fifth_status`` is docstringed
+     *"The premise the pin rests on"* and predates this file.
+   - ``test_ops_claims.py`` owed one for the **document** and none for
+     the box, and the split is recorded at the marker rather than left
+     as silence — every assertion it makes about the box holds whether
+     or not 8500 answered, because ``unknown`` is what that module
+     returns for each way of not-knowing.
 3. **An empty population is a failure, never a pass.**  A glob that
    matched nothing satisfies rule 1 vacuously and reads identically to
    five compliant files — ``ports_checked``'s rule, and the reason
@@ -100,6 +140,46 @@ The bus drives are deliberately outside rule 2's property.
 ``test_notify_guard_live.py`` and ``test_failure_replay_live.py`` open no
 database at all; they are in scope by the glob, which is the half of the
 population the naming convention is genuinely good at.
+
+**What no sweep over ``tests/`` can reach is stated with its population
+rather than left to be found again.**  A file whose connection is made
+*for* it, by production code it drives, carries no token at all —
+deciding which drive reaches a connection is a call graph over
+``sysadmin/``, which is Session 131's stated reason for refusing a
+sweep.  Measured 2026-09-05, the socket probe reports **14** connecting
+files and **4** of them hold none of the three spellings.  Two of the
+four cost nothing and are named so the count reconciles:
+``test_async_http.py`` dials a ``ThreadingHTTPServer`` it started itself
+on an ephemeral port, which is not this box and correctly not the
+property; ``test_gpu_lease_live.py`` builds its client from config and is
+in scope by the glob, marked.
+
+The other two are the residue, both reaching 8400 through
+``SysAdminAgent._ensure_arbitration`` — an unstubbed fail-open read
+inside the very method under test:
+
+* ``test_alert_dedup.py`` (7 tests) and ``test_service_write_isolation.py``
+  (1 test).  Neither owes a premise and neither is a
+  :data:`PRE_CONVENTION` name — that set is for files that **hold** the
+  property, and its tripwire asserts exactly that, so listing these
+  would trade a red test for a false statement about the population.
+
+They owe nothing because the answer cannot reach an assertion, and that
+was driven rather than read.  Both files build ``ServiceEntry(kind="http")``,
+whose ``systemd_unit`` is ``None``, and ``ArbitratedStops.stopped(None)``
+is ``False`` by construction; the reading reaches only
+``details['arbitration']``, which neither file asserts on.  Forging the
+producer's own ``ArbitratedStops`` three ways — unread, a lease holding
+nothing, and a lease naming every unit spelling in sight — leaves
+**19 of 19 passing in all three**.  The first stand-in for that drive
+had no ``reading`` attribute and turned all 19 red, which is a stand-in
+that cannot answer wearing the clothes of a result.
+
+The residue is `SNAG-TEST-008`: a real network call from a unit test is
+still a real network call, and 8400 dropping packets rather than
+refusing them turns a 0.35 s pair of files into up to 160 s of
+ten-second timeouts.  That is a fault in those two files, not in this
+convention, and it is filed rather than absorbed.
 """
 
 from __future__ import annotations
@@ -152,20 +232,69 @@ LIVE_DRIVES = sorted(TESTS.glob("test_*_live.py"))
 #: something else — and this module could not tell.  The exemption stays,
 #: with a better reason than it had.
 #:
-#: It is also the one file the detector reports for the **wrong hit**.
-#: :func:`_opens_a_live_connection` matches a ``sync_url`` read that
-#: asserts a DSN's *shape* and never connects; the real connection is
-#: transitive, through ``query_one``.  Right by accident, and the blind
-#: spot it names is stated rather than fixed — deciding which drive
-#: reaches a connection is a call graph over ``sysadmin/``, not a sweep
-#: over ``tests/``, which is Session 131's own reason for refusing a
-#: sweep.  Measured 2026-08-30: of the nineteen files naming a
-#: transitively-connecting helper, this is the only one that reaches a
-#: connection, so the blind spot has a population of one and it is listed.
+#: **It used to be the one file the detector reported for the wrong hit,
+#: and the widening made the hit right** (`SNAG-TEST-007`, 2026-09-05).
+#: Until then :func:`_opens_a_live_connection` matched a ``sync_url``
+#: read that asserts a DSN's *shape* and never connects, while the real
+#: connection was transitive through ``query_one`` — a correct verdict
+#: reached from evidence about something else.  Both ``query_one`` and
+#: ``check_all`` are :data:`_LIVE_HANDLES` now, so the file is reported
+#: for what it does.  The exemption is unmoved, because it never rested
+#: on which clause fired; what changes is that a future edit deleting
+#: that ``sync_url`` assertion no longer silently drops the file out of
+#: the population.
 PRE_CONVENTION = frozenset({"test_snag_claims.py"})
 
 #: Substrings that only appear in a real DSN for this box's database.
 _DSN_HINTS = ("postgresql+psycopg2://", "postgresql+asyncpg://")
+
+#: Names whose **purpose** is to reach the live box, rather than names of
+#: things that merely happen to.  A file that uses one is naming this
+#: estate as surely as a file that writes a DSN out.
+#:
+#: **A URL literal was measured first and refused** (`SNAG-TEST-007`).
+#: The obvious widening for the HTTP axis is the DSN rule's own shape —
+#: match ``http://localhost:<port>`` the way :data:`_DSN_HINTS` matches a
+#: connection string.  It does not transfer, and the reason is what makes
+#: this constant necessary: nothing in this tree *models* a DSN (a fake
+#: database is spelled ``sqlite:///``), while a loopback URL is exactly
+#: how a fake service is spelled — a ``ServiceEntry``'s ``url``, a config
+#: leaf's expected value, an ``httpx.MockTransport``'s base.  Measured
+#: 2026-09-05 over ``tests/``: **14** files carry a loopback URL with a
+#: port and **4** of them open a connection to it, so the literal rule
+#: reports ten stand-ins and would put most of the service tests into
+#: rule 2's population.  A name cannot be spelled by accident, and the
+#: six below reach **6 of 6** connecting files with no false positive.
+#:
+#: This is a tripwire like :data:`PRE_CONVENTION` and not a call graph:
+#: a name earns a place here by being the thing that dials, never by
+#: sitting somewhere on the path to something that does.  Adding one is a
+#: decision, and :meth:`TestTheLiveHandlesAreReal.test_every_handle_is_a_real_name`
+#: refuses a name that no longer exists.
+_LIVE_HANDLES = frozenset(
+    {
+        # tests/test_estate_project_contracts.py — the one statement of
+        # 8400's address in `tests/`, and the reachability gate over it.
+        "ESTATE_URL",
+        "_estate_available",
+        # sysadmin/snag_claims.py — the live-database harness.
+        #
+        # ``query_one`` was in this set for the length of one test run and
+        # ``test_every_handle_is_used_by_a_drive`` refused it: the reader
+        # every registered check goes through is named in exactly one
+        # file, ``tests/test_snag_claims.py``, and named there only as the
+        # string inside ``patch.object(snag_claims, "query_one", …)``.  A
+        # name whose only appearance is a stub is the *opposite* of
+        # evidence — it marks the connection being taken out — so it
+        # exempted nothing and is recorded rather than quietly dropped.
+        "rolled_back_drive",
+        # sysadmin/core/schema_guard.py — reads the live `alembic_version`.
+        "live_revision_sync",
+        # sysadmin/ops_claims.py — runs the state checks, which is what
+        # dials 8500 and what queries the live `alerts` table.
+        "check_all",
+    }
+)
 
 
 def _dotted(node: ast.expr) -> str:
@@ -205,13 +334,32 @@ def _marks_a_premise(path: pathlib.Path) -> bool:
 
 
 def _opens_a_live_connection(path: pathlib.Path) -> bool:
-    """Whether *path* names this box's database rather than modelling it.
+    """Whether *path* names this box rather than modelling it.
 
-    Two spellings, because both are in the tree: a DSN written out, and
-    ``get_config().database.sync_url`` resolved from the shipped config.
-    An ``httpx.MockTransport`` or a ``create_engine`` against a temporary
-    file is neither, which is the discrimination that keeps this from
-    reporting every test that imports SQLAlchemy.
+    Three spellings, because all three are in the tree: a DSN written
+    out, ``get_config().database.sync_url`` resolved from the shipped
+    config, and one of :data:`_LIVE_HANDLES` — a name whose job is to
+    open the connection.  An ``httpx.MockTransport``, a ``create_engine``
+    against a temporary file and a ``ServiceEntry`` carrying a loopback
+    ``url`` are none of them, which is the discrimination that keeps this
+    from reporting every test that imports SQLAlchemy or names a port.
+
+    **A handle counts where it is used, never where it is imported.**  A
+    name in an import list and not a caller is the distinction
+    ``tests/test_contract_reachability.py`` draws for its roots, and it
+    is the same distinction here: a file that imports ``ESTATE_URL`` to
+    re-export it reaches nothing.  ``ast.Import``/``ast.ImportFrom``
+    produce ``ast.alias`` nodes and no ``ast.Name``, so skipping them
+    costs no special case — and a handle named in *prose* is an
+    ``ast.Constant`` and falls out for the same reason, which this
+    module's own docstring depends on.
+
+    A **qualified** use counts as a use: ``ops_claims.check_all(...)``
+    binds no ``ast.Name`` for the handle, so keying on the bare name
+    alone would leave ``import`` plus attribute access as a way to dodge
+    the rule without meaning to.  It is deliberately the last segment
+    that is matched rather than the dotted chain — which module a drive
+    reaches the handle through is not what the property is about.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
@@ -222,6 +370,10 @@ def _opens_a_live_connection(path: pathlib.Path) -> bool:
             inner = node.value
             if isinstance(inner, ast.Attribute) and inner.attr == "database":
                 return True
+        if isinstance(node, ast.Name) and node.id in _LIVE_HANDLES:
+            return True
+        if isinstance(node, ast.Attribute) and node.attr in _LIVE_HANDLES:
+            return True
     return False
 
 
@@ -414,6 +566,100 @@ class TestTheConnectionDetector:
         """
         assert _opens_a_live_connection(OWNER) is True
 
+    def test_a_live_handle_in_use_is_seen(self, tmp_path):
+        """The HTTP axis, which has no literal-shaped evidence of its own.
+
+        ``tests/test_estate_project_contracts.py`` reaches 8400 and
+        spells no DSN; what it does spell is the name of the address.
+        """
+        path = tmp_path / "test_probe.py"
+        path.write_text(
+            "def test_it():\n"
+            '    return httpx.get(f"{ESTATE_URL}/api/health")\n',
+            encoding="utf-8",
+        )
+        assert _opens_a_live_connection(path) is True
+
+    def test_a_qualified_use_is_a_use(self, tmp_path):
+        """The clause that removing left every test green.
+
+        Driven as a mutation after the four above were written: deleting
+        the ``ast.Attribute`` arm of :func:`_opens_a_live_connection`
+        broke nothing, because every handle in this tree happens to be
+        imported by name today.  So the arm was carried by a coincidence
+        in the current tree rather than by anything watching it, and
+        ``import ops_claims`` plus ``ops_claims.check_all(...)`` was a way
+        out of rule 2 that nobody would have chosen and nothing would
+        have reported.
+        """
+        path = tmp_path / "test_probe.py"
+        path.write_text(
+            "from sysadmin import ops_claims\n"
+            "\n"
+            "def test_it():\n"
+            "    return ops_claims.check_all(STATUS_PATH)\n",
+            encoding="utf-8",
+        )
+        assert _opens_a_live_connection(path) is True
+
+    def test_a_handle_that_is_only_imported_is_not_a_use(self, tmp_path):
+        """A root is a name *used*, never a name *imported*.
+
+        ``tests/test_contract_reachability.py``'s rule, and it costs no
+        special case: an import binds an ``ast.alias`` and no
+        ``ast.Name``, so a module re-exporting :data:`ESTATE_URL`
+        without dialling it falls out for free.
+        """
+        path = tmp_path / "test_probe.py"
+        path.write_text(
+            "from tests.test_estate_project_contracts import ESTATE_URL\n"
+            "\n"
+            "def test_it():\n"
+            "    assert True\n",
+            encoding="utf-8",
+        )
+        assert _opens_a_live_connection(path) is False
+
+    def test_a_handle_named_in_prose_is_read_as_prose(self, tmp_path):
+        """Load-bearing rather than tidy — this module names five in its docstrings.
+
+        :func:`_marks_a_premise` has this property for the marker and it
+        is asserted there; the handle clause needs its own, because a
+        detector matching text would report every module that merely
+        *documents* which names reach the box, this one first.
+        """
+        path = tmp_path / "test_probe.py"
+        path.write_text(
+            '"""A drive would use rolled_back_drive if it needed the box."""\n'
+            "# ESTATE_URL, check_all, query_one\n"
+            "def test_it():\n"
+            '    handle = "live_revision_sync"\n'
+            "    assert handle\n",
+            encoding="utf-8",
+        )
+        assert _opens_a_live_connection(path) is False
+
+    def test_a_loopback_url_literal_is_not_evidence(self, tmp_path):
+        """The widening that was measured and refused, pinned as a refusal.
+
+        The obvious HTTP rule is :data:`_DSN_HINTS`' own shape — match
+        ``http://localhost:<port>``.  It does not transfer, because a
+        loopback URL is how a *fake* service is spelled here: a
+        ``ServiceEntry``'s ``url``, a config leaf's expected value, an
+        ``httpx.MockTransport``'s base.  Measured 2026-09-05 over
+        ``tests/``: **14** files carry one with a port and **4** connect
+        to it.  Without this test the refusal is a paragraph, and the
+        next reader adds the rule the paragraph argues against.
+        """
+        path = tmp_path / "test_probe.py"
+        path.write_text(
+            "def entry():\n"
+            '    return ServiceEntry(name="svc", kind="http", '
+            'url="http://localhost:8400/api/health")\n',
+            encoding="utf-8",
+        )
+        assert _opens_a_live_connection(path) is False
+
     def test_a_live_reader_with_no_marker_is_a_stray(self, tmp_path):
         """The clause as it stood before Session 132, still doing its job."""
         path = tmp_path / "test_something_else.py"
@@ -494,6 +740,82 @@ class TestTheConnectionDetector:
             "these mark a premise and are exempted as well — the exemption "
             f"is no longer load-bearing, so drop them: {discharged}"
         )
+
+
+class TestTheLiveHandlesAreReal:
+    """:data:`_LIVE_HANDLES` is a tripwire, so its members are asserted.
+
+    A handle is a name in another module, and the failure mode of a
+    rename there is **silence**: the clause goes on running, matches
+    nothing, and the file it was reaching for drops out of rule 2's
+    population with no test going red.  That is the shape
+    :data:`PRE_CONVENTION` already guards against for filenames, at the
+    size of an identifier.
+
+    Bound rather than imported, deliberately.  Importing
+    ``tests.test_estate_project_contracts`` evaluates a ``skipif``
+    argument that dials 8400, so the check for whether this module names
+    the box would make this module name the box.
+    """
+
+    @staticmethod
+    def _bound_names(path: pathlib.Path) -> set[str]:
+        """Every name *defined* in a module — assigned, or bound by a def."""
+        names: set[str] = set()
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                names.add(node.name)
+            elif isinstance(node, ast.Assign):
+                names |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                names.add(node.target.id)
+        return names
+
+    def test_every_handle_is_defined_somewhere(self):
+        root = TESTS.parent
+        bound: set[str] = set()
+        for path in [*(root / "sysadmin").rglob("*.py"), *TESTS.rglob("test_*.py")]:
+            bound |= self._bound_names(path)
+        missing = sorted(_LIVE_HANDLES - bound)
+        assert missing == [], (
+            "these name nothing under sysadmin/ or tests/ any more, so the "
+            "clause that reads them matches nothing and whatever they were "
+            f"reaching for has left rule 2's population in silence: {missing}"
+        )
+
+    def test_every_handle_is_used_by_a_drive(self):
+        """A handle nothing uses is an entry that has stopped doing work.
+
+        The other way the set rots — not a rename, but the last caller
+        going away — which reads identically to a handle still earning
+        its place.
+        """
+        unused = sorted(
+            handle
+            for handle in _LIVE_HANDLES
+            if not any(
+                handle in self._used_names(path)
+                for path in TESTS.rglob("test_*.py")
+                if path.resolve() != OWNER
+            )
+        )
+        assert unused == [], (
+            f"no drive uses these, so they are exempting nothing: {unused}"
+        )
+
+    @staticmethod
+    def _used_names(path: pathlib.Path) -> set[str]:
+        """The two node kinds :func:`_opens_a_live_connection` matches, and
+        for its reason — a tripwire reading a narrower set than the clause
+        it guards would refuse a handle the clause is legitimately using.
+        """
+        used: set[str] = set()
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Name):
+                used.add(node.id)
+            elif isinstance(node, ast.Attribute):
+                used.add(node.attr)
+        return used
 
 
 class TestTheRunnerHalfStaysOn:
