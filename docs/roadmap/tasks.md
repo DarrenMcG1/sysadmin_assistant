@@ -8,6 +8,85 @@
 
 ---
 
+## Session 176: the close path has no coverage in it ✅ (2026-09-05)
+
+_Session 175's handoff asked for `SNAG-TEST-006`'s first move — the
+gate-reading check the entry names, "does anything on the close path run
+the suite under coverage" — and then for a decision on whether the
+coverage gate behind it ships with the third verdict the entry says it
+owes._
+
+- [x] **`check_vacuous_guard_ungated` is the twenty-first check, and it
+      reads the gate rather than the sweep.** Driving the sweep is what
+      the entry rules out on cost — the honest instrument is the suite
+      under coverage, 63 s becoming 83 s, and `check-snag-claims.sh` runs
+      at both ends of every sitting. What is cheap and refutable is
+      whether anything on the close path invokes `coverage` or `--cov` at
+      all: `check_handoff_shape_unguarded`'s idiom one script over, for
+      the same reason — a measure that is documented and not wired. Live:
+      six scripts, 257 invocation lines, four guards, zero coverage
+      invocations, `match`.
+- [x] **One hop, not one file, and one test is red without it.** The fix
+      this entry describes is a *new script* wired at
+      `claude-postflight.sh`, whose own name carries no coverage token,
+      so a sweep of the two roots alone reports `match` over exactly the
+      thing it watches for. A second hop is refused and the limit stated:
+      it stops discriminating between what the close path runs and what
+      the repository contains.
+- [x] **Mentions are dropped as well as comments, and the population for
+      the answer is empty today.** `_shell_executable_lines` cannot tell
+      a run from a print; both roots name a guard on an `echo`, and
+      `claude-postflight.sh` prints "Consider running your test suite"
+      while running none. Measured: the rule drops **132** of the two
+      roots' lines, **2** naming a guard and **0** naming a coverage
+      token — so it moves no verdict now, and that is pinned by its own
+      test rather than dressed up as a live catch.
+- [x] **Both roots are read and an unreadable one is named.** A gate
+      wired at `claude-precommit.sh` closes the entry too, so reading
+      only the close would report `match` over a landed fix one script
+      over; a root that will not read answers `unknown` rather than being
+      dropped so the sweep can go on reporting about the other. The
+      witness is the **four** guards the close path is known to run —
+      `ports_checked`'s rule, zero-because-blind never served as
+      zero-because-clean.
+- [x] **The third verdict is decided: a standing declaration, never a
+      fourth exit status.** Exit 0/1/2 keeps `check-migrations.sh`'s
+      meaning, because each is a property of *this* run that a sitting
+      can act on. The comprehension blindness is a property of the
+      *measure* and is permanent — re-measured at 3566 tests, **309** of
+      the suite's **6275** asserts carry a comprehension across **52**
+      files, unmoved from Session 173's count — so a status firing on it
+      fires for ever, which is `SNAG-LOG-002`'s binary confidence and a
+      permanent warning nothing can clear. The gate therefore reports the
+      count it cannot judge on every run whatever its exit status, and
+      until the gate exists the check carries the fact in its `mismatch`
+      note.
+- [x] **Two of eight falsifications passed against deliberately broken
+      code.** One mutation was a **no-op** — its replacement string did
+      not match the source, so the test it was aimed at had nothing to be
+      red about — and the drive now asserts its own edit before running.
+      The other asserted a **value** where it meant provenance:
+      `PRECOMMIT_SCRIPT in CLOSE_PATH_SCRIPTS` is `==` on `Path`, so a
+      restated literal is indistinguishable from the borrowed constant;
+      `is` discriminates, a fresh `Path` being a fresh object. Every
+      other drive patches `CLOSE_PATH_SCRIPTS` wholesale, so no mutation
+      of it is observable behaviourally — which is what the statement
+      test exists for.
+- [x] **The gate itself is not built here**, and the reason is that
+      building it in this sitting would make the check born refuted: a
+      check names an open entry, so a sitting that wires the gate closes
+      `SNAG-TEST-006` and retires the check with it. The entry stays
+      `owed` — this sitting wrote the instrument and settled the design
+      question, and declined nothing.
+- [x] Suite **3553 → 3566**; ruff and mypy clean; all ten ops claims
+      green; register 137 entries, 24 open, open entries with no check
+      **3 → 2**. A restart was owed and paid — PID 1478358 → 1898616,
+      counter **12** — the seventh consecutive sitting and the first of
+      the last four where the edit was real rather than an mtime
+      artefact, and still a module `create_app()` never imports.
+
+---
+
 ## Session 175: which reading the hermetic tests are driven at ✅ (2026-09-05)
 
 _Session 174's handoff asked for `SNAG-TEST-008` to be closed by deciding

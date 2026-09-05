@@ -3,6 +3,68 @@
 **Last Updated**: 2026-09-05
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A gate-reading check answers what the gate would cost to run**
+> (2026-09-05, Session 176). `SNAG-TEST-006` gains its check — the
+> twenty-first, and the first move that entry named for itself. Driving
+> the sweep is what it rules out on cost: the honest instrument is the
+> suite under coverage, and `check-snag-claims.sh` runs at both ends of
+> every sitting. What is cheap and refutable is whether anything on the
+> close path invokes coverage at all, which is
+> `check_handoff_shape_unguarded`'s idiom one script over and for the
+> same reason — a measure that is documented and not wired. Live: six
+> scripts, 257 invocation lines, four guards, zero coverage
+> invocations. Open entries with no check, three to two.
+>
+> **Three departures from the check it borrows from, each forced by this
+> entry's fix having a different shape.** The fix here is a *new script*
+> wired at `claude-postflight.sh`, whose own name carries no coverage
+> token, so the sweep is **one hop** — a read of the two roots alone
+> reports `match` over exactly the thing it watches for, and removing
+> the hop turns one test and only one red. **Mentions are dropped as
+> well as comments**: both roots name a guard on an `echo` while
+> `claude-postflight.sh` prints "Consider running your test suite" and
+> runs none, so a sweep over executable lines would be refuted by the
+> sentence describing the gap. And **both roots are read**, because a
+> gate wired at either closes the entry.
+>
+> **The mention rule changes no verdict today, and that is measured
+> rather than left to imply otherwise.** It drops 132 of the two roots'
+> lines, two of them naming a guard the script does not run and **none**
+> naming a coverage token. What it buys is the shape the file's own
+> idiom makes likely next — advice added as an `echo` — and the empty
+> population is pinned by its own test instead of being dressed up as a
+> live catch.
+>
+> **The third verdict is decided and it is not an exit status.** A gate
+> reporting "no vacuous guards" while blind to `assert all(f(x) for x in
+> live)` is `ports_checked`'s rule broken inside its own fix, so the gate
+> owes a reading of the half line coverage cannot reach — and the shape
+> it owes is a **standing declaration on every run**. Exit 0/1/2 keeps
+> `check-migrations.sh`'s meaning, because each is a property of *this*
+> run that a sitting can act on. The comprehension blindness is a
+> property of the *measure* and is permanent: re-measured at 3566 tests,
+> 309 of the suite's 6275 asserts carry a comprehension across 52 files,
+> unmoved from Session 173's count. A status firing on that fires for
+> ever, which is `SNAG-LOG-002`'s binary confidence — a report pinned at
+> "could not tell" for a fortnight and read by nobody — and a permanent
+> warning nothing can clear trains the reader to dismiss the family.
+> Until the gate exists the check carries the fact in its `mismatch`
+> note, so whoever lands a two-verdict gate is told at the moment they
+> would otherwise close the entry.
+>
+> **Two of eight falsifications passed against deliberately broken
+> code**, and they are the two shapes this repository keeps finding. One
+> mutation was a **no-op** — the replacement string did not match the
+> source, so the test it was aimed at had nothing to be red about, and
+> the drive was scripted to assert its own edit afterwards. The other
+> asserted a **value** where it meant provenance: `PRECOMMIT_SCRIPT in
+> CLOSE_PATH_SCRIPTS` is `==` on `Path`, so restating the path as a
+> literal is indistinguishable from borrowing the constant. `is`
+> discriminates, because a fresh `Path` is a fresh object. Every drive
+> above patches `CLOSE_PATH_SCRIPTS` wholesale, so no mutation of it is
+> observable behaviourally at all — that fact is what the statement test
+> exists for.
+
 > **A stub is a stated premise, and these two were stating it by leaving
 > a hole** (2026-09-05, Session 175). `SNAG-TEST-008` is **closed**.
 > `tests/test_alert_dedup.py` and `tests/test_service_write_isolation.py`
@@ -2508,20 +2570,35 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-05 12:39:44**
-> <!--check:deploy--> <!--check:daemon_start--> by Session 175, PID
-> 1097551 → 1478358, restart counter **11** — the **sixth** consecutive
+> Daemon restarted at **2026-09-05 13:51:45**
+> <!--check:deploy--> <!--check:daemon_start--> by Session 176, PID
+> 1478358 → 1898616, restart counter **12** — the **seventh**
+> consecutive sitting to pay for a restart that buys the box nothing,
+> and the first of the seven where the edit was **real**. The three
+> before it were artefacts: a `git stash pop`, a `.bak` restore, a
+> hand-reverted mutation, each leaving bytes identical to their commit.
+> This sitting genuinely changed `sysadmin/snag_claims.py` — a new
+> check and its constants — and the daemon still gains nothing, because
+> that module is a console script `create_app()` never imports, which
+> Session 171 verified by importing `sysadmin.main` and finding no such
+> entry in `sys.modules`. So the shape is `SNAG-SYSD-008`'s and not the
+> mtime family's: the deploy check reads the newest `.py` under
+> `sysadmin/` and cannot ask which of them the process loads. Paid
+> anyway, since the check's question is about the box and only a restart
+> answers it. `/health` 200 four seconds after the TERM.
+>
+> Previously: restarted at 12:39:44 by Session 175, PID
+> 1097551 → 1478358, restart counter **11** — the sixth consecutive
 > sitting to pay for a restart that buys the box nothing, and the third
 > route to one shape. Session 175 edited nothing under `sysadmin/` at
 > all: three test files and four roadmap documents. What raised the
 > check was `monitor/agent.py`, whose bytes are identical to `9558544`
 > and whose mtime moved at 12:30:59 when a falsification drive widened
 > the arbitration gate to `if True` and put it back. So the recorded
-> `git stash pop` shape has now been reached by a `.bak` restore
+> `git stash pop` shape had been reached by a `.bak` restore
 > (Session 172) and by a hand-reverted mutation, and neither is a
 > content change — the honest repair is the restart rather than a
-> fabricated mtime, because the check's question is about the box and
-> only a restart answers it.
+> fabricated mtime.
 >
 > Previously: restarted at 22:49:11 by Session 172, PID
 > 1055352 → 1097551, restart counter **10** — the fifth consecutive

@@ -7360,6 +7360,174 @@ def check_handoff_shape_unguarded() -> Measurement:
     return Measurement("match", "", detail)
 
 
+#: The close path.  ``claude-postflight.sh`` is where this entry's own fix
+#: would be wired — beside ``check-ops-claims.sh``, at the moment the
+#: figures are written — and ``claude-precommit.sh`` is the commit that
+#: ends the sitting.  Both are read, because a gate wired at either would
+#: close the entry and a sweep reading only one would report ``match``
+#: over a landed fix one script over.
+CLOSE_PATH_SCRIPTS = (REPO_ROOT / "scripts" / "claude-postflight.sh", PRECOMMIT_SCRIPT)
+
+#: What a line has to name to be running the suite under coverage.
+#: ``coverage`` is the tool (``coverage run``, ``uv run --with coverage``)
+#: and ``--cov`` is pytest-cov's flag — either is the measure this entry
+#: says nothing here performs, so either refutes the check.
+COVERAGE_INVOCATIONS = ("coverage", "--cov")
+
+#: The witness.  These scripts *do* gate on things, so "the close path
+#: runs no guard" is false and a sweep finding none of them has stopped
+#: reading rather than found the path open.  ``ports_checked``'s rule.
+CLOSE_PATH_GUARDS = (
+    "lint_check.sh",
+    "check-migrations.sh",
+    "check-ops-claims.sh",
+    "check-snag-claims.sh",
+)
+
+#: Shell builtins that *print* a name rather than run it.  Dropping them
+#: is ``_shell_executable_lines``'s comment rule one step further: a
+#: comment is prose about the suite and an ``echo`` is prose printed at
+#: the operator, and neither is wiring.  Two live witnesses, which is why
+#: this is measured rather than assumed — ``claude-postflight.sh`` line
+#: 229 and ``claude-precommit.sh`` line 61 both name ``lint_check.sh`` in
+#: an ``echo``, and only the second script actually runs it.
+_MENTION_BUILTINS = ("echo", "printf")
+
+#: How a close-path script names another one.  One hop, never a closure:
+#: the fix this entry describes is a script wired at ``claude-postflight``
+#: and a sweep of the two roots alone would not see the token inside it.
+#: A second hop is not taken, and the limit is stated rather than hidden —
+#: ``log_actions.group_incidents``' rule 3 for its reason, that a deeper
+#: walk stops discriminating between what the close path runs and what the
+#: repository contains.
+_SCRIPT_REFERENCE = re.compile(r"\./scripts/([A-Za-z0-9_.-]+\.(?:sh|py))")
+
+
+def _shell_invocation_lines(path: Path) -> list[str] | None:
+    """A script's lines that could *run* something, or ``None``.
+
+    ``_shell_executable_lines`` with the mentions taken out as well as
+    the comments.  The distinction is the whole reason this check can be
+    read literally: the close path already prints the name of a guard it
+    does not run, so a sweep over executable lines alone would report
+    ``lint_check.sh`` wired at ``claude-postflight.sh``, which it is not.
+    """
+    lines = _shell_executable_lines(path)
+    if lines is None:
+        return None
+    return [
+        line
+        for line in lines
+        if line.strip().split(" ")[0] not in _MENTION_BUILTINS
+    ]
+
+
+def _close_path_lines() -> tuple[dict[str, list[str]], list[str]]:
+    """Every close-path script's invocation lines, and what would not read.
+
+    The roots plus the scripts they invoke, one hop.  A root that will
+    not read is named rather than skipped, because a close path measured
+    with half of itself missing is the reading this check exists to
+    refuse.
+    """
+    read: dict[str, list[str]] = {}
+    unread: list[str] = []
+    for root in CLOSE_PATH_SCRIPTS:
+        lines = _shell_invocation_lines(root)
+        if lines is None:
+            unread.append(root.name)
+            continue
+        read[root.name] = lines
+    directories = {root.parent for root in CLOSE_PATH_SCRIPTS}
+    for lines in list(read.values()):
+        for line in lines:
+            for name in _SCRIPT_REFERENCE.findall(line):
+                if name in read:
+                    continue
+                for directory in sorted(directories):
+                    nested = _shell_invocation_lines(directory / name)
+                    if nested is not None:
+                        read[name] = nested
+                        break
+    return read, unread
+
+
+def check_vacuous_guard_ungated() -> Measurement:
+    """``SNAG-TEST-006`` — nothing on the close path measures a guard that asserts nothing.
+
+    **The claim is about a measure that is not performed**, so the check
+    reads the gate rather than the suite.  Driving the sweep itself here
+    is what the entry rules out on cost: the honest instrument is the
+    suite under coverage, 63 s becoming 83 s, and ``check-snag-claims.sh``
+    runs at both ends of every sitting.  What is cheap and refutable is
+    whether anything on the close path invokes coverage at all —
+    ``check_handoff_shape_unguarded``'s idiom, one script over and for
+    the same reason: a guard that is documented and not wired.
+
+    **The sweep is one hop, not one file.**  The fix this entry describes
+    is a *new script* wired at ``claude-postflight.sh``, whose own name
+    need carry no coverage token, so reading the roots alone would report
+    ``match`` over exactly the fix it is watching for.
+
+    **Mentions are dropped as well as comments.**  Both roots print the
+    name of a guard on an ``echo`` line — and ``claude-postflight.sh``
+    prints ``Consider running your test suite`` while running none — so a
+    sweep over executable lines would be refuted by the sentence
+    describing the gap.
+
+    **Discriminating witness**: the close path gates on four named
+    scripts, so a sweep finding none of them has stopped reading and
+    answers ``unknown`` rather than the constant observation it would
+    otherwise be making about a path it could not parse.
+
+    **What this check does not ask** is whether a gate that *has* landed
+    carries the third verdict it owes — the comprehension half, which no
+    line-coverage measure can reach.  That is a second claim about a
+    second artefact, and a check answering both would report one limb and
+    name the other; the reading is stated in the ``mismatch`` note so
+    whoever lands the gate is told which half it has closed.
+    """
+    read, unread = _close_path_lines()
+    if unread:
+        return Measurement(
+            "unknown",
+            f"{', '.join(unread)} will not read, so the close path cannot be measured",
+        )
+
+    every = [line for lines in read.values() for line in lines]
+    guards = sorted({g for g in CLOSE_PATH_GUARDS if any(g in line for line in every)})
+    found = sorted(
+        f"{name}: {token}"
+        for name, lines in read.items()
+        for token in COVERAGE_INVOCATIONS
+        if any(token in line for line in lines)
+    )
+    detail = (
+        f"close path: {', '.join(sorted(read))} ({len(every)} invocation lines)",
+        f"guards wired: {', '.join(guards) or 'none'}",
+        f"coverage invocations: {', '.join(found) or 'none'}",
+    )
+    if not guards:
+        return Measurement(
+            "unknown",
+            "the close path names none of the guards it is known to run, so this sweep "
+            "is not reading what it thinks it is — zero coverage invocations here is "
+            "zero-because-blind",
+            detail,
+        )
+    if found:
+        return Measurement(
+            "mismatch",
+            "the close path now runs the suite under coverage, so a guard that never "
+            f"evaluates its assert is measured before the commit: {', '.join(found)}. "
+            "Read the gate's own report before closing the entry: this measures the "
+            "never-evaluated half, and `assert all(f(x) for x in live)` executes its "
+            "line, so a gate reporting only two verdicts has closed one half of two",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 @dataclass(frozen=True)
 class Check:
     """One check, and the entry it is about.
@@ -7389,6 +7557,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-TEST-005",
             "nothing on the commit path runs the handoff shape guard",
             check_handoff_shape_unguarded,
+        ),
+        Check(
+            "vacuous_guard_ungated",
+            "SNAG-TEST-006",
+            "nothing on the close path measures a guard that asserts nothing",
+            check_vacuous_guard_ungated,
         ),
         Check(
             "tray_report_unheard",

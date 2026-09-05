@@ -1,6 +1,28 @@
-# Handoff — 2026-09-05 (Session 175)
+# Handoff — 2026-09-05 (Session 176)
 
 ## Next action
+
+Build the coverage gate `SNAG-TEST-006` still owes — a script running the suite under coverage, refusing a never-evaluated `assert` under `tests/`, exiting 0 / 1 / 2 for this run's clean / found / could-not-measure and naming on every run the comprehension population it cannot judge — wired at `claude-postflight.sh` beside `check-ops-claims.sh`, and close the entry with its check, which retires with it.
+
+_**`SNAG-TEST-006`'s first move landed: `check_vacuous_guard_ungated`, the twenty-first check.**_ _It reads the **gate**, never the sweep — driving the sweep is what the entry rules out on cost, since the honest instrument is the suite under coverage (63 s becoming 83 s) and `check-snag-claims.sh` runs at both ends of every sitting. What is cheap and refutable is whether anything on the close path invokes `coverage` or `--cov` at all: `check_handoff_shape_unguarded`'s idiom one script over, for the same reason — a measure that is documented and not wired. Live, six scripts, 257 invocation lines, four guards, **0** coverage invocations. Open entries with no check **3 → 2**._
+
+_**Three departures from the check it borrows from, each forced by this entry's fix having a different shape.**_ _**One hop, not one file**: the fix is a *new script* wired at `claude-postflight.sh`, whose own name carries no coverage token, so a sweep of the two roots alone reports `match` over exactly the thing it watches for — one test and only one is red without the hop. **Mentions are dropped as well as comments**: both roots name a guard on an `echo`, and `claude-postflight.sh` prints "Consider running your test suite" while running none, so a sweep over executable lines would be refuted by the sentence describing the gap. **Both roots are read**, because a gate wired at the commit closes the entry too, and a root that will not read is *named* rather than dropped so the sweep can go on reporting about the other._
+
+_**The mention rule moves no verdict today and says so.**_ _Measured: it drops **132** of the two roots' lines, **2** naming a guard the script does not run and **0** naming a coverage token. Its population for the answer is empty, pinned by its own test rather than dressed up as a live catch; what it buys is the shape this file's idiom makes likely next, which is coverage added as advice._
+
+_**The third verdict is decided, and it is not an exit status.**_ _Exit 0/1/2 keeps `check-migrations.sh`'s meaning, because each is a property of **this run** a sitting can act on. The comprehension blindness is a property of the **measure** and is permanent — re-measured at 3566 tests, **309** of the suite's **6275** asserts carry a comprehension across **52** files, unmoved from Session 173's count — so a status firing on it fires for ever, which is `SNAG-LOG-002`'s binary confidence and a permanent warning nothing can clear. The gate reports the count it cannot judge on **every** run whatever its exit status: `ports_checked` literally, a field on every payload carrying whether the measure looked._
+
+_**The gate is deliberately not built here, and the reason is structural rather than budgetary.**_ _A check names an open entry, so a sitting that both writes the check and wires the gate closes `SNAG-TEST-006` and retires the check with it — the check would be born refuted. The entry therefore stays **owed**: this sitting wrote the instrument and settled the design question, and declined nothing._
+
+_**Two of eight falsifications passed against deliberately broken code, and they are the two shapes this repository keeps finding.**_ _One mutation was a **no-op** — its replacement string did not match the source, so the test it was aimed at had nothing to be red about; the drive asserts its own edit before running now. The other asserted a **value** where it meant provenance: `PRECOMMIT_SCRIPT in CLOSE_PATH_SCRIPTS` is `==` on `Path`, so restating the path as a literal is indistinguishable from borrowing the constant — `is` discriminates, a fresh `Path` being a fresh object. Every other drive patches `CLOSE_PATH_SCRIPTS` wholesale, so no mutation **of** it is observable behaviourally at all, which is what the statement test exists for._
+
+_**Suite 3553 → 3566**, arithmetic reconciled rather than re-measured; ruff and mypy clean; all ten ops claims green. Register **137 entries, 24 open**, unmoved. A restart was owed and paid — PID 1478358 → 1898616, counter **12**, `/health` 200 four seconds after the TERM — the **seventh** consecutive sitting and the first of the last four where the edit was **real**: `sysadmin/snag_claims.py` genuinely changed, and it is still a console script `create_app()` never imports, so the shape is `SNAG-SYSD-008`'s rather than the mtime family's._
+
+---
+
+# Handoff — 2026-09-05 (Session 175)
+
+### The action Session 175 filed (done by Session 176)
 
 Close `SNAG-TEST-006`'s first move by writing the gate-reading check the entry names — does anything on the close path run the suite under coverage — and then decide whether the coverage gate behind it ships with the third verdict the entry says it owes, because a gate reporting "no vacuous guards" while structurally blind to `assert all(f(x) for x in live)` is `ports_checked`'s rule broken inside its own fix.
 
