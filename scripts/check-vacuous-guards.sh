@@ -51,9 +51,25 @@
 #      a tree the report does not describe. Not the same answer as 0:
 #      `ports_checked`'s rule
 #
-# Whatever the status, the report ends with the count of asserts carrying
-# a comprehension, which no line-coverage measure can judge. That is a
-# property of the measure and permanent, so it is a standing declaration
+# **The run is made with `--branch`, and that is the whole of the second
+# half.** `assert all(f(x) for x in live)` is True over an empty `live`
+# with its line executing, so line coverage cannot see a guard that ran
+# over nothing — but CPython compiles the comprehension to a real loop and
+# coverage records its back-edge as an arc. Measured on this suite: 68.3 s
+# plain, 90.2 s under `coverage run`, 88.3 s under `coverage run --branch`.
+# There is no second pass, which is what `SNAG-TEST-009` was filed to
+# weigh and what measuring it dissolved.
+#
+# **The arcs come from the SQLite data file, not from the JSON.**
+# `coverage json` reports `num_branches: 0` for a file whose only loops
+# are comprehensions — coverage's static analysis does not model one as a
+# branch point — and lists only statement lines, so the element
+# expression never appears there either. Both files therefore go to the
+# judge: `--report` for the line half, `--arcs` for the loop half.
+#
+# Whatever the status, the report ends with how many comprehension sites
+# turned, and names the handful whose written shape leaves a turning loop
+# and an empty one indistinguishable. That is a standing declaration
 # rather than a fourth exit status — a gate that is always yellow is
 # `SNAG-LOG-002`'s binary LOW confidence, read by nobody for fourteen days.
 
@@ -81,7 +97,7 @@ WORK=$(mktemp -d) || exit 2
 trap 'rm -rf "$WORK"' EXIT
 
 if ! uv run --with 'coverage[toml]' --all-extras \
-	coverage run --data-file="$WORK/.coverage" --source=tests \
+	coverage run --branch --data-file="$WORK/.coverage" --source=tests \
 	-m pytest -q >"$WORK/suite.log" 2>&1; then
 	echo "?? the suite is not green, so a never-evaluated assert cannot be told" >&2
 	echo "?? from one an earlier failure stopped short of:" >&2
@@ -95,5 +111,5 @@ if ! uv run --with 'coverage[toml]' \
 	exit 2
 fi
 
-"$CHECK" --report "$WORK/coverage.json"
+"$CHECK" --report "$WORK/coverage.json" --arcs "$WORK/.coverage"
 exit $?

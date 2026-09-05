@@ -576,6 +576,8 @@ class TestAQuotedMarkerIsAQuotation:
 
     def test_quoting_a_key_nobody_implements_invents_no_finding(self):
         region = "> Session 76's `<!--check:helth-->` fired from both sides."
+        # may-not-turn: a quoted marker naming a check nobody implements must invent no finding
+        # at all, so an empty list is the assertion rather than a thin population
         assert [finding.key for finding in check_markers(region, read_markers(region))] == []
 
     def test_the_sibling_s_copy_and_this_one_agree_shape_for_shape(self):
@@ -1801,6 +1803,8 @@ class TestTheConventionAgainstTheRealDocument:
         region, problem = load_region()
         assert region is not None, problem
         findings = check_markers(region, read_markers(region))
+        # may-not-turn: the live STATUS.md block leaves no figure unclaimed, which is what the
+        # assert below states, so the filtered list is empty on a healthy document
         unclaimed = [claim.key for claim in findings if claim.key.startswith("unclaimed:")]
         assert not unclaimed, f"STATUS.md states these and no line claims them: {unclaimed}"
 

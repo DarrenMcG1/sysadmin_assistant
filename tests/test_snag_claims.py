@@ -6290,6 +6290,9 @@ class TestEveryCheckCanSayItDoesNotKnow:
         is what a later sitting reads to decide whether the exemption is
         still true.
         """
+        # may-not-turn: UNKNOWABLE is empty on a healthy register, which is the state SNAG-
+        # TEST-002 exists to keep — this guards against a future entry with no stated reason, so
+        # its population is meant to stay at nought
         blank = sorted(key for key, why in UNKNOWABLE.items() if not why.strip())
         assert blank == [], f"UNKNOWABLE entries with no stated reason: {blank}"
 

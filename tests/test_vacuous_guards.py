@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import sqlite3
 import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -28,9 +29,12 @@ from sysadmin.core import schema_guard
 from sysadmin.core.config import REPO_ROOT
 from sysadmin.vacuous_guards import (
     DECLARATION,
+    LOOP_DECLARATION,
     Sweep,
     _declared_reason,
+    _loop_turned,
     main,
+    read_arcs,
     render,
     sweep,
 )
@@ -401,7 +405,12 @@ class TestNotKnowing:
 
 
 class TestTheStandingDeclaration:
-    """The half no line-coverage measure can reach, on every report."""
+    """The half a line report cannot reach, on every report.
+
+    Still a standing declaration and still on every report — what moved
+    with ``SNAG-TEST-009`` is that there are now two spellings of it, and
+    which one prints is the whole of what ``--arcs`` buys.
+    """
 
     BLIND = """
     def test_ran():
@@ -421,13 +430,48 @@ class TestTheStandingDeclaration:
         A status that fired on it would fire for ever — the population
         is a property of the measure, not of the run — and a gate that
         is always yellow is ``SNAG-LOG-002``'s binary ``LOW``.
+
+        Driven without ``--arcs``, which is the reading this wording
+        belongs to: the sites are unjudged, and the report says so
+        rather than printing a zero for a question nobody asked.
         """
         root = _tree(tmp_path, {"test_a.py": self.BLIND})
         files = {"test_a.py": executed} if executed else {}
         result = sweep(_report(tmp_path, files), root)
 
         assert result.verdict == verdict
-        assert any("cannot judge them" in line for line in render(result))
+        assert any("did not judge them" in line for line in render(result))
+
+    @pytest.mark.parametrize(
+        ("executed", "verdict"),
+        [([1, 2], "mismatch"), ([1], "mismatch"), ([], "unknown")],
+        ids=["loop-finding", "assert-finding", "unknown"],
+    )
+    def test_the_judged_count_replaces_it_whatever_the_verdict(
+        self, tmp_path, executed, verdict
+    ):
+        """The same property for the wider measure, and the pair is what
+        keeps the two spellings from both going missing at once.
+
+        The verdicts differ from the drive above because these sites are
+        now judged, and the middle one is the reason the ids changed:
+        with the assert unevaluated the *loop* half stands down — its
+        statement never ran — and what remains is the assert finding, so
+        this row is a second mismatch rather than the blind reading its
+        old id claimed.
+        """
+        root = _tree(tmp_path, {"test_a.py": self.BLIND})
+        files = {"test_a.py": executed} if executed else {}
+        result = sweep(
+            _report(tmp_path, files),
+            root,
+            _arcs(tmp_path, {str(root / "test_a.py"): set()}),
+        )
+        text = "\n".join(render(result))
+
+        assert result.verdict == verdict
+        assert "comprehension sites under tests/ turned at least once" in text
+        assert "did not judge them" not in text
 
     def test_the_blind_count_does_not_shrink_when_the_measure_goes_blind(self, tmp_path):
         """Counted before the three skips, because it describes the tree.
@@ -610,3 +654,594 @@ class TestSweepDefaults:
         """
         assert Sweep().verdict == "match"
         assert Sweep(problem="no report").verdict == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# SNAG-TEST-009 — the guard that ran over nothing
+# ---------------------------------------------------------------------------
+
+
+def _arcs(tmp_path: Path, arcs: dict[str, set[tuple[int, int]]], *, branch: bool = True) -> Path:
+    """A ``coverage run --branch`` data file, in coverage's own schema.
+
+    Hand-built rather than produced, for the module's stated reason —
+    coverage is not installed on this box.  What that costs is that these
+    drives pin the *rules* and not the model of coverage they rest on,
+    which is why :file:`tests/test_vacuous_guards_live.py` exists and
+    runs the real tool over the same shapes.
+    """
+    path = tmp_path / ".coverage"
+    with sqlite3.connect(path) as db:
+        db.execute("create table coverage_schema (version integer)")
+        db.execute("insert into coverage_schema values (7)")
+        db.execute("create table meta (key text, value text)")
+        db.execute("insert into meta values ('version', '7.16.0')")
+        db.execute("insert into meta values ('has_arcs', ?)", ("1" if branch else "0",))
+        db.execute("create table file (id integer primary key, path text)")
+        db.execute(
+            "create table arc "
+            "(file_id integer, context_id integer, fromno integer, tono integer)"
+        )
+        for index, (name, pairs) in enumerate(arcs.items(), start=1):
+            db.execute("insert into file values (?, ?)", (index, name))
+            for start, end in pairs:
+                db.execute("insert into arc values (?, 0, ?, ?)", (index, start, end))
+    return path
+
+
+def _only_comprehension(source: str) -> tuple[ast.expr, list[ast.expr]]:
+    """The first comprehension in a snippet, and every comprehension in it."""
+    tree = ast.parse(textwrap.dedent(source).lstrip("\n"))
+    found = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, vacuous_guards._COMPREHENSIONS)
+    ]
+    return found[0], found
+
+
+class TestTheBackEdgeRule:
+    """Rule 1 — a turn reaches the element line, and only a turn does.
+
+    Every arc set below is the one the real tool emits for that shape,
+    transcribed from a live ``coverage run --branch`` over the same
+    source.  The pairs are what make each drive a falsification rather
+    than a restatement: the *only* difference between the turning and
+    empty members of each pair is the arc a turn leaves.
+    """
+
+    def test_a_single_line_comprehension_that_turned_leaves_a_self_arc(self):
+        node, siblings = _only_comprehension("assert all(x > 0 for x in live)")
+
+        assert _loop_turned(node, {(1, 1)}, siblings) == (True, None)
+
+    def test_the_same_comprehension_over_an_empty_iterable_leaves_none(self):
+        node, siblings = _only_comprehension("assert all(x > 0 for x in live)")
+
+        assert _loop_turned(node, set(), siblings) == (False, None)
+
+    def test_a_multi_line_comprehension_turns_on_an_arc_into_its_element(self):
+        """The two-line case, and the one the entry's own rule gets wrong.
+
+        ``SNAG-TEST-009`` records rule 1 as *any arc running backwards
+        inside the span*.  Both arc sets here satisfy that — ``(3, 1)`` is
+        the generator's exhaustion *return*, present whether or not the
+        loop ever turned — so the wider rule reports the empty case as
+        turned and hides the finding.
+        """
+        source = """
+            assert all(
+                x > 0
+                for x in live
+            )
+            """
+        node, siblings = _only_comprehension(source)
+        empty = {(1, 3), (3, 1)}
+
+        assert _loop_turned(node, empty, siblings) == (False, None)
+        assert _loop_turned(node, empty | {(3, 2), (2, 3)}, siblings) == (True, None)
+
+    def test_entering_the_comprehension_is_not_a_turn(self):
+        """The one arc excluded, and it exists only where the element
+        sits below the first line — which is why the exclusion is
+        conditioned on that rather than written unconditionally."""
+        source = """
+            assert all(
+                x > 0 for x in live
+            )
+            """
+        node, siblings = _only_comprehension(source)
+
+        assert _loop_turned(node, {(1, 2), (2, 1)}, siblings) == (False, None)
+        assert _loop_turned(node, {(1, 2), (2, 1), (2, 2)}, siblings) == (True, None)
+
+    def test_a_dict_comprehension_is_judged_on_the_earlier_of_key_and_value(self):
+        source = """
+            assert {
+                key:
+                value
+                for key, value in live
+            } == {}
+            """
+        node, siblings = _only_comprehension(source)
+
+        assert _loop_turned(node, {(1, 4), (4, 1)}, siblings) == (False, None)
+        assert _loop_turned(node, {(1, 4), (4, 1), (4, 2)}, siblings) == (True, None)
+
+
+class TestTheShortCircuitRule:
+    """Rule 2 — ``any`` and ``next`` abandon the frame mid-yield.
+
+    Without it every short-circuiting generator in the suite reads as
+    empty, because the abandoned frame emits neither the back-edge nor
+    the exit arc.  The discriminator is the *exit*: an exhausted
+    generator returns, an abandoned one never does.
+    """
+
+    def test_a_generator_entered_and_never_returned_yielded_at_least_once(self):
+        node, siblings = _only_comprehension("assert any(x > 0 for x in live)")
+
+        assert _loop_turned(node, {(-1, 1)}, siblings) == (True, None)
+
+    def test_a_generator_entered_and_returned_with_no_back_edge_is_empty(self):
+        """The pair that makes the rule a rule rather than "no arcs means
+        empty": both sets lack the back-edge and only one has the exit."""
+        node, siblings = _only_comprehension("assert not any(x > 0 for x in live)")
+
+        assert _loop_turned(node, {(-1, 1), (1, -1)}, siblings) == (False, None)
+
+    def test_a_generator_never_reached_at_all_is_empty(self):
+        node, siblings = _only_comprehension("assert any(x > 0 for x in live)")
+
+        assert _loop_turned(node, set(), siblings) == (False, None)
+
+
+class TestInlinedComprehensionsTakeTheBackEdgeAlone:
+    """Rule 3 — PEP 709 leaves list, set and dict comprehensions no frame.
+
+    So rule 2 has nothing to read for them, and the rule is expressed by
+    asking rule 2 only of a generator rather than by a second branch.
+    The drive is the *counterfactual*: handed a frame-entry arc that a
+    list comprehension can never produce, it must still answer from the
+    back-edge, or a comprehension that genuinely ran over nothing inside
+    an abandoned outer frame would read as having turned.
+    """
+
+    def test_a_list_comprehension_is_not_rescued_by_a_frame_entry_arc(self):
+        node, siblings = _only_comprehension("assert [x for x in live] == []")
+
+        assert _loop_turned(node, {(-1, 1)}, siblings) == (False, None)
+
+    def test_a_set_comprehension_still_turns_on_its_back_edge(self):
+        node, siblings = _only_comprehension("assert {x for x in live} == set()")
+
+        assert _loop_turned(node, {(1, 1)}, siblings) == (True, None)
+
+
+class TestWhatTheArcsCannotDecide:
+    """The two shapes where a turning loop and an empty one are spelled
+    identically, and are therefore refused rather than guessed at."""
+
+    def test_an_element_on_the_first_line_of_a_multi_line_comprehension(self):
+        """The iteration arc and the return arc are the same pair.
+
+        Measured, not reasoned about: driven at the real tool, zero and
+        two iterations of ``all(x > 0\\n for x in live)`` both produce
+        exactly ``{(1, 2), (2, 1)}``.
+        """
+        source = """
+            assert all(x > 0
+                       for x in live)
+            """
+        node, siblings = _only_comprehension(source)
+        turned, why = _loop_turned(node, {(1, 2), (2, 1)}, siblings)
+
+        assert turned is None
+        assert why == "its element sits on the comprehension's own first line"
+
+    def test_the_refusal_is_not_specific_to_generators(self):
+        """A list comprehension is inlined and has no return arc of its
+        own, and the enclosing multi-line statement supplies the same
+        pair anyway — so conditioning the refusal on the node type would
+        leave the list case guessing."""
+        source = """
+            assert [x
+                    for x in live] == []
+            """
+        node, siblings = _only_comprehension(source)
+
+        assert _loop_turned(node, {(1, 2), (2, 1)}, siblings)[0] is None
+
+    def test_two_comprehensions_sharing_an_element_line_decide_neither(self):
+        node, siblings = _only_comprehension(
+            "assert all(any(d in c for d in denials) for c in clauses)"
+        )
+
+        assert len(siblings) == 2
+        for comprehension in siblings:
+            turned, why = _loop_turned(comprehension, {(1, 1)}, siblings)
+            assert turned is None
+            assert why == "another comprehension shares its element line"
+
+    def test_adjacent_comprehensions_collide_as_readily_as_nested_ones(self):
+        """Not only nesting: two comprehensions written side by side on
+        one line share every arc that could decide either."""
+        node, siblings = _only_comprehension(
+            "assert [a for a in left] == [b for b in right]"
+        )
+
+        assert [_loop_turned(c, {(1, 1)}, siblings)[0] for c in siblings] == [None, None]
+
+    def test_a_comprehension_alone_on_its_line_is_still_decided(self):
+        """The anti-vacuity half: the sibling rule must not swallow the
+        ordinary case, which is what makes the four drives above mean
+        something."""
+        node, siblings = _only_comprehension("assert all(x > 0 for x in live)")
+
+        assert _loop_turned(node, {(1, 1)}, siblings) == (True, None)
+
+
+VACUOUS_AND_TURNING = """
+def test_over_nothing():
+    live = []
+    assert all(x > 0 for x in live)
+
+def test_over_something():
+    live = [1]
+    assert all(x > 0 for x in live)
+"""
+
+
+class TestTheLoopHalfOfTheSweep:
+    """The join, end to end: source, a line report, and a branch data file."""
+
+    def _sweep(self, tmp_path, source, *, executed, arcs, branch=True):
+        root = _tree(tmp_path, {"test_a.py": source})
+        return sweep(
+            _report(tmp_path, {"test_a.py": executed}),
+            root,
+            _arcs(tmp_path, {str(root / "test_a.py"): arcs}, branch=branch),
+        )
+
+    def test_a_comprehension_that_turned_zero_times_is_a_finding(self, tmp_path):
+        result = self._sweep(
+            tmp_path, VACUOUS_AND_TURNING,
+            executed=[1, 2, 3, 5, 6, 7], arcs={(7, 7)},
+        )
+
+        assert [loop.line for loop in result.loop_findings] == [3]
+        assert result.verdict == "mismatch"
+        assert result.loops == 2
+        assert result.loops_turned == 1
+
+    def test_the_finding_survives_the_other_halfs_declaration(self, tmp_path):
+        """The two markers are not interchangeable, which is the whole
+        reason there are two of them.
+
+        A ``may-not-evaluate`` reason on a statement says the *assert*
+        need not run.  Read as covering the loop as well, it would
+        silence this finding — and because a loop cannot turn without its
+        statement running, the reverse reading would report every loop
+        declaration as a stale assert declaration on every run.
+        """
+        source = VACUOUS_AND_TURNING.replace(
+            "    assert all(x > 0 for x in live)\n\ndef test_over_something",
+            f"    # {DECLARATION} the estate is idle most of the day\n"
+            "    assert all(x > 0 for x in live)\n\ndef test_over_something",
+            1,
+        )
+        result = self._sweep(
+            tmp_path, source, executed=[1, 2, 4, 6, 7, 8], arcs={(8, 8)}
+        )
+
+        assert [loop.line for loop in result.loop_findings] == [4]
+        assert result.declared == ()
+        assert [guard.line for guard in result.stale] == [4]
+
+    def test_its_own_declaration_quietens_it_and_is_reported(self, tmp_path):
+        source = VACUOUS_AND_TURNING.replace(
+            "    assert all(x > 0 for x in live)\n\ndef test_over_something",
+            f"    # {LOOP_DECLARATION} an empty findings list is the healthy result\n"
+            "    assert all(x > 0 for x in live)\n\ndef test_over_something",
+            1,
+        )
+        result = self._sweep(
+            tmp_path, source, executed=[1, 2, 4, 6, 7, 8], arcs={(8, 8)}
+        )
+
+        assert result.loop_findings == ()
+        assert result.verdict == "match"
+        assert [loop.reason for loop in result.loop_declared] == [
+            "an empty findings list is the healthy result"
+        ]
+
+    def test_a_declaration_whose_loop_turned_anyway_is_named_not_swallowed(self, tmp_path):
+        """``known_noise``'s rule: a stale exemption stops describing
+        anything and starts hiding the next finding."""
+        source = f"""
+            def test_over_something():
+                live = [1]
+                # {LOOP_DECLARATION} thought to be empty here
+                assert all(x > 0 for x in live)
+            """
+        result = self._sweep(
+            tmp_path, source, executed=[1, 2, 4], arcs={(4, 4)}
+        )
+
+        assert result.loop_findings == ()
+        assert [loop.reason for loop in result.loop_stale] == ["thought to be empty here"]
+        assert result.verdict == "match"
+
+    def test_a_comprehension_in_a_message_is_never_a_finding(self, tmp_path):
+        """It is evaluated only once the assert has already failed, so on
+        a green run its loop turning zero times is the definition of
+        health."""
+        source = """
+            def test_it():
+                live = []
+                assert True, f"{[x for x in live]}"
+            """
+        result = self._sweep(tmp_path, source, executed=[1, 2, 3], arcs=set())
+
+        assert result.loop_findings == ()
+        assert result.loops == 0
+
+    def test_a_statement_that_never_ran_is_left_to_the_other_half(self, tmp_path):
+        """One fault, one speaker.
+
+        A comprehension in a skipped test turned zero times and says
+        nothing whatever about a population.  The assert half already
+        owns *this never executed*; reporting it here as well would give
+        one fault two speakers, which is the defect this repository has
+        now found at seven scales.
+        """
+        source = """
+            def test_it():
+                live = []
+                assert all(x > 0 for x in live)
+            """
+        result = self._sweep(tmp_path, source, executed=[1, 2], arcs=set())
+
+        assert result.loop_findings == ()
+        assert [guard.line for guard in result.findings] == [3]
+
+    def test_a_comprehension_outside_an_assert_is_still_judged(self, tmp_path):
+        """``SNAG-TEST-009`` measured seven live sites that bind the
+        comprehension to a local and assert on the *name*, which an
+        ``ast.Assert.test``-only walk cannot see and which are guard
+        claims all the same."""
+        source = """
+            def test_it():
+                live = []
+                names = [row.name for row in live]
+                assert not names
+            """
+        result = self._sweep(tmp_path, source, executed=[1, 2, 3, 4], arcs=set())
+
+        assert [loop.line for loop in result.loop_findings] == [3]
+
+    def test_an_undecidable_site_moves_no_verdict_and_is_named(self, tmp_path):
+        source = """
+            def test_it():
+                live = []
+                assert all(x > 0
+                           for x in live)
+            """
+        result = self._sweep(
+            tmp_path, source, executed=[1, 2, 3], arcs={(3, 4), (4, 3)}
+        )
+
+        assert result.loop_findings == ()
+        assert result.verdict == "match"
+        assert [loop.line for loop in result.loop_undecidable] == [3]
+        assert result.loops_turned == 0
+        assert result.loops == 1
+
+    def test_the_undecidable_set_is_named_in_the_report(self, tmp_path):
+        source = """
+            def test_it():
+                live = []
+                assert all(x > 0
+                           for x in live)
+            """
+        result = self._sweep(
+            tmp_path, source, executed=[1, 2, 3], arcs={(3, 4), (4, 3)}
+        )
+        text = "\n".join(render(result))
+
+        assert "cannot be decided either way" in text
+        assert "test_a.py:3" in text
+
+
+class TestTheBranchDataFileIsRequiredToJudge:
+    """``ports_checked``'s rule, with the fail-closed direction chosen
+    because the alternative is a *loud* false positive rather than a
+    quiet false negative."""
+
+    def test_a_data_file_written_without_branch_is_refused(self, tmp_path):
+        """The failure this gate exists to not have.
+
+        A line-only data file opens cleanly and has an empty ``arc``
+        table, so read as evidence it says every comprehension in the
+        suite ran over nothing — hundreds of findings out of a missing
+        flag.  ``meta.has_arcs`` separates the two, and it is read rather
+        than inferred from the row count, which cannot.
+        """
+        root = _tree(tmp_path, {"test_a.py": VACUOUS_AND_TURNING})
+        result = sweep(
+            _report(tmp_path, {"test_a.py": [1, 2, 3, 5, 6, 7]}),
+            root,
+            _arcs(tmp_path, {str(root / "test_a.py"): set()}, branch=False),
+        )
+
+        assert result.verdict == "unknown"
+        assert result.problem is not None and "--branch" in result.problem
+        assert result.loop_findings == ()
+
+    def test_an_empty_arc_table_from_a_branch_run_is_evidence(self, tmp_path):
+        """The other side of the same coin, and what makes the drive
+        above a discriminator rather than "no arcs means unknown": the
+        identical empty table, declared as a branch run, is read."""
+        root = _tree(tmp_path, {"test_a.py": VACUOUS_AND_TURNING})
+        result = sweep(
+            _report(tmp_path, {"test_a.py": [1, 2, 3, 5, 6, 7]}),
+            root,
+            _arcs(tmp_path, {str(root / "test_a.py"): set()}, branch=True),
+        )
+
+        assert result.verdict == "mismatch"
+        assert [loop.line for loop in result.loop_findings] == [3, 7]
+
+    def test_no_data_file_at_all_leaves_the_half_unjudged_and_says_so(self, tmp_path):
+        """Absent is not broken.  ``--report`` alone stays a legitimate
+        narrower measure, and the report must not print a zero for a
+        question it did not ask."""
+        root = _tree(tmp_path, {"test_a.py": VACUOUS_AND_TURNING})
+        result = sweep(_report(tmp_path, {"test_a.py": [1, 2, 3, 5, 6, 7]}), root)
+        text = "\n".join(render(result))
+
+        assert result.verdict == "match"
+        assert result.loops_measured is False
+        assert "did not judge them" in text
+        assert "--arcs" in text
+
+    def test_an_unreadable_data_file_is_unknown_not_a_narrower_measure(self, tmp_path):
+        root = _tree(tmp_path, {"test_a.py": VACUOUS_AND_TURNING})
+        rubbish = tmp_path / "not-a-database"
+        rubbish.write_text("certainly not sqlite")
+
+        result = sweep(_report(tmp_path, {"test_a.py": [1, 2, 3]}), root, rubbish)
+
+        assert result.verdict == "unknown"
+
+    def test_read_arcs_keys_on_the_resolved_path(self, tmp_path):
+        arcs = read_arcs(_arcs(tmp_path, {"tests/test_a.py": {(1, 1)}}))
+
+        assert arcs == {(REPO_ROOT / "tests/test_a.py").resolve(): {(1, 1)}}
+
+    def test_read_arcs_refuses_a_missing_file(self, tmp_path):
+        assert read_arcs(tmp_path / "nothing-here") is None
+
+
+class TestTheGateAsksForBranchArcs:
+    """The shell half.  The module cannot judge what the run did not
+    record, so the flag and the data file are pinned at their one caller
+    rather than left to be true by habit."""
+
+    def test_the_suite_is_run_with_branch(self):
+        assert "coverage run --branch" in GATE.read_text()
+
+    def test_the_data_file_is_handed_to_the_judge(self):
+        body = GATE.read_text()
+
+        assert "--arcs" in body
+        assert '--report "$WORK/coverage.json" --arcs "$WORK/.coverage"' in body
+
+    def test_the_refuted_sentence_is_gone_from_both_artefacts(self):
+        """``SNAG-TEST-009``'s first clause stood for three sittings:
+        *branch coverage cannot either, because the comprehension's own
+        iteration is not a branch of the assert statement*.  It is not a
+        branch of the assert, and coverage records the back-edge
+        regardless — so the claim that no measure can reach these must
+        not survive the measure that does.
+        """
+        for path in (GATE, REPO_ROOT / "sysadmin" / "vacuous_guards.py"):
+            body = path.read_text()
+            assert "no line-coverage measure can judge" not in body, path
+            assert "this measure cannot judge them" not in body, path
+
+
+class TestADeclarationCoversOneComprehension:
+    """One statement can hold several, and one comment must not cover all.
+
+    Found by running the gate rather than by argument, and it shipped
+    **green**: a ``return {...}`` in
+    ``tests/test_message_backfill_live.py`` holds six comprehensions, a
+    statement-anchored read attached one comment to all six, and a stale
+    declaration moves no verdict — so only the stale report named it.
+    """
+
+    SIX_IN_ONE_STATEMENT = f"""
+        def test_it():
+            empty = []
+            full = [1]
+            return {{
+                # {LOOP_DECLARATION} this one is empty by design
+                "a": {{x for x in empty}},
+                "b": {{x for x in full}},
+            }}
+        """
+
+    def _sweep(self, tmp_path, arcs):
+        root = _tree(tmp_path, {"test_a.py": self.SIX_IN_ONE_STATEMENT})
+        return sweep(
+            _report(tmp_path, {"test_a.py": [1, 2, 3, 4]}),
+            root,
+            _arcs(tmp_path, {str(root / "test_a.py"): arcs}),
+        )
+
+    def test_only_the_declared_comprehension_is_quietened(self, tmp_path):
+        result = self._sweep(tmp_path, set())
+
+        assert [loop.line for loop in result.loop_declared] == [6]
+        assert [loop.line for loop in result.loop_findings] == [7]
+
+    def test_its_neighbour_is_not_reported_stale_when_it_turns(self, tmp_path):
+        """The shape the live run actually produced: four sites reported
+        as *declared and turned anyway* off one comment they had nothing
+        to do with."""
+        result = self._sweep(tmp_path, {(7, 7)})
+
+        assert result.loop_stale == ()
+        assert [loop.line for loop in result.loop_declared] == [6]
+
+    def test_a_marker_inside_a_nested_comprehension_is_not_the_outers(self, tmp_path):
+        """``last`` stops at the comprehension's own first line, so the
+        inner one's claim cannot be read as the outer's."""
+        source = f"""
+            def test_it():
+                rows = [[1]]
+                assert all(
+                    all(  # {LOOP_DECLARATION} the inner list is empty here
+                        y for y in inner
+                    )
+                    for inner in rows
+                )
+            """
+        root = _tree(tmp_path, {"test_a.py": source})
+        result = sweep(
+            _report(tmp_path, {"test_a.py": [1, 2, 3]}),
+            root,
+            _arcs(tmp_path, {str(root / "test_a.py"): set()}),
+        )
+        declared = {loop.line for loop in result.loop_declared}
+        findings = {loop.line for loop in result.loop_findings}
+
+        assert declared == {4}
+        assert findings == {3}
+
+    def test_a_multi_line_reason_survives_the_new_anchor(self, tmp_path):
+        """The same live run truncated every reason to *"so nothing is"*,
+        because the statement-line road takes only the marker's own line
+        while the comment-block road continues onto the next.  Anchoring
+        on the comprehension puts the block directly above it, so the
+        reason is read whole."""
+        source = f"""
+            def test_it():
+                empty = []
+                return {{
+                    # {LOOP_DECLARATION} the baseline is read before the rows
+                    # are added, so nothing is frozen yet
+                    "a": {{x for x in empty}},
+                }}
+            """
+        root = _tree(tmp_path, {"test_a.py": source})
+        result = sweep(
+            _report(tmp_path, {"test_a.py": [1, 2, 3]}),
+            root,
+            _arcs(tmp_path, {str(root / "test_a.py"): set()}),
+        )
+
+        assert [loop.reason for loop in result.loop_declared] == [
+            "the baseline is read before the rows are added, so nothing is frozen yet"
+        ]

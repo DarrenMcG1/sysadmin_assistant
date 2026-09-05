@@ -8,6 +8,73 @@
 
 ---
 
+## Session 179: the arc that says a loop turned ✅ (2026-09-05)
+
+_Session 178's handoff asked for `SNAG-TEST-009`'s runtime half — add
+`--branch`, read the loop back-edge out of the `.coverage` SQLite rather
+than from `coverage json`, and implement the three arc rules the entry
+records, falsifying each against comprehensions driven at 0, 1 and 2
+iterations and at `any()`/`next()`._
+
+- [x] **`SNAG-TEST-009` is fixed, and the decision it rested on held.**
+      `scripts/check-vacuous-guards.sh` runs the suite with `--branch`
+      and hands the judge both files — `--report` for the line half,
+      `--arcs` for the loop half. `sysadmin/vacuous_guards.py` gained
+      `read_arcs`, `Loop`, `_element_line`, `_loop_turned` and
+      `_comprehension_sites`, and still never imports coverage: the arcs
+      come out of the SQLite data file with stdlib `sqlite3`.
+- [x] **Rule 1 as the entry records it is wrong, and only the real tool
+      said so.** *Some arc runs backwards inside the span* is satisfied
+      by a generator that turned **zero** times — exhausting one emits a
+      return arc from the `for` line to the frame's own first line.
+      What discriminates is the **element** line, because a
+      comprehension is written element-first; the entry arc is excluded,
+      and excluded only where the element sits below the first line,
+      since where they coincide no such arc exists and excluding it
+      would discard the self-arc that is the whole signal for every
+      single-line comprehension.
+- [x] **Rules 2 and 3 stand as written.** Rule 2 is needed only for the
+      single-line case and is applied to both spellings anyway, because
+      narrowing it would make the rule depend on how the call happens to
+      be wrapped; rule 3 falls out of rule 2 being asked only of
+      `ast.GeneratorExp`, with PEP 709 asserted by a premise test rather
+      than assumed.
+- [x] **A fourth population the entry does not record: 14 undecidable
+      sites**, where a turning loop and an empty one leave **byte
+      identical** arcs — an element on the comprehension's own first
+      line, and two comprehensions sharing an element line. Named on
+      every run, moving no verdict, and asserted as an **equality of arc
+      sets** with a decidable pair as the control.
+- [x] **`meta.has_arcs` is the fail-closed gate.** A data file written
+      without `--branch` opens cleanly with an empty `arc` table, which
+      read as evidence fabricates a finding for every comprehension in
+      the suite. It is read rather than inferred from the row count.
+- [x] **Two markers, not one.** `# may-not-turn:` beside
+      `# may-not-evaluate:`, because one marker for both would report
+      every loop declaration as a stale assert declaration on every run.
+- [x] **The verdict on the 17 is taken**: one fix
+      (`tests/test_tray/test_config.py:365`, now
+      `assert report.unwalkable == []` — decidable *and* stronger),
+      fifteen declarations, and one excluded as *unreached* rather than
+      vacuous, which the assert half already owns.
+- [x] **The declaration anchor was wrong and the live run is what said
+      so.** Read from the *enclosing statement*, one comment covered all
+      six comprehensions in one `return {…}` and four came back stale —
+      and it shipped **exit 0**, because a stale declaration moves no
+      verdict. Anchored on the comprehension now, stopping at its own
+      first line so a nested marker is not read as the outer's claim.
+- [x] **Fourteen mutations driven and fourteen killed**, each on its
+      intended tests — including the entry's own rule 1, which reddens
+      four, one of them the live drive. **57 tests added** (36 in
+      `tests/test_vacuous_guards.py`, 21 in the new
+      `tests/test_vacuous_guards_live.py`), none retired.
+- [x] **A second road to vacuity is filed rather than implied**:
+      `SNAG-TEST-010` — a filter that rejects every member leaves the
+      loop turning, so the measure answers *did the loop turn* and not
+      *did the predicate run*. Measured, not reasoned about.
+
+---
+
 ## Session 178: the second pass that does not exist ✅ (2026-09-05)
 
 _Session 177's handoff asked for a decision on `SNAG-TEST-009` — whether

@@ -796,6 +796,9 @@ class TestStillOpenReminders:
         policy.evaluate(alerts)
         policy.flush_digest()
         clock.advance(60 * 24)
+        # may-not-turn: digest mode emits nothing at all for a warning, so the reminder filter
+        # has an empty input by construction; test_snoozing_silences_the_reminder_too above
+        # asserts that emptiness directly
         assert [r for r in policy.evaluate(alerts) if r.reminder] == []
 
     def test_recovery_resets_the_cadence(self):

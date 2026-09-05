@@ -225,6 +225,8 @@ async def _drive() -> dict:
 
         return {
             "declared": declared,
+            # may-not-turn: the baseline is read before the probe rows are added, so nothing is
+            # frozen yet — planned_frozen below is the non-empty end of the same pair
             "baseline_frozen": {row.entry_id for row in baseline.frozen},
             "planned_frozen": {row.entry_id for row in plan.frozen},
             "planned_unwitnessed": set(plan.unwitnessed),
@@ -234,6 +236,9 @@ async def _drive() -> dict:
             "message": {name: row.message for name, row in after.items()},
             "metadata": {name: dict(row.metadata_) for name, row in after.items()},
             "raw_line": {name: row.raw_line for name, row in after.items()},
+            # may-not-turn: the repair is idempotent, so nothing is frozen once it has run — an
+            # empty second plan is the assertion, and planned_frozen above is the non-empty end of
+            # the same pair
             "second_frozen": {row.entry_id for row in second.frozen},
             "second_blind": second.blind,
         }

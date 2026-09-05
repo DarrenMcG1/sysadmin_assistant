@@ -1,6 +1,85 @@
-# Handoff — 2026-09-05 (Session 178)
+# Handoff — 2026-09-05 (Session 179)
 
 ## Next action
+
+Measure `SNAG-TEST-010`'s upper bound — the count of comprehension sites under `tests/` carrying an `if` clause, which is the only cheap figure here that is not the missing discriminator itself — and in the same sitting close the fourteen sites `scripts/check-vacuous-guards.sh` names as undecidable, by moving each element expression below its own first line, because both range over the one population that gate already walks.
+
+_**`SNAG-TEST-009` is built and one of the three rules it left behind was
+wrong.**_ _`scripts/check-vacuous-guards.sh` runs the suite with
+`--branch` and hands the judge both files; `sysadmin/vacuous_guards.py`
+reads the arcs out of the `.coverage` SQLite with stdlib `sqlite3` and
+still never imports coverage. The gate is **exit 0** with **851 of 881**
+comprehension sites turned, **15** loop declarations and **none stale**._
+
+_**Rule 1 as the entry records it reports a loop that turned zero times
+as having turned.**_ _*Some arc runs backwards inside the span* is
+satisfied by a generator's **exhaustion return**, which arcs from the
+`for` line to the frame's own first line whether or not the loop ever
+turned — driven at the real tool, `all(\n x > 0\n for x in live\n)` over
+an empty list gives `{(1, 3), (3, 1)}`. What discriminates is the
+**element** line, because a comprehension is written element-first, with
+the entry arc excluded and excluded **only** where the element sits below
+the first line, since where they coincide no such arc exists and
+excluding it would discard the self-arc that is the whole signal for
+every single-line comprehension. Rules 2 and 3 stand as written._
+
+_**Fourteen sites cannot be decided either way, which the entry does not
+record and its detector counted as turned.**_ _An element on the
+comprehension's own first line, and two comprehensions sharing an element
+line — nested or merely adjacent — leave a turning loop and an empty one
+**byte identical**. That is why the entry's site count is 858 against a
+measured 865. They are named on every run and move no verdict; the live
+drive asserts the **arc sets are equal** rather than that the answer is
+`None`, with a decidable pair as the control._
+
+_**`meta.has_arcs` is the fail-closed gate and the one this could most
+easily have shipped without.**_ _A data file written without `--branch`
+opens cleanly with an empty `arc` table, which read as evidence
+fabricates a finding for **every** comprehension in the suite — and is
+unreachable by a row count, which cannot tell it from a suite in which
+nothing turned. Asked-for-and-unreadable is `unknown`; not asked for is a
+narrower measure that says so, so `--report` alone still works._
+
+_**The declaration anchor was wrong and it shipped green.**_ _Read from
+the comprehension's **enclosing statement**, one comment covered all six
+comprehensions in `tests/test_message_backfill_live.py`'s `return {…}`
+and four came back *declared and turned anyway* — `UnitFinding.enabled`'s
+trap for the third time in one sitting, at **exit 0**, because a stale
+declaration moves no verdict and the only thing that named it was the
+stale report this module's docstring argues for. Anchored on the
+comprehension now, stopping at its own first line so a marker inside a
+nested comprehension is not read as the outer's claim._
+
+_**The verdict on the 17 is taken: one fix, fifteen declarations, one
+excluded.**_ _`tests/test_tray/test_config.py:365`'s
+`assert all(path == "tray" for path in report.unwalkable)` became
+`assert report.unwalkable == []`, decidable **and** stronger. The 17th —
+`tests/test_service_recommendations.py:1199` — is *unreached* rather than
+vacuous, and the assert half already owns that, so reporting it here too
+would give one fault two speakers._
+
+_**Fourteen mutations driven and fourteen killed**, each on its intended
+tests, including the entry's own rule 1 (four red, one of them the live
+drive) and the declaration anchor (four red). **3590 + 61 = 3651**,
+none retired — and the baseline was measured by stashing to HEAD, which
+cost three self-inflicted reds: the stash ran **while the gate was
+collecting**, so the gate ran the pre-edit file, and 3611 + 36 = 3647
+reconciled it exactly. The `stash-pop-reports-a-restart-owed` hazard
+arriving at collection rather than at mtime._
+
+_**Register**: `SNAG-TEST-009` closed, `SNAG-TEST-010` opened — a filter
+that rejects every member leaves the loop turning, so the measure answers
+*did the loop turn* and not *did the predicate run*, measured rather than
+reasoned about. It is filed where the fourteen undecidable sites are not,
+because those are named by the gate on every run and this one is
+**invisible**. Open entries with no check goes **3 → 4**._
+
+_**A restart is owed**: `sysadmin/vacuous_guards.py` changed. Nothing
+else under `sysadmin/` moved and no migration was written._
+
+# Handoff — 2026-09-05 (Session 178)
+
+### The action Session 178 filed (done by Session 179)
 
 Build `SNAG-TEST-009`'s runtime half — add `--branch` to `scripts/check-vacuous-guards.sh`, read the loop back-edge out of the `.coverage` SQLite with stdlib `sqlite3` rather than from `coverage json`, which erases it, and implement the three arc rules the entry records, falsifying each against comprehensions driven at 0, 1 and 2 iterations and at `any()`/`next()`, because every wrong version of the detector returned a plausible number.
 

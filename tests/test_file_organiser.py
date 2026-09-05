@@ -61,6 +61,8 @@ class TestEmptyDirs:
         d.mkdir()
         (d / "file.txt").write_text("content")
         findings = agent._scan(scan_config)
+        # may-not-turn: a directory holding a file is not an empty dir and nothing else in
+        # tmp_path is one, so empty_dirs is empty; the sibling above proves the scan fills it
         assert not any("has_content" in d for d in findings["empty_dirs"])
 
 
@@ -81,6 +83,8 @@ class TestLargeFiles:
         small = tmp_path / "tiny.txt"
         small.write_text("hello")
         findings = agent._scan(scan_config)
+        # may-not-turn: tiny.txt is under the size floor and nothing else in tmp_path clears it,
+        # so large_files is empty; the huge.bin sibling above proves the scan fills it
         assert not any("tiny.txt" in f["path"] for f in findings["large_files"])
 
 
@@ -101,7 +105,11 @@ class TestStaleFiles:
         recent = tmp_path / "fresh.txt"
         recent.write_text("new")
         findings = agent._scan(scan_config)
+        # may-not-turn: the same empty stale_files the assert below is about — this projection
+        # is where it is first read, so it is declared here too rather than only there
         stale_paths = [f["path"] for f in findings["stale_files"]]
+        # may-not-turn: a file written this second is not stale and nothing else in tmp_path is,
+        # so stale_files is empty; the sibling above proves the scan fills it
         assert not any("fresh.txt" in p for p in stale_paths)
 
 
@@ -128,7 +136,11 @@ class TestOldDownloads:
         new_file.write_text("data")
 
         findings = agent._scan(scan_config)
+        # may-not-turn: the same empty old_downloads the assert below is about — this projection
+        # is where it is first read, so it is declared here too rather than only there
         paths = [f["path"] for f in findings["old_downloads"]]
+        # may-not-turn: a file written this second is not an old download and nothing else in
+        # tmp_path is one, so old_downloads is empty; the sibling above proves the scan fills it
         assert not any("fresh.zip" in p for p in paths)
 
 
@@ -153,6 +165,9 @@ class TestMisplacedFiles:
         img.write_bytes(b"\xff\xd8")
         findings = agent._scan(scan_config)
         misplaced_images = findings.get("misplaced_files", {}).get("images", [])
+        # may-not-turn: an image already in Pictures is where it belongs, so the images list is
+        # empty; test_image_outside_pictures above proves the scan populates misplaced_files at
+        # all
         assert not any("photo.jpg" in p for p in misplaced_images)
 
     def test_document_outside_documents(self, agent, scan_config, tmp_path):
@@ -252,6 +267,9 @@ class TestStaleProjectDirs:
 
         findings = agent._scan(config)
         # .pytest_cache starts with '.' so it's filtered out by the hidden-dir check
+        # may-not-turn: a dot-prefixed directory is filtered by os.walk before the scan can list
+        # it, which is exactly what this asserts, so stale_project_dirs is empty by construction
+        # rather than by accident
         assert not any(d["type"] == ".pytest_cache" for d in findings["stale_project_dirs"])
 
 

@@ -350,6 +350,9 @@ class TestConfidenceGate:
             [score("tmr", confidence="low", grade="reliable")],
             timers=[stale],
         )
+        # may-not-turn: low confidence suppresses the whole list, so recommendations is empty —
+        # the suppressed_by_confidence assertion below is the discriminating half and is what
+        # stops this pair passing over a row that was never built
         assert "timer_stale" not in [r.kind for r in report.recommendations]
         assert report.suppressed_by_confidence == 1
 

@@ -362,7 +362,14 @@ class TestUnreadTraySectionKeys:
         )
         assert report.unknown
         assert all(path.startswith("tray.") for path in report.unknown), report.unknown
-        assert all(path == "tray" for path in report.unwalkable)
+        # Was `all(path == "tray" for path in report.unwalkable)`, which is
+        # True over the empty list this input produces and therefore
+        # asserted nothing — `SNAG-TEST-009`'s one live positive finding,
+        # and the reason the gate now reads branch arcs.  Stating the
+        # emptiness directly is both decidable and stronger: it separates
+        # "nothing was unwalkable" from "some things were, and all of them
+        # happened to be spelled `tray`".
+        assert report.unwalkable == []
 
     def test_a_non_mapping_section_is_unwalkable_not_clean(self):
         """Rule 3: zero unknown keys because nothing was read."""
