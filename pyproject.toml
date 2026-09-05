@@ -61,6 +61,12 @@ sysadmin-check-schema = "sysadmin.core.schema_guard:main"
 # database connection — three facts sysadmin/ops_claims.py states once.
 # SNAG-ESTATE-008.
 sysadmin-check-claims = "sysadmin.ops_claims:main"
+# Called by scripts/check-vacuous-guards.sh, which claude-postflight.sh runs.
+# A console script rather than shell because the measure is an AST walk of
+# tests/ joined to a coverage report at line numbers — and because it must
+# not import coverage, which is not a dependency here and reaches the suite
+# through an ephemeral `uv run --with` overlay. SNAG-TEST-006.
+sysadmin-check-guards = "sysadmin.vacuous_guards:main"
 # Called by scripts/check-snag-claims.sh, which claude-preflight.sh and
 # claude-postflight.sh both run beside the ops claims. The snag list is the
 # second document a sitting reads and was the only one nothing checked:

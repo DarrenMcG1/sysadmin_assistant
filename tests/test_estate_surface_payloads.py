@@ -765,6 +765,9 @@ class TestTheKeysTheJudgeReadsAreStillServed:
             if event is None:
                 # The whole-file finding, which declares no event and
                 # takes no aspect.  rule 2's discriminator.
+                # may-not-evaluate: the estate emits a whole-file wiring
+                # finding only when a hook fails to parse at all, so a
+                # correctly wired estate never reaches this branch.
                 assert finding["fingerprint"].count(":") == 2, finding["fingerprint"]
                 continue
             assert isinstance(event, str) and event

@@ -132,6 +132,42 @@ if [ "$SNAGS_STATUS" -eq 1 ]; then
     echo -e "  ${BOLD}in the entry — a refuted claim is a candidate for closure${NC}"
 fi
 
+# 3.8. Did every assert this sitting wrote actually evaluate?
+#
+# SNAG-TEST-006. A test looping over a live artefact's members is green
+# while that population is empty, because an empty `for` completes. Review
+# does not catch it and the suite cannot report it, because passing is
+# exactly what it does — the founding instance stood eleven days.
+#
+# Here rather than at the commit, and that is the whole placement
+# argument: the measure is coverage over a *green full suite*, which is
+# 90 seconds, and `claude-precommit.sh` runs on every commit while this
+# runs once at the close. It is also the moment a guard written this
+# sitting is newest and least examined.
+#
+# It raises ISSUES on a finding — unlike the snag claims above, because
+# this is not a judgement about an entry but a defect in the sitting's own
+# work, and the two remedies (fix it, or declare why it cannot evaluate)
+# are both cheap and both belong to whoever wrote the assert.
+echo -e "\n${BLUE}🧪 Vacuous guards (asserts that never evaluated):${NC}"
+GUARDS_STATUS=0
+GUARDS_OUT=$(./scripts/check-vacuous-guards.sh 2>&1) || GUARDS_STATUS=$?
+while IFS= read -r line; do
+    case "$line" in
+        "ok "*) echo -e "  ${GREEN}✓${NC} ${line#ok }" ;;
+        "no "*) echo -e "  ${RED}${BOLD}✗ ${line#no }${NC}" ;;
+        "?? "*) echo -e "  ${YELLOW}? ${line#?? }${NC}" ;;
+        *)      echo -e "  ${BLUE}${line}${NC}" ;;
+    esac
+done <<< "$GUARDS_OUT"
+if [ "$GUARDS_STATUS" -eq 1 ]; then
+    echo -e "  ${BOLD}Fix it, or declare it — an assert that asserted nothing${NC}"
+    echo -e "  ${BOLD}is a guard the suite cannot tell you it is not holding${NC}"
+    ISSUES=$((ISSUES + 1))
+elif [ "$GUARDS_STATUS" -ne 0 ]; then
+    echo -e "  ${YELLOW}⚠️  The measure did not run (not the same as 'nothing found')${NC}"
+fi
+
 # 4. DOCUMENTATION ENFORCEMENT - Critical check
 echo -e "\n${BLUE}${BOLD}📋 DOCUMENTATION ENFORCEMENT CHECK${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
@@ -215,9 +251,16 @@ CODE_CHANGES=$(git diff --name-only HEAD 2>/dev/null | grep -E "\.(py|vue|ts|js|
 STAGED_CODE=$(git diff --cached --name-only 2>/dev/null | grep -E "\.(py|vue|ts|js|dart|go|rs)$" | wc -l)
 TOTAL_CODE=$((CODE_CHANGES + STAGED_CODE))
 
-if [ "$TOTAL_CODE" -gt 0 ]; then
+if [ "$GUARDS_STATUS" -le 1 ]; then
+    # The gate above runs the whole suite under coverage and refuses to
+    # judge a red one, so a status it could return at all is a green run.
+    # Advising a suite run here as well would be this script printing the
+    # name of a guard it has just run — the mention rule the retired
+    # `vacuous_guard_ungated` check was built around, in reverse.
+    echo -e "  ${GREEN}✓ Suite ran green under the vacuous-guard gate above${NC}"
+elif [ "$TOTAL_CODE" -gt 0 ]; then
     echo -e "  $TOTAL_CODE code file(s) with uncommitted changes"
-    echo -e "  ${YELLOW}Consider running your test suite${NC}"
+    echo -e "  ${YELLOW}The gate above could not run the suite — run it yourself${NC}"
 else
     echo -e "  ${GREEN}✓ No uncommitted code changes to test${NC}"
 fi

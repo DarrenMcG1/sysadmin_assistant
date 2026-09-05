@@ -407,6 +407,10 @@ async def _wait_for_subscriber(count: int = 1, timeout: float = 2.0) -> None:
     """Give the streaming task time to register its queue."""
     deadline = asyncio.get_running_loop().time() + timeout
     while event_broadcaster.subscriber_count < count:
+        # may-not-evaluate: the deadline guard runs only if the wait turns at
+        # least once, and a healthy box registers the queue before the first
+        # check.  It cannot be restructured into evaluating — an assert that
+        # ran when nothing was waited for would be asserting about no wait.
         assert asyncio.get_running_loop().time() < deadline, "stream never subscribed"
         await asyncio.sleep(0.01)
 
@@ -415,5 +419,7 @@ async def _wait_for_no_subscribers(timeout: float = 2.0) -> None:
     """Wait for disconnect cleanup to unwind the subscription."""
     deadline = asyncio.get_running_loop().time() + timeout
     while event_broadcaster.subscriber_count:
+        # may-not-evaluate: the same deadline shape as _wait_for_subscriber —
+        # cleanup has usually unwound before this loop is entered.
         assert asyncio.get_running_loop().time() < deadline, "subscriber leaked"
         await asyncio.sleep(0.01)

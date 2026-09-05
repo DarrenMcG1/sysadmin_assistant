@@ -8,6 +8,126 @@
 
 ---
 
+## Session 177: the gate the entry owed ✅ (2026-09-05)
+
+_Session 176's handoff asked for the coverage gate `SNAG-TEST-006` still
+owed — a script running the suite under coverage, refusing a
+never-evaluated `assert` under `tests/`, exiting 0/1/2 for this run's
+clean / found / could-not-measure, naming the comprehension population it
+cannot judge on every run, wired at `claude-postflight.sh` beside
+`check-ops-claims.sh` — and for the entry to be closed with its check,
+which retires with it._
+
+- [x] **`SNAG-TEST-006` is closed**, and it is three artefacts rather
+      than one: `scripts/check-vacuous-guards.sh` runs the suite,
+      `sysadmin/vacuous_guards.py` judges the result, and
+      `sysadmin-check-guards` is the console script between them —
+      `check-migrations.sh`'s split, one file over.
+- [x] **The module never imports coverage**, which is the load-bearing
+      half of that split rather than tidiness. `coverage` is not a
+      dependency here and arrives through an ephemeral `uv run --with`
+      overlay; a judge that imported it would be untestable on every box
+      in this estate. The join is a `coverage json` report read with
+      `json` and an AST walk of `tests/` — so all **33** of its own tests
+      run against synthetic trees and synthetic reports, and what that
+      costs is stated: the *coverage* half of the join is unassertable
+      here and was measured live instead.
+- [x] **The join is `ast.Assert.lineno` against the executed set**, and
+      the premise is that coverage attributes a multi-line statement to
+      its first line. Measured rather than assumed:
+      `test_arbitrated_stops_live.py`'s four-line assert came back
+      missing as line **147** alone.
+- [x] **The comprehension half is a standing declaration, never a fourth
+      status** — the design Session 176 settled, shipped as written.
+      Every report ends with **323 of 6334 asserts across 53 files**
+      carrying a comprehension whose truth over an empty iterable is
+      `True` with the line executing. `ports_checked` literally: a field
+      on every payload carrying whether the measure looked, and three
+      parametrised tests drive it at all three verdicts.
+- [x] **All six live findings were legitimately unevaluable, so the gate
+      ships with six declarations rather than red for ever.** Three are
+      branches on an idle estate, one on a wiring check with no
+      whole-file finding, and two are deadline guards a fast box
+      satisfies before the loop turns once — that last pair cannot be
+      restructured into evaluating at all. Each carries a
+      `# may-not-evaluate: <reason>`, `known_noise`'s rule 2: the reason
+      is required (a bare marker is not a declaration), the declared set
+      is **named on every run**, and a declaration whose assert *did*
+      evaluate is reported as well, because a stale exemption stops
+      describing anything and starts hiding the next finding —
+      `config_keys` rule 5.
+- [x] **The staleness rule was found by the fix on itself.** Writing
+      those six declarations moved every assert below them without
+      changing one statement, which is exactly the shape a digest of the
+      executed set cannot see; driven against the report taken twenty
+      minutes earlier, the sweep named all three edited files. A test
+      file newer than the report is `unknown`.
+- [x] **The blind count is taken before the three skips, and only
+      measuring it said why.** Counted after, the standing declaration
+      fell **314 → 312** the moment those three files went `moved` — a
+      suite reading as though it had fewer unjudgeable asserts rather
+      than as a sweep that stopped looking, which is `ports_checked`'s
+      rule broken inside the fix for `ports_checked`'s rule.
+- [x] **`unknown` outranks `mismatch` here**, which is the reverse of
+      `ops_claims.overall` and forced by what the two mean: a finding
+      count taken over an unknown fraction of `tests/` is not a lower
+      bound anybody can act on until the sweep says what it covered.
+- [x] **Three of twenty-two falsifications passed against deliberately
+      broken code**, and the three are distinct shapes. The ordering
+      specimen nested *downwards*, so `ast.walk`'s breadth-first order
+      came out `2, 4, 6` — already sorted, asserting nothing; the live
+      shape is a nested assert written first and walked last, which is
+      what produced `166, 167, 147`. The fail-open test covered **one of
+      two roads**: `str(None)` is `"None"`, truthy, so an absent
+      timestamp was reaching the *unparseable* branch and a mutation to
+      the absent branch passed cleanly — both roads are parametrised now
+      and the coercion is gone. And one "mutation" was a **different
+      correct implementation** rather than a break, which is a third way
+      a drive can report green and mean nothing.
+- [x] **The first live run read one declaration of six, and no fixture
+      here could have caught it.** Five went in as multi-line comment
+      blocks with the marker at the *top*, and the reader looked one line
+      above the assert — so the gate went on refusing five asserts whose
+      author had just watched themselves declare them, which is worse
+      than having no declaration rule at all. Every synthetic fixture
+      used a **single-line** comment, the one shape that cannot
+      discriminate the rule. The reader takes the whole contiguous
+      comment block now and the reason continues onto its following
+      lines, so a declaration is never read as half of itself; the gate
+      reports **6 of 6** and exits 0.
+- [x] **That fix gave the empty-reason rule a second return path, and
+      the existing test covered one of them** — the two-roads shape for
+      the *second* time in one sitting, after `str(None)`. Both are
+      parametrised, and a mutation is driven at each.
+- [x] **The check retires with the entry and its detector does not** —
+      `FROZEN_TABLES`' rule. `check_vacuous_guard_ungated` is refuted by
+      the hop it was built to see (`claude-postflight.sh` →
+      `check-vacuous-guards.sh` → `coverage`) and is gone with its 226
+      lines of tests and its five constants;
+      `TestTheGateIsOnTheClosePath` outlives it, asserting the wiring is
+      still there, that the gate never exits `1` of its own accord, and
+      that its report is written under `mktemp` and removed.
+- [x] **The gate's first live run returned 2, not 1**, on a tree being
+      edited underneath it — the red-suite rule working before anything
+      depended on it. Re-run on a stable tree it reports clean, six
+      declarations named, and the standing count.
+- [x] **The residue is filed rather than implied**: `SNAG-TEST-009`, the
+      **314** asserts the gate reports and cannot judge. It carries **no
+      check**, and for the opposite reason to the two entries that carry
+      none on cost — its instrument *already runs at every close*, since
+      the gate prints the count on every report whatever its exit status,
+      so a check would be a second reader of a number counted from the
+      same AST nodes. Its finding set is empty today and that was read by
+      hand: of the ten whose iterable looked live, 8 are over fixtures the
+      test builds and 2 over the real `STATUS.md` block, whose population
+      is a measured 11 markers.
+- [x] Register **137 → 138 entries, 24 open** — one closed, one filed.
+      Open entries carrying no check **2 → 3**, and the closure moved it
+      by neither: `SNAG-TEST-006` had a check, so closing it took both
+      numbers down together, and the whole of the rise is the new entry.
+
+---
+
 ## Session 176: the close path has no coverage in it ✅ (2026-09-05)
 
 _Session 175's handoff asked for `SNAG-TEST-006`'s first move — the

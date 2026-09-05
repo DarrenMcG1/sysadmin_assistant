@@ -1,6 +1,105 @@
-# Handoff — 2026-09-05 (Session 176)
+# Handoff — 2026-09-05 (Session 177)
 
 ## Next action
+
+Decide `SNAG-TEST-009` — whether counting comprehension iterations at runtime is worth a second pass over an 86-second suite, or whether the cheap AST half is the whole of the fix: a comprehension whose iterable is a *call* rather than a literal or a parameter is the only sub-population worth a human's time, and it is how the only ten worth reading were found.
+
+_**`SNAG-TEST-006` is closed, and the gate it owed is three artefacts
+rather than one.**_ _`scripts/check-vacuous-guards.sh` runs the suite,
+`sysadmin/vacuous_guards.py` judges the result and `sysadmin-check-guards`
+is the console script between them — `check-migrations.sh`'s split. Wired
+at `claude-postflight.sh` as section 3.8, raising ISSUES on a finding
+where the snag claims deliberately do not, because this is a defect in
+the sitting's own work rather than a judgement about an entry._
+
+_**The module never imports coverage, and that is load-bearing rather
+than tidy.**_ _`coverage` is not a dependency here and arrives through an
+ephemeral `uv run --with` overlay — `.venv` unmoved at **107** packages
+and the lock clean either side, re-measured rather than borrowed, since
+the entry's figure of 122 was taken against an environment that had
+drifted 15 packages off the lock. A judge that imported it would be
+untestable on every box in this estate; instead the join is a
+`coverage json` report read with `json` against an AST walk of `tests/`,
+and all **33** of its own tests run on synthetic trees._
+
+_**Exit 0/1/2 for this run, and the comprehension half rides on every
+report.**_ _The design Session 176 settled, shipped as written: **323 of
+6334 asserts across 53 files** carry a comprehension whose truth over an
+empty iterable is `True` with the line executing, so no line-coverage
+measure can reach them and a status firing on it would fire for ever.
+Three parametrised tests drive that line at all three verdicts._
+
+_**All six live findings were legitimately unevaluable, so the gate ships
+with six declarations rather than red for ever.**_ _Three branches on an
+idle estate, one on a wiring check with no whole-file finding, and two
+deadline guards a fast box satisfies before the loop turns once — that
+last pair cannot be restructured into evaluating at all. Each carries a
+`# may-not-evaluate: <reason>`: the reason is required, the declared set
+is named on every run, and a declaration whose assert **did** evaluate is
+reported too, because a stale exemption stops describing anything and
+starts hiding the next finding._
+
+_**The staleness rule was found by the fix on itself.**_ _Writing those
+declarations moved every assert below them without changing one
+statement — the shape a digest of the executed set cannot see — and the
+sweep named all three edited files when driven against the report taken
+twenty minutes earlier. A test file newer than the report is `unknown`.
+The same edit found the ordering rule: counted **after** the skips the
+standing declaration fell **314 → 312** the moment those files went
+`moved`, which reads as a suite with fewer unjudgeable asserts rather
+than as a sweep that stopped looking, so the blind count is taken before
+all three skips._
+
+_**Three of twenty-two falsifications passed against deliberately broken
+code, and the three are distinct shapes.**_ _The ordering specimen nested
+**downwards**, so breadth-first order came out `2, 4, 6` — already sorted
+and asserting nothing; the live shape is a nested assert written first
+and walked last, which is what produced `166, 167, 147`. The fail-open
+test covered **one of two roads**: `str(None)` is `"None"`, truthy, so an
+absent timestamp reached the *unparseable* branch and a mutation to the
+absent branch passed cleanly — both are parametrised now and the coercion
+is gone. And one "mutation" was a **different correct implementation**
+rather than a break, which is a third way a drive reports green and means
+nothing._
+
+_**The first live run read one declaration of six, and nothing here could
+have caught it.**_ _Five went in as multi-line comment blocks with the
+marker at the **top**, and the reader looked one line above the assert —
+so the gate refused five asserts whose author had just watched themselves
+declare them, which is worse than having no declaration rule at all.
+Every synthetic fixture used a single-line comment, the one shape that
+cannot discriminate the rule. The reader takes the whole contiguous
+comment block now and the reason continues onto its following lines; the
+gate reports **6 of 6**, **6334** asserts, exit **0**. That fix gave the
+empty-reason rule a second return path and the existing test covered one
+of them — the two-roads shape for the second time in one sitting, after
+`str(None)`._
+
+_**The check retired with the entry and its detector did not.**_
+_`check_vacuous_guard_ungated` is refuted by exactly the hop it was built
+to see and is gone with its 226 lines of tests and five constants;
+`TestTheGateIsOnTheClosePath` outlives it, holding the wiring, the
+never-exit-1 rule and the temporary report. The gate's **first** live run
+returned **2, not 1**, on a tree being edited underneath it, and its
+second refused a suite the handoff guard had turned red for naming a
+closed entry — both the red-suite rule working before anything depended
+on it._
+
+_**Suite 3566 → 3590**; ruff and mypy clean; all ten ops claims green.
+Two restarts were owed and paid — PID 1898616 → 2077357 → 2085468,
+counter **12 → 14** — and the second is the interesting one: the first
+brought the box level, then the gate's own live run found the
+declaration-block defect, so the deploy check went red again on a **real**
+edit rather than an mtime artefact, which is the state it exists to
+report. Register **138 entries, 24 open** — one closed, one filed — with open entries carrying no check
+**2 → 3**, the whole of the rise being `SNAG-TEST-009` and none of it the
+closure, which took both numbers down together._
+
+---
+
+# Handoff — 2026-09-05 (Session 176)
+
+### The action Session 176 filed (done by Session 177)
 
 Build the coverage gate `SNAG-TEST-006` still owes — a script running the suite under coverage, refusing a never-evaluated `assert` under `tests/`, exiting 0 / 1 / 2 for this run's clean / found / could-not-measure and naming on every run the comprehension population it cannot judge — wired at `claude-postflight.sh` beside `check-ops-claims.sh`, and close the entry with its check, which retires with it.
 
@@ -10,7 +109,7 @@ _**Three departures from the check it borrows from, each forced by this entry's 
 
 _**The mention rule moves no verdict today and says so.**_ _Measured: it drops **132** of the two roots' lines, **2** naming a guard the script does not run and **0** naming a coverage token. Its population for the answer is empty, pinned by its own test rather than dressed up as a live catch; what it buys is the shape this file's idiom makes likely next, which is coverage added as advice._
 
-_**The third verdict is decided, and it is not an exit status.**_ _Exit 0/1/2 keeps `check-migrations.sh`'s meaning, because each is a property of **this run** a sitting can act on. The comprehension blindness is a property of the **measure** and is permanent — re-measured at 3566 tests, **309** of the suite's **6275** asserts carry a comprehension across **52** files, unmoved from Session 173's count — so a status firing on it fires for ever, which is `SNAG-LOG-002`'s binary confidence and a permanent warning nothing can clear. The gate reports the count it cannot judge on **every** run whatever its exit status: `ports_checked` literally, a field on every payload carrying whether the measure looked._
+_**The third verdict is decided, and it is not an exit status.**_ _Exit 0/1/2 keeps `check-migrations.sh`'s meaning, because each is a property of **this run** a sitting can act on. The comprehension blindness is a property of the **measure** and is permanent — re-measured at 3566 tests, **309** of the suite's **6275** asserts carry a comprehension across **53** files, unmoved from Session 173's count — so a status firing on it fires for ever, which is `SNAG-LOG-002`'s binary confidence and a permanent warning nothing can clear. The gate reports the count it cannot judge on **every** run whatever its exit status: `ports_checked` literally, a field on every payload carrying whether the measure looked._
 
 _**The gate is deliberately not built here, and the reason is structural rather than budgetary.**_ _A check names an open entry, so a sitting that both writes the check and wires the gate closes `SNAG-TEST-006` and retires the check with it — the check would be born refuted. The entry therefore stays **owed**: this sitting wrote the instrument and settled the design question, and declined nothing._
 

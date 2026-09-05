@@ -3,6 +3,92 @@
 **Last Updated**: 2026-09-05
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The gate the entry owed, and a declaration is what keeps it
+> readable** (2026-09-05, Session 177). `SNAG-TEST-006` is **closed**.
+> `scripts/check-vacuous-guards.sh` runs the suite under an ephemeral
+> `uv run --with coverage` overlay and `sysadmin/vacuous_guards.py` joins
+> that report to an AST walk of `tests/`, refusing an `assert` a green
+> suite never evaluated. Exit **0/1/2** for this run's clean / found /
+> could-not-measure, wired at `claude-postflight.sh` as section 3.8.
+>
+> **The module never imports coverage, and that is load-bearing rather
+> than tidy.** The tool is not a dependency here and stays out of
+> `.venv` — measured at **107** packages and a clean lock either side,
+> re-taken rather than borrowed, because the entry's figure of 122 was
+> against an environment that had drifted fifteen packages off the lock.
+> A judge that imported coverage would be untestable on every box in
+> this estate; instead the join is a `coverage json` report read with
+> `json`, so all **33** of its own tests run on synthetic trees.
+>
+> **The comprehension half is a standing declaration and not a fourth
+> status**, as Session 176 settled. Every report ends with **323 of 6334
+> asserts across 53 files** carrying a comprehension whose truth over an
+> empty iterable is `True` with the line executing — `ports_checked`
+> literally, a field on every payload carrying whether the measure
+> looked, driven at all three verdicts.
+>
+> **All six live findings were legitimately unevaluable, so the gate
+> ships with six declarations rather than red for ever.** Three branches
+> on an idle estate, one on a wiring check with no whole-file finding,
+> and two deadline guards a fast box satisfies before the loop turns
+> once — that pair cannot be restructured into evaluating at all. Each
+> carries a `# may-not-evaluate:` reason, `known_noise`'s rule 2: the
+> reason is required, the set is named on every run, and a declaration
+> whose assert *did* evaluate is reported too, because a stale exemption
+> stops describing anything and starts hiding the next finding.
+>
+> **The staleness rule was found by the fix on itself.** Writing those
+> declarations moved every assert below them without changing one
+> statement — the shape a digest of the executed set cannot see — and
+> the sweep named all three edited files against a report twenty minutes
+> old. The same edit settled the ordering: counted **after** the skips
+> the standing declaration fell **314 → 312** the moment those files
+> went `moved`, reading as a suite with fewer unjudgeable asserts rather
+> than as a sweep that stopped looking, so the blind count is taken
+> before all three.
+>
+> **Three of twenty-two falsifications passed against deliberately broken
+> code**, and the three are distinct shapes. The ordering specimen
+> nested *downwards*, so breadth-first came out `2, 4, 6` — already
+> sorted, asserting nothing; the live shape is a nested assert written
+> first and walked last, which produced `166, 167, 147`. The fail-open
+> test covered **one of two roads**: `str(None)` is `"None"`, truthy, so
+> an absent timestamp reached the *unparseable* branch and a mutation to
+> the absent branch passed cleanly. And one "mutation" was a **different
+> correct implementation** rather than a break.
+>
+> **The first live run read one declaration of six, and nothing here
+> could have caught it.** Five went in as multi-line comment blocks with
+> the marker at the *top*, and the reader looked one line above the
+> assert — so the gate refused five asserts whose author had just watched
+> themselves declare them, which is worse than having no declaration rule
+> at all. Every synthetic fixture used a **single-line** comment, the one
+> shape that cannot discriminate the rule. The reader takes the whole
+> contiguous comment block now and the reason continues onto its
+> following lines; the gate reports **6 of 6** and exits 0. That fix gave
+> the empty-reason rule a second return path and the existing test
+> covered one of them — the two-roads shape for the second time in one
+> sitting, after `str(None)`.
+>
+> **The check retired with the entry and its detector did not.**
+> `check_vacuous_guard_ungated` is refuted by exactly the hop it was
+> built to see and is gone with 226 lines of tests and five constants;
+> `TestTheGateIsOnTheClosePath` outlives it. The gate's **first** live
+> run returned **2, not 1**, on a tree being edited underneath it — the
+> red-suite rule working before anything depended on it. The residue is
+> `SNAG-TEST-009`, filed with **no check** for the opposite reason to
+> the two entries that carry none on cost: its instrument already runs
+> at every close, since the gate prints the count on every report.
+>
+> **`uv sync --all-extras` prunes an undeclared editable install, and a
+> cross-repo pin went red rather than quiet.** The documented sync
+> removed `_editable_impl_estate_service.pth`, which is in no lockfile;
+> `test_the_local_read_is_the_line_the_board_publishes` gates its skip
+> on the **tree** rather than the import for precisely this, so it
+> failed instead of passing on a box where the pin no longer existed.
+> Restored with `uv pip install --no-deps -e`; the other thirteen pruned
+> packages are imported by nothing here, checked rather than assumed.
+
 > **A gate-reading check answers what the gate would cost to run**
 > (2026-09-05, Session 176). `SNAG-TEST-006` gains its check — the
 > twenty-first, and the first move that entry named for itself. Driving
@@ -2570,8 +2656,24 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-05 13:51:45**
-> <!--check:deploy--> <!--check:daemon_start--> by Session 176, PID
+> Daemon restarted at **2026-09-05 16:24:42**
+> <!--check:deploy--> <!--check:daemon_start--> by Session 177, PID
+> 2077357 → 2085468, restart counter **14** — the **eighth**
+> consecutive sitting to pay for a restart that buys the box nothing,
+> and the second of the eight where the edit was **real**. This sitting
+> added `sysadmin/vacuous_guards.py` and cut 168 lines out of
+> `sysadmin/snag_claims.py`; both are console scripts `create_app()`
+> never imports, so the shape is `SNAG-SYSD-008`'s again and not the
+> mtime family's. Paid anyway, since the check's question is about the
+> box and only a restart answers it. `/health` 200, and the startup
+> sweep for abandoned runs is the one thing a restart here does buy.
+> **Twice**, and the second is the interesting one: the first restart at
+> 16:17:20 was overtaken by the fix for the declaration-block defect,
+> which the gate's own live run found *after* the box had been brought
+> level — so the check went red a second time on a real edit rather than
+> an mtime, which is the state it exists to report.
+>
+> Previously: restarted at 13:51:45 by Session 176, PID
 > 1478358 → 1898616, restart counter **12** — the **seventh**
 > consecutive sitting to pay for a restart that buys the box nothing,
 > and the first of the seven where the edit was **real**. The three

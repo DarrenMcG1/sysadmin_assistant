@@ -144,6 +144,9 @@ class TestTheArbiterSeamLive:
         assert "stopped_units" not in payload
         lease = payload.get("active_lease")
         if lease is not None:
+            # may-not-evaluate: only a granted lease has a key set to look in,
+            # and the queue is idle most of the day.  The assert above this
+            # branch is what makes the test say something either way.
             assert "stopped_units" not in lease, (
                 "the estate now publishes stopped_units on /invariants — "
                 "the second hop in read_arbitrated_stops is now redundant"
@@ -163,7 +166,10 @@ class TestTheArbiterSeamLive:
         lease = payload["active_lease"]
         if lease is None:
             return
+        # may-not-evaluate: reachable only while the queue holds a granted
+        # lease; the idle payload returns above.
         assert set(lease) == set(ACTIVE_LEASE_COLUMNS)
+        # may-not-evaluate: the same granted-lease branch as the line above.
         assert isinstance(lease["id"], int) and not isinstance(lease["id"], bool)
 
     def test_a_released_lease_is_readable_by_id(self):
