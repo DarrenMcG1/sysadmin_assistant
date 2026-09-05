@@ -76,6 +76,12 @@ only in the noisier one._
       `check-snag-claims.sh` cannot afford at both ends of a sitting; the
       per-file identity tests outlive the finding instead —
       `FROZEN_TABLES`' rule.
+- [x] **One conformance gap noticed and put in the Backlog, not filed.**
+      `GET :8500/api/health` answers **404** while this repository's own
+      `units/recommendations.py` emits that path into every snippet it
+      recommends. `SNAG-UNITS-003` already counted it on 2026-08-16 —
+      correct for 4 of 11, wrong for 7, `sysadmin-service` among them —
+      so what is owed is a decision, not a second entry.
 - [x] **One document defect fixed in passing.** `HANDOFF.md` carried two
       `## Next action` headings, Session 174 having prepended its block
       without demoting its predecessor's, so
@@ -8142,6 +8148,33 @@ estate:
 **Carried-forward follow-ups** — small items noted by the sessions that
 deferred them. Hoisted here 2026-08-05 when Sessions 10–23 were archived,
 so nothing was buried with them.
+
+Conformance (noticed 2026-09-05, Session 175):
+- [ ] **This service does not serve the health path it enforces on
+      everyone else.** `GET :8500/api/health` answers **404**; the
+      contract in `monitorable-project.md` §2.2 requires it, and
+      `units/recommendations.py` emits `url: http://localhost:<port>/api/health`
+      into every `services.yaml` snippet this repository recommends —
+      so the monitor tells other projects to serve a path it does not.
+      Measured while restarting for an unrelated reason: `/health`
+      answers 200, `/api/health` 404, and this repository's own
+      `services.yaml` row points at `/health`
+- [ ] **It is already counted and not separately filed.**
+      `SNAG-UNITS-003` measured every hand-written entry on 2026-08-16
+      and found `/api/health` correct for **4** of the 11 declaring a
+      port and a unit and wrong for **7**, naming `sysadmin-service`
+      itself among them. So this is a *decision* owed rather than a new
+      finding, and the decision has two shapes that are not the same
+      question: whether the snippet generator should probe rather than
+      guess (that entry's own candidate fix), and whether this service
+      should add `/api/health` beside `/health` so the party enforcing
+      the contract conforms to it
+- [ ] **Nothing here should be done unilaterally.** The path is the
+      estate's contract, so changing what this repository *emits* is a
+      recommendation to every other project; adding a second route here
+      is ours alone and is the cheaper half. Not started, and recorded
+      so the next sitting to notice the 404 finds the measurement rather
+      than repeating it
 
 Notifications (from SNAG-CFG-001, 2026-08-11):
 - [ ] **The daemon announces an outage's start and never its end.**
