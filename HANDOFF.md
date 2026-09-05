@@ -1,6 +1,34 @@
-# Handoff — 2026-09-05 (Session 174)
+# Handoff — 2026-09-05 (Session 175)
 
 ## Next action
+
+Close `SNAG-TEST-006`'s first move by writing the gate-reading check the entry names — does anything on the close path run the suite under coverage — and then decide whether the coverage gate behind it ships with the third verdict the entry says it owes, because a gate reporting "no vacuous guards" while structurally blind to `assert all(f(x) for x in live)` is `ports_checked`'s rule broken inside its own fix.
+
+_**`SNAG-TEST-008` is closed, and the choice the handoff framed as strong-versus-cheap turned out to have nothing to choose between.**_ _Both files stub `read_arbitrated_stops` at the **transport** and declare `_NO_ARBITRATION` as the reading their assertions hold under. Patching `_ensure_arbitration` out reaches the *same* reading through `or _NO_ARBITRATION` — the right answer spelled as an absence, which is `ports_checked`'s rule at the size of a stub — while stubbing the transport leaves the memo gate, the `estate_judge.base_url` leaf and `self._http.borrow()` real, so the only forged thing is the hop that would have left the box. **44 → 0** connections._
+
+_**"Which reading tests more" was refuted by driving it, and the refutation is the sitting's headline.**_ _Six cells — unread, idle and a lease naming every unit spelling in sight, each with and without `ServiceEntry.systemd_unit` forced non-`None` — leave **19 of 19** passing in all six. A witness over `_raise_judged` proves the granted cell was not inert: **21** judgements moved `critical` → `info` carrying `stopped_by_estate: True`, and no assertion moved. So the entry's stated reason for the immunity — a `kind: http` entry having no unit for a lease to name — is **wrong**, and the immunity is a property of what those files assert on rather than of their fixtures. With no reading discriminating, the choice is which reading is *true of the run being driven*, and `_NO_ARBITRATION`'s own docstring settles it: "nobody asked" must never be spent as "the estate holds nothing"._
+
+_**The constant is imported rather than rebuilt**, so neither file can declare a reading production would never start at — `max_priority_for` against `PRIORITY_MAP`'s rule — and two files building one forged reading would be one fact stated twice._
+
+_**Pinned by identity, and the falsification is what settled that.**_ _The production reader builds a fresh `ArbitratedStops` on every call, so `is _NO_ARBITRATION` fails on any box while comparing `reading` does not. Measured while removing each stub in turn: 8400 is up here and the real read answered **`idle`**, so a value comparison is red here and **green while dialling** where the estate is down. Three mutations driven — each stub removed in turn, and the production gate widened to `if True` so the never-asks half had something to be red about — each red on its intended test, and with either stub removed the other 19 assertions stay green, which is what makes the two new guards the only thing holding the fix._
+
+_**A second figure in the entry was wrong and the instrument was why.**_ _Its cost of **16** connections per suite run counted *distinct* addresses per nodeid; every connect is **44** across the eight tests, so the clock cost on a box that drops packets is 2.75x what was filed._
+
+_**The blind spot it was filed under now has an empty population, recorded rather than deleted.**_ _A test file whose connection is made *for* it by production code carries no token and no sweep over `tests/` can reach it — still true; what changed is that nothing holds the property. Connecting files **14 → 12**, and the four holding no spelling to the **2** that were always reconciled. The entry closes with **no check**: its honest instrument is the suite under a socket probe, which `check-snag-claims.sh` runs at both ends of a sitting and cannot afford, so the per-file identity tests outlive the finding — `FROZEN_TABLES`' rule._
+
+_**Nothing was re-owned.**_ _`tests/test_arbitrated_stops.py` already holds the readings, the rung, the once-per-run memo and the savepoint placement, so the two files assert only *which reading they are driven at*. The `/api/health` gap noticed while restarting was **already recorded** — `SNAG-UNITS-003` counted it a fortnight ago and names `sysadmin-service` itself among the seven — so nothing was filed twice._
+
+_**A restart was owed and paid, for the sixth sitting running and by a third route to one shape.**_ _This sitting edited nothing under `sysadmin/` — three test files, four roadmap documents — and `monitor/agent.py`'s mtime moved at 12:30:59 when the `if True` mutation was reverted by hand, bytes identical to `9558544`. Restoring the mtime would have been fabricating evidence, so the restart is the honest repair: PID 1097551 → 1478358, counter **10 → 11**, back in seconds. **The document's own convention caught a second statement of one figure** — writing the superseded restart as `restarted at **2026-09-04 22:49:11**` matched `daemon_start`'s pattern twice and the claim went `unknown`; history carries a bare wall clock for exactly that reason._
+
+_**One document defect fixed in passing.**_ _`HANDOFF.md` carried two `## Next action` headings, Session 174 having prepended its block without demoting its predecessor's, so `test_the_document_has_exactly_one_next_heading` was **red at preflight** — a second claimant on the line the estate board publishes verbatim. Nothing on the commit path runs that guard, which is `SNAG-TEST-005`._
+
+_**Suite 3550 → 3553**, the baseline reconciled against Session 174's own figure rather than re-measured; ruff and mypy clean. All ten ops claims green, two of them corrected here — the `alerts` count fell **4 → 3**, the VRAM row resolving for a fourth time and found by the **fall** note alone, `check_open_titles` reading `ok` because a named row that has since resolved is not an unnamed open row. A fifth row opened mid-sitting and was **not** written down: `Unusual CPU usage` at 12:44:47, CPU 28.5% against a 7-day mean of 5.3%, raised by this sitting's own two full-suite runs and resolved by `_check_anomalies` at 12:49:50 on the next poll — the block was held at 3 rather than corrected twice, because a figure about the instrument is not a figure about the box. Register **137 entries, 25 → 24 open**; open entries with no check **4 → 3**._
+
+---
+
+# Handoff — 2026-09-05 (Session 174)
+
+### The action Session 174 filed (done by Session 175)
 
 Close `SNAG-TEST-008` by deciding what `tests/test_alert_dedup.py` and `tests/test_service_write_isolation.py` should be driven at when `SysAdminAgent._execute` reads the estate's arbitration — a patched-out `_ensure_arbitration`, which is one line and asserts nothing, or a real `ArbitratedStops` handed in, which is the stronger fix and makes each file state which reading its nineteen assertions are true under — and then take whichever it is in both files rather than only in the noisier one.
 
@@ -28,7 +56,7 @@ _**No restart, and none owed.**_ _This sitting touched no file under `sysadmin/`
 
 # Handoff — 2026-09-05 (Session 173)
 
-## Next action
+### The action Session 173 filed (done by Session 174)
 
 Close `SNAG-TEST-007` by widening `tests/test_live_drive_premises.py`'s `_opens_a_live_connection` past the DSN literal it keys on today, so that a drive reaching the box over HTTP and a drive reaching PostgreSQL through a helper both hold the property, and then take the six per-file judgements that widening owes — a `@pytest.mark.premise` or a reasoned name in `PRE_CONVENTION` for each of `test_estate_surface_payloads.py`, `test_estate_project_contracts.py`, `test_alert_dedup.py`, `test_service_write_isolation.py`, `test_ops_claims.py` and `test_abandoned_runs.py`.
 

@@ -8,6 +8,83 @@
 
 ---
 
+## Session 175: which reading the hermetic tests are driven at ✅ (2026-09-05)
+
+_Session 174's handoff asked for `SNAG-TEST-008` to be closed by deciding
+what `tests/test_alert_dedup.py` and `tests/test_service_write_isolation.py`
+should be driven at when `SysAdminAgent._execute` reads the estate's
+arbitration, and for whichever it is to be taken in both files rather than
+only in the noisier one._
+
+- [x] **Stubbed at the transport, not at the method, and the distinction
+      is `ports_checked`'s rule at the size of a stub.** Patching
+      `_ensure_arbitration` out leaves `_arbitration` at `None` and
+      reaches the same reading through the `or _NO_ARBITRATION` fallback
+      — the right answer spelled as an *absence*, where `None` and
+      `unread` are both empty and only one of them says which. Stubbing
+      `read_arbitrated_stops` leaves the memo gate, the
+      `estate_judge.base_url` leaf and `self._http.borrow()` real, so the
+      only forged thing is the hop that would have left the box.
+- [x] **The reading is `unread`, and "which reading tests more" turned
+      out to have nothing to choose between.** Driven six ways — unread,
+      idle and a lease naming every unit spelling in sight, each with and
+      without `ServiceEntry.systemd_unit` forced non-`None` — **19 of 19
+      pass in all six**. A witness over `_raise_judged` proves the
+      granted cell was not inert: **21** judgements moved `critical` →
+      `info` carrying `stopped_by_estate: True`. So the choice is which
+      reading is *true of the run being driven*, and nothing here asks an
+      estate.
+- [x] **The constant is imported rather than rebuilt.** `_NO_ARBITRATION`
+      is production's own default, so neither file can declare a reading
+      production would never start at — `max_priority_for` against
+      `PRIORITY_MAP`'s rule — and two files building one forged reading
+      would be one fact stated twice.
+- [x] **Stated as an assertion, not as a comment**, and the witness is
+      **identity**. The real read builds a fresh `ArbitratedStops` on
+      every call, so `is _NO_ARBITRATION` fails on any box; comparing
+      `reading` would not. Measured at the falsification: 8400 is up
+      here and the unstubbed read answered `idle`, so a value comparison
+      goes red here and **green while dialling** on a box where the
+      estate is down.
+- [x] **Taken in both files.** `test_alert_dedup.py` gains the reasoning
+      and two premise tests — the second asserting a run with nothing
+      down never asks at all, which is the `None`-versus-`unread`
+      distinction the constant exists to keep — and
+      `test_service_write_isolation.py` gains the same stub and one
+      premise test, its docstring naming the other file rather than
+      restating it.
+- [x] **Nothing was re-owned.** `tests/test_arbitrated_stops.py` already
+      holds the readings, the rung, the once-per-run memo and the
+      savepoint placement, so the two files assert only *which reading
+      they are driven at*.
+- [x] **Three mutations driven, each red on its intended test** — the
+      stub removed from each file in turn, and the production gate
+      widened to `if True` so the never-asks half had something to be
+      red about. With either stub removed the other 19 assertions stay
+      green, which re-confirms that the new guards are the only thing
+      pinning the fix.
+- [x] **44 → 0 connections**, and two figures in the entry corrected: the
+      cost was **44** across 8 tests rather than 16 (the original
+      instrument counted distinct addresses per nodeid), and the stated
+      reason for the immunity — no `systemd_unit` on a `kind: http`
+      entry — is refuted by the forced-unit drive. The blind spot
+      `tests/test_live_drive_premises.py` records now has an **empty
+      population**: 14 connecting files → 12, and the 4 holding no
+      spelling → the 2 that were always reconciled.
+- [x] **`SNAG-TEST-008` closed with no check and a re-homed guard.** Its
+      honest instrument is the suite under a socket probe, which
+      `check-snag-claims.sh` cannot afford at both ends of a sitting; the
+      per-file identity tests outlive the finding instead —
+      `FROZEN_TABLES`' rule.
+- [x] **One document defect fixed in passing.** `HANDOFF.md` carried two
+      `## Next action` headings, Session 174 having prepended its block
+      without demoting its predecessor's, so
+      `test_the_document_has_exactly_one_next_heading` was red at
+      preflight — a second claimant on the line the estate board
+      publishes verbatim.
+
+---
+
 ## Session 174: the premise convention's population ✅ (2026-09-05)
 
 _Session 173's handoff asked for `SNAG-TEST-007` to be closed by widening

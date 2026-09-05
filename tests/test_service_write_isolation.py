@@ -22,6 +22,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from sysadmin.estate import client as estate_client
+from sysadmin.monitor.agent import _NO_ARBITRATION
 from sysadmin.monitor.services import ServiceEntry
 
 
@@ -112,7 +114,24 @@ def agent():
 
 
 def _drive(agent, services, statuses, mock_config):
-    """Patch everything ``_execute`` needs that is not the service loop."""
+    """Patch everything ``_execute`` needs that is not the service loop.
+
+    **The estate is asked and answers :data:`_NO_ARBITRATION`, which is
+    the reading every assertion below holds under** (``SNAG-TEST-008``).
+    ``_execute`` consults the arbiter for any service it measures
+    ``critical`` or ``unreachable`` — one test here drives that status —
+    so leaving the read real made this file dial ``:8400`` from a suite
+    that otherwise touches no network at all.
+
+    The reasoning for the shape and for the reading is
+    ``tests/test_alert_dedup.py::_run``'s and is not restated: stubbed at
+    the transport rather than at the method so the memo gate and
+    ``self._http.borrow()`` stay real, and ``unread`` because nothing
+    here asks an estate. It is taken in **both** files rather than only
+    in the noisier one — the same read, reached by the same line of
+    ``_execute``, cannot be declared one way in seven tests and left
+    unstated in the eighth.
+    """
     registry = MagicMock()
     registry.services = services
 
@@ -145,6 +164,10 @@ def _drive(agent, services, statuses, mock_config):
         patch.object(agent, "_resolve_recovered",
                      new_callable=AsyncMock, return_value=0),
         patch.object(agent, "raise_alert", new_callable=AsyncMock),
+        patch.object(
+            estate_client, "read_arbitrated_stops",
+            new_callable=AsyncMock, return_value=_NO_ARBITRATION,
+        ),
     )
 
 
@@ -157,6 +180,30 @@ def _enter(stack: ExitStack, patches: tuple) -> None:
     """
     for p in patches:
         stack.enter_context(p)
+
+
+class TestTheReadingTheseAssertionsHoldUnder:
+    """``SNAG-TEST-008`` — stated as an assertion, not as a comment.
+
+    Identity rather than the reading string, for
+    ``tests/test_alert_dedup.py``'s reason: an unstubbed read builds a
+    fresh ``ArbitratedStops`` whatever ``:8400`` does, so this fails on
+    any box, where comparing ``reading`` would pass on one where the
+    estate merely refuses the connection.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_run_that_asks_gets_the_declared_reading(
+        self, agent, mock_config
+    ):
+        services = [_svc("alpha")]
+        session = FakeSession()
+
+        with ExitStack() as stack:
+            _enter(stack, _drive(agent, services, {"alpha": "critical"}, mock_config))
+            await agent._execute(session)
+
+        assert agent._arbitration is _NO_ARBITRATION
 
 
 class TestOneBadRowDoesNotCostTheOthers:

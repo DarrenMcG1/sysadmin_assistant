@@ -38,7 +38,12 @@ from sqlalchemy import Update
 from sqlalchemy.dialects import postgresql
 
 from sysadmin.core.models.alert import Alert
-from sysadmin.monitor.agent import RESOLVABLE_TITLE_PATTERNS, SysAdminAgent
+from sysadmin.estate import client as estate_client
+from sysadmin.monitor.agent import (
+    _NO_ARBITRATION,
+    RESOLVABLE_TITLE_PATTERNS,
+    SysAdminAgent,
+)
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.services import ServiceEntry
 
@@ -223,7 +228,47 @@ def _snapshot(disk_percent: float) -> ResourceSnapshot:
 
 async def _run(agent, session, mock_config, *, status: str, disk_percent: float):
     """One whole ``_execute``, with the service loop, the thresholds and
-    the resolve left real and everything else stubbed."""
+    the resolve left real and everything else stubbed.
+
+    **The estate is asked and answers :data:`_NO_ARBITRATION`, which is
+    the reading every assertion below holds under** (``SNAG-TEST-008``).
+    ``_execute`` consults the arbiter for any service it measures
+    ``critical`` or ``unreachable``, so leaving that read real made seven
+    tests in this file dial ``:8400`` through the borrowed client —
+    measured at **44 connections across 8 tests**, not the 16 the entry
+    reported, which counted distinct addresses per nodeid rather than
+    every connect.
+
+    **Stubbed at the transport, never at the method.** Patching
+    ``_ensure_arbitration`` out leaves ``_arbitration`` at ``None`` and
+    reaches the same reading through the ``or _NO_ARBITRATION`` fallback
+    — the right answer spelled as an *absence*, which is
+    ``ports_checked``'s rule at the size of a stub: ``None`` and
+    ``unread`` are both empty and only one of them says which. Stubbing
+    :func:`~sysadmin.estate.client.read_arbitrated_stops` instead leaves
+    the memo gate, the ``estate_judge.base_url`` leaf and
+    ``self._http.borrow()`` real, so the only forged thing is the hop
+    that would have left the box.
+
+    **``unread`` rather than ``idle`` or a lease, and the choice is not
+    about strength.** Driven three ways with the producer's own
+    ``ArbitratedStops`` — unread, a lease holding nothing, and a lease
+    naming every unit spelling in sight, with
+    ``ServiceEntry.systemd_unit`` forced non-``None`` so the rung is
+    genuinely reached — **19 of 19 pass in all six cells**, and a witness
+    over ``_raise_judged`` confirms the granted cell moved **21**
+    judgements from ``critical`` to ``info`` carrying
+    ``stopped_by_estate: True``. So no reading discriminates, even one
+    that changes production behaviour twenty-one times, and the
+    "strongest reading" framing has nothing to choose between. What is
+    left is which reading is *true of the run being driven*: nothing here
+    asks an estate, and :data:`_NO_ARBITRATION`'s own docstring says
+    "nobody asked" must never be spent as "the estate holds nothing".
+
+    The constant is imported rather than rebuilt, so this file cannot
+    declare a reading production would never start at —
+    ``max_priority_for`` against ``PRIORITY_MAP``'s rule.
+    """
     registry = MagicMock()
     registry.services = [
         ServiceEntry(name=TIMER, kind="http", url="http://localhost/health")
@@ -256,6 +301,10 @@ async def _run(agent, session, mock_config, *, status: str, disk_percent: float)
                          return_value=0),
             patch.object(agent, "_check_collation", new_callable=AsyncMock,
                          return_value=0),
+            patch.object(
+                estate_client, "read_arbitrated_stops",
+                new_callable=AsyncMock, return_value=_NO_ARBITRATION,
+            ),
         ):
             stack.enter_context(p)
         return await agent._execute(session)
@@ -279,6 +328,51 @@ def alerts():
 @pytest.fixture
 def session(alerts):
     return FakeSession(alerts)
+
+
+# ---------------------------------------------------------------------------
+# The premise
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+class TestTheReadingTheseAssertionsHoldUnder:
+    """``SNAG-TEST-008`` — stated as an assertion, not as a comment.
+
+    ``_run``'s docstring says which reading the file is driven at; this
+    is what makes the sentence checkable. The witness is **identity**,
+    not the reading string: an unstubbed
+    :func:`~sysadmin.estate.client.read_arbitrated_stops` builds a fresh
+    ``ArbitratedStops`` on every call, so ``is _NO_ARBITRATION`` fails
+    whether ``:8400`` is up, down or dropping packets — where
+    ``reading == ARBITRATION_UNREAD`` would pass on a box where the
+    estate merely refuses the connection, going green while dialling.
+    A witness has to be one the code under test cannot produce.
+    """
+
+    async def test_a_run_that_asks_gets_the_declared_reading(
+        self, agent, session, mock_config
+    ):
+        await _run(agent, session, mock_config, status="critical", disk_percent=95)
+
+        assert agent._arbitration is _NO_ARBITRATION
+
+    async def test_a_run_with_nothing_down_never_asks_at_all(
+        self, agent, session, mock_config
+    ):
+        """``None`` is not this file's declared reading, it is the state
+        before anything has one.
+
+        The consultation is gated on a service measuring ``critical`` or
+        ``unreachable``, so a healthy run leaves the memo untouched and
+        the rung falls through ``or _NO_ARBITRATION`` at the raise. Both
+        roads reach ``unread`` and only one of them asked — the
+        distinction the constant exists to keep, and the reason the
+        assertion above is worth making at all.
+        """
+        await _run(agent, session, mock_config, status="ok", disk_percent=10)
+
+        assert agent._arbitration is None
 
 
 # ---------------------------------------------------------------------------

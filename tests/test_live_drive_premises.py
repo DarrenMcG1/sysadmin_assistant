@@ -142,44 +142,55 @@ database at all; they are in scope by the glob, which is the half of the
 population the naming convention is genuinely good at.
 
 **What no sweep over ``tests/`` can reach is stated with its population
-rather than left to be found again.**  A file whose connection is made
-*for* it, by production code it drives, carries no token at all —
-deciding which drive reaches a connection is a call graph over
-``sysadmin/``, which is Session 131's stated reason for refusing a
-sweep.  Measured 2026-09-05, the socket probe reports **14** connecting
-files and **4** of them hold none of the three spellings.  Two of the
-four cost nothing and are named so the count reconciles:
+rather than left to be found again, and that population is empty
+today.**  A file whose connection is made *for* it, by production code
+it drives, carries no token at all — deciding which drive reaches a
+connection is a call graph over ``sysadmin/``, which is Session 131's
+stated reason for refusing a sweep.  The blind spot is a property of the
+detector and has not moved; what emptied it is `SNAG-TEST-008` being
+closed, and the two figures are kept either side so the count
+reconciles.
+
+Measured 2026-09-05 with a socket probe over the whole suite, **before**
+the close: **14** connecting files, **4** holding none of the three
+spellings.  Re-measured **after**: **12** and **2**, and the two that
+remain are the pair that always cost nothing —
 ``test_async_http.py`` dials a ``ThreadingHTTPServer`` it started itself
 on an ephemeral port, which is not this box and correctly not the
 property; ``test_gpu_lease_live.py`` builds its client from config and is
-in scope by the glob, marked.
+in scope by the glob, marked.  Neither of the two that left was ever a
+:data:`PRE_CONVENTION` name — that set is for files that **hold** the
+property, and its tripwire asserts exactly that, so listing them would
+have traded a red test for a false statement about the population.
 
-The other two are the residue, both reaching 8400 through
+The pair was ``test_alert_dedup.py`` and
+``test_service_write_isolation.py``, both reaching 8400 through
 ``SysAdminAgent._ensure_arbitration`` — an unstubbed fail-open read
-inside the very method under test:
+inside the very method under test.  Each stubs
+:func:`~sysadmin.estate.client.read_arbitrated_stops` at the transport
+now and declares :data:`~sysadmin.monitor.agent._NO_ARBITRATION` as the
+reading its assertions hold under, with a test in each file pinning that
+by **identity** so removing the stub is red on any box.  The reasoning
+lives in ``tests/test_alert_dedup.py::_run``; two things it settled
+belong here, because both are corrections to what this docstring said
+when it filed the entry:
 
-* ``test_alert_dedup.py`` (7 tests) and ``test_service_write_isolation.py``
-  (1 test).  Neither owes a premise and neither is a
-  :data:`PRE_CONVENTION` name — that set is for files that **hold** the
-  property, and its tripwire asserts exactly that, so listing these
-  would trade a red test for a false statement about the population.
-
-They owe nothing because the answer cannot reach an assertion, and that
-was driven rather than read.  Both files build ``ServiceEntry(kind="http")``,
-whose ``systemd_unit`` is ``None``, and ``ArbitratedStops.stopped(None)``
-is ``False`` by construction; the reading reaches only
-``details['arbitration']``, which neither file asserts on.  Forging the
-producer's own ``ArbitratedStops`` three ways — unread, a lease holding
-nothing, and a lease naming every unit spelling in sight — leaves
-**19 of 19 passing in all three**.  The first stand-in for that drive
-had no ``reading`` attribute and turned all 19 red, which is a stand-in
-that cannot answer wearing the clothes of a result.
-
-The residue is `SNAG-TEST-008`: a real network call from a unit test is
-still a real network call, and 8400 dropping packets rather than
-refusing them turns a 0.35 s pair of files into up to 160 s of
-ten-second timeouts.  That is a fault in those two files, not in this
-convention, and it is filed rather than absorbed.
+* **The cost was 2.75x what was reported.**  ``16 per suite run`` counted
+  *distinct* addresses per nodeid rather than every connect.  The 8 tests
+  make **44** connections — 22 HTTP calls, two of the ten-second timeouts
+  each on a box that drops packets rather than refusing them.
+* **"The answer cannot reach an assertion" was true and its stated reason
+  was not.**  This said the reading reaches only ``details['arbitration']``
+  *because* ``ServiceEntry(kind="http")`` has no ``systemd_unit``.  Driven
+  with ``systemd_unit`` forced non-``None`` under a lease naming every
+  spelling in sight, the rung **is** reached — a witness over
+  ``_raise_judged`` counts **21** judgements moved ``critical`` →
+  ``info`` carrying ``stopped_by_estate: True`` — and all 19 assertions
+  still pass.  So the immunity is a property of what those files assert
+  on, not of their fixtures, and no reading discriminates.  The first
+  stand-in for that drive had no ``reading`` attribute and turned all 19
+  red, which is a stand-in that cannot answer wearing the clothes of a
+  result.
 """
 
 from __future__ import annotations

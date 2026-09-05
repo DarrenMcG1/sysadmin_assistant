@@ -3,6 +3,64 @@
 **Last Updated**: 2026-09-05
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A stub is a stated premise, and these two were stating it by leaving
+> a hole** (2026-09-05, Session 175). `SNAG-TEST-008` is **closed**.
+> `tests/test_alert_dedup.py` and `tests/test_service_write_isolation.py`
+> drive `SysAdminAgent._execute` with the session, the service list and
+> five checks stubbed, and left the estate read real — so eight
+> otherwise-hermetic tests dialled 8400 from inside the method under
+> test. Each stubs `read_arbitrated_stops` at the **transport** now and
+> declares `_NO_ARBITRATION` as the reading its assertions hold under.
+> Forty-four connections to none.
+>
+> **Patching the method out was the cheaper shape and reaches the right
+> answer for the wrong reason.** It leaves `_arbitration` at `None`, and
+> the raise falls through `or _NO_ARBITRATION` to the same reading —
+> spelled as an *absence*, where `None` and `unread` are both empty and
+> only one of them says which. That is `ports_checked`'s rule at the size
+> of a stub, and it is the constant's own argument: "nobody asked" must
+> never be spent as "the estate holds nothing". Stubbing the transport
+> instead leaves the memo gate, the config leaf and the borrowed client
+> real, so the only forged thing is the hop that would have left the box.
+>
+> **"Which reading tests more" had nothing to choose between, and only
+> driving it said so.** Six cells — unread, idle and a lease naming every
+> unit spelling in sight, each with and without the fixtures'
+> `systemd_unit` forced non-`None` — leave nineteen of nineteen passing
+> in all six. A witness over `_raise_judged` proves the granted cell was
+> not inert: twenty-one judgements moved from `critical` to `info`
+> carrying `stopped_by_estate: True`, and no assertion moved. So the
+> entry's stated reason for the immunity — a `kind: http` entry having no
+> unit for a lease to name — is refuted, and the immunity is a property
+> of what those files assert on rather than of their fixtures.
+>
+> **Two of the entry's own figures were wrong and the instrument was
+> why.** Its cost of sixteen connections per suite run counted *distinct*
+> addresses per nodeid; every connect is forty-four across the eight
+> tests, so the clock cost on a box that drops packets rather than
+> refusing them is 2.75x what was filed.
+>
+> **Pinned by identity, not by the reading string**, and the
+> falsification is what settled that. The production reader builds a
+> fresh `ArbitratedStops` on every call, so `is _NO_ARBITRATION` fails on
+> any box; comparing `reading` does not. Measured while removing each
+> stub in turn: 8400 is up here and the real read answered `idle`, so a
+> value comparison is red here and **green while dialling** on a box
+> where the estate is down. With either stub removed the other nineteen
+> assertions stay green, which is what makes the two new guards the only
+> thing holding the fix.
+>
+> **The blind spot it was filed under now has an empty population, and
+> that is recorded rather than deleted.** A test file whose connection is
+> made *for* it by production code carries no token, and no sweep over
+> `tests/` can reach it — that is still true. What changed is that
+> nothing holds the property: connecting files fell from fourteen to
+> twelve, and the four holding no spelling to the two that were always
+> reconciled. The entry closes with **no check**: its honest instrument
+> is the whole suite under a socket probe, which runs at both ends of
+> every sitting and cannot afford one, so the per-file identity tests
+> outlive the finding instead.
+
 > **A convention's population decides what it can ask for, and this one
 > was asking a DSN** (2026-09-05, Session 174). `SNAG-TEST-007` is
 > closed. The premise rule refuses a live drive carrying no
@@ -2450,9 +2508,23 @@
 > outliving its entry is the other half of that pin, and this one had
 > stopped discriminating anyway.
 >
-> Daemon restarted at **2026-09-04 22:49:11**
-> <!--check:deploy--> <!--check:daemon_start--> by Session 172, PID
-> 1055352 → 1097551, restart counter **10** — the **fifth** consecutive
+> Daemon restarted at **2026-09-05 12:39:44**
+> <!--check:deploy--> <!--check:daemon_start--> by Session 175, PID
+> 1097551 → 1478358, restart counter **11** — the **sixth** consecutive
+> sitting to pay for a restart that buys the box nothing, and the third
+> route to one shape. Session 175 edited nothing under `sysadmin/` at
+> all: three test files and four roadmap documents. What raised the
+> check was `monitor/agent.py`, whose bytes are identical to `9558544`
+> and whose mtime moved at 12:30:59 when a falsification drive widened
+> the arbitration gate to `if True` and put it back. So the recorded
+> `git stash pop` shape has now been reached by a `.bak` restore
+> (Session 172) and by a hand-reverted mutation, and neither is a
+> content change — the honest repair is the restart rather than a
+> fabricated mtime, because the check's question is about the box and
+> only a restart answers it.
+>
+> Previously: restarted at 22:49:11 by Session 172, PID
+> 1055352 → 1097551, restart counter **10** — the fifth consecutive
 > sitting to pay for a restart that buys the box nothing, and the first
 > able to name a second cause for it. Session 172 changed two docstrings
 > under `sysadmin/` and nothing else, so the deploy the restart delivers
@@ -2688,18 +2760,21 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
 > rows <!--check:alerts-->, `High disk usage on /`,
-> `Project ImbaBots next action idle`,
-> `Estate port 3110 registry breach` and
-> `High VRAM usage on AMD Radeon RX 7900 XTX`, **4**
+> `Project ImbaBots next action idle` and
+> `Estate port 3110 registry breach`, **3**
 > named here <!--check:open_titles-->. *(**3 → 4** again between Session
 > 173's close and Session 174's preflight, which is the third crossing
 > of that threshold in three sittings and the second time the VRAM row
 > has been the one moving. Both halves of the pair fired this time — the
 > count rose *and* the marked sentence failed to name the new row — which
 > is the direction the finer half exists for and the direction the fall
-> note is silent in.)* *(**3 → 4 → 3** inside Session
+> note is silent in. It fell back to **3** before Session 175's
+> preflight, the VRAM row resolving a fourth time, and this crossing was
+> found by the fall note alone — `check_open_titles` read `ok` reading
+> *3 named, 3 open*, because a title the sentence names that has since
+> resolved is not an unnamed open row.)* *(**3 → 4 → 3** inside Session
 > 172's own sitting, which is the pair doing exactly what it was built
 > for. The VRAM row rose at 22:33:34 and was named; it resolved at
 > 22:50:17 and the count was corrected again — and the second correction
