@@ -422,6 +422,86 @@ class TestTheNextActionIsJudged:
         assert "declare decided or delegated" in findings[0].note
         assert any("SNAG-X-1: open — decided" in item for item in findings[0].detail)
 
+    def test_the_refusal_carries_its_remedy(self, tmp_path):
+        """``SNAG-TEST-011``'s cheap remedy, on the surface a blocked
+        sitting is holding.
+
+        A remedy written only into a docstring is ``SNAG-DB-005`` rule 6:
+        ``_REMEDY`` held that outage's fix all along and wrote it only to
+        the journal, and the 23 hours were spent by a reader holding a
+        toast that did not carry it.  So what is asserted is that the
+        **refusal** carries it, never that the module defines it.
+        """
+        entries = [_open("SNAG-X-1", _status("Open — decided, refused 2026-08-30"))]
+        findings = check_next_action(
+            entries, "", _handoff(tmp_path, "Close `SNAG-X-1` by doing the thing.")
+        )
+        assert snag_claims.REFUSAL_REMEDY in findings[0].note
+
+    def test_only_a_refusal_carries_it(self, tmp_path):
+        """The other half, or the assertion above is satisfied by a
+        module that appends the remedy to every note it writes.
+
+        A line pointing at work is what a next action is for, and telling
+        its author how to move a disposition they have not moved is
+        ``known_noise`` rule 2's objection to a warning that fires
+        whatever happened.
+        """
+        entries = [_open("SNAG-X-1", _status("Open — owed, the check is unwritten"))]
+        findings = check_next_action(
+            entries, "", _handoff(tmp_path, "Close `SNAG-X-1` by doing the thing.")
+        )
+        assert findings[0].verdict == "match"
+        assert snag_claims.REFUSAL_REMEDY not in findings[0].note
+
+    def test_the_word_the_remedy_names_is_one_the_register_accepts(self):
+        """The pin.  :data:`WORK_QUEUE_DISPOSITION` cannot be derived —
+        the complement of ``REFUSED_DISPOSITIONS`` holds ``owed`` *and*
+        ``blocked`` and only the first is the queue — so it is a literal,
+        and what a literal owes is a red test on a vocabulary rename
+        rather than a remedy naming a word the register would not accept.
+        """
+        assert snag_claims.WORK_QUEUE_DISPOSITION in snag_claims.DISPOSITIONS
+        assert snag_claims.WORK_QUEUE_DISPOSITION not in snag_claims.REFUSED_DISPOSITIONS
+
+    def test_the_remedy_interpolates_that_word_rather_than_repeating_it(self):
+        """Provenance, which the value cannot answer.
+
+        ``WORK_QUEUE_DISPOSITION in REFUSAL_REMEDY`` is true by
+        construction today and stays true of a rewrite that types the
+        word into the sentence — at which point the pin above guards a
+        constant nothing reads.  Only the source separates the two, so
+        the assignment is walked for a reference to the name.
+        """
+        tree = ast.parse(Path(snag_claims.__file__).read_text(encoding="utf-8"))
+        assignments = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "REFUSAL_REMEDY"
+                for target in node.targets
+            )
+        ]
+        assert len(assignments) == 1, "REFUSAL_REMEDY is not assigned exactly once at module scope"
+        names = {node.id for node in ast.walk(assignments[0].value) if isinstance(node, ast.Name)}
+        assert "WORK_QUEUE_DISPOSITION" in names
+
+    def test_the_blocking_consumer_reads_the_remedy_rather_than_retyping_it(self):
+        """One statement, two printers.
+
+        ``tests/test_handoff_shape.py`` is this guard's second consumer
+        and prints the same sentence at a blocked commit.  Asserting it
+        *names* the constant is provenance, which a value comparison
+        cannot answer — a retyped copy would satisfy one and is the drift
+        this repository has recorded at six scales.
+        """
+        source = (Path(__file__).resolve().parent / "test_handoff_shape.py").read_text(
+            encoding="utf-8"
+        )
+        assert "REFUSAL_REMEDY" in source
+        assert snag_claims.REFUSAL_REMEDY not in source
+
     def test_a_line_naming_a_delegated_entry_is_refused(self, tmp_path):
         entries = [_open("SNAG-X-1", _status("Open — delegated to estate-manager"))]
         findings = check_next_action(

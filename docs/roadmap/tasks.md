@@ -8,6 +8,50 @@
 
 ---
 
+## Session 186: the cheap remedy, and the trigger that was measured ✅ (2026-09-06)
+
+_Session 185 filed `SNAG-TEST-011` and deliberately left the choice
+between its two remedies unmade, handing forward a rule: **take the
+cheap one unless a real member of the ranking, reasoning or closing
+classes has appeared.** It is a measurement, so it was measured._
+
+- [x] **No member had appeared, and each limb was measured rather than
+      argued.** All **29** register checks report `still holds`, so no
+      `decided` entry is closable and the closing class has no live
+      member; `Snag list movement` reads `unmoved since 42d11fa`; and
+      the line that put the question named an `owed` entry. The cheap
+      remedy is taken.
+- [x] **The ordering is documented in the refusal, not in a
+      docstring** — `SNAG-DB-005` rule 6, where `_REMEDY` held that
+      outage's remedy all along and wrote it only to the journal, the
+      surface nobody opens unprompted. `REFUSAL_REMEDY` is appended to
+      `check_next_action`'s refusal note; the blocking test in
+      `tests/test_handoff_shape.py` reads *that name* rather than
+      retyping the sentence. One statement, two printers.
+- [x] **`WORK_QUEUE_DISPOSITION` is a literal because it cannot be
+      derived**: the complement of `REFUSED_DISPOSITIONS` holds `owed`
+      **and** `blocked` and only the first is the queue. Pinned to the
+      vocabulary instead, so a rename is a red test rather than a
+      remedy naming a word the register would not accept.
+- [x] **The limit ships beside the remedy.** The refusal names the
+      three classes it cannot reach and names the entry they belong to,
+      so a sitting in one of them is told why the workaround would be a
+      false assertion instead of discovering it.
+- [x] **The escape hatch was checked, not assumed.** Switching to the
+      expensive remedy later is work on the entry's **defect**, so that
+      sitting's own `decided` → `owed` edit is truthful and the
+      documented ordering carries it.
+- [x] **Five mutations driven, none passing against broken code**, and
+      all 29 checker verdicts byte-identical either side of the commit.
+      Tests **469 → 474**, which is the arithmetic rather than a count
+      taken afterwards.
+- [x] **`SNAG-TEST-011` moves `owed` → `decided` and stays open.** The
+      defect is untouched — the guard still cannot tell a correction
+      from the remedy it refuses — so `check_disposition_correction_`
+      `unpublishable` still reports `still holds`.
+
+---
+
 ## Session 185: the guard's blind spot, filed and checked ✅ (2026-09-06)
 
 _Session 184's handoff asked whether the guard refusing a published next

@@ -3,6 +3,53 @@
 **Last Updated**: 2026-09-06
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The cheap remedy, and the trigger the predecessor set was measured
+> rather than argued** (2026-09-06, Session 186). `SNAG-TEST-011`
+> recorded two candidates and left the choice unmade under a rule: take
+> the cheap one — document the ordering, so the register edit moving an
+> entry to `owed` ships in the commit that publishes the line — unless a
+> real member of the ranking, reasoning or closing classes has appeared.
+> **None had.** All **29** register checks report `still holds`, so no
+> `decided` entry is closable and the closing class has no live member;
+> `Snag list movement` reads `unmoved since 42d11fa`; and the line that
+> put the question named an `owed` entry. A permanent fifth vocabulary
+> term bought against zero live members is `NOISE_MIN_OCCURRENCES`'
+> invented constant with a vocabulary's blast radius.
+>
+> **The ordering is documented in the refusal and not in a docstring**,
+> which is `SNAG-DB-005` rule 6 measured rather than borrowed: `_REMEDY`
+> held that outage's remedy all along and wrote it **only to the
+> journal**, the surface nobody opens unprompted, and the 23 hours were
+> spent by a reader holding a toast that did not carry it. The surface a
+> sitting is holding here is the refusal itself, so `REFUSAL_REMEDY` is
+> appended to `check_next_action`'s refusal note and the blocking test
+> reads *that name* rather than retyping the sentence — one statement,
+> two printers, pinned by a test asserting the consumer names the
+> constant and does not contain its value.
+>
+> **The limit ships beside the remedy**, because the ordering is
+> truthful only where a check is genuinely owed on the *defect*. The
+> refusal names the three classes it cannot reach and names the entry
+> they belong to. **The escape hatch was checked rather than assumed**:
+> switching to the expensive remedy later is work on that entry's
+> defect, so the sitting doing it makes a truthful `decided` → `owed`
+> edit and the documented ordering carries it.
+>
+> `SNAG-TEST-011` moves `owed` → `decided` and **stays open** — the
+> guard still cannot tell a correction from the remedy it refuses, so
+> its check still reports `still holds` and all 29 verdicts are
+> byte-identical either side of the commit. Five mutations driven, none
+> passing against broken code; tests **469 → 474**. Open entries
+> **25 → 25**, `CHECKS` **25 → 25**, entries carrying no check
+> **0 → 0**. The register is left declaring **no `owed` entry**, which
+> is its resting state and not a milestone — `owed` reads 0 on 33 of the
+> 41 commits touching the file since the population was created, so the
+> first draft of the next action calling it a first was refuted by the
+> file it was about. **The deploy check reports a restart owed and none was taken**:
+> the only module edited is `sysadmin/snag_claims.py`, a console script
+> nothing under `create_app()` imports, which is the false positive
+> `ops_claims` rule 4 prices in writing.
+
 > **The guard is right and has a blind spot, and the corpus that looked
 > like evidence answered a confident zero** (2026-09-06, Session 185).
 > `check_next_action` refuses a published next action naming a `decided`

@@ -9758,6 +9758,48 @@ MAX_LINE_CHARS = 160
 #: right to.
 REFUSED_DISPOSITIONS: tuple[str, ...] = ("decided", "delegated")
 
+#: The one disposition that says *a sitting is owed work here now*, and
+#: so the word a sitting taking up a refused entry moves it to.  A
+#: literal rather than a derivation because it **cannot** be derived: the
+#: complement of :data:`REFUSED_DISPOSITIONS` holds ``owed`` and
+#: ``blocked``, and only the first is the queue — ``blocked`` is work
+#: intended and waiting on a precondition, which a sitting that has
+#: started is not declaring.  Pinned to the vocabulary by
+#: ``tests/test_snag_claims.py`` rather than left to agree with it by
+#: eye: "import where you can, pin where you cannot", and a vocabulary
+#: rename is then a red test rather than a remedy naming a word the
+#: register would not accept.
+WORK_QUEUE_DISPOSITION = "owed"
+
+#: What a refused sitting is told to do about it — ``SNAG-TEST-011``'s
+#: cheap remedy, taken by Session 186 and stated **once**.
+#:
+#: **It is carried in the refusal and not only in a docstring**, which is
+#: ``SNAG-DB-005`` rule 6 measured rather than borrowed: ``_REMEDY`` held
+#: that outage's remedy all along and wrote it only to the journal, the
+#: surface nobody opens unprompted, and the 23 hours were spent by a
+#: reader holding a toast that did not carry it.  The surface a sitting
+#: is holding here is the refusal itself — printed at preflight and
+#: postflight, or met as a blocked commit — so the remedy goes there and
+#: ``tests/test_handoff_shape.py`` reads *this name* rather than retyping
+#: the sentence.  ``action_from``'s publish-and-read shape, and the
+#: reason the owner's "both" is one owner rather than two.
+#:
+#: **Its limit is stated beside it rather than left to be discovered**,
+#: because the ordering is truthful only while a check really is owed on
+#: the *defect*.  Work owed on the **entry** — correcting its ranking,
+#: correcting the reasoning of its refusal, or closing it — is owed
+#: precisely while the word says otherwise, so the same edit would assert
+#: a check nobody owes.  That is ``SNAG-TEST-011``, and this sentence is
+#: knowingly the half that does not reach it.
+REFUSAL_REMEDY = (
+    "if this sitting is taking the entry up, the register edit moving it to "
+    f"{WORK_QUEUE_DISPOSITION} ships in the commit that publishes the line — but only where a "
+    "check is genuinely owed on the defect, because for work owed on the entry itself (its "
+    "ranking, the reasoning of its refusal, or closing it) that edit asserts a check nobody "
+    "owes, which is SNAG-TEST-011"
+)
+
 
 @dataclass(frozen=True)
 class NamedEntry:
@@ -9980,6 +10022,31 @@ def check_next_action(
     the reported half.  ``action_from``'s publish-and-read shape, and the
     reason the owner's "both" is not a second owner.
 
+    **The refusal carries its own remedy** (:data:`REFUSAL_REMEDY`), and
+    which remedy it carries was a choice between two, taken by Session
+    186 on a measurement rather than on the argument.  ``SNAG-TEST-011``
+    recorded a cheap candidate — document the ordering, so that the
+    register edit moving an entry to :data:`WORK_QUEUE_DISPOSITION` ships
+    in the commit that publishes the line — against an expensive one, a
+    fifth disposition saying work is owed on the *entry* rather than on
+    the defect, which is the only thing that reaches the ranking,
+    reasoning and closing classes without a false assertion.  The cheap
+    one was taken because **no member of those three classes had
+    appeared**: all 29 register checks reported *still holds*, so nothing
+    ``decided`` was closable; the register was unmoved since ``42d11fa``;
+    and the line that put the question named an ``owed`` entry.  A
+    permanent fifth term bought for a state that lasts one sitting is
+    ``NOISE_MIN_OCCURRENCES``' invented constant with a vocabulary's
+    blast radius.
+
+    **The escape hatch is not trapped by the choice**, which is what made
+    it safe to take.  Should a member appear, the sitting that switches
+    to the expensive remedy is doing work on ``SNAG-TEST-011``'s
+    *defect* — so its own ``decided`` → :data:`WORK_QUEUE_DISPOSITION`
+    edit is truthful and the documented ordering carries it.  The three
+    classes are what this remedy cannot reach; reopening on new evidence
+    is not one of them.
+
     Four states, and the third is the one that departs from this family's
     siblings deliberately:
 
@@ -10030,7 +10097,8 @@ def check_next_action(
     if refused:
         note = (
             f"{len(refused)} of {len(readings)} entries the line names declare "
-            f"{' or '.join(REFUSED_DISPOSITIONS)} — the board is publishing work no sitting is owed"
+            f"{' or '.join(REFUSED_DISPOSITIONS)} — the board is publishing work no sitting is "
+            f"owed; {REFUSAL_REMEDY}"
         )
     elif unsayable:
         note = (

@@ -326,7 +326,8 @@ class TestThePublishedLineNamesNoWorkNobodyIsOwed:
         ]
         assert not refused, (
             "HANDOFF.md's next action names an entry whose own body says no sitting "
-            f"is owed work on it, and the estate board publishes that line: {refused}"
+            f"is owed work on it, and the estate board publishes that line: {refused}. "
+            f"{snag_claims.REFUSAL_REMEDY}"
         )
 
     def test_the_local_read_is_the_line_the_board_publishes(self):

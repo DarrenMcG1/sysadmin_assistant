@@ -1,6 +1,107 @@
-# Handoff — 2026-09-06 (Session 185)
+# Handoff — 2026-09-06 (Session 186)
 
 ## Next action
+
+Rank the register and put one entry back in the work queue — it declares no `owed` entry, which is its ordinary state between sittings rather than news (0 owed on 33 of the 41 commits touching it since dispositions existed, measured), so the next piece of work has to be chosen out of the seventeen `decided`, five `delegated` and three `blocked`, and whichever is chosen has its disposition moved in the same commit that publishes the line naming it, which is the ordering this sitting documented and which the refusal now states in its own words to whoever trips it.
+
+_**The cheap remedy, and the trigger was measured rather than
+argued.**_ _Session 185 left `SNAG-TEST-011`'s two candidates unranked
+under a rule: take the cheap one unless a real member of the ranking,
+reasoning or closing classes has appeared. **None had.** All 29 register
+checks report `still holds`, so no `decided` entry is closable and the
+closing class has no live member; `Snag list movement` reads `unmoved
+since 42d11fa`; and the line that put the question named an `owed` entry.
+A permanent fifth vocabulary term bought against zero live members is
+`NOISE_MIN_OCCURRENCES`' invented constant with a vocabulary's blast
+radius._
+
+_**The ordering is documented in the refusal and not in a docstring,
+which is `SNAG-DB-005` rule 6 rather than a preference.**_ _`_REMEDY`
+held that outage's remedy all along and wrote it **only to the
+journal**, the surface nobody opens unprompted, and the 23 hours were
+spent by a reader holding a toast that did not carry it. The surface a
+sitting is holding here is the refusal itself — printed at preflight and
+postflight, or met as a blocked commit — so `REFUSAL_REMEDY` is appended
+to `check_next_action`'s refusal note and `tests/test_handoff_shape.py`
+reads *that name* rather than retyping the sentence. One statement, two
+printers; pinned by a test asserting the consumer names the constant and
+does **not** contain its value, because a retyped copy satisfies a value
+comparison and only the source answers provenance._
+
+_**`WORK_QUEUE_DISPOSITION` is a literal because it cannot be derived**,
+which is the one place this departs from `max_priority_for` against
+`PRIORITY_MAP`: the complement of `REFUSED_DISPOSITIONS` holds `owed`
+**and** `blocked`, and only the first is the queue. It is pinned to the
+vocabulary instead, so a rename is a red test rather than a remedy
+naming a word the register would not accept._
+
+_**The limit ships beside the remedy and the escape hatch was checked
+rather than assumed.**_ _The refusal names the three classes the
+ordering cannot reach and names the entry they belong to, so a sitting
+in one of them is told why the workaround would be a false assertion
+instead of discovering it. Driven at a `decided` specimen with the line
+"Close `SNAG-SPEC-001` — its ranking is wrong", which is a member of one
+of those three classes, it refuses and says so in the same sentence. And
+switching to the expensive remedy later is work on the entry's
+**defect**, so that sitting's own `decided` → `owed` edit is truthful
+and the documented ordering carries it — the classes are what this
+remedy cannot reach, and reopening on new evidence is not one of them._
+
+_**The entry moves `owed` → `decided` and stays open**, because the
+defect is untouched: the guard still cannot tell a correction from the
+remedy it refuses, so `check_disposition_correction_unpublishable` still
+reports `still holds` and all 29 verdicts are byte-identical either side
+of the commit. Five mutations were driven — dropping the append,
+appending it to the `match` branch as well, renaming the vocabulary word
+out from under the literal, typing that word into the sentence instead
+of interpolating it, and retyping the sentence in the blocking consumer
+— and **none passed against code this sitting expected to be broken**._
+
+_**The ordering was exercised on the commit that documents it.** The
+register edit moving `SNAG-TEST-011` to `decided` made the inherited
+line refusable within the minute — the checker printed the refusal,
+carrying its new remedy — which is why this rewrite and that edit ship
+together. The register now declares **no `owed` entry**, and the first
+draft of the action above called that a first, which the register
+refutes: `owed` reads **0 on 33 of the 41 commits** touching the file
+since `4d8a464` created the population, so an empty queue is this
+register's resting state and not a milestone. A sentence in a next
+action is a claim like any other._
+
+_**`ruff format` is not this repository's formatter and running it cost
+a revert.** Only `ruff check` is in `lint_check.sh`, CI and this
+document's Step 4; `uv run ruff format` on the three edited files
+rewrote 182, 231 and 15 lines of code nobody had touched. Reverted with
+`git checkout` — safe only because the tree was clean at session start —
+and the edits re-applied by script. Nothing was committed in that state._
+
+_**Two reds were paid on the way and both were the guard working.** The
+suite run that straddled the register edit failed
+`test_the_next_action_names_no_entry_that_is_owed_nothing` on the
+inherited line — Session 183's cost, reproduced by this sitting's own
+commit and remedied by the rewrite the sitting does anyway. The second
+was `test_the_document_has_exactly_one_next_heading`: a new block leaves
+two `## Next action` headings until the predecessor's is renamed to the
+"filed / done by" form, which is a mechanic of this file and not a
+finding._
+
+_**No restart is owed by the change and none was taken** — the only
+module edited is `sysadmin/snag_claims.py`, a console script nothing
+under `create_app()` imports, so the deploy check's `no` is the false
+positive `ops_claims` rule 4 prices in writing and the same reading
+Sessions 183, 184 and 185 each recorded. No migration._
+
+_Suite **3722 passed** (3717 + 5, the arithmetic checked so a clobber
+could not read as green), `tests/test_snag_claims.py` **451 → 456**,
+ruff clean,
+mypy clean over 100 files, `sysadmin-check-snags` **29 checks, all `ok`**
+with 0 of 25 open entries unchecked and dispositions at `owed 0, blocked
+3, decided 17, delegated 5`. `check-ops-claims.sh` reports every claim
+`ok` and the deploy state `no`, as above._
+
+# Handoff — 2026-09-06 (Session 185)
+
+### The action Session 185 filed (done by Session 186)
 
 Choose between `SNAG-TEST-011`'s two recorded remedies — documenting the ordering, which is one commit and reaches every case observed so far, against a fifth vocabulary term saying work is owed on the *entry* rather than on the defect, which is the only thing that reaches the ranking, reasoning and closing classes without a false assertion — and take the cheap one unless a real member of one of those three classes has appeared, because the expensive one buys a permanent term for a state that lasts a single sitting.
 
