@@ -8,6 +8,83 @@
 
 ---
 
+## Session 189: a red suite is not a measure that did not run ✅ (2026-09-06)
+
+_Session 188 filed `SNAG-TEST-012` as the general case its named fix
+bought one file out of, and ranked it P3 on "the fix may well be cheaper
+than the check"._
+
+- [x] **The entry's open question was put to the owner rather than
+      inferred.** It says in writing that whether a red suite raises
+      `ISSUES` *"is the real question and is not settled here"*, and the
+      next action named two changes without naming it. Ruled: **it
+      raises**. The cost is stated in the block and in the code — a
+      sitting mid-way through fixing its own suite now hears about it at
+      the close — rather than left for a later sitting to trip over.
+- [x] **The split is keyed on the producer's sentence, not on a fifth
+      exit status.** The status cannot carry the distinction and widening
+      the contract touches a script two other gates read, which is the
+      argument the entry gave for not fixing it in the finding sitting.
+      `SUITE_RED_MARKER` is a copy, because a shell caller cannot import
+      one, so it is pinned at **both** ends — the producer still emits
+      it, no other road carries it, it sits between the pytest run and
+      the coverage report, and `sysadmin/vacuous_guards.py` cannot speak
+      it.
+- [x] **The entry's arithmetic was one road short, and the correction
+      changed the design.** It named four roads to exit 2 — the gate's
+      own docstring — and there are **six** `exit 2` sites, one of which
+      (`mktemp -d` failing) prints nothing at all. So the discriminator
+      is keyed *positively* on the red-suite sentence rather than
+      negatively on the other three, and the silent road is the only
+      reading that can tell those two spellings apart. Driven: a
+      negatively-keyed mutation reddens exactly that one test.
+- [x] **Step 6 stopped claiming health for a run it did not see.**
+      `ports_checked`'s rule at the size of a branch. A fourth branch
+      names the red suite where a reader comes looking for the suite's
+      state, and the `else` now says both facts — no uncommitted code
+      changes, **and** no suite run to report.
+- [x] **The status gate is behaviourally redundant today and says so.**
+      Widening it to every status changed no output, because the finding
+      branch is tested first at 3.8 and the green branch wins at step 6.
+      Kept for `abandoned_runs`' reason — its visibility is what stops a
+      later sitting reordering those branches — and pinned by a
+      **statement** test, since a clause whose removal is invisible in
+      behaviour cannot be reached by a behavioural one.
+- [x] **Twelve mutations driven and eleven killed on the first attempt;
+      one passed against code this sitting expected to be broken** — the
+      status gate, which is what turned it into a statement test.
+- [x] **Three of the file's own first-draft tests were wrong and the
+      drive said so.** The stub premise looked for the `ok ` prefix the
+      block strips before printing; the structural pin found the gate's
+      *prose* naming `coverage json` rather than its invocation, which is
+      `test_close_runs_the_handoff_guard`'s mention-vs-invocation trap
+      met in a second file; and the status gate's specimen was claimed to
+      be this test file, which carries the accessor and not the literal —
+      so the premise moved to the producer, whose report interpolates an
+      assert's own source verbatim, and the population of asserts naming
+      the sentence is **empty today**, measured.
+- [x] **The sibling's stale prose was corrected in the same commit.**
+      `tests/test_close_runs_the_handoff_guard.py`'s docstring described
+      the swallowing in the present tense; it names the closure and says
+      why that gate still earns its place — a red suite there names *the
+      suite*, this names the rule the document broke.
+- [x] **Docs updated**: `snag_list.md` (entry closed and archived),
+      `STATUS.md` (session block, Recently Completed, Testing cell
+      3733 → 3752), `tasks.md`, `HANDOFF.md`.
+- [x] **No restart is owed by this sitting and the red is inherited.**
+      Nothing under `sysadmin/` was touched; the deploy claim is red
+      because Session 188 edited `sysadmin/snag_claims.py` at 18:06:35
+      and did not restart. Recorded in the handoff rather than absorbed
+      or silently deployed at another sitting's close.
+
+**Numbers**: tests **3733 → 3752** (19 added, none retired; baseline
+measured by collecting with the new file ignored, so 3733 + 19 = 3752 is
+arithmetic and not a total read off a green run). Open entries **25 →
+24**, entries carrying no check **1 → 0**, `CHECKS` **24 → 24** — the
+first closure in this register bought by a *fix* cheaper than the check
+it was owed. Dispositions `blocked 3, decided 16, delegated 5`. Suite
+green at 3752; ruff clean.
+
 ## Session 188: the close runs the guard, and the suite was already running there ✅ (2026-09-06)
 
 _Session 187 ranked `SNAG-TEST-005` back into the work queue and named

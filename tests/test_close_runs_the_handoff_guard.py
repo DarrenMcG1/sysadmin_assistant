@@ -34,11 +34,18 @@ stand-in instead.
 
 **The second axis is that running the guard was never the whole claim.**
 ``check-vacuous-guards.sh`` has run the whole suite at the close since
-2026-09-05, and renders a red one as exit 2, *"the measure did not run"*,
-with **no** ``ISSUES`` and ``No uncommitted code changes to test`` beneath
-it on a docs-only sitting — which is exactly the sitting that breaks this
-document.  So what is pinned here is the invocation *and* that its red is
-heard.
+2026-09-05, and rendered a red one as exit 2, *"the measure did not
+run"*, with **no** ``ISSUES`` and ``No uncommitted code changes to
+test`` beneath it on a docs-only sitting — which is exactly the sitting
+that breaks this document.  So what is pinned here is the invocation
+*and* that its red is heard.
+
+That swallowing was ``SNAG-TEST-012`` and was fixed the same day: a red
+suite is now told apart from the three roads that could not measure, and
+raises ``ISSUES`` of its own (``tests/test_close_reads_the_guard_gate``).
+It does not make this gate redundant — a red suite there names *the
+suite*, while this names the rule this document broke, in half a second,
+and the two are reached by different sittings.
 
 **The block is extracted from the shipped script and driven**, never
 retyped: a copy of a shell block in a test is a second statement of it,

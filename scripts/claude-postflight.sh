@@ -149,6 +149,32 @@ fi
 # this is not a judgement about an entry but a defect in the sitting's own
 # work, and the two remedies (fix it, or declare why it cannot evaluate)
 # are both cheap and both belong to whoever wrote the assert.
+#
+# SNAG-TEST-012. **That gate's exit 2 is lossy, and this caller
+# un-collapses one road of it.** `check-vacuous-guards.sh` returns 2 for
+# four different things — a red suite, no uv, no console script, and a
+# tree the report does not describe — and argues in writing that a red
+# suite is not *its* finding, because reporting it would make the gate
+# loudest exactly when pytest is already saying something truer. That
+# reasoning is sound and is about that script. What nobody argued for was
+# this caller discarding the distinction: it rendered all four as "the
+# measure did not run", which sends a reader to re-run the thing that has
+# just told them the answer, and then contradicted itself at step 6 with
+# a green tick. The evidence was already here — the producer's own
+# sentence, printed four lines below and then thrown away.
+#
+# **A red suite raises ISSUES** (owner's ruling 2026-09-06, the question
+# the entry left open). The close may now say "all clear" only over a
+# suite something has actually run and seen pass; the cost, stated rather
+# than discovered, is that a sitting mid-way through fixing its own suite
+# hears about it at the close. The other three roads still raise nothing:
+# a missing `uv` is an environment fault and not a defect in the
+# sitting's work, which is step 3.9's rule one section down.
+#
+# The marker is a *copy* of the producer's sentence, because a shell
+# caller cannot import one. `tests/test_close_reads_the_guard_gate.py`
+# pins it at both ends — import where you can, pin where you cannot.
+SUITE_RED_MARKER="the suite is not green"
 echo -e "\n${BLUE}🧪 Vacuous guards (asserts that never evaluated):${NC}"
 GUARDS_STATUS=0
 GUARDS_OUT=$(./scripts/check-vacuous-guards.sh 2>&1) || GUARDS_STATUS=$?
@@ -160,9 +186,26 @@ while IFS= read -r line; do
         *)      echo -e "  ${BLUE}${line}${NC}" ;;
     esac
 done <<< "$GUARDS_OUT"
+# Read for *which* road only at exit 2, which is the only status that
+# carries four. At exit 1 the report quotes the source text of every
+# assert it found, so a guard whose own source names this sentence —
+# `tests/test_close_reads_the_guard_gate.py` does — would otherwise be
+# read as a red suite by the gate that exists to describe it.
+SUITE_RED=0
+if [ "$GUARDS_STATUS" -ge 2 ]; then
+    case "$GUARDS_OUT" in
+        *"$SUITE_RED_MARKER"*) SUITE_RED=1 ;;
+    esac
+fi
+
 if [ "$GUARDS_STATUS" -eq 1 ]; then
     echo -e "  ${BOLD}Fix it, or declare it — an assert that asserted nothing${NC}"
     echo -e "  ${BOLD}is a guard the suite cannot tell you it is not holding${NC}"
+    ISSUES=$((ISSUES + 1))
+elif [ "$SUITE_RED" -eq 1 ]; then
+    echo -e "  ${RED}${BOLD}✗ The suite is red — the gate above ran it and stopped there${NC}"
+    echo -e "  ${BOLD}  The five lines above are pytest's, not this gate's: fix the${NC}"
+    echo -e "  ${BOLD}  suite, and the never-evaluated measure runs on the next close${NC}"
     ISSUES=$((ISSUES + 1))
 elif [ "$GUARDS_STATUS" -ne 0 ]; then
     echo -e "  ${YELLOW}⚠️  The measure did not run (not the same as 'nothing found')${NC}"
@@ -187,12 +230,14 @@ fi
 #
 # The gate at 3.8 already runs this file inside the whole suite, and
 # measured, that is not the same thing: a red suite is exit 2 there by
-# that script's own rule 3, which prints "the measure did not run", raises
-# no ISSUES, and is followed at step 6 by "No uncommitted code changes to
-# test" on a docs-only sitting - which is exactly the sitting that breaks
-# HANDOFF.md. So the guard already runs and its red reaches the reader as
-# a blind measure contradicted by a green tick. This names the fault
-# instead, in half a second.
+# that script's own rule 3, which said only "the measure did not run" and
+# raised no ISSUES, and was followed at step 6 by "No uncommitted code
+# changes to test" on a docs-only sitting - which is exactly the sitting
+# that breaks HANDOFF.md. So the guard already ran and its red reached
+# the reader as a blind measure contradicted by a green tick. That
+# swallowing was SNAG-TEST-012 and is fixed above; this still earns its
+# place, because a red suite there names *the suite* while this names the
+# rule this document broke, in half a second.
 #
 # `.venv/bin/pytest` rather than `uv run pytest`: a bare `uv sync` prunes
 # the dev extra, and `uv run pytest` then falls through to /usr/bin/pytest
@@ -314,11 +359,26 @@ if [ "$GUARDS_STATUS" -le 1 ]; then
     # name of a guard it has just run — the mention rule the retired
     # `vacuous_guard_ungated` check was built around, in reverse.
     echo -e "  ${GREEN}✓ Suite ran green under the vacuous-guard gate above${NC}"
+elif [ "$SUITE_RED" -eq 1 ]; then
+    # SNAG-TEST-012. The gate ran the suite and it failed, which is the
+    # opposite answer from a tick and a *different* answer from "the gate
+    # could not run it". Restated here as well as at 3.8 because this is
+    # the section a reader comes to for the suite's state, and because it
+    # is the branch the old arithmetic could not reach at all.
+    echo -e "  ${RED}${BOLD}✗ The suite is red — the gate above ran it; see 3.8${NC}"
 elif [ "$TOTAL_CODE" -gt 0 ]; then
     echo -e "  $TOTAL_CODE code file(s) with uncommitted changes"
     echo -e "  ${YELLOW}The gate above could not run the suite — run it yourself${NC}"
 else
-    echo -e "  ${GREEN}✓ No uncommitted code changes to test${NC}"
+    # SNAG-TEST-012, and `ports_checked`'s rule at the size of a branch.
+    # This read `✓ No uncommitted code changes to test`, which is true
+    # about its own subject and false about the reader's question — the
+    # suite's state — because nothing above it ran one. A docs-only
+    # sitting is not an edge case here, it is the population: `TOTAL_CODE`
+    # counts *code* files, and the sitting that edits only documents is
+    # exactly the sitting that breaks a document guard.
+    echo -e "  ${YELLOW}? No uncommitted code changes — and no suite run to report${NC}"
+    echo -e "  ${YELLOW}  The gate above could not measure; that is not 'nothing to test'${NC}"
 fi
 
 # 7. Run consistency audits (mandatory for 5+ file changes)

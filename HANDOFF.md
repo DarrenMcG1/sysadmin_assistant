@@ -1,6 +1,80 @@
-# Handoff — 2026-09-06 (Session 188)
+# Handoff — 2026-09-06 (Session 189)
 
 ## Next action
+
+Decide what the deploy claim should measure and act on the answer — `check-ops-claims.sh` has reported `Daemon serves the code on disk` red since Session 188 edited `sysadmin/snag_claims.py` at 18:06:35 and did not restart, that file is one of **7 of 100** modules under `sysadmin/` which `create_app()` does not import, and the two newest edits on disk are both in that seven, so the check's own stated cost — a file the daemon never imports reports a restart owed — is now a standing red at both ends of every sitting rather than the rare miss rule 4 priced it as; the candidates are a needless `kill -TERM` that clears it until the next tooling edit, or narrowing the mtime sweep to what the process actually holds, which is not the trivial change it looks because `sysadmin/core/llm_client.py` is imported **lazily** inside `files/review.py` and would be dropped by a sweep keyed on `create_app()` alone, so the measurement has to come from a running daemon rather than from a constructed app.
+
+_**A red suite is not a measure that did not run, and the close said it
+was.**_ _`SNAG-TEST-012` is closed. `claude-postflight.sh` tells a red
+suite apart from the roads that could not measure, names it where a
+reader comes looking for the suite's state, and raises `ISSUES` on it._
+
+_**The entry's one open question was put to the owner rather than
+inferred.** It says in writing that whether a red suite raises `ISSUES`
+"is the real question and is not settled here", and the next action named
+two changes without naming it. Ruled: it raises. The cost is written into
+the block and into the code rather than left to be discovered — a sitting
+mid-way through fixing its own suite now hears about it at the close._
+
+_**The split is keyed on the producer's sentence, not on a fifth exit
+status.** The status cannot carry the distinction, and widening the
+contract touches a script two other gates read, which is the argument the
+entry gave for not fixing it in the sitting that found it.
+`SUITE_RED_MARKER` is a copy — a shell caller cannot import one — so it is
+pinned at **both** ends: the producer still emits it, no other road
+carries it, it sits between the pytest run and the coverage report, and
+`sysadmin/vacuous_guards.py` cannot speak it._
+
+_**The entry's arithmetic was one road short, and the correction changed
+the design.** It named four roads to exit 2, which is the gate's own
+docstring; measured, there are **six** `exit 2` sites and one of them —
+`mktemp -d` failing — prints nothing at all. So the discriminator is keyed
+positively on the red-suite sentence rather than negatively on the other
+three, and the silent road is the only reading that can tell those two
+spellings apart: a negatively-keyed mutation reddens exactly that one
+test._
+
+_**The status gate is behaviourally redundant today and says so.**
+Widening it to every status changed no output, because the finding branch
+is tested first at 3.8 and the green branch wins at step 6, so a red-suite
+reading at exit 1 is unobservable through both blocks. It is kept for
+`abandoned_runs`' reason — its visibility is what stops a later sitting
+reordering those branches — and pinned by a **statement** test, the only
+kind that can reach a clause whose removal is invisible in behaviour. That
+mutation is the one of twelve that passed against code this sitting
+expected to be broken._
+
+_**Three of the new file's own first-draft tests were wrong and the drive
+said so.** The stub premise looked for the `ok ` prefix the block strips
+before printing; the structural pin found the gate's prose naming
+`coverage json` rather than its invocation, which is
+`test_close_runs_the_handoff_guard`'s mention-vs-invocation trap met in a
+second file; and the status gate's specimen was claimed to be the test
+file itself, which carries the accessor and not the literal — so the
+premise moved to the producer, whose report interpolates an assert's own
+source verbatim, and the population of asserts naming that sentence is
+**empty today**, measured._
+
+_**No restart is owed by this sitting and the deploy red is inherited.**
+Nothing under `sysadmin/` was touched here. The red names Session 188's
+`snag_claims.py` edit, and re-measured rather than quoted:
+`sysadmin.snag_claims` is absent from `sys.modules` after `create_app()`,
+so the restart the check asks for would deploy nothing — which is the next
+action above._
+
+_**Numbers**: tests **3733 → 3752** (19 added, none retired; baseline
+measured by collecting with the new file ignored, so the arithmetic is
+3733 + 19 = 3752 rather than a total read off a green run). Open entries
+**25 → 24**, entries carrying no check **1 → 0** — no check was ever
+written for this entry, so closing it is what retires the report, and
+`CHECKS` is unmoved at 24. Dispositions now `blocked 3, decided 16,
+delegated 5`, which is a **work queue of zero**: no open entry declares
+`owed`, and the next action above names none. Suite green at 3752; ruff
+clean._
+
+# Handoff — 2026-09-06 (Session 188)
+
+### The action Session 188 filed (done by Session 189)
 
 Fix `SNAG-TEST-012` and close it — split `claude-postflight.sh`'s reading of the vacuous-guard gate so a red suite is told apart from the three other roads to exit 2, and stop step 6's `else` branch printing `No uncommitted code changes to test` when the gate returned a status it could not judge, driving the block at `GUARDS_STATUS` crossed with `TOTAL_CODE` the way `tests/test_close_runs_the_handoff_guard.py` drives the shipped bytes, because the fix is cheaper than the check that entry is owed and closing it retires the need to write one.
 
