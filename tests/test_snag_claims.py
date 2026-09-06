@@ -26,9 +26,12 @@ import contextlib
 import dataclasses
 import inspect
 import itertools
+import json
 import logging
 import re
 import socket
+import subprocess
+import sys
 import tempfile
 import textwrap
 import uuid
@@ -6173,6 +6176,158 @@ def _unknown_drive_gaps(
     exempt = UNKNOWABLE if exempt is None else exempt
     return sorted(keys - _unknown_branch_coverage(tree, keys) - set(exempt))
 
+
+
+class TestTheUnheldModuleCheck:
+    """``SNAG-SYSD-009`` — the deploy population against a real process.
+
+    The check compares ``ops_claims.daemon_modules()`` with what a
+    constructed ``create_app()`` actually holds, so its witness is
+    CPython's import machinery rather than a second reading of the same
+    source.  Three ways of not-knowing are driven here, and the first is
+    the one the sitting met by accident: a process that has already
+    imported the lazy module cannot observe the gap, and reads a fix.
+    """
+
+    KEY = "deploy_counts_an_unheld_module"
+
+    @pytest.fixture(autouse=True)
+    def _an_uncontaminated_process(self):
+        """The premise the check refuses on, removed so the drives can run.
+
+        Under the whole suite this fixture is load-bearing rather than
+        ceremonial: other tests import the review modules, which import
+        the lazy module, so every drive here read ``unknown`` and four of
+        them failed — the premise working exactly as designed, in a
+        process it was written to refuse.  Running this file alone never
+        showed it.  The console-script process the check actually runs in
+        holds 35 ``sysadmin`` modules and none of them is this one,
+        measured, so what is modelled here is production and not a
+        convenience.
+        """
+        with patch.dict("sys.modules"):
+            sys.modules.pop(snag_claims.LAZY_EDGE_MODULE, None)
+            yield
+
+    def _run(self):
+        return CHECKS[self.KEY].run()
+
+    def test_it_holds_against_the_real_package(self):
+        """The live half — the population counts a module create_app() does not."""
+        result = self._run()
+        assert result.verdict == "match"
+        assert any("counted and not held" in line for line in result.detail)
+        assert any(snag_claims.LAZY_EDGE_MODULE.split(".")[-1] in line for line in result.detail)
+
+    def test_a_process_that_already_imported_it_says_it_does_not_know(self):
+        """The premise, and the one this sitting tripped over by hand.
+
+        Importing the lazy module into the measuring process shrinks the
+        very difference the check is keyed on, so the honest answer is
+        that this process cannot witness it — never ``mismatch``, which
+        is what a naive drive would have published as a landed fix.
+        """
+        with patch.dict("sys.modules", {snag_claims.LAZY_EDGE_MODULE: object()}):
+            result = self._run()
+        assert result.verdict == "unknown"
+        assert "already imported" in result.note
+
+    def test_a_walk_that_will_not_run_says_it_does_not_know(self):
+        with patch.object(
+            ops_claims, "daemon_modules", return_value=(frozenset(), "no sysadmin.main")
+        ):
+            result = self._run()
+        assert result.verdict == "unknown"
+        assert "no sysadmin.main" in result.note
+
+    def test_a_population_drawn_elsewhere_says_it_does_not_know(self, tmp_path):
+        """``check_review_schedule_unread``'s defect, refused by construction.
+
+        The exact fix this entry names would replace ``sweep_sources``'
+        population with a read of a running daemon — landing *beside*
+        ``daemon_modules`` rather than in it.  A check that went on
+        measuring ``daemon_modules`` would report the entry still
+        holding over that fix, indefinitely.
+        """
+        decoy = tmp_path / "ops_claims.py"
+        decoy.write_text(
+            "def sweep_sources(package=None):\n"
+            "    return ask_the_running_daemon()\n"
+        )
+        with patch.object(ops_claims, "__file__", str(decoy)):
+            result = self._run()
+        assert result.verdict == "unknown"
+        assert "no longer draws its population from daemon_modules" in result.note
+
+    def test_the_app_is_constructed_in_a_process_that_holds_nothing(self, tmp_path):
+        """Driven in a subprocess, because this one cannot witness it.
+
+        ``create_app()`` is what makes ``held`` the set a daemon would
+        hold.  Under pytest that call is invisible: the suite has already
+        imported most of this package, so ``sys.modules`` is full either
+        way and the mutation that deletes the call passes every test
+        above.  The process the check actually runs in is
+        ``sysadmin-check-snags``, which imports two modules — so the
+        control has to run somewhere equally empty, and what it asserts
+        is the *detail*, since the verdict is ``match`` either way and
+        only the count separates a real population from a coincidence.
+        """
+        probe = tmp_path / "probe.py"
+        probe.write_text(
+            "import json\n"
+            "from sysadmin.snag_claims import CHECKS\n"
+            "m = CHECKS['deploy_counts_an_unheld_module'].run()\n"
+            "print(json.dumps([m.verdict, list(m.detail)]))\n"
+        )
+        result = subprocess.run(
+            [str(REPO_ROOT / ".venv" / "bin" / "python"), str(probe)],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
+        assert result.returncode == 0, result.stderr
+        verdict, detail = json.loads(result.stdout.strip().splitlines()[-1])
+        assert verdict == "match"
+        held = next(line for line in detail if line.startswith("held by"))
+        unheld = next(line for line in detail if line.startswith("counted and not held"))
+        assert held.endswith("93"), held
+        assert unheld.endswith("sysadmin/core/llm_client.py"), unheld
+
+    def test_the_construction_call_is_written_even_though_it_is_inert(self):
+        """The third clause this sitting whose removal changes no output.
+
+        ``abandoned_runs``' treatment, and ``ops_claims``' ``__pycache__``
+        filter one module over.  Deleting the ``create_app()`` call passes
+        every behavioural test here including the subprocess one, because
+        ``import sysadmin.main`` is what fills ``sys.modules`` — 95
+        modules, to which the call adds zero.  It stays because its only
+        possible effect is to widen ``held``, which is the direction that
+        makes this check *harder* to claim the entry still holds, and a
+        reader who deleted it would not know that.
+        """
+        source = Path(snag_claims.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        check = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "check_deploy_counts_an_unheld_module"
+        )
+        calls = [
+            node
+            for node in ast.walk(check)
+            if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "create_app"
+        ]
+        assert len(calls) == 1, "the construction call is gone, or is written twice"
+
+    def test_a_population_the_process_holds_entirely_refutes_it(self):
+        """Both candidate fixes produce this, and so does a deleted module."""
+        held_only = frozenset({ops_claims.REPO_ROOT / "sysadmin" / "main.py"})
+        with patch.object(ops_claims, "daemon_modules", return_value=(held_only, "")):
+            result = self._run()
+        assert result.verdict == "mismatch"
+        assert "no longer counts a module the process may not" in result.note
+        assert any("counted and not held: none" in line for line in result.detail)
 
 
 class TestEveryCheckCanSayItDoesNotKnow:

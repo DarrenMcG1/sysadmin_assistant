@@ -1,6 +1,69 @@
-# Handoff — 2026-09-06 (Session 189)
+# Handoff — 2026-09-06 (Session 190)
 
 ## Next action
+
+Add a `tests` claim to `ops_claims` so the Quick Status suite figure is checked the way `routes` and `tables` already are — that cell sits **inside** the region the checker parses and is the only bold figure in it carrying no pattern, which is why it has been wrong on 8 of the 11 sittings that bothered to measure it, reading 3209/3107/3018/2937/2832 against a tree that collected 3228/3160/3070/2971/2838 and with three separate blocks recording 71, 272 and 27 tests of earlier sittings that never reached the cell at all, and a full `pytest --collect-only -q` answers in **1.02 s**, which is affordable at both ends of a sitting; the design question to settle before writing the pattern is that collection counts **skips** while the cell claims *green*, so the two figures happen to agree at 3780 today and disagreed at 3318 passed against 3319 collected, meaning the sitting must either re-word the claim to the figure that is cheaply measurable or carry a second one, and choosing between those is the work rather than the pattern that follows it.
+
+_**The deploy claim measures the daemon's import graph now, and the
+blocker the previous sitting named was true of a trace rather than of a
+walk.**_ _`ops_claims.daemon_modules` reaches 94 of 100 by walking the
+AST from `sysadmin.main`, which sees a function-level `import` as
+plainly as a top-level one — so `core/llm_client.py` stays in the
+population where a trace of a constructed `create_app()` drops it, and
+no daemon surface, contract entry or bootstrap restart was needed._
+
+_**The ranking was re-measured and rule 4's own cost sentence was wrong
+in both halves.** It called a file the daemon never imports a rare miss
+costing a restart that "is not privileged and takes a second".
+Measured: **50 of 191** commits touching `sysadmin/` touch only the six
+modules the daemon cannot reach, so it is a quarter of the check's
+fires; `tasks.md` records the restart paid on **eleven consecutive
+sittings** whose restart moved nothing a caller could observe; and
+`SNAG-SYSD-007` is what the second half was worth, one of five restarts
+in ten minutes that tripped `StartLimitBurst` and left the box down 77
+minutes. **Zero of the 191 commits are mixed**, so the narrowing has
+never been able to mask a daemon edit shipping beside a tooling one._
+
+_**A file outside the graph is named rather than swept**, which is
+`ports_checked`'s rule: "considered, and no restart is owed for it" must
+not read like "nobody looked". The claim's first live output was about
+the file being edited to produce it._
+
+_**Three clauses turned out to change no output and all three were found
+by driving mutations rather than by reading.** The `__pycache__` filter
+in `daemon_modules` is excluded by reachability anyway, so its first
+test passed against the filter deleted; the `create_app()` call in the
+new register check adds **0** modules, because `import sysadmin.main`
+already holds 95, so deleting it passed every behavioural drive
+including the subprocess one written to catch it. Both are kept and
+pinned by **statement** tests, `abandoned_runs`' rule. The third went
+the other way and is the one worth carrying: the ancestry clause was
+expected to be redundant and is not — dropping it loses **six**
+`__init__.py` files no statement in this package names, because its job
+is package initialisation and not the attribute-versus-module reading
+its own first docstring claimed. It walks every ancestor now, one level
+reaching all eleven inits here only by coincidence of which modules are
+imported directly._
+
+_**Four tests failed only under the whole suite, and the premise was
+working.** Other files import the review modules, which import the lazy
+module, so the new check refused to measure in a contaminated process;
+running the file alone never showed it. The sitting had already hit that
+class by hand, importing the walker into the process it was measuring
+and reading its own import back as a finding._
+
+_**No restart was taken and none is owed** — the first sitting in twelve
+able to say the second half. Twenty-one mutations driven and twenty-one
+killed. Tests **3752 → 3780**, baseline measured in a detached worktree
+rather than by stashing. `SNAG-SYSD-009` filed with the twenty-fifth
+check, so open entries **24 → 25** and `CHECKS` **24 → 25** with entries
+carrying no check unmoved at **0**; dispositions are still a **work
+queue of zero**, no open entry declaring `owed`, and the next action
+above names none. All ten ops claims `ok`; ruff and mypy clean._
+
+# Handoff — 2026-09-06 (Session 189)
+
+### The action Session 189 filed
 
 Decide what the deploy claim should measure and act on the answer — `check-ops-claims.sh` has reported `Daemon serves the code on disk` red since Session 188 edited `sysadmin/snag_claims.py` at 18:06:35 and did not restart, that file is one of **7 of 100** modules under `sysadmin/` which `create_app()` does not import, and the two newest edits on disk are both in that seven, so the check's own stated cost — a file the daemon never imports reports a restart owed — is now a standing red at both ends of every sitting rather than the rare miss rule 4 priced it as; the candidates are a needless `kill -TERM` that clears it until the next tooling edit, or narrowing the mtime sweep to what the process actually holds, which is not the trivial change it looks because `sysadmin/core/llm_client.py` is imported **lazily** inside `files/review.py` and would be dropped by a sweep keyed on `create_app()` alone, so the measurement has to come from a running daemon rather than from a constructed app.
 

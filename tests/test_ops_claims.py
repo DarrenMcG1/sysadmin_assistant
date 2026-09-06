@@ -14,6 +14,7 @@ file — which is the failure mode of the whole mechanism, since a reworded
 sentence would otherwise retire the check in silence.
 """
 
+import ast
 import contextlib
 import os
 import re
@@ -32,15 +33,18 @@ from sysadmin.ops_claims import (
     CHECK_KEYS,
     CLAIM_PATTERNS,
     CODE_SPAN_RE,
+    DAEMON_ROOT_MODULE,
     EXPIRY_FORMAT,
     EXPIRY_NAIVE_FORMAT,
     KEYLESS_CHECKS,
     MARKER_RE,
     MAX_NAMED_ALERTS,
+    PACKAGE,
     STATUS_PATH,
     Claim,
     DatabaseFacts,
     Marker,
+    SourceSweep,
     UnitState,
     check_alerts,
     check_all,
@@ -50,15 +54,18 @@ from sysadmin.ops_claims import (
     check_open_titles,
     claim_sentence,
     compare_claim,
+    daemon_modules,
     flatten,
     load_region,
     main,
     measure_routes,
     measure_unit,
+    newest_source,
     overall,
     printed_region,
     read_claim,
     read_markers,
+    sweep_sources,
 )
 from sysadmin.snag_claims import strip_code_spans
 
@@ -228,11 +235,15 @@ class TestAlerts:
 class TestDeploy:
     UNIT = UnitState(loaded=True, active_state="active", entered_at=1000.0, main_pid="4242")
 
+    @staticmethod
+    def _sweep(served=None, unserved=None, problem=""):
+        return SourceSweep(served, unserved, problem)
+
     def test_a_source_edit_after_the_start_names_the_file_and_the_remedy(self):
         """Rule 4 — the running process is not serving what is on disk."""
         with patch(
-            "sysadmin.ops_claims.newest_source",
-            return_value=(REPO_ROOT / "sysadmin" / "main.py", 2000.0),
+            "sysadmin.ops_claims.sweep_sources",
+            return_value=self._sweep(served=(REPO_ROOT / "sysadmin" / "main.py", 2000.0)),
         ):
             claim = check_deploy(self.UNIT)
         assert claim.verdict == "mismatch"
@@ -241,11 +252,74 @@ class TestDeploy:
 
     def test_a_start_after_the_newest_edit_is_a_match(self):
         with patch(
-            "sysadmin.ops_claims.newest_source",
-            return_value=(REPO_ROOT / "sysadmin" / "main.py", 500.0),
+            "sysadmin.ops_claims.sweep_sources",
+            return_value=self._sweep(served=(REPO_ROOT / "sysadmin" / "main.py", 500.0)),
         ):
             claim = check_deploy(self.UNIT)
         assert claim.verdict == "match"
+        assert claim.detail == ()
+
+    def test_a_newer_module_outside_the_graph_is_a_match_that_names_it(self):
+        """The defect this rewrite closes, stated as behaviour.
+
+        ``snag_claims.py`` is a console script the daemon never imports.
+        Sweeping every ``.py`` reported a restart owed for it on eleven
+        consecutive sittings; the restart moved nothing a caller could
+        observe, and ``SNAG-SYSD-007`` is what the eleventh eventually
+        cost.  The verdict is what changes.  The *naming* is what stops
+        the fix from being a silence — a reader who saw the edit must be
+        able to tell "considered" from "never looked at".
+        """
+        with patch(
+            "sysadmin.ops_claims.sweep_sources",
+            return_value=self._sweep(
+                served=(REPO_ROOT / "sysadmin" / "main.py", 500.0),
+                unserved=(REPO_ROOT / "sysadmin" / "snag_claims.py", 2000.0),
+            ),
+        ):
+            claim = check_deploy(self.UNIT)
+        assert claim.verdict == "match"
+        assert claim.note == ""
+        assert claim.detail and "sysadmin/snag_claims.py" in claim.detail[0]
+        assert "no restart is owed" in claim.detail[0]
+
+    def test_an_older_module_outside_the_graph_is_not_mentioned(self):
+        """Only a file newer than the start could have been misread."""
+        with patch(
+            "sysadmin.ops_claims.sweep_sources",
+            return_value=self._sweep(
+                served=(REPO_ROOT / "sysadmin" / "main.py", 500.0),
+                unserved=(REPO_ROOT / "sysadmin" / "snag_claims.py", 600.0),
+            ),
+        ):
+            claim = check_deploy(self.UNIT)
+        assert claim.verdict == "match"
+        assert claim.detail == ()
+
+    def test_a_graph_that_could_not_be_walked_is_unknown(self):
+        """Rule 2, in the direction that matters most for this check.
+
+        An incomplete walk is a *narrower* population, and a narrower
+        population reports a restart is not owed.  Falling back to the
+        whole sweep would be the old defect and falling back to nothing
+        would be zero-because-blind served as zero-because-clean, so the
+        walk is total or the claim is unknown.
+        """
+        with patch(
+            "sysadmin.ops_claims.sweep_sources",
+            return_value=self._sweep(problem="could not parse main.py (SyntaxError)"),
+        ):
+            claim = check_deploy(self.UNIT)
+        assert claim.verdict == "unknown"
+        assert "SyntaxError" in claim.note
+
+    def test_an_empty_graph_is_unknown_rather_than_a_match(self):
+        with patch(
+            "sysadmin.ops_claims.sweep_sources", return_value=self._sweep()
+        ):
+            claim = check_deploy(self.UNIT)
+        assert claim.verdict == "unknown"
+        assert DAEMON_ROOT_MODULE in claim.note
 
     def test_a_unit_systemd_has_never_heard_of_is_unknown(self):
         """The trap this module exists to remove, in its own measurement.
@@ -261,6 +335,276 @@ class TestDeploy:
         assert claim.verdict == "unknown"
         assert claim.measured is None
 
+
+def _tree(root, modules: dict[str, str]):
+    """Write a synthetic ``sysadmin`` package and return its root."""
+    package = root / PACKAGE
+    for name, body in modules.items():
+        path = package / f"{name.replace('.', '/')}.py"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body)
+    return package
+
+
+class TestTheGraphIsWalkedNotTraced:
+    """Which modules the population is drawn from, at a synthetic tree.
+
+    Driven here rather than only against the real package because the two
+    rules are opposites and a real tree can only witness them together:
+    an implementation that returned *everything* satisfies the lazy-edge
+    test, and one keyed on module scope satisfies the exclusion test.
+    Each rule needs the specimen the other one would pass.
+    """
+
+    LAZY = {
+        "main": "from sysadmin.held import thing\n",
+        "held": "def review():\n    from sysadmin.lazy import Client\n\n    return Client\n",
+        "lazy": "Client = object\n",
+        "tool": "def main():\n    return 0\n",
+    }
+
+    def test_a_function_level_import_is_an_edge(self, tmp_path):
+        """The handoff's stated blocker, and the reason this is an AST walk.
+
+        ``sysadmin/core/llm_client.py`` is imported inside three review
+        functions and nowhere at module scope.  A population measured by
+        importing ``create_app()`` never executes those bodies and so
+        drops it — which is what made the previous sitting conclude the
+        measurement had to come from a running daemon over a new surface.
+        It does not: the statement is in the tree either way.
+        """
+        root = _tree(tmp_path, self.LAZY)
+        reached, problem = daemon_modules(root)
+        assert problem == ""
+        assert root / "lazy.py" in reached
+
+    def test_a_module_nothing_imports_is_dropped(self, tmp_path):
+        root = _tree(tmp_path, self.LAZY)
+        reached, problem = daemon_modules(root)
+        assert problem == ""
+        assert root / "tool.py" not in reached
+        assert reached == {root / "main.py", root / "held.py", root / "lazy.py"}
+
+    def test_an_unparseable_reachable_module_is_a_problem(self, tmp_path):
+        root = _tree(tmp_path, {**self.LAZY, "held": "def review( :\n"})
+        reached, problem = daemon_modules(root)
+        assert reached == frozenset()
+        assert "SyntaxError" in problem
+
+    def test_an_unparseable_module_outside_the_graph_is_not(self, tmp_path):
+        """A broken console script cannot make the daemon's claim unknown."""
+        root = _tree(tmp_path, {**self.LAZY, "tool": "def main( :\n"})
+        reached, problem = daemon_modules(root)
+        assert problem == ""
+        assert root / "tool.py" not in reached
+
+    def test_a_missing_root_is_a_problem(self, tmp_path):
+        root = _tree(tmp_path, {"tool": "x = 1\n"})
+        reached, problem = daemon_modules(root)
+        assert reached == frozenset()
+        assert DAEMON_ROOT_MODULE in problem
+
+    def test_a_relative_import_is_an_edge(self, tmp_path):
+        """Empty population under ``sysadmin/`` today, kept anyway.
+
+        Zero relative imports exist here (measured 2026-09-06), so this
+        rule is unreachable through the real package — which is exactly
+        why it is pinned at a synthetic one.  The failure mode of getting
+        it wrong is a *narrower* graph, and a narrower graph reports no
+        restart owed: silent, and in the one direction rule 4 must not
+        fail in.
+        """
+        root = _tree(
+            tmp_path,
+            {"main": "from .sibling import thing\n", "sibling": "thing = 1\n"},
+        )
+        reached, problem = daemon_modules(root)
+        assert problem == ""
+        assert root / "sibling.py" in reached
+
+    def test_a_package_init_above_an_imported_module_is_an_edge(self, tmp_path):
+        """Importing ``a.b.c`` runs ``a/b/__init__.py`` first, so it is ours.
+
+        Written after the mutation drive rather than before it: dropping
+        the ancestor clause loses six ``__init__.py`` files from the real
+        package, none of them named by any statement in it.  One level of
+        ancestry reaches all eleven of this package's inits *today*, which
+        is a coincidence of which modules are imported directly — so the
+        specimen is two levels deep, where one level is not enough.
+        """
+        root = _tree(
+            tmp_path,
+            {
+                "main": "from sysadmin.deep.inner.leaf import thing\n",
+                "deep.__init__": "",
+                "deep.inner.__init__": "",
+                "deep.inner.leaf": "thing = 1\n",
+            },
+        )
+        reached, problem = daemon_modules(root)
+        assert problem == ""
+        assert root / "deep" / "__init__.py" in reached
+        assert root / "deep" / "inner" / "__init__.py" in reached
+
+    def test_a_stray_module_in_pycache_is_never_named(self, tmp_path):
+        """It is written *by* the run, so counting it ages every daemon.
+
+        Pinned at ``sweep_sources`` rather than at ``daemon_modules``,
+        because the first version of this test passed against the filter
+        deliberately removed: a file under ``__pycache__`` carries a
+        dotted name nothing imports, so it is already excluded by being
+        unreachable and witnessed the filter not at all.  The side where
+        the filter is load-bearing is the *unserved* sweep, which has no
+        reachability to hide behind — an unfiltered one would put a
+        build artefact in the claim's detail as the newest thing on disk.
+        """
+        root = _tree(tmp_path, self.LAZY)
+        stray = root / "__pycache__" / "stray.py"
+        stray.parent.mkdir(parents=True, exist_ok=True)
+        stray.write_text("x = 1\n")
+        os.utime(stray, (2_000_000_000, 2_000_000_000))
+
+        sweep = sweep_sources(root)
+        assert sweep.problem == ""
+        assert sweep.served is not None and sweep.served[0] != stray
+        assert sweep.unserved is None or sweep.unserved[0] != stray
+
+
+class TestTheGraphAgainstTheRealPackage:
+    """The live half — the rules above, at the tree that has the defect."""
+
+    def test_the_lazily_imported_client_is_in_the_population(self):
+        reached, problem = daemon_modules()
+        assert problem == ""
+        assert REPO_ROOT / "sysadmin" / "core" / "llm_client.py" in reached
+
+    def test_the_console_script_that_held_the_red_is_not(self):
+        """``snag_claims.py`` — 70 commits, and the file the claim was red for."""
+        reached, problem = daemon_modules()
+        assert problem == ""
+        assert REPO_ROOT / "sysadmin" / "snag_claims.py" not in reached
+
+    def test_every_module_outside_the_graph_is_a_script_or_alembic_s(self):
+        """The exclusion is *derived*, never a hand-written list of six.
+
+        A list would be a second statement of which modules are the
+        daemon's, free to disagree with the walk that decides it —
+        ``SNAG-DB-003``'s shape.  The claim instead is a property: a
+        module this daemon cannot reach is one some other process runs,
+        and the console scripts are declared in ``pyproject.toml``.
+        ``metadata.py`` is the one that is nobody's entry point —
+        ``alembic/env.py`` imports it — and is named because it is the
+        exception rather than because it is expected.
+        """
+        import tomllib
+
+        manifest = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+        scripts = {
+            target.split(":")[0]
+            for target in manifest["project"]["scripts"].values()
+            if target.startswith(f"{PACKAGE}.")
+        }
+        allowed = {
+            REPO_ROOT / f"{module.replace('.', '/')}.py" for module in scripts
+        } | {REPO_ROOT / PACKAGE / "metadata.py"}
+
+        reached, problem = daemon_modules()
+        assert problem == ""
+        everything = {
+            path
+            for path in (REPO_ROOT / PACKAGE).rglob("*.py")
+            if "__pycache__" not in path.parts
+        }
+        outside = everything - reached
+        assert outside, "the walk reached everything — it is not narrowing at all"
+        assert outside <= allowed, sorted(str(p) for p in outside - allowed)
+
+    def test_no_import_is_dynamic_so_the_walk_is_complete(self):
+        """The guard that outlives the fix.
+
+        The walk sees every ``import`` statement and nothing else.  That
+        is a *complete* account of the daemon's graph only while no
+        module reaches for one by name — measured 2026-09-06, zero do.
+        The day one does, the population narrows silently and the claim
+        starts reporting no restart owed for a module the daemon holds,
+        which is the direction rule 4 exists to fail away from.
+        """
+        machinery = ("importlib", "__import__", "import_module", "pkgutil")
+        offenders = [
+            f"{path.relative_to(REPO_ROOT)}:{node.lineno}"
+            for path in (REPO_ROOT / PACKAGE).rglob("*.py")
+            if "__pycache__" not in path.parts
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+            if isinstance(node, ast.Name | ast.Attribute)
+            and getattr(node, "id", getattr(node, "attr", "")) in machinery
+        ]
+        assert offenders == [], offenders
+
+
+class TestNewestSource:
+    def test_an_empty_population_has_no_newest(self, tmp_path):
+        """What makes ``SourceSweep.unserved is None`` mean anything.
+
+        Every module being the daemon's is the ordinary state of a
+        package with no console scripts in it, and the claim reads that
+        as "nothing outside the graph to mention" rather than as a fault.
+        An epoch of zero here would name a file that does not exist.
+        """
+        assert newest_source(()) is None
+
+    def test_the_newest_wins_whatever_the_order(self, tmp_path):
+        older, newer = tmp_path / "a.py", tmp_path / "b.py"
+        older.write_text("")
+        newer.write_text("")
+        os.utime(older, (1_000, 1_000))
+        os.utime(newer, (2_000, 2_000))
+        for population in ([older, newer], [newer, older]):
+            assert newest_source(population) == (newer, 2_000.0)
+
+
+class TestTheCacheFilterIsStated:
+    """The clause a behavioural test cannot reach.
+
+    ``abandoned_runs``' treatment.  Driving the mutation is what found
+    it: removing the ``__pycache__`` filter from :func:`daemon_modules`
+    left all 128 tests green, because a file there is named after no
+    import and reachability excludes it whatever the filter says.  The
+    copy in :func:`sweep_sources` *is* observable and is pinned by
+    behaviour one class down; this one is pinned by being written,
+    because its job is to keep the pair symmetric so nobody deletes the
+    half that matters.
+    """
+
+    def test_both_sweeps_skip_it(self):
+        source = (REPO_ROOT / "sysadmin" / "ops_claims.py").read_text()
+        tree = ast.parse(source)
+        sweeps = {
+            node.name: node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {"daemon_modules", "sweep_sources"}
+        }
+        assert set(sweeps) == {"daemon_modules", "sweep_sources"}
+        for name, node in sweeps.items():
+            body = ast.get_source_segment(source, node) or ""
+            assert '"__pycache__" not in path.parts' in body, name
+
+
+class TestTheSweepPartitions:
+    def test_the_two_sides_are_disjoint_and_cover_the_package(self, tmp_path):
+        root = _tree(tmp_path, TestTheGraphIsWalkedNotTraced.LAZY)
+        (root / "tool.py").touch()  # the newest file, and outside the graph
+        sweep = sweep_sources(root)
+        assert sweep.problem == ""
+        assert sweep.served is not None and sweep.unserved is not None
+        assert sweep.unserved[0] == root / "tool.py"
+        assert sweep.served[0] != root / "tool.py"
+
+    def test_a_problem_carries_no_population(self, tmp_path):
+        root = _tree(tmp_path, {"tool": "x = 1\n"})
+        sweep = sweep_sources(root)
+        assert sweep.problem
+        assert sweep.served is None and sweep.unserved is None
 
 class TestMeasurement:
     def test_systemctl_reports_a_nonexistent_unit_as_not_loaded(self):

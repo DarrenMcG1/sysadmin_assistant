@@ -52,13 +52,47 @@ Six rules, three of them the opposite of the obvious implementation:
    is identical, because this repository restarts to verify and commits
    afterwards.  The newest ``.py`` on disk was written 09:57:46, 42
    seconds *before* the start, which is the question actually being
-   asked: is the running process serving what is on disk.  The cost is
-   stated rather than hidden — a checkout or a rebase rewrites mtimes, so
-   this can report a restart owed for an edit that changed nothing back,
-   and so can a file the daemon never imports — this one, the moment it
-   is written.  It fails in the direction that costs a needless
-   ``kill -TERM``, which on this box is not privileged and takes a
-   second.
+   asked: is the running process serving what is on disk.
+
+   **The population is the daemon's import graph, and it took eleven
+   sittings and a 77-minute outage to make it so** (2026-09-06).  This
+   rule used to sweep every ``.py`` under ``sysadmin/`` and priced the
+   consequence in its own last sentence — *"and so can a file the daemon
+   never imports — this one, the moment it is written"* — as a rare miss
+   costing a needless ``kill -TERM`` that "is not privileged and takes a
+   second".  Both halves were wrong.  Measured: **50 of 191** commits
+   touching this package touch *only* the six modules the daemon cannot
+   reach, so the miss is a quarter of the check's fires rather than a
+   rare one, and ``tasks.md`` records the restart being paid on eleven
+   consecutive sittings "whose restart moves nothing a caller can
+   observe".  The second is ``SNAG-SYSD-007``: five restarts in ten
+   minutes trip ``StartLimitBurst``, recovery from ``inactive`` needs a
+   polkit challenge ``sudo -n`` cannot supply, and one of those five was
+   this claim's.  The box was down 77 minutes.  A cost written from the
+   mechanism rather than from the box had priced the wrong option first,
+   for the second time in this file.
+
+   :func:`daemon_modules` is the narrowing and it is a **walk of the
+   source, not a trace of an import** — the opposite of what the entry
+   proposed.  A trace answers with what a process *did* import, which
+   misses :mod:`sysadmin.core.llm_client`, lazily imported inside three
+   review functions and named at module scope nowhere; the sitting that
+   opened this concluded from exactly that that the population had to
+   come from the running daemon over a new surface.  It does not.  A
+   function-level ``import`` is in the tree as plainly as a top-level
+   one, so the walk reaches 94 of 100 with no endpoint, no contract
+   entry and no restart to bootstrap.  What is dropped is the six
+   console-script entry points and ``metadata.py``, each read fresh by a
+   process of its own, for which no restart of *this* daemon could
+   change anything.
+
+   The cost is still stated and it is still one-directional.  A checkout
+   or a rebase rewrites mtimes, and a module the daemon would import
+   lazily but has not yet is counted here, so this can still report a
+   restart owed for code that is already current — never the reverse.
+   And a file *outside* the graph is now named rather than swept:
+   ``ports_checked``'s rule, because "considered, and no restart is owed
+   for it" and "nobody looked" must not read the same.
 
 5. **The unresolved-alert count is a gauge, and both directions are news
    in opposite ways.**  A *rise* is a row the block does not account for.
@@ -187,9 +221,11 @@ now names it as the fourth composition root.
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import subprocess  # noqa: S404 — one read-only `systemctl show`
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -213,6 +249,15 @@ from sysadmin.core.unit_failure import OWN_UNIT
 type Verdict = SchemaVerdict
 
 STATUS_PATH = REPO_ROOT / "docs" / "roadmap" / "STATUS.md"
+
+#: The package rule 4's population is drawn from.
+PACKAGE = "sysadmin"
+
+#: The module ``sysadmin.service`` runs, and so the root of every import
+#: the running process can hold.  Named rather than inlined because it is
+#: the one fact :func:`daemon_modules` cannot derive: what systemd starts
+#: is stated in the unit file, not in the source.
+DAEMON_ROOT_MODULE = f"{PACKAGE}.main"
 
 #: How many open alert titles are printed before the rest are counted.
 #: A cap that drops rows silently is the roll-up defect ``SNAG-ESTATE-001``
@@ -831,23 +876,206 @@ def measure_database() -> DatabaseFacts:
     return DatabaseFacts(int(tables), len(titles), titles)
 
 
-def newest_source(package: Path | None = None) -> tuple[Path, float] | None:
-    """The most recently written ``.py`` under ``sysadmin/``, and when.
+@dataclass(frozen=True)
+class SourceSweep:
+    """The newest ``.py`` either side of the daemon's import graph.
 
-    Rule 4.  This is what the daemon read at start, so it is what decides
-    whether the running process is serving the checkout.  ``__pycache__``
-    is skipped: it is written *by* the run, so including it would make
-    every daemon look one import older than itself.
+    Attributes:
+        served: the newest module the running process can hold, and when.
+            ``None`` when the graph is empty, which is a fault rather than
+            a clean box and is why it is not simply an epoch of zero.
+        unserved: the newest module it cannot — a console script, or
+            ``metadata.py``, which alembic reads.  Carried so the claim
+            can *name* a file a sitting has just edited instead of going
+            quiet about it; the daemon serving its own code and nobody
+            having looked at the rest are different facts.
+        problem: why the graph could not be walked.  Rule 2 — a partial
+            walk is a narrower population, and narrowing silently is the
+            one direction rule 4 must not fail in, so an incomplete walk
+            yields no population at all.
     """
-    root = package or (REPO_ROOT / "sysadmin")
+
+    served: tuple[Path, float] | None = None
+    unserved: tuple[Path, float] | None = None
+    problem: str = ""
+
+
+def newest_source(paths: Iterable[Path]) -> tuple[Path, float] | None:
+    """The most recently written of ``paths``, and when.
+
+    Rule 4.  A file's mtime is what the daemon read at start, so it is
+    what decides whether the running process is serving the checkout.
+    Pure, and taking its population as an argument rather than sweeping
+    for one: which files are the daemon's is :func:`daemon_modules`'
+    question, and answering both here is what let a sweep of *every*
+    ``.py`` stand in for a sweep of the daemon's for the life of the
+    module.
+    """
     newest: tuple[Path, float] | None = None
-    for path in root.rglob("*.py"):
-        if "__pycache__" in path.parts:
-            continue
+    for path in paths:
         stamp = path.stat().st_mtime
         if newest is None or stamp > newest[1]:
             newest = (path, stamp)
     return newest
+
+
+def _module_name(path: Path, root: Path) -> str:
+    """The dotted name of a ``.py`` under ``root``'s parent."""
+    parts = list(path.relative_to(root.parent).with_suffix("").parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts)
+
+
+def _imported_names(tree: ast.AST, me: str, is_init: bool) -> set[str]:
+    """Every ``sysadmin.*`` name an import statement anywhere in ``tree`` names.
+
+    ``ast.walk`` rather than a scan of ``tree.body``, and that is the
+    whole reason this is an AST walk rather than a runtime trace: a
+    *function-level* import is an edge the daemon takes at its first call
+    and a constructed ``create_app()`` never takes at all.
+    :mod:`sysadmin.core.llm_client` is imported inside three review
+    functions and by nothing at module scope, so a population measured by
+    importing the app drops it and stops reporting the one restart it
+    genuinely owes.
+
+    A ``from`` target may name a module or an attribute of one and the
+    syntax cannot tell them apart, so both readings are returned and the
+    caller keeps whichever is a file.
+    """
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                package = me if is_init else me.rpartition(".")[0]
+                base = package.split(".")[: -(node.level - 1) or None]
+                module = ".".join([*base, *([node.module] if node.module else [])])
+            else:
+                module = node.module or ""
+            names.add(module)
+            names.update(f"{module}.{alias.name}" for alias in node.names)
+    return {name for name in names if name == PACKAGE or name.startswith(PACKAGE + ".")}
+
+
+def _ancestry(name: str) -> list[str]:
+    """``a.b.c`` and every package above it.
+
+    Importing ``a.b.c`` executes ``a/__init__.py`` and ``a/b/__init__.py``
+    before it, so those files are the daemon's too and an edit to one owes
+    a restart.  The ancestors are *not* an alternative reading of the
+    target — that is what the second name :func:`_imported_names` returns
+    is for, and it is redundant, since a ``from x.y import Z`` already
+    yields ``x.y`` in its own right.  This clause is the one carrying the
+    package-initialisation fact, and driving the mutation is what said so:
+    dropping it loses six ``__init__.py`` files here, none of which any
+    statement in this package names.
+
+    Every ancestor rather than one, although one reaches all eleven of
+    this package's inits today.  That is a coincidence of which modules
+    happen to be imported directly, not a property of the rule, and its
+    failure mode is a package added at depth whose ``__init__.py`` falls
+    out of the population in silence.
+    """
+    parts = name.split(".")
+    return [".".join(parts[: index + 1]) for index in reversed(range(len(parts)))]
+
+
+def daemon_modules(package: Path | None = None) -> tuple[frozenset[Path], str]:
+    """Every ``.py`` under ``sysadmin/`` the daemon's import graph reaches.
+
+    The population rule 4 compares mtimes over.  ``sysadmin.service``
+    runs ``main:create_app``, so what the running process can hold is
+    what is reachable from :data:`DAEMON_ROOT_MODULE` — and *only* that:
+    the other modules in this package are console-script entry points
+    (:mod:`sysadmin.snag_claims`, this module, :mod:`sysadmin.vacuous_guards`,
+    :mod:`sysadmin.monitor.message_backfill`, :mod:`sysadmin.core.failure_replay`)
+    and :mod:`sysadmin.metadata`, which ``alembic/env.py`` reads.  Each of
+    those runs in a process of its own that reads its file fresh on every
+    invocation, so no restart of this daemon could make any of them less
+    stale, and a claim that a restart is owed for one is a claim about
+    nothing.  Measured 2026-09-06: 94 of 100.
+
+    **A walk of the source, not a trace of an import**, which is the
+    opposite of the obvious implementation and the reason the whole fix
+    is cheap.  A trace answers with what a process *did* import, so it
+    misses a lazy edge until something takes it — and the previous
+    sitting concluded from that that the population had to come from the
+    running daemon over a new surface.  It does not: an import statement
+    inside a function body is in the tree exactly as plainly as one at
+    module scope, and reading the tree costs no endpoint, no contract
+    entry and no restart to bootstrap.
+
+    What it buys instead of exactness is a stated direction.  A module
+    the daemon *would* import lazily but has not yet is counted here, so
+    an edit to it reports a restart owed that the next import would have
+    served anyway — rule 4's own failure direction, a needless
+    ``kill -TERM``, and never a missed one.
+
+    Returns the reachable paths and a problem string; the walk is total
+    or it is nothing, because a graph that stopped early is a *narrower*
+    population and narrowing silently is the one direction rule 4 must
+    not fail in.  ``__pycache__`` is skipped for the reason it always
+    was: it is written *by* the run, so counting it would make every
+    daemon look one import older than itself.  **Removing that clause
+    here changes no output** — a file under ``__pycache__`` carries a
+    dotted name nothing imports, so reachability already excludes it —
+    and it is kept anyway, for ``abandoned_runs``' reason: its
+    visibility is what stops a reader deleting the *other* copy, in
+    :func:`sweep_sources`, where the same filter is the only thing
+    keeping a build artefact out of the claim's detail.  A behavioural
+    test cannot reach a clause whose removal is invisible, so it is
+    pinned by reading the source instead.
+    """
+    root = package or (REPO_ROOT / "sysadmin")
+    try:
+        files = {
+            _module_name(path, root): path
+            for path in root.rglob("*.py")
+            if "__pycache__" not in path.parts
+        }
+    except OSError as exc:  # noqa: BLE001 — an unreadable tree is "unknown"
+        return frozenset(), f"could not read {root} ({exc.__class__.__name__})"
+    if DAEMON_ROOT_MODULE not in files:
+        return frozenset(), f"no {DAEMON_ROOT_MODULE} under {root}"
+
+    seen: set[str] = set()
+    queue = [DAEMON_ROOT_MODULE]
+    while queue:
+        name = queue.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        path = files[name]
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, ValueError) as exc:
+            return frozenset(), f"could not parse {path.name} ({exc.__class__.__name__})"
+        for target in _imported_names(tree, name, path.name == "__init__.py"):
+            for candidate in _ancestry(target):
+                if candidate in files and candidate not in seen:
+                    queue.append(candidate)
+    return frozenset(files[name] for name in seen), ""
+
+
+def sweep_sources(package: Path | None = None) -> SourceSweep:
+    """The newest ``.py`` on each side of the daemon's import graph.
+
+    Both sides, because the six modules outside the graph are still code
+    a sitting has just edited and a reader who saw the edit needs to be
+    told it was considered rather than left to infer it from silence —
+    ``UnitScanResponse.ports_checked``'s rule, at the size of a sentence.
+    They are carried as ``detail`` rather than as ``note`` because
+    :class:`Claim` documents a note as empty on a ``match`` and this is a
+    match: the daemon is serving its own code.
+    """
+    root = package or (REPO_ROOT / "sysadmin")
+    served, problem = daemon_modules(root)
+    if problem:
+        return SourceSweep(problem=problem)
+    everything = {path for path in root.rglob("*.py") if "__pycache__" not in path.parts}
+    return SourceSweep(newest_source(served), newest_source(everything - served))
 
 
 # ---------------------------------------------------------------------------
@@ -1020,8 +1248,26 @@ def check_schema(status_verdict: Verdict, current: str | None, problem: str | No
 
 
 def check_deploy(unit: UnitState) -> Claim:
-    """Is the running daemon serving the code on disk — rule 4."""
-    newest = newest_source()
+    """Is the running daemon serving the code on disk — rule 4.
+
+    The population is the daemon's own import graph, never every ``.py``
+    under ``sysadmin/``.  Six modules here are console-script entry
+    points and alembic's metadata, each read fresh by a process of its
+    own, so a restart of *this* daemon cannot make any of them less
+    stale.  Sweeping them cost eleven consecutive sittings a
+    ``kill -TERM`` that moved nothing a caller could observe, and
+    ``SNAG-SYSD-007`` is what that eventually cost: five restarts in ten
+    minutes tripped ``StartLimitBurst`` and the box was down 77 minutes,
+    one of the five being this claim's.
+
+    A newer module *outside* the graph is still named, on a ``match``
+    and in ``detail``.  Going quiet about a file the sitting has just
+    written would leave a reader unable to tell "considered, and no
+    restart is owed for it" from "never looked at" — ``ports_checked``'s
+    rule, and the distinction this check spent eleven sittings unable to
+    draw.
+    """
+    sweep = sweep_sources()
     if not unit.loaded or unit.entered_at is None:
         return Claim(
             "deploy",
@@ -1032,7 +1278,7 @@ def check_deploy(unit: UnitState) -> Claim:
             "unknown",
             unit.problem or f"{OWN_UNIT} reports no ActiveEnterTimestamp",
         )
-    if newest is None:
+    if sweep.problem:
         return Claim(
             "deploy",
             "Daemon serves the code on disk",
@@ -1040,9 +1286,19 @@ def check_deploy(unit: UnitState) -> Claim:
             None,
             None,
             "unknown",
-            f"no .py found under {REPO_ROOT / 'sysadmin'}",
+            sweep.problem,
         )
-    path, stamp = newest
+    if sweep.served is None:
+        return Claim(
+            "deploy",
+            "Daemon serves the code on disk",
+            "state",
+            None,
+            None,
+            "unknown",
+            f"no module reachable from {DAEMON_ROOT_MODULE}",
+        )
+    path, stamp = sweep.served
     if stamp <= unit.entered_at:
         return Claim(
             "deploy",
@@ -1051,6 +1307,8 @@ def check_deploy(unit: UnitState) -> Claim:
             None,
             f"active since {_local(unit.entered_at)}",
             "match",
+            "",
+            _unserved_detail(sweep.unserved, unit.entered_at),
         )
     remedy = f"kill -TERM {unit.main_pid}" if unit.main_pid not in ("", "0") else "restart it"
     return Claim(
@@ -1061,8 +1319,28 @@ def check_deploy(unit: UnitState) -> Claim:
         f"active since {_local(unit.entered_at)}",
         "mismatch",
         f"the running process predates the newest source edit — {remedy} "
-        "(Restart=always brings it straight back, no sudo)",
+        "(Restart=always brings it straight back, no sudo while it is up — "
+        "SNAG-SYSD-007)",
         (f"{path.relative_to(REPO_ROOT)} written {_local(stamp)}",),
+    )
+
+
+def _unserved_detail(
+    unserved: tuple[Path, float] | None, entered_at: float
+) -> tuple[str, ...]:
+    """Name a newer module the daemon does not import, or say nothing.
+
+    Only when it is newer than the start, because that is the reading a
+    sitting would otherwise have taken for a restart owed.  An older one
+    is not a fact anybody is about to misread.
+    """
+    if unserved is None or unserved[1] <= entered_at:
+        return ()
+    path, stamp = unserved
+    return (
+        f"{path.relative_to(REPO_ROOT)} written {_local(stamp)} is outside the "
+        f"daemon's import graph — read fresh by its own process, so no restart "
+        f"is owed for it",
     )
 
 

@@ -8,6 +8,121 @@
 
 ---
 
+## Session 190: the deploy claim measures the daemon's import graph ✅ (2026-09-06)
+
+_Session 189's next action asked what the deploy claim should measure,
+naming two candidates — a needless `kill -TERM`, or narrowing the mtime
+sweep to what the process actually holds — and ruling the second "not
+the trivial change it looks", because `core/llm_client.py` is imported
+lazily and "the measurement has to come from a running daemon rather
+than from a constructed app"._
+
+- [x] **The fork was three-way, not two, and the third dominates.** The
+      handoff's blocker is true of a **trace** and false of a **walk**:
+      a function-level `import` is in the AST exactly as plainly as a
+      top-level one, so a static walk from `sysadmin.main` reaches
+      `core/llm_client.py` where importing `create_app()` never does.
+      Measured: **94 of 100**, the 93 a constructed app holds plus the
+      lazy edge, dropping exactly the six console-script modules and
+      `metadata.py`. Put to the owner with its costs; the walk was
+      chosen over publishing a `sys.modules` surface from the daemon
+- [x] **The ranking was re-measured rather than inherited, and both
+      halves of rule 4's own cost sentence were wrong.** It called a
+      file the daemon never imports a rare miss costing a restart that
+      "is not privileged and takes a second". **50 of 191** commits
+      touching `sysadmin/` touch only those six, so it is a quarter of
+      the check's fires; this file records the restart paid on **eleven
+      consecutive sittings** "whose restart moves nothing a caller can
+      observe"; and `SNAG-SYSD-007` is what it cost — one of five
+      restarts in ten minutes that tripped `StartLimitBurst`, leaving
+      the box down 77 minutes. **Zero of the 191 are mixed**, so
+      narrowing has never been able to mask a daemon edit shipping
+      beside a tooling one
+- [x] **The narrowing fails closed.** A walk that stops early is a
+      *narrower* population and a narrower population reports no restart
+      owed, so an unparseable reachable module, a missing
+      `sysadmin.main` and an unreadable tree all yield `unknown` — rule
+      2 — rather than the old whole-tree sweep or a silent empty. A
+      broken console script cannot make the daemon's claim unknown,
+      because it is never parsed
+- [x] **A newer file outside the graph is named, not swept.**
+      `ports_checked`'s rule: "considered, and no restart is owed for
+      it" must not read like "nobody looked". Carried in `detail`
+      rather than `note`, because `Claim` documents a note as empty on
+      a `match` and this is one
+- [x] **Verified live in both directions rather than only against
+      fixtures.** The claim reads `ok` and names the file being edited
+      to produce it; touching `monitor/agent.py` turns it red with the
+      remedy, and restoring the mtime to the nanosecond turns it green
+      again — no restart taken, and none owed
+- [x] **`SNAG-SYSD-009` filed with the twenty-fifth check** (`CHECKS`
+      24 → 25, measured either side by walking the constant rather than
+      read off a neighbour's "29 verdicts", which counts printed lines).
+      The residue is that a lazily-imported module is in the population
+      before the daemon has imported it — rule 4's accepted direction,
+      never the reverse. The check's witness is the difference between
+      the population and a **real process**, never a second walk of the
+      source, which would agree with the walk by construction
+- [x] **The sibling cost is deliberately not filed, and the asymmetry is
+      recorded rather than left as silence.** Rule 4 has said since it
+      was written that a rebase rewrites mtimes and can report a restart
+      owed for an edit that changed nothing back, and that has never
+      been an entry in ~190 sittings. Same shape, same direction. The
+      difference taken to justify filing one and not the other is
+      **provenance**: the rebase cost is the environment rewriting a
+      fact this check reads, and the lazy-edge cost is introduced by
+      this narrowing — a cost a fix creates is the fix's to carry
+- [x] **Twenty-one mutations driven and twenty-one killed — three only
+      after the test that should have caught them was repaired, and all
+      three are one class**: a clause whose removal changes no output.
+      The `__pycache__` filter in `daemon_modules` is excluded by
+      reachability anyway, so the first version of its test passed
+      against the filter deleted; the observable copy is in
+      `sweep_sources` and the unobservable one is pinned by a statement
+      test, `abandoned_runs`' rule. The `create_app()` call in the new
+      check adds **0** modules, because `import sysadmin.main` already
+      holds 95, so deleting it passed every behavioural drive including
+      the subprocess one written specifically to catch it
+- [x] **The ancestry clause was expected to be redundant and is not,
+      which is the one place reading the code gave the wrong answer.**
+      Dropping `target.rpartition(".")[0]` loses **six** `__init__.py`
+      files that no statement in this package names: its job is package
+      initialisation — importing `a.b.c` runs `a/b/__init__.py` — and
+      not the attribute-versus-module reading its first docstring
+      claimed. It now walks **every** ancestor, because one level
+      reaches all eleven inits here by coincidence of which modules are
+      imported directly, and its failure mode is a package added at
+      depth falling out of the population in silence
+- [x] **Four tests failed only under the whole suite, and the premise
+      was working.** Other files import the review modules, which import
+      the lazy module, so the check correctly refused to measure in a
+      contaminated process; running the file alone never showed it. The
+      fixture that removes it models the console-script process the
+      check actually runs in, which holds 35 `sysadmin` modules and none
+      of them this one. The sitting had already hit the same class by
+      hand, importing the walker into the process it was measuring and
+      reading its own import back as a finding
+- [x] **The AST walk is complete rather than approximate, and that is
+      guarded.** Zero dynamic imports (`importlib`, `__import__`,
+      `pkgutil`) exist under `sysadmin/`, and nothing outside the
+      package imports back into it — both measured. A test refuses the
+      first, because the day one arrives the population narrows in
+      silence, which is the one direction rule 4 must not fail in
+- [x] Tests **3752 → 3780** (21 in `tests/test_ops_claims.py`, 7 in
+      `tests/test_snag_claims.py::TestTheUnheldModuleCheck`, none
+      retired). Baseline measured in a **detached worktree** rather than
+      by stashing, the stash stack being shared: 110 in
+      `test_ops_claims.py`, and 110 + 21 = 131. `ruff check .` and
+      `mypy sysadmin` clean, `check-migrations.sh` at head 018, all ten
+      ops claims `ok` and all 25 register checks reporting
+- [x] **No restart was taken and none is owed** — the first sitting in
+      twelve to be able to say the second half. The daemon has served
+      since 07:17:52 and every module it holds predates that; the two
+      files this sitting edited are both outside its import graph, which
+      is the claim the whole sitting is about
+
+---
+
 ## Session 189: a red suite is not a measure that did not run ✅ (2026-09-06)
 
 _Session 188 filed `SNAG-TEST-012` as the general case its named fix

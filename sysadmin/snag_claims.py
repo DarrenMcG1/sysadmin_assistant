@@ -8653,9 +8653,119 @@ class Check:
     run: Callable[[], Measurement]
 
 
+#: The module the deploy population counts and a fresh process does not
+#: hold.  Named because the check's own premise turns on it: a process
+#: that has already imported it cannot witness the gap.
+#: This package, as ``sys.modules`` spells it.
+PACKAGE_NAME = "sysadmin"
+
+LAZY_EDGE_MODULE = f"{PACKAGE_NAME}.core.llm_client"
+
+
+def check_deploy_counts_an_unheld_module() -> Measurement:
+    """``SNAG-SYSD-009`` — the deploy population is a graph, not a process.
+
+    ``ops_claims.daemon_modules`` walks the source, so a module imported
+    inside a function body is counted from the moment the statement
+    exists rather than from the moment the daemon runs it.  Everything
+    reachable only that way is in the population while possibly not in
+    the process, and an edit to one reports a restart the next import
+    would have served anyway.
+
+    **The witness is the difference between the population and a real
+    process**, never a second walk of the source.  Re-deriving "which
+    imports are module-scope" here would be a second implementation of
+    the rule under test — ``SNAG-DB-003``'s shape — and it would agree
+    with the walk by construction, since the same hand wrote both.
+    ``create_app()`` is the third party: whatever it holds, it holds
+    because CPython imported it.
+
+    Refuted when that difference is empty — either because the lazy
+    import became a top-level one, or because the population learned to
+    ask a running process, which is the fix the entry's own history
+    ranked first.  ``unknown`` when the walk will not run, when
+    ``sweep_sources`` has stopped sourcing its population here (the fix
+    could land beside this function rather than in it, and a check that
+    kept measuring the old path would report the entry still holding
+    over a landed fix), or when this process has **already imported the
+    lazy module** — which would shrink the difference and read as a fix.
+    """
+    from sysadmin import ops_claims
+
+    if LAZY_EDGE_MODULE in sys.modules:
+        return Measurement(
+            "unknown",
+            f"{LAZY_EDGE_MODULE} is already imported in this process, so the "
+            "difference it is the witness for cannot be observed here",
+        )
+
+    source = _parse(Path(ops_claims.__file__))
+    if source is None:
+        return Measurement("unknown", "ops_claims.py would not parse")
+    sweep = next(
+        (
+            node
+            for node in ast.walk(source)
+            if isinstance(node, ast.FunctionDef) and node.name == "sweep_sources"
+        ),
+        None,
+    )
+    body = ast.get_source_segment(Path(ops_claims.__file__).read_text(), sweep) if sweep else ""
+    if not body or "daemon_modules(" not in body:
+        return Measurement(
+            "unknown",
+            "sweep_sources no longer draws its population from daemon_modules, so "
+            "this measurement is no longer of the path check_deploy takes",
+        )
+
+    population, problem = ops_claims.daemon_modules()
+    if problem:
+        return Measurement("unknown", f"the import graph would not walk ({problem})")
+
+    from sysadmin.main import create_app
+
+    # The *import* above is what populates ``sys.modules`` — measured, a bare
+    # ``import sysadmin.main`` holds 95 where ``create_app()`` then adds **0**,
+    # so this call is inert today and a mutation deleting it passes every
+    # behavioural test.  It is kept for ``abandoned_runs``' reason: a module
+    # imported lazily at *construction* time would appear only after it, and
+    # its only possible effect is to widen ``held``, which shrinks the
+    # difference and makes this check harder to claim the entry still holds —
+    # the safe direction for a check.  Pinned by reading the source, because a
+    # clause with no behaviour cannot be reached by a behavioural test.
+    create_app()
+    held: set[Path] = set()
+    for name, module in list(sys.modules.items()):
+        if name != PACKAGE_NAME and not name.startswith(f"{PACKAGE_NAME}."):
+            continue
+        origin = getattr(module, "__file__", None)
+        if origin:
+            held.add(Path(origin).resolve())
+    unheld = sorted(path.relative_to(ops_claims.REPO_ROOT) for path in population - held)
+    detail = (
+        f"population: {len(population)} modules",
+        f"held by a constructed create_app(): {len(population & held)}",
+        f"counted and not held: {', '.join(str(p) for p in unheld) or 'none'}",
+    )
+    if unheld:
+        return Measurement("match", "", detail)
+    return Measurement(
+        "mismatch",
+        "every module in the deploy population is one a constructed application "
+        "holds, so the population no longer counts a module the process may not",
+        detail,
+    )
+
+
 CHECKS: dict[str, Check] = {
     check.key: check
     for check in (
+        Check(
+            "deploy_counts_an_unheld_module",
+            "SNAG-SYSD-009",
+            "the deploy population counts a module the process may not hold",
+            check_deploy_counts_an_unheld_module,
+        ),
         Check(
             "disposition_correction_unpublishable",
             "SNAG-TEST-011",

@@ -1678,9 +1678,34 @@ Six rules, three of them the opposite of the obvious implementation:
    landed at 10:05:22 with identical content, because this repository
    restarts to verify and commits afterwards. The newest `.py` on disk —
    09:57:46, 42 s *before* the start — answers the question actually
-   being asked. The cost is stated: a rebase, or a file the daemon never
-   imports, reports a restart owed, and that fails in the direction that
-   costs a needless `kill -TERM`.
+   being asked. **The population is the daemon's import graph, and was
+   every `.py` here until 2026-09-06** (Session 190) — this rule's own
+   stated cost, *"a file the daemon never imports reports a restart
+   owed"*, turning out to be a quarter of its fires rather than the rare
+   miss it was priced as: **50 of 191** commits touching `sysadmin/`
+   touch only the six modules the daemon cannot reach, and `tasks.md`
+   records the restart paid on **eleven consecutive sittings** "whose
+   restart moves nothing a caller can observe". The same sentence priced
+   that restart at "a second"; `SNAG-SYSD-007` is what it cost, one of
+   the five restarts that tripped `StartLimitBurst` and left the box down
+   **77 minutes**. `daemon_modules` is a **walk of the source, not a
+   trace of an import** — the opposite of what the entry proposed, and
+   the reason the fix is cheap. `core/llm_client.py` is imported lazily
+   inside three review functions and named at module scope nowhere, so a
+   trace of a constructed `create_app()` drops it, and the sitting that
+   opened this concluded from exactly that that the measurement had to
+   come from a running daemon over a new surface. It does not: a
+   function-level `import` is in the AST as plainly as a top-level one,
+   so the walk reaches **94 of 100** with no endpoint, no contract entry
+   and no restart to bootstrap. It follows every **ancestor package**
+   too, because importing `a.b.c` runs `a/b/__init__.py` — one level
+   reaches all eleven inits here by coincidence of which modules happen
+   to be imported directly, and only the mutation drive said so. The cost
+   is unchanged in direction: a rebase, or a lazily-imported module the
+   daemon has not reached yet, still reports a restart owed and never the
+   reverse. A newer file **outside** the graph is named on the `match`
+   rather than swept — `ports_checked`'s rule, because "considered, and
+   no restart is owed for it" must not read like "nobody looked".
 5. **A *fall* in the unresolved-alert count is the founding case.**
    Equality, or a rise, is the rule anyone would write. This snag exists
    because `SNAG-DB-002`'s eight collation rows resolved themselves at
