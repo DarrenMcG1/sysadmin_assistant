@@ -3,6 +3,72 @@
 **Last Updated**: 2026-09-06
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **`decided` with no check is legitimate, and it is the only place the
+> register can say *never* rather than *not yet*** (2026-09-06, Session
+> 182). Rule 6's counter and the disposition vocabulary were read as
+> disagreeing — 0 owed against 2 unchecked. They do not. The counter
+> reports a fact about **freshness** (these N claims are only as fresh as
+> the last hand sweep); the disposition reports whether that staleness is
+> **chosen or pending**. `SNAG-ESTATE-014` filed exactly this gap on
+> 2026-08-27 — *"cannot tell 'not yet' from 'never' — `ports_checked`'s
+> rule at the level of the register rather than the reading"* — after
+> refusing both `<!--check:none_yet-->` and a `covered-by` bullet. The
+> disposition vocabulary landed **five days later** and is the missing
+> discriminator, and nobody had connected them. `owed` + no check is *not
+> yet*; `decided` + no check is *never*.
+>
+> **So the binding rule is not that every unchecked entry is `owed`.**
+> `SNAG-TEST-010` read `owed` because a check *was* owed and turned out
+> writable — that is *not yet* resolving correctly, not a precedent that
+> the counter is a queue. What `decided` + no check asserts, in addition
+> to the condition being settled, is that a check is **unwritable** — and
+> `SNAG-ESTATE-014`'s judgement already set the form that assertion takes:
+> named by the finding it is about, with no marker, **and with the reason
+> stated in the body**. Silence is not the argument.
+>
+> **Both of the two failed the rule, and the handoff's two candidates were
+> both wrong.** It offered *the disposition is right* or *the same
+> mis-disposition `SNAG-TEST-010` carried*. The true third for
+> `SNAG-SYSD-008` is that the entry's stated reason for staying open is
+> **refuted by the box**, so the question of its check is downstream of a
+> correction it owed first.
+>
+> **The refuted claim, in two commands.** It read *"no health surface
+> reads the unit's own cgroup — the one number that would have ranked
+> this in a minute is served nowhere"*, having checked
+> `/api/sysadmin/self` and `/api/sysadmin/resources` and stopped.
+> `GET /api/sysadmin/services/sysadmin-service/details` serves
+> `MemoryCurrent: 453611520` against the cgroup's own `memory.current` of
+> **453287936** at the same moment; `ServiceDetailInfo.memory_current` is
+> in this repository's contract registry, and `services_tab.py` renders
+> it — the tray has been printing **`Memory: 433 MB`** on this daemon's
+> own card the whole time. A claim of the form *nothing serves X* is
+> refuted by one route, and this one was filed from the two surfaces a
+> reader would think of rather than from `GET /openapi.json`.
+>
+> **What replaces it is sharper than what was filed.** The number that
+> *is* served is `memory.current`, which the entry's own first bullet
+> proves cannot separate `anon 155 MB` from `file 298 MB` with every byte
+> of the file half cold and reclaimable. So the surface served the figure
+> that **opened** this entry as a 462 MB "resident set" and not the
+> decomposition that settled it. The durable half is a **missing
+> discriminator**, not a missing surface — `memory.stat`'s `anon`/`file`,
+> unserved and measured so — and it is checkable, which is why the
+> disposition moved `decided` → `owed`. Register either side:
+> `decided 16` → `owed 1, decided 15`, unchecked unmoved at **2 of 24**.
+>
+> **`SNAG-LOG-016`'s refusal is mis-costed too, and it was left alone
+> deliberately.** Its bullet costs only the *population* check — *"is the
+> live population non-empty"* — which is the identical mis-costing
+> `SNAG-TEST-010` made and Session 181 refuted: a check reproduces the
+> **defect**, not the discriminator. Driven in real SQL against a
+> synthetic corpus, no writes and no live reset: both genuine kernel
+> prefixes select, a payload reword does not, so the guard skips on
+> exactly the row it exists to catch. That is writable in a sitting and
+> moves when the entry's own stated closure — an event-keyed population —
+> lands. Not written here, because the register's own shape-of-fix rule is
+> one check per sitting.
+
 > **The entry that said it could carry no check now carries the
 > twenty-first, and the reason it gave was refuted by its own sitting**
 > (2026-09-06, Session 181). `SNAG-TEST-010` said a check would have to

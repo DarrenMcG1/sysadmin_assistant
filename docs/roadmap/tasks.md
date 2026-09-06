@@ -8,6 +8,65 @@
 
 ---
 
+## Session 182: `decided` with no check, and an absence that was not one ✅ (2026-09-06)
+
+_Session 181's handoff asked whether an entry may declare `decided` while
+carrying no check, having left the register at **0 owed against 2
+unchecked** with both of the two declaring `decided`. It named two
+candidates — the disposition is right, or it is the same mis-disposition
+`SNAG-TEST-010` carried. Neither is what the box said._
+
+- [x] **Decided: yes, and it is the only place the register can say
+      *never* rather than *not yet*.** Rule 6's counter reports a fact
+      about **freshness**; the disposition reports whether that staleness
+      is **chosen or pending**. They do not disagree.
+- [x] **`SNAG-ESTATE-014` filed this exact gap on 2026-08-27** —
+      *"cannot tell 'not yet' from 'never'"* — after refusing both
+      `<!--check:none_yet-->` and a `covered-by` bullet. The disposition
+      vocabulary landed **five days later** and is the discriminator it
+      asked for. Nobody had connected them.
+- [x] **The binding rule written down**: `decided` + no check asserts a
+      check is **unwritable**, and `SNAG-ESTATE-014`'s judgement already
+      set the form — no marker, and **the reason stated in the body**.
+      Silence is not the argument. `SNAG-TEST-010` read `owed` because a
+      check *was* owed and turned out writable, which is *not yet*
+      resolving correctly rather than a precedent that the counter is a
+      queue.
+- [x] **`SNAG-SYSD-008`'s durable half is refuted by the box.** It read
+      *"no health surface reads the unit's own cgroup … served
+      nowhere"*, having checked `/api/sysadmin/self` and
+      `/api/sysadmin/resources` and stopped.
+      `GET /api/sysadmin/services/sysadmin-service/details` serves
+      `MemoryCurrent: 453611520` against the cgroup's own
+      `memory.current` of **453287936** at the same moment;
+      `ServiceDetailInfo.memory_current` is in the contract registry and
+      `services_tab.py` renders **`Memory: 433 MB`** on this daemon's own
+      card.
+- [x] **What replaces it is sharper**: the served number is
+      `memory.current`, which cannot separate `anon 155 MB` from
+      `file 298 MB`. The surface serves the figure that **opened** the
+      entry as a 462 MB "resident set" and not the decomposition that
+      settled it. The durable half is a **missing discriminator**, not a
+      missing surface — `memory.stat`'s `anon`/`file`, measured unserved.
+- [x] **Disposition `decided` → `owed`**, because the narrowed claim is
+      checkable. Register either side: `decided 16` →
+      `owed 1, decided 15`; unchecked unmoved at **2 of 24**; open
+      unmoved at 24.
+- [ ] **`SNAG-SYSD-008`'s check** — pin that a health surface serves the
+      unit's `memory.current` while `memory.stat`'s `anon`/`file`
+      decomposition reaches no route, with the served figure as the
+      discriminating witness. Refuted when the decomposition is served.
+- [ ] **`SNAG-LOG-016`'s refusal is mis-costed and it was left alone
+      deliberately.** Its bullet costs only the *population* check, the
+      identical mis-costing Session 181 refuted. Driven in real SQL
+      against a synthetic corpus — no writes, no live reset — both
+      genuine kernel prefixes select and a payload reword does not, so
+      the guard skips on exactly the row it exists to catch. Writable in
+      a sitting; not written here, because the shape-of-fix rule is one
+      check per sitting.
+
+---
+
 ## Session 181: the check the entry said it could not have ✅ (2026-09-06)
 
 _Session 180's handoff asked for `SNAG-TEST-010`'s check — the

@@ -1,8 +1,85 @@
-# Handoff — 2026-09-06 (Session 181)
+# Handoff — 2026-09-06 (Session 182)
 
 ## Next action
 
-Decide whether an entry may declare `decided` while carrying no check, because writing the register's last owed check this sitting left **0 owed against 2 unchecked** and both of those two declare `decided`, so rule 6's counter and the disposition vocabulary now disagree about whether anything is queued — and the two candidates are that the disposition is right, a check being genuinely unwritable for them, or that it is the same mis-disposition the entry closed today carried until its own check was written.
+Write `SNAG-SYSD-008`'s check, pinning that a health surface serves this unit's own `memory.current` while `memory.stat`'s `anon`/`file` decomposition reaches no route, with the served figure as the discriminating witness so the check cannot pass by finding nothing at all, because this sitting refuted the entry's filed claim that the cgroup is read nowhere and the narrowed claim that replaced it is what moved the disposition to `owed`.
+
+_**The question was decided and the answer is yes**, with a rule the
+register had already half-written._ _An entry may declare `decided`
+while carrying no check, because rule 6's counter and the disposition
+vocabulary measure different things: the counter reports a fact about
+**freshness** — these N claims are only as fresh as the last hand sweep
+— and the disposition reports whether that staleness is **chosen or
+pending**. `owed` + no check is *not yet*; `decided` + no check is
+*never*. They were never in disagreement._
+
+_**`SNAG-ESTATE-014` filed this exact gap on 2026-08-27 and could not
+close it.**_ _Its words: "the finding counts entries with no check and
+cannot tell 'not yet' from 'never' — `ports_checked`'s rule at the level
+of the register rather than the reading", written after it had refused
+`<!--check:none_yet-->` (a marker names a check, and "there is no check"
+is not one) and refused a `covered-by` bullet as the same move with a
+longer name. The disposition vocabulary landed on **2026-09-02**, five
+days later, and is precisely the discriminator it asked for. Nobody had
+connected them, which is why this morning read as a contradiction._
+
+_**So the binding rule is not that every unchecked entry is `owed`.**_
+_`SNAG-TEST-010` read `owed` because a check *was* owed and turned out
+writable — that is *not yet* resolving correctly, not a precedent making
+the counter a queue. What `decided` + no check asserts, beyond the
+condition being settled, is that a check is **unwritable**; and
+`SNAG-ESTATE-014`'s judgement already set the form that assertion takes
+— named by the finding it is about, with no marker, **and with the
+reason stated in the body**. Silence is not the argument, which is what
+decided both entries._
+
+_**The handoff offered two candidates and the true one was a third.**_
+_`SNAG-SYSD-008` carried no check bullet at all, so it asserted
+unwritability by silence while its own body said an absence "is what a
+check should pin" — and that absence does not exist.
+`GET /api/sysadmin/services/sysadmin-service/details` serves
+`MemoryCurrent: 453611520` against the cgroup's own `memory.current` of
+**453287936** at the same moment; `systemd.py` has asked for the
+property since the route was written, `ServiceDetailInfo.memory_current`
+is in the contract registry, and `services_tab.py` renders it — the tray
+has been printing **`Memory: 433 MB`** on this daemon's own card the
+whole time. The entry checked `/api/sysadmin/self` and
+`/api/sysadmin/resources` and stopped; a claim of the form *nothing
+serves X* is refuted by one route, and this one was filed from the two
+surfaces a reader would think of rather than from `GET /openapi.json`._
+
+_**What replaced it is sharper than what was filed, which is why the
+entry stays open.**_ _The number that *is* served is `memory.current`,
+which the entry's own first bullet proves cannot separate `anon 155 MB`
+from `file 298 MB` with every byte of the file half cold and
+reclaimable. So the surface served the figure that **opened** the entry
+as a 462 MB "resident set" and not the decomposition that settled it.
+The durable half is a **missing discriminator**, not a missing surface —
+`memory.stat`'s `anon`/`file`, measured unserved across `sysadmin/` and
+`sysadmin_tray/` — and it is checkable, so `decided` → `owed`. Register
+either side: `decided 16` → `owed 1, decided 15`, unchecked unmoved at
+**2 of 24**, open unmoved at 24._
+
+_**`SNAG-LOG-016` is mis-costed the same way and was left alone
+deliberately.**_ _Its refusal bullet costs only the *population* check —
+"is the live population non-empty" — which is the identical mis-costing
+`SNAG-TEST-010` made and Session 181 refuted: a check reproduces the
+**defect**, not the discriminator. Driven in real SQL against a
+synthetic corpus, no writes and no live reset: both genuine kernel
+prefixes select under `WITNESS_LIKE` and a payload reword does not, so
+the guard skips on exactly the row it exists to catch, and the check
+would move when the entry's own stated closure — an event-keyed
+population — lands. Its neighbours are the control: `SNAG-LOG-017` and
+`SNAG-LOG-018` both sit on measured-empty populations and both carry
+checks. Not written here, because the shape-of-fix rule is one check per
+sitting and the correction was owed before the check was._
+
+_**No code changed and nothing was deployed.**_ _Three documents and one
+disposition; the suite and both gates were run to confirm the register
+reads the change the way the decision intends rather than to certify an
+edit. No migration, no restart owed._
+
+# Handoff — 2026-09-06 (Session 181)
 
 _**`SNAG-TEST-010` has its check and the entry's stated reason for
 carrying none was wrong in the way that matters.**_ _It said a check
