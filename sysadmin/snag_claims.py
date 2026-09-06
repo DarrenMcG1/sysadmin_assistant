@@ -7645,6 +7645,399 @@ def check_element_never_ran_reads_turned() -> Measurement:
     return Measurement("match", "", detail)
 
 
+# ---------------------------------------------------------------------------
+# SNAG-SYSD-008 — the served memory figure cannot separate anon from cache
+# ---------------------------------------------------------------------------
+
+#: The cgroup v2 mount, and the only place a unit's ``memory.stat`` can be
+#: read.  Named rather than folded into the path expression, so a box that
+#: mounts it elsewhere reads as ``unknown`` at one place with its own
+#: sentence rather than as a missing file three branches down.
+CGROUP_MOUNT = Path("/sys/fs/cgroup")
+
+#: The two ``memory.stat`` lines carrying the decomposition
+#: ``SNAG-SYSD-008`` settled itself on: anonymous pages against page
+#: cache.  ``memory.current`` is their sum plus the kernel's own
+#: accounting, which is exactly why it cannot separate them — the entry
+#: opened on a 462 MB "resident set" that was 298 MB of cold, reclaimable
+#: file cache the file organiser had faulted in.
+DECOMPOSITION_KEYS = ("anon", "file")
+
+#: The file a reader of that decomposition must open.  ``systemctl show``
+#: publishes ``MemoryCurrent``, ``MemoryPeak`` and ``MemoryAvailable`` and
+#: not one of them separates anon from cache, so **serving the
+#: decomposition entails reading this file** — which is what makes a
+#: source sweep sufficient for a claim about routes.
+DECOMPOSITION_FILE = "memory.stat"
+
+#: The systemd property the details route serves, spelled the way
+#: ``systemctl show`` spells it.  It has two jobs and the second is the
+#: one that makes the sweep's silence evidence: it is the token the
+#: *source* sweep must also find, so a sweep that parsed nothing cannot
+#: report the decomposition as unserved.  It is read back out of the
+#: served payload rather than trusted as a literal — see
+#: :func:`memory_decomposition_reading`.
+SERVED_PROPERTY = "MemoryCurrent"
+
+#: Where a reader would have to live for a route *here* to serve it — the
+#: entry's own measured scope.  ``tests/`` is deliberately not in it: a
+#: test is not a route, and this check's own probes name the file.
+SERVING_ROOTS = ("sysadmin", "sysadmin_tray")
+
+#: How far the served figure may sit from the cgroup's own
+#: ``memory.current`` and still be the same fact.  The two are sampled
+#: milliseconds apart from a live daemon whose page cache moves under it;
+#: the entry measured the gap at 453,611,520 against 453,287,936 —
+#: **0.07 %** — so this is three orders of magnitude wider than the
+#: sampling noise.  Its job is to refuse a served figure that is a
+#: *different number*, never to certify agreement to the byte.
+SERVED_FIGURE_TOLERANCE = 0.10
+
+
+def string_constant_sites(token: str, roots: Iterable[Path]) -> list[str] | None:
+    """Every non-docstring string constant containing ``token``, as file:line.
+
+    ``None`` when any file will not parse, because a sweep that skipped a
+    file and a sweep that found nothing are the two answers this check
+    must not confuse — :func:`call_sites` may ``continue`` past an
+    unparseable file since its claim survives a smaller population, and
+    this one's claim *is* the emptiness.
+
+    **A string constant, not a grep and not an attribute walk.**  Rule 7
+    picks the instrument per claim: the thing being looked for here is a
+    *filename opened at runtime*, which reaches the source as a
+    :class:`ast.Constant` and never as an ``ast.Attribute.attr``.  Comments
+    fall out for free — they are not in the tree at all — and docstrings
+    are excluded by identity through :func:`_docstring_nodes`, for the
+    reason that constant records: a sentence *about* a mechanism read as
+    the mechanism retires an entry that still holds.
+
+    The error direction is stated rather than hidden: a module that names
+    the file in a non-docstring string without reading it is reported as a
+    reader.  That over-reports refutation, which under rule 2 costs a
+    reader one judgement, where under-reporting leaves a fixed entry open
+    — the failure the whole module exists to end.
+    """
+    found: list[tuple[str, int]] = []
+    for path in _python_files(roots):
+        tree = _parse(path)
+        if tree is None:
+            return None
+        docstrings = _docstring_nodes(tree)
+        rel = _rel(path)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Constant) or id(node) in docstrings:
+                continue
+            if isinstance(node.value, str) and token in node.value:
+                found.append((rel, node.lineno))
+    return [f"{rel}:{line}" for rel, line in sorted(found)]
+
+
+@dataclass(frozen=True)
+class MemoryDecompositionReading:
+    """What one drive of the surface and one read of the cgroup found.
+
+    Attributes:
+        service: the ``services.yaml`` name the route was asked for.
+        served_bytes: ``MemoryCurrent`` as the contract coerces it.
+        main_pid: the pid the same payload named, and whose cgroup was read.
+        cgroup: the cgroup path that pid sits in.
+        current_bytes: that cgroup's own ``memory.current``.
+        decomposition: its ``anon`` and ``file`` lines.
+        readers: every site in :data:`SERVING_ROOTS` naming ``memory.stat``.
+        property_sites: every site naming :data:`SERVED_PROPERTY` — the
+            sweep's own witness, never part of the claim.
+    """
+
+    service: str
+    served_bytes: int
+    main_pid: int
+    cgroup: str
+    current_bytes: int
+    decomposition: dict[str, int]
+    readers: tuple[str, ...]
+    property_sites: tuple[str, ...]
+
+
+def _cgroup_of(pid: int) -> str | None:
+    """The cgroup path ``pid`` sits in, or ``None``.
+
+    The read is :func:`sysadmin.units.ports._read_cgroup`, imported rather
+    than rewritten, and the caller pins the result against that module's
+    own :func:`~sysadmin.units.ports._unit_from_cgroup`.  The **split is
+    copied verbatim and that is deliberate**: ``cgroup(5)`` is
+    ``hierarchy-ID:controller-list:cgroup-path`` and only the first two
+    fields are colon-free, so ``rpartition`` — the obvious reading — drops
+    the whole ``/user@1000.service/`` prefix for a D-Bus activated unit.
+    That trap is documented at its owner and cost ``SNAG-PORT-001`` a live
+    drive to find; writing the expression afresh here would be a second
+    chance to get it wrong.  The two spellings agree on *this* subject,
+    whose name carries no colon, so the pin below has an empty population
+    today and is a guard against a future subject rather than a
+    discriminator now.
+    """
+    from sysadmin.units.ports import _read_cgroup
+
+    raw = _read_cgroup(pid)
+    if raw is None:
+        return None
+    line = raw.strip().rsplit("\n", 1)[-1]
+    return line.split(":", 2)[2] if line.count(":") >= 2 else None
+
+
+def _read_int_file(path: Path) -> int | None:
+    try:
+        return int(path.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _read_memory_stat(path: Path) -> dict[str, int] | None:
+    """``memory.stat`` as a mapping, or ``None`` when it will not read."""
+    try:
+        text_ = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    stat: dict[str, int] = {}
+    for line in text_.splitlines():
+        key, _, value = line.partition(" ")
+        try:
+            stat[key] = int(value)
+        except ValueError:
+            continue
+    return stat
+
+
+def memory_decomposition_reading() -> tuple[MemoryDecompositionReading | None, str]:
+    """Drive the health surface, then read the cgroup it just described.
+
+    The order is forced.  ``MainPID`` comes back **in the served
+    payload**, so the cgroup read is bound to the process the surface
+    described rather than to a path this module built — which is what
+    lets the served figure and the decomposition be claimed as two
+    readings of one thing rather than two numbers that resemble each
+    other.
+
+    Every way of not-knowing gets its own sentence, rule 5 with
+    :mod:`sysadmin.core.schema_guard`'s wording: a surface that would not
+    answer, a payload with no figure in it, a pid that named no cgroup, a
+    cgroup file that would not read, a ``memory.stat`` with no
+    decomposition in it, and a sweep that could not parse the tree are six
+    different faults and the reader needs to be told which.
+    """
+    from sysadmin.core.contracts import ServiceDetailInfo
+    from sysadmin.monitor.routers.sysadmin import get_service_details
+    from sysadmin.monitor.services import get_services
+    from sysadmin.units.ports import _unit_from_cgroup
+
+    # The service *name* is derived from the unit this daemon already owns,
+    # never written here: a literal would be a second statement of
+    # services.yaml's own row, free to agree with the box while the file
+    # disagrees with both. ``max_priority_for`` against ``PRIORITY_MAP``.
+    try:
+        services = get_services()
+    except Exception as exc:  # noqa: BLE001 — an unreadable services.yaml is "unknown"
+        return None, f"services.yaml would not load ({exc})"
+    named = [entry.name for entry in services.services if entry.systemd_unit == OWN_UNIT]
+    if not named:
+        return None, (
+            f"no services.yaml entry declares {OWN_UNIT}, so the surface the entry names "
+            "cannot be asked about this daemon at all"
+        )
+    service = named[0]
+
+    try:
+        payload = asyncio.run(get_service_details(service))
+    except Exception as exc:  # noqa: BLE001 — a 404, a 503, or a dead bus
+        return None, (
+            f"GET /api/sysadmin/services/{service}/details would not answer "
+            f"({exc.__class__.__name__}: {exc}), so nothing was served to contrast with"
+        )
+
+    # Read back through the contract rather than off the raw dict: the
+    # claim is about what reaches the *wire*, and ``ServiceDetailInfo`` is
+    # what the tray parses. Its ``_coerce_int`` turns systemd's
+    # ``[not set]`` into 0, which is the absence this branch is for.
+    detail_info = ServiceDetailInfo.model_validate(payload)
+    served = detail_info.memory_current
+    if SERVED_PROPERTY not in payload or served <= 0:
+        return None, (
+            f"the details surface answered without a usable {SERVED_PROPERTY} "
+            f"(served {served}), so this entry's own witness is absent — which is a "
+            "reason to know less about the claim and never a way for it to hold"
+        )
+
+    pid = detail_info.main_pid
+    if pid <= 0:
+        return None, (
+            f"the served payload names MainPID {pid}, so the cgroup carrying the "
+            "decomposition cannot be bound to the process the surface described"
+        )
+    cgroup = _cgroup_of(pid)
+    if cgroup is None:
+        return None, f"/proc/{pid}/cgroup would not read or named no cgroup path"
+
+    # The pin: ``ports.py`` parses the same line for a different question,
+    # and its answer must be this unit. A disagreement means the path
+    # above is not the one that module would have taken.
+    parsed_unit, _scope = _unit_from_cgroup(cgroup)
+    if parsed_unit != OWN_UNIT:
+        return None, (
+            f"the cgroup for pid {pid} parses to {parsed_unit!r} rather than {OWN_UNIT}, "
+            "so the file about to be read is not this unit's"
+        )
+
+    directory = CGROUP_MOUNT / cgroup.lstrip("/")
+    current = _read_int_file(directory / "memory.current")
+    if current is None:
+        return None, f"{directory / 'memory.current'} would not read as an integer"
+    stat = _read_memory_stat(directory / DECOMPOSITION_FILE)
+    if stat is None:
+        return None, f"{directory / DECOMPOSITION_FILE} would not read"
+    missing = [key for key in DECOMPOSITION_KEYS if key not in stat]
+    if missing:
+        return None, (
+            f"{directory / DECOMPOSITION_FILE} carries no {', '.join(missing)} line, so "
+            "there is no decomposition for a route to be missing — the claim would hold "
+            "for want of the thing it is about"
+        )
+
+    if current > 0 and abs(served - current) / current > SERVED_FIGURE_TOLERANCE:
+        return None, (
+            f"the surface served {served} against the cgroup's own {current} "
+            f"({abs(served - current) / current:.1%} apart), so the served figure is not "
+            "this unit's memory.current and the entry's first half is unwitnessed"
+        )
+
+    roots = [REPO_ROOT / name for name in SERVING_ROOTS]
+    readers = string_constant_sites(DECOMPOSITION_FILE, roots)
+    property_sites = string_constant_sites(SERVED_PROPERTY, roots)
+    if readers is None or property_sites is None:
+        return None, (
+            f"a file under {'/, '.join(SERVING_ROOTS)}/ would not parse, so the sweep's "
+            "silence is the reader failing rather than evidence"
+        )
+    # This module is excluded from **both** sweeps —
+    # ``check_timer_agent_two_owners``' rule, and not bookkeeping in
+    # either direction. It reads ``memory.stat`` to take the reading
+    # above, so driving the witness means opening the file and the only
+    # thing in this repository that reads it is the check reporting that
+    # nothing does. And it names ``MemoryCurrent`` in a constant, so a
+    # witness that counted its own spelling would be satisfied by itself
+    # on the very day the surface stopped naming it — a self-witness,
+    # which is the shape this limb exists to refuse.
+    here = _rel(Path(__file__))
+    readers = [site for site in readers if not site.startswith(f"{here}:")]
+    property_sites = [site for site in property_sites if not site.startswith(f"{here}:")]
+    if not property_sites:
+        return None, (
+            f"the sweep found no {SERVED_PROPERTY} anywhere under "
+            f"{'/, '.join(SERVING_ROOTS)}/ either, so it is blind to a memory token "
+            "rather than reporting one absent"
+        )
+
+    return (
+        MemoryDecompositionReading(
+            service=service,
+            served_bytes=served,
+            main_pid=pid,
+            cgroup=cgroup,
+            current_bytes=current,
+            decomposition={key: stat[key] for key in DECOMPOSITION_KEYS},
+            readers=tuple(readers),
+            property_sites=tuple(property_sites),
+        ),
+        "",
+    )
+
+
+def check_memory_decomposition_unserved() -> Measurement:
+    """``SNAG-SYSD-008`` — a figure is served; the decomposition is not.
+
+    The entry stayed open for eight days on *"no health surface reads the
+    unit's own cgroup"*, and the box refuted that in two commands: ``GET
+    /api/sysadmin/services/sysadmin-service/details`` has served
+    ``MemoryCurrent`` since the route was written,
+    ``ServiceDetailInfo.memory_current`` carries it, and the tray's
+    Services tab has been printing ``Memory: 433 MB`` on this daemon's own
+    card the whole time.  What survives is **sharper and is what this
+    checks**: the number that *is* served is ``memory.current``, which the
+    entry's own first bullet proves cannot separate ``anon 155 MB`` from
+    ``file 298 MB`` with every byte of the file half cold and reclaimable.
+    The claim is a **missing discriminator**, not a missing surface.
+
+    Two limbs, and the first is a *witness* rather than a claim:
+
+    1. *A health surface serves this unit's own ``memory.current``.*  The
+       route function is driven, the figure read back through the contract
+       the tray parses, and compared against the cgroup of the very pid
+       that payload named.  Absent, unusable, or a different number, the
+       verdict is ``unknown`` — **this is what stops the check passing by
+       finding nothing at all.**  A report that nothing serves the
+       decomposition, taken on a box where nothing serves anything, is not
+       evidence for this entry; it is a dead surface wearing this entry's
+       sentence.  Rule 5 in the direction that is easy to get wrong,
+       because the trivially-true reading is the one that looks like
+       health.
+    2. *The decomposition reaches no route.*  Nothing under ``sysadmin/``
+       or ``sysadmin_tray/`` opens ``memory.stat``.  Refuted by a reader
+       appearing, which is the shape every fix must take: ``systemctl
+       show`` publishes ``MemoryCurrent``, ``MemoryPeak`` and
+       ``MemoryAvailable`` and none of them separates anon from cache, so
+       a route serving the decomposition has to read the file.  That
+       entailment is what lets a **source** sweep answer a claim about
+       **routes** — and it is the only instrument that can, because the
+       route serving the witness declares no ``response_model`` at all
+       (the contract registry files it *parse-side only*), so a walk over
+       ``create_app()``'s response models is structurally blind to the
+       very surface this entry is about.
+
+    **Three ways the emptiness could be false comfort, each closed
+    separately.**  The sweep could have parsed nothing — so it must also
+    find :data:`SERVED_PROPERTY`, which it does, in ``monitor/systemd.py``
+    and ``core/contracts.py``.  ``memory.stat`` could carry no
+    decomposition — so ``anon`` and ``file`` are required to be present
+    before their absence from a route means anything.  And the surface
+    could have gone quiet — limb 1.
+
+    **``RssAnon`` is deliberately out of scope.**  ``/proc/<pid>/status``
+    decomposes a *process*, and the entry measures the two apart in its
+    own first bullet — ``RssAnon 151 MB`` against the cgroup's ``anon
+    155 MB``.  A check widened to accept it would report an entry about
+    the cgroup's decomposition as refuted by a different fact, which is
+    the detector keying on the noun instead of the verb.
+    """
+    reading, problem = memory_decomposition_reading()
+    if reading is None:
+        return Measurement("unknown", problem)
+
+    anon = reading.decomposition["anon"]
+    cached = reading.decomposition["file"]
+    detail = (
+        f"served by GET /api/sysadmin/services/{reading.service}/details: "
+        f"{SERVED_PROPERTY}={reading.served_bytes} ({reading.served_bytes / 1e6:.1f} MB)",
+        f"cgroup {reading.cgroup} (pid {reading.main_pid}): "
+        f"memory.current={reading.current_bytes} ({reading.current_bytes / 1e6:.1f} MB)",
+        f"unserved decomposition: anon={anon} ({anon / 1e6:.1f} MB), "
+        f"file={cached} ({cached / 1e6:.1f} MB) — "
+        f"{cached / reading.current_bytes:.0%} of the served figure is page cache",
+        f"{DECOMPOSITION_FILE} readers under {'/, '.join(SERVING_ROOTS)}/: "
+        + (", ".join(reading.readers) if reading.readers else "none"),
+        f"sweep witness — {SERVED_PROPERTY} sites: {', '.join(reading.property_sites)}",
+    )
+
+    if reading.readers:
+        return Measurement(
+            "mismatch",
+            f"{DECOMPOSITION_FILE} is read at {', '.join(reading.readers)}, so this "
+            "daemon's anon/cache split can now reach a surface — the discriminator the "
+            "entry stayed open for exists, and what is owed is a reader deciding whether "
+            "it reaches a route",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 @dataclass(frozen=True)
 class Check:
     """One check, and the entry it is about.
@@ -7800,6 +8193,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-TEST-010",
             "a comprehension whose element never ran still measures as turned",
             check_element_never_ran_reads_turned,
+        ),
+        Check(
+            "memory_decomposition_unserved",
+            "SNAG-SYSD-008",
+            "a health surface serves memory.current and no route decomposes it",
+            check_memory_decomposition_unserved,
         ),
     )
 }

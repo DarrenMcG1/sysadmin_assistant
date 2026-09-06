@@ -1,8 +1,117 @@
-# Handoff — 2026-09-06 (Session 182)
+# Handoff — 2026-09-06 (Session 183)
 
 ## Next action
 
-Write `SNAG-SYSD-008`'s check, pinning that a health surface serves this unit's own `memory.current` while `memory.stat`'s `anon`/`file` decomposition reaches no route, with the served figure as the discriminating witness so the check cannot pass by finding nothing at all, because this sitting refuted the entry's filed claim that the cgroup is read nowhere and the narrowed claim that replaced it is what moved the disposition to `owed`.
+Correct the register's one remaining unchecked entry — the live declaration guard that skips when the producer rewords its payload — by moving its disposition to `owed` before writing its check, because Session 182 drove that entry's refusal bullet in real SQL and found it costs only the population check rather than the defect, which is the same mis-costing the entry closed this sitting carried, and the published line cannot cite the id while the entry's own body still declares `decided`.
+
+_**`SNAG-SYSD-008` has its check and the witness is the figure the entry
+was wrong about.**_ _`check_memory_decomposition_unserved` is the
+twenty-second check and reports `still holds`. It drives
+`GET /api/sysadmin/services/sysadmin-service/details`, reads
+`MemoryCurrent` back through `ServiceDetailInfo`, locates the cgroup by
+the **`MainPID` in that same payload**, and asserts that nothing under
+`sysadmin/` or `sysadmin_tray/` opens `memory.stat`. Live: **453.9 MB
+served against a cgroup `memory.current` of 453.9 MB, of which 67 % is
+page cache**, and no reader. Open entries carrying no check: **2 of
+24 → 1**, by a check being written. Disposition `owed` → `decided` the
+same day — the round trip is the record: `owed` was taken because that
+word asserts a check is *unwritable*, and the check is written._
+
+_**The served figure is the discriminating witness, and that is the
+whole design rather than a guard bolted to it.**_ _A report that nothing
+serves the decomposition, taken on a box where nothing serves anything,
+is a dead surface wearing this entry's sentence — so an absent,
+unusable or divergent figure is `unknown`, never `match`, and the drive
+that pins it removes the figure while leaving the sweep untouched. Two
+further roads to a false emptiness are closed separately: the sweep must
+also find `MemoryCurrent` itself, and `memory.stat` must actually carry
+`anon` and `file` before their absence from a route means anything._
+
+_**The witness was self-supplied until it was measured, which is the
+correction worth carrying.**_ _`snag_claims.py` names `MemoryCurrent` in
+a constant and opens `memory.stat` to take the reading, so the first
+version's anti-vacuity limb was satisfied by the check's own spelling —
+it would have passed on the very morning `systemd.py` stopped asking for
+the property. The module is excluded from **both** sweeps now, one
+expression doing two different jobs: keeping the check out of its own
+claim, and out of its own evidence. The witness reads exactly
+`core/contracts.py:533` and `monitor/systemd.py:158`, and a test pins
+that pair._
+
+_**A source sweep answers a claim about routes, and the obvious
+instrument is not weaker but blind.**_ _`systemctl show` publishes
+`MemoryCurrent`, `MemoryPeak` and `MemoryAvailable` and not one of them
+separates anon from cache, so a route serving the split has to open the
+file — the entailment that makes the sweep sufficient. A walk over
+`create_app()`'s response models cannot see the surface this entry is
+about at all: `get_service_details` returns a raw dict and declares no
+`response_model`, which the contract registry already files as
+*parse-side only*. `RssAnon` is out of scope by the same discipline —
+`/proc/<pid>/status` decomposes a *process*, which the entry's own first
+bullet measures apart from the cgroup's._
+
+_**Fourteen falsifications, eleven of them ways of not-knowing, each
+landing on its own branch.**_ _The fix stand-in is a **real module** in a
+synthetic `REPO_ROOT` rather than a finding injected into the sweep's
+output, because a stand-in modelling only the defect cannot tell a check
+that measures from one wired to a constant; the docstring-only twin
+beside it is the detector's own falsification, and it is load-bearing
+here because the entry, the roadmap and three docstrings all name
+`memory.stat` in prose. A tree of its own rather than a module written
+into `sysadmin/`: a test that drops a file into the package is one
+interrupted run away from leaving a reader of `memory.stat` on disk,
+which is the verdict this check exists to report._
+
+_**One of those fourteen was vacuous and the gate said so, which is the
+part worth carrying.**_ _`vacuous_guards` reported a comprehension under
+`tests/` that turned zero times on a green suite: the assertion that this
+module is absent from the **readers** list, which after the exclusion is
+empty by construction and can therefore witness nothing. Moving it to the
+*sweep* found the stronger statement underneath — the raw sweep returns
+`['sysadmin/snag_claims.py:7671']`, so **without the readers-side
+exclusion the check reports `mismatch` against its own entry on its first
+run**, off its own constant. The exclusion is one expression preventing
+two opposite failures and both have live populations; the first draft
+asserted the weaker one where it could not fire._
+
+_**The conftest fixture gave a drive away for free.**_ _The autouse
+`services` fixture installs four synthetic services and none declares
+`sysadmin.service`, so the check under it correctly answers `unknown`
+rather than reading their silence about `memory.stat` as the entry
+holding — `TestTheTrayReportCheck`'s `real_services` idiom borrowed
+whole, and its second use is that same witness guard, asserted rather
+than described._
+
+_**The next action names no id and that is the finding, not evasion.**_
+_`test_the_next_action_names_no_entry_that_is_owed_nothing` refuses a
+published line naming an entry whose body declares `decided`, which is
+right for work on a defect and wrong for a correction **to the
+disposition itself** — the one thing that can only be owed while the
+word still says otherwise. Reproduced this sitting in the other
+direction: the full suite went red the moment `SNAG-SYSD-008` moved back
+to `decided`, on nothing but the handoff line inherited from the sitting
+that had moved it to `owed`. Not filed as a snag, because opening one
+was not asked for; recorded here so the next sitting can decide whether
+it is one._
+
+_**Nothing else was widened.**_ _`SNAG-LOG-016` was left exactly as
+Session 182 left it — one check per sitting, and its correction is the
+line above. `./scripts/check-ops-claims.sh` carries the same three `no`
+findings it carried before this sitting began: the unresolved count
+(**3 against 4**, an `alfred-inference` core dump that arrived at 07:19
+and is nobody here's doing) and the named-rows sentence beside it, both
+of which are `check_alerts`' rise note working, and the deploy check.
+**No restart was taken and the reading is the documented false
+positive**: `create_app()` does not import `snag_claims`, measured, which
+is the case that check's own docstring names as failing in the direction
+that costs a needless `kill -TERM`._
+
+_Suite **3679 passed**, `tests/test_snag_claims.py` **397 → 413** (+16,
+the arithmetic checked so a clobber could not read as green), ruff clean,
+mypy clean over 100 files, `sysadmin-check-snags` **22 checks, all
+`ok`**._
+
+# Handoff — 2026-09-06 (Session 182)
 
 _**The question was decided and the answer is yes**, with a rule the
 register had already half-written._ _An entry may declare `decided`

@@ -7772,3 +7772,355 @@ class TestTheBlindElementCheck:
         assert measured.verdict == "unknown"
         assert "no uv on PATH" in measured.note
         assert measured.detail == ()
+
+
+class TestTheMemoryDecompositionCheck:
+    """``SNAG-SYSD-008``'s check — the twenty-second, and the first whose
+    claim is a *missing discriminator* rather than a missing surface.
+
+    The entry stayed open eight days on *"no health surface reads the
+    unit's own cgroup"* and the box refuted it in two commands.  What
+    replaced it is sharper: the figure that **is** served is
+    ``memory.current``, which cannot separate ``anon`` from page cache —
+    so the entry is about a decomposition reaching nothing, and the
+    served figure is what makes that sentence have a subject.
+
+    The drives are ordered by what each would let past.  The premise
+    comes first, because every verdict below rests on the surface still
+    serving a figure this daemon's cgroup agrees with.  Then the entry as
+    filed, then the stand-in modelling the **fix** — without which the
+    check is coupled to the unfixed behaviour — then the ways of
+    not-knowing, of which the first is the control the whole design turns
+    on: with the witness gone the check must not answer ``match``, even
+    though nothing has changed about what the sweep can see.
+    """
+
+    KEY = "memory_decomposition_unserved"
+
+    @pytest.fixture
+    def real_services(self):
+        """The committed ``services.yaml``, not conftest's four stand-ins.
+
+        The autouse ``services`` fixture installs a synthetic list that
+        declares no ``sysadmin.service``, so the check's first question —
+        which row names this daemon's unit — would be answered by a file
+        the operator never wrote.  Borrowed from
+        :class:`TestTheTrayReportCheck`'s fixture of the same name, and
+        it buys the same second thing: under the stand-ins the check
+        returns ``unknown`` rather than reading their silence as
+        evidence, which is a drive of the witness guard for free.
+        """
+        from sysadmin.monitor import services as services_module
+        from sysadmin.monitor.services import default_services_path, load_services
+
+        previous = services_module._services
+        services_module._services = load_services(default_services_path())
+        yield
+        services_module._services = previous
+
+    def _tree(self, tmp_path: Path, *, reader: bool, prose_only: bool = False) -> Path:
+        """A synthetic ``REPO_ROOT`` holding the two things the sweep looks for.
+
+        Driven at a tree of its own rather than by writing a module into
+        the real package: a test that drops a file into ``sysadmin/`` is
+        one interrupted run away from leaving a reader of ``memory.stat``
+        on disk, which is the verdict this check exists to report.  The
+        witness module is always present, because a tree without it is a
+        *different* drive — the blind-sweep one below — and conflating
+        them would let a stand-in that failed to write its reader pass as
+        the entry holding.
+        """
+        root = tmp_path / "tree"
+        for name in snag_claims.SERVING_ROOTS:
+            (root / name).mkdir(parents=True)
+        package = root / snag_claims.SERVING_ROOTS[0]
+        (package / "witness.py").write_text(
+            f'PROPS = ["{snag_claims.SERVED_PROPERTY}", "ActiveState"]\n', encoding="utf-8"
+        )
+        if prose_only:
+            (package / "prose.py").write_text(
+                f'"""A module about {snag_claims.DECOMPOSITION_FILE} that never opens it."""\n',
+                encoding="utf-8",
+            )
+        if reader:
+            (package / "serve.py").write_text(
+                "from pathlib import Path\n\n\n"
+                "def decomposition(cgroup: str) -> str:\n"
+                f'    return (Path(cgroup) / "{snag_claims.DECOMPOSITION_FILE}").read_text()\n',
+                encoding="utf-8",
+            )
+        return root
+
+    # -- the premise, first -----------------------------------------------
+
+    def test_the_surface_really_serves_this_unit_s_own_memory_current(self, real_services):
+        """Nothing below this means anything until it has passed.
+
+        The entry's first half is an assertion about the live box — a
+        health surface serves ``MemoryCurrent`` and it is this daemon's
+        cgroup figure — and it is what stops the second half being read
+        off a dead surface.  Asserted through the reading rather than by
+        re-running ``systemctl`` here, because a second reader could
+        agree with the box while disagreeing with the one the check used.
+
+        It carries no ``premise`` mark deliberately, for
+        :class:`TestTheBlindElementCheck`'s reason: that mark discharges
+        ``test_live_drive_premises.py``'s rule 2 for the whole file, and
+        this file is in that population for its *database* reads.  A
+        witness about a cgroup would discharge all of them.
+        """
+        reading, problem = snag_claims.memory_decomposition_reading()
+
+        assert reading is not None, problem
+        assert reading.served_bytes > 0
+        assert reading.current_bytes > 0
+        gap = abs(reading.served_bytes - reading.current_bytes) / reading.current_bytes
+        assert gap <= snag_claims.SERVED_FIGURE_TOLERANCE
+        assert set(reading.decomposition) == set(snag_claims.DECOMPOSITION_KEYS)
+        assert all(value > 0 for value in reading.decomposition.values()), (
+            "the cgroup carries no decomposition, so its absence from a route "
+            "would hold for want of the thing the entry is about"
+        )
+        assert reading.property_sites, "the sweep found no MemoryCurrent to witness itself with"
+
+    def test_without_the_exclusion_the_check_refutes_its_own_entry(self, real_services):
+        """One expression doing two jobs, and both have a live population.
+
+        ``snag_claims.py`` names :data:`DECOMPOSITION_FILE` and
+        :data:`SERVED_PROPERTY` in constants, so it appears in **both**
+        sweeps and is stripped from both.  The two failures it prevents
+        are opposite and neither is hypothetical, which is why this
+        asserts at the *sweep* rather than at the reading: after the
+        exclusion the readers list is empty by construction, so an
+        assertion that this module is absent from it would run over
+        nothing and witness nothing — ``vacuous_guards`` reported exactly
+        that against this test's first draft.
+
+        Left in the **readers** sweep, the check reports `mismatch`
+        against its own entry on its first run, off its own constant.
+        Left in the **property** sweep, the anti-vacuity limb is
+        satisfied by the check's own spelling — a self-witness, passing
+        on the very morning ``systemd.py`` stops asking for the property.
+        """
+        own = snag_claims._rel(Path(snag_claims.__file__))
+        roots = [snag_claims.REPO_ROOT / name for name in snag_claims.SERVING_ROOTS]
+        swept_readers = snag_claims.string_constant_sites(snag_claims.DECOMPOSITION_FILE, roots)
+        swept_property = snag_claims.string_constant_sites(snag_claims.SERVED_PROPERTY, roots)
+
+        assert swept_readers, "the sweep finds no memory.stat at all, so nothing is excluded"
+        assert swept_readers == [
+            site for site in swept_readers if site.startswith(f"{own}:")
+        ], (
+            "this module is not the only unexcluded reader, so the claim below is about "
+            f"something other than the self-exclusion: {swept_readers}"
+        )
+        assert [site for site in swept_property if site.startswith(f"{own}:")], (
+            "this module no longer names the served property, so the property sweep's "
+            "exclusion has an empty population and witnesses nothing"
+        )
+
+        reading, problem = snag_claims.memory_decomposition_reading()
+
+        assert reading is not None, problem
+        assert reading.readers == ()
+        assert set(reading.property_sites) == {
+            "sysadmin/core/contracts.py:533",
+            "sysadmin/monitor/systemd.py:158",
+        }
+
+    # -- the entry as filed ------------------------------------------------
+
+    def test_the_decomposition_still_reaches_no_route(self, real_services):
+        measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "match"
+        assert any(
+            line.startswith(f"{snag_claims.DECOMPOSITION_FILE} readers") and line.endswith("none")
+            for line in measured.detail
+        )
+
+    def test_the_detail_carries_the_contrast_the_entry_turns_on(self, real_services):
+        """A number served beside the split it cannot make.
+
+        The entry's whole surviving claim is that these two are different
+        facts, so a report naming only one of them would restate the
+        refuted version — *nothing serves the cgroup* — rather than the
+        narrowed one.
+        """
+        measured = snag_claims.check_memory_decomposition_unserved()
+
+        rendered = "\n".join(measured.detail)
+        assert snag_claims.SERVED_PROPERTY in rendered
+        assert "memory.current=" in rendered
+        assert "unserved decomposition: anon=" in rendered
+        assert "page cache" in rendered
+
+    # -- the stand-in modelling the fix ------------------------------------
+
+    def test_a_module_that_opens_the_file_refutes_the_entry(self, tmp_path: Path, real_services):
+        """The control a fix breaks: driven at a tree that models the fix.
+
+        A stand-in modelling only the *defect* cannot tell a check that
+        measures from one wired to a constant, so the reader is a real
+        module the AST walk has to find — the shape every fix must take,
+        since no systemd property decomposes anon from cache and a route
+        serving the split has to open the file.
+        """
+        root = self._tree(tmp_path, reader=True)
+        with patch.object(snag_claims, "REPO_ROOT", root):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "mismatch"
+        assert snag_claims.DECOMPOSITION_FILE in measured.note
+        assert "serve.py:5" in measured.note
+
+    def test_a_module_that_only_names_the_file_in_prose_does_not(
+        self, tmp_path: Path, real_services
+    ):
+        """The detector's own falsification.
+
+        Rule 7's docstring exclusion, driven rather than trusted: a
+        sentence *about* the decomposition is what the entry's own body,
+        this repository's roadmap and three of its docstrings contain, so
+        a substring instrument would report the entry refuted by the
+        prose describing it.
+        """
+        root = self._tree(tmp_path, reader=False, prose_only=True)
+        with patch.object(snag_claims, "REPO_ROOT", root):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "match"
+
+    # -- the ways of not-knowing -------------------------------------------
+
+    def test_a_surface_serving_nothing_is_unknown_and_never_match(self, real_services):
+        """The control the whole design turns on.
+
+        With the served figure gone the sweep is unchanged and still
+        finds no reader — so a check without this limb would report
+        ``memory_decomposition_unserved`` as holding hardest on the
+        morning the surface it is about went dark.  A report that nothing
+        serves the decomposition, taken where nothing serves anything, is
+        a dead surface wearing this entry's sentence.
+        """
+        real_run = snag_claims.asyncio.run
+
+        def unset(coro):
+            payload = dict(real_run(coro))
+            payload[snag_claims.SERVED_PROPERTY] = "[not set]"
+            return payload
+
+        with patch.object(snag_claims.asyncio, "run", unset):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "unknown"
+        assert snag_claims.SERVED_PROPERTY in measured.note
+        assert "never a way for it to hold" in measured.note
+
+    def test_a_served_figure_that_is_a_different_number_is_unknown(self, real_services):
+        """A figure that does not track the cgroup is not this unit's own."""
+        with patch.object(snag_claims, "_read_int_file", lambda path: 1):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "unknown"
+        assert "is not this unit's memory.current" in measured.note
+
+    def test_a_sweep_that_cannot_parse_the_tree_is_unknown(self, tmp_path: Path, real_services):
+        """An unparseable file empties the sweep exactly as a clean tree does.
+
+        :func:`call_sites` may skip one, because its claim survives a
+        smaller population; this check's claim **is** the emptiness, so
+        the two answers must not be spelled the same.
+        """
+        root = self._tree(tmp_path, reader=False)
+        (root / snag_claims.SERVING_ROOTS[0] / "broken.py").write_text(
+            "def (:\n", encoding="utf-8"
+        )
+        with patch.object(snag_claims, "REPO_ROOT", root):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "unknown"
+        assert "would not parse" in measured.note
+
+    def test_a_sweep_blind_to_the_served_property_is_unknown(self, tmp_path: Path, real_services):
+        """Zero-because-blind is never served as zero-because-clean.
+
+        A tree with no ``MemoryCurrent`` in it is a sweep that cannot see
+        a memory token at all, so its silence about ``memory.stat`` is the
+        reader failing rather than evidence — ``ports_checked``'s rule at
+        the size of an AST walk.
+        """
+        root = tmp_path / "bare"
+        for name in snag_claims.SERVING_ROOTS:
+            (root / name).mkdir(parents=True)
+        with patch.object(snag_claims, "REPO_ROOT", root):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "unknown"
+        assert "blind to a memory token" in measured.note
+
+    def test_a_cgroup_with_no_decomposition_in_it_is_unknown(self, real_services):
+        """The claim would otherwise hold for want of the thing it is about."""
+        with patch.object(snag_claims, "_read_memory_stat", lambda path: {"kernel": 1}):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "unknown"
+        assert "no decomposition for a route to be missing" in measured.note
+
+    def test_a_cgroup_naming_another_unit_is_unknown(self, real_services):
+        """The pin on the path this module extracts.
+
+        ``ports.py`` parses the same ``/proc/<pid>/cgroup`` line for a
+        different question, and its answer must be this unit — a
+        disagreement means the path read above is not the one that module
+        would have taken.
+        """
+        elsewhere = "/system.slice/postgresql.service"
+        with patch.object(snag_claims, "_cgroup_of", lambda pid: elsewhere):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "unknown"
+        assert "postgresql.service" in measured.note
+
+    def test_a_surface_that_will_not_answer_is_unknown(self, real_services):
+        """A 404, a 503 or a dead bus — the route is driven, not reimplemented."""
+
+        def boom(coro):
+            coro.close()
+            raise RuntimeError("the bus is gone")
+
+        with patch.object(snag_claims.asyncio, "run", boom):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "unknown"
+        assert "would not answer" in measured.note
+
+    def test_a_unit_no_services_yaml_row_declares_is_unknown(self):
+        """The service name is derived from the unit, never written here."""
+        with patch.object(snag_claims, "OWN_UNIT", "nonexistent.service"):
+            measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "unknown"
+        assert "nonexistent.service" in measured.note
+
+
+    def test_the_conftest_stand_ins_are_unknown_not_match(self):
+        """The witness guard, seen from the fixture that would have hidden it.
+
+        Without ``real_services`` no row names this daemon's unit, so
+        there is no surface to contrast the cgroup with — and the check
+        says so rather than reading four synthetic services' silence
+        about ``memory.stat`` as the entry holding.
+        """
+        measured = snag_claims.check_memory_decomposition_unserved()
+
+        assert measured.verdict == "unknown"
+        assert snag_claims.OWN_UNIT in measured.note
+
+    # -- the binding -------------------------------------------------------
+
+    def test_the_registry_binds_the_key_to_the_entry(self):
+        check = CHECKS[self.KEY]
+
+        assert check.snag == "SNAG-SYSD-008"
+        assert check.run is snag_claims.check_memory_decomposition_unserved

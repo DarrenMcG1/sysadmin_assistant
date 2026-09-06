@@ -3,6 +3,58 @@
 **Last Updated**: 2026-09-06
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The entry that carried no check now carries the twenty-second, and
+> the witness is the figure the entry was wrong about** (2026-09-06,
+> Session 183). `SNAG-SYSD-008`'s durable claim is a **missing
+> discriminator**: `GET /api/sysadmin/services/sysadmin-service/details`
+> serves `MemoryCurrent`, and that number cannot separate `anon` from
+> page cache. `check_memory_decomposition_unserved` drives the route,
+> reads the figure back through `ServiceDetailInfo`, compares it against
+> the cgroup of the pid that same payload named, and then asserts that
+> nothing under `sysadmin/` or `sysadmin_tray/` opens `memory.stat`.
+> Live: **453.9 MB served, of which 67 % is page cache**, and no reader.
+> Open entries carrying no check: **2 of 24 → 1**, by a check being
+> written. Disposition `owed` → `decided` the same day — now carrying a
+> check rather than asserting unwritability by silence.
+>
+> **The served figure is what stops the check passing by finding nothing
+> at all.** A report that nothing serves the decomposition, taken on a
+> box where nothing serves anything, is a dead surface wearing this
+> entry's sentence rather than evidence for it — so an absent, unusable
+> or divergent figure is `unknown`, never `match`. Two further roads to a
+> false emptiness are closed separately: the sweep must also find
+> `MemoryCurrent` itself, **excluding this module from its own
+> evidence** (it names the property in a constant, so a witness counting
+> its own spelling would be satisfied by itself on the very day the
+> surface stopped naming it), and `memory.stat` must actually carry
+> `anon` and `file` before their absence from a route means anything.
+>
+> **A source sweep answers a claim about routes, and only a source sweep
+> can.** `systemctl show` publishes `MemoryCurrent`, `MemoryPeak` and
+> `MemoryAvailable` and not one of them separates anon from cache, so a
+> route serving the split has to open the file — the entailment that
+> makes the sweep sufficient. The obvious instrument is worse than
+> imperfect, it is blind: the route serving the witness declares **no
+> `response_model` at all** (the contract registry files it *parse-side
+> only*), so a walk over `create_app()`'s response models cannot see the
+> very surface the entry is about. `RssAnon` is out of scope by the same
+> discipline — `/proc/<pid>/status` decomposes a *process*, which the
+> entry's own first bullet measures apart from the cgroup's.
+>
+> **Fourteen falsifications, each landing on its own branch**, eleven of
+> them ways of not-knowing — and one of them was vacuous until
+> `vacuous_guards` said so. The assertion that the check's own file is
+> absent from the **readers** list ran over an empty population, because
+> after the exclusion it always is; moved to the sweep it found the
+> stronger claim underneath, that **without the readers-side exclusion
+> the check reports `mismatch` against its own entry on its first run**,
+> off its own `memory.stat` constant. The fix stand-in is a **real module** in a
+> synthetic tree rather than an injected finding, because a stand-in
+> modelling only the defect cannot tell a check that measures from one
+> wired to a constant; the docstring-only twin beside it is the
+> detector's own falsification, and it matters here because the entry,
+> the roadmap and three docstrings all name `memory.stat` in prose.
+
 > **`decided` with no check is legitimate, and it is the only place the
 > register can say *never* rather than *not yet*** (2026-09-06, Session
 > 182). Rule 6's counter and the disposition vocabulary were read as

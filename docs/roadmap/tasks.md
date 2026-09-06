@@ -52,10 +52,15 @@ candidates — the disposition is right, or it is the same mis-disposition
       checkable. Register either side: `decided 16` →
       `owed 1, decided 15`; unchecked unmoved at **2 of 24**; open
       unmoved at 24.
-- [ ] **`SNAG-SYSD-008`'s check** — pin that a health surface serves the
+- [x] **`SNAG-SYSD-008`'s check** — pin that a health surface serves the
       unit's `memory.current` while `memory.stat`'s `anon`/`file`
       decomposition reaches no route, with the served figure as the
       discriminating witness. Refuted when the decomposition is served.
+      *(Session 183. `check_memory_decomposition_unserved`, the
+      twenty-second check, reports `still holds`. Open entries carrying
+      no check: **2 of 24 → 1**, by a check being written. Disposition
+      `owed` → `decided` the same day, now carrying a check rather than
+      asserting unwritability by silence: `decided 16` again.)*
 - [ ] **`SNAG-LOG-016`'s refusal is mis-costed and it was left alone
       deliberately.** Its bullet costs only the *population* check, the
       identical mis-costing Session 181 refuted. Driven in real SQL
