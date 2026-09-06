@@ -7526,3 +7526,249 @@ class TestTheIncidentFoldSplitCheck:
         measured = snag_claims.check_incident_fold_splits_at_a_poll()
         assert measured.verdict == "unknown"
         assert "CRITICAL_SIGNATURES is empty" in measured.note
+
+
+class TestTheBlindElementCheck:
+    """``SNAG-TEST-010``'s check — the twenty-first, and the first that
+    runs a second Python under a coverage overlay to answer.
+
+    The entry it measures said in writing that it could carry no check,
+    on the grounds that one would have to reproduce the discriminator the
+    measure lacks.  It does not: it reproduces the **defect**, which is
+    the sibling idiom one entry over — *reproduced, never counted*.  So
+    the drives below are ordered by what each would let past.  The first
+    is the entry as filed; the second is the stand-in modelling the
+    **fix**, without which the check is coupled to the unfixed behaviour;
+    the rest are the ways of not-knowing, and two of them are the
+    controls that stop the whole drive agreeing with itself.
+
+    Every drive runs the real ``coverage run --branch`` — it costs about
+    eighty milliseconds warm, which is what makes six of them affordable
+    where the sibling gate costs ninety seconds.
+    """
+
+    def _real_measure(self) -> Callable:
+        from sysadmin import vacuous_guards
+
+        return vacuous_guards._loop_turned
+
+    # -- the premise, first -----------------------------------------------
+
+    def test_the_probe_really_ran_its_element_where_it_says_it_did(self):
+        """Nothing below this means anything until it has passed.
+
+        Every verdict here rests on *the element never evaluated*, and
+        that is established by the probe appending to a list and
+        asserting it — a third party, not the arcs the measure reads.  A
+        harness that had stopped running the element at all would produce
+        four zeroes and read exactly like the defect; the fourth shape
+        must therefore come back **non**-zero, or the witness is a
+        constant and witnesses nothing.
+
+        **It carries no ``premise`` mark, and refusing one is the
+        decision rather than an omission.**  That mark discharges
+        ``test_live_drive_premises.py``'s rule 2 for the **whole file**,
+        and this file is in that rule's population for its *database*
+        reads — twenty-odd drives reaching the box through ``query_one``,
+        exempted in ``PRE_CONVENTION`` on the habit that each asserts its
+        own not-knowing branch.  A witness about a coverage subprocess
+        would discharge all of them, *"and this module could not tell"* —
+        that constant's own wording, written about a different candidate
+        mark and true of this one for the same reason.  So the premise is
+        asserted and ordered first, which is the thing that has value,
+        and the marker is left to the files whose live reads it would
+        actually be about.
+        """
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict != "unknown", measured.note
+        witness = {
+            line.split()[1]: line
+            for line in measured.detail
+            if line.startswith("witness ")
+        }
+        assert set(witness) == {
+            *snag_claims.BLIND_SHAPES,
+            snag_claims.EMPTY_CONTROL,
+            snag_claims.TURNING_CONTROL,
+        }
+        for name in (*snag_claims.BLIND_SHAPES, snag_claims.EMPTY_CONTROL):
+            assert "the element 0 time(s)" in witness[name]
+        assert "the element 3 time(s)" in witness[snag_claims.TURNING_CONTROL]
+
+    # -- the entry as filed ------------------------------------------------
+
+    def test_the_measure_still_calls_a_blind_site_healthy(self):
+        """Both shapes, against the shipped ``_loop_turned``."""
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict == "match"
+        for name in snag_claims.BLIND_SHAPES:
+            assert f"{name}: the measure says turned" in measured.detail
+
+    def test_the_blind_shapes_answer_exactly_what_a_healthy_site_answers(self):
+        """The entry's word is *healthy*, and this is what makes it one.
+
+        A blind site is invisible because its answer is not merely wrong,
+        it is the **same string** a site whose element provably ran comes
+        back with — which is why nothing reports it and why counting the
+        population is not available even in principle.
+        """
+        measured = snag_claims.check_element_never_ran_reads_turned()
+        answers = {
+            line.split(":")[0]: line.split(": ", 1)[1]
+            for line in measured.detail
+            if not line.startswith("witness ")
+        }
+
+        healthy = answers[snag_claims.TURNING_CONTROL]
+        assert {answers[name] for name in snag_claims.BLIND_SHAPES} == {healthy}
+        assert answers[snag_claims.EMPTY_CONTROL] != healthy
+
+    # -- the stand-in modelling the fix ------------------------------------
+
+    def test_a_measure_that_separates_them_refutes_it(self, monkeypatch):
+        """``a-control-a-fix-breaks-is-not-a-control``.
+
+        Driven at a stand-in modelling a **landed fix** rather than at
+        the defect, or the check is pinned to the behaviour it exists to
+        watch change.  It fixes one shape only, which is the sharper
+        drive: the entry named the filter shape and Session 180 added the
+        nested one, so a check keyed on both moving together would report
+        a half-landed fix as though nothing had happened.  The check must
+        not be able to tell *how* the separation was implemented, only
+        that the answer moved — so the stand-in reads the written shape,
+        where a real fix would read an arc.
+        """
+        from sysadmin import vacuous_guards
+
+        real = self._real_measure()
+
+        def separates_a_filtered_site(node, arcs, siblings):
+            turned, why = real(node, arcs, siblings)
+            if turned and any(clause.ifs for clause in node.generators):
+                return False, None
+            return turned, why
+
+        monkeypatch.setattr(vacuous_guards, "_loop_turned", separates_a_filtered_site)
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict == "mismatch"
+        assert "filter_rejects_every_member" in measured.note
+        assert "inner_iterable_always_empty" not in measured.note
+
+    # -- the two controls, each of which forbids a verdict -----------------
+
+    def test_a_measure_that_calls_everything_turned_is_unknown(self, monkeypatch):
+        """The control the sibling live file states as an equality.
+
+        A constant observation is not evidence.  Without this branch a
+        ``_loop_turned`` that had started answering ``turned`` for
+        everything — the single worst regression the measure has — would
+        satisfy this check perfectly, and the entry would read as holding
+        hardest on the morning its own instrument broke.
+        """
+        from sysadmin import vacuous_guards
+
+        monkeypatch.setattr(
+            vacuous_guards, "_loop_turned", lambda node, arcs, siblings: (True, None)
+        )
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict == "unknown"
+        assert "no longer read as empty" in measured.note
+
+    def test_a_measure_that_calls_nothing_turned_is_unknown(self, monkeypatch):
+        """The other pole, and the reason ``turned`` needs a meaning.
+
+        If a site whose element provably ran no longer reads ``turned``,
+        the blind shapes answering ``turned`` says nothing about health —
+        there is nothing left for them to be indistinguishable from.  It
+        is reached only *after* the empty control, which is what stops a
+        wholesale regression being reported against the wrong sentence.
+        """
+        from sysadmin import vacuous_guards
+
+        monkeypatch.setattr(
+            vacuous_guards, "_loop_turned", lambda node, arcs, siblings: (False, None)
+        )
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict == "unknown"
+        assert "stopped meaning healthy" in measured.note
+
+    # -- the remaining ways of not-knowing ---------------------------------
+
+    def test_a_probe_whose_witness_fails_is_unknown(self, monkeypatch):
+        """The premise failing is never a verdict.
+
+        The probe asserts its own witness, so an element that ran where
+        the probe says it did not takes the drive non-zero — and that is
+        a broken harness, not a measure that has learned to separate
+        them.  Driven by admitting a member the filter is supposed to
+        reject, which is the likeliest way a future edit breaks it.
+        """
+        monkeypatch.setattr(
+            snag_claims,
+            "VACUOUS_PROBE",
+            snag_claims.VACUOUS_PROBE.replace("if x > 99", "if x > 0"),
+        )
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict == "unknown"
+        assert "the premise failed" in measured.note
+        assert any("AssertionError" in line for line in measured.detail)
+
+    def test_a_probe_that_no_longer_isolates_a_shape_is_unknown(self, monkeypatch):
+        """A second comprehension in one function makes the site
+        unreadable *and* would make its neighbour undecidable, since two
+        comprehensions sharing an element line are refused by name."""
+        monkeypatch.setattr(
+            snag_claims,
+            "VACUOUS_PROBE",
+            snag_claims.VACUOUS_PROBE.replace(
+                "    assert seen == [], seen\n    return seen\n\n\ndef inner",
+                "    assert seen == [], seen\n    assert [\n        y\n"
+                "        for y in seen\n    ] == []\n    return seen\n\n\ndef inner",
+            ),
+        )
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict == "unknown"
+        assert "one comprehension per named shape" in measured.note
+
+    def test_a_data_file_with_no_branch_arcs_is_unknown(self, monkeypatch):
+        """Asked for and unreadable, which the sibling module fails
+        closed on for the reason it states: a file written without
+        ``--branch`` opens cleanly and holds no rows, so reading it as
+        evidence reports every shape as never having turned."""
+        from sysadmin import vacuous_guards
+
+        monkeypatch.setattr(vacuous_guards, "read_arcs", lambda path: None)
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict == "unknown"
+        assert "meta.has_arcs" in measured.note
+
+    def test_arcs_that_name_no_probe_file_are_unknown(self, monkeypatch):
+        """``ports_checked``'s rule.  An empty arc set for the probe is
+        zero-because-blind and would classify all four shapes as never
+        having turned — which reads as a fix on two of them."""
+        from sysadmin import vacuous_guards
+
+        monkeypatch.setattr(vacuous_guards, "read_arcs", lambda path: {})
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict == "unknown"
+        assert "zero-because-blind" in measured.note
+
+    def test_no_uv_is_unknown_and_never_reaches_the_probe(self, monkeypatch):
+        """The overlay is how coverage arrives here, and it is not a
+        dependency.  Gated on the binary rather than on an import, since
+        an import gate goes quietly green the day a sync prunes it."""
+        monkeypatch.setattr(snag_claims.shutil, "which", lambda name: None)
+        measured = snag_claims.check_element_never_ran_reads_turned()
+
+        assert measured.verdict == "unknown"
+        assert "no uv on PATH" in measured.note
+        assert measured.detail == ()

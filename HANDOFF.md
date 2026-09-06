@@ -1,8 +1,119 @@
-# Handoff — 2026-09-05 (Session 180)
+# Handoff — 2026-09-06 (Session 181)
 
 ## Next action
 
-Write `SNAG-TEST-010`'s check — the twenty-first — driving both blind shapes at the real `coverage run --branch` and refuting the entry when `_loop_turned` stops answering `turned` over an element a third-party witness proves never ran, because this sitting refuted in two seconds the entry's stated reason for carrying no check.
+Decide whether an entry may declare `decided` while carrying no check, because writing the register's last owed check this sitting left **0 owed against 2 unchecked** and both of those two declare `decided`, so rule 6's counter and the disposition vocabulary now disagree about whether anything is queued — and the two candidates are that the disposition is right, a check being genuinely unwritable for them, or that it is the same mis-disposition the entry closed today carried until its own check was written.
+
+_**`SNAG-TEST-010` has its check and the entry's stated reason for
+carrying none was wrong in the way that matters.**_ _It said a check
+would have to reproduce the **discriminator** the arc measure lacks. It
+does not — it reproduces the **defect**: a probe under the real
+`coverage run --branch` in which two comprehensions turn their loop while
+their element never evaluates, and `_loop_turned` answers `turned` for
+both. `check_element_never_ran_reads_turned` is the twenty-first check,
+costs **80 ms** warm against the sibling gate's ninety seconds, and
+reports `still holds`. Open entries carrying no check: **3 of 24 → 2**,
+by a check being written rather than by an entry closing._
+
+_**The population is invisible, which is a second reason counting was
+never available.**_ _`SNAG-LOG-017`'s *reproduced, never counted* rests
+on a measured-empty population that refills; this rests on something
+stronger. A blind site reads as **healthy** — the same string a site
+whose element provably ran comes back with — so nothing reports it and
+there is no set to sweep even in principle. The check asserts that
+identity of answers rather than describing it, and Session 180's 311 of
+881 is a bound on where the defect could hide, never a list of anywhere
+it does._
+
+_**Two controls, each forbidding a different verdict, and both are
+`unknown` rather than a reading.**_ _An empty **outer** iterable must
+still read `did NOT turn`, or a `_loop_turned` answering `turned` for
+everything — the single worst regression the measure has — satisfies this
+check perfectly and the entry reads as holding hardest on the morning its
+own instrument broke. An element that provably ran must read `turned`,
+because that is what makes `turned` the healthy answer the blind shapes
+are indistinguishable **from**. Either failing is `SNAG-TEST-009`'s rules
+having moved, a different fault, and no sentence about vacuity may absorb
+it._
+
+_**The instrument is `_loop_turned` and deliberately not `sweep()`.**_
+_The entry's mechanism is stated about that function; `sweep()` folds in
+the report join, the freshness test and the mtime test, so a moved
+verdict could not say which layer moved — and its signal would be an
+**absence**, a blind shape failing to appear among the findings, which is
+the weakest shape a claim can take. Driving a private name is the trade
+`check_incident_fold_splits_at_a_poll` already makes on
+`LogAggregatorAgent._execute`._
+
+_**The fix stand-in separates one shape only, which is the sharper
+drive.**_ _The entry named the filter shape and Session 180 added the
+multi-`for` one, so a check keyed on both moving together would report a
+half-landed fix as though nothing had happened. Eleven drives, each
+landing on its own branch, six under the real tool._
+
+_**The premise marker was written and taken straight back out, and that
+is the correction this sitting owes another convention.**_
+_`@pytest.mark.premise` discharges `test_live_drive_premises.py`'s rule 2
+for the **whole file**, and `test_snag_claims.py` is in that population
+for its **database** reads — twenty-odd drives exempted in
+`PRE_CONVENTION` on the habit that each asserts its own not-knowing
+branch. A witness about a coverage subprocess would discharge all of
+them, *"and this module could not tell"*, which is that constant's own
+wording written about a different candidate mark and true of this one for
+the same reason. Its tripwire named the file within one gate run. The
+premise assertion stayed and is ordered first; only the marker went, and
+`PRE_CONVENTION` now records that the argument is about **whose** witness
+rather than about a static walk. A file needing both would be two files,
+and this one is close to being that._
+
+_**A next action that names no entry makes another guard vacuous, and
+the guard said so within one gate run.**_
+_`test_handoff_shape.py`'s refusal test filters the SNAG ids the
+published line names, and this sitting's line names none — so
+`check-vacuous-guards.sh` reported its comprehension as having run over
+an empty population. Empty is the healthy reading there; what is
+indistinguishable from it is a **reader that finds nothing in a line
+that carries something**, and neither of that class's two premises
+witnessed `read_named_entries` itself. Fixed rather than filed: a third
+premise drives the reader at a synthetic line over the real register,
+and the comprehension carries a `may-not-turn:` naming it. Falsified —
+with that reader returning `[]` the premise goes **red and the refusal
+test stays green**, which is exactly the blind pass it exists to catch._
+
+_**Disposition `owed` → `decided`, and it emptied the queue.**_ _What was
+owed was the check, by rule 6; the **discriminator** was refused and
+ranked by Session 180, remains unattempted, and its honest candidate is
+still an arc into the element line that is not the loop's back-jump. The
+entry stays **open** because the measure is still blind, not because work
+is queued. The register now reads **blocked 3, decided 16, delegated 5
+and owed none** — the first sitting to leave it with nothing owed, which
+is what the next action is about. All three `blocked` entries are blocked
+on a population or on the owner, so none of them is a sitting's work
+today._
+
+_**Verification.**_ _`uv run ruff check .` clean; `uv run mypy sysadmin` clean — its one catch is worth carrying, `_COMPREHENSIONS` narrows harder
+than `_loop_turned`'s parameter and `list` is invariant, so `siblings` is
+annotated rather than inferred. `uv run pytest -q` **3663 passed**, the
+recorded 3651 plus 12 exactly, so nothing was clobbered.
+`./scripts/check-vacuous-guards.sh` exit 0 at **871 of 888** sites
+turned with no undecidable block, and 16 declared `may-not-turn`, one
+more than Session 180 left;
+`./scripts/check-ops-claims.sh` **10 of 10 ok** after rewording the
+daemon start, the unresolved count (**3 → 5**, both arrivals and neither
+this sitting's doing) and the named-rows sentence._
+
+_**Restarted twice, and the second one is the memory observed live.**_
+_07:06:01 (PID 1817 → 64269), then 07:17:52 (64269 → 79162) because a
+falsification drive rewrote `sysadmin/snag_claims.py` with **identical
+bytes** at 07:13:28 and the deploy check compares **mtimes** — the claim
+a true reading of a false question, which is
+`stash-pop-reports-a-restart-owed` exactly. Paid rather than argued
+with, since resetting an mtime to satisfy a check is the wrong direction
+even when the bytes prove it. Both were owed by that rule and by nothing
+else: `snag_claims` is a console script `create_app()` never imports, so
+this is `SNAG-SYSD-008`'s shape. No migration._
+
+# Handoff — 2026-09-05 (Session 180)
 
 _**The fourteen undecidable sites are closed and the gate's block is
 gone.**_ _`scripts/check-vacuous-guards.sh` reports **865 of 881**

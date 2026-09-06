@@ -266,6 +266,40 @@ class TestThePublishedLineNamesNoWorkNobodyIsOwed:
         assert not problem, problem
         assert line
 
+    def test_the_reader_can_find_an_id_when_the_line_carries_one(self):
+        """The third premise, and Session 181 is what made it owed.
+
+        The two above witness the *register* and the *line*.  Neither
+        witnesses the **reader** between them, and the guard below is
+        blind exactly when that reader returns nothing — which a line
+        naming no entry does legitimately and often.  Session 181's next
+        action is about a convention rather than an entry, so it names
+        none, and ``check-vacuous-guards.sh`` reported the comprehension
+        below as having run over an empty population within one gate run:
+        a guard green because nothing was examined, which is
+        ``SNAG-TEST-006``'s own shape arriving in a test written to catch
+        the estate board publishing the wrong line.
+
+        So the reader is driven at a synthetic line instead, over the
+        real register.  It cannot be driven at the real line without
+        making the premise depend on today's wording, which is the thing
+        that moved.
+        """
+        entries, problem = snag_claims.load_entries()
+        assert not problem, problem
+        subject = next(
+            (entry.snag_id for entry in entries if entry.snag_id and entry.is_open),
+            None,
+        )
+        assert subject, "the register holds no open entry to read a line about"
+
+        named = snag_claims.read_named_entries(f"Go and look at {subject} today.", entries)
+
+        assert [item.snag for item in named] == [subject], (
+            "the reader finds no id in a line that plainly carries one, so an empty "
+            "result below would be zero-because-blind rather than zero-because-clean"
+        )
+
     def test_the_next_action_names_no_entry_that_is_owed_nothing(self):
         """Scoped to the refusal and no wider.
 
@@ -278,6 +312,13 @@ class TestThePublishedLineNamesNoWorkNobodyIsOwed:
         """
         entries, problem = snag_claims.load_entries()
         line, _ = snag_claims.next_action_line()
+        # may-not-turn: the population is the SNAG ids the published line
+        # happens to name, and a line about a convention rather than an entry
+        # names none — Session 181's does.  So empty here is "nothing to
+        # refuse", and the reading that would otherwise be
+        # indistinguishable from it, a reader that finds nothing in a line
+        # that carries something, is witnessed by
+        # test_the_reader_can_find_an_id_when_the_line_carries_one above.
         refused = [
             item.note
             for item in snag_claims.read_named_entries(line or "", entries)

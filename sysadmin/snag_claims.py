@@ -108,6 +108,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess  # noqa: S404 — a read-only `systemctl show`, and estate-manager's own venv
 import sys
 import tempfile
@@ -7360,6 +7361,290 @@ def check_handoff_shape_unguarded() -> Measurement:
     return Measurement("match", "", detail)
 
 
+#: How long the branch-coverage probe may take.  Generous rather than
+#: tight: warm, the ephemeral overlay resolves and the fixture runs in
+#: about a third of a second, but the first run on a box uv has never
+#: fetched ``coverage`` on pays for the download once.
+VACUOUS_PROBE_TIMEOUT = 120
+
+#: The two shapes that leave the loop turning while the element never
+#: evaluates.  The first is the one ``SNAG-TEST-010`` was filed about; the
+#: second is Session 180's correction to it — no filter is involved, so
+#: the ``if`` clause was one road to the mechanism rather than the
+#: mechanism.
+BLIND_SHAPES = ("filter_rejects_every_member", "inner_iterable_always_empty")
+
+#: The control that stops the drive agreeing with itself.  A loop with
+#: nothing to iterate must still read as never having turned.
+EMPTY_CONTROL = "outer_iterable_empty"
+
+#: The other control: what a site whose element provably ran answers.  It
+#: is what makes "reads as healthy" a measurement rather than a claim.
+TURNING_CONTROL = "element_really_runs"
+
+#: What each of :func:`~sysadmin.vacuous_guards._loop_turned`'s three
+#: answers is called in a report line.  ``None`` is spelled out because a
+#: refusal is not a quiet ``False`` and a reader comparing two runs must
+#: be able to tell them apart.
+TURN_WORDS = {True: "turned", False: "did NOT turn", None: "refused as undecidable"}
+
+#: The probe driven under the real ``coverage run --branch``.
+#:
+#: **The written line shape is load-bearing.**  Every element sits *below*
+#: its comprehension's first line, because
+#: :func:`~sysadmin.vacuous_guards._loop_turned` refuses a site whose
+#: element shares that line — and a refusal is neither of the two answers
+#: this check reads, so a probe written the tidy way would report
+#: ``unknown`` for ever while looking correct.
+#:
+#: **The witness is the ``assert seen == …`` inside each function**, and it
+#: is the gate rather than the evidence.  Whether the element ran is
+#: established by the interpreter appending to a list, not by the arcs the
+#: detector under test is reading — ``a-premise-needs-a-third-party-witness``,
+#: and the reason this entry's check is writable at all.  A witness that
+#: fails takes the drive's exit status non-zero; the counts printed beside
+#: it are for the reader.
+VACUOUS_PROBE = '''
+def _watch(value, seen):
+    """The element.  Its evaluation is the fact the whole probe turns on."""
+    seen.append(value)
+    return True
+
+
+def filter_rejects_every_member():
+    """The shape the entry names: a filter that rejects every member."""
+    seen = []
+    live = [1, 2, 3]
+    assert all(
+        _watch(x, seen)
+        for x in live
+        if x > 99
+    )
+    assert seen == [], seen
+    return seen
+
+
+def inner_iterable_always_empty():
+    """Session 180's correction: a second `for` whose iterable is always empty."""
+    seen = []
+    rows = [[], [], []]
+    assert all(
+        _watch(x, seen)
+        for row in rows
+        for x in row
+    )
+    assert seen == [], seen
+    return seen
+
+
+def outer_iterable_empty():
+    """The control.  There is nothing to iterate, so the loop really did not turn."""
+    seen = []
+    rows = []
+    assert all(
+        _watch(x, seen)
+        for x in rows
+    )
+    assert seen == [], seen
+    return seen
+
+
+def element_really_runs():
+    """The other control: what a site whose element provably ran answers."""
+    seen = []
+    live = [1, 2, 3]
+    assert all(
+        _watch(x, seen)
+        for x in live
+    )
+    assert seen == [1, 2, 3], seen
+    return seen
+
+
+for _case in (
+    filter_rejects_every_member,
+    inner_iterable_always_empty,
+    outer_iterable_empty,
+    element_really_runs,
+):
+    print("witness", _case.__name__, "ran the element", len(_case()), "time(s)")
+'''
+
+
+def check_element_never_ran_reads_turned() -> Measurement:
+    """``SNAG-TEST-010`` — the arc measure calls a vacuous guard healthy.
+
+    ``assert all(f(x) for x in live if g(x))`` over a ``live`` that ``g``
+    rejects entirely is vacuous, and the loop **turned** — so
+    :func:`~sysadmin.vacuous_guards._loop_turned` answers ``True``, the
+    site is not a finding, and ``scripts/check-vacuous-guards.sh`` counts
+    it among the healthy.  The measure answers *did the loop turn*; it
+    does not answer *did the predicate run*.
+
+    **The entry said it could carry no check and its own sitting refuted
+    that**, which is the only reason this exists.  The stated reason was
+    that a check would have to reproduce the discriminator the measure
+    lacks — true, and not what a check has to do: it reproduces the
+    **defect** instead, which is ``SNAG-LOG-017``'s idiom one entry over
+    — *reproduced, never counted*.  Counting is unavailable here for the
+    usual reason and a worse one: the entry's population is **invisible**
+    by construction, since a blind site reads as healthy and nothing
+    reports it, so there is no set to sweep even in principle.  The
+    measured upper bound — 311 of 881 sites — is a bound on where the
+    defect could hide and not a list of anywhere it does.
+
+    **The instrument is ``_loop_turned`` and deliberately not
+    :func:`~sysadmin.vacuous_guards.sweep`.**  The entry's mechanism is
+    stated about that function; ``sweep`` would fold in the report join,
+    the freshness test and the mtime test, so a moved verdict could not
+    say which layer moved — and the signal there would be an *absence*, a
+    blind shape failing to appear among the findings, which is the
+    weakest shape a claim can take.  It is private, and that is the same
+    trade ``check_incident_fold_splits_at_a_poll`` makes driving
+    ``LogAggregatorAgent._execute``: a rename lands in this repository's
+    own commit, where a cross-repo probe's would not.
+
+    **The witness is a third party, and it is what makes the claim
+    readable at all.**  Establishing *the element never ran* from the arcs
+    would be reading the evidence the detector reads and agreeing with it
+    by construction; the probe's element appends to a list and each
+    function asserts that list inside itself, so the interpreter answers
+    the premise and a failed premise exits the drive non-zero.
+
+    **Two controls, and each of them makes a different verdict
+    impossible.**  ``outer_iterable_empty`` must read *did NOT turn* — a
+    detector that had started answering ``turned`` for everything would
+    otherwise satisfy this check for the worst possible reason, which is
+    ``a-check-needs-a-discriminating-witness``.  ``element_really_runs``
+    must read *turned* — that is what makes ``turned`` the healthy answer,
+    and without it the blind shapes' ``turned`` is a bare observation with
+    nothing to be indistinguishable *from*.  Either control failing is
+    ``unknown`` and never a verdict: it means ``SNAG-TEST-009``'s rules
+    have themselves moved, which is a different fault and must not be
+    absorbed into a sentence about vacuity.
+    """
+    try:
+        from sysadmin.vacuous_guards import _COMPREHENSIONS, _loop_turned, read_arcs
+    except ImportError as exc:  # pragma: no cover — the measure itself is gone
+        return Measurement(
+            "unknown",
+            f"the measure this entry is about no longer imports ({exc}) — that may be a "
+            "fix and this check cannot tell, so go and read vacuous_guards.py",
+        )
+
+    if shutil.which("uv") is None:
+        return Measurement(
+            "unknown",
+            "no uv on PATH, so coverage cannot be brought in ephemerally — the measure "
+            "was not driven, which is not the same answer as it still being blind",
+        )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp)
+        source = work / "shapes.py"
+        source.write_text(VACUOUS_PROBE.lstrip("\n"), encoding="utf-8")
+        data = work / ".coverage"
+        try:
+            run = subprocess.run(  # noqa: S603 — this module's own probe, under this box's uv
+                [
+                    "uv", "run", "--with", "coverage[toml]",
+                    "coverage", "run", "--branch",
+                    f"--data-file={data}", f"--source={work}",
+                    str(source),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=work,
+                timeout=VACUOUS_PROBE_TIMEOUT,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return Measurement("unknown", f"the branch-coverage probe could not be run: {exc}")
+        if run.returncode != 0:
+            tail = tuple((run.stderr or run.stdout).strip().splitlines()[-3:])
+            return Measurement(
+                "unknown",
+                "the probe did not complete — every shape asserts its own witness, so a "
+                "non-zero exit says the premise failed rather than that the measure moved",
+                tail,
+            )
+        witness = tuple(run.stdout.strip().splitlines())
+        read = read_arcs(data)
+        if read is None:
+            return Measurement(
+                "unknown",
+                "the data file will not read, or carries no meta.has_arcs — asked for and "
+                "unreadable is unknown, never match",
+                witness,
+            )
+        arcs = read.get(source.resolve()) or set()
+        if not arcs:
+            return Measurement(
+                "unknown",
+                "the run recorded no arcs for the probe, so every shape would read as "
+                "never having turned — zero-because-blind, not zero-because-clean",
+                witness,
+            )
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+
+    # Annotated rather than inferred: `_COMPREHENSIONS` narrows harder than
+    # `_loop_turned`'s parameter, and `list` is invariant.
+    siblings: list[ast.expr] = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, _COMPREHENSIONS)
+    ]
+    sites: dict[str, ast.expr] = {}
+    for function in (node for node in tree.body if isinstance(node, ast.FunctionDef)):
+        within = [
+            node
+            for node in ast.walk(function)
+            if isinstance(node, _COMPREHENSIONS)
+        ]
+        if len(within) == 1:
+            sites[function.name] = within[0]
+
+    wanted = (*BLIND_SHAPES, EMPTY_CONTROL, TURNING_CONTROL)
+    if set(sites) != set(wanted):
+        return Measurement(
+            "unknown",
+            "the probe no longer carries exactly one comprehension per named shape, so "
+            f"it does not isolate the question: {sorted(sites)}",
+            witness,
+        )
+
+    answers = {name: _loop_turned(sites[name], arcs, siblings)[0] for name in wanted}
+    detail = witness + tuple(
+        f"{name}: the measure says {TURN_WORDS[answers[name]]}" for name in wanted
+    )
+
+    if answers[EMPTY_CONTROL] is not False:
+        return Measurement(
+            "unknown",
+            "a loop with nothing to iterate is no longer read as empty, so the measure "
+            "is not answering its own question and nothing here can be compared against "
+            "it — SNAG-TEST-009's rules have moved, which is a different fault",
+            detail,
+        )
+    if answers[TURNING_CONTROL] is not True:
+        return Measurement(
+            "unknown",
+            "an element that provably ran is no longer read as turned, so `turned` has "
+            "stopped meaning healthy and a blind shape answering it would say nothing",
+            detail,
+        )
+    separated = [name for name in BLIND_SHAPES if answers[name] is not True]
+    if separated:
+        return Measurement(
+            "mismatch",
+            "the measure now separates an element that never ran from one that did: "
+            f"{', '.join(separated)} — the blindness this entry describes is closed for "
+            "at least that shape",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 @dataclass(frozen=True)
 class Check:
     """One check, and the entry it is about.
@@ -7509,6 +7794,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-LOG-018",
             "a narrowed source that declares a signature still reads at its rung",
             check_declaring_source_reads_wide,
+        ),
+        Check(
+            "element_never_ran_reads_turned",
+            "SNAG-TEST-010",
+            "a comprehension whose element never ran still measures as turned",
+            check_element_never_ran_reads_turned,
         ),
     )
 }

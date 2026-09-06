@@ -243,6 +243,19 @@ LIVE_DRIVES = sorted(TESTS.glob("test_*_live.py"))
 #: something else — and this module could not tell.  The exemption stays,
 #: with a better reason than it had.
 #:
+#: **A second candidate arrived on 2026-09-06 and the same sentence
+#: refused it, which is what shows the argument is about *whose* witness
+#: rather than about a static walk.**  ``SNAG-TEST-010``'s check spawns a
+#: real ``coverage run --branch`` and believes a negative off it — *the
+#: element ran zero times* — so its drive owes a premise and asserts one,
+#: first, exactly as rule 1 wants.  Marking it discharges rule 2 for the
+#: whole file all the same, and what that file's other twenty-odd live
+#: reads believe negatives about is the **database**, not a coverage
+#: overlay.  The marker was written, this module's own tripwire named the
+#: file within one run, and it came back out; the premise assertion
+#: stayed, since it was never the marker that had the value.  A file
+#: needing both would be two files.
+#:
 #: **It used to be the one file the detector reported for the wrong hit,
 #: and the widening made the hit right** (`SNAG-TEST-007`, 2026-09-05).
 #: Until then :func:`_opens_a_live_connection` matched a ``sync_url``

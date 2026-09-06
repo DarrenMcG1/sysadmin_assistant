@@ -4,7 +4,102 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-05
+> **Last Updated**: 2026-09-06
+
+---
+
+## Session 181: the check the entry said it could not have ✅ (2026-09-06)
+
+_Session 180's handoff asked for `SNAG-TEST-010`'s check — the
+twenty-first — driving both blind shapes at the real
+`coverage run --branch` and refuting the entry when `_loop_turned` stops
+answering `turned` over an element a third-party witness proves never
+ran, because that sitting refuted in two seconds the entry's stated
+reason for carrying no check._
+
+- [x] **`check_element_never_ran_reads_turned` is written, registered
+      and reports *still holds*.** A probe under the real
+      `coverage run --branch` in which two comprehensions turn their
+      loop while the element never evaluates — the filter shape the
+      entry names and the multi-`for` shape Session 180 added — and
+      `_loop_turned` answers **turned** for both. **80 ms** warm, where
+      the sibling gate costs ninety seconds.
+- [x] **Open entries carrying no check: 3 of 24 → 2 of 24**, by a check
+      being written rather than by an entry closing. `SNAG-LOG-016` and
+      `SNAG-SYSD-008` are what remains.
+- [x] **The population is invisible, so counting was never available
+      even in principle** — a second reason beside `SNAG-LOG-017`'s. A
+      blind site reads as *healthy*, the same string a site whose
+      element provably ran returns, so nothing reports it. The check
+      asserts that identity of answers rather than describing it, and
+      Session 180's 311 of 881 is a bound on where the defect could hide
+      rather than a list of anywhere it does.
+- [x] **The witness is a third party.** The probe's element appends to a
+      list and each shape asserts that list **inside itself**, so the
+      premise is answered by the interpreter rather than read off the
+      arcs the measure reads — which would be agreeing with the
+      detector by construction. A failed premise takes the drive
+      non-zero and reads `unknown`.
+- [x] **Two controls, each forbidding a verdict.** An empty *outer*
+      iterable must still read *did NOT turn*, or a measure answering
+      `turned` for everything satisfies this check for the worst
+      possible reason; an element that provably ran must read *turned*,
+      which is what makes `turned` the healthy answer. Either failing is
+      `unknown`, because that is `SNAG-TEST-009`'s rules moving — a
+      different fault.
+- [x] **The instrument is `_loop_turned`, not `sweep()`.** The entry's
+      mechanism is stated about that function; `sweep()` folds in the
+      report join, the freshness test and the mtime test, so a moved
+      verdict could not say which layer moved — and its signal would be
+      an **absence**. Driving a private name is
+      `check_incident_fold_splits_at_a_poll`'s trade on
+      `LogAggregatorAgent._execute`.
+- [x] **Eleven drives, each on its own branch**, six under the real
+      tool. The fix stand-in separates **one** shape only, so a
+      half-landed fix cannot read as nothing having happened.
+- [x] **The premise marker was written and taken back out**, which is
+      the correction this sitting owes another convention.
+      `@pytest.mark.premise` discharges `test_live_drive_premises.py`'s
+      rule 2 for the whole file, and `test_snag_claims.py` is in that
+      population for its *database* reads. A witness about a coverage
+      subprocess would discharge twenty-odd of them, *"and this module
+      could not tell"* — that constant's own wording, written about a
+      different candidate mark. Its tripwire named the file within one
+      gate run; the premise assertion stayed, the marker went, and
+      `PRE_CONVENTION` now records that the argument is about **whose**
+      witness rather than about a static walk.
+- [x] **A next action naming no entry made another guard vacuous**, and
+      `check-vacuous-guards.sh` said so within one gate run.
+      `test_handoff_shape.py`'s refusal test filters the SNAG ids the
+      published line names; this sitting's line names none, so its
+      comprehension ran over an empty population. Fixed rather than
+      filed: a third premise drives `read_named_entries` at a synthetic
+      line over the real register, and the comprehension carries a
+      `may-not-turn:` naming it. Falsified — with that reader returning
+      `[]` the premise goes **red and the refusal test stays green**,
+      which is the blind pass it exists to catch.
+- [x] **Disposition `owed` → `decided`.** What was owed was the check,
+      by rule 6. The discriminator was refused and ranked by Session 180
+      and remains unattempted; the entry stays open because the measure
+      is still blind, not because work is queued.
+
+**Verification**: `uv run ruff check .` clean; `uv run mypy sysadmin`
+clean — the one error it caught is worth carrying, `_COMPREHENSIONS`
+narrows harder than `_loop_turned`'s parameter and `list` is invariant,
+so `siblings` is annotated rather than inferred. `uv run pytest -q`
+**3663 passed**, which is the recorded 3651 plus 12 exactly, so nothing
+was clobbered. `./scripts/check-vacuous-guards.sh` exit 0 at
+**871 of 888** sites turned with no undecidable block, and 16 declared
+`may-not-turn` — one more than Session 180 left, this sitting's;
+`./scripts/check-snag-claims.sh` reports the new check *still holds*;
+`./scripts/check-ops-claims.sh` **10 of 10 ok** after rewording the
+daemon start, the alert count and the named-rows sentence. Daemon
+restarted **twice**, 07:06:01 (PID 1817 → 64269) and 07:17:52
+(64269 → 79162) — the second because a falsification drive rewrote
+`sysadmin/snag_claims.py` with **identical bytes** and the deploy check
+compares mtimes, which is the `stash-pop-reports-a-restart-owed` memory
+observed live. Both owed by that rule and by nothing else, since
+`create_app()` never imports `snag_claims`. No migration.
 
 ---
 
