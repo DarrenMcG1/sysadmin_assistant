@@ -8124,3 +8124,483 @@ class TestTheMemoryDecompositionCheck:
 
         assert check.snag == "SNAG-SYSD-008"
         assert check.run is snag_claims.check_memory_decomposition_unserved
+
+
+class TestThePayloadRewordCheck:
+    """``SNAG-LOG-016``'s check — the twenty-third, and the second in three
+    sittings written against an entry that said it could carry none.
+
+    The entry's refusal bullet costed *"is the live population
+    non-empty"*, which is the fixture's own skip condition restated and
+    the identical mis-costing ``SNAG-TEST-010`` made.  What a check
+    reproduces is the **defect**: the guard's selector is keyed on the
+    payload, so a kernel that rewords the payload stores a row the
+    population cannot see, and the fixture skips on exactly the row it
+    exists to catch.
+
+    The drives are ordered by what each would let past.  The premise
+    comes first — the guard is still selecting the lines this box emits,
+    and the corpus is vouched for by production's declaration rather than
+    by this module.  Then the entry as filed, then the stand-in modelling
+    the **fix**, then the eleven ways of not-knowing, four of which are
+    controls forbidding a verdict rather than reporting one.
+    """
+
+    KEY = "payload_reword_unselected"
+
+    def _guard(
+        self,
+        tmp_path: Path,
+        *,
+        pattern: str | None = None,
+        query: str | None = None,
+        skips: bool = True,
+    ) -> Path:
+        """A synthetic guard, written as a **real module** on disk.
+
+        Driven at a file rather than by stubbing
+        :func:`~sysadmin.snag_claims._module_constant`, for
+        :class:`TestTheMemoryDecompositionCheck`'s reason read the other
+        way round: a stand-in that hands the check a value cannot tell a
+        check that reads the guard from one wired to whatever the stub
+        says.  Everything not named by a keyword is copied from the
+        shipped guard, so a stand-in differs from it in exactly one
+        thing.
+        """
+        real = snag_claims._parse(snag_claims.DECLARATION_GUARD)
+        assert real is not None, "the shipped guard will not parse"
+        if pattern is None:
+            pattern = snag_claims._module_constant(real, snag_claims.GUARD_PATTERN_NAME)
+        if query is None:
+            query = snag_claims._module_constant(real, snag_claims.GUARD_QUERY_NAME)
+        assert pattern is not None and query is not None
+        population = "pytest.skip('nothing to compare')" if skips else "return {}"
+        path = tmp_path / "guard.py"
+        path.write_text(
+            "import pytest\n\n"
+            f"{snag_claims.GUARD_PATTERN_NAME} = {pattern!r}\n\n"
+            f'{snag_claims.GUARD_QUERY_NAME} = """{query}"""\n\n\n'
+            "@pytest.fixture(scope='module')\n"
+            f"def {snag_claims.GUARD_POPULATION_FIXTURE}():\n"
+            "    spellings = {}\n"
+            "    if not spellings:\n"
+            f"        {population}\n"
+            "    return spellings\n",
+            encoding="utf-8",
+        )
+        return path
+
+    # -- the premise, first ------------------------------------------------
+
+    def test_the_guard_still_selects_the_spellings_this_box_emits(self):
+        """Nothing below this means anything until it has passed.
+
+        Both halves of the corpus are asserted at the reading rather than
+        at the verdict, because the verdict is one bit and would be
+        satisfied by a drive that had measured nothing at all.
+
+        It carries no ``premise`` mark deliberately, for
+        :class:`TestTheMemoryDecompositionCheck`'s reason: that mark
+        discharges ``test_live_drive_premises.py``'s rule 2 for the whole
+        file, and this file is in that population for its database reads.
+        """
+        reading, problem = snag_claims.reworded_payload_reading()
+
+        assert reading is not None, problem
+        assert set(reading.selected) == {
+            specimen.label for specimen in snag_claims.DECLARED_SPELLINGS
+        }
+        assert set(reading.declared) == {
+            specimen.label for specimen in snag_claims.DECLARED_SPELLINGS
+        }
+        assert reading.source == "kernel"
+
+    def test_the_pattern_the_drive_used_is_the_guard_s_own(self):
+        """Import where you can, pin where you cannot.
+
+        The check reads the selector out of the source because a report
+        has no business importing a test module at the top of every
+        sitting; a test is under no such constraint, so the value the
+        walk returned is pinned against the one the interpreter binds.
+        Without this, :func:`~sysadmin.snag_claims._module_constant`
+        reading the wrong assignment would be invisible — the drive would
+        go on selecting with *something*, and every verdict below would
+        be about a pattern nobody ships.
+        """
+        from tests.test_critical_signature_live import WITNESS_LIKE
+
+        reading, problem = snag_claims.reworded_payload_reading()
+
+        assert reading is not None, problem
+        assert reading.pattern == WITNESS_LIKE
+
+    def test_the_corpus_is_vouched_for_by_the_declaration(self):
+        """The third-party witness, and why the specimens may be literals.
+
+        A corpus selected from ``log_entries`` inherits the population
+        dependence this entry's refusal bullet mis-costed, so the lines
+        are written here — and then handed to production to be judged.
+        ``CRITICAL_SIGNATURES`` holds every declared spelling and none of
+        the rewords, so a typo in either list is a failed control rather
+        than a check quietly measuring nothing.
+        """
+        from sysadmin.monitor.log_aggregator import CRITICAL_SIGNATURES
+        from sysadmin.monitor.log_signature import signature
+
+        for specimen in snag_claims.DECLARED_SPELLINGS:
+            assert ("kernel", signature(specimen.message)) in CRITICAL_SIGNATURES
+        for specimen in (*snag_claims.REWORDED_PAYLOADS, *snag_claims.UNRELATED_LINES):
+            assert ("kernel", signature(specimen.message)) not in CRITICAL_SIGNATURES
+
+    def test_the_drive_reads_no_row_of_the_live_table(self):
+        """Rule 1, asserted rather than described.
+
+        The whole correction this check carries is that it is about the
+        mechanism and not about whether a reset happens to sit in
+        retention today, so the statement that runs must be the guard's
+        with its population replaced — not its population.
+        """
+        from tests.test_critical_signature_live import QUERY
+
+        table = QUERY.split("FROM", 1)[1].split(None, 1)[0]
+        reading, problem = snag_claims.reworded_payload_reading()
+
+        assert reading is not None, problem
+        assert table.endswith("log_entries"), f"the guard reads {table}, not the table this pins"
+        assert table not in reading.statement
+        assert f"FROM {snag_claims.GUARD_CORPUS_RELATION}" in reading.statement
+        assert snag_claims.BOUND_PLACEHOLDER in reading.statement
+
+    # -- the entry as filed ------------------------------------------------
+
+    def test_a_reworded_payload_still_never_enters_the_population(self):
+        measured = snag_claims.check_payload_reword_unselected()
+
+        rewords = len(snag_claims.REWORDED_PAYLOADS)
+
+        assert measured.verdict == "match"
+        assert any(
+            snag_claims.GUARD_POPULATION_FIXTURE in line and "skips" in line
+            for line in measured.detail
+        ), "the report does not say what an emptied population becomes"
+        assert any(
+            f"{rewords} of {rewords} reword(s) invisible" in line for line in measured.detail
+        )
+
+    def test_the_detail_names_both_halves_of_the_contrast(self):
+        """A selector that admits the declared pair and neither reword.
+
+        Naming only one half would restate the guard's own assertion —
+        *the declaration matches what is stored* — rather than this
+        entry's, which is about what never reaches the comparison at all.
+        """
+        measured = snag_claims.check_payload_reword_unselected()
+
+        rendered = "\n".join(measured.detail)
+        for specimen in snag_claims.DECLARED_SPELLINGS:
+            assert f"{specimen.label} — selected, declared" in rendered
+        for specimen in snag_claims.REWORDED_PAYLOADS:
+            assert f"{specimen.label} — not selected, undeclared" in rendered
+
+    # -- the stand-in modelling the fix ------------------------------------
+
+    def test_a_population_that_admits_a_reword_refutes_the_entry(self, tmp_path: Path):
+        """The control a fix breaks, driven at the guard rather than at the corpus.
+
+        The closure the entry names is a population keyed on an event the
+        kernel does not own, and **this corpus cannot tell that from a
+        widened pattern** — both admit every reset line and neither
+        admits the boot line beside them.  That is not a weakness to be
+        engineered around: the check watches whether a reword reaches the
+        comparison, so it cannot be satisfied by the shape a fix happens
+        to arrive in, and rule 2 leaves judging *which* fix landed to the
+        reader of a ``mismatch``.
+        """
+        guard = self._guard(tmp_path, pattern="%GPU reset%")
+        with patch.object(snag_claims, "DECLARATION_GUARD", guard):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        rendered = "\n".join(measured.detail)
+
+        assert measured.verdict == "mismatch"
+        assert "admits a reworded payload" in measured.note
+        for specimen in snag_claims.REWORDED_PAYLOADS:
+            assert specimen.label in measured.note
+            # The report is rendered from the reading, so it moves with the
+            # verdict.  A hand-written "not selected" beside each label
+            # would read correctly on the shipped guard for ever and would
+            # have stopped measuring — the stubbed collaborator this
+            # registry has been caught by before.
+            assert f"{specimen.label} — selected" in rendered
+
+    def test_the_shipped_guard_copied_whole_still_holds(self, tmp_path: Path):
+        """The stand-in's own falsification.
+
+        A synthetic guard differing from the shipped one in nothing must
+        reach the same verdict, or the drive above is measuring the
+        rewrite rather than the one keyword it changed.
+        """
+        guard = self._guard(tmp_path)
+        with patch.object(snag_claims, "DECLARATION_GUARD", guard):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "match"
+
+    # -- the controls, each forbidding a verdict ---------------------------
+
+    def test_a_selector_that_admits_a_line_that_is_not_a_reset_is_unknown(self):
+        """The sharpest of the four, and the reason the loud verdict is safe.
+
+        A pattern matching everything admits a reword too, so without
+        this the check would report the entry closed on the morning the
+        guard stopped discriminating anything at all — the worst possible
+        reason for the answer it is looking for.
+        """
+        with patch.object(
+            snag_claims,
+            "UNRELATED_LINES",
+            (snag_claims.ResetSpecimen("catch-all", "x VRAM is lost due to GPU reset! x"),),
+        ):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert "which is not a reset at all" in measured.note
+
+    def test_a_declared_spelling_the_selector_rejects_is_unknown(self):
+        """Zero-because-blind is never zero-because-clean.
+
+        A pattern that selects none of the lines it was written for would
+        leave every reword unselected for a reason that has nothing to do
+        with this entry.
+        """
+        real = snag_claims._module_constant
+
+        def narrowed(tree, name):
+            if name == snag_claims.GUARD_PATTERN_NAME:
+                return "%no kernel emits this%"
+            return real(tree, name)
+
+        with patch.object(snag_claims, "_module_constant", narrowed):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert "does not admit" in measured.note
+
+    def test_a_spelling_that_lands_on_no_declaration_is_unknown(self):
+        """A different fault, and the one the guard exists to shout about.
+
+        A corpus line this module calls genuine that the declaration does
+        not hold is 2026-09-04's defect — the mapping having gone stale —
+        and reporting it here would answer the wrong entry.
+        """
+        with patch.object(
+            snag_claims,
+            "DECLARED_SPELLINGS",
+            (
+                snag_claims.ResetSpecimen(
+                    "lower case", "amdgpu 0000:03:00.0: vram is lost due to GPU reset!"
+                ),
+            ),
+        ):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert "lands on no declaration" in measured.note
+
+    def test_a_reword_the_declaration_already_covers_is_unknown(self):
+        """It is then not the row the guard exists to catch.
+
+        The entry's harm is a stored line that raises nothing above
+        ``warning``; a reword the declaration matches would raise
+        correctly the moment it was compared, so its absence from the
+        population costs nothing and proves nothing.
+        """
+        with patch.object(
+            snag_claims,
+            "REWORDED_PAYLOADS",
+            (
+                snag_claims.ResetSpecimen(
+                    "declared already", "amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!"
+                ),
+            ),
+        ):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert "lands on a declaration" in measured.note
+
+    # -- the other ways of not-knowing -------------------------------------
+
+    def test_a_guard_that_will_not_read_is_unknown(self, tmp_path: Path):
+        with patch.object(snag_claims, "DECLARATION_GUARD", tmp_path / "gone.py"):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert "will not read" in measured.note
+
+    def test_a_selector_that_has_been_renamed_is_unknown(self, tmp_path: Path):
+        """A closure and a rename are not told apart, and the note says so.
+
+        The entry's stated fix removes the string-keyed population
+        altogether, so the constant going missing is one of the shapes it
+        could arrive in — but so is an edit that renamed it, and nothing
+        here can separate the two.
+        """
+        guard = self._guard(tmp_path)
+        guard.write_text(
+            guard.read_text(encoding="utf-8").replace(
+                f"{snag_claims.GUARD_PATTERN_NAME} =", "SELECTOR ="
+            ),
+            encoding="utf-8",
+        )
+        with patch.object(snag_claims, "DECLARATION_GUARD", guard):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert snag_claims.GUARD_PATTERN_NAME in measured.note
+        assert "cannot tell them apart" in measured.note
+
+    def test_a_selector_bound_inside_a_function_is_not_a_module_constant(
+        self, tmp_path: Path
+    ):
+        """The walk reads the file's contract, not any binding in it.
+
+        A pattern inlined into the fixture is a plausible edit and is not
+        the constant a reader of that file would take the selector for —
+        and accepting one would let this drive be pointed at a local by a
+        change nobody meant as a change of contract.  Driven, because a
+        walk over the whole tree passes every other test in this class:
+        the specimen has to bind the name **only** inside a function,
+        which is the one shape that separates the two readings.
+        """
+        guard = self._guard(tmp_path)
+        source = guard.read_text(encoding="utf-8")
+        pattern_line = next(
+            line
+            for line in source.splitlines()
+            if line.startswith(f"{snag_claims.GUARD_PATTERN_NAME} =")
+        )
+        guard.write_text(
+            source.replace(f"{pattern_line}\n", "").replace(
+                "    spellings = {}", f"    {pattern_line}\n    spellings = {{}}"
+            ),
+            encoding="utf-8",
+        )
+        with patch.object(snag_claims, "DECLARATION_GUARD", guard):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert f"no module-level {snag_claims.GUARD_PATTERN_NAME}" in measured.note
+
+    def test_a_guard_with_no_population_fixture_is_unknown(self, tmp_path: Path):
+        """Gone and no-longer-skipping are two faults, not one.
+
+        Both leave the note naming the fixture, so asserting the name is
+        an assertion two different readings satisfy — and one of them is a
+        rename.  ``_function_skips`` answers three ways for that reason,
+        and this pins the third against the second rather than against
+        the presence of a word.  Driven: collapsing the two branches
+        leaves this test green.
+        """
+        guard = self._guard(tmp_path)
+        guard.write_text(
+            guard.read_text(encoding="utf-8").replace(
+                f"def {snag_claims.GUARD_POPULATION_FIXTURE}(", "def rows("
+            ),
+            encoding="utf-8",
+        )
+        with patch.object(snag_claims, "DECLARATION_GUARD", guard):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert f"has no {snag_claims.GUARD_POPULATION_FIXTURE} fixture" in measured.note
+        assert "no longer skips" not in measured.note
+
+    def test_a_population_that_no_longer_skips_is_unknown(self, tmp_path: Path):
+        """The half of the mechanism the SQL cannot see.
+
+        *"A reword empties the population"* is measured by the drive;
+        *"and the fixture skips"* is the guard's own code, and a guard
+        that failed loudly on an empty population would have the first
+        half and not the second.  A different mechanism is not a verdict
+        about this one.
+        """
+        guard = self._guard(tmp_path, skips=False)
+        with patch.object(snag_claims, "DECLARATION_GUARD", guard):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert f"{snag_claims.GUARD_POPULATION_FIXTURE} no longer skips" in measured.note
+        assert "has no" not in measured.note
+
+    def test_a_statement_with_no_relation_to_retarget_is_unknown(self, tmp_path: Path):
+        guard = self._guard(
+            tmp_path,
+            query="SELECT message, count(*) AS n FROM (SELECT 1) x "
+            "WHERE source = 'kernel' AND message LIKE %(pattern)s GROUP BY message",
+        )
+        with patch.object(snag_claims, "DECLARATION_GUARD", guard):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert "names no relation" in measured.note
+
+    def test_a_statement_with_no_literal_source_is_unknown(self, tmp_path: Path):
+        """The source is read out of the guard, never written here.
+
+        The corpus has to carry rows the guard's own ``WHERE`` admits, and
+        typing ``'kernel'`` beside it would be a second statement of the
+        guard's filter that agrees with this drive while the guard files
+        on something else.
+        """
+        guard = self._guard(
+            tmp_path,
+            query="SELECT message, count(*) AS n FROM sysadmin.log_entries "
+            "WHERE message LIKE %(pattern)s GROUP BY message",
+        )
+        with patch.object(snag_claims, "DECLARATION_GUARD", guard):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert "no longer filters on a literal source" in measured.note
+
+    def test_a_statement_whose_placeholder_has_moved_is_unknown(self, tmp_path: Path):
+        guard = self._guard(
+            tmp_path,
+            query="SELECT message, count(*) AS n FROM sysadmin.log_entries "
+            "WHERE source = 'kernel' AND message LIKE :pattern GROUP BY message",
+        )
+        with patch.object(snag_claims, "DECLARATION_GUARD", guard):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert snag_claims.GUARD_PLACEHOLDER in measured.note
+
+    def test_a_database_that_does_not_answer_is_unknown(self):
+        silent = (None, "the database did not answer (OperationalError)")
+        with patch.object(snag_claims, "query_one", lambda statement, params=None: silent):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert "the database did not answer" in measured.note
+
+    def test_a_drive_that_answers_no_list_is_unknown(self):
+        """The aggregate is what the selection is read out of.
+
+        A scalar back from the drive is a statement that ran and said
+        something other than which lines it admitted, which is not a
+        measurement of anything this check claims.
+        """
+        with patch.object(snag_claims, "query_one", lambda statement, params=None: (7, "")):
+            measured = snag_claims.check_payload_reword_unselected()
+
+        assert measured.verdict == "unknown"
+        assert "no list of selected lines" in measured.note
+
+    # -- the binding -------------------------------------------------------
+
+    def test_the_registry_binds_the_key_to_the_entry(self):
+        check = CHECKS[self.KEY]
+
+        assert check.snag == "SNAG-LOG-016"
+        assert check.run is snag_claims.check_payload_reword_unselected

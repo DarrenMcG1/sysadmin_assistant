@@ -1,6 +1,101 @@
-# Handoff — 2026-09-06 (Session 183)
+# Handoff — 2026-09-06 (Session 184)
 
 ## Next action
+
+Decide whether the guard refusing a published next action that names a `decided` entry is a defect worth filing, because a correction to a disposition is the one kind of work that can only be owed while the word still says otherwise, and this is now the third sitting to pay for it — Session 183's suite went red on a handoff line it had inherited, Session 184's published line had to describe in prose the entry it was correcting, and the first draft of this very sentence was refused for naming that entry as its own evidence.
+
+_**The register's last unchecked entry has its check, and the counter
+reads zero.**_ _`check_payload_reword_unselected` is the twenty-third
+check and reports `still holds`. It reads the live declaration guard's
+selector, statement, relation, source literal and placeholder out of the
+file with `ast`, then runs **that same statement** in PostgreSQL with its
+`FROM` retargeted at a five-row `VALUES` corpus. Live: both kernel
+prefixes this box has emitted select under `WITNESS_LIKE`, both payload
+rewords do not and land on no declaration, and the control that names
+VRAM without being a reset is not selected. Open entries carrying no
+check: **1 of 24 → 0**, by a check being written._
+
+_**The correction went first and on its own commit, which is the shape
+of the sitting rather than a detail of it.**_ _`decided` with no check
+asserts that a check is unwritable, and this entry's refusal bullet was
+that assertion — costing "is the live population non-empty", which is
+true **of a population check** and is the identical mis-costing
+`SNAG-TEST-010` made the same week. The bullet is quoted verbatim inside
+the correction that replaces it, because the claim being refuted is what
+makes the refutation legible. Disposition `decided` → `owed` →
+`decided`, the round trip committed in that order: `SNAG-SYSD-008`'s two
+days earlier, compressed into one sitting._
+
+_**No reset need ever have been stored, which is the whole point.**_
+_Nothing is read from `log_entries` and nothing is written, so the
+verdict is the same on a box that has never had a GPU reset — rule 1,
+and the correction stated as a property of the drive. The corpus is
+literals **vouched for by production**: `CRITICAL_SIGNATURES` must hold
+both genuine spellings and neither reword, so a typo in either list is a
+failed control rather than a check quietly measuring nothing. Answering
+"would this line have been selected" with `needle in message` would be a
+second implementation of `LIKE` agreeing with today's pattern by
+coincidence of its shape and with no other._
+
+_**Four controls forbid a verdict rather than report one, and the skip
+is pinned apart from the selection.**_ _A declared spelling the
+declaration no longer holds is 2026-09-04's defect and not this entry;
+one the selector does not admit means the selector is not the one the
+drive thinks; an unrelated line it **does** admit means it discriminates
+nothing and would admit a reword for the worst possible reason; a reword
+the declaration already covers is not the row the guard exists to catch.
+The mechanism is two claims and SQL reaches only the first, so a fixture
+that stopped skipping is `unknown` — and a fixture that is **gone** is a
+third answer rather than a flavour of the second._
+
+_**The entry's stated closure and a widened `LIKE` are
+indistinguishable to this corpus, deliberately.**_ _Both admit every
+reset line and neither admits the boot line beside them. The check
+watches whether a reword reaches the comparison, so it cannot be
+satisfied by the shape a fix arrives in, and rule 2 leaves judging which
+one landed to the reader of a `mismatch` — the entry's own body already
+argues that widening rebuilds the tautology._
+
+_**Fourteen mutations driven; thirteen killed on their own tests, one
+survived and bought a test.**_ _Accepting a constant bound anywhere in
+the tree rather than at module level passed all twenty-two, because
+`ast.walk` reaches the module-level assignment first — the specimen that
+separates the two readings had to bind the selector **only** inside the
+fixture. One kill needed a repair first: a fixture that is gone and one
+that has stopped skipping both leave the note naming the fixture, so
+asserting the name was an assertion two readings satisfy and collapsing
+the branches left it green._
+
+_**The guard refused this sitting's own handoff line, which is the third
+observation and the reason the next action is what it is.**_ _Session 183
+recorded the tension and did not file it: `check_next_action` refuses a
+published line naming an entry whose body says `decided`, which is right
+for work on a defect and wrong for a correction **to the disposition
+itself** — the one thing that can only be owed while the word still says
+otherwise. Paid twice more here. The line this sitting executed had to
+describe the entry in prose rather than cite its id, which
+`check_next_action` duly reported as "the line names no entry"; and the
+first draft of the line filed for the next sitting — a sentence *about
+the guard*, citing the entry only as evidence — turned
+`test_the_next_action_names_no_entry_that_is_owed_nothing` red the
+moment the disposition returned to `decided`. Still not filed, because
+opening an entry was not asked for; the decision is the next action._
+
+_**No restart was taken and none is owed by the change**: nothing under
+`sysadmin/` that `create_app()` imports moved — `snag_claims` is not
+imported by the application, which is the documented false positive in
+the deploy check and the same reading Session 183 recorded. No
+migration._
+
+_Suite **3702 passed** (3679 + 23, the arithmetic checked so a clobber
+could not read as green), `tests/test_snag_claims.py` **413 → 436**,
+ruff clean, mypy clean over 100 files, `sysadmin-check-snags` **23
+checks, all `ok`** with 0 of 24 open entries unchecked and dispositions
+back at `blocked 3, decided 16, delegated 5`._
+
+# Handoff — 2026-09-06 (Session 183)
+
+### The action Session 183 filed (done by Session 184)
 
 Correct the register's one remaining unchecked entry — the live declaration guard that skips when the producer rewords its payload — by moving its disposition to `owed` before writing its check, because Session 182 drove that entry's refusal bullet in real SQL and found it costs only the population check rather than the defect, which is the same mis-costing the entry closed this sitting carried, and the published line cannot cite the id while the entry's own body still declares `decided`.
 

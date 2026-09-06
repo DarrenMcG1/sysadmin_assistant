@@ -3,6 +3,56 @@
 **Last Updated**: 2026-09-06
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The register's last unchecked entry has its check, and the counter
+> reads zero for the first time** (2026-09-06, Session 184).
+> `SNAG-LOG-016` declared `decided` while carrying none, which under
+> Session 182's rule asserts that a check is *unwritable* — and the
+> entry's own refusal bullet is that assertion, costing *"is the live
+> population non-empty"*. Every word of it is true **of a population
+> check**, and a check reproduces the **defect**: the identical
+> mis-costing `SNAG-TEST-010` made the same week.
+> `check_payload_reword_unselected` is the twenty-third check and
+> reports `still holds`. Open entries carrying no check: **1 of 24 →
+> 0**, by a check being written. Disposition `decided` → `owed` →
+> `decided` inside one sitting, and the round trip is committed apart so
+> that the correction is a commit rather than a sentence about one.
+>
+> **The instrument is split where rule 7 splits it, and neither half
+> would do alone.** What the guard *says* — its selector, its statement,
+> the relation that statement reads, the source it filters on, its
+> placeholder — is read out of the file with `ast`; what its code *does*
+> is driven in PostgreSQL, by running that same statement with its
+> `FROM` retargeted at a five-row `VALUES` corpus. Nothing is retyped
+> and nothing is read from `log_entries`, so **no reset need ever have
+> been stored** — which is rule 1 and the whole of the correction.
+> Answering *"would this line have been selected"* with `needle in
+> message` is a second implementation of `LIKE` that agrees with today's
+> pattern by coincidence of its shape and with no other; live, both
+> genuine kernel prefixes select and neither payload reword does.
+>
+> **Four controls, each forbidding a verdict rather than reporting
+> one.** A declared spelling the declaration no longer holds is
+> 2026-09-04's defect and not this entry; one the selector does not
+> admit means the selector is not the one the drive thinks; an
+> *unrelated* line it does admit means it discriminates nothing and
+> would admit a reword for the worst possible reason; and a reword the
+> declaration already covers is not the row the guard exists to catch.
+> The corpus is literals **vouched for by production** —
+> `CRITICAL_SIGNATURES` must hold both genuine spellings and neither
+> reword — and the skip is pinned apart from the selection, because the
+> mechanism is two claims and SQL reaches only the first.
+>
+> **The corpus cannot tell the entry's stated closure from a widened
+> `LIKE`, and that is deliberate.** Both admit every reset line and
+> neither admits the boot line beside them, so the check watches whether
+> a reword reaches the comparison and cannot be satisfied by the shape a
+> fix arrives in; rule 2 leaves judging which one landed to the reader
+> of a `mismatch`. Thirteen mutations driven and thirteen killed —
+> **one only after a test was repaired**: a fixture that is gone and a
+> fixture that has stopped skipping both leave the note naming the
+> fixture, so asserting the name was an assertion two readings satisfy,
+> and collapsing the two branches left it green.
+
 > **The entry that carried no check now carries the twenty-second, and
 > the witness is the figure the entry was wrong about** (2026-09-06,
 > Session 183). `SNAG-SYSD-008`'s durable claim is a **missing
@@ -3693,6 +3743,18 @@
 ---
 
 ## Recently Completed
+
+### Session 184 — the last unchecked entry, and the round trip (2026-09-06)
+
+`check_payload_reword_unselected` is the twenty-third check and
+`SNAG-LOG-016`'s first, so **0 of 24** open entries now carry none. It
+runs the live declaration guard's own statement against a five-row
+`VALUES` corpus in PostgreSQL rather than against `log_entries`: both
+kernel prefixes this box has emitted select, neither payload reword
+does, and no reset need ever have been stored for the verdict to mean
+something. The entry's disposition went `decided` → `owed` → `decided`
+in the sitting, committed in that order, because the word had been
+asserting that a check was unwritable. 3702 tests.
 
 ### Session 180 — the fourteen, and what the residue really is (2026-09-05)
 

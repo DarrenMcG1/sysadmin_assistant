@@ -607,18 +607,29 @@ def unit_load_state(unit: str) -> str:
     return "unmeasured (no LoadState)"
 
 
-def query_one(statement: str) -> tuple[object | None, str]:
+def query_one(
+    statement: str, params: Mapping[str, object] | None = None
+) -> tuple[object | None, str]:
     """One scalar off a short-lived sync connection, or ``None`` and why not.
 
     :func:`sysadmin.core.schema_guard.live_revision_sync`'s pattern for
     its reason: every caller of this module runs outside a running
     application, so ``get_engine()`` would raise before any query ran.
+
+    **Values are bound, never interpolated**, and the parameter is here
+    rather than beside the one check that needs it for
+    :func:`schema_sql`'s reason — it is a property of this connection and
+    not of any one entry.  :func:`reworded_payload_reading` hands over a
+    corpus of journal lines it read out of another file; building a
+    statement out of those would be a second way for a value to change
+    meaning between the file it was read from and the operator that
+    judges it, which is the whole subject of the entry it serves.
     """
     config = get_config()
     engine = create_engine(config.database.sync_url)
     try:
         with engine.connect() as conn:
-            return conn.execute(text(statement)).scalar(), ""
+            return conn.execute(text(statement), dict(params or {})).scalar(), ""
     except Exception as exc:  # noqa: BLE001 — an unreachable database is "unknown"
         return None, f"the database did not answer ({exc.__class__.__name__})"
     finally:
@@ -8038,6 +8049,430 @@ def check_memory_decomposition_unserved() -> Measurement:
     return Measurement("match", "", detail)
 
 
+# ---------------------------------------------------------------------------
+# SNAG-LOG-016 — a reworded payload never enters the live guard's population
+# ---------------------------------------------------------------------------
+
+#: The live guard this check is about.
+#:
+#: **Read as source, never imported**, which is rule 7's split taken
+#: literally.  The two names below are claims about what that file
+#: *says* and are answered by what it says; the question the entry is
+#: about — which lines its selector admits — is a claim about what the
+#: code *does* and is driven, in the database, against the operator that
+#: decides it.  Importing would additionally run a test module at the top
+#: of every sitting, which :func:`_parse` refuses in writing.
+DECLARATION_GUARD = REPO_ROOT / "tests" / "test_critical_signature_live.py"
+
+#: The guard's population selector, by name.  Read out of the file rather
+#: than retyped here: a pattern written twice is two statements of one
+#: fact, and the second is free to agree with this check while disagreeing
+#: with the guard — ``SNAG-DB-003``'s shape at the size of a string.
+GUARD_PATTERN_NAME = "WITNESS_LIKE"
+
+#: The statement that applies it.  Everything this drive needs beyond the
+#: pattern is read out of it — the relation, the source it filters on and
+#: the placeholder — so a guard that moves any of the three is followed
+#: rather than second-guessed.
+GUARD_QUERY_NAME = "QUERY"
+
+#: The fixture that turns an empty population into a skip.  The entry's
+#: mechanism is *"a reword empties the population and the fixture
+#: skips"*, so a guard that stopped skipping would still have the first
+#: half and no longer the second.  That is a different mechanism and
+#: therefore ``unknown``, never a verdict about this one.
+GUARD_POPULATION_FIXTURE = "stored"
+
+#: What the guard's statement is retargeted at, so the corpus below is
+#: the population instead of ``log_entries``.  The table it is
+#: substituted *for* is read out of the statement and never named here.
+GUARD_CORPUS_RELATION = "corpus"
+
+#: The guard's placeholder, and the adaptation ``_stored_spellings``
+#: already makes before handing the statement to SQLAlchemy.  Requiring
+#: the token to be present is a pin on that: a guard that changed
+#: paramstyle answers ``unknown`` here rather than being driven with a
+#: statement it does not use.
+GUARD_PLACEHOLDER = "%(pattern)s"
+BOUND_PLACEHOLDER = ":pattern"
+
+
+@dataclass(frozen=True)
+class ResetSpecimen:
+    """One journal line handed to the guard's own selector.
+
+    Attributes:
+        label: what the note calls it.
+        message: the line as ``log_entries.message`` would hold it.
+    """
+
+    label: str
+    message: str
+
+
+#: The two spellings this box has really emitted.
+#:
+#: **Literals, and that is the whole point of the drive.**  The entry is
+#: about a kernel that *has not* reworded the payload, so a corpus
+#: selected from the live table inherits exactly the population
+#: dependence this check exists to refuse — which is the entry's own
+#: mis-costing, and the reason Session 182 drove it against a synthetic
+#: corpus instead.  They are not *trusted* as literals either:
+#: :func:`reworded_payload_reading` requires each to land on a key
+#: ``CRITICAL_SIGNATURES`` declares, so production vouches for the corpus
+#: rather than this module vouching for itself.
+DECLARED_SPELLINGS: tuple[ResetSpecimen, ...] = (
+    ResetSpecimen(
+        "6.18.x-lts prefix",
+        "amdgpu 0000:03:00.0: amdgpu: VRAM is lost due to GPU reset!",
+    ),
+    ResetSpecimen(
+        "7.2.x prefix",
+        "amdgpu 0000:03:00.0: VRAM is lost due to GPU reset!",
+    ),
+)
+
+#: Two rewords of the payload, and the first is one word.
+#:
+#: The axis that broke on 2026-09-04 was amdgpu's *device prefix*, which
+#: the guard discriminates by construction.  These move the other half —
+#: the message — which is what the selector is keyed on, so a kernel
+#: emitting either empties the population rather than failing the
+#: assertion.  Both are required to land on **no** declaration, because a
+#: reword the declaration already covers is not the row the guard exists
+#: to catch.
+REWORDED_PAYLOADS: tuple[ResetSpecimen, ...] = (
+    ResetSpecimen(
+        "one word moved",
+        "amdgpu 0000:03:00.0: VRAM was lost due to GPU reset!",
+    ),
+    ResetSpecimen(
+        "rephrased",
+        "amdgpu 0000:03:00.0: GPU reset: all VRAM contents were lost!",
+    ),
+)
+
+#: The control that forbids the loud verdict.
+#:
+#: A selector matching everything would admit a reword too, and this
+#: check would report the entry closed for the worst possible reason.
+#: The specimen names VRAM and is not a reset — a real boot line — so it
+#: also witnesses that the pattern is keyed on the payload rather than on
+#: the word the reader would have reached for.
+UNRELATED_LINES: tuple[ResetSpecimen, ...] = (
+    ResetSpecimen(
+        "names VRAM, is not a reset",
+        "amdgpu 0000:03:00.0: amdgpu: VRAM: 24560M 0x0000008000000000 - "
+        "0x00000085FEFFFFFF (24560M used)",
+    ),
+)
+
+
+@dataclass(frozen=True)
+class RewordReading:
+    """One drive of the guard's own selector over the corpus above.
+
+    Attributes:
+        pattern: the guard's :data:`GUARD_PATTERN_NAME`, as read.
+        statement: its statement, retargeted at :data:`GUARD_CORPUS_RELATION`.
+        source: the source literal its ``WHERE`` filters on.
+        selected: the labels the selector admitted, in corpus order.
+        declared: the labels landing on a key ``CRITICAL_SIGNATURES`` holds.
+    """
+
+    pattern: str
+    statement: str
+    source: str
+    selected: tuple[str, ...]
+    declared: tuple[str, ...]
+
+
+def _module_constant(tree: ast.Module, name: str) -> str | None:
+    """A module-level ``NAME = "literal"``, or ``None``.
+
+    Module level only, and deliberately: a name bound inside a function
+    is not the constant a reader of that file would take it for, and
+    accepting one would let this drive be pointed at a local by an edit
+    nobody meant as a change of contract.
+    """
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets: list[ast.expr] = list(node.targets)
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        else:
+            continue
+        if node.value is None or not any(
+            isinstance(target, ast.Name) and target.id == name for target in targets
+        ):
+            continue
+        if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            return node.value.value
+    return None
+
+
+def _function_skips(tree: ast.Module, name: str) -> bool | None:
+    """Does ``name`` call ``pytest.skip``?  ``None`` when it is not there.
+
+    Three answers rather than two, ``ports_checked``'s rule at the size of
+    a walk: a fixture that is gone and a fixture that has stopped skipping
+    are different faults, and only one of them is a rename.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == name:
+            return any(
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == "skip"
+                for call in ast.walk(node)
+            )
+    return None
+
+
+def _corpus_statement(statement: str, specimens: tuple[ResetSpecimen, ...]) -> str:
+    """The guard's statement over a ``VALUES`` corpus instead of a table.
+
+    The rows are bound parameters, so nothing this module read out of
+    another file reaches the database as SQL — :func:`query_one`'s own
+    rule, and the reason it takes them at all.
+    """
+    rows = ", ".join(
+        f"(CAST(:s{index} AS text), CAST(:m{index} AS text))" for index in range(len(specimens))
+    )
+    return (
+        f"WITH {GUARD_CORPUS_RELATION}(source, message) AS (VALUES {rows}), "
+        f"selected AS ({statement}) "
+        "SELECT coalesce(json_agg(message), '[]'::json) FROM selected"
+    )
+
+
+def reworded_payload_reading() -> tuple[RewordReading | None, str]:
+    """Put the guard's own selector to PostgreSQL over a synthetic corpus.
+
+    **The operator is the database's and reproducing it here would be the
+    defect.**  ``LIKE`` is not ``in``: ``%`` and ``_`` are wildcards, the
+    comparison is the column's collation, and a Python answer to *"would
+    the guard have selected this line"* agrees with today's pattern by
+    coincidence of its shape and with no other.  So the statement the
+    guard ships is the statement that runs, with one substitution — its
+    ``FROM`` — and the pattern it selects with is read out of the same
+    file rather than retyped.
+
+    **Nothing is read from ``log_entries`` and nothing is written.**  The
+    population is five ``VALUES`` rows, which is what makes this a check
+    about the *mechanism* rather than about whether a GPU reset happens
+    to sit in retention today — rule 1, and the correction the entry's
+    own refusal bullet needed.
+
+    Every way of not-knowing gets its own sentence.  Beside the six the
+    guard's own file can produce — it will not parse, either name is
+    gone, the fixture is gone or no longer skips, its ``FROM`` or its
+    source literal will not read, its placeholder has moved — there are
+    four the corpus can, and each is a road to a verdict taken for the
+    wrong reason: a declared spelling that lands on no declaration (which
+    is 2026-09-04's defect and not this entry), a declared spelling the
+    selector does not admit (so the selector is not the one this drive
+    thinks), an unrelated line it *does* admit (so it discriminates
+    nothing and would admit a reword too), and a reword the declaration
+    already covers (so it is not the row the guard exists to catch).
+    """
+    from sysadmin.monitor.log_aggregator import CRITICAL_SIGNATURES
+    from sysadmin.monitor.log_signature import signature
+
+    tree = _parse(DECLARATION_GUARD)
+    if tree is None:
+        return None, f"{_rel(DECLARATION_GUARD)} will not read, so the guard cannot be measured"
+
+    pattern = _module_constant(tree, GUARD_PATTERN_NAME)
+    statement = _module_constant(tree, GUARD_QUERY_NAME)
+    missing = [
+        name
+        for name, value in ((GUARD_PATTERN_NAME, pattern), (GUARD_QUERY_NAME, statement))
+        if value is None
+    ]
+    if pattern is None or statement is None:
+        return None, (
+            f"{_rel(DECLARATION_GUARD)} declares no module-level {' or '.join(missing)}, so "
+            "the selector this claim is about is not there to be driven — which may be its "
+            "closure or a rename, and this cannot tell them apart"
+        )
+
+    skips = _function_skips(tree, GUARD_POPULATION_FIXTURE)
+    if skips is None:
+        return None, (
+            f"{_rel(DECLARATION_GUARD)} has no {GUARD_POPULATION_FIXTURE} fixture, so what an "
+            "empty population becomes is no longer this entry's mechanism"
+        )
+    if not skips:
+        return None, (
+            f"{GUARD_POPULATION_FIXTURE} no longer skips on an empty population, so a reword "
+            "produces something other than the silent skip this entry is about"
+        )
+
+    relation = re.search(r"\bFROM\s+([A-Za-z_][\w.]*)", statement)
+    if relation is None:
+        return None, (
+            f"{GUARD_QUERY_NAME} names no relation this drive can retarget, so the corpus "
+            "cannot be put where the guard's population comes from"
+        )
+    source = re.search(r"source\s*=\s*'([^']*)'", statement)
+    if source is None:
+        return None, (
+            f"{GUARD_QUERY_NAME} no longer filters on a literal source, so the corpus cannot "
+            "be given rows the guard's own statement would admit"
+        )
+    if GUARD_PLACEHOLDER not in statement:
+        return None, (
+            f"{GUARD_QUERY_NAME} does not carry {GUARD_PLACEHOLDER}, so the pattern would be "
+            "bound into a statement that is not asking for it"
+        )
+
+    specimens = (*DECLARED_SPELLINGS, *REWORDED_PAYLOADS, *UNRELATED_LINES)
+    retargeted = statement.replace(relation.group(1), GUARD_CORPUS_RELATION).replace(
+        GUARD_PLACEHOLDER, BOUND_PLACEHOLDER
+    )
+    params: dict[str, object] = {"pattern": pattern}
+    for index, specimen in enumerate(specimens):
+        params[f"s{index}"] = source.group(1)
+        params[f"m{index}"] = specimen.message
+    answered, problem = query_one(_corpus_statement(retargeted, specimens), params)
+    if problem:
+        return None, problem
+    if not isinstance(answered, list):
+        return None, (
+            "the drive answered with no list of selected lines, so what the guard's selector "
+            "admits was not measured"
+        )
+
+    admitted = {specimen.label for specimen in specimens if specimen.message in answered}
+    declared = {
+        specimen.label
+        for specimen in specimens
+        if (source.group(1), signature(specimen.message)) in CRITICAL_SIGNATURES
+    }
+
+    undeclared = [s.label for s in DECLARED_SPELLINGS if s.label not in declared]
+    if undeclared:
+        return None, (
+            f"{', '.join(undeclared)} lands on no declaration, so the corpus no longer holds "
+            "the spellings this box emits — which is 2026-09-04's defect rather than this entry"
+        )
+    unselected = [s.label for s in DECLARED_SPELLINGS if s.label not in admitted]
+    if unselected:
+        return None, (
+            f"the guard's own pattern does not admit {', '.join(unselected)}, so it is not "
+            "selecting the lines it was written for and its silence about a reword says nothing"
+        )
+    overreaching = [s.label for s in UNRELATED_LINES if s.label in admitted]
+    if overreaching:
+        return None, (
+            f"the guard's pattern admits {', '.join(overreaching)}, which is not a reset at "
+            "all — a selector that discriminates nothing would admit a reword for the worst "
+            "possible reason"
+        )
+    covered = [s.label for s in REWORDED_PAYLOADS if s.label in declared]
+    if covered:
+        return None, (
+            f"{', '.join(covered)} now lands on a declaration, so it is not the row the guard "
+            "exists to catch and its absence from the population costs nothing"
+        )
+
+    return (
+        RewordReading(
+            pattern=pattern,
+            statement=retargeted,
+            source=source.group(1),
+            selected=tuple(s.label for s in specimens if s.label in admitted),
+            declared=tuple(s.label for s in specimens if s.label in declared),
+        ),
+        "",
+    )
+
+
+def check_payload_reword_unselected() -> Measurement:
+    """``SNAG-LOG-016`` — the guard skips on exactly the row it exists to catch.
+
+    ``tests/test_critical_signature_live.py`` selects its population with
+    ``message LIKE '%VRAM is lost due to GPU reset%'`` — the half of the
+    line no kernel branch has moved — and asserts every stored row lands
+    on a declared key.  A reword of the **prefix** is what broke on
+    2026-09-04 and is what that guard discriminates.  A reword of the
+    **payload** empties the population, the fixture skips, and a skip is
+    not health.
+
+    **The entry's own refusal bullet costed the wrong check**, which is
+    the correction this carries.  It read *"what one would drive is 'is
+    the live population non-empty', which is the fixture's own skip
+    condition restated"* — the identical mis-costing ``SNAG-TEST-010``
+    made and Session 181 refuted.  A check reproduces the **defect**, not
+    the discriminator and not the population: the corpus is five
+    ``VALUES`` rows, no reset need ever have been stored, and the verdict
+    is the same on a box that has never had one.
+
+    **Two genuine spellings and two rewords, put to PostgreSQL rather
+    than to Python.**  The declared pair select and land on a
+    declaration; the rewords land on none, and whether they select is the
+    verdict.  Refuted the day one of them does — which is the entry's own
+    stated closure, a population keyed on an event the kernel does not
+    own (the ``amdgpu_device_gpu_recover`` tracepoint, or a driver-exposed
+    ``reset_count``) rather than on a string.  A merely *widened* ``LIKE``
+    would refute it too, and rule 2 is what makes that safe: a refuted
+    claim is a candidate for closure and never a closure, and the entry
+    already argues in its own body that widening rebuilds the tautology.
+
+    **Four controls, each forbidding a verdict rather than reporting
+    one** — see :func:`reworded_payload_reading`.  The sharpest is the
+    unrelated line: a selector matching everything admits a reword too,
+    so without it this check would report the entry closed on the day the
+    guard stopped discriminating anything at all.
+    """
+    reading, problem = reworded_payload_reading()
+    if reading is None:
+        return Measurement("unknown", problem)
+
+    invisible = [
+        specimen.label for specimen in REWORDED_PAYLOADS if specimen.label not in reading.selected
+    ]
+    # Every line is rendered from the reading rather than written out.
+    # The controls have already refused the shapes these lines would
+    # otherwise assert, so a hand-written *"selected, and declared"*
+    # would be true and would have stopped measuring — a check that
+    # spells its own evidence is the stubbed collaborator this registry
+    # has been caught by before.
+    def _rendered(specimens: tuple[ResetSpecimen, ...]) -> str:
+        return "; ".join(
+            f"{specimen.label} — "
+            + ("selected" if specimen.label in reading.selected else "not selected")
+            + (", declared" if specimen.label in reading.declared else ", undeclared")
+            for specimen in specimens
+        )
+
+    corpus = (*DECLARED_SPELLINGS, *REWORDED_PAYLOADS, *UNRELATED_LINES)
+    detail = (
+        f"{_rel(DECLARATION_GUARD)} selects with {reading.pattern!r} "
+        f"over source {reading.source!r}",
+        f"declared spellings: {_rendered(DECLARED_SPELLINGS)}",
+        f"payload rewords: {_rendered(REWORDED_PAYLOADS)}",
+        f"control: {_rendered(UNRELATED_LINES)}",
+        f"the population is {len(reading.selected)} of {len(corpus)} corpus line(s), "
+        f"{len(invisible)} of {len(REWORDED_PAYLOADS)} reword(s) invisible to it — so a "
+        f"kernel emitting one stores a row nothing selects and {GUARD_POPULATION_FIXTURE} "
+        "skips",
+    )
+
+    if not invisible:
+        return Measurement(
+            "mismatch",
+            "the guard's population now admits a reworded payload "
+            f"({', '.join(specimen.label for specimen in REWORDED_PAYLOADS)}), so a kernel "
+            "that rewords the line no longer empties it — the entry's stated closure, or a "
+            "widening it argues against, and which of the two is the reader's to judge",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
+
 @dataclass(frozen=True)
 class Check:
     """One check, and the entry it is about.
@@ -8199,6 +8634,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-SYSD-008",
             "a health surface serves memory.current and no route decomposes it",
             check_memory_decomposition_unserved,
+        ),
+        Check(
+            "payload_reword_unselected",
+            "SNAG-LOG-016",
+            "a reworded reset payload never enters the live guard's population",
+            check_payload_reword_unselected,
         ),
     )
 }

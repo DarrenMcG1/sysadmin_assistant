@@ -8,6 +8,79 @@
 
 ---
 
+## Session 184: the last unchecked entry, and the round trip ✅ (2026-09-06)
+
+_Session 183's handoff asked for the register's one remaining unchecked
+entry to be corrected — its disposition moved to `owed` before its check
+was written — because Session 182 had driven its refusal bullet in real
+SQL and found it costs only the population check rather than the defect,
+and because a published line cannot cite an id whose body says
+`decided`._
+
+- [x] **The correction went first and on its own commit.**
+      `SNAG-LOG-016`'s refusal bullet is quoted verbatim inside the
+      correction that replaces it, because the claim being refuted is
+      what makes the refutation legible: every word of it is true **of a
+      population check**. Disposition `decided` → `owed`, register
+      `decided 16` → `owed 1, decided 15`, unchecked unmoved at 1 of 24.
+- [x] **`check_payload_reword_unselected` is the twenty-third check and
+      reports `still holds`.** Live: both kernel prefixes this box has
+      emitted select under the guard's own `WITNESS_LIKE`, both payload
+      rewords do not and land on no declaration, and the control that
+      names VRAM without being a reset is not selected. Open entries
+      carrying no check: **1 of 24 → 0**, by a check being written.
+- [x] **Rule 7's split taken literally.** What the guard *says* is read
+      with `ast` — the selector, the statement, the relation that
+      statement reads, the source literal it filters on and the
+      placeholder it carries, none of them retyped here. What its code
+      *does* is driven in PostgreSQL, by running that same statement
+      with its `FROM` retargeted at a five-row `VALUES` corpus. Nothing
+      is read from `log_entries` and nothing is written, so **no reset
+      need ever have been stored** — rule 1, and the whole correction.
+- [x] **The corpus is literals vouched for by production.** A corpus
+      selected from the live table inherits the population dependence
+      the entry mis-costed, so the lines are written down and then
+      handed to `CRITICAL_SIGNATURES` to be judged: both genuine
+      spellings must land on a declared key and neither reword may, so a
+      typo in either list is a failed control rather than a check
+      quietly measuring nothing.
+- [x] **Four controls, each forbidding a verdict.** A declared spelling
+      the declaration no longer holds is 2026-09-04's defect and not
+      this entry; one the selector does not admit means the selector is
+      not the one the drive thinks; an *unrelated* line it does admit
+      means it discriminates nothing and would admit a reword for the
+      worst possible reason; and a reword the declaration already covers
+      is not the row the guard exists to catch.
+- [x] **The skip is pinned apart from the selection**, because the
+      mechanism is two claims and SQL reaches only the first. A fixture
+      that failed loudly on an empty population would have *"a reword
+      empties it"* and not *"and it skips"* — a different mechanism, so
+      `unknown` rather than a verdict about this one, and the fixture
+      being **gone** is a third answer rather than a flavour of the
+      second.
+- [x] **The widened `LIKE` is indistinguishable from the stated closure
+      and that is deliberate.** Both admit every reset line and neither
+      admits the boot line beside them. The check watches whether a
+      reword reaches the comparison, so it cannot be satisfied by the
+      shape a fix arrives in, and rule 2 leaves judging which one landed
+      to the reader of a `mismatch`.
+- [x] **Thirteen mutations driven and thirteen killed, one only after a
+      test was repaired.** A fixture that is gone and one that has
+      stopped skipping both leave the note naming the fixture, so
+      asserting the name was an assertion two readings satisfy —
+      collapsing the two branches left the test green. A fourteenth
+      mutation, accepting a constant bound anywhere in the tree rather
+      than at module level, survived all twenty-two tests and bought the
+      twenty-third: a guard whose selector is inlined into the fixture,
+      which is the one shape that separates the two readings.
+- [x] **Disposition `owed` → `decided` the same sitting**, carrying a
+      check rather than asserting unwritability by silence.
+      `SNAG-SYSD-008`'s round trip two days earlier, compressed — and
+      committed in that order, so the correction is a commit and not a
+      sentence about one.
+
+---
+
 ## Session 182: `decided` with no check, and an absence that was not one ✅ (2026-09-06)
 
 _Session 181's handoff asked whether an entry may declare `decided` while
@@ -61,14 +134,18 @@ candidates — the disposition is right, or it is the same mis-disposition
       no check: **2 of 24 → 1**, by a check being written. Disposition
       `owed` → `decided` the same day, now carrying a check rather than
       asserting unwritability by silence: `decided 16` again.)*
-- [ ] **`SNAG-LOG-016`'s refusal is mis-costed and it was left alone
+- [x] **`SNAG-LOG-016`'s refusal is mis-costed and it was left alone
       deliberately.** Its bullet costs only the *population* check, the
       identical mis-costing Session 181 refuted. Driven in real SQL
       against a synthetic corpus — no writes, no live reset — both
       genuine kernel prefixes select and a payload reword does not, so
       the guard skips on exactly the row it exists to catch. Writable in
       a sitting; not written here, because the shape-of-fix rule is one
-      check per sitting.
+      check per sitting. *(Session 184. The correction landed first and
+      on its own commit — disposition `decided` → `owed` — then
+      `check_payload_reword_unselected`, the twenty-third check, which
+      reports `still holds`. Open entries carrying no check: **1 of 24 →
+      0**.)*
 
 ---
 
