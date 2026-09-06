@@ -8604,3 +8604,260 @@ class TestThePayloadRewordCheck:
 
         assert check.snag == "SNAG-LOG-016"
         assert check.run is snag_claims.check_payload_reword_unselected
+
+
+class TestTheDispositionCorrectionCheck:
+    """``SNAG-TEST-011``'s check — the first written against a guard this
+    repository still believes is correct.
+
+    The other twenty-four watch a defect.  This one watches a *blind
+    spot*: :func:`~sysadmin.snag_claims.check_next_action` refuses a
+    published line naming a ``decided`` or ``delegated`` entry, which is
+    what it is for, and the class of work it cannot express is work on
+    the **entry** rather than on the defect — correcting its ranking,
+    correcting the reasoning of its refusal, or closing it.  That work is
+    owed precisely while the word says otherwise.
+
+    What is asserted is **indistinguishability**, never refusal.  A check
+    asserting that the guard refuses a ``decided`` entry would report
+    ``ok`` for the life of the guard and would still be reporting it the
+    day the distinction landed, because the remedy sentence is refused
+    either way — ``check_review_schedule_unread``'s defect, which this
+    registry has now been caught by twice.
+
+    The drives are ordered by what each would let past: the premises
+    first, then the entry as filed, then the stand-in modelling the
+    **fix**, then the ways of not-knowing — three of which are controls
+    that forbid a verdict rather than report one.
+    """
+
+    KEY = "disposition_correction_unpublishable"
+    SNAG = "SNAG-TEST-011"
+
+    # -- premises ----------------------------------------------------------
+
+    def test_the_corpus_holds_one_specimen_per_disposition(self):
+        """The corpus still models the register, asserted separately.
+
+        The finding compares specimens the guard refuses against
+        specimens it must not, so a corpus that has stopped covering the
+        vocabulary makes one of those two sets empty and the comparison
+        vacuous.  Asserted here rather than inferred from a green verdict
+        below, which an empty set also produces.
+        """
+        entries = snag_claims.read_entries(snag_claims.PUBLICATION_CORPUS)
+        declared = {
+            snag_claims.disposition_word(snag_claims.declared_disposition(entry.body) or "")
+            for entry in entries
+            if entry.snag_id and entry.is_open
+        }
+
+        assert declared == set(snag_claims.DISPOSITIONS), (
+            "the corpus no longer holds one specimen per disposition, so the check's "
+            "refused and permitted sets are not both populated"
+        )
+        assert set(snag_claims.REFUSED_DISPOSITIONS) < set(snag_claims.DISPOSITIONS), (
+            "the refusal is not a proper subset, so nothing is left to control against"
+        )
+
+    def test_the_two_sentences_are_a_comparison(self):
+        """They differ, and both name the id.
+
+        Equal sentences would make the equality the check asserts true by
+        construction — the stand-in that has stopped modelling anything.
+        """
+        work = snag_claims.WORK_LINE.format(snag=self.SNAG)
+        correction = snag_claims.CORRECTION_LINE.format(snag=self.SNAG)
+
+        assert work != correction
+        for line in (work, correction):
+            assert snag_claims.SNAG_ID_RE.search(line), f"{line!r} names no id"
+
+    def test_the_guard_discriminates_on_the_disposition(self):
+        """``owed`` and ``blocked`` are published, which is the control.
+
+        Without it a guard refusing every id it can resolve satisfies the
+        finding below exactly, and the equality would be measuring the
+        guard's inability to resolve anything rather than this entry.
+        """
+        readings, problem = snag_claims.publication_readings()
+
+        assert readings is not None, problem
+        permitted = [
+            item for item in readings if item.disposition not in snag_claims.REFUSED_DISPOSITIONS
+        ]
+        assert permitted, "no specimen is left to control against"
+        for item in permitted:
+            assert not item.work_refused and not item.correction_refused, (
+                f"{item.snag} declares {item.disposition} and the guard refused it"
+            )
+
+    # -- the entry as filed ------------------------------------------------
+
+    def test_a_correction_reads_exactly_like_the_remedy_it_corrects(self):
+        readings, problem = snag_claims.publication_readings()
+
+        assert readings is not None, problem
+        refused = [
+            item for item in readings if item.disposition in snag_claims.REFUSED_DISPOSITIONS
+        ]
+        assert refused, "no specimen declares a refused disposition"
+        for item in refused:
+            assert item.work_refused and item.correction_refused, (
+                f"{item.snag} distinguishes the two sentences"
+            )
+            assert item.indistinguishable
+
+        assert snag_claims.check_disposition_correction_unpublishable().verdict == "match"
+
+    def test_the_report_names_both_sentences_for_every_specimen(self):
+        """Naming only the refused half would restate the guard's own rule.
+
+        The guard already says it refuses a ``decided`` entry.  What this
+        entry claims is that it says the *same thing* about a sentence
+        proposing to correct that entry, so a report printing one
+        sentence per specimen carries no evidence for the claim.
+        """
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        rendered = "\n".join(measured.detail)
+        for word in snag_claims.DISPOSITIONS:
+            assert f", {word}:" in rendered, f"no specimen declaring {word} is reported"
+        assert rendered.count("the remedy sentence is") == len(snag_claims.DISPOSITIONS)
+        assert rendered.count("the correction sentence is") == len(snag_claims.DISPOSITIONS)
+
+    # -- the stand-in modelling the fix ------------------------------------
+
+    def test_a_guard_that_publishes_the_correction_refutes_the_entry(self, monkeypatch):
+        """The entry's own stated closure, driven rather than described."""
+        real = snag_claims.read_named_entries
+
+        def distinguishing(line, entries):
+            readings = real(line, entries)
+            if "disposition" not in line:
+                return readings
+            return tuple(
+                snag_claims.NamedEntry(item.snag, False, item.unsayable, item.note)
+                for item in readings
+            )
+
+        monkeypatch.setattr(snag_claims, "read_named_entries", distinguishing)
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        assert measured.verdict == "mismatch"
+        assert "the distinction this entry asks for exists" in measured.note
+
+    def test_dropping_the_refusal_is_reported_as_a_different_thing(self, monkeypatch):
+        """Refused-and-narrowed, against refused-not-at-all.
+
+        Both are candidates for closure and only one is the fix this
+        entry asks for, so rule 2 leaves the judgement to the reader and
+        the note has to say which happened.
+        """
+        real = snag_claims.read_named_entries
+        monkeypatch.setattr(
+            snag_claims,
+            "read_named_entries",
+            lambda line, entries: tuple(
+                snag_claims.NamedEntry(item.snag, False, item.unsayable, item.note)
+                for item in real(line, entries)
+            ),
+        )
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        assert measured.verdict == "mismatch"
+        assert "dropped rather than narrowed" in measured.note
+
+    def test_a_narrowed_vocabulary_moves_the_population_and_not_the_verdict(self, monkeypatch):
+        """Rule 1, and the mutation that taught it.
+
+        Narrowing :data:`REFUSED_DISPOSITIONS` to one word takes this
+        check's population with it and was expected to flip the verdict.
+        It does not, and it should not: the entry's claim is that ids
+        resolve where intent does not, which is unchanged by *which*
+        words are refused.  The population moves, so the **detail** moves
+        and the verdict does not — the separation rule 1 requires, pinned
+        here because an unpinned coincidence reads as an oversight.
+        """
+        monkeypatch.setattr(snag_claims, "REFUSED_DISPOSITIONS", ("delegated",))
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        assert measured.verdict == "match"
+        rendered = "\n".join(measured.detail)
+        assert "decided: the remedy sentence is published" in rendered, (
+            "the report does not show the population that left the refusal"
+        )
+
+    # -- the ways of not-knowing -------------------------------------------
+
+    def test_a_guard_refusing_everything_takes_no_reading(self, monkeypatch):
+        real = snag_claims.read_named_entries
+        monkeypatch.setattr(
+            snag_claims,
+            "read_named_entries",
+            lambda line, entries: tuple(
+                snag_claims.NamedEntry(item.snag, True, item.unsayable, item.note)
+                for item in real(line, entries)
+            ),
+        )
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        assert measured.verdict == "unknown"
+        assert "not discriminating on the disposition" in measured.note
+
+    def test_a_moved_vocabulary_takes_no_reading(self, monkeypatch):
+        monkeypatch.setattr(snag_claims, "REFUSED_DISPOSITIONS", ())
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        assert measured.verdict == "unknown"
+        assert "the vocabulary moved" in measured.note
+
+    def test_a_corpus_missing_a_disposition_takes_no_reading(self, monkeypatch):
+        monkeypatch.setattr(
+            snag_claims,
+            "PUBLICATION_CORPUS",
+            snag_claims.PUBLICATION_CORPUS.replace("Open — owed", "Open — decided"),
+        )
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        assert measured.verdict == "unknown"
+        assert "no specimen declares" in measured.note
+
+    def test_two_equal_sentences_take_no_reading(self, monkeypatch):
+        monkeypatch.setattr(snag_claims, "CORRECTION_LINE", snag_claims.WORK_LINE)
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        assert measured.verdict == "unknown"
+        assert "not a comparison" in measured.note
+
+    # -- the population is evidence and never the verdict -------------------
+
+    def test_an_unreadable_live_register_does_not_move_the_verdict(self, monkeypatch, tmp_path):
+        """Rule 1's separation, driven at the one input that could break it.
+
+        The live count is printed because the mechanism's cost is how
+        many entries wear it.  It must not reach the verdict, or a
+        register that happened to hold no ``decided`` entry would report
+        this entry refuted — ``SNAG-LOG-013``'s reading a fourth time.
+        """
+        monkeypatch.setattr(snag_claims, "SNAG_PATH", tmp_path / "absent.md")
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        assert measured.verdict == "match"
+        assert any("no population was taken" in line for line in measured.detail)
+
+    def test_the_live_population_is_reported_when_it_reads(self):
+        measured = snag_claims.check_disposition_correction_unpublishable()
+
+        assert any(
+            line.startswith("live population:") and "open entries declare" in line
+            for line in measured.detail
+        )
+
+    # -- the binding ---------------------------------------------------------
+
+    def test_the_registry_binds_the_key_to_the_entry(self):
+        check = CHECKS[self.KEY]
+
+        assert check.snag == self.SNAG
+        assert check.run is snag_claims.check_disposition_correction_unpublishable

@@ -8,6 +8,59 @@
 
 ---
 
+## Session 185: the guard's blind spot, filed and checked ✅ (2026-09-06)
+
+_Session 184's handoff asked whether the guard refusing a published next
+action that names a `decided` entry is a defect worth filing, on the
+strength of three sittings having paid for it. The ruling is **yes, and
+narrower than the sentence bundles** — one mechanism, not three costs,
+and the sentence's own premise is too narrow._
+
+- [x] **All three costs reproduced rather than quoted**, which is what
+      corrected the premise. Session 183's red reconstructed exactly:
+      the inherited line at `4caf59e` against the register at `23fd601`
+      returns `unknown`, *"1 of 1 entries the line names declare decided
+      or delegated"*. Session 184's line at `5fdf73e` describes
+      `SNAG-LOG-016` in prose and never names it. Session 185's first
+      draft was refused for naming it as its own evidence.
+- [x] **The premise is too narrow and the register now says so.** *"The
+      one kind of work"* is three: correcting a **ranking**, correcting
+      a refusal's **reasoning**, and **closing** the entry. In all three
+      the `decided` → `owed` → `decided` workaround is a false
+      assertion, because `owed` asserts a check is owed and none is.
+      Closing is observed — `SNAG-SYSD-003` went `Open — decided` to
+      closed within the hour on 2026-09-02.
+- [x] **The obvious instrument answers a confident zero.** Resolving
+      every next action in `HANDOFF.md`'s history against the register
+      at that commit gives **0 refusals in 176 lines**. The guard blocks
+      the commit, so a refused line cannot reach the corpus — every
+      instance was paid for at authoring time and erased.
+      Zero-because-avoided, and the reason the evidence had to be a
+      reconstruction rather than a sweep.
+- [x] **`SNAG-TEST-011` filed as `owed`, P4**, with the standing
+      exposure measured at **21 of 25 open entries** and the two
+      candidate remedies recorded rather than chosen — the choice wants
+      a real member of one of the three unreached classes first.
+- [x] **`check_disposition_correction_unpublishable` takes `CHECKS`
+      24 → 25 and reports `still holds`.** It asserts
+      **indistinguishability**, never refusal, over a synthetic
+      four-specimen register — one per disposition, so no live document
+      reaches the verdict and the live 21-of-25 is evidence only, pinned
+      by a test driving an unreadable register.
+- [x] **Eight mutations driven; one passed against code expected to be
+      broken.** Narrowing `REFUSED_DISPOSITIONS` to a single word takes
+      the check's population with the guard and still reports `match` —
+      which is correct, the claim being that ids resolve where intent
+      does not, and is now pinned as a test rather than left as a
+      coincidence. The anti-vacuity premise it prompted is unreachable
+      by construction and says so in the code.
+- [x] **Session 183's red deliberately not filed.** Its one real cost is
+      that nobody hears it, which is `SNAG-TEST-005` and already owned;
+      filing it again is the second-owner defect. Suite **3702 → 3717**,
+      ruff and mypy clean.
+
+---
+
 ## Session 184: the last unchecked entry, and the round trip ✅ (2026-09-06)
 
 _Session 183's handoff asked for the register's one remaining unchecked

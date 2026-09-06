@@ -8472,6 +8472,252 @@ def check_payload_reword_unselected() -> Measurement:
     return Measurement("match", "", detail)
 
 
+#: The synthetic register the publication drive runs against.  **Four
+#: specimens, not one**, because the claim is that the refusal
+#: discriminates on the *word* and nothing else — a corpus holding only a
+#: ``decided`` entry cannot tell a guard that refuses that word from one
+#: that refuses every line it can resolve, and the second would satisfy a
+#: one-specimen drive while meaning something entirely different.
+#:
+#: The ids are ``SNAG-SPEC-*`` and belong to no register.  A real id would
+#: make this corpus a second statement of what the live document says
+#: about that entry, free to drift from it the day its disposition moves
+#: — which is the mechanism under measurement, arriving inside its own
+#: check.
+PUBLICATION_CORPUS = """# Snag List
+
+## Open Issues
+
+- [P4] SNAG-SPEC-001: **a specimen whose disposition refuses work** (2026-01-01)
+  - **Status:** Open — decided, P4: no sitting is owed work on it
+- [P4] SNAG-SPEC-002: **a specimen whose disposition delegates the work** (2026-01-01)
+  - **Status:** Open — delegated, P4: another repository owns the remedy
+- [P4] SNAG-SPEC-003: **a specimen that is owed work** (2026-01-01)
+  - **Status:** Open — owed, P4: the check is writable and unwritten
+- [P4] SNAG-SPEC-004: **a specimen waiting on a precondition** (2026-01-01)
+  - **Status:** Open — blocked, P4: on a population that has never appeared
+"""
+
+#: The two sentences put to the guard about one id.  They differ in
+#: **subject** and in nothing a parser can reach: the first proposes the
+#: remedy the entry refuses, the second proposes correcting the refusal
+#: itself.  ``{snag}`` is the only substitution, so a specimen cannot
+#: acquire a wording advantage over its siblings.
+WORK_LINE = "Take `{snag}`'s remedy — the fix its own body names, in the sitting it asks for"
+CORRECTION_LINE = (
+    "Correct `{snag}`'s disposition, which is wrong — its refusal bullet asserts something "
+    "the box refutes, and the word is what has to move"
+)
+
+
+@dataclass(frozen=True)
+class PublicationReading:
+    """What the guard made of two lines naming one specimen.
+
+    Attributes:
+        snag: the specimen's id.
+        disposition: the word its ``Status`` line declares.
+        work_refused: the guard refused a line proposing the entry's own
+            refused remedy.
+        correction_refused: the guard refused a line proposing to correct
+            the disposition — the work that can only be owed while the
+            word still says otherwise.
+    """
+
+    snag: str
+    disposition: str
+    work_refused: bool
+    correction_refused: bool
+
+    @property
+    def indistinguishable(self) -> bool:
+        """The guard gave both sentences the same answer."""
+        return self.work_refused == self.correction_refused
+
+
+def publication_readings() -> tuple[tuple[PublicationReading, ...] | None, str]:
+    """The guard's reading of both sentences, per specimen, or why not.
+
+    Every way of not-knowing is ``None`` and a sentence — rule 5 — and
+    the premises are checked *here* rather than in the caller so that a
+    corpus which stopped modelling the register cannot reach a verdict.
+
+    Three things are refused rather than reported.  A corpus that does
+    not parse to one specimen per disposition is a corpus the register's
+    own reader has stopped agreeing with.  A vocabulary in which
+    :data:`REFUSED_DISPOSITIONS` is empty, or is not a subset of
+    :data:`DISPOSITIONS`, is one this drive was not written against.  And
+    two sentences that do not both name the id, or that are equal as
+    strings, make the comparison below vacuously true — the shape a
+    stand-in supplies when it has stopped modelling anything.
+    """
+    if not REFUSED_DISPOSITIONS or not set(REFUSED_DISPOSITIONS) <= set(DISPOSITIONS):
+        return None, (
+            f"the vocabulary moved under this drive — refused={REFUSED_DISPOSITIONS!r} "
+            f"is not a non-empty subset of {DISPOSITIONS!r}"
+        )
+    entries = read_entries(PUBLICATION_CORPUS)
+    declared = {
+        entry.snag_id: disposition_word(declared_disposition(entry.body) or "")
+        for entry in entries
+        if entry.snag_id and entry.is_open
+    }
+    missing = sorted(set(DISPOSITIONS) - set(declared.values()))
+    if missing:
+        return None, (
+            f"the corpus parsed to {len(declared)} open specimen(s) declaring "
+            f"{sorted(set(declared.values()))!r} — no specimen declares {missing!r}, so the "
+            "refusal could not be compared against the dispositions it must not refuse"
+        )
+
+    readings: list[PublicationReading] = []
+    for snag, word in sorted(declared.items()):
+        work, correction = WORK_LINE.format(snag=snag), CORRECTION_LINE.format(snag=snag)
+        if work == correction or not all(SNAG_ID_RE.search(line) for line in (work, correction)):
+            return None, (
+                f"the two sentences about {snag} are not a comparison — they must differ and "
+                "both must name the id"
+            )
+        readings.append(
+            PublicationReading(
+                snag,
+                word,
+                any(item.refused for item in read_named_entries(work, entries)),
+                any(item.refused for item in read_named_entries(correction, entries)),
+            )
+        )
+    return tuple(readings), ""
+
+
+def unnameable_open_entries() -> str:
+    """How much of the live register a next action may not name, as a sentence.
+
+    **Evidence, never the verdict.**  Rule 1: the mechanism is what is
+    checked, and this is the population — it would report the entry
+    refuted on the day the register happened to hold no ``decided`` entry,
+    which is ``SNAG-LOG-013``'s reading for the third time.  It is
+    printed because the mechanism's *cost* is how many entries wear it,
+    and a reader deciding whether to rank this needs the number beside
+    the finding rather than in a sitting's notes.
+    """
+    entries, problem = load_entries()
+    if problem:
+        return f"the live register could not be read ({problem}) — no population was taken"
+    opens = [entry for entry in entries if entry.is_open]
+    refused = [
+        entry.snag_id
+        for entry in opens
+        if disposition_word(declared_disposition(entry.body) or "") in REFUSED_DISPOSITIONS
+    ]
+    return (
+        f"live population: {len(refused)} of {len(opens)} open entries declare "
+        f"{' or '.join(REFUSED_DISPOSITIONS)}, so a published next action may not name them"
+    )
+
+
+def check_disposition_correction_unpublishable() -> Measurement:
+    """``SNAG-TEST-011`` — the guard cannot tell a correction from the work it refuses.
+
+    :func:`check_next_action` reads the disposition **live** and refuses a
+    published line naming a ``decided`` or ``delegated`` entry.  Work on
+    the *entry* — correcting its ranking, correcting the reasoning of its
+    refusal, or closing it — is owed precisely while the word says
+    otherwise, and the guard resolves ids rather than intent, so the
+    sentence proposing that correction is refused identically to the
+    sentence proposing the remedy the entry declined.
+
+    **The drive is synthetic and the verdict is the same on every box.**
+    Rule 1: no live register is read for the measurement, so a document
+    holding no ``decided`` entry does not refute this.  Two sentences are
+    put to the guard about one specimen and what is asserted is that the
+    readings are **equal** — indistinguishability, never refusal, which
+    is the half a check watching the refusal alone would report as
+    working-as-designed for ever.
+
+    **Refuted the day they differ**, which is the entry's own stated
+    closure: a fix gives the register a way to say that an entry's
+    disposition is under correction, and the correction sentence then
+    passes where the remedy sentence still does not.  A guard that stops
+    refusing *both* is also a mismatch and is reported as a different
+    sentence, because that is the refusal being dropped rather than
+    narrowed, and rule 2 leaves which of the two happened to the reader.
+
+    **The controls forbid a verdict rather than report one** — see
+    :func:`publication_readings`.  The load-bearing one is the pair of
+    dispositions that must *not* be refused: without it a guard refusing
+    every line it can resolve satisfies this check exactly, and the
+    equality it asserts would be measuring nothing.
+    """
+    readings, problem = publication_readings()
+    if readings is None:
+        return Measurement("unknown", problem)
+
+    refused_specimens = [item for item in readings if item.disposition in REFUSED_DISPOSITIONS]
+    permitted = [item for item in readings if item.disposition not in REFUSED_DISPOSITIONS]
+
+    detail = tuple(
+        f"{item.snag} — open, {item.disposition}: the remedy sentence is "
+        + ("refused" if item.work_refused else "published")
+        + ", the correction sentence is "
+        + ("refused" if item.correction_refused else "published")
+        for item in readings
+    ) + (unnameable_open_entries(),)
+
+    # The control, asked before the finding.  A guard that refuses a line
+    # naming an `owed` or `blocked` entry is refusing every id it can
+    # resolve, and the equality asserted below would then hold for a
+    # reason that has nothing to do with this entry.
+    # The anti-vacuity premise, and it has an **empty population by
+    # construction** -- stated rather than left as silence, because a
+    # reader finding an unreachable branch deletes it.  The finding below
+    # asserts something about the specimens the guard *refuses*, so an
+    # empty set of them satisfies it without measuring anything.  It
+    # cannot currently be empty: `publication_readings` has already
+    # refused a `REFUSED_DISPOSITIONS` that is not a non-empty subset of
+    # `DISPOSITIONS`, and a corpus in which some disposition has no
+    # specimen -- so every refused word has one.  What keeps the clause is
+    # that both of those guarantees live in the *other* function, and the
+    # day either is loosened this is the difference between a vacuous
+    # `match` and a reported blindness.
+    if not refused_specimens:
+        return Measurement(
+            "unknown",
+            f"no specimen in the corpus declares {' or '.join(REFUSED_DISPOSITIONS)}, so the "
+            "comparison below would hold without measuring anything",
+            detail,
+        )
+
+    over_refused = [item.snag for item in permitted if item.work_refused or item.correction_refused]
+    if over_refused:
+        return Measurement(
+            "unknown",
+            f"the guard refuses a line naming {', '.join(over_refused)}, which declare "
+            f"{' or '.join(word for word in DISPOSITIONS if word not in REFUSED_DISPOSITIONS)} — "
+            "it is not discriminating on the disposition, so no reading was taken",
+            detail,
+        )
+
+    dropped = [item.snag for item in refused_specimens if not item.work_refused]
+    if dropped:
+        return Measurement(
+            "mismatch",
+            f"the guard no longer refuses a line naming {', '.join(dropped)} at all — the "
+            "refusal was dropped rather than narrowed, which is a candidate for closure and "
+            "not the fix this entry asks for",
+            detail,
+        )
+    distinguished = [item.snag for item in refused_specimens if not item.indistinguishable]
+    if distinguished:
+        return Measurement(
+            "mismatch",
+            f"the guard now publishes a line correcting {', '.join(distinguished)}'s "
+            "disposition while still refusing the remedy it declined — the distinction this "
+            "entry asks for exists",
+            detail,
+        )
+    return Measurement("match", "", detail)
+
+
 
 @dataclass(frozen=True)
 class Check:
@@ -8502,6 +8748,12 @@ CHECKS: dict[str, Check] = {
             "SNAG-TEST-005",
             "nothing on the commit path runs the handoff shape guard",
             check_handoff_shape_unguarded,
+        ),
+        Check(
+            "disposition_correction_unpublishable",
+            "SNAG-TEST-011",
+            "a next action cannot name the entry whose disposition it corrects",
+            check_disposition_correction_unpublishable,
         ),
         Check(
             "tray_report_unheard",

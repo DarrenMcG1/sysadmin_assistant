@@ -3,6 +3,65 @@
 **Last Updated**: 2026-09-06
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The guard is right and has a blind spot, and the corpus that looked
+> like evidence answered a confident zero** (2026-09-06, Session 185).
+> `check_next_action` refuses a published next action naming a `decided`
+> or `delegated` entry, which is what it is for. Work on the **entry**
+> rather than on the defect — correcting its ranking, correcting the
+> reasoning of its refusal, or closing it — is owed precisely while the
+> word says otherwise, and the guard resolves ids and never intent.
+> Filed as `SNAG-TEST-011`, `owed`, carrying a check of its own.
+> Open entries **24 → 25**, `CHECKS` **24 → 25**, entries carrying no
+> check **0 → 0**. The count is a movement and not an ordinal: a check
+> retires with its entry, so *"the Nth check"* is a measurement taken at
+> write time — `SNAG-DOCS-006` already says twenty-fifth, truthfully.
+>
+> **All three costs the handoff asserted were reproduced rather than
+> quoted, and reproducing them is what corrected the premise.** Session
+> 183's red was reconstructed exactly — the inherited line at `4caf59e`
+> against the register at `23fd601` returns `unknown`, one of one
+> refused. Session 184's line at `5fdf73e` describes its entry in prose
+> and never names it. What the sentence got wrong is *"the one kind of
+> work"*: correcting a ranking, correcting a refusal's reasoning and
+> **closing** an entry have the same shape, and in all three the
+> `decided` → `owed` → `decided` workaround is a false assertion, since
+> `owed` asserts a check is owed and none is. Closing is not
+> hypothetical — `SNAG-SYSD-003` went `Open — decided` to closed within
+> the hour on 2026-09-02.
+>
+> **The obvious instrument answers zero and the zero is not evidence.**
+> Resolving every next action in `HANDOFF.md`'s history against the
+> register at that commit gives **0 refusals in 176 lines**, which reads
+> as no defect. `tests/test_handoff_shape.py` blocks the commit, so a
+> refused line cannot reach the corpus: every instance was paid for at
+> authoring time and erased. Zero-because-avoided, never
+> zero-because-clean — `ports_checked`'s rule arriving inside the
+> instrument a first sitting reaches for. The standing exposure the
+> corpus cannot show is **21 of 25 open entries**.
+>
+> **The check asserts indistinguishability, never refusal**, because a
+> check asserting the guard refuses a `decided` entry reports `ok` for
+> the life of the guard and goes on reporting it the day the distinction
+> lands — `check_review_schedule_unread`'s defect, twice now. It drives
+> a synthetic four-specimen register, one per disposition, so no live
+> document reaches the verdict and a register holding no `decided` entry
+> does not refute it. Eight mutations driven and **one passed against
+> code this sitting expected to be broken**: narrowing the refusal to a
+> single word moves the check's population with the guard and still
+> reports `match`, which is correct — the claim is that ids resolve
+> where intent does not — and is now pinned as a test rather than left
+> as a coincidence.
+>
+> **Session 183's red is deliberately not filed**, because finishing the
+> work a line names is what reddens the predecessor's line and the
+> remedy is to rewrite the handoff, which the sitting does anyway; its
+> one real cost, that nobody hears the red, is `SNAG-TEST-005` and
+> already owned. **The deploy check reports a restart owed and no
+> restart was taken**: the only module edited is `sysadmin/snag_claims.py`,
+> which is a console script nothing under `create_app()` imports, so
+> this is the false positive `ops_claims` rule 4 prices in writing and a
+> `kill -TERM` would deploy nothing.
+
 > **The register's last unchecked entry has its check, and the counter
 > reads zero for the first time** (2026-09-06, Session 184).
 > `SNAG-LOG-016` declared `decided` while carrying none, which under

@@ -1,6 +1,88 @@
-# Handoff — 2026-09-06 (Session 184)
+# Handoff — 2026-09-06 (Session 185)
 
 ## Next action
+
+Choose between `SNAG-TEST-011`'s two recorded remedies — documenting the ordering, which is one commit and reaches every case observed so far, against a fifth vocabulary term saying work is owed on the *entry* rather than on the defect, which is the only thing that reaches the ranking, reasoning and closing classes without a false assertion — and take the cheap one unless a real member of one of those three classes has appeared, because the expensive one buys a permanent term for a state that lasts a single sitting.
+
+_**The ruling is yes, and narrower than the sentence that asked for
+it.**_ _`check_next_action` refuses a published line naming a `decided`
+or `delegated` entry, which is what it is for; the blind spot is work on
+the **entry** rather than on the defect, which is owed precisely while
+the word says otherwise. Filed as `SNAG-TEST-011`, `owed`, P4, carrying
+`check_disposition_correction_unpublishable`. Open entries **24 → 25**,
+`CHECKS` **24 → 25**, entries carrying no check **0 → 0**._
+
+_**All three costs were reproduced rather than quoted, and reproducing
+them is what corrected the premise.**_ _Session 183's red reconstructed
+exactly — the inherited line at `4caf59e` against the register at
+`23fd601` returns `unknown`, one of one refused. Session 184's line at
+`5fdf73e` describes its entry in prose and never names it. What the
+sentence got wrong is "the one kind of work": correcting a **ranking**,
+correcting a refusal's **reasoning** and **closing** an entry have the
+same shape, and in all three the `decided` → `owed` → `decided`
+workaround is a false assertion, because `owed` asserts a check is owed
+and none is. Closing is observed — `SNAG-SYSD-003` went `Open — decided`
+to closed within the hour on 2026-09-02, a transition `check_next_action`
+already cites for a different purpose._
+
+_**The obvious instrument answers a confident zero.**_ _Resolving every
+next action in this file's history against the register at that commit
+gives **0 refusals in 176 lines**, which reads as no defect at all. The
+guard blocks the commit, so a refused line cannot reach the corpus: every
+instance was paid for at authoring time and erased. Zero-because-avoided,
+never zero-because-clean — `ports_checked`'s rule arriving inside the
+first instrument anyone reaches for, and the reason the evidence had to
+be a reconstruction. The standing exposure the corpus cannot show is
+**21 of 25 open entries**._
+
+_**The check asserts indistinguishability, never refusal**_ — _a check
+asserting the guard refuses a `decided` entry reports `ok` for the life
+of the guard and goes on reporting it the day the distinction lands,
+which is `check_review_schedule_unread`'s defect for the second time. It
+drives a synthetic four-specimen register, one per disposition, so no
+live document reaches the verdict and the live 21-of-25 is evidence only,
+pinned by a test driving an unreadable register. Eight mutations driven;
+**one passed against code this sitting expected to be broken** —
+narrowing `REFUSED_DISPOSITIONS` to a single word moves the check's
+population with the guard and still reports `match`, which is correct,
+the claim being that ids resolve where intent does not, and is now pinned
+as a test rather than left as a coincidence. The anti-vacuity premise it
+prompted is unreachable by construction and says so in the code rather
+than being deleted._
+
+_**Session 183's red is deliberately not filed.**_ _Finishing the work a
+line names is what reddens the predecessor's line, and the remedy is to
+rewrite the handoff, which a sitting does anyway; its one real cost —
+that nobody hears the red — is `SNAG-TEST-005` and already owned. Filing
+it again is the second-owner defect this repository has recorded at six
+scales._
+
+_**An ordinal is a measurement, not an identifier, and this sitting
+nearly published a colliding one.**_ _"The Nth check" is the count at
+write time and a check **retires with its entry**, so the sequence can
+fall: measured across today's commits `CHECKS` went 21 → 22 → 23 → 24,
+while `SNAG-DOCS-006` already claims "the twenty-fifth check" and is
+truthful. This entry therefore records a **movement** rather than an
+ordinal. Nothing of Session 183's or 184's prose was corrected — their
+ordinals were true when written, and renumbering them on a convention
+this sitting cannot fully reconstruct would be the wrong direction._
+
+_**No restart was taken and none is owed by the change** — the only
+module edited is `sysadmin/snag_claims.py`, a console script nothing
+under `create_app()` imports, so the deploy check's `no` is the false
+positive `ops_claims` rule 4 prices in writing and the same reading
+Sessions 183 and 184 both recorded. No migration._
+
+_Suite **3717 passed** (3702 + 15, the arithmetic checked so a clobber
+could not read as green), `tests/test_snag_claims.py` **436 → 451**, ruff
+clean, mypy clean over 100 files, `sysadmin-check-snags` **25 checks, all
+`ok`** with 0 of 25 open entries unchecked and dispositions at `owed 1,
+blocked 3, decided 16, delegated 5`. `check-ops-claims.sh` reports every
+claim `ok` and the deploy state `no`, as above._
+
+# Handoff — 2026-09-06 (Session 184)
+
+### The action Session 184 filed (done by Session 185)
 
 Decide whether the guard refusing a published next action that names a `decided` entry is a defect worth filing, because a correction to a disposition is the one kind of work that can only be owed while the word still says otherwise, and this is now the third sitting to pay for it — Session 183's suite went red on a handoff line it had inherited, Session 184's published line had to describe in prose the entry it was correcting, and the first draft of this very sentence was refused for naming that entry as its own evidence.
 
