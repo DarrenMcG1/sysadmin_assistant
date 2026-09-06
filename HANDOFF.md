@@ -1,6 +1,131 @@
-# Handoff — 2026-09-06 (Session 186)
+# Handoff — 2026-09-06 (Session 187)
 
 ## Next action
+
+Wire the handoff shape guard into the close and close `SNAG-TEST-005` — add `pytest tests/test_handoff_shape.py` to `scripts/claude-postflight.sh`, which is the one moment the document has just been written and the one repository that owns that script, then drive `check_handoff_shape_unguarded` either side and expect it to flip from `still holds` to refuted, because the check reads the gate rather than the guard and so the fix is what closes the entry rather than a sitting's say-so.
+
+_**The ranking, and the entry that won it is the only one with a live
+population.**_ _Twenty-five entries open — `owed 0, blocked 3, decided
+17, delegated 5` at the start, re-measured rather than inherited — and
+all **29** register checks report `still holds`, so nothing is closable
+by measurement and the choice had to be made on what is *reachable*.
+Every other `decided` P3/P4 declares in its own status line either a
+**measured-empty population** (`SNAG-LOG-016`, `SNAG-LOG-017`,
+`SNAG-LOG-018`, `SNAG-SVC-005`, `SNAG-CFG-003`, and `SNAG-UNITS-006` at
+0 of the 38 units the sweep sees) or a **remedy that costs more than the
+defect** (`SNAG-TRAY-011` at 1.04 M rows a month, `SNAG-ESTATE-009`
+refused on cost and a third closure on correctness, `SNAG-SYSD-008` at
+82.8 ms against `oom_kill 0`). `SNAG-TEST-005` is the one entry whose
+population is dated, live and still growing._
+
+_**The five `delegated` were not eligible and the three `blocked` could
+not move truthfully**, which is the part a ranking has to say out loud
+rather than leave as a silence. `SNAG-LOG-012`, `SNAG-ESTATE-002`,
+`SNAG-ESTATE-005`, `SNAG-ESTATE-006` and `SNAG-ESTATE-007` are other
+repositories' to fix and the estate rule that a question routed to the
+owner is answered by the owner is what keeps them there. `owed` asserts
+work is owed **now**, so moving a `blocked` entry to it would assert a
+precondition had arrived: `SNAG-AGENT-012` and `SNAG-AGENT-013` are
+blocked on a population that is still 0 open rows and 0 of 31 services,
+and `SNAG-SVC-001` on the owner. A ranking that promoted one of those
+would have been a false assertion in the same shape `SNAG-TEST-011`
+exists to describe._
+
+_**"Real and recurring" is a measurement and the entry carried none, so
+it was taken — and bounding it to the guard's own lifetime is what made
+it honest.**_ _`tests/test_handoff_shape.py` was born at `30bfbea` on
+2026-08-31, so a commit before that could not have been red whatever the
+document said. Since then, **4 of the 57 commits touching `HANDOFF.md`
+ship a document the guard refuses**, and all four are consecutive
+sittings — `2ace34d` 09-02, `3f8c08f` 09-03, `dac6166` 09-04, `9558544`
+09-05 — each a second `## Next action` left in place. The unbounded
+sweep over all 209 commits says **30** and is 4× too flattering: 26 of
+those predate the guard and are the abandoned `## Next session — ranked`
+convention, so a sitting ranking off the whole history would have ranked
+this entry on a reason that expired before the guard existed._
+
+_**The number was reproduced rather than counted**, which is the
+distinction `verify-ops-claims-live` is for. `git show
+9558544:HANDOFF.md` written into the tree fails
+`test_the_document_has_exactly_one_next_heading` with `['## Next
+action', '## Next action']` and 17 tests pass beside it; the tree was
+restored from a scratchpad copy and `git diff` on the file is empty.
+Note also that the guard's predicate is **any heading containing
+"next"**, not the literal `## Next action` a first grep reaches for —
+the grep answers 6 where the guard answers 30, and the two disagree
+because the guard is the stricter reader. A count taken with the wrong
+predicate would have been wrong in the entry's favour twice over._
+
+_**One of the entry's own two reasons for `decided` is refuted on the
+box**, and it is the reason that made the fix look expensive. It reads
+*"a change to a script two other repositories' conventions describe"*.
+`ls ~/projects/*/scripts/claude-postflight.sh` returns **one** path,
+this repository's, and neither `~/.claude/CLAUDE.md` nor
+estate-manager's `session-brief.md` contains the string `postflight` or
+`preflight` at all. The **document** is cross-repo — estate-manager's
+`next_action_from_handoff` reads it, which is the whole reason the guard
+exists — but the **script** is not, and the entry conflated the two. So
+the remedy is one line in a file this repository alone owns and alone
+describes._
+
+_**The gate was re-measured at the moment of the move rather than quoted
+from the entry.**_ _`claude-precommit.sh`: 114 executable lines, guards
+wired `check-migrations.sh` and `lint_check.sh`, **suite invocations
+none**. `claude-postflight.sh`: four `check-*.sh` calls —
+`check-migrations.sh`, `check-ops-claims.sh`, `check-snag-claims.sh`,
+`check-vacuous-guards.sh` — and no pytest. Both halves of the entry's
+shape-of-a-fix are therefore unchanged: the cheap one unimplemented, the
+expensive one still refused on the 63 s it was refused on._
+
+_**The ordering was exercised on the commit that uses it**, which is
+Session 186's remedy meeting its first real case. `check_next_action`
+reads a named entry's disposition **live**, so the register edit moving
+`SNAG-TEST-005` to `owed` and the line naming it are one commit and in
+that order — the line was unpublishable until the word moved, and the
+register read `owed 1, blocked 3, decided 16, delegated 5` before the
+line was written. This is the case the remedy reaches; the three classes
+it knowingly does not (a ranking correction, a refusal's reasoning, a
+closure) are `SNAG-TEST-011` and are untouched, so that entry stays
+`decided` and its check still reports `still holds`._
+
+_**Nothing was fixed and that is the whole scope**, put to the owner
+before any edit rather than assumed: the choice was queue-only against
+queue-and-fix, and queue-only is what "the next piece of work has to be
+chosen" asks for — doing the fix here would have emptied the queue again
+and left the instruction unsatisfied. Three documents changed, no code,
+no migration, no restart owed by this sitting. The deploy check still
+reads `no` on `sysadmin/snag_claims.py` written at 13:51:22 against a
+daemon active since 07:17:52, which is Session 186's edit and not this
+one's — and an AST-shaped read confirms the reading Sessions 183–186
+each recorded: **no import statement anywhere under `sysadmin/` names
+`snag_claims`**, every one of the five mentions being prose in a
+docstring, so nothing under `create_app()` loads it._
+
+_**A guard that had never turned turned on this line**, which is a side
+effect of the choice rather than of anything written. `check-vacuous-guards.sh`
+reports `tests/test_handoff_shape.py:322` as *"1 declared may-not-turn and
+turned anyway — not a fault, and a candidate for deletion once it turns
+every run"*: that comprehension's population is the SNAG ids the published
+line happens to name, and Session 181's and Session 186's named none, so it
+had been passing vacuously. This sitting's names one. It is **not** yet a
+candidate for deletion — a line about a convention rather than an entry is an
+ordinary thing to publish and empties the population again — so the
+declaration stays and the observation is recorded instead. 893 of 909
+comprehension sites under `tests/` turned on the run._
+
+_**`--include=*.py` unquoted cost a confident wrong answer on the way to
+that**, which the `zsh-eats-unquoted-glob-flags` memory predicts
+exactly: zsh aborted the command and the visible result was the
+*fallback* branch, not a measurement. The re-run with the flag quoted
+found five mentions, and only a second pass keyed on `^\s*(from|import)`
+separated prose from importers. A grep for a module's name answers a
+different question from a grep for its import, and this repository has
+now been caught by that distinction in a register check, in a wheel
+sweep and here._
+
+# Handoff — 2026-09-06 (Session 186)
+
+### The action Session 186 filed (done by Session 187)
 
 Rank the register and put one entry back in the work queue — it declares no `owed` entry, which is its ordinary state between sittings rather than news (0 owed on 33 of the 41 commits touching it since dispositions existed, measured), so the next piece of work has to be chosen out of the seventeen `decided`, five `delegated` and three `blocked`, and whichever is chosen has its disposition moved in the same commit that publishes the line naming it, which is the ordering this sitting documented and which the refusal now states in its own words to whoever trips it.
 

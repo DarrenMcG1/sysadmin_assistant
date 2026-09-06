@@ -8,6 +8,53 @@
 
 ---
 
+## Session 187: the ranking, and the winner's own claim measured before it was ranked ✅ (2026-09-06)
+
+_Session 186 left the register declaring no `owed` entry — its resting
+state, not news — and handed forward one instruction: rank the register
+and put one entry back in the work queue, moving its disposition in the
+commit that publishes the line naming it._
+
+- [x] **The register was re-measured rather than inherited.** `owed 0,
+      blocked 3, decided 17, delegated 5` across 25 open entries, and all
+      **29** checks `still holds` — so nothing was closable by
+      measurement and the choice fell to what is reachable.
+- [x] **`SNAG-TEST-005` won on being the only live population.** Every
+      other `decided` P3/P4 states a measured-empty population
+      (`SNAG-LOG-016`, `SNAG-LOG-017`, `SNAG-LOG-018`, `SNAG-SVC-005`,
+      `SNAG-CFG-003`, `SNAG-UNITS-006`) or a remedy costing more than the
+      defect (`SNAG-TRAY-011`, `SNAG-ESTATE-009`, `SNAG-SYSD-008`).
+- [x] **The ineligible were named rather than passed over in silence.**
+      The five `delegated` belong to their owners; the three `blocked`
+      cannot move to `owed` without asserting a precondition had arrived
+      — `SNAG-AGENT-012` and `SNAG-AGENT-013` are still 0-observation and
+      `SNAG-SVC-001` waits on the owner.
+- [x] **"Real and recurring" was turned into a number, bounded to the
+      guard's lifetime.** 4 of 57 commits since `30bfbea` (2026-08-31),
+      four consecutive sittings 09-02 → 09-05. The unbounded sweep says
+      30 of 209 and is 4× too flattering — 26 predate the guard.
+- [x] **Reproduced rather than counted.** `git show 9558544:HANDOFF.md`
+      into the tree fails `test_the_document_has_exactly_one_next_heading`
+      with 17 passing beside it; tree restored from a scratchpad copy.
+- [x] **One of the entry's two reasons for `decided` was refuted on the
+      box.** `claude-postflight.sh` exists in one repository and neither
+      the global rules nor `session-brief.md` mentions preflight or
+      postflight — the document is cross-repo, the script is not.
+- [x] **Session 186's ordering was driven as a counterfactual.**
+      Reverting the word to `decided` refuses the identical line at both
+      printers, each quoting `REFUSAL_REMEDY` in full. Restored with
+      `.bak`, not `git checkout`.
+- [x] **Queue-only was confirmed with the owner before any edit**, since
+      doing the fix would have emptied the queue the action asked to
+      fill.
+
+_Suite **3722 passed** (unchanged — no code, no tests added), ruff clean,
+mypy clean over 100 files, 29 checks all `ok`, dispositions `owed 1,
+blocked 3, decided 16, delegated 5`. Every ops claim `ok`; the deploy
+`no` is inherited from Session 186's `snag_claims.py` edit._
+
+---
+
 ## Session 186: the cheap remedy, and the trigger that was measured ✅ (2026-09-06)
 
 _Session 185 filed `SNAG-TEST-011` and deliberately left the choice

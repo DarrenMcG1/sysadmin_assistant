@@ -3,6 +3,67 @@
 **Last Updated**: 2026-09-06
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The ranking was decided on which population is live, and the winner's
+> own claim had to be measured before it could be ranked** (2026-09-06,
+> Session 187). The register declared `owed 0, blocked 3, decided 17,
+> delegated 5` and all **29** checks `still holds`, so nothing was
+> closable and the choice fell to what is reachable. Every other
+> `decided` P3/P4 states a **measured-empty population**
+> (`SNAG-LOG-016`, `SNAG-LOG-017`, `SNAG-LOG-018`, `SNAG-SVC-005`,
+> `SNAG-CFG-003`, `SNAG-UNITS-006` at 0 of 38 units) or a **remedy
+> costing more than the defect** (`SNAG-TRAY-011` at 1.04 M rows a
+> month, `SNAG-ESTATE-009` refused on cost and on correctness,
+> `SNAG-SYSD-008` at 82.8 ms against `oom_kill 0`). `SNAG-TEST-005`
+> moves `decided` → `owed`, P3.
+>
+> **The five `delegated` were ineligible and the three `blocked` could
+> not move truthfully**, which a ranking has to say rather than leave as
+> a silence. The estate rule that a question routed to the owner is
+> answered by the owner keeps the first five where they are; and `owed`
+> asserts work is owed **now**, so promoting `SNAG-AGENT-012`,
+> `SNAG-AGENT-013` (still 0 open rows, 0 of 31 services) or
+> `SNAG-SVC-001` (blocked on the owner) would assert a precondition had
+> arrived when none has.
+>
+> **"Real and recurring" is a measurement and the entry carried none.**
+> Bounded to the guard's own lifetime — `tests/test_handoff_shape.py`
+> born at `30bfbea` on 2026-08-31 — **4 of the 57 commits touching
+> `HANDOFF.md` since then ship a document the guard refuses**, all four
+> consecutive sittings, 09-02 through 09-05. The unbounded sweep over
+> all 209 commits says **30** and is 4× too flattering: 26 predate the
+> guard and are the abandoned `## Next session — ranked` convention. The
+> figure was reproduced, not counted — `git show 9558544:HANDOFF.md` into
+> the tree fails `test_the_document_has_exactly_one_next_heading` with 17
+> passing beside it, tree restored from a scratchpad copy.
+>
+> **One of the entry's two reasons for `decided` is refuted on the box**,
+> and it is the one that made the fix look expensive: *"a change to a
+> script two other repositories' conventions describe"*.
+> `claude-postflight.sh` exists in **one** repository, this one, and
+> neither the global rules nor estate-manager's `session-brief.md`
+> contains the string `postflight` or `preflight` at all. The document is
+> cross-repo; the script is not.
+>
+> **The ordering shipped by Session 186 met its first real case and was
+> driven as a counterfactual.** The register edit and the line naming the
+> entry are one commit, in that order. Reverting the word to `decided`
+> refuses the identical line at **both** printers — the checker returns
+> `??` and `test_the_next_action_names_no_entry_that_is_owed_nothing`
+> goes red — each quoting `REFUSAL_REMEDY` in full, so the remedy was
+> read by the sitting it was written for. Restored with a `.bak` copy
+> rather than `git checkout`, which would have eaten the uncommitted
+> disposition move.
+>
+> Open entries **25 → 25**, `CHECKS` **29 → 29**, entries carrying no
+> check **0 → 0**, dispositions now `owed 1, blocked 3, decided 16,
+> delegated 5`. **No code, no migration, and the fix is deliberately not
+> taken here** — queue-only was put to the owner before any edit, because
+> doing the work would have emptied the queue the action asked to fill.
+> The deploy check's `no` is inherited from Session 186's
+> `sysadmin/snag_claims.py` edit, confirmed again by an import-shaped
+> read: **no `from`/`import` statement anywhere under `sysadmin/` names
+> it**, all five mentions being docstring prose.
+
 > **The cheap remedy, and the trigger the predecessor set was measured
 > rather than argued** (2026-09-06, Session 186). `SNAG-TEST-011`
 > recorded two candidates and left the choice unmade under a rule: take
