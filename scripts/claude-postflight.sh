@@ -168,6 +168,62 @@ elif [ "$GUARDS_STATUS" -ne 0 ]; then
     echo -e "  ${YELLOW}⚠️  The measure did not run (not the same as 'nothing found')${NC}"
 fi
 
+# 3.9. Is the handoff this sitting just wrote the shape the estate parses?
+#
+# SNAG-TEST-005. `tests/test_handoff_shape.py` guards two rules about a
+# document another repository reads: estate-manager's
+# `next_action_from_handoff` takes the first heading containing "next" and
+# publishes its first line to the estate board. The guard works - it was
+# red at `457d011` and caught the fault the moment anything ran it. Nobody
+# ran it, because HANDOFF.md is written at the *end* of a sitting, after
+# the suite has been run and reported green.
+#
+# Here rather than at the commit, on the entry's own cost argument: pytest
+# in the pre-commit hook is 63 s on every commit, while the damage begins
+# at the *edit* - the estate reads this file from disk, so the board can
+# carry a wrong line before any commit happens. Advisory at the close
+# beats blocking at the commit, which is `check-migrations.sh`'s exit-2
+# argument. This is the one moment the document has just been written.
+#
+# The gate at 3.8 already runs this file inside the whole suite, and
+# measured, that is not the same thing: a red suite is exit 2 there by
+# that script's own rule 3, which prints "the measure did not run", raises
+# no ISSUES, and is followed at step 6 by "No uncommitted code changes to
+# test" on a docs-only sitting - which is exactly the sitting that breaks
+# HANDOFF.md. So the guard already runs and its red reaches the reader as
+# a blind measure contradicted by a green tick. This names the fault
+# instead, in half a second.
+#
+# `.venv/bin/pytest` rather than `uv run pytest`: a bare `uv sync` prunes
+# the dev extra, and `uv run pytest` then falls through to /usr/bin/pytest
+# and fails on `import estate` - a red about the environment wearing the
+# shape of a red about the document. An absent binary is yellow and raises
+# nothing: `ports_checked`'s rule, since not having looked is not the same
+# answer as having looked and found it clean.
+#
+# It raises ISSUES on a finding, for the vacuous-guard gate's reason: this
+# is not a judgement about an entry but a defect in the sitting's own
+# work, and the remedy - rewrite the heading - belongs to whoever wrote it
+# and is what the sitting is doing anyway.
+echo -e "\n${BLUE}📄 Handoff shape (the line the estate board publishes):${NC}"
+if [ -x ".venv/bin/pytest" ]; then
+    HANDOFF_STATUS=0
+    HANDOFF_OUT=$(.venv/bin/pytest -q tests/test_handoff_shape.py 2>&1) || HANDOFF_STATUS=$?
+    if [ "$HANDOFF_STATUS" -eq 0 ]; then
+        echo -e "  ${GREEN}✓ HANDOFF.md is the shape estate-manager parses${NC}"
+    else
+        echo -e "  ${RED}${BOLD}✗ HANDOFF.md would publish the wrong line to the estate board${NC}"
+        echo "$HANDOFF_OUT" | grep -E "^FAILED" | sed 's/^/    /' || true
+        echo -e "  ${BOLD}  Fix the document, not the guard: one '## Next action' heading,${NC}"
+        echo -e "  ${BOLD}  first after the title, and no '- [ ]' anywhere in the file${NC}"
+        echo -e "  ${BOLD}  Why: .venv/bin/pytest tests/test_handoff_shape.py${NC}"
+        ISSUES=$((ISSUES + 1))
+    fi
+else
+    echo -e "  ${YELLOW}⚠️  no .venv/bin/pytest - run 'uv sync --all-extras'${NC}"
+    echo -e "  ${YELLOW}  (not the same as 'the handoff is fine')${NC}"
+fi
+
 # 4. DOCUMENTATION ENFORCEMENT - Critical check
 echo -e "\n${BLUE}${BOLD}📋 DOCUMENTATION ENFORCEMENT CHECK${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"

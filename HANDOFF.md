@@ -1,6 +1,102 @@
-# Handoff — 2026-09-06 (Session 187)
+# Handoff — 2026-09-06 (Session 188)
 
 ## Next action
+
+Fix `SNAG-TEST-012` and close it — split `claude-postflight.sh`'s reading of the vacuous-guard gate so a red suite is told apart from the three other roads to exit 2, and stop step 6's `else` branch printing `No uncommitted code changes to test` when the gate returned a status it could not judge, driving the block at `GUARDS_STATUS` crossed with `TOTAL_CODE` the way `tests/test_close_runs_the_handoff_guard.py` drives the shipped bytes, because the fix is cheaper than the check that entry is owed and closing it retires the need to write one.
+
+_**The close runs the guard, and the suite was already running there.**_
+_`SNAG-TEST-005` is closed. `claude-postflight.sh` step **3.9** runs
+`tests/test_handoff_shape.py` in 0.5 s at the one moment `HANDOFF.md` has
+just been written, and raises `ISSUES` on its red._
+
+_**The instruction this sitting inherited had two clauses that did not
+meet, and saying so before writing anything was most of the work.** The
+fix lands in `claude-postflight.sh`; `check_handoff_shape_unguarded`
+swept `claude-precommit.sh` and nothing else, and its own fix-modelling
+stand-in wrote a file called `claude-precommit.sh`. Driven before a line
+was edited: `match`, `suite invocations: none`. A postflight line could
+not have flipped it. That was put to the owner rather than resolved by
+inference, and the answer was to widen the check to the path — a control
+a landed fix cannot move being `check_review_schedule_unread`'s defect._
+
+_**The entry's own re-measurement that morning was true of a grep and
+missed a transitive run.** It read "`claude-postflight.sh` runs those four
+`check-*.sh` and no pytest". Step 3.8's `check-vacuous-guards.sh` has run
+the **whole suite** under `coverage run --branch` since 2026-09-05 —
+Session 179, one day after this entry was opened — so the guard was
+already running at the close._
+
+_**It was not the fix, and that was driven rather than argued.** A red
+suite is exit **2** there by that script's own rule 3;
+`claude-postflight.sh` renders exit 2 as "the measure did not run", raises
+**no** `ISSUES`, and follows at step 6 with `No uncommitted code changes
+to test` on a docs-only sitting — which is exactly the sitting that breaks
+this document. The branch arithmetic was extracted verbatim from the
+shipped script and run at `GUARDS_STATUS=2, TOTAL_CODE=0`. That general
+case is what `SNAG-TEST-012` now holds, and the next action above._
+
+_**The widening refuted nothing, which is what makes the closure the
+fix's rather than this sitting's.** With the sweep reading both scripts,
+neither named `pytest` or `test_handoff_shape` on any executable line —
+verdict unmoved at `match`. The postflight line flipped it to `mismatch`._
+
+_**A mention is not an invocation, and the specimen was live.**
+`claude-postflight.sh`'s only mention of `lint_check.sh` is an `echo`
+advising the reader to run it, so the witness `GUARD_INVOCATIONS` exists
+to supply was satisfiable by a script running no guard at all. `_invokes`
+drops `echo` lines; the witness survives on `check-migrations.sh`, a real
+invocation in both scripts._
+
+_**The red reading was driven at Session 164's real defect, and
+estate-manager's parser was the third-party witness.** A `.bak` copy of
+the live document was given a second `## Next up` heading; three tests
+failed, one of them `test_the_local_read_is_the_line_the_board_publishes`
+— so the board would genuinely have carried "something else entirely".
+Restored byte-identical, md5 checked._
+
+_**The check retired with the entry and the detector did not** —
+`tests/test_close_runs_the_handoff_guard.py`, `FROZEN_TABLES`' rule.
+`test_every_checked_entry_is_open` is what makes that compulsory rather
+than tidy._
+
+_**And the prose written about why the detector is stronger was wrong
+until the counterfactual was driven**, which is the part worth carrying.
+It requires *both* names on lines that run something. With the call
+deleted and the two advice echoes left: the retired either-name rule
+reads `mismatch`; **the mention rule alone still reads `mismatch`**,
+because `if [ -x ".venv/bin/pytest" ]` is a real non-echo line;
+**requiring both names alone goes green**, because the advice echo carries
+the second. Only the pair sees it — multiplicative rather than
+independent, `SNAG-AGENT-008`'s shape — and separable only at a stand-in,
+which is why `TestNeitherRuleCatchesTheRegressionAlone` is a recorded
+counterfactual and says so._
+
+_**It caught this sitting's own handoff within a minute of shipping**,
+which is the first live catch and was not contrived. The Session 188 block
+was appended *below* Session 187's, so `headings[1]` was `### The action
+Session 187 filed` rather than `## Next action`;
+`test_it_is_the_first_heading_after_the_title` went red naming it. Their
+parser takes the first heading containing "next" wherever it sits, so this
+one would not have moved the board line — but it is the compound failure's
+first half, and it is the kind of thing a sitting does at the close while
+tired. Seventeen passed beside it._
+
+_**No restart is owed, and the claim was upgraded from source to
+process.** Session 187 confirmed `sysadmin/snag_claims.py` is imported
+nowhere under `sysadmin/` — a claim about the source. `create_app()` was
+built in a throwaway interpreter and `sysadmin.snag_claims` is absent from
+`sys.modules` afterwards, which is a claim about the daemon. The AST read
+agrees and is now the weaker of two._
+
+_Nine mutations driven and nine killed. Tests **3722 → 3733** (17 added,
+6 retired), baseline measured by stashing to HEAD and re-collecting
+against 3651 in STATUS.md's cell — a 71-test gap. Open entries 25 → 25,
+one closed and one filed; `CHECKS` 25 → 24; dispositions `owed 1, blocked
+3, decided 16, delegated 5`._
+
+# Handoff — 2026-09-06 (Session 187)
+
+### The action Session 187 filed (done by Session 188)
 
 Wire the handoff shape guard into the close and close `SNAG-TEST-005` — add `pytest tests/test_handoff_shape.py` to `scripts/claude-postflight.sh`, which is the one moment the document has just been written and the one repository that owns that script, then drive `check_handoff_shape_unguarded` either side and expect it to flip from `still holds` to refuted, because the check reads the gate rather than the guard and so the fix is what closes the entry rather than a sitting's say-so.
 

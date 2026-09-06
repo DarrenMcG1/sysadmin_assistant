@@ -8,6 +8,128 @@
 
 ---
 
+## Session 188: the close runs the guard, and the suite was already running there ✅ (2026-09-06)
+
+_Session 187 ranked `SNAG-TEST-005` back into the work queue and named
+the fix: one line in `claude-postflight.sh`, then drive
+`check_handoff_shape_unguarded` either side and expect it to flip._
+
+- [x] **The two clauses of that instruction did not meet, and saying so
+      before writing anything is most of the sitting.** The fix lands in
+      `claude-postflight.sh`; the check swept `claude-precommit.sh` and
+      nothing else, and its fix-modelling stand-in wrote a file called
+      `claude-precommit.sh`. Driven before a line was edited: `match`,
+      `suite invocations: none`. A postflight line could not have moved
+      it — a control a landed fix cannot move is
+      `check_review_schedule_unread`'s defect, so the check was widened
+      to the path rather than the script. Put to the owner rather than
+      resolved by inference.
+- [x] **The entry's own re-measurement that morning was true of a grep
+      and missed a transitive run.** `claude-postflight.sh` step 3.8 runs
+      `check-vacuous-guards.sh`, which has run the **whole suite** under
+      `coverage run --branch` since 2026-09-05 — Session 179, one day
+      after this entry was opened. So the guard was already running at
+      the close.
+- [x] **It is not the fix, and that was driven rather than argued.** A
+      red suite is exit **2** there by that script's own rule 3;
+      `claude-postflight.sh` renders exit 2 as *"the measure did not
+      run"*, raises **no** `ISSUES`, and follows at step 6 with `No
+      uncommitted code changes to test` on a docs-only sitting — which is
+      exactly the sitting that breaks `HANDOFF.md`. The branch
+      arithmetic was extracted verbatim from the shipped script and run
+      at `GUARDS_STATUS=2, TOTAL_CODE=0`. The guard's red reached the
+      reader as a blind measure contradicted by a green tick.
+- [x] **The widening refuted nothing and that was measured at the moment
+      of the change.** With the sweep reading both scripts, neither named
+      `pytest` or `test_handoff_shape` on any executable line — verdict
+      unmoved at `match`. The postflight line is what flipped it to
+      `mismatch`, so the entry closed on a check that moved rather than
+      on this sitting's say-so.
+- [x] **A mention is not an invocation, and the specimen was live.**
+      `claude-postflight.sh`'s only mention of `lint_check.sh` is an
+      `echo` advising the reader to run it, so the witness
+      `GUARD_INVOCATIONS` exists to supply was satisfiable by a script
+      running no guard at all. `_invokes` drops `echo` lines; the witness
+      survives on `check-migrations.sh`, which is a real invocation in
+      both scripts.
+- [x] **Three readings driven at the shipped block against a stub
+      `pytest`**: clean → quiet, broken → `ISSUES=1` naming the failed
+      rule, absent `.venv/bin/pytest` → yellow and **not** a pass
+      (`ports_checked`'s rule — a bare `uv sync` prunes the dev extra and
+      `uv run pytest` then falls through to `/usr/bin/pytest`).
+- [x] **The red was driven at Session 164's real defect, and
+      estate-manager's parser was the third-party witness.** A `.bak`
+      copy of the live document was given a second `## Next up` heading;
+      three tests failed, one of them
+      `test_the_local_read_is_the_line_the_board_publishes` — so the
+      board would genuinely have carried `something else entirely`.
+      Document restored byte-identical, md5 checked, tree clean.
+- [x] **The check retired with the entry and the detector did not** —
+      `tests/test_close_runs_the_handoff_guard.py`, `FROZEN_TABLES`'
+      rule, since deleting a guard with its last finding takes the guard
+      against the defect coming back. `test_every_checked_entry_is_open`
+      is what makes the retirement compulsory rather than tidy.
+- [x] **The sitting's own prose about why the detector is stronger was
+      wrong, and the counterfactual is what said so.** It requires
+      *both* names on running lines. With the call deleted and the two
+      advice echoes left: the retired either-name rule reads `mismatch`;
+      **the mention rule alone still reads `mismatch`**, because `if [ -x
+      ".venv/bin/pytest" ]` is a real non-echo line; **requiring both
+      names alone goes green**, because the advice echo carries the
+      second. Only the pair sees it — multiplicative rather than
+      independent, `SNAG-AGENT-008`'s shape. Separable only at a
+      stand-in, so `TestNeitherRuleCatchesTheRegressionAlone` is a
+      recorded counterfactual and says so.
+- [x] **Nine mutations driven and nine killed**, each on its intended
+      tests. Moving the gate's marker reddens five, the premise among
+      them — which is the design: the block becomes unfindable and the
+      premise names the cause rather than leaving three drives to fail
+      mysteriously.
+- [x] **The pre-commit half stays refused and is now recorded as a
+      refusal rather than a silence.**
+      `TestTheCommitPathStaysRefused` fails with the cost in its message
+      — 63 s on every commit against damage that begins at the edit — so
+      a later sitting overturning it has to say what it measured. It
+      forbids nothing; it refuses doing it quietly.
+- [x] **It caught this sitting's own handoff within a minute of
+      shipping.** The Session 188 block was appended *below* Session
+      187's, so `headings[1]` read `### The action Session 187 filed`
+      rather than `## Next action` and
+      `test_it_is_the_first_heading_after_the_title` went red naming it.
+      Not the compound failure — their parser takes the first "next"
+      heading wherever it sits — but its first half, produced at the
+      close by the sitting that had just shipped the guard for it.
+- [x] **The residue was filed rather than absorbed**, and it is the
+      general case this fix bought one file out of. `SNAG-TEST-012`:
+      step 6's `else` branch is reached whenever the gate returned 2
+      **and** no code file changed, so a docs-only sitting with a red
+      suite reads `No uncommitted code changes to test`; and the
+      neighbouring `elif` says *"could not run the suite"*, wrong on one
+      of the four roads to exit 2 and it is the road that matters. Not
+      fixed here — the owner chose the named fix over the wider one when
+      both were put, and this touches the stated exit-status contract of
+      a script two other gates read.
+- [x] **Docs updated**: `snag_list.md` (entry closed and archived, marker
+      removed rather than quoted — `quoting-a-marker-rearms-it`; the
+      `SNAG-TEST-009` cross-reference calling the cost *"already owned"*
+      corrected to *"paid"*), `STATUS.md` (session block, Testing cell
+      3651 → 3733 with the measured baseline), `tasks.md`, `HANDOFF.md`.
+- [x] **No restart is owed, and the claim was upgraded from source to
+      process.** Session 187 confirmed `sysadmin/snag_claims.py` is
+      imported nowhere under `sysadmin/`; that is a claim about the
+      source. `create_app()` was built in a throwaway interpreter and
+      `sysadmin.snag_claims` is **absent from `sys.modules`** after it,
+      which is a claim about the daemon.
+
+**Numbers**: tests **3722 → 3733** (17 added, 6 retired; baseline
+measured by stashing to HEAD and re-collecting, against 3651 in
+STATUS.md's cell — a 71-test gap, `SNAG-ESTATE-008`'s shape in that cell
+again). Open entries **25 → 25** — one closed and one filed, which a bare
+total hides — `CHECKS` **25 → 24**, entries carrying no check **0 → 1**,
+dispositions `owed 1, blocked 3, decided 16, delegated 5`. Suite green at 3733; ruff clean; mypy clean over 100 files.
+
+---
+
 ## Session 187: the ranking, and the winner's own claim measured before it was ranked ✅ (2026-09-06)
 
 _Session 186 left the register declaring no `owed` entry — its resting
