@@ -99,8 +99,9 @@ recorded 3651 plus 12 exactly, so nothing was clobbered.
 turned with no undecidable block, and 16 declared `may-not-turn`, one
 more than Session 180 left;
 `./scripts/check-ops-claims.sh` **10 of 10 ok** after rewording the
-daemon start, the unresolved count (**3 → 5**, both arrivals and neither
-this sitting's doing) and the named-rows sentence._
+daemon start, the unresolved count and the named-rows sentence — the
+count moved **3 → 5 → 4 → 3** across the sitting and not one of the
+moves was this sitting's doing, which the paragraph below finishes._
 
 _**Restarted twice, and the second one is the memory observed live.**_
 _07:06:01 (PID 1817 → 64269), then 07:17:52 (64269 → 79162) because a
@@ -112,6 +113,22 @@ with, since resetting an mtime to satisfy a check is the wrong direction
 even when the bytes prove it. Both were owed by that rule and by nothing
 else: `snag_claims` is a console script `create_app()` never imports, so
 this is `SNAG-SYSD-008`'s shape. No migration._
+
+_**The block went stale five minutes after the commit that recorded it,
+and the correction is a second commit rather than a note.**_ _`GPU was
+reset — every client lost its VRAM` resolved at **07:29:55**, so the
+sentence was true when written at 07:24:28 and wrong before the sitting
+stopped — `SNAG-ESTATE-008`'s founding case reproduced twice in one
+morning and caught both times by the **fall** note. The block reads
+**3** now, naming the disk row and the two nudges, and all ten ops
+claims are `ok` again. **The fourth reading was deliberately not written
+down**: `Unusual CPU usage` was open at the re-measure, raised 07:37:54
+by this sitting's own 115-second suite run under `coverage --branch` and
+resolved by `_check_anomalies` at 07:42:58 one poll later, exactly as
+its 06:51:52 → 06:56:56 twin had done an hour before. That is a figure
+about the instrument rather than about the box — Session 175's
+precedent — so the close waited a poll, which is what made it possible
+to record the box instead of recording the measuring of it._
 
 # Handoff — 2026-09-05 (Session 180)
 

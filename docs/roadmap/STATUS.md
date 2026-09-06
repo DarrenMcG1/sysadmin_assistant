@@ -3191,18 +3191,28 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
 > rows <!--check:alerts-->, `High disk usage on /`,
-> `Project ImbaBots next action idle`,
-> `Project Athenaeum next action idle` and
-> `GPU was reset — every client lost its VRAM`, **4**
-> named here <!--check:open_titles-->. *(**3 → 5 → 4** across Session
-> 181's sitting and none of the three moves this sitting's doing: the
-> VRAM row is back for a sixth time, Athenaeum's nudge is the estate's
-> taken verbatim, and `Estate port 3110 registry breach` resolved
-> between the block being written and the close. The **fall** is the
-> reading that gate exists for and it was caught by it, one hour after
-> the rise it was written to record.)* *(**4 → 3 → 5 → 3** inside
+> `Project ImbaBots next action idle` and
+> `Project Athenaeum next action idle`, **3**
+> named here <!--check:open_titles-->. *(**3 → 5 → 4 → 3** across
+> Session 181's sitting and not one of the moves this sitting's doing:
+> the VRAM row came back for a sixth time, Athenaeum's nudge is the
+> estate's taken verbatim, `Estate port 3110 registry breach` resolved
+> at 07:07:04 — a minute after the first restart — and the VRAM row
+> resolved at **07:29:55**, five minutes after the commit that recorded
+> it. So the block was true when written and stale before the sitting
+> stopped, which is `SNAG-ESTATE-008`'s founding case reproduced twice
+> in one morning and caught both times by the **fall** note this gate
+> exists for.)* *(**The fourth reading is deliberately not written
+> down.** At the re-measure `Unusual CPU usage` was open — raised
+> 07:37:54 by the sitting's own 115-second full-suite run under
+> `coverage --branch` and resolved by `_check_anomalies` at 07:42:58,
+> one poll later, exactly as its 06:51:52 → 06:56:56 twin had done an
+> hour earlier. That is a figure about the instrument and not about the
+> box: Session 175's precedent, held here for its reason, and the wait
+> for the poll is what made recording the box possible rather than
+> recording the measuring of it.)* *(**4 → 3 → 5 → 3** inside
 > Session 178's own sitting, and the VRAM row is three of those four
 > moves. It was open at preflight with both halves of the pair firing —
 > the count rose *and* the marked sentence did not name it — was written
