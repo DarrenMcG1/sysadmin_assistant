@@ -19,6 +19,7 @@ import contextlib
 import os
 import re
 import subprocess
+import sys
 import time
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
@@ -33,6 +34,7 @@ from sysadmin.ops_claims import (
     CHECK_KEYS,
     CLAIM_PATTERNS,
     CODE_SPAN_RE,
+    COLLECT_TIMEOUT_SECONDS,
     DAEMON_ROOT_MODULE,
     EXPIRY_FORMAT,
     EXPIRY_NAIVE_FORMAT,
@@ -52,6 +54,7 @@ from sysadmin.ops_claims import (
     check_expiry,
     check_markers,
     check_open_titles,
+    check_tests,
     claim_sentence,
     compare_claim,
     daemon_modules,
@@ -59,6 +62,7 @@ from sysadmin.ops_claims import (
     load_region,
     main,
     measure_routes,
+    measure_tests,
     measure_unit,
     newest_source,
     overall,
@@ -2193,3 +2197,445 @@ class TestTheConventionAgainstTheRealDocument:
             assert claim.kind != "convention", f"malformed: {claim.note}"
             assert "does not" not in claim.note, f"unpinned: {marker.argument}"
             assert "different clocks" not in claim.note, f"zone drift: {marker.argument}"
+
+
+def _clear_collection_cache() -> None:
+    """Drop :func:`measure_tests`' per-process answer, if it has one.
+
+    Reached for rather than required, in both callers, so that removing the
+    cache is a question the two tests written about it answer — not an
+    ``AttributeError`` in setup that errors the file and says nothing.
+    """
+    clear = getattr(measure_tests, "cache_clear", None)
+    if clear is not None:
+        clear()
+
+
+@pytest.fixture(autouse=True)
+def _uncached_collection():
+    """Clear the collection cache either side of a test that stands in for it.
+
+    :func:`measure_tests` is cached per process to keep the suite from
+    paying for ~40 collections (75 s, measured).  That cache is exactly
+    what makes a stand-in dangerous: one warmed by a fake ``subprocess.run``
+    answers for every later caller that patched nothing, and one warmed by
+    a *live* call makes a stand-in below it unobservable.  Clearing on both
+    sides is what keeps these tests order-independent — and the failure it
+    prevents is the per-process kind, green in one file and red under the
+    whole suite.
+
+    **It reaches for ``cache_clear`` rather than requiring it, and that is
+    the fixture declining to be the guard.**  Driven as a mutation: with
+    the decorator removed the strict spelling raised ``AttributeError`` in
+    setup and errored all 158 tests in this file, so the statement test
+    written to speak for the cache never ran — a kill so blunt it says
+    nothing about what broke.  Tolerant here, the same mutation reddens
+    exactly the two tests that are about the cache.
+    """
+    _clear_collection_cache()
+    yield
+    _clear_collection_cache()
+
+
+class TestTheSuiteSizeClaim:
+    """The Quick Status suite figure, checked at last.
+
+    It sat **inside** the parsed region and was the only bold figure in it
+    carrying no pattern, so rule 7's ``unclaimed`` finding was structurally
+    blind to it: that finding enumerates :data:`CLAIM_PATTERNS`, and a
+    figure with no pattern is not a figure this module can test.  It was
+    wrong on 8 of the 11 sittings that measured it, and three separate
+    blocks record 71, 272 and 27 tests of earlier sittings that never
+    reached the cell at all.
+
+    **The figure is what is collected and the cell says so** (owner's
+    ruling 2026-09-06).  The alternative — reading the cheap figure while
+    the sentence claimed *green* — is a marked claim agreeing with the box
+    beside prose that disagrees, ``SNAG-ESTATE-011`` rule 1.  Greenness
+    was left where it already has an owner: ``check-vacuous-guards.sh``
+    runs the whole suite at the close and ``claude-postflight.sh`` raises
+    an issue when it is red.  The cost axis pointed the same way and is the
+    weaker argument: the close already pays for a full run and *preflight*
+    runs no suite, so a passed figure costs 81.6 s exactly where nothing
+    else is measuring it, against 1.9 s for the count.
+    """
+
+    def _run(self, stdout: str, returncode: int = 0):
+        """A stand-in for one ``pytest --collect-only`` invocation."""
+        return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr="")
+
+    def test_a_clean_collection_is_the_figure(self):
+        with patch("sysadmin.ops_claims.subprocess.run") as run:
+            run.return_value = self._run(
+                "tests/test_a.py::test_b\n\n3780 tests collected in 0.80s\n"
+            )
+            assert measure_tests() == (3780, "")
+
+    def test_a_collection_error_is_refused_although_it_prints_a_count(self):
+        """The founding refusal, and the shape was measured rather than assumed.
+
+        ``pytest --collect-only`` does **not** go quiet when a test module
+        will not import.  It prints ``2 tests collected, 1 error in
+        0.03s`` — a *partial* count, which is a figure that looks like an
+        answer and is zero-because-blind wearing one.  Taking it would
+        report the suite as having shrunk to whatever collected before the
+        bad import, and the remedy a reader would reach for is to edit the
+        document.  ``ports_checked``'s rule at the size of a summary line.
+        """
+        with patch("sysadmin.ops_claims.subprocess.run") as run:
+            run.return_value = self._run("2 tests collected, 1 error in 0.03s\n", returncode=2)
+            count, problem = measure_tests()
+        assert count is None
+        assert "exited 2" in problem
+
+    def test_a_partial_collection_that_exits_cleanly_is_refused(self):
+        """The road that makes the line parse observable at all.
+
+        **Driven as a mutation and it survived**: loosening
+        :data:`COLLECTED_RE` to drop the trailing ``in`` reddened nothing,
+        because the error shape it admits is already refused one line up by
+        the status gate.  The two guards are multiplicative rather than
+        independent — ``SNAG-AGENT-008``'s shape — and the road where only
+        the regex can speak is a partial collection that exits **0**, which
+        is what ``--continue-on-collection-errors`` in ``addopts`` would
+        produce.  Nothing configures that today, so this is an empty
+        population by construction and says so; it exists because the
+        clause it pins is otherwise unreachable, and a clause nothing can
+        reach is one a later sitting deletes as dead.
+        """
+        with patch("sysadmin.ops_claims.subprocess.run") as run:
+            run.return_value = self._run("2 tests collected, 1 error in 0.03s\n")
+            count, problem = measure_tests()
+        assert count is None, "a partial count was taken as the suite size"
+        assert "no clean" in problem
+
+    def test_a_deselection_is_refused_and_the_line_is_what_catches_it(self):
+        """The second partial-count shape, and it exits **0**.
+
+        ``1/2 tests collected (1 deselected) in 0.00s`` is what an
+        ``addopts`` carrying ``-k`` would produce, and the process exits
+        cleanly — so the status gate cannot see it and the line parse is
+        the only thing that can.  Driven at ``returncode=0`` deliberately:
+        at a non-zero one this test would pass through the gate above and
+        assert nothing about the regex it exists for.
+        """
+        with patch("sysadmin.ops_claims.subprocess.run") as run:
+            run.return_value = self._run("1/2 tests collected (1 deselected) in 0.00s\n")
+            count, problem = measure_tests()
+        assert count is None
+        assert "no clean" in problem
+
+    def test_a_missing_pytest_is_unknown_and_says_which_side_failed(self):
+        with patch("sysadmin.ops_claims.subprocess.run", side_effect=FileNotFoundError):
+            count, problem = measure_tests()
+        assert count is None
+        assert "pytest could not be run (FileNotFoundError)" == problem
+
+    def test_a_collection_that_will_not_finish_is_unknown(self):
+        """The bound is why the banner cannot hang on this check."""
+        with patch(
+            "sysadmin.ops_claims.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="pytest", timeout=COLLECT_TIMEOUT_SECONDS),
+        ):
+            count, problem = measure_tests()
+        assert count is None
+        assert "TimeoutExpired" in problem
+
+    def test_the_three_refusals_are_told_apart(self):
+        """Rule 2: not-knowing is one verdict and four faults.
+
+        A reader who is told only "unknown" re-runs the wrong thing.  The
+        three roads here send them to three different places — install the
+        dev extra, fix the import error, look at the ``addopts``.
+
+        The explicit ``cache_clear`` between the three is not tidying: this
+        was the first test the process-level cache broke, and it broke it
+        by **passing one measurement off as three** — the set came back
+        with one element.  A test that calls a cached measurement more than
+        once is measuring the cache, and the fixture cannot help inside a
+        single test.
+        """
+        problems = set()
+        with patch("sysadmin.ops_claims.subprocess.run") as run:
+            run.return_value = self._run("2 tests collected, 1 error in 0.03s\n", returncode=2)
+            problems.add(measure_tests()[1])
+            _clear_collection_cache()
+            run.return_value = self._run("1/2 tests collected (1 deselected) in 0.00s\n")
+            problems.add(measure_tests()[1])
+        _clear_collection_cache()
+        with patch("sysadmin.ops_claims.subprocess.run", side_effect=FileNotFoundError):
+            problems.add(measure_tests()[1])
+        assert len(problems) == 3, problems
+
+
+class TestTheCollectionInvocation:
+    """What the check runs, pinned — including what it must never run."""
+
+    def _argv(self) -> list[str]:
+        with patch("sysadmin.ops_claims.subprocess.run") as run:
+            run.return_value = subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="1 test collected in 0.01s\n", stderr=""
+            )
+            measure_tests()
+            return list(run.call_args.args[0])
+
+    def test_it_collects_and_never_runs_the_suite(self):
+        """``--collect-only`` is the whole ownership decision, as an argument.
+
+        Without it this invocation *runs* the suite — which is the option
+        the owner refused, and it would make this module a second speaker
+        for a fact ``check-vacuous-guards.sh`` already asserts at the
+        close.  So the flag is not a performance detail; it is where the
+        second-owner refusal is enforced, and nothing else in this file
+        can enforce it.
+        """
+        assert "--collect-only" in self._argv()
+
+    def test_the_interpreter_is_the_one_running_this_check(self):
+        """``sys.executable``, never ``uv run pytest``.
+
+        This ships as a console script, so the interpreter executing it is
+        by construction the environment the check was installed into.
+        ``uv run pytest`` falls through to ``/usr/bin/pytest`` when a bare
+        ``uv sync`` has pruned the ``dev`` extra, and that one fails on
+        ``import estate`` — a refusal wearing a measurement's clothes.
+        """
+        argv = self._argv()
+        assert argv[0] == sys.executable
+        assert argv[1:3] == ["-m", "pytest"]
+
+    def test_it_leaves_no_artefact_in_the_tree(self):
+        """``-p no:cacheprovider``.
+
+        A check must leave the tree as it found it —
+        ``check-vacuous-guards.sh``'s posture about its own
+        ``coverage.json``.  Here it does a second job: ``sweep_sources``
+        reads mtimes under this checkout to answer the deploy claim, so a
+        cache directory written by one check is an input to another.
+        """
+        argv = self._argv()
+        assert argv[-2:] == ["-p", "no:cacheprovider"]
+
+    def test_it_collects_this_checkout_and_not_the_caller_s_directory(self):
+        with patch("sysadmin.ops_claims.subprocess.run") as run:
+            run.return_value = subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="1 test collected in 0.01s\n", stderr=""
+            )
+            measure_tests()
+        assert run.call_args.kwargs["cwd"] == REPO_ROOT
+
+    def test_the_collection_is_bounded(self):
+        """The ``TimeoutExpired`` test above asserts the *handling*.
+
+        Nothing there pins that a bound is asked for at all — a stand-in
+        raising the exception raises it whether or not the real call passes
+        ``timeout=``.  Driven as a mutation: deleting the argument leaves
+        that test green and this one red.
+        """
+        with patch("sysadmin.ops_claims.subprocess.run") as run:
+            run.return_value = subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="1 test collected in 0.01s\n", stderr=""
+            )
+            measure_tests()
+        assert run.call_args.kwargs["timeout"] == COLLECT_TIMEOUT_SECONDS
+
+
+class TestTheCollectionIsReadOncePerProcess:
+    """The cache is a decision, and removing it changes no behaviour.
+
+    That is exactly why it needs a **statement** test — ``abandoned_runs``'
+    rule, the only kind that can reach a choice whose removal is invisible
+    to every behavioural drive.  What it costs is measured rather than
+    argued: :func:`sysadmin.snag_claims.ops_report` drives the whole of
+    :func:`check_all` over a synthetic document twice per probe and the
+    suite drives that, so an uncached collection ran about forty times a
+    run and took the suite **75.4 s → 151 s**.  Cached, the same suite is
+    79.0 s.
+    """
+
+    def test_the_measurement_is_cached(self):
+        assert hasattr(measure_tests, "cache_clear"), (
+            "measure_tests is no longer cached — the suite pays ~75 s for it"
+        )
+
+    def test_a_second_call_does_not_collect_again(self):
+        with patch("sysadmin.ops_claims.subprocess.run") as run:
+            run.return_value = subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="7 tests collected in 0.01s\n", stderr=""
+            )
+            first, second = measure_tests(), measure_tests()
+        assert first == second == (7, "")
+        assert run.call_count == 1
+
+
+class TestTheFigureIsStatedTwiceAndBothAreRead:
+    """The row states its figure in the Status column *and* in the Notes.
+
+    That is a second statement of one fact inside one row — ``SNAG-DB-003``'s
+    shape arriving in a document — and the handoff that asked for this check
+    treated the cell as carrying one figure.  A pattern anchored on either
+    spelling alone would report agreement with whichever half happened to be
+    written first, which is exactly what rule 2 refuses one level up.
+
+    The alternation costs nothing and buys the drift check for free, because
+    :func:`read_claim` collects into a **set**: two agreeing spellings are one
+    element, and two disagreeing ones are the ``unknown`` rule 2 already
+    knows how to report.
+    """
+
+    def test_either_spelling_alone_is_read(self):
+        assert read_claim("| 🟢 **3780 collected** |", "tests") == ("3780", "")
+        assert read_claim("| **3780 backend + tray** |", "tests") == ("3780", "")
+
+    def test_the_two_agreeing_are_one_figure(self):
+        row = "| Testing | 🟢 **3780 collected** | **3780 backend + tray** *(…)* |"
+        assert read_claim(row, "tests") == ("3780", "")
+
+    def test_the_two_drifting_are_unknown_and_both_are_named(self):
+        """The failure a single-spelling pattern would have shipped green."""
+        row = "| Testing | 🟢 **3780 collected** | **3752 backend + tray** *(…)* |"
+        value, problem = read_claim(row, "tests")
+        assert value is None
+        assert "3752" in problem and "3780" in problem
+
+    def test_the_history_the_same_cell_carries_is_not_read(self):
+        """The bold is load-bearing here as much as for ``routes``.
+
+        The cell carries every previous total in prose — 3752, 3733, 3651 —
+        and none of them is emphasised.  A pattern without the ``**`` would
+        read the lot and report drift for ever.
+        """
+        cell = "**3780 backend + tray** *(… Previously 3752 backend + tray (3733 + 19 …)*"
+        assert read_claim(cell, "tests") == ("3780", "")
+
+
+class TestTheSuiteSizeClaimIsWired:
+    """The check runs, reports a stale document, and is in ``check_all``."""
+
+    def test_a_stale_document_is_a_mismatch_that_names_both_sides(self):
+        with patch("sysadmin.ops_claims.measure_tests", return_value=(3781, "")):
+            claim = check_tests("| 🟢 **3780 collected** |", "")
+        assert claim.verdict == "mismatch"
+        assert claim.documented == "3780"
+        assert claim.measured == "3781"
+        assert "3781" in claim.note
+
+    def test_an_unreadable_document_and_an_unmeasurable_tree_are_both_unknown(self):
+        with patch("sysadmin.ops_claims.measure_tests", return_value=(3780, "")):
+            assert check_tests("", "STATUS.md could not be read").verdict == "unknown"
+        with patch("sysadmin.ops_claims.measure_tests", return_value=(None, "no pytest")):
+            claim = check_tests("| 🟢 **3780 collected** |", "")
+        assert claim.verdict == "unknown"
+        assert "no pytest" in claim.note
+
+    def test_it_is_a_claim_and_not_a_state_check(self):
+        """Rule 3: a mismatch here means the *document* is stale.
+
+        The remedy is to re-word the cell, never to restart or migrate
+        anything — which is what separates this from ``deploy`` and
+        ``schema``, whose mismatches mean the box is behind the checkout.
+        """
+        with patch("sysadmin.ops_claims.measure_tests", return_value=(3780, "")):
+            assert check_tests("| 🟢 **3780 collected** |", "").kind == "claim"
+
+    def test_check_all_runs_it(self):
+        with patch("sysadmin.ops_claims.measure_tests", return_value=(3780, "")):
+            keys = [claim.key for claim in check_all(Path("/nonexistent/STATUS.md"))]
+        assert "tests" in keys
+
+
+class TestTheCheckIsInsideItsOwnPopulation:
+    """Adding a pattern adds a test, so the claim measures itself.
+
+    :func:`test_each_pattern_requires_the_emphasis` is parametrised over
+    :data:`CLAIM_PATTERNS`, so the commit that added the ``tests`` key took
+    the suite 3780 → 3781 **before this file gained a line** — measured by
+    collecting at ``HEAD`` and against the working tree and diffing the node
+    ids, which named the one new id exactly.
+
+    It is worth pinning rather than merely noting, because it is the one
+    way this claim can be made stale by a change that touches no test: a
+    future sitting adding a sixth claim moves the figure this cell states,
+    and would otherwise have no reason to expect it.
+    """
+
+    def test_a_new_claim_pattern_adds_a_parametrised_test(self):
+        """Driven, because the arithmetic is what a later sitting needs.
+
+        Collecting the parametrised test alone shows one id per registry
+        key, so the ``tests`` id exists because the key does — and the
+        commit that added the key is the commit that added the test.
+        """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "--collect-only",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                "tests/test_ops_claims.py::test_each_pattern_requires_the_emphasis",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=COLLECT_TIMEOUT_SECONDS,
+            check=False,
+        )
+        ids = {
+            line.rsplit("[", 1)[1].rstrip("]")
+            for line in result.stdout.splitlines()
+            if "[" in line
+        }
+        assert ids == set(CLAIM_PATTERNS), ids
+        assert "tests" in ids
+
+    def test_the_registry_is_enumerated_by_a_parametrised_test(self):
+        source = (REPO_ROOT / "tests" / "test_ops_claims.py").read_text(encoding="utf-8")
+        assert "@pytest.mark.parametrize(\"key\", sorted(CLAIM_PATTERNS))" in source
+
+
+def _testing_row(region: str) -> str:
+    """The one table row the suite-size claim is about.
+
+    **Bound to the row rather than to the region, and a mutation is why.**
+    ``"check-vacuous-guards.sh" in region`` survived the mutation that took
+    the phrase out of the cell, because the block mentions that script
+    **7** times in prose about other sittings.  A substring test over an
+    append-only document only ever gets truer, so it stops describing the
+    sentence it was written for on the first paragraph that happens to
+    reuse the word.
+    """
+    rows = [line for line in region.splitlines() if line.lstrip().startswith("| Testing |")]
+    assert len(rows) == 1, f"expected one Testing row, found {len(rows)}"
+    return rows[0]
+
+
+class TestGreennessIsNotClaimedHere:
+    """The refusal that decided the shape, pinned in the document.
+
+    A sitting that re-words the cell back to "**N green**" rebuilds the
+    defect this check was written around: the figure would be measured by
+    collection and the sentence would assert a green run, and the two part
+    the moment one test is skipped or fails.  The pattern would still read
+    the number and still report ``match``.
+    """
+
+    def test_the_cell_does_not_claim_a_green_run_beside_a_collected_figure(self):
+        region, problem = load_region()
+        assert region is not None, problem
+        assert re.search(r"\*\*\d+ green\*\*", _testing_row(region)) is None
+
+    def test_the_close_is_named_as_the_owner_of_green(self):
+        """``SNAG-ESTATE-012``'s shape answered as far as prose can.
+
+        Greenness is a claim no pattern here reaches, so the only defence
+        against it reading as an oversight is that the block names who
+        does check it.  That is the cheapest form of the convention, and
+        the same move the block already makes about port 8400.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        row = _testing_row(region)
+        assert "check-vacuous-guards.sh" in row, row

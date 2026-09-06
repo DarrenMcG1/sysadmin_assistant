@@ -8,6 +8,87 @@
 
 ---
 
+## Session 191: the suite figure is a claim at last ✅ (2026-09-06)
+
+_Session 190's next action asked for a `tests` claim in `ops_claims` and
+named the design question to settle first: collection counts **skips**
+while the cell claimed *green*, so the sitting had to either re-word the
+claim to the cheaply measurable figure or carry a second one, "and
+choosing between those is the work rather than the pattern that follows
+it"._
+
+- [x] **The deciding axis was ownership, not cost, and measuring the two
+      ends of a sitting is what showed it.** The handoff framed the
+      choice as a cost trade — 1.9 s for collection against a full run —
+      on the premise that a check is "affordable at both ends". The two
+      ends are **not symmetric**: `claude-preflight.sh` runs
+      `check-ops-claims.sh` and no suite at all, while
+      `claude-postflight.sh` runs it *and* `check-vacuous-guards.sh`,
+      which already runs the whole suite under coverage and, since
+      `SNAG-TEST-012` closed the day before, already raises an issue when
+      it comes back red. So greenness has an owner; a second assertion of
+      it here is the second-owner defect, and it would cost 81.6 s
+      exactly where nothing else is measuring it. The owner chose the
+      collected figure and the re-worded cell.
+- [x] **The cell states its figure twice and the handoff treated it as
+      one.** `🟢 **3780 green**` in the Status column and `**3780 backend
+      + tray**` in the Notes are two statements of one fact inside one
+      row — `SNAG-DB-003`'s shape arriving in a document. One pattern
+      spanning both spellings gets the drift check for free, because
+      `read_claim` collects into a **set**: two agreeing spellings are
+      one figure and two disagreeing ones are the `unknown` rule 2
+      already knows how to report. A pattern anchored on either alone
+      would report agreement with whichever half was written first, and
+      the mutation drive reddens three tests for each single-spelling
+      variant.
+- [x] **Every partial count is refused, and both shapes were measured
+      rather than assumed.** `pytest --collect-only` does not go quiet
+      when a module will not import: it prints `2 tests collected, 1
+      error` (exit 2), and a deselection prints `1/2 tests collected (1
+      deselected)` at exit **0**. Both are figures that look like answers
+      and are zero-because-blind wearing one — `ports_checked`'s rule at
+      the size of a summary line. Three refusals, told apart, because a
+      reader told only "unknown" re-runs the wrong thing.
+- [x] **The check sits inside its own population.**
+      `test_each_pattern_requires_the_emphasis` is parametrised over
+      `CLAIM_PATTERNS`, so the commit that added the `tests` key took the
+      suite 3780 → 3781 **before the test file gained a line** —
+      measured by collecting at HEAD and against the tree and diffing the
+      node ids, which named the one new id exactly. It is pinned rather
+      than merely noted, because it is the one way this claim can be made
+      stale by a change that touches no test.
+- [x] **The cost was the surprise and it was measured either side.**
+      `snag_claims.ops_report` drives the whole of `ops_claims.check_all`
+      over a synthetic document twice per probe, so an uncached
+      collection ran ~40 times a run and took the suite **75.4 s →
+      151 s** — the suite doubled. `measure_tests` is cached per process
+      (79.0 s, a net **+3.6 s**); the cache is a decision whose removal
+      changes no behaviour, so it is pinned by a **statement** test,
+      `abandoned_runs`' rule.
+- [x] **Eighteen mutations driven and eighteen killed — three only after
+      the test that should have caught them was repaired.** The `in` in
+      `COLLECTED_RE` and the status gate are multiplicative rather than
+      independent (`SNAG-AGENT-008`'s shape), so loosening the regex
+      reddened nothing until a test drove the one road where only it can
+      speak — a partial collection exiting 0, which
+      `--continue-on-collection-errors` in `addopts` would produce.
+      `"check-vacuous-guards.sh" in region` survived the phrase being
+      taken out of the cell, because the block already mentions that
+      script **7** times: a substring test over an append-only document
+      only ever gets truer, so the assertion is bound to the Testing row
+      with a premise test for there being exactly one. And removing the
+      cache *errored all 158 tests in the file* through the fixture's
+      `cache_clear`, so the statement test written for it never ran — a
+      kill so blunt it says nothing about what broke; the fixture reaches
+      for the method now.
+
+**Next**: nothing here is blocked. `SNAG-ESTATE-012` remains the residue
+— a sentence with no pattern and no marker is still invisible, and
+greenness is now one of those sentences by design, named in the cell
+rather than left as silence.
+
+---
+
 ## Session 190: the deploy claim measures the daemon's import graph ✅ (2026-09-06)
 
 _Session 189's next action asked what the deploy claim should measure,

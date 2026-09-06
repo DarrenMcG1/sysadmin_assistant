@@ -1,6 +1,81 @@
-# Handoff — 2026-09-06 (Session 190)
+# Handoff — 2026-09-06 (Session 191)
 
 ## Next action
+
+Decide whether `check_markers`' `unclaimed` finding should become total over the Quick Status table rather than over `CLAIM_PATTERNS`, because today it can only report a figure some pattern already knows how to read, which is why the suite figure was invisible for eleven sittings despite sitting inside the parsed region, and the measurement that has to come first refutes the cheap version of the rule: the table is **12 rows of which 3 carry a marker and 9 do not**, and a naive "every bold integer must be claimed or exempted" rule has a population of **20** matches, most of them prose emphasis inside the Notes column rather than claims about the box — `**26 written**`, `**7**` times, `**75.4 s**` — so the work is defining what counts as a figure before writing the rule, and the three honest candidates are the Status column alone (where every current claim's headline figure lives and where the population is small enough to enumerate), the first bold integer of each row, or an explicit per-row exemption list, of which the last is the one to refuse because a hand-maintained list of things deliberately unchecked is `SNAG-CFG-001`'s shape and would grow a second registry beside the one this module already derives.
+
+_**The suite figure is a claim at last, and the axis the handoff framed
+it on was the weaker one.**_ _The Quick Status suite figure sat inside
+the region `sysadmin-check-claims` parses and was the only bold figure in
+it carrying no pattern — rule 7's `unclaimed` finding enumerates
+`CLAIM_PATTERNS`, so a figure with no pattern is one it is structurally
+blind to. `check_tests` reads it now; `measure_tests` collects the tree
+in 1.9 s and is cached per process._
+
+**The choice was ownership, not cost, and measuring the two ends of a
+sitting is what showed it.** The handoff framed a trade between a 1.9 s
+collection and an 81.6 s run, on the premise that a check is affordable
+at both ends. They are **not symmetric**: `claude-preflight.sh` runs this
+checker and no suite at all, while `claude-postflight.sh` runs it *and*
+`check-vacuous-guards.sh`, which already runs the whole suite under
+coverage and — since `SNAG-TEST-012` closed the day before — already
+raises an issue when it is red. So *green* has an owner; a second
+assertion of it here is the second-owner defect, and it would cost 81.6 s
+exactly where nothing else is measuring it. The owner ruled for the
+collected figure and the re-worded cell, which now names the close as the
+owner of green rather than leaving that silence to read as an oversight.
+
+**The row states its figure twice and the handoff treated it as one.**
+`**3807 collected**` in the Status column and `**3807 backend + tray**`
+in the Notes are two statements of one fact inside one row. One pattern
+spans both, so drift between them is `unknown` through machinery rule 2
+already had — `read_claim` collects into a set — and each single-spelling
+variant reddens three tests.
+
+**Every partial count is refused, and both shapes were measured rather
+than assumed.** `pytest --collect-only` prints `2 tests collected, 1
+error` at exit 2 and `1/2 tests collected (1 deselected)` at exit **0**;
+both are figures that look like answers and are zero-because-blind
+wearing one.
+
+**The check sits inside its own population.**
+`test_each_pattern_requires_the_emphasis` is parametrised over
+`CLAIM_PATTERNS`, so the commit adding the key took the suite 3780 → 3781
+before the test file gained a line — measured by collecting at `HEAD` and
+against the tree and diffing node ids.
+
+**The cost was the surprise and it was measured either side.**
+`snag_claims.ops_report` drives the whole of `check_all` over a synthetic
+document twice per probe, so an uncached collection ran ~40 times a run
+and took the suite **75.4 s → 151 s**. Cached it is 79.0 s, a net
+**+3.6 s**; the cache changes no behaviour, so it is pinned by a
+statement test.
+
+**Eighteen mutations driven and eighteen killed — three only after the
+test that should have caught them was repaired.** The `in` in
+`COLLECTED_RE` and the status gate are multiplicative rather than
+independent, so loosening the regex reddened nothing until a test drove
+the one road where only it can speak. `"check-vacuous-guards.sh" in
+region` survived the phrase being removed from the cell, because the
+block already mentions that script **7** times — a substring test over an
+append-only document only gets truer — so it is bound to the Testing row
+with a premise test for there being exactly one. And removing the cache
+*errored all 158 tests in the file* through the fixture's `cache_clear`,
+so the statement test written for it never ran; the fixture reaches for
+the method now and the same mutation reddens exactly two.
+
+Tests **3780 → 3807** (27 added, none retired — 26 written and 1
+generated). Open entries **25 → 26** and entries carrying no check
+**0 → 1**, both `SNAG-DOCS-009`: `claim_sentence` cannot isolate a
+markdown table row — measured at `HEAD` too, so pre-existing — and it
+carries no check because any drive showing a single row is a drive over
+the fix rather than the defect.
+
+---
+
+# Handoff — 2026-09-06 (Session 190)
+
+### The action Session 190 filed (done by Session 191)
 
 Add a `tests` claim to `ops_claims` so the Quick Status suite figure is checked the way `routes` and `tables` already are — that cell sits **inside** the region the checker parses and is the only bold figure in it carrying no pattern, which is why it has been wrong on 8 of the 11 sittings that bothered to measure it, reading 3209/3107/3018/2937/2832 against a tree that collected 3228/3160/3070/2971/2838 and with three separate blocks recording 71, 272 and 27 tests of earlier sittings that never reached the cell at all, and a full `pytest --collect-only -q` answers in **1.02 s**, which is affordable at both ends of a sitting; the design question to settle before writing the pattern is that collection counts **skips** while the cell claims *green*, so the two figures happen to agree at 3780 today and disagreed at 3318 passed against 3319 collected, meaning the sitting must either re-word the claim to the figure that is cheaply measurable or carry a second one, and choosing between those is the work rather than the pattern that follows it.
 

@@ -222,8 +222,9 @@ from __future__ import annotations
 
 import argparse
 import ast
+import functools
 import re
-import subprocess  # noqa: S404 — one read-only `systemctl show`
+import subprocess  # noqa: S404 — a read-only `systemctl show` and a `pytest --collect-only`
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
@@ -277,6 +278,14 @@ CLAIM_PATTERNS: dict[str, str] = {
     "alerts": r"holds \*\*(\d+)\*\* unresolved",
     "daemon_start": r"restarted at \*\*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\*\*",
     "health": r"`/health` answers \*\*(\d+)\*\*",
+    # The one claim whose figure the cell states **twice** — once in the
+    # Status column and once in the Notes — so the alternation spans both
+    # spellings rather than anchoring on whichever was written first.
+    # :func:`read_claim` collects matches into a *set*, so the two agreeing
+    # reads as one figure and the two drifting reads as ``unknown`` naming
+    # both: rule 2's "one figure stated two ways" applied to a row that
+    # states it two ways on purpose, at no cost beyond the alternation.
+    "tests": r"\*\*(\d+) (?:collected|backend \+ tray)\*\*",
 }
 
 #: Checks a marker may name that carry no pattern of their own, and why
@@ -802,6 +811,109 @@ def measure_routes() -> tuple[int | None, str]:
     return len([route for route in app.routes if isinstance(route, APIRoute)]), ""
 
 
+#: The line ``pytest --collect-only -q`` ends on when it collected cleanly,
+#: and **nothing else**.  Measured rather than assumed (2026-09-06): a
+#: collection *error* ends on ``2 tests collected, 1 error in 0.03s`` and a
+#: deselection on ``1/2 tests collected (1 deselected) in 0.00s``.  Both
+#: carry a **partial** count — a figure that looks like an answer and is
+#: zero-because-blind wearing one, which is ``ports_checked``'s rule at the
+#: size of a summary line.  Requiring ``in`` to follow ``collected``
+#: immediately is what separates the clean shape from the other two.
+COLLECTED_RE = re.compile(r"^(\d+) tests? collected in ", re.MULTILINE)
+
+#: How long collection may take before it is reported as unmeasured.  The
+#: live suite collects in 1.9 s; the bound exists so a collection that will
+#: not finish costs a sitting an ``unknown`` rather than a hung
+#: session-opening banner.
+COLLECT_TIMEOUT_SECONDS = 120
+
+
+@functools.cache
+def measure_tests() -> tuple[int | None, str]:
+    """How many tests this checkout collects.
+
+    **Cached for the life of the process, and the cost is why rather than
+    a rule.**  The console script measures once and exits, so the cache is
+    invisible there; what it is for is the other composition root.
+    :func:`sysadmin.snag_claims.ops_report` drives the whole of
+    :func:`check_all` over a synthetic document — twice per probe, and the
+    suite drives *that* — so an uncached collection ran about forty times
+    a run and took the suite **75.4 s → 151 s**, measured either side.
+    Cached it is one collection.  Note the deliberate asymmetry with
+    :func:`sweep_sources`, which also measures the tree and is not cached:
+    an ``mtime`` walk is free and this is not, so the justification is the
+    number and not a principle about tree reads.
+
+    What the cache can be wrong about is a tree edited *while* a process
+    holds the answer.  The console script lives seconds, and the suite
+    edits no test files as it runs; the tests that stand in for the
+    subprocess clear it either side of themselves, because a cache warmed
+    by a stand-in would answer for a later test that never patched
+    anything — a per-process defect, which is the kind that shows up as a
+    green file and a red suite.
+
+    **Collected, never passed — and the cell is worded to match** (owner's
+    ruling 2026-09-06).  Collection counts a skip and a green run does
+    not, so the two figures are free to part; the handoff records 3318
+    passed against 3319 collected on an earlier sitting, and they are
+    equal at 3780 today with nothing skipped.  Measuring the cheap figure
+    while the sentence claimed *green* would be a marked claim agreeing
+    with the box beside prose that disagrees with it, which is
+    ``SNAG-ESTATE-011`` rule 1 — so the sentence names what is measured
+    rather than the check reading past what the sentence says.
+
+    **Greenness is not measured here because it already has an owner, and
+    that is the axis the choice turned on rather than cost.**
+    ``scripts/check-vacuous-guards.sh`` runs the whole suite under
+    coverage at the close, and since ``SNAG-TEST-012``
+    ``claude-postflight.sh`` raises an issue when it comes back red.  A
+    second assertion of that fact from here is the second-owner defect
+    this repository has found at six scales.  Note the two ends of a
+    sitting are **not** symmetric, which is what makes the cost argument
+    the weaker one: the close already pays for a full run, and *preflight*
+    runs no suite at all — so a passed figure costs 81.6 s exactly where
+    nothing else is measuring it.
+
+    ``sys.executable`` rather than ``uv run pytest`` or a hard-coded
+    ``.venv/bin/pytest``: this runs as a console script, so the
+    interpreter executing it is by construction the environment the check
+    was installed into.  ``uv run pytest`` falls through to
+    ``/usr/bin/pytest`` when a bare ``uv sync`` has pruned the ``dev``
+    extra, and that one fails on ``import estate``.
+
+    ``-p no:cacheprovider`` because a check must leave the tree as it
+    found it — ``check-vacuous-guards.sh``'s posture about its own
+    ``coverage.json``, and here it also keeps the check clear of
+    ``sweep_sources``, which reads mtimes under this checkout.
+    """
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "--collect-only",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=COLLECT_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"pytest could not be run ({exc.__class__.__name__})"
+
+    if result.returncode != 0:
+        return None, f"pytest --collect-only exited {result.returncode}"
+    match = COLLECTED_RE.search(result.stdout)
+    if match is None:
+        return None, "pytest printed no clean 'N tests collected in' line"
+    return int(match.group(1)), ""
+
+
 def measure_health() -> tuple[str | None, str]:
     """The status code ``GET /health`` answers with, as a string.
 
@@ -1132,6 +1244,30 @@ def check_routes(region: str, region_problem: str) -> Claim:
         )
     return compare_claim(
         "routes", "API routes", documented, doc_problem, measured, measure_problem, note
+    )
+
+
+def check_tests(region: str, region_problem: str) -> Claim:
+    """The suite size the block states against the suite this tree holds.
+
+    Rule 1's shape: the figure is read from the prose the banner prints,
+    and the marker beside it names this check rather than restating the
+    number.  It had been the one bold figure inside the parsed region
+    carrying no pattern at all — which is why it was wrong on 8 of the 11
+    sittings that measured it, and why three separate blocks record 71,
+    272 and 27 tests of earlier sittings that never reached the cell.
+    """
+    documented, doc_problem = (None, region_problem) if not region else read_claim(region, "tests")
+    count, measure_problem = measure_tests()
+    measured = None if count is None else str(count)
+    note = ""
+    if documented is not None and measured is not None and documented != measured:
+        note = (
+            f"the tree collects {measured} tests, not {documented} — "
+            "the Quick Status table is stale"
+        )
+    return compare_claim(
+        "tests", "Tests collected", documented, doc_problem, measured, measure_problem, note
     )
 
 
@@ -1693,6 +1829,7 @@ def check_all(path: Path | None = None, now: datetime | None = None) -> list[Cla
         check_schema(status.verdict, status.current, status.problem),
         check_deploy(unit),
         check_routes(region_text, region_problem),
+        check_tests(region_text, region_problem),
         check_tables(region_text, region_problem, facts),
         check_migration_head(region_text, region_problem, status.head),
         check_alerts(region_text, region_problem, facts),
