@@ -8,6 +8,86 @@
 
 ---
 
+## Session 197: the lease was innocent, and the box had already said so ✅ (2026-09-07)
+
+_Session 196's next action asked why the health review refused the LLM on
+2026-09-07 while the log and disk reviews took it, and directed the reader to
+"the `review_lease_*` warning logged beside that run". The reading is the
+whole of what was asked for; nothing was fixed._
+
+- [x] **The published premise was false and the false half was the newest
+      mechanism.** **No `review_lease_*` warning exists** for any of the
+      three reviews. Lease 54 was granted to `health_review` at 05:00:05
+      and released at 05:00:10, and the FIFO drain granted health(54),
+      log(55), estate-review(56), disk(57) in exactly the predicted order —
+      so the lease path, the only part the line named, is the one part of
+      the chain that behaved perfectly. About **1.5 of the sitting's 2.5
+      hours** went there before the actual warning was read
+- [x] **The warning beside the run is `llm_unavailable`, and its cause is
+      eight hours older than the review.** `llama-server` accepted the
+      health review's 439-token prompt at 05:00:09, hit `radv/amdgpu: The
+      CS has been cancelled because the context is lost`, and aborted —
+      `code=dumped, status=6/ABRT`, coredump present. The context died at
+      **2026-09-06 20:42:56** in a full MODE1 reset the kernel attributes
+      to `Process spotify pid 381729`. **Zero** GPU resets in the overnight
+      window, so this was an eight-hour-old fault being discovered rather
+      than a fresh one
+- [x] **The server survived the reset because it was doing nothing, which
+      is what makes the victim structural rather than unlucky.** Across its
+      whole **20.7-hour** life (started 2026-09-06 08:20:28)
+      `alfred-inference` served **zero** chat completions — only
+      `GET /api/health` polls it answers 404 without touching the card — so
+      the 05:00 prompt was the first and only GPU submission that process
+      ever made. The earliest review slot is by construction the first GPU
+      consumer to touch a server idle overnight: it discovers the damage,
+      pays for the discovery with a crash, and hands the 05:15, 05:30 and
+      05:45 slots a freshly restarted server. The other two did not take
+      the LLM through better luck
+- [x] **The box said the true thing and no machine read it.**
+      `CRITICAL_SIGNATURES` declares `GPU was reset — every client lost its
+      VRAM` and its own `reason` names the victim in words — *"any resident
+      inference server alike"*. The row stood at `critical` at 20:43:55 and
+      resolved on silence at 20:59:55, correctly, because silence is an
+      event family's only recovery signal. What outlives the row is the
+      **damage**: `llama-server` reported `ok` for **99 consecutive checks
+      across 8 h 17 m**, because the configured path
+      `http://localhost:8081/health` is right, returns 200 live, and
+      answers on whether the model is loaded rather than on whether the GPU
+      context is alive — `SNAG-UNITS-003`'s shape one layer deeper, where
+      the path is correct and still cannot express the fault
+- [x] **The class is older than its first visible cost and every member is
+      undeclared.** **11** amdgpu resets in the seven days to 2026-09-07 —
+      `GameThread` 9, `MainThrd` 7, `spotify` 1, `kwin_wayland` 1 — **not
+      one** a member of the arbiter's four profiles. `llama-server` has
+      aborted on this signature **five days running** (09-03, 09-04, 09-05,
+      09-06, 09-07); today is the first collision with a review
+- [x] **Filed rather than absorbed, with the undecidable half named as the
+      owner's.** Estate message **`bc5f6a09`** puts to estate-manager what
+      a granted lease is *meant to promise* — the arbiter serialises
+      contention between declared consumers, this consumer reads a grant as
+      "the card is usable", and 11 resets from outside the profile set is
+      the distance between those readings. No restart hook was requested:
+      the monitor must not own what it monitors, and that unit is Alfred's
+- [x] **Register moved 27 → 28 open, 144 → 145 entries**, `SNAG-GPU-001`
+      opened at P2 with three candidate fixes refused by name and the
+      prefix's collision against estate-manager's register checked rather
+      than assumed. It carries **no check** deliberately: a control here
+      would assert that some reader acts on the declared signature, which
+      is the fix and not the defect — `check_review_schedule_unread`'s
+      error
+- [ ] **Give the reset-opened state an owner** — the one candidate inside
+      this repository's remit is a reader that marks the affected service
+      unwatched until a submission proves the card usable, and it needs its
+      argument about **who closes that state** settled before any code,
+      since a second owner of a service's health lifecycle is the defect
+      this repository has now found at seven scales
+- [ ] **Close estate message `8c6da00e`** — Alfred's correction to the cost
+      line of our own `e5d17a89` (they measured 7 failed runs all-time
+      against the 12 we quoted from their SNAG-50); open in our inbox and
+      untouched this sitting
+
+---
+
 ## Session 196: the second headless region, and a residue called empty at one region of two ✅ (2026-09-07)
 
 _Session 195's next action asked whether `snag_list.md`'s second headless
