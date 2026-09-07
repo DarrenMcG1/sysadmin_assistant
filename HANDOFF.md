@@ -73,6 +73,34 @@ unread — that is the next action, and filing an entry before reading the
 lease warning would be a snag written from a mechanism reasoned about rather
 than counted._
 
+_**A second-repo finding was filed with the estate and awaits a ruling**_
+_(message `d409a9e8`, `needs_ruling: true`, filed after the commit above at
+the owner's direction). `~/.claude/projects/*/memory/MEMORY.md` is a family
+of **14** auto-loaded, git-untracked per-repo memory indexes that nobody has
+measured, and **two** have breached the 24.4 KB limit across **seven**
+sessions — this repository since 2026-09-05 10:03 and still over at 25,638
+bytes, Alfred from 2026-09-06 20:35Z and silently repaired to 13,464 bytes
+at 2026-09-07 06:48Z with nothing recording it. The unit is already
+characters, so estate ADR-0119 is satisfied and this is not Alfred's
+`51ba8a21` again; what is unaddressed is the **failure mode** — truncation
+takes the tail while the index appends, so the **newest** entries go first,
+measured here as 6 of 109 invisible including the one written this sitting._
+
+_**The first draft of that filing was wrong and the owner's recollection is
+what caught it.**_ _A sweep of current sizes reports one breach, because
+Alfred's file reads 55 % of budget today; only the transcript store
+witnesses an event that was repaired. That is estate ADR-0119's own
+compensating control being used on a second document family, and it is the
+reason this class is invisible to the instrument anyone reaches for first._
+
+_**This repository's index is deliberately left over budget**, not
+forgotten._ _Trimming it now would act on the question just routed for a
+ruling and would move the live evidence under the estate's feet. If no
+ruling comes, trim it here — the remedy the harness itself advises is
+shortening index lines and moving detail into the topic files, and the
+zero-cost observation in the filing is that an index ordered newest-first
+would drop its **oldest** entries instead._
+
 _**Suite 3819 passed either side**_ _— baseline and total equal, so no test
 was added and none clobbered — `ruff` and `mypy` clean, all 25 snag-entry
 checks and 4 conventions `ok`, 11 of the ops module's 12 checks printing
