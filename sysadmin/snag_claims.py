@@ -383,20 +383,37 @@ def read_entries(document: str) -> list[Entry]:
     and the one ``read_snags`` calls ``bullet``.
 
     **"Everything beneath it" is not "everything indented beneath it",
-    and the difference has a live population** (measured 2026-09-07,
-    Session 194).  ``snag_list.md`` carries a *headless* region of
-    unindented italic paragraphs — the per-sitting movement log
-    :func:`check_movement` derives its figure for — between the open
-    entries and the closed ones, and every line of it is appended to the
-    body of whichever entry precedes it.  No shipped consumer minds: the
-    dispositions and the markers are found by pattern, and the region
-    carries neither.  A consumer that reads the body as a *population*
-    does mind, and one did — a sweep of the register's bolded figures
-    read 166 where the entries hold **108**, folding **58** into
-    ``SNAG-SYSD-008`` and making it appear to carry 83 figures against a
-    true 25.  Stated here rather than narrowed, because narrowing the
-    body to indented lines would change what every existing consumer
-    sees for a defect none of them has.
+    and the population that made that matter has been retired** (found
+    2026-09-07 by Session 194, moved out the same day by Session 195).
+    ``snag_list.md`` carried a *headless* region of unindented italic
+    paragraphs — the per-sitting movement log — between the open entries
+    and the closed ones, and every line of it was appended to the body of
+    whichever entry preceded it: ``SNAG-SYSD-008``'s 18-line body read as
+    **247 lines carrying 469 bolded spans**, and a sweep of the
+    register's bolded figures read 166 where the entries hold **108**.
+    The region is now
+    ``docs/sessions/movement-log.md`` and a pointer stands where it was.
+
+    **No shipped consumer minded, and that is driven now rather than
+    asserted.**  The original wording said so and did not say why;
+    Session 195 first wrote the opposite — that the fold was inert only
+    because the entry's own ``**Status:**`` bullet happened to precede
+    the region — and a synthetic refuted it.  :data:`STATUS_FIELD_RE`
+    requires a *bulleted* ``- **Status:**``, so an entry declaring none,
+    followed by prose that spells one, still reads ``None``; markers are
+    read through :func:`strip_code_spans`; and the region carried 0
+    bulleted lines, 0 status matches and 0 markers.  It is inert by
+    construction and not by ordering.  What minds is a consumer reading
+    the body as a *population*, which is what the moved region cost.
+
+    **The behaviour is still stated rather than narrowed**, and the
+    pointer replacing the region is why it has to be.  Narrowing the body
+    to indented lines would change what every existing consumer sees for
+    a defect none of them has — and the pointer is itself unindented
+    prose, folding 9 lines into that same entry and contributing **0**
+    bolded spans, so the class survives with an empty residue rather than
+    being removed.  A pointer that bolded a figure would rebuild it at
+    one fifty-eighth scale.
     """
     entries: list[Entry] = []
     for lines in open_sections(document):

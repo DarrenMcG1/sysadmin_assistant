@@ -1,6 +1,94 @@
-# Handoff — 2026-09-07 (Session 194)
+# Handoff — 2026-09-07 (Session 195)
 
 ## Next action
+
+Decide whether `snag_list.md`'s second headless region — the nine unindented lines of the 2026-08-07 project-organiser capability audit that fold into the closed `SNAG-DB-003` — should be moved out beside the movement log, retired outright or left in place, and the measurement is already taken and points one way: the paragraph says its twelve defects are "deliberately left unfixed" and must stay under this heading rather than a `###` sub-heading so `count_open_snags` and preflight can see them, and they were fixed on 2026-08-10 and archived under exactly the `### Session 34 write-ups (project-organiser capability audit, fixed 2026-08-10)` sub-heading it refuses, the domain they belonged to left this repository on 2026-08-13 under ADR-0005, and estate-manager's `read_snags` returns zero rows mentioning it — so what is left to decide is only whether the paragraph is worth keeping as history beside the movement log or is a pointer with nothing left to point at.
+
+_**The test the handoff set answers the wrong way, and that is the
+finding.**_ _It asked whether any sentence across the region states
+something no check derives, retiring behind a pointer if none does and
+wiring a reader if some do. Almost every sentence does — the region is
+per-sitting write-ups full of mutation counts, refuted hypotheses and
+measured latencies — so the stated test says **wire a reader**, which is
+what `check_movement` already refused in writing (*"thirteen paragraphs
+write that sentence seven ways, and a pattern over that reports `unknown`
+more often than it measures"*) and what Session 194 refused again the day
+before for standing figures. Derivability is not the discriminator here,
+because a narrative is not a claim._
+
+_**Duplication is, and it is the estate's own rule** — a moved document
+leaves a pointer, never a copy._ _**85 of the 85** `SNAG-*` ids the region
+names exist as entries in the register, **88 %** of its distinctive
+identifiers and figures appear elsewhere in that document and **90 %**
+counting `HANDOFF.md`, the residue being commit shas git holds. Its most
+durable-looking paragraphs restate `sysadmin/snag_claims.py`'s own module
+docstring: the region's *"a check tests the entry's mechanism, never its
+population"* is that file's rule 1, cited five more times in it — and the
+copy is the half that drifted while the derivation stayed right._
+
+_**The copy had already disagreed, and it is one paragraph rather than a
+class.**_ _One undated present-tense paragraph reads "**Ten** open entries
+name the check that would refute them … The other **14**" against a live
+**25** and **2** that `sysadmin-check-snags` derives and prints at every
+run, and cites `SNAG-ESTATE-014` as the live home of the fourteen when it
+closed on 2026-08-27. Swept for others: the five remaining candidates all
+carry an explicit session or date attribution, so the finding is not
+inflated. The sentence was **attributed rather than rewritten**, which is
+`SNAG-TEST-011`'s remedy for exactly this shape._
+
+_**Moved rather than retired, at the owner's direction, and nothing
+published moved with it.**_ _Measured either side rather than assumed:
+estate-manager's `read_snags` reads **144** rows with the region present
+and **144** with it gone, and `read_entries` reads **108** entries at
+**27** open both ways. What corrects is `SNAG-SYSD-008`'s body — **247
+lines carrying 469 bolded spans** against a true 18, now 25 carrying 55.
+That measurement was the one thing that could have blocked the move, so it
+was driven before the edit rather than after it._
+
+_**The pointer is deliberately neither a bullet nor bolded, and one half
+of that was luck until it was measured.**_ _`read_snags` counts top-level
+bullets as rows, so a bulleted pointer would add a phantom entry to the
+figure the estate board publishes about this repository — a cross-repo
+regression introduced by a tidy-up. And it contributes **0** bolded spans,
+so the class survives with an *empty* residue rather than a shrunken one;
+a bolded figure in it would have rebuilt the defect at one fifty-eighth
+scale. Written down because it was not designed._
+
+_**A claim written into the moved file was refuted by driving it, and the
+correction runs back toward what was already there.**_ _The first draft
+said the fold was inert only by accident of ordering — that
+`declared_disposition` takes the first status a body declares and the
+entry's own bullet happened to precede the region. `STATUS_FIELD_RE`
+requires a **bulleted** status, so a synthetic entry declaring none,
+followed by prose that spells one, reads `None`; and the region carried
+**0** bulleted lines, **0** status matches and **0** markers, its two
+check spellings sitting inside code spans. Inert by construction. Session
+194's docstring was right and the correction of it was the error — which
+is this repository's own recorded failure, a mechanism reasoned about
+rather than counted._
+
+_**`read_entries`' docstring described the region in the present tense**_
+_and now describes its retirement, since a shipped claim the move
+falsifies is the same shape as the paragraph that drifted. That is the
+whole of the code change, and `snag_claims.py` is outside the daemon's
+import graph, so no restart is owed — which the deploy claim reports by
+name._
+
+_**No entry filed, and the refusal is argued.**_ _The fold class is
+Session 194's finding, recorded in the docstring that owns it and
+deliberately not narrowed; its residue here is measured **empty** on the
+axis that made it cost anything. Suite **3819 passed** either side, `ruff`
+and `mypy` clean, all **25** snag entry checks and 4 conventions
+`ok`, and **11** of the ops module's 12 checks printing `ok` either side
+— `check_markers` prints only on a finding, which is why 11 verdicts and
+not 12 reach the report, and Session 194's handoff published the check
+count as the verdict count. Register unmoved at 27 open._
+
+---
+
+# Handoff — 2026-09-07 (Session 194)
+
+### The action Session 194 filed (done by Session 195)
 
 Decide whether `snag_list.md`'s headless movement-log region should be retired behind a pointer or given a reader, and the measurement that has to come first is what it costs against what it is worth — it holds **58** bolded figures that `read_entries` folds into whichever entry precedes it, which is what corrupted this sitting's own corpus by 35 %, its newest paragraph is Session 170's with 23 sittings and six newly-opened entries since, and `check_movement` already derives and prints at every run the counts those paragraphs used to state — so the honest test is whether any sentence across the 63 paragraphs states something no check derives, retiring the region behind a pointer if none does and wiring a reader only if some do.
 

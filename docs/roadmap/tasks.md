@@ -8,6 +8,82 @@
 
 ---
 
+## Session 195: the movement log moved, and duplication decided it rather than derivability ✅ (2026-09-07)
+
+_Session 194's next action asked whether `snag_list.md`'s headless
+movement-log region should be retired behind a pointer or given a reader,
+named the measurement that had to come first, and set the test: retire if
+no sentence across it states something no check derives, wire a reader if
+some do._
+
+- [x] **The test as set answers the wrong way, and that is the finding.**
+      Almost every sentence states something no check derives — the
+      region is per-sitting write-ups full of mutation counts, refuted
+      hypotheses and measured latencies — so the stated test says *wire a
+      reader*, which is what `check_movement` already refused in writing
+      (*"thirteen paragraphs write that sentence seven ways, and a
+      pattern over that reports `unknown` more often than it measures"*)
+      and what Session 194 refused again for standing figures.
+      Derivability is not the discriminator
+- [x] **Duplication is, and it is the estate's own rule** — *a moved
+      document leaves a pointer, never a copy*. **85 of the 85** `SNAG-*`
+      ids the region names exist as entries in the register; **88 %** of
+      its distinctive identifiers and figures appear elsewhere in that
+      document and **90 %** counting `HANDOFF.md`, the residue being
+      commit shas git holds. Its most durable-looking paragraphs restate
+      `sysadmin/snag_claims.py`'s own module docstring — the region's *a
+      check tests the entry's mechanism, never its population* is that
+      file's rule 1, cited five more times in it
+- [x] **The copy had already disagreed, which is one paragraph and not a
+      class.** One undated present-tense paragraph reads *"**Ten** open
+      entries name the check that would refute them … The other **14**"*
+      against a live **25** and **2** that `sysadmin-check-snags` derives
+      and prints at every run, and cites `SNAG-ESTATE-014` as the live
+      home of the fourteen when it closed 2026-08-27. Swept for others:
+      the five remaining candidates all carry an explicit session or date
+      attribution. Attributed rather than rewritten — `SNAG-TEST-011`'s
+      remedy for the same shape
+- [x] **Moved to `docs/sessions/movement-log.md` at the owner's
+      direction, with a pointer where it stood.** Nothing published moved
+      with it, measured either side rather than assumed: estate-manager's
+      `read_snags` reads **144** rows with the region present and **144**
+      with it gone, and `read_entries` reads **108** entries at **27**
+      open both ways. What corrects is `SNAG-SYSD-008`'s body — **247
+      lines carrying 469 bolded spans** against a true 18, now 25
+      carrying 55
+- [x] **The pointer is deliberately neither a bullet nor bolded.**
+      estate-manager's `read_snags` counts top-level bullets as rows, so
+      a bulleted pointer adds a phantom entry to the figure the estate
+      board publishes about this repository — a cross-repo regression
+      introduced by a tidy-up. And it contributes **0** bolded spans, so
+      the class survives with an *empty* residue rather than a shrunken
+      one; a bolded figure in it would have rebuilt the defect at one
+      fifty-eighth scale, which was luck rather than design until it was
+      measured and written down
+- [x] **A claim written into the moved file was refuted by driving it,
+      and the correction runs toward what was already there.** The first
+      draft said the fold was inert only by accident of ordering — that
+      `declared_disposition` takes the first status a body declares and
+      the entry's own bullet happened to precede the region.
+      `STATUS_FIELD_RE` requires a *bulleted* status, so a synthetic
+      entry declaring none, followed by prose that spells one, reads
+      `None`; and the region carried **0** bulleted lines, **0** status
+      matches and **0** markers, its two check spellings sitting inside
+      code spans. Inert by construction. Session 194's docstring was
+      right and the correction of it was the error
+- [x] **`read_entries`' docstring described the region in the present
+      tense and now describes its retirement**, since a shipped claim the
+      move falsifies is the same shape as the paragraph that drifted
+- [x] Suite **3819 passed** either side, `ruff` and `mypy` clean, all 25
+      snag entry checks and 4 conventions `ok`, and **11** of the ops
+      module's 12 checks printing `ok` either side — `check_markers`
+      prints only on a finding — with the register unmoved at 27 open, and no restart owed — `snag_claims.py` is
+      outside the daemon's import graph
+- [x] **No entry filed.** The fold class is Session 194's finding and is
+      recorded in the docstring it belongs to; its residue here is
+      measured empty on the axis that made it cost anything
+
+---
 ## Session 194: the narrow rule refused, and a third of the corpus was not an entry ✅ (2026-09-07)
 
 _Session 193's next action asked whether the narrow rule surviving its

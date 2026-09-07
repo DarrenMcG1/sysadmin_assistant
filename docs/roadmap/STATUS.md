@@ -3,6 +3,44 @@
 **Last Updated**: 2026-09-07
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The movement log moved, and the test the handoff set would have
+> answered it the wrong way** (2026-09-07, Session 195). It asked whether
+> `snag_list.md`'s headless movement-log region should be retired behind a
+> pointer or given a reader, on the test *does any sentence state something
+> no check derives*. Almost every sentence does — they are per-sitting
+> write-ups full of mutation counts and refuted hypotheses — so that test
+> says *wire a reader*, which is what `check_movement` already refused in
+> writing. What decides it is duplication, the estate's own rule: **85 of
+> the 85** `SNAG-*` ids the region names exist as entries here, **88 %** of
+> its distinctive identifiers and figures appear elsewhere in this document
+> and **90 %** counting `HANDOFF.md`, and its most durable-looking
+> paragraphs restate `sysadmin/snag_claims.py`'s own rule list.
+>
+> **The copy had already disagreed.** One undated present-tense paragraph
+> said ten entries name a check and fourteen do not, against a live reading
+> of twenty-five and two that `sysadmin-check-snags` prints at every run,
+> and cited `SNAG-ESTATE-014` as live when it closed on 2026-08-27. The
+> sentence was attributed rather than rewritten — `SNAG-TEST-011`'s remedy
+> for the same shape.
+>
+> **Moved to `docs/sessions/movement-log.md` with a pointer where it stood,
+> and nothing published moved with it**, measured either side rather than
+> assumed: estate-manager's `read_snags` reads **144** rows both ways and
+> `read_entries` reads **108** entries both ways. What corrects is
+> `SNAG-SYSD-008`'s body, from 247 lines carrying 469 bolded spans to 25
+> carrying 55. The pointer is deliberately neither a bullet nor bolded — a
+> bulleted pointer adds a phantom row to the figure the estate board
+> publishes, and a bolded figure in it rebuilds the defect at one
+> fifty-eighth scale.
+>
+> **And a claim written into the moved file was refuted by driving it.** It
+> said the fold was inert only because the entry's own status bullet
+> preceded the region; `STATUS_FIELD_RE` requires a *bulleted* status, so an
+> entry declaring none followed by prose that spells one still reads
+> nothing. Inert by construction and not by ordering — corrected in the
+> moved file and in `read_entries`' docstring, which described the region in
+> the present tense.
+
 > **The narrow rule is refused too, and the corpus it was measured over
 > was a third not-an-entry** (2026-09-07, Session 194). The handoff asked
 > whether an open entry carrying a standing figure should have its check
