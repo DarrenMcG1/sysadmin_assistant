@@ -67,8 +67,10 @@ from sysadmin.ops_claims import (
     newest_source,
     overall,
     printed_region,
+    quick_status_rows,
     read_claim,
     read_markers,
+    status_figures,
     sweep_sources,
 )
 from sysadmin.snag_claims import strip_code_spans
@@ -2639,3 +2641,223 @@ class TestGreennessIsNotClaimedHere:
         assert region is not None, problem
         row = _testing_row(region)
         assert "check-vacuous-guards.sh" in row, row
+
+
+def _table(*rows: str) -> str:
+    """A Quick Status table in the shape the real document writes one."""
+    header = "## Quick Status\n\n| Area | Status | Notes |\n|------|--------|-------|\n"
+    return header + "".join(f"{row}\n" for row in rows)
+
+
+class TestRuleElevenTheStatusColumnIsTotal:
+    """The figure with no pattern, which rule 7 is structurally blind to.
+
+    Rule 7's ``unclaimed`` finding enumerates :data:`CLAIM_PATTERNS`, so
+    it can only report a figure some pattern already reads.  That
+    blindness had a member and it cost eleven sittings: the suite count
+    sat in the Quick Status *Status* cell from 2026-08-27, inside the
+    parsed region, and nothing could say it was unclaimed until a pattern
+    was written for it on 2026-09-06.
+
+    **The population is a column because the corpus refuses the table.**
+    The 12 rows hold 20 bolded integers and 17 of them are prose emphasis
+    in one Notes cell; the Status column holds one.  Rule 11 in the module
+    docstring records the two candidates that were measured against 239
+    revisions and why the row-granular one was refused.
+    """
+
+    FIGURE = "| Testing | 🟢 **3780 green** | the suite |"
+    MARKED = "| Testing | 🟢 **3780 collected** | <!--check:tests-->the suite |"
+
+    def test_a_bolded_status_figure_no_check_claims_is_reported(self):
+        """The founding shape, in the world where no pattern reads it.
+
+        Falsified by deleting the finding, and by narrowing it to rows
+        whose figure some pattern already matches — which is rule 7, and
+        is exactly the blindness this exists to remove.
+        """
+        findings = check_markers(_table(self.FIGURE), read_markers(_table(self.FIGURE)))
+        assert [claim.key for claim in findings] == ["unclaimed:Testing"]
+        assert findings[0].verdict == "unknown"
+        assert "**3780**" in findings[0].note
+
+    def test_a_check_anywhere_on_the_row_claims_the_status_figure(self):
+        """Rule 7 makes a marker a *name*, so it carries no location.
+
+        The live ``tests`` marker sits in the **Notes** column while the
+        figure it claims is in **Status**.  Falsified by scoping the
+        marker search to the Status cell, which reports the real document
+        unclaimed on the day it was fixed.
+        """
+        assert check_markers(_table(self.MARKED), read_markers(_table(self.MARKED))) == []
+
+    def test_a_row_naming_only_a_keyless_check_is_still_unclaimed(self):
+        """:data:`KEYLESS_CHECKS` read no value by construction.
+
+        ``schema`` and ``deploy`` compare the box against this checkout,
+        ``open_titles`` reads a haystack and ``expires`` an instant off
+        the marker — so none of them can be what stands behind a figure.
+        Empty population today (all four markers in the live table are
+        pattern-bearing); falsified by intersecting on
+        :data:`CHECK_KEYS`, which accepts the row.
+        """
+        table = _table("| Testing | 🟢 **3780 green** | <!--check:deploy-->the box |")
+        keys = [claim.key for claim in check_markers(table, read_markers(table))]
+        assert keys == ["unclaimed:Testing"]
+
+    def test_an_unbolded_status_integer_is_not_a_figure(self):
+        """``🟢 Phase 3 Complete`` — live in the table since 2026-03-23.
+
+        The emphasis is already the convention separating a measurement
+        from a name (:data:`CLAIM_PATTERNS`' "the bold is load-bearing"),
+        so this is the point rather than a gap: a rule that could not tell
+        the two apart would demand a check for the tray app's phase
+        number.  Falsified by keying on any digit in the cell.
+        """
+        row = "| KDE Tray App | 🟢 Phase 3 Complete | the tray |"
+        assert check_markers(_table(row), read_markers(_table(row))) == []
+
+    def test_a_figure_in_the_notes_column_is_rule_sevens_and_not_this_ones(self):
+        """The division of labour, asserted from the silent side.
+
+        Three of the four live markers claim figures in **Notes** —
+        ``routes``, ``tables``, ``migration_head`` — and rule 7 reaches
+        them wherever they sit because a pattern is matched against the
+        flattened region.  This rule must not also report them, or the
+        Notes column's deliberate history becomes its population and the
+        finding is 17 rows of prose emphasis.
+        """
+        table = _table("| API | 🟢 Complete | **51 routes** across 8 routers |")
+        keys = [claim.key for claim in check_markers(table, read_markers(table))]
+        assert keys == ["unclaimed:routes"]
+
+    def test_a_marker_quoted_on_the_row_does_not_claim_its_figure(self):
+        """``SNAG-DOCS-005``'s rule, one container over.
+
+        A marker inside backticks is a *quotation*.  Empty population —
+        no row quotes a marker today — and kept because the Testing row's
+        Notes cell is 29,810 characters of prose about this module's own
+        conventions.  The control is the same row unquoted.
+        """
+        quoted = _table("| Testing | 🟢 **3780 green** | the `<!--check:tests-->` marker |")
+        keys = [claim.key for claim in check_markers(quoted, read_markers(quoted))]
+        assert keys == ["unclaimed:Testing"]
+        control = _table(self.MARKED)
+        assert check_markers(control, read_markers(control)) == []
+
+    def test_one_bold_span_is_one_statement(self):
+        """The live historical ``🟡 **3011 green, 6 red**``.
+
+        A suite count qualified by a failure count is one claim, not two,
+        so the leading figure alone is taken.  Falsified by returning
+        every digit run inside the span, which reports the failure count
+        as a second unclaimed figure — and by matching ``**`` followed by
+        a digit, which cannot tell a span's closing fence from an opening
+        one.
+        """
+        assert status_figures("🟡 **3011 green, 6 red**") == ["3011"]
+        assert status_figures("🟢 **2730 of 2732 green — `SNAG-PORT-001`**") == ["2730"]
+        assert status_figures("🟢 Complete") == []
+        assert status_figures("🟢 **3,807 collected**") == ["3,807"]
+        # The discriminating shape for "span, not fence": here the digits
+        # follow a *closing* ``**`` and are therefore not bold at all, so
+        # a rule keyed on the fence invents a figure markdown does not
+        # render.  This is the assertion, not the prose above it.
+        assert status_figures("🟢 **green**3807 collected") == []
+
+    def test_a_table_that_is_not_there_yields_no_rows(self):
+        """Zero-because-blind must not be spelled as zero-because-clean.
+
+        A renamed heading makes this rule's population empty and its
+        silence indistinguishable from a healthy table — which is why the
+        live guard below asserts the table was *read* rather than only
+        that it produced no findings.
+        """
+        assert quick_status_rows("> no table here") == []
+        assert quick_status_rows("## Quick Status\n\n| Area |\n") == []
+        # The header and its rule are skipped rather than parsed: a table
+        # whose first data row is malformed must not promote the header
+        # into the population, and a one-cell row is dropped rather than
+        # read as an area with no status.
+        rows = quick_status_rows(_table("| Testing | 🟢 **1 green** | x |", "| |"))
+        assert [row.area for row in rows] == ["Testing"]
+
+
+class TestTheTwoUnclaimedFamiliesShareOneNamespace:
+    """One prefix, two routes to it — and a key they could collide on.
+
+    Both findings say the same thing: the block states a figure and
+    nothing claims it.  So both are keyed ``unclaimed:`` and one sweep
+    finds both, which is what makes the live guard total over the pair
+    rather than over whichever family was written first.
+    """
+
+    def test_a_row_name_can_never_collide_with_a_pattern_key(self):
+        """The invariant that makes one namespace safe.
+
+        :data:`CLAIM_PATTERNS`' keys are lowercase snake; the table's
+        areas are display labels.  Two findings sharing a key would merge
+        silently in a set, so the disjointness is asserted against the
+        **live** table rather than assumed from the naming habit.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        areas = {row.area for row in quick_status_rows(region)}
+        assert areas, "no rows read — the guard below would be vacuous"
+        assert not areas & set(CLAIM_PATTERNS), sorted(areas & set(CLAIM_PATTERNS))
+
+    def test_deleting_the_live_marker_fires_both_families(self):
+        """The additive property, driven rather than argued.
+
+        The handoff framed this as *"total over the table rather than over
+        ``CLAIM_PATTERNS``"*.  Replacement loses three quarters of the
+        enforcement: the suite figure is the only one of the four in the
+        Status column.  Here both fire, because the ``tests`` pattern
+        exists **now** — which is precisely the state rule 11 does not
+        depend on.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        stripped = region.replace("<!--check:tests-->", "")
+        keys = {claim.key for claim in check_markers(stripped, read_markers(stripped))}
+        assert keys == {"unclaimed:tests", "unclaimed:Testing"}, sorted(keys)
+
+    def test_rule_eleven_speaks_where_rule_seven_cannot(self):
+        """The one measurement that says the rule earns its place.
+
+        Driven at the world as it was before 2026-09-06: the suite figure
+        in the Status cell, no marker, and **no pattern**.  Rule 7 is
+        silent by construction — it enumerates :data:`CLAIM_PATTERNS` —
+        and rule 11 names the row.  Without this the whole family is
+        indistinguishable from a second spelling of rule 7.
+        """
+        table = _table("| Testing | 🟢 **3780 green** | the suite |")
+        without_tests = {k: v for k, v in CLAIM_PATTERNS.items() if k != "tests"}
+        with patch("sysadmin.ops_claims.CLAIM_PATTERNS", without_tests):
+            keys = [claim.key for claim in check_markers(table, read_markers(table))]
+        assert keys == ["unclaimed:Testing"]
+
+    def test_a_thousands_separator_widens_this_rule_and_not_the_patterns(self):
+        """The two families disagree about a figure's spelling, loudly.
+
+        :func:`status_figures` admits ``3,807`` and every pattern in
+        :data:`CLAIM_PATTERNS` is ``\\d+``, so a reformatted cell parts
+        them.  Measured rather than reasoned, because the direction is
+        what makes the disagreement acceptable: rule 11 still sees the
+        figure, so an **unmarked** separator figure is still reported;
+        and rule 7's claim goes ``unknown`` — "the block states no figure
+        matching …" — which is rule 2 doing its job rather than a silent
+        pass.  Both fail loud, so neither retires the other.
+
+        Falsified by narrowing :data:`LEADING_FIGURE_RE` to ``\\d+``,
+        which makes the marked case silent in *both* families and turns a
+        reformatting into a retirement.
+        """
+        marked = _table("| Testing | 🟢 **3,807 collected** | <!--check:tests-->x |")
+        assert status_figures("🟢 **3,807 collected**") == ["3,807"]
+        assert read_claim(marked, "tests")[0] is None, "no pattern reads a separator"
+        assert check_markers(marked, read_markers(marked)) == []
+
+        bare = marked.replace("<!--check:tests-->", "")
+        keys = [claim.key for claim in check_markers(bare, read_markers(bare))]
+        assert keys == ["unclaimed:Testing"], "rule 11 still sees what no pattern reads"

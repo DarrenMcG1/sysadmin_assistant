@@ -210,6 +210,59 @@ the area should have been all along:
     the one locator; :func:`Marker.sentence` records why ``expires`` could
     not simply call :func:`claim_sentence` to get there.
 
+``SNAG-ESTATE-008``'s eleventh was added on 2026-09-07, and it is the
+one rule here whose population is a *place* rather than a pattern:
+
+11. **The Quick Status table's Status column is total, and the reason it
+    is the only column that can be is that the Notes column carries
+    history on purpose.**  Rule 7's ``unclaimed`` finding enumerates
+    :data:`CLAIM_PATTERNS`, so it can report a figure some pattern
+    already knows how to read and is structurally blind to a figure with
+    no pattern.  That blindness had a member: the suite count sat in the
+    Status cell from 2026-08-27, **inside** the parsed region, wrong on 8
+    of the 11 sittings that measured it, and nothing could say so until a
+    pattern was written for it.
+
+    **A rule total over the whole table was measured and refused.**  The
+    table's 12 rows hold **20** bolded integers and **17** of them are
+    prose emphasis inside one Notes cell — ``**26 written**``, ``**7**``
+    times, ``**75.4 s**`` — because rule 1's "the whole file restates old
+    figures on purpose" is true of that column too.  The Status column
+    holds **one**.  So the population that can be enumerated is a
+    *column*, and :func:`quick_status_rows` records why depending on the
+    table's line structure is honest where rule 1 forbids it everywhere
+    else.
+
+    **It is additive, never a replacement, and the handoff that asked for
+    it had the axis the wrong way round.**  Driven at the live document
+    with each marker deleted in turn: rule 7's finding fires for all four
+    — ``routes``, ``tables``, ``migration_head``, ``tests`` — and this
+    one fires for ``tests`` alone, because three of the four figures live
+    in the **Notes** column and only the suite count is in Status.
+    Replacing would have lost three quarters of the enforcement to buy a
+    quarter more of it.
+
+    **The alternative was a *row* rule and the corpus could not separate
+    them.**  "The first bolded integer of each row" has 488 observations
+    across 239 revisions against this rule's 97, zero false positives
+    either way, and across 263 marked-row observations it never once
+    disagreed with what that row's pattern reads.  What refuses it is the
+    live Database row: it states two figures and carries two markers, so
+    a rule keyed on the row's first figure would let one marker exempt
+    the other — figure-granular enforcement replaced by row-granular,
+    which is the silent direction.  A per-row exemption list was refused
+    for ``SNAG-CFG-001``'s reason, and the handoff refused it first: a
+    hand-maintained list of things deliberately unchecked is a second
+    registry beside the one this module derives.
+
+    The forward population is one cell and that is stated rather than
+    hidden.  In 239 revisions the Status column has carried a bolded
+    figure in exactly one row, so what this rule adds over rule 7 is "a
+    Status cell gains a figure no pattern reads", which has happened
+    **once**.  It is kept for ``FROZEN_TABLES``' reason: the class has one
+    member, the member is fixed, and deleting a guard along with its last
+    finding takes the guard against the defect coming back.
+
 **This module sits beside main.py** for the reason :mod:`sysadmin.reload`
 and :mod:`sysadmin.metadata` do: it composes ``core`` with every domain
 (the route count comes from :func:`sysadmin.main.create_app`, which
@@ -338,6 +391,37 @@ MARKER_RE = re.compile(r"<!--\s*check:\s*([a-z_]+)\s*([^>]*?)\s*-->")
 #: instead: import where you can, pin where you cannot.
 CODE_SPAN_RE = re.compile(r"(`+)[\s\S]*?\1")
 
+
+def _blank(match: re.Match[str]) -> str:
+    """A match replaced by spaces of its own length.
+
+    The one veiling primitive.  :func:`_veiled` and :func:`_unmarked`
+    both need a mask that still indexes the original, and
+    :func:`quick_status_rows` needs the same rule applied to a table row
+    — three callers of one arithmetic, so it is written once rather
+    than three times as a lambda.
+    """
+    return " " * len(match.group(0))
+
+
+#: The heading the Quick Status table sits under.  Named because two
+#: readers locate it — :func:`printed_region`, which ends the region at
+#: it, and :func:`quick_status_rows`, which starts there — and a heading
+#: spelled twice is a heading one of them stops finding.
+QUICK_STATUS_HEADING = "## Quick Status"
+
+#: A markdown bold span.  Non-greedy, so ``**a** and **b**`` is two spans
+#: rather than one; see :func:`status_figures` for why the span and not
+#: the fence is what rule 11 counts.
+BOLD_SPAN_RE = re.compile(r"\*\*(.+?)\*\*")
+
+#: A digit run at the start of a bold span's content — the shape that
+#: makes the span a *figure* rather than emphasis.  Thousands separators
+#: are admitted because a four-digit suite count is one comma away from
+#: being written with one, and a rule that stopped seeing the figure on
+#: the day it was reformatted would retire itself silently.
+LEADING_FIGURE_RE = re.compile(r"^(\d[\d,]*)")
+
 #: Where one sentence of the flattened block ends: a terminator, any closing
 #: emphasis or bracket it carries, then whitespace or the end of the region.
 #:
@@ -454,7 +538,7 @@ def printed_region(document: str) -> str | None:
     """
     lines = document.splitlines()
     start = next(
-        (i for i, line in enumerate(lines) if line.strip().startswith("## Quick Status")),
+        (i for i, line in enumerate(lines) if line.strip().startswith(QUICK_STATUS_HEADING)),
         None,
     )
     if start is None:
@@ -499,6 +583,132 @@ def read_claim(region: str, key: str) -> tuple[str | None, str]:
         stated = ", ".join(sorted(found))
         return None, f"the block states {len(found)} different figures ({stated})"
     return found.pop(), ""
+
+
+@dataclass(frozen=True)
+class StatusRow:
+    """One data row of the Quick Status table — rule 11.
+
+    Attributes:
+        area: the first cell, which is the row's name and this finding's
+            identity.  A display label rather than a slug, because it is
+            what a reader sees in the table and what they will search
+            for; :data:`CLAIM_PATTERNS`' keys are lowercase snake and a
+            test pins the two sets disjoint, so ``unclaimed:`` stays one
+            namespace with no two findings able to share a key.
+        figures: every bolded figure the **Status** cell states, in order.
+        checks: the pattern-bearing checks the whole *row* names.
+    """
+
+    area: str
+    figures: tuple[str, ...]
+    checks: frozenset[str]
+
+
+def quick_status_rows(region: str) -> list[StatusRow]:
+    """The Quick Status table, row by row — rule 11's population.
+
+    **This is the one reader here that does not run over
+    :func:`flatten`ed prose, and the exception is a property of the
+    artefact rather than a convenience.**  Rule 1 matches patterns
+    against prose because a paragraph reflow must not be able to retire a
+    claim, and that argument is exactly as strong as the claim that the
+    thing being read can be reflowed.  A markdown table cannot: a row is
+    a line by the format's own definition, and a wrapped row stops being
+    a table for the reader long before it stops being one for this
+    module.  So the line structure is safe to depend on *here* and
+    nowhere else, and reading the table off the flattened region would
+    mean recovering rows from a string in which the newlines have already
+    been destroyed — which is ``SNAG-DOCS-009`` from the other side.
+
+    **The markers are read per row, and the row is the smallest unit that
+    can hold the pairing.**  Rule 7 makes a marker a *name* with no
+    location, so nothing requires it to sit in the cell whose figure it
+    stands behind — and nothing does: the live ``tests`` marker is in the
+    **Notes** column while the figure it claims is in **Status**.  A
+    cell-scoped reading would report that row unclaimed on the day it was
+    fixed.
+
+    **Only a pattern-bearing check counts.**  :data:`KEYLESS_CHECKS` read
+    no value by construction — ``schema`` and ``deploy`` compare the box
+    against this checkout, ``open_titles`` reads a haystack, ``expires``
+    an instant off the marker — so a row naming one of those names
+    nothing that could stand behind a figure.  Empty population today
+    (all four live markers in the table are pattern-bearing), and the
+    narrowing costs nothing to have: it is the difference between a row
+    that is checked and a row that merely carries a comment.
+
+    Code spans are veiled first, for ``SNAG-DOCS-005``'s reason one
+    container over: a marker inside backticks is a *quotation*, and
+    reading one as a claim would silence this finding beside a cell that
+    claims nothing.  Empty population — no row quotes a marker today —
+    and kept because the Notes cell of the Testing row is 29,810
+    characters of prose about this module's own conventions, which is the
+    likeliest place in the repository for one to be quoted.
+    """
+    lines = region.splitlines()
+    start = next(
+        (i for i, line in enumerate(lines) if line.strip().startswith(QUICK_STATUS_HEADING)),
+        None,
+    )
+    if start is None:
+        return []
+    rows = [line for line in lines[start:] if line.startswith("|")]
+    parsed = []
+    # The first two are the header and its rule; a table without them is
+    # not a table, so an unexpectedly short run yields no rows rather than
+    # a header read as data.
+    for line in rows[2:]:
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        named = {
+            match.group(1)
+            for match in MARKER_RE.finditer(CODE_SPAN_RE.sub(_blank, line))
+        }
+        parsed.append(
+            StatusRow(
+                cells[0],
+                tuple(status_figures(cells[1])),
+                frozenset(named & set(CLAIM_PATTERNS)),
+            )
+        )
+    return parsed
+
+
+def status_figures(cell: str) -> list[str]:
+    """Every bolded figure a Status cell states.
+
+    **A bold span whose content opens with a digit run**, which is
+    :data:`CLAIM_PATTERNS`' own anchor read as a *shape* rather than as a
+    named figure — that docstring's "the bold is load-bearing: it is what
+    separates the current number from the history the same sentence
+    carries", applied where there is no pattern to carry it.
+
+    Spans are matched rather than "``**`` followed by a digit", which
+    agrees with the corpus at every one of its **97** observations across
+    239 revisions and cannot mistake a span's *closing* fence for an
+    opening one.  The leading figure alone is taken because one span is
+    one statement: the live historical ``**3011 green, 6 red**`` states a
+    suite count qualified by a failure count, not two claims, and
+    ``**2730 of 2732 green — … `SNAG-PORT-001` …**`` would otherwise
+    yield the snag's own number as a third.
+
+    What this deliberately does not see is a figure with no emphasis, and
+    the Status column has held one for the life of the project: ``🟢
+    Phase 3 Complete``, since 2026-03-23.  Excluding it is the point
+    rather than a gap — "Phase 3" is a *name* and the emphasis is already
+    the convention that separates a measurement from one, which is
+    :func:`sysadmin.monitor.health_review`'s argument for not putting a
+    service name through a digit gate.  So rule 11 is total over *bolded*
+    Status figures and says so, and the hole it leaves is the one every
+    pattern here already has rather than a new one.
+    """
+    return [
+        leading.group(1)
+        for span in BOLD_SPAN_RE.finditer(cell)
+        if (leading := LEADING_FIGURE_RE.match(span.group(1)))
+    ]
 
 
 @dataclass(frozen=True)
@@ -619,7 +829,7 @@ def _unmarked(veiled: str) -> str:
     Found by writing the fixture in the style the new note recommends and
     watching two predictions come back sharing one sentence.
     """
-    return MARKER_RE.sub(lambda match: " " * len(match.group(0)), veiled)
+    return MARKER_RE.sub(_blank, veiled)
 
 
 def _sentence_at(prose: str, ends: list[int], anchor: int) -> str:
@@ -664,7 +874,7 @@ def _veiled(prose: str) -> str:
     10 applies it to a full stop, which is what lets ``sysadmin.service``
     sit inside a sentence without ending it.
     """
-    return CODE_SPAN_RE.sub(lambda match: " " * len(match.group(0)), prose)
+    return CODE_SPAN_RE.sub(_blank, prose)
 
 
 def claim_sentence(region: str, key: str) -> tuple[str | None, str]:
@@ -1542,9 +1752,11 @@ def check_open_titles(region: str, region_problem: str, facts: DatabaseFacts) ->
     Deleting the marker therefore turns a ``mismatch`` into an ``unknown``
     that names the remedy, never into a ``match``: rule 2's tri-state doing
     the job an on/off switch could not.  This is the only enforcement
-    ``open_titles`` has, since it carries no pattern and
-    :func:`check_markers`' *unclaimed figure* finding runs over
-    :data:`CLAIM_PATTERNS` alone.
+    ``open_titles`` has, since it carries no pattern and neither of
+    :func:`check_markers`' *unclaimed figure* findings can reach it: the
+    first enumerates :data:`CLAIM_PATTERNS`, which it is not in, and rule
+    11's reads the Quick Status Status column, which states no membership
+    claim.
     """
     if facts.open_titles is None or facts.unresolved is None:
         return Claim(
@@ -1642,6 +1854,19 @@ def check_markers(region: str, markers: list[Marker]) -> list[Claim]:
         )
         for key in sorted(CLAIM_PATTERNS)
         if key not in named and read_claim(region, key)[0] is not None
+    )
+    findings.extend(
+        _convention(
+            f"unclaimed:{row.area}",
+            f"Unclaimed figure in the {row.area} row",
+            f"the Quick Status {row.area} row states "
+            f"{', '.join(f'**{figure}**' for figure in row.figures)} and names no check "
+            "that reads a figure — give it a pattern in CLAIM_PATTERNS and a check, then "
+            "<!--check:…--> on the row; drop the emphasis instead if it is a name rather "
+            "than a measurement",
+        )
+        for row in quick_status_rows(region)
+        if row.figures and not row.checks
     )
     return findings
 

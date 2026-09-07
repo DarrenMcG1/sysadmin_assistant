@@ -4,7 +4,97 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-06
+> **Last Updated**: 2026-09-07
+
+---
+
+## Session 192: the Status column is total ✅ (2026-09-07)
+
+_Session 191's next action asked whether `check_markers`' `unclaimed`
+finding should become total over the Quick Status table rather than over
+`CLAIM_PATTERNS`, named three candidate definitions of "what counts as a
+figure", and said the measurement had to come first._
+
+- [x] **Two of the handoff's three premises were refuted by the
+      measurement, and the first changes what the decision was about.**
+      It framed the choice as "total over the table **rather than** over
+      `CLAIM_PATTERNS`". Driven at the live document with each marker
+      deleted in turn: rule 7's finding fires for all four claims —
+      `routes`, `tables`, `migration_head`, `tests` — and a Status-column
+      rule fires for `tests` alone. Replacement loses three quarters of
+      the enforcement, so the only available shape is **additive**.
+- [x] **The handoff's parenthetical for its own recommended candidate is
+      false.** It described the Status column as "where every current
+      claim's headline figure lives". One of the four lives there: the
+      suite count. `routes` (**51**), `tables` (**13**) and
+      `migration_head` (**018**) are all in the **Notes** column, which
+      is why the marker and the figure it claims need not share a cell —
+      rule 7 makes a marker a name with no location, and the live `tests`
+      marker is in Notes while its figure is in Status.
+- [x] **The naive rule was refused by measurement.** The table's 12 rows
+      hold **20** bolded integers: **1** in Status, **19** in Notes, and
+      **15** of the nineteen are history prose (`**26 written**`,
+      `**7**` times, `**75.4 s**`), because rule 1's "the whole file
+      restates old figures on purpose" is true of that column too.
+- [x] **The corpus could not separate the two honest candidates, so the
+      discriminator is granularity rather than accuracy.** Over all
+      **239** revisions of STATUS.md, "the first bolded integer of each
+      row" has **488** observations against the Status-column rule's
+      **97**, both with zero false positives, and across **263**
+      marked-row observations the row rule never once disagreed with what
+      that row's pattern reads. It is refused by the **live Database
+      row**: two figures, two markers, so a row-keyed rule lets one
+      marker exempt the other — figure-granular enforcement replaced by
+      row-granular, in the silent direction. The per-row exemption list
+      was refused for the handoff's own reason, `SNAG-CFG-001`'s shape.
+- [x] **Owner ruled for the Status-column rule, additive.** Shipped as
+      rule 11 with `quick_status_rows` and `status_figures`, keyed
+      `unclaimed:{area}` so one `unclaimed:` sweep still finds both
+      families; a test pins the areas and the pattern keys disjoint, so
+      two findings can never merge on one key.
+- [x] **This is the one reader here that may depend on line structure,
+      and the exception is argued rather than taken.** Rule 1 matches
+      patterns against `flatten`ed prose because a paragraph reflow must
+      not be able to retire a claim; that argument is exactly as strong
+      as the claim that the thing being read can be reflowed, and a
+      markdown table row cannot be — it stops being a table for the
+      reader long before it stops being one for this module.
+- [x] **Two claims the code makes are testable rather than asserted.**
+      The reader takes a bold **span** rather than a `**` followed by a
+      digit — the same 97 observations across the corpus, and it cannot
+      mistake a closing fence for an opening one, pinned on
+      `**green**3807` where the digits are not bold at all. One span is
+      one statement, so the live historical `🟡 **3011 green, 6 red**` is
+      one figure; and `🟢 Phase 3 Complete` — unbolded in the table since
+      2026-03-23 — is excluded because the emphasis is already the
+      convention separating a measurement from a name.
+- [x] **The two families now disagree about a figure's spelling, and the
+      direction is what makes it acceptable.** `status_figures` admits a
+      thousands separator and every pattern in `CLAIM_PATTERNS` is
+      `\d+`, so `**3,807 collected**` parts them. Driven rather than
+      reasoned: rule 11 still sees the figure, so an **unmarked**
+      separator figure is still reported, and rule 7's claim goes
+      `unknown` — "the block states no figure matching …" — which is rule
+      2 doing its job. Both fail loud, so a reformatting cannot retire
+      either; narrowing the reader to `\d+` makes the marked case silent
+      in both, which is the mutation the test is falsified against.
+- [x] **`_blank` was lifted out of two lambdas** that spelled the same
+      length-preserving veil, now three callers. Not cosmetic: breaking
+      it reddens **20** tests across the sentence-locating machinery,
+      which is what says the primitive is genuinely shared.
+- [x] **Twelve mutations driven, twelve killed — one only after the
+      stand-in was repaired.** "Keyed on the fence, not the span" was first
+      written as a greedy `\*\*(.*)`, which agrees with the real reader
+      on every input and therefore modelled nothing; re-driven as the
+      actual crude regex it lands red on the right test. Tests **3807 →
+      3819** (12 added, none retired), suite green in 84 s.
+- [x] **`SNAG-DOCS-010` filed rather than absorbed**: the Notes column
+      cannot be made total, so a current figure written there with no
+      pattern is invisible to every rule this module can hold. Empty
+      population today — all four current Notes figures carry a pattern
+      — and it is not `SNAG-ESTATE-012`, which is about prose sentences;
+      here what cannot be decided mechanically is not whether the thing
+      is a figure but whether it is a **current** one.
 
 ---
 

@@ -1,6 +1,85 @@
-# Handoff — 2026-09-06 (Session 191)
+# Handoff — 2026-09-07 (Session 192)
 
 ## Next action
+
+Decide whether the totality rule rule 11 just gave the Quick Status Status column should also reach `snag_list.md`, and the measurement that has to come first is whether a snag entry's bolded figures are standing claims about the box at all or dated observations that were true when written, because the Quick Status table is a dashboard whose figures are current by construction while an entry's read "measured 2026-09-07" and re-measuring one is not enforcement but noise — so the honest test is to take every bolded integer across the 27 open entries, classify each as a quantity the box could still be asked for today against one that names a past observation, and refuse the rule outright if the second class dominates the way the Notes column's 15-in-19 refused it here.
+
+_**The Status column is total now, and the handoff's own axis was the
+wrong one.**_ _Rule 7's `unclaimed` finding enumerates `CLAIM_PATTERNS`,
+so it reports a figure some pattern already reads and is structurally
+blind to a figure with none — the blindness that let the suite count sit
+unclaimed in the Quick Status Status cell for eleven sittings. Rule 11
+makes that column total: a bolded figure there must be claimed by a
+pattern-bearing check named on its row._
+
+**The handoff asked for "rather than `CLAIM_PATTERNS`" and replacement
+loses three quarters of the enforcement.** Driven at the live document
+with each marker deleted in turn, rule 7 fires for all four claims —
+`routes`, `tables`, `migration_head`, `tests` — and the new rule fires
+for `tests` alone. Its parenthetical that the Status column is "where
+every current claim's headline figure lives" is **false**: three of the
+four figures are in the **Notes** column. So the rule is additive, and
+both findings share the `unclaimed:` prefix so one sweep finds either.
+
+**The naive rule was refused by measurement and the alternative by one
+live row.** The table's 12 rows hold **20** bolded integers — 1 in
+Status, 19 in Notes, **15** of those history prose, because rule 1's
+"the whole file restates old figures on purpose" is true of that column
+too. Against the row-granular candidate the corpus said nothing: over
+**239** revisions it has 488 observations to this rule's 97, zero false
+positives either way, and no disagreement across **263** marked-row
+observations. What refuses it is the **Database** row — two figures, two
+markers — so a row-keyed rule lets one marker exempt the other, trading
+figure-granular enforcement for row-granular in the silent direction.
+
+**The forward population is one cell and the rule says so.** In 239
+revisions the Status column has carried a bolded figure in exactly one
+row. It is kept for `FROZEN_TABLES`' reason: the class has one member,
+the member is fixed, and deleting a guard with its last finding takes
+the guard against the defect returning.
+
+**This is the one reader here that depends on line structure**, and the
+exception is argued rather than taken: rule 1 matches `flatten`ed prose
+because a reflow must not retire a claim, and that argument is exactly
+as strong as the claim that the thing read can be reflowed — a markdown
+table row cannot be.
+
+**Two claims the code makes are testable rather than asserted.** It
+takes a bold *span* rather than a `**` followed by a digit — the same 97
+observations, and it cannot mistake a closing fence for an opening one,
+pinned on `**green**3807` where the digits are not bold at all. And one
+span is one statement, so the live historical `🟡 **3011 green, 6 red**`
+is one figure. `🟢 Phase 3 Complete` is excluded on purpose: the
+emphasis is already the convention separating a measurement from a name.
+
+**The two families now disagree about a figure's spelling and both fail
+loud.** `status_figures` admits `3,807` and every pattern is `\d+`, so a
+reformatted cell parts them — rule 11 still reports an unmarked one and
+rule 7's claim goes `unknown`, which is rule 2 doing its job. Narrowing
+the reader to `\d+` makes the marked case silent in *both*, which is the
+mutation that test is falsified against.
+
+**Twelve mutations driven and twelve killed — one only after the
+stand-in was repaired.** "Keyed on the fence, not the span" was first
+written as a greedy `\*\*(.*)`, which agrees with the real reader on
+every input and so modelled nothing. `_blank` was lifted out of two
+lambdas spelling the same length-preserving veil; breaking it reddens
+**20** tests across the sentence-locating machinery, which is what says
+the primitive is genuinely shared. Tests **3807 → 3819**, suite green in
+84 s, open entries **26 → 27**.
+
+`SNAG-DOCS-010` is the residue, filed rather than absorbed: the Notes
+column cannot be made total, so a current figure written there with no
+pattern is invisible to every rule this module can hold. Empty
+population today — all four current Notes figures carry a pattern — and
+it is **not** `SNAG-ESTATE-012`, which is about prose sentences; here
+what cannot be decided mechanically is not whether the thing is a figure
+but whether it is a **current** one, which is a property of the column
+rather than of the syntax.
+
+# Handoff — 2026-09-06 (Session 191)
+
+### The action Session 191 filed (done by Session 192)
 
 Decide whether `check_markers`' `unclaimed` finding should become total over the Quick Status table rather than over `CLAIM_PATTERNS`, because today it can only report a figure some pattern already knows how to read, which is why the suite figure was invisible for eleven sittings despite sitting inside the parsed region, and the measurement that has to come first refutes the cheap version of the rule: the table is **12 rows of which 3 carry a marker and 9 do not**, and a naive "every bold integer must be claimed or exempted" rule has a population of **20** matches, most of them prose emphasis inside the Notes column rather than claims about the box — `**26 written**`, `**7**` times, `**75.4 s**` — so the work is defining what counts as a figure before writing the rule, and the three honest candidates are the Status column alone (where every current claim's headline figure lives and where the population is small enough to enumerate), the first bold integer of each row, or an explicit per-row exemption list, of which the last is the one to refuse because a hand-maintained list of things deliberately unchecked is `SNAG-CFG-001`'s shape and would grow a second registry beside the one this module already derives.
 
