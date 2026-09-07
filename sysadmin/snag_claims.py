@@ -378,9 +378,25 @@ def open_sections(document: str) -> list[list[str]]:
 def read_entries(document: str) -> list[Entry]:
     """Every entry under an open heading, with its body and its markers.
 
-    A top-level ``- `` bullet opens an entry and everything indented
-    beneath it is that entry's body, which is this document's dialect and
-    the one ``read_snags`` calls ``bullet``.
+    A top-level ``- `` bullet opens an entry and everything beneath it is
+    that entry's body until the next one, which is this document's dialect
+    and the one ``read_snags`` calls ``bullet``.
+
+    **"Everything beneath it" is not "everything indented beneath it",
+    and the difference has a live population** (measured 2026-09-07,
+    Session 194).  ``snag_list.md`` carries a *headless* region of
+    unindented italic paragraphs — the per-sitting movement log
+    :func:`check_movement` derives its figure for — between the open
+    entries and the closed ones, and every line of it is appended to the
+    body of whichever entry precedes it.  No shipped consumer minds: the
+    dispositions and the markers are found by pattern, and the region
+    carries neither.  A consumer that reads the body as a *population*
+    does mind, and one did — a sweep of the register's bolded figures
+    read 166 where the entries hold **108**, folding **58** into
+    ``SNAG-SYSD-008`` and making it appear to carry 83 figures against a
+    true 25.  Stated here rather than narrowed, because narrowing the
+    body to indented lines would change what every existing consumer
+    sees for a defect none of them has.
     """
     entries: list[Entry] = []
     for lines in open_sections(document):
