@@ -8,6 +8,85 @@
 
 ---
 
+## Session 194: the narrow rule refused, and a third of the corpus was not an entry ✅ (2026-09-07)
+
+_Session 193's next action asked whether the narrow rule surviving its
+refusal is worth building — that an open entry carrying a standing figure
+should have its check actually **read** that figure rather than only
+assert the condition obtains — named the measurement that had to come
+first, and set the trigger: refuse if most standing figures sit in
+entries whose check answers a different question._
+
+- [x] **Refused, on the trigger the handoff set.** Across the **25**
+      checked entries there are **31** standing figures and the covering
+      check re-measures **7** of them — two in `SNAG-UNITS-003` (4 health
+      paths correct, 7 wrong) and one each in `SNAG-AGENT-013`,
+      `SNAG-LOG-014`, `SNAG-CFG-003`, `SNAG-ESTATE-006` and
+      `SNAG-TEST-011`. **24 of 31** sit in entries whose check answers a
+      different question, and the verdict holds under either hand: a
+      generous classification gives **27 of 40**. Building it means
+      writing 24 new measurements whose only consumer is a document's
+      prose, most of them derivations from config or corpus-wide counts
+      that say nothing about whether the defect still obtains
+- [x] **The denominator Session 193 published was wrong, and the reader
+      is why.** `read_entries` ends an entry at the next top-level `- `
+      bullet and `snag_list.md` carries a **headless** region of
+      unindented italic paragraphs — the per-sitting movement log
+      `check_movement` derives its figure for — between the open entries
+      and the closed ones, so every bolded figure in it is folded into
+      whichever entry precedes it. `SNAG-SYSD-008` appeared to carry
+      **83** figures and carries **25**. **58** of the 166 — **35 %** —
+      are in no entry at all, so the entry population is **108**
+- [x] **The split cannot be rescaled, which is the finding underneath
+      it.** The 28 and the 138 were recorded as totals and never as
+      members, so the hand judgement cannot be re-run — `SNAG-ESTATE-012`'s
+      own point turned on the measurement that cites it. Re-taken by a
+      second hand the 108 read **32** standing against **76** dated, and
+      the type-error class is **14** of 108 rather than 32 of 166, the
+      mechanical count agreeing with Session 193's hand count of 17 and
+      15 over the contaminated corpus
+- [x] **The refusal survives the correction and one of its three
+      arguments does not.** Dated still dominates at **70.4 %**, which is
+      *below* the 15-in-19 (**78.9 %**) bar — so the ratio no longer
+      clears the trigger it was offered against, which is exactly why
+      Session 193 declined to rest on it. The two arguments carrying no
+      judgement are untouched
+- [x] **One live pair existed and its remedy was one word.**
+      `SNAG-TEST-011` stated `**22 of 25**` in the present tense while
+      `check_disposition_correction_unpublishable` prints the live
+      figure — **24 of 27** that day — in the detail
+      `claude-preflight.sh` renders at the start of every sitting. The
+      instant was attributed rather than a guard built. The three further
+      pairs a generous hand adds each say *"live on the day it shipped"*
+      in their own sentence
+- [x] **And it is the one rule here no guard could enforce.** Rule 11 is
+      *syntactic* — a bolded Status-column figure must be named by a
+      marker on its row — so a reader decides it. Whether a check's
+      detail re-measures the quantity an entry states is *semantic*:
+      driven as a number match over the 25 checks it errs in both
+      directions at once, missing `SNAG-ESTATE-006` (the check lists 11
+      key names and never prints `11`) and inventing hits wherever a `0`,
+      `1` or `3` coincides
+- [x] **The members are recorded, because not recording them is the
+      defect this sitting found.** Standing figures per checked entry,
+      with the count its own check re-measures in brackets:
+      `SNAG-SYSD-008` 8 [0], `SNAG-CFG-003` 4 [1], `SNAG-ESTATE-009`
+      4 [0], `SNAG-LOG-017` 3 [0], `SNAG-TEST-011` 2 [1], `SNAG-LOG-014`
+      2 [1], `SNAG-TRAY-011` 2 [0], `SNAG-UNITS-003` 2 [2],
+      `SNAG-SYSD-009` 1 [0], `SNAG-AGENT-013` 1 [1], `SNAG-SVC-002`
+      1 [0], `SNAG-ESTATE-006` 1 [1]; and nil standing in
+      `SNAG-TEST-010`, `SNAG-LOG-018`, `SNAG-AGENT-012`, `SNAG-LOG-012`,
+      `SNAG-ESTATE-002`, `SNAG-SYSD-007` and the seven entries carrying
+      no bolded figure at all. **31** and **7**, re-runnable to within
+      one entry by a later hand that disagrees about a sentence
+- [x] **No entry filed and no guard shipped**, each refusal argued.
+      Declining to widen a rule is a decision, not a defect left
+      unfixed; the corrections are the work — `quick_status_rows`'
+      docstring, `SNAG-DOCS-010`'s body and `SNAG-TEST-011`'s tense.
+      All 12 ops claims green either side of the STATUS.md edit
+
+---
+
 ## Session 193: rule 11 stops at the table — the register refuses it ✅ (2026-09-07)
 
 _Session 192's next action asked whether the totality rule rule 11 gave

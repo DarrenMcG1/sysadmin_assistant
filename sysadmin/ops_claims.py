@@ -656,7 +656,9 @@ def quick_status_rows(region: str) -> list[StatusRow]:
     :func:`sysadmin.snag_claims.read_entries`, the 27 open entries hold
     **166** bolded figures, of which **28** are quantities the box could
     still be asked for today and **138** name a past observation —
-    83.1 %, against the 15 in 19 that refused the Notes column.  The generous
+    83.1 %, against the 15 in 19 that refused the Notes column.
+    *Corrected 2026-09-07 by Session 194: the denominator is wrong and
+    the reader is why — see the correction below.*  The generous
     reading, *"is any procedure runnable today that yields a comparable
     number"*, clears only **85**, and askable is not enforcement: three
     of those were re-asked and every one had moved with no entry wrong
@@ -695,11 +697,83 @@ def quick_status_rows(region: str) -> list[StatusRow]:
     that are not stale, which is ``SNAG-UNITS-002``'s fifteen-rows shape
     in a document rather than in an alert family.
 
-    Two things this deliberately does **not** conclude.  The 28 standing
+    **The denominator was wrong and the reader is why** (2026-09-07,
+    Session 194).  :func:`sysadmin.snag_claims.read_entries` ends an
+    entry at the next top-level ``- `` bullet, and ``snag_list.md``
+    carries a **headless** region of unindented italic paragraphs — the
+    per-sitting movement log :func:`sysadmin.snag_claims.check_movement`
+    derives its figure for — sitting between the open entries and the
+    closed ones under no heading of its own.  Every one of its bolded
+    figures is folded into whichever entry precedes it, which is why
+    ``SNAG-SYSD-008`` appeared to carry 83 and carries **25**.  **58 of
+    the 166 — 35 % — are in no entry at all**, so the entry population
+    is **108**.  The split cannot be rescaled from the numbers above,
+    because the 28 and the 138 were recorded as totals and never as
+    members: a hand judgement whose members are not written down cannot
+    be re-run, which is ``SNAG-ESTATE-012``'s own point turned on the
+    measurement that cites it.  Re-taken by a second hand the 108 read
+    **32** standing against **76** dated, and the type-error class is
+    **14** of 108 rather than 32 of 166 — 9 instants or dates and 5
+    movement halves, counted mechanically and agreeing with Session
+    193's hand count of 17 and 15 on the contaminated corpus.
+
+    **The refusal survives the correction and one of its three arguments
+    does not.**  Dated still dominates at 70.4 %, but that is *below* the
+    15-in-19 (78.9 %) bar the handoff set, so the ratio no longer clears
+    the trigger it was offered against — which is exactly why Session 193
+    declined to rest on it.  The two arguments that carry no judgement
+    are untouched: the register is already total on the entry axis
+    through :func:`sysadmin.snag_claims.check_convention`, and the
+    Status column still has no member of either non-count class.
+
+    **The narrow rule that survived was measured and is refused too.**
+    It asked that an entry carrying a standing figure have its own check
+    *read* that figure rather than only assert the condition obtains.
+    Across the 25 checked entries there are **31** standing figures and
+    the covering check re-measures **7** of them: two in
+    ``SNAG-UNITS-003`` (4 health paths correct, 7 wrong), and one each in
+    ``SNAG-AGENT-013`` (0 of 31 services setting ``auto_restart``),
+    ``SNAG-LOG-014`` (2 duplicate pairs), ``SNAG-CFG-003`` (the shipped
+    7-hour sum), ``SNAG-ESTATE-006`` (11 keys per finding) and
+    ``SNAG-TEST-011``.  **24 of 31 sit in entries whose check answers a
+    different question**, which is the handoff's own refusal trigger met
+    with margin — and met under either hand, since a generous reading
+    gives 27 of 40.  Building it means writing 24 new measurements whose
+    only consumer is a document's prose, most of them derivations from
+    config (``7 h worst case``, ``3.4×``) or corpus-wide counts (317,180
+    files, 84,265 rows) that say nothing about whether the defect still
+    obtains.
+
+    **Six of the seven agree, and the seventh's remedy was one word.**
+    ``SNAG-TEST-011`` states ``22 of 25`` in the present tense while
+    ``check_disposition_correction_unpublishable`` prints ``24 of 27`` in
+    the detail ``claude-preflight.sh`` renders at the start of every
+    sitting.  That is the only live pair — the drift a rule would have
+    to catch — and it is a sentence that reads standing while meaning
+    *at that commit*, so it was fixed by attributing the instant rather
+    than by a guard.  The three further pairs a generous hand would add
+    (``SNAG-AGENT-012``'s 135 against a live 269, ``SNAG-AGENT-013``'s 4
+    against 8, ``SNAG-SYSD-008``'s ``memory.current``) all say *"live on
+    the day it shipped"* in their own sentence, so they are dated by
+    construction and the check publishes the current value beside them.
+
+    **And it is the one rule here that no guard could enforce**, which
+    is what finally separates it from rule 11.  That rule is syntactic —
+    a bolded figure in a Status cell must be named by a marker on its own
+    row — so a reader can decide it.  Whether a check's detail
+    *re-measures the quantity an entry states* is semantic: driven as a
+    number match over the 25 checks it reports both directions wrong,
+    missing ``SNAG-ESTATE-006`` (the check lists 11 key names and never
+    prints ``11``) and inventing hits wherever a ``0``, ``1`` or ``3``
+    coincides.  A rule whose population only a human can enumerate is a
+    convention, and this repository already has the convention.
+
+    Two things this deliberately does **not** conclude.  The standing
     figures are real — ``0 of 31`` services still set ``auto_restart``,
     re-asked — so the refusal is of the *totality* rule, never of the
     claim that a snag figure can be checked, which is what the 25
-    registered checks already do.  And ``SNAG-DOCS-010`` is the residue
+    registered checks already do, and what 7 of them do to the number
+    the entry itself states.  And ``SNAG-DOCS-010`` is the residue
     for the Notes column only; nothing here is filed, because declining
     to widen a rule is a decision rather than a defect left unfixed.
     """

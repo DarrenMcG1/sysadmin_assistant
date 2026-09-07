@@ -3,6 +3,51 @@
 **Last Updated**: 2026-09-07
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The narrow rule is refused too, and the corpus it was measured over
+> was a third not-an-entry** (2026-09-07, Session 194). The handoff asked
+> whether an open entry carrying a standing figure should have its check
+> actually *read* that figure, and set the trigger: refuse if most such
+> figures sit in entries whose check answers a different question. Across
+> the **25** checked entries there are **31** standing figures and the
+> covering check re-measures **7** of them. **24 of 31** answer a
+> different question — the trigger met, and met under either hand, since
+> a generous classification gives 27 of 40. Building it means writing 24
+> new measurements whose only consumer is a document's prose.
+>
+> **The denominator Session 193 published was wrong and the reader is
+> why.** `read_entries` ends an entry at the next top-level bullet, and
+> `snag_list.md` carries a headless region of unindented paragraphs — the
+> per-sitting movement log — between the open entries and the closed
+> ones, so every bolded figure in it is folded into whichever entry
+> precedes it. `SNAG-SYSD-008` appeared to carry **83** figures and
+> carries **25**. **58** of the 166 — **35 %** — are in no entry at all,
+> so the entry population is **108**. The 28-against-138 split cannot be
+> rescaled, because it was recorded as a total and never as members: a
+> hand judgement whose members are not written down cannot be re-run,
+> which is `SNAG-ESTATE-012`'s own point turned on the measurement that
+> cites it.
+>
+> **The refusal survives and one of its three arguments does not.** Dated
+> still dominates at **70.4 %**, which is *below* the 15-in-19 bar the
+> handoff set — so the ratio no longer clears the trigger it was offered
+> against, which is exactly why Session 193 declined to rest on it. The
+> two arguments carrying no judgement are untouched.
+>
+> **One live pair existed and its remedy was one word.** `SNAG-TEST-011`
+> stated a standing exposure in the present tense while its own check
+> prints the live figure in the detail `claude-preflight.sh` renders at
+> the start of every sitting. It is a sentence reading standing while
+> meaning *at that commit*, so the instant was attributed rather than a
+> guard built. Three further pairs a generous hand adds all say *"live on
+> the day it shipped"* in their own sentence.
+>
+> **And it is the one rule here no guard could enforce**, which finally
+> separates it from rule 11. That rule is syntactic and a reader can
+> decide it; whether a check re-measures the quantity an entry states is
+> semantic, and driven as a number match over the 25 checks it errs in
+> both directions at once. No entry filed, no code beyond three
+> docstring and prose corrections, tests unmoved.
+
 > **Rule 11 stops at the Quick Status table, and the register refuses it
 > harder than the Notes column did** (2026-09-07, Session 193). The
 > handoff asked whether the totality rule should also reach

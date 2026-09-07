@@ -1,6 +1,96 @@
-# Handoff — 2026-09-07 (Session 193)
+# Handoff — 2026-09-07 (Session 194)
 
 ## Next action
+
+Decide whether `snag_list.md`'s headless movement-log region should be retired behind a pointer or given a reader, and the measurement that has to come first is what it costs against what it is worth — it holds **58** bolded figures that `read_entries` folds into whichever entry precedes it, which is what corrupted this sitting's own corpus by 35 %, its newest paragraph is Session 170's with 23 sittings and six newly-opened entries since, and `check_movement` already derives and prints at every run the counts those paragraphs used to state — so the honest test is whether any sentence across the 63 paragraphs states something no check derives, retiring the region behind a pointer if none does and wiring a reader only if some do.
+
+_**Refused, on the trigger the handoff set.**_ _The question was whether
+an open entry carrying a standing figure should have its check actually
+**read** that figure rather than only assert the condition obtains.
+Across the **25** checked entries there are **31** standing figures and
+the covering check re-measures **7** of them — two in `SNAG-UNITS-003`
+(4 health paths correct, 7 wrong) and one each in `SNAG-AGENT-013`
+(0 of 31 services setting `auto_restart`), `SNAG-LOG-014` (2 duplicate
+pairs), `SNAG-CFG-003` (the shipped 7-hour sum), `SNAG-ESTATE-006` (11
+keys per finding) and `SNAG-TEST-011`. **24 of 31** sit in entries whose
+check answers a different question, and the verdict holds under either
+hand: a generous classification gives **27 of 40**._
+
+**Building it means writing 24 new measurements whose only consumer is a
+document's prose.** Most are derivations from config — `SNAG-ESTATE-009`'s
+`7 h worst case` and `3.4×` margin — or corpus-wide counts like
+`SNAG-SYSD-008`'s 317,180 files and 84,265 rows, none of which says
+anything about whether the defect still obtains. That is
+`SNAG-UNITS-002`'s fifteen-rows shape in a document.
+
+**The denominator Session 193 published was wrong, and the reader is
+why.** `read_entries` ends an entry at the next top-level `- ` bullet,
+and this register carries a **headless** region of unindented italic
+paragraphs — the per-sitting movement log — between the open entries and
+the closed ones, so every bolded figure in it is folded into whichever
+entry precedes it. `SNAG-SYSD-008` appeared to carry **83** figures and
+carries **25**. **58** of the 166 — **35 %** — are in no entry at all,
+so the entry population is **108**. The 166 was reproduced exactly at
+`300daa1` before the correction, so this is a correction to a published
+figure and not a disagreement about the reader.
+
+**The split cannot be rescaled, which is the finding underneath it.**
+The 28 and the 138 were recorded as totals and never as members, so the
+hand judgement cannot be re-run — `SNAG-ESTATE-012`'s own point turned on
+the measurement that cites it. Re-taken by a second hand the 108 read
+**32** standing against **76** dated, and the type-error class is **14**
+of 108 rather than 32 of 166; the mechanical count agrees with Session
+193's hand count of 17 instants-or-dates and 15 movement halves over the
+contaminated corpus, which is what says the two hands differ on the
+standing/dated line and not on the arithmetic.
+
+**The refusal survives the correction and one of its three arguments does
+not.** Dated still dominates at **70.4 %**, which is *below* the 15-in-19
+(**78.9 %**) bar the handoff set — so the ratio no longer clears the
+trigger it was offered against, which is exactly why Session 193 declined
+to rest on it. The two arguments carrying no judgement are untouched: the
+register is already total on the entry axis through `check_convention`,
+and the Status column still has no member of either non-count class.
+
+**One live pair existed and its remedy was one word.** `SNAG-TEST-011`
+stated `22 of 25` in the present tense while
+`check_disposition_correction_unpublishable` prints the live figure —
+**24 of 27** that day — in the detail `claude-preflight.sh` renders at
+the start of every sitting. It is a sentence reading standing while
+meaning *at that commit*, so the instant was attributed rather than a
+guard built, and the sole member of the population went with it. The
+three further pairs a generous hand adds — `SNAG-AGENT-012`'s 135 against
+a live 269, `SNAG-AGENT-013`'s 4 against 8, `SNAG-SYSD-008`'s
+`memory.current` — each say *"live on the day it shipped"* in their own
+sentence, so they are dated by construction and the check already
+publishes the current value beside them.
+
+**And it is the one rule here no guard could enforce**, which is what
+finally separates it from rule 11. That rule is *syntactic* — a bolded
+figure in a Status cell must be named by a marker on its own row — so a
+reader can decide it. Whether a check's detail re-measures the quantity
+an entry states is *semantic*: driven as a number match over the 25
+checks it errs in both directions at once, missing `SNAG-ESTATE-006`
+(the check lists 11 key names and never prints `11`) and inventing hits
+wherever a `0`, `1` or `3` coincides. A rule whose population only a
+human can enumerate is a convention, and this repository already has it.
+
+**No entry filed and no guard shipped, and each refusal is argued.**
+Declining to widen a rule is a decision rather than a defect left
+unfixed, so nothing is filed; a guard pinning "this rule was not widened"
+answers the same way for ever, which is `check_review_schedule_unread`'s
+recorded defect. What shipped is corrections: `quick_status_rows`'
+docstring, `SNAG-DOCS-010`'s body, `SNAG-TEST-011`'s tense, and blocks in
+`STATUS.md` and `tasks.md`. All 12 ops claims are green either side of
+the STATUS.md edit and the daemon is owed no restart — `ops_claims.py`
+is outside its import graph, which Session 190's narrowing reports by
+name.
+
+---
+
+# Handoff — 2026-09-07 (Session 193)
+
+### The action Session 193 filed (done by Session 194)
 
 Decide whether the narrow rule that survives this sitting's refusal is worth building — that an open entry carrying a standing figure should have its check actually *read* that figure rather than only assert the condition still obtains — and the measurement that has to come first is to take the 28 standing figures classified here, find which of the 25 registered checks covers each one's entry, and report how many of those checks re-measure the number their entry states, refusing the rule if most standing figures sit in entries whose check answers a different question, because a check that reports `still holds` while its entry's own figure has drifted is exactly the invisibility rule 11 was written to remove, and a rule that cannot name one such pair today is a guard with no population.
 
