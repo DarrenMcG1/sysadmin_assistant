@@ -61,6 +61,22 @@ already taken._
       `sysadmin-check-snags` reports the register *unmoved since
       `e3a86cc`*. What corrects is `SNAG-DB-003`'s body, **23 lines → 14**,
       and the bolded spans folded into any entry, **1 → 0**
+- [x] **Filed with the estate at the owner's direction, and the first draft
+      was wrong** — message `d409a9e8`, `needs_ruling: true`.
+      `~/.claude/projects/*/memory/MEMORY.md` is **14** auto-loaded,
+      git-untracked per-repo indexes nobody has measured; **two** have
+      breached the 24.4 KB limit across **seven** sessions (this repository
+      since 2026-09-05, still over at 25,638 bytes; Alfred 2026-09-06
+      20:35Z → silently repaired to 13,464 bytes at 2026-09-07 06:48Z, with
+      nothing recording it). A sweep of current sizes sees **one**, because
+      Alfred's reads 55 % of budget today — only the transcript store
+      witnesses a breach that was repaired, which is estate ADR-0119's own
+      compensating control used on a second document family. The unit is
+      already characters, so this is not Alfred's `51ba8a21` again; the
+      failure mode is that truncation takes the **tail** while the index
+      **appends**, so the newest entries go first — **6 of 109** invisible
+      here, including the one written this sitting. This repository's index
+      is left over budget on purpose while the ruling is outstanding
 - [x] **One claim in the handoff line was wrong and is corrected in
       passing**: it said `read_snags` returns *zero* rows mentioning the
       region. It returns **one** — the closed `SNAG-DB-003` row, whose
