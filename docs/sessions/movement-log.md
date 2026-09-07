@@ -271,7 +271,7 @@ cannot see a session in a repository that never dates its handoff.
 audible and found that the obvious knob is not the one; the fix turned out to
 be a whole dead notification path rather than a stale key. The twelve
 `SNAG-PROJ-*` entries from the 2026-08-07 project-organiser capability audit
-were **all cleared by [Session 34](tasks.md) on 2026-08-10** and are archived
+were **all cleared by [Session 34](../roadmap/tasks.md) on 2026-08-10** and are archived
 below with their fix dates. `SNAG-ROADMAP-003` — found 2026-08-08 while writing
 the `.project.yaml` manifests — was **fixed on 2026-08-10 (Session 37)** along
 with the SessionEnd hook that had been generating the stubs it preferred. The

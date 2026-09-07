@@ -74,6 +74,17 @@ whole of the code change, and `snag_claims.py` is outside the daemon's
 import graph, so no restart is owed — which the deploy claim reports by
 name._
 
+_**The move shipped with a broken link and three green suite runs did not
+say so, because the guard could not see the file.**_
+_`test_every_relative_link_in_a_tracked_document_resolves` sweeps **tracked**
+documents, and `docs/sessions/movement-log.md` was untracked while the suite
+ran — so `git add` is what armed it, and postflight caught what pytest had
+reported green three times. The one break is the class the move creates:
+`[Session 34](tasks.md)` was written relative to `docs/roadmap/` and needed
+`../roadmap/tasks.md`. Its two siblings resolve unchanged because `adr/` and
+`roadmap/` are both one level under `docs/`, so `../adr/…` means the same
+thing from either directory — which is why only one of the three moved._
+
 _**No entry filed, and the refusal is argued.**_ _The fold class is
 Session 194's finding, recorded in the docstring that owns it and
 deliberately not narrowed; its residue here is measured **empty** on the

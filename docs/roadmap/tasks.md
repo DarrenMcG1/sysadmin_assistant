@@ -79,6 +79,15 @@ some do._
       module's 12 checks printing `ok` either side — `check_markers`
       prints only on a finding — with the register unmoved at 27 open, and no restart owed — `snag_claims.py` is
       outside the daemon's import graph
+- [x] **The move shipped with a broken relative link and three green
+      suite runs did not say so.**
+      `test_every_relative_link_in_a_tracked_document_resolves` sweeps
+      **tracked** documents and the moved file was untracked while the
+      suite ran, so `git add` is what armed the guard and postflight
+      caught what pytest had called green three times. One break, and it
+      is the class the move creates: `[Session 34](tasks.md)` was written
+      relative to `docs/roadmap/`. Its two siblings resolve unchanged
+      because `adr/` and `roadmap/` are both one level under `docs/`
 - [x] **No entry filed.** The fold class is Session 194's finding and is
       recorded in the docstring it belongs to; its residue here is
       measured empty on the axis that made it cost anything
