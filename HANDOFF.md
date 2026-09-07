@@ -1,6 +1,90 @@
-# Handoff — 2026-09-07 (Session 195)
+# Handoff — 2026-09-07 (Session 196)
 
 ## Next action
+
+Read why this morning's health review refused the LLM while the log and disk reviews took it — `llm_used` on `health_reviews` at 2026-09-07 05:00:10 is `false` against `true` for the other two, which refutes the scheduled prediction of true/true/true, and the `review_lease_*` warning logged beside that run is where the three refusals are recorded apart precisely so that reading answers why.
+
+_**Retired outright, and the discriminator is Session 195's unchanged.**_
+_The 2026-08-07 capability-audit preamble standing above `## Fixed Issues`
+asked that its twelve defects be kept out from under a `###` sub-heading so
+`count_open_snags` could see them. All four of its sentences have a second
+statement, so the estate's rule decides it — a moved document leaves a
+pointer, never a copy, and this was a copy whose original is in the same
+file. Its "deliberately left unfixed so the audit stayed an audit" is
+`docs/project-capability-audit.md`'s own closing sentence at the owner; its
+ordering argument and its "better formatted" clause are near-verbatim in
+`tasks.md`'s "Project-side consolidation (34–36)" preamble. Nothing moved,
+so no pointer replaced it — there was nowhere to point that was not already
+in the file._
+
+_**The sentence that looked unique is the most duplicated of the four.**_
+_"a `###` sub-heading would hide all twelve from `count_open_snags` and from
+preflight" is `SNAG-ROADMAP-002`'s own **Symptom** and **Cause** bullets,
+sixty lines up in the same document, written the same day by the same audit
+— and stated there **with** the measurement this paragraph omits ("the count
+read 4 when 16 were open") and the wider scope it omits too, that the same
+flattening governs `next_action_from_handoff` and `first_unchecked_task`._
+
+_**The mechanism is live and was driven rather than read, because the name
+in the paragraph has moved.**_ _It cites `roadmap._sections`;
+`count_open_snags` now lives in `estate-lib` as `estate.snags` and
+`roadmap.py` merely imports it. At a synthetic register a `###` under `##
+Open Issues` still takes `count_open_snags` **2 → 1** and `read_snags`
+**3 → 2**. So what lost its referent is the paragraph's *instruction*, not
+its rule: the twelve were fixed 2026-08-10 and are archived under exactly
+the sub-heading it refuses._
+
+_**Sweeping the class rather than the specimen is what produced the
+finding, and the handoff's framing could not have.**_ _Walking every
+contiguous unindented non-bullet run inside the open sections gives **two**
+regions, not one: Session 195's pointer (9 lines, **0** bolded spans,
+folding into the open `SNAG-SYSD-008`) and this preamble (9 lines, **1**
+bolded span, folding into the **closed** `SNAG-DB-003`). So `read_entries`'
+docstring, shipped the same day, called the fold class's residue *empty*
+having counted the pointer it had just written and not the region standing
+eight lines below the entry it was measuring. Corrected in place with what
+was missed and the instrument that would have caught it — the class sweep,
+not a second look at the specimen._
+
+_**Nothing published moved, measured either side rather than projected.**_
+_`read_snags` reads **144** rows at **27** open both ways and `read_entries`
+**108** entries at **27** open both ways; `sysadmin-check-snags` reports the
+register unmoved since `e3a86cc`. What corrects is `SNAG-DB-003`'s body,
+**23 lines → 14**, and the bolded spans folded into any entry, **1 → 0**._
+
+_**One claim in the line this sitting was handed was wrong.**_ _It said
+estate-manager's `read_snags` returns zero rows mentioning the region. It
+returns **one** — the closed `SNAG-DB-003` row, whose published body carried
+nine lines about twelve unrelated snags. Its *counts* were what was unmoved,
+which is a different claim, and the distinction is the whole reason the
+retirement was safe._
+
+_**No entry filed, and the refusal is argued.**_ _Nothing was left unfixed:
+the region is gone and the docstring claim it falsified is corrected. The
+two open entries no check names (`SNAG-DOCS-009`, `SNAG-DOCS-010`) each say
+in writing why a control there would restate the defect rather than detect
+it, so the `??` line is a report and not work owed._
+
+_**The scheduled reading due today was taken and its prediction is
+refuted.**_ _Three rows, not an investigation: `llm_used` reads **false**
+for health at 05:00:10 and **true** for log at 05:15:11 and disk at
+05:45:06, against a prediction of true/true/true. The cause is deliberately
+unread — that is the next action, and filing an entry before reading the
+lease warning would be a snag written from a mechanism reasoned about rather
+than counted._
+
+_**Suite 3819 passed either side**_ _— baseline and total equal, so no test
+was added and none clobbered — `ruff` and `mypy` clean, all 25 snag-entry
+checks and 4 conventions `ok`, 11 of the ops module's 12 checks printing
+`ok` (`check_markers` prints only on a finding), no migration, and
+`check-ops-claims.sh` reports by name that `sysadmin/snag_claims.py` is
+outside the daemon's import graph, so **no restart is owed**._
+
+---
+
+# Handoff — 2026-09-07 (Session 195)
+
+### The action Session 195 filed (done by Session 196)
 
 Decide whether `snag_list.md`'s second headless region — the nine unindented lines of the 2026-08-07 project-organiser capability audit that fold into the closed `SNAG-DB-003` — should be moved out beside the movement log, retired outright or left in place, and the measurement is already taken and points one way: the paragraph says its twelve defects are "deliberately left unfixed" and must stay under this heading rather than a `###` sub-heading so `count_open_snags` and preflight can see them, and they were fixed on 2026-08-10 and archived under exactly the `### Session 34 write-ups (project-organiser capability audit, fixed 2026-08-10)` sub-heading it refuses, the domain they belonged to left this repository on 2026-08-13 under ADR-0005, and estate-manager's `read_snags` returns zero rows mentioning it — so what is left to decide is only whether the paragraph is worth keeping as history beside the movement log or is a pointer with nothing left to point at.
 

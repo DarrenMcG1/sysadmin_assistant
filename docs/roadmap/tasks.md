@@ -8,6 +8,69 @@
 
 ---
 
+## Session 196: the second headless region, and a residue called empty at one region of two ✅ (2026-09-07)
+
+_Session 195's next action asked whether `snag_list.md`'s second headless
+region — the 2026-08-07 project-organiser capability-audit preamble that
+folds into the closed `SNAG-DB-003` — should move beside the movement log,
+be retired outright, or be left in place, and said the measurement was
+already taken._
+
+- [x] **Retired outright, no pointer, because all four of its sentences
+      have a second statement.** Session 195's discriminator applies
+      unchanged — the estate's rule that *a moved document leaves a
+      pointer, never a copy* — and here it is a copy whose original is in
+      the same file. Its "deliberately left unfixed so the audit stayed an
+      audit" is `docs/project-capability-audit.md`'s own closing sentence
+      at the owner; its ordering argument and its *"better formatted"*
+      clause are near-verbatim in `tasks.md`'s "Project-side consolidation
+      (34–36)" preamble
+- [x] **The sentence that looked unique is the one that is most
+      duplicated, and it is stated better sixty lines up.** *"a `###`
+      sub-heading would hide all twelve from `count_open_snags` and from
+      preflight"* is `SNAG-ROADMAP-002`'s **Symptom** and **Cause**
+      bullets — same day, same audit — which state the same mechanism
+      *with* the measurement the region omits (*"the count read 4 when 16
+      were open"*) and with the wider scope it omits too (the same
+      flattening governs `next_action_from_handoff` and
+      `first_unchecked_task`)
+- [x] **The mechanism was driven rather than read, because the name in the
+      region has moved.** It cites `roadmap._sections`; `count_open_snags`
+      now lives in `estate-lib` as `estate.snags`, and `roadmap.py` merely
+      imports it. Driven at a synthetic register, a `###` under `## Open
+      Issues` still takes `count_open_snags` **2 → 1** and `read_snags`
+      **3 → 2**. So the rule is live and the region's *instruction* is
+      what lost its referent: the twelve were fixed 2026-08-10 and are
+      archived under exactly the `###` sub-heading it refuses
+- [x] **The population was swept rather than taken from the handoff, and
+      that is what found the finding.** Walking every contiguous
+      unindented non-bullet run inside the open sections gives **two**
+      regions, not one: Session 195's pointer (9 lines, **0** bolded
+      spans, folding into the open `SNAG-SYSD-008`) and this preamble (9
+      lines, **1** bolded span, folding into the *closed* `SNAG-DB-003`)
+- [x] **So `read_entries`' docstring, shipped the same day, called the
+      fold class's residue *empty* while measuring one region of two** —
+      Session 195 counted the pointer it had just written and not the
+      region already standing eight lines below the entry it was
+      measuring. Corrected in place, with what was missed and the
+      instrument that would have caught it: the class sweep rather than a
+      second look at the specimen
+- [x] **Nothing published moved, measured either side rather than
+      projected.** `read_snags` reads **144** rows at **27** open both
+      ways and `read_entries` **108** entries at **27** open both ways;
+      `sysadmin-check-snags` reports the register *unmoved since
+      `e3a86cc`*. What corrects is `SNAG-DB-003`'s body, **23 lines → 14**,
+      and the bolded spans folded into any entry, **1 → 0**
+- [x] **One claim in the handoff line was wrong and is corrected in
+      passing**: it said `read_snags` returns *zero* rows mentioning the
+      region. It returns **one** — the closed `SNAG-DB-003` row, whose
+      published body carried nine lines about twelve unrelated snags. Its
+      *counts* are what was unmoved, which is a different claim
+- [x] Suite **3819 passed** either side, `ruff` and `mypy` clean, all
+      snag-entry checks and ops claims `ok`, no migration, and
+      `check-ops-claims.sh` reports by name that `sysadmin/snag_claims.py`
+      is outside the daemon's import graph, so **no restart is owed**
+
 ## Session 195: the movement log moved, and duplication decided it rather than derivability ✅ (2026-09-07)
 
 _Session 194's next action asked whether `snag_list.md`'s headless

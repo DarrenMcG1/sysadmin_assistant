@@ -3,6 +3,34 @@
 **Last Updated**: 2026-09-07
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The second headless region was a copy of a copy, and a residue called
+> empty was measured at one region of two** (2026-09-07, Session 196). The
+> 2026-08-07 capability-audit preamble standing above `## Fixed Issues`
+> asked that its twelve defects be kept out from under a `###` sub-heading
+> so `count_open_snags` could see them. They were fixed 2026-08-10 and are
+> archived under exactly that sub-heading, and every one of the paragraph's
+> four sentences has a second statement — the two that read as unique are
+> near-verbatim in `tasks.md`, and its heading rule is `SNAG-ROADMAP-002`'s
+> own Cause bullet sixty lines up in the same file, stated there with the
+> measurement this paragraph omits. Retired outright: nothing moved, so
+> there was nowhere to point that was not already in the file.
+>
+> **The rule it states is still live, and that was driven rather than
+> read.** It cites `roadmap._sections`, and `count_open_snags` has since
+> moved to `estate-lib`. At a synthetic register a `###` under
+> `## Open Issues` still takes the count **2 → 1**. What lost its referent
+> is the instruction, not the mechanism.
+>
+> **Sweeping the class rather than the specimen is what found the
+> finding.** There were **two** headless regions, not one: Session 195's
+> pointer, and this preamble carrying **1** bolded span into the *closed*
+> `SNAG-DB-003`. So `read_entries`' docstring, shipped the same day, called
+> the residue *empty* having counted the pointer it had just written and
+> not the region eight lines below the entry it was measuring — corrected
+> in place, with the instrument that would have caught it. Nothing
+> published moved: **144** rows at **27** open and **108** entries at
+> **27** open both ways, with `SNAG-DB-003`'s body **23 lines → 14**.
+
 > **The movement log moved, and the test the handoff set would have
 > answered it the wrong way** (2026-09-07, Session 195). It asked whether
 > `snag_list.md`'s headless movement-log region should be retired behind a

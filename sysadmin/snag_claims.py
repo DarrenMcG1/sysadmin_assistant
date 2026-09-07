@@ -411,9 +411,32 @@ def read_entries(document: str) -> list[Entry]:
     to indented lines would change what every existing consumer sees for
     a defect none of them has — and the pointer is itself unindented
     prose, folding 9 lines into that same entry and contributing **0**
-    bolded spans, so the class survives with an empty residue rather than
-    being removed.  A pointer that bolded a figure would rebuild it at
-    one fifty-eighth scale.
+    bolded spans.  A pointer that bolded a figure would rebuild the
+    defect at one fifty-eighth scale.
+
+    **That residue was called *empty* on the day it was written and was
+    not, because the claim was measured at one region of two** (corrected
+    2026-09-07 by Session 196).  Session 195 counted the pointer it had
+    just written and not the region already standing eight lines below
+    the entry it was measuring: a 2026-08-07 capability-audit preamble,
+    **9 lines carrying 1 bolded span**, folding into the *closed*
+    ``SNAG-DB-003``.  A sweep of the open sections — contiguous
+    unindented non-bullet lines, which is the class rather than the one
+    specimen — is what says so, and it is the instrument this claim
+    needed rather than a second look at the specimen.  That preamble was
+    retired the same day: every one of its four sentences had a second
+    statement (its heading rule is ``SNAG-ROADMAP-002``'s own **Cause**
+    bullet, sixty lines up in the same file, stated there with the
+    measurement it omits), so nothing moved and no pointer replaced it.
+
+    **The residue is empty on the bolded axis now and the class is not
+    gone**, which is the pair a later reader needs both halves of: what
+    remains is the movement-log pointer at 9 lines and the ``---`` rule
+    above ``## Fixed Issues`` at 2, both contributing **0** bolded spans.
+    Measured either side of the retirement rather than projected —
+    ``read_entries`` reads 108 entries at 27 open and ``read_snags`` 144
+    rows at 27 open **both ways**, and what corrects is
+    ``SNAG-DB-003``'s body, 23 lines to 14.
     """
     entries: list[Entry] = []
     for lines in open_sections(document):

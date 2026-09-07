@@ -1749,15 +1749,6 @@ counts those paragraphs stated are derived by `check_movement` at every run._
   - **Two of the five tests exist because a detector that cannot fail proves nothing** — `SNAG-TRAY-006`'s vacuity lesson. One runs the walker at the owner, which must trip every rule (so a green sweep cannot mean the path was wrong), and one feeds it the code this session deleted. A third asserts both callers still *import* `COMPARISON_OPTS`, because a file that configures nothing at all would pass an absence check while silently taking alembic's defaults
   - **Verified live, not only against literals.** With the exclusion removed, autogenerate proposes `remove_index`/`remove_table` for both frozen tables against **3,739** and **4** live rows — the loaded gun, fired in a scratch script. After the change `uv run alembic check` reports "No new upgrade operations detected" (which exercises `env.py` itself, the file no test can import), `alembic upgrade head --sql` still renders offline mode, and re-adding a test-only exclusion to the drift guard makes the new sweep fail naming the file and line. Suite 1776 passed, ruff and mypy clean, **no migration**
 
-**Project organiser — capability audit, 2026-08-07.** _Twelve defects found in
-one pass over the project side and deliberately left unfixed so the audit
-stayed an audit. Every one of them corrupts output Alfred already consumes, so
-they are ordered before the structural work in [Session 35](tasks.md): building
-a briefing envelope on top of wrong data only makes the wrong data better
-formatted. Kept under this heading rather than a `###` sub-heading on purpose —
-`roadmap._sections` splits on any heading level, so a sub-heading would hide
-all twelve from `count_open_snags` and from preflight._
-
 ---
 
 ## Fixed Issues
