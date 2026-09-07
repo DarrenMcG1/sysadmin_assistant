@@ -645,6 +645,63 @@ def quick_status_rows(region: str) -> list[StatusRow]:
     and kept because the Notes cell of the Testing row is 29,810
     characters of prose about this module's own conventions, which is the
     likeliest place in the repository for one to be quoted.
+
+    **The same rule was measured against ``snag_list.md`` and refused,
+    and it is refused harder there than the Notes column refused it
+    here** (2026-09-07).  The question is the obvious next one — this
+    reader is general, and the register is the other document a sitting
+    writes figures into — so the answer is recorded at the leaf rather
+    than left to be re-derived by whoever asks it next.  Driven through
+    :func:`status_figures` itself and this repository's own
+    :func:`sysadmin.snag_claims.read_entries`, the 27 open entries hold
+    **166** bolded figures, of which **28** are quantities the box could
+    still be asked for today and **138** name a past observation —
+    83.1 %, against the 15 in 19 that refused the Notes column.  The generous
+    reading, *"is any procedure runnable today that yields a comparable
+    number"*, clears only **85**, and askable is not enforcement: three
+    of those were re-asked and every one had moved with no entry wrong
+    for it — ``2532 passed`` reads 3819 today, ``67 entries`` reads 108,
+    and ``101 / 18`` reads 108 / 27.
+
+    **The ratio's own margin is thin and that is why it does not decide
+    it alone.**  The classification is a hand judgement — deciding that
+    an English sentence states a current quantity is the job
+    ``SNAG-ESTATE-012`` says a human has to do — and only **7** of the
+    166 would have to move from dated to standing for the share to fall
+    below the 15-in-19 bar the handoff set.  It takes **55** to fall
+    below a bare majority, so what is robust is that dated *dominates*,
+    not that it clears that particular bar; the two arguments below carry
+    no judgement at all and are what the refusal rests on.
+
+    **What decides it is not the ratio but a type error the ratio
+    hides.**  **17** of the 166 are an instant or a date rather than a
+    count — ``19:50:19``, ``2026-09-17`` — and **15** more are one half
+    of a before-and-after movement, ``17 → 18``.  The Status column has
+    no member of either class, so this reader is not merely over-firing
+    on the register, it is **mis-typed** for it: nearly a fifth of what
+    it would report as an unclaimed figure is not a measurement of
+    anything, and a totality rule reports those first because they are
+    exactly what no pattern reads.
+
+    **And the register is already total on a stronger axis.**
+    :func:`sysadmin.snag_claims.check_convention` reports every open
+    entry no check names — 2 of 27 today — so entry-level totality
+    exists and is enforced.  A snag check asks whether the *condition*
+    still obtains, which is the question a register of open defects has;
+    this rule asks whether a *figure* is current, which is the question a
+    dashboard has, and the Quick Status table is current by construction
+    where an entry is a dated finding by construction.  Adding the second
+    question beneath the first would report 138 stale-looking figures
+    that are not stale, which is ``SNAG-UNITS-002``'s fifteen-rows shape
+    in a document rather than in an alert family.
+
+    Two things this deliberately does **not** conclude.  The 28 standing
+    figures are real — ``0 of 31`` services still set ``auto_restart``,
+    re-asked — so the refusal is of the *totality* rule, never of the
+    claim that a snag figure can be checked, which is what the 25
+    registered checks already do.  And ``SNAG-DOCS-010`` is the residue
+    for the Notes column only; nothing here is filed, because declining
+    to widen a rule is a decision rather than a defect left unfixed.
     """
     lines = region.splitlines()
     start = next(

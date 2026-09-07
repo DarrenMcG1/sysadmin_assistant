@@ -3,6 +3,65 @@
 **Last Updated**: 2026-09-07
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **Rule 11 stops at the Quick Status table, and the register refuses it
+> harder than the Notes column did** (2026-09-07, Session 193). The
+> handoff asked whether the totality rule should also reach
+> `snag_list.md`, and said the measurement had to come first. It did, and
+> it answers cleanly: across the **27** open entries, read through rule
+> 11's own `status_figures` and this repository's own `read_entries`,
+> there are **166** bolded figures — **28** are quantities the box could
+> still be asked for today and **138** name a past observation. That is
+> **83.1 %** against the 15-in-19 that refused the Notes column, so the
+> rule is refused on the axis the handoff nominated, by a wider margin.
+>
+> **Askability is not enforcement, and the generous reading was measured
+> too.** Asking only *"is there a procedure runnable today that yields a
+> comparable number"* clears **85** of the 166. Three were re-asked
+> against the box and every one had moved with no entry wrong for it: the
+> suite figure one entry states as `2532 passed` reads 3819 today, `67
+> entries` reads 108, `101 / 18` reads 108 / 27. A Quick Status figure is
+> current by construction; an entry's is a finding dated to the sitting
+> that took it, and re-measuring one is noise rather than enforcement.
+>
+> **The ratio's own margin is thin, which is why it does not decide it
+> alone.** The classification is a hand judgement — deciding that an
+> English sentence states a current quantity is the job
+> `SNAG-ESTATE-012` says a human has to do — and only **7** of the 166
+> would have to move from dated to standing for the share to fall below
+> the 15-in-19 bar. It takes **55** to fall below a bare majority, so
+> what is robust is that dated *dominates*, not that it clears that
+> bar. The two arguments below carry no judgement at all.
+>
+> **What decides it is a type error the ratio hides.** **17** of the 166
+> are an instant or a date rather than a count — `19:50:19`,
+> `2026-09-17` — and **15** more are one half of a before-and-after
+> movement, `17 → 18`. The Status column has no member of either class,
+> so the reader is not merely over-firing on the register, it is
+> **mis-typed** for it: nearly a fifth of what it would report is not a
+> measurement of anything, and a totality rule surfaces those first
+> because they are precisely what no pattern reads.
+>
+> **The register is already total on a stronger axis.** `check_convention`
+> reports every open entry no check names — **2 of 27** today, both of
+> them the documentation entries about this very question. A snag check
+> asks whether the *condition* still obtains, which is a register's
+> question; this rule asks whether a *figure* is current, which is a
+> dashboard's. Stacking the second beneath the first would report 138
+> stale-looking figures that are not stale.
+>
+> **What is refused is the totality rule, not checking a snag figure.**
+> The **28** standing figures are real — `0 of 31` services still set
+> `auto_restart`, re-asked and unmoved — and the **25** registered checks
+> are that claim already honoured entry by entry. No code shipped and no
+> entry was filed: declining to widen a rule is a decision, not a defect
+> left unfixed. It is recorded in `quick_status_rows`' docstring and in
+> `SNAG-DOCS-010` because a decision with nothing recording that it was
+> taken is `SNAG-CFG-001`'s shape. No guard ships either, and that is
+> argued rather than skipped: a guard pinning "this rule was not widened"
+> answers the same way for ever, which is `check_review_schedule_unread`'s
+> recorded defect, and one over the snag corpus would empty on the next
+> snag edit. Tests unmoved.
+
 > **The Status column is total now, and the handoff's own axis was the
 > wrong one** (2026-09-07, Session 192). Rule 7's `unclaimed` finding
 > enumerates `CLAIM_PATTERNS`, so it reports a figure some pattern

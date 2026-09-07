@@ -1,6 +1,95 @@
-# Handoff — 2026-09-07 (Session 192)
+# Handoff — 2026-09-07 (Session 193)
 
 ## Next action
+
+Decide whether the narrow rule that survives this sitting's refusal is worth building — that an open entry carrying a standing figure should have its check actually *read* that figure rather than only assert the condition still obtains — and the measurement that has to come first is to take the 28 standing figures classified here, find which of the 25 registered checks covers each one's entry, and report how many of those checks re-measure the number their entry states, refusing the rule if most standing figures sit in entries whose check answers a different question, because a check that reports `still holds` while its entry's own figure has drifted is exactly the invisibility rule 11 was written to remove, and a rule that cannot name one such pair today is a guard with no population.
+
+_**Refused, and the register refuses it harder than the Notes column
+did.**_ _The question was whether rule 11's totality should reach
+`snag_list.md`. Across the **27** open entries, read through rule 11's
+own `status_figures` and this repository's own `read_entries`, there are
+**166** bolded figures: **28** are quantities the box could still be
+asked for today and **138** name a past observation — **83.1 %**,
+against the 15-in-19 that refused the Notes column. The trigger the
+handoff set was met with room to spare._
+
+**The ratio's margin is thin and that is stated rather than glossed.**
+The classification is a hand judgement — deciding that an English
+sentence states a current quantity is the job `SNAG-ESTATE-012` says a
+human has to do — and only **7** of the 166 would have to move from
+dated to standing for the share to drop below the 15-in-19 bar. It takes
+**55** to drop below a bare majority. So what is robust is that dated
+*dominates*, not that it clears that particular bar, and the two
+arguments below carry no judgement at all.
+
+**Askability was measured too, because it is not enforcement.** Asking
+only *"is there a procedure runnable today yielding a comparable
+number"* clears **85** of the 166 — barely half. Three were re-asked
+against the box: `2532 passed` reads 3819 today, `67 entries` reads 108,
+`101 / 18` reads 108 / 27. Every one moved and **not one entry is wrong
+for it**, which is the distinction the whole decision turns on — a Quick
+Status figure is current by construction, an entry's is a finding dated
+to the sitting that took it, and re-measuring one is noise rather than
+enforcement.
+
+**What decided it is a type error the ratio hides.** **17** of the 166
+are an instant or a date rather than a count — `19:50:19`,
+`2026-09-17` — and **15** more are one half of a before-and-after
+movement, `17 → 18`. The Status column has no member of either class, so
+the reader is not merely over-firing on the register, it is
+**mis-typed** for it: nearly a fifth of what it would report is not a
+measurement of anything, and a totality rule surfaces those first
+because they are precisely what no pattern reads.
+
+**The register is already total on a stronger axis**, which the
+measurement did not set out to find. `check_convention` reports every
+open entry no check names — **2 of 27** today, and both are the
+documentation entries about this very question. A snag check asks
+whether the *condition* still obtains, which is a register's question;
+this rule asks whether a *figure* is current, which is a dashboard's.
+Stacking the second beneath the first would report 138 stale-looking
+figures that are not stale.
+
+**What is refused is the totality rule, never checking a snag figure.**
+The **28** standing figures are real — `0 of 31` services still set
+`auto_restart`, re-asked and unmoved — and the **25** registered checks
+are that claim already honoured entry by entry. That gap is what the
+next action is about.
+
+**No code, no entry, no guard, and each refusal is argued.** Declining
+to widen a rule is a decision rather than a defect left unfixed, so
+nothing is filed; the decision is recorded in `quick_status_rows`'
+docstring and in `SNAG-DOCS-010` because a decision with nothing
+recording that it was taken is `SNAG-CFG-001`'s shape. A guard pinning
+"this rule was not widened" answers the same way for ever —
+`check_review_schedule_unread`'s recorded defect — and one over the snag
+corpus would empty on the next snag edit. Tests unmoved at **3819**.
+
+**Two methodological errors were made and caught inside the sitting**,
+both already in the register. The first parse counted every `- [P`
+bullet under the open headings and got **108** where the owning reader
+gets **27** — `claude-preflight.sh`'s own historic 76-against-18 defect,
+reproduced by hand within five minutes. And a liveness check read
+`journalctl -k --since "today 08:00" | grep -c amdgpu` as **0** with
+stderr suppressed; the timestamp had failed to parse, so the zero was
+confident and wrong, and the database answered instead.
+
+**Live on the box and not this sitting's doing**: a GPU ring reset at
+09:06:18 today wrote **34** amdgpu kernel lines in **2.05 s** and opened
+**13** alert rows, one per signature, which is `SNAG-AGENT-005`'s
+identity rule working as designed. The ring reset succeeded, nothing has
+faulted since, and the class has resolved itself **54** times before.
+All thirteen resolved on quiet at **09:22:01**, 15 minutes after the
+last line as `alert_quiet_minutes` says, so the count returned to **3**
+and the block's alert claim needed no edit — it already named exactly
+the three standing rows. Predicted from the config before it happened
+and then watched, rather than read afterwards.
+
+---
+
+# Handoff — 2026-09-07 (Session 192)
+
+### The action Session 192 filed (done by Session 193)
 
 Decide whether the totality rule rule 11 just gave the Quick Status Status column should also reach `snag_list.md`, and the measurement that has to come first is whether a snag entry's bolded figures are standing claims about the box at all or dated observations that were true when written, because the Quick Status table is a dashboard whose figures are current by construction while an entry's read "measured 2026-09-07" and re-measuring one is not enforcement but noise — so the honest test is to take every bolded integer across the 27 open entries, classify each as a quantity the box could still be asked for today against one that names a past observation, and refuse the rule outright if the second class dominates the way the Notes column's 15-in-19 refused it here.
 

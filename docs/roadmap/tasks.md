@@ -8,6 +8,73 @@
 
 ---
 
+## Session 193: rule 11 stops at the table — the register refuses it ✅ (2026-09-07)
+
+_Session 192's next action asked whether the totality rule rule 11 gave
+the Quick Status Status column should also reach `snag_list.md`, named
+the measurement that had to come first — are a snag entry's bolded
+figures standing claims about the box or dated observations — and set
+the trigger: refuse outright if the second class dominates the way the
+Notes column's 15-in-19 refused it there._
+
+- [x] **Refused, and by a wider margin than the trigger asked for.**
+      Across the **27** open entries, read through rule 11's own
+      `status_figures` and this repository's own `read_entries`, the
+      population is **166** bolded figures: **28** are quantities the box
+      could still be asked for today and **138** name a past observation
+      — **83.1 %** against the 15-in-19 that refused the Notes column.
+      Only **11** of the 20 figure-bearing entries carry even one
+      standing figure and **9** carry none; **7** open entries carry no
+      figure at all
+- [x] **The generous reading was measured too, because askable is not
+      enforcement.** Asking only *"is there a procedure runnable today
+      yielding a comparable number"* clears **85** of the 166 — barely
+      half — and three were re-asked against the box: `2532 passed`
+      reads 3819 today, `67 entries` reads 108, `101 / 18` reads
+      108 / 27. Every one moved and **no entry is wrong for it**, which
+      is the whole distinction: a Quick Status figure is current by
+      construction, an entry's is a finding dated to the sitting that
+      took it
+- [x] **What decided it is a type error the ratio hides.** **17** of the
+      166 are an instant or a date rather than a count — `19:50:19`,
+      `2026-09-17` — and **15** more are one half of a before-and-after
+      movement, `17 → 18`. The Quick Status Status column has no member
+      of either class, so the reader is not merely over-firing on the
+      register, it is **mis-typed** for it, and a totality rule surfaces
+      exactly those first because they are what no pattern reads
+- [x] **The register is already total on a stronger axis, which the
+      measurement did not have to find and did.** `check_convention`
+      reports every open entry no check names — **2 of 27** today, and
+      both are the documentation entries about this very question. A
+      snag check asks whether the *condition* still obtains; this rule
+      asks whether a *figure* is current. Stacking the second beneath the
+      first reports 138 stale-looking figures that are not stale, which
+      is `SNAG-UNITS-002`'s fifteen-rows shape in a document
+- [x] **Two methodological errors made and corrected inside the sitting,
+      both already in the register.** A first parse counted every
+      `- [P` bullet under the open headings and got **108** where the
+      owning reader gets **27** — `claude-preflight.sh`'s own historic
+      76-against-18 defect, reproduced by hand. And a liveness check
+      read `journalctl -k --since "today 08:00" | grep -c amdgpu` as
+      **0** with stderr suppressed; the timestamp had failed to parse,
+      so the zero was confident and wrong. The database answered
+      instead: **34** amdgpu lines in **2.05 s**
+- [x] **No code and no entry shipped, and both refusals are argued.**
+      Declining to widen a rule is a decision rather than a defect left
+      unfixed, so nothing is filed; the decision is recorded in
+      `quick_status_rows`' docstring and in `SNAG-DOCS-010`, because a
+      decision with nothing recording that it was taken is
+      `SNAG-CFG-001`'s shape. No guard ships either: one pinning "this
+      rule was not widened" answers the same way for ever, which is
+      `check_review_schedule_unread`'s recorded defect, and one over the
+      snag corpus would empty on the next snag edit. Tests unmoved at
+      **3819**
+- [x] **Docs updated**: STATUS.md (block prepended, alert claim
+      re-measured), tasks.md, snag_list.md (`SNAG-DOCS-010` gains the
+      sibling measurement), HANDOFF.md
+
+---
+
 ## Session 192: the Status column is total ✅ (2026-09-07)
 
 _Session 191's next action asked whether `check_markers`' `unclaimed`
