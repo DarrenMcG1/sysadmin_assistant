@@ -1,6 +1,118 @@
-# Handoff — 2026-09-07 (Session 197)
+# Handoff — 2026-09-08 (Session 198)
 
 ## Next action
+
+Decide who owns the state a GPU reset opens, because the declared `GPU was reset — every client lost its VRAM` signature already names a resident inference server as a victim in its own reason and no machine reads it, so the candidate is a reader that marks the affected service unwatched until a submission proves the card usable — and that needs its argument about who closes the state settled before any code, since a second owner of a service's health lifecycle is the defect this repository has now found at seven scales.
+
+_**The memory index was repaired, and this paragraph exists because the
+ruling's own finding is that the last two repairs were not recorded.**_
+_At the owner's direction `~/.claude/projects/-home-gaddi-projects-sysadmin-assistant/memory/MEMORY.md`
+— the per-repository memory index the harness auto-loads into every session
+here — went **25,638 → 20,690 bytes** with **all 109 entries kept**, every
+title and link target byte-identical and the longest line **379 → 200**
+characters. Only the one-line hooks were rewritten; the heading, the blank
+lines and the five prose sections were untouched, verified line by line
+rather than by eye. Nothing was lost, because every figure in every new
+hook was checked against its own topic file first — the three that looked
+index-only were already there in words, `5 of 6` as "five came from the
+routes and one from the job", `10 in 14` as "**14** files of which **4**
+connect", and `6 sites / 4` as "six" and "four"._
+
+_**Session 197 left it over budget on purpose and a ruling landed the same
+morning**_ — _estate message `d409a9e8`, this repository's filing about the
+memory-index budget, was **closed by estate-manager at 08:20:59Z on
+2026-09-08** with the owner's ruling built the same sitting as their
+ADR-0131 and a sixth estate hook, `memory-index-notice.sh`. So the handoff
+paragraph above this one in Session 197's block — *"deliberately left over
+budget while the ruling is outstanding"* — stopped being true at 08:20 and
+the repair had already happened at 03:54. It is corrected here rather than
+in that block, because the handoff accumulates and a past sitting's record
+of what was true then is not a place to write what is true now._
+
+_**The convention shipped as total size, and the per-line cap the harness
+advises was measured and refused.**_ _Across all **323** index lines on the
+box a 200-character cap flags **58** lines in **five** repositories that
+never breached and **zero** in the two that did — this repository and
+Alfred both top out at exactly 200 on a smooth distribution, which is
+sittings complying with the harness's advice and overflowing anyway. The
+driver is entry count. The trim satisfies the shipped convention regardless:
+**20,690 of 24,400 bytes, 84.8 %**, against a hook that warns at 90 % —
+**21,960** — leaving about **1,270 bytes**, roughly eight further entries._
+
+_**Three of this repository's own figures were corrected by the ruling, and
+one of them is the kind this repository keeps filing about.**_ _The breach
+began **2026-09-04T21:32:59Z**, a day earlier than filed; there were **nine**
+warned sessions and not seven; and "24.4KB" is **24,400 decimal or 24,986
+binary** with nothing on this box settling it, so the filing's *6 of 109
+entries invisible* was an upper bound rather than a measurement. The hook
+takes the smaller reading for the same reason `schema_guard` refuses to
+boot on a mismatch — the safe direction of a number you cannot pin down._
+
+_**The hook is inert and the finding it will produce is expected.**_
+_`~/.claude/hooks/memory-index-notice.sh` was symlinked at 09:15 today;
+the `~/.claude/settings.json` entry under `hooks.Stop` is the owner's under
+estate ADR-0024, does not exist, and **will be added through estate-manager
+rather than here**. Until it lands the estate's 05:00 audit files
+`warn / hook_not_wired` and this repository's `judge_audit_findings` raises
+it by name, because `JUDGED_AUDIT_CHECKS` in `sysadmin/estate/judgements.py`
+is still `{ports: "breach", wiring: "warn"}` — read off the live file today,
+not cited from CLAUDE.md. That is the intended delivery path and must not be
+read as a regression tomorrow morning._
+
+_**The one question the estate handed back was measured here, and the answer
+is nothing.**_ _Their hook count moves **five to six**, and they declined to
+claim whether anything in this tree pins it. Swept every `*.py`, `*.sh`,
+`*.md` and `*.yaml` in the checkout for a numeral adjacent to the word
+"hook": two hits, both unrelated — `StartLimitBurst=5` in a systemd
+narrative and a numbered list item in `STATUS.md`. No assertion, no fixture
+and no prose figure is falsified by a sixth hook. Message `7e187981` — their
+notice of that surface change — was **closed at 09:46:58Z** carrying that
+measurement as its note, and the inbox is now empty._
+
+_**What was found and deliberately left, with the reason it is not a SNAG.**_
+_Five prose sections still sit inside the index (`## Project Structure`,
+`## Database Patterns`, `## Agent Framework`, `## Shell/Environment Notes`
+and `## Current State (2026-02-06)`) where the harness's own rule says an
+index holds one line per memory and no content; most of the first two
+restate `CLAUDE.md`, and the last is dated 2026-02-06 and partly wrong.
+They also sit **between** the two entry blocks, so new entries append below
+them. No `SNAG-` id was minted, because the snag register is this
+repository's defect list and that file is untracked, machine-local and now
+governed by the estate's ADR-0131 — filing it here would give one document
+two owners, which is the defect this repository has spent seven scales
+removing._
+
+_**Prepending the block broke another repository's board line, and a test
+caught it rather than a reader.**_ _A new session block carries
+`## Next action`, and the superseded one has to be renamed in the same
+edit — estate-manager's `next_action_from_handoff` takes the **first**
+heading containing "next" and publishes its first line to the estate board,
+so two of them is not a formatting untidiness but a silent hand-over of a
+surface another repository reads. `tests/test_handoff_shape.py` failed on
+exactly that and named the parser and the reason, which is why the fix took
+one minute; the postflight suite is what surfaced it, in a sitting that
+changed no code and had no reason to expect a red. Session 197's heading is
+now `### The action Session 197 filed (carried forward by Session 198)` —
+**carried forward**, not *done by*, because this sitting did documents and
+the GPU-reset ownership question is untouched, and the two blocks therefore
+carry the same sentence verbatim, which is the record saying so. The
+rename was anchored on the Session 197 **title** rather than on the
+heading text or a line number, because at that moment two lines read
+`## Next action` and an index-based pick is the wrong-neighbour trap this
+repository has already paid for once._
+
+_**Nothing was fixed in the code and that was the scope.**_ _No `sysadmin/`
+file was touched, no migration, no test added or removed, so no restart is
+owed. What moved outside the checkout is one untracked memory index; what
+moved inside it is `STATUS.md`'s unresolved-alert claim, **3 → 4**, which
+the ops-claims gate was already reporting stale before this sitting began —
+`Project alfred-glance next action idle` had opened and no sentence named
+it. All twelve ops claims read `ok` after the edit, against two `no`
+verdicts before it._
+
+# Handoff — 2026-09-07 (Session 197)
+
+### The action Session 197 filed (carried forward by Session 198)
 
 Decide who owns the state a GPU reset opens, because the declared `GPU was reset — every client lost its VRAM` signature already names a resident inference server as a victim in its own reason and no machine reads it, so the candidate is a reader that marks the affected service unwatched until a submission proves the card usable — and that needs its argument about who closes the state settled before any code, since a second owner of a service's health lifecycle is the defect this repository has now found at seven scales.
 

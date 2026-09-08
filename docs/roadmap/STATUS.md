@@ -1,7 +1,45 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-07
+**Last Updated**: 2026-09-08
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **The memory index was repaired and the estate ruled on it the same
+> morning, and the ruling's own finding is that the last two repairs went
+> unrecorded** (2026-09-08, Session 198). The per-repository memory index
+> the harness auto-loads into every session here went **25,638 → 20,690
+> bytes** with **all 109 entries kept**, every title and link target
+> byte-identical, the longest line **379 → 200** characters and **81 → 0**
+> lines over 200. Only the one-line hooks were rewritten, and every figure
+> in every new hook was checked against its own topic file first, so this
+> was a delete of a duplicate rather than a move of detail. Session 197 had
+> left the file over budget on purpose while its filing awaited a ruling;
+> estate message `d409a9e8` was closed by estate-manager at **08:20:59Z**
+> with the owner's ruling, their ADR-0131 and a sixth estate hook. Their
+> sweep caught this repository repaired at **03:54** while the ruling was
+> being taken — *"both repositories have now silently repaired and neither
+> recorded a decision, which is the condition being ruled on, observed a
+> third time"* — which is this repository's own argument in the filing
+> landing on the filing. **The convention shipped as total size and the
+> per-line cap the harness advises was refused on measurement**: across all
+> **323** index lines on the box a 200-character cap flags **58** lines in
+> **five** repositories that never breached and **zero** in the two that
+> did, because the driver is entry count. The trim satisfies it anyway at
+> **84.8 %** of a 24,400-byte limit, against a hook that warns at 90 %.
+> **Three figures this repository published were corrected**: the breach
+> began 2026-09-04T21:32:59Z rather than a day later, there were **nine**
+> warned sessions and not seven, and "24.4KB" reads 24,400 decimal or
+> 24,986 binary with nothing settling it, so the filing's *6 of 109 entries
+> invisible* was an upper bound. **The one question handed back was
+> measured and the answer is nothing** — the estate's hook count moves five
+> to six and nothing in this tree pins it, swept across every `*.py`,
+> `*.sh`, `*.md` and `*.yaml` for a numeral adjacent to "hook" with two
+> unrelated hits. Message `7e187981` was closed at **09:46:58Z** carrying
+> that measurement, the inbox is **0 open**, and the `hooks.Stop` entry
+> that arms the new hook is the owner's under estate ADR-0024 and will be
+> added through estate-manager, so tomorrow's `warn / hook_not_wired`
+> finding is the intended delivery path and not a regression. *No code
+> changed and no restart is owed; what moved inside the checkout is this
+> block's own unresolved-alert claim, stale before the sitting began.*
 
 > **The second headless region was a copy of a copy, and a residue called
 > empty was measured at one region of two** (2026-09-07, Session 196). The
@@ -4043,10 +4081,11 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
 > rows <!--check:alerts-->, `High disk usage on /`,
-> `Project ImbaBots next action idle` and
-> `Project Athenaeum next action idle`, **3**
+> `Project ImbaBots next action idle`,
+> `Project Athenaeum next action idle` and
+> `Project alfred-glance next action idle`, **4**
 > named here <!--check:open_titles-->. *(**3 → 5 → 4 → 3** across
 > Session 181's sitting and not one of the moves this sitting's doing:
 > the VRAM row came back for a sixth time, Athenaeum's nudge is the

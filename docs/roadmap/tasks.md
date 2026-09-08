@@ -4,9 +4,113 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-07
+> **Last Updated**: 2026-09-08
 
 ---
+
+## Session 198: the index was repaired, the estate ruled, and the record is the point ✅ (2026-09-08)
+
+_The ask was to fix the memory index the harness had been warning about for
+seven sessions. Session 197 had deliberately left it over budget while its
+filing with the estate awaited a ruling; the ruling landed the same morning
+and its own finding is that the two repositories which repaired did so with
+nothing recording that a decision was taken. This block is that record._
+
+- [x] **The index was trimmed and nothing was lost.**
+      `~/.claude/projects/-home-gaddi-projects-sysadmin-assistant/memory/MEMORY.md`
+      went **25,638 → 20,690 bytes** with **all 109 entries kept**, every
+      title and link target byte-identical, the longest line **379 → 200**
+      characters and **81 → 0** lines over 200. Only the one-line hooks
+      were rewritten; the heading, the blank lines and the five prose
+      sections were untouched, asserted line by line rather than eyeballed.
+      Every figure in every new hook was checked against its own topic file
+      first — the three that looked index-only were already there in words
+      (`5 of 6` as "five came from the routes and one from the job";
+      `10 in 14` as "**14** files of which **4** connect"; `6 sites / 4`
+      as "six" and "four"), so this was a **delete of a duplicate**, not a
+      move of detail
+- [x] **Estate message `d409a9e8` — this repository's filing on the
+      memory-index budget — was closed with a ruling** by estate-manager at
+      **08:20:59Z on 2026-09-08**, built the same sitting as their ADR-0131
+      and a sixth estate hook, `memory-index-notice.sh`. The answer is both
+      of the two options this repository offered, with the second
+      re-denominated
+- [x] **The convention shipped as *total size*, and the per-line cap the
+      harness itself advises was measured and refused.** Across all **323**
+      index lines on the box a 200-character cap flags **58** lines in
+      **five** repositories that never breached and **zero** in the two
+      that did — this repository and Alfred both top out at exactly 200 on
+      a smooth distribution, which is sittings complying with the advice
+      and overflowing anyway. The driver is entry count. The trim satisfies
+      the shipped convention regardless: **20,690 of 24,400 bytes, 84.8 %**,
+      against a hook that warns at 90 % (**21,960**), leaving ~**1,270
+      bytes** or about eight further entries
+- [x] **Three of this repository's own published figures were corrected by
+      the ruling.** The breach began **2026-09-04T21:32:59Z**, a day earlier
+      than filed; there were **nine** warned sessions, not seven; and
+      "24.4KB" reads **24,400 decimal or 24,986 binary** with nothing on
+      this box settling it, so the filing's *6 of 109 entries invisible* was
+      an **upper bound** rather than a measurement. The hook takes the
+      smaller reading, which is `schema_guard`'s direction on a number that
+      cannot be pinned down
+- [x] **The ruling's own finding lands here and this block is the answer to
+      it.** Their sweep caught this repository repaired at **03:54** while
+      the ruling was being taken — *"a sweep of current sizes now reports NO
+      breach against a true two… both repositories have now silently
+      repaired and neither recorded a decision, which is the condition being
+      ruled on, observed a third time"*. The reason a size sweep cannot see
+      it is this repository's own argument in the filing, landing on the
+      filing
+- [x] **The one question the estate handed back was measured, and the answer
+      is nothing.** Their hook count moves **five to six** and they declined
+      to claim whether anything in this tree pins it. Swept every `*.py`,
+      `*.sh`, `*.md` and `*.yaml` in the checkout for a numeral adjacent to
+      "hook": two hits, both unrelated — `StartLimitBurst=5` in a systemd
+      narrative and a numbered list item in `STATUS.md`. No assertion, no
+      fixture and no prose figure is falsified by a sixth hook
+- [x] **Message `7e187981` — the estate's notice of that surface change —
+      was closed at 09:46:58Z** carrying that measurement as its note. The
+      inbox is now **0 open**. `JUDGED_AUDIT_CHECKS` in
+      `sysadmin/estate/judgements.py` was confirmed against the live file as
+      still `{ports: "breach", wiring: "warn"}`, so tomorrow's
+      `warn / hook_not_wired` reaches the owner by name — the intended
+      delivery path, not a regression
+- [x] **The `hooks.Stop` entry is not ours and was not touched.**
+      `~/.claude/hooks/memory-index-notice.sh` was symlinked at 09:15 today
+      and is inert; the `~/.claude/settings.json` entry is the owner's under
+      estate ADR-0024 and **will be added through estate-manager**
+- [x] **Found and deliberately left, with the reason no `SNAG-` id was
+      minted.** Five prose sections still sit inside the index
+      (`## Project Structure`, `## Database Patterns`, `## Agent Framework`,
+      `## Shell/Environment Notes`, `## Current State (2026-02-06)`) where
+      the rule says an index holds one line per memory and no content; most
+      of the first two restate `CLAUDE.md` and the last is dated 2026-02-06
+      and partly wrong. They also sit **between** the two entry blocks, so
+      new entries append below them. The register is this repository's
+      defect list and that file is untracked, machine-local and now governed
+      by the estate's ADR-0131 — filing it here would give one document two
+      owners
+- [x] **`STATUS.md`'s unresolved-alert claim was stale before this sitting
+      and is corrected, 3 → 4.** `Project alfred-glance next action idle`
+      had opened and no sentence named it, so both `check:alerts` and
+      `check:open_titles` read `no`. All **twelve** ops claims read `ok`
+      after the edit
+- [x] **Prepending the session block broke another repository's board line
+      and the suite caught it.** A new block carries `## Next action` and
+      the superseded one must be renamed in the same edit — estate-manager's
+      `next_action_from_handoff` takes the **first** heading containing
+      "next" and publishes its first line to the estate board, so two of
+      them silently hands over a surface another repository reads.
+      `tests/test_handoff_shape.py` failed naming the parser and the
+      reason. Session 197's heading is now *carried forward by Session 198*
+      rather than *done by*, because the GPU-reset question is untouched;
+      the rename was anchored on the Session 197 **title**, since at that
+      moment two lines read `## Next action` and an index-based pick is the
+      wrong-neighbour trap. Found only because the close runs a full suite
+      in a sitting that changed no code
+- [x] **No code changed, so no restart is owed.** No `sysadmin/` file
+      touched, no migration, no test added or removed; what moved outside
+      the checkout is one untracked memory index
 
 ## Session 197: the lease was innocent, and the box had already said so ✅ (2026-09-07)
 
