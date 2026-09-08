@@ -168,6 +168,82 @@ class TestTheReadNamesWhereItActuallyLanded:
         presence."""
         assert "resolves_to" not in hook_wiring.read_settings(settings).payload
 
+    def test_a_symlink_loop_is_described_rather_than_raised(self, tmp_path):
+        """The guard's only reachable input, and it is not an
+        ``OSError``.
+
+        ``_where`` runs at the top of :func:`read_settings`, *before* the
+        file is opened, and the docstring promises resolution failure is
+        reported as absence rather than raised — so an uncaught one takes
+        down the surface whose whole job is to say every hook on this box
+        is down.  Until 2026-09-08 the guard read ``except OSError`` and
+        could not catch this: :func:`pathlib.check_eloop` re-raises the
+        errno-40 error as a ``RuntimeError``, which is not an ``OSError``
+        subclass.  Reported by estate-manager as ``f5e450cb`` after their
+        identical line survived a mutation, and re-measured here.
+
+        This is the input that keeps the guard alive.  It dies under both
+        mutants — deleting the ``try`` entirely, and restoring it as
+        ``except OSError`` — where an assertion about the *shape* of a
+        clean read dies under neither.
+        """
+        a, b = tmp_path / "a.json", tmp_path / "b.json"
+        a.symlink_to(b)
+        b.symlink_to(a)
+
+        result = hook_wiring.read_settings(a)
+
+        assert result.error is not None
+        assert result.payload is None
+        assert not result.read
+
+    def test_a_self_referential_loop_is_the_same_answer(self, tmp_path):
+        """The one-file shape, because ``check_eloop`` is reached by a
+        different route and a reader repairing this by hand is at least
+        as likely to type it."""
+        link = tmp_path / "settings.json"
+        link.symlink_to(link)
+
+        assert hook_wiring.read_settings(link).error is not None
+
+    def test_the_guard_reports_absence_rather_than_a_wrong_target(
+        self, tmp_path
+    ):
+        """``_where``'s own contract, which the surface test cannot
+        observe: a loop yields no payload at all, so *"the path is named
+        and where it lands is not"* is only assertable here.  A guard
+        that returned ``resolves_to`` pointing at the first hop would be
+        worse than silence — ``judge_hook_wiring`` gates its clause on
+        presence."""
+        a, b = tmp_path / "a", tmp_path / "b"
+        a.symlink_to(b)
+        b.symlink_to(a)
+
+        where = hook_wiring._where(a)
+
+        assert where == {"path": str(a)}
+
+    def test_the_guard_is_narrow_because_the_population_is(self, tmp_path):
+        """Why this is not ``except Exception``.
+
+        ``resolve(strict=False)`` *swallows* every other hostile input —
+        estate-manager drove six and four returned a path.  Pinning that
+        is what stops a later reader widening the guard to a bare
+        ``except``, which would report a genuinely undescribable path as
+        a plain one.  Loops are the population; these are the
+        non-members.
+        """
+        deep = tmp_path / ("x" * 300)
+        through_a_file = tmp_path / "file.txt" / "settings.json"
+        (tmp_path / "file.txt").write_text("not a directory")
+
+        chain = tmp_path / "link0"
+        chain.symlink_to(tmp_path / "target.json")
+        (tmp_path / "target.json").write_text("{}")
+
+        for path in (deep, through_a_file, chain):
+            assert hook_wiring._where(path)["path"] == str(path), path
+
     def test_the_path_is_expanded(self):
         """``SETTINGS_PATH`` is stored unexpanded on purpose, so the
         expansion has to happen at read time. A reader that skipped it

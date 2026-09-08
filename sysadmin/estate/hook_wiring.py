@@ -133,11 +133,32 @@ def _where(path: Path) -> dict[str, Any]:
 
     Resolution failure is reported as absence rather than raised: this
     runs to *describe* a fault and must never become one.
+
+    **``RuntimeError`` is the one that can actually occur, and the guard
+    said ``OSError`` until 2026-09-08** (estate message ``f5e450cb``,
+    measured there after their identical line survived a mutation and
+    re-measured here before this was widened).  ``resolve(strict=False)``
+    swallows almost every hostile input — an over-long name, a descent
+    through a file, an unsearchable parent and a sixty-link chain all
+    return a path — and the only class that raises is a **loop**, whose
+    errno-40 ``OSError`` :func:`pathlib.check_eloop` re-raises as a
+    ``RuntimeError``.  That is not an ``OSError`` subclass, so the
+    original guard was aimed at an exception this call cannot produce.
+    Reachable rather than theoretical: ``~/.claude/settings.json`` is a
+    symlink into ``~/projects/dotfiles``, which is what makes a loop
+    constructible with one mistyped ``ln -s``, and ``_where`` runs
+    *before* the file is opened — so uncaught it took down the surface
+    whose whole job is to say every hook on this box is down.
+
+    The loop still reaches :func:`read_settings`'s own ``except
+    OSError``, because ``open()`` raises ELOOP without pathlib's
+    conversion — so a loop reads as ``error`` (nothing looked), never as
+    a payload.  Rule 2's line, arrived at from the filesystem's side.
     """
     where: dict[str, Any] = {"path": str(path)}
     try:
         target = path.resolve()
-    except OSError:
+    except (OSError, RuntimeError):
         return where
     if target != path:
         where["resolves_to"] = str(target)

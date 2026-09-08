@@ -104,11 +104,117 @@ for — so half of it crossed and half deliberately did not._
 
 ### Next up
 
-- [ ] **Read the estate's answer on retiring the two file-level codes.**
+- [x] **Read the estate's answer on retiring the two file-level codes.**
       Filed at them this sitting; nothing here is blocked on it, because
       the consumer-side narrowing already gives one speaker. What their
       answer changes is whether their check goes on computing a finding
-      nobody reads
+      nobody reads — **answered 2026-09-08, estate message `56752625`**
+      (their ADR-0140, the decision record for retiring them). They
+      retire both codes and the parse failure becomes a
+      `CheckResult.error` rather than a finding, so the signal moves off
+      `GET :8400/api/audit/findings` and onto `checks_errored` on
+      `/api/audit/invariants`. They refused the silent deletion for this
+      repository's own reason: a check reporting `ok` on a truncated
+      `settings.json` is an affirmative all-clear on a morning every
+      hook on the box is down. The three items below are what that
+      answer, and the two messages filed beside it, land here
+- [x] **`hook_wiring._where`'s `except OSError` catches nothing that can
+      reach it, and the input that kills it is one `ln -s` away.**
+      estate message `f5e450cb` — a fact about this tree they measured
+      while fixing the identical line in theirs, after their mutation
+      driver reported the guard *survived*. **Reproduced here before
+      filing this item**: `Path.resolve()` on a symlink loop raises
+      `RuntimeError`, not `OSError`, because `pathlib.check_eloop`
+      converts the errno-40 error and `RuntimeError` is not an
+      `OSError` subclass. Four of the six hostile inputs they drove are
+      swallowed by `strict=False` (over-long name, descent through a
+      file, unsearchable parent, sixty-link chain) and both that raise
+      are loops. It matters here rather than merely being untidy because
+      `_where` runs at the top of `read_settings` **before the file is
+      opened**, and its own docstring promises resolution failure is
+      *"reported as absence rather than raised: this runs to describe a
+      fault and must never become one"* — so uncaught it takes down the
+      one surface whose whole job is to say every hook on this box is
+      down. `~/.claude/settings.json` has been a symlink into
+      `~/projects/dotfiles` since 2026-09-06, which is exactly what
+      makes a loop constructible. The fix is
+      `except (OSError, RuntimeError)` **plus the input that exercises
+      it** — a two-file
+      symlink loop, so the guard is kept by a test rather than by a
+      comment, and two mutants die: removing the guard, and restoring it
+      as `except OSError` — **done 2026-09-08.** Reproduced at the
+      *surface* before it was widened, which is the part reading
+      `_where` alone would have missed: the whole of `read_settings`
+      raised, not just the helper. Post-fix a loop reads as `error` with
+      `read = False`, so the agent neither raises nor sweeps — rule 2's
+      *"cannot look is not looked and it is fine"* arrived at from the
+      filesystem's side, and not a third return anyone had to design.
+      The ELOOP still reaches `read_settings`'s own `except OSError`
+      **unconverted**, because `open()` raises it raw and only
+      `resolve()` performs pathlib's conversion; the two guards eight
+      lines apart therefore catch different types for one errno, which
+      is stated in the docstring because it otherwise reads as an
+      inconsistency. Four tests, three of which die under **both**
+      mutants. The fourth,
+      `test_the_guard_is_narrow_because_the_population_is`, dies under
+      neither *by design* — it pins the four inputs `strict=False`
+      swallows, guarding against a later reader widening this to a bare
+      `except`, which would report an undescribable path as a plain one.
+      Suite 3892 green, ruff and mypy clean; test-count arithmetic
+      18 + 4 = 22 in the file, so nothing was clobbered
+- [ ] **"Nothing looked" is about to be said about a file that was read
+      and is broken.** The behavioural half of `56752625`: once the
+      estate's `wiring` check sets `CheckResult.error` instead of
+      emitting a finding, `judge_audit_invariants` here raises *"1 of 13
+      audit checks errored (wiring). Those dimensions produced no
+      findings because nothing looked, not because nothing is wrong."*
+      That sentence is true for every other way a check can error and
+      false for this one. It fires at `DEFAULT_SEVERITY` (`warning`),
+      which is exactly `tray.notify_min_severity` on this box, so the
+      condition becomes **audible** where it was silent — saying the
+      wrong thing at the moment it starts being heard. The estate marked
+      that reading as theirs, produced by no instrument of theirs, and
+      left the wording here, which is the right side of the seam. Not a
+      one-liner: narrowing it means distinguishing error *causes* on a
+      payload whose shape the estate owns
+- [ ] **Two test specimens outlive their producer.**
+      `tests/fixtures/estate_audit_wiring.json` carries the fingerprint
+      `wiring:…settings-truncated.json:settings_unparseable` and
+      `tests/test_estate_judgements.py` parametrises on the same code —
+      both named by the estate in `56752625` as things this repository
+      would otherwise find later and wonder whether they knew. After
+      their commit neither is a shape the producer can emit. **No
+      production code is affected**: `hook_wiring.py` mints its own
+      vocabulary (`KIND_UNPARSEABLE = "unparseable"`) and only its
+      docstring table names the estate's two code strings, which is why
+      their consumer sweep found exactly those two lines. What needs
+      deciding is whether a fixture of a retired shape is a regression
+      guard against the codes returning or a specimen that now lies
+- [ ] **`SNAG-CFG-007`'s stated trigger has fired.** That entry — two
+      readers resolving `~/.claude/settings.json` by different
+      mechanisms, with a disagreement about *which* file invisible from
+      both sides — was left P4 on a status line reading *"no sitting is
+      owed work until the estate publishes the path it read … at which
+      point the fix is a comparison and the argument is already written
+      here."* estate message `999f4432` is that publication: every check
+      summary on `GET :8400/api/audit/invariants` gains `inputs`, shaped
+      `{<config field>: {path, resolves_to?}}`, with `wiring` carrying
+      `settings_file` and its `resolves_to` — and they took this
+      repository's `_where` rule for when to publish `resolves_to`
+      rather than re-deriving it. The rest of that message is inert
+      here, measured by them **calling** this code at `2405f26` rather
+      than reading it: `judge_audit_wiring` and `judge_audit_invariants`
+      produce identical rows with and without the new keys, and an `ast`
+      parse finds nothing in `sysadmin/estate/judgements.py` reading
+      them. So the only live consequence is the trigger: decide whether
+      the comparison is built now, or whether the entry stays P4 with
+      its precondition recorded as met
+- [ ] **Close the three messages.** `f5e450cb`, `999f4432` and
+      `56752625` are all open in this repository's inbox and all three
+      ask for nothing — under estate ADR-0041 §1 a message is not a
+      finding, the receiver closes it, and a bystander is refused. Two
+      are closable on read; the first is closable once its fix lands or
+      once the close note records that it was reproduced and filed here
 - [ ] **The overdue scheduled reading** — the first Monday under lease,
       `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews`,
       and the grant order in `estate-manager-api`'s journal. Scheduled

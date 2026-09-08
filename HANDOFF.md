@@ -1,8 +1,78 @@
-# Handoff — 2026-09-08 (Session 201)
+# Handoff — 2026-09-08 (Session 202)
 
 ## Next action
 
-Fix `hook_wiring._where`'s resolution guard, which estate message `f5e450cb` measured and this sitting reproduced on our own box: `path.resolve()` on a symlink loop raises `RuntimeError` rather than `OSError`, because pathlib's `check_eloop` converts errno 40, so the `except OSError` cannot catch the one input that reaches it and the docstring's promise that a resolution failure is reported as absence and never raised is false for exactly that input.
+Narrow `judge_audit_invariants`'s errored-checks message, which reads "Those dimensions produced no findings because nothing looked, not because nothing is wrong" and is about to be false for exactly one cause: estate message `56752625` (their ADR-0140) retires check 11's two file-level codes, so a `settings.json` that is present, readable and not a JSON object now sets `CheckResult.error` instead of emitting a finding, which means the file *was* read and *is* broken while our sentence claims nobody looked — and since that row fires at `DEFAULT_SEVERITY` of `warning`, exactly this box's `tray.notify_min_severity`, the wrong sentence becomes audible on the first 05:00 audit run after their commit lands.
+
+## What this sitting did
+
+Read the three open estate messages, turned them into tasks, and landed
+the one that was a defect in this tree.
+
+**`hook_wiring._where`'s guard was aimed at an exception the call cannot
+raise** (estate `f5e450cb`, measured there after their identical line
+survived a mutation). `path.resolve()` on a symlink loop raises
+`RuntimeError`, because `pathlib.check_eloop` converts the errno-40
+`OSError` and `RuntimeError` is not an `OSError` subclass — so
+`except OSError` caught nothing reachable. It is reachable rather than
+theoretical: `~/.claude/settings.json` has been a symlink into
+`~/projects/dotfiles` since 2026-09-06, which is what makes a loop
+constructible with one mistyped `ln -s`, and `_where` runs *before* the
+file is opened.
+
+Four things worth carrying, none of which reading `_where` would have
+given:
+
+1. **The reproduction had to be at the surface.** Driven at `_where`
+   alone the finding is "a helper raises"; driven at `read_settings` the
+   finding is that **the whole surface raised** — the one whose entire
+   job is to say every hook on this box is down.
+2. **The fix needed no third return.** Post-fix a loop reads as `error`
+   with `read = False`, so the agent neither raises nor sweeps. The
+   ELOOP reaches `read_settings`'s own `except OSError` **unconverted**,
+   because `open()` raises it raw and only `resolve()` performs
+   pathlib's conversion — so the two guards eight lines apart catch
+   different types for one errno, which is now stated in the docstring
+   because it otherwise reads as an inconsistency someone would tidy.
+3. **The guard is kept by an input, not a comment.** Both mutants die —
+   deleting the `try`, and restoring `except OSError` — on the same
+   three tests. A fourth test dies under neither *by design*: it pins
+   the four hostile inputs `strict=False` swallows (over-long name,
+   descent through a file, unsearchable parent, sixty-link chain), so it
+   guards against a later reader widening this to a bare `except`, which
+   would report an undescribable path as a plain one.
+4. **`SNAG-CFG-007`'s stated trigger has fired and is filed, not acted
+   on.** Estate `999f4432` publishes `inputs` on every audit check
+   summary — `{<config field>: {path, resolves_to?}}` — which is
+   verbatim the precondition that entry parked itself on ("no sitting is
+   owed work until the estate publishes the path it read"). Easy to miss
+   because that message presents as inert, and it is: they measured this
+   repository by *calling* it at `2405f26` and every judgement row is
+   identical with and without the new keys.
+
+Suite 3892 green, ruff and mypy clean. Test-count arithmetic on the
+changed file: 18 + 4 = 22, so nothing was clobbered.
+
+## What is deliberately not done
+
+- **The three messages are still open.** Closing writes into another
+  repository's register and there is no reopen, so it was left for an
+  explicit decision rather than taken as a tidy-up.
+- **No snag was filed for the guard.** Nothing was found and left
+  unfixed; the defect is closed in the same sitting it arrived.
+- **The two dead test specimens stand.** `estate_audit_wiring.json` and
+  a `test_estate_judgements.py` parametrisation carry
+  `settings_unparseable`, which their commit retires. Production code is
+  unaffected — `hook_wiring.py` mints its own vocabulary
+  (`KIND_UNPARSEABLE = "unparseable"`) — so what needs deciding is
+  whether a fixture of a retired shape is a regression guard or a lie.
+
+---
+
+## Session 201 — half a check crossed the seam, and the guard it left behind was aimed at the wrong exception
+
+_**Its published next action was this sitting's task and is done** (see the
+Session 202 block above)._ _It read:_ Fix `hook_wiring._where`'s resolution guard, which estate message `f5e450cb` measured and this sitting reproduced on our own box: `path.resolve()` on a symlink loop raises `RuntimeError` rather than `OSError`, because pathlib's `check_eloop` converts errno 40, so the `except OSError` cannot catch the one input that reaches it and the docstring's promise that a resolution failure is reported as absence and never raised is false for exactly that input.
 
 _**This Next action was corrected on 2026-09-08 by a later sitting, and the
 line it replaces had already been refuted inside this same file.**_ _Session
