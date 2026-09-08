@@ -96,7 +96,7 @@ for — so half of it crossed and half deliberately did not._
       side of the change, so it is a premise that had gone too narrow
       rather than a control the fix broke; it now names the four estate
       surfaces the probe declines
-- [x] **`SNAG-ESTATE-017` filed** — the split leaves two readers of one
+- [x] **`SNAG-CFG-007` filed** — the split leaves two readers of one
       file, and a disagreement about *which* file is invisible from both
       sides. Empty population measured today (their `settings_file`
       defaults to the same path, unoverridden), and both closures cross

@@ -258,7 +258,7 @@ the probe declines, which is what it was always about.
   estate's check reads a configured path and this reads a constant. If
   those ever part company, both report cleanly about different files and
   nothing says so. Empty population today — measured, they resolve to
-  the same file — and filed as `SNAG-ESTATE-017`.
+  the same file — and filed as `SNAG-CFG-007`.
 
 - **`WIRING_FILE_TITLE` was renamed** from *"Estate hook wiring
   unreadable"*, because *unreadable* became precisely the case that

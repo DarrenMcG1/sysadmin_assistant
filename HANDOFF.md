@@ -94,7 +94,7 @@ either side first: all **29** `check-snag-claims` verdicts are
 byte-identical before and after, so it was a premise gone too narrow and
 not a control this fix broke.
 
-**`SNAG-ESTATE-017` is the residue** — the split leaves two readers of
+**`SNAG-CFG-007` is the residue** — the split leaves two readers of
 one file, and a disagreement about *which* file is invisible from both
 sides. Empty population measured today, and both closures cross a
 boundary this repository does not cross alone.
@@ -2489,7 +2489,7 @@ _**`claim_sentence` could not be called, which is exactly what the handoff said 
 
 _**Two silent widenings were found by writing the fixture the new message asks for.**_ _The note tells an author to move the marker into the sentence naming the clock; written flush against the full stop, `SENTENCE_END_RE` saw no terminator (it wants whitespace after one, and a marker is neither) and the sentence ran **backwards** through the preceding paragraph. Blanking the marker then moved the anchor **past** the terminator and the sentence became the next one, which is empty. `_unmarked` and `_anchor` are the halves: what is a marker is not prose, and a marker belongs to the sentence it **closes**._
 
-_**Filed in this repository's own namespace.**_ _`SNAG-ESTATE-017` would have been the fifteenth collision with estate-manager, who are at **131**; their message `153c1c96` records that namespace as having two minters and no owner, and this is the claims machinery rather than the estate._
+_**Filed in this repository's own namespace.**_ _`SNAG-CFG-007` would have been the fifteenth collision with estate-manager, who are at **131**; their message `153c1c96` records that namespace as having two minters and no owner, and this is the claims machinery rather than the estate._
 
 _**Ten mutations driven, each red on the named test.**_ _Pinning the whole region again turns **12** red; routing the pin through `claim_sentence` turns the same 12 red; emptying the shared locator turns **31** red across *both* narrowings, which is the signature of a locator that is genuinely shared. Suite **3526 → 3534**, `ruff` and `mypy` clean, register **23** open and none opened._
 

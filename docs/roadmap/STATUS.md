@@ -48,7 +48,7 @@
 > `SNAG-ESTATE-009`'s test needed widening and the verdict was measured
 > either side first — all **29** `check-snag-claims` verdicts
 > byte-identical, so a premise gone too narrow and not a control the fix
-> broke. `SNAG-ESTATE-017` is the residue: two readers of one file, and a
+> broke. `SNAG-CFG-007` is the residue: two readers of one file, and a
 > disagreement about *which* file invisible from both sides.
 > Daemon restarted at **2026-09-08 16:37:18**
 > <!--check:deploy--> <!--check:daemon_start--> by Session 201, PID
@@ -4843,7 +4843,7 @@ two halves: what is a marker is not prose, and a marker belongs to the
 sentence it **closes**. Both failures were in the direction the entry
 exists to close, arriving through the fix for it.
 
-**Filed as `SNAG-DOCS-008`, not `SNAG-ESTATE-017`.** estate-manager's
+**Filed as `SNAG-DOCS-008`, not `SNAG-CFG-007`.** estate-manager's
 message `153c1c96` records that namespace as having two minters and no
 owner — they are at **131** — and this is the claims machinery rather
 than the estate, which is what that ruling says the area should have
