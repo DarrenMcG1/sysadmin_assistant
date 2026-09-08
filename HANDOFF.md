@@ -1,6 +1,120 @@
-# Handoff — 2026-09-08 (Session 200)
+# Handoff — 2026-09-08 (Session 201)
 
 ## Next action
+
+Read the overdue Monday-under-lease evidence: `llm_used` on the 2026-09-07 rows of `health_reviews`, `log_reviews` and `disk_reviews` should read true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning logged beside it, because the three refusals are logged apart precisely so that reading answers why.
+
+_**Half a check crossed the seam, and moving all of it would have restored
+nothing.**_ _The ask was to decide estate message `ecceab5e`. The owner
+recommended that estate-manager's `wiring` audit check move here, because
+their ADR-0132 now lets an estate session write `settings.json`'s `hooks`
+key and the check therefore audits its own writes. The recommendation is
+aimed at the comparator; what lost its independence is an operand.
+[ADR-0008](docs/adr/0008-the-file-half-of-the-wiring-check.md) records
+the decision._
+
+**What was decided, and the argument that decided it.** The check
+compares two operands — the hook scripts' `estate-hook-event:`
+declarations, and `~/.claude/settings.json`. ADR-0132 removed the
+independence of the second. Moving `run_check` here relocates the
+*comparison* and leaves both operands the estate's, so a green result
+would mean exactly what it meant before. Today's `dotfiles` commit
+`54247f8` is the specimen rather than a hypothesis: an estate session
+built `memory-index-notice.sh`, wrote its declaration, wrote the matching
+`Stop` entry, and the estate's own check then reported **0 findings with
+all six hooks `WIRED`**. Run from here, against those same two files, it
+reports 0 findings too.
+
+**So the split falls at the inputs, not at the severity.** Two of the
+check's four codes — `settings_unparseable`, `settings_not_an_object` —
+read `settings.json` **alone** and need no statement of the estate's, so
+an independent party genuinely can hold them; and they are the two
+carrying the consequence the check exists for, since a file that does not
+parse takes every hook on this box down, the blocking `Stop` one
+included, with no hook able to report it because they all fail open.
+Those are `sysadmin/estate/hook_wiring.py` now, judged by
+`judge_hook_wiring` on a **sixth surface**. The two per-hook codes stay
+with the estate and are still judged here off
+`GET :8400/api/audit/findings`, exactly as ADR-0006 admitted them.
+
+**Three things the sitting had to correct rather than build.** Two
+clauses of ADR-0006's six-clause admission test were falsified today by
+the *other* half of ADR-0132, which the message mentions and does not
+connect to this repository's argument: `~/.claude/settings.json` is a
+**symlink** into `~/projects/dotfiles`, registered `status: active` this
+morning, so *"the file is in no repository at all"* is false; and
+*"repairable only by the owner"* went with the hooks-key narrowing. Three
+sites in `sysadmin/estate/judgements.py` asserted them and are corrected
+— work owed whichever way the check question was answered. The decisive
+clause held and was re-measured rather than carried: this module is still
+the only consumer of that endpoint outside the estate's own publisher,
+and `dotfiles` carries `docs/roadmap/` and **no** `docs/adr/`, so a
+`wiring` finding filed against it lands in a surface with no reader.
+
+**What the live drive found and no fixture would have.** The fault
+sentence stated its position twice — *"Unterminated string starting at
+**at** line 671"* — because several of json's own messages already end in
+"at" and expect the position to follow; `str(exc)` is the sentence that
+composes for all of them, and recomposing it by hand was a second
+statement of the producer's format. **estate-manager's check has the
+identical doubling**, reported back in the close note as an observation
+rather than filed as a finding. The other find is that the row has a trap
+to carry that is one day old: the read resolves into `~/projects/dotfiles`,
+so the obvious fix edits a file tracked in a repository nobody mentioned,
+and `details['resolves_to']` and the message name it.
+
+**A sixth surface, and ADR-0006 §7's refusal is superseded by its own
+stated reason** — *"it arrives in the same payload from the same HTTP
+call, so it is one surface"*. It does not any more. `read_settings`
+returns a `SurfaceResult` so the agent merges it into the same map the
+five pulls land in, which means `read`, `unread`, `_judge`,
+`_resolve_gone` and `by_surface` all reach it with no branch of its own —
+and buys the property the split exists for, pinned by a test: **8400
+being down does not blind the local read**. `audit_findings`' wiring
+pattern narrows to `Estate hook % not wired for %`, because a pattern
+left wide would let a successful pull of 8400 resolve a row raised from
+the local filesystem.
+
+**What was refused.** Moving the whole check (§2 above). Declining
+entirely, which was this session's own first recommendation and which
+treats the check as indivisible when two of its codes take an input no
+estate statement reaches. Building it and leaving it unwired until the
+estate retires its half — correct, green, inert, and dependent on another
+repository's timetable, where narrowing on the **consumer** side is
+wholly ours and gives one speaker immediately. And judging both producers
+meanwhile, which would put two owners on one lifecycle: both rows carry
+one title, so dedup hides the duplication while the two sweeps disagree
+about the close.
+
+**Eleven mutations driven and eleven killed by the test written for
+each**, checked by failing-test *name* rather than by exit status,
+because a mutation killed by an unrelated test is not a guard.
+`SNAG-ESTATE-009`'s test had to be widened and the verdict measured
+either side first: all **29** `check-snag-claims` verdicts are
+byte-identical before and after, so it was a premise gone too narrow and
+not a control this fix broke.
+
+**`SNAG-ESTATE-017` is the residue** — the split leaves two readers of
+one file, and a disagreement about *which* file is invisible from both
+sides. Empty population measured today, and both closures cross a
+boundary this repository does not cross alone.
+
+**Also fixed on the way past**: `tests/test_handoff_shape.py` was red on a
+**clean tree** — Session 199's block still carried a live
+`## Next action` heading, and Session 200's did too once this block went
+above it. estate-manager's parser takes the **first** heading containing
+"next", so the board was correct today and one edit away from publishing
+a stale line. The rule that a superseded heading is renamed in the same
+commit is already written down further down this document; what it did
+not have was anything that noticed when a sitting forgot, and the guard
+that does was reporting it into a suite nobody had run at the start of
+the sitting.
+
+---
+
+# Handoff — 2026-09-08 (Session 200)
+
+### The action Session 200 handed on (decided by Session 201)
 
 Decide estate message `ecceab5e`: the owner has recommended that estate-manager's `wiring` audit check move into this repository, because ADR-0132 now lets an estate session write `settings.json`'s `hooks` key and so the check partly audits its own writes — read `service/estate_service/audit/checks/wiring.py` and `sysadmin/estate/judgements.py`'s `JUDGED_AUDIT_CHECKS`, weigh taking it against this repository already judging its findings under `ADR-0006`, and either take it or decline it in writing, because a recommendation left undecided is the one shape estate rule 3 cannot resolve on its own.
 
@@ -99,7 +213,7 @@ paid at 14:42:41, `NRestarts` 2 → 3._
 
 # Handoff — 2026-09-08 (Session 199)
 
-## Next action
+### The action Session 199 handed on (built by Session 200)
 
 Build the reading ADR-0007 settled: add a leaf to `services.yaml` declaring which services hold VRAM (`alfred-inference` and `venture-chat` do, `venture-embed` does not, so `role: inference` would ship 267 false alarms), add `ActiveEnterTimestamp` to `get_unit_status`'s property list, and make `_check_http_and_unit` record `degraded` with the derivation in `details` whenever a declared unit's start instant is strictly earlier than the newest `CRITICAL_SIGNATURES` reset row — a tie left unflagged, because second truncation moves a start instant earlier and therefore errs toward over-reporting.
 

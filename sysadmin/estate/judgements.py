@@ -59,9 +59,15 @@ Three rules run through everything below.
    2026-08-30, ``wiring`` (:func:`judge_audit_wiring`).  Each is a
    **narrowing of this rule rather than a reversal**: neither reason above
    reaches either subject.  A port is not any repository's conformance —
-   no repository owns one — and ``~/.claude/settings.json`` is in no
-   repository *at all*; this service raises nothing about either itself,
-   so there is nothing to double-count.  What decided both is that the
+   no repository owns one; ``~/.claude/settings.json`` was in no
+   repository *at all* when this was written and **is not any more** —
+   since 2026-09-06 it is a symlink into ``~/projects/dotfiles``, which
+   estate ADR-0132 registered ``status: active`` on 2026-09-08.  That
+   clause has gone and the exception stands on the last one instead; see
+   ``docs/adr/0008-the-file-half-of-the-wiring-check.md``.  This
+   service raises nothing about either subject itself — re-measured
+   2026-09-08, nothing under ``sysadmin/`` or ``sysadmin_tray/`` reads
+   ``~/.claude`` at all — so there is nothing to double-count.  What decided both is that the
    estate *may not alert*: it files findings and never acts, this box's
    monitor is the only party permitted to speak, and the alternative to
    judging them here is a finding that is detected, correct,
@@ -133,6 +139,28 @@ DEFAULT_SEVERITY = "warning"
 HEALTH_ROLLUP_TITLE = "Estate project health breaches"
 NUDGE_ROLLUP_TITLE = "Estate project next actions idle"
 
+#: Title for a fault about ``~/.claude/settings.json`` as a whole rather
+#: than about one hook — raised by :func:`judge_hook_wiring` off a local
+#: read, never off the estate's payload.
+#:
+#: A fixed string, for the reason the two roll-up titles above are: the
+#: subject is a *path*, so putting it in the title would fork the row on
+#: the day the harness re-spells its own config — a fault about one file,
+#: wearing two identities.  The path is in ``details``.
+#:
+#: **It read "Estate hook wiring unreadable" until 2026-09-08**, and the
+#: word became wrong on the day the read moved here: *unreadable* is now
+#: precisely the case that raises **nothing**, because a file this
+#: repository cannot open is an unread surface rather than a fault
+#: (:mod:`sysadmin.estate.hook_wiring` rule 2).  A title is an alert's
+#: identity and renaming one orphans every open row that carries it —
+#: which is free here and never will be again: ``wiring`` had filed
+#: **zero** findings in its whole history when this changed (938 across
+#: 262 runs to 2026-09-03, re-measured 2026-09-08 against a live audit
+#: serving five findings, none of them ``wiring``), so the population
+#: being renamed is empty and measured rather than assumed.
+WIRING_FILE_TITLE = "Estate hook wiring is broken"
+
 #: Title patterns per surface, for the resolve sweep.
 #:
 #: The sweep is **scoped to the surfaces a run actually read** (see
@@ -153,11 +181,21 @@ SURFACE_TITLE_PATTERNS: dict[str, tuple[str, ...]] = {
     "audit_invariants": ("Estate audit %",),
     # Two families, one surface — they arrive in one payload from one
     # HTTP call, so they are read and swept together and no third
-    # pattern set is wanted. ``Estate hook %`` covers both wiring
-    # titles; it cannot reach ``Estate port %`` or ``Estate audit %``,
-    # which is what the partition test asserts rather than this comment.
-    "audit_findings": ("Estate port %", "Estate hook %"),
+    # pattern set is wanted.
+    #
+    # **The wiring pattern was ``Estate hook %`` until 2026-09-08**, when
+    # the file-level half of that family stopped arriving in this payload
+    # (``docs/adr/0008-the-file-half-of-the-wiring-check.md``). It is
+    # narrowed to the per-hook shape rather than left wide, because a
+    # wide pattern would let a successful pull of 8400 resolve a row
+    # raised from the local filesystem — the "resolving on unknown" this
+    # mapping exists to prevent, arriving from the one direction the
+    # partition test could not see while both titles shared a surface.
+    "audit_findings": ("Estate port %", "Estate hook % not wired for %"),
     "queue_invariants": ("Estate queue %",),
+    # Read here, not pulled — the one surface in this mapping that is not
+    # an HTTP call to 8400. See :mod:`sysadmin.estate.hook_wiring`.
+    "hook_wiring": (WIRING_FILE_TITLE,),
 }
 
 
@@ -773,10 +811,25 @@ WIRING_CHECK = "wiring"
 #: alert (it files findings and never acts), this service is the only
 #: party on this box permitted to speak, and this service raises nothing
 #: about the subject itself — so the alternative to judging it here is
-#: that nobody says it at all.  A port satisfies every clause.  So does
-#: ``~/.claude/settings.json``, which is in no repository *at all*
-#: rather than merely unowned within one, and which the estate can own
-#: the hook script for and cannot wire (their ADR-0024).
+#: that nobody says it at all.  A port satisfies every clause.
+#:
+#: ``~/.claude/settings.json`` satisfied every clause on 2026-08-30 and
+#: **satisfies four of six on 2026-09-08**.  Two moved on one day, both
+#: by estate ADR-0132: the file is no longer *in no repository at all* —
+#: it is a symlink into ``~/projects/dotfiles``, registered
+#: ``status: active`` — and the estate may no longer *only own the hook
+#: script*, because it may now write this file's ``hooks`` key.  What did
+#: not move is the clause that decides: re-measured 2026-09-08, this
+#: module is still the only consumer of ``GET /api/audit/findings``
+#: outside the estate's own publisher, and ``dotfiles`` carries
+#: ``docs/roadmap/`` and no ``docs/adr/`` — so the alternative to judging
+#: it here is still that nobody says it at all.  The check therefore
+#: stays judged, and **half of it stopped being pulled**: the two codes
+#: taking no statement of the estate's as input are read locally by
+#: :mod:`sysadmin.estate.hook_wiring`, and the two comparing the estate's
+#: declarations against the file are still theirs.  Which half went, and
+#: why moving the whole check would have restored nothing, is
+#: ``docs/adr/0008-the-file-half-of-the-wiring-check.md``.
 JUDGED_AUDIT_CHECKS: dict[str, str] = {PORTS_CHECK: "breach", WIRING_CHECK: "warn"}
 
 #: The producer's own severity for the ``ports`` check, used as its filter.
@@ -1238,18 +1291,6 @@ def _with_standing(summary: str, finding: dict[str, Any]) -> str:
 # --- the audit's hook wiring ---------------------------------------------
 
 
-#: Title for a finding about ``settings.json`` as a whole rather than
-#: about one hook.
-#:
-#: A fixed string, which is rule 2 read the way :data:`ATTENTION_ROLLUP_TITLES`
-#: reads it: the producer's ``subject`` here is a *configured path*
-#: (``~/.claude/settings.json``), so putting it in the title would fork
-#: the row on the day the estate re-spells its own config — a fault
-#: about one file, wearing two identities.  The path is in ``details``,
-#: where ``sources_unreachable`` puts the same kind of fact.
-WIRING_FILE_TITLE = "Estate hook wiring unreadable"
-
-
 def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
     """The audit's hook-wiring findings — the second family, and the last.
 
@@ -1257,10 +1298,11 @@ def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
     ``docs/adr/0006-wiring-joins-ports.md``, which answers
     estate-manager's message ``8462bcc5`` and their ADR-0068 §4.  Their
     argument is that every clause of :data:`JUDGED_AUDIT_CHECKS`' test
-    transfers from a port to ``~/.claude/settings.json``, and it does —
-    the file is in no repository at all, it carries the hook entries
-    binding all thirteen, the estate may not alert, only the owner can
-    repair it (their ADR-0024), and they measured on 2026-08-29 that
+    transfers from a port to ``~/.claude/settings.json``, and on
+    2026-08-30 it did — the file was in no repository at all, it carries
+    the hook entries binding all thirteen, the estate may not alert, only
+    the owner could repair it (their ADR-0024), and they measured on
+    2026-08-29 that
     **nobody says it at all**: no code in any repository under
     ``~/projects`` reads ``estate/audit/findings/{check}``, and the one
     consumer of ``GET /api/audit/findings`` was this module, scoped out
@@ -1268,9 +1310,9 @@ def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
 
     So this is Session 26b-A's founding defect, one check over: a
     finding that is detected, correct, machine-readable and never said
-    out loud.  The estate's own hooks cannot report it — all four fail
-    open by design, so a dead hook and a silent one are the same
-    observation from inside a session — and on 2026-08-25 a paste took
+    out loud.  The estate's own hooks cannot report it — they fail open
+    by design, so a dead hook and a silent one are the same observation
+    from inside a session — and on 2026-08-25 a paste took
     every hook on this box down, the blocking ``Stop`` one included,
     with nothing able to say so.
 
@@ -1313,9 +1355,14 @@ def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
        above ``max_rows`` because the port population is unbounded — any
        listener on the box — so many at once means the registry itself
        is wrong.  This population is bounded by the estate's own
-       ``hooks/`` directory: **four scripts, each declaring exactly one
-       event on 2026-08-30**, so the ceiling is four rows and each names
-       a hook a human can act on.  The collapse case is also already the
+       ``hooks/`` directory: four scripts, each declaring exactly one
+       event on 2026-08-30, and **six on 2026-09-08** (estate ADR-0132
+       wired the sixth), so the ceiling is six rows and each names a hook
+       a human can act on.  The argument is a ceiling rather than a
+       number and survives the count moving; it is re-dated rather than
+       re-derived, because a figure this repository restates about
+       another repository's tree is exactly the kind that went stale
+       once already.  The collapse case is also already the
        producer's: an unparseable ``settings.json`` short-circuits its
        check to a *single* finding rather than one per hook.  What is
        left uncollapsed is the 2026-08-25 shape — a well-formed block
@@ -1374,9 +1421,12 @@ def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
     neither side had counted is that the two codes share one subject:
     ``hook_not_wired`` iterates the hook's own declaration, which their
     grammar could bound, but ``hook_wired_undeclared`` iterates
-    ``~/.claude/settings.json``, whose cardinality is the owner's and
-    outside their authority (their ADR-0024).  Only re-measuring the
-    check to answer the filing surfaced the second loop.
+    ``~/.claude/settings.json``, whose cardinality is not theirs to
+    bound — the owner's, and outside their authority altogether until
+    estate ADR-0132 gave them the ``hooks`` key on 2026-09-08, and
+    *still* not bounded by any grammar of theirs.  The conclusion is
+    unmoved and its ground is narrower than it was.  Only re-measuring
+    the check to answer the filing surfaced the second loop.
 
     **Read from their source, because the wire cannot show it.**
     ``wiring`` has filed **zero** findings in the whole history — 938
@@ -1414,20 +1464,43 @@ def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
 
         event = _wiring_event(finding)
         if event is None:
-            judged.append(
-                Judgement(
-                    surface="audit_findings",
-                    title=WIRING_FILE_TITLE,
-                    message=_with_standing(
-                        str(
-                            finding.get("summary")
-                            or f"{subject} does not declare the estate's hooks"
-                        ),
-                        finding,
-                    ),
-                    details=_wiring_details(finding, subject, event=None),
-                )
-            )
+            # **A finding with no usable event is skipped, and both of the
+            # things that can produce one get that single treatment
+            # because the wire cannot tell them apart.**  ``code`` is the
+            # only field that would separate them and ``AuditFinding`` has
+            # no column for it (``SNAG-ESTATE-006``), so one rule must
+            # cover both.
+            #
+            # Cause one is a **file-level** finding, and it is deliberately
+            # this is a decision rather than an oversight** — the shape
+            # ``SNAG-CFG-001`` is, which is why it is a comment and not a
+            # silence. Since 2026-09-08 that fault is detected locally by
+            # :mod:`sysadmin.estate.hook_wiring` and judged by
+            # :func:`judge_hook_wiring`, because it is the half of the
+            # estate's check that takes no statement of the estate's as
+            # input and can therefore be held independently of the party
+            # that now writes the file (their ADR-0132;
+            # ``docs/adr/0008-the-file-half-of-the-wiring-check.md``).
+            #
+            # Judging it *as well* would put two owners on one lifecycle:
+            # both rows carry :data:`WIRING_FILE_TITLE`, so dedup keeps it
+            # to one row, and the two surfaces' sweeps would then disagree
+            # about when to close it — a successful pull of 8400 resolving
+            # a fault the local read still sees, which is the defect this
+            # package's docstrings name at several scales.
+            #
+            # Cause two is a **malformed per-hook** finding, and skipping
+            # it reverses a posture this family had: the old fallback row
+            # failed *open*, on the ports family's rule that missing
+            # evidence costs the qualifier and never the alert.  The
+            # reversal is affordable because the population is empty by
+            # the **producer's** construction rather than by observation
+            # — read from their ``checks/wiring.py``: ``declared_hooks``
+            # drops empty tokens, so ``DeclaredHook.events`` holds only
+            # non-empty strings, and ``hook_not_wired`` is emitted inside
+            # ``for event in hook.events``.  A third title for a shape the
+            # producer cannot emit would be machinery invented against
+            # zero, which ``ADR-0006`` §7 refused for the roll-up.
             continue
 
         judged.append(
@@ -1449,6 +1522,80 @@ def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
     return judged
 
 
+def judge_hook_wiring(payload: dict[str, Any]) -> list[Judgement]:
+    """``~/.claude/settings.json`` does not present a JSON object.
+
+    The one fault in this package that is **read** rather than pulled,
+    and the only judge here whose payload this repository produced
+    itself — :func:`sysadmin.estate.hook_wiring.read_settings`, whose
+    docstring holds why the split falls where it does.
+
+    Four rules, three of them decided by what the caller already owns:
+
+    1. **It judges a fault and never an absence.**  A payload reaches
+       here only when the file was opened and read; a file that could
+       not be opened is an *unread surface* and never arrives, so this
+       function has no "cannot look" case to get wrong.  That is
+       :class:`~sysadmin.estate.client.SurfaceResult`'s division doing
+       the work, which is the whole reason a local read was made to
+       return one.
+
+    2. **The severity is not re-argued.**  ``docs/adr/0006-wiring-joins-ports.md``
+       §3 rule 4 already considered ``critical`` for *this exact fault*
+       and refused it: an unparseable ``settings.json`` does take the
+       blocking ``Stop`` hook down, which makes it the one fault on these
+       surfaces genuinely about this box, and it still gets ``warning``
+       because ``critical`` breaks the DND windows by configuration and
+       is what the tray leaves on screen, reserved for a fault costing
+       something *now* — and a dead hook costs the **next** session
+       rather than the running one.  The fault has not changed; only who
+       observes it has, so the rung is cited rather than recomputed.
+
+    3. **The remedy's trap is carried in the alert** —
+       :mod:`sysadmin.monitor.collation` rule 4.  The trap is one day
+       old: since 2026-09-06 this path is a symlink into
+       ``~/projects/dotfiles``, so the obvious fix edits a file whose
+       changes are tracked in a repository the editor was not told
+       about.  Named only when the read actually resolved somewhere
+       else, so the sentence cannot assert a symlink that is not there.
+
+    4. **A payload it cannot read is not a fault.**  ``fault`` must be a
+       non-empty string, and anything else returns nothing — this fails
+       *open*, ``monitor/collation.py``'s posture rather than
+       ``schema_guard``'s, because a false positive here says *every hook
+       on this box is down* to an owner whose hooks are fine, and a
+       family that cries wolf once is one nobody reads twice.  What makes
+       that affordable is that the producer is in this repository and
+       directly driven, so the guard is its tests rather than this
+       branch.
+    """
+    fault = payload.get("fault")
+    if not isinstance(fault, str) or not fault.strip():
+        return []
+
+    path = str(payload.get("path") or "~/.claude/settings.json")
+    message = (
+        f"{path} does not present a JSON object ({fault.strip()}), so every "
+        "hook on this box is down — the blocking Stop hook included — and "
+        "none of them can report it, because they all fail open."
+    )
+    target = payload.get("resolves_to")
+    if isinstance(target, str) and target.strip():
+        message += (
+            f" It is a symlink to {target.strip()}, so the edit that fixes it "
+            "lands in a tracked repository."
+        )
+
+    return [
+        Judgement(
+            surface="hook_wiring",
+            title=WIRING_FILE_TITLE,
+            message=message,
+            details=dict(payload),
+        )
+    ]
+
+
 def _wiring_event(finding: dict[str, Any]) -> str | None:
     """The event a wiring finding is about, or ``None`` for a file-level one.
 
@@ -1468,16 +1615,22 @@ def _wiring_event(finding: dict[str, Any]) -> str | None:
 
 
 def _wiring_details(
-    finding: dict[str, Any], subject: str, event: str | None
+    finding: dict[str, Any], subject: str, event: str
 ) -> dict[str, Any]:
     """Everything the row carries as evidence rather than as identity.
 
-    ``event`` is present on **every** row, ``None`` on a file-level one,
-    rather than being omitted there.  A key that appears only sometimes
-    makes "the estate did not say" and "this row is not about one hook"
-    the same observation for a consumer — ``ports_checked``'s rule, at
-    the size of a dict key, and the collapse ``_reading_of`` exists to
-    remove one family over.
+    ``event`` is present on **every** row and is written unconditionally
+    rather than only where it is interesting: a key that appears only
+    sometimes makes "the estate did not say" and "this row is not about
+    one hook" the same observation for a consumer — ``ports_checked``'s
+    rule, at the size of a dict key, and the collapse ``_reading_of``
+    exists to remove one family over.
+
+    **It was ``str | None`` until 2026-09-08.**  The ``None`` spelling
+    marked a file-level row, and those left this family for
+    :func:`judge_hook_wiring` when that fault stopped being pulled and
+    started being read (``docs/adr/0008-the-file-half-of-the-wiring-check.md``).
+    The key stays; only the case that made it nullable has gone.
 
     **The key is ``subject`` and not ``hook``, which the live drive
     corrected.**  It was written as ``hook`` and reads correctly on
@@ -1486,7 +1639,10 @@ def _wiring_details(
     path*, so the key would have promised a hook name and delivered a
     file.  One field meaning two things by row shape is
     ``UnitFinding.enabled``'s trap, and naming the producer's own field
-    is what makes it impossible rather than merely unlikely.
+    is what makes it impossible rather than merely unlikely.  That fourth
+    specimen has not reached here since 2026-09-08 and the rule it taught
+    is why the key is still named for the producer's field rather than
+    for what this family happens to put in it today.
     """
     return {
         "subject": subject,

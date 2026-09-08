@@ -2729,8 +2729,27 @@ class TestTheUnsweptPortCheck:
         assert reading.attributed_unswept is None
 
     def test_only_the_findings_surface_is_read(self):
-        """The four declined surfaces, asserted at the sweep that consumes them."""
+        """The four declined surfaces, asserted at the sweep that consumes them.
+
+        **Widened on 2026-09-08, and the claim is unchanged.** The probe
+        supplies one estate payload, so it read exactly one surface until
+        the agent gained a sixth that is not a pull at all
+        (``sysadmin.estate.hook_wiring``, ``docs/adr/0008``): the local
+        read succeeds against this box's own ``settings.json`` whatever
+        the probe mocks, because it never goes near the transport the
+        probe replaces. What this test is about is the **four estate
+        surfaces this probe declines**, so it now names them rather than
+        asserting equality against a set a local read can legitimately
+        join — an equality that was a proxy for the claim and not the
+        claim.
+
+        The check's verdict was measured either side rather than
+        reasoned about: all 29 ``check-snag-claims`` verdicts are
+        byte-identical before and after, so this is a premise that had
+        gone too narrow and not a control the change broke.
+        """
         from sysadmin.estate.agent import EstateJudgeAgent
+        from sysadmin.estate.client import SURFACES
 
         real = EstateJudgeAgent._resolve_gone
         seen = []
@@ -2742,7 +2761,9 @@ class TestTheUnsweptPortCheck:
         with patch.object(EstateJudgeAgent, "_resolve_gone", recording):
             reading, problem = snag_claims.unswept_judgement_reading()
         assert not problem, problem
-        assert seen == [{"audit_findings"}]
+        [read] = seen
+        assert "audit_findings" in read
+        assert read & set(SURFACES) == {"audit_findings"}
 
     def test_the_quiet_rung_is_not_read_off_the_run(self):
         """Rule 3, driven at the state that would hide a broken witness.

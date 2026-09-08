@@ -44,11 +44,11 @@ from sysadmin.estate.judgements import (
     SURFACE_TITLE_PATTERNS,
     TRANSIENT_HOLDER_SEVERITY,
     WIRING_CHECK,
-    WIRING_FILE_TITLE,
     judge_attention,
     judge_audit_findings,
     judge_audit_invariants,
     judge_audit_wiring,
+    judge_hook_wiring,
     judge_projects_invariants,
     judge_queue_invariants,
 )
@@ -1194,6 +1194,15 @@ def _every_title():
     # with nothing able to resolve it.
     out += judge_audit_wiring({"findings": _recorded_wiring("misplaced")})
     out += judge_audit_wiring({"findings": _recorded_wiring("truncated")})
+    # The sixth surface, whose one title is a fixed string with no `%` in
+    # it — so a missing pattern would leave a row saying *every hook on
+    # this box is down* sitting in the table with nothing able to resolve
+    # it. It is read locally rather than pulled, which is what makes its
+    # partition against `Estate hook % not wired for %` load-bearing
+    # rather than tidy: those two surfaces fail independently now.
+    out += judge_hook_wiring(
+        {"path": "~/.claude/settings.json", "kind": "unparseable", "fault": "boom"}
+    )
     return out
 
 
@@ -1388,32 +1397,51 @@ class TestTheWiringFamilyIsAdmitted:
         assert judged.details["event"] == "SessionStart"
         assert judged.details["subject"] == "inbox-notice.sh"
 
-    def test_an_unparseable_settings_file_is_one_row_with_a_fixed_title(self):
-        """Rule 4's other half. The producer already collapses this case
-        to a single finding, and the title carries no path: ``subject``
-        is a *configured* path here, so an f-string title would fork the
-        row the day the estate re-spells its own config."""
-        [judged] = judge_audit_wiring({"findings": _recorded_wiring("truncated")})
-        assert judged.title == WIRING_FILE_TITLE
-        assert judged.details["event"] is None
+    def test_a_file_level_finding_is_no_longer_judged_here(self):
+        """Since 2026-09-08 this fault is read locally and judged by
+        :func:`judge_hook_wiring` — ``docs/adr/0008``. Judging it here as
+        well would put two owners on one lifecycle: both rows carry
+        :data:`WIRING_FILE_TITLE`, so dedup keeps it to one row and the
+        two surfaces' sweeps would then disagree about when to close it.
+
+        The premise is asserted first, because a specimen that had gone
+        empty would make the claim below true and vacuous."""
+        findings = _recorded_wiring("truncated")
+        assert findings, "the recorded specimen is empty; this asserts nothing"
+        assert judge_audit_wiring({"findings": findings}) == []
 
     def test_the_subject_key_names_the_producers_field_not_a_hook(self):
-        """Found by the live drive rather than by reading. The key was
-        written as ``hook`` and is right on three specimens; on this one
-        the producer's subject is the config file's path, so the name
-        would have promised a hook and delivered a file —
-        ``UnitFinding.enabled``'s trap, one dict key wide."""
-        [judged] = judge_audit_wiring({"findings": _recorded_wiring("truncated")})
-        assert judged.details["subject"].endswith("settings-truncated.json")
+        """Found by the live drive rather than by reading: the key was
+        written as ``hook`` and is right on three specimens; on the
+        unparseable one the producer's subject is the config file's path,
+        so the name would have promised a hook and delivered a file —
+        ``UnitFinding.enabled``'s trap, one dict key wide.
+
+        **This test is weaker than it was and says so.** The specimen
+        that discriminated between the two names left this family on
+        2026-09-08, so what is left cannot witness the *path* case. It
+        still refuses the rename, which is the half that can be
+        falsified: a judge writing ``hook`` fails it."""
+        [judged] = judge_audit_wiring({"findings": _recorded_wiring("one_unwired")})
+        assert judged.details["subject"] == "inbox-notice.sh"
+        assert "hook" not in judged.details
 
     def test_every_row_carries_an_event_key(self):
         """Present on both shapes, ``None`` on the file-level one, never
         omitted. A key that appears only sometimes makes "the estate did
         not say" and "this row is not about one hook" one observation —
         ``ports_checked``'s rule at the size of a dict key."""
-        for specimen in ("misplaced", "truncated", "one_unwired"):
+        produced = 0
+        for specimen in ("misplaced", "one_unwired"):
             for judged in judge_audit_wiring({"findings": _recorded_wiring(specimen)}):
                 assert "event" in judged.details
+                assert isinstance(judged.details["event"], str)
+                produced += 1
+        # Anti-vacuity, and it is not theoretical here: ``truncated``
+        # produces no rows at all since the split, so a loop that still
+        # named it would assert nothing for a third of its specimens and
+        # go on passing.
+        assert produced, "no rows were produced; the loop asserted nothing"
 
     def test_the_wire_carries_no_code_at_all(self):
         """The premise of rule 2, measured rather than assumed. ``code``
@@ -1443,10 +1471,16 @@ class TestTheWiringFamilyIsAdmitted:
     ):
         """Rule 2. ``detail``'s shape is a fact this module can read on
         the live wire; ``code`` is a field it would have to invent a
-        source for."""
-        [judged] = judge_audit_wiring({"findings": [_wiring(code=code, detail=detail)]})
-        assert judged.details["event"] == expected_event
-        assert (judged.title == WIRING_FILE_TITLE) is (expected_event is None)
+        source for.
+
+        Still the witness after the split, and in a stronger form: a
+        code-reading judge produces a row on the second case and none on
+        the first, which is the exact opposite of both assertions."""
+        judged = judge_audit_wiring({"findings": [_wiring(code=code, detail=detail)]})
+        if expected_event is None:
+            assert judged == []
+        else:
+            assert [j.details["event"] for j in judged] == [expected_event]
 
 
 class TestTheWiringFamilyIsNarrow:
@@ -1501,19 +1535,25 @@ class TestTheWiringFamilyIsNarrow:
             assert judge_audit_wiring({"findings": [_wiring(subject=subject)]}) == []
 
     @pytest.mark.parametrize("event", [None, "", "   ", 5, ["Stop"], {"a": 1}, True])
-    def test_an_unusable_event_falls_back_to_the_file_level_row(self, event):
+    def test_an_unusable_event_is_skipped(self, event):
         """Never formatted into a title. ``detail`` arrives through JSONB,
         so an ``event`` that came back as a number or a list would
         otherwise become ``Estate hook x not wired for ['Stop']`` — a
-        title that forks on the producer's serialisation."""
-        [judged] = judge_audit_wiring({"findings": [_wiring(detail={"event": event})]})
-        assert judged.title == WIRING_FILE_TITLE
+        title that forks on the producer's serialisation.
 
-    def test_a_finding_with_no_detail_at_all_is_still_a_row(self):
-        """Fails *open*, like the ports family's attribution: missing
-        evidence costs the qualifier, never the alert."""
-        [judged] = judge_audit_wiring({"findings": [_wiring(detail=None)]})
-        assert judged.title == WIRING_FILE_TITLE
+        **It fell back to a file-level row until 2026-09-08 and is
+        skipped now**, which reverses a fail-open posture deliberately:
+        the two things that reach here are indistinguishable on the wire
+        (``code`` has no column — ``SNAG-ESTATE-006``), so one rule must
+        cover both, and the per-hook half is empty by the *producer's*
+        construction — ``declared_hooks`` drops empty tokens and
+        ``hook_not_wired`` is emitted inside ``for event in hook.events``."""
+        assert judge_audit_wiring({"findings": [_wiring(detail={"event": event})]}) == []
+
+    def test_a_finding_with_no_detail_at_all_is_skipped(self):
+        """The same rule with the whole blob missing rather than one key,
+        which is the shape a producer change would most likely take."""
+        assert judge_audit_wiring({"findings": [_wiring(detail=None)]}) == []
 
     def test_there_is_no_rollup(self):
         """Rule 4. The population is bounded by the estate's own

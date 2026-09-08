@@ -8,6 +8,114 @@
 
 ---
 
+## Session 201: half a check crosses the seam, and moving all of it would have restored nothing ✅ (2026-09-08)
+
+_The ask was to decide estate message `ecceab5e`: the owner recommended
+that estate-manager's `wiring` audit check move here, because ADR-0132
+now lets an estate session write `settings.json`'s `hooks` key and the
+check therefore audits its own writes. The recommendation is aimed at a
+comparator; what lost its independence is an operand. The check's four
+codes do not take the same inputs, and the two that take no estate
+statement at all are the two carrying the consequence the check exists
+for — so half of it crossed and half deliberately did not._
+
+- [x] **The decisive argument, which is why this is not the
+      recommendation made smaller.** The check compares the hook
+      scripts' `estate-hook-event:` declarations against
+      `~/.claude/settings.json`. ADR-0132 removed the independence of
+      the **second operand**; moving `run_check` here relocates the
+      **comparator** and leaves both operands the estate's. Today's
+      `dotfiles` commit `54247f8` is the specimen rather than a
+      hypothetical: estate-manager built `memory-index-notice.sh`, wrote
+      its declaration, wrote the matching `Stop` entry, and its own
+      check reported **0 findings with all six hooks `WIRED`**. Run from
+      here against those same two files it reports 0 findings too —
+      *correct, green and inert*, which is ADR-0006 §2's own phrase for
+      the shape it refused
+- [x] **The split falls at the inputs.** `settings_unparseable` and
+      `settings_not_an_object` read `settings.json` **alone**, so an
+      independent party genuinely can hold them — and a file that does
+      not parse takes every hook on the box down, the blocking `Stop`
+      one included, with no hook able to say so because they fail open.
+      `hook_not_wired` and `hook_wired_undeclared` need the estate's
+      declarations and stay theirs; taking them would make this
+      repository parse a format estate-manager owns and has already
+      changed once (`SNAG-ESTATE-002`'s rule)
+- [x] **`sysadmin/estate/hook_wiring.py` is the reader, and it is a
+      *surface* rather than a special case.** `read_settings` returns a
+      `SurfaceResult` and the agent merges it into the map the five
+      pulls land in, so `read`, `unread`, `_judge`, `_resolve_gone` and
+      `by_surface` reach it with no branch of its own. That buys the
+      property the split exists for, pinned by a test: **8400 being down
+      does not blind the local read**
+- [x] **A sixth surface, and ADR-0006 §7's refusal is superseded by its
+      own stated reason** — *"it arrives in the same payload from the
+      same HTTP call"*. It does not any more. `audit_findings`' wiring
+      pattern narrows from `Estate hook %` to
+      `Estate hook % not wired for %`, because a pattern left wide would
+      let a successful pull of 8400 resolve a row raised from the local
+      filesystem
+- [x] **The estate's file-level findings stop being judged here, and
+      that is recorded rather than left silent.** Judging both producers
+      would put two owners on one lifecycle — both rows carry one title,
+      so dedup hides the duplication while the two sweeps disagree about
+      the close. Narrowing on the **consumer** side is wholly within
+      this repository's authority, so one speaker arrives immediately
+      and the estate's retirement of those two codes becomes tidying
+      rather than a blocker
+- [x] **Two premises in this repository's own source were falsified
+      today and are corrected in the same commit** — work owed whichever
+      way the check question was answered. ADR-0006 §1 admitted `wiring`
+      on a six-clause test whose first clause was *"the file is in no
+      repository at all"*; `~/.claude/settings.json` is a **symlink**
+      into `~/projects/dotfiles`, registered `status: active` today. The
+      fourth clause, *"repairable only by the owner"*, went with
+      ADR-0132. The decisive clause held and was re-measured: this
+      module is still the only consumer of `GET /api/audit/findings`
+      outside the estate's publisher, and `dotfiles` carries
+      `docs/roadmap/` and **no** `docs/adr/`
+- [x] **The live drive found what reading could not, twice.** The fault
+      sentence stated its position twice — *"Unterminated string
+      starting at **at** line 671"* — because several of json's messages
+      already end in "at"; `str(exc)` is the producer's own sentence and
+      composes for all of them. **estate-manager's check has the
+      identical doubling**, reported back rather than filed. And the row
+      has a one-day-old trap to carry: the read resolves into
+      `~/projects/dotfiles`, so the obvious fix edits a tracked file in
+      a repository the editor was not told about
+- [x] **Eleven mutations driven and eleven killed by the test written
+      for each**, checked by failing-test *name* rather than by exit
+      status, because a mutation killed by an unrelated test is not a
+      guard. The one worth naming is reporting a broken file as `error`
+      instead of a payload — the fail-*wrong* direction, which makes the
+      surface unread and the one fault this family exists for silent
+- [x] **Another entry's control was measured, not assumed.**
+      `SNAG-ESTATE-009`'s test asserted the probe's sweep saw exactly
+      `{"audit_findings"}`, and the sixth surface legitimately joins it.
+      All **29** `check-snag-claims` verdicts are byte-identical either
+      side of the change, so it is a premise that had gone too narrow
+      rather than a control the fix broke; it now names the four estate
+      surfaces the probe declines
+- [x] **`SNAG-ESTATE-017` filed** — the split leaves two readers of one
+      file, and a disagreement about *which* file is invisible from both
+      sides. Empty population measured today (their `settings_file`
+      defaults to the same path, unoverridden), and both closures cross
+      a boundary this repository does not cross alone
+
+### Next up
+
+- [ ] **Read the estate's answer on retiring the two file-level codes.**
+      Filed at them this sitting; nothing here is blocked on it, because
+      the consumer-side narrowing already gives one speaker. What their
+      answer changes is whether their check goes on computing a finding
+      nobody reads
+- [ ] **The overdue scheduled reading** — the first Monday under lease,
+      `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews`,
+      and the grant order in `estate-manager-api`'s journal. Scheduled
+      for 2026-09-07 and not read yet
+
+---
+
 ## Session 200: the predicate is built, and the rendering it asks for is a command flag ✅ (2026-09-08)
 
 _Session 199 decided the reading and wrote no code; this builds it. The
@@ -184,13 +292,15 @@ the scope._
       either answer — if the estate rules that a grant does promise a
       usable card, this becomes a second and cheaper witness rather than
       becoming wrong
-- [ ] **Build the reading** — a declaration leaf in `services.yaml` for a
+- [x] **Build the reading** *(done by Session 200; ticked by Session 201,
+      which found it unticked while reading this block)* — a declaration leaf in `services.yaml` for a
       service that holds VRAM, `ActiveEnterTimestamp` added to
       `get_unit_status`'s property list, the strict comparison in
       `_check_http_and_unit` writing `degraded` with the derivation in
       `details`, tests falsified against the record in ADR-0007 §2, and a
       restart. The argument is settled, so this is an execution sitting
-- [ ] **Close estate message `ecceab5e`** — estate-manager's notice that
+- [x] **Close estate message `ecceab5e`** *(Session 201 — half taken, half
+      declined; [ADR-0008](../adr/0008-the-file-half-of-the-wiring-check.md))* — estate-manager's notice that
       ADR-0024 is narrowed and the `wiring` check's stated justification is
       now false, with the owner's *recommendation* (not a task) that the
       check move here. Open in our inbox, untouched this sitting, and it

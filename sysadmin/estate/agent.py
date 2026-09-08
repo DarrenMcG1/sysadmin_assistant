@@ -70,6 +70,7 @@ re-derive the rung** — the ladder here stays two-runged on purpose.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -81,7 +82,7 @@ from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import EstateJudgeConfig, get_config
 from sysadmin.core.models.alert import Alert, unresolved
-from sysadmin.estate import client, judgements
+from sysadmin.estate import client, hook_wiring, judgements
 from sysadmin.units.models import UnitAudit
 from sysadmin.units.ports import PortAttribution, attribution_from_blob
 
@@ -100,7 +101,19 @@ SURFACE_DETAIL_KEY = "estate_surface"
 
 
 class EstateJudgeAgent(BaseAgent):
-    """Judges the estate's five published surfaces on an hourly poll."""
+    """Judges the estate's five published surfaces, and reads a sixth.
+
+    Five are pulled from 8400 and judged (``ADR-0005``'s swap: the estate
+    publishes and never acts; this repository judges and never scans).
+    The sixth, ``hook_wiring``, is a **local read** — see
+    :mod:`sysadmin.estate.hook_wiring` and
+    ``docs/adr/0008-the-file-half-of-the-wiring-check.md`` for why one
+    half of one estate check moved to this side of the seam on
+    2026-09-08, and why the other half deliberately did not.  It is a
+    surface rather than a special case precisely so that every rule this
+    agent already has — raise, refresh, sweep-only-what-was-read —
+    applies to it without being restated.
+    """
 
     def __init__(self) -> None:
         self._http = LoopBoundClient(lambda: httpx.AsyncClient(timeout=10.0))
@@ -128,6 +141,17 @@ class EstateJudgeAgent(BaseAgent):
         async with self._http.scoped():
             async with self._http.borrow() as http:
                 results = await client.pull_all(http, config.base_url)
+
+        # The sixth surface, read from disk rather than pulled. It is
+        # merged into the same map so that `read`, `unread`, `_judge`,
+        # `_resolve_gone` and `by_surface` all reach it with no branch of
+        # its own — the reason `read_settings` returns a `SurfaceResult`
+        # at all. In a thread because it is blocking I/O, and here rather
+        # than lower down because this whole step is deliberately outside
+        # the transaction: a slow filesystem must not open one either.
+        results[hook_wiring.SURFACE] = await asyncio.to_thread(
+            hook_wiring.read_settings
+        )
 
         read = {name for name, r in results.items() if r.read}
         unread = {name: r.error for name, r in results.items() if not r.read}
@@ -279,6 +303,14 @@ class EstateJudgeAgent(BaseAgent):
                 payload, config.port_breach_max_rows, attribution
             )
             out += judgements.judge_audit_wiring(payload)
+        if (payload := payloads.get(hook_wiring.SURFACE)) is not None:
+            # The file-level half of the estate's wiring check, off a
+            # local read. Judged apart from `audit_findings` because it
+            # is a genuinely separate observation that fails for its own
+            # reasons — which is the condition `ADR-0006` §7 gave for
+            # refusing a sixth surface, met from the other direction once
+            # the input stopped arriving over HTTP.
+            out += judgements.judge_hook_wiring(payload)
         if (payload := payloads.get("queue_invariants")) is not None:
             out += judgements.judge_queue_invariants(
                 payload, config.queue_max_depth, config.queue_max_wait_seconds

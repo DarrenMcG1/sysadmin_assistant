@@ -458,7 +458,14 @@ class TestUnknownIsNotGoodNews:
 
     async def test_nothing_reachable_means_nothing_written(self, agent):
         """8400 down. No judgements, no raises, and — the important
-        half — no resolves. Every open row survives."""
+        half — no resolves. Every open row survives.
+
+        ``hook_wiring`` is read whatever 8400 is doing, which is the
+        point of it being a local read and not a sixth pull: the estate
+        being down is exactly when a broken ``settings.json`` would
+        otherwise go unwatched. It reports read-and-clean here because
+        this box's real file parses, so it contributes no judgement and
+        the assertions about writing are unaffected."""
         session = _session(
             [
                 FakeAlert("Estate scan stale", "projects_invariants"),
@@ -471,7 +478,8 @@ class TestUnknownIsNotGoodNews:
         assert result.alerts_raised == 0
         assert result.details["resolved"] == 0
         assert result.details["standing"] == 0
-        assert result.details["surfaces_read"] == []
+        assert result.details["surfaces_read"] == ["hook_wiring"]
+        assert set(result.details["unread_surfaces"]) == set(SURFACES)
 
     async def test_an_unreachable_estate_raises_no_alert_of_its_own(self, agent):
         """``estate-manager-api`` is an ``http`` entry in services.yaml,
@@ -601,3 +609,86 @@ class TestOneRowPerTitlePerRun:
 
         assert result.alerts_raised == 2
         assert session.add.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# 5. The sixth surface is read, not pulled
+# ---------------------------------------------------------------------------
+
+
+class TestTheLocalSurfaceIsASurface:
+    """``hook_wiring`` is merged into the same result map as the five
+    pulls, and that is the whole design: ``read``, ``unread``, ``_judge``,
+    the sweep and ``by_surface`` all reach it with no branch of its own.
+
+    ``docs/adr/0008-the-file-half-of-the-wiring-check.md`` §4. A special
+    case would have had to restate every one of those rules, and the
+    first of them a session forgot would be the one that mattered.
+    """
+
+    @staticmethod
+    def _reading(monkeypatch, result):
+        import sysadmin.estate.agent as module
+
+        monkeypatch.setattr(module.hook_wiring, "read_settings", lambda: result)
+
+    async def test_a_broken_settings_file_raises_a_row(self, agent, monkeypatch):
+        self._reading(
+            monkeypatch,
+            SurfaceResult(
+                surface="hook_wiring",
+                payload={
+                    "path": "/home/x/.claude/settings.json",
+                    "kind": "unparseable",
+                    "fault": "boom",
+                },
+            ),
+        )
+        session = _session([])
+
+        result = await _run(agent, session, results())
+
+        assert result.alerts_raised == 1
+        assert session.add.call_count == 1
+        row = session.add.call_args[0][0]
+        assert row.details[SURFACE_DETAIL_KEY] == "hook_wiring"
+        assert row.severity == DEFAULT_SEVERITY
+
+    async def test_a_file_it_could_not_read_sweeps_nothing(self, agent, monkeypatch):
+        """The half that matters. An unread surface must not resolve its
+        own standing row — resolving on unknown announces a recovery
+        nobody observed — and the local read gets that for free by being
+        a surface rather than a call."""
+        from sysadmin.estate.judgements import WIRING_FILE_TITLE
+
+        self._reading(
+            monkeypatch,
+            SurfaceResult(surface="hook_wiring", error="PermissionError: denied"),
+        )
+        session = _session([FakeAlert(WIRING_FILE_TITLE, "hook_wiring")])
+
+        result = await _run(agent, session, results())
+
+        assert result.details["resolved"] == 0
+        assert "hook_wiring" not in result.details["surfaces_read"]
+        assert "hook_wiring" in result.details["unread_surfaces"]
+
+    async def test_a_clean_read_resolves_a_standing_row(self, agent, monkeypatch):
+        """And the other direction, or the family could only ever
+        accumulate: the file parsing again *is* the recovery, and it is
+        the only moment that fact exists."""
+        from sysadmin.estate.judgements import WIRING_FILE_TITLE
+
+        self._reading(
+            monkeypatch,
+            SurfaceResult(
+                surface="hook_wiring",
+                payload={"path": "/x", "kind": None, "fault": None},
+            ),
+        )
+        session = _session([FakeAlert(WIRING_FILE_TITLE, "hook_wiring")])
+
+        result = await _run(agent, session, results())
+
+        assert result.details["resolved"] == 1
+        assert result.alerts_raised == 0

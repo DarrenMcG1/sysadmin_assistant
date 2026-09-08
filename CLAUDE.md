@@ -4194,6 +4194,31 @@ than this paragraph.
   — `journalctl -k` implying `--boot=0`, second-granular `@epoch`
   truncation erring toward over-reporting, and an empty
   `ActiveEnterTimestamp` on an inactive unit.
+- **[0008-the-file-half-of-the-wiring-check.md](docs/adr/0008-the-file-half-of-the-wiring-check.md)**
+  — **read this before moving a check between repositories, or before
+  reading a green `wiring` result as evidence.** The owner recommended
+  that estate-manager's whole `wiring` audit check move here, because
+  their ADR-0132 lets an estate session write `settings.json`'s `hooks`
+  key and the check therefore audits its own writes. Half was taken and
+  half declined, and the argument is the transferable part: the check
+  compares two **operands** — the hook scripts' `estate-hook-event:`
+  declarations and `~/.claude/settings.json` — and ADR-0132 removed the
+  independence of the second, so relocating the **comparator** leaves
+  both operands the estate's and a green result means exactly what it
+  meant before. What decides the split is that the four codes do not
+  take the same inputs: `settings_unparseable` and
+  `settings_not_an_object` read the file **alone**, need no statement of
+  the estate's, and carry the consequence the check exists for, so they
+  are `sysadmin/estate/hook_wiring.py` and a **sixth surface** here; the
+  two per-hook codes need the estate's declarations and stay theirs.
+  Also records that two clauses of ADR-0006's admission test were
+  falsified the same morning — the file is a symlink into
+  `~/projects/dotfiles`, registry-`active` since 2026-09-08, so *"in no
+  repository at all"* is false — while the clause that decides,
+  *"nobody says it at all"*, held on re-measurement; why ADR-0006 §7's
+  refusal of a sixth surface is superseded by its own stated reason; and
+  why the estate's file-level findings stop being judged here rather
+  than being judged twice.
 
 Guides: only **api_auth.md** (bearer-token auth setup) still lives in
 this repository's `docs/guides/`. The four cross-repo guides —
