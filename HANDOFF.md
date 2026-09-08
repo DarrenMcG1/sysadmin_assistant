@@ -2,7 +2,45 @@
 
 ## Next action
 
-Read the overdue Monday-under-lease evidence: `llm_used` on the 2026-09-07 rows of `health_reviews`, `log_reviews` and `disk_reviews` should read true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning logged beside it, because the three refusals are logged apart precisely so that reading answers why.
+Fix `hook_wiring._where`'s resolution guard, which estate message `f5e450cb` measured and this sitting reproduced on our own box: `path.resolve()` on a symlink loop raises `RuntimeError` rather than `OSError`, because pathlib's `check_eloop` converts errno 40, so the `except OSError` cannot catch the one input that reaches it and the docstring's promise that a resolution failure is reported as absence and never raised is false for exactly that input.
+
+_**This Next action was corrected on 2026-09-08 by a later sitting, and the
+line it replaces had already been refuted inside this same file.**_ _Session
+201 published "Read the overdue Monday-under-lease evidence … and if any row
+is still false, read the `review_lease_*` warning logged beside it". That
+reverts past Session 196's observation to the prediction the 2026-08-31 lease
+work (`53342dd`, SNAG-SCHED-003) made **before** the event, and **Session 197
+had already answered it and recorded the premise as false** — "No such warning
+exists" — some four hundred lines below, under `# Handoff — 2026-09-07
+(Session 197)`. The lease machinery was the one part of the chain that
+behaved: lease 54 granted to `health_review` at 05:00:05 and released at
+05:00:10, and the FIFO drain granted health(54), log(55), estate-review(56)
+and disk(57) in exactly the predicted order, against budgets of 3299/2399/
+1800/599 s that all converge on the 05:55 deadline `wait_budget_seconds`
+derives. The warning beside the false row is
+`health_review_llm_unavailable_used_fallback`, and the cause is ADR-0007's
+predicate: `llama-server` held a context created 2026-09-06 08:20:28 and
+destroyed by that evening's 20:43 MODE1 reset, so the 05:00 slot was the
+first GPU submission that process ever made, died on it (`radv/amdgpu: The CS
+has been cancelled because the context is lost`, `status=6/ABRT`) and handed
+the later slots a freshly restarted server. **The cost is the reason this
+note exists**: Session 197 recorded losing ~1.5 of its 2.5 hours to the lease
+path, and the sitting that read the regressed line walked the identical
+detour a second time. Nothing was lost from the knowledge — ADR-0007, the
+`holds_vram` declarations and the predicate carry it, and the predicate now
+reads `context_lost: false` on both declared services — only the pointer was
+wrong._
+
+_**Also open, and none of it named by the line this replaces.**_ _Estate
+messages `999f4432` (every audit check summary gains `inputs`, and check 11's
+finding codes gain `settings_file`) and `56752625` (check 11 retires
+`settings_unparseable` and `settings_not_an_object`, so a non-object
+`settings.json` becomes a `CheckResult.error` and reaches us as
+`checks_errored` on `/api/audit/invariants` rather than as a finding) are both
+announcements under the estate's announce-before-commit rule, and both bear on
+the surface ADR-0008 built. The session-start notice named only `56752625`;
+the other two arrived mid-session, so that notice is a snapshot and not a
+count._
 
 _**Half a check crossed the seam, and moving all of it would have restored
 nothing.**_ _The ask was to decide estate message `ecceab5e`. The owner
