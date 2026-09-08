@@ -8,6 +8,97 @@
 
 ---
 
+## Session 200: the predicate is built, and the rendering it asks for is a command flag ✅ (2026-09-08)
+
+_Session 199 decided the reading and wrote no code; this builds it. The
+published next action named the three edits and one of them, taken
+literally, would have cost the ten `kind: timer` series a spurious firing
+each — because `--timestamp=unix` is a command flag rather than a
+per-property one. The whole sitting is that fork, the measurement that
+settled it, and the falsification of what it left._
+
+- [x] **`services.yaml` declares which services hold VRAM, and it is a
+      declaration rather than a role.** `holds_vram: true` on
+      `llama-server` and `venture-chat`; deliberately absent on
+      `venture-embed`, which carries the same `role: inference`, runs with
+      no offloaded layers, and served **267 of its 823** successful
+      embeddings while the predicate was true. Keyed on the role this
+      ships 267 false alarms — `unwrap_json_message`'s rule, honouring a
+      statement rather than recognising an application. The comments in
+      the file carry the measurement so the next reader does not re-derive
+      it
+- [x] **A declaration that could never be evaluated is refused at load.**
+      `holds_vram` requires `kind: http` with a systemd unit: the
+      predicate needs the unit's start instant and
+      `_check_http_and_unit` is the only reader, so a declaration on any
+      other kind would parse, ship and never be read — `SNAG-CFG-001` at
+      the size of one leaf. `venture-chat-large` is the live specimen it
+      would catch, being `kind: static` with the same role
+- [x] **The property and the timestamp flag are gated together, and this
+      is the correction to the published next action.** `--timestamp=unix`
+      is a *command* flag: measured on this box it also re-renders
+      `LastTriggerUSec` from `Tue 2026-09-08 04:31:09 BST` to
+      `@1788838269`, and `_observed_fires` reads any change in that
+      opaque token as a **firing**. Unconditional, it injects one spurious
+      fire into each of the **10** timer series and resets every
+      `last_fire` to the deploy moment — a silent under-report of
+      `timer_stale` for up to one cadence. `get_unit_status` takes a
+      `start_instant` gate that adds both or neither, so every other
+      invocation is byte-identical, and a live test drives the real binary
+      and fails if the flag escapes. The never-fired sentinel was
+      re-measured rather than assumed: an untriggered timer renders empty
+      under both, so `_timer_facts` needed no change
+- [x] **`sysadmin/monitor/gpu_context.py` is the predicate, and the
+      database narrows while Python decides.** `signature` is not a
+      column, so normalising in SQL would be a second implementation of
+      the identity the alert family is keyed on. The floor is the unit's
+      own start instant and is **exact rather than a bound** — a reset
+      older than the start makes the predicate false by definition — which
+      turns a parallel sequential scan of **69,810 buffers, 64,007 of them
+      reads, ~35 ms** into an index scan of **6,855 all-hit buffers,
+      ~15 ms**. A row-count bound was refuted by the table: **49,527**
+      kernel rows sit newer than the newest stored reset against **173**
+      distinct messages
+- [x] **The read runs inside a savepoint although it writes nothing.**
+      It happens before the per-service savepoint and the run's
+      transaction is already open, so an aborted statement would abort the
+      transaction and cost every later service its row — catching
+      `SQLAlchemyError` without containing it is worse than not catching.
+      Driven against a statement PostgreSQL really rejects; without the
+      savepoint the red names `InFailedSQLTransactionError` exactly
+- [x] **Fifteen mutations driven, one stayed green, and the remedy was
+      the one this repository already owns.** Deleting the SQL floor
+      changed no answer and no test, because the floor is cost and the
+      authority is in Python — `abandoned_runs`' `IS NOT NULL` conjunct a
+      second time. The statement is lifted into `candidate_statement` and
+      pinned by **compiling** it. Two stand-ins were repaired rather than
+      worked around: a `_check_service` stub taking one argument, and an
+      `object()` standing in for a session that must now answer
+      `begin_nested()`
+- [x] **Two instruments in `tests/test_snag_claims.py` were measuring the
+      wrong thing.** The deploy-population control pinned `held` at a
+      literal **93** and went stale the moment this package gained a
+      module; it asserts the relation now — every counted module but one
+      is held — with a floor for the anti-vacuity half. The
+      memory-decomposition control pinned `systemd.py:158` and broke on an
+      edit **above** it; it pins the files and the count now. A line
+      number is the position at write time, not an identity
+- [x] **Verified live and untriggered, and the restart is paid.** Both
+      declared services restarted after the last stored reset, so the live
+      reading is `context_lost: false` for both — which makes the
+      counterfactual the only thing that can prove the wiring, and it does:
+      through the real `_check_http_and_unit` against the real box, a start
+      instant moved one second before the real 2026-09-06 reset returns
+      `degraded` naming it
+- [x] **`SNAG-GPU-002` filed as the residue, and it corrects ADR-0007 in
+      words.** The strict comparison removes only the **exact** tie, whose
+      population is empty by construction — `logged_at` carries
+      microseconds — while the truncation's error window is a **full
+      second**. Bounded at 0.5 % of the 3.4-minute margin, loud rather than
+      silent, and closed by one constant if a sub-second case appears
+
+---
+
 ## Session 199: the state had no owner because it was never a state ✅ (2026-09-08)
 
 _Session 197 filed, and Session 198 carried forward, the question of who

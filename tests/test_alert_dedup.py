@@ -278,7 +278,10 @@ async def _run(agent, session, mock_config, *, status: str, disk_percent: float)
     scoped.return_value.__aenter__ = AsyncMock(return_value=None)
     scoped.return_value.__aexit__ = AsyncMock(return_value=False)
 
-    async def check(_svc):
+    # Two arguments, because `_execute` passes the run's session:
+    # a stand-in that cannot be *called* the way production calls it
+    # is not modelling the code under test.
+    async def check(_svc, _session=None):
         return status, 12, {}
 
     with ExitStack() as stack:

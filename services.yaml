@@ -55,12 +55,20 @@ services:
     systemd: { unit: alfred-frontend.service, scope: user }
     log: { type: journalctl, severity_filter: warning }
 
+  # `holds_vram: true`: llama-server runs with `-ngl 99`, so the model
+  # sits in VRAM and an amdgpu MODE1 reset destroys the context it is
+  # serving from. Measured over 2026-08-05 → 09-08: 6 of 6 aborts on this
+  # unit were preceded by a context created before the last reset, and
+  # 0 of 3,020 successful requests were served while that was true.
+  # ADR-0007 records the derivation; `role: inference` is deliberately
+  # NOT the key, because `venture-embed` carries it and holds no VRAM.
   - project: alfred
     name: llama-server
     role: inference
     kind: http
     url: http://localhost:8081/health
     port: 8081
+    holds_vram: true
     systemd: { unit: alfred-inference.service, scope: user }
     log: { type: journalctl, severity_filter: warning }
 
@@ -151,14 +159,27 @@ services:
   # Port 8080 is llama.cpp's default and the most contended port on this
   # box. Recorded in the registry, but should move to 83xx when the llama
   # units are next touched.
+  # `holds_vram: true` for the same reason as llama-server above, and on
+  # the larger population: this unit aborted on the reset signature 10
+  # times in the same 34-day window — more than alfred-inference's 6 —
+  # and reported `ok` throughout every one of them. 0 of 8,545 successful
+  # requests were served while its context predated the last reset.
   - project: venture-assistant
     name: venture-chat
     role: inference
     kind: http
     url: http://localhost:8080/health
     port: 8080
+    holds_vram: true
     systemd: { unit: venture-chat.service, scope: user }
 
+  # No `holds_vram:` on purpose, and it is the measurement that decided
+  # the whole population is a declaration rather than `role: inference`.
+  # This runs `llama-server … -ngl 0` — no offloaded layers, no resident
+  # VRAM — and served 267 of its 823 successful embeddings *while* its
+  # context predated the last reset, with zero aborts in its whole
+  # retained history. Keyed on the role it shares with the two above,
+  # this reading would have raised 267 false alarms here.
   - project: venture-assistant
     name: venture-embed
     role: inference

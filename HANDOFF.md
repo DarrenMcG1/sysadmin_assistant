@@ -1,3 +1,102 @@
+# Handoff — 2026-09-08 (Session 200)
+
+## Next action
+
+Decide estate message `ecceab5e`: the owner has recommended that estate-manager's `wiring` audit check move into this repository, because ADR-0132 now lets an estate session write `settings.json`'s `hooks` key and so the check partly audits its own writes — read `service/estate_service/audit/checks/wiring.py` and `sysadmin/estate/judgements.py`'s `JUDGED_AUDIT_CHECKS`, weigh taking it against this repository already judging its findings under `ADR-0006`, and either take it or decline it in writing, because a recommendation left undecided is the one shape estate rule 3 cannot resolve on its own.
+
+_**The predicate is built and the published next action was wrong in one
+edit.**_ _ADR-0007 settled the reading; this sitting built it.
+`services.yaml` gains `holds_vram: true` on `llama-server` and
+`venture-chat` and deliberately not on `venture-embed`;
+`sysadmin/monitor/gpu_context.py` holds the predicate and the one
+statement that narrows the read; `_check_http_and_unit` records
+`degraded` with the whole derivation in `details['gpu_context']` when a
+declared unit's start instant is strictly earlier than the newest
+declared reset row. Live since 14:47:43 on PID 2243717: both declared
+services write `evaluated: true, context_lost: false` with their start
+instants, and `venture-embed` carries no key at all._
+
+_**The next action said to add `ActiveEnterTimestamp` to
+`get_unit_status`'s property list, and that would have re-timed ten
+timers.**_ _`--timestamp=unix` is a **command** flag, not a per-property
+one. Measured on this box it also turns `LastTriggerUSec` from
+`Tue 2026-09-08 04:31:09 BST` into `@1788838269`, and `_observed_fires`
+reads any change in that opaque token as a **firing** — so the
+unconditional version injects one spurious fire into each of the ten
+`kind: timer` series and resets every `last_fire` to the deploy moment, a
+silent under-report of `timer_stale` for up to one cadence. The property
+and the flag are gated together behind a `start_instant` parameter only
+the declaring caller passes, so every other invocation is byte-identical,
+and a live test drives the real binary and fails if the flag escapes. The
+never-fired sentinel was **re-measured rather than assumed** and needed
+no change: an untriggered timer renders empty under both._
+
+_**The floor is exact, and no behavioural test can see it.**_ _A reset
+older than the unit's start makes the predicate false by definition, so
+flooring the grouped read at that instant excludes nothing that could
+change the answer — and it turns a parallel sequential scan of **69,810
+buffers, 64,007 of them reads, ~35 ms** into an index scan of **6,855
+all-hit buffers, ~15 ms**, every 300 seconds. A row-count bound was
+refuted by the table: **49,527** kernel rows sit newer than the newest
+stored reset against **173** distinct messages, so grouping bounds the
+answer and a count never could. Fifteen mutations were driven and
+**one stayed green** — deleting that floor — because the floor is cost
+and the authority is in Python; the statement is lifted into
+`candidate_statement` and pinned by **compiling** it, which is
+`abandoned_runs`' `IS NOT NULL` conjunct a second time._
+
+_**The read runs inside a savepoint although it writes nothing.**_ _It
+happens before the per-service savepoint and the run's transaction is
+already open, so in PostgreSQL an aborted statement aborts the whole
+transaction — catching `SQLAlchemyError` without containing it would have
+cost every later service its row, `_isolate_write_failure`'s own recovery
+savepoint included. Driven live against a statement PostgreSQL really
+rejects; without the savepoint the red names
+`InFailedSQLTransactionError: current transaction is aborted` exactly.
+Two stand-ins were repaired rather than worked around — a
+`_check_service` stub taking one argument, and an `object()` standing in
+for a session that must now answer `begin_nested()`._
+
+_**Two instruments were measuring the wrong thing and are corrected.**_
+_`tests/test_snag_claims.py`'s deploy-population control pinned `held` at
+a literal **93** and went stale the moment this package gained a module;
+it asserts the relation now — every counted module but one is held — with
+a floor for the anti-vacuity half. The memory-decomposition control
+pinned `sysadmin/monitor/systemd.py:158` and broke on an edit **above**
+it that moved the site without touching it; it pins the files and the
+count now. A line number is the position at write time, not an identity._
+
+_**`SNAG-GPU-002` is the residue and it corrects ADR-0007 in words.**_
+_That document says the strict comparison "corrects exactly the direction
+the truncation errs in". It corrects the **exact tie**, whose population
+is empty by construction — `logged_at` carries microseconds, and all
+eight stored resets do — while the truncation's error window is a **full
+second**. Bounded at 0.5 % of the 3.4-minute margin and loud rather than
+silent, so it is filed rather than fixed; `--timestamp=us+utc` closes it
+and costs a wall-clock parse. Found by a mis-constructed tie drive, which
+is what showed the guard and the gap were the wrong way round._
+
+_**Estate message `6eba763a` is closed and both its corrections were
+re-measured rather than taken.**_ _The estate now publishes
+`card_reset_at` on a granted lease and ruled that a lease stays a promise
+about units, so the comparison stays ours — which is one of the two
+answers ADR-0007 §5 said this reading would be correct under. The field
+is deliberately not read, and `gpu_context.py` records why: it exists
+only at a grant and `active_lease` is null on every occasion anyone has
+looked, so it cannot answer a 300-second poll. Their two corrections to
+`bc5f6a09` hold — the seven `MainThrd` lines are one process on one
+2026-09-07 09:06 incident that logged `Ring gfx_0.0.0 reset succeeded`
+with no VRAM-lost line, so it was a ring reset and not a MODE1 — and our
+`snag_list.md` histogram is corrected and cites the message. Our own
+re-measure first produced a phantom sixth bucket, `Core` (5), which is
+`Listening on Process Core Dump Socket` matching a `Process \K\w+`
+pattern: the estate's histogram was right and the sloppy grep was ours._
+
+_Suite **3861** collected and passing, ruff clean, mypy clean. Restart
+paid at 14:42:41, `NRestarts` 2 → 3._
+
+---
+
 # Handoff — 2026-09-08 (Session 199)
 
 ## Next action

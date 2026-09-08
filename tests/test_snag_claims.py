@@ -6290,7 +6290,19 @@ class TestTheUnheldModuleCheck:
         assert verdict == "match"
         held = next(line for line in detail if line.startswith("held by"))
         unheld = next(line for line in detail if line.startswith("counted and not held"))
-        assert held.endswith("93"), held
+        population = next(line for line in detail if line.startswith("population"))
+        # The *relation*, not the total. `held` was pinned at a literal 93
+        # and went stale the next time this package gained a module — a
+        # total is unrescalable when the population legitimately moves,
+        # while "every counted module but one is held" is the claim and
+        # survives growth. The floor is what keeps the anti-vacuity half:
+        # a subprocess that never reached `create_app()` holds two
+        # modules, not ninety, so any floor in between separates them and
+        # none of them has to be re-measured on an ordinary commit.
+        counted = int(population.rsplit(" ", 2)[-2])
+        held_count = int(held.rsplit(" ", 1)[-1])
+        assert held_count == counted - 1, (population, held)
+        assert held_count > 50, held
         assert unheld.endswith("sysadmin/core/llm_client.py"), unheld
 
     def test_the_construction_call_is_written_even_though_it_is_inert(self):
@@ -8069,9 +8081,16 @@ class TestTheMemoryDecompositionCheck:
 
         assert reading is not None, problem
         assert reading.readers == ()
-        assert set(reading.property_sites) == {
-            "sysadmin/core/contracts.py:533",
-            "sysadmin/monitor/systemd.py:158",
+        # Files, never file:line. The pin read `systemd.py:158` and broke
+        # on an edit *above* it that moved the site without touching it —
+        # a line number is the position at write time, not an identity,
+        # so it fails on commits it has nothing to say about. The count
+        # is kept, because "two sites" is the half that would notice a
+        # site appearing or disappearing.
+        assert len(reading.property_sites) == 2, reading.property_sites
+        assert {site.rsplit(":", 1)[0] for site in reading.property_sites} == {
+            "sysadmin/core/contracts.py",
+            "sysadmin/monitor/systemd.py",
         }
 
     # -- the entry as filed ------------------------------------------------

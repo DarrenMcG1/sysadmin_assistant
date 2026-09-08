@@ -35,6 +35,7 @@ environment untouched.
 import asyncio
 import logging
 import os
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -132,8 +133,81 @@ async def is_active(unit: str, user: bool = False) -> bool:
     return stdout.strip() == "active"
 
 
-async def get_unit_status(unit: str, user: bool = False) -> dict:
+#: The property naming when a unit's current process entered ``active``.
+#:
+#: Requested only behind :func:`get_unit_status`' ``start_instant`` gate,
+#: and never on its own — see that argument's docstring.
+START_INSTANT_PROP = "ActiveEnterTimestamp"
+
+#: The rendering ``START_INSTANT_PROP`` is read in.
+#:
+#: ``@<epoch>`` at second granularity, which is
+#: :func:`~sysadmin.monitor.journal.since_timestamp`'s own form and needs
+#: no parse of a wall clock at all.  The default rendering is a **local**
+#: wall clock with a zone abbreviation (``Mon 2026-09-07 05:00:15 BST``),
+#: which is ambiguous between zones and names two instants at an autumn
+#: fold — the reading ``SNAG-LOG-009`` removed and ``timer_stale``
+#: refuses to parse.
+START_INSTANT_TIMESTAMP_FLAG = "--timestamp=unix"
+
+
+def parse_start_instant(raw: str | None) -> datetime | None:
+    """A ``@<epoch>`` rendering as an aware UTC datetime, or ``None``.
+
+    ``None`` for every way of not-knowing, and the caller must record
+    which one it got rather than reading the absence as a verdict —
+    :mod:`sysadmin.monitor.gpu_context` rule 5.  The two reachable ways
+    are an **empty** value, which is what systemd renders for a unit that
+    is not active (measured against ``venture-chat-large.service``, which
+    is ``monitor: false`` and inactive by design), and a value that is not
+    the ``@<epoch>`` form at all — which can only mean the flag did not
+    travel with the property, so refusing it is what keeps the two
+    together.
+
+    Whole seconds, deliberately: truncation moves the instant **earlier**,
+    and the one consumer compares strictly so that the tie falls on the
+    side the truncation errs away from.
+    """
+    text = (raw or "").strip()
+    if not text.startswith("@"):
+        return None
+    try:
+        return datetime.fromtimestamp(int(text[1:]), tz=UTC)
+    except ValueError:
+        return None
+
+
+async def get_unit_status(
+    unit: str, user: bool = False, *, start_instant: bool = False
+) -> dict:
     """Get detailed status of a systemd unit.
+
+    Args:
+        start_instant: also read :data:`START_INSTANT_PROP`, adding
+            :data:`START_INSTANT_TIMESTAMP_FLAG` to the invocation.
+
+            **The property and the flag travel together and neither can
+            be asked for alone**, which is ``metadata.py``'s rule that
+            the flags travel with the exclusions.  ``--timestamp=`` is a
+            *command* flag rather than a per-property one, so it also
+            re-renders ``LastTriggerUSec`` and
+            ``NextElapseUSecRealtime`` — measured on this box,
+            ``Tue 2026-09-08 04:31:09 BST`` becomes ``@1788838269``.
+            Those two are stored verbatim in
+            ``service_health.details['last_run']`` and
+            :func:`~sysadmin.monitor.service_recommendations._observed_fires`
+            reads **any change in the token as a firing**, so passing the
+            flag unconditionally would inject one spurious firing into
+            each of the ten ``kind: timer`` series and reset every
+            ``last_fire`` to the deploy moment — a silent under-report of
+            ``timer_stale`` for up to one cadence.  Hence the gate: the
+            one caller that needs an unambiguous instant asks for it, and
+            every other invocation is byte-identical to what it was.
+
+            The sentinel set :func:`~sysadmin.monitor.agent._timer_facts`
+            applies is **unaffected**, which was measured rather than
+            assumed: a never-fired timer renders empty under both
+            renderings.
 
     Raises:
         SystemdQueryError: systemctl could not be queried, or answered
@@ -159,10 +233,14 @@ async def get_unit_status(unit: str, user: bool = False) -> dict:
         "LastTriggerUSec", "NextElapseUSecRealtime", "Result",
         "Unit", "ExecMainStatus",
     ]
+    args = ["show", unit]
+    if start_instant:
+        props = [*props, START_INSTANT_PROP]
+        args.append(START_INSTANT_TIMESTAMP_FLAG)
     prop_args = ",".join(props)
 
     returncode, stdout, stderr = await _run(
-        ["show", unit, f"--property={prop_args}"], user
+        [*args, f"--property={prop_args}"], user
     )
     _raise_on_bus_failure(stderr, f"show {unit}", user)
     if returncode != 0:

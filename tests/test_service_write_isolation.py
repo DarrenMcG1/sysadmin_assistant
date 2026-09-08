@@ -135,7 +135,9 @@ def _drive(agent, services, statuses, mock_config):
     registry = MagicMock()
     registry.services = services
 
-    async def check(svc):
+    # Two arguments, because `_execute` passes the run's session —
+    # see the note on the sibling stand-in in test_alert_dedup.py.
+    async def check(svc, _session=None):
         return statuses[svc.name], 12, {}
 
     scoped = MagicMock()

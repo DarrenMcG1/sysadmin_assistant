@@ -135,6 +135,27 @@ class ServiceEntry(BaseModel):
     controllable: bool = True
     auto_restart: bool = False
     auto_restart_after_checks: int = 3
+    #: This service holds GPU memory that a card reset destroys, so a
+    #: process started before the last reset is serving from a context
+    #: that no longer exists (`ADR-0007`, ``SNAG-GPU-001``).  Read by
+    #: :mod:`sysadmin.monitor.gpu_context` through
+    #: :meth:`~sysadmin.monitor.agent.SysAdminAgent._check_http_and_unit`.
+    #:
+    #: **A declaration and not a role**, which is the measurement that
+    #: decided it: ``role: inference`` names four services here, and
+    #: ``venture-embed`` runs with no offloaded layers and served 267 of
+    #: its 823 successful embeddings while the predicate was true.  Keyed
+    #: on the role this ships 267 false alarms about a server that was
+    #: working throughout.
+    #:
+    #: Default ``False``, and the polarity is the safe one in both
+    #: directions — an omission costs a term nobody asked for rather than
+    #: arming one nobody wrote, and the reading it gates is a *fault*.
+    #: That is ``UnitFinding.enabled``'s trap answered on the correct
+    #: side: there, absent evidence had to be quiet for one consumer and
+    #: loud for another, and here there is one consumer and quiet is what
+    #: an undeclared service means.
+    holds_vram: bool = False
 
     @model_validator(mode="after")
     def _consistent(self) -> "ServiceEntry":
@@ -164,6 +185,24 @@ class ServiceEntry(BaseModel):
             raise ValueError(
                 f"{self.name}: agent: is only meaningful on kind timer, "
                 f"got kind {self.kind}"
+            )
+        if self.holds_vram and not (self.kind == "http" and self.systemd):
+            # The predicate needs both halves and exactly one check path
+            # evaluates it. `ActiveEnterTimestamp` comes from the unit,
+            # so a declaration without one cannot be answered at all; and
+            # `_check_http_and_unit` is the only reader, so a declaration
+            # on any other kind would parse, ship, and silently never be
+            # evaluated — SNAG-CFG-001's shape at the size of one leaf.
+            # Refused at load rather than discouraged in a comment, which
+            # is `spawn_manual_run` hard-coding "manual" for its reason.
+            # Widening the reading to another check path widens this
+            # clause in the same commit.
+            raise ValueError(
+                f"{self.name}: holds_vram requires kind http with a systemd "
+                f"unit — it is evaluated only by the http-and-unit check, "
+                f"and it needs the unit's start instant; got kind "
+                f"{self.kind} with systemd "
+                f"{'declared' if self.systemd else 'absent'}"
             )
         return self
 

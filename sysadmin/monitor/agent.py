@@ -40,14 +40,20 @@ from sysadmin.core.escalation import QUIETEST_SEVERITY, may_quieten_in_place
 from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.estate import client as estate_client
-from sysadmin.monitor import collation, failures, stalls
+from sysadmin.monitor import collation, failures, gpu_context, stalls
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.self_monitor import build_self_report
 from sysadmin.monitor.services import SKIPPED, ServiceEntry, check_plan, get_services
-from sysadmin.monitor.systemd import SystemdQueryError, get_unit_status, restart_unit
+from sysadmin.monitor.systemd import (
+    START_INSTANT_PROP,
+    SystemdQueryError,
+    get_unit_status,
+    parse_start_instant,
+    restart_unit,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -736,7 +742,9 @@ class SysAdminAgent(BaseAgent):
         # closed when the block exits (SNAG-AGENT-003).
         async with self._http.scoped():
             for svc in services:
-                status, response_time_ms, details = await self._check_service(svc)
+                status, response_time_ms, details = await self._check_service(
+                    svc, session
+                )
                 if status not in ("ok", SKIPPED):
                     unhealthy.add(svc.name)
 
@@ -962,7 +970,7 @@ class SysAdminAgent(BaseAgent):
 
 
     async def _check_service(
-        self, svc: ServiceEntry
+        self, svc: ServiceEntry, session=None
     ) -> tuple[str, int | None, dict]:
         """Check one service, as its ``kind`` in services.yaml calls for.
 
@@ -970,6 +978,17 @@ class SysAdminAgent(BaseAgent):
         rather than from a chain of conditionals here, so "a oneshot is
         watched through its timer" is a property of the declaration and
         not of this function.
+
+        ``session`` is needed by exactly one term — the GPU-context
+        predicate, which reads ``log_entries`` (see
+        :mod:`sysadmin.monitor.gpu_context`).  It is optional because a
+        service that does not declare ``holds_vram`` never asks for it,
+        so every caller that passes nothing behaves exactly as it did
+        before the term existed.  A service that *does* declare it and is
+        checked without a session gets an explicitly unevaluated reading
+        rather than a quiet ``False``, and
+        ``TestTheProductionPathSuppliesASession`` pins that the one
+        production call site is not that caller.
         """
         plan = check_plan(svc)
         if plan.checks_nothing:
@@ -979,7 +998,7 @@ class SysAdminAgent(BaseAgent):
             if plan.connect:
                 return await self._check_tcp(svc)
             if plan.poll_url:
-                return await self._check_http_and_unit(svc, plan)
+                return await self._check_http_and_unit(svc, plan, session)
             return await self._check_systemd(svc, inspect_timer=plan.inspect_timer)
         except Exception as e:
             logger.error(
@@ -1004,7 +1023,7 @@ class SysAdminAgent(BaseAgent):
         return details
 
     async def _check_http_and_unit(
-        self, svc: ServiceEntry, plan
+        self, svc: ServiceEntry, plan, session=None
     ) -> tuple[str, int | None, dict]:
         """Poll the URL, and assert the unit is active when one is named.
 
@@ -1016,6 +1035,16 @@ class SysAdminAgent(BaseAgent):
         yields the URL's own verdict rather than a failure. Treating an
         unreadable bus as a down service is precisely SNAG-SYSD-001, which
         flagged a live user timer as down for a week.
+
+        **A third term runs for a service declaring ``holds_vram``**, and
+        it is here rather than anywhere else because this function
+        already reads the unit — ADR-0007's whole argument is that the
+        GPU-context predicate needs no owner of its own, since the check
+        that already writes the ``service_health`` row can compute it.
+        It runs *after* the active assertion and only on the path that
+        was about to return ``ok``: an inactive unit has no context to
+        have lost, and the two other returns below are already faults
+        this run has named.
         """
         status, elapsed_ms, details = await self._check_http(svc)
         unit = svc.unit
@@ -1023,15 +1052,30 @@ class SysAdminAgent(BaseAgent):
             return status, elapsed_ms, details
 
         try:
-            unit_info = await get_unit_status(unit, user=svc.user)
+            unit_info = await get_unit_status(
+                unit, user=svc.user, start_instant=svc.holds_vram
+            )
         except SystemdQueryError as e:
             logger.warning(
                 "unit_assertion_unavailable",
                 extra={"service": svc.name, "unit": unit, "error": str(e)},
             )
-            return status, elapsed_ms, {**details, "unit_check": "unavailable"}
+            unavailable = {**details, "unit_check": "unavailable"}
+            if svc.holds_vram:
+                # The systemd query is the *only* source of the start
+                # instant, so its failure is a way of not-knowing the
+                # predicate rather than a verdict about it — recorded
+                # rather than left as an absent key (gpu_context rule 5).
+                unavailable |= gpu_context.unreadable_reading(
+                    unit, f"systemctl could not be queried: {e}"
+                )
+            return status, elapsed_ms, unavailable
 
         if unit_info.get("is_active"):
+            if svc.holds_vram:
+                return await self._gpu_context_reading(
+                    svc, unit, unit_info, status, elapsed_ms, details, session
+                )
             return status, elapsed_ms, details
         if unit_info.get("ActiveState") == "activating":
             return "degraded", elapsed_ms, {
@@ -1041,6 +1085,91 @@ class SysAdminAgent(BaseAgent):
             **details,
             "reason": f"url ok but {unit} is not active",
             **unit_info,
+        }
+
+    async def _gpu_context_reading(
+        self,
+        svc: ServiceEntry,
+        unit: str,
+        unit_info: dict,
+        status: str,
+        elapsed_ms: int | None,
+        details: dict,
+        session,
+    ) -> tuple[str, int | None, dict]:
+        """The URL answered and the unit is up — but from which context?
+
+        ADR-0007.  A service that declares ``holds_vram`` and whose
+        current process started **before** the newest declared card reset
+        is serving from a GPU context that no longer exists: measured
+        across 34 days of journal, 16 of 16 aborts on the two declaring
+        units were preceded by exactly this, and none of 11,565
+        successful requests was served while it held.  ``/health``
+        answers 200 throughout, which is why the URL cannot see it.
+
+        Every way of not-knowing leaves ``status`` alone and says so.
+        Three of them are reachable: the unit is not active so systemd
+        renders no instant (unreachable from *here*, since the caller has
+        already asserted ``is_active`` — kept because the parse owns the
+        distinction and a future caller on another path would meet it),
+        the value is not the ``@<epoch>`` form, and no session was
+        supplied.  A failed *database* read is caught for
+        :func:`resolve_unit_failures`' reason and the opposite of
+        :mod:`~sysadmin.core.schema_guard`'s: an unanswerable predicate is
+        worth less than the reading the check already has.
+        """
+        started_at = parse_start_instant(unit_info.get(START_INSTANT_PROP))
+        if started_at is None:
+            return status, elapsed_ms, {
+                **details,
+                **gpu_context.unreadable_reading(
+                    unit, "systemd published no usable ActiveEnterTimestamp"
+                ),
+            }
+        if session is None:
+            return status, elapsed_ms, {
+                **details,
+                **gpu_context.unreadable_reading(
+                    unit, "no database session was supplied to the check"
+                ),
+            }
+
+        try:
+            # **Inside a savepoint although it writes nothing.** This runs
+            # before the per-service savepoint below and the run's
+            # transaction is already open — `_open_alert_titles` opened
+            # it — so in PostgreSQL a failed *statement* aborts the whole
+            # transaction, not just itself. Catching the exception
+            # without containing it would leave every later service's
+            # write failing with `InFailedSqlTransaction`, including
+            # `_isolate_write_failure`'s own recovery savepoint: one
+            # unanswerable read costing the run every row after it, which
+            # is SNAG-DB-001's shape arriving through a read.
+            async with session.begin_nested():
+                sighting = await gpu_context.reset_since(session, started_at)
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "gpu_context_unreadable",
+                extra={"service": svc.name, "unit": unit, "error": str(exc)},
+            )
+            return status, elapsed_ms, {
+                **details,
+                **gpu_context.unreadable_reading(
+                    unit, f"log_entries could not be read: {exc}"
+                ),
+            }
+
+        reading = gpu_context.verdict_reading(unit, started_at, sighting)
+        if sighting is None:
+            return status, elapsed_ms, {**details, **reading}
+        return gpu_context.POISONED_STATUS, elapsed_ms, {
+            **details,
+            **reading,
+            "reason": (
+                f"url ok and {unit} is active, but its GPU context was "
+                f"created before the card reset at {sighting.at.isoformat()} "
+                "— every client lost its VRAM"
+            ),
         }
 
     async def _check_http(
