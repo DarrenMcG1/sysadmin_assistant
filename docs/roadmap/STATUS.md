@@ -3,6 +3,37 @@
 **Last Updated**: 2026-09-08
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The state a GPU reset opens has no owner because it was never a
+> state, and one live service refutes the declaration that describes it**
+> (2026-09-08, Session 199,
+> [ADR-0007](../adr/0007-a-poisoned-gpu-context-is-a-predicate.md)).
+> Session 197 filed, and Session 198 carried forward, the question of who
+> owns the state a GPU reset opens and who closes it, noting that a second
+> owner of a service's health lifecycle is the defect this repository has
+> found at seven scales. The question presupposed a state machine. *"This
+> service holds a GPU context created before the last reset"* is a
+> **predicate over two instants the box already publishes durably** — a
+> unit's start instant from systemd, and the newest declared reset row in
+> `log_entries` — so nothing opens it, nothing closes it, and every poll
+> recomputes it: the unit's automatic restart moves the first instant past
+> the second and the next poll reads false with nobody having been told.
+> The owner is therefore the service check that **already writes the row**,
+> and the second-owner defect is avoided by construction rather than by
+> argument. **Falsified against the whole retained journal**, 2026-08-05 →
+> 09-08 and **12** resets: on the two units holding VRAM the separation is
+> total both ways — **6 of 6** and **10 of 10** aborts anticipated with a
+> lead of 0.06 h to 9.78 h, against **0 of 11,565** successful requests
+> served while the predicate was true. **The declaration's own reason is
+> wrong in words**: it says *"any resident inference server alike"*, and
+> `venture-embed` runs with no offloaded layers, holds no VRAM, and served
+> **267 of its 823** successful embeddings while the predicate was true —
+> so the population is a declaration in `services.yaml`, not a role, which
+> would have shipped 267 false alarms. The recorded reading is `degraded`;
+> **`unwatched` was refused on the code**, because that value means nobody
+> looked by declaration and would drop the row from the reliability rates,
+> excusing an outage as a decision. *No code changed and no restart is
+> owed; the register's `SNAG-GPU-001` keeps its implementation half open.*
+
 > **The memory index was repaired and the estate ruled on it the same
 > morning, and the ruling's own finding is that the last two repairs went
 > unrecorded** (2026-09-08, Session 198). The per-repository memory index

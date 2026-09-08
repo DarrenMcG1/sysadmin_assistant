@@ -1,6 +1,112 @@
-# Handoff — 2026-09-08 (Session 198)
+# Handoff — 2026-09-08 (Session 199)
 
 ## Next action
+
+Build the reading ADR-0007 settled: add a leaf to `services.yaml` declaring which services hold VRAM (`alfred-inference` and `venture-chat` do, `venture-embed` does not, so `role: inference` would ship 267 false alarms), add `ActiveEnterTimestamp` to `get_unit_status`'s property list, and make `_check_http_and_unit` record `degraded` with the derivation in `details` whenever a declared unit's start instant is strictly earlier than the newest `CRITICAL_SIGNATURES` reset row — a tie left unflagged, because second truncation moves a start instant earlier and therefore errs toward over-reporting.
+
+_**The question had no answer and that is the finding.**_ _Session 197
+filed, and Session 198 carried forward, *"who owns the state a GPU reset
+opens, and who closes it"*, with the note that a second owner of a
+service's health lifecycle is the defect this repository has found at
+seven scales. The question presupposes a state machine. **There is no
+state**: "this service holds a GPU context created before the last reset"
+is a predicate over two instants the box already publishes durably — a
+unit's `ActiveEnterTimestamp`, and the newest `log_entries` row whose
+`(source, signature)` is a key of `CRITICAL_SIGNATURES`. Nothing opens it
+and nothing closes it. `Restart=on-failure` moves the unit's start instant
+past the reset instant and the next poll recomputes false with nobody
+having been told anything — `message_backfill.py` rule 4's *idempotence is
+a property, not a flag*, in a third family, and `_resolve_recovered`'s move
+of asking the inverse question rather than hunting for an observer of the
+recovery._
+
+_**So the owner is the check that already writes the row**, and that is the
+whole of the ownership answer._ `SysAdminAgent._check_http_and_unit`
+_already calls_ `get_unit_status` _on the unit_ `services.yaml` _names, and
+that function's own docstring argues an extra property costs nothing.
+Adding a term to an existing check adds no owner, so the second-owner
+defect is avoided **by construction rather than by argument** — the
+stronger form, and the reason all three candidates `SNAG-GPU-001`
+enumerated stay refused, including its own preferred one._
+
+_**Falsified against the whole retained journal, and the inverse direction
+is what decides it.**_ _2026-08-05 → 2026-09-08, **12** resets. On the two
+units that hold VRAM the separation is total in both directions:
+`alfred-inference` **6 of 6** aborts anticipated and `venture-chat`
+**10 of 10**, lead **0.06 h to 9.78 h**, against **0 of 11,565** successful
+requests served while the predicate was true. A rule that only ever fires
+late is indistinguishable from one that fires always; the false-positive
+column is what separates them, and it is the column the third unit fails._
+
+_**One live service refutes the declaration's own words, and that is what
+fixes the population.**_ _`_GPU_RESET.reason` says "any resident inference
+server alike". `venture-embed` runs `llama-server … -ngl 0`, holds no VRAM,
+and served **267 of its 823** successful embeddings **while the predicate
+was true**, with zero aborts in its whole retained history. `role:
+inference` names four services here, so keying on it ships 267 false
+alarms. The population is a **declaration in `services.yaml`** — honouring
+a statement rather than recognising an application — and not a grep of
+another repository's `ExecStart`, which would make this repository a parser
+of a command line it does not own._
+
+_**The proposed reading was `unwatched` and it is false in both halves.**_
+_`STATUS_READINGS` classifies `skipped` as `unwatched` on the stated
+meaning "somebody decided not to look, and recorded the decision" — the
+check did look, and no declaration says not to.
+`reliability.UNMEASURED_STATUSES` then drops the row from the rates, so the
+**79.9 h** the flag would have stood for `alfred-inference` across the
+twelve resets would cost nothing and the score would report a server that
+could not serve as perfectly available: `SNAG-SVC-001`'s defect run in
+reverse, where a `skipped` row was wrongly charged as an outage for
+eighteen days. The ruled reading is `degraded`, and it deducts. A `waived:
+true` deduction on the ground that a desktop process wedged the card was
+put to the owner and refused — the score's question is availability, not
+blame._
+
+_**The entry named one of at least two watched victims.**_ _`venture-chat`
+is a `services.yaml` entry, is watched, aborted on this exact signature
+**10** times — more than `alfred-inference`'s **6** — and reported `ok`
+through every one. `SNAG-GPU-001`'s "structural victim" framing survives
+unchanged, because it is about the *discovery*: two servers were poisoned
+each time and only one had a review pointed at it._
+
+_**Three measurement traps are recorded with their numbers**, so the
+execution sitting re-runs rather than re-derives._ _`journalctl -k` implies
+`--boot=0` and sees **4** of the twelve resets, so the sweep is
+`_TRANSPORT=kernel`. `--timestamp=unix` renders `@<epoch>` at second
+granularity and truncation moves a start instant *earlier*, toward
+over-reporting, so the comparison is strict and a tie is not flagged —
+`SNAG-LOG-009` rule 2's `int` → `math.ceil` lesson read backwards;
+`--timestamp=us+utc` is the microsecond alternative and is not needed, the
+shortest observed reset-to-abort gap being 3.4 minutes. And
+`ActiveEnterTimestamp` is **empty** for an inactive unit, measured against
+`venture-chat-large.service`, so an unreadable start instant yields no
+reading rather than a false one — `ports_checked`'s rule._
+
+_**The estate's open question is not a blocker and was left untouched.**_
+_Message `bc5f6a09` asks estate-manager what a granted GPU lease is meant
+to promise and is still open. It bears on whether the **arbiter** should
+validate the card before admitting work, which is a producer-side mechanism
+this repository may not build. The reading decided here is local, needs no
+lease semantics, and is correct under either answer — if the estate rules
+that a grant does promise a usable card, this becomes a second and cheaper
+witness rather than becoming wrong._
+
+_**Nothing was fixed in the code and that was the scope, put to the owner
+and ruled.**_ _No `sysadmin/` file was touched, no migration, no test added
+or removed, so no restart is owed. What moved is `docs/adr/0007`, five
+bullets and an amended `Status:` on `SNAG-GPU-001`, a Session 199 block in
+`tasks.md` with the design item ticked and the build item filed, a block at
+the top of `STATUS.md`, and the ADR list in `CLAUDE.md`. The register is
+unmoved at **145 entries, 28 open** and all twelve ops claims read `ok`
+either side of the edit. Two estate messages are open in the inbox and both
+were left: `ecceab5e` (the `wiring` check's justification is now false and
+the owner recommends it move here — it bears on ADR-0006) and `8c6da00e`
+(Alfred's correction to our `e5d17a89` cost line)._
+
+# Handoff — 2026-09-08 (Session 198)
+
+### The action Session 198 carried forward (settled by Session 199)
 
 Decide who owns the state a GPU reset opens, because the declared `GPU was reset — every client lost its VRAM` signature already names a resident inference server as a victim in its own reason and no machine reads it, so the candidate is a reader that marks the affected service unwatched until a submission proves the card usable — and that needs its argument about who closes the state settled before any code, since a second owner of a service's health lifecycle is the defect this repository has now found at seven scales.
 

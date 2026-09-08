@@ -4175,6 +4175,25 @@ than this paragraph.
   the ports rule; the kind is read from `detail`'s shape and never from
   `code`; there is no roll-up, because the population is bounded by the
   estate's own `hooks/` directory; and `critical` was refused.
+- **[0007-a-poisoned-gpu-context-is-a-predicate.md](docs/adr/0007-a-poisoned-gpu-context-is-a-predicate.md)**
+  — **read this before giving any reset-opened condition an owner.** The
+  question *"who owns the state a GPU reset opens, and who closes it"* has
+  no answer because there is no state: *"this service holds a GPU context
+  created before the last reset"* is a predicate over two instants the box
+  already publishes — a unit's `ActiveEnterTimestamp` and the newest
+  `log_entries` row keyed by `CRITICAL_SIGNATURES` — so the unit's own
+  restart moves the first past the second and the next poll recomputes it.
+  The owner is the check that already writes the `service_health` row, so
+  the second-owner defect is avoided by construction. Records why the
+  reading is `degraded` and not `unwatched` (`skipped` means *nobody looked
+  by declaration*, and `UNMEASURED_STATUSES` would excuse the outage as a
+  decision — `SNAG-SVC-001` in reverse), why the population is a
+  declaration in `services.yaml` rather than `role: inference` (measured:
+  `venture-embed` runs `-ngl 0` and served **267 of 823** successful
+  embeddings while the predicate was true), and the three measurement traps
+  — `journalctl -k` implying `--boot=0`, second-granular `@epoch`
+  truncation erring toward over-reporting, and an empty
+  `ActiveEnterTimestamp` on an inactive unit.
 
 Guides: only **api_auth.md** (bearer-token auth setup) still lives in
 this repository's `docs/guides/`. The four cross-repo guides —

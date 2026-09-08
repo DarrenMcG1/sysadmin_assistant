@@ -8,6 +8,105 @@
 
 ---
 
+## Session 199: the state had no owner because it was never a state ✅ (2026-09-08)
+
+_Session 197 filed, and Session 198 carried forward, the question of who
+owns the state a GPU reset opens and who closes it — with the note that a
+second owner of a service's health lifecycle is the defect this repository
+has found at seven scales. The question presupposed a state machine. The
+measurement says there is no state, so the ownership problem it was posed
+to solve does not arise. Decided, argued and recorded; no code, which was
+the scope._
+
+- [x] **[ADR-0007](../adr/0007-a-poisoned-gpu-context-is-a-predicate.md)
+      records the decision.** *"This service holds a GPU context created
+      before the last reset"* is a **predicate over two instants the box
+      already publishes durably** — `ActiveEnterTimestamp` from
+      `systemctl [--user] show <unit> --timestamp=unix`, and the newest
+      `log_entries` row whose `(source, signature)` is a key of
+      `CRITICAL_SIGNATURES`. Nothing opens it and nothing closes it:
+      `Restart=on-failure` moves the unit's start instant past the reset
+      instant, and the next poll recomputes false with nobody having been
+      told anything. `message_backfill.py` rule 4 — *idempotence is a
+      property, not a flag* — arriving in a third family, and
+      `_resolve_recovered`'s move of asking the inverse question rather
+      than hunting for an observer of the recovery
+- [x] **The owner is therefore the check that already writes the row.**
+      `SysAdminAgent._check_http_and_unit` already calls `get_unit_status`
+      on the unit `services.yaml` names, and that function's own docstring
+      argues that asking for one more property costs nothing. Adding a term
+      to an existing check adds no owner, so the second-owner defect is
+      avoided **by construction rather than by argument** — which is the
+      stronger form, and the reason the three candidates `SNAG-GPU-001`
+      enumerated all stay refused
+- [x] **Falsified against the whole retained journal, and the inverse
+      direction is what decides it.** 2026-08-05 → 2026-09-08, **12**
+      resets. On the two units holding VRAM the separation is total both
+      ways: `alfred-inference` **6 of 6** aborts anticipated and
+      `venture-chat` **10 of 10**, lead **0.06 h to 9.78 h**, against
+      **0 of 11,565** successful requests served while the predicate was
+      true. A rule that only ever fires late is indistinguishable from one
+      that fires always; the false-positive column is what separates them
+- [x] **One live service refutes the declaration's own words, and it is
+      what fixes the population.** `_GPU_RESET.reason` says *"any resident
+      inference server alike"*. `venture-embed` runs `llama-server … -ngl 0`,
+      holds no VRAM, and served **267 of its 823** successful embeddings
+      **while the predicate was true**, with zero aborts in its whole
+      retained history. `role: inference` names four services here, so
+      keying on it ships 267 false alarms — the population is a
+      **declaration in `services.yaml`**, not a role, and not a grep of
+      another repository's `ExecStart`, which would make this repository a
+      parser of a command line it does not own
+- [x] **The reading is `degraded` and `unwatched` was refused on the
+      code.** `STATUS_READINGS` classifies `skipped` as `unwatched` on the
+      stated meaning *"somebody decided not to look, and recorded the
+      decision"* — the check did look, and no declaration says not to.
+      `reliability.UNMEASURED_STATUSES` then drops the row from the rates,
+      so the **79.9 h** the flag would have stood for `alfred-inference`
+      across the twelve resets would cost nothing and the score would
+      report a server that could not serve as perfectly available:
+      `SNAG-SVC-001`'s defect run in reverse. A `waived: true` deduction
+      was put and refused — the score's question is availability, not blame
+- [x] **`SNAG-GPU-001` gains five bullets and stays open on its
+      implementation half.** Its population is corrected — `venture-chat`
+      is watched, aborted **10** times against `alfred-inference`'s **6**,
+      and reported `ok` through every one, so the entry named one of at
+      least two. Its "structural victim" framing survives unchanged,
+      because it is about the *discovery*: two servers were poisoned each
+      time and only one had a review pointed at it
+- [x] **Three measurement traps are recorded with their numbers**, so the
+      implementation sitting re-runs rather than re-derives. `journalctl -k`
+      implies `--boot=0` and sees **4** of the 12 resets — the sweep is
+      `_TRANSPORT=kernel`. `--timestamp=unix` is second-granular and
+      truncation moves a start instant *earlier*, i.e. toward
+      over-reporting, so the comparison is strict and a tie is not flagged
+      — `SNAG-LOG-009` rule 2's `int` → `math.ceil` lesson read backwards.
+      `ActiveEnterTimestamp` is **empty** for an inactive unit, measured
+      against `venture-chat-large.service`, so an unreadable start instant
+      yields no reading rather than a false one (`ports_checked`'s rule)
+- [x] **The estate's open question is not a blocker and is untouched.**
+      Message `bc5f6a09` asks estate-manager what a granted GPU lease is
+      *meant to promise*; it is still open. It bears on whether the
+      **arbiter** should validate the card before admitting work, which is
+      a producer-side mechanism this repository may not build. The reading
+      decided here is local, needs no lease semantics, and is correct under
+      either answer — if the estate rules that a grant does promise a
+      usable card, this becomes a second and cheaper witness rather than
+      becoming wrong
+- [ ] **Build the reading** — a declaration leaf in `services.yaml` for a
+      service that holds VRAM, `ActiveEnterTimestamp` added to
+      `get_unit_status`'s property list, the strict comparison in
+      `_check_http_and_unit` writing `degraded` with the derivation in
+      `details`, tests falsified against the record in ADR-0007 §2, and a
+      restart. The argument is settled, so this is an execution sitting
+- [ ] **Close estate message `ecceab5e`** — estate-manager's notice that
+      ADR-0024 is narrowed and the `wiring` check's stated justification is
+      now false, with the owner's *recommendation* (not a task) that the
+      check move here. Open in our inbox, untouched this sitting, and it
+      bears on [ADR-0006](../adr/0006-wiring-joins-ports.md)
+
+---
+
 ## Session 198: the index was repaired, the estate ruled, and the record is the point ✅ (2026-09-08)
 
 _The ask was to fix the memory index the harness had been warning about for
@@ -179,12 +278,12 @@ whole of what was asked for; nothing was fixed._
       would assert that some reader acts on the declared signature, which
       is the fix and not the defect — `check_review_schedule_unread`'s
       error
-- [ ] **Give the reset-opened state an owner** — the one candidate inside
-      this repository's remit is a reader that marks the affected service
-      unwatched until a submission proves the card usable, and it needs its
-      argument about **who closes that state** settled before any code,
-      since a second owner of a service's health lifecycle is the defect
-      this repository has now found at seven scales
+- [x] **Give the reset-opened state an owner** — settled 2026-09-08 by
+      Session 199 and [ADR-0007](../adr/0007-a-poisoned-gpu-context-is-a-predicate.md):
+      there is no state to own, and the candidate's proposed reading
+      (`unwatched`) is false in both halves of that value's meaning. What
+      remains is the implementation, which is a new item in the Session 199
+      block below
 - [ ] **Close estate message `8c6da00e`** — Alfred's correction to the cost
       line of our own `e5d17a89` (they measured 7 failed runs all-time
       against the 12 we quoted from their SNAG-50); open in our inbox and
