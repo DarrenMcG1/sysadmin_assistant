@@ -3,7 +3,12 @@
     "captured_at": "2026-08-16T09:35:25.291159+00:00",
     "box": "dbelter",
     "dsn": "postgresql:///estate",
-    "method": "the producer's own route functions and ORM models, driven in this repository's venv against the live estate database inside transactions that were rolled back"
+    "method": "the producer's own route functions and ORM models, driven in this repository's venv against the live estate database inside transactions that were rolled back",
+    "applies_to": [
+      "live",
+      "errored",
+      "never_ran"
+    ]
   },
   "live": {
     "audits_total": 22,
@@ -117,5 +122,278 @@
     "audits_total": 0,
     "last_audit": null,
     "generated_at": "2026-08-16T09:35:25.339476+00:00"
+  },
+  "_provenance_wiring_arms": {
+    "captured_at": "2026-09-09T07:22:00+00:00",
+    "box": "arch",
+    "applies_to": [
+      "errored_wiring_parse",
+      "errored_wiring_unreadable"
+    ],
+    "method": "Two halves, with no write anywhere. The envelope is GET http://127.0.0.1:8400/api/audit/invariants read off the wire, so the thirteen checks, their `inputs` and `findings_total` are a live run's. `checks.wiring` is the producer's own CheckResult.as_summary() for the two error arms estate ADR-0140 leaves behind, obtained by running estate_service.audit.checks.wiring.run_check in estate-manager's venv against ONE path: a copy of ~/.claude/settings.json with its last 40 bytes cut (the specimen this repository reported and they re-measured in message 56752625), and then that same path with the file removed. One path because that is the production shape and because it is what makes the premise assertable \u2014 the arm that read the file and the arm that could not open it differ in nothing but the prose. `checks_errored` and `verdict` are recomputed by the producer's own agent._verdict and the sum at agent.py:308, never by hand. The specimen sits under /tmp, so its path is 32 characters longer than the ~/.claude/settings.json this check reads in production: the captured reasons are longer than live ones, which is the safe direction for a fixture a length cap is measured against."
+  },
+  "errored_wiring_parse": {
+    "audits_total": 379,
+    "last_audit": {
+      "run_id": "53bb20a0-939b-4389-b88b-ed690c221d93",
+      "run_type": "manual",
+      "verdict": "error",
+      "started_at": "2026-09-09T07:02:24.521167+00:00",
+      "finished_at": "2026-09-09T07:02:36.019333+00:00",
+      "age_seconds": 470.304431,
+      "checks_run": 13,
+      "checks_errored": 1,
+      "findings_total": 5,
+      "checks": {
+        "docs": {
+          "error": null,
+          "inputs": {},
+          "status": "findings",
+          "findings": 2
+        },
+        "vram": {
+          "error": null,
+          "inputs": {},
+          "status": "findings",
+          "findings": 1
+        },
+        "brief": {
+          "error": null,
+          "inputs": {
+            "pointer_file": {
+              "path": "/home/gaddi/.claude/CLAUDE.md",
+              "resolves_to": "/home/gaddi/projects/dotfiles/claude/CLAUDE.md"
+            }
+          },
+          "status": "ok",
+          "findings": 0
+        },
+        "ports": {
+          "error": null,
+          "inputs": {},
+          "status": "findings",
+          "findings": 2
+        },
+        "seams": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "health": {
+          "error": null,
+          "inputs": {
+            "services_file": {
+              "path": "/home/gaddi/projects/sysadmin_assistant/services.yaml"
+            }
+          },
+          "status": "ok",
+          "findings": 0
+        },
+        "wiring": {
+          "status": "error",
+          "findings": 0,
+          "error": "/tmp/wiring-specimen-2ita9e_9/settings.json is present and readable but is not valid JSON (Unterminated string starting at: line 671 column 3 (char 38917)), so the declarations below cannot be compared against anything",
+          "inputs": {
+            "settings_file": {
+              "path": "/tmp/wiring-specimen-2ita9e_9/settings.json"
+            }
+          }
+        },
+        "markers": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "readers": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "pointers": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "collation": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "consumers": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "restatements": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        }
+      },
+      "publish_error": null,
+      "error": null
+    },
+    "readers": {
+      "repositories": 6,
+      "files": 59,
+      "references": 132,
+      "path_references": 15,
+      "stem_references": 27,
+      "authority_references": 90,
+      "authority_repositories": 4,
+      "unresolved": 2,
+      "unresolved_moved": 0,
+      "unresolved_never_existed": 2,
+      "unresolved_undetermined": 0,
+      "stub_targets": 0,
+      "usage": {
+        "comment": 19,
+        "docstring": 46,
+        "string": 58,
+        "code": 7,
+        "unknown": 2,
+        "unclassified": 0
+      }
+    },
+    "generated_at": "2026-09-09T07:10:14.825598+00:00"
+  },
+  "errored_wiring_unreadable": {
+    "audits_total": 379,
+    "last_audit": {
+      "run_id": "53bb20a0-939b-4389-b88b-ed690c221d93",
+      "run_type": "manual",
+      "verdict": "error",
+      "started_at": "2026-09-09T07:02:24.521167+00:00",
+      "finished_at": "2026-09-09T07:02:36.019333+00:00",
+      "age_seconds": 470.304431,
+      "checks_run": 13,
+      "checks_errored": 1,
+      "findings_total": 5,
+      "checks": {
+        "docs": {
+          "error": null,
+          "inputs": {},
+          "status": "findings",
+          "findings": 2
+        },
+        "vram": {
+          "error": null,
+          "inputs": {},
+          "status": "findings",
+          "findings": 1
+        },
+        "brief": {
+          "error": null,
+          "inputs": {
+            "pointer_file": {
+              "path": "/home/gaddi/.claude/CLAUDE.md",
+              "resolves_to": "/home/gaddi/projects/dotfiles/claude/CLAUDE.md"
+            }
+          },
+          "status": "ok",
+          "findings": 0
+        },
+        "ports": {
+          "error": null,
+          "inputs": {},
+          "status": "findings",
+          "findings": 2
+        },
+        "seams": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "health": {
+          "error": null,
+          "inputs": {
+            "services_file": {
+              "path": "/home/gaddi/projects/sysadmin_assistant/services.yaml"
+            }
+          },
+          "status": "ok",
+          "findings": 0
+        },
+        "wiring": {
+          "status": "error",
+          "findings": 0,
+          "error": "/tmp/wiring-specimen-2ita9e_9/settings.json could not be read: [Errno 2] No such file or directory: '/tmp/wiring-specimen-2ita9e_9/settings.json'",
+          "inputs": {
+            "settings_file": {
+              "path": "/tmp/wiring-specimen-2ita9e_9/settings.json"
+            }
+          }
+        },
+        "markers": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "readers": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "pointers": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "collation": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "consumers": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        },
+        "restatements": {
+          "error": null,
+          "inputs": {},
+          "status": "ok",
+          "findings": 0
+        }
+      },
+      "publish_error": null,
+      "error": null
+    },
+    "readers": {
+      "repositories": 6,
+      "files": 59,
+      "references": 132,
+      "path_references": 15,
+      "stem_references": 27,
+      "authority_references": 90,
+      "authority_repositories": 4,
+      "unresolved": 2,
+      "unresolved_moved": 0,
+      "unresolved_never_existed": 2,
+      "unresolved_undetermined": 0,
+      "stub_targets": 0,
+      "usage": {
+        "comment": 19,
+        "docstring": 46,
+        "string": 58,
+        "code": 7,
+        "unknown": 2,
+        "unclassified": 0
+      }
+    },
+    "generated_at": "2026-09-09T07:10:14.825598+00:00"
   }
 }

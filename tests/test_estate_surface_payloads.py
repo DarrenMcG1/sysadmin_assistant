@@ -63,7 +63,9 @@ from typing import Any
 import httpx
 import pytest
 
+from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.estate.judgements import (
+    CHECK_ERROR_CHARS,
     judge_audit_findings,
     judge_audit_invariants,
     judge_projects_invariants,
@@ -251,7 +253,85 @@ class TestTheAuditAgainstProducerBuiltPayloads:
             if j.title == "Estate audit checks errored"
         )
         assert row.details["errored_checks"] == ["ports", "seams"]
-        assert "2 of 7 audit checks errored (ports, seams)" in row.message
+        assert "2 of 7 audit checks errored." in row.message
+        # Named with their reasons since 2026-09-09, two being the cap.
+        assert "ports reported: could not read the port registry document." in row.message
+        assert "seams reported: ConnectError: 8500 refused the connection." in row.message
+
+    def test_the_payload_cannot_say_whether_the_check_looked(self):
+        """The premise the errored-check wording rests on, witnessed by
+        the producer rather than argued.
+
+        Estate ADR-0140 leaves check 11 two error arms: a
+        ``settings.json`` that was **read** and will not parse, and one
+        that could not be opened at all.  ``inputs`` is what a reader
+        reaches for to tell them apart and it cannot — their
+        ``run_check`` sets it *before* its first early return, so an
+        errored check says which file it could not use as readily as a
+        clean one says what it compared against.  Both arms were driven
+        at **one path**, which is the production shape, and outside the
+        prose they are identical: same ``status``, same ``findings``,
+        same ``inputs``.
+
+        So a rule here that classified the cause would be reading the
+        estate's free prose, and this test is what says so if they ever
+        publish a field that would make one honest.
+        """
+        broken = scenarios("audit_invariants")["errored_wiring_parse"]
+        unread = scenarios("audit_invariants")["errored_wiring_unreadable"]
+        one, other = (
+            payload["last_audit"]["checks"]["wiring"] for payload in (broken, unread)
+        )
+
+        assert "is not valid JSON" in one["error"]
+        assert "could not be read" in other["error"]
+        assert one["error"] != other["error"]
+        assert {k: v for k, v in one.items() if k != "error"} == {
+            k: v for k, v in other.items() if k != "error"
+        }
+        assert set(one) == {"status", "findings", "error", "inputs"}
+
+    def test_a_file_read_and_broken_is_not_reported_as_nobody_looking(self):
+        """The defect this narrowing exists for, at the producer's own
+        composition.
+
+        The reason is theirs, ``str(exc)`` and all (their ADR-0140 §5),
+        and it reaches the message because they wrote it for a reader
+        and this repository is the reader."""
+        payload = scenarios("audit_invariants")["errored_wiring_parse"]
+        reason = payload["last_audit"]["checks"]["wiring"]["error"]
+        row = next(
+            j
+            for j in judge_audit_invariants(payload, AUDIT_MAX_AGE_HOURS)
+            if j.title == "Estate audit checks errored"
+        )
+
+        assert "nothing looked" not in row.message
+        assert "1 of 13 audit checks errored." in row.message
+        assert f"wiring reported: {reason}." in row.message
+        assert row.details["check_errors"] == {"wiring": reason}
+
+    def test_the_producers_reasons_fit_the_message_cap_as_captured(self):
+        """:data:`CHECK_ERROR_CHARS` is a backstop above the measured
+        population, so nothing the producer composes today is cut — and
+        the captured specimens are *longer* than live ones, because they
+        name a path under ``/tmp`` where production names
+        ``~/.claude/settings.json``.  A producer that starts composing
+        longer reasons makes this red, which is the point: the number
+        was measured, so it is re-measurable."""
+        for name in ("errored_wiring_parse", "errored_wiring_unreadable"):
+            reason = scenarios("audit_invariants")[name]["last_audit"]["checks"][
+                "wiring"
+            ]["error"]
+            assert len(reason) <= CHECK_ERROR_CHARS, (name, len(reason))
+            row = next(
+                j
+                for j in judge_audit_invariants(
+                    scenarios("audit_invariants")[name], AUDIT_MAX_AGE_HOURS
+                )
+                if j.title == "Estate audit checks errored"
+            )
+            assert TRUNCATION_MARKER not in row.message
 
     def test_a_stale_errored_run_raises_all_three_without_merging_them(self):
         """Three faults with three remedies — restart the timer, fix the

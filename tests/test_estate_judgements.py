@@ -34,7 +34,9 @@ import pytest
 
 from sysadmin.core.text import TRUNCATION_MARKER
 from sysadmin.estate.judgements import (
+    CHECK_ERROR_CHARS,
     DEFAULT_SEVERITY,
+    ERRORED_REASONS_LISTED,
     HEALTH_ROLLUP_TITLE,
     JUDGED_AUDIT_CHECKS,
     JUDGED_AUDIT_SEVERITY,
@@ -563,9 +565,9 @@ class TestTheAudit:
 
     def test_an_errored_check_is_judged_and_named(self):
         """A check that errored produced no finding, so the audit's
-        clean-looking result for that dimension means nothing looked
-        rather than nothing was wrong — ``_resolve_recovered``'s
-        ``error``-versus-``skipped`` distinction."""
+        clean-looking result for that dimension is unjudged rather than
+        clear — ``_resolve_recovered``'s ``error``-versus-``skipped``
+        distinction."""
         checks = _audit()["last_audit"]["checks"]
         checks["ports"] = {"error": "boom", "status": "error", "findings": 0}
         out = judge_audit_invariants(
@@ -573,6 +575,100 @@ class TestTheAudit:
         )
         assert titles(out) == {"Estate audit checks errored"}
         assert out[0].details["errored_checks"] == ["ports"]
+
+    def test_the_row_no_longer_says_why_a_check_errored(self):
+        """The message named a **cause** until 2026-09-09 and the payload
+        carries none.
+
+        Estate ADR-0140 made a ``settings.json`` that is present,
+        readable and broken set ``CheckResult.error``, so *"nothing
+        looked"* became false for exactly that case — and this family
+        fires at ``tray.notify_min_severity``, so the wrong sentence
+        would have become audible the morning their commit landed.
+        Falsified against the retired wording, which the fixture below
+        reproduces verbatim.
+        """
+        checks = _audit()["last_audit"]["checks"]
+        checks["wiring"] = {
+            "status": "error",
+            "findings": 0,
+            "error": (
+                "~/.claude/settings.json is present and readable but is not "
+                "valid JSON (Unterminated string starting at: line 671), so "
+                "the declarations below cannot be compared against anything"
+            ),
+            "inputs": {"settings_file": {"path": "/home/gaddi/.claude/settings.json"}},
+        }
+        out = judge_audit_invariants(_audit(checks_errored=1, checks=checks), 26.0)
+
+        assert "nothing looked" not in out[0].message
+        assert "did not complete" in out[0].message
+
+    def test_the_producers_own_reason_is_named_rather_than_classified(self):
+        """The reason was fetched here for its truthiness and thrown
+        away — ``SNAG-UNITS-004``'s defect, and
+        :func:`judge_queue_invariants` rule 4's remedy."""
+        checks = _audit()["last_audit"]["checks"]
+        checks["ports"] = {
+            "status": "error",
+            "findings": 0,
+            "error": "could not read the port registry document",
+        }
+        out = judge_audit_invariants(_audit(checks_errored=1, checks=checks), 26.0)
+
+        assert "ports reported: could not read the port registry document." in out[0].message
+        assert out[0].details["check_errors"] == {
+            "ports": "could not read the port registry document"
+        }
+
+    def test_above_the_cap_the_message_stops_naming_reasons(self):
+        """:func:`judge_attention` rule 1 a third time: ten of thirteen
+        checks can error, and ten at once is *the audit failing* rather
+        than ten dimensions each with something to say.  Every reason is
+        still in ``details``, whole — the caps are about a notification
+        body and ``details`` is not one."""
+        checks = _audit()["last_audit"]["checks"]
+        for name in list(checks)[: ERRORED_REASONS_LISTED + 1]:
+            checks[name] = {"status": "error", "findings": 0, "error": f"{name} broke"}
+        errored = ERRORED_REASONS_LISTED + 1
+        out = judge_audit_invariants(_audit(checks_errored=errored, checks=checks), 26.0)
+
+        assert "reported:" not in out[0].message
+        assert "details.check_errors" in out[0].message
+        assert len(out[0].details["check_errors"]) == errored
+        for name, text in out[0].details["check_errors"].items():
+            assert text == f"{name} broke"
+
+    def test_a_long_reason_is_cut_in_the_message_and_whole_in_details(self):
+        """The cap is a **backstop**, not a reading budget, and the cut
+        it makes is the wrong-shaped one — a reason opens with the path
+        and closes with the cause, so a head-truncation keeps the file
+        and drops the fault.  That is why ``details`` is the authority
+        and why :data:`CHECK_ERROR_CHARS` sits above everything the
+        producer can be seen to compose."""
+        reason = "~/.claude/settings.json is broken because " + "reasons " * 80
+        checks = _audit()["last_audit"]["checks"]
+        checks["ports"] = {"status": "error", "findings": 0, "error": reason}
+        out = judge_audit_invariants(_audit(checks_errored=1, checks=checks), 26.0)
+
+        assert len(reason) > CHECK_ERROR_CHARS
+        assert TRUNCATION_MARKER in out[0].message
+        assert reason not in out[0].message
+        assert out[0].details["check_errors"]["ports"] == reason
+
+    def test_a_check_counted_errored_with_no_reason_is_still_counted(self):
+        """``checks_errored`` is the producer's own integer and the
+        reasons are read from a second field, so the two can disagree —
+        an older stored row, or a producer that stops publishing the
+        prose.  Zero-because-blind must not read as zero-because-clean,
+        so the count leads and ``unnamed`` says the payload named
+        nobody."""
+        out = judge_audit_invariants(_audit(checks_errored=2, checks={}), 26.0)
+
+        assert "2 of 4 audit checks errored" in out[0].message
+        assert "(unnamed)" in out[0].message
+        assert out[0].details["errored_checks"] == []
+        assert out[0].details["check_errors"] == {}
 
     def test_a_publish_failure_is_judged_separately_from_a_run_failure(self):
         """Findings computed but not published is a different fault from

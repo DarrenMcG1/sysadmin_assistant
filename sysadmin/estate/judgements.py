@@ -53,7 +53,9 @@ Three rules run through everything below.
    ``/api/audit/invariants`` is whether the audit **ran and completed**
    — ``checks_errored``, ``publish_error``, ``error``, age.  A check that
    errored produced no finding at all, which is the difference between
-   "nothing is wrong" and "nothing looked".
+   *nothing is wrong* and *the comparison did not happen*.  It read
+   "nothing looked" until 2026-09-09; that named a **cause**, and the
+   payload carries none — see :func:`judge_audit_invariants`.
 
    The exceptions are ``ports`` (:func:`judge_audit_findings`) and, since
    2026-08-30, ``wiring`` (:func:`judge_audit_wiring`).  Each is a
@@ -114,6 +116,45 @@ from sysadmin.core.text import truncate_at_word
 #: characters the producer's does not, so the totals differ even where
 #: the budget for the action agrees.
 NEXT_ACTION_CHARS = 120
+
+#: How much of one errored check's reason reaches the message.
+#:
+#: **A backstop above the measured population, not a reading budget** —
+#: which is the opposite of :data:`NEXT_ACTION_CHARS` and is deliberate.
+#: A next action's head is its informative part, so cutting one at 120
+#: characters costs the tail of a sentence.  A check's reason is the
+#: reverse: every one of them opens with the *path* and closes with the
+#: *cause*, so ``~/.claude/settings.json is present and readable but is
+#: not valid JSON (…)`` and ``~/.claude/settings.json could not be read:
+#: …`` are separated only by their trailing clause.  A head-truncation
+#: here delivers the file and drops the fault, which is
+#: :func:`judge_audit_invariants`'s own defect at the size of a slice.
+#:
+#: So it sits above the measurement rather than at a comfortable length.
+#: Measured 2026-09-09 by driving the producer's check 11 through
+#: ``CheckResult.as_summary()`` — its three error arms compose 141, 175
+#: and 228 characters — and by an ``ast`` walk of the estate's 24
+#: ``result.error =`` sites across ten checks, whose largest *static*
+#: composition is 170 characters plus one interpolated path.  300 is
+#: invented, and it says so; what is not invented is that it is above
+#: everything the producer can be seen to compose today.
+CHECK_ERROR_CHARS = 300
+
+#: Errored checks whose reason the message names before it stops naming.
+#:
+#: **Invented, and says so** — ``NOISE_MIN_OCCURRENCES``' status stated
+#: the same way.  What is measured is the budget it spends:
+#: ``alert.message`` reaches a desktop notification body verbatim, the
+#: reasons run to 228 characters apiece, and the stem is ~95, so two of
+#: them is already ~550 characters — twice the longest message
+#: :func:`judge_attention` can produce.
+#:
+#: Above it the message names the checks and leaves the reasons to
+#: ``details``, which is :func:`judge_attention` rule 1 and
+#: :func:`judge_audit_findings` rule 3 arriving a third time: ten of the
+#: audit's thirteen checks can error, and ten at once is *the audit
+#: failing* rather than ten dimensions each having something to say.
+ERRORED_REASONS_LISTED = 2
 
 #: Severity for every judgement this module makes, with one exception.
 #:
@@ -661,9 +702,53 @@ def judge_audit_invariants(payload: dict[str, Any], max_age_hours: float) -> lis
 
     ``checks_errored`` is the one that matters and reads as the quiet
     opposite of ``findings_total``: a check that errored produced no
-    finding, so the audit's clean-looking result for that dimension means
-    nothing looked rather than nothing was wrong — the same distinction
-    ``_resolve_recovered`` draws between ``error`` and ``skipped``.
+    finding, so the audit's clean-looking result for that dimension is
+    **unjudged rather than clear** — ``ports_checked``'s rule, arriving
+    from the estate's side.
+
+    **It said "nothing looked" until 2026-09-09, and that was a claim
+    about a cause this payload cannot carry.**  Estate ADR-0140 (their
+    message ``56752625``) retired check 11's two file-level codes, so a
+    ``settings.json`` that is present, readable and not valid JSON now
+    sets ``CheckResult.error`` instead of filing a finding — the file
+    *was* read and *is* broken, and the sentence said nobody looked.
+    This family fires at :data:`DEFAULT_SEVERITY`, which is exactly this
+    box's ``tray.notify_min_severity``, so the wrong sentence would have
+    become audible on the first 05:00 run after their commit.
+
+    Three rules replaced it, two of them the opposite of the obvious
+    implementation and all three settled by driving the producer rather
+    than by reading it:
+
+    1. **No field discriminates the cause, so none is invented.**  The
+       obvious fix is to classify the error, and ``inputs`` is what one
+       reaches for.  It cannot: their ``run_check`` sets
+       ``result.inputs["settings_file"]`` **before** its first early
+       return, deliberately, so an errored check says which file it
+       could not use as readily as a clean one says what it compared
+       against.  Driven 2026-09-09 through ``CheckResult.as_summary()``,
+       the arm that read the file and found it broken and the arm that
+       could not open it at all are **byte-identical outside the prose**
+       — same ``status``, same ``findings``, same ``inputs``.  The
+       summary has four keys and only ``error`` says why.
+
+    2. **So the reason is named, because the producer names it.**  That
+       string was already fetched here and read for its *truthiness*
+       alone — ``SNAG-UNITS-004``'s defect, under-reading a field the
+       producer had already filled in, and
+       :func:`judge_queue_invariants` rule 4 one surface over.  Splitting
+       it to recover a cause is refused for the reason
+       :mod:`sysadmin.monitor.collation` refuses it: it is free prose the
+       estate owns and reworded on the day this was written (they took
+       ``str(exc)`` into it under ADR-0140 §5), so a parse of it would be
+       a second implementation of a derivation that is not ours.
+
+    3. **What survives is the structural claim, which holds for every
+       cause.**  The comparison did not happen — their own words — so the
+       dimension's zero is not evidence.  That is true of a file nobody
+       could open, a file that would not parse, and a hooks directory
+       that declares nothing, which is what makes it the sentence to
+       keep.
 
     **``error`` is unreachable against today's producer**, unlike the
     scan's, and the asymmetry is worth stating because the two surfaces
@@ -718,23 +803,40 @@ def judge_audit_invariants(payload: dict[str, Any], max_age_hours: float) -> lis
     errored = last.get("checks_errored") or 0
     if errored:
         checks = last.get("checks") or {}
-        failed = sorted(
-            name for name, check in checks.items() if isinstance(check, dict) and check.get("error")
-        )
+        reasons = {
+            name: str(check["error"])
+            for name, check in sorted(checks.items())
+            if isinstance(check, dict) and check.get("error")
+        }
+        failed = list(reasons)
+        if failed and len(failed) <= ERRORED_REASONS_LISTED:
+            named = " ".join(
+                f"{name} reported: {truncate_at_word(text, CHECK_ERROR_CHARS)}."
+                for name, text in reasons.items()
+            )
+        else:
+            named = (
+                f"({', '.join(failed) or 'unnamed'}). The reasons are the "
+                "producer's own and are in details.check_errors."
+            )
         out.append(
             Judgement(
                 surface="audit_invariants",
                 title="Estate audit checks errored",
                 message=(
                     f"{errored} of {last.get('checks_run', '?')} audit checks "
-                    f"errored ({', '.join(failed) or 'unnamed'}). Those "
-                    "dimensions produced no findings because nothing looked, "
-                    "not because nothing is wrong."
+                    f"errored. A check that errored filed no findings because "
+                    f"it did not complete, so a clean-looking dimension there "
+                    f"is unjudged rather than clear. {named}"
                 ),
                 details={
                     "checks_errored": errored,
                     "checks_run": last.get("checks_run"),
                     "errored_checks": failed,
+                    # Whole, however many there are and however long they
+                    # run — the message's two caps are about a
+                    # notification body and this is not one.
+                    "check_errors": reasons,
                 },
             )
         )
