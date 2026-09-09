@@ -1,10 +1,14 @@
-# Handoff — 2026-09-08 (Session 202)
+# Handoff — 2026-09-09 (Session 202)
 
 ## Next action
 
 Narrow `judge_audit_invariants`'s errored-checks message, which reads "Those dimensions produced no findings because nothing looked, not because nothing is wrong" and is about to be false for exactly one cause: estate message `56752625` (their ADR-0140) retires check 11's two file-level codes, so a `settings.json` that is present, readable and not a JSON object now sets `CheckResult.error` instead of emitting a finding, which means the file *was* read and *is* broken while our sentence claims nobody looked — and since that row fires at `DEFAULT_SEVERITY` of `warning`, exactly this box's `tray.notify_min_severity`, the wrong sentence becomes audible on the first 05:00 audit run after their commit lands.
 
 ## What this sitting did
+
+_The sitting ran late on **2026-09-08** and both commits carry that
+date; the heading carries the 9th because that is when the handoff was
+written, which is the date the scanner reads._
 
 Read the three open estate messages, turned them into tasks, and landed
 the one that was a defect in this tree.
