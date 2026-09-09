@@ -162,7 +162,7 @@ for — so half of it crossed and half deliberately did not._
       `except`, which would report an undescribable path as a plain one.
       Suite 3892 green, ruff and mypy clean; test-count arithmetic
       18 + 4 = 22 in the file, so nothing was clobbered
-- [ ] **"Nothing looked" is about to be said about a file that was read
+- [x] **"Nothing looked" is about to be said about a file that was read
       and is broken.** The behavioural half of `56752625`: once the
       estate's `wiring` check sets `CheckResult.error` instead of
       emitting a finding, `judge_audit_invariants` here raises *"1 of 13
@@ -176,7 +176,31 @@ for — so half of it crossed and half deliberately did not._
       that reading as theirs, produced by no instrument of theirs, and
       left the wording here, which is the right side of the seam. Not a
       one-liner: narrowing it means distinguishing error *causes* on a
-      payload whose shape the estate owns
+      payload whose shape the estate owns — **done 2026-09-09, and the
+      shape of the fix is the opposite of that last sentence.** There is
+      no cause to distinguish. Driving the producer's check 11 through
+      `CheckResult.as_summary()` on its two surviving error arms, at one
+      path, the summary that read the file and found it broken and the
+      summary that could not open it are **byte-identical outside the
+      prose** — same `status`, same `findings`, same `inputs`. `inputs`
+      is what a reader reaches for and cannot use: their `run_check`
+      sets it *before* the first early return, deliberately, so an
+      errored check says which file it could not use as readily as a
+      clean one says what it compared against. So the narrowing is to
+      stop asserting a cause and **name the producer's reason**, which
+      was already fetched here for its truthiness and thrown away —
+      `SNAG-UNITS-004`'s defect, and `judge_queue_invariants` rule 4's
+      remedy. What survives is the structural claim, true of every arm:
+      the comparison did not happen, so the dimension is unjudged rather
+      than clear. Two caps bound what reaches a notification body
+      (`ERRORED_REASONS_LISTED`, `CHECK_ERROR_CHARS`) and `details`
+      carries every reason whole. Ten mutations driven, each red on the
+      intended test, three of them at the fixture because three of the
+      new tests are producer-driven and no source mutation can reach
+      them. `SNAG-BRIEF-003` is the filed residue: the one cut this
+      message can make keeps the file and drops the fault, empty
+      population on today's measurement. Suite 3892 + 8 = 3900 green,
+      ruff and mypy clean
 - [ ] **Two test specimens outlive their producer.**
       `tests/fixtures/estate_audit_wiring.json` carries the fingerprint
       `wiring:…settings-truncated.json:settings_unparseable` and

@@ -1,8 +1,102 @@
-# Handoff — 2026-09-09 (Session 202)
+# Handoff — 2026-09-09 (Session 203)
 
 ## Next action
 
-Narrow `judge_audit_invariants`'s errored-checks message, which reads "Those dimensions produced no findings because nothing looked, not because nothing is wrong" and is about to be false for exactly one cause: estate message `56752625` (their ADR-0140) retires check 11's two file-level codes, so a `settings.json` that is present, readable and not a JSON object now sets `CheckResult.error` instead of emitting a finding, which means the file *was* read and *is* broken while our sentence claims nobody looked — and since that row fires at `DEFAULT_SEVERITY` of `warning`, exactly this box's `tray.notify_min_severity`, the wrong sentence becomes audible on the first 05:00 audit run after their commit lands.
+Decide the two test specimens estate message `56752625` named — `tests/fixtures/estate_audit_wiring.json`'s `wiring:…settings-truncated.json:settings_unparseable` fingerprint and `tests/test_estate_judgements.py`'s `test_the_kind_is_read_from_detail_and_never_from_code` parametrisation on the same string — which their ADR-0140 retired from the producer on 2026-09-08, so each is now either a regression guard against the two codes returning or a specimen asserting a shape nothing can emit, and the decision is one this sitting could have taken cheaply and deliberately did not, having already been inside both files.
+
+## What this sitting did
+
+Narrowed `judge_audit_invariants`'s errored-checks message, which is the
+behavioural half of estate message `56752625` (their ADR-0140).
+
+**The sentence claimed a cause the payload cannot carry.** It read *"Those
+dimensions produced no findings because nothing looked, not because
+nothing is wrong"*, and their commit made a `settings.json` that is
+present, readable and broken set `CheckResult.error` rather than filing a
+finding — so the file *was* read and *is* broken while the row said
+nobody looked. This family raises at `DEFAULT_SEVERITY`, which is exactly
+this box's `tray.notify_min_severity`, so the wrong sentence would have
+become **audible** on the first 05:00 run after their commit.
+
+Five things worth carrying, three of which contradict how the task was
+handed over:
+
+1. **There is no cause to distinguish, and the task said there was.**
+   The handoff and `tasks.md` both framed the fix as *"distinguishing
+   error causes on a payload whose shape the estate owns"*. Driven
+   through the producer's own `CheckResult.as_summary()` on both
+   surviving error arms **at one path** — the production shape — the
+   summary that read the file and found it broken and the summary that
+   could not open it at all are **byte-identical outside the prose**.
+   Same `status`, same `findings`, same `inputs`.
+2. **`inputs` is the field a reader reaches for and it cannot serve.**
+   Estate message `999f4432` had just added it, so it looks like the
+   discriminator. Their `run_check` sets it *before* the first early
+   return, deliberately, so an errored check says which file it could
+   not use as readily as a clean one says what it compared against —
+   their own comment says so. It answers *which file*, never *whether it
+   was read*.
+3. **So the narrowing is to stop asserting a cause and name the reason
+   the producer already wrote.** That string was being fetched here for
+   its *truthiness* and thrown away — `SNAG-UNITS-004`'s defect, and
+   `judge_queue_invariants` rule 4's remedy. Parsing it to recover a
+   cause is refused for `monitor/collation.py`'s reason: free prose the
+   estate owns, and reworded on the day this was written. What survives
+   is the structural claim, true of every arm — *the comparison did not
+   happen*, which is their own wording.
+4. **Three of the eight new tests cannot be falsified by a source
+   mutation**, being driven at producer-captured fixtures, and that had
+   to be noticed rather than assumed: seven source mutations each landed
+   red on the intended test and left those three green throughout. They
+   were falsified by mutating the *fixture* — a field that would
+   discriminate the two arms, and the two arms captured at two paths —
+   and by dropping the cap below the measured population. Ten mutations,
+   ten intended reds.
+5. **The caps were sized by measurement and the house reflex is wrong
+   here.** `truncate_at_word` keeps the head, and every one of these
+   reasons opens with the *path* and closes with the *cause*, so the one
+   cut this message can make is the wrong one. `CHECK_ERROR_CHARS` (300)
+   is therefore a **backstop above the population** rather than a
+   reading budget: the producer's arms compose 141, 175 and 228
+   characters, and an `ast` walk of its 24 `result.error =` sites across
+   ten checks finds a largest static composition of 170.
+   `ERRORED_REASONS_LISTED` (2) bounds the count, and
+   `details.check_errors` carries every reason whole.
+
+Verified live against the running estate, because this family has raised
+**zero** rows in its whole history here: the clean box judges nothing,
+and the same live envelope with each error arm substituted renders 400
+and 327 characters naming the estate's own sentence, where both would
+previously have said nobody looked.
+
+Suite 3892 + 8 = 3900 green, ruff and mypy clean. Daemon restarted at
+08:17:20, PID 3181664 → 3387306, and all twelve ops claims re-measure
+clean afterwards.
+
+## What is deliberately not done
+
+- **The two retired specimens stand**, and they are the published next
+  action rather than a silent omission.
+- **The four open estate messages are still open.** `56752625`'s
+  behavioural half is now done, so it is the one closable on merit —
+  but closing writes into another repository's register and there is no
+  reopen, so it stays an explicit decision. `d93a1882` arrived during
+  this sitting and recommends `pointers` join `JUDGED_AUDIT_CHECKS`,
+  which is an ADR-0006 admission question and not a mapping edit.
+- **`SNAG-BRIEF-003` is filed rather than fixed** — the message's one
+  possible cut keeps the file and drops the fault. Empty population on
+  today's measurement, and both closures cost more than the residue.
+- **The unit sweep's roll-up was re-raised by this sitting's restart**
+  and is not investigated: 3 unmonitored and 2 host units, `orphaned: 0`
+  and `armed: 0`, which is ordinary debt and a `services.yaml` edit
+  nobody asked for.
+
+---
+
+## Session 202 — the resolution guard was aimed at an exception the call cannot raise
+
+_**Its published next action was this sitting's task and is done** (see the
+Session 203 block above)._ _It read:_ Narrow `judge_audit_invariants`'s errored-checks message, which reads "Those dimensions produced no findings because nothing looked, not because nothing is wrong" and is about to be false for exactly one cause: estate message `56752625` (their ADR-0140) retires check 11's two file-level codes, so a `settings.json` that is present, readable and not a JSON object now sets `CheckResult.error` instead of emitting a finding, which means the file *was* read and *is* broken while our sentence claims nobody looked — and since that row fires at `DEFAULT_SEVERITY` of `warning`, exactly this box's `tray.notify_min_severity`, the wrong sentence becomes audible on the first 05:00 audit run after their commit lands.
 
 ## What this sitting did
 
