@@ -1,8 +1,132 @@
-# Handoff — 2026-09-09 (Session 203)
+# Handoff — 2026-09-09 (Session 204)
 
 ## Next action
 
-Decide the two test specimens estate message `56752625` named — `tests/fixtures/estate_audit_wiring.json`'s `wiring:…settings-truncated.json:settings_unparseable` fingerprint and `tests/test_estate_judgements.py`'s `test_the_kind_is_read_from_detail_and_never_from_code` parametrisation on the same string — which their ADR-0140 retired from the producer on 2026-09-08, so each is now either a regression guard against the two codes returning or a specimen asserting a shape nothing can emit, and the decision is one this sitting could have taken cheaply and deliberately did not, having already been inside both files.
+Decide and record where this repository's git remote goes, which alfred filed today as estate message `6e2e5a50` and which this repository's own estate board already ranks as its `top_action`: `git remote` returns nothing, so `services.yaml` — the monitoring configuration for all 32 declared services, including the `alfred-desktop` entry alfred was contractually obliged to write here today — exists on this disk and nowhere else, and one disk failure silently stops monitoring knowing those services exist.
+
+## What this sitting did
+
+Decided the two test specimens estate message `56752625` named, which is
+the documentary half of their ADR-0140. **Both stand, and the dichotomy
+the task was handed over with fits only one of them.**
+
+Five things worth carrying, three of which correct how the question was
+framed:
+
+1. **The fixture's `truncated` entry is a regression guard, and what
+   settles it is that it cannot be re-recorded.** Measured rather than
+   read: their `run_check` driven at `b080ab1` from
+   `estate-manager/service`, against the same 40-byte truncation of the
+   live `settings.json` their message describes, returns `findings: 0`
+   and `status: error`. So re-recording — the obvious tidy-up — writes
+   `"findings": []` into the specimen, and
+   `test_a_file_level_finding_is_no_longer_judged_here` refuses an empty
+   specimen in its own premise. The tidy-up converts a guard into a test
+   that announces it asserts nothing and goes on passing.
+2. **What it guards is live today, and that was falsified rather than
+   asserted.** Reintroducing the defect — judging file-level findings
+   here again — turns that test red **and**
+   `test_no_title_matches_another_surface`, because the row carries
+   `WIRING_FILE_TITLE`, which `judge_hook_wiring` mints from the local
+   read: one title, dedup keeps one row, and the two surfaces' sweeps
+   then disagree about when to close it. The second test was not
+   expected and is the stronger of the two, being structural.
+3. **The parametrisation is neither of the two things offered.** Its
+   rows pair a `code` with a `detail` shape that contradicts it, which
+   was unemittable *before* the retirement as well as after — the code
+   string is a label chosen to disagree, never a recording. A
+   retirement upstream cannot reach a constructed contradiction. Driving
+   the code-reading mutation kills **both** rows, so it is doing work;
+   swapping in a live code would weaken it, since
+   `hook_wired_undeclared` genuinely carries `detail={"event": ...}`
+   and the pairing would stop being one.
+4. **The real defect found was prose in the present tense about another
+   repository's retired code** — `_recorded_wiring`'s `truncated` bullet
+   still said the producer *"short-circuits to one
+   `settings_unparseable` finding"*, which is `SNAG-DOCS-001`'s exact
+   shape. Both specimens are marked in place now: the fixture's bullet
+   carries the retirement, the measurement and the reason it is kept
+   un-re-recorded, and the parametrisation's comment says its strings
+   are labels. Neither was deleted and neither was left silent, because
+   the estate named them precisely so a later reader would not have to
+   rediscover them.
+5. **One sentence was born broken and is repaired.**
+   `judge_audit_wiring`'s file-level comment has read *"and it is
+   deliberately / this is a decision rather than an oversight"* since
+   `270e401` — a lost clause and an orphaned emphasis marker, in the
+   code implementing the decision this sitting was recording.
+
+No ADR: this decides nothing another repository must do, and
+`docs/adr/0008` already holds the split it sits under. No snag: nothing
+was found and deliberately left unfixed. Suite unmoved at 3900 — the
+sitting added no test, because what it decided is that two existing ones
+stay — ruff and mypy clean.
+
+## What this sitting cost that it did not have to
+
+The comment repair is in `sysadmin/estate/judgements.py`, which the
+daemon imports, so `check-ops-claims.sh` reported a restart owed for a
+change **no caller can observe** — `ops_claims` rule 4's documented cost,
+the shape that was paid on eleven consecutive sittings before the
+population was narrowed to daemon modules. Put to the owner rather than
+taken as a tidy-up, since the alternative was to revert the repair and
+file it; the ruling was to keep it and restart. One restart, against a
+budget of five in 600 s.
+
+## What the box did mid-sitting, and what it was not
+
+The claims block moved from **5 unresolved rows to 18** while this
+sitting was open, and neither `no` was drift. `Unmonitored systemd
+units: 5 findings` resolved on its own; `Estate port 3110 registry
+breach` opened at 12:18:22, before anything here ran; and **thirteen
+`amdgpu` rows opened at 13:31:49, 62 seconds after the restart** —
+`agent_first_run_delay_seconds`, the log aggregator's first run.
+
+**The fault behind them is real and the timing is coincidence.** The
+journal carries one `gfx_0.0.0` ring timeout, page fault and reset at
+**13:31:38**, attributed to a `VKRenderThread` — a graphical client, not
+this daemon, which holds no GPU context. The obvious next thought is
+that `ADR-0007`'s poisoned-context predicate should have fired for the
+inference services and did not; **it should not have, and that was
+measured rather than reasoned about**: `journalctl -k --boot=all` finds
+**no** `VRAM is lost due to GPU reset!` line at all, the reset having
+succeeded, so `CRITICAL_SIGNATURES` correctly matched nothing and
+`llama-server`, `venture-chat` and `venture-embed` reading `ok` is right
+rather than blind. **No snag was filed, because there is nothing to
+file** — filing one from the shape of the mechanism rather than from
+counting its output is the failure `verify-ops-claims-live` names, and
+one `journalctl` call is what separated the two.
+
+All eleven ops claims read `ok` at the close.
+
+## What is deliberately not done
+
+- **The three messages that arrived today are still open.** `6e2e5a50`
+  and `d51ecb7a` from alfred and `86e0fa63` from estate-manager, all
+  filed 2026-09-09 and none of them this sitting's subject. `6e2e5a50`
+  asks for a git remote and says in writing that it is at this
+  repository's discretion and on its own ADR process, which is a
+  decision the owner takes rather than a sitting.
+- **`SNAG-CFG-007` is not built and is not the published line.** Its
+  stated trigger has fired — estate message `999f4432` publishes
+  `inputs.settings_file.resolves_to`, which is the publication the entry
+  said it was waiting for — and the `tasks.md` row for it stands. It was
+  drafted as this handoff's next action and **the suite refused it**:
+  `test_the_next_action_names_no_entry_that_is_owed_nothing` reads the
+  entry's own Status line, which still says no sitting is owed work on
+  it, and the guard's remedy is explicit that the register edit moving
+  it to *owed* is legitimate only where a check is owed on the **defect**
+  and not where the work is on the entry itself — its ranking, which is
+  what "build it now or leave it P4" is. So the line names work that is
+  unambiguously owed instead, and the re-ranking stays a `tasks.md` row
+  for a sitting that takes the entry up deliberately.
+
+---
+
+## Session 203 — the errored-checks sentence claimed a cause the payload cannot carry
+
+_**Its published next action was this sitting's task and is done** (see the
+Session 204 block above)._ _It read:_ Decide the two test specimens estate message `56752625` named — `tests/fixtures/estate_audit_wiring.json`'s `wiring:…settings-truncated.json:settings_unparseable` fingerprint and `tests/test_estate_judgements.py`'s `test_the_kind_is_read_from_detail_and_never_from_code` parametrisation on the same string — which their ADR-0140 retired from the producer on 2026-09-08, so each is now either a regression guard against the two codes returning or a specimen asserting a shape nothing can emit, and the decision is one this sitting could have taken cheaply and deliberately did not, having already been inside both files.
 
 ## What this sitting did
 

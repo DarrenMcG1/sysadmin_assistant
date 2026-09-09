@@ -1424,9 +1424,30 @@ def _recorded_wiring(specimen: str) -> list[dict]:
       hooks block at the **top level**.  It parses, wires nothing, and
       files **one finding per declared hook** — four.
     - ``truncated`` — that paste's other shape, a missing ``]``.  The
-      producer short-circuits to **one** ``settings_unparseable``
+      producer short-circuited to **one** ``settings_unparseable``
       finding rather than one per hook, which is why this family needs
-      no roll-up of its own.
+      no roll-up of its own.  **It files no finding for this specimen
+      at all since 2026-09-08**: their ADR-0140 took this repository's
+      ``docs/adr/0008`` recommendation, so a present-but-broken file
+      sets ``CheckResult.error`` and returns before filing anything,
+      reaching ``checks_errored`` on ``/api/audit/invariants`` rather
+      than ``/api/audit/findings``.  Measured rather than read — their
+      ``run_check`` driven at ``b080ab1`` against the same 40-byte
+      truncation of the live file returns ``findings: 0``,
+      ``status: error``.
+
+      **Kept, and deliberately not re-recorded.**  Re-recording is the
+      obvious tidy-up and it writes ``"findings": []`` here, which
+      ``test_a_file_level_finding_is_no_longer_judged_here`` refuses in
+      its own premise — so it would turn a guard into a test that
+      announces it asserts nothing and goes on passing.  The branch is
+      reachable synthetically as well (the ``code``/``detail``
+      parametrisation below pairs a live code with this exact ``detail``
+      shape); what only the recording holds is the producer's own
+      serialisation of a file-level row, whose ``subject`` is a **path**
+      rather than a hook — the case
+      ``test_the_subject_key_names_the_producers_field_not_a_hook`` says
+      it can no longer witness.
     - ``one_unwired`` — ``SessionStart`` removed, the single-row case
       and the exact failure estate-manager's ADR-0068 §4 asks about.
 
@@ -1558,6 +1579,17 @@ class TestTheWiringFamilyIsAdmitted:
             # findings carry no `code`, so a code-reading judge agrees
             # with a detail-reading one by accident and the mutation
             # survives. It did, on the first drive.
+            #
+            # **The two `code` strings are labels, not recordings, and
+            # their ADR-0140 does not reach them.** `settings_unparseable`
+            # left the producer on 2026-09-08, and both rows were
+            # unemittable before that as well as after: each pairs a code
+            # with a `detail` shape that contradicts it, which is the
+            # whole point. The contradiction is what discriminates, so
+            # swapping in a live code would weaken this —
+            # `hook_wired_undeclared` genuinely carries
+            # `detail={"event": ...}`, and the pairing would stop being
+            # one.
             ("settings_unparseable", {"event": "Stop"}, "Stop"),
             ("hook_not_wired", {"error": "Expecting ','", "line": 657}, None),
         ],

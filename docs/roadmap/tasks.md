@@ -201,7 +201,8 @@ for — so half of it crossed and half deliberately did not._
       message can make keeps the file and drops the fault, empty
       population on today's measurement. Suite 3892 + 8 = 3900 green,
       ruff and mypy clean
-- [ ] **Two test specimens outlive their producer.**
+- [x] **Two test specimens outlive their producer — decided 2026-09-09
+      (Session 204): both stand, for different reasons.**
       `tests/fixtures/estate_audit_wiring.json` carries the fingerprint
       `wiring:…settings-truncated.json:settings_unparseable` and
       `tests/test_estate_judgements.py` parametrises on the same code —
@@ -213,7 +214,21 @@ for — so half of it crossed and half deliberately did not._
       docstring table names the estate's two code strings, which is why
       their consumer sweep found exactly those two lines. What needs
       deciding is whether a fixture of a retired shape is a regression
-      guard against the codes returning or a specimen that now lies
+      guard against the codes returning or a specimen that now lies.
+      **The fixture's `truncated` entry is a guard and cannot be
+      re-recorded**: their `run_check` driven at `b080ab1` against the
+      same 40-byte truncation returns `findings: 0`, `status: error`, so
+      a re-recorded specimen is an empty findings list — which
+      `test_a_file_level_finding_is_no_longer_judged_here` refuses in its
+      own premise, turning the guard into a test that announces it
+      asserts nothing. Falsified rather than argued: judging file-level
+      findings here again turns that test red **and**
+      `test_no_title_matches_another_surface`, because the row carries
+      `WIRING_FILE_TITLE`, which `judge_hook_wiring` mints today.
+      **The parametrisation is neither** — its rows pair a code with a
+      contradicting `detail`, unemittable before the retirement as well
+      as after, and the code-reading mutation kills both. Both marked in
+      place; no ADR, since it decides nothing another repository must do
 - [ ] **`SNAG-CFG-007`'s stated trigger has fired.** That entry — two
       readers resolving `~/.claude/settings.json` by different
       mechanisms, with a disagreement about *which* file invisible from

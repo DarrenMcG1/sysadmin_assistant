@@ -1574,6 +1574,7 @@ def judge_audit_wiring(payload: dict[str, Any]) -> list[Judgement]:
             # cover both.
             #
             # Cause one is a **file-level** finding, and it is deliberately
+            # not judged here.  **Nothing but this comment records that
             # this is a decision rather than an oversight** — the shape
             # ``SNAG-CFG-001`` is, which is why it is a comment and not a
             # silence. Since 2026-09-08 that fault is detected locally by

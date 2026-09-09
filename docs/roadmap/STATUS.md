@@ -3,6 +3,53 @@
 **Last Updated**: 2026-09-09
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **Two specimens outlived their producer, and only one of them was ever
+> a specimen** (2026-09-09, Session 204, the documentary half of estate
+> message `56752625` / their ADR-0140). Their commit retired
+> `settings_unparseable` and `settings_not_an_object` from check 11 and
+> named two things in this tree carrying the first string, leaving the
+> call here. The handoff offered a dichotomy — *a regression guard
+> against the codes returning, or a specimen asserting a shape nothing
+> can emit* — and **it fits only the fixture**.
+> **`tests/fixtures/estate_audit_wiring.json`'s `truncated` entry is the
+> guard, and the deciding fact is that it cannot be re-recorded.**
+> Measured rather than argued: their `run_check` driven at `b080ab1`
+> from `estate-manager/service`, against the same 40-byte truncation of
+> the live `settings.json` their message describes, returns
+> `findings: 0` and `status: error`. So re-recording — the obvious
+> tidy-up — writes an empty findings list into the specimen, and
+> `test_a_file_level_finding_is_no_longer_judged_here` refuses an empty
+> specimen in its own premise; the tidy-up would convert a guard into a
+> test that announces it asserts nothing and goes on passing.
+> **What it guards is live, and it was falsified rather than asserted.**
+> Reintroducing the defect turns that test red **and**
+> `test_no_title_matches_another_surface`, because the row carries
+> `WIRING_FILE_TITLE`, which `judge_hook_wiring` mints from the local
+> read: one title, dedup keeps one row, and the two surfaces' sweeps
+> then disagree about when to close it. The structural test was not
+> expected and is the stronger of the two.
+> **The parametrisation is neither, because the question does not reach
+> a constructed contradiction.** Its rows pair a `code` with a `detail`
+> shape that contradicts it, which was unemittable *before* the
+> retirement as well as after; the code string is a label chosen to
+> disagree, never a recording. The code-reading mutation kills **both**
+> rows, and a live code would weaken it, since `hook_wired_undeclared`
+> genuinely carries an `event` in `detail` and the pairing would stop
+> being one.
+> **Both stand and both are marked, so the question is not re-opened a
+> third time.** The real defect found was prose in the present tense
+> about another repository's retired code — `SNAG-DOCS-001`'s shape —
+> and the one substantive repair is a sentence born broken in `270e401`,
+> `judge_audit_wiring`'s file-level comment having read *"and it is
+> deliberately / this is a decision rather than an oversight"* with a
+> lost clause, in the code implementing this very decision. Suite
+> unmoved at 3900: the sitting added no test, because what it decided is
+> that two existing ones stay. Daemon restarted at
+> **2026-09-09 13:30:47** <!--check:deploy--> <!--check:daemon_start-->,
+> PID 3387306 → 3624838 — a comment-only edit to a daemon module, which
+> is `ops_claims` rule 4's documented cost, paid once and named rather
+> than left reading `no`.
+
 > **The payload carries no cause, so the row stopped claiming one**
 > (2026-09-09, Session 203, the behavioural half of estate message
 > `56752625` / their ADR-0140). `judge_audit_invariants` said an errored
@@ -54,9 +101,8 @@
 > `SNAG-BRIEF-003` is the filed residue — every reason opens with the
 > path and closes with the fault, so `truncate_at_word`, which keeps the
 > head, makes the one cut this message can make the wrong one; empty
-> population on today's measurement. Daemon restarted at
-> **2026-09-09 08:17:20** <!--check:deploy--> <!--check:daemon_start-->,
-> PID 3181664 → 3387306.
+> population on today's measurement. Session 203 restarted the daemon at
+> 08:17:20 on 2026-09-09, PID 3181664 → 3387306.
 
 > **Half of estate-manager's `wiring` check crosses the seam, and moving
 > all of it would have restored nothing** (2026-09-08, Session 201,
@@ -4283,13 +4329,39 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **5** unresolved
-> rows <!--check:alerts-->, `High disk usage on /`,
+> packaged head <!--check:schema-->, and `alerts` holds **18** unresolved
+> rows <!--check:alerts-->,
+> `High disk usage on /`,
 > `Project ImbaBots next action idle`,
 > `Project Athenaeum next action idle`,
-> `Project alfred-glance next action idle` and
-> `Unmonitored systemd units: 5 findings`, **5**
+> `Project alfred-glance next action idle`,
+> `Estate port 3110 registry breach`,
+> `Log error: kernel — amdgpu N:N:N.N: Process MainThrd pid N thread VKRenderThread pid N`,
+> `Log error: kernel — amdgpu N:N:N.N: in page starting at address NxN from client N`,
+> `Log error: kernel — amdgpu N:N:N.N: GCVM_LN_PROTECTION_FAULT_STATUS:NxN`,
+> `Log error: kernel — amdgpu N:N:N.N: Faulty UTCLN client ID: SQC (data) (NxN)`,
+> `Log error: kernel — amdgpu N:N:N.N: MORE_FAULTS: NxN`,
+> `Log error: kernel — amdgpu N:N:N.N: WALKER_ERROR: NxN`,
+> `Log error: kernel — amdgpu N:N:N.N: [gfxhub] page fault (src_id:N ring:N vmid:N pasid:N)`,
+> `Log error: kernel — amdgpu N:N:N.N: MAPPING_ERROR: NxN`,
+> `Log error: kernel — amdgpu N:N:N.N: RW: NxN`,
+> `Log error: kernel — amdgpu N:N:N.N: ring gfx_N.N.N timeout, signaled seq=N, emitted seq=N`,
+> `Log error: kernel — amdgpu N:N:N.N: Starting gfx_N.N.N ring reset`,
+> `Log error: kernel — amdgpu N:N:N.N: Ring gfx_N.N.N reset succeeded` and
+> `Log error: kernel — amdgpu N:N:N.N: PERMISSION_FAULTS: NxN`, **18**
 > named here <!--check:open_titles-->.
+> *(**Thirteen of those are one incident and the fall is a resolve, not a
+> purge.** `Unmonitored systemd units: 5 findings` closed on its own; the
+> thirteen `amdgpu` signatures are a single `gfx_0.0.0` ring timeout,
+> page fault and reset at **13:31:38 on 2026-09-09**, raised together by
+> the log aggregator's first run after Session 204's restart. **The reset
+> succeeded and no `VRAM is lost due to GPU reset!` line was written** —
+> measured across the whole journal, not the current boot — so
+> `CRITICAL_SIGNATURES` correctly matched nothing and `ADR-0007`'s
+> poisoned-context predicate correctly did not fire: `llama-server`,
+> `venture-chat` and `venture-embed` all read `ok` afterwards, which is
+> right rather than blind. They age out of the window on their own, so a
+> fall on this claim is expected movement.)*
 > *(**A sixth row, `venture-chat unreachable`, appears and disappears
 > with another repository's lease cycle, so a `no` on this claim is
 > expected movement rather than drift.** The figure is pinned at the
