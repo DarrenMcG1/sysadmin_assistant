@@ -250,6 +250,37 @@ for — so half of it crossed and half deliberately did not._
       false three hours later. There is no reopen and the note is spent,
       so the correction could only be filed as a new row — `4cc94260`
       below is that row and also the recommendation it motivated
+- [ ] **`services.yaml`'s `reason:` for `venture-chat-large` describes a
+      mechanism the box retired, and the half that justifies the
+      declaration is the half still true.** The field reads *"pulled up
+      by venture-enrich-nightly for the 02:00 drain and stopped by its
+      ExecStopPost; inactive between runs by design"*. Measured
+      2026-09-09 against the units and the estate's own log, it is wrong
+      on three counts and right on the one that matters. **The puller is
+      the arbiter, not the drain**: `estate_service.systemd` logs
+      `stopped venture-chat.service` / `started
+      venture-chat-large.service` on a lease grant, and the lease line
+      names the pair — lease 61 requested 08:09:46, granted 08:09:50,
+      released 08:32:15; lease 62 the same shape 08:59:17 → 09:07:57,
+      both requested by `venture-drain`. **The ExecStopPost is retired
+      and the unit file says so in a comment**: *"both ExecStopPost lines
+      that used to do this here are retired"*, after a 2026-08-08
+      deadlock, and `venture-chat-large.service` carries the matching
+      note that *"the Conflicts=/After= pairing that used to do the
+      eviction here is retired"*. **And the drain is 00:00, not 02:00** —
+      `OnCalendar=*-*-* 00:00:00`; today it ran 00:00:09 → 02:31:47, so
+      the two pulls observed this morning were hours after it had
+      finished and were not its doing. What survives is *"inactive
+      between runs by design"*, which is the clause that justifies
+      `monitor: false`, and it is exactly right. **The failure mode is a
+      later sitting auditing the declaration**: it goes looking for an
+      `ExecStopPost` that was deliberately removed, finds nothing, and
+      may conclude the `monitor: false` is stale when it is not. One
+      field, and the fix is prose — deliberately not taken in the sitting
+      that found it, because a parallel session committed to this same
+      file mid-sitting (`aad8236`) and the text makes claims about
+      another project's units
+
 - [ ] **Two messages arrived after that close and are open.**
       `d51ecb7a` (Alfred) records that `alfred-desktop.service` was
       declared to `services.yaml` the same day the unit was created,

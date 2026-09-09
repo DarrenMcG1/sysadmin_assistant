@@ -4283,29 +4283,40 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **6** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **5** unresolved
 > rows <!--check:alerts-->, `High disk usage on /`,
 > `Project ImbaBots next action idle`,
 > `Project Athenaeum next action idle`,
-> `Project alfred-glance next action idle`,
-> `Unmonitored systemd units: 5 findings` and
-> `venture-chat unreachable`, **6**
+> `Project alfred-glance next action idle` and
+> `Unmonitored systemd units: 5 findings`, **5**
 > named here <!--check:open_titles-->.
-> *(**That last row flaps with another repository's lease cycle, and a
-> `no` on this claim is expected movement rather than drift.** Observed
+> *(**A sixth row, `venture-chat unreachable`, appears and disappears
+> with another repository's lease cycle, so a `no` on this claim is
+> expected movement rather than drift.** The figure is pinned at the
+> resting state, which is the one that holds 87 % of the time. Observed
 > across one morning: raised **08:12:05**, resolved **08:32:25**,
-> re-raised **09:02:22**. The estate's arbiter grants
-> `venture-nightly-24b` the card, stops `venture-chat.service` cleanly
-> to free VRAM, and restores it on release — so this monitor reports a
+> re-raised **09:02:22**. **It is a swap and not a stop**, which the
+> first draft of this note under-described: `venture-drain` asks the
+> arbiter for the `venture-nightly-24b` profile, and on the grant
+> `estate_service.systemd` stops `venture-chat.service` (granite-3.1-8b,
+> port 8080) and starts `venture-chat-large.service`
+> (mistral-small-3.2-**24b**, port 8083) in its place, reversing both on
+> release. Read off the estate's own lines rather than inferred from the
+> timing: lease 61 requested 08:09:46, granted 08:09:50 `stopped
+> ['venture-chat.service'], started [...]`, released 08:32:15; lease 62
+> the same shape at 08:59:17 → 09:07:57. So this monitor reports a
 > service unreachable that another repository deliberately stopped, and
-> the row opens and closes with the swap. It is `info` rather than
+> the row opens and closes with the swap. **The 8b is the default-up
+> half** — `UnitFileState=enabled`, and 1621 `ok` against 240
+> `unreachable` over seven days — while the 24b is the on-demand half,
+> `static`, `monitor: false`, and `skipped` on all 1861 of its checks.
+> It is `info` rather than
 > `warning` because `SNAG-AGENT-011` quietens it under a held lease, so
 > it is below `tray.notify_min_severity` and inaudible throughout;
-> `SNAG-AGENT-012` holds what that quietening leaves. **The count is
-> stamped at 09:02 and will not stay true**, which is a property of the
-> subject and not of the block — a later sitting reading `no` here
-> should check whether the delta is this row before treating it as
-> `SNAG-ESTATE-008`'s staleness.)*
+> `SNAG-AGENT-012` holds what that quietening leaves. **A later sitting
+> reading `no` here should check
+> whether the delta is this one row before treating it as
+> `SNAG-ESTATE-008`'s staleness.**)*
 > *(The remaining new one was raised by **this sitting's restart**, at 08:18:23, and
 > is a pre-existing condition rather than a new one: every added job
 > re-runs on a daemon start, so the six-hourly unit sweep fired and
