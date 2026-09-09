@@ -4,9 +4,111 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-08
+> **Last Updated**: 2026-09-09
 
 ---
+
+## Session 205: a remote is two questions with two deadlines ✅ (2026-09-09)
+
+_The ask was to decide and record where this repository's git remote
+goes — alfred's estate message `6e2e5a50`, and this repository's own
+board `top_action`. It is two questions. **Where does the second copy
+live** had a live cost: `git remote` returned nothing, so `services.yaml`
+— the monitoring configuration for all 32 declared services — existed on
+one disk. **Should this be published** has no deadline at all. They are
+answered separately, and the separation is the finding._
+
+- [x] **The remote: `git@github.com:DarrenMcG1/sysadmin_assistant.git`,
+      private, pushed.** Local and remote both hold **347** commits, and
+      `git branch -r --contains aad8236` names `origin/main` — the
+      specific commit alfred's message says existed in one place, the
+      `alfred-desktop` declaration Contract 2 obliged them to write here.
+      `git show origin/main:services.yaml` carries it. The URL is the
+      house convention rather than a choice: measured before the push,
+      **seven of the estate's eight** remote-bearing repositories already
+      sat at `git@github.com:DarrenMcG1/<name>.git` over SSH, and seven
+      of eight are private
+- [x] **The split is what is worth carrying, and it turns on
+      reversibility as much as urgency.** A remote is added and removed
+      freely; a public repository is **indexed**, and unpublishing does
+      not unindex. So the private push forecloses nothing —
+      `gh repo edit --visibility public` is one command and the audit is
+      the same audit either way — while publishing first is the one move
+      that cannot be walked back. Bundling them makes a backup whose cost
+      is live wait on a curation decision nothing is pressing
+- [x] **The publication audit was done anyway and is clean**, measured
+      over all **347** commits rather than the working tree, because a
+      key deleted in commit 40 is still served at its blob SHA for ever.
+      Zero key-shaped strings in any blob (`sk-`, `ghp_`,
+      `github_pat_`, `xox[baprs]-`, `AKIA`, `AIza`, PEM headers);
+      `api.auth_token` has held `""` and nothing else across every commit
+      that touched `config.yaml`; no `.env`, `*.pem`, `*.key`, `id_rsa`
+      or `.pgpass` has ever existed here; the broker password is absent
+      because `LoadCredential=` keeps it absent (ADR-0003, verified
+      rather than read); and the owner's real name appears in **no** file
+      content
+- [x] **It is boring because the repository was built for it**, which is
+      the part a later sitting should not mistake for luck.
+      `api.auth_token` ships empty *with a startup warning* precisely
+      because `config.yaml` is committed — the design took
+      "unauthenticated, loudly" over "a secret in git, quietly" — and
+      ADR-0003 refused `config.yaml`, an `EnvironmentFile` **and** a
+      path-to-the-secret for the same reason. Neither decision was taken
+      with publication in mind, and together they are the whole of why
+      this took a morning rather than a history rewrite
+- [x] **What publication still owes is disclosure, not secrets**, and it
+      is recorded in the ADR so the deferred sitting starts from evidence
+      rather than a re-scan: **26** private project names in
+      `tests/fixtures/estate_projects_*.json` and the roadmap, **38,774**
+      lines of narrative about a private box, the hostname in **8** test
+      fixtures, one LAN address in `tasks.md` prose, and the commit
+      address on all 347 commits. The owner's standing decision on the
+      narrative is to **publish it as-is** — a service whose documents
+      record falsified guards and refuted rankings is not made more
+      impressive by deleting them — so what remains open is the **26**,
+      which name third parties' repositories rather than this one's work
+- [x] **A history rewrite was refused on citations rather than effort.**
+      **116** backticked commit SHAs are cited across `tasks.md`,
+      `STATUS.md`, `snag_list.md`, `CLAUDE.md` and `HANDOFF.md`, plus
+      `aad8236` in alfred's own message. Scrubbing the commit address
+      rewrites all 347 commits and every SHA with them, spending every
+      cross-repository reference in the estate to remove an address
+      already public on this account's other commits
+- [x] **A curated public mirror beside a private backup was also
+      refused** — two repositories holding one history is the
+      second-owner defect this repository has found at seven scales,
+      arriving as a release process: two places to push and a divergence
+      nothing measures
+- [x] **The block's stale alert claim was a *predicted* fall, not
+      drift**, and the checker is what said so. `check_alerts` read
+      `block says 18, measured 4`; the thirteen `amdgpu` rows resolved
+      together at **13:47:50**, sixteen minutes after being raised, which
+      is `_resolve_quiet`'s `alert_quiet_minutes` of 15 doing its job,
+      and `Estate port 3110 registry breach` resolved at **14:31:49**.
+      The note beneath the claim had already written *"they age out of
+      the window on their own, so a fall on this claim is expected
+      movement"* — so the correction records that the prediction came
+      true and keeps the reasoning that made it. Re-pinned at 4; all
+      **11** ops claims read `ok`
+- [x] **Alfred's second observation is deliberately not answered here.**
+      They report that four remote-less repositories score 100/100 while
+      a stale branch costs five points, so `healthy` displays for
+      repositories one disk failure from total loss. That is
+      estate-manager's scanner. *The monitor must not own the things it
+      monitors*, and this repository judging the estate's scoring of
+      itself is that rule read backwards — raised with the owner, not
+      fixed here
+- [x] **Recorded as
+      [ADR-0009](../adr/0009-the-remote-is-two-questions.md)**, and its
+      §6 keeps the residue explicit: a GitHub remote is a second copy of
+      the *repository* and is not a backup of the `projects` database or
+      of anything this service writes. `tasks.md`'s standing off-box note
+      is unchanged and still true, and reading a green remote as "the box
+      is backed up" is the misreading it invites
+
+**Suite: 3900 passed, unmoved** — the sitting added no test, because what
+it added is a remote and a decision. No restart: nothing the daemon
+imports changed.
 
 ## Session 201: half a check crosses the seam, and moving all of it would have restored nothing ✅ (2026-09-08)
 

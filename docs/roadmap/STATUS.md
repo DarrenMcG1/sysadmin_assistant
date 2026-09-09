@@ -3,6 +3,49 @@
 **Last Updated**: 2026-09-09
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A remote is two questions with two deadlines, so the urgent one
+> stopped waiting on the unhurried one** (2026-09-09, Session 205,
+> closing estate message `6e2e5a50` from alfred and this repository's own
+> board `top_action`, and recorded as
+> [ADR-0009](../adr/0009-the-remote-is-two-questions.md)). `git remote`
+> returned nothing, so `services.yaml` — the monitoring configuration for
+> all **32** declared services — existed on one disk.
+> `git@github.com:DarrenMcG1/sysadmin_assistant.git` is the answer,
+> **private**, pushed today: local and remote both hold **347** commits,
+> and `git branch -r --contains aad8236` names `origin/main`, which is
+> the specific claim alfred filed.
+> **The split is the finding, not the remote.** *Where does the second
+> copy live* had a live cost and *should this be published* has no
+> deadline at all, so bundling them makes a backup wait on a curation
+> decision nothing is pressing — and the two differ in reversibility as
+> well as urgency: a remote is added and removed freely, while a public
+> repository is indexed and unpublishing does not unindex.
+> **The publication audit was done anyway and is clean**, measured over
+> all 347 commits rather than the working tree, because a key deleted in
+> commit 40 is still served at its blob SHA: **zero** key-shaped strings
+> in any blob, `auth_token` has held `""` and nothing else for the life
+> of the file, no `.env`/`*.pem`/`*.key` ever existed, and the owner's
+> real name appears in **no** file content. **It is boring because the
+> repository was built for it** — `api.auth_token` ships empty *with a
+> startup warning* precisely because `config.yaml` is committed, and
+> `ADR-0003` refused three easier homes for the broker password for the
+> same reason. Neither decision was taken with publication in mind.
+> **What publication still owes is disclosure, not secrets**, and it is
+> recorded in the ADR so the deferred sitting starts from evidence: **26**
+> private project names in the estate fixtures, **38,774** lines of
+> narrative about a private box, the hostname in **8** test fixtures, and
+> the commit address on all 347 commits. A history rewrite was refused —
+> **116** backticked commit SHAs are cited across this repository's
+> documents, plus `aad8236` in alfred's own message, so scrubbing the
+> address spends every cross-repository reference to buy nothing.
+> **Alfred's second observation is deliberately not answered here**: that
+> four remote-less repositories score 100/100 while a stale branch costs
+> five points. That is estate-manager's scanner, and this repository
+> judging the estate's scoring of itself is *the monitor must not own the
+> things it monitors* read backwards. Suite **3900**, unmoved — the
+> sitting added no test, because what it added is a remote and a
+> decision. No restart: nothing the daemon imports changed.
+
 > **Two specimens outlived their producer, and only one of them was ever
 > a specimen** (2026-09-09, Session 204, the documentary half of estate
 > message `56752625` / their ADR-0140). Their commit retired
@@ -4329,28 +4372,23 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **18** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
 > rows <!--check:alerts-->,
 > `High disk usage on /`,
 > `Project ImbaBots next action idle`,
-> `Project Athenaeum next action idle`,
-> `Project alfred-glance next action idle`,
-> `Estate port 3110 registry breach`,
-> `Log error: kernel — amdgpu N:N:N.N: Process MainThrd pid N thread VKRenderThread pid N`,
-> `Log error: kernel — amdgpu N:N:N.N: in page starting at address NxN from client N`,
-> `Log error: kernel — amdgpu N:N:N.N: GCVM_LN_PROTECTION_FAULT_STATUS:NxN`,
-> `Log error: kernel — amdgpu N:N:N.N: Faulty UTCLN client ID: SQC (data) (NxN)`,
-> `Log error: kernel — amdgpu N:N:N.N: MORE_FAULTS: NxN`,
-> `Log error: kernel — amdgpu N:N:N.N: WALKER_ERROR: NxN`,
-> `Log error: kernel — amdgpu N:N:N.N: [gfxhub] page fault (src_id:N ring:N vmid:N pasid:N)`,
-> `Log error: kernel — amdgpu N:N:N.N: MAPPING_ERROR: NxN`,
-> `Log error: kernel — amdgpu N:N:N.N: RW: NxN`,
-> `Log error: kernel — amdgpu N:N:N.N: ring gfx_N.N.N timeout, signaled seq=N, emitted seq=N`,
-> `Log error: kernel — amdgpu N:N:N.N: Starting gfx_N.N.N ring reset`,
-> `Log error: kernel — amdgpu N:N:N.N: Ring gfx_N.N.N reset succeeded` and
-> `Log error: kernel — amdgpu N:N:N.N: PERMISSION_FAULTS: NxN`, **18**
+> `Project Athenaeum next action idle` and
+> `Project alfred-glance next action idle`, **4**
 > named here <!--check:open_titles-->.
-> *(**Thirteen of those are one incident and the fall is a resolve, not a
+> *(**The fall this note predicted happened, on the schedule it named**
+> (Session 205). The claim read **18** and measures **4**: the thirteen
+> `amdgpu` rows resolved together at **13:47:50 on 2026-09-09** — sixteen
+> minutes after they were raised, which is `_resolve_quiet`'s
+> `alert_quiet_minutes` of 15 doing exactly what it is for — and `Estate
+> port 3110 registry breach` resolved at **14:31:49**. So this is the
+> **predicted** movement below and not `SNAG-ESTATE-008`'s staleness; the
+> figure is re-pinned at the resting state, and what follows is kept
+> because it is the reasoning that predicted it correctly.
+> **Thirteen of those were one incident and the fall was a resolve, not a
 > purge.** `Unmonitored systemd units: 5 findings` closed on its own; the
 > thirteen `amdgpu` signatures are a single `gfx_0.0.0` ring timeout,
 > page fault and reset at **13:31:38 on 2026-09-09**, raised together by

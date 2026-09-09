@@ -4219,6 +4219,28 @@ than this paragraph.
   refusal of a sixth surface is superseded by its own stated reason; and
   why the estate's file-level findings stop being judged here rather
   than being judged twice.
+- **[0009-the-remote-is-two-questions.md](docs/adr/0009-the-remote-is-two-questions.md)**
+  — **read this before publishing anything from this repository, or
+  before reading its remote as a backup.** "Where does the remote go" is
+  two questions with two deadlines: the second copy had a live cost
+  (`services.yaml` is the monitoring configuration for all 32 declared
+  services and existed on one disk), and publication has none — so the
+  private push landed at once and public is deferred to its own sitting.
+  Records the audit measured over all 347 commits (**zero** key-shaped
+  strings in any blob; `api.auth_token` has held `""` and nothing else;
+  no `.env`/`*.pem`/`*.key` ever existed; the owner's real name in no
+  file content) and, more usefully, **why it was boring** — ADR-0003 and
+  the empty-token-with-a-warning design had already made a secret
+  unable to land here, neither taken with publication in mind. Records
+  what publication still owes as **disclosure rather than secrets** (26
+  private project names, 38,774 lines of narrative about a private box)
+  and three refusals: a history rewrite, because **116** commit SHAs are
+  cited across this repository's own documents; a curated public mirror,
+  because two repositories holding one history is the second-owner
+  defect arriving as a release process; and publishing first, because a
+  remote is reversible and indexing is not. §6 keeps the residue
+  explicit: this is a copy of the *repository*, not of the `projects`
+  database.
 
 Guides: only **api_auth.md** (bearer-token auth setup) still lives in
 this repository's `docs/guides/`. The four cross-repo guides —

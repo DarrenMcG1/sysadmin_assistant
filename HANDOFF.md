@@ -1,8 +1,112 @@
-# Handoff — 2026-09-09 (Session 204)
+# Handoff — 2026-09-09 (Session 205)
 
 ## Next action
 
-Decide and record where this repository's git remote goes, which alfred filed today as estate message `6e2e5a50` and which this repository's own estate board already ranks as its `top_action`: `git remote` returns nothing, so `services.yaml` — the monitoring configuration for all 32 declared services, including the `alfred-desktop` entry alfred was contractually obliged to write here today — exists on this disk and nowhere else, and one disk failure silently stops monitoring knowing those services exist.
+Take the publication decision ADR-0009 deliberately deferred: the secrets audit is done and clean over all 347 commits, the owner has already ruled that the roadmap narrative publishes as-is because it is the showcase, and the single question left open is the 26 private project names that `tests/fixtures/estate_projects_*.json` and the roadmap carry — they name other repositories rather than this one's work, so the choice is to accept them, redact them, or ask their owners, and once it is made `gh repo edit --visibility public` is the whole of the mechanism.
+
+## What this sitting did
+
+**Answered the filed question by splitting it, and pushed the half that
+had a deadline.** alfred's estate message `6e2e5a50` and this
+repository's own board `top_action` both asked where the git remote
+goes. It is two questions. *Where does the second copy live* had a live
+cost — `git remote` returned nothing, so `services.yaml`, the monitoring
+configuration for all **32** declared services, existed on one disk.
+*Should this be published* has no deadline at all.
+
+- **The remote:** `git@github.com:DarrenMcG1/sysadmin_assistant.git`,
+  **private**, pushed. Local and remote both hold **347** commits;
+  `git branch -r --contains aad8236` names `origin/main`, which is
+  alfred's specific claim, and `git show origin/main:services.yaml`
+  carries the `alfred-desktop` declaration. The URL is the house
+  convention rather than a choice — measured before the push, seven of
+  the estate's eight remote-bearing repositories already sat at that
+  shape over SSH and seven of eight are private.
+- **The split turns on reversibility as much as urgency.** A remote is
+  added and removed freely; a public repository is *indexed*, and
+  unpublishing does not unindex. The private push forecloses nothing —
+  `gh repo edit --visibility public` is one command and the audit is the
+  same audit either way — while publishing first is the one move that
+  cannot be walked back.
+- **The publication audit was done anyway and is clean**, measured over
+  all 347 commits rather than the working tree, because a key deleted in
+  commit 40 is still served at its blob SHA for ever. Zero key-shaped
+  strings in any blob; `api.auth_token` has held `""` and nothing else
+  across every commit touching `config.yaml`; no `.env`, `*.pem`,
+  `*.key`, `id_rsa` or `.pgpass` has ever existed; the owner's real name
+  appears in **no** file content.
+- **It is boring because the repository was built for it.**
+  `api.auth_token` ships empty *with a startup warning* precisely
+  because `config.yaml` is committed, and ADR-0003 refused three easier
+  homes for the broker password for the same reason. Neither was taken
+  with publication in mind.
+- **Recorded as
+  [ADR-0009](docs/adr/0009-the-remote-is-two-questions.md)**, which also
+  holds the three refusals (a history rewrite, because **116** commit
+  SHAs are cited across this repository's own documents; a curated
+  public mirror, because two repositories holding one history is the
+  second-owner defect arriving as a release process; publishing today)
+  and, in §3, the disclosure inventory so the deferred sitting starts
+  from evidence rather than a re-scan.
+
+**Corrected a stale ops claim that was a *predicted* fall.**
+`check_alerts` read `block says 18, measured 4`. The thirteen `amdgpu`
+rows resolved together at **13:47:50** — sixteen minutes after being
+raised, which is `_resolve_quiet`'s `alert_quiet_minutes` of 15 doing
+exactly its job — and `Estate port 3110 registry breach` at **14:31:49**.
+The note beneath the claim had already written *"they age out of the
+window on their own, so a fall on this claim is expected movement"*, so
+the correction records that the prediction came true and keeps the
+reasoning that made it. Re-pinned at 4; all **11** ops claims read `ok`.
+
+**Answered the scheduled measurement that was two days overdue, and it
+retires rather than carries.** The 2026-09-07 item asked whether
+`llm_used` was true on all three review tables under lease. Measured:
+`log_reviews` **true** (05:15), `disk_reviews` **true** (05:45),
+`health_reviews` **false** (05:00) — and the `false` is **not** a lease
+refusal, which is what the item existed to distinguish. All three leases
+were *granted*: 54 health 05:00:05, 55 log 05:15:10, 57 disk 05:45:05,
+with the gap at 56 being estate-manager's own review, so the predicted
+grant order held. Lease 54 was held **5 seconds** and released — the
+health review's 439-token prompt at 05:00:09 hit the GPU context
+poisoned by the 2026-09-06 20:42:56 MODE1 reset and llama-server aborted.
+**The arbitration worked and the card was the problem**, which is
+ADR-0007's predicate confirmed from the consumer's side.
+
+**Cleared the inbox.** All four open estate messages closed with notes:
+`6e2e5a50` (the remote — done, ADR-0009), `d51ecb7a` (alfred-desktop
+declared — verified present and now durable), `86e0fa63` (the brief's
+section changed — this repository's pointer headline re-read against it
+and still accurate, no edit owed) and `8318a4f2` (the `in_reply_to`
+field this repository recommended is built — acknowledged).
+
+## What is deliberately not done
+
+- **Published.** Deferred by decision, not by blocker — see the next
+  action. The audit that would gate it is complete and recorded.
+- **alfred's second observation is not answered here.** They report four
+  remote-less repositories scoring 100/100 while a stale branch costs
+  five points, so `healthy` displays for repositories one disk failure
+  from total loss. That is estate-manager's scanner, and this repository
+  judging the estate's scoring of itself is *the monitor must not own the
+  things it monitors* read backwards. Raised with the owner; not fixed
+  here, and alfred said in the message they were not filing it.
+- **No test was added and no restart taken.** What the sitting added is a
+  remote and a decision; nothing the daemon imports changed. Suite
+  **3900**, unmoved from Session 204 — which is also the arithmetic that
+  says no test file was clobbered.
+- **The off-box gap is untouched and `tasks.md`'s standing note still
+  stands.** A GitHub remote is a second copy of the *repository*. It is
+  not a backup of the `projects` database, of `log_entries`, or of
+  anything else this service writes, and reading a green remote as "the
+  box is backed up" is the misreading it invites (ADR-0009 §6).
+
+---
+
+## Session 204 — the remote had no second copy, and the question it filed was two questions
+
+_**Its published next action was this sitting's task and is done** (see
+the Session 205 block above)._ _It read:_ Decide and record where this repository's git remote goes, which alfred filed today as estate message `6e2e5a50` and which this repository's own estate board already ranks as its `top_action`: `git remote` returns nothing, so `services.yaml` — the monitoring configuration for all 32 declared services, including the `alfred-desktop` entry alfred was contractually obliged to write here today — exists on this disk and nowhere else, and one disk failure silently stops monitoring knowing those services exist.
 
 ## What this sitting did
 
