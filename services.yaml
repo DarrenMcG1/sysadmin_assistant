@@ -114,6 +114,44 @@ services:
     systemd: { unit: alfred-career-mail.timer, scope: user }
     controllable: false
 
+  # The Alfred desktop shell, given a unit on 2026-09-09 (Alfred ADR-0093)
+  # after it was found dead since the 2026-09-06 boot with nothing to say so.
+  # Same discovery story as sysadmin-tray below, and the same shape for the
+  # same reasons — but a different cause: the tray had never been started at
+  # all, whereas this one had been started by tauri-plugin-autostart's XDG
+  # entry, whose generated unit carries an unconditional Restart=no. The
+  # .desktop format cannot express a restart policy, so there was no surface
+  # to configure; the repo-tracked unit is what created one.
+  #
+  # `monitor: false` for the tray's reason exactly: PartOf=graphical-session
+  # .target makes it inactive by construction whenever nobody is logged in,
+  # so a check would alert every night and teach the reader to ignore it.
+  # What makes that acceptable rather than a hole is that the crash case —
+  # the only failure that has ever killed it — is now covered by
+  # Restart=on-failure, verified on the box by kill -ABRT recovering in 8s.
+  #
+  # No port and no health path: the shell binds nothing and serves no HTTP
+  # surface, so it earns no §2.1 registry row and no health: marker (the
+  # monitorable-project contract's out-of-scope list, §2.2).
+  #
+  # Worth knowing for the GPU work: this unit is the *foreground application*
+  # half of ADR-0007's _GPU_RESET.reason — the half §2.1 left standing when
+  # it measured the resident-inference half false on venture-embed. Four
+  # aborts over 2026-08-29 → 09-06, every one clustered with Xwayland,
+  # plasmashell and WebKitWebProcess. It holds no VRAM, so holds_vram is
+  # correctly absent; it loses a *graphics* context, not a model.
+  - project: alfred
+    name: alfred-desktop
+    role: desktop
+    kind: systemd
+    monitor: false
+    reason: >-
+      GUI unit bound to graphical-session.target — inactive by design
+      whenever nobody is logged in; a check would alert every night.
+      Restart=on-failure covers the crash case (amdgpu context loss).
+    systemd: { unit: alfred-desktop.service, scope: user }
+    controllable: false
+
   # --- SportsAnalyser -------------------------------------------------
   # Dormant since 2026-08-06, but the services are still running and
   # still worth alerting on, so they stay monitored.
