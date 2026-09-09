@@ -233,18 +233,45 @@ services:
     systemd: { unit: venture-enrich-nightly.timer, scope: user }
     controllable: false
 
-  # Pulled up only by venture-enrich-nightly for the 02:00 drain and
-  # stopped by its ExecStopPost. Previously absent from every config file
-  # rather than declared, which made "deliberately not watched"
-  # indistinguishable from "nobody wired it up".
+  # Started and stopped by the estate's arbiter as one half of a model
+  # swap: on a `venture-nightly-24b` lease grant it stops
+  # venture-chat.service (granite-3.1-8b, :8080) and starts this one
+  # (mistral-small-3.2-24b, :8083), reversing both on release. Read
+  # 2026-09-09 off the estate's own log lines rather than inferred from
+  # the timing — lease 61 granted 08:09:50 and released 08:32:15, lease
+  # 62 08:59:17 → 09:07:57, both requested by venture-drain, and each
+  # grant line names the pair it stopped and started.
+  #
+  # This entry said "pulled up by venture-enrich-nightly for the 02:00
+  # drain and stopped by its ExecStopPost" until 2026-09-09, and every
+  # clause of that but the last had stopped being true. Both unit files
+  # record the change in their own comments: venture-enrich-nightly's two
+  # ExecStopPost lines and this unit's Conflicts=/After= eviction pairing
+  # were retired after a 2026-08-08 deadlock, and the arbiter took the
+  # job. The drain's timer is OnCalendar 00:00 rather than 02:00, and the
+  # two swaps above landed hours after it had finished for the day
+  # (00:00:09 → 02:31:47), so it is not the only requester either.
+  #
+  # What stayed true is the clause the declaration actually rests on —
+  # inactive between runs by design — so the correction moves no field
+  # but this prose. The failure mode it removes is a later sitting
+  # auditing the declaration, going looking for an ExecStopPost that was
+  # deliberately removed, and concluding the monitor: false is stale when
+  # it is not.
+  #
+  # Previously absent from every config file rather than declared, which
+  # made "deliberately not watched" indistinguishable from "nobody wired
+  # it up".
   - project: venture-assistant
     name: venture-chat-large
     role: inference
     kind: static
     monitor: false
     reason: >-
-      pulled up by venture-enrich-nightly for the 02:00 drain and stopped
-      by its ExecStopPost; inactive between runs by design
+      started and stopped by the estate's arbiter around a
+      venture-nightly-24b lease, swapping with venture-chat.service;
+      inactive between runs by design, so a check would alert between
+      every drain
     systemd: { unit: venture-chat-large.service, scope: user }
 
   # --- This service ---------------------------------------------------
