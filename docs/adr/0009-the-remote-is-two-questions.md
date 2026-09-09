@@ -59,7 +59,7 @@ key deleted in commit 40 is still served at its blob SHA for ever.
 | every value `api.auth_token` has held in `config.yaml`, all history | `""` — the only one |
 | files ever named `.env`, `*.pem`, `*.key`, `*.p12`, `id_rsa`, `.pgpass`, `.netrc` | **never existed** |
 | the broker password | never in git — `LoadCredential=` ([ADR-0003](0003-mqtt-credential-by-loadcredential.md)), verified rather than read |
-| the owner's real name in file content | **zero occurrences** |
+| the owner's real name in file content | **zero occurrences** at 347 commits — **corrected to one** at 348, the occurrence being §3.1 of this document, which quotes the address in order to record that it appears in commit metadata. The commit recording the finding is what falsified it; exposure is unchanged either way, since commit metadata carries the address regardless and §4 refuses the rewrite that would scrub it. Argued in [ADR-0010 §5](0010-publication-was-one-option-wearing-three.md) |
 | RFC1918 dotted-quads | **8**, of which 7 are `--help` text and tray-config test fixtures |
 
 **The audit is boring because the repository was built for it, which is
@@ -83,7 +83,11 @@ so the deferred sitting starts from evidence rather than from a re-scan.
    and throughout the roadmap — `BudgetApp`, `PupilProgressTracker`,
    `customer-churn-model`, `TeacherPlanner` among them. Seven of eight
    sibling repositories are private, so publishing here names
-   repositories their owners have kept unnamed.
+   repositories their owners have kept unnamed. **"Their owners" is
+   wrong and this clause is what produced the option to ask them:**
+   all 26 resolve to the owner's own accounts, so the set of third
+   parties is empty
+   ([ADR-0010 §1](0010-publication-was-one-option-wearing-three.md)).
 4. **38,774 lines of roadmap narrative** describing a private machine:
    outages with timestamps, decisions taken and refused, and what each
    sitting got wrong.
@@ -98,6 +102,10 @@ measurements that inverted their own rankings is not made more
 impressive by deleting them. That decision is recorded now so the
 deferred sitting does not relitigate it; what remains open is (3), which
 names third parties' repositories rather than this one's work.
+**Closed 2026-09-09 by ADR-0010, which found (3) largely decided by this
+very ruling** — 19 of the 26 names are inside the roadmap narrative
+being published as-is, so the two items overlap and the overlap had not
+been measured.
 
 ## 4. Three refusals
 

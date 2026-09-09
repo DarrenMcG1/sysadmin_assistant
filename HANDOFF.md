@@ -1,8 +1,112 @@
-# Handoff — 2026-09-09 (Session 205)
+# Handoff — 2026-09-09 (Session 206)
 
 ## Next action
 
-Take the publication decision ADR-0009 deliberately deferred: the secrets audit is done and clean over all 347 commits, the owner has already ruled that the roadmap narrative publishes as-is because it is the showcase, and the single question left open is the 26 private project names that `tests/fixtures/estate_projects_*.json` and the roadmap carry — they name other repositories rather than this one's work, so the choice is to accept them, redact them, or ask their owners, and once it is made `gh repo edit --visibility public` is the whole of the mechanism.
+Rewrite `README.md` for the audience the repository actually has now that it is public and the owner has called the narrative its showcase: the current file opens by addressing someone who already knows this box — it says the service watches "the projects under `~/projects`" and names `sysadmin-organiser` and the five agents without ever saying what problem any of it solves — so the work is to give a stranger the one-paragraph why before the what, to make the 38,774 lines of roadmap narrative legible as the deliberate artefact ADR-0010 published rather than as clutter a visitor scrolls past, and to check the same question of `docs/` entry points, while leaving the content decisions already taken alone, since ADR-0009 and ADR-0010 settled what is disclosed and this is only about how it reads.
+
+## What this sitting did
+
+**Took the publication decision ADR-0009 deferred, and found the
+three-way choice was one live option.** The handoff offered *accept the
+26 private project names, redact them, or ask their owners*. Two were
+unavailable and **nothing new had to be measured to see it** — the
+evidence was already inside ADR-0009 and needed cross-reading.
+
+- **`github.com/DarrenMcG1/sysadmin_assistant` is public**, verified
+  **unauthenticated**: `curl` with no token against `api.github.com`
+  returns `200`. That is the honest test, since `gh repo view` runs
+  authenticated and would succeed either way. 348 commits, local and
+  remote.
+- **"Ask their owners" is empty, not declined.** All 27 repositories on
+  this box resolve to the owner's own accounts — 23 at
+  `git@github.com:DarrenMcG1/<name>.git`, `daiy` over HTTPS, `terrible`
+  at `gitlab.com/Gaddi_/terrible`, the rest with no remote — and every
+  last commit is authored `darrenjmcgarvey@gmail.com`. ADR-0009's clause
+  about third parties was a **scope** claim and false.
+- **"Redact" is unreachable by ADR-0009's own §2 argument**, written
+  there for the secrets sweep and never applied to this item: *a key
+  deleted in commit 40 is still served at its blob SHA for ever*. The
+  names entered history 2026-08-04, so redaction is the history rewrite
+  §4 refused over 116 cited SHAs. Only **2 of 26** were ever reachable
+  by a working-tree edit.
+- **The ruling already made had largely decided the open item.** 19 of
+  the 26 names are inside the roadmap narrative the owner ruled
+  publishes as-is (`Alfred` 144, `venture-assistant` 51). Publishing it
+  as-is and redacting its subjects are not compatible instructions, and
+  nobody had measured that two list items in one document overlapped.
+- **Ran the sweep ADR-0009 never ran** — third-party personal data,
+  demanded by `PupilProgressTracker` and `TeacherPlanner` and clean
+  across all 348 commits: no pupil/student/client name field, no
+  `.sch.uk`/`.ac.uk` address, no date of birth or postcode, and the only
+  human email in any blob is the owner's own.
+- **Re-ran the audit at N+1 and it moved once.** ADR-0009 measured 347
+  and its own commit is the 348th. Everything held but *the owner's real
+  name in file content*: zero → **one**, the occurrence being ADR-0009
+  quoting the address to record that commit metadata carries it. **The
+  commit stating the finding is what falsified it.** Exposure is
+  identical either way, so it is corrected in that ADR's table and in
+  `CLAUDE.md` rather than acted on.
+- **Announced at measured readers**, the rule's own clause being that a
+  measured-empty audience files nothing: `aad8236` (alfred) and
+  `d514b39` are the only cross-repo writes here, so `58b208d5` went to
+  alfred and `871fa2f1` to estate-manager, before this commit. What is
+  actionable for them is that a `services.yaml` **comment** they author
+  here is now published on commit. Alfred's `6e2e5a50` could not be
+  amended — its close note says "private", there is no reopen and a
+  close note is one-shot — so `58b208d5` is filed `in_reply_to` it.
+- **Recorded as
+  [ADR-0010](docs/adr/0010-publication-was-one-option-wearing-three.md).**
+
+**Then discharged the scheduled reading, which was overdue by two days,
+and its prediction was refuted in a way worth having.** It expected
+`llm_used` true on all three review tables; `health_reviews` is
+**false**, log and disk true. The lease is **not** the culprit — lease
+54 was granted to `health_review` at 05:00:05 and released cleanly at
+05:00:10, so `SNAG-SCHED-003`'s fix is working — and what failed inside
+the held lease is the inference call: `llm_unavailable`, *"Server
+disconnected without sending a response"*. That is the **second limb of
+a disjunction `SNAG-SCHED-003` named and never had a specimen of**,
+every earlier observation having been contention (`llm_gpu_busy`,
+`busy_percent` 99/97/98). Filed as **`SNAG-SCHED-004`** (P3), with the
+discriminating measurement scheduled for **2026-09-14**: health runs
+first in the 05:00/05:15/05:45 chain and the two later reviews
+succeeded, so the hypothesis is the slot rather than the review, and one
+observation cannot separate a cold start from a one-off disconnect.
+
+Two measurement traps were hit getting there and are recorded in the
+entry. `sysadmin.service` is a **system** unit running `User=gaddi`, so
+`journalctl --user` returns **1** line against **1,467,923** in system
+scope; and this daemon's JSON puts the event name in `"message"`, not
+`"event"`, so a grep keyed on the latter returns nothing and reads as
+*the review never ran*.
+
+Suite **3900**, unmoved — no test was added, because what was added is a
+decision and a visibility flag. All **11** ops claims read `ok`. No
+restart: nothing the daemon imports changed.
+
+## What is deliberately not done
+
+- **The box is still not backed up.** ADR-0009 §6 stands unchanged and
+  is now *easier* to misread: a public remote is a copy of the
+  repository, not of the `projects` database or `log_entries`.
+- **The monitorable-project contract was not edited.** Whether it should
+  say that `services.yaml` comments are published is estate-manager's
+  question; it is offered in `871fa2f1` as a recommendation and no
+  ruling is recorded here.
+- **README.md was not rewritten for a public audience** — it is this
+  sitting's published next action instead, deliberately not bundled into
+  the publication decision, because what is disclosed and how it reads
+  are different questions and only the first was ADR-0010's.
+- **The health review fault is not fixed and not this repository's to
+  fix.** `alfred-inference.service` is another unit's availability, and
+  a monitor must not own what it monitors; `SNAG-SCHED-004` carries the
+  reasoning and the scheduled discriminator.
+
+---
+
+## Session 205 — a remote is two questions with two deadlines
+
+_**Its published next action was this sitting's task and is done** (see the Session 206 block above)._ _It read:_ Take the publication decision ADR-0009 deliberately deferred: the secrets audit is done and clean over all 347 commits, the owner has already ruled that the roadmap narrative publishes as-is because it is the showcase, and the single question left open is the 26 private project names that `tests/fixtures/estate_projects_*.json` and the roadmap carry — they name other repositories rather than this one's work, so the choice is to accept them, redact them, or ask their owners, and once it is made `gh repo edit --visibility public` is the whole of the mechanism.
 
 ## What this sitting did
 
@@ -3703,7 +3807,7 @@ Announced to estate-manager as message `8e693e05` before the commit that
 carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
-- **2026-09-07** — Read the first Monday under lease: `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews` should be true, true, true, and `journalctl --user -u estate-manager-api.service` should show four grants after the drain releases in the order health, log, estate-review, disk — and if any row is still false, read the `review_lease_*` warning beside it, because the three refusals are logged apart precisely so that reading answers why.
+- **2026-09-14** — Discriminate the cold-start hypothesis Session 206 left: on the second Monday under lease, read `llm_used` on all three review tables again. If `health_reviews` alone is false a second time, the fault tracks the **05:00 slot** rather than the health review's own code, because log (05:15) and disk (05:45) succeeded on 2026-09-07 with the same client and the same model; if all three are true, 2026-09-07 was a one-off llama-server disconnect and the entry closes. Read it with `journalctl -u sysadmin.service` — **system scope, no `--user`** — because `sysadmin.service` is a system unit running `User=gaddi` and the user journal holds one line for it, which is the trap the 2026-09-07 item did not name and Session 206 fell into.
 
 ## Session 146 is complete — the first night under the fix, and the check could not close its own entry
 

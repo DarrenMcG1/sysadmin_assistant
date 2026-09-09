@@ -3,6 +3,53 @@
 **Last Updated**: 2026-09-09
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The deferred publication question had one live option, and the other
+> two were removed by re-reading evidence that was already written down**
+> (2026-09-09, Session 206, recorded as
+> [ADR-0010](../adr/0010-publication-was-one-option-wearing-three.md)).
+> **This repository is public**, verified unauthenticated — no token,
+> HTTP 200 — which is the honest test, since an authenticated read
+> succeeds either way.
+> **The handoff offered three options and two were unavailable.** *Ask
+> their owners* is **empty**: all 26 private project names resolve to the
+> owner's own accounts, so ADR-0009's clause about third parties was a
+> **scope** claim and false. *Redact* is unreachable by ADR-0009's own
+> argument that publication exposes every commit — the names entered
+> history on 2026-08-04, so redaction is the history rewrite that ADR
+> refused over **116** cited commit SHAs, and only **2 of 26** were ever
+> reachable by a working-tree edit at all.
+> **The ruling already made had largely decided the open item.** Nineteen
+> of the 26 names sit inside the roadmap narrative the owner had ruled
+> publishes as-is; publishing it and redacting its subjects are not
+> compatible instructions, and the overlap between two list items in one
+> document had never been measured.
+> **The audit was re-run at N+1 and moved once.** ADR-0009 measured 347
+> commits and its own commit is the 348th, so the last thing to land
+> before an irreversible action was unaudited. Everything held except one
+> cell: *the owner's real name in no file content* is now **one**
+> occurrence, and it is ADR-0009 quoting the address in order to record
+> that commit metadata carries it — the commit stating the finding is
+> what falsified it. Exposure is identical either way.
+> **The sweep nobody had run is third-party personal data**, demanded by
+> two school-sounding project names and clean across all 348 commits: no
+> pupil, student or client name field, no `.sch.uk` or `.ac.uk` address,
+> no date of birth or postcode, and the only human email address in any
+> blob is the owner's own.
+> **Announced at its measured readers, not at the estate** — alfred and
+> estate-manager, because `aad8236` and `d514b39` are the only cross-repo
+> writes into this tree, and a `services.yaml` **comment** authored by
+> another repository is now published.
+> **The scheduled reading was also discharged, two days overdue, and its
+> prediction was refuted usefully.** It expected `llm_used` true on all
+> three review tables; `health_reviews` is **false**. The lease is not
+> the culprit — lease 54 granted at 05:00:05 and released at 05:00:10,
+> so `SNAG-SCHED-003`'s fix works — and what failed inside the held
+> lease is the inference call, *"Server disconnected without sending a
+> response"*. That is the **second limb of a disjunction that entry
+> named and never had a specimen of**, every earlier observation having
+> been contention. Filed `SNAG-SCHED-004` (P3), discriminator scheduled
+> **2026-09-14**. No restart: nothing the daemon imports changed.
+
 > **A remote is two questions with two deadlines, so the urgent one
 > stopped waiting on the unhurried one** (2026-09-09, Session 205,
 > closing estate message `6e2e5a50` from alfred and this repository's own
@@ -4372,13 +4419,23 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **5** unresolved
 > rows <!--check:alerts-->,
 > `High disk usage on /`,
 > `Project ImbaBots next action idle`,
-> `Project Athenaeum next action idle` and
-> `Project alfred-glance next action idle`, **4**
+> `Project Athenaeum next action idle`,
+> `Project alfred-glance next action idle` and
+> `Unusual RAM usage`, **5**
 > named here <!--check:open_titles-->.
+> *(**The fifth opened mid-sitting** — `Unusual RAM usage` was raised at
+> **21:25:49 on 2026-09-09**, after Session 206's block was written and
+> while its documents were being checked, which is the claims checker
+> earning its keep on the sitting that was writing the claim. It is an
+> anomaly row, and `Unusual % usage` is one of the three families
+> `_resolve_recovered` deliberately excludes because `_check_anomalies`
+> resolves it **by id** — so a fall on this claim is expected movement
+> rather than drift, the same shape as the `amdgpu` note below and
+> recorded in advance for the same reason.)*
 > *(**The fall this note predicted happened, on the schedule it named**
 > (Session 205). The claim read **18** and measures **4**: the thirteen
 > `amdgpu` rows resolved together at **13:47:50 on 2026-09-09** — sixteen

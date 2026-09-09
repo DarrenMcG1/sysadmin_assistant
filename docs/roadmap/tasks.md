@@ -8,6 +8,131 @@
 
 ---
 
+## Session 206: publication was one option wearing three ✅ (2026-09-09)
+
+_The ask was to take the publication decision ADR-0009 deferred. The
+handoff stated the remaining question as a three-way choice — accept the
+26 private project names, redact them, or ask their owners. **Two of the
+three were unavailable, and nothing new had to be measured to see it:**
+the evidence was already inside ADR-0009 and needed cross-reading, not
+re-scanning._
+
+- [x] **`github.com/DarrenMcG1/sysadmin_assistant` is public**, verified
+      **unauthenticated** — `curl` with no token against `api.github.com`
+      returns `200`. That is the honest test, because `gh repo view` runs
+      authenticated and would succeed either way. Local and remote both
+      hold **348** commits.
+- [x] **"Ask their owners" is an empty option, not a declined one.**
+      ADR-0009 §3.3 reads *"publishing here names repositories their
+      owners have kept unnamed"*, which is a claim about the
+      **population**. All 27 repositories on this box resolve to the
+      owner's own accounts — **23** at
+      `git@github.com:DarrenMcG1/<name>.git`, `daiy` at the same host
+      over HTTPS, `terrible` at `gitlab.com/Gaddi_/terrible`, the rest
+      with no remote — and every last commit is authored
+      `darrenjmcgarvey@gmail.com`. There is no third party in the set.
+      `verify-ops-claims-live`'s rule applied to a **scope**.
+- [x] **"Redact" is unreachable by ADR-0009's own §2 argument**, which
+      was written there for the secrets sweep and never applied to this
+      item: *a key deleted in commit 40 is still served at its blob SHA
+      for ever*. The names entered history on **2026-08-04**
+      (`BudgetApp`, 10 commits) and **2026-08-06**
+      (`customer-churn-model`, `TeacherPlanner`, 4 each), so a
+      working-tree edit changes nothing a visitor can reach and a real
+      redaction is the history rewrite §4 refused over **116** cited
+      commit SHAs. Only **2 of 26** — `bsl-app` and `detection-system`
+      — were reachable by a working-tree edit at all, and both are in
+      history regardless.
+- [x] **The ruling already made on §3.4 had largely decided §3.3, and
+      the overlap had never been measured.** **19 of the 26** names sit
+      inside `docs/roadmap/` — the narrative the owner ruled publishes
+      as-is: `Alfred` **144**, `venture-assistant` **51**,
+      `PersonalAssistant` **32**, `ImbaBots` **31**, `SportsAnalyser`
+      **22**, `alfred-glance` **19**. The narrative is *made of* these
+      names; publishing it as-is and redacting its subjects are not
+      compatible instructions.
+- [x] **Ran the sweep ADR-0009 never ran — third-party personal data.**
+      §2 looked for secrets and §3 for project names; neither covers the
+      question `PupilProgressTracker` and `TeacherPlanner` raise, which
+      self-ownership does not settle. Over all 348 commits' blobs: zero
+      word-boundary `dob` (the 1,580 substring hits are all inside
+      `tests/test_file_actions.py`), zero `date_of_birth`/`postcode`,
+      zero pupil/student/client name fields, zero `.sch.uk`/`.ac.uk`
+      addresses, and the only human email in any blob is the owner's own
+      — the rest being systemd unit templates, `git@github.com` and
+      `test@example.com`.
+- [x] **Re-ran the audit at N+1 and it moved once, in the one cell that
+      could only have moved this way.** ADR-0009 measured **347** and its
+      own commit is the **348th**, so the last thing to land before an
+      irreversible action was unaudited. Everything held except *the
+      owner's real name in file content*: **zero → one**, and the
+      occurrence is ADR-0009 line 79 quoting `darrenjmcgarvey@gmail.com`
+      in order to record that **commit metadata** carries it. The commit
+      recording the finding is what falsified it. Exposure is identical
+      either way — §4 refuses the rewrite that would scrub the address
+      and publication serves it through metadata regardless — so it is
+      **corrected rather than acted on**, in ADR-0009's own table and in
+      `CLAUDE.md`.
+- [x] **Announced at measured readers, and the audience is two rather
+      than the estate.** The announce-by-filing rule says a
+      measured-empty audience files nothing, so the readers were
+      measured rather than assumed: `aad8236` (alfred, today, the
+      `alfred-desktop` declaration per their ADR-0093) and `d514b39` are
+      the only cross-repo writes into this tree. Filed
+      **`58b208d5`** at alfred and **`871fa2f1`** at estate-manager,
+      before the commit carrying the ADR. What is actionable for them is
+      not this repository's behaviour but that a `services.yaml`
+      **comment** they author here is now published at the moment it is
+      committed.
+- [x] **Could not amend alfred's `6e2e5a50`, whose close note says
+      "private".** The register has no reopen and a close note is
+      one-shot, so `58b208d5` is filed `in_reply_to` that closed row —
+      the field estate-manager built on this repository's own
+      recommendation, used from this side for the first time and for
+      exactly its case: a closed row whose note has stopped being true.
+- [x] **Recorded as
+      [ADR-0010](../adr/0010-publication-was-one-option-wearing-three.md)**,
+      whose §7 keeps three non-consequences explicit: the box is still
+      **not backed up** (ADR-0009 §6 stands and is now easier to
+      misread, not harder); the monitorable-project contract is
+      unchanged, because its obligation is to *declare* a unit rather
+      than explain it, though its `services.yaml` comments are now
+      published and that is estate-manager's sentence to write; and the
+      announcement fans out to two repositories, not the estate.
+
+- [x] **Discharged the scheduled reading, two days overdue, and its
+      prediction was refuted in the useful direction.** It expected
+      `llm_used` true on all three review tables; `health_reviews` is
+      **false**, log and disk true. **The lease is not the culprit** —
+      lease 54 granted to `health_review` at 05:00:05, released cleanly
+      at 05:00:10, so `SNAG-SCHED-003`'s fix works. What failed inside
+      the held lease is the inference call: `llm_unavailable`, *"Server
+      disconnected without sending a response"*, `dria-agent-a-3b`.
+      That is the **second limb of a disjunction `SNAG-SCHED-003` named
+      and never had a specimen of** — every earlier observation was
+      contention (`llm_gpu_busy`, `busy_percent` 99/97/98). Filed as
+      **`SNAG-SCHED-004`** (P3) with the discriminator scheduled for
+      **2026-09-14**, because health runs first in the 05:00/05:15/05:45
+      chain and the two later reviews succeeded, so the hypothesis is
+      the **slot** rather than the review — and one observation cannot
+      separate a cold start from a one-off disconnect. A second figure
+      is recorded unexplained rather than dismissed: the grant reports
+      `wait_seconds: 3299` while its own request and grant lines are
+      five seconds apart.
+- [x] **Two measurement traps hit and recorded**, both of a kind that
+      returns a confident wrong answer rather than an error.
+      `sysadmin.service` is a **system** unit running `User=gaddi`, so
+      `journalctl --user -u sysadmin.service` returns **1** line against
+      **1,467,923** in system scope. And this daemon's JSON puts the
+      event name in `"message"`, not `"event"`, so a grep keyed on the
+      latter returns nothing and reads as *the review never ran*.
+
+_Suite **3900**, unmoved — the sitting added no test, because what it
+added is a decision and a visibility flag. No restart: nothing the
+daemon imports changed._
+
+---
+
 ## Session 205: a remote is two questions with two deadlines ✅ (2026-09-09)
 
 _The ask was to decide and record where this repository's git remote

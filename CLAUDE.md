@@ -4229,7 +4229,10 @@ than this paragraph.
   Records the audit measured over all 347 commits (**zero** key-shaped
   strings in any blob; `api.auth_token` has held `""` and nothing else;
   no `.env`/`*.pem`/`*.key` ever existed; the owner's real name in no
-  file content) and, more usefully, **why it was boring** — ADR-0003 and
+  file content — *that last cell is corrected by ADR-0010 §5: the ADR's
+  own commit put the address into file content by quoting it, so the
+  finding was falsified by being written down*) and, more usefully,
+  **why it was boring** — ADR-0003 and
   the empty-token-with-a-warning design had already made a secret
   unable to land here, neither taken with publication in mind. Records
   what publication still owes as **disclosure rather than secrets** (26
@@ -4241,6 +4244,32 @@ than this paragraph.
   remote is reversible and indexing is not. §6 keeps the residue
   explicit: this is a copy of the *repository*, not of the `projects`
   database.
+- **[0010-publication-was-one-option-wearing-three.md](docs/adr/0010-publication-was-one-option-wearing-three.md)**
+  — **read this before reasoning about what is disclosed by writing
+  here, and before trusting an option list in a handoff.** This
+  repository is **public** as of 2026-09-09, verified unauthenticated.
+  ADR-0009 deferred the question and Session 205's handoff stated three
+  options — accept the 26 private project names, redact them, or ask
+  their owners — of which **two were unavailable and nothing new had to
+  be measured to see it**. *Ask their owners* is empty: all 26 resolve
+  to the owner's own accounts, so the claim that they name third
+  parties was a **scope** claim and false. *Redact* is unreachable by
+  ADR-0009's own §2 argument, that publication exposes every commit and
+  a blob is served at its SHA for ever — the names entered history on
+  2026-08-04, so redaction means the history rewrite §4 refused over
+  116 cited commit SHAs; only **2 of 26** were ever reachable by a
+  working-tree edit. And the owner's standing ruling to publish the
+  roadmap as-is had **already decided most of the open item**, because
+  19 of the 26 names are inside that narrative (`Alfred` 144 times,
+  `venture-assistant` 51) — the two ADR-0009 list items overlap and
+  nobody had measured the overlap. Also records the sweep ADR-0009
+  never ran (**third-party personal data**, zero across all 348
+  commits, which is what the two school-sounding project names
+  demanded), why the audit was re-run at *N+1* commits, and §7's three
+  non-consequences — the box is still not backed up, the
+  monitorable-project contract is unchanged though its
+  `services.yaml` **comments** are now published, and the measured
+  audience for the announcement was two repositories, not the estate.
 
 Guides: only **api_auth.md** (bearer-token auth setup) still lives in
 this repository's `docs/guides/`. The four cross-repo guides —
