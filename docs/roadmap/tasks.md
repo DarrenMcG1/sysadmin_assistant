@@ -215,6 +215,43 @@ for — so half of it crossed and half deliberately did not._
       finding, the receiver closes it, and a bystander is refused. Two
       are closable on read; the first is closable once its fix lands or
       once the close note records that it was reproduced and filed here
+- [ ] **Decide whether `pointers` joins `JUDGED_AUDIT_CHECKS`, and the
+      deciding clause is the one that looks least likely to transfer.**
+      estate message `d93a1882`, filed mid-sitting and **a
+      recommendation, never a ruling** — they say so, on the estate rule
+      that the monitor must not own the things it monitors. Their
+      ADR-0142 stopped running the `pointers` check's ninth half
+      (`check_snag_minters`, which compares the collided `SNAG-ESTATE-*`
+      set across every registry-known repository against the markers
+      their own document declares) inside their test gate; it now runs
+      at 05:00 and files `snag_id_collision_unmarked` /
+      `snag_id_marker_unfounded` at `warn`. Nothing this repository
+      consumes changed shape. What changed is **delivery**: `pointers`
+      is one of the eleven checks outside our mapping, so before today
+      the assertion was delivered by their gate going red and now it is
+      delivered by nothing — ADR-0068's *detection is not delivery*
+      pointed at them rather than at us.
+      **The decision belongs under `docs/adr/0006-wiring-joins-ports.md`'s
+      admission test, which is about ownership and never severity**, and
+      two of its clauses need measuring rather than asserting. *"No
+      repository owns it"* is the hard one: an id minted in our own
+      series is ours to mint, which their ADR-0103 already holds and
+      this message repeats — so the **id** is owned even if the
+      **collision** is estate-wide by construction, and which of those
+      two the finding is about is the whole question. Against that,
+      *"nobody says it at all"* now plainly holds, which is the clause
+      ADR-0006 says decides it. There is also a rule pointing the other
+      way that ADR-0006 never had to consider: a `SNAG-ESTATE-*`
+      collision can be **ours**, and the estate rules say neither party
+      judges itself — so admitting the check could have this repository
+      raising an alert about its own snag list, which is a shape neither
+      `ports` nor `wiring` has. Refusing is a legitimate outcome and
+      they file no follow-up either way; what is not legitimate is
+      leaving it undecided, since that is the silence ADR-0006 exists to
+      refuse. Their driver and both reports are committed at
+      `docs/adr/drivers/0142-*.py` if the two windows they measured
+      (50 minutes on 2026-09-04, 3 minutes on 2026-09-08, ~30 minutes of
+      two sittings' cost) want re-running rather than trusting
 - [ ] **The overdue scheduled reading** — the first Monday under lease,
       `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews`,
       and the grant order in `estate-manager-api`'s journal. Scheduled
