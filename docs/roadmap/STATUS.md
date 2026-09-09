@@ -4288,10 +4288,25 @@
 > `Project ImbaBots next action idle`,
 > `Project Athenaeum next action idle`,
 > `Project alfred-glance next action idle`,
-> `venture-chat unreachable` and
-> `Unmonitored systemd units: 5 findings`, **6**
+> `Unmonitored systemd units: 5 findings` and
+> `venture-chat unreachable`, **6**
 > named here <!--check:open_titles-->.
-> *(The sixth was raised by **this sitting's restart**, at 08:18:23, and
+> *(**That last row flaps with another repository's lease cycle, and a
+> `no` on this claim is expected movement rather than drift.** Observed
+> across one morning: raised **08:12:05**, resolved **08:32:25**,
+> re-raised **09:02:22**. The estate's arbiter grants
+> `venture-nightly-24b` the card, stops `venture-chat.service` cleanly
+> to free VRAM, and restores it on release — so this monitor reports a
+> service unreachable that another repository deliberately stopped, and
+> the row opens and closes with the swap. It is `info` rather than
+> `warning` because `SNAG-AGENT-011` quietens it under a held lease, so
+> it is below `tray.notify_min_severity` and inaudible throughout;
+> `SNAG-AGENT-012` holds what that quietening leaves. **The count is
+> stamped at 09:02 and will not stay true**, which is a property of the
+> subject and not of the block — a later sitting reading `no` here
+> should check whether the delta is this row before treating it as
+> `SNAG-ESTATE-008`'s staleness.)*
+> *(The remaining new one was raised by **this sitting's restart**, at 08:18:23, and
 > is a pre-existing condition rather than a new one: every added job
 > re-runs on a daemon start, so the six-hourly unit sweep fired and
 > reported 3 unmonitored units and 2 host units — `orphaned: 0` and

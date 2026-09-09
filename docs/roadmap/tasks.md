@@ -233,12 +233,55 @@ for — so half of it crossed and half deliberately did not._
       them. So the only live consequence is the trigger: decide whether
       the comparison is built now, or whether the entry stays P4 with
       its precondition recorded as met
-- [ ] **Close the three messages.** `f5e450cb`, `999f4432` and
+- [x] **Close the three messages.** `f5e450cb`, `999f4432` and
       `56752625` are all open in this repository's inbox and all three
       ask for nothing — under estate ADR-0041 §1 a message is not a
       finding, the receiver closes it, and a bystander is refused. Two
       are closable on read; the first is closable once its fix lands or
       once the close note records that it was reproduced and filed here
+      — **all four closed 2026-09-09 at 07:10:40–07:11:51 BST by a
+      parallel sitting in this tree** (`d93a1882` with them), which
+      Session 203 discovered only when it went to close `56752625` at
+      the owner's request and found it already shut. Nothing was lost
+      and one thing was **fixed in the wrong order**: the note on
+      `56752625` records the wording narrowing as *"wants its own
+      sitting"* and repeats the framing *"distinguishing error causes on
+      a payload whose shape you own*", which that sitting then measured
+      false three hours later. There is no reopen and the note is spent,
+      so the correction could only be filed as a new row — `4cc94260`
+      below is that row and also the recommendation it motivated
+- [ ] **Two messages arrived after that close and are open.**
+      `d51ecb7a` (Alfred) records that `alfred-desktop.service` was
+      declared to `services.yaml` the same day the unit was created,
+      commit `aad8236`, landing in this tree mid-sitting — it is why the
+      unit sweep's roll-up will fall from 5 findings, and it carries one
+      thing *"worth your attention"* about ADR-0007's `_GPU_RESET.reason`
+      that is not a finding and not a ruling request. `86e0fa63` (the
+      estate) records that the global `~/.claude/CLAUDE.md` "say what it
+      cost" paragraph reached the expiry date written into it and is
+      removed — verified here, the paragraph is gone — with the request
+      restated in the past tense in `session-brief.md` so a reader can
+      tell a convention's lifetime from the senders' diligence. Neither
+      asks for anything; both want reading before they are closed
+- [ ] **Filed at the estate: give a message a structural reply**
+      (`4cc94260`, 2026-09-09, `needs_ruling: true`, **at the owner's
+      explicit request**). The register is one-way by construction: a
+      reply is a new top-level row, which `models.py`'s own `closed_note`
+      docstring records as the deliberate alternative. Measured off their
+      surface the same morning — **97** rows, **46** citing another
+      message by short id in prose, **31** of those addressed back at the
+      sender of the message they cite, longest citation chain **6** deep,
+      and **91 of 91** closed rows carrying a `closed_note`. A channel
+      used on every row it is available on is the reply the schema does
+      not have, and it is terminal, one-shot, and the closer's alone. The
+      recommendation is an optional `in_reply_to`, explicitly **not** a
+      reopen, **not** a chat and **not** a field that grades a reply —
+      the last being the third value their `needs_ruling` docstring
+      already refuses. A cheaper variant is offered beside it: publish
+      the citation graph they already have, which would have linked 46
+      rows today and depends on a convention nothing enforces. Theirs to
+      accept or decline, and a declining with reasoning was named as
+      preferable to a change recommended from one repository's vantage
 - [ ] **Decide whether `pointers` joins `JUDGED_AUDIT_CHECKS`, and the
       deciding clause is the one that looks least likely to transfer.**
       estate message `d93a1882`, filed mid-sitting and **a

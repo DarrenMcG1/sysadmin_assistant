@@ -77,12 +77,31 @@ clean afterwards.
 
 - **The two retired specimens stand**, and they are the published next
   action rather than a silent omission.
-- **The four open estate messages are still open.** `56752625`'s
-  behavioural half is now done, so it is the one closable on merit —
-  but closing writes into another repository's register and there is no
-  reopen, so it stays an explicit decision. `d93a1882` arrived during
-  this sitting and recommends `pointers` join `JUDGED_AUDIT_CHECKS`,
-  which is an ADR-0006 admission question and not a mapping edit.
+- **The four messages were already closed, by a parallel sitting in
+  this tree, at 07:10:40–07:11:51 while this one was working.** Found
+  when the owner asked for `56752625` to be closed and it was already
+  shut. Nothing was lost, and one thing was fixed in the wrong order:
+  that close note records the wording narrowing as *"wants its own
+  sitting"* and repeats the framing this sitting then measured false.
+  There is no reopen and the note is spent, so the correction went out
+  as a new row. `d93a1882` recommends `pointers` join
+  `JUDGED_AUDIT_CHECKS`, which is an ADR-0006 admission question and
+  still open as a task.
+- **Two messages arrived after that close and are deliberately left
+  open**, because neither has been acted on: `d51ecb7a` (Alfred —
+  `alfred-desktop.service` declared to `services.yaml`, commit
+  `aad8236`, which landed in this tree mid-sitting and is why the unit
+  roll-up will fall) and `86e0fa63` (the estate — the global "say what
+  it cost" paragraph reached its written expiry today and is removed;
+  verified here).
+- **Filed at the estate, at the owner's explicit request:
+  `4cc94260`**, `needs_ruling: true` — that a message get a structural
+  reply. Measured off their surface: 97 rows, 46 citing another message
+  by short id in prose, **31** addressed back at the sender of the
+  message they cite, longest chain **6** deep, and **91 of 91** closed
+  rows carrying a `closed_note`, which is the reply the schema does not
+  have used on every row it is available on. Explicitly not a reopen,
+  not a chat, and not a field that grades a reply. Theirs to decide.
 - **`SNAG-BRIEF-003` is filed rather than fixed** — the message's one
   possible cut keeps the file and drops the fault. Empty population on
   today's measurement, and both closures cost more than the residue.
