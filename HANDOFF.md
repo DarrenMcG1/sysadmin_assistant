@@ -94,6 +94,14 @@ clean afterwards.
   roll-up will fall) and `86e0fa63` (the estate — the global "say what
   it cost" paragraph reached its written expiry today and is removed;
   verified here).
+- **`services.yaml`'s `venture-chat-large` declaration was corrected**
+  (`9cc78dc`, at the owner's instruction). It named a mechanism the box
+  retired — `venture-enrich-nightly`'s `ExecStopPost`, and an 02:00
+  drain — where the estate's arbiter now performs a model swap around a
+  `venture-nightly-24b` lease and the drain's timer is `OnCalendar
+  00:00`. The clause the declaration rests on, *inactive between runs by
+  design*, was the one still true, so no runtime field moved. Found by
+  checking the owner's correction rather than by a failure.
 - **Filed at the estate, at the owner's explicit request:
   `4cc94260`**, `needs_ruling: true` — that a message get a structural
   reply. Measured off their surface: 97 rows, 46 citing another message

@@ -250,7 +250,7 @@ for — so half of it crossed and half deliberately did not._
       false three hours later. There is no reopen and the note is spent,
       so the correction could only be filed as a new row — `4cc94260`
       below is that row and also the recommendation it motivated
-- [ ] **`services.yaml`'s `reason:` for `venture-chat-large` describes a
+- [x] **`services.yaml`'s `reason:` for `venture-chat-large` describes a
       mechanism the box retired, and the half that justifies the
       declaration is the half still true.** The field reads *"pulled up
       by venture-enrich-nightly for the 02:00 drain and stopped by its
@@ -279,7 +279,17 @@ for — so half of it crossed and half deliberately did not._
       field, and the fix is prose — deliberately not taken in the sitting
       that found it, because a parallel session committed to this same
       file mid-sitting (`aad8236`) and the text makes claims about
-      another project's units
+      another project's units — **corrected the same sitting at the
+      owner's instruction, `9cc78dc`.** The stale claim turned out to be
+      stated **twice**, in the `reason:` and in the comment above it, so
+      it was not corrected twice: the comment now carries the history and
+      the measurement, and `reason:` states only what justifies
+      `monitor: false`. Verified by SIGHUP rather than assumed — the
+      reload reports `changed: ["venture-chat-large"]`,
+      `requires_restart: []`, `jobs_synced: true` and nothing retimed, so
+      the file installs whole and no runtime field moved. Committed on
+      its own by explicit pathspec, the parallel session being the reason
+      to do so
 
 - [ ] **Two messages arrived after that close and are open.**
       `d51ecb7a` (Alfred) records that `alfred-desktop.service` was
