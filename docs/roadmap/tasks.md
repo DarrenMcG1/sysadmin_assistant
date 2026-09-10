@@ -4,7 +4,89 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-09
+> **Last Updated**: 2026-09-10
+
+---
+
+## Session 207: the entry documents addressed the reader who left ✅ (2026-09-10)
+
+_The ask was to rewrite `README.md` for the audience the repository
+actually has, one day after publication, and to ask the same question of
+`docs/`. **The framing problem was real and it was not the only one:**
+the file was also stale in four places, and the figure the handoff
+handed it to publish named a population 57 % larger than the thing it
+called it._
+
+- [x] **`README.md` opens with the problem before the components.** The
+      old file's first sentence named `~/projects`, `sysadmin-organiser`
+      and five agents to a reader assumed to know the box, and never
+      said what any of it was for. It now opens on the failure class:
+      a single-user workstation where a unit nobody wired, a migration
+      written and never applied, and a fault deduplicated into silence
+      all look exactly like health.
+- [x] **The roadmap is framed as the artefact, in the same paragraph as
+      the why.** ADR-0010 published it deliberately and the owner calls
+      it the showcase, so it is introduced as the reason to read the
+      repository rather than as a pointer in the footer — with the one
+      statistic that makes the case without argument: **68,536 lines of
+      tests against 51,427 of backend and 6,150 of tray**, and more
+      prose than either.
+- [x] **Four stale claims corrected — accuracy, not disclosure**, so
+      ADR-0009 and ADR-0010 do not reach them. `ProjectOrganiserAgent`
+      and `sysadmin-organiser` both left under ADR-0005 on 2026-08-13;
+      `/api/projects/*` was described as four route families where this
+      service serves **one**; `/api/units/*` and `/api/services/*` were
+      absent from the API table entirely; `projects.yaml` was listed in
+      the layout and does not exist. The agent table now carries the
+      five that run, with intervals measured off the live config.
+- [x] **`docs/README.md` is new, because `docs/` had no entry point at
+      all.** It says which subtree answers which question, indexes the
+      ten ADRs by what each decides, and states that **four of the five
+      files in `guides/` are pointers into a repository that is not
+      public** — dead links for an outside reader, which nothing said.
+- [x] **The handoff's figure was refuted before it was republished.**
+      *38,774 lines of roadmap narrative* is **every tracked `*.md` file
+      at `b900ae3`**, reconstructed as an exact match by summing
+      candidate file sets at each commit; `docs/roadmap/*.md` at that
+      same commit is **24,629**, so the phrase overstates its subject by
+      **14,145** lines. ADR-0009 says it correctly in its table (*"lines
+      of documentation"*) and loosely in §3.4 (*"roadmap narrative"*),
+      and the loose form is the one that reached `STATUS.md`,
+      `tasks.md`, `CLAUDE.md` and the handoff. Filed `SNAG-DOCS-012`
+      (P4, decided): the public README states the population, the four
+      internal copies stand.
+- [x] **`ARCHITECTURE.md` filed rather than fixed** — `SNAG-DOCS-011`
+      (P3, owed). Its diagram and prose still show `ProjectOrganiserAgent`
+      and the `projects/` and `registry/` packages, all gone since
+      2026-08-13; **5 lines** carry it, of 277. Mitigated in
+      `docs/README.md`'s own table row, which is not a fix, because it
+      only reaches a reader who arrives through the index.
+- [x] **A figure was corrected against the only checked one.** The draft
+      said the schema holds 14 tables, off a raw `information_schema`
+      count; `STATUS.md`'s `<!--check:tables-->` claim says **13**, the
+      difference being `alembic_version`, which Alembic owns. Published
+      13 — a README disagreeing with the one figure here that has a
+      checker behind it is `SNAG-DOCS-012`'s own defect, committed while
+      filing it.
+- [x] **`SNAG-DOCS` re-measured, and the memory index is wrong.**
+      It has asserted since 2026-09-08 that estate-manager mints
+      `SNAG-DOCS-*`. Their register defines **no numbered `SNAG-DOCS-*`
+      entry**; the bare prefix appears once, inside a quotation of this
+      repository's own sentence, and the single `SNAG-DOCS-005` in their
+      tree is their ADR-0051 **citing our entry**. The index's method,
+      `grep -rho "SNAG-[A-Z]*-"`, cannot separate a minting from a
+      citation — and citing across a boundary is exactly what the
+      collision rule instructs, so the method turns compliance into a
+      false positive. Memory file corrected; the rule itself stands.
+- [x] **Suite 3900, unmoved.** A documentation sitting adds no test.
+      Run before the first edit as well as after, because preflight
+      reports the tree and not the suite. No restart: nothing the daemon
+      imports changed.
+
+**Not done, deliberately**: `ARCHITECTURE.md`'s body (`SNAG-DOCS-011`),
+and the four internal restatements of the 38,774 figure
+(`SNAG-DOCS-012`). Both were put to the owner as scope options at the
+start of the sitting and both were left out by that choice.
 
 ---
 

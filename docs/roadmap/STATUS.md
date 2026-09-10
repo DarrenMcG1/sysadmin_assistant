@@ -1,7 +1,48 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-09
+**Last Updated**: 2026-09-10
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **The README addressed a reader who already knew this box, and the
+> figure it was handed to publish named the wrong population**
+> (2026-09-10, Session 207). Publication changed the audience on
+> 2026-09-09 and every entry document still addressed the old one.
+> `README.md` now opens with the problem before the components — a
+> single-user workstation where a unit nobody wired, a migration never
+> applied and a fault deduplicated into silence all look like health —
+> and frames the roadmap as the artefact
+> [ADR-0010](../adr/0010-publication-was-one-option-wearing-three.md)
+> published rather than as clutter beside the code.
+> **It was also stale in four places, and those are accuracy rather than
+> disclosure**, so ADR-0009 and ADR-0010 do not cover them: it listed
+> `ProjectOrganiserAgent` and a `sysadmin-organiser` unit, both gone
+> under ADR-0005 since 2026-08-13; it described `/api/projects/*` as
+> four route families where this service serves **one**; it omitted
+> `/api/units/*` and `/api/services/*` entirely; and it listed
+> `projects.yaml`, a file that does not exist. The five agents are now
+> the five that run, with their intervals.
+> **`docs/` had no entry point at all**, so `docs/README.md` is new —
+> an index that says which subtree answers which question, and states
+> plainly that four of the five files in `guides/` are pointers into a
+> repository that is **not public** and will not resolve for an outside
+> reader.
+> **The handoff's own figure was refuted before it was published.**
+> *38,774 lines of roadmap narrative* is every tracked `*.md` file at
+> `b900ae3`, reconstructed as an exact match; the roadmap at that commit
+> is **24,629**, so the phrase overstates what it names by **14,145**
+> lines. ADR-0009 states it correctly in its table and loosely in §3.4,
+> and it is the loose form that propagated here, to `tasks.md`,
+> `CLAUDE.md` and the handoff. The public README states the population
+> instead. Filed `SNAG-DOCS-012` (P4).
+> **`ARCHITECTURE.md` carries the same staleness and is filed rather
+> than fixed** — `SNAG-DOCS-011` (P3), owed: its diagram still shows a
+> departed agent and two departed packages, and `docs/README.md` names
+> that in the row that links it. **`SNAG-DOCS` was re-measured and the
+> memory index was wrong**: estate-manager mints no numbered
+> `SNAG-DOCS-*`; the collision the index reports is their ADR-0051
+> *citing* our entry, which is what the rule asks for. Suite **3900**,
+> unmoved — a documentation sitting. No restart: nothing the daemon
+> imports changed.
 
 > **The deferred publication question had one live option, and the other
 > two were removed by re-reading evidence that was already written down**

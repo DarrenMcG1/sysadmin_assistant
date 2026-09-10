@@ -1,8 +1,80 @@
-# Handoff — 2026-09-09 (Session 206)
+# Handoff — 2026-09-10 (Session 207)
 
 ## Next action
 
-Rewrite `README.md` for the audience the repository actually has now that it is public and the owner has called the narrative its showcase: the current file opens by addressing someone who already knows this box — it says the service watches "the projects under `~/projects`" and names `sysadmin-organiser` and the five agents without ever saying what problem any of it solves — so the work is to give a stranger the one-paragraph why before the what, to make the 38,774 lines of roadmap narrative legible as the deliberate artefact ADR-0010 published rather than as clutter a visitor scrolls past, and to check the same question of `docs/` entry points, while leaving the content decisions already taken alone, since ADR-0009 and ADR-0010 settled what is disclosed and this is only about how it reads.
+Correct `docs/ARCHITECTURE.md`, which is `SNAG-DOCS-011` and the last entry document still addressing a reader who already knows this box: its system diagram and its prose both name `ProjectOrganiserAgent` and the `projects/` and `registry/` packages, all three of which left for estate-manager and estate-lib on 2026-08-13 under ADR-0005, so a visitor arriving from the now-public repository concludes this service scans repositories and computes project health scores, which is precisely the wrong half of the judging swap that ADR records — measured 2026-09-10 the defect is 5 lines of 277 and the file is accurate about the request path, the database, the contract seam and the tray, so what is owed is a correction of the agent list, the package tree and the diagram rather than a rewrite, and the mitigation now standing in `docs/README.md` reaches only the reader who arrives through that index rather than by search or direct link.
+
+## What this sitting did
+
+**Rewrote `README.md` for the audience the repository acquired the day
+before, and found the figure it was handed to publish named the wrong
+population.** Publication landed 2026-09-09 (ADR-0010); every entry
+document still addressed a reader who already knew the box.
+
+- **The why now precedes the what.** The old first sentence named
+  `~/projects`, `sysadmin-organiser` and five agents and never said what
+  the service was for. It opens on the failure class instead — a
+  single-user workstation where a unit nobody wired, a migration written
+  and never applied, and a fault deduplicated into silence all look
+  exactly like health — and says plainly that this is not trying to be
+  Prometheus.
+- **The roadmap is introduced as the artefact, in that same paragraph.**
+  ADR-0010 published it deliberately and the owner calls it the
+  showcase, so it is the reason to read the repository rather than a
+  footer pointer, carried by the one statistic that argues for itself:
+  **68,536 lines of tests** against 51,427 of backend and 6,150 of tray.
+- **Four stale claims corrected — accuracy, not disclosure**, so
+  ADR-0009 and ADR-0010 do not reach them: `ProjectOrganiserAgent` and
+  `sysadmin-organiser` (both gone under ADR-0005), `/api/projects/*`
+  described as four route families where one is served, `/api/units/*`
+  and `/api/services/*` missing altogether, and `projects.yaml` listed
+  in the layout though the file does not exist.
+- **`docs/README.md` is new, because `docs/` had no entry point.** It
+  indexes the ten ADRs by what each decides and states that **four of
+  the five files in `guides/` are pointers into a repository that is not
+  public**, so those links are dead for an outside reader — a fact
+  nothing said anywhere.
+- **The handoff's own figure was refuted before being republished.**
+  *38,774 lines of roadmap narrative* is every tracked `*.md` file at
+  `b900ae3`, reconstructed as an exact match; the roadmap at that commit
+  is **24,629**, so the phrase overstates its subject by **14,145**
+  lines. ADR-0009 states it correctly in its table and loosely in §3.4,
+  and the loose form is what propagated. `SNAG-DOCS-012` (P4, decided).
+- **A draft figure was corrected against the only checked one.** The
+  README said 14 tables, off a raw `information_schema` count;
+  `STATUS.md`'s checked claim says **13**, the difference being
+  `alembic_version`. Publishing 14 would have been `SNAG-DOCS-012`'s own
+  defect committed while filing it.
+- **`SNAG-DOCS` was re-measured and the memory index is wrong.** It has
+  asserted since 2026-09-08 that estate-manager mints `SNAG-DOCS-*`.
+  They mint no numbered entry in it; the bare prefix appears once inside
+  a quotation of this repository's sentence, and their one
+  `SNAG-DOCS-005` is ADR-0051 **citing our entry**. The index's method
+  cannot separate a minting from a citation, and citing across a
+  boundary is what the rule instructs — so the method converts
+  compliance into a false positive. Memory corrected; rule unaffected.
+
+## What is deliberately not done
+
+- **`ARCHITECTURE.md`'s body** — `SNAG-DOCS-011`, P3, owed, and the next
+  action above. Put to the owner as a scope option at the start of the
+  sitting and left out by that choice; a 277-line file whose defect is
+  5 lines deserves its own sitting rather than the tail of this one.
+- **The four internal restatements of the 38,774 figure** in
+  `STATUS.md`, `tasks.md`, `CLAUDE.md` and the Session 206 block —
+  `SNAG-DOCS-012`. The public surface is correct, which is where the
+  cost was; correcting an ADR's §3.4 is a separate question, since a
+  figure inside an ADR records what a sitting believed rather than
+  making a live claim.
+- **No restart, and no test added.** Nothing the daemon imports changed.
+  Suite **3900** either side, run before the first edit as well as after
+  — preflight reports the tree, not the suite.
+
+---
+
+## Session 206 — publication was one option wearing three
+
+_**Its published next action was this sitting's task and is done** (see the Session 207 block above)._ _It read:_ Rewrite `README.md` for the audience the repository actually has now that it is public and the owner has called the narrative its showcase: the current file opens by addressing someone who already knows this box — it says the service watches "the projects under `~/projects`" and names `sysadmin-organiser` and the five agents without ever saying what problem any of it solves — so the work is to give a stranger the one-paragraph why before the what, to make the 38,774 lines of roadmap narrative legible as the deliberate artefact ADR-0010 published rather than as clutter a visitor scrolls past, and to check the same question of `docs/` entry points, while leaving the content decisions already taken alone, since ADR-0009 and ADR-0010 settled what is disclosed and this is only about how it reads.
 
 ## What this sitting did
 
