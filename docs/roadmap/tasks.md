@@ -8,6 +8,71 @@
 
 ---
 
+## Session 208: a line count cannot measure an omission ✅ (2026-09-10)
+
+_The ask was to correct `docs/ARCHITECTURE.md` — `SNAG-DOCS-011`, the
+last entry document still addressing a reader who already knows this
+box. **The correction was owed and the entry's measurement of it was
+wrong in both directions**, which is the transferable half: it counted
+lines naming a departed component, and that instrument can only see a
+name that is present and wrong._
+
+- [x] **The diagram, the tree and the agent table corrected.**
+      `ProjectOrganiserAgent` and the `projects/` and `registry/`
+      packages left under [ADR-0005](../adr/0005-project-state-leaves.md)
+      on 2026-08-13. The entry measured **5 lines of 277**; a grep for a
+      departed name finds **9**.
+- [x] **The omissions were the worse half and no line count could reach
+      them.** `estate/` and `EstateJudgeAgent` appeared **nowhere** —
+      precisely the half that ADR *gave* this repository. Correcting only
+      the departed names would have left a reader with a service that
+      scans nothing and judges nothing, which is the same wrong
+      conclusion one rung quieter.
+- [x] **The scope claim named two sections accurate and both were wrong
+      on membership.** The **database** section listed nine tables
+      including `project_snapshots` and `log_summaries` (dropped by
+      migration 014 on 2026-08-24) and omitted six that exist — the live
+      schema holds thirteen. The **tray** section named four of five
+      dashboard tabs, missing `Files`. Neither is reachable by the
+      entry's grep, because neither names a departed *component*.
+- [x] **Four more claims corrected while the file was open.** The
+      `projects` router row described seven route families where
+      `GET /openapi.json` serves **one**; `/api/summary` was credited
+      with project scores its own producer's docstring says it does not
+      carry; the briefing payload still listed a project half; the test
+      count read *~360* against **3900**.
+- [x] **The guard is a test, not a twenty-first snag check.** The entry
+      refused a check and its reasoning stands: `check-snag-claims.sh`'s
+      `ok` means *the defect is still real*, so a check keyed on the
+      defect reports `still holds` over a landed fix for ever —
+      `check_review_schedule_unread`'s defect. A pytest assertion has the
+      opposite sign. `tests/test_architecture_doc.py` sweeps every
+      package, every `BaseAgent` subclass and every mapped table **both
+      ways**, and pins that the diagram's agent set equals the table's:
+      the founding defect was a disagreement between exactly those two,
+      and the row the table dropped was not the one that had left.
+- [x] **The sweeps read the fenced blocks and never the prose**, because
+      a moved thing leaves a pointer — the narrative still names
+      `ProjectOrganiserAgent` deliberately, and one test asserts exactly
+      that. Each sweep carries an anti-vacuity premise (`SNAG-TEST-006`).
+- [x] **Eight mutations driven, each red on the intended guard**, four
+      of them modelling an omission rather than a phantom. Suite
+      **3900 → 3915**; `ruff` and `mypy sysadmin` clean.
+- [x] **The diagram is generated and verified rather than hand-aligned.**
+      Built from box columns and widths, with the build asserting the
+      tee-offs sit above the arrows and the arrows inside their boxes. It
+      gained the two peers it never drew — estate-manager on `:8400` and
+      llama-server on `:8081` — and lost PersonalAssistant, drawn as a
+      live edge while the prose said the integration makes no HTTP call.
+- [x] **`docs/README.md`'s caveat retired, because the fix made it
+      false.** A caveat outliving its cause misleads in the opposite
+      direction. What replaces it is about *kind* rather than currency.
+- [x] **The alerts claim re-pinned 5 → 4**, the fall its own note
+      predicted (`Unusual RAM usage`, an anomaly row resolved by id). All
+      twelve ops claims read `ok`; the snag register reads **33** open
+      and both parsers agree. No restart: nothing the daemon imports
+      changed.
+
 ## Session 207: the entry documents addressed the reader who left ✅ (2026-09-10)
 
 _The ask was to rewrite `README.md` for the audience the repository

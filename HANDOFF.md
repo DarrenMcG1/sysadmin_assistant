@@ -1,6 +1,146 @@
-# Handoff — 2026-09-10 (Session 207)
+# Handoff — 2026-09-10 (Session 208)
 
 ## Next action
+
+Extend `tests/test_architecture_doc.py` to `README.md` and `docs/README.md`, which is `SNAG-DOCS-013` and the residue this sitting left by scoping its guard to the file the entry named rather than to the claim the entry was about: all three documents state which agents run, which routes are served and how the repository is laid out, only `docs/ARCHITECTURE.md` is now swept against the box, and `README.md` is the worst-exposed of the three because GitHub renders it on arrival with no click and no search — so the guarded file is the less exposed one, which inverts the priority the fix was scoped by; the population is measured-correct today, Session 207 having corrected `README.md`'s four stale claims by hand on 2026-09-09 with all five agent rows still reading true on 2026-09-10, so what is owed is a mechanism rather than a repair, and the two obstacles are measured rather than guessed — the two documents write an agent row in different dialects so the sweep needs one per document, and their intervals are two statements of one fact that are free to disagree the day `health_check_interval_seconds` moves, so the stronger guard derives each from its `config.yaml` leaf rather than comparing the two documents to each other.
+
+## What this sitting did
+
+**Corrected `docs/ARCHITECTURE.md`, and found the entry's measurement of
+itself wrong in both directions.** `SNAG-DOCS-011` said the file's diagram
+and prose named `ProjectOrganiserAgent` and the `projects/` and
+`registry/` packages — all three gone to estate-manager and estate-lib
+under ADR-0005 on 2026-08-13 — and measured the defect at **5 lines of
+277**. A grep for a departed name finds **9**. More usefully, a line count
+is the wrong instrument: it can only see a name that is *present and
+wrong*, and this file's worse fault was a name *absent and needed*.
+`estate/` and `EstateJudgeAgent` appeared **nowhere**, and they are
+precisely the half that ADR *gave* this repository — so correcting only
+the five would have left a visitor with a service that scans nothing and
+judges nothing, the same wrong conclusion one rung quieter.
+
+**The scope claim named two sections accurate and both were wrong on
+membership.** The entry and the action it filed both said the file *"is
+accurate about the request path, the database, the contract seam and the
+tray"*. Measured against the running box: the **database** section listed
+nine tables including `project_snapshots` and `log_summaries`, both
+dropped by migration 014 on 2026-08-24, and omitted six that exist — the
+live schema holds thirteen. The **tray** section named four of five
+dashboard tabs, missing `Files`. Neither is reachable by the grep the
+entry ran, because neither names a departed *component*: one names a
+departed row and the other omits a present one. Four more went with them
+— the `projects` router row described seven route families where
+`GET /openapi.json` serves **one**, `/api/summary` was credited with
+project scores its own producer's docstring says it does not carry, the
+briefing payload still listed a project half, and the test count read
+*~360* against **3900**. A snag's *scope* is a claim, and re-measuring it
+is what `verify-ops-claims-live` is for.
+
+**The guard is a test rather than a twenty-first snag check, and the
+polarity is the whole argument.** The entry refused a check and its
+reasoning stands verbatim: `check-snag-claims.sh`'s `ok` means *the defect
+is still real*, so a check keyed on "does the file still name a departed
+component" would report `still holds` over a landed correction for ever —
+`check_review_schedule_unread`'s defect. A pytest assertion has the
+opposite sign, so the finding retires and the detector does not
+(`FROZEN_TABLES`' rule). `tests/test_architecture_doc.py` sweeps every
+package, every `BaseAgent` subclass and every mapped table **both ways**,
+and pins that the diagram's agent set equals the table's — the founding
+defect was a disagreement between exactly those two, the diagram drawing
+five and the table listing four, and the row the table dropped was *not*
+the one that had left, so a reader reconciling them got two wrong answers
+rather than one. The sweeps read the fenced blocks and never the prose,
+because a moved thing leaves a pointer: the narrative still names
+`ProjectOrganiserAgent` deliberately and one test asserts exactly that.
+Each sweep carries an anti-vacuity premise (`SNAG-TEST-006`). Eight
+mutations driven, each red on the intended guard, four of them modelling
+an **omission** rather than a phantom. Suite **3900 → 3915**; `ruff` and
+`mypy sysadmin` clean.
+
+**The diagram is generated and verified rather than hand-aligned.** It is
+built from box columns and widths, and the build asserts the bottom
+edge's tee-offs sit above the arrows and the arrows inside their boxes,
+so alignment is a property rather than something that survives until the
+next hand-edit — the argument `max_priority_for` makes about a constant,
+applied to a picture. It also gained the two peers it never drew,
+estate-manager on `:8400` and llama-server on `:8081`, and lost
+PersonalAssistant, which it drew as a live edge while the prose two
+sections down said the integration makes no HTTP call. A dormant
+integration is prose, not an edge.
+
+**Two documents were corrected because this fix made them false.**
+`docs/README.md`'s caveat section existed to warn a stranger off a stale
+diagram; left standing it would advertise a staleness that no longer
+exists, which misleads in the opposite direction. And `SNAG-GPU-001`'s
+own `**Status:**` line was still asking for *"a declaration leaf in
+`services.yaml`, the extra `systemctl show` property, the term in
+`_check_http_and_unit`"* — ADR-0007's design-half wording, left standing
+by the sitting that discharged it. Measured 2026-09-10, all three exist:
+`holds_vram: true` is a parsed leaf on two `services.yaml` entries,
+`START_INSTANT_PROP` is the property, and `_check_http_and_unit`'s third
+term reads it. A status line publishing owed work that is already done is
+`SNAG-ESTATE-008`'s founding case inside the snag register rather than in
+`STATUS.md`, and it surfaced only because this sitting refused to publish
+a next action it had not measured.
+
+**A close note was spent on the wrong message, and the record cannot be
+unwound.** The `SessionStart` inbox notice fires once and is written at
+session start; `b93fb93c` — estate-manager's **ADR-0151 ruling**, with
+two questions put back to this repository — arrived at **07:37**, after
+it. Resolving the notice's 8-character id by taking `messages[0]` from
+the open list rather than by matching the prefix, this sitting closed
+that ruling at **07:48** carrying a note about `1b37406a`'s subject. The
+close succeeded, so nothing errored: a wrong-but-valid UUID is
+indistinguishable from the right one at the call site. There is no
+reopen and the note is one-shot, so `1b37406a` was closed separately with
+the note that belonged to it and the correction is refiled as
+**`8f649e9e`**, `in_reply_to` the ruling. ADR-0151 itself is accepted —
+its measurement of `services.yaml`'s compelled `reason` fields
+reproduces here exactly (4 of 32, 187–204 characters, 2 belonging to
+other repositories) and re-measuring it found **a third category their
+sentence does not name**: `searxng-upstream` carries a 204-character
+compelled `reason` and has **no `project` at all**, so a disclosure
+obligation attaching to *"the writing repository"* has no writer to
+attach to for that entry. The two things ADR-0151 puts back are recorded
+for ranking rather than answered, because both are questions about who
+may write compelled prose about a third party — the shape its own §6
+routes to the owner.
+
+
+**The alerts claim was re-pinned 5 → 4**, the fall its own note predicted
+— `Unusual RAM usage`, an anomaly row that `_check_anomalies` resolves by
+id. All twelve ops claims read `ok`; the snag register reads **34** open
+with both parsers agreeing. No restart: nothing the daemon imports
+changed.
+
+## What is deliberately not done
+
+**The guard was not extended to `README.md` in the same sitting**, and
+that is the next action rather than an oversight: the two documents write
+an agent row in different dialects, and their intervals are two spellings
+of one config leaf, so the honest version derives from `config.yaml`
+rather than comparing two documents to each other — a design question,
+not a paste. Filed as `SNAG-DOCS-013` with the population measured and
+recorded as *correct today*, so the next sitting is not misled by an
+empty defect set, which is the reading that mis-ranked `SNAG-LOG-010`'s
+parent.
+
+**No live-schema assertion was added.** The table sweep pins the document
+against `metadata.py`'s mapped set rather than against `psql`, so it runs
+without a database and stays honest in CI. What that cannot catch is a
+table present in the schema and mapped nowhere — which is the drift
+guard's job and already has an owner, and a second owner closes a row
+while the first still holds it true.
+
+**`SNAG-DOCS-012` was left open.** The *38,774 lines of roadmap
+narrative* figure is wrong in four documents today, which outranks
+`SNAG-DOCS-013`'s missing mechanism; it was not folded in here because
+the two share nothing but a prefix, and bundling a live wrong figure with
+a guard extension would make one commit answer two questions.
+
+## Session 207 — the entry documents addressed the reader who left
+
+### The action Session 207 filed
 
 Correct `docs/ARCHITECTURE.md`, which is `SNAG-DOCS-011` and the last entry document still addressing a reader who already knows this box: its system diagram and its prose both name `ProjectOrganiserAgent` and the `projects/` and `registry/` packages, all three of which left for estate-manager and estate-lib on 2026-08-13 under ADR-0005, so a visitor arriving from the now-public repository concludes this service scans repositories and computes project health scores, which is precisely the wrong half of the judging swap that ADR records — measured 2026-09-10 the defect is 5 lines of 277 and the file is accurate about the request path, the database, the contract seam and the tray, so what is owed is a correction of the agent list, the package tree and the diagram rather than a rewrite, and the mitigation now standing in `docs/README.md` reaches only the reader who arrives through that index rather than by search or direct link.
 

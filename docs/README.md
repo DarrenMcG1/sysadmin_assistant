@@ -20,7 +20,7 @@ and read the bullets beneath it.
 | know what is broken and what is known-but-unfixed | [`roadmap/snag_list.md`](roadmap/snag_list.md) |
 | know what is being worked on now | [`roadmap/STATUS.md`](roadmap/STATUS.md) (first 50 lines) |
 | follow the session-by-session record | [`roadmap/tasks.md`](roadmap/tasks.md) |
-| see the shape of the system | [`ARCHITECTURE.md`](ARCHITECTURE.md) — **but see the caveat below** |
+| see the shape of the system | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | set up bearer-token auth | [`guides/api_auth.md`](guides/api_auth.md) |
 | work in this repository with Claude Code | [`../CLAUDE.md`](../CLAUDE.md) |
 
@@ -81,14 +81,20 @@ pointer rather than a copy, which is why the stubs remain.
   it predates ADR-0005, and the capability it audits has since moved out.
 - `refactors/`, `templates/` — empty placeholders.
 
-## A caveat on `ARCHITECTURE.md`
+## What `ARCHITECTURE.md` claims, and what it does not
 
-[`ARCHITECTURE.md`](ARCHITECTURE.md) was last rewritten on 2026-07-24 and is
-**stale in ways that will mislead you**: its diagram and agent list still show
-`ProjectOrganiserAgent` and the `projects/` and `registry/` packages, all of
-which left this repository on 2026-08-13 under
-[ADR-0005](adr/0005-project-state-leaves.md). It is accurate about the request
-path, the database and the tray. Tracked as `SNAG-DOCS-011`; until that is
-fixed, the accurate short account of what runs is in the
-[README](../README.md#what-it-does), and the accurate long one is
-[`../CLAUDE.md`](../CLAUDE.md).
+[`ARCHITECTURE.md`](ARCHITECTURE.md) carried a stale diagram for four weeks —
+it showed `ProjectOrganiserAgent` and the `projects/` and `registry/` packages,
+all of which left on 2026-08-13 under
+[ADR-0005](adr/0005-project-state-leaves.md) — and this section warned you about
+it. That was `SNAG-DOCS-011`, **closed 2026-09-10**: its packages, agents,
+routes, tables and tray tabs were re-measured against the running box and
+corrected, and the file states the date it was measured.
+
+The caveat that stands in its place is narrower, and it is about *kind* rather
+than *currency*. The file describes the system's **shape** — the request path,
+the schedule, the seams — and is deliberately thin on the reasoning: which rules
+each module encodes, and which of them were the opposite of the obvious
+implementation, is in [`../CLAUDE.md`](../CLAUDE.md), which is long and is the
+long account on purpose. For the short one, see the
+[README](../README.md#what-it-does).
