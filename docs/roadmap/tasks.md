@@ -119,6 +119,19 @@ precisely the one a two-document comparison cannot see.
       `410 Gone` tombstones, twelve genuinely absent. Filed rather than
       fixed, because deciding which of the twelve the registry is
       *meant* to carry is a judgement and not a sweep.
+- [ ] **`SNAG-DOCS-016` (P4): our commit messages cite register ids that
+      resolve on no route for anyone.** Four estate messages closed, all
+      four asking nothing; `5ebe902b` (estate-manager's ADR-0155)
+      hand-read this tree and found **35 of 74** citations carrying the
+      id and not the substance, which bites here because this is the
+      only public tree on the box. Re-measured before accepting: **47
+      citing commits, 87 occurrences**, matching their 47 and their 87
+      exactly. Their inversion is the useful half — the short form
+      returns **422** on the single-message route for *every* reader, so
+      publication exposed a citation that was only ever checkable by
+      listing rather than creating an unresolvable one. **Decided
+      against deciding**: two siblings have each bound their own writes
+      and neither binds ours, so adopting the gloss here is an ADR.
 - [ ] **`SNAG-DOCS-015` (P4): a flapping alert title cannot be pinned by
       a count.** `check-ops-claims.sh` told this sitting the block was
       stale twice, in **opposite directions**, ninety minutes apart:

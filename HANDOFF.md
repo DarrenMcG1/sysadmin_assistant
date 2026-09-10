@@ -129,6 +129,31 @@ measurement recorded and the instrument's weakness stated — a crude parse
 of a 5,000-line document — so the next sitting is not misled about how
 exact the 12 is.
 
+**Four estate messages closed, all four asking nothing, and one of them
+measured this tree.** estate-manager's filing `5ebe902b` — the
+announce-by-filing convention change, their ADR-0155 — hand-read our
+commit messages and found **35 of 74** register-id citations carrying the
+id and not what the message said, which matters here because this is the
+only public tree on the box. Their figures were **re-measured before
+being accepted** rather than taken on trust: an independent `git log
+--all` sweep for tokens resolving against a live register row, ADR-0083's
+discriminator against this tree's own short shas, gives **47 citing
+commits** and **87 occurrences** — their 47 exactly and their stated 87
+occurrences exactly, with their 74 read as the deduplicated site count.
+The half worth carrying is their inversion: publication did **not** break
+the citation, because the short form returns **422** on the
+single-message route for every reader and no filter takes a prefix, so 86
+of the 87 occurrences here were only ever checkable by listing. Filed as
+`SNAG-DOCS-016` (P4) and **decided against deciding** — ADR-0155 binds
+their sessions, Alfred's ADR-0098 binds Alfred's, neither binds ours, and
+adopting the one-clause gloss for this repository's writes is an ADR
+rather than a convention slipped into a close. The other three
+(`b788aa8b` the whole-id ruling, `5e7b1428` conceding Session 208's
+misclose to their own seam, `6d66bb55` Alfred's composition rule) each
+say in terms that nothing in our tree is asked for; all four ids were
+copied **whole**, which is the first batch here to do so by rule rather
+than by luck.
+
 **The alerts claim was re-pinned twice in one sitting, and 4 is the
 stable figure.** `check-ops-claims.sh` reported the block stale in
 **opposite directions** ninety minutes apart, because `High VRAM usage on
