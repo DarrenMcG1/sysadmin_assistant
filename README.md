@@ -17,7 +17,7 @@ carry out) tidy-up actions.
 
 It is built for exactly one box and does not try to be Prometheus, so the code
 is unlikely to be useful to you directly. **The written record might be.** The
-roadmap alone runs to about 24,500 lines — of roughly 39,800 lines of Markdown
+roadmap alone runs to about 25,500 lines — of roughly 40,700 lines of Markdown
 in the repository altogether, measured 2026-09-10 — and it exists because most
 repositories keep their reasoning in someone's head and ship only the result.
 This one keeps the reasoning: what each change was measured against, which
@@ -94,12 +94,13 @@ them — use `uv sync --all-extras`.
 ### API
 
 51 application routes across eight routers (55 including the four FastAPI
-generates for its own documentation):
+generates for its own documentation), counted per method — so a path serving
+both `GET` and `POST` is two:
 
 | Prefix | Routes | What is there |
 |--------|--------|---------------|
 | `/health` | 1 | liveness, unauthenticated |
-| `/api/sysadmin/*` | 17 | services, resources, alerts, DND, SSE events, self-monitor, health review |
+| `/api/sysadmin/*` | 18 | services, resources, alerts, DND, SSE events, self-monitor, health review |
 | `/api/files/*` | 15 | audit results, trends, recommendations, clean/organise actions |
 | `/api/logs/*` | 10 | recent entries, stats, trends, ranked advice |
 | `/api/services/*` | 3 | reliability scores and ranked advice (GET-only, enforced by a test) |
@@ -153,7 +154,7 @@ answers the same question before you commit.
 
 ```bash
 uv sync --all-extras     # dev and tray extras; a bare `uv sync` prunes them
-uv run pytest            # backend + tray suites — 3,900 tests
+uv run pytest            # backend + tray suites — ~3,960 tests
 uv run ruff check .      # lint (CI runs this)
 uv run mypy sysadmin     # backend types only
 ./scripts/lint_check.sh  # combined pre-commit gate
@@ -215,7 +216,7 @@ sysadmin/            backend package
   estate/            reads and judges the estate manager's surfaces
   briefing/          morning briefing envelope
 sysadmin_tray/       PyQt6 tray icon + dashboard
-alembic/             19 migrations (version_table_schema="sysadmin")
+alembic/             18 migrations (version_table_schema="sysadmin")
 tests/               pytest suites, incl. tests/test_tray/
 scripts/             install, run, lint, systemd, session pre/postflight, checks
 systemd/             unit and desktop files

@@ -49,7 +49,8 @@ options a previous session had written down turned out not to exist.
 
 ## The roadmap — `roadmap/`
 
-About 24,500 lines, and the reason the repository is worth reading.
+About 25,500 lines, measured 2026-09-10, and the reason the repository is
+worth reading.
 
 - **[`snag_list.md`](roadmap/snag_list.md)** — open and fixed defects. Entries
   are corrected in place when the box refutes them, so an entry often records
@@ -70,7 +71,7 @@ monitorable-project contract (which holds the shared port registry), and two
 briefing integration specs moved there on 2026-08-11. A moved document leaves a
 pointer rather than a copy, which is why the stubs remain.
 
-## Other directories
+## Other directories and files
 
 - **[`insights/`](insights/)** — three retrospectives written at points where a
   batch of sessions had a common lesson.
@@ -79,6 +80,11 @@ pointer rather than a copy, which is why the stubs remain.
 - **[`project-capability-audit.md`](project-capability-audit.md)** — a 2026-08-07
   audit of the project-management capability. Largely of historical interest:
   it predates ADR-0005, and the capability it audits has since moved out.
+- **[`projects-registry-legacy.yaml`](projects-registry-legacy.yaml)** — the
+  retired `projects.yaml`. Project state moved into each repository's
+  `.project.yaml` under [ADR-0001](adr/0001-project-registry.md); this copy is
+  kept only until the reasoning in its comments has moved into `decisions:`
+  blocks, and nothing reads it.
 - `refactors/`, `templates/` — empty placeholders.
 
 ## What `ARCHITECTURE.md` claims, and what it does not

@@ -1,6 +1,168 @@
-# Handoff — 2026-09-10 (Session 208)
+# Handoff — 2026-09-10 (Session 209)
 
 ## Next action
+
+Extend the membership sweep to `CLAUDE.md`, which is `SNAG-DOCS-014` and the residue this sitting left by closing `SNAG-DOCS-013` at the three documents that entry named while a fourth makes the same class of claim and offers a test as its own guarantee: the Contract Registry's closing paragraph states that membership *is a property a test computes*, and the test it means — `tests/test_contract_reachability.py` — walks field annotations and base classes from every root, which is a property of the **models** and says nothing whatever about the routes, so a route added with no registry row is invisible to the very mechanism the document names; measured 2026-09-10 the registry carries **38** rows against **50** live application paths, leaving 14 served paths unlisted, of which two are the deliberate `410 Gone` tombstones for `/api/logs/summary` and `/summary/history` that are `include_in_schema=False` and carry no shape by design and twelve are genuinely absent, including `GET /api/sysadmin/ports`, `POST /api/files/scan`, `GET /api/sysadmin/briefing/preview`, `GET /api/services/by-project` and `GET /api/logs/errors`, every one of them discussed at length in that document's prose and none of them in its table; the obstacle is measured rather than guessed and it is that this is **not** the previous sweep with a fourth file added — a count or a list is settled by a set comparison, whereas a registry row states which pydantic model a response is pinned to, and whether a route is *meant* to carry one is a judgement, since an SSE stream serialises per `data:` line rather than as a body, a `410` tombstone answers no shape at all, and `POST /api/files/scan` returns a manifest the actions contract already describes — so what is owed first is a decision about which of the twelve the registry is meant to hold and only then a sweep, and the honest shape is probably a guard admitting a declared exemption list with a reason per entry rather than one demanding a row for every route.
+
+## What this sitting did
+
+**Extended the membership guard to all three documents that make the
+claim, and the entry was wrong that only a mechanism was owed.**
+`SNAG-DOCS-013` priced the work as *"a mechanism rather than a repair"*
+because `README.md`'s five agent rows were correct. The guard's first run
+found **three** live defects. A correctness claim scoped to the rows
+somebody checked is the entry's own lesson — instance against class —
+arriving one level down, and it is the third sitting in a row to find
+that shape one level up.
+
+**`README.md` claimed 19 migrations against 18.** Alembic's own
+`ScriptDirectory` walks the graph — `schema_guard`'s rule, never a glob
+over `alembic/versions/*.py`, which can count a file the graph does not
+reach.
+
+**The route table stated one fact in two units and neither half looked
+wrong.** The headline counted route *objects* and the rows counted
+distinct *paths*, so they differed by exactly one: `/api/sysadmin/dnd` is
+one path registered by a `@router.get` and a `@router.post`. The rows
+summed to **50** beneath a headline of **51**, each plausible alone and
+irreconcilable together — the shape this repository refuses in code
+(`SNAG-DB-003`, `max_priority_for` against `PRIORITY_MAP`) arriving in a
+document. The headline was the correct half, `STATUS.md`'s own `routes`
+claim reading 51 and checking `ok`, so the row moved to 18 and the unit
+is now stated in the sentence above the table.
+`test_the_rows_sum_to_the_stated_total` is what found it, so the
+internal-consistency direction is guarded beside the against-the-box one.
+
+**`docs/README.md` did not account for a file sitting beside it.**
+`projects-registry-legacy.yaml` was in the directory the index exists to
+explain, unmentioned. An index is the one document whose whole content is
+a membership claim, so an omission there costs most: a reader concludes a
+file they were not shown does not exist.
+
+**The intervals derive from the job plan, not from a config leaf, and
+the config-leaf mutation is what proves the design.** The entry asked
+that each document derive its interval from *"its `config.yaml` leaf"*;
+`plan_jobs` is the one statement of what the scheduler is asked to do —
+the lifespan and the reload both call it — and one of its intervals is a
+**derivation** rather than a leaf (`desktop_reminder_sweep` is
+`max(60, tray_grace_seconds)`), so a leaf read would be a second
+implementation of the plan for the sake of reading one number a simpler
+way. `JOB_TARGETS` supplies job → agent, so no hand-written map can
+drift from the wiring. Driven: moving `health_check_interval_seconds`
+300 → 600 turns **all three** stated intervals red at once, while
+`test_the_diagram_and_the_table_state_the_same_schedule` stays **green**
+— both documents being wrong together is precisely what a
+document-against-document check cannot see, so the entry's refusal of
+that design was right for a reason it did not state.
+
+**The dialect obstacle is real for extraction and false for
+comparison**, which halves the work the entry priced. Two documents
+write an agent row two ways and each needs its own regex; the entry
+concluded from that that the *sweep* needs a dialect per document, and
+the **comparison** does not — `interval_seconds` parses `every 300 s`,
+`5 min` and `1 h` into one unit, so each document keeps whatever unit
+reads best. Driven as a **negative control**: restating `5 min` as
+`300 s` stays green, where a per-dialect renderer would have gone red
+for no defect.
+
+**Two of the sitting's own guards were wrong before they were right,
+both times about the document rather than the box.** Reading only
+Markdown link targets called five of the seven subtrees under `docs/`
+unnamed — the index accounts for `roadmap/` with a whole section and
+links to the files *inside* it, and for `guides/` with a heading naming
+it in backticks — so the guard would have demanded the document be
+rewritten to satisfy the guard's reading of it, which is the wrong
+direction of authority. And counting `.gitkeep` as content made *"empty
+placeholders"* unsatisfiable in both directions at once, since git
+cannot track an empty directory: the placeholder exists **because** of
+that file.
+
+**The falsification pass found a false-positive surface nothing was
+aimed at.** The harness writes `*.bak` beside each file it breaks and
+the file sweep walked the **working tree**, so four mutations about
+`ARCHITECTURE.md`'s schedule went red on `docs/README.md`'s file sweep.
+The harness contaminating its own measurement is the visible half; the
+durable half is that an editor's `.orig`, a merge `.rej` or a swap file
+would each turn a documentation guard red for no documentation fault.
+The population is `git ls-files` now, and the cost is stated rather than
+implied and is the correct side of the trade: a document created and not
+yet staged is outside the sweep, so a session adding one is told at
+`git add` rather than at `pytest`, and an unstaged file is not yet
+something a reader can arrive at.
+
+**The box side is stated once**, in `tests/document_claims.py` — three
+documents comparing against three copies of `live_agents()` is the
+second-statement defect this repository refuses everywhere else, so
+`test_architecture_doc.py`'s three local population functions moved out
+rather than being duplicated. `tests/review_prompts.py` is the precedent
+for a shared test-side statement of one rule.
+
+**Nineteen mutations driven, eighteen red on the intended guard and one
+green as designed.** Suite **3915 → 3964**, and the arithmetic is
+recorded because it reconciles: +5 in `test_architecture_doc.py`, +24 in
+`test_readme_claims.py`, +20 in `test_docs_index.py`, exactly the 49, so
+no file was clobbered by a write. `ruff` and `mypy sysadmin` clean. All
+eleven ops claims read `ok`, the deploy check included — no restart is
+owed, because nothing the daemon imports changed.
+
+## What is deliberately not done
+
+**The test count and the two Markdown line counts are not pinned, and
+that is a decision rather than an omission.** They move on **every
+commit**, this one included, so an exact pin makes a session's own work
+read as a documentation defect — and a test that counted the suite by
+re-collecting it would be a probe multiplying the suite's own cost, which
+this repository has already paid once. They are hedged and dated in the
+document instead (`SNAG-DOCS-012`'s remedy: state the population), and
+what is guarded is that each sentence keeps its hedge, keeps its date and
+has not drifted past `FIGURE_TOLERANCE` — **invented and says so**.
+
+**`CLAUDE.md` was not swept**, and it is the next action rather than an
+oversight. It is the fourth document making this class of claim, its own
+Contract Registry offers a test as the guarantee of its membership, and
+that test walks models rather than routes. What blocks a same-sitting
+extension is not effort: deciding which of the twelve unlisted routes the
+registry is *meant* to carry is a judgement, and a guard demanding a row
+for every route would refuse the two `410 Gone` tombstones that
+deliberately carry no shape. Filed as `SNAG-DOCS-014` with the
+measurement recorded and the instrument's weakness stated — a crude parse
+of a 5,000-line document — so the next sitting is not misled about how
+exact the 12 is.
+
+**The alerts claim was re-pinned twice in one sitting, and 4 is the
+stable figure.** `check-ops-claims.sh` reported the block stale in
+**opposite directions** ninety minutes apart, because `High VRAM usage on
+AMD Radeon RX 7900 XTX` was open at the first run and resolved by the
+second. Rather than trust either observation the table was read: **24
+episodes** in seven days, mean open **1029 s**, the title unresolved for
+**4.8 %** of the window — so pinning it would be wrong 95 % of the time.
+This is **not** `SNAG-ESTATE-008`'s founding case, which is a one-way
+fall `check_alerts` catches exactly; here the checker is correct in both
+directions and the document is the thing with no satisfiable value.
+Filed as `SNAG-DOCS-015` with both candidate closures refused on the
+record — a flap-rate exclusion makes `STATUS.md` a second reader of a
+policy the tray owns, and a pinned range removes the check's whole point,
+which is noticing a fall. Two sittings have now spent minutes on this
+title and the register makes the two look identical, so the entry says
+which was which.
+
+**`SNAG-DOCS-012` is still open.** The *38,774 lines of roadmap
+narrative* figure remains wrong in four internal documents; the two
+public surfaces are correct and were re-measured again this sitting, and
+`docs/README.md`'s copy gained a measurement date and a drift guard in
+passing. The four internal restatements were not folded in here for the
+reason Session 208 gave: bundling a live wrong figure with a guard
+extension makes one commit answer two questions.
+
+**No live-schema assertion was added**, and the reason Session 208 gave
+still stands: the table sweep pins the documents against `metadata.py`'s
+mapped set rather than against `psql`, so it runs without a database. A
+table present in the schema and mapped nowhere is the drift guard's job
+and already has an owner.
+
+## Session 208 — a line count cannot measure an omission
+
+### The action Session 208 filed
 
 Extend `tests/test_architecture_doc.py` to `README.md` and `docs/README.md`, which is `SNAG-DOCS-013` and the residue this sitting left by scoping its guard to the file the entry named rather than to the claim the entry was about: all three documents state which agents run, which routes are served and how the repository is laid out, only `docs/ARCHITECTURE.md` is now swept against the box, and `README.md` is the worst-exposed of the three because GitHub renders it on arrival with no click and no search — so the guarded file is the less exposed one, which inverts the priority the fix was scoped by; the population is measured-correct today, Session 207 having corrected `README.md`'s four stale claims by hand on 2026-09-09 with all five agent rows still reading true on 2026-09-10, so what is owed is a mechanism rather than a repair, and the two obstacles are measured rather than guessed — the two documents write an agent row in different dialects so the sweep needs one per document, and their intervals are two statements of one fact that are free to disagree the day `health_check_interval_seconds` moves, so the stronger guard derives each from its `config.yaml` leaf rather than comparing the two documents to each other.
 

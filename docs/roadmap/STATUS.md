@@ -3,6 +3,65 @@
 **Last Updated**: 2026-09-10
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The entry said there was nothing to repair, and the guard found
+> three defects on its first run** (2026-09-10, Session 209, closing
+> `SNAG-DOCS-013`). `SNAG-DOCS-011`'s fix swept `docs/ARCHITECTURE.md`
+> and left `README.md` and `docs/README.md` making the same class of
+> claim unguarded — the worse exposure of the two being the one
+> `github.com` renders on arrival. The entry priced the work as *a
+> mechanism rather than a repair* because the five agent rows were
+> correct; the documents were not. `README.md` claimed **19 migrations**
+> against **18** in Alembic's own revision graph, and `docs/README.md`
+> did not account for `projects-registry-legacy.yaml`, a file sitting
+> beside it in the directory it exists to index. A correctness claim
+> scoped to the rows somebody checked is the entry's own lesson —
+> instance against class — one level down.
+> **The route table stated one fact in two units and neither half looked
+> wrong.** The headline counted route *objects* and the rows counted
+> distinct *paths*, so they differed by exactly one: `/api/sysadmin/dnd`
+> is one path registered by a `@router.get` and a `@router.post`. The
+> rows summed to **50** beneath a headline of **51** and no reader could
+> reconcile them. The headline was the correct half — this file's own
+> `routes` claim reads 51 and checks `ok` — so the row moved to 18 and
+> the unit is now stated in the sentence above the table.
+> **The intervals derive from the job plan, not from a config leaf, and
+> the config-leaf mutation is what proves the design.** The entry asked
+> that each document derive its interval from *its `config.yaml` leaf*;
+> `plan_jobs` is the one statement of what the scheduler is asked to do
+> and one of its intervals is a **derivation** rather than a leaf, so a
+> leaf read would be a second implementation of the plan. Moving
+> `health_check_interval_seconds` 300 → 600 turns **all three** stated
+> intervals red at once, while the diagram-against-table test stays
+> **green** — both documents being wrong together is precisely what a
+> document-against-document check cannot see.
+> **Two of the sitting's own guards were wrong before they were right,
+> both times about the document rather than the box.** Reading only link
+> targets called five of seven subtrees unnamed, which would have
+> demanded the index be rewritten to satisfy the guard's reading of it;
+> and counting `.gitkeep` as content made *empty placeholders*
+> unsatisfiable in both directions, since git cannot hold an empty
+> directory without one.
+> **The falsification pass found a false-positive surface nothing was
+> aimed at.** The harness writes `*.bak` beside each file it breaks and
+> the file sweep walked the working tree, so four mutations about
+> `ARCHITECTURE.md`'s schedule went red on `docs/README.md`'s sweep. An
+> editor's `.orig` or a merge `.rej` would do the same for no
+> documentation fault, so the population is `git ls-files` now — the
+> stated cost being that an unstaged document is outside the sweep,
+> which is the correct side.
+> Nineteen mutations driven, eighteen red on the intended guard and one
+> green as designed. The box side is stated once in
+> `tests/document_claims.py`. Suite **3915 → 3964** (+5 / +24 / +20,
+> which reconciles). **The alerts claim was re-pinned twice in one
+> sitting and 4 is the stable figure**: `High VRAM usage` flaps — 24
+> episodes in seven days, mean 1029 s open, unresolved for **4.8 %** of
+> the window — so a count claim naming it is wrong 95 % of the time,
+> which is a shape `check_alerts` does not have a reading for. Filed
+> `SNAG-DOCS-015` (P4). Filed `SNAG-DOCS-014` (P4): `CLAUDE.md` is the
+> *fourth* document making this claim, and the test its own registry
+> cites walks models rather than routes — **12** served paths sit
+> outside its table. No restart: nothing the daemon imports changed.
+
 > **The entry counted lines naming a departed component, and a line
 > count cannot measure an omission** (2026-09-10, Session 208, closing
 > `SNAG-DOCS-011`). `docs/ARCHITECTURE.md` showed `ProjectOrganiserAgent`
@@ -4530,6 +4589,16 @@
 > `Project Athenaeum next action idle` and
 > `Project alfred-glance next action idle`, **4**
 > named here <!--check:open_titles-->.
+> *(**The fifth is a flapping title and no number pins it**
+> (re-measured 2026-09-10, Session 209). `High VRAM usage on AMD Radeon
+> RX 7900 XTX` was open when this sitting ran `check-ops-claims.sh` at
+> 15:4x and resolved by 15:55; measured over seven days it has **24
+> episodes**, mean open **1029 s**, and the title is unresolved for
+> **4.8 %** of the window. So it was re-pinned to 5 and back to 4 inside
+> one sitting, and 4 is the honest figure: pinning it would be wrong
+> 95 % of the time. This is not `SNAG-ESTATE-008`'s founding case, which
+> is a row that resolves once and stays resolved — filed as
+> `SNAG-DOCS-015`.)*
 > *(**The fifth resolved, and this note predicted that it would**
 > (re-pinned 2026-09-10, Session 208). `Unusual RAM usage` was raised at
 > **21:25:49 on 2026-09-09**, after Session 206's block was written and
@@ -4976,7 +5045,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **3915 collected** | <!--check:tests-->**3915 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
+| Testing | 🟢 **3964 collected** | <!--check:tests-->**3964 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
 membership guard that outlives `SNAG-DOCS-011` — every package, agent and mapped
 table swept **both ways** against `docs/ARCHITECTURE.md`, because the entry
 counted lines naming a departed component and a line count cannot measure an

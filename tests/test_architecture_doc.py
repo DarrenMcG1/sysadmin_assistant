@@ -25,69 +25,40 @@ never named — ``estate/`` and ``EstateJudgeAgent``, precisely the half ADR-000
 below runs in both directions and each carries an anti-vacuity premise: an empty
 population would make the loop green while asserting nothing (``SNAG-TEST-006``,
 :mod:`sysadmin.vacuous_guards`).
+
+**Extended by ``SNAG-DOCS-013``, which this file's own scoping opened.**  The
+guard was written for the file the entry named and the claim it was about is
+made by three documents; ``tests/test_readme_claims.py`` and
+``tests/test_docs_index.py`` are the other two, and the box side all three
+compare against is stated once in :mod:`tests.document_claims`.  What this
+file gained is :class:`TestTheIntervalsComeFromTheJobPlan`: *every 300 s*
+here and *5 min* in ``README.md`` were **two statements of one fact** with
+neither derived from anything, free to disagree the day
+``health_check_interval_seconds`` moved.  Both are now pinned to
+``plan_jobs`` — the function the lifespan and the reload both call — rather
+than to each other, which is ``max_priority_for`` against ``PRIORITY_MAP``'s
+rule applied to a document.
 """
 
-import ast
 import re
 
 import pytest
 
 from sysadmin.core.config import REPO_ROOT
-from sysadmin.metadata import Base
+from tests.document_claims import (
+    interval_seconds,
+    live_agents,
+    live_packages,
+    live_tables,
+    planned_agent_intervals,
+)
 
 DOC_PATH = REPO_ROOT / "docs" / "ARCHITECTURE.md"
-PACKAGE_ROOT = REPO_ROOT / "sysadmin"
-
-#: Directories under ``sysadmin/`` that are not domains: the bytecode cache, and
-#: ``core/models``/``*/models`` which the tree names by their parent instead.
-NOT_A_DOMAIN = {"__pycache__", "models", "routers"}
 
 
 @pytest.fixture(scope="module")
 def document() -> str:
     return DOC_PATH.read_text()
-
-
-# --------------------------------------------------------------------------
-# What the box has
-
-
-def live_packages() -> set[str]:
-    """Every package directory directly under ``sysadmin/``."""
-    return {
-        child.name
-        for child in PACKAGE_ROOT.iterdir()
-        if child.is_dir() and child.name not in NOT_A_DOMAIN and (child / "__init__.py").exists()
-    }
-
-
-def live_agents() -> set[str]:
-    """Every ``BaseAgent`` subclass, by an AST walk rather than an import.
-
-    A walk sees a class the daemon has not imported yet; constructing the app
-    to enumerate them would drop any agent behind a lazy import — the reading
-    ``daemon_modules`` settled for a different population.
-    """
-    found: set[str] = set()
-    for path in PACKAGE_ROOT.rglob("*.py"):
-        tree = ast.parse(path.read_text(), filename=str(path))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef) and any(
-                isinstance(base, ast.Name) and base.id == "BaseAgent" for base in node.bases
-            ):
-                found.add(node.name)
-    return found
-
-
-def live_tables() -> set[str]:
-    """The mapped table set, from the module that exists to hold all of it.
-
-    Keys are schema-qualified (``sysadmin.alerts``) because every model carries
-    ``__table_args__['schema']``; the document names the bare table, which is
-    what a ``psql`` reader types, so the prefix is dropped here rather than
-    added there.
-    """
-    return {name.rpartition(".")[2] for name in Base.metadata.tables}
 
 
 # --------------------------------------------------------------------------
@@ -155,6 +126,30 @@ def diagram_agents(document: str) -> set[str]:
     """Agent class names drawn in the diagram's ``Agents`` column."""
     body = diagram(document).split("Agents (")[1]
     return set(re.findall(r"[├└] (\w+Agent)\b", body))  # names are unambiguous
+
+
+def table_intervals(document: str) -> dict[str, str]:
+    """Agent name to stated schedule, from the agent table's second column.
+
+    This document's dialect: a bare class name and ``every 300 s``, against
+    ``README.md``'s backticked name and bare ``5 min``.  The extraction is
+    per document; the comparison is not.
+    """
+    return {
+        name: schedule.strip()
+        for name, schedule in re.findall(
+            r"^\| (\w+Agent) \| ([^|]+) \|", document, re.M
+        )
+    }
+
+
+def diagram_intervals(document: str) -> dict[str, str]:
+    """Agent name to schedule as drawn in the diagram's ``Agents`` column."""
+    body = diagram(document).split("Agents (")[1]
+    return {
+        name: schedule
+        for name, schedule in re.findall(r"[\u251c\u2514] (\w+Agent)\s+(every \d+ \w+)", body)
+    }
 
 
 def named_tables(document: str) -> set[str]:
@@ -226,6 +221,67 @@ class TestTheAgentsAgree:
         got two wrong answers rather than one.
         """
         assert diagram_agents(document) == table_agents(document)
+
+
+class TestTheIntervalsComeFromTheJobPlan:
+    """The schedule is pinned to the scheduler's, never to the other document's.
+
+    ``SNAG-DOCS-013``.  ``every 300 s`` here and ``5 min`` in ``README.md``
+    are two statements of one fact and **neither was derived from anything**,
+    so the day ``health_check_interval_seconds`` moves they can disagree with
+    the box together and with each other separately.  Comparing the two
+    documents would have caught only the second.
+
+    :func:`planned_agent_intervals` reads ``plan_jobs``, which is the one
+    statement of what the scheduler is asked to do — the lifespan and the
+    reload both call it — so a leaf read of ``config.yaml`` was refused for
+    ``max_priority_for``'s reason: it would be a second implementation of a
+    derivation the plan already owns.
+
+    Three sets are compared rather than two, because the founding defect of
+    this file was the diagram and the table disagreeing.  An interval can
+    fork exactly as an agent list did.
+    """
+
+    def test_every_interval_in_the_document_parses(self, document: str) -> None:
+        """Anti-vacuity: the comparisons below are empty if the parse fails."""
+        assert len(table_intervals(document)) == 5, table_intervals(document)
+        assert len(diagram_intervals(document)) == 5, diagram_intervals(document)
+        for name, text in table_intervals(document).items():
+            assert interval_seconds(text) > 0, (name, text)
+
+    def test_the_table_states_the_planned_interval(self, document: str) -> None:
+        planned = planned_agent_intervals()
+        for name, text in table_intervals(document).items():
+            assert name in planned, f"{name} is in the table and not in the job plan"
+            assert interval_seconds(text) == planned[name], (
+                f"{name}: the table says {text!r} ({interval_seconds(text)} s), "
+                f"the plan says {planned[name]} s"
+            )
+
+    def test_the_diagram_states_the_planned_interval(self, document: str) -> None:
+        planned = planned_agent_intervals()
+        for name, text in diagram_intervals(document).items():
+            assert name in planned, f"{name} is in the diagram and not in the job plan"
+            assert interval_seconds(text) == planned[name], (
+                f"{name}: the diagram says {text!r} ({interval_seconds(text)} s), "
+                f"the plan says {planned[name]} s"
+            )
+
+    def test_the_diagram_and_the_table_state_the_same_schedule(
+        self, document: str
+    ) -> None:
+        """Both agree with the plan above, so this can only fail where one of
+        them has stopped being reachable by its own extraction — which is how
+        a wrong figure stayed green in ``TestJournalCommand`` and in
+        ``test_it_is_scoped_to_this_agents_unresolved_rows``."""
+        table = {n: interval_seconds(v) for n, v in table_intervals(document).items()}
+        drawn = {n: interval_seconds(v) for n, v in diagram_intervals(document).items()}
+        assert table == drawn
+
+    def test_the_plan_has_no_agent_the_document_omits(self, document: str) -> None:
+        missing = set(planned_agent_intervals()) - set(table_intervals(document))
+        assert not missing, f"scheduled, absent from the table: {sorted(missing)}"
 
 
 class TestTheTablesAgree:
