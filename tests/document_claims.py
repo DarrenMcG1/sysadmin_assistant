@@ -54,6 +54,7 @@ Four rules, three of them the opposite of the obvious implementation:
 from __future__ import annotations
 
 import ast
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -372,3 +373,75 @@ def unresolved_links(document: Path) -> list[str]:
         if not (document.parent / path).exists():
             missing.append(target)
     return missing
+
+
+# --------------------------------------------------------------------------
+# The route → contract binding
+
+
+#: HTTP methods Starlette adds to a route without anyone writing them.  They
+#: are dropped rather than compared, because no document states them and a
+#: registry row naming ``HEAD`` would be describing the framework.
+_IMPLICIT_METHODS = frozenset({"HEAD", "OPTIONS"})
+
+_PATH_PARAMETER = re.compile(r"\{[^}]+\}")
+
+
+def normalise_path(path: str) -> str:
+    """Replace every path parameter with ``{}``.
+
+    ``CLAUDE.md``'s registry writes ``{id}`` and ``{name}`` where the handlers
+    write ``{alert_id}`` and ``{service_name}``, and a set comparison over the
+    raw strings reports three phantom gaps beside three phantom stale rows.  A
+    parameter's *name* appears in no URL a client builds, so pinning the
+    spelling would make the guard demand the document restate handler-local
+    variable names — :func:`interval_seconds`' rule, one document over:
+    compare the quantity, never the spelling.
+
+    The collapse is only safe while it is injective over the live route set,
+    which is a property of the box rather than of this function, so a test
+    measures it rather than this docstring asserting it.
+    """
+    return _PATH_PARAMETER.sub("{}", path)
+
+
+def live_route_contracts() -> dict[tuple[str, str], str | None]:
+    """Every served ``(method, normalised path)`` → the contract pinning it.
+
+    The value is the name of the :mod:`sysadmin.core.contracts` class the
+    route declares as ``response_model=``, or ``None`` where it declares none
+    or declares something that is not a contract — ``GET
+    /api/services/by-project`` returns a bare ``dict``, which pins nothing.
+
+    **The class must come from ``contracts.py`` itself**, not merely be a
+    pydantic model: the registry is an index of that module, so a route
+    pinned to a model defined beside its router is unpinned *for this
+    purpose* and belongs in the document's exemption table with that as its
+    reason.  Empty population today and stated rather than left silent.
+
+    One entry per ``(method, path)`` rather than per path, because
+    ``/api/sysadmin/dnd`` is one path registered by a ``@router.get`` and a
+    ``@router.post`` — the distinction that produced ``README.md``'s
+    irreconcilable headline in ``SNAG-DOCS-013``.
+    """
+    import inspect
+
+    from sysadmin.core import contracts
+    from sysadmin.main import create_app
+
+    contract_names = {
+        name
+        for name, obj in vars(contracts).items()
+        if inspect.isclass(obj) and obj.__module__ == contracts.__name__
+    }
+
+    bound: dict[tuple[str, str], str | None] = {}
+    for route in create_app().routes:
+        if route.path in FASTAPI_OWN_PATHS:
+            continue
+        model = getattr(route, "response_model", None)
+        name = getattr(model, "__name__", None)
+        pinned = name if name in contract_names else None
+        for method in getattr(route, "methods", set()) - _IMPLICIT_METHODS:
+            bound[(method, normalise_path(route.path))] = pinned
+    return bound

@@ -8,6 +8,75 @@
 
 ---
 
+## Session 210: the judgement was a binding, and it was readable ✅ (2026-09-10)
+
+_The ask was to extend the membership sweep to `CLAUDE.md` —
+`SNAG-DOCS-014`, the residue Session 209 left. The entry priced the
+first half as a **decision**: twelve unlisted routes, and whether each
+is *meant* to carry a contract is a judgement no set comparison
+settles. It is not. Measuring the **binding** rather than reasoning
+about the payload settles all twelve at once, and splits them into two
+live defects and twelve legitimate absences — a different partition
+from the entry's._
+
+- [x] **Membership is now a rule, not a taste.** A route belongs in the
+      registry iff a `contracts.py` model is bound to it. The producer
+      half is `response_model=` naming a class defined in that module,
+      readable straight off `create_app()`; the consumer half is not
+      readable, so a `parse-side only` row asserts it and
+      `tests/test_contracts.py` guards it from the other end.
+      Measured: **30** of 51 live `(method, path)` pairs are pinned,
+      **28** had rows, **21** are unpinned and **9** of those are held
+      as parse- or serialise-side rows.
+- [x] **Two live defects, and they are the registry's own population.**
+      `GET /api/logs/review` and `POST /api/logs/review/generate` both
+      carry `response_model=LogReviewResponse` — a `contracts.py` class
+      — and had no row, while that document's prose discusses the log
+      review at length as one of its four Tier 3 reviews. Rows added.
+- [x] **The twelve uncontracted routes are declared in the document,
+      with a reason each.** `GET /api/summary`, `/api/sysadmin/briefing/preview`,
+      `/api/sysadmin/ports`, `/api/sysadmin/status/{service}`,
+      `/api/files/report`, `/report/delta`, `POST /api/files/scan`,
+      `/api/logs/errors`, `/api/logs/{source}`,
+      `/api/services/by-project` and the two `410 Gone` tombstones.
+      Declared **in `CLAUDE.md`, not in the test** — a list living in
+      the guard protects the guard's knowledge and leaves the reader
+      exactly as misled, which is the whole of `SNAG-DOCS-001`.
+- [x] **The exemption table cannot hide a contract.** A pinned route is
+      *refused* an entry there, so the list can only ever excuse what
+      the code has already left unpinned — `check_markers` rule 1's
+      refusal of a marker whose deletion retires a check, met from the
+      other side. Without that clause an exemption row is a switch.
+- [x] **Three "stale rows" were the instrument.** The registry writes
+      `{id}` and `{name}` where the handlers write `{alert_id}` and
+      `{service_name}`; a raw set comparison reports three phantom gaps
+      beside three phantom stale rows. `normalise_path` collapses the
+      spelling — `interval_seconds`' rule — and its **injectivity over
+      the live set (51 of 51)** is a test, because a collapsing
+      instrument compares fewer things than it believes. Respelling a
+      parameter in the document is the labelled negative control and
+      stays green.
+- [x] **The content half was measured before the sweep was written and
+      was correct 36 of 36**, so it ships as a regression guard with an
+      empty finding population and the docstring says so.
+- [x] **One of sixteen falsifications passed against deliberately
+      broken code.** The membership-sentence guard read the 200
+      characters after the claim and looked for `models`; the paragraph
+      continues *"It carried eight project response models…"* twelve
+      lines down, so it matched a different sentence and reported health
+      over a deleted correction. An append-only narrative makes a
+      substring test monotonic. Bound to the qualifying sentence's own
+      clause now, asserting the emphasis rather than the word.
+- [x] **Suite 3964 → 3988** (+24, all in the new module — the
+      arithmetic reconciles, so no file was clobbered). `ruff` and
+      `mypy sysadmin` clean; the snag controls stash-diffed either side
+      and came back **identical**.
+- [x] **Residue filed as `SNAG-DOCS-017`**: the consumer half of the
+      membership rule is an assertion, measured true 8 of 8 today and
+      computed by nothing.
+
+---
+
 ## Session 209: the entry said there was nothing to repair ✅ (2026-09-10)
 
 _The ask was to extend `tests/test_architecture_doc.py` to `README.md`

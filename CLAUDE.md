@@ -195,6 +195,8 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/logs/stats` | `LogStatsResponse` | response_model |
 | `GET /api/logs/trends` | `LogTrendsResponse` (+`LogSignatureTrendInfo`, `LogSourceTrendInfo`, `LogTrendCoverageInfo`) | response_model (computed live — never 404s) |
 | `GET /api/logs/actions` | `LogActionsResponse` (+`LogRecommendationInfo`, `LogIncidentMemberInfo`) | response_model (computed live) |
+| `GET /api/logs/review` | `LogReviewResponse` | response_model (404 = "no review yet") |
+| `POST /api/logs/review/generate` | `LogReviewResponse` | response_model (auth; LLM optional — digest fallback) |
 | `GET /api/projects/managed` | `ManagedProjectsResponse` | response_model (the only `/api/projects` route this service serves — see below) |
 | `GET /api/files/status` | `FileStatusResponse` (+`FileAuditSummary`, `FileQuickWins`) | parse-side only (404 = "no scan yet" → empty state) |
 | `GET /api/files/duplicates` | `DuplicatesResponse` | parse-side only (404 = "no scan yet") |
@@ -219,6 +221,82 @@ Round-trip guarded by `tests/test_contracts.py`.
 |----------|----------------|-------------|
 | `GET :8400/api/projects/overview` | `ProjectOverviewResponse` | parse-side only (tolerant parse; guarded by `tests/test_estate_project_contracts.py`) |
 | `GET :8400/api/projects/{name}` | `ProjectDetailResponse` (+`ProjectHistoryPoint`) | parse-side only (history newest-first; tray reverses for plotting) |
+
+**Served with no contract model** — the twelve routes the registry
+deliberately does not hold, each with the reason it holds none:
+
+| Endpoint | Returns | Why no contract |
+|----------|---------|-----------------|
+| `GET /api/summary` | ad-hoc digest dict | single-call digest for the PA, not the tray — no `contracts.py` model binds it at either end |
+| `GET /api/sysadmin/briefing/preview` | the briefing envelope | Alfred's `adapt_sysadmin` is the consumer and Alfred owns the section contract (its ADR-0063); the envelope round it is described in prose above |
+| `GET /api/sysadmin/ports` | `{"ports": […], "count": n}` | a live `ss` reading with no stored shape; the *sweep*'s port findings are served under `/api/units/status`, which is pinned |
+| `GET /api/sysadmin/status/{service}` | health-check history rows | no consumer — the tray reads `/services/{name}/details` instead |
+| `GET /api/files/report` | the latest audit's raw findings blob | the findings lists are truncated before storage, so the payload is evidence rather than a shape a consumer parses |
+| `GET /api/files/report/delta` | two scans differenced | same blob, twice; no consumer |
+| `POST /api/files/scan` | `{"status": "scan_triggered"}` | tray-consumed (`client.py`), but it reads the **status code** and never the body |
+| `GET /api/logs/errors` | error/critical rows | superseded in practice by `/api/logs/recent`, which is pinned; no consumer |
+| `GET /api/logs/{source}` | rows for one source | the catch-all; the two `410` rows below are declared *above* it in the router, which is the only reason they are reachable at all. No consumer |
+| `GET /api/services/by-project` | project id → service names | declared `response_model=dict`, which pins nothing; the consumer is estate-manager on 8400, not the tray |
+| `GET /api/logs/summary` | `410 Gone` | a tombstone (`SNAG-LOG-011`), `include_in_schema=False` — it answers no shape by design |
+| `GET /api/logs/summary/history` | `410 Gone` | the same tombstone, second path |
+
+**Membership is a property a test computes for the *routes* now, and until
+2026-09-10 the sentence below claiming that was true only of the models**
+(`SNAG-DOCS-014`). `tests/test_contract_reachability.py` walks field
+annotations and base classes from every root — a property of
+`contracts.py`, which says nothing whatever about what is served, so a
+route added with no registry row was invisible to the very mechanism this
+section named as its guarantee. `tests/test_claude_md_registry.py` sweeps
+the routes, and the rule it enforces is mechanical rather than a
+judgement:
+
+**A route belongs in the registry iff a `contracts.py` model is bound to
+it** — as `response_model=` on the producer side, or as the tray's parse
+on the consumer side. Five rules, three of them the opposite of the
+obvious implementation:
+
+1. **The producer half is exact and the consumer half is the row's own
+   claim.** `response_model=` naming a class defined in `contracts.py` is
+   readable off `create_app()`; "the tray parses this" is not, so a
+   `parse-side only` row asserts it and `tests/test_contracts.py` guards
+   it from the other end. Measured 2026-09-10: **30** of 51 live
+   (method, path) pairs are pinned by a `contracts.py` model and **28**
+   of those had rows — the two that did not were `GET /api/logs/review`
+   and `POST /api/logs/review/generate`, added above. The remaining
+   **21** are unpinned, **9** of them held by the registry as parse- or
+   serialise-side rows and **12** listed in the table above.
+2. **The exemption table cannot hide a contract, which is what stops it
+   being a switch.** A route the producer has pinned is *refused* an
+   entry there, so the list can only ever excuse what the code has
+   already left unpinned — `check_markers` rule 1's refusal of a marker
+   whose deletion retires a check, met from the other side. Deciding a
+   route needs no shape stays a judgement; deciding one *has* no shape
+   does not.
+3. **The exemption is declared in this document, never in the test.** A
+   list living in the guard would protect the guard's knowledge and
+   leave the reader exactly as misled — the failure `SNAG-DOCS-001` was,
+   where fifteen departed endpoints stayed in this table and a reader
+   concluded this service served them. `routes_by_prefix`'s rule: the
+   document supplies the partition and the test checks it for totality,
+   because zero-unaccounted-for must not read as nobody having looked.
+4. **A path parameter's *spelling* is normalised away.** This table
+   writes `{id}` and `{name}` where the handlers write `{alert_id}` and
+   `{service_name}`, and a naive set comparison reports three phantom
+   gaps beside three phantom stale rows. A parameter name appears in no
+   URL a client builds, so pinning it would make the guard demand the
+   document restate handler-local variable names — `interval_seconds`'
+   rule, comparing the quantity rather than the spelling. Normalisation
+   is **injective over the live set** (51 of 51 distinct), and a test
+   pins that, because a collapsing instrument compares fewer things than
+   it believes.
+5. **The rows' *content* was measured before the membership sweep was
+   written, and it was correct 36 of 36.** Every `response_model` claim
+   has one, every `parse-side only` claim has none, and the first model
+   named is the live `response_model` in every case — so that half of
+   the guard ships with an empty finding population and says so. Only
+   membership was incomplete, which is the direction `SNAG-DOCS-001`
+   ran in reverse: a route served and unlisted, costing the tray, which
+   reads this table to know what shape to parse.
 
 **Project state left this repository on 2026-08-13, and what remains is a
 consumer.** [ADR-0005](docs/adr/0005-project-state-leaves.md) records the
@@ -261,7 +339,9 @@ Three things stayed, and holding them apart is the point:
 
 **The registry describes only what this service serves or parses, and
 membership is a property a test computes** (Session 77, `SNAG-DOCS-002`
-closed). It carried eight project response models describing routes that
+closed) — of the **models**, which is the half stated here and the half
+`SNAG-DOCS-014` found was being read as both; the route half is the rule
+above. It carried eight project response models describing routes that
 left on 2026-08-13 (ADR-0005) — the `SNAG-CFG-001` shape in the file this
 document calls the contract registry. **Fifteen** models went, not eight:
 `tests/test_contract_reachability.py` walks field annotations and base

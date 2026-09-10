@@ -1,6 +1,133 @@
-# Handoff — 2026-09-10 (Session 209)
+# Handoff — 2026-09-10 (Session 210)
 
 ## Next action
+
+Compute the consumer half of the registry's membership rule, which is `SNAG-DOCS-017` and the residue this sitting left by closing `SNAG-DOCS-014` with a guard that computes only the producer half: membership is now *a `contracts.py` model is bound to the route*, and `tests/test_claude_md_registry.py` reads that binding off `response_model=` — exact, mechanical, and silent about the nine rows whose enforcement cell says `parse-side only` or `serialise-side only`, which assert in prose that the **tray** parses the payload with the model named and are believed; measured 2026-09-10 eight of those nine name every model they cite somewhere under `sysadmin_tray/` and the ninth is `GET /api/sysadmin/events` → `EventMessage`, whose own cell says *serialise*-side and is therefore honest rather than failing, so the population is correct today and what is unguarded is the class — the reading that mis-ranked `SNAG-LOG-010`'s parent, stated here rather than left to be discovered; the obstacle is measured and it is that naming a class in the tray is not parsing a payload with it, since `sysadmin_tray/models.py` re-exports the contracts wholesale so a name is present for reasons unrelated to any route, and what would settle it is an AST walk pairing each `client.py` request with the model its response is handed to — reachable on both shapes, the `_fetch_file_endpoint` calls passing the model as an argument and the direct calls handing the payload to a `from_dict` on a name — and two smaller questions ride with it, that four exemption reasons say *no consumer* and nothing computes that either while two of this repository's consumers are outside the checkout, and that `GET /api/services/by-project` declares `response_model=dict` and is pulled once per scan by estate-manager, so a cross-repo seam is uncontracted from the producing side where both seams this repository consumes are modelled, which is a question estate rule *a question routed to the owner is answered by the owner* points at the estate rather than settles here.
+
+## What this sitting did
+
+**Closed `SNAG-DOCS-014` by refusing the judgement it asked for.** The
+entry says what is owed first is *"a decision about which of the twelve
+the registry is meant to hold"*, and prices that per route: an SSE
+stream serialises per `data:` line, a `410` tombstone answers no shape,
+`POST /api/files/scan` returns a manifest another contract describes.
+Every one of those sentences is about the **payload**. Measuring the
+**binding** instead settles all twelve at once — **a route belongs in
+the registry iff a `contracts.py` model is bound to it** — and the
+producer half of that is `response_model=` naming a class defined in
+that module, which is readable straight off `create_app()`. The consumer
+half is not readable, so a `parse-side only` row asserts it and
+`tests/test_contracts.py` guards it from the other end.
+
+**The rule partitions the fourteen differently from the entry, and two
+of them are live defects.** Of **51** live `(method, path)` pairs,
+**30** are pinned by a `contracts.py` model and **28** had rows. The two
+that did not are `GET /api/logs/review` and
+`POST /api/logs/review/generate`, both pinned to `LogReviewResponse`,
+both discussed at length in that document's prose as one of its four
+Tier 3 reviews, and neither in its table. The entry counted that pair
+among its "twelve genuinely absent" and counted the two tombstones
+apart from them; this closure's twelve is a different set, which is
+stated because a reader comparing the two figures would otherwise read
+a disagreement.
+
+**The twelve uncontracted routes are declared in `CLAUDE.md` with a
+reason each, and the location was decided against the obvious one.** A
+list living in the test protects the test's knowledge and leaves the
+reader exactly as misled — which is the whole of `SNAG-DOCS-001`,
+fifteen departed endpoints in that table and a reader concluding the
+service served them. `routes_by_prefix`'s rule: the document supplies
+the partition and the test checks it for totality, because
+zero-unaccounted-for must not read as nobody having looked.
+
+**The exemption table cannot hide a contract, which is the clause that
+stops it being a switch.** A pinned route is *refused* an entry there,
+so the list can only ever excuse what the code has already left
+unpinned — `check_markers` rule 1's refusal of a marker whose deletion
+retires a check, met from the other side. Deciding a route needs no
+shape stays a judgement; deciding one *has* no shape does not, and the
+guard takes that half back off the author. Driven as mutation **M2**:
+moving a pinned route into the exemption table goes red.
+
+**Three "stale rows" were the instrument rather than the document.** The
+registry writes `{id}` and `{name}` where the handlers write
+`{alert_id}` and `{service_name}`, so a set comparison over raw
+strings reports three phantom gaps beside three phantom stale rows. A
+parameter's name appears in no URL a client builds, so `normalise_path`
+collapses the spelling — `interval_seconds`' rule, comparing the
+quantity rather than the spelling — and its **injectivity over the live
+set (51 of 51)** is a test rather than a docstring claim, because a
+collapsing instrument compares fewer things than it believes.
+Respelling a parameter in the document is the labelled negative control
+and stays green.
+
+**The rows' content was measured before the sweep was written and was
+correct 36 of 36.** Every `response_model` claim has one, every
+`parse-side only` claim has none, and the first model named is the live
+`response_model` in every case — so that half ships as a regression
+guard with an empty finding population and the docstring says so,
+because a green guard nobody has seen fail is indistinguishable from
+one that cannot fail.
+
+**One of sixteen falsifications passed against deliberately broken
+code, and it is the transferable half.**
+`test_the_membership_sentence_is_narrowed_to_the_models` read the 200
+characters after the claim and looked for `models`; driven at the
+mutation that deletes the narrowing it stayed **green**, because the
+paragraph continues *"It carried eight project response models…"*
+twelve lines down. An append-only narrative makes a substring test
+monotonic: the longer the section grows, the more certainly any word
+appears somewhere after any other. It is bound to the qualifying
+sentence's own clause now and asserts the **emphasis**, since the plain
+word occurs throughout that document and the correction does not.
+
+**The two decisive mutations are code-side.** The defect class is a
+route added without a row rather than a row edited, so **M13** adds a
+route pinned to `LogReviewResponse` (red on
+`test_every_pinned_route_has_a_registry_row`) and **M14** adds an
+unpinned one (red on the totality test). Sixteen mutations driven, all
+red on the intended guard after the repair above, one labelled negative
+control green.
+
+**Suite 3964 → 3988** — +24, all in the one new module, so the
+arithmetic reconciles with nothing to apportion and no file was
+clobbered by a write. `ruff` and `mypy sysadmin` clean. The snag
+controls were stash-diffed either side of the change and came back
+**identical**, so no other entry's instrument moved.
+
+## What is deliberately not done
+
+**The consumer half is not computed**, and that is `SNAG-DOCS-017`
+rather than an omission absorbed. Measured true 8 of 8 today; what is
+missing is a computation for a claim nine rows make in prose.
+
+**No restart is owed and one was nearly reported.** Nothing under
+`sysadmin/` changed — `git diff HEAD -- sysadmin/` is empty — but the
+mutation harness restored `sysadmin/monitor/routers/logs.py` with a
+plain `cp`, which rewrites the mtime while leaving the bytes identical,
+and `check-ops-claims.sh` compares **mtimes** by design
+(`ops_claims.py` rule 4). The claim read *"the running process predates
+the newest source edit"* over a file that had not been edited. It is
+`git stash pop`'s known shape arriving by a second route, and the mtime
+was restored from the file's own last commit date rather than the
+daemon being restarted for nothing — `SNAG-SYSD-007`'s budget being
+real. A harness that moves a timestamp it did not mean to move is worth
+knowing about before the next mutation pass.
+
+**`GET /api/services/by-project` was left uncontracted and is named in
+the exemption table as such.** It declares `response_model=dict`, which
+pins nothing, and estate-manager pulls it once per scan. Contracting a
+surface another repository reads is a change to a published surface and
+would be announced by a filing before the commit carrying it; that is a
+sitting of its own and rides with `SNAG-DOCS-017`.
+
+**Nothing was filed at the estate.** No cross-repo friction was hit:
+the one cross-repo observation is the `by-project` seam above, which is
+this repository's own surface and not a boundary that hurt.
+
+## Session 209 — the entry said there was nothing to repair
+
+### The action Session 209 filed
 
 Extend the membership sweep to `CLAUDE.md`, which is `SNAG-DOCS-014` and the residue this sitting left by closing `SNAG-DOCS-013` at the three documents that entry named while a fourth makes the same class of claim and offers a test as its own guarantee: the Contract Registry's closing paragraph states that membership *is a property a test computes*, and the test it means — `tests/test_contract_reachability.py` — walks field annotations and base classes from every root, which is a property of the **models** and says nothing whatever about the routes, so a route added with no registry row is invisible to the very mechanism the document names; measured 2026-09-10 the registry carries **38** rows against **50** live application paths, leaving 14 served paths unlisted, of which two are the deliberate `410 Gone` tombstones for `/api/logs/summary` and `/summary/history` that are `include_in_schema=False` and carry no shape by design and twelve are genuinely absent, including `GET /api/sysadmin/ports`, `POST /api/files/scan`, `GET /api/sysadmin/briefing/preview`, `GET /api/services/by-project` and `GET /api/logs/errors`, every one of them discussed at length in that document's prose and none of them in its table; the obstacle is measured rather than guessed and it is that this is **not** the previous sweep with a fourth file added — a count or a list is settled by a set comparison, whereas a registry row states which pydantic model a response is pinned to, and whether a route is *meant* to carry one is a judgement, since an SSE stream serialises per `data:` line rather than as a body, a `410` tombstone answers no shape at all, and `POST /api/files/scan` returns a manifest the actions contract already describes — so what is owed first is a decision about which of the twelve the registry is meant to hold and only then a sweep, and the honest shape is probably a guard admitting a declared exemption list with a reason per entry rather than one demanding a row for every route.
 

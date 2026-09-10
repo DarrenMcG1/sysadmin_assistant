@@ -3,6 +3,59 @@
 **Last Updated**: 2026-09-10
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The entry priced a judgement and the binding was readable**
+> (2026-09-10, Session 210, closing `SNAG-DOCS-014`). `CLAUDE.md`'s
+> Contract Registry closes by stating that *"membership is a property a
+> test computes"*; the test it means walks field annotations from every
+> root, which is a property of the **models**, so a route added with no
+> row was invisible to the mechanism the document named as its
+> guarantee. The entry asked for *a decision about which of the twelve
+> the registry is meant to hold* and priced it per route — an SSE
+> stream, a `410` tombstone, a manifest another contract describes.
+> Measuring the **binding** rather than reasoning about the payload
+> settles all twelve at once: **a route belongs in the registry iff a
+> `contracts.py` model is bound to it**, and the producer half of that
+> is `response_model=` naming a class in that module.
+> **That rule found two live defects the entry had grouped with the
+> absences.** `GET /api/logs/review` and `POST /api/logs/review/generate`
+> both carry `response_model=LogReviewResponse` and had no row, while
+> the document's prose discusses the log review at length as one of its
+> four Tier 3 reviews. Of **51** live `(method, path)` pairs, **30** are
+> pinned and **28** had rows; the remaining **21** are unpinned, **9**
+> held as parse- or serialise-side rows and **12** now declared in the
+> document with a reason each.
+> **The exemption table cannot hide a contract, which is what stops it
+> being a switch.** A pinned route is *refused* an entry there, so the
+> list can only ever excuse what the code has already left unpinned —
+> `check_markers` rule 1 met from the other side. And it is declared in
+> `CLAUDE.md` rather than in the test: a list living in the guard
+> protects the guard's knowledge and leaves the reader exactly as
+> misled, which is the whole of `SNAG-DOCS-001`.
+> **Three "stale rows" were the instrument rather than the document.**
+> The registry writes `{id}` and `{name}` where the handlers write
+> `{alert_id}` and `{service_name}`, so a raw set comparison reports
+> three phantom gaps beside three phantom stale rows. `normalise_path`
+> collapses the spelling and its **injectivity over the live set (51 of
+> 51)** is a test, because a collapsing instrument compares fewer things
+> than it believes; respelling a parameter is the labelled negative
+> control and stays green. The rows' **content** was measured before the
+> sweep was written and was correct **36 of 36**, so that half ships as
+> a regression guard with an empty finding population and says so.
+> **One of sixteen falsifications passed against deliberately broken
+> code.** The membership-sentence guard read the 200 characters after
+> the claim and looked for `models`; the paragraph continues *"It
+> carried eight project response models…"* twelve lines down, so it
+> matched a different sentence and reported health over a deleted
+> correction. An append-only narrative makes a substring test monotonic.
+> It is bound to the qualifying sentence's own clause now. The two
+> decisive mutations are code-side — a route added pinned, and a route
+> added unpinned — because the defect is a route with no row rather than
+> a row edited. Suite **3964 → 3988**; the snag controls stash-diffed
+> either side came back identical. Filed `SNAG-DOCS-017` (P4): the
+> consumer half of the rule is an assertion nine rows make in prose,
+> measured true **8 of 8** today and computed by nothing. No restart:
+> nothing the daemon imports changed.
+
 > **The entry said there was nothing to repair, and the guard found
 > three defects on its first run** (2026-09-10, Session 209, closing
 > `SNAG-DOCS-013`). `SNAG-DOCS-011`'s fix swept `docs/ARCHITECTURE.md`
@@ -5045,7 +5098,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **3964 collected** | <!--check:tests-->**3964 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
+| Testing | 🟢 **3988 collected** | <!--check:tests-->**3988 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
 membership guard that outlives `SNAG-DOCS-011` — every package, agent and mapped
 table swept **both ways** against `docs/ARCHITECTURE.md`, because the entry
 counted lines naming a departed component and a line count cannot measure an
