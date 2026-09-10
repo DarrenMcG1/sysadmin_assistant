@@ -1,6 +1,92 @@
-# Handoff — 2026-09-10 (Session 211)
+# Handoff — 2026-09-10 (Session 212)
 
 ## Next action
+
+Close `SNAG-DOCS-019`, which is the residue this sitting left by closing `SNAG-DOCS-018`: the `daemon_start` claim's pattern matches ``restarted at **YYYY-MM-DD HH:MM:SS**`` anywhere in `docs/roadmap/STATUS.md`'s narrative, which is append-only, so this sitting's own restart sentence sat beside its predecessor's identically-spelled one and `read_claim` — which collects matches into a set — returned `unknown` naming both moments, `ops_claims` rule 2 working exactly as designed while the document convention that rule implies is written down nowhere; measured, the six historical restarts in that file are spelled ``restarted at **12:01:12**``, time only, which the pattern cannot match, so the convention plainly exists and has been honoured six times in no document, no docstring and no test, and the two sittings before this one never met it because neither restarted; the fix applied here was the demotion — rewriting the predecessor to ``restarted on 2026-09-10 at **18:18:57**``, which keeps the date, keeps the sentence and restored `ok` on all eleven ops claims — and narrowing the pattern to the newest match was refused rather than deferred, because a guard that silently picks a winner among disagreeing sentences stops reporting the drift rule 2 exists to report, which is `check_review_schedule_unread`'s defect wearing a regex; what is owed is therefore a sentence somewhere a sitting actually reads, and the three candidates are not equivalent — a line in `CLAUDE.md`'s session-close list and a clause in the `daemon_start` pattern's own comment (which already explains the `tests` alternation at length and says nothing whatever about this) can both go stale in the ordinary way, while a test asserting that at most one full-datetime restart claim exists in the parsed region cannot, and is also the only one of the three that would have caught this before the checker did; note the risk is the reverse of the usual one, because such a test's population is **one** and it passes trivially against today's document, so it must be driven at a two-sentence region — the exact state this sitting produced and then repaired — or it ships vacuous and green until the next restarting sitting rediscovers the convention by hand.
+
+## What this sitting did
+
+**Contracted the one surface this repository publishes to another
+repository, and the decision in it was which shape to pin.**
+`GET /api/services/by-project` declared `response_model=dict` from the day
+it shipped — which pins nothing — while the two `:8400` seams this
+repository *consumes* are both modelled here against the estate's
+`response_model=`. The seam running outward was the only one with no
+shape written down at either end, the consumer parsing it by hand with
+`payload.get("by_project", payload)`. It is `ServicesByProjectResponse`
+now, one field over `dict[str, list[str]]`, with the exemption row
+deleted and a registry row added.
+
+**The routing correction was inherited rather than made here, and it is
+the transferable half.** `SNAG-DOCS-017` sent this question to the estate
+under *a question routed to the owner is answered by the owner*; that
+rule states its own test — would answering it differently change what
+another repository must do? — and a `response_model` changes no byte and
+asks nothing of them, so the test sends it back. Reading the rule by its
+**name** rather than by its **test** is what mis-routed it.
+
+**The wrapper is pinned and the mapping deliberately is not.** The
+consumer's parse has two limbs, the second accepting a bare mapping, so
+pinning the bare mapping is the smaller-looking model and **changes the
+wire under them**; pinning the wrapper makes their second limb
+*unreachable* rather than merely unexercised. Their parse is not imported
+or reproduced in this suite — modelling a consumer's tolerance in the
+producer's tests is the collapse the Contract Registry refuses in
+writing, arriving as a test — so what is asserted here is the shape their
+first limb needs, with the reason named rather than the code borrowed.
+
+**Byte-identity was measured twice and the payload still could not
+witness its own deploy.** The live payload captured before the change and
+the pinned app's response after it are identical at **603 bytes**, same
+content-type, and identical again across the restart — which is exactly
+why a discriminating witness was needed. `/openapi.json` is it: the route
+answers `$ref: ServicesByProjectResponse` where it answered a bare
+object. The unasked-for dividend is that the shape is **discoverable at
+the producer** for the first time; until today the only statement of it
+anywhere was the consumer's coercion.
+
+**`count` was refused on measurement rather than on taste.** Every
+sibling in `contracts.py` carries one because an empty collection is
+ambiguous between *nothing to report* and *nobody looked*;
+`get_services()` **raises** on a `services.yaml` it cannot read, so the
+mapping is never empty-because-blind and the ambiguity does not arise.
+
+**The route had no test of any kind**, which is `SNAG-API-004`'s
+`/api/projects/managed` one seam over — the surface another repository
+depends on was the unexercised one. Eight now.
+
+**The entry's own claim about a test was driven rather than trusted.** It
+asserted no new guard was owed because the membership sweep refuses an
+exemption to a pinned route: restoring the exemption row beside the
+landed pin turns `test_no_pinned_route_appears_in_the_exemption_table`
+red, and deleting the registry row turns
+`test_every_pinned_route_has_a_registry_row` red. **Six mutations driven,
+all six red on the intended test.** One population emptied and says so —
+`live_route_contracts` returns `None` both for a route declaring no model
+and for one declaring a model that is not a contract, and this route was
+the second limb's only member, having annotated `-> dict`, from which
+FastAPI infers a `response_model` of `dict`.
+
+**Announced before the commit that carries it**, message
+`fc6f769f-31a8-427a-b772-e4a0172b8d32` at estate-manager, whose
+`services_link.py` is the measured audience — a sweep of `~/projects`
+finds no other reader. Cited whole because a short id resolves on no
+route (`SNAG-DOCS-016`); that is an instance and not an adopted
+convention, which that entry records as an ADR nobody has written.
+
+Registry membership goes **30 → 31** pinned of 51 live pairs and the
+exemption table **twelve → eleven**. Suite **4001 → 4009**, `ruff` and
+`mypy sysadmin` clean. Restart **owed and paid** — the changed router is
+in the daemon's import graph — and all eleven ops claims read green
+after it.
+
+## What is blocked
+
+Nothing.
+
+# Handoff — 2026-09-10 (Session 211)
+
+### The action Session 211 handed on (decided by Session 212)
 
 Contract `GET /api/services/by-project`, which is `SNAG-DOCS-018` and the residue this sitting left by closing `SNAG-DOCS-017`: it is the one seam this repository *produces* for another repository and it is uncontracted at **both** ends — this side declares `response_model=dict`, which pins nothing, and estate-manager's `estate_service/projects/services_link.py` hand-parses the reply with `payload.get("by_project", payload)`, accepting either the wrapped mapping this service actually returns or a bare one, coercing keys and values, and recording `services endpoint returned unexpected shape` into `scan_runs.sources_unreachable` on anything else, so the shape two repositories depend on is written down nowhere and both ends degrade in the open rather than either stating it; that is the exact inverse of the two `:8400` seams this repository *consumes*, where the producer pins with `response_model=` and the tolerant parse here is deliberately a second model held against that guarantee, guarded from both ends by `tests/test_estate_project_contracts.py`, so collapsing a producer's guarantee into the consumer's defensiveness is what the Contract Registry refuses in writing and is exactly what the seam running the other way already does; `SNAG-DOCS-017` routed this question to the estate under the rule *a question routed to the owner is answered by the owner*, and that rule's own test — would answering it differently change what another repository must do? — sends it back here, because adding a `response_model=` changes no JSON byte, leaves their tolerant parse working unaltered and asks nothing of them, so the owner ruled on 2026-09-10 to record the routing correction and defer the change to its own sitting; the work is a `ServicesByProjectResponse` over a `dict[str, list[str]]` in `contracts.py`, the exemption row deleted and a registry row added in `CLAUDE.md`, and — because this is a change to a surface a repository publishes — a filing at estate-manager announcing it **before** the commit that carries it with the message id cited in that commit, which is the whole reason this is a sitting rather than a line, the model itself being one class; note that no new guard is owed, since the membership sweep closed this sitting already refuses an exemption to a pinned route and will turn that exemption row red the moment the model lands, so the document cannot fall behind the code here.
 

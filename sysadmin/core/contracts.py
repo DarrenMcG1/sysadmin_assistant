@@ -1713,3 +1713,48 @@ class ServiceActionsResponse(Contract):
     @classmethod
     def _default_count(cls, data: Any) -> Any:
         return _fill_count(data, "recommendations")
+
+
+# ── /api/services/by-project (Session 212) ────────────────────────────
+
+
+class ServicesByProjectResponse(Contract):
+    """GET /api/services/by-project — project id → the names of its services.
+
+    **The one contract here whose consumer is not the tray**, and the only
+    surface this repository *produces* for another repository.
+    estate-manager pulls it once per scan to publish ``services[]`` in
+    estate.json (their ADR-0008, this repository's ADR-0005), so
+    :meth:`Contract.from_dict` has no caller in this checkout — stated
+    rather than left as a silence, because a model no local code parses
+    with looks abandoned and this one is load-bearing across a seam.
+
+    Three rules, two of them the opposite of the obvious implementation:
+
+    1. **The wrapper is the contract, not the mapping.**  The consumer
+       reads ``payload.get("by_project", payload)`` and so accepts a bare
+       mapping as well; pinning the wrapped shape makes that second limb
+       **unreachable** rather than merely unexercised.  Pinning the bare
+       mapping instead — the smaller-looking model — would change the wire
+       and break them, which is the whole reason this landed as a model
+       over one field rather than as ``dict[str, list[str]]``.
+    2. **No ``count``, though every sibling in this module carries one.**
+       Those exist because an empty list is ambiguous between "nothing to
+       report" and "nobody looked".  That ambiguity cannot arise here:
+       ``get_services()`` raises on a ``services.yaml`` it cannot read, so
+       the failure is a 500 and never an empty mapping.  Adding the field
+       would also change a payload announced as changing no byte.
+    3. **Names only, which is the producer's rule and not this model's.**
+       ``services_by_project`` refuses to embed urls or units so estate.json
+       does not become a second place to edit when a port moves; the model
+       states the shape that refusal produces and does not restate the
+       refusal's reason as a field.
+
+    Contracted 2026-09-10 (``SNAG-DOCS-018``).  It was served as
+    ``response_model=dict`` from the day it shipped — pinning nothing —
+    while the two ``:8400`` seams this repository *consumes* were both
+    modelled here against the producer's ``response_model=``.  The seam
+    running outward was the one with no shape written down at either end.
+    """
+
+    by_project: dict[str, list[str]] = Field(default_factory=dict)

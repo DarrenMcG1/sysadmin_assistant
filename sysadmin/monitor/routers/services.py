@@ -33,6 +33,7 @@ from sysadmin.core.contracts import (
     ReliabilitySummary,
     ServiceActionsResponse,
     ServiceReliabilityInfo,
+    ServicesByProjectResponse,
 )
 from sysadmin.core.database import get_db_session
 from sysadmin.monitor.reliability import ReliabilityScore
@@ -48,8 +49,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/services", tags=["services"])
 
 
-@router.get("/by-project")
-async def by_project() -> dict:
+@router.get("/by-project", response_model=ServicesByProjectResponse)
+async def by_project() -> ServicesByProjectResponse:
     """Project id → the names of its services — sysadmin's contribution.
 
     Added in estate-manager Session 4 (its ADR-0008, sysadmin ADR-0005):
@@ -59,8 +60,17 @@ async def by_project() -> dict:
     ``services[]`` in estate.json. Names only, deliberately — embedding
     urls and units would make estate.json a second place to edit when a
     port moves.
+
+    **Pinned 2026-09-10** (``SNAG-DOCS-018``).  It declared
+    ``response_model=dict`` from the day it shipped, which pins nothing,
+    while the two ``:8400`` seams this repository *consumes* were both
+    modelled against the producer's guarantee — so the one surface served
+    outward was the one with no shape stated at either end.  The pin
+    changes no byte on the wire: the payload is already exactly the
+    wrapper the estate's ``services_link.py`` reads, and it is the model
+    rather than the route that argues why the wrapper is the contract.
     """
-    return {"by_project": services_by_project(get_services())}
+    return ServicesByProjectResponse(by_project=services_by_project(get_services()))
 
 GRADES = ("reliable", "degraded", "unreliable", "failing")
 CONFIDENCE_LEVELS = ("high", "low")

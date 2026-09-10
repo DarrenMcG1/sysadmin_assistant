@@ -3,6 +3,72 @@
 **Last Updated**: 2026-09-10
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The wrapper was the contract, and the payload could not witness its
+> own deploy** (2026-09-10, Session 212, closing `SNAG-DOCS-018`).
+> `GET /api/services/by-project` is the one surface this repository
+> *publishes* to another repository, and it declared `response_model=dict`
+> from the day it shipped — which pins nothing, while the two `:8400`
+> seams this repository *consumes* are both modelled here against the
+> estate's `response_model=`. The seam running outward was the only one
+> with no shape written down at either end. It is
+> `ServicesByProjectResponse` now, one field over `dict[str, list[str]]`.
+> **The routing correction is the transferable half.** `SNAG-DOCS-017`
+> sent this question to the estate under *a question routed to the owner
+> is answered by the owner*; that rule states its own test — would
+> answering it differently change what another repository must do? — and
+> a `response_model` changes no byte and asks nothing of them, so the
+> test sends it back. Reading the rule by its **name** rather than by its
+> **test** is what mis-routed it.
+> **The wrapper is pinned, never the mapping, and that is the whole
+> design.** estate-manager reads `payload.get("by_project", payload)` —
+> two limbs, the second accepting a bare mapping — so pinning the bare
+> mapping was the smaller-looking model and would have **changed the
+> wire under them**. Pinning the wrapper makes their second limb
+> *unreachable* rather than merely unexercised, which is the difference
+> the Contract Registry is about: a producer's guarantee is not the same
+> object as a consumer's defensiveness. Their parse is deliberately not
+> imported or reproduced here — modelling a consumer's tolerance in the
+> producer's suite is that collapse arriving as a test.
+> **Byte-identity was measured twice rather than asserted.** The live
+> payload captured before the change and the pinned app's response after
+> it are identical at **603 bytes**, same content-type; captured again
+> across the restart it is identical a second time. Which is exactly why
+> **the payload cannot witness its own deploy** — a discriminating
+> witness was needed and `/openapi.json` is it: the route now answers
+> `$ref: ServicesByProjectResponse` where it answered a bare object.
+> The unasked-for dividend is that the shape is **discoverable** at the
+> producer for the first time; until today the only statement of it
+> anywhere was the consumer's coercion.
+> **No `count`, refused on measurement rather than on taste.** Every
+> sibling in `contracts.py` carries one because an empty list is
+> ambiguous between *nothing to report* and *nobody looked*;
+> `get_services()` **raises** on a `services.yaml` it cannot read, so the
+> failure is a 500 and the mapping is never empty-because-blind. The
+> ambiguity those counts resolve does not arise here, and the field would
+> have changed a payload announced as changing none.
+> **The route had no test of any kind**, which is `SNAG-API-004`'s
+> `/api/projects/managed` one seam over — the surface another repository
+> depends on was the unexercised one. Eight now.
+> **Six mutations driven, every one red on its intended test, and one of
+> them was the entry's own claim about a test.** `SNAG-DOCS-018` asserted
+> that no new guard was owed because the membership sweep refuses an
+> exemption to a pinned route; that is a claim, so it was driven —
+> restoring the exemption row beside the landed pin turns
+> `test_no_pinned_route_appears_in_the_exemption_table` red, and deleting
+> the registry row turns `test_every_pinned_route_has_a_registry_row`
+> red. The document cannot fall behind the code here, measured rather
+> than believed. Registry membership goes **30 → 31** pinned of 51 live
+> pairs, the exemption table **twelve → eleven**, and the second limb of
+> `live_route_contracts`' `None` — *declares a model that is not a
+> contract* — empties, this route having been its only member.
+> Suite **4001 → 4009**. Announced at estate-manager before the commit
+> that carries it, message `fc6f769f-31a8-427a-b772-e4a0172b8d32`, cited
+> whole because a short id resolves on no route (`SNAG-DOCS-016`).
+> Daemon restarted at
+> **2026-09-10 21:23:40** <!--check:deploy--> <!--check:daemon_start-->
+> — owed, because the changed router is in the daemon's import graph,
+> and paid once.
+
 > **A name in the tray is not a parse, and the refused implementation
 > ships green** (2026-09-10, Session 211, closing `SNAG-DOCS-017`).
 > Session 210 settled registry membership as *a `contracts.py` model is
@@ -402,8 +468,8 @@
 > deliberately / this is a decision rather than an oversight"* with a
 > lost clause, in the code implementing this very decision. Suite
 > unmoved at 3900: the sitting added no test, because what it decided is
-> that two existing ones stay. Daemon restarted at
-> **2026-09-10 18:18:57** <!--check:deploy--> <!--check:daemon_start-->
+> that two existing ones stay. Daemon restarted on 2026-09-10 at
+> **18:18:57**
 > — **a reboot, not a deploy**, and nothing in this repository asked for
 > it: a clean stop at 18:08:58 and a boot at 18:18:43, read off
 > `last reboot` rather than inferred from the gap. The box came up on
@@ -5157,7 +5223,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **4001 collected** | <!--check:tests-->**4001 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 3988 + 13 on 2026-09-10, Session 211: the same module gains the **consumer** half of the membership rule — an AST walk of `sysadmin_tray/` pairing each request with the model its reply is handed to — so again all in one module and the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-017`). 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
+| Testing | 🟢 **4009 collected** | <!--check:tests-->**4009 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 4001 + 8 on 2026-09-10, Session 212: `tests/test_by_project_contract.py`, the first test of any kind for `GET /api/services/by-project` — all 8 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-018`). 3988 + 13 on 2026-09-10, Session 211: the same module gains the **consumer** half of the membership rule — an AST walk of `sysadmin_tray/` pairing each request with the model its reply is handed to — so again all in one module and the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-017`). 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
 membership guard that outlives `SNAG-DOCS-011` — every package, agent and mapped
 table swept **both ways** against `docs/ARCHITECTURE.md`, because the entry
 counted lines naming a departed component and a line count cannot measure an

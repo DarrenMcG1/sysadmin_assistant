@@ -214,6 +214,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/units/actions` | `UnitActionsResponse` (+`UnitRecommendationInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/services/reliability` | `ReliabilityResponse` (+`ReliabilitySummary`, `ServiceReliabilityInfo`, `ReliabilityDeduction`) | response_model (computed live — never 404s) |
 | `GET /api/services/actions` | `ServiceActionsResponse` (+`ServiceRecommendationInfo`, `ServiceRecommendationMemberInfo`) | response_model (computed live off the same call `/reliability` serves) |
+| `GET /api/services/by-project` | `ServicesByProjectResponse` | response_model (the only row whose consumer is another repository — estate-manager on 8400, not the tray) |
 
 **Consumed from estate-manager on 8400** — parsed here, served there:
 
@@ -222,8 +223,13 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET :8400/api/projects/overview` | `ProjectOverviewResponse` | parse-side only (tolerant parse; guarded by `tests/test_estate_project_contracts.py`) |
 | `GET :8400/api/projects/{name}` | `ProjectDetailResponse` (+`ProjectHistoryPoint`) | parse-side only (history newest-first; tray reverses for plotting) |
 
-**Served with no contract model** — the twelve routes the registry
-deliberately does not hold, each with the reason it holds none:
+**Served with no contract model** — the eleven routes the registry
+deliberately does not hold, each with the reason it holds none. **Twelve
+until `SNAG-DOCS-018` pinned `GET /api/services/by-project` on
+2026-09-10**: it was excused for declaring `response_model=dict`, which
+is a reason that describes the code rather than the payload, and a
+reason a row can retire by being fixed is the one kind of exemption this
+table is not for:
 
 | Endpoint | Returns | Why no contract |
 |----------|---------|-----------------|
@@ -236,7 +242,6 @@ deliberately does not hold, each with the reason it holds none:
 | `POST /api/files/scan` | `{"status": "scan_triggered"}` | tray-consumed (`client.py`), but it reads the **status code** and never the body |
 | `GET /api/logs/errors` | error/critical rows | superseded in practice by `/api/logs/recent`, which is pinned; no consumer |
 | `GET /api/logs/{source}` | rows for one source | the catch-all; the two `410` rows below are declared *above* it in the router, which is the only reason they are reachable at all. No consumer |
-| `GET /api/services/by-project` | project id → service names | declared `response_model=dict`, which pins nothing; the consumer is estate-manager on 8400, not the tray |
 | `GET /api/logs/summary` | `410 Gone` | a tombstone (`SNAG-LOG-011`), `include_in_schema=False` — it answers no shape by design |
 | `GET /api/logs/summary/history` | `410 Gone` | the same tombstone, second path |
 
@@ -266,7 +271,10 @@ implementation:
    or there is no computation at all. Measured 2026-09-10: **30** of 51
    live (method, path) pairs are pinned by `response_model=` and **28**
    of those had rows — the two that did not were `GET /api/logs/review`
-   and `POST /api/logs/review/generate`, added above. The tray parses
+   and `POST /api/logs/review/generate`, added above. **31 later the same
+   day**, `SNAG-DOCS-018` having pinned `GET /api/services/by-project`,
+   and all 31 carry rows; the route count is unmoved at 51, because that
+   sitting added a model and no route. The tray parses
    **16** pairs with a `contracts.py` model, **14** served here and 2 the
    estate's; **6** of the 14 are pinned by `response_model=` as well, so
    **8 routes belong in this table by the consumer half alone** and their

@@ -435,14 +435,24 @@ def live_route_contracts() -> dict[tuple[str, str], str | None]:
 
     The value is the name of the :mod:`sysadmin.core.contracts` class the
     route declares as ``response_model=``, or ``None`` where it declares none
-    or declares something that is not a contract — ``GET
-    /api/services/by-project`` returns a bare ``dict``, which pins nothing.
+    or declares something that is not a contract.
+
+    **Both halves of that ``None`` have an empty population as of
+    2026-09-10**, stated rather than left silent — ``ports_checked``'s rule
+    at the size of a docstring, since twenty routes reaching ``None`` by the
+    first limb reads exactly like a walk finding the second.  ``GET
+    /api/services/by-project`` was the second limb's only member: it
+    annotated ``-> dict``, from which FastAPI infers a ``response_model`` of
+    ``dict``, so it *declared* one and pinned nothing.  ``SNAG-DOCS-018``
+    pinned it, and what is left under ``None`` is twenty routes declaring no
+    model at all.
 
     **The class must come from ``contracts.py`` itself**, not merely be a
     pydantic model: the registry is an index of that module, so a route
     pinned to a model defined beside its router is unpinned *for this
     purpose* and belongs in the document's exemption table with that as its
-    reason.  Empty population today and stated rather than left silent.
+    reason.  Empty population today, and it is the same emptiness as above
+    read from the other end.
 
     One entry per ``(method, path)`` rather than per path, because
     ``/api/sysadmin/dnd`` is one path registered by a ``@router.get`` and a

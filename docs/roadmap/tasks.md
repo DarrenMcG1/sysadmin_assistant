@@ -8,6 +8,71 @@
 
 ---
 
+## Session 212: the wrapper was the contract ✅ (2026-09-10)
+
+_The ask was to contract `GET /api/services/by-project` — `SNAG-DOCS-018`,
+the residue Session 211 left. The seam is the one surface this repository
+**publishes** to another repository, and it was the only one with no shape
+written down at either end: `response_model=dict` here, and a hand-rolled
+tolerant parse there. The entry had already done the hard half by
+correcting the routing; what it had not settled is **which shape to pin**,
+and the two candidates differ by whether the estate's fallback limb becomes
+unreachable or the wire moves under them._
+
+- [x] **`ServicesByProjectResponse` in `contracts.py`**, one field over
+      `dict[str, list[str]]`, bound as `response_model=` on the route.
+      Exemption row deleted, registry row added: membership goes
+      **30 → 31** pinned of 51 live pairs and the exemption table
+      **twelve → eleven**.
+- [x] **The wrapper is pinned and the mapping deliberately is not.**
+      estate-manager reads `payload.get("by_project", payload)` — two
+      limbs — so pinning the bare mapping is the smaller-looking model
+      and **changes the wire under them**. Pinning the wrapper makes
+      their second limb *unreachable* rather than merely unexercised.
+- [x] **Their parse is not imported or reproduced in this suite.**
+      Modelling a consumer's tolerance in the producer's tests is the
+      collapse the Contract Registry refuses in writing, arriving as a
+      test. What is asserted is the shape their first limb needs, with
+      the reason named rather than the code borrowed.
+- [x] **Byte-identity measured twice, not asserted** — **603 bytes**
+      before and after, same content-type, and identical again across
+      the restart.
+- [x] **The payload therefore cannot witness its own deploy**, so
+      `/openapi.json` was used instead: the route answers
+      `$ref: ServicesByProjectResponse` where it answered a bare object.
+      The dividend is unasked-for — the shape is **discoverable at the
+      producer** for the first time.
+- [x] **`count` refused on measurement.** `get_services()` raises on an
+      unreadable `services.yaml`, so the mapping is never
+      empty-because-blind and the ambiguity every sibling's count
+      resolves does not arise here.
+- [x] **The route had no test of any kind** — `SNAG-API-004`'s
+      `/api/projects/managed` one seam over. `tests/test_by_project_contract.py`
+      is eight.
+- [x] **The entry's claim about a test was driven, not trusted.** It
+      said no new guard was owed because the membership sweep refuses an
+      exemption to a pinned route: restoring the exemption row turns
+      `test_no_pinned_route_appears_in_the_exemption_table` red and
+      deleting the registry row turns `test_every_pinned_route_has_a_registry_row`
+      red. **Six mutations driven, all six red on the intended test.**
+- [x] **Announced before the commit that carries it**, message
+      `fc6f769f-31a8-427a-b772-e4a0172b8d32` at estate-manager, cited
+      whole because a short id resolves on no route (`SNAG-DOCS-016`).
+- [x] Suite **4001 → 4009** (+8, one module). `ruff` and
+      `mypy sysadmin` clean. Restart **owed and paid** — the changed
+      router is in the daemon's import graph — and all eleven ops claims
+      read green after it.
+- [x] **Filed `SNAG-DOCS-019`** — the `daemon_start` claim matches
+      ``restarted at **YYYY-MM-DD HH:MM:SS**`` anywhere in an append-only
+      region, so a restarting sitting must demote its predecessor's
+      sentence by hand or the claim goes `unknown` naming both moments.
+      The six historical restarts are spelled time-only, so the
+      convention exists and is honoured six times and is written down
+      nowhere. Found by restarting and re-running the checker, not by
+      reading the module.
+
+---
+
 ## Session 211: a name in the tray is not a parse ✅ (2026-09-10)
 
 _The ask was to compute the consumer half of the registry's membership
