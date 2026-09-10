@@ -3,6 +3,58 @@
 **Last Updated**: 2026-09-10
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A name in the tray is not a parse, and the refused implementation
+> ships green** (2026-09-10, Session 211, closing `SNAG-DOCS-017`).
+> Session 210 settled registry membership as *a `contracts.py` model is
+> bound to the route* and computed only the **producer** half of it,
+> which FastAPI stores on the route object. The other binding is held
+> nowhere: the pairing between the URL requested and the class the reply
+> is handed to exists only as **adjacency in a function body**, so
+> `document_claims.tray_consumption` walks `sysadmin_tray/` for it.
+> **8 routes belong in this table by the consumer half alone** — the
+> tray parses 16 pairs with a contract, 14 served here and 2 the
+> estate's, and 6 of the 14 are `response_model`-pinned as well, so
+> their membership never rested on prose. The eleven parse-side claims
+> come back **10 confirmed and the eleventh honest**; the entry counted
+> nine, which is the served table alone.
+> **The refused implementation was driven rather than argued.**
+> Detecting the indirect fetch helper by **name** gives the identical
+> answer today — one helper, sixteen parses — so the structural version
+> looks like ceremony. Driven at a *second* helper added under a
+> different name and parsing an exempted route, the name-keyed walk
+> ships **entirely green** while the structural one goes red on three
+> tests: the silence this entry is about, reproduced inside the fix for
+> it. That is why the discrimination is a test and not a docstring
+> claim.
+> **Three obstacles the entry did not name, each producing a smaller and
+> entirely plausible answer.** `fetch_status` requests **twice** —
+> `/health` for liveness, then `/api/sysadmin/status` — so pairing at
+> the function reports the tray parsing `/health` with `StatusResponse`;
+> the anchor is the nearest preceding request, and this tray's one
+> two-request method is the whole population of the rule. Two pairs are
+> the estate's, so `_estate_api_url` renders the `:8400` prefix the
+> consumed table already writes, or the walk reports this service as
+> serving them. And `_fetch_file_endpoint`'s path is a **parameter**, so
+> the predicate that reads a direct call correctly refuses it and one
+> predicate silently drops 5 of the 16.
+> **It closes the half rule 1 was missing.** That rule refuses an
+> exemption to a route the *producer* pinned; the same clause was owed
+> on the consumer side and was unreachable without the walk. The four
+> *no consumer* reasons are checkable in **one limb** and the guard's
+> name says so — Alfred and estate-manager are outside this checkout, so
+> it can refute the claim and never confirm it. `POST /api/files/scan`
+> is the one reason confirmed in both directions.
+> **One of the sitting's own falsifications was not a mutation at all**:
+> the rule 3 drive was staged as a no-op that appended an unused
+> function, and recorded as a passing control. A control that changes no
+> behaviour tests nothing and reads exactly like one that does. Replaced
+> with the real narrowing; **16 mutations** driven, 14 red on the
+> intended test and two labelled controls green. Suite **3988 → 4001**;
+> nothing under `sysadmin/` changed, so no other entry's instrument
+> could move and no restart is owed. Filed `SNAG-DOCS-018` (P4): the one
+> seam this repository *produces* for another is uncontracted at **both**
+> ends, and the estate's own routing test sends that question back here.
+
 > **The entry priced a judgement and the binding was readable**
 > (2026-09-10, Session 210, closing `SNAG-DOCS-014`). `CLAUDE.md`'s
 > Contract Registry closes by stating that *"membership is a property a
@@ -351,10 +403,17 @@
 > lost clause, in the code implementing this very decision. Suite
 > unmoved at 3900: the sitting added no test, because what it decided is
 > that two existing ones stay. Daemon restarted at
-> **2026-09-09 13:30:47** <!--check:deploy--> <!--check:daemon_start-->,
-> PID 3387306 → 3624838 — a comment-only edit to a daemon module, which
-> is `ops_claims` rule 4's documented cost, paid once and named rather
-> than left reading `no`.
+> **2026-09-10 18:18:57** <!--check:deploy--> <!--check:daemon_start-->
+> — **a reboot, not a deploy**, and nothing in this repository asked for
+> it: a clean stop at 18:08:58 and a boot at 18:18:43, read off
+> `last reboot` rather than inferred from the gap. The box came up on
+> `6.18.49-2-lts` where the previous boot was `7.2.3-arch1-2`, which is
+> the known shape of a kernel upgrade invalidating `LoaderEntryDefault`.
+> Checked and it was not a monitoring gap: `CRITICAL_SIGNATURES`
+> declares **both** amdgpu spellings, the LTS one and the `>= 7.2` one,
+> so the GPU-reset predicate reads the same on either kernel — recorded
+> because "checked, and it was not this" is a different fact from "never
+> checked" and a later reader cannot tell them apart otherwise.
 
 > **The payload carries no cause, so the row stopped claiming one**
 > (2026-09-09, Session 203, the behavioural half of estate message
@@ -5098,7 +5157,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **3988 collected** | <!--check:tests-->**3988 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
+| Testing | 🟢 **4001 collected** | <!--check:tests-->**4001 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 3988 + 13 on 2026-09-10, Session 211: the same module gains the **consumer** half of the membership rule — an AST walk of `sysadmin_tray/` pairing each request with the model its reply is handed to — so again all in one module and the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-017`). 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
 membership guard that outlives `SNAG-DOCS-011` — every package, agent and mapped
 table swept **both ways** against `docs/ARCHITECTURE.md`, because the entry
 counted lines naming a departed component and a line count cannot measure an

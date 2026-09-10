@@ -56,6 +56,7 @@ from __future__ import annotations
 import ast
 import re
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -405,6 +406,30 @@ def normalise_path(path: str) -> str:
     return _PATH_PARAMETER.sub("{}", path)
 
 
+def contract_class_names() -> set[str]:
+    """Every class :mod:`sysadmin.core.contracts` itself defines.
+
+    Stated once because both halves of the membership rule need it: the
+    producer half asks whether a route's ``response_model`` is one of these,
+    and the consumer half whether the model the tray parses with is.  Two
+    copies of this set is the second-statement defect the registry exists to
+    keep out of the document.
+
+    Membership is by ``__module__``, so a name merely *imported* into that
+    module is not a contract — the registry is an index of what that file
+    declares.
+    """
+    import inspect
+
+    from sysadmin.core import contracts
+
+    return {
+        name
+        for name, obj in vars(contracts).items()
+        if inspect.isclass(obj) and obj.__module__ == contracts.__name__
+    }
+
+
 def live_route_contracts() -> dict[tuple[str, str], str | None]:
     """Every served ``(method, normalised path)`` → the contract pinning it.
 
@@ -424,16 +449,9 @@ def live_route_contracts() -> dict[tuple[str, str], str | None]:
     ``@router.post`` — the distinction that produced ``README.md``'s
     irreconcilable headline in ``SNAG-DOCS-013``.
     """
-    import inspect
-
-    from sysadmin.core import contracts
     from sysadmin.main import create_app
 
-    contract_names = {
-        name
-        for name, obj in vars(contracts).items()
-        if inspect.isclass(obj) and obj.__module__ == contracts.__name__
-    }
+    contract_names = contract_class_names()
 
     bound: dict[tuple[str, str], str | None] = {}
     for route in create_app().routes:
@@ -445,3 +463,258 @@ def live_route_contracts() -> dict[tuple[str, str], str | None]:
         for method in getattr(route, "methods", set()) - _IMPLICIT_METHODS:
             bound[(method, normalise_path(route.path))] = pinned
     return bound
+
+
+# --------------------------------------------------------------------------
+# The consumer half of the contract registry
+
+
+#: Attributes holding a base URL in :mod:`sysadmin_tray.client`, mapped to the
+#: prefix ``CLAUDE.md`` writes for that producer.  The estate's routes are
+#: written ``:8400/api/projects/overview`` in the *consumed* table, and this
+#: is what keeps the walk from claiming this service serves them —
+#: ``SNAG-DOCS-001``'s shape, a document naming a route its subject does not
+#: serve, arriving from the consumer side.
+_TRAY_BASE_URLS = {"_api_url": "", "_estate_api_url": ":8400"}
+
+#: Call attributes that parse a payload into a model.  ``from_dict`` is this
+#: repository's; ``model_validate`` is pydantic's own and is admitted because
+#: a future parse written the pydantic way is the same claim.
+_PARSE_ATTRS = frozenset({"from_dict", "model_validate"})
+
+_HTTP_VERBS = frozenset({"get", "post", "put", "delete", "patch"})
+
+
+@dataclass(frozen=True)
+class TrayConsumption:
+    """What the tray asks for, and what it parses the answer with."""
+
+    #: Every ``(METHOD, path)`` the tray requests, whether or not it parses
+    #: the body.  ``POST /api/files/scan`` is here and absent from
+    #: :attr:`parses`, which is exactly what its exemption reason claims.
+    requests: frozenset[tuple[str, str]]
+    #: ``(METHOD, path)`` → the model names the reply is handed to.  Names are
+    #: **raw**: whether a name is a ``contracts.py`` class is a fact about
+    #: that module rather than about this source, and filtering here would
+    #: make "parsed by something that is not a contract" and "not parsed at
+    #: all" spell the same way.
+    parses: dict[tuple[str, str], frozenset[str]]
+    #: Functions that issue a request whose path is a *parameter* and parse
+    #: through a parameter — the ``_fetch_file_endpoint`` shape.  Reported so
+    #: a test can pin the population rather than the walk assuming it.
+    indirect_helpers: frozenset[str]
+
+
+def _tray_literal_path(node: ast.AST) -> str | None:
+    """The URL out of ``f"{self._api_url}/api/x"``, or ``None`` if not literal.
+
+    A path parameter interpolated mid-string (``{project_name}``) renders as
+    ``{}``, which is :func:`normalise_path`'s spelling — so the two halves of
+    the registry are compared in one vocabulary without a second conversion.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value if node.value.startswith("/") else None
+    if not isinstance(node, ast.JoinedStr):
+        return None
+    prefix, parts = None, []
+    for part in node.values:
+        if isinstance(part, ast.Constant) and isinstance(part.value, str):
+            parts.append(part.value)
+        elif isinstance(part, ast.FormattedValue):
+            attr = ast.unparse(part.value).rsplit(".", 1)[-1]
+            if attr in _TRAY_BASE_URLS and not parts:
+                prefix = _TRAY_BASE_URLS[attr]
+            else:
+                parts.append("{}")
+    joined = "".join(parts)
+    if not joined.startswith("/"):
+        return None
+    return (prefix or "") + joined
+
+
+def _tray_request_verb(node: ast.AST) -> str | None:
+    """``GET`` for ``self._client.get(...)``, path literal or not.
+
+    Deliberately does **not** require a literal path, unlike
+    :func:`_tray_request`.  The indirect helper's whole shape is that its
+    path is a parameter, so a single predicate demanding one drops it —
+    silently, and with it five of this tray's sixteen parses.
+    """
+    if not isinstance(node, ast.Call):
+        return None
+    func = node.func
+    if not (isinstance(func, ast.Attribute) and func.attr in _HTTP_VERBS):
+        return None
+    if not (isinstance(func.value, ast.Attribute) and func.value.attr == "_client"):
+        return None
+    return func.attr.upper()
+
+
+def _tray_request(node: ast.AST) -> tuple[str, str] | None:
+    """``(METHOD, path)`` for a request written with a literal path."""
+    verb = _tray_request_verb(node)
+    if verb is None or not getattr(node, "args", None):
+        return None
+    path = _tray_literal_path(node.args[0])
+    return (verb, path) if path else None
+
+
+def _tray_parsed_name(node: ast.AST) -> str | None:
+    """The model name in ``Model.from_dict(...)``.
+
+    Keyed on the **call**, never on the name appearing in the module.
+    ``sysadmin_tray/models.py`` re-exports ``contracts.py`` wholesale, so a
+    name is present for reasons unrelated to any route and a name-keyed sweep
+    answers "true" for all of them — which is why ``SNAG-DOCS-017`` was an
+    entry rather than an extension of the producer half.
+    """
+    if not isinstance(node, ast.Call):
+        return None
+    func = node.func
+    if isinstance(func, ast.Attribute) and func.attr in _PARSE_ATTRS:
+        if isinstance(func.value, ast.Name):
+            return func.value.id
+    return None
+
+
+def _tray_functions() -> list[tuple[ast.FunctionDef | ast.AsyncFunctionDef, str]]:
+    out = []
+    for path in sorted(TRAY_ROOT.rglob("*.py")):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                out.append((node, path.name))
+    return out
+
+
+def tray_consumption() -> TrayConsumption:
+    """Pair every tray request with the model its reply is parsed by.
+
+    The producer half of the registry's membership rule is readable off
+    ``create_app()``, because FastAPI *stores* ``response_model`` on the route
+    object.  The consumer half has no such object: the pairing exists only as
+    adjacency in a function body, so it is a syntax walk or it is nothing.
+
+    Four rules, three of them the opposite of the obvious implementation:
+
+    1. **The anchor is the nearest preceding request, never the enclosing
+       function.**  ``fetch_status`` issues ``/health`` for liveness and then
+       ``/api/sysadmin/status``, and parses once — so a function-level
+       pairing claims the tray parses ``/health`` with ``StatusResponse``.
+       It is the only method here that requests twice, which makes the rule
+       observable on exactly one specimen and that specimen the reason it is
+       needed.  ``log_actions.group_incidents``' anchor rule, one seam over.
+
+    2. **The base URL is part of the identity.**  ``_estate_api_url`` renders
+       the ``:8400`` prefix the *consumed* table already writes; without it
+       the walk reports this service as serving the estate's two project
+       routes.
+
+    3. **The indirect helper is found by shape, never by name, and the
+       benefit is measured rather than argued.**  A helper is a function
+       that requests with a non-literal path *and* parses through one of its
+       own parameters.  Keying on ``_fetch_file_endpoint`` gives the
+       identical answer today — one helper, sixteen parses — so the two
+       implementations are indistinguishable on this population and the
+       structural one looks like ceremony.  Driven at a *second* helper
+       added under a different name and parsing an exempted route, the
+       name-keyed version ships **entirely green** while this one goes red
+       on three tests.  That is the silence this whole entry is about,
+       reproduced inside the fix for it.
+
+    4. **The whole tray is walked, not ``client.py``.**  Measured 2026-09-10
+       every HTTP call in this package is in that one module, and walking
+       only it would turn that measurement into an assumption a later commit
+       could falsify without failing anything.
+    """
+    requests: set[tuple[str, str]] = set()
+    parses: dict[tuple[str, str], set[str]] = {}
+    helpers: dict[str, tuple[str, int, int]] = {}
+
+    for func, _module in _tray_functions():
+        params = [arg.arg for arg in func.args.args]
+        events: list[tuple[int, int, int, object]] = []
+        verbs: set[str] = set()
+        non_literal = False
+        for node in ast.walk(func):
+            verb = _tray_request_verb(node)
+            if verb is not None:
+                verbs.add(verb)
+                pair = _tray_request(node)
+                if pair is None:
+                    non_literal = True
+                else:
+                    events.append((node.lineno, node.col_offset, 0, pair))
+            name = _tray_parsed_name(node)
+            if name is not None:
+                events.append((node.lineno, node.col_offset, 1, name))
+
+        # Rule 3: a helper requests a path it was handed and parses through a
+        # parameter.  Both halves are required — a function taking a model and
+        # requesting a literal path is an ordinary fetcher.
+        if non_literal and verbs:
+            parsed_params = {
+                name
+                for _l, _c, kind, name in events
+                if kind == 1 and isinstance(name, str) and name in params
+            }
+            if len(verbs) == 1 and len(parsed_params) == 1:
+                model_param = parsed_params.pop()
+                path_params = [p for p in params if p not in {"self", model_param}]
+                # The path parameter is the one interpolated into the request.
+                interpolated = {
+                    ast.unparse(part.value)
+                    for node in ast.walk(func)
+                    if _tray_request_verb(node) is not None
+                    and getattr(node, "args", None)
+                    and isinstance(node.args[0], ast.JoinedStr)
+                    for part in node.args[0].values
+                    if isinstance(part, ast.FormattedValue)
+                }
+                path_param = next(
+                    (p for p in path_params if p in interpolated), None
+                )
+                if path_param is not None:
+                    helpers[func.name] = (
+                        next(iter(verbs)),
+                        params.index(path_param),
+                        params.index(model_param),
+                    )
+
+        # Rule 1: each parse belongs to the request most recently issued.
+        events.sort(key=lambda event: (event[0], event[1]))
+        current: tuple[str, str] | None = None
+        for _lineno, _col, kind, payload in events:
+            if kind == 0:
+                current = payload  # type: ignore[assignment]
+                requests.add(current)
+            elif current is not None and isinstance(payload, str):
+                parses.setdefault(current, set()).add(payload)
+
+    # Resolve each helper's call sites: path and model are arguments there.
+    for func, _module in _tray_functions():
+        for node in ast.walk(func):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+                continue
+            spec = helpers.get(node.func.attr)
+            if spec is None:
+                continue
+            verb, path_index, model_index = spec
+            args = node.args
+            # ``self`` is bound by the attribute access, so positional
+            # arguments are offset by one.
+            path_at, model_at = path_index - 1, model_index - 1
+            if not (0 <= path_at < len(args) and 0 <= model_at < len(args)):
+                continue
+            path = _tray_literal_path(args[path_at])
+            model = args[model_at]
+            if path and isinstance(model, ast.Name):
+                pair = (verb, path)
+                requests.add(pair)
+                parses.setdefault(pair, set()).add(model.id)
+
+    return TrayConsumption(
+        requests=frozenset(requests),
+        parses={pair: frozenset(names) for pair, names in parses.items()},
+        indirect_helpers=frozenset(helpers),
+    )

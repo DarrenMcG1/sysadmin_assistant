@@ -8,6 +8,68 @@
 
 ---
 
+## Session 211: a name in the tray is not a parse ✅ (2026-09-10)
+
+_The ask was to compute the consumer half of the registry's membership
+rule — `SNAG-DOCS-017`, the residue Session 210 left. That entry had
+already refused the cheap instrument in writing: naming a class under
+`sysadmin_tray/` is not parsing a payload with it, because
+`sysadmin_tray/models.py` re-exports `contracts.py` wholesale. What it
+had not measured is how badly the cheap instrument fails, and the
+answer is that it ships **entirely green** over the defect._
+
+- [x] **Both halves of the membership rule are computed.**
+      `document_claims.tray_consumption` walks `sysadmin_tray/` and
+      pairs each request with the model its reply is handed to. The
+      producer half is an attribute FastAPI stores; this one is held
+      nowhere and exists only as adjacency in a function body, so a
+      syntax walk is the instrument or there is none.
+- [x] **The exposure is 8 routes, which the entry did not have.** The
+      tray parses **16** pairs with a contract — 14 served here, 2 the
+      estate's — and 6 of the 14 are `response_model`-pinned as well.
+      The other **8** belong in the table by the consumer half alone.
+      Eleven parse-side claims: **10 confirmed, the eleventh honest**
+      (`GET /api/sysadmin/events` is a *serialise*-side claim).
+- [x] **The refused implementation was driven.** Name-keyed helper
+      detection agrees with the structural one on today's population, so
+      it looks like ceremony. At a second helper under a different name
+      parsing an exempted route it goes **entirely green** where the
+      structural walk goes red on three tests.
+- [x] **Rule 1's missing half is closed.** The exemption table could
+      hide a *consumer* contract; that direction was unreachable before
+      the walk. The four *no consumer* reasons are checked in one limb,
+      which the guard's own class name states, since two consumers are
+      outside this checkout.
+- [x] **`CLAUDE.md`'s five rules become seven**, with the consumer half
+      and the one-limb caveat stated where a reader of the table is.
+- [x] **A falsification that was not a mutation was found and
+      replaced.** The rule 3 drive appended an unused function and
+      asserted green. 16 mutations driven, 14 red on the intended test,
+      two labelled controls green.
+- [x] Suite **3988 → 4001** (+13, one module). `ruff` and
+      `mypy sysadmin` clean. Nothing under `sysadmin/` changed, so no
+      restart is owed and no other entry's instrument could move.
+- [x] **Filed `SNAG-DOCS-018`** — `GET /api/services/by-project` is
+      uncontracted at **both** ends: this side declares
+      `response_model=dict` and estate-manager hand-parses it with
+      `payload.get("by_project", payload)`, accepting two shapes. The
+      entry routed that question to the estate; the estate's own routing
+      test — *would answering it differently change what another
+      repository must do?* — sends it back, and the owner ruled to
+      record the correction and defer the change.
+- [x] **`SNAG-DOCS-015` gains a second specimen.** `Unusual CPU usage`
+      opened at the close and produced the identical false-stale reading
+      — 11 episodes, mean open 346 s, **0.7 %** of the window unresolved
+      against the VRAM title's 4.8 %. The block was **not** corrected to
+      5; the entry predicts exactly this residue and the honest pin is 4.
+- [x] **Declared one pre-existing vacuous comprehension.**
+      `test_docs_index.py`'s link check runs over an empty population
+      because zero unresolved links is the only state a green suite can
+      produce; confirmed pre-existing by re-running the gate with this
+      sitting's files stashed, so it is declared rather than adopted.
+
+---
+
 ## Session 210: the judgement was a binding, and it was readable ✅ (2026-09-10)
 
 _The ask was to extend the membership sweep to `CLAUDE.md` —

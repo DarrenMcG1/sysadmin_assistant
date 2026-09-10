@@ -459,6 +459,11 @@ class TestTheLinksResolve:
     """
 
     def test_every_relative_link_resolves(self) -> None:
+        # may-not-turn: the population is the links in this index that do NOT
+        # resolve, so an empty one is the healthy state and the only one a
+        # green suite can produce.  The guard is the assert below, which fires
+        # the moment `unresolved_links` returns anything this filter keeps —
+        # the comprehension is the filter, never the measurement.
         missing = [
             target
             for target in unresolved_links(DOC_PATH)

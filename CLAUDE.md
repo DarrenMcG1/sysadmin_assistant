@@ -252,34 +252,49 @@ judgement:
 
 **A route belongs in the registry iff a `contracts.py` model is bound to
 it** — as `response_model=` on the producer side, or as the tray's parse
-on the consumer side. Five rules, three of them the opposite of the
-obvious implementation:
+on the consumer side. **Both halves are computed** since 2026-09-10
+(`SNAG-DOCS-017`). Seven rules, five of them the opposite of the obvious
+implementation:
 
-1. **The producer half is exact and the consumer half is the row's own
-   claim.** `response_model=` naming a class defined in `contracts.py` is
-   readable off `create_app()`; "the tray parses this" is not, so a
-   `parse-side only` row asserts it and `tests/test_contracts.py` guards
-   it from the other end. Measured 2026-09-10: **30** of 51 live
-   (method, path) pairs are pinned by a `contracts.py` model and **28**
+1. **The producer half is exact because FastAPI stores it; the consumer
+   half had to be walked.** `response_model=` naming a class defined in
+   `contracts.py` is readable off `create_app()`, because the binding is
+   an attribute on the route object. Nothing holds the other binding: the
+   pairing between the URL requested and the class the reply is handed to
+   exists only as *adjacency in a function body*, so
+   `document_claims.tray_consumption` is an AST walk of `sysadmin_tray/`
+   or there is no computation at all. Measured 2026-09-10: **30** of 51
+   live (method, path) pairs are pinned by `response_model=` and **28**
    of those had rows — the two that did not were `GET /api/logs/review`
-   and `POST /api/logs/review/generate`, added above. The remaining
-   **21** are unpinned, **9** of them held by the registry as parse- or
-   serialise-side rows and **12** listed in the table above.
-2. **The exemption table cannot hide a contract, which is what stops it
-   being a switch.** A route the producer has pinned is *refused* an
-   entry there, so the list can only ever excuse what the code has
-   already left unpinned — `check_markers` rule 1's refusal of a marker
-   whose deletion retires a check, met from the other side. Deciding a
-   route needs no shape stays a judgement; deciding one *has* no shape
-   does not.
-3. **The exemption is declared in this document, never in the test.** A
+   and `POST /api/logs/review/generate`, added above. The tray parses
+   **16** pairs with a `contracts.py` model, **14** served here and 2 the
+   estate's; **6** of the 14 are pinned by `response_model=` as well, so
+   **8 routes belong in this table by the consumer half alone** and their
+   membership rested entirely on prose until the walk existed.
+2. **A name in the tray is not a parse, which is why this was a second
+   sitting rather than a wider `grep`.** `sysadmin_tray/models.py`
+   re-exports `contracts.py` wholesale, so every model this table names
+   is present under `sysadmin_tray/` for reasons unrelated to any route —
+   a name-keyed sweep answers *true* for all of them, ships green, and
+   measures nothing. The walk keys on the **call**,
+   `Model.from_dict(resp.json())`: the verb, never the noun.
+3. **The exemption table cannot hide a contract, on either side.** A
+   route the producer has pinned is *refused* an entry there, so the list
+   can only ever excuse what the code has already left unpinned —
+   `check_markers` rule 1's refusal of a marker whose deletion retires a
+   check, met from the other side. Deciding a route needs no shape stays
+   a judgement; deciding one *has* no shape does not. **The same clause
+   is now owed on the consumer side** — a route the tray parses with a
+   contract cannot be excused either, which was unreachable before the
+   walk and was what this rule was missing rather than a new rule.
+4. **The exemption is declared in this document, never in the test.** A
    list living in the guard would protect the guard's knowledge and
    leave the reader exactly as misled — the failure `SNAG-DOCS-001` was,
    where fifteen departed endpoints stayed in this table and a reader
    concluded this service served them. `routes_by_prefix`'s rule: the
    document supplies the partition and the test checks it for totality,
    because zero-unaccounted-for must not read as nobody having looked.
-4. **A path parameter's *spelling* is normalised away.** This table
+5. **A path parameter's *spelling* is normalised away.** This table
    writes `{id}` and `{name}` where the handlers write `{alert_id}` and
    `{service_name}`, and a naive set comparison reports three phantom
    gaps beside three phantom stale rows. A parameter name appears in no
@@ -289,14 +304,30 @@ obvious implementation:
    is **injective over the live set** (51 of 51 distinct), and a test
    pins that, because a collapsing instrument compares fewer things than
    it believes.
-5. **The rows' *content* was measured before the membership sweep was
+6. **The rows' *content* was measured before the membership sweep was
    written, and it was correct 36 of 36.** Every `response_model` claim
    has one, every `parse-side only` claim has none, and the first model
    named is the live `response_model` in every case — so that half of
    the guard ships with an empty finding population and says so. Only
    membership was incomplete, which is the direction `SNAG-DOCS-001`
    ran in reverse: a route served and unlisted, costing the tray, which
-   reads this table to know what shape to parse.
+   reads this table to know what shape to parse. The eleven `parse-side`
+   and `serialise-side` claims were likewise correct when the consumer
+   walk first ran — **10 confirmed and the eleventh honest**, `GET
+   /api/sysadmin/events` being a *serialise*-side claim about the way out
+   rather than a tray parse. A correct population is the ranking and
+   never the reason to leave a class uncomputed, which is the reading
+   that mis-ranked `SNAG-LOG-010`'s parent.
+7. **Four exemption reasons say *no consumer* and only one limb of that
+   is checkable, which the guard's own name states.** Alfred and
+   estate-manager are outside this checkout, so a test here can *refute*
+   "no consumer" — the tray requesting the route is enough — and can
+   never confirm it. `ports_checked`'s rule at the size of a reason cell:
+   the narrower finding is reported as the narrower finding.
+   `POST /api/files/scan` is the one reason confirmed in **both**
+   directions, its claim being that the tray calls it and reads the
+   status code rather than the body — requested by the walk, absent from
+   its parses.
 
 **Project state left this repository on 2026-08-13, and what remains is a
 consumer.** [ADR-0005](docs/adr/0005-project-state-leaves.md) records the

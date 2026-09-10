@@ -1,6 +1,149 @@
-# Handoff — 2026-09-10 (Session 210)
+# Handoff — 2026-09-10 (Session 211)
 
 ## Next action
+
+Contract `GET /api/services/by-project`, which is `SNAG-DOCS-018` and the residue this sitting left by closing `SNAG-DOCS-017`: it is the one seam this repository *produces* for another repository and it is uncontracted at **both** ends — this side declares `response_model=dict`, which pins nothing, and estate-manager's `estate_service/projects/services_link.py` hand-parses the reply with `payload.get("by_project", payload)`, accepting either the wrapped mapping this service actually returns or a bare one, coercing keys and values, and recording `services endpoint returned unexpected shape` into `scan_runs.sources_unreachable` on anything else, so the shape two repositories depend on is written down nowhere and both ends degrade in the open rather than either stating it; that is the exact inverse of the two `:8400` seams this repository *consumes*, where the producer pins with `response_model=` and the tolerant parse here is deliberately a second model held against that guarantee, guarded from both ends by `tests/test_estate_project_contracts.py`, so collapsing a producer's guarantee into the consumer's defensiveness is what the Contract Registry refuses in writing and is exactly what the seam running the other way already does; `SNAG-DOCS-017` routed this question to the estate under the rule *a question routed to the owner is answered by the owner*, and that rule's own test — would answering it differently change what another repository must do? — sends it back here, because adding a `response_model=` changes no JSON byte, leaves their tolerant parse working unaltered and asks nothing of them, so the owner ruled on 2026-09-10 to record the routing correction and defer the change to its own sitting; the work is a `ServicesByProjectResponse` over a `dict[str, list[str]]` in `contracts.py`, the exemption row deleted and a registry row added in `CLAUDE.md`, and — because this is a change to a surface a repository publishes — a filing at estate-manager announcing it **before** the commit that carries it with the message id cited in that commit, which is the whole reason this is a sitting rather than a line, the model itself being one class; note that no new guard is owed, since the membership sweep closed this sitting already refuses an exemption to a pinned route and will turn that exemption row red the moment the model lands, so the document cannot fall behind the code here.
+
+## What this sitting did
+
+**Computed the consumer half of the registry's membership rule, and the
+cheap instrument the entry had already refused in writing turns out to
+ship entirely green over the defect.** Session 210 settled membership as
+*a `contracts.py` model is bound to the route* and computed only the
+**producer** half, which is readable because FastAPI stores
+`response_model` on the route object. The other binding is held nowhere:
+the pairing between the URL requested and the class the reply is handed
+to exists only as **adjacency in a function body**, so
+`document_claims.tray_consumption` walks `sysadmin_tray/` for it and
+`tests/test_claude_md_registry.py` gains 13 tests over it.
+
+**The exposure is 8 routes and the entry did not have that figure.** The
+tray parses **16** pairs with a contract — 14 served here, 2 the
+estate's — and **6 of the 14 are `response_model`-pinned as well**, so
+their membership never rested on prose. What the walk newly holds up is
+the other **8**: `/api/sysadmin/resources`,
+`/api/sysadmin/services/{name}/details`, the five `/api/files/*` reads
+and `POST /api/files/clean/stale-caches`. That set coincides with the
+entry's *8 of 8*, which counts a different thing — how many of the nine
+name their model somewhere under `sysadmin_tray/` — so the agreement is
+arithmetic coincidence and not confirmation. The eleven parse-side
+claims come back **10 confirmed and the eleventh honest**; the entry
+counted nine, which is the served table alone, the two `:8400` consumed
+rows making the identical claim by construction.
+
+**The refused implementation was driven rather than argued, and that is
+the transferable half.** Detecting the indirect fetch helper by **name**
+gives the identical answer today — one helper, sixteen parses — so the
+structural version looks like ceremony and would lose an argument about
+simplicity. Driven at a *second* helper added under a different name and
+parsing an exempted route, the name-keyed walk ships **entirely green**
+while the structural one goes red on three tests. The silence this whole
+entry is about, reproduced inside the fix for it, which is why the
+discrimination is a test and not a docstring claim.
+
+**Three obstacles the entry did not name, each producing a smaller and
+entirely plausible answer.** *The anchor*: `fetch_status` issues `GET
+/health` for liveness **and** `GET /api/sysadmin/status`, and parses
+once, so pairing at the function — the obvious reading of the entry's
+own sentence — reports the tray parsing `/health` with `StatusResponse`;
+it is this tray's only two-request method, so the rule has a population
+of one and that one is why it is needed. *The base URL*: two pairs are
+the estate's, and without rendering `_estate_api_url` as the `:8400`
+prefix the consumed table already writes, the walk reports this service
+as serving them — `SNAG-DOCS-001`'s shape from the consumer side. *The
+helper*: `_fetch_file_endpoint`'s path is a **parameter**, so the
+predicate that reads a direct call correctly refuses it and a single
+predicate silently drops 5 of the 16.
+
+**It closes the half rule 1 of the membership rules was missing.** That
+rule refuses an exemption to a route the *producer* pinned, so a
+document edit cannot hide a contract; the same clause was owed on the
+consumer side and was unreachable without the walk. The four *no
+consumer* exemption reasons are checkable in **one limb** and the
+guard's class name states which — Alfred and estate-manager are outside
+this checkout, so it can refute the claim and never confirm it, which is
+`ports_checked`'s rule at the size of a reason cell. `POST
+/api/files/scan` is the one reason confirmed in **both** directions, and
+also the only one that discriminates a working walk from one that found
+nothing.
+
+**One of the sitting's own falsifications was not a mutation at all.**
+The drive for rule 3 was staged as a no-op — it appended an unused
+function and asserted the suite stayed green — and was recorded as a
+passing negative control. A control that changes no behaviour tests
+nothing and reads exactly like one that does. Replaced with the real
+narrowing; **16 mutations** driven, 14 red on the intended test and two
+labelled controls green, plus one combined two-mutation drive which is
+the only thing that makes rule 3 observable at all.
+
+**`CLAUDE.md`'s five registry rules become seven**, with the consumer
+half stated where a reader of the table is rather than only in the test.
+Suite **3988 → 4001** (+13, all in one module, so the arithmetic
+reconciles with nothing to apportion). `ruff` and `mypy sysadmin` clean.
+
+**The daemon restarted mid-sitting and it was not a deploy.** The
+checked block read `no` on its start time; the cause is a **reboot** —
+clean stop 18:08:58, boot 18:18:43, read off `last reboot` rather than
+inferred from the gap — and the box came up on `6.18.49-2-lts` where the
+previous boot was `7.2.3-arch1-2`, the known shape of a kernel upgrade
+invalidating `LoaderEntryDefault`. Checked and it was **not** a
+monitoring gap: `CRITICAL_SIGNATURES` declares both amdgpu spellings, so
+the GPU-reset predicate reads the same on either kernel. Recorded
+because "checked, and it was not this" is a different fact from "never
+checked".
+
+**Two things the close found that were not this sitting's work, and one
+of them was deliberately left alone.** `check-ops-claims.sh` reported
+the alert block short on `Unusual CPU usage`, and over the minutes of a
+single postflight read **4, then 5, then 6, then 4, then 5**, the rows resolving and
+reopening on their own with nothing done and the last of them being
+`High VRAM usage`, the entry's *own* founding title. Measured over seven days
+that title is **11 episodes, mean open 346 s, unresolved 0.7 %** of the
+window, so it is `SNAG-DOCS-015` exactly and the honest pin stays **4**.
+The block was **not** corrected — that entry predicts this residue — and
+the refusal was vindicated inside the same close rather than by
+argument. The entry gains a **second specimen**, which matters because
+it was written from one title and its class was arguable from one
+observation; the 4 → 5 → 6 → 4 sequence is also what rules out the
+range-based pin it considered, since no fixed number holds for more than
+a few minutes.
+The other was a comprehension under `tests/` running over an empty
+population, confirmed pre-existing by re-running the gate with this
+sitting's two files stashed: `test_docs_index.py`'s link check, where
+zero unresolved links is the only state a green suite can produce, so it
+carries a `# may-not-turn:` declaration naming the assert as the guard.
+
+## What is deliberately not done
+
+**`GET /api/services/by-project` is not contracted**, at the owner's
+ruling of 2026-09-10, and is refiled as `SNAG-DOCS-018` rather than
+closed with its parent. What changed is the **routing**, not the
+priority: `SNAG-DOCS-017` sent it to the estate and the estate's own
+test sends it back, so it is this repository's decision about its own
+surface. The deferral is real work deferred — a filing must precede the
+commit — and not a question left open.
+
+**No filing was made at the estate.** No cross-repo friction was hit:
+the `by-project` seam is this repository's own surface, and the register
+is for friction that hurt rather than for questions. Reading
+estate-manager's `services_link.py` was a plain read of a sibling
+checkout and cost nothing.
+
+**No restart is owed and none was reported.** `git diff HEAD --
+sysadmin/` is empty — the sitting's only code is under `tests/` — so the
+deploy claim is unmoved by this work and the restart the block now
+records is the reboot above, which this repository did not ask for.
+
+**No other entry's instrument moved, and that is established
+structurally rather than by a diff.** `sysadmin/snag_claims.py` names
+none of this sitting's files and nothing under `sysadmin/` changed, so
+the snag controls could not have moved; the checker was run anyway and
+reports the list at 158 entries, 36 open — `SNAG-DOCS-017` closed and
+`SNAG-DOCS-018` opened, which is why the open count is unchanged.
+
+## Session 210 — the judgement was a binding, and it was readable
+
+### The action Session 210 filed
 
 Compute the consumer half of the registry's membership rule, which is `SNAG-DOCS-017` and the residue this sitting left by closing `SNAG-DOCS-014` with a guard that computes only the producer half: membership is now *a `contracts.py` model is bound to the route*, and `tests/test_claude_md_registry.py` reads that binding off `response_model=` — exact, mechanical, and silent about the nine rows whose enforcement cell says `parse-side only` or `serialise-side only`, which assert in prose that the **tray** parses the payload with the model named and are believed; measured 2026-09-10 eight of those nine name every model they cite somewhere under `sysadmin_tray/` and the ninth is `GET /api/sysadmin/events` → `EventMessage`, whose own cell says *serialise*-side and is therefore honest rather than failing, so the population is correct today and what is unguarded is the class — the reading that mis-ranked `SNAG-LOG-010`'s parent, stated here rather than left to be discovered; the obstacle is measured and it is that naming a class in the tray is not parsing a payload with it, since `sysadmin_tray/models.py` re-exports the contracts wholesale so a name is present for reasons unrelated to any route, and what would settle it is an AST walk pairing each `client.py` request with the model its response is handed to — reachable on both shapes, the `_fetch_file_endpoint` calls passing the model as an argument and the direct calls handing the payload to a `from_dict` on a name — and two smaller questions ride with it, that four exemption reasons say *no consumer* and nothing computes that either while two of this repository's consumers are outside the checkout, and that `GET /api/services/by-project` declares `response_model=dict` and is pulled once per scan by estate-manager, so a cross-repo seam is uncontracted from the producing side where both seams this repository consumes are modelled, which is a question estate rule *a question routed to the owner is answered by the owner* points at the estate rather than settles here.
 
