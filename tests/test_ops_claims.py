@@ -2201,6 +2201,165 @@ class TestTheConventionAgainstTheRealDocument:
             assert "different clocks" not in claim.note, f"zone drift: {marker.argument}"
 
 
+class TestSupersededClaimsAreDemoted:
+    """The document convention rule 2 implies, stated at last (SNAG-DOCS-019).
+
+    :func:`read_claim` refuses a region stating one claim two ways, and
+    the region is the *narrative*, which is append-only.  So every claim
+    in the block carries a standing obligation on the sitting that
+    rewrites it: **the sentence it supersedes must stop matching the
+    pattern.**  Nothing said so — not this module, not its docstrings, not
+    a test — and the obligation is invisible until it is breached, because
+    a sitting that does not restart never meets it.
+
+    Session 212 met it: it restarted the daemon, wrote the new sentence
+    beside its predecessor's identically-spelled one, and
+    ``check-ops-claims.sh`` answered ``unknown`` naming both moments.
+    That is rule 2 working exactly as designed, reporting a drift whose
+    remedy was written down nowhere.
+
+    **The convention is honoured and has never been recorded.** Across the
+    262 commits touching ``STATUS.md`` whose region parses, **162 hold
+    exactly one** full-datetime restart claim, **100 hold none**, and
+    **none has ever held two** — measured 2026-09-10 by replaying every
+    revision of the file through :func:`printed_region`.
+
+    **It is one obligation and not one respelling**, which is the part the
+    entry got wrong and which decides how this is asserted.  The live
+    region carries **ten** superseded restart records in **four** distinct
+    spellings — five unbolded and time-only (``restarted at 16:24:42``),
+    three unbolded with the date (``restarted at 2026-09-04 10:59:25``),
+    one bolded with the ``at`` dropped (``restarted **2026-08-30
+    14:29:19**``) and one with the date moved out of the bold
+    (``restarted on 2026-09-10 at **18:18:57**``, Session 212's repair).
+    All four share the only property that matters, so what is pinned here
+    is *the claim reads one value*, never a spelling — pinning a spelling
+    would make this a second statement of :data:`CLAIM_PATTERNS` and turn
+    it red on a demotion that works.
+
+    **Why a test rather than a line in a document.**  The entry named
+    three candidates — a line in ``CLAUDE.md``'s session-close list, a
+    clause in the pattern's own comment, and this.  The first two go stale
+    in the ordinary way and neither would have caught the breach; this is
+    driven by the suite the close runs, and it is red rather than one
+    ``??`` in a forty-line banner.  Narrowing the pattern to the newest
+    match was refused rather than deferred: a guard that silently picks a
+    winner among disagreeing sentences stops reporting the drift rule 2
+    exists to report — ``check_review_schedule_unread``'s defect wearing a
+    regex.
+
+    **The vacuity risk runs the other way here, and that is why the
+    witnesses exist.**  ``at most one`` is satisfied by *none*, so a
+    reworded sentence or a broken pattern would leave this green while the
+    claim it protects had gone blind — ``ports_checked``'s rule at the
+    size of an assert.  The guard therefore asserts the reader returns a
+    **value**, and the two witnesses below drive it at a synthetic
+    collision and at that collision repaired, so the assertion is known to
+    discriminate rather than merely known to pass.
+
+    **Five mutations were driven, and the one that decides whether this is
+    a second copy of ``check-ops-claims.sh`` is the one that script
+    survives.**  Taking the newest match instead of refusing — the
+    narrowing this entry rejected — reddens
+    :meth:`test_an_undemoted_predecessor_is_what_the_guard_refuses`
+    *alone*, and the checker driven under that narrowing **beside a real
+    undemoted collision in the document** reports ``ok Daemon start time``
+    and exits 0: a check cannot detect a change to its own resolution
+    rule, so what is asserted here is not reachable from there at all.
+    Breaking the pattern so it matches nothing reddens three, which is the
+    blind case an ``at most one`` spelling would have passed in silence.
+    Widening the pattern to read the demotion too reddens three at today's
+    document and
+    :meth:`test_the_demotion_is_the_repair_and_the_claim_reads_again`
+    *alone* at a document whose demotion uses one of the other three
+    spellings — which is why that test is synthetic end to end: it is the
+    member that still discriminates when the document holds no specimen of
+    the shape it pins.
+    """
+
+    #: A second restart sentence in the spelling a restarting sitting
+    #: writes, at an instant no live sentence can hold.  Synthetic on
+    #: purpose: a witness spliced from today's wording goes vacuous on the
+    #: edit that moves it, which is the whole failure being guarded.
+    COLLIDING = "\n> Daemon restarted at **2026-01-02 03:04:05**."
+
+    #: The same sentence demoted — the date out of the bold, which is the
+    #: repair Session 212 applied.  One of the four live spellings, chosen
+    #: because it is the one that keeps the whole instant in the prose.
+    DEMOTED = "\n> Daemon restarted on 2026-01-02 at **03:04:05**."
+
+    def test_no_claim_in_the_live_block_states_two_figures(self):
+        """The guard.  Fires the day a sitting supersedes a claim in place.
+
+        Every pattern-bearing claim, not only ``daemon_start`` — the
+        obligation is rule 2's and belongs to all of them.  ``tests`` is
+        the member that shows why this is written on *distinct values*
+        rather than on match count: it states its figure twice on purpose,
+        once in the Status cell and once in the Notes, and the day those
+        two part company it fails here for the same reason and with the
+        same remedy.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        for key in sorted(CLAIM_PATTERNS):
+            value, why = read_claim(region, key)
+            assert value is not None, f"{key}: {why}"
+
+    def test_an_undemoted_predecessor_is_what_the_guard_refuses(self):
+        """The witness: the assertion above can fail, and on this input.
+
+        The live region plus one more sentence in the spelling the block
+        uses for the current restart.  Both instants are named, because a
+        verdict that reported only the collision would leave the sitting
+        to find the other sentence by hand.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        value, why = read_claim(region + self.COLLIDING, "daemon_start")
+        assert value is None
+        assert "2 different figures" in why
+        assert "2026-01-02 03:04:05" in why
+        live, _ = read_claim(region, "daemon_start")
+        assert live is not None and live in why
+
+    def test_the_demotion_is_the_repair_and_the_claim_reads_again(self):
+        """The same second sentence, demoted — driven at the *fix*.
+
+        Without this the test above is satisfied by any change that makes
+        the reader louder, and the convention would be pinned as *do not
+        write two restart sentences* rather than as *demote the one you
+        supersede*.  A control driven only at the defect cannot tell the
+        two apart.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        live, why = read_claim(region, "daemon_start")
+        assert live is not None, why
+        assert read_claim(region + self.DEMOTED, "daemon_start") == (live, "")
+
+    def test_the_block_carries_superseded_restarts_the_pattern_declines(self):
+        """The practice, measured against the document rather than asserted.
+
+        A loose reading finds every restart record the narrative holds; the
+        claim pattern reads one.  The gap **is** the convention, and it is
+        what tells a reader of this class that the population is real
+        rather than that nobody has restarted twice yet.  The loose pattern
+        is deliberately not a second claim pattern: it is anchored on the
+        verb and a digit alone, so every one of the four live demotion
+        spellings falls inside it and none of them is pinned.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        prose = flatten(region)
+        loose = re.findall(r"restarted (?:at |on )?\*{0,2}\d{2}", prose)
+        claimed = re.findall(CLAIM_PATTERNS["daemon_start"], prose)
+        assert len(claimed) == 1
+        assert len(loose) > len(claimed), (
+            "the block records exactly one restart, so this class has never "
+            "observed a demotion and its population is unmeasured"
+        )
+
+
 def _clear_collection_cache() -> None:
     """Drop :func:`measure_tests`' per-process answer, if it has one.
 

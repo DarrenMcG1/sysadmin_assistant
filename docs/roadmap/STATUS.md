@@ -3,6 +3,65 @@
 **Last Updated**: 2026-09-10
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The convention had been honoured 162 times and written down nowhere**
+> (2026-09-10, Session 213, closing `SNAG-DOCS-019`). `read_claim`
+> refuses a region stating one claim two ways, and the region is the
+> *narrative*, which is append-only — so every claim in this block puts a
+> standing obligation on the sitting that rewrites it: **the sentence it
+> supersedes must stop matching the pattern.** Session 212 met that
+> obligation by breaching it, and nothing anywhere said what the remedy
+> was. `tests/test_ops_claims.py::TestSupersededClaimsAreDemoted` states
+> it now.
+> **The guard is written over every pattern-bearing claim**, not over
+> `daemon_start`. The obligation is rule 2's and belongs to all seven
+> keys; `daemon_start` is merely where it bites, and `tests` is the
+> second live member — it states its figure twice on purpose, once in the
+> Status cell and once in the Notes, so the day those part company it
+> fails here for the same reason. That row is also what forces the
+> spelling: it matches **twice** and states **one** figure, so a guard
+> written on match count would be red on a healthy document.
+> **The entry's measurement was right in direction and short by two
+> axes.** It counted six historical restarts spelled time-only; the live
+> region carries **ten** superseded records in **four** spellings — 5
+> unbolded and time-only, 3 unbolded with the date, 1 bolded with the
+> `at` dropped, 1 with the date moved out of the bold, which is Session
+> 212's own repair. They share only the property that matters, so what is
+> pinned is *the claim reads one value* and never a spelling: pinning a
+> spelling would turn the guard red on a demotion that works.
+> **162 of 262.** Every revision of this file replayed through
+> `printed_region`: of the 262 commits whose region parses, **162** hold
+> exactly one full-datetime restart claim, **100** hold none, and **none
+> has ever held two**. Session 212's collision lived in the working tree
+> and was repaired before the commit, which is why no revision records
+> it.
+> **The vacuity risk ran the other way, and that is why there are two
+> witnesses.** `at most one` is satisfied by *none*, so a reworded
+> sentence or a broken pattern would leave the guard green while the
+> claim had gone blind — `ports_checked`'s rule at the size of an assert.
+> The assertion is therefore *the reader returns a value*, and both
+> witnesses splice a **synthetic** sentence onto the live region, because
+> a witness built from today's wording goes vacuous on the edit that
+> moves it.
+> **Five mutations driven, and one settles whether this is a second copy
+> of `check-ops-claims.sh`.** Taking the newest match instead of refusing
+> — the narrowing the entry rejected in writing — reddens
+> `test_an_undemoted_predecessor_is_what_the_guard_refuses` alone; driven
+> under that narrowing **beside a real undemoted collision written into
+> this file**, the checker reports `ok Daemon start time` and exits 0. A
+> check cannot detect a change to its own resolution rule. Widening the
+> pattern to read the demotion too reddens three here and
+> `test_the_demotion_is_the_repair_and_the_claim_reads_again` **alone**
+> at a document whose demotion uses one of the other three spellings —
+> which is why that test is synthetic end to end.
+> **The sitting never met the convention it pinned**, the entry's own
+> invisibility arriving inside its fix: `ops_claims.py` is outside the
+> daemon's import graph, so no restart was owed, no restart sentence was
+> written, and nothing needed demoting. The other two candidates the
+> entry named are **declined rather than deferred**; what went beside the
+> pattern is a *pointer* to the test, since a comment and a test both
+> stating a convention are two statements free to disagree about it.
+> Suite **4009 → 4013**.
+
 > **The wrapper was the contract, and the payload could not witness its
 > own deploy** (2026-09-10, Session 212, closing `SNAG-DOCS-018`).
 > `GET /api/services/by-project` is the one surface this repository
@@ -5223,7 +5282,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **4009 collected** | <!--check:tests-->**4009 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 4001 + 8 on 2026-09-10, Session 212: `tests/test_by_project_contract.py`, the first test of any kind for `GET /api/services/by-project` — all 8 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-018`). 3988 + 13 on 2026-09-10, Session 211: the same module gains the **consumer** half of the membership rule — an AST walk of `sysadmin_tray/` pairing each request with the model its reply is handed to — so again all in one module and the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-017`). 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
+| Testing | 🟢 **4013 collected** | <!--check:tests-->**4013 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 4001 + 8 on 2026-09-10, Session 212: `tests/test_by_project_contract.py`, the first test of any kind for `GET /api/services/by-project` — all 8 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-018`). 3988 + 13 on 2026-09-10, Session 211: the same module gains the **consumer** half of the membership rule — an AST walk of `sysadmin_tray/` pairing each request with the model its reply is handed to — so again all in one module and the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-017`). 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
 membership guard that outlives `SNAG-DOCS-011` — every package, agent and mapped
 table swept **both ways** against `docs/ARCHITECTURE.md`, because the entry
 counted lines naming a departed component and a line count cannot measure an

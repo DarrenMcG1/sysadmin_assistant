@@ -8,6 +8,91 @@
 
 ---
 
+## Session 213: the convention had been honoured 162 times and written down nowhere ✅ (2026-09-10)
+
+_The ask was to close `SNAG-DOCS-019` — the residue Session 212 left by
+restarting the daemon and finding that its new restart sentence collided
+with its predecessor's identically-spelled one, so `read_claim` returned
+`unknown` naming both moments. The entry named three candidates and
+argued for the third: a test asserting at most one full-datetime restart
+claim exists in the parsed region. It also flagged the risk, which is the
+reverse of the usual one — such a test's population is **one**, so it
+passes trivially against today's document unless it is driven at the
+two-sentence state the previous sitting produced and then repaired._
+
+- [x] **The guard is written over every pattern-bearing claim, not over
+      `daemon_start`.** The obligation is rule 2's — a region stating one
+      claim two ways is refused — and it belongs to all seven keys.
+      `daemon_start` is where it bites, because it is the only claim a
+      sitting rewrites into an **append-only** narrative; `tests` is the
+      second live member, stating its figure twice on purpose (Status
+      cell and Notes cell), so the day those part company it fails here
+      for the same reason and with the same remedy.
+- [x] **Written on distinct values, never on match count**, which is what
+      the `tests` row forces: it matches **twice** and states **one**
+      figure, so a count-based spelling would be red on a healthy
+      document.
+- [x] **The entry's measurement was right in direction and short by two
+      axes.** It counted six historical restarts spelled time-only. The
+      live region carries **ten** superseded records in **four**
+      spellings — 5 unbolded time-only, 3 unbolded with the date, 1
+      bolded with the `at` dropped, 1 with the date moved out of the bold
+      (Session 212's own repair). What they share is the only property
+      that matters, so the test pins *the claim reads one value* and
+      never a spelling. Pinning a spelling would turn it red on a
+      demotion that works.
+- [x] **The convention has been honoured 162 times.** Every revision of
+      `STATUS.md` replayed through `printed_region`: of the **262**
+      commits whose region parses, **162** hold exactly one full-datetime
+      restart claim, **100** hold none, and **none has ever held two**.
+      Session 212's collision lived in the working tree and was repaired
+      before the commit, which is why no revision records it.
+- [x] **The vacuity risk ran the other way, and that decided the
+      spelling.** `at most one` is satisfied by *none*, so a reworded
+      sentence or a broken pattern would leave the guard green while the
+      claim had gone blind — `ports_checked`'s rule at the size of an
+      assert. The assertion is therefore *the reader returns a value*,
+      and breaking the pattern so it matches nothing reddens three of the
+      four tests.
+- [x] **Both witnesses are synthetic, spliced onto the live region.** A
+      witness built from today's wording goes vacuous on the edit that
+      moves it, which is the failure being guarded — the same reason
+      `test_handoff_shape.py`'s premise is driven at a sentence nobody
+      wrote in the document.
+- [x] **Five mutations driven.** Taking the newest match instead of
+      refusing — the narrowing the entry rejected — reddens
+      `test_an_undemoted_predecessor_is_what_the_guard_refuses` **alone**.
+      Widening the pattern to read the demotion too reddens three at
+      today's document and
+      `test_the_demotion_is_the_repair_and_the_claim_reads_again`
+      **alone** at a document whose demotion uses one of the other three
+      spellings — which is why that test is synthetic end to end: it is
+      the member that still discriminates when the document holds no
+      specimen of the shape it pins.
+- [x] **It is not a second copy of `check-ops-claims.sh`, measured rather
+      than argued.** Under that same narrowing, and beside a **real**
+      undemoted collision written into `STATUS.md`, the checker reports
+      `ok Daemon start time: block says 2026-09-10 21:23:40, measured
+      2026-09-10 21:23:40` and exits 0. A check cannot detect a change to
+      its own resolution rule, so what the class asserts is unreachable
+      from there.
+- [x] **The other two candidates are declined, not deferred**, on the
+      entry's own reasoning: both go stale in the ordinary way and
+      neither would have caught the breach. What went beside the pattern
+      is a **pointer** to the test rather than a restatement of the rule
+      — a comment and a test that both state a convention are two
+      statements free to disagree about it.
+- [x] **The sitting never met the convention it pinned**, which is the
+      entry's own invisibility arriving inside its fix: `ops_claims.py`
+      is outside the daemon's import graph, so no restart was owed, no
+      restart sentence was written, and nothing needed demoting.
+- [x] Suite **4009 → 4013** (+4, one class). `ruff check .` and
+      `mypy sysadmin` clean. `check-vacuous-guards.sh` green with no new
+      declaration — every loop the class adds turns. All eleven ops
+      claims read green.
+
+---
+
 ## Session 212: the wrapper was the contract ✅ (2026-09-10)
 
 _The ask was to contract `GET /api/services/by-project` — `SNAG-DOCS-018`,

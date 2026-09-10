@@ -1,6 +1,106 @@
-# Handoff — 2026-09-10 (Session 212)
+# Handoff — 2026-09-10 (Session 213)
 
 ## Next action
+
+Decide what a commit message in this tree says when it cites a cross-repo register id — `SNAG-DOCS-016`, whose "decided against deciding" is the one open disposition `check-snag-claims.sh` reports as outside the four-word vocabulary — now that the input the entry was declining against has moved: estate-manager's open message `47f22a6e-46a0-401d-968e-539840ae7c57` records the owner's 2026-09-10 ruling that each repository decides this for itself, publishes the classification *method* rather than an answer at `estate-manager/docs/guides/citation-census.md`, and hands over figures split by direction that this tree had only in aggregate — 74 citation sites across 47 of 351 commits, 31 citing a filing this repository made and 43 citing one it received, with **1** of the 31 and **0** of the 43 carrying the whole uuid — which is the split that decides whether one convention covers both directions or whether the receiving half is a different question, since a received id names a message this repository did not write and a reader here cannot resolve it on any route; note that the entry's own refusal is still standing and still correct on its own terms, so the sitting that takes this must first say what changed rather than re-deciding it because it is small, and note also that closing the message is part of the work and not a separate errand, because the notice fires once per session and an inbox left open is how a filing that asks nothing becomes a filing nobody read.
+
+## What this sitting did
+
+**Closed `SNAG-DOCS-019` by writing down a convention this document had
+honoured 162 times and never stated.** `read_claim` refuses a region
+that states one claim two ways, and the parsed region of `STATUS.md` is
+the *narrative*, which is append-only. So every claim in the block puts a
+standing obligation on the sitting that rewrites it: **the sentence it
+supersedes must stop matching the pattern.** Session 212 met that
+obligation by breaching it — its new restart sentence sat beside its
+predecessor's identically-spelled one and the checker answered `unknown`
+naming both moments — and found that the remedy was written in no
+document, no docstring and no test.
+`tests/test_ops_claims.py::TestSupersededClaimsAreDemoted` states it now,
+in four tests.
+
+**The guard is written over every pattern-bearing claim, not over
+`daemon_start`.** The obligation is rule 2's and belongs to all seven
+keys; `daemon_start` is only where it bites, being the one claim a
+sitting rewrites into an append-only narrative. `tests` is the second
+live member and is what forces the spelling: that row states its figure
+**twice** on purpose, once in the Status cell and once in the Notes, so a
+guard written on match count would be red on a healthy document. It is
+written on **distinct values**, which is exactly what `read_claim`
+refuses on.
+
+**The entry's measurement was right in direction and short by two axes.**
+It counted six historical restarts spelled time-only. The live region
+carries **ten** superseded records in **four** spellings — 5 unbolded and
+time-only, 3 unbolded with the date, 1 bolded with the `at` dropped, and
+1 with the date moved out of the bold, which is Session 212's own repair.
+They share only the property that matters, so what is pinned is *the
+claim reads one value* and never a spelling: pinning a spelling would
+turn the guard red on a demotion that works.
+
+**162 of 262, measured rather than argued.** Every revision of
+`STATUS.md` replayed through `printed_region`: of the 262 commits whose
+region parses, **162** hold exactly one full-datetime restart claim,
+**100** hold none, and **none has ever held two**. Session 212's
+collision lived in the working tree and was repaired before the commit,
+which is why no revision records it — and why the practice looked like an
+accident rather than a convention.
+
+**The vacuity risk ran the other way, which is what the entry flagged and
+what decided the spelling.** `at most one` is satisfied by *none*, so a
+reworded sentence or a broken pattern would leave the guard green while
+the claim it protects had gone blind — `ports_checked`'s rule at the size
+of an assert. The assertion is therefore *the reader returns a value*,
+and breaking the pattern so it matches nothing reddens three of the four
+tests. Both witnesses splice a **synthetic** sentence onto the live
+region rather than reusing today's wording, because a witness built from
+a sentence the document happens to carry goes vacuous on the edit that
+moves it, which is the failure being guarded.
+
+**Five mutations driven, and one of them settles whether this is a second
+copy of `check-ops-claims.sh`.** Taking the newest match instead of
+refusing — the narrowing the entry rejected in writing — reddens
+`test_an_undemoted_predecessor_is_what_the_guard_refuses` **alone**; and
+driven under that narrowing beside a *real* undemoted collision written
+into `STATUS.md`, the checker reports `ok Daemon start time: block says
+2026-09-10 21:23:40, measured 2026-09-10 21:23:40` and exits 0. A check
+cannot detect a change to its own resolution rule, so what this class
+asserts is not reachable from there at all. Widening the pattern to read
+the demotion too reddens three here and
+`test_the_demotion_is_the_repair_and_the_claim_reads_again` **alone** at
+a document whose demotion uses one of the other three spellings — which
+is why that test is synthetic end to end: it is the member that still
+discriminates when the document holds no specimen of the shape it pins.
+
+**The other two candidates are declined, not deferred.** The entry named
+three — a line in `CLAUDE.md`'s session-close list, a clause in the
+pattern's own comment, and the test — and argued that the first two go
+stale in the ordinary way and neither would have caught the breach. What
+went beside the pattern is a **pointer** to the test rather than a
+restatement of the rule, because a comment and a test that both state a
+convention are two statements free to disagree about it.
+
+**The sitting never met the convention it pinned**, which is the entry's
+own invisibility arriving inside its fix: `ops_claims.py` is outside the
+daemon's import graph, so the deploy check reported no restart owed, no
+restart sentence was written, and nothing needed demoting.
+
+Suite **4009 → 4013** (+4, one class). `ruff check .` and
+`mypy sysadmin` clean. `check-vacuous-guards.sh` green with no new
+declaration — every loop the class adds turns. All eleven ops claims read
+green.
+
+## What is blocked
+
+Nothing. One estate message is **open and deliberately left open**:
+`47f22a6e-46a0-401d-968e-539840ae7c57` from estate-manager, which asks
+nothing and is the input the next action is about — closing it belongs to
+the sitting that acts on it, and closing it now would record a reading
+that has not been taken.
+
+# Handoff — 2026-09-10 (Session 212)
+
+### The action Session 212 handed on (decided by Session 213)
 
 Close `SNAG-DOCS-019`, which is the residue this sitting left by closing `SNAG-DOCS-018`: the `daemon_start` claim's pattern matches ``restarted at **YYYY-MM-DD HH:MM:SS**`` anywhere in `docs/roadmap/STATUS.md`'s narrative, which is append-only, so this sitting's own restart sentence sat beside its predecessor's identically-spelled one and `read_claim` — which collects matches into a set — returned `unknown` naming both moments, `ops_claims` rule 2 working exactly as designed while the document convention that rule implies is written down nowhere; measured, the six historical restarts in that file are spelled ``restarted at **12:01:12**``, time only, which the pattern cannot match, so the convention plainly exists and has been honoured six times in no document, no docstring and no test, and the two sittings before this one never met it because neither restarted; the fix applied here was the demotion — rewriting the predecessor to ``restarted on 2026-09-10 at **18:18:57**``, which keeps the date, keeps the sentence and restored `ok` on all eleven ops claims — and narrowing the pattern to the newest match was refused rather than deferred, because a guard that silently picks a winner among disagreeing sentences stops reporting the drift rule 2 exists to report, which is `check_review_schedule_unread`'s defect wearing a regex; what is owed is therefore a sentence somewhere a sitting actually reads, and the three candidates are not equivalent — a line in `CLAUDE.md`'s session-close list and a clause in the `daemon_start` pattern's own comment (which already explains the `tests` alternation at length and says nothing whatever about this) can both go stale in the ordinary way, while a test asserting that at most one full-datetime restart claim exists in the parsed region cannot, and is also the only one of the three that would have caught this before the checker did; note the risk is the reverse of the usual one, because such a test's population is **one** and it passes trivially against today's document, so it must be driven at a two-sentence region — the exact state this sitting produced and then repaired — or it ships vacuous and green until the next restarting sitting rediscovers the convention by hand.
 
@@ -84,7 +184,7 @@ after it.
 
 Nothing.
 
-# Handoff — 2026-09-10 (Session 211)
+## Session 211 — a name in the tray is not a parse
 
 ### The action Session 211 handed on (decided by Session 212)
 

@@ -329,6 +329,13 @@ CLAIM_PATTERNS: dict[str, str] = {
     "tables": r"\*\*(\d+) tables\*\*",
     "migration_head": r"head \*\*(\d+)\*\*",
     "alerts": r"holds \*\*(\d+)\*\* unresolved",
+    # The one claim a sitting rewrites into an *append-only* narrative, so
+    # the only one whose predecessor it must go and demote.  The obligation
+    # is rule 2's and belongs to every key here; it is named at this one
+    # because this is where it bites.  Stated, and driven, at
+    # ``tests/test_ops_claims.py::TestSupersededClaimsAreDemoted`` — a
+    # pointer rather than a restatement, since a comment and a test that
+    # both state a convention are two statements free to disagree about it.
     "daemon_start": r"restarted at \*\*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\*\*",
     "health": r"`/health` answers \*\*(\d+)\*\*",
     # The one claim whose figure the cell states **twice** — once in the
