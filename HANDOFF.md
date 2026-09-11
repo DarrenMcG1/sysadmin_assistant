@@ -1,6 +1,78 @@
-# Handoff — 2026-09-11 (Session 216)
+# Handoff — 2026-09-11 (Session 217)
 
 ## Next action
+
+Every open entry in the register was re-measured against the live box on 2026-09-11 and **none moved** — 28 of 28 checked claims still hold, and the six unchecked entries carrying an empty-population clause were hand-measured to one production caller, four patterned Notes figures, one declared span per sentence, twenty-four composed error sites at a largest static 170 characters against a cap of 300, one resolved symlink target and eight of eight reset rows carrying microseconds — so the register is measured-fresh rather than assumed-fresh, **no open entry declares that a sitting is owed work on it**, and the next sitting should therefore start from the scheduled reading due 2026-09-14 rather than from the register, whose ranking this sitting has now taken and found empty.
+
+## What this sitting did
+
+Closed estate message `bce16b73-c3db-493c-8018-50f6fe4b46bd`, then
+discharged Session 216's ranking by re-measuring the register against the
+box rather than re-reading its arguments.
+
+**The inbox asked nothing and repaid reading anyway.** estate-manager
+confirmed both halves of our filing `0ee5b5f5` and published the cause of
+the half we had only located: their citation census defined three regexes
+over one namespace and the 8-hex-digit one excludes hex digits from its
+lookahead but **not the hyphen**, so it fires on the first octet of every
+whole uuid and counted each whole-uuid citation twice. Box-wide **303
+sites are 263**; ours **74 → 73**, own filings **31 → 30**. Nothing of
+ours moved, because this tree had already swept on `(commit, id)` — the
+key they have now adopted. The close note records that the correction
+*strengthens* what `ADR-0011` rests on rather than disturbing it: the
+decisive finding was that two careful readers **invert** the own-vs-received
+split, and re-keying moves their own-filing gloss 54.8 % → 56.7 % against
+this tree's 38.7 %, so the inversion widens. `ADR-0011`'s table row keeps
+74/31/54.8 % as written, labelled as their reading at that date — a count
+in a dated record is history, which is their own rule for `ADR-0155`.
+
+**The ranking came out empty and that is the result, not a null.** Of 34
+open entries the checker returns **29 verdicts, 28 `ok — still holds`, 0
+refuted**, and the one `??` is the standing report that 9 entries carry no
+check. Six of those nine carry an empty-population clause and were
+hand-measured: `SNAG-DOCS-009` at one production caller, `SNAG-DOCS-010`
+at 4 of 4 current Notes figures patterned, `SNAG-DOCS-021` at two
+declarations of one span each, `SNAG-BRIEF-003` at 24 `result.error =`
+sites across 10 files with a largest static composition of 170 characters
+plus one interpolation against a cap of 300, `SNAG-CFG-007` at no yaml
+override and one resolved symlink target, `SNAG-GPU-002` at 8 of 8 reset
+rows carrying microseconds. Each now carries a dated re-measurement
+bullet. **Session 216's premise did not reproduce**: it expected surprises
+because three of its own four came from re-measuring recorded figures, and
+six measurements here produced none.
+
+**One pointer was stale and the value was not.** `SNAG-CFG-007` cited the
+estate's `settings_file` field at `audit/config.py:286`; it is at **381**.
+Corrected in place, with the bullet saying why — a citation into another
+repository is only as fresh as the last time somebody opened it, which is
+the smaller half of the hazard that entry is about.
+
+**The instrument was wrong before the register was.** Partitioning the
+open entries by a hand regex for a check marker over each entry's `body`
+gave **8** unchecked against the checker's **9**. The extra was
+`SNAG-DOCS-009`, whose prose *quotes* a STATUS.md marker as an example;
+`load_entries` already gets this right and reports `Entry.markers == ()`
+for it. Reconciling the two counts at the key is what found it, and the
+lesson is recorded: never re-derive marker ownership from `e.body`.
+Separately, a line-based parse of the Quick Status table silently drops
+the Testing row — it is an unterminated table row wrapping onto the next
+physical line, so the cell holding `4042` reads as absent, in the
+direction that looks like health. `quick_status_rows` is right because it
+reads the `flatten()`ed region; the trap is now written into
+`SNAG-DOCS-010`.
+
+## What is blocked
+
+Nothing new. The three entries the disposition reader would allow —
+`SNAG-AGENT-012`, `SNAG-AGENT-013`, `SNAG-SVC-001` — all still read
+`blocked` and all three checks report `still holds`, so the position is
+unchanged and now measured rather than assumed. `SNAG-GPU-001` (P2) is
+the only open entry above P3 and carries no check; `SNAG-SCHED-004` has a
+scheduled reading due 2026-09-14 and was deliberately left for it.
+
+# Handoff — 2026-09-11 (Session 216)
+
+### The action Session 216 handed on (discharged by Session 217)
 
 The register now holds **no** entry reading `open — owed` — this close took the only one, so of 34 open entries the disposition reader refuses 26 as *decided* and 5 as *delegated* and the three it would allow (`SNAG-AGENT-012`, `SNAG-AGENT-013`, `SNAG-SVC-001`) all read *blocked*, which means the next sitting's first job is a **ranking** rather than a taking, and it should re-read the decided P4s against the box before believing any of their "population is empty today" clauses, since three of this sitting's four surprises came from re-measuring a figure an entry had recorded and none from reading its argument.
 

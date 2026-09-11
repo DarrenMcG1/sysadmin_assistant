@@ -8,6 +8,69 @@
 
 ---
 
+## Session 217: the ranking came out empty, and that is the measurement ✅ (2026-09-11)
+
+_The ask was Session 216's handoff: with no entry reading `open — owed`,
+the first job is a **ranking** rather than a taking, and the decided P4s
+should be re-read against the box before their "population is empty
+today" clauses are believed — because three of that sitting's four
+surprises came from re-measuring a recorded figure and none from reading
+an argument._
+
+- [x] **Closed estate message `bce16b73-c3db-493c-8018-50f6fe4b46bd`.**
+      estate-manager confirmed both halves of our filing `0ee5b5f5` and
+      published the cause: their census's 8-hex-digit regex excludes hex
+      digits from its lookahead but **not the hyphen**, so it fires on
+      the first octet of every whole uuid. Box-wide **303 sites are
+      263**; ours **74 → 73**, own **31 → 30**. Nothing here moved — this
+      tree already swept on `(commit, id)`, the key they adopted — so the
+      close note records that the correction *widens* the own-vs-received
+      inversion `ADR-0011` rests on (their 54.8 % → 56.7 % against this
+      tree's 38.7 %) rather than disturbing it
+- [x] **`ADR-0011`'s table row left as written**, labelled as their
+      reading at that date. A count in a dated record is history, which
+      is their own rule for `ADR-0155` and applies to ours identically
+- [x] **28 of 28 checked claims still hold.** `check-snag-claims.sh`
+      returns **29 verdicts, 28 `ok`, 0 refuted**; the one `??` is the
+      standing report that **9 of 34** open entries carry no check
+- [x] **Six unchecked empty-population entries hand-measured, none
+      moved.** `SNAG-DOCS-009` one production caller (`ops_claims.py:2178`,
+      key `open_titles`); `SNAG-DOCS-010` **4 of 4** current Notes
+      figures patterned; `SNAG-DOCS-021` two declarations of **one** span
+      each; `SNAG-BRIEF-003` **24** `result.error =` sites across **10**
+      files, largest static composition **170** characters plus one
+      interpolation against a cap of 300; `SNAG-CFG-007` no yaml override
+      and one resolved symlink target; `SNAG-GPU-002` **8 of 8** reset
+      rows carrying microseconds. Each entry now carries a dated
+      re-measurement bullet, so the next sitting does not repeat the
+      sweep
+- [x] **Session 216's premise did not reproduce**, and that is worth
+      recording as a result rather than a null: it expected surprises,
+      and six measurements produced none. `SNAG-BRIEF-003` and
+      `SNAG-CFG-007` reproduced to the digit
+- [x] **One stale pointer corrected.** `SNAG-CFG-007` cited the estate's
+      `settings_file` at `audit/config.py:286`; it is at **381**. The
+      value was right and the line number four sittings old — the smaller
+      half of the hazard that entry is about
+- [x] **The instrument was wrong before the register was.** A hand regex
+      for a check marker over each entry's `body` gave **8** unchecked
+      against the checker's **9**; the extra was `SNAG-DOCS-009`, whose
+      prose *quotes* a STATUS.md marker as an example. `load_entries`
+      already reports `Entry.markers == ()` for it. Reconciling the two
+      counts at the key is what found it
+- [x] **A second measuring trap, written into `SNAG-DOCS-010`.** A
+      line-based parse of the Quick Status table drops the Testing row —
+      an unterminated table row wrapping onto the next physical line — so
+      the cell holding `4042` reads as absent, in the direction that
+      looks like health. `quick_status_rows` is right because it reads
+      the `flatten()`ed region
+
+**No code changed.** The suite was green at **4042** before the sweep and
+the checker returns the same 29 verdicts after the document edits, so the
+sitting's whole output is measurement and the record of it.
+
+---
+
 ## Session 216: the pin became the stable set, and the flap is declared beside it ✅ (2026-09-11)
 
 _The ask was `SNAG-DOCS-015`, the register's only entry reading
