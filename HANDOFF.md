@@ -1,6 +1,53 @@
-# Handoff — 2026-09-11 (Session 215)
+# Handoff — 2026-09-11 (Session 216)
 
 ## Next action
+
+The register now holds **no** entry reading `open — owed` — this close took the only one, so of 34 open entries the disposition reader refuses 26 as *decided* and 5 as *delegated* and the three it would allow (`SNAG-AGENT-012`, `SNAG-AGENT-013`, `SNAG-SVC-001`) all read *blocked*, which means the next sitting's first job is a **ranking** rather than a taking, and it should re-read the decided P4s against the box before believing any of their "population is empty today" clauses, since three of this sitting's four surprises came from re-measuring a figure an entry had recorded and none from reading its argument.
+
+## What this sitting did
+
+Closed `SNAG-DOCS-015`, the flapping-title pin, by adding `ops_claims`
+rule 12: the block's unresolved-alert figure is pinned against the
+**stable** set, a title the block declares is set aside from it by
+`check_alerts`, and `check_flapping` judges that declaration against the
+title's own history. That is the third reading the entry asked for —
+neither counted against the pin nor silently dropped from it.
+
+**Both duty cycles were re-measured before anything was designed**, as
+the entry required, and both survived the window rolling: the VRAM title
+reads 26 episodes at **4.2 %** of seven days (was 24 at 4.8 %) and
+`Unusual CPU usage` 12 at **0.8 %** (was 11 at 0.7 %). A third specimen
+the entry never saw — `venture-chat unreachable`, 9 episodes at
+**11.3 %** — is measured, named in the block, and deliberately **not**
+declared: its mean episode is 2.1 hours, which is an outage rather than
+a flap, and no sitting has yet been made to re-pin by it.
+
+**The window is sized by a control, not by preference.** `High disk
+usage on /` has been open continuously since 08-30 and is a pinned
+member; it reads 100 % of a 7-day window, 84 % of a 14-day one and
+**39 %** of a 30-day one, so a month-wide window would admit this box's
+most durable standing fault as a flap. The threshold is derived for a
+different reason — a pin names the state a row is in for *most* of the
+window, so half is where the honest pin changes side.
+
+Both closures the entry refused in writing are refused by construction:
+nothing reads the tray's flap policy, and nothing pins a range, so
+`SNAG-ESTATE-008`'s **fall** is still reported. Ten mutations each land
+red on the intended test. `SNAG-DOCS-021` is the residue — a sentence
+declaring two titles reports the live one and says nothing about a
+misspelt second — filed with an empty population, measured.
+
+## What is blocked
+
+Nothing. `check-ops-claims.sh` is green on every claim including the two
+new declarations, which is the first close since Session 208 where it
+did not have to be argued with. The register holding no owed entry is
+not a blockage but it is a state worth naming, because the next sitting
+cannot pick by disposition.
+
+# Handoff — 2026-09-11 (Session 215)
+
+### The action Session 215 handed on (closed by Session 216)
 
 Take `SNAG-DOCS-015`, which is the register's **only** entry reading `open — owed` — of 34 open entries the disposition reader refuses 30 as *decided* and three more as *blocked*, so it is not merely the best candidate but the only one a published next action may name without asserting a check nobody owes — and it interrupted this sitting's own close for the third recorded time, `scripts/check-ops-claims.sh` reporting `no` on both alert claims with `Unusual CPU usage` open while the block stayed deliberately uncorrected exactly as Sessions 209 and 211 left it; the entry names its own shape, which is to make *pin the stable set and name the flapping title in prose beside it* into a reading `check_alerts` and `check_open_titles` can take rather than a convention each sitting has to remember and re-derive under time pressure, and it refuses two closures in writing that must not be quietly re-attempted — excluding titles above a flap rate makes this document a second reader of a policy the tray owns (`notifications.tray.flap_cooldown_seconds`, which is `may_quieten_in_place` rule 3's refusal one document over), and pinning a *range* removes the check's whole purpose, since it exists to notice a **fall** and a claim reading *4 or 5 rows* cannot notice one; what is probably wanted is a third reading beside `match` and `mismatch` in the shape `ports_checked`'s rule keeps asking for, so that a row whose title the block names as flapping is neither counted against the pin nor silently dropped from it; re-measure both duty cycles before designing anything, because the entry's figures (`High VRAM usage on AMD Radeon RX 7900 XTX` at 24 episodes and 4.8 % of the window, `Unusual CPU usage` at 11 episodes and 0.7 %) were taken on 2026-09-10 over a seven-day window that has since rolled, and the entry's own history is two sittings correcting the block in opposite directions off single observations — so a reading built on a stale duty cycle would repeat precisely the fault it is meant to end.
 

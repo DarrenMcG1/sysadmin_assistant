@@ -38,6 +38,8 @@ from sysadmin.ops_claims import (
     DAEMON_ROOT_MODULE,
     EXPIRY_FORMAT,
     EXPIRY_NAIVE_FORMAT,
+    FLAP_PIN_FLIPS_AT,
+    FLAP_WINDOW_DAYS,
     KEYLESS_CHECKS,
     MARKER_RE,
     MAX_NAMED_ALERTS,
@@ -45,6 +47,7 @@ from sysadmin.ops_claims import (
     STATUS_PATH,
     Claim,
     DatabaseFacts,
+    FlapReading,
     Marker,
     SourceSweep,
     UnitState,
@@ -52,15 +55,19 @@ from sysadmin.ops_claims import (
     check_all,
     check_deploy,
     check_expiry,
+    check_flapping,
     check_markers,
     check_open_titles,
     check_tests,
     claim_sentence,
+    code_spans,
     compare_claim,
     daemon_modules,
+    flapping_candidates,
     flatten,
     load_region,
     main,
+    measure_database,
     measure_routes,
     measure_tests,
     measure_unit,
@@ -3020,3 +3027,406 @@ class TestTheTwoUnclaimedFamiliesShareOneNamespace:
         bare = marked.replace("<!--check:tests-->", "")
         keys = [claim.key for claim in check_markers(bare, read_markers(bare))]
         assert keys == ["unclaimed:Testing"], "rule 11 still sees what no pattern reads"
+
+
+def _reading(title: str, episodes: int = 10, fraction: float = 0.04) -> FlapReading:
+    """One declared title's history, at a nominated duty cycle."""
+    return FlapReading(title, episodes, fraction * FLAP_WINDOW_DAYS * 86400)
+
+
+def _flap_facts(open_titles, declared=(), unresolved=None) -> DatabaseFacts:
+    """Open rows, and which of their titles the block has declared."""
+    return DatabaseFacts(
+        tables=13,
+        unresolved=len(open_titles) if unresolved is None else unresolved,
+        open_titles=tuple(open_titles),
+        flap_readings={title: _reading(title) for title in declared},
+    )
+
+
+class TestTheStableSetIsWhatIsPinned:
+    """Rule 12 — ``SNAG-DOCS-015``.
+
+    The pin used to be over every open row, which is right for a fault
+    that opens once and stays open and has no satisfiable value for one
+    that opens twenty-six times a week.  ``High VRAM usage on AMD Radeon
+    RX 7900 XTX`` took this block from 4 to 5 and back inside one sitting
+    and ``Unusual CPU usage`` made the checker read 4, 5, 6 and 4 again
+    across one close.  These pin the *set aside* half; the judgement made
+    of a declaration is :class:`TestTheThirdReading`.
+    """
+
+    FLAPPER = "warning: High VRAM usage on AMD Radeon RX 7900 XTX"
+    STABLE = ("warning: High disk usage on /", "info: Project ImbaBots next action idle")
+    TITLE = "High VRAM usage on AMD Radeon RX 7900 XTX"
+
+    def test_a_declared_row_is_not_counted_against_the_pin(self):
+        """The founding scenario, and the one the old check could not hold.
+
+        Falsified by dropping the exclusion: the measured side reads 3 and
+        the claim flips to ``mismatch``, which is precisely the ``no`` the
+        entry was opened by.
+        """
+        facts = _flap_facts((self.FLAPPER, *self.STABLE), declared=(self.TITLE,))
+        claim = check_alerts("holds **2** unresolved rows", "", facts)
+        assert claim.verdict == "match"
+        assert claim.measured == "2"
+
+    def test_a_set_aside_row_is_named_with_the_evidence_that_earned_it(self):
+        """Set aside, never dropped — ``known_noise`` rule 2's posture.
+
+        A silent exclusion is the collapse ``ports_checked``'s rule keeps
+        refusing, so the row stays in the detail and carries its own duty
+        cycle beside it.
+        """
+        facts = _flap_facts((self.FLAPPER, *self.STABLE), declared=(self.TITLE,))
+        claim = check_alerts("holds **2** unresolved rows", "", facts)
+        aside = [line for line in claim.detail if "set aside" in line]
+        assert len(aside) == 1
+        assert self.TITLE in aside[0]
+        assert "open 4.0 % of 7 days" in aside[0]
+        assert "10 episode(s)" in aside[0]
+
+    def test_a_stable_row_resolving_is_still_a_fall(self):
+        """Rule 5's founding case has to survive its own exemption.
+
+        ``SNAG-ESTATE-008`` exists because a row resolved and four
+        documents went on asking for the remedy.  A mechanism that set
+        rows aside and *also* stopped noticing a fall would have closed
+        one entry by reopening an older one.
+        """
+        facts = _flap_facts((self.FLAPPER, self.STABLE[0]), declared=(self.TITLE,))
+        claim = check_alerts("holds **2** unresolved rows", "", facts)
+        assert claim.verdict == "mismatch"
+        assert "1 fewer" in claim.note
+        assert "already be done" in claim.note
+
+    def test_the_note_says_how_many_it_set_aside(self):
+        """A figure the reader cannot reconstruct is a figure they mistrust."""
+        facts = _flap_facts((self.FLAPPER, self.STABLE[0]), declared=(self.TITLE,))
+        note = check_alerts("holds **2** unresolved rows", "", facts).note
+        assert "1 row(s) declared flapping and set aside" in note
+
+    def test_an_undeclared_row_is_counted_however_it_behaves(self):
+        """The document declares; the table only bounds what it may declare.
+
+        Falsified by keying the exclusion on the row rather than on the
+        declaration, which would set aside whatever happened to be open.
+        """
+        facts = _flap_facts((self.FLAPPER, *self.STABLE))
+        claim = check_alerts("holds **2** unresolved rows", "", facts)
+        assert claim.verdict == "mismatch"
+        assert claim.measured == "3"
+        assert not [line for line in claim.detail if "set aside" in line]
+
+    def test_no_declaration_leaves_every_reading_where_it_was(self):
+        """The population is empty on a block that declares nothing."""
+        facts = _flap_facts(self.STABLE)
+        claim = check_alerts("holds **2** unresolved rows", "", facts)
+        assert claim.verdict == "match"
+        assert claim.detail == self.STABLE
+        assert "set aside" not in claim.note
+
+
+class TestADeclarationNamesTheRow:
+    """The membership sentence, and why the exemption has to reach it too.
+
+    :func:`check_open_titles` asks the finer question the count cannot —
+    a swap holds the total still while the sentence goes wrong.  Left
+    alone it would have flapped in the count's place: the declared row is
+    open for 4 % of the week, so the sentence would have to gain and lose
+    it on exactly the cadence rule 12 exists to stop the figure moving on.
+    """
+
+    BLOCK = "> `Estate scan could not reach sources` is expected <!--check:open_titles-->."
+    STABLE = "warning: Estate scan could not reach sources"
+    FLAPPER = "warning: High VRAM usage on AMD Radeon RX 7900 XTX"
+    TITLE = "High VRAM usage on AMD Radeon RX 7900 XTX"
+
+    def test_a_declared_row_need_not_be_in_the_membership_sentence(self):
+        """Falsified by removing the exclusion, which reports it unnamed."""
+        facts = _flap_facts((self.STABLE, self.FLAPPER), declared=(self.TITLE,))
+        claim = check_open_titles(self.BLOCK, "", facts)
+        assert claim.verdict == "match"
+        assert claim.documented == "1 named, 1 set aside"
+
+    def test_it_is_reported_rather_than_dropped(self):
+        facts = _flap_facts((self.STABLE, self.FLAPPER), declared=(self.TITLE,))
+        claim = check_open_titles(self.BLOCK, "", facts)
+        assert claim.detail == (f"set aside: {self.FLAPPER}",)
+
+    def test_an_undeclared_row_nobody_wrote_about_is_still_unnamed(self):
+        """The check's own direction survives the exemption."""
+        facts = _flap_facts((self.STABLE, "critical: Disk full on /"), declared=(self.TITLE,))
+        claim = check_open_titles(self.BLOCK, "", facts)
+        assert claim.verdict == "mismatch"
+        assert claim.detail == ("unnamed: critical: Disk full on /",)
+
+    def test_a_declared_row_the_sentence_also_names_counts_as_named(self):
+        """The two readings are not exclusive and *named* is the stronger.
+
+        Falsified by testing the declaration first, which reports a row
+        the block does name as merely set aside — true, and a worse
+        account of a sentence that did the work.
+        """
+        block = f"> `{self.TITLE}` is open <!--check:open_titles-->."
+        facts = _flap_facts((self.FLAPPER,), declared=(self.TITLE,))
+        claim = check_open_titles(block, "", facts)
+        assert claim.documented == "1 named"
+        assert claim.detail == ()
+
+
+class TestTheThirdReading:
+    """``check_flapping`` — the answer ``ports_checked``'s rule asked for.
+
+    A row the block names as flapping must be neither counted against the
+    pin nor silently dropped from it.  :func:`check_alerts` does the
+    first; this is the second, and it is what stops the exemption being a
+    place to put anything inconvenient.
+    """
+
+    TITLE = "High VRAM usage on AMD Radeon RX 7900 XTX"
+
+    def _marker(self, sentence: str) -> Marker:
+        return Marker("flapping", "", sentence)
+
+    def _facts(self, **readings) -> DatabaseFacts:
+        return DatabaseFacts(13, 0, (), flap_readings=dict(readings))
+
+    def test_a_title_below_the_flip_holds(self):
+        facts = DatabaseFacts(
+            13, 0, (), flap_readings={self.TITLE: _reading(self.TITLE, 26, 0.042)}
+        )
+        claims = check_flapping(self._marker(f"`{self.TITLE}` flaps."), facts)
+        assert [claim.verdict for claim in claims] == ["match"]
+        assert claims[0].measured == "26 episode(s), open 4.2 % of 7 days"
+
+    def test_a_title_at_the_flip_is_refused(self):
+        """The boundary itself, because a pin names the *majority* state.
+
+        At exactly half the two readings are equally often wrong and the
+        exemption stops paying for itself, so the comparison is ``<``
+        rather than ``<=``.  Falsified by loosening it, which admits the
+        one input the threshold exists to decide.
+        """
+        facts = DatabaseFacts(
+            13, 0, (), flap_readings={self.TITLE: _reading(self.TITLE, 4, FLAP_PIN_FLIPS_AT)}
+        )
+        claims = check_flapping(self._marker(f"`{self.TITLE}` flaps."), facts)
+        assert [claim.verdict for claim in claims] == ["mismatch"]
+        assert "standing rather than flapping" in claims[0].note
+
+    def test_the_window_is_short_enough_to_refuse_the_live_control(self):
+        """The margin, and it is what sizes :data:`FLAP_WINDOW_DAYS`.
+
+        ``High disk usage on /`` had been open continuously for **12
+        days** when this was written and is a member of the pinned set.
+        Measured 2026-09-11 it reads 100 % of a 7-day window, 84 % of a
+        14-day one and **39 %** of a 30-day one — so a month-wide window
+        would let this box's most durable standing fault be declared a
+        flap.  This is that measurement as an assertion: widen the window
+        past the control and the test says so.
+        """
+        standing = FlapReading("High disk usage on /", 1, 12 * 86400)
+        assert standing.fraction >= FLAP_PIN_FLIPS_AT
+
+    def test_a_sentence_naming_no_title_declares_nothing(self):
+        """Advisory, and the reason is structural rather than lenient.
+
+        A row that is **open** has an episode inside the window by
+        construction and therefore always has a reading, so a declaration
+        with no reading is one setting nothing aside.  Whatever it might
+        have hidden is counted by :func:`check_alerts` and reported at
+        ``mismatch``: the diagnosis is quiet because the consequence is
+        not.
+        """
+        claims = check_flapping(self._marker("`some fault nobody has` flaps."), self._facts())
+        assert [(claim.verdict, claim.kind) for claim in claims] == [("unknown", "convention")]
+        assert "names no title" in claims[0].note
+
+    def test_an_unreadable_database_is_unknown_not_an_accepted_declaration(self):
+        """Falsified by returning ``match`` for want of a contradiction."""
+        facts = DatabaseFacts(None, None, (), "the database did not answer (OperationalError)")
+        claims = check_flapping(self._marker(f"`{self.TITLE}` flaps."), facts)
+        assert [claim.verdict for claim in claims] == ["unknown"]
+        assert "did not answer" in claims[0].note
+
+    def test_two_titles_in_one_sentence_are_two_claims(self):
+        facts = DatabaseFacts(
+            13,
+            0,
+            (),
+            flap_readings={
+                self.TITLE: _reading(self.TITLE, 26, 0.042),
+                "Unusual CPU usage": _reading("Unusual CPU usage", 12, 0.99),
+            },
+        )
+        sentence = f"`{self.TITLE}` and `Unusual CPU usage` flap."
+        claims = check_flapping(self._marker(sentence), facts)
+        assert [claim.verdict for claim in claims] == ["match", "mismatch"]
+        assert {claim.key for claim in claims} == {
+            f"flapping:{self.TITLE}",
+            "flapping:Unusual CPU usage",
+        }
+
+
+class TestTheDeclarationIsReadFromTheProse:
+    """Rule 7 at its purest: the marker names a check and states no value.
+
+    ``expires`` carries its instant in the argument and is excused because
+    the prose has no room for a day; a sentence declaring a title has to
+    quote the title to be worth reading, so the excuse does not transfer
+    and the sentence stays the one statement of what is set aside.
+    """
+
+    TITLE = "High VRAM usage on AMD Radeon RX 7900 XTX"
+
+    def test_only_a_marked_sentence_offers_candidates(self):
+        """The append-only region is full of titles nobody is declaring.
+
+        ``SNAG-ESTATE-016``'s measurement one check over: every past
+        sitting's account accumulates below the current sentence, so a
+        region-wide read would declare every fault this block has ever
+        described.  Falsified by reading the whole region, which offers
+        the neighbouring title too.
+        """
+        region = (
+            f"> `{self.TITLE}` flaps <!--check:flapping-->.\n"
+            "> Four sittings ago `Unusual RAM usage` did something else.\n"
+        )
+        assert flapping_candidates(region) == (self.TITLE,)
+
+    def test_a_marked_sentence_offers_its_prose_citations_too(self):
+        """A candidate is an *offer*; the table promotes it or ignores it.
+
+        Most of what a declaration sentence quotes is the check that found
+        the fault and the entry that records it, so the filter is the
+        alert table rather than a guess about which span looks like a
+        title — ``routes_by_prefix``' partition read from the document's
+        end.
+        """
+        region = f"> `{self.TITLE}` flaps, see `SNAG-DOCS-015` <!--check:flapping-->."
+        assert flapping_candidates(region) == (self.TITLE, "SNAG-DOCS-015")
+
+    def test_two_markers_are_two_declarations_not_a_drifted_block(self):
+        """``expires``' shape — the members are the document's, so two is fine.
+
+        :func:`claim_sentence` refuses a key stated twice, which is right
+        for every key naming one claim and exactly wrong here.  Falsified
+        by routing this through it, which returns nothing and declares
+        neither title.
+        """
+        region = (
+            f"> `{self.TITLE}` flaps <!--check:flapping-->.\n"
+            "> `Unusual CPU usage` flaps <!--check:flapping-->.\n"
+        )
+        assert flapping_candidates(region) == (self.TITLE, "Unusual CPU usage")
+        assert claim_sentence(region, "flapping")[0] is None
+
+    def test_a_quoted_marker_is_offered_as_nothing_at_all(self):
+        """*What is inside backticks is quoted, not stated* — both halves.
+
+        The rule is about markup inside a span not being **live**; the
+        text is readable, and :func:`check_open_titles` has depended on
+        that since it was written.  This block is the likeliest place on
+        the box for a sentence quoting the convention it uses, so the two
+        halves meet here — and they are enforced one layer apart, which is
+        worth knowing before someone tidies either.  :func:`read_markers`
+        veils code spans, so the quoted one is not a marker;
+        :func:`_sentence_at` strips every marker *shape* out of the
+        sentence it returns without veiling anything, for rule 9's pin,
+        so the quoted one is not even a candidate.  Written after driving
+        it: the expectation here was that the span would come back as an
+        offer the table ignores, and the stronger behaviour was already
+        in place for the pin's reasons.
+        """
+        region = f"> `{self.TITLE}` flaps, unlike `<!--check:flapping-->` <!--check:flapping-->."
+        assert len(read_markers(region)) == 1, "a quoted marker is not a marker"
+        assert flapping_candidates(region) == (self.TITLE,)
+
+    def test_the_key_is_known_and_carries_no_pattern(self):
+        assert "flapping" in CHECK_KEYS
+        assert "flapping" in KEYLESS_CHECKS
+        assert "flapping" not in CLAIM_PATTERNS
+
+    def test_the_span_reader_keeps_a_doubled_fence_whole(self):
+        """``CODE_SPAN_RE``'s run rule, read forwards rather than blanked."""
+        assert code_spans("a `one` and ``two `x` here`` end") == ("one", "two `x` here")
+
+
+class TestTheRealBlockDeclaresWhatItSetsAside:
+    """The live half of rule 12 — the document against the table.
+
+    :class:`TestTheStableSetIsWhatIsPinned` and its siblings drive the
+    mechanism at facts this file wrote.  These two read
+    ``docs/roadmap/STATUS.md`` and the ``alerts`` table as they stand, and
+    they are what fire the day the declaration sentence is reworded, the
+    marker is moved, or a declared title is renamed out from under it —
+    which is the failure mode of the whole convention, since a sentence
+    that has stopped being read fails silently in the direction that
+    reads as health.
+
+    **Neither asserts that a live declaration currently *holds*.**  That
+    verdict belongs to ``scripts/check-ops-claims.sh``, which a sitting
+    runs at both ends and which reports it at exit 1.  Asserting it here
+    would make the suite red for a state of the box rather than a state
+    of the tree — a commit refused because a GPU had a bad afternoon,
+    which is ``SNAG-DB-005``'s trade made in the direction that teaches
+    an operator to reach for ``--no-verify``.
+    """
+
+    @pytest.mark.premise
+    def test_the_block_declares_a_title_the_table_has_seen(self):
+        """The premise, and it is about the document *and* the box.
+
+        Ordered so a failure names which half went: no region, then no
+        marked sentence, then no database, then a sentence naming nothing
+        the window knows.  The last is the reword the convention cannot
+        survive — a declaration that resolves to no title sets nothing
+        aside, which :func:`check_flapping` reports as ``unknown`` and a
+        green suite would not.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        candidates = flapping_candidates(region)
+        assert candidates, "the block carries no <!--check:flapping--> sentence"
+        facts = measure_database(candidates)
+        assert not facts.problem, facts.problem
+        declared = [name for name in candidates if name in facts.flap_readings]
+        assert declared, f"no phrase the block offers names a title alerts has seen: {candidates}"
+
+    def test_the_founding_scenario_holds_against_the_real_block(self):
+        """``SNAG-DOCS-015``'s own specimen, with the flapping row open.
+
+        The entry was opened by exactly this state: the checker ran while
+        ``High VRAM usage on AMD Radeon RX 7900 XTX`` was open, reported
+        ``no`` on both alert claims, the block was corrected from 4 to 5,
+        and the row had resolved by the next run.  Here the row is opened
+        by hand rather than waited for — the declaration is the real
+        block's and the readings are the real table's, so what is
+        synthetic is only *which minute* the fault is having.
+
+        Both claims hold and both still name the row, which is the pair
+        the entry asked for: neither counted against the pin nor silently
+        dropped from it.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        facts = measure_database(flapping_candidates(region))
+        assert not facts.problem, facts.problem
+        title = next(iter(facts.flap_readings))
+        entry = f"warning: {title}"
+        storm = DatabaseFacts(
+            facts.tables,
+            (facts.unresolved or 0) + 1,
+            (entry, *facts.open_titles),
+            flap_readings=facts.flap_readings,
+        )
+        count = check_alerts(region, "", storm)
+        assert count.verdict == "match", count.note
+        assert count.measured == str(facts.unresolved)
+        assert any(title in line and "set aside" in line for line in count.detail)
+
+        membership = check_open_titles(region, "", storm)
+        assert membership.verdict == "match", membership.note
+        assert membership.detail == (f"set aside: {entry}",)

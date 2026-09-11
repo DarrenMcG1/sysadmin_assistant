@@ -8,6 +8,94 @@
 
 ---
 
+## Session 216: the pin became the stable set, and the flap is declared beside it ✅ (2026-09-11)
+
+_The ask was `SNAG-DOCS-015`, the register's only entry reading
+`open — owed`: make **pin the stable set and name the flapping title in
+prose beside it** into a reading `check_alerts` and `check_open_titles`
+can take, rather than a convention each sitting re-derives under time
+pressure. The entry refused two closures in writing and required both
+duty cycles to be re-measured first, because its own history is two
+sittings correcting the block in opposite directions off single
+observations._
+
+- [x] **Re-measure before designing anything, as the entry required.**
+      Seven days to 2026-09-11: `High VRAM usage on AMD Radeon RX 7900
+      XTX` **26 episodes at 4.2 %** of the window (was 24 at 4.8 %) and
+      `Unusual CPU usage` **12 at 0.8 %** (was 11 at 0.7 %). Both
+      figures survived the roll, so **4** remains the honest pin and the
+      entry's arithmetic stands
+- [x] **A third specimen the entry never saw, measured and deliberately
+      not declared.** `venture-chat unreachable` reads 9 episodes at
+      **11.3 %** — an order of magnitude above the CPU title and still
+      nowhere near half — but its mean episode is **2.1 hours**, which
+      is an outage rather than a flap. It is named in the block with
+      that reasoning: a declaration is a judgement the document makes
+      and the check only bounds, so what earns one is having actually
+      cost a sitting a re-pin
+- [x] **Rule 12 — the pin is the stable set.** `check_alerts` measures
+      the open rows *less* those whose titles the block declares, and
+      the set-aside rows keep their line in the report with the duty
+      cycle that earned the exemption printed beside them. Set aside,
+      never dropped — `known_noise` rule 2's posture, which is the only
+      thing separating this from the silent exclusion `ports_checked`'s
+      rule keeps refusing
+- [x] **`check_flapping` is the third reading.** One claim per declared
+      title, judging the title's own history: below half the window it
+      holds, at or above it the declaration is refused as a standing
+      fault the pin would hide. The threshold is **derived** — a pin
+      names the state a row is in for most of the window, so half is
+      where the honest pin changes side rather than a tolerance
+      somebody chose
+- [x] **The window is sized by a control the entry did not have.**
+      `High disk usage on /`, open continuously since 08-30 and a pinned
+      member, reads **100 %** of a 7-day window, 84 % of a 14-day one
+      and **39 %** of a 30-day one — so a month-wide window would admit
+      this box's most durable standing fault as a flap. Deliberately not
+      `reliability.window_days`, whose argument is a `service_health`
+      retention cap that does not transfer, `alerts` keeping 180 days
+- [x] **Both refused closures are refused by construction.** Nothing
+      reads `notifications.tray.flap_cooldown_seconds` or anything else
+      the tray owns — the declaration is the document's and the
+      judgement is the title's own rows — and nothing pins a *range*, so
+      a stable row resolving still moves the figure and
+      `SNAG-ESTATE-008`'s **fall** is reported unchanged. Driven, not
+      asserted
+- [x] **The declaration is read from the prose, not from the marker.**
+      Rule 7 at its purest: the marker names a check and states no
+      value, where `expires` carries its instant in an argument and is
+      excused only because the prose has no room for a day. Every
+      backticked span in a marked sentence is *offered* and the alert
+      table promotes the ones it has seen, so the document supplies the
+      vocabulary and the box decides which of it means anything
+- [x] **Ten mutations, each red on the intended test**, including the
+      two live halves driven against the real block with its markers
+      removed. The one expectation that was wrong was wrong in the safe
+      direction: a marker quoted inside backticks is not offered at all,
+      because `_sentence_at` strips every marker *shape* out of the
+      sentence it returns for rule 9's pin — a layer below where this
+      fix was looking
+- [x] **Neither live test asserts that a declaration currently holds.**
+      That verdict belongs to `scripts/check-ops-claims.sh` at exit 1,
+      where a sitting already reads it; asserting it in the suite would
+      turn a bad afternoon on the GPU into a refused commit, which is
+      `SNAG-DB-005`'s trade made in the direction that teaches an
+      operator to reach for `--no-verify`
+- [x] **Filed `SNAG-DOCS-021`** — a sentence declaring two titles
+      reports the live one and says nothing about a misspelt second,
+      because a backticked phrase naming no alert row is
+      indistinguishable from the prose citation beside it. Population
+      zero today, measured
+
+_Suite **4018 → 4042**, all 24 in `tests/test_ops_claims.py` — and the
+baseline for that file was **174**, not the 169 a `-k` filter suggested,
+which is why the total moved 24 rather than the 29 a first count
+claimed: `TestProseWraps` matched the filter and was never new.
+`sysadmin/ops_claims.py` is outside the daemon's import graph, so no
+restart is owed._
+
+---
+
 ## Session 215: the rule required a pointer, and the entry read it as a link ✅ (2026-09-11)
 
 _The ask was `SNAG-DOCS-020`: **17** relative markdown links in tracked

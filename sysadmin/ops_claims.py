@@ -263,6 +263,40 @@ one rule here whose population is a *place* rather than a pattern:
     member, the member is fixed, and deleting a guard along with its last
     finding takes the guard against the defect coming back.
 
+12. **A count cannot pin a flapping title, so the pin is the *stable* set
+    and the flap is declared beside it** (``SNAG-DOCS-015``).  Rule 5's
+    gauge assumes a row that opens once and stays open.  ``High VRAM
+    usage on AMD Radeon RX 7900 XTX`` opens twenty-six times a week and
+    is unresolved for 4.2 % of it, so the block was corrected 4 → 5 and
+    back inside one sitting, and a later close read **4, 5, 6 and 4
+    again** across its own minutes.  Neither reading was wrong and
+    neither was durable, which is the one shape this module had no
+    verdict for.
+
+    **The document declares and the box judges, which is the partition
+    every part of this rule follows.**  A sentence carrying
+    ``<!--check:flapping-->`` *offers* every phrase it quotes;
+    :func:`_read_flap_readings` promotes the ones ``alerts`` has seen in
+    the last :data:`FLAP_WINDOW_DAYS`; :func:`check_alerts` sets those
+    rows aside from its figure; and :func:`check_flapping` judges each
+    declaration against that title's own duty cycle.  The marker states
+    no value, so rule 7 holds unweakened — ``expires`` carries its
+    instant in an argument only because the prose has no room for a day,
+    and a sentence declaring a title must quote the title anyway.
+
+    **Set aside is not dropped.**  The row keeps its line in the report
+    with the evidence that earned it the exemption, which is the only
+    thing separating this from the silent exclusion rule 2 spends itself
+    refusing.  And the *fall* rule 5 exists for is untouched: the claim
+    is still one number, so a stable row resolving still moves it.
+
+    **Two closures are refused in writing, because both suggest
+    themselves.**  Excluding titles above a flap rate would make this
+    document a second reader of ``notifications.tray.flap_cooldown
+    _seconds``, a policy the tray owns.  Pinning a *range* would remove
+    the check's whole purpose, a claim reading "4 or 5 rows" being unable
+    to notice a fall at all.
+
 **This module sits beside main.py** for the reason :mod:`sysadmin.reload`
 and :mod:`sysadmin.metadata` do: it composes ``core`` with every domain
 (the route count comes from :func:`sysadmin.main.create_app`, which
@@ -279,13 +313,14 @@ import functools
 import re
 import subprocess  # noqa: S404 — a read-only `systemctl show` and a `pytest --collect-only`
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Connection
 
 from sysadmin.core.config import REPO_ROOT, get_config
 from sysadmin.core.escalation import humanise_hours
@@ -317,6 +352,41 @@ DAEMON_ROOT_MODULE = f"{PACKAGE}.main"
 #: A cap that drops rows silently is the roll-up defect ``SNAG-ESTATE-001``
 #: names, so the overflow is stated.
 MAX_NAMED_ALERTS = 5
+
+#: How much history one flap reading is taken over — rule 12.
+#:
+#: **Bounded above by the standing rows it has to keep refusing, and that
+#: is a measurement rather than a preference.**  ``High disk usage on /``
+#: has been open continuously since 2026-08-30 and is a member of the
+#: pinned set; measured 2026-09-11 it reads **100 %** of a 7-day window,
+#: 84 % of a 14-day one and **39 %** of a 30-day one — so a month-wide
+#: window would let this box's most durable standing fault be declared a
+#: flap and set aside.  Bounded below by needing several episodes of the
+#: thing being described: at 7 days the three live specimens give **26**,
+#: **12** and **9**.
+#:
+#: **Deliberately not ``reliability.window_days``**, which is the same
+#: number for a different question — ``timer_lookback_days``' refusal one
+#: module over.  That leaf is capped in practice by ``service_health``
+#: retention at 30 days and says so; ``alerts`` keeps **180**, so this
+#: window is not capped by retention at all and the half of that
+#: docstring doing the arguing does not transfer.
+FLAP_WINDOW_DAYS = 7
+
+#: The fraction of that window a declared title may be unresolved for
+#: before its declaration is refused.
+#:
+#: **Derived, and there is nothing here to tune** — unlike
+#: ``NOISE_MIN_OCCURRENCES`` and ``flap_min_episodes``, which are invented
+#: and say so.  A pin names the state the title is in for *most* of the
+#: window: below a half, counting the row is wrong more often than not and
+#: setting it aside is the honest reading; at a half or above, the
+#: readings swap and *not* counting it is the one that is usually wrong.
+#: So this is the point at which the honest pin changes side, which is a
+#: property of what a pin means rather than a tolerance someone chose.
+#: ``SNAG-DOCS-015``'s own arithmetic, stated once: *"4 is the honest pin
+#: and 5 is wrong 95 % of the time"*.
+FLAP_PIN_FLIPS_AT = 0.5
 
 #: One pattern per claim, anchored on the emphasis this file uses for a
 #: figure it has measured.  The bold is load-bearing: it is what separates
@@ -355,7 +425,9 @@ CLAIM_PATTERNS: dict[str, str] = {
 #: rather than from a figure — it reads no value, only a haystack, which is
 #: rule 10.  ``expires`` is the one family whose *members* are declared by
 #: the marker rather than by this module — rule 8.
-KEYLESS_CHECKS: frozenset[str] = frozenset({"schema", "deploy", "open_titles", "expires"})
+KEYLESS_CHECKS: frozenset[str] = frozenset(
+    {"schema", "deploy", "open_titles", "expires", "flapping"}
+)
 
 #: Every name a marker may carry, **derived** from the two sets above
 #: rather than written beside them — ``max_priority_for`` against
@@ -1056,6 +1128,60 @@ def claim_sentence(region: str, key: str) -> tuple[str | None, str]:
     return markers[0].sentence, ""
 
 
+def code_spans(prose: str) -> tuple[str, ...]:
+    """Every backticked span in ``prose``, fences off, in order.
+
+    :func:`_veiled` blanks these because *what is inside backticks is
+    quoted, not stated* — a marker in a span is a sentence about the
+    convention and a full stop in one does not end a sentence.  That rule
+    is about **markup** inside a span not being live; it has never said
+    the text is unreadable, and :func:`check_open_titles` has depended on
+    the opposite since it was written, because the block spells an alert
+    title inside backticks and nowhere else.  This is that same spelling
+    read forwards rather than searched.
+    """
+    spans = []
+    for match in CODE_SPAN_RE.finditer(prose):
+        fence = len(match.group(1))
+        spans.append(match.group(0)[fence:-fence].strip())
+    return tuple(dict.fromkeys(span for span in spans if span))
+
+
+def flapping_candidates(region: str) -> tuple[str, ...]:
+    """Every phrase a ``<!--check:flapping-->`` sentence offers as a title.
+
+    Rule 12.  ``flapping`` is the second family whose **members the
+    document declares** — ``expires``' shape — so it is read per marker
+    rather than through :func:`claim_sentence`, which refuses a key stated
+    twice.  Two flapping titles are two declarations, not a drifted block.
+
+    **The marker states no value, and that is the whole of rule 7 applied
+    here.**  It could have carried the title as an argument, which is what
+    ``expires`` does; ``expires`` is excused because the prose has no room
+    for the date — *"at 03:32"* names a wall clock and no day — and that
+    excuse does not transfer, since a sentence declaring a title has to
+    quote the title to be worth reading at all.  So the marker says only
+    *where to look* and the sentence remains the one statement of which
+    row is being set aside.
+
+    **A candidate is an offer, never a declaration.**  A marked sentence
+    quotes the check that found the fault and the entry that records it
+    beside the title it is about, so most of what comes back here is
+    prose.  What promotes a candidate to a declaration is the alert table
+    having seen it (:func:`_read_flap_readings`) — the document supplies
+    the vocabulary and the box decides which of it means anything, which
+    is ``routes_by_prefix``' partition read from the document's end.
+    """
+    return tuple(
+        dict.fromkeys(
+            span
+            for marker in read_markers(region)
+            if marker.key == "flapping"
+            for span in code_spans(marker.sentence)
+        )
+    )
+
+
 def load_region(path: Path | None = None) -> tuple[str | None, str]:
     """:func:`printed_region` of STATUS.md on disk, or ``None`` and why not."""
     target = path or STATUS_PATH
@@ -1285,6 +1411,44 @@ def measure_health() -> tuple[str | None, str]:
 
 
 @dataclass(frozen=True)
+class FlapReading:
+    """How much of the window one alert title has spent unresolved.
+
+    Attributes:
+        title: the row's title, verbatim — the identity every family here
+            deduplicates on (``SNAG-AGENT-005``).
+        episodes: rows for that title whose life touches the window.  An
+            episode beginning before it counts once and is clipped, so
+            this is "how often the fault happened" rather than "how many
+            rows the purge has left".
+        open_seconds: the time those episodes held the row open, clipped
+            to the window at both ends.
+
+    A **reading**, never a verdict: :func:`check_flapping` decides what
+    the fraction means and this says only what it is.  The split is
+    ``PortAttribution.reading()``'s — the evidence and the judgement made
+    of it are different questions and a consumer wanting the first is
+    owed it whatever the second says.
+    """
+
+    title: str
+    episodes: int
+    open_seconds: float
+
+    @property
+    def fraction(self) -> float:
+        """Of the window, how much of it the title was unresolved for."""
+        return self.open_seconds / (FLAP_WINDOW_DAYS * 86400)
+
+    def reading(self) -> str:
+        """The evidence as one phrase, for a report line."""
+        return (
+            f"{self.episodes} episode(s), open {self.fraction * 100:.1f} % "
+            f"of {FLAP_WINDOW_DAYS} days"
+        )
+
+
+@dataclass(frozen=True)
 class DatabaseFacts:
     """The two counts one connection can answer, plus the open titles."""
 
@@ -1292,9 +1456,15 @@ class DatabaseFacts:
     unresolved: int | None
     open_titles: tuple[str, ...]
     problem: str = ""
+    #: One entry per *candidate* the document offered that the window has
+    #: actually seen — see :func:`flapping_candidates` for why the
+    #: population is the document's and not the table's.  A candidate with
+    #: no entry is a phrase in backticks that names no alert title, which
+    #: is the overwhelming majority of them.
+    flap_readings: Mapping[str, FlapReading] = field(default_factory=dict)
 
 
-def measure_database() -> DatabaseFacts:
+def measure_database(candidates: Iterable[str] = ()) -> DatabaseFacts:
     """Table count and unresolved alerts, on one short-lived connection.
 
     The sync engine that exists for Alembic, opened and disposed —
@@ -1325,6 +1495,7 @@ def measure_database() -> DatabaseFacts:
                     "WHERE resolved IS false ORDER BY created_at DESC"
                 )
             ).fetchall()
+            flaps = _read_flap_readings(conn, schema, tuple(candidates))
     except Exception as exc:  # noqa: BLE001 — an unreachable database is "unknown"
         return DatabaseFacts(
             None, None, (), f"the database did not answer ({exc.__class__.__name__})"
@@ -1333,7 +1504,52 @@ def measure_database() -> DatabaseFacts:
         engine.dispose()
 
     titles = tuple(f"{severity}: {title}" for severity, title in rows)
-    return DatabaseFacts(int(tables), len(titles), titles)
+    return DatabaseFacts(int(tables), len(titles), titles, flap_readings=flaps)
+
+
+def _read_flap_readings(
+    conn: Connection, schema: str, candidates: tuple[str, ...]
+) -> dict[str, FlapReading]:
+    """Each candidate's own history, on the connection already open.
+
+    **The population is the document's, and that is what bounds this
+    query.**  The obvious version groups the whole table by title and
+    hands back every one it finds, which is unbounded in exactly the
+    direction this repository has already been bitten in: a log-signature
+    storm forks a title per distinct fault, and ``SNAG-AGENT-005`` reached
+    598,091 rows in one family.  Asking only about the phrases a marked
+    sentence offered bounds the read by a paragraph somebody wrote.
+
+    **Both ends of each episode are clipped to the window**, so a row that
+    opened before it contributes the part inside and a row still open
+    contributes up to now.  Without the clipping a fault open for a month
+    reads as 400 % of a week, which is not wrong so much as unusable —
+    and it is the standing-fault case that ``FLAP_WINDOW_DAYS`` is sized
+    against, so it is the one case the arithmetic must not fumble.
+    """
+    if not candidates:
+        return {}
+    rows = conn.execute(
+        text(  # noqa: S608 — the schema name is configuration, not input
+            f"""
+            SELECT title,
+                   count(*) AS episodes,
+                   sum(extract(epoch FROM (
+                       least(coalesce(resolved_at, now()), now())
+                       - greatest(created_at, now() - make_interval(days => :days))
+                   ))) AS open_seconds
+            FROM {schema}.alerts
+            WHERE title = ANY(:titles)
+              AND coalesce(resolved_at, now()) > now() - make_interval(days => :days)
+            GROUP BY title
+            """
+        ),
+        {"days": FLAP_WINDOW_DAYS, "titles": list(candidates)},
+    ).fetchall()
+    return {
+        title: FlapReading(title, int(episodes), float(open_seconds or 0.0))
+        for title, episodes, open_seconds in rows
+    }
 
 
 @dataclass(frozen=True)
@@ -1554,6 +1770,19 @@ def _local(stamp: float) -> str:
     return datetime.fromtimestamp(stamp).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _title_of(entry: str) -> str:
+    """The title out of one ``open_titles`` entry.
+
+    :func:`measure_database` renders ``severity: title`` for the alert
+    report, so every reader wanting the *identity* undoes exactly that —
+    written once because three now do it and a title is what every family
+    here deduplicates on.  The split is bounded at one because a title
+    carries colons of its own (``Log error: kernel — …``) and a severity
+    never does.
+    """
+    return entry.split(": ", 1)[-1]
+
+
 def compare_claim(
     key: str,
     subject: str,
@@ -1660,29 +1889,69 @@ def check_migration_head(region: str, region_problem: str, head: str | None) -> 
 
 
 def check_alerts(region: str, region_problem: str, facts: DatabaseFacts) -> Claim:
-    """Rule 5 — the count, its direction, and the titles behind it."""
+    """Rule 5 — the count, its direction, and the titles behind it.
+
+    **The figure is pinned against the *stable* set, and a declared
+    flapping title is set aside from it** (rule 12, ``SNAG-DOCS-015``).
+    The pin used to be against every open row, which is right for a fault
+    that opens once and stays open and has no satisfiable value for one
+    that opens twenty-six times a week: ``High VRAM usage on AMD Radeon RX
+    7900 XTX`` took this block from 4 to 5 and back inside one sitting,
+    and ``Unusual CPU usage`` made the checker read 4, 5, 6 and 4 again
+    across the minutes of a single close.  Neither reading was wrong and
+    neither was durable.
+
+    **Set aside, never dropped** — ``known_noise`` rule 2's posture, and
+    the only reason this is not the silent exclusion ``ports_checked``'s
+    rule keeps refusing.  A set-aside row is still measured, still named
+    in :attr:`Claim.detail`, still carries the evidence that earned it the
+    exemption, and is still judged, one line down, by
+    :func:`check_flapping`.  What it stops doing is moving a number a
+    human has to keep re-typing.
+
+    **The fall this check exists to notice is untouched.**  Rule 5's
+    founding case is a row that resolves and stays resolved while four
+    documents go on asking for the remedy, and a stable row resolving
+    still moves the stable count by one.  The two closures
+    ``SNAG-DOCS-015`` refused in writing are refused here by construction:
+    nothing reads the tray's flap policy, and nothing pins a *range*,
+    which would have been a claim that cannot notice a fall at all.
+    """
     documented, doc_problem = (None, region_problem) if not region else read_claim(region, "alerts")
-    measured = None if facts.unresolved is None else str(facts.unresolved)
+    set_aside = tuple(
+        entry for entry in facts.open_titles if _title_of(entry) in facts.flap_readings
+    )
+    measured = None if facts.unresolved is None else str(facts.unresolved - len(set_aside))
+    aside = (
+        f"; {len(set_aside)} row(s) declared flapping and set aside" if set_aside else ""
+    )
     note = ""
     if documented is not None and measured is not None and documented != measured:
         moved = int(measured) - int(documented)
         if moved > 0:
             note = (
                 f"{moved} more unresolved row(s) than the block accounts for — "
-                "something opened since it was written"
+                f"something opened since it was written{aside}"
             )
         else:
             note = (
                 f"{-moved} fewer unresolved row(s) than the block accounts for — "
                 "a row it treats as open has resolved, so an action it asks for "
-                "may already be done (SNAG-ESTATE-008's founding case)"
+                f"may already be done (SNAG-ESTATE-008's founding case){aside}"
             )
     detail: tuple[str, ...] = ()
     if facts.open_titles:
-        named = facts.open_titles[:MAX_NAMED_ALERTS]
+        rendered = tuple(
+            f"{entry} — set aside, declared flapping "
+            f"({facts.flap_readings[_title_of(entry)].reading()})"
+            if _title_of(entry) in facts.flap_readings
+            else entry
+            for entry in facts.open_titles
+        )
+        named = rendered[:MAX_NAMED_ALERTS]
         detail = named
-        if len(facts.open_titles) > MAX_NAMED_ALERTS:
-            detail = (*named, f"… and {len(facts.open_titles) - MAX_NAMED_ALERTS} more")
+        if len(rendered) > MAX_NAMED_ALERTS:
+            detail = (*named, f"… and {len(rendered) - MAX_NAMED_ALERTS} more")
     claim = compare_claim(
         "alerts", "Unresolved alerts", documented, doc_problem, measured, facts.problem, note
     )
@@ -1917,14 +2186,27 @@ def check_open_titles(region: str, region_problem: str, facts: DatabaseFacts) ->
     # ``open_titles`` are rendered "severity: title" for the alert report;
     # the block quotes the title alone, so the severity is dropped before
     # the substring test rather than being written into the document.
-    unnamed = tuple(
-        entry for entry in facts.open_titles if entry.split(": ", 1)[-1] not in sentence
+    named = tuple(entry for entry in facts.open_titles if _title_of(entry) in sentence)
+    # A declared flapping title is named by its *declaration* (rule 12).
+    # Requiring it here as well would put the sitting back where
+    # ``SNAG-DOCS-015`` found it: the row is open for 4 % of the week, so
+    # the membership sentence would have to gain and lose it on the same
+    # cadence the count did, and this check would flap in the count's
+    # place rather than instead of it.
+    set_aside = tuple(
+        entry
+        for entry in facts.open_titles
+        if entry not in named and _title_of(entry) in facts.flap_readings
     )
-    documented = f"{len(facts.open_titles) - len(unnamed)} named"
+    unnamed = tuple(
+        entry for entry in facts.open_titles if entry not in named and entry not in set_aside
+    )
+    documented = f"{len(named)} named" + (f", {len(set_aside)} set aside" if set_aside else "")
     measured = f"{len(facts.open_titles)} open"
     if not unnamed:
         return Claim(
-            "open_titles", "Open rows named in the block", "claim", documented, measured, "match"
+            "open_titles", "Open rows named in the block", "claim", documented, measured, "match",
+            "", tuple(f"set aside: {entry}" for entry in set_aside),
         )
     return Claim(
         "open_titles",
@@ -1936,7 +2218,94 @@ def check_open_titles(region: str, region_problem: str, facts: DatabaseFacts) ->
         f"{len(unnamed)} unresolved row(s) the marked sentence does not name — a row "
         "nobody wrote about is the one a sitting will not account for, and a title "
         "written down by a past sitting further down the block does not count",
-        tuple(f"unnamed: {title}" for title in unnamed),
+        tuple(f"unnamed: {title}" for title in unnamed)
+        + tuple(f"set aside: {entry}" for entry in set_aside),
+    )
+
+
+def check_flapping(marker: Marker, facts: DatabaseFacts) -> list[Claim]:
+    """One declaration, against the title's own history — rule 12.
+
+    ``SNAG-DOCS-015`` asked for a **third reading**, in the shape
+    ``ports_checked``' rule keeps asking for: a row the block names as
+    flapping must be neither counted against the pin nor silently dropped
+    from it.  :func:`check_alerts` does the first half by setting it
+    aside; this is the second, and it is what stops the exemption being a
+    place to put anything inconvenient.
+
+    **The judgement is the title's duty cycle, and the threshold is not a
+    tolerance.**  A pin names the state a row is in for *most* of the
+    window, so :data:`FLAP_PIN_FLIPS_AT` is the point at which the honest
+    pin changes side rather than a number picked to be defensible —
+    ``NOISE_MIN_OCCURRENCES``' opposite, and it says so where it is
+    defined.  Measured 2026-09-11, the three live specimens read 4.2 %,
+    0.8 % and 11.3 % of the window and the control — ``High disk usage on
+    /``, open continuously since 2026-08-30 — reads **100 %**, which is
+    the margin.
+
+    **Every way of not-knowing is its own verdict, and one of them cannot
+    hide a row.**  A database that will not answer is ``unknown`` carrying
+    its own problem.  A marked sentence naming nothing the window has
+    heard of is ``unknown`` too, and the reason it is not louder is
+    structural: a row that is **open** has an episode inside the window by
+    construction, so it always has a reading — therefore a declaration
+    with no reading is a declaration setting nothing aside, and the
+    consequence it might have had does not exist.  Should the title come
+    back, it stops being readingless and is judged here, while the row it
+    would have hidden is counted by :func:`check_alerts` in the meantime
+    and reported at ``mismatch``.  The diagnosis is advisory; the
+    consequence is loud.  ``schema_guard``'s three exit statuses doing
+    rule 3's work at the size of one declaration.
+
+    **The stale exemption has a bounded life**, which is what makes the
+    quiet verdict affordable.  ``config_keys`` rule 5 refuses an exemption
+    naming a key ``AppConfig`` declares, because a stale one stops
+    describing a foreign key and starts hiding one of ours; the same
+    hazard here is a declared title that stops flapping and starts
+    standing, and it cannot last longer than the window — the fraction
+    climbs through :data:`FLAP_PIN_FLIPS_AT` and this reports it.
+
+    The one limit is stated rather than implied and is
+    ``SNAG-DOCS-021``: a sentence declaring two titles, one live and one
+    misspelt, reports the live one and says nothing about the other,
+    because a phrase in backticks that names no alert row is
+    indistinguishable from the prose citation beside it — which is what
+    most of a marked sentence's spans are.
+    """
+    subject = "Block sets aside a flapping title"
+    if facts.unresolved is None:
+        return [Claim("flapping:?", subject, "claim", None, None, "unknown", facts.problem)]
+    declared = [span for span in code_spans(marker.sentence) if span in facts.flap_readings]
+    if not declared:
+        return [
+            _convention(
+                "flapping:?",
+                subject,
+                "the sentence carrying <!--check:flapping--> names no title `alerts` has "
+                f"seen in the last {FLAP_WINDOW_DAYS} days — it sets nothing aside, so "
+                "either the title is misspelt or the fault is gone and the marker with "
+                "its sentence should follow it",
+            )
+        ]
+    return [_flapping_claim(facts.flap_readings[title]) for title in declared]
+
+
+def _flapping_claim(reading: FlapReading) -> Claim:
+    """One declared title's reading, judged against the pin's own meaning."""
+    key = f"flapping:{reading.title}"
+    subject = f"Block sets aside: {reading.title}"
+    if reading.fraction < FLAP_PIN_FLIPS_AT:
+        return Claim(key, subject, "claim", "flaps", reading.reading(), "match")
+    return Claim(
+        key,
+        subject,
+        "claim",
+        "flaps",
+        reading.reading(),
+        "mismatch",
+        f"a row unresolved for {reading.fraction * 100:.1f} % of the window is standing "
+        "rather than flapping, so setting it aside hides it — count it in the figure and "
+        "withdraw the declaration",
     )
 
 
@@ -2176,11 +2545,15 @@ def check_all(path: Path | None = None, now: datetime | None = None) -> list[Cla
     reason to stop asking whether the box is behind its checkout.
     """
     region, region_problem = load_region(path)
-    facts = measure_database()
-    unit = measure_unit()
-    status = schema_status()
     region_text = region or ""
     markers = read_markers(region_text)
+    # The document is read before the database because rule 12's
+    # population is the document's: only the phrases a marked sentence
+    # offers are asked about, which is what bounds that query by a
+    # paragraph rather than by a table a log-signature storm can fork.
+    facts = measure_database(flapping_candidates(region_text))
+    unit = measure_unit()
+    status = schema_status()
     # Local and aware — the document's prose is a local wall clock (rule 9)
     # and `check_expiry` refuses a naive one.  A naive `now` handed in by a
     # caller is passed through unchanged and refused there: normalising it
@@ -2203,6 +2576,12 @@ def check_all(path: Path | None = None, now: datetime | None = None) -> list[Cla
             check_expiry(marker, moment)
             for marker in markers
             if marker.key == "expires"
+        ),
+        *(
+            claim
+            for marker in markers
+            if marker.key == "flapping"
+            for claim in check_flapping(marker, facts)
         ),
         *check_markers(region_text, markers),
     ]
