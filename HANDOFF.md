@@ -1,6 +1,87 @@
-# Handoff — 2026-09-10 (Session 213)
+# Handoff — 2026-09-11 (Session 214)
 
 ## Next action
+
+Take `SNAG-DOCS-020`, the residue [ADR-0011](docs/adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md) deliberately did not fold in: **17** relative markdown links in tracked documents resolve outside this repository and every one of them passes `tests/test_doc_links.py`, because that guard asserts a link exists **on disk** and this box holds the private sibling trees a public reader gets 404 on — so the guard written after estate-manager's `25be77ba` reported 24 dead inward links is green for a reason that has nothing to do with the reader it was written for; the fix is cheap and already sited, being a narrowing of that module's existing sweep from *exists on disk* to *resolves inside this repository*, but it is not a one-liner for two measured reasons — **4 of the 17 are the pointer stubs** at `docs/guides/alfred-briefing-integration.md`, `alfred-projects-page.md`, `estate-map.md` and `monitorable-project.md`, which the estate rule *a moved document leaves a pointer, never a copy* **requires** to escape, so they need an exemption that is declared in a document rather than hidden in the test (`routes_by_prefix`'s rule, the document supplying the partition and the test checking it for totality), and the remaining **13 sit inside arguments** in `CLAUDE.md`, four ADRs and `tasks.md`, where the honest remedy is probably to stop linking and cite by name as ADR-0011 §4 already does rather than to re-point them; note that the sibling half of the entry — **29** commits citing another repository's ADR number — is deliberately *not* the same question and should not be folded in on a resemblance, because `estate-manager ADR-0155` names a repository and a decision where a bare register id names nothing, so an unresolvable foreign ADR citation degrades to a pointer and an unresolvable register id degrades to zero; and note finally that this entry was found by nearly committing an instance of it, the first draft of ADR-0011 having linked `../../../estate-manager/docs/adr/0154-…` from the very document filing the class as residue, which is the measurement to repeat before believing any count here is stable.
+
+## What this sitting did
+
+**Closed `SNAG-DOCS-016` with [ADR-0011](docs/adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md), and the number the handoff nominated as decisive turned out to be one two careful readers invert.**
+The entry had *decided against deciding* and was right to — it was
+declining against a pending input, estate-manager having bound only its
+own sessions and recorded the estate-wide form as a recommendation for
+the owner. The owner ruled on 2026-09-10 that each repository decides for
+itself and the estate publishes the **method** rather than the answer, so
+the refusal expired rather than being overruled. That is what changed,
+and saying it first was the handoff's explicit condition.
+
+**The rule.** A commit citing a cross-repo register message id carries,
+in the same sentence, one clause saying what the message said — and an id
+for a filing *this* sitting made is written **whole**, while one for a
+message this repository *received* stays **short**. This commit practises
+it.
+
+**What decided the split was compulsion, not the gloss rate.** The
+announce-by-filing rule *requires* the id for the **31** sites citing our
+own filing and requires nothing at all for the **47** citing one we
+received — a correction estate-manager had already made against its own
+draft, reading our `8727b77` off this tree. So an own filing's id is the
+only witness to a claim this repository makes about its own compliance,
+unfalsifiable from inside this tree, and is written whole; a received
+id is volunteered provenance for a claim the change itself witnesses.
+
+**The split could not have decided it.** estate-manager read 17 of 31 own
+against 22 of 43 received — no separation. This sitting read the same
+predicate over the same corpus and got **12 of 31 against 27 of 47**, the
+own half markedly worse. Aggregate gloss agrees at **39** either way. A
+number two readers invert is not one a rule can rest on, which is the
+transferable half and is why the ADR rests on the mechanical fact instead.
+
+**Their figures reproduce and the one disagreement is definitional.** At
+their boundary: 47 citing commits, 43 received sites, 0 received-whole —
+exactly theirs. Their 74/31/1 reads here as 73/30/**0**, the whole
+difference being `ebd58df` citing one id in *both* forms. So *1 of 31 by
+whole uuid* was a body line restating the subject's short id, not a
+sitting choosing the wide form — filed back, since it bears on their own
+ADR-0155 §3 and on any other tree in their 303 with a commit of that shape.
+
+**Four structural hypotheses, all four refuted.** Their guide recommends
+looking at a repository's house format before its sittings, that being
+the cause in their tree. The `Filed at … as <id>` clause reads 52.6 %
+glossed against 47.5 % in free prose; an id sharing its sentence with
+another reads **50.0 % against 50.0 %**. The first was written down as a
+finding before it was measured. So there is no format to fix and the rule
+binds the sitting, which is the weakest kind of rule here and what the
+evidence supports.
+
+**Disclosure is not a term**, clause taken from their recommendation with
+a stronger reason: the register is a live service and **no tree holds its
+rows** — 136 messages in `cross_repo_messages` — so resolvability turns
+on `:8400` and retention, never on who can read the tree.
+
+**No check and no test**, for the entry's own reason and for ADR-0155
+§8's, which transfers exactly: a guard would have to read a commit that
+has not been written. The artefact is the ADR and that is stated as the
+weakness it is.
+
+**The inbox is empty.** `47f22a6e` closed carrying the decision — the
+channel they opened, rather than a second filing at the same measured
+reader — and `e392a4b1` closed after re-measuring both limbs of its
+audience line (their probe answers **200**; this repository holds the
+**2** services.yaml entries they count). One friction filed:
+`0ee5b5f5-0121-4dbe-a6b0-7eb00aa5c580`.
+
+No code changed, so no restart is owed and the suite is unmoved at 4013.
+
+## What is blocked
+
+Nothing. `SNAG-DOCS-020` is open and owed, not blocked — the narrowing it
+needs is a change to a test in this repository and depends on no other
+party.
+
+# Handoff — 2026-09-10 (Session 213)
+
+### The action Session 213 handed on (decided by Session 214)
 
 Decide what a commit message in this tree says when it cites a cross-repo register id — `SNAG-DOCS-016`, whose "decided against deciding" is the one open disposition `check-snag-claims.sh` reports as outside the four-word vocabulary — now that the input the entry was declining against has moved: estate-manager's open message `47f22a6e-46a0-401d-968e-539840ae7c57` records the owner's 2026-09-10 ruling that each repository decides this for itself, publishes the classification *method* rather than an answer at `estate-manager/docs/guides/citation-census.md`, and hands over figures split by direction that this tree had only in aggregate — 74 citation sites across 47 of 351 commits, 31 citing a filing this repository made and 43 citing one it received, with **1** of the 31 and **0** of the 43 carrying the whole uuid — which is the split that decides whether one convention covers both directions or whether the receiving half is a different question, since a received id names a message this repository did not write and a reader here cannot resolve it on any route; note that the entry's own refusal is still standing and still correct on its own terms, so the sitting that takes this must first say what changed rather than re-deciding it because it is small, and note also that closing the message is part of the work and not a separate errand, because the notice fires once per session and an inbox left open is how a filing that asks nothing becomes a filing nobody read.
 

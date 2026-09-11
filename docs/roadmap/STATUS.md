@@ -1,7 +1,55 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-10
+**Last Updated**: 2026-09-11
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **Two readings of one corpus inverted the number the decision was to
+> rest on** (2026-09-11, Session 214, closing `SNAG-DOCS-016` with
+> [ADR-0011](../adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md)).
+> The entry had **decided against deciding** and was right to: it was
+> declining against a pending input, estate-manager having ruled its own
+> citation form binding *its own sessions only* and recorded the
+> estate-wide form as a recommendation for the owner. The owner ruled on
+> 2026-09-10 — each repository decides for itself, the estate publishes
+> the **method** rather than the answer — so the refusal expired rather
+> than being overruled, which is the thing this close had to say first.
+> **The handoff nominated the direction split as decisive and it cannot
+> be.** estate-manager read 17 of 31 own filings glossed against 22 of 43
+> received — no separation; this sitting read the same predicate over the
+> same corpus and got **12 of 31 against 27 of 47**, the own half markedly
+> worse. Aggregate gloss agrees almost exactly (**39** either way), so the
+> reading carries the case that something is owed and is not asked to
+> decide the form.
+> **What decides it is compulsion, which is not a reading.** The
+> announce-by-filing rule *requires* the id for the 31 sites citing a
+> filing this sitting made and requires nothing at all for the 47 citing
+> one it received — so an own filing's id is the only witness to a claim
+> this repository makes about its own compliance and is written **whole**,
+> and a received id is volunteered provenance for a claim the change
+> already witnesses and stays **short**.
+> **Their figures reproduce, and the one disagreement is definitional.**
+> At their boundary: 47 citing commits, 43 received sites, 0 whole — all
+> exactly theirs. Their 74/31/1 reads here as 73/30/**0**, the whole
+> difference being `ebd58df` citing one id in *both* forms and counted
+> once here and twice there. So *1 of 31 by whole uuid* was a body line
+> restating the subject's short id, not a sitting choosing the wide form.
+> **Disclosure is not a term, for a reason stronger than the one offered.**
+> The register is a live service and **no tree holds its rows** — 136
+> messages in `cross_repo_messages`, estate-manager's tree holding only
+> ADRs and drivers *about* it — so resolvability turns on `:8400` and
+> retention, never on who can read the tree. All **57** distinct ids cited
+> here still resolve today.
+> **Four structural hypotheses, all four refuted**, which is what leaves
+> the rule binding the sitting rather than a template: the house `Filed at
+> … as <id>` clause (52.6 % against 47.5 %), an id trailing a subject line
+> (50.0 % over 8), a commit citing several ids (52.9 / 31.2 / 57.1 %, not
+> monotone) and an id sharing its sentence (**50.0 % against 50.0 %**).
+> The first was written down as a finding before it was measured.
+> No code changed, so **no restart is owed**; the suite is unmoved at
+> 4013 and `docs/adr/` goes ten records to eleven. `SNAG-DOCS-020` is the
+> residue — 29 commits citing a foreign ADR and 17 tracked-document links
+> resolving on this box and nowhere else, which `tests/test_doc_links.py`
+> passes because it checks existence on disk.
 
 > **The convention had been honoured 162 times and written down nowhere**
 > (2026-09-10, Session 213, closing `SNAG-DOCS-019`). `read_claim`

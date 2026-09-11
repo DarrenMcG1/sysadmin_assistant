@@ -4,7 +4,84 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-10
+> **Last Updated**: 2026-09-11
+
+---
+
+## Session 214: two readings of one corpus inverted the deciding number ✅ (2026-09-11)
+
+_The ask was to decide what a commit in this tree says when it cites a
+cross-repo register message id — `SNAG-DOCS-016`, which had **decided
+against deciding** — now that the owner has ruled (2026-09-10) that each
+repository decides for itself and the estate publishes the method rather
+than the answer. The handoff named the split by direction as what would
+decide whether one convention covers both halves, and required the
+sitting to say what changed rather than re-decide a small thing._
+
+- [x] **Said what changed before deciding anything.** Two of the entry's
+      three legs still stand — nothing is asked, nothing on this box reads
+      a commit message. The third was a **pending input**: estate-manager
+      had bound only its own sessions and recorded the estate-wide form as
+      a recommendation for the owner. The owner's ruling removed the
+      refusal's own reason by settling that there will be no estate-wide
+      answer, so the entry expired rather than being overruled.
+- [x] **Re-derived their figures rather than accepting them** —
+      `verify-ops-claims-live`, which reaches a figure filed *about* this
+      repository as much as one filed by it. At their boundary: **47**
+      citing commits, **43** received sites, **0** whole — exactly theirs.
+- [x] **The one disagreement is definitional and changes their headline's
+      meaning.** Their 74 sites / 31 own / 1 whole reads here as 73 / 30 /
+      **0**, and the whole difference is `ebd58df`, which cites one id in
+      *both* forms — short in the subject, whole in the body — counted as
+      two sites under their *(commit, id, form)* key and one under this
+      sweep's *(commit, id)*. So *1 of 31 by whole uuid* was never a
+      sitting choosing the wide form, and before `3952058` no commit here
+      had cited a register id by whole uuid alone.
+- [x] **Read all 78 sentences, which is the measurement with no honest
+      mechanical predicate** (their guide §4), with every ground
+      re-asserted against the live commit message and coverage asserted.
+- [x] **The split cannot decide the question, because two readings invert
+      it.** estate-manager: 17 of 31 own (54.8 %) against 22 of 43
+      received (51.2 %). Here: **12 of 31 (38.7 %) against 27 of 47
+      (57.4 %)**. Aggregate gloss agrees at **39** either way. A number
+      two careful readers invert is not one a rule can rest on, so the
+      reading carries only the case that something is owed.
+- [x] **Decided on compulsion instead, which is mechanical.** The
+      announce-by-filing rule requires the id for the 31 own-filing sites
+      and requires nothing for the 47 received — a correction
+      estate-manager had already made against its own draft, off this
+      tree. Whole uuid where this sitting filed it, short where it
+      received it, one gloss clause either way.
+- [x] **Refused to condition any of it on disclosure**, with a reason
+      stronger than the one recommended: the register is a live service
+      and **no tree holds its rows** (136 messages in
+      `cross_repo_messages`), so resolvability turns on `:8400` and
+      retention rather than on who can read the tree.
+- [x] **Looked for a house format, as the guide recommends, and refuted
+      four hypotheses.** The `Filed at … as <id>` clause (52.6 % against
+      47.5 %), an id trailing a subject line (50.0 % over 8), a commit
+      citing several ids (52.9 / 31.2 / 57.1 %, not monotone), an id
+      sharing its sentence (**50.0 % against 50.0 %**). The first was
+      written down as a finding before it was measured. So the rule binds
+      per id and per sitting, with nothing upstream to re-shape.
+- [x] **Refused a check and a test**, for the entry's own reason
+      (`check-snag-claims.sh`'s `ok` means the defect is still real) and
+      for ADR-0155 §8's, which transfers exactly: a guard would have to
+      read a commit that has not been written.
+- [x] **Closed both open estate messages**, the decision carried in
+      `47f22a6e`'s close note rather than in a second filing at the same
+      reader, and `e392a4b1` re-measured before closing — their
+      unauthenticated probe answers **200** and this repository holds the
+      **2** services.yaml entries their audience line counts.
+- [x] **Filed `SNAG-DOCS-020`** rather than absorbing it: 29 commits cite
+      a foreign ADR number and **17** tracked-document links resolve
+      outside this repository, which `tests/test_doc_links.py` passes
+      because it asserts existence on disk. Found by nearly committing
+      one — the ADR's first draft linked into estate-manager's tree.
+- [x] Docs: [ADR-0011](../adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md),
+      `docs/README.md` ten records → eleven, `README.md`'s ADR count,
+      `CLAUDE.md`'s decision-record list, STATUS.md, snag_list.md.
+      No code changed, so no restart is owed and the suite is unmoved.
 
 ---
 

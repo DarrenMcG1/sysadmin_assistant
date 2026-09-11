@@ -4390,6 +4390,27 @@ than this paragraph.
   `services.yaml` **comments** are now published, and the measured
   audience for the announcement was two repositories, not the estate.
 
+- **[0011-a-cited-register-id-is-a-claim-about-this-repository.md](docs/adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md)**
+  — **read this before writing a commit message that cites a cross-repo
+  register message id.** The rule: the citing sentence carries one clause
+  saying what the message said, and an id for a filing *this* sitting made
+  is written **whole** while one for a message this repository *received*
+  stays **short**. Records that the owner devolved the question on
+  2026-09-10 (each repository decides for itself, the estate publishes the
+  method), so the standing refusal in `SNAG-DOCS-016` expired rather than
+  being overruled. What decides the two halves is **compulsion, not the
+  gloss rate**: the announce-by-filing rule requires the id for the 31
+  sites citing our own filing and requires nothing for the 47 citing one we
+  received — and the gloss-rate split that would have argued the same case
+  is a *reading* two careful readers inverted (estate-manager 17/31 own
+  against 22/43 received; this tree's own reading 12/31 against 27/47, with
+  aggregate gloss agreeing at 39 either way). Also records why **disclosure
+  is not a term** — the register is a live service whose 136 rows no tree
+  holds, so resolvability turns on `:8400` and retention rather than on who
+  can read the tree — and four structural hypotheses for *why* half the
+  corpus is bare, **all four refuted**, which is what leaves the rule
+  binding the sitting rather than a template.
+
 Guides: only **api_auth.md** (bearer-token auth setup) still lives in
 this repository's `docs/guides/`. The four cross-repo guides —
 `estate-map.md`, `monitorable-project.md` (which holds the port
