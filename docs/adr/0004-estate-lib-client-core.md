@@ -6,7 +6,7 @@
   extraction — the bounded exception in estate ADR-0002 under which an
   estate session edits this repository), recording the decision in this
   repository's own sequence per that same ADR
-- **Estate side**: [estate-manager ADR-0006](../../../estate-manager/docs/adr/0006-shared-library-shape.md)
+- **Estate side**: estate-manager ADR-0006
 
 ## Context
 

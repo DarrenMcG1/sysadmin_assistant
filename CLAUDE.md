@@ -4243,9 +4243,8 @@ than this paragraph.
 
 **Decision records** live in `docs/adr/`:
 
-- **0002-estate-manager.md** — **moved 2026-08-11** to
-  [estate-manager ADR-0001](../estate-manager/docs/adr/0001-estate-manager.md)
-  (renumbered; a pointer stands at [docs/adr/0002-estate-manager.md](docs/adr/0002-estate-manager.md)).
+- **0002-estate-manager.md** — **moved 2026-08-11** to estate-manager
+  ADR-0001 (renumbered; a pointer stands at [docs/adr/0002-estate-manager.md](docs/adr/0002-estate-manager.md)).
   Why shared infrastructure gets an owner that is not an application, why
   the estate owns the broker's *schema* while each app still ensures its
   own identity, why provisioning is a boot oneshot and never a daemon,

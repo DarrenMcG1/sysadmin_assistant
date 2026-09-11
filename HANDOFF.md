@@ -1,6 +1,100 @@
-# Handoff — 2026-09-11 (Session 214)
+# Handoff — 2026-09-11 (Session 215)
 
 ## Next action
+
+Take `SNAG-DOCS-015`, which is the register's **only** entry reading `open — owed` — of 34 open entries the disposition reader refuses 30 as *decided* and three more as *blocked*, so it is not merely the best candidate but the only one a published next action may name without asserting a check nobody owes — and it interrupted this sitting's own close for the third recorded time, `scripts/check-ops-claims.sh` reporting `no` on both alert claims with `Unusual CPU usage` open while the block stayed deliberately uncorrected exactly as Sessions 209 and 211 left it; the entry names its own shape, which is to make *pin the stable set and name the flapping title in prose beside it* into a reading `check_alerts` and `check_open_titles` can take rather than a convention each sitting has to remember and re-derive under time pressure, and it refuses two closures in writing that must not be quietly re-attempted — excluding titles above a flap rate makes this document a second reader of a policy the tray owns (`notifications.tray.flap_cooldown_seconds`, which is `may_quieten_in_place` rule 3's refusal one document over), and pinning a *range* removes the check's whole purpose, since it exists to notice a **fall** and a claim reading *4 or 5 rows* cannot notice one; what is probably wanted is a third reading beside `match` and `mismatch` in the shape `ports_checked`'s rule keeps asking for, so that a row whose title the block names as flapping is neither counted against the pin nor silently dropped from it; re-measure both duty cycles before designing anything, because the entry's figures (`High VRAM usage on AMD Radeon RX 7900 XTX` at 24 episodes and 4.8 % of the window, `Unusual CPU usage` at 11 episodes and 0.7 %) were taken on 2026-09-10 over a seven-day window that has since rolled, and the entry's own history is two sittings correcting the block in opposite directions off single observations — so a reading built on a stale duty cycle would repeat precisely the fault it is meant to end.
+
+## What this sitting did
+
+**Closed `SNAG-DOCS-020` by refuting the entry's second measured reason
+rather than implementing it.** `tests/test_doc_links.py` asserted that a
+link exists **on disk**, and this box holds the private sibling trees a
+public reader 404s on — so **17** relative links reaching out of this
+repository passed every run since the guard was written, green for a
+reason unrelated to the reader it was written for. The guard now asserts
+containment beside existence, as two findings rather than one, because
+the remedies are opposites: a missing link is repaired or re-pointed, an
+escaping link is de-linked and cited by name.
+
+**The entry priced the fix above a one-liner because four pointer stubs
+are *required to escape*, and that reads the rule wrong by one word.**
+*A moved document leaves a pointer, never a copy* requires a **pointer**;
+a pointer is content and a link is mechanism. Three measurements separate
+them and none needed new instrumentation — estate-manager's
+`docs/conventions/estate-rules.md` states the rule and says nothing of
+its form; **that repository's own copies of those same four moved
+guides** cite back at this tree as a plain backticked path
+(`` `sysadmin_assistant/docs/guides/` ``) rather than as a link; and this
+tree already spells the same class of citation unlinked **112** times
+against **12** linked, with Alfred's 7 ADR citations 7 unlinked. So all
+17 became plain citations and there is **no exemption list at all** — the
+population is empty *by repair*, which leaves no partition to keep in
+step and no switch a later sitting can reach for.
+
+**The entry's partition was short by one document and two links, and the
+miscount ran against its own design.** `docs/adr/0002-estate-manager.md`
+is a fifth pointer stub carrying **two** escapes, the second citing the
+estate's `docs/adr/README.md` — a supporting citation the pointer rule
+does not require — so the exemption as designed would have had to excuse
+a link nothing obliged. The split is 6 stub links across 5 stubs and 11
+in arguments, not 4 and 13; the headline **17** and the escape set are
+confirmed exactly, which is the measurement the handoff asked for.
+
+**The obvious one-liner has a wrong version that passes all 17.**
+`Path.is_relative_to` is purely lexical and does not collapse `..`, so
+`<repo>/docs/adr/../../../estate-manager/x` reads as *inside* the
+repository — measured `True` for every one of the 17 escapes it exists to
+catch. Resolve-then-compare is driven at the refuted implementation in a
+test of its own rather than left to a comment, because a narrowing that
+ships green and inert cannot be told from a working one by its result.
+
+**Both corpus assertions are vacuous on a clean corpus, measured rather
+than argued.** Of five falsifications, the mutation making
+`escaping_links` report nothing and the mutation dropping `.resolve()`
+each redden **zero** corpus tests and only the two synthetic witnesses —
+an `assert not findings` test cannot detect a detector that always finds
+nothing. **One of the five passed against deliberately broken code**:
+once every escape is repaired no link is both outside the repository
+*and* absent, so `missing_links`' containment clause is unreachable and
+deleting it is a mutation the whole suite passes. `chk_run_status`'
+redundant-conjunct rule; a population was built for it and the mutation
+now reddens exactly one test.
+
+**The convention is stated once, in the test**, on `SNAG-DOCS-019`'s
+close reasoning that a comment and a test both stating a convention are
+two statements free to disagree — so no line was added to `CLAUDE.md`.
+The sibling half owes nothing and is untouched: **29** commits cite a
+foreign ADR number, a commit message is not a tracked document, and
+`estate-manager ADR-0155` degrades to a *pointer* where a bare register
+id degrades to zero.
+
+**The sitting hit its own recorded trap and had to repair it.** Reverting
+the fourth mutation with `git checkout CLAUDE.md` ate this sitting's
+uncommitted de-linking of that file — *revert a mutation with `.bak`, not
+git*, a memory this repository holds and this sitting read only after
+breaking it. Caught by re-reading the file rather than by a test, because
+the guard is green either way: a restored link resolves on this box,
+which is the entry's own defect biting the sitting that was closing it.
+
+No `sysadmin/` module changed, so **no restart is owed** and the deploy
+claim confirms it. Suite **4013 → 4018**; ruff and mypy clean. The three
+candidate escape shapes outside the swept corpus were measured rather
+than assumed absent: **0** in `*.py`, **0** absolute-path and **0**
+tilde-prefixed markdown links, **0** untracked markdown documents.
+
+## What is blocked
+
+Nothing. `check-ops-claims.sh` reports `no` on the two alert claims —
+`Unusual CPU usage` was open at the close — and the block was
+deliberately **not** corrected: that is `SNAG-DOCS-015` exactly, which
+measured this very title at 11 episodes and unresolved 0.7 % of a
+seven-day window and ruled **4** the honest pin. Session 211 made the
+same decision in the same circumstances and was proved right inside its
+own close.
+
+# Handoff — 2026-09-11 (Session 214)
+
+### The action Session 214 handed on (closed by Session 215)
 
 Take `SNAG-DOCS-020`, the residue [ADR-0011](docs/adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md) deliberately did not fold in: **17** relative markdown links in tracked documents resolve outside this repository and every one of them passes `tests/test_doc_links.py`, because that guard asserts a link exists **on disk** and this box holds the private sibling trees a public reader gets 404 on — so the guard written after estate-manager's `25be77ba` reported 24 dead inward links is green for a reason that has nothing to do with the reader it was written for; the fix is cheap and already sited, being a narrowing of that module's existing sweep from *exists on disk* to *resolves inside this repository*, but it is not a one-liner for two measured reasons — **4 of the 17 are the pointer stubs** at `docs/guides/alfred-briefing-integration.md`, `alfred-projects-page.md`, `estate-map.md` and `monitorable-project.md`, which the estate rule *a moved document leaves a pointer, never a copy* **requires** to escape, so they need an exemption that is declared in a document rather than hidden in the test (`routes_by_prefix`'s rule, the document supplying the partition and the test checking it for totality), and the remaining **13 sit inside arguments** in `CLAUDE.md`, four ADRs and `tasks.md`, where the honest remedy is probably to stop linking and cite by name as ADR-0011 §4 already does rather than to re-point them; note that the sibling half of the entry — **29** commits citing another repository's ADR number — is deliberately *not* the same question and should not be folded in on a resemblance, because `estate-manager ADR-0155` names a repository and a decision where a bare register id names nothing, so an unresolvable foreign ADR citation degrades to a pointer and an unresolvable register id degrades to zero; and note finally that this entry was found by nearly committing an instance of it, the first draft of ADR-0011 having linked `../../../estate-manager/docs/adr/0154-…` from the very document filing the class as residue, which is the measurement to repeat before believing any count here is stable.
 

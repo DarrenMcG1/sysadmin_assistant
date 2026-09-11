@@ -2,9 +2,8 @@
 
 Decided 2026-08-30, answering estate-manager's cross-repo message
 `8462bcc5-8e35-41fc-acb1-8138f351e519` (`needs_ruling=true`, filed
-2026-08-29) and the condition their
-[ADR-0068](../../../estate-manager/docs/adr/0068-detection-is-not-delivery.md)
-§4 attached to their `PreToolUse` inbox-notice carrier.
+2026-08-29) and the condition their ADR-0068 §4 attached to their
+`PreToolUse` inbox-notice carrier.
 
 **Admitted.** The `wiring` check joins `ports` as a second audit check
 whose findings this repository speaks for. `JUDGED_AUDIT_CHECKS` names
@@ -248,8 +247,7 @@ this sitting hit.
 
 ### 5a. Amended 2026-09-03 — closed at the producer, by a fourth part
 
-*(Amending §5, which stands as recorded. estate-manager's
-[ADR-0102](../../../estate-manager/docs/adr/0102-two-claims-about-one-subject-are-two-findings.md),
+*(Amending §5, which stands as recorded. estate-manager's ADR-0102,
 announced as message `b96a337c` **before** the commit carrying it — their
 rule that a change to a published surface is filed at its measured
 readers first. Closed here at commit `e3d0eeb`.)*

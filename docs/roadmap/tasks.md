@@ -8,6 +8,95 @@
 
 ---
 
+## Session 215: the rule required a pointer, and the entry read it as a link ✅ (2026-09-11)
+
+_The ask was `SNAG-DOCS-020`: **17** relative markdown links in tracked
+documents resolve outside this repository, and `tests/test_doc_links.py`
+is green on all 17 because it asserts a target exists **on disk** and
+this box holds the private sibling trees a public reader 404s on. The
+handoff priced the fix above a one-liner on two measured grounds, and
+the sitting was asked to repeat the measurement before believing any
+count._
+
+- [x] **Confirm the entry's count before touching anything.** **17**
+      escaping links, confirmed exactly, and the argument half's spread
+      across `CLAUDE.md`, four ADRs and `tasks.md` confirmed exactly.
+      The **partition** is short by one document and two links:
+      `docs/adr/0002-estate-manager.md` is a fifth pointer stub carrying
+      **two** escapes, the second citing the estate's `docs/adr/README.md`
+      — a supporting citation the pointer rule does not require. So the
+      split is **6** stub links across **5** stubs and **11** in
+      arguments, not 4 and 13
+- [x] **Refute the second measured reason rather than implement it.**
+      The entry holds that 4 stubs are *"required to escape"* by *a
+      moved document leaves a pointer, never a copy*, and so need an
+      exemption declared in a document. The rule requires a **pointer**;
+      a pointer is content and a link is mechanism. Three measurements,
+      none needing new instrumentation: estate-manager's
+      `docs/conventions/estate-rules.md` states the rule and says
+      nothing of form; **their own copies of those same four moved
+      guides** cite back at this tree as a plain backticked path
+      (`` `sysadmin_assistant/docs/guides/` ``), not a link; and this
+      tree already spells the same class of citation unlinked **112**
+      times against **12** linked, Alfred's 7 ADR citations being 7
+      unlinked. Put to the owner with the evidence and the recommendation
+      first; answered *de-link all 17, no exemption*
+- [x] **De-link all 17.** The six stub links become backticked paths —
+      and in five of the six the link's **label was already the path**,
+      so the de-linking loses nothing and gains a reader: `../../../`
+      names no repository where `estate-manager/docs/guides/estate-map.md`
+      does. The eleven argument links become plain prose names, the form
+      ADR-0011 §4 already uses. Every anchor asserted present exactly
+      once before any file was written, then ten stubby lines reflowed
+- [x] **Narrow the guard, and pin the ordering the narrowing turns on.**
+      `relative_links` resolves once; `escaping_links` and
+      `missing_links` are separate findings because the remedies are
+      opposites — a missing link is repaired or re-pointed, an escaping
+      one is de-linked. **The obvious one-liner has a wrong version that
+      passes all 17**: `Path.is_relative_to` is lexical and does not
+      collapse `..`, so `<repo>/docs/adr/../../../estate-manager/x` reads
+      as *inside*, measured `True` for every one of the 17. Driven at the
+      refuted form in a test of its own
+- [x] **No exemption list.** The population is empty *by repair*, so
+      there is no partition to keep in step and no switch a later sitting
+      can reach for. The convention is stated **once**, in the test, on
+      `SNAG-DOCS-019`'s reasoning that a comment and a test both stating
+      one are two statements free to disagree
+
+**Both corpus assertions are vacuous on a clean corpus, and that is
+measured.** Of five falsifications, the mutation making `escaping_links`
+report nothing and the mutation dropping `.resolve()` each redden
+**zero** corpus tests and only the two synthetic witnesses — an
+`assert not findings` test cannot detect a detector that always finds
+nothing. The witnesses are the guard; the corpus assertion is the
+regression catch.
+
+**One of five falsifications passed against deliberately broken code.**
+Once every escape is repaired, no link is both outside the repository
+*and* absent, so `missing_links`' containment clause is unreachable and
+deleting it is a mutation the whole suite passes — `chk_run_status`'
+redundant-conjunct rule, a clause whose removal is invisible in
+behaviour. A population was built for it and the mutation now reddens
+exactly one test.
+
+**The sitting hit its own recorded trap and had to repair it.** Reverting
+the fourth mutation with `git checkout CLAUDE.md` ate this sitting's
+uncommitted de-linking of that file — *revert a mutation with `.bak`, not
+git*, which is a memory this repository holds and this sitting read after
+breaking it. Caught by re-reading the file rather than by a test, since
+the guard is green either way: a restored link resolves on this box.
+
+**The sibling half owes nothing and is deliberately untouched.** **29**
+commits cite a foreign ADR number; a commit message is not a tracked
+document, nothing sweeps one, and `estate-manager ADR-0155` degrades to
+a *pointer* naming a repository and a decision where a bare register id
+degrades to zero. No residue filed, and the three candidate escape
+shapes were swept rather than assumed absent: **0** in `*.py`, **0**
+absolute-path and **0** tilde-prefixed markdown links, **0** untracked
+markdown documents. Suite **4013 → 4018**.
+
+---
+
 ## Session 214: two readings of one corpus inverted the deciding number ✅ (2026-09-11)
 
 _The ask was to decide what a commit in this tree says when it cites a
@@ -5306,8 +5395,7 @@ debts that landing deliberately left behind._
     reaches the wire) and `SNAG-ESTATE-003` (no escalation for these
     families)
 - [x] **Watch and judge the estate's audit agent** *(both parts done 2026-08-13, Session 45)* (delegated requirement
-      from estate-manager Session 5, 2026-08-13 — its
-      [ADR-0009](../../../estate-manager/docs/adr/0009-audit-agent-shape.md) §8).
+      from estate-manager Session 5, 2026-08-13 — its ADR-0009 §8).
       Two parts, and the first is overdue by the estate's own contract:
       1. **Add `estate-manager-audit.timer` to `services.yaml`** (user
          unit, alongside the scan and review timers already there). The
@@ -5517,12 +5605,10 @@ debts that landing deliberately left behind._
 
       **THE TRIGGER HAS FIRED — SearXNG went live 2026-08-14, and
       `tests/test_searxng_wiring.py` is RED as of now.** Recorded here by
-      an estate-manager session under
-      [estate ADR-0002](../../../estate-manager/docs/adr/0002-delegation-not-command.md)
+      an estate-manager session under estate ADR-0002
       (documents into other repositories, never their code, units or
       runtime-read config), the same shape as `c890a52`. The estate's
-      record is
-      [ADR-0010](../../../estate-manager/docs/adr/0010-searxng-deploy-shape.md).
+      record is ADR-0010.
       **Every value this row was waiting on is now decided**, and one of
       them is not what the commented block currently says:
   - `url: http://localhost:8600/api/health`
@@ -11334,8 +11420,7 @@ What stays here, because it is about *this* service rather than about the
 estate:
 
 - **ADR-0002 moved on 2026-08-11** (estate-manager Session 1) and was
-  renumbered to
-  [estate-manager ADR-0001](../../../estate-manager/docs/adr/0001-estate-manager.md);
+  renumbered to estate-manager ADR-0001;
   a pointer stands at [../adr/0002-estate-manager.md](../adr/0002-estate-manager.md)
   and the number is never reused here.
 - **sysadmin does not move.** It stays the monitor, keeps its own broker
@@ -11346,8 +11431,8 @@ estate:
 - **The four cross-repo guides moved the same day**, leaving pointers in
   `docs/guides/` (`api_auth.md` stays — it is local). The port registry
   now lives in
-  [estate-manager's monitorable-project.md](../../../estate-manager/docs/guides/monitorable-project.md),
-  and `~/.claude/CLAUDE.md` points at the new paths — updated in the same
+  `estate-manager/docs/guides/monitorable-project.md`, and
+  `~/.claude/CLAUDE.md` points at the new paths — updated in the same
   sitting precisely because a stale global pointer would silently stop
   the contract being read.
 

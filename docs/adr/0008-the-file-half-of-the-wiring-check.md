@@ -3,9 +3,7 @@
 Decided 2026-09-08, Session 201, answering estate-manager's cross-repo
 message `ecceab5e-2a9c-4e02-a3d0-be763ad313eb` (filed 2026-09-08, before
 the commit that carried the change it announces) and the owner's
-recommendation recorded in their
-[ADR-0132](../../../estate-manager/docs/adr/0132-the-estate-owns-dotfiles-and-may-wire-a-hook.md)
-§6.
+recommendation recorded in their ADR-0132 §6.
 
 **Half taken, half declined.** `settings_unparseable` and
 `settings_not_an_object` are read here now —
@@ -31,8 +29,7 @@ Their ADR-0132 made two rulings in one sitting, and both reach this
 repository. The message frames the first; the second is the one that
 falsified sentences in **this** repository's source.
 
-**Ruling 1 — the estate may write `settings.json`'s `hooks` key.** So
-[their ADR-0067](../../../estate-manager/docs/adr/0067-the-wiring-of-a-hook-is-a-claim.md)'s
+**Ruling 1 — the estate may write `settings.json`'s `hooks` key.** So their ADR-0067's
 justification for the check — *"the only check whose subject the estate
 can neither write nor repair, which is why nothing had ever looked"* —
 is false for that key, and the check partly audits its own writes. That
