@@ -1,6 +1,106 @@
-# Handoff — 2026-09-12 (Session 219)
+# Handoff — 2026-09-12 (Session 220)
 
 ## Next action
+
+Take `SNAG-DOCS-025`, the register's only owed entry and therefore whatever a ranking puts first, which is to delete the duty cycle and the episode count from the two `<!--check:flapping-->` sentences in `STATUS.md` and add the assertion that keeps a digit out of them, because those four figures state a fact their marker does not read and every one of them was wrong a day after `9467176` wrote them, and because re-measuring rather than deleting them rebuilds `SNAG-DOCS-015`'s own refusal one sentence down — a flapping quantity has no satisfiable pin, so a corrected number buys a day and a `CLAIM_PATTERN` for the duty cycle would make the checker alternate the way that entry describes — while the reader loses nothing the document can honestly hold, `scripts/check-ops-claims.sh` already printing the live reading at every preflight, and the one assertion naming these figures today is fixture-driven at `tests/test_ops_claims.py:3202` so it pins the renderer and will not move.
+
+## What this sitting did
+
+Ranked the register, found the ranking empty for the second sitting
+running, and took the fallback Session 219's own handoff had written
+down: re-measure the eleven open entries that name no check.
+
+**The ranking is a filter on one word and it returned nothing.** `owed`
+is the only disposition that is a work queue, and **0 of 36** open
+entries declared it — 28 `decided`, 5 `delegated`, 3 `blocked`. So the
+branch was decided by a measurement rather than by preference, which is
+the point of the handoff having named both.
+
+**Eight of the eleven are unmoved and three moved.** Unmoved to the
+digit: `SNAG-DOCS-024` (13 of 61 `Finding(` constructions carry
+`detail['project']`; `pointers` still 0 of 12 and still `ok` with no
+findings), `SNAG-BRIEF-003` (24 `result.error =` sites across 10 files,
+largest static 170 characters at `brief.py:565`, against a cap of 300 —
+a third identical reading on a third day), `SNAG-CFG-007` (default still
+at `audit/config.py:381`, no yaml override, both readers through the
+same symlink), `SNAG-GPU-002` (8 rows, 8 with microseconds, 0 on a whole
+second), `SNAG-DOCS-021` (two `flapping` declarations in two sentences,
+one span each), `SNAG-DOCS-010` (four current Notes figures, 4 of 4 with
+a pattern), `SNAG-DOCS-009` (one production caller, asking a prose key)
+and `SNAG-DOCS-023` (corpus grown by two, both guards green).
+
+**`SNAG-GPU-001`: the fix is live, has never fired, and quiet is not the
+same fact as working.** `service_health` holds **2,239** rows carrying
+`details['gpu_context']` since the predicate began writing on 2026-09-08
+14:47 — 1,180 for `llama-server`, 1,059 for `venture-chat` — and
+`context_lost` is false on every one. The reason is the population: the
+newest kernel reset is **2026-09-06 20:43:01**, against the eleven in
+seven days the entry was filed on, and neither declared unit has aborted
+since 2026-09-07 05:00:09. The box also changed kernel on 2026-09-10 at
+18:18:46, `7.2.3-arch1-2` to `6.18.49-2-lts`, so the live spelling of the
+reset line has moved to the `amdgpu N:N:N.N: amdgpu:` form — which
+`CRITICAL_SIGNATURES` declares, checked rather than assumed. What is left
+is a reader whose only evidence is still Session 200's synthetic drives,
+and nothing on this box separates *quiet* from *working* until the first
+reset under the new kernel.
+
+**`SNAG-DOCS-012`: the entry's own lesson arrived at the entry.** Its
+symptom names `tasks.md`, `STATUS.md`, `CLAUDE.md` and a handoff as
+carrying *"lines of roadmap narrative"*. `CLAUDE.md` never has —
+`git log -S` returns no commit and its live line says *"narrative about a
+private box"*, a different noun — and the live `tasks.md` and `STATUS.md`
+occurrences are the **correction** written by `266b845`. And `README.md`,
+the public surface the entry calls already correct, reads *"about 25,500
+… of roughly 40,700 lines of Markdown"* against **26,883** and **43,661**
+measured today: changing the noun fixed the description and left a number
+that still drifts, two days on.
+
+**`SNAG-SCHED-004` got stronger without being touched, and was
+deliberately not discharged early.** Its tables are unchanged and the
+reviews are weekly, so the reading belongs to its own date; what the GPU
+measurement adds is that `SNAG-GPU-001`'s cause now requires a reset that
+has not happened, so a repeat of the fallback would exclude it by
+measurement rather than leaving two live explanations.
+
+**A claim two entries share was measured with the wrong instrument.**
+`SNAG-GPU-001` and `SNAG-CFG-007` both say *"estate-manager's register
+mints"* and then list ten families. Driven through the estate's own
+`estate.snags` reader, their register mints **one** — 185 of 185 entries
+are `SNAG-ESTATE` — and the ten listed are families their document
+*cites*, because a grep over a register that quotes other repositories'
+ids cannot separate minting from citation. Both conclusions survive, by a
+wider margin than either claimed. The sweep run to replace it is wider
+again and is what freed this sitting's id: across **19** registers at
+depth 2 under `~/projects`, `SNAG-DOCS` is minted here alone.
+
+**What the sweep turned up is `SNAG-DOCS-025`, and it is the register's
+only owed entry.** Two `<!--check:flapping-->` sentences in `STATUS.md`
+state a duty cycle and an episode count; the marker stands behind
+`check_flapping`, which reads a *predicate* and not those numbers.
+Measured today, all four are wrong — 4.2 %/26 against 3.0 %/22, and
+0.8 %/12 against 0.6 %/10 — one day after `9467176` wrote them, while
+`check-ops-claims.sh` reports both sentences `ok` by name. An unmarked
+stale figure reads as prose, which is `SNAG-ESTATE-012`; a **marked** one
+reads as verified, which is the failure `check_markers`' own docstring
+names for a marker pointing at a check nobody implements.
+
+**Nothing was fixed and that is the shape of the sitting.** Eleven
+annotations, one new entry, and a scheduled item sharpened — no code
+changed, so no restart is owed and `check-ops-claims.sh` is clean at exit
+0 with the daemon's existing claim untouched.
+
+**One thing worth carrying that is not in any entry.**
+`disposition_word` takes the token straight after `Open — ` and
+lowercases it, so `Open — **owed**` parses as the literal `**owed**` and
+lands in no bucket. The strictness is deliberate — its docstring refuses
+to extract a word from an unanchored value, because a forgiving parse
+would let the sweep count an entry the register never counted — but it
+means bold markup inside a machine-read field fails silently, and the
+first write of this sitting's entry did exactly that.
+
+# Handoff — 2026-09-12 (Session 219)
+
+### The action Session 219 handed on (discharged by Session 220)
 
 Rank the register and take whatever it puts first, because no open entry reads `open — owed` after this sitting and neither entry it touched is work owed here — the carrier is built and the residue's fix is one keyword argument in estate-manager's `pointers` check, filed at them as message `5d8c5411-ccae-4f2f-a24d-e4c5aa6179a0` with the ordering spelled out, which is that the producer publishes `detail.project` first and only then does `scripts/check-estate-docs.sh` widen its check filter, since a filter widened onto a key that does not exist matches nothing and reports health exactly as keying on the hyphenated register spelling instead of the underscored `entry.relative` one the audit writes would have done — and if the ranking comes out empty again, as it did for Session 217, then the useful sitting is to re-measure the eleven open entries that name no check, whose claims are only as fresh as the last hand sweep and three of whose kind surprised Session 216 on being re-measured rather than re-read.
 
@@ -5176,7 +5276,7 @@ Announced to estate-manager as message `8e693e05` before the commit that
 carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
-- **2026-09-14** — Discriminate the cold-start hypothesis Session 206 left: on the second Monday under lease, read `llm_used` on all three review tables again. If `health_reviews` alone is false a second time, the fault tracks the **05:00 slot** rather than the health review's own code, because log (05:15) and disk (05:45) succeeded on 2026-09-07 with the same client and the same model; if all three are true, 2026-09-07 was a one-off llama-server disconnect and the entry closes. Read it with `journalctl -u sysadmin.service` — **system scope, no `--user`** — because `sysadmin.service` is a system unit running `User=gaddi` and the user journal holds one line for it, which is the trap the 2026-09-07 item did not name and Session 206 fell into.
+- **2026-09-14** — Discriminate the cold-start hypothesis Session 206 left: on the second Monday under lease, read `llm_used` on all three review tables again. If `health_reviews` alone is false a second time, the fault tracks the **05:00 slot** rather than the health review's own code, because log (05:15) and disk (05:45) succeeded on 2026-09-07 with the same client and the same model; if all three are true, 2026-09-07 was a one-off llama-server disconnect and the entry closes. Read it with `journalctl -u sysadmin.service` — **system scope, no `--user`** — because `sysadmin.service` is a system unit running `User=gaddi` and the user journal holds one line for it, which is the trap the 2026-09-07 item did not name and Session 206 fell into. *Sharpened 2026-09-12 by Session 220 without being touched: `SNAG-GPU-001`'s explanation requires a GPU reset, and the newest one on this box is **2026-09-06 20:43:01**, so unless one lands before Monday a second `health_reviews.llm_used = false` excludes the poisoned-context cause by measurement rather than leaving it the competing explanation it was on one observation. The box has also been on `6.18.49-2-lts` since 2026-09-10 18:18:46, where the eleven-resets-a-week population was measured under `7.2.3-arch1-2`.*
 
 ## Session 146 is complete — the first night under the fix, and the check could not close its own entry
 

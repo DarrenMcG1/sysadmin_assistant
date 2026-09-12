@@ -1,8 +1,40 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-11
+**Last Updated**: 2026-09-12
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The ranking was empty, so the sweep was the sitting**
+> (2026-09-12, Session 220, opening `SNAG-DOCS-025`).
+> `owed` is the one disposition that is a work queue, and **zero** of the
+> open entries declared it for the second sitting running — so the
+> handoff's own stated fallback was the live branch, and all eleven open
+> entries that name no check were re-measured against the box and the two
+> trees rather than re-read. Eight are unmoved; three moved, and two of
+> those three could not have been seen by re-reading.
+> **A fix can be quiet and untested at the same time.** `SNAG-GPU-001`'s
+> predicate has written **2,239** `service_health` rows since it landed
+> on 2026-09-08 and `context_lost` is false on every one — because the
+> newest kernel reset is 2026-09-06 20:43:01, against the eleven in seven
+> days the entry was filed on. The box also changed kernel on 2026-09-10,
+> `7.2.3-arch1-2` to `6.18.49-2-lts`, so the live spelling of the reset
+> line moved to the form `CRITICAL_SIGNATURES` declares for LTS. Quiet
+> and working are not the same fact, and nothing here separates them.
+> **An entry's own lesson landed on the entry.** `SNAG-DOCS-012` names
+> four documents as carrying *"lines of roadmap narrative"*; `CLAUDE.md`
+> never has, and two of the others carry the *correction* rather than the
+> error — while `README.md`, the public surface the entry calls already
+> correct, has itself gone stale two days after being written.
+> **A claim two entries share was measured with the wrong instrument.**
+> Both say *"estate-manager's register mints"* and list ten families;
+> driven through the estate's own `estate.snags` reader it mints **one**,
+> 185 of 185 being `SNAG-ESTATE`, and the ten are families their document
+> *cites*. Both conclusions survive by a wider margin than claimed.
+> **What the sweep turned up is filed as the register's only owed
+> entry.** Two `<!--check:flapping-->` sentences state a duty cycle and
+> an episode count that their marker does not read, and on the day after
+> they were written all four figures were wrong. An unmarked stale figure
+> reads as prose; a marked one reads as verified, which is worse.
+>
 > **Having sessions was not sufficient and now there is a reader**
 > (2026-09-12, Session 219, closing `SNAG-DOCS-022`).
 > `scripts/check-estate-docs.sh` reads `GET :8400/api/audit/findings`

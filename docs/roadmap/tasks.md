@@ -8,6 +8,60 @@
 
 ---
 
+## Session 220: the ranking was empty, so the sweep was the sitting ✅ (2026-09-12)
+
+_The ask was Session 219's handoff: rank the register and take whatever
+it puts first, and — if the ranking came out empty a second time, as it
+did for Session 217 — re-measure the eleven open entries that name no
+check, whose claims are only as fresh as the last hand sweep._
+
+- [x] **Ranked the register: empty, for the second sitting running.**
+      `owed` is the one disposition that is a work queue, and **0 of 36**
+      open entries declared it — 28 `decided`, 5 `delegated`, 3 `blocked`.
+      So the handoff's stated fallback was the live branch, decided by a
+      measurement rather than by preference
+- [x] **Re-measured all eleven unchecked entries against the box and the
+      two trees**, and annotated each with what today's reading gave.
+      Eight are unmoved, three moved, and two of the three moved in a way
+      re-reading them could not have shown
+- [x] **`SNAG-GPU-001`: the reader is live, has never fired, and the
+      reason is the population.** `service_health` holds **2,239** rows
+      carrying `details['gpu_context']` since 2026-09-08 14:47 and
+      `context_lost` is false on every one. The newest kernel reset is
+      **2026-09-06 20:43:01** against the **11 in seven days** the entry
+      was filed on, and the box changed kernel on 2026-09-10 —
+      `7.2.3-arch1-2` to `6.18.49-2-lts` — so the live spelling of the
+      reset line moved to the form `CRITICAL_SIGNATURES` declares for
+      LTS. Quiet and working are not the same fact and nothing here
+      distinguishes them today
+- [x] **`SNAG-DOCS-012`: the symptom's own list is partly refuted.**
+      `CLAUDE.md` has never carried *"lines of roadmap narrative"* —
+      `git log -S` returns no commit — and the live `tasks.md` and
+      `STATUS.md` occurrences of the phrase are the **correction**, not
+      restatements. And `README.md`, the public surface the entry calls
+      already correct, now reads *"about 25,500 … of roughly 40,700"*
+      against **26,883** and **43,661** measured today
+- [x] **`SNAG-SCHED-004`'s scheduled reading got stronger without being
+      touched.** No reset since 2026-09-06 means a second
+      `health_reviews.llm_used = false` on **2026-09-14** excludes
+      `SNAG-GPU-001`'s cause by measurement rather than leaving it the
+      competing explanation. Deliberately not discharged early
+- [x] **Corrected a claim two entries share.** `SNAG-GPU-001` and
+      `SNAG-CFG-007` both say *"estate-manager's register mints"* and
+      list ten families; driven through the estate's own `estate.snags`
+      reader it mints **one** — 185 of 185 are `SNAG-ESTATE` — and the
+      ten are families their document *cites*. Both conclusions survive,
+      by a wider margin than either claimed
+- [x] **Filed `SNAG-DOCS-025`, and it is the register's only owed
+      entry** (two `<!--check:flapping-->` sentences state a duty cycle
+      and an episode count their marker does not read; measured
+      2026-09-12 all **four** figures are wrong — 4.2 %/26 against
+      3.0 %/22, and 0.8 %/12 against 0.6 %/10 — one day after
+      `9467176` wrote them, while `check-ops-claims.sh` reports both
+      sentences `ok`)
+
+---
+
 ## Session 219: a reader is not a second owner ✅ (2026-09-12)
 
 _The ask was Session 218's handoff: take `SNAG-DOCS-022` and give
