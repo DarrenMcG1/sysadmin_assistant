@@ -205,6 +205,60 @@ if [ "$SNAGS_STATUS" -eq 1 ]; then
     echo -e "  ${BOLD}never a closure. Nothing here edits the document.${NC}"
 fi
 
+# 6.7. ...and what the ESTATE says about this repository's documents
+#
+# SNAG-DOCS-022. The two sections above ask the box about claims this
+# repository wrote down. This one asks another repository what it has
+# found about us — the direction nothing on this box read. estate-manager's
+# `docs` check filed a breach against this tree at 13:55 on 2026-09-11 and
+# it reached no sitting: preflight named `:8400` nowhere, `inbox-notice.sh`
+# reads only the message register, and the hourly pull of
+# `/api/audit/findings` filters on `JUDGED_AUDIT_CHECKS`, which does not
+# name `docs` and by the ownership test must not.
+#
+# Advisory, never blocking, and — unlike its two siblings — it must not
+# make this banner depend on `:8400` at all. `set -e` is on, so the status
+# is captured; every way of not reaching the estate is exit 2 with nothing
+# on stdout, which is `inbox-notice.sh`'s rule for its reason: the session
+# opened to fix `:8400` must not be stalled by `:8400`.
+#
+# **Exit 2 prints "could not be read", never "none"** — the same
+# `ports_checked` rule the open-snag section below already states, and the
+# reason the reader's silence is safe: the script is silent so that any
+# caller can be, and this caller says which silence it got.
+#
+# The rungs printed are the PRODUCER's — `breach`, `warn`, `info`. Nothing
+# here translates one, because a `warn` about our handoff is advisory where
+# a `breach` is not and that judgement is estate-manager's. The colour is
+# ours; the word is theirs, and an unrecognised rung still prints.
+echo -e "\n${BLUE}🏛  Estate findings about this repository:${NC}"
+DOCS_STATUS=0
+DOCS_OUT=$(./scripts/check-estate-docs.sh 2>/dev/null) || DOCS_STATUS=$?
+if [ "$DOCS_STATUS" -eq 1 ]; then
+    while IFS= read -r line; do
+        case "$line" in
+            # The rung is NOT stripped, which is where the two sections
+            # above differ from this one. There `ok`/`no`/`??` is a verdict
+            # token this script owns and the content is what follows it;
+            # here the first word is estate-manager's severity and it is
+            # the thing the row exists to carry. Colour is added; nothing
+            # is taken away, and a rung this script has not been told about
+            # falls to the default branch and still prints.
+            "breach "*) echo -e "  ${RED}${BOLD}✗ ${line}${NC}" ;;
+            "warn "*)   echo -e "  ${YELLOW}? ${line}${NC}" ;;
+            "info "*)   echo -e "  ${BLUE}· ${line}${NC}" ;;
+            *)          echo -e "  ${BLUE}${line}${NC}" ;;
+        esac
+    done <<< "$DOCS_OUT"
+elif [ "$DOCS_STATUS" -eq 0 ]; then
+    echo -e "  ${GREEN}✓${NC} the estate's audit holds no docs finding about this repository"
+else
+    if [ -n "$DOCS_OUT" ]; then
+        echo -e "  ${YELLOW}? ${DOCS_OUT}${NC}"
+    fi
+    echo -e "  ${YELLOW}could not be read — not the same as 'none'${NC}"
+fi
+
 # 7. Check running servers
 echo -e "\n${BLUE}🖥️  Running servers:${NC}"
 BACKEND=$(pgrep -fa "uvicorn\|run_api" 2>/dev/null || true)

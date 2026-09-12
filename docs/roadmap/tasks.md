@@ -8,6 +8,59 @@
 
 ---
 
+## Session 219: a reader is not a second owner ✅ (2026-09-12)
+
+_The ask was Session 218's handoff: take `SNAG-DOCS-022` and give
+`scripts/claude-preflight.sh` a reader for the estate's `docs` findings
+about this repository, failing open the way `inbox-notice.sh` does,
+printing the producer's own rung, and keying the subject filter on the
+underscored spelling the audit writes rather than the hyphenated one the
+register resolves._
+
+- [x] **`scripts/check-estate-docs.sh`** reads `GET :8400/api/audit/findings`
+      and prints the `docs` findings whose `detail.project` is this
+      repository. `scripts/claude-preflight.sh` §6.7 calls it at every
+      session start, which is the established shape beside
+      `check-ops-claims.sh` and `check-snag-claims.sh`
+- [x] **Scoped to `docs` on a measurement of the producer, not on the
+      entry's wording.** Counting `Finding(` against the `detail` dicts in
+      all thirteen of the estate's check modules, `docs` is the only one
+      where every finding carries the project key — **7 of 7**, against
+      **0 of 12** for `pointers`, **0 of 2** for `wiring`, **2 of 9** for
+      `consumers` and **1 of 6** for `readers`
+- [x] **Keyed on `detail.project`, never on `subject`.** The check
+      composes the subject two ways from one variable — `ml/Athenaeum` and
+      `ml/Athenaeum/HANDOFF.md` — so matching on it re-implements the
+      producer's composition, which is `judge_queue_invariants`' *the mask
+      is read, never recomputed*
+- [x] **The name is derived, not written down** — this checkout's real
+      path relative to the projects root, which is `entry.relative`. The
+      hyphen mutation was driven rather than described: against the real
+      2026-09-11 finding it exits **0** with **empty output**
+- [x] **Blind is not clean in four shapes** — an errored `docs` check, an
+      absent one, a finding naming no project, and every way of not
+      reaching `:8400` are exit **2**, which preflight renders as *could
+      not be read* and never as *none*
+- [x] **The producer's rung is printed verbatim and preflight does not
+      strip it**, which is where this section departs from the two beside
+      it. The first draft stripped it and only rendering the banner said so
+- [x] **Ten mutations driven**, four against preflight; the producer pin
+      is driven at three modules that must trip it
+- [x] **An existing guard caught the fix.** `test_live_drive_premises.py`
+      reported the new file opening a live connection while marking no
+      premise; the live class now carries one, because both live witnesses
+      believe a negative that an audit which never ran satisfies perfectly
+- [x] **Restart paid once**, `sysadmin/estate/judgements.py` being in the
+      daemon's import graph and its carrier-enumerating sentence having
+      been made false by this fix
+- [x] **Filed `SNAG-DOCS-024`** (`pointers` walks every repository and
+      publishes no project key, so its findings about this tree still
+      reach no sitting; the fix is one keyword argument at the producer
+      and the ordering matters — the key exists first, or the reader's
+      clause widens onto nothing and reports health)
+
+---
+
 ## Session 218: having sessions is not having a reader ✅ (2026-09-12)
 
 _The ask was estate-manager's message `03bcaf7c-816e-42bf-be5a-0c3554c8e399`

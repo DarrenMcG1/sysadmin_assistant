@@ -1,6 +1,109 @@
-# Handoff — 2026-09-12 (Session 218)
+# Handoff — 2026-09-12 (Session 219)
 
 ## Next action
+
+Rank the register and take whatever it puts first, because no open entry reads `open — owed` after this sitting and neither entry it touched is work owed here — the carrier is built and the residue's fix is one keyword argument in estate-manager's `pointers` check, filed at them as message `5d8c5411-ccae-4f2f-a24d-e4c5aa6179a0` with the ordering spelled out, which is that the producer publishes `detail.project` first and only then does `scripts/check-estate-docs.sh` widen its check filter, since a filter widened onto a key that does not exist matches nothing and reports health exactly as keying on the hyphenated register spelling instead of the underscored `entry.relative` one the audit writes would have done — and if the ranking comes out empty again, as it did for Session 217, then the useful sitting is to re-measure the eleven open entries that name no check, whose claims are only as fresh as the last hand sweep and three of whose kind surprised Session 216 on being re-measured rather than re-read.
+
+## What this sitting did
+
+Closed `SNAG-DOCS-022` by building the carrier Session 218 filed and
+measured the shape of, rather than the one its wording implied.
+
+**`scripts/check-estate-docs.sh` is the reader and
+`scripts/claude-preflight.sh` §6.7 is the carrier.** It reads
+`GET :8400/api/audit/findings` and prints the `docs` findings whose
+`detail.project` is this repository, at the producer's own rung. It
+judges nothing, raises nothing and writes nothing —
+`JUDGED_AUDIT_CHECKS` did not move and no clause of its ownership test
+changed, because a reader is not a second owner.
+
+**Scoping to `docs` is a measurement rather than the entry's wording
+copied.** Counting `Finding(` against the `detail` dicts in all thirteen
+of the estate's check modules: `docs` **7 of 7**, `ports` 3 of 4,
+`consumers` 2 of 9, `readers` 1 of 6, and **zero** for `pointers` (12),
+`wiring` (2), `health` (4), `seams` (5), `vram` (4), `restatements` (4),
+`markers` (2), `brief` (1) and `collation` (1). `docs` is the only check
+for which the key this reader needs exists on every finding; for any
+other, a project-keyed reader is blind on most of the population and
+cannot say so, which is `ports_checked`'s rule.
+
+**The key is `detail.project`, not the subject.** The check composes the
+subject two ways from one variable — `ml/Athenaeum` for a
+repository-level breach, `ml/Athenaeum/HANDOFF.md` for a file-level one
+— so matching on it re-implements the producer's own composition and is
+free to drift from it. `detail.project` is their statement of whose
+finding it is, uniform across both shapes.
+
+**The spelling is derived and the mutation is why.** The name is this
+checkout's real path relative to the projects root, which is exactly
+`entry.relative`. Driven rather than described: a reader keyed
+`sysadmin-assistant` — what the *register* resolves this repository to,
+measured live — exits **0** with **empty output** against the real
+2026-09-11 finding. Green, silent, and wrong for ever. Two neighbouring
+mutations fall to the same derivation: a basename-only version reads
+zero for the nested `ml/Athenaeum` shape, and a spelling-normalising one
+is the careless widening that lets either through.
+
+**Blind is not clean, in four shapes.** An errored `docs` check, an
+absent one, a finding naming no project, and every way of not reaching
+`:8400` are all exit **2** — which `claude-preflight.sh` renders as
+*could not be read* and never as *none*, its own `ports_checked`
+convention, already written into the open-snag section below it. The
+`ok`-with-no-findings case is asserted separately, without which the
+whole class is vacuous: a reader answering 2 to everything would pass it.
+
+**The rung printed is the producer's and preflight does not strip it**,
+which is the one place this section departs from the two beside it.
+`check-ops-claims.sh` emits `ok`/`no`/`??`, verdict tokens preflight owns
+and strips because the content is what follows; here the first word is
+estate-manager's severity and is the thing the row carries. The first
+draft stripped it and only rendering the banner said so.
+
+**Ten mutations were driven**, four of them against preflight rather than
+the reader, and each reddens the right tests. The producer pin is driven
+at three modules that **must** trip it, because `assert not missing` is
+satisfied perfectly by a walker that has stopped looking.
+
+**An existing guard caught the fix**, which is the part worth carrying:
+`test_live_drive_premises.py` reported the new file opening a live
+connection without being named `*_live.py` and marking no premise. The
+remedy is the convention rather than a rename — 30 of its tests are
+fixture-driven — so the live class carries `@pytest.mark.premise`
+asserting the estate answered and its `docs` check actually ran, since
+both live witnesses believe a **negative** that an audit which never ran
+satisfies perfectly.
+
+**Population at the moment of the fix is zero**, which is the measurement
+and not a gap: the 2026-09-11 breach against this tree was repaired the
+same day, so the live audit's two `docs` findings are both
+`ml/Athenaeum`'s and the reader exits 0 in silence. The live witnesses
+are keyed on those rows instead — every `docs` finding's `detail.project`
+must name a directory under the projects root, which is what goes red if
+the producer moves to registry ids and this reader starts reading zero.
+
+**A restart was owed and paid once.** `sysadmin/estate/judgements.py` is
+in the daemon's import graph and its rule 3 docstring enumerated the
+carriers that do not read the audit — a sentence this fix made false.
+Daemon restarted at 2026-09-12 16:43:49, `NRestarts=5`, `/health` 200,
+and all fifteen ops claims `ok` afterwards.
+
+Suite **4050 → 4083**; `ruff` clean, `mypy` clean over 102 files.
+
+## What is blocked
+
+Nothing new, and **no open entry reads `open — owed`** — the state
+Session 217 handed on, restored. `SNAG-DOCS-024` is decided rather than
+owed: its fix belongs to estate-manager and is filed at them as
+`5d8c5411-ccae-4f2f-a24d-e4c5aa6179a0`. The three entries the disposition
+reader would otherwise allow — `SNAG-AGENT-012`, `SNAG-AGENT-013`,
+`SNAG-SVC-001` — still read `blocked`. `SNAG-GPU-001` (P2) remains the
+only open entry above P3 and carries no check. The scheduled reading is
+still declared in `## Scheduled action` below and is **deliberately not
+named here**, which is Session 218's rule 3.
+
+# Handoff — 2026-09-12 (Session 218)
+
+### The action Session 218 handed on (discharged by Session 219)
 
 Take `SNAG-DOCS-022` and give `scripts/claude-preflight.sh` a reader for the estate's `docs` findings whose subject is this repository, because a finding filed against this tree at 13:55 on 2026-09-11 reached no session at all — preflight names `:8400` nowhere, `inbox-notice.sh` fetches only `/api/estate/messages`, `session-notice.sh` publishes outbound only, and this repository's hourly pull filters on `JUDGED_AUDIT_CHECKS`, which does not name `docs` and by the ownership test must not — so the reader must fail open exactly as `inbox-notice.sh` does, treating no jq, no curl, a refused connection and a bad status as silent successes because the session opened to fix `:8400` must not be stalled by `:8400`, must print the producer's own rung rather than one of ours since a `warn` about our handoff is advisory where a `breach` would not be, and must key its subject filter on the underscored `sysadmin_assistant` the audit writes rather than the hyphenated `sysadmin-assistant` the register resolves, which is the single mistake that would ship green and read zero for ever.
 

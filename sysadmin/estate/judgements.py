@@ -60,7 +60,6 @@ Three rules run through everything below.
    measured here the same day and is wider: *having* sessions is not
    sufficient either.  A ``docs`` finding was filed against **this**
    repository at 13:55 on 2026-09-11 and reached no session —
-   ``scripts/claude-preflight.sh`` names ``:8400`` nowhere,
    ``~/.claude/hooks/inbox-notice.sh`` fetches ``/api/estate/messages``
    and nothing else, ``session-notice.sh`` only publishes outbound, and
    this module's own hourly pull admits only
@@ -70,8 +69,16 @@ Three rules run through everything below.
    **Nothing follows for what is judged** — see
    :data:`JUDGED_AUDIT_CHECKS`, whose ownership test ``docs`` fails at
    its first clause — and the correction is to the sentence, which was
-   asserting a delivery this estate does not make.  The gap is
-   ``SNAG-DOCS-022``.
+   asserting a delivery this estate does not make.
+
+   **The carrier exists since 2026-09-12** (``SNAG-DOCS-022`` closed):
+   ``scripts/claude-preflight.sh``, the script every session here runs
+   first, reads ``GET :8400/api/audit/findings`` through
+   ``scripts/check-estate-docs.sh`` and prints the ``docs`` findings whose
+   ``detail.project`` is this repository, at the producer's own rung.  It
+   **judges nothing** and raises nothing, which is why it changed no
+   clause of the ownership test and why it is a script rather than a
+   sixth surface here: a reader is not a second owner.
 
    So the total is never judged; what is judged of
    ``/api/audit/invariants`` is whether the audit **ran and completed**

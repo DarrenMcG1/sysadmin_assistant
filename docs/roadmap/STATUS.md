@@ -3,6 +3,58 @@
 **Last Updated**: 2026-09-11
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **Having sessions was not sufficient and now there is a reader**
+> (2026-09-12, Session 219, closing `SNAG-DOCS-022`).
+> `scripts/check-estate-docs.sh` reads `GET :8400/api/audit/findings`
+> and prints the `docs` findings whose `detail.project` is this
+> repository; `scripts/claude-preflight.sh` §6.7 calls it at every
+> session start. It judges nothing and raises nothing —
+> `JUDGED_AUDIT_CHECKS` did not move and no clause of its ownership test
+> changed, because a reader is not a second owner.
+> **Scoping to `docs` is a measurement, not a habit.** Counting
+> `Finding(` against the `detail` dicts in all **13** of the estate's
+> check modules, `docs` is the only one where every finding carries the
+> project key — **7 of 7**, against **0 of 12** for `pointers`, **0 of
+> 2** for `wiring`, **2 of 9** for `consumers`, **1 of 6** for
+> `readers`. For any other check a project-keyed reader is blind on most
+> of the population and cannot say so, which is `ports_checked`'s rule.
+> **The spelling is derived and the mutation is why.** The name is this
+> checkout's real path relative to the projects root — `entry.relative`,
+> what the audit keys on — never a literal. Driven: a reader keyed
+> `sysadmin-assistant`, which is what the **register** resolves this
+> repository to, exits **0** with **empty output** against the real
+> 2026-09-11 finding. Green, silent, and wrong for ever.
+> **Blind is not clean, in four shapes**: an errored `docs` check, an
+> absent one, a finding naming no project, and any way of not reaching
+> `:8400` are all exit **2**. Preflight renders 2 as *could not be
+> read*, never as *none* — its own `ports_checked` convention, already
+> written into the open-snag section below it.
+> **The rung printed is the producer's**, and preflight does not strip
+> it, which is where this section departs from the two beside it. The
+> first draft did strip it and only rendering the banner said so.
+> **Ten mutations were driven** and each reddens the right tests, four
+> of them against preflight rather than the reader; the producer pin is
+> driven at three modules that must trip it, because `assert not
+> missing` is satisfied perfectly by a walker that has stopped looking.
+> **An existing guard caught the fix** — `test_live_drive_premises.py`
+> reported the new file opening a live connection while marking no
+> premise, so the live class carries one: both live witnesses believe a
+> **negative** that an audit which never ran satisfies perfectly.
+> **Population at the moment of the fix is zero**, which is the
+> measurement and not a gap: the 2026-09-11 breach against this tree was
+> repaired the same day, so the live audit's two `docs` findings are
+> both `ml/Athenaeum`'s and the reader exits 0 in silence.
+> Residue `SNAG-DOCS-024` (`pointers` walks every repository and
+> publishes no project key, so its findings about this tree still reach
+> no sitting — one keyword argument at the producer, and the ordering
+> matters: the key exists first or the widening reads zero).
+> **A restart was owed and paid once**, `sysadmin/estate/judgements.py`
+> being in the daemon's import graph and the edit being the docstring
+> sentence that enumerated the carriers, which this fix made false.
+> Daemon restarted at
+> **2026-09-12 16:43:49** <!--check:deploy--> <!--check:daemon_start-->,
+> `NRestarts=5`, `/health` 200.
+>
 > **Having sessions is what everyone assumed was sufficient, and this
 > repository is the counter-example**
 > (2026-09-12, Session 218, answering estate-manager's message
@@ -57,7 +109,7 @@
 > standing `no` is one the next sitting has to re-derive, and this is
 > not `SNAG-SYSD-009`'s over-report, which is about modules the daemon
 > cannot reach. Daemon restarted at
-> **2026-09-12 16:07:06** <!--check:deploy--> <!--check:daemon_start-->,
+> 2026-09-12 at **16:07:06**,
 > `NRestarts=4`, `/health` 200.
 > **It was paid three times, and the ordering is the transferable
 > part.** Each restart was taken while a further docstring edit was
@@ -5495,7 +5547,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **4050 collected** | <!--check:tests-->**4050 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 4042 + 8 on 2026-09-12, Session 218: `tests/test_handoff_shape.py` gains rule 3, the gate guard — a published next action may not name a date the document has itself declared under `## Scheduled action` (`SNAG-DOCS-022`/`SNAG-DOCS-023`). All 8 in the one module, so the arithmetic reconciles with nothing to apportion: 16 test functions → 24, 18 collected → 26, the gap being two pre-existing parametrised pairs. **6 of the 8 are synthetic and that is the design rather than a shortfall** — the live document is deliberately compliant, so it can witness neither the rule nor the two false positives the naive rule produces, and those two forgeries (`91fd90e7`'s deadline, `305152a4`'s subject date) are what stop the narrowing being quietly widened back. 4018 + 24 on 2026-09-11, Session 216: the ops-claims block gains rule 12, the flapping declaration (`SNAG-DOCS-015`) — all 24 in `tests/test_ops_claims.py`, so the arithmetic reconciles with nothing to apportion, and the baseline for that file was **174** rather than the 169 a `-k` filter suggested, which is why the total moved 24 and not the 29 a first count claimed: `TestProseWraps` matched the filter and was never new. 4013 + 5 on 2026-09-11, Session 215: `tests/test_doc_links.py` gains containment beside existence (`SNAG-DOCS-020`) — all 5 in the one module, so the arithmetic reconciles with nothing to apportion, and **4 of the 5 are synthetic**, which is the point rather than a shortfall: with every escaping link repaired the corpus assertion is vacuous, and a mutation that makes the detector report nothing reddens zero corpus tests. 4001 + 8 on 2026-09-10, Session 212: `tests/test_by_project_contract.py`, the first test of any kind for `GET /api/services/by-project` — all 8 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-018`). 3988 + 13 on 2026-09-10, Session 211: the same module gains the **consumer** half of the membership rule — an AST walk of `sysadmin_tray/` pairing each request with the model its reply is handed to — so again all in one module and the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-017`). 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
+| Testing | 🟢 **4083 collected** | <!--check:tests-->**4083 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 4042 + 8 on 2026-09-12, Session 218: `tests/test_handoff_shape.py` gains rule 3, the gate guard — a published next action may not name a date the document has itself declared under `## Scheduled action` (`SNAG-DOCS-022`/`SNAG-DOCS-023`). All 8 in the one module, so the arithmetic reconciles with nothing to apportion: 16 test functions → 24, 18 collected → 26, the gap being two pre-existing parametrised pairs. **6 of the 8 are synthetic and that is the design rather than a shortfall** — the live document is deliberately compliant, so it can witness neither the rule nor the two false positives the naive rule produces, and those two forgeries (`91fd90e7`'s deadline, `305152a4`'s subject date) are what stop the narrowing being quietly widened back. 4018 + 24 on 2026-09-11, Session 216: the ops-claims block gains rule 12, the flapping declaration (`SNAG-DOCS-015`) — all 24 in `tests/test_ops_claims.py`, so the arithmetic reconciles with nothing to apportion, and the baseline for that file was **174** rather than the 169 a `-k` filter suggested, which is why the total moved 24 and not the 29 a first count claimed: `TestProseWraps` matched the filter and was never new. 4013 + 5 on 2026-09-11, Session 215: `tests/test_doc_links.py` gains containment beside existence (`SNAG-DOCS-020`) — all 5 in the one module, so the arithmetic reconciles with nothing to apportion, and **4 of the 5 are synthetic**, which is the point rather than a shortfall: with every escaping link repaired the corpus assertion is vacuous, and a mutation that makes the detector report nothing reddens zero corpus tests. 4001 + 8 on 2026-09-10, Session 212: `tests/test_by_project_contract.py`, the first test of any kind for `GET /api/services/by-project` — all 8 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-018`). 3988 + 13 on 2026-09-10, Session 211: the same module gains the **consumer** half of the membership rule — an AST walk of `sysadmin_tray/` pairing each request with the model its reply is handed to — so again all in one module and the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-017`). 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
 membership guard that outlives `SNAG-DOCS-011` — every package, agent and mapped
 table swept **both ways** against `docs/ARCHITECTURE.md`, because the entry
 counted lines naming a departed component and a line count cannot measure an
