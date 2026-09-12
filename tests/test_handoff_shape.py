@@ -360,3 +360,243 @@ class TestThePublishedLineNamesNoWorkNobodyIsOwed:
         ours, problem = snag_claims.next_action_line()
         assert not problem, problem
         assert ours == roadmap.next_action_from_handoff(HANDOFF.read_text(encoding="utf-8"))
+
+
+class TestTheTwoSectionsDoNotCompeteForTheBoardSlot:
+    """Rule 3, added 2026-09-12 — and it is not the estate's check moved.
+
+    ``## Scheduled action`` exists so that *"a week-out measurement
+    cannot stall the pipeline"*, which is its own preamble's wording.
+    On 2026-09-11 the pipeline was stalled anyway, from the other end:
+    the scheduled item stayed correctly in its section, and the **next
+    action delegated to it** — *"the next sitting should therefore start
+    from the scheduled reading due 2026-09-14"*, written on 2026-09-11
+    and published to the estate board verbatim.  The section held the
+    work and the board published the wait.
+
+    So the rule is a property of *this document*: a date the document
+    has itself declared as scheduled work may not also be the operative
+    subject of the line the board publishes.  The two sections address
+    one slot and must not both claim it.
+
+    **This is deliberately not estate-manager's ``docs`` check, and the
+    operands are what say so.**  Theirs
+    (``docs:…:next_action_not_startable``, which filed against this
+    repository at 13:55 on 2026-09-11) compares the next action's dates
+    against the handoff's own date, and reads one document against a
+    convention they own.  This compares the next action against the
+    **scheduled section beside it**, and reads one document against
+    itself.  ``docs/adr/0008-the-file-half-of-the-wiring-check.md``
+    draws that line: what distinguishes two checks is the inputs they
+    take, not the conclusion they happen to share.
+
+    **Why a guard here at all, when theirs already fires.**  Measured
+    2026-09-11: their finding reaches no session in this repository.
+    ``scripts/claude-preflight.sh`` names ``:8400`` nowhere,
+    ``~/.claude/hooks/inbox-notice.sh`` fetches ``/api/estate/messages``
+    and nothing else, ``session-notice.sh`` only publishes outbound, and
+    this repository's own hourly pull of ``/api/audit/findings`` filters
+    on ``JUDGED_AUDIT_CHECKS`` — which does not name ``docs`` and,
+    by :func:`sysadmin.estate.judgements.judge_audit_findings`'s
+    ownership test, must not.  The finding about this repository was
+    found by a session going to look, prompted by an unrelated message.
+    A rule deferred to a check whose finding cannot arrive is a rule
+    nothing holds; ``SNAG-DOCS-022`` carries the delivery gap itself.
+
+    **The rule is narrower than the naive one, and the naive one was
+    measured and refused.**  Over all 248 published next actions in this
+    file's history, *"names any date later than the handoff's own"*
+    fires 7 times and **2 of the 7 are legitimate**: ``91fd90e7``'s date
+    is a *deadline* (*"do it before 2026-09-11, because ``log_entries``
+    has a 30-day retention"*) and ``305152a4``'s is the *subject* of the
+    work (*"write a prediction for the 2026-09-16 retention
+    boundary"*) — both startable the day they were written, and the
+    producer files at ``warn`` for exactly that reason.  A blocking
+    guard refusing 2 in 7 correctly-written lines teaches the operator
+    to reach for ``--no-verify``, which is ``SNAG-DB-005``'s rule 3
+    against disarming a check for the case it exists for.  The rule
+    below fires **2 of 248** and both are true gates: ``dfe930e5`` (the
+    line that occasioned it) and ``9f736275`` (*"on or after
+    2026-09-01"*, its date also declared in the section).
+
+    **Its cost is filed rather than implied.**  It is blind to a gate
+    the next action states and the section never declared — 3 of the
+    248, of which ``53342dd4`` and ``4b86abfe`` predate the section
+    existing at all and only ``ae202f89`` is a live miss.  Catching that
+    one needs the preposition (*"on or after"* against *"before"*),
+    which is deciding that an English sentence is a claim — a human's
+    job, ``SNAG-ESTATE-012``'s standing refusal.  ``SNAG-DOCS-023``
+    carries it.
+
+    **No wall clock is read, and that is load-bearing rather than
+    tidy.**  Both dates come from the document, so the verdict is a
+    property of the file and cannot move between two runs of the same
+    commit.  A guard comparing against ``date.today()`` goes red at
+    midnight with no edit behind it, which this repository has already
+    recorded as a harness reading a clock it did not supply.
+    """
+
+    #: A date this document writes, in the one form both readers use.
+    _DATE_RE = re.compile(r"20[0-9]{2}-[0-9]{2}-[0-9]{2}")
+
+    def _own_date(self, text: str) -> str | None:
+        """The handoff's own date, off the first heading the Stop hook reads.
+
+        ``~/.claude/hooks/require-handoff.sh`` takes ``grep -m1 '^#'``
+        and requires today's date in it, so the first heading is already
+        a parse target with an enforced shape; this reads the same line
+        rather than introducing a second convention for one fact.
+        """
+        for line in text.splitlines():
+            if line.startswith("#"):
+                found = self._DATE_RE.search(line)
+                return found.group(0) if found else None
+        return None
+
+    def _gated(self, text: str, line: str) -> list[str]:
+        """Dates the line shares with the scheduled section, in the future.
+
+        The conjunct is not decoration.  A *past* date shared with the
+        section is an **overdue** scheduled item being taken, which is
+        the section working — Session 206 discharged one two days late —
+        so refusing it would refuse the discharge along with the stall.
+        """
+        own = self._own_date(text)
+        if own is None:
+            return []
+        body = _section_body(text, SCHEDULED_HEADING)
+        if body is None:
+            return []
+        declared = "\n".join(body)
+        return sorted(
+            {
+                found
+                for found in self._DATE_RE.findall(line)
+                if found > own and found in declared
+            }
+        )
+
+    def test_the_document_carries_both_dates_to_compare(self):
+        """The premise, asserted separately.
+
+        Three reads have to land before the sweep below is evidence:
+        the handoff's own date, the published line, and the scheduled
+        section.  Any one of them returning nothing makes the rule pass
+        over an empty population — ``ports_checked``'s rule, which this
+        file already applies one class up.
+        """
+        text = _text()
+        assert self._own_date(text) is not None, (
+            "the first heading carries no ISO date, so the guard below has "
+            "nothing to compare against and passes blind"
+        )
+        line, problem = snag_claims.next_action_line()
+        assert not problem, problem
+        assert line
+        assert _section_body(text, SCHEDULED_HEADING) is not None, (
+            f"{SCHEDULED_HEADING} is gone, so every date reads as undeclared"
+        )
+
+    def test_the_next_action_does_not_delegate_to_a_scheduled_item(self):
+        line, problem = snag_claims.next_action_line()
+        assert not problem, problem
+        assert line
+        gated = self._gated(_text(), line)
+        assert not gated, (
+            "the published next action names a date this document has already "
+            f"declared under '{SCHEDULED_HEADING}': {gated}. The estate board "
+            "publishes this line verbatim, so it would tell the next sitting to "
+            "wait rather than to start. Name work that is startable now; the "
+            "dated item is already where it belongs and preflight prints it."
+        )
+
+
+class TestTheGateDetectorWouldSeeOne:
+    """Rule 3 driven at documents that break it and at documents that do not.
+
+    The real file is deliberately clean, so on its own it witnesses
+    neither the rule nor the two refusals the rule was narrowed by — a
+    green sweep over a compliant document is satisfied by a detector
+    that has stopped reading.  The three forgeries below are the
+    corpus's own specimens, reduced.
+    """
+
+    def _check(self, text: str) -> list[str]:
+        instance = TestTheTwoSectionsDoNotCompeteForTheBoardSlot()
+        line = next(
+            (
+                stripped
+                for raw in text.split(NEXT_HEADING, 1)[-1].splitlines()
+                if (stripped := raw.strip()) and not stripped.startswith("#")
+            ),
+            "",
+        )
+        return instance._gated(text, line)
+
+    def _forge(self, action: str, scheduled: str) -> str:
+        return (
+            "# Handoff — 2026-09-11 (Session 217)\n\n"
+            f"{NEXT_HEADING}\n\n{action}\n\n"
+            f"{SCHEDULED_HEADING}\n\n{scheduled}\n\n"
+            "## What this sitting did\n\nnothing\n"
+        )
+
+    def test_it_catches_the_line_that_occasioned_it(self):
+        """``dfe930e5``, reduced to its operative clause."""
+        forged = self._forge(
+            "The next sitting should start from the scheduled reading due 2026-09-14.",
+            "- **2026-09-14** — Discriminate the cold-start hypothesis.",
+        )
+        assert self._check(forged) == ["2026-09-14"]
+
+    def test_a_deadline_is_not_a_gate(self):
+        """``91fd90e7``: startable now, and the date is when it stops being.
+
+        The naive rule refuses this; the producer files it at ``warn``
+        and says a reword answers it.  A blocking guard must not.
+        """
+        forged = self._forge(
+            "Take `SNAG-LOG-010` and do it before **2026-09-11**, because "
+            "`log_entries` has a 30-day retention.",
+            "- **2026-09-14** — something else entirely.",
+        )
+        assert self._check(forged) == []
+
+    def test_a_date_that_is_the_subject_is_not_a_gate(self):
+        """``305152a4``: the work is writing *about* the date, today."""
+        forged = self._forge(
+            "Give the `expires` family its first live member by writing a "
+            "prediction for the 2026-09-16 retention boundary.",
+            "- **2026-09-14** — something else entirely.",
+        )
+        assert self._check(forged) == []
+
+    def test_an_overdue_scheduled_item_may_be_taken(self):
+        """The conjunct's own witness: past dates are the discharge."""
+        forged = self._forge(
+            "Discharge the scheduled reading due 2026-09-07, two days overdue.",
+            "- **2026-09-07** — Read the first Monday under lease.",
+        )
+        assert self._check(forged) == []
+
+    def test_a_missing_scheduled_section_reads_as_no_declaration(self):
+        """Fails *open*, and the direction is argued rather than assumed.
+
+        ``TestTheScheduledSectionCarriesNoCheckbox`` already refuses a
+        document with no such section, so the absence cannot go
+        unreported — it is simply not reported *twice*, and not by the
+        rule whose whole question is what the section declares.
+        """
+        text = (
+            "# Handoff — 2026-09-11\n\n"
+            f"{NEXT_HEADING}\n\nStart from the reading due 2026-09-14.\n"
+        )
+        assert self._check(text) == []
+
+    def test_a_document_with_no_date_in_its_heading_is_not_judged(self):
+        text = (
+            "# Handoff\n\n"
+            f"{NEXT_HEADING}\n\nStart from the reading due 2026-09-14.\n\n"
+            f"{SCHEDULED_HEADING}\n\n- **2026-09-14** — a thing.\n"
+        )
+        assert self._check(text) == []

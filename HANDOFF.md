@@ -1,6 +1,123 @@
-# Handoff — 2026-09-11 (Session 217)
+# Handoff — 2026-09-12 (Session 218)
 
 ## Next action
+
+Take `SNAG-DOCS-022` and give `scripts/claude-preflight.sh` a reader for the estate's `docs` findings whose subject is this repository, because a finding filed against this tree at 13:55 on 2026-09-11 reached no session at all — preflight names `:8400` nowhere, `inbox-notice.sh` fetches only `/api/estate/messages`, `session-notice.sh` publishes outbound only, and this repository's hourly pull filters on `JUDGED_AUDIT_CHECKS`, which does not name `docs` and by the ownership test must not — so the reader must fail open exactly as `inbox-notice.sh` does, treating no jq, no curl, a refused connection and a bad status as silent successes because the session opened to fix `:8400` must not be stalled by `:8400`, must print the producer's own rung rather than one of ours since a `warn` about our handoff is advisory where a `breach` would not be, and must key its subject filter on the underscored `sysadmin_assistant` the audit writes rather than the hyphenated `sysadmin-assistant` the register resolves, which is the single mistake that would ship green and read zero for ever.
+
+## What this sitting did
+
+Answered estate-manager's message
+`03bcaf7c-816e-42bf-be5a-0c3554c8e399` (their ADR-0163), which asked
+nothing and reported that rule 3 of `sysadmin/estate/judgements.py`
+directs other repositories' conformance breaches to *"those
+repositories' own ADR processes"* while, where a repository has no
+sessions, that direction reaches nobody — `ml/Athenaeum`, a `docs`
+breach standing 17.7 days, 0 transcripts against a live corpus of 640.
+They refused to recommend `docs` for `JUDGED_AUDIT_CHECKS` on the
+ground that the decision is ours.
+
+**The premise is false in a wider way than they measured, and this
+repository is the counter-example.** A `docs` finding was filed against
+*this* tree at 13:55 on 2026-09-11 and reached no session either, though
+this repository has sittings daily. Measured rather than assumed:
+`scripts/claude-preflight.sh` names `:8400` nowhere,
+`~/.claude/hooks/inbox-notice.sh` fetches `/api/estate/messages` and
+nothing else, `session-notice.sh` only publishes outbound, and the
+hourly pull of `/api/audit/findings` filters on `JUDGED_AUDIT_CHECKS`.
+A sitting found the finding by going to look, prompted by an unrelated
+message that happened to name the check. So having sessions is
+**necessary and not sufficient**; what is missing is a reader. Rule 3's
+sentence is corrected to say that the direction is a routing statement
+rather than a delivery guarantee, and `SNAG-DOCS-022` carries the gap.
+
+**`docs` is refused for `JUDGED_AUDIT_CHECKS`, and the refusal is
+written at the constant** rather than left as a silence, which is
+`SNAG-CFG-001`'s shape and the argument the two `info` codes already
+get. Clause 1 of the ownership test fails outright:
+`ml/Athenaeum/HANDOFF.md` belongs squarely to `ml/Athenaeum`, where a
+port belongs to no repository and `~/.claude/settings.json` belonged to
+none when `wiring` was admitted. Judging it here would make this
+service a second owner of another repository's conformance — the defect
+rule 3 exists to prevent — and the population would be every repository
+on the box rather than a subject nobody owns. Note which way the
+severity points: `docs` emits `breach`, so a filter admitting checks on
+rung alone would have taken it silently.
+
+**`tests/test_handoff_shape.py` gained rule 3, and it is not their check
+relocated.** The published next action may not name a date this document
+has itself declared under `## Scheduled action`; the two sections
+address one board slot and must not both claim it. Theirs compares the
+next action against the handoff's own date — one document against a
+convention they own — and this compares it against the section beside
+it, one document against itself, which is the line
+`docs/adr/0008-the-file-half-of-the-wiring-check.md` draws between two
+checks that would reach the same conclusion.
+
+**The naive rule was measured over the corpus and refused.** Across all
+**248** published next actions in this file's history, *"names any date
+later than the handoff's own"* fires **7**, and **2 of the 7 are
+correct lines**: `91fd90e7`'s date is a deadline (*"before 2026-09-11,
+because `log_entries` has a 30-day retention"*) and `305152a4`'s is the
+subject of the work. The producer files this class at `warn` for
+exactly that reason. A blocking guard refusing 2 in 7 well-written
+lines teaches the operator to reach for `--no-verify`, which is
+`SNAG-DB-005` rule 3's argument against disarming a check for the case
+it exists for. The shipped rule fires **2 of 248** — `dfe930e5`, the
+line that occasioned it, and `9f736275` — with zero false positives,
+and both refused shapes are driven as tests so the narrowing cannot be
+quietly widened back.
+
+**No wall clock is read, and that is load-bearing rather than tidy.**
+Both dates come from the document, so the verdict is a property of the
+file and cannot differ between two runs of one commit; a guard
+comparing against `date.today()` goes red at midnight with no edit
+behind it.
+
+**No ADR, and the reason is that one already answers this.**
+`docs/adr/0006-wiring-joins-ports.md` exists to be read *before adding a
+check to `JUDGED_AUDIT_CHECKS`* and states the six-clause ownership
+test; this sitting applied that test and it returned a refusal, which is
+the document working rather than a decision it does not cover. The
+reasoning lives at the constant, where the module's own principle puts
+an argument — at the point of use — and where ADR-0006 already points a
+reader. What would be ADR-shaped is admitting a check, or changing the
+test; neither happened.
+
+**A restart was owed and was paid.** The edit is docstrings only, but
+`sysadmin/estate/judgements.py` is in the daemon's import graph and
+`check_deploy` compares **mtimes**, which cannot tell a docstring from a
+branch — so it reported `no` correctly, and this is not
+`SNAG-SYSD-009`'s over-report, which is about modules the daemon cannot
+reach. Restarted at **2026-09-12 16:07:06**, `NRestarts=4`, `/health`
+200 — **paid three times**, because each restart was taken with a
+further docstring edit still to come, one of them a rewrap of the very
+paragraph recording the first. `check_deploy` compares against the
+newest source **mtime**, not against the commit and not against
+behaviour, so every source edit has to land before the restart and not
+around it; four starts against `StartLimitBurst=5` in 600 s left one in
+hand, and the fifth is what makes the loop terminal (`SNAG-SYSD-007`). Retiring the
+previous instant from `STATUS.md`'s prose was part of it: two timestamps anywhere in the parsed region make the
+`daemon_start` claim `unknown` under `ops_claims` rule 2, and the
+checker said so rather than being reasoned about.
+
+Suite **4042 → 4050**; `ruff` clean, `mypy` clean over 102 files, all
+sixteen ops claims `ok` and the snag register reading `owed 1`.
+
+## What is blocked
+
+Nothing new. `SNAG-DOCS-022` is the only open entry now reading
+`open — owed`, and it is owed here rather than elsewhere: the carrier is
+`scripts/claude-preflight.sh`, which this repository owns. The three
+entries the disposition reader would otherwise allow —
+`SNAG-AGENT-012`, `SNAG-AGENT-013`, `SNAG-SVC-001` — still read
+`blocked`. `SNAG-GPU-001` (P2) remains the only open entry above P3 and
+carries no check. The scheduled reading for `SNAG-SCHED-004` is still
+declared in `## Scheduled action` below and is **deliberately not named
+here**, which is the rule this sitting added.
+
+# Handoff — 2026-09-11 (Session 217)
+
+### The action Session 217 handed on (discharged by Session 218)
 
 Every open entry in the register was re-measured against the live box on 2026-09-11 and **none moved** — 28 of 28 checked claims still hold, and the six unchecked entries carrying an empty-population clause were hand-measured to one production caller, four patterned Notes figures, one declared span per sentence, twenty-four composed error sites at a largest static 170 characters against a cap of 300, one resolved symlink target and eight of eight reset rows carrying microseconds — so the register is measured-fresh rather than assumed-fresh, **no open entry declares that a sitting is owed work on it**, and the next sitting should therefore start from the scheduled reading due 2026-09-14 rather than from the register, whose ranking this sitting has now taken and found empty.
 

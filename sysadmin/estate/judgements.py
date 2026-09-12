@@ -49,7 +49,31 @@ Three rules run through everything below.
    raises here, arriving a second time through a different producer, and
    ``pointers``/``seams`` are conformance breaches inside *other*
    repositories, which the estate rules direct to those repositories'
-   own ADR processes.  So the total is never judged; what is judged of
+   own ADR processes.  **That direction is a routing statement and not
+   a delivery guarantee, which this rule read as one until
+   2026-09-12.**  estate-manager measured the first half (their
+   ADR-0163, message ``03bcaf7c``): where a repository has no sessions
+   the direction reaches nobody, and ``ml/Athenaeum`` carries a ``docs``
+   breach standing 17.7 days against **0** transcripts in a live corpus
+   of 640, every carrier they have — board, inbox notice, grade — being
+   read by a session in the subject repository.  The second half was
+   measured here the same day and is wider: *having* sessions is not
+   sufficient either.  A ``docs`` finding was filed against **this**
+   repository at 13:55 on 2026-09-11 and reached no session —
+   ``scripts/claude-preflight.sh`` names ``:8400`` nowhere,
+   ``~/.claude/hooks/inbox-notice.sh`` fetches ``/api/estate/messages``
+   and nothing else, ``session-notice.sh`` only publishes outbound, and
+   this module's own hourly pull admits only
+   :data:`JUDGED_AUDIT_CHECKS`' members — the two families each filter
+   for their own, ``check != PORTS_CHECK`` and its ``wiring`` sibling —
+   and ``docs`` is neither.  A sitting found it by going to look.
+   **Nothing follows for what is judged** — see
+   :data:`JUDGED_AUDIT_CHECKS`, whose ownership test ``docs`` fails at
+   its first clause — and the correction is to the sentence, which was
+   asserting a delivery this estate does not make.  The gap is
+   ``SNAG-DOCS-022``.
+
+   So the total is never judged; what is judged of
    ``/api/audit/invariants`` is whether the audit **ran and completed**
    — ``checks_errored``, ``publish_error``, ``error``, age.  A check that
    errored produced no finding at all, which is the difference between
@@ -886,6 +910,30 @@ WIRING_CHECK = "wiring"
 #: exact double-count rule 3 forbids — and ``pointers``/``seams`` are
 #: conformance breaches inside *other* repositories, which belong to
 #: their own ADR processes.
+#:
+#: **``docs`` was put to this test on 2026-09-12 and refused**, and the
+#: refusal is written down because a consumer that declines to judge a
+#: published finding with nothing recording the decision is
+#: ``SNAG-CFG-001``'s shape — the argument the ``info`` codes below
+#: already get.  estate-manager's message ``03bcaf7c`` (their ADR-0163)
+#: measured that rule 3's *"directed to those repositories' own ADR
+#: processes"* reaches nobody where a repository has no sessions, and
+#: asked nothing; the premise is corrected in rule 3 and the check is
+#: **not** admitted.  Clause 1 of the ownership test fails outright:
+#: ``ml/Athenaeum/HANDOFF.md`` belongs squarely to ``ml/Athenaeum``,
+#: where a port belongs to no repository and
+#: ``~/.claude/settings.json`` belonged to none when ``wiring`` was
+#: admitted.  Judging it here would make this service a second owner of
+#: another repository's conformance, which is the defect rule 3 exists
+#: to prevent, and it would scale: ``docs`` files per repository, so the
+#: population is every repository on the box rather than a subject
+#: nobody owns.  The clause that *does* hold — nobody says it at all —
+#: is the last one, and it decides only when the earlier ones are
+#: already satisfied; a single surviving clause is a reason to fix the
+#: **carrier**, which is ``SNAG-DOCS-022``, not a reason to move the
+#: judgement.  Note which way the severity points: ``docs`` emits
+#: ``breach``, so a filter admitting checks on rung alone would have
+#: taken it silently — the second job a scalar acquired, one check over.
 #:
 #: **This was two scalars until 2026-08-30 and the pair had gone wrong in
 #: two directions at once.**  It was written against a four-check audit

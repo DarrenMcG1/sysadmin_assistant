@@ -4,9 +4,71 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-11
+> **Last Updated**: 2026-09-12
 
 ---
+
+## Session 218: having sessions is not having a reader ✅ (2026-09-12)
+
+_The ask was estate-manager's message `03bcaf7c-816e-42bf-be5a-0c3554c8e399`
+(their ADR-0163), which asked **nothing**: it reported that rule 3's
+direction of other repositories' conformance to *"those repositories' own
+ADR processes"* reaches nobody where a repository has no sessions, and
+refused to recommend `docs` for `JUDGED_AUDIT_CHECKS` on the ground that
+the decision is ours. The register's ranking was empty and the scheduled
+reading is not due until 2026-09-14, so the message was the sitting._
+
+- [x] **Measured the premise from this end and found it wider than they
+      did.** Their case is a repository with **0** sessions. This one has
+      sittings daily, and the `docs` finding filed against it at 13:55 on
+      2026-09-11 reached **nothing**: `scripts/claude-preflight.sh` names
+      `:8400` nowhere, `~/.claude/hooks/inbox-notice.sh` fetches
+      `/api/estate/messages` and nothing else, `session-notice.sh` only
+      publishes outbound, and this repository's hourly pull of
+      `/api/audit/findings` filters on `JUDGED_AUDIT_CHECKS`, which does
+      not name `docs`. A sitting found it by going to look, prompted by
+      an unrelated message. Having sessions is necessary and not
+      sufficient
+- [x] **Refused `docs` for `JUDGED_AUDIT_CHECKS`, and wrote the refusal
+      down.** Clause 1 of the ownership test fails outright:
+      `ml/Athenaeum/HANDOFF.md` belongs squarely to `ml/Athenaeum`, where
+      a port belongs to no repository and `~/.claude/settings.json`
+      belonged to none when `wiring` was admitted. Judging it here makes
+      this service a second owner of another repository's conformance —
+      the defect rule 3 exists to prevent — and the population would be
+      every repository on the box. Recorded at the constant rather than
+      left silent, which is `SNAG-CFG-001`'s shape and the argument the
+      two `info` codes already get
+- [x] **Corrected rule 3's premise.** *"Directed to those repositories'
+      own ADR processes"* is a **routing statement, not a delivery
+      guarantee**, and the docstring asserted it as one. Both
+      measurements are cited at the sentence; no behaviour changed
+- [x] **Added `tests/test_handoff_shape.py` rule 3** — the published next
+      action may not name a date the document has itself declared under
+      `## Scheduled action`. The two sections address one board slot and
+      must not both claim it
+- [x] **Measured the naive rule first and refused it.** *"Names any date
+      later than the handoff's own"* fires **7 of 248** published next
+      actions and **2 of the 7 are correct**: `91fd90e7`'s date is a
+      deadline (*"before 2026-09-11, because `log_entries` has a 30-day
+      retention"*) and `305152a4`'s is the subject of the work. A
+      blocking guard refusing 2 in 7 well-written lines teaches the
+      operator to reach for `--no-verify` — `SNAG-DB-005` rule 3. The
+      shipped rule fires **2 of 248**, both true gates, zero false
+      positives, and the two refused shapes are driven as tests so the
+      narrowing cannot be quietly widened back
+- [x] **No wall clock is read.** Both dates come from the document, so
+      the verdict is a property of the file rather than of the hour — a
+      guard comparing against `date.today()` goes red at midnight with no
+      edit behind it, which this repository has already recorded
+- [x] **Filed `SNAG-DOCS-022`** (the carrier: an audit finding about this
+      repository reaches no session in it; the remedy lands in
+      `~/.claude/hooks/`, which this repository does not own) and
+      **`SNAG-DOCS-023`** (the shipped rule is blind to a gate the
+      section never declared — 1 live miss in 248, closable only by
+      parsing prepositions, which `SNAG-ESTATE-012` refuses)
+- [x] **Closed the message** with a note naming the decision and both
+      measurements
 
 ## Session 217: the ranking came out empty, and that is the measurement ✅ (2026-09-11)
 
