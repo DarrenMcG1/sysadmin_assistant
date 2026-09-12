@@ -3,6 +3,78 @@
 **Last Updated**: 2026-09-12
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A marked sentence may state no figure, so four of them were deleted**
+> (2026-09-12, Session 221, closing `SNAG-DOCS-025`).
+> The two `<!--check:flapping-->` sentences below now carry the
+> **judgement** — this title is declared flapping and set aside — and no
+> measurement at all. `check_flapping` reads a predicate, never a number,
+> so the duty cycle and the episode count beside it were unread; and an
+> unread figure beside a marker does not read like unread prose, it reads
+> as **verified**, which `check_markers`' own docstring names as worse
+> than prose because prose does not claim to have been checked.
+> **The entry said correcting them would buy a day and it bought less.**
+> `9467176` wrote 4.2 %/26 and 0.8 %/12 on 2026-09-11; Session 220
+> measured 3.0 %/22 and 0.6 %/10 the next day, and this sitting measured
+> **23** episodes for the VRAM title an hour later — the quantity moving
+> between the filing and the fix, which is the argument for deleting
+> rather than re-measuring, stated as an observation instead of as a
+> prediction.
+> **The guard is a test and could not have been a snag check.** A check
+> asserting the sentence states no figure asserts the *fix*, and
+> `check-snag-claims.sh`'s `ok` means *the bug is still real* — so it
+> would report `still holds` over a landed closure for ever, which is
+> `check_review_schedule_unread`'s defect. `tests/test_ops_claims.py`'s
+> `TestAMarkedSentenceStatesNoFigure` outlives the entry instead
+> (`FROZEN_TABLES`' rule).
+> **A backtick is the difference between a name and a measurement**, and
+> the live block is what forces it: the declared title is
+> `High VRAM usage on AMD Radeon RX 7900 XTX`, so a naive digit gate goes
+> red on a sentence that is *correct* and the obvious repair to that red
+> is to reword the document to suit the guard. The gate blanks code spans
+> with `CODE_SPAN_RE` — the module's own spelling, the one `read_markers`
+> uses to find these markers — which is `status_figures`' *"Phase 3 is a
+> name"* and `health_review`'s refusal to put a service name through a
+> digit gate, met a third time. The exemption is held by a **premise**
+> test rather than asserted twice, so the day no declared title carries a
+> digit the suite says the branch has emptied.
+> **Four mutations, and only one of them reddens the drive that matters.**
+> Restoring a figure to `STATUS.md` and widening the scope to the whole
+> region each redden the property test; dropping the code-span exemption
+> reddens it beside the detector drive; and a gate returning **nothing at
+> all** — the mutation that makes every other test pass — is caught by
+> the drive at the two sentences `9467176` shipped, verbatim. That drive
+> is why the class is four tests and not one.
+> **The scope is the marked sentences and nothing wider.** The same
+> paragraph records `venture-chat unreachable` at **11.3 %** across 9
+> episodes as evidence for *not* declaring it, and Session 216's own
+> account above states the figures it measured before designing rule 12.
+> Both are unmarked, so they read as what they are — prose, and
+> `SNAG-ESTATE-012`'s class rather than this one. A gate over the region
+> would delete them, which is a judgement nobody has taken; a test pins
+> the narrowness so a later widening is a decision.
+> **The suite went red with no source change, and the cause was the same
+> commit** (`SNAG-TEST-013`, filed and fixed here). The live test one
+> class over asserted `count.measured == str(facts.unresolved)`, which
+> holds only while no declared flapping title is *genuinely* open;
+> `Unusual CPU usage` opened between two green runs an hour apart, the
+> checker correctly set aside two rows rather than one, and the assertion
+> read `assert '4' == '5'` while `check-ops-claims.sh` reported `ok` on
+> every claim in the same minute. `git log -S` puts it in `9467176` — the
+> commit that moved the *document* off the flapping value and left a
+> *test* pinned to it. At least one of the two titles is open **3.66 %**
+> of the window across 33 merged episodes, so it was red about one run in
+> twenty-seven and blocking at the close, which is what that class's own
+> docstring forbids three paragraphs above the assertion. It is a
+> **differential** now — injecting a flapping row must move neither the
+> figure nor the verdict — which is box-independent and is what the test
+> was always for.
+> **One control was a no-op and said so only because it was asserted.**
+> The first falsification was written as `python3 -c` with backticks in
+> the string, which zsh command-substituted; the mutation never reached
+> the file and all four tests passed, which is indistinguishable from a
+> guard that works. The rewrite asserts the replacement landed before
+> running anything.
+>
 > **The ranking was empty, so the sweep was the sitting**
 > (2026-09-12, Session 220, opening `SNAG-DOCS-025`).
 > `owed` is the one disposition that is a work queue, and **zero** of the
@@ -5121,10 +5193,18 @@
 > *(**That pin is the stable set, and two titles flap and are set aside
 > from it rather than counted in it** (2026-09-11, Session 216, closing
 > `SNAG-DOCS-015`; the convention this replaces is recorded below).
-> `High VRAM usage on AMD Radeon RX 7900 XTX` is unresolved for 4.2 % of
-> seven days across 26 episodes <!--check:flapping-->.
-> `Unusual CPU usage` is unresolved for 0.8 % across 12 episodes
-> <!--check:flapping-->. Each is set aside by the `alerts` check and
+> `High VRAM usage on AMD Radeon RX 7900 XTX` is declared flapping
+> <!--check:flapping-->. `Unusual CPU usage` is declared flapping
+> <!--check:flapping-->. **Neither sentence states the duty cycle or the
+> episode count** (`SNAG-DOCS-025`, closed 2026-09-12): a marker names a
+> check and never a value (rule 7), and a figure beside one that does not
+> read it is worse than prose, because prose does not claim to have been
+> checked. The measurement reaches a reader fresher than any document can
+> hold it — `scripts/check-ops-claims.sh` prints *"measured N episode(s),
+> open P % of 7 days"* per declared title at every preflight — and it is a
+> flapping quantity, so the figures written here on 2026-09-11 were all
+> four wrong within a day and the episode count moved again inside the
+> sitting that deleted them. Each is set aside by the `alerts` check and
 > judged by the `flapping` one, which withdraws the exemption the moment
 > a declared title is unresolved for half the window — so nothing is
 > dropped, and the *fall* this block exists to notice still moves the
@@ -5579,7 +5659,7 @@
 | Observability | 🟢 Complete | Structured JSON logging + request access logs. *`SNAG-LOG-004` found and fixed 2026-08-17: `read_journal` passed no `-a`, so every record over ~4096 bytes returned `MESSAGE: null` and the aggregator crashed on it — armed by the priority fix below, 0 errors and 146 clean runs away from a permanent blackout. `SNAG-LOG-003` closed the same sitting: `services.yaml` now carries a per-source `format: json` declaration and titles read `Log error: sysadmin-service — scheduler_job_error` rather than 252 characters of JSON.* *`SNAG-AGENT-008` closed 2026-08-17: uvicorn's duplicate access logger silenced (volume half), and every JSON line now carries a `<N>` syslog level prefix with `uvicorn.error` rerouted through the same formatter (priority half). **Live since the 14:10:58 restart** — verified, `log_entries` holds 10 `warning` rows for `sysadmin.service` where it held 0 across nine nights* *`SNAG-LOG-005` fixed 2026-08-17: making the daemon visible to itself gave one fault two speakers, so `COVERED_SIGNATURES` quietens `(sysadmin.service, agent_run_failed)` to `info` with `details['covered_by']` naming `failures.py`, which owns agent-run health and waits for two consecutive failures. Keyed on the producers' own constants; measured at 249 error incidents, of which 34 have no owning family and stay loud.* |
 | KDE Tray App | 🟢 Phase 3 Complete | Tray icon + service grid + D-Bus notifications + native dashboard + DND mode + service actions (popup retired 2026-07-24) |
 | PA Integration | ⚪ Dormant | Code + tests intact, `personal_assistant.enabled: false` — PA retired 2026-07-24, Alfred has no inbox to POST to |
-| Testing | 🟢 **4083 collected** | <!--check:tests-->**4083 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 4042 + 8 on 2026-09-12, Session 218: `tests/test_handoff_shape.py` gains rule 3, the gate guard — a published next action may not name a date the document has itself declared under `## Scheduled action` (`SNAG-DOCS-022`/`SNAG-DOCS-023`). All 8 in the one module, so the arithmetic reconciles with nothing to apportion: 16 test functions → 24, 18 collected → 26, the gap being two pre-existing parametrised pairs. **6 of the 8 are synthetic and that is the design rather than a shortfall** — the live document is deliberately compliant, so it can witness neither the rule nor the two false positives the naive rule produces, and those two forgeries (`91fd90e7`'s deadline, `305152a4`'s subject date) are what stop the narrowing being quietly widened back. 4018 + 24 on 2026-09-11, Session 216: the ops-claims block gains rule 12, the flapping declaration (`SNAG-DOCS-015`) — all 24 in `tests/test_ops_claims.py`, so the arithmetic reconciles with nothing to apportion, and the baseline for that file was **174** rather than the 169 a `-k` filter suggested, which is why the total moved 24 and not the 29 a first count claimed: `TestProseWraps` matched the filter and was never new. 4013 + 5 on 2026-09-11, Session 215: `tests/test_doc_links.py` gains containment beside existence (`SNAG-DOCS-020`) — all 5 in the one module, so the arithmetic reconciles with nothing to apportion, and **4 of the 5 are synthetic**, which is the point rather than a shortfall: with every escaping link repaired the corpus assertion is vacuous, and a mutation that makes the detector report nothing reddens zero corpus tests. 4001 + 8 on 2026-09-10, Session 212: `tests/test_by_project_contract.py`, the first test of any kind for `GET /api/services/by-project` — all 8 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-018`). 3988 + 13 on 2026-09-10, Session 211: the same module gains the **consumer** half of the membership rule — an AST walk of `sysadmin_tray/` pairing each request with the model its reply is handed to — so again all in one module and the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-017`). 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
+| Testing | 🟢 **4087 collected** | <!--check:tests-->**4087 backend + tray** *(collected, not passed, and the word is chosen: `pytest --collect-only` counts a skip and a green run does not, so the two figures are free to part — equal at 3892 today with nothing skipped, and recorded at 3318 passed against 3319 collected on an earlier sitting. **Green has an owner and it is not this cell**: `check-vacuous-guards.sh` runs the whole suite at the close and `claude-postflight.sh` raises an issue when it comes back red (`SNAG-TEST-012`), so a second assertion of it here would be the second-owner defect — and it would cost 81.6 s at preflight, which runs no suite at all, against 1.9 s for the count. 4083 + 4 on 2026-09-12, Session 221: the two `<!--check:flapping-->` sentences give up the four figures their marker never read (`SNAG-DOCS-025`) and gain the guard that keeps a digit out of them — all 4 in `tests/test_ops_claims.py`, 198 → 202, so the arithmetic reconciles with nothing to apportion. **One of the four is a premise and one is the only one a silent gate reddens**, which is the split the mutations forced rather than a preference: driven four ways, restoring a figure to the document and widening the scope to the region each redden the property test, dropping the code-span exemption reddens it beside the detector drive, and a gate returning nothing at all is caught by that drive alone. 4042 + 8 on 2026-09-12, Session 218: `tests/test_handoff_shape.py` gains rule 3, the gate guard — a published next action may not name a date the document has itself declared under `## Scheduled action` (`SNAG-DOCS-022`/`SNAG-DOCS-023`). All 8 in the one module, so the arithmetic reconciles with nothing to apportion: 16 test functions → 24, 18 collected → 26, the gap being two pre-existing parametrised pairs. **6 of the 8 are synthetic and that is the design rather than a shortfall** — the live document is deliberately compliant, so it can witness neither the rule nor the two false positives the naive rule produces, and those two forgeries (`91fd90e7`'s deadline, `305152a4`'s subject date) are what stop the narrowing being quietly widened back. 4018 + 24 on 2026-09-11, Session 216: the ops-claims block gains rule 12, the flapping declaration (`SNAG-DOCS-015`) — all 24 in `tests/test_ops_claims.py`, so the arithmetic reconciles with nothing to apportion, and the baseline for that file was **174** rather than the 169 a `-k` filter suggested, which is why the total moved 24 and not the 29 a first count claimed: `TestProseWraps` matched the filter and was never new. 4013 + 5 on 2026-09-11, Session 215: `tests/test_doc_links.py` gains containment beside existence (`SNAG-DOCS-020`) — all 5 in the one module, so the arithmetic reconciles with nothing to apportion, and **4 of the 5 are synthetic**, which is the point rather than a shortfall: with every escaping link repaired the corpus assertion is vacuous, and a mutation that makes the detector report nothing reddens zero corpus tests. 4001 + 8 on 2026-09-10, Session 212: `tests/test_by_project_contract.py`, the first test of any kind for `GET /api/services/by-project` — all 8 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-018`). 3988 + 13 on 2026-09-10, Session 211: the same module gains the **consumer** half of the membership rule — an AST walk of `sysadmin_tray/` pairing each request with the model its reply is handed to — so again all in one module and the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-017`). 3964 + 24 on 2026-09-10, Session 210: `tests/test_claude_md_registry.py` sweeps `CLAUDE.md`'s Contract Registry against `create_app()` both ways, all 24 in the one module, so the arithmetic reconciles with nothing to apportion (`SNAG-DOCS-014`). 3915 + 49 on 2026-09-10, Session 209: `tests/test_readme_claims.py` (24) and `tests/test_docs_index.py` (20) extend the membership sweep to the other two documents that make the claim, and `test_architecture_doc.py` gains 5 pinning its schedule to `plan_jobs` rather than to `README.md`; the arithmetic is stated because it reconciles — 5 + 24 + 20 is the 49, so no file was clobbered by a write (`SNAG-DOCS-013`). 3900 + 15 on 2026-09-10, Session 208: `tests/test_architecture_doc.py`, the
 membership guard that outlives `SNAG-DOCS-011` — every package, agent and mapped
 table swept **both ways** against `docs/ARCHITECTURE.md`, because the entry
 counted lines naming a departed component and a line count cannot measure an

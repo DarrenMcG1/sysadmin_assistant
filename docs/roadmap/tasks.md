@@ -8,6 +8,90 @@
 
 ---
 
+## Session 221: a marked sentence may state no figure ✅ (2026-09-12)
+
+_The ask was Session 220's handoff: take `SNAG-DOCS-025`, the register's
+only owed entry, delete the duty cycle and the episode count from the two
+`<!--check:flapping-->` sentences in `STATUS.md`, and add the assertion
+that keeps a digit out of them._
+
+- [x] **Deleted the four figures from the two marked sentences.** Both
+      now read *"`<title>` is declared flapping"* — the judgement, which
+      is what `check_flapping` reads — and the paragraph round them says
+      in one clause why no number stands there and points at
+      `scripts/check-ops-claims.sh`, which prints *"measured N
+      episode(s), open P % of 7 days"* per declared title at both ends of
+      every sitting. Driven either side of the edit: both titles still
+      resolve and both claims still report `ok`
+- [x] **The entry's prediction was overtaken while it was being closed.**
+      It said correcting the figures *"buys a day"*; the VRAM title read
+      **26** episodes when `9467176` wrote it on 2026-09-11, **22** when
+      Session 220 measured it, and **23** an hour into this sitting. The
+      quantity moved between the filing and the fix, which makes the
+      argument for deleting rather than re-measuring an observation
+      instead of a prediction
+- [x] **Added `TestAMarkedSentenceStatesNoFigure`, four tests, driven at
+      the live document.** A fixture cannot hold the property — what went
+      wrong is that a real sentence was written with a real measurement
+      in it and then the box moved. It outlives the entry
+      (`FROZEN_TABLES`' rule), and it had to be a test rather than a
+      twentieth snag check: a check asserting the sentence states no
+      figure asserts the **fix**, so `check-snag-claims.sh`'s `ok` —
+      which means *the bug is still real* — would report `still holds`
+      over a landed closure, `check_review_schedule_unread`'s defect
+- [x] **A backtick is the difference between a name and a measurement.**
+      The declared title is `High VRAM usage on AMD Radeon RX 7900 XTX`,
+      so a naive digit gate reddens a sentence that is *correct* and the
+      obvious repair is to reword the document to suit the guard. The
+      gate blanks code spans with `CODE_SPAN_RE`, the module's own
+      spelling and the one `read_markers` uses to find these very
+      markers, so the sentence and its exemption are read by one rule.
+      The exemption is held by a **premise** test rather than asserted
+      twice, so the day no declared title carries a digit the suite says
+      the branch has emptied rather than going quiet
+- [x] **Four mutations, and only one reddens the drive that matters.**
+      Restoring a figure and widening the scope to the region each redden
+      the property test; dropping the code-span exemption reddens it
+      beside the detector drive; a gate returning **nothing at all** — the
+      mutation every other test passes cleanly — is caught only by the
+      drive at the two sentences `9467176` shipped, verbatim. That is why
+      the class is four tests and not one
+- [x] **Pinned the scope.** `venture-chat unreachable` at **11.3 %** in
+      the same paragraph, and Session 216's own account of the duty
+      cycles it measured before designing rule 12, are unmarked prose —
+      `SNAG-ESTATE-012`'s class, not this one — and a gate over the
+      region would delete them. One test holds the narrowness so a later
+      widening is a decision
+- [x] **One control was a no-op and only an assertion said so.** The
+      first falsification was `python3 -c` with backticks in the string;
+      zsh command-substituted them, the mutation never reached the file,
+      and all four tests passed — indistinguishable from a guard that
+      works. Every mutation after it asserts the replacement landed first
+- [x] **Filed and fixed `SNAG-TEST-013`, found by the suite going red
+      with no source change.** The live test one class over asserted
+      `count.measured == str(facts.unresolved)`, which holds only while
+      no declared flapping title is *genuinely* open; `Unusual CPU usage`
+      opened between two green runs an hour apart, the checker correctly
+      set aside two rows rather than one, and the assertion read
+      `assert '4' == '5'` while `check-ops-claims.sh` reported `ok` on
+      every claim in the same minute. `git log -S` puts it in `9467176`
+      — **the same commit as the four figures**, so `SNAG-DOCS-015` moved
+      the document off the flapping value and left a test pinned to it.
+      Exposure measured rather than estimated: merging both titles' open
+      intervals over the window, at least one is open **3.66 %** of the
+      time across 33 merged episodes, so the suite was red about one run
+      in twenty-seven and blocking at the close. Rewritten as a
+      **differential** — injecting a flapping row must move neither the
+      figure nor the verdict — which is box-independent by construction
+      and is what the test was always for; falsified by removing the
+      set-aside subtraction, which reddens the new form at exactly the
+      live state where the old form was itself red
+- [x] Suite 4083 → **4087**, all four in `tests/test_ops_claims.py`
+      (198 → 202), so the arithmetic reconciles with nothing to
+      apportion. `ruff` clean, `mypy` clean, 4087 passed
+
+---
+
 ## Session 220: the ranking was empty, so the sweep was the sitting ✅ (2026-09-12)
 
 _The ask was Session 219's handoff: rank the register and take whatever

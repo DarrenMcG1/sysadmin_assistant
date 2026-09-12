@@ -1,6 +1,120 @@
-# Handoff — 2026-09-12 (Session 220)
+# Handoff — 2026-09-12 (Session 221)
 
 ## Next action
+
+Take `SNAG-DOCS-012`, whose disposition this sitting moved from `decided` to `owed` because the premise that ranking rested on — that the public surface is already correct — was refuted by the entry's own re-measurement one bullet above it, and decide what `README.md` can honestly hold in place of its six stale figures: it says the roadmap runs to about 25,500 lines of roughly 40,700 against **27,127** and **44,005** measured today, and *"68,536 lines of tests against 51,427 of backend and 6,150 of tray"* against **73,234** and **58,073**, on a repository that has been public since 2026-09-09, and that entry's own argument is that re-measuring does not fix it because every one of those figures moves on every commit that adds a line — so the question is exactly the one this sitting answered for the two `<!--check:flapping-->` sentences, where the answer was to delete the numbers because `scripts/check-ops-claims.sh` prints the live reading fresher than any document can hold it, and `README.md` has no such reader, which is what leaves bands, a `CLAIM_PATTERN` with a marker, and deletion three live options rather than a settled one.
+
+## What this sitting did
+
+Closed `SNAG-DOCS-025`: deleted the duty cycle and the episode count from
+both `<!--check:flapping-->` sentences in `STATUS.md` and added the guard
+that keeps a digit out of them.
+
+**The figures were unread and did not read as unread.** `check_flapping`
+judges a *predicate* — this title's duty cycle is under
+`FLAP_PIN_FLIPS_AT`, so `check_alerts` may set it aside — and reads no
+number out of the prose. A marker names a check and never a value
+(rule 7); its unstated other half is what the *sentence* may then say,
+and a figure beside a marker reads as **verified**, which
+`check_markers`' own docstring names as worse than prose, because prose
+does not claim to have been checked. Both sentences now carry the
+judgement alone, both titles still resolve, and both claims still report
+`ok` — driven either side of the edit.
+
+**The entry said correcting them would buy a day and it bought less.**
+`9467176` wrote 4.2 %/26 and 0.8 %/12 on 2026-09-11; Session 220
+measured 3.0 %/22 and 0.6 %/10 the next day; this sitting measured **23**
+episodes for the VRAM title an hour after that. The quantity moved
+between the filing and the fix, which turns the argument for deleting
+rather than re-measuring from a prediction into an observation.
+
+**The guard is a test because a check could not have held it.** A check
+asserting the sentence states no figure asserts the **fix**, and
+`check-snag-claims.sh`'s `ok` means *the bug is still real*, so it would
+report `still holds` over a landed closure for ever —
+`check_review_schedule_unread`'s defect. `TestAMarkedSentenceStatesNoFigure`
+in `tests/test_ops_claims.py` outlives the entry instead
+(`FROZEN_TABLES`' rule) and reads the live document, because a fixture
+cannot have the property: what went wrong is that a real sentence was
+written with a real measurement in it and then the box moved.
+
+**A backtick is the difference between a name and a measurement.** The
+declared title is `High VRAM usage on AMD Radeon RX 7900 XTX`, so a naive
+digit gate reddens a sentence that is *correct*, and the repair a reader
+reaches for is to reword the document to suit the guard. The gate blanks
+code spans with `CODE_SPAN_RE` — the module's own spelling, the one
+`read_markers` uses to find these very markers, so the sentence and its
+exemption are read by one rule rather than two. It is `status_figures`'
+*"Phase 3 is a name"* and `health_review`'s refusal to put a service name
+through a signature's digit gate, met a third time. The exemption is held
+by a **premise** test rather than asserted twice, so the day no declared
+title carries a digit the suite reports the branch as empty instead of
+going quiet.
+
+**Four mutations, and only one reddens the drive that matters.**
+Restoring a figure to `STATUS.md` and widening the scope to the whole
+region each redden the property test; dropping the code-span exemption
+reddens it beside the detector drive; and a gate returning **nothing at
+all** — the mutation every other test passes cleanly — is caught only by
+the drive at the two sentences `9467176` shipped, verbatim. That is why
+the class is four tests and not one.
+
+**One control was a no-op and only an assertion said so.** The first
+falsification was written as `python3 -c` with backticks in the string;
+zsh command-substituted them, the mutation never reached the file, and
+all four tests passed — indistinguishable from a guard that works. Every
+mutation after it asserts the replacement landed before anything runs.
+
+**The scope is the marked sentences and a test pins it.**
+`venture-chat unreachable` at **11.3 %** in the same paragraph, and
+Session 216's own account of the duty cycles it measured before designing
+rule 12, are unmarked prose — `SNAG-ESTATE-012`'s class rather than this
+one — and a gate over the region would delete them, which is a judgement
+nobody has taken.
+
+**The suite went red with no source change, and the cause was the same
+commit** (`SNAG-TEST-013`, filed and fixed here). The live test one class
+over asserted `count.measured == str(facts.unresolved)`, which holds only
+while no declared flapping title is *genuinely* open; `Unusual CPU usage`
+opened between two green runs an hour apart, the checker correctly set
+aside two rows rather than one, and the assertion read `assert '4' ==
+'5'` while `check-ops-claims.sh` reported `ok` on every claim in the same
+minute. `git log -S` puts it in `9467176` — the commit that moved the
+*document* off the flapping value and left a *test* pinned to it, which
+is `SNAG-DOCS-015`'s own defect one file over. At least one of the two
+titles is open **3.66 %** of the window across **33** merged episodes, so
+it was red about one run in twenty-seven and blocking at the close — what
+that class's own docstring forbids three paragraphs above the assertion.
+It is a **differential** now: injecting a flapping row must move neither
+the figure nor the verdict, which is box-independent by construction and
+is what the test was always for. Falsified by removing the set-aside
+subtraction from `check_alerts`, which reddens the new form at exactly
+the live state where the old form was itself red.
+
+**The register's ranking is no longer empty, and it was empty for a
+reason rather than by accident.** With `SNAG-DOCS-025` closed the sweep
+would have returned nothing for a third sitting; `SNAG-DOCS-012`'s Status
+line said *"the public surface is already correct"* while the bullet
+directly above it, written in the same sitting, had already measured
+`README.md` stale. Re-measured today against the tracked tree, six
+figures on the public README are wrong. The disposition is `owed` now and
+the next action names it — one commit, which is `SNAG-TEST-011`'s
+documented ordering constraint rather than its false-assertion case,
+since real remedial work is owed here and not merely a correction to a
+word.
+
+## What is blocked
+
+Nothing. `ruff` clean, `mypy` clean, **4087 passed** (4083 + 4, all four
+in `tests/test_ops_claims.py`, 198 → 202, so the arithmetic reconciles
+with nothing to apportion), `check-ops-claims.sh` and
+`check-snag-claims.sh` both exit 0, `check-estate-docs.sh` exits 0 with
+nothing owed, and the estate inbox holds no open message for this
+repository.
+
+# Handoff — 2026-09-12 (Session 220)
+
+### The action Session 220 handed on (discharged by Session 221)
 
 Take `SNAG-DOCS-025`, the register's only owed entry and therefore whatever a ranking puts first, which is to delete the duty cycle and the episode count from the two `<!--check:flapping-->` sentences in `STATUS.md` and add the assertion that keeps a digit out of them, because those four figures state a fact their marker does not read and every one of them was wrong a day after `9467176` wrote them, and because re-measuring rather than deleting them rebuilds `SNAG-DOCS-015`'s own refusal one sentence down — a flapping quantity has no satisfiable pin, so a corrected number buys a day and a `CLAIM_PATTERN` for the duty cycle would make the checker alternate the way that entry describes — while the reader loses nothing the document can honestly hold, `scripts/check-ops-claims.sh` already printing the live reading at every preflight, and the one assertion naming these figures today is fixture-driven at `tests/test_ops_claims.py:3202` so it pins the renderer and will not move.
 

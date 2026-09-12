@@ -3409,6 +3409,27 @@ class TestTheRealBlockDeclaresWhatItSetsAside:
         Both claims hold and both still name the row, which is the pair
         the entry asked for: neither counted against the pin nor silently
         dropped from it.
+
+        **Stated as a differential, because the absolute form asserted a
+        state of the box** (``SNAG-TEST-013``).  Until 2026-09-12 this
+        read ``count.measured == str(facts.unresolved)`` and
+        ``membership.verdict == "match"``, which hold only while no
+        declared title is *genuinely* open — inject a second row for a
+        title the table already has open and the checker correctly sets
+        aside two, so the arithmetic the assertion assumed comes out one
+        short.  Measured over the window: at least one of the two
+        declared titles is open **3.66 %** of the time across 33 merged
+        episodes, so the assertion was red about one run in 27 and
+        blocking the commit when it fired — this class's own docstring
+        forbidding exactly that, three paragraphs up.
+
+        What replaces it says more rather than less: injecting a flapping
+        row must move **neither** reading, which is *"neither counted
+        against the pin nor silently dropped from it"* written as the
+        equality it always was.  The verdicts are compared with each
+        other rather than pinned to ``match`` for the same reason —
+        whether the block's figure is currently right is
+        ``check-ops-claims.sh``'s verdict to report, never the suite's.
         """
         region, problem = load_region()
         assert region is not None, problem
@@ -3422,11 +3443,156 @@ class TestTheRealBlockDeclaresWhatItSetsAside:
             (entry, *facts.open_titles),
             flap_readings=facts.flap_readings,
         )
+        baseline_count = check_alerts(region, "", facts)
         count = check_alerts(region, "", storm)
-        assert count.verdict == "match", count.note
-        assert count.measured == str(facts.unresolved)
+        assert count.verdict == baseline_count.verdict
+        assert count.measured == baseline_count.measured
         assert any(title in line and "set aside" in line for line in count.detail)
 
+        baseline_membership = check_open_titles(region, "", facts)
         membership = check_open_titles(region, "", storm)
-        assert membership.verdict == "match", membership.note
-        assert membership.detail == (f"set aside: {entry}",)
+        assert membership.verdict == baseline_membership.verdict
+        assert f"set aside: {entry}" in membership.detail
+
+
+class TestAMarkedSentenceStatesNoFigure:
+    """``SNAG-DOCS-025`` — rule 7's unstated other half, as a guard.
+
+    Rule 7 is that a marker names a **check, never a value**.  Its other
+    half is what the *sentence* may then say: ``check_flapping`` judges a
+    predicate — this title's duty cycle is under
+    :data:`FLAP_PIN_FLIPS_AT`, so ``check_alerts`` may set it aside — and
+    reads no number out of the prose at all.  So a duty cycle written
+    beside the marker is unread, and it does not read like unread prose:
+    a marked sentence reads as *verified*, which ``check_markers``' own
+    docstring names as worse than prose, because prose does not claim to
+    have been checked.
+
+    The population was live and one day old.  ``9467176`` wrote *"4.2 %
+    of seven days across 26 episodes"* and *"0.8 % across 12 episodes"*
+    on 2026-09-11 as ``SNAG-DOCS-015``'s fix; measured 2026-09-12 the box
+    read 23/3.0 % and 10/0.6 % — **four figures, four wrong** — and the
+    VRAM episode count moved from 22 to 23 inside the sitting that
+    deleted them, which is the entry's *"correcting them buys a day"*
+    observed rather than predicted.
+
+    **Deleting rather than checking is the whole judgement, and
+    ``SNAG-DOCS-015`` is why.**  A ``CLAIM_PATTERN`` for the duty cycle
+    would pin a quantity that has no satisfiable pin — that entry's own
+    refusal, rebuilt one sentence down, alternating between ``match`` and
+    ``mismatch`` with the weather.  What the sentence has to carry is the
+    judgement; the measurement reaches a reader fresher than any document
+    can hold it, because ``scripts/check-ops-claims.sh`` prints the live
+    reading per declared title at both ends of every sitting.
+
+    **This outlives the entry** (``FROZEN_TABLES``' rule).  A
+    ``check-snag-claims.sh`` check could not have held it: it would
+    assert the *fix*, so its ``ok`` — which means *the bug is still real*
+    — would report ``still holds`` over a landed closure, which is
+    ``check_review_schedule_unread``'s defect.
+    """
+
+    def _sentences(self) -> list[str]:
+        region, problem = load_region()
+        assert region is not None, problem
+        sentences = [m.sentence for m in read_markers(region) if m.key == "flapping"]
+        assert sentences, "the block carries no <!--check:flapping--> sentence to judge"
+        return sentences
+
+    def _figures(self, sentence: str) -> str:
+        """Every digit the sentence states **outside** a code span.
+
+        A backtick is this document's own spelling of *this is an
+        identifier*, and the exemption is load-bearing rather than
+        cautious: the live declaration is ``High VRAM usage on AMD Radeon
+        RX 7900 XTX``.  It is ``status_figures``' distinction — *"Phase 3"
+        is a name and the emphasis is already doing something else* — and
+        ``health_review``'s, which refuses to put a service name through
+        the digit gate a signature goes through because a service called
+        ``postgres15`` would be deleted by a gate that cannot tell a name
+        from a measurement.
+
+        :data:`CODE_SPAN_RE` rather than a second spelling of what a code
+        span is: ``read_markers`` blanks spans with it to find these very
+        markers, so the sentence and the exemption are read by one rule.
+        """
+        return "".join(c for c in CODE_SPAN_RE.sub(" ", sentence) if c.isdigit())
+
+    def test_no_marked_sentence_states_a_figure(self):
+        """The live document, which is the only place that can have the fault.
+
+        A fixture cannot hold this property: what went wrong is that a
+        real sentence was written with a real measurement in it and then
+        the box moved.  Falsified by restoring either figure to
+        ``STATUS.md``, and by :meth:`test_a_restated_duty_cycle_is_caught`
+        against a planted one.
+        """
+        stated = {s: self._figures(s) for s in self._sentences() if self._figures(s)}
+        assert not stated, (
+            f"a <!--check:flapping--> sentence states a figure nothing reads: {stated}"
+        )
+
+    @pytest.mark.premise
+    def test_the_code_span_exemption_is_exercised_by_the_live_block(self):
+        """Why :meth:`_figures` blanks spans, said by the document itself.
+
+        This asserts a **premise**, never the property — that is its
+        sibling's job, and duplicating it here would report one fault
+        twice.  What it holds is that the exemption is load-bearing
+        rather than decorative: a declared title on this box carries a
+        digit (``RX 7900 XTX``), so a guard without the exemption goes
+        red on a sentence that is *correct*, and the obvious repair to
+        that red is to reword the document to suit the guard.
+
+        The day no declared title carries a digit, the exemption is
+        untested and this says so instead of going quiet — the direction
+        ``ports_checked``' rule asks for, since a guard whose one
+        interesting branch has emptied looks exactly like a guard that
+        works.
+        """
+        titles = [span for sentence in self._sentences() for span in code_spans(sentence)]
+        assert titles, "no declaration quotes a title"
+        numbered = [title for title in titles if re.search(r"\d", title)]
+        assert numbered, (
+            f"no declared title carries a digit ({titles}) — the code-span exemption in "
+            "_figures is unexercised, and its sibling would pass with the exemption removed"
+        )
+
+    def test_a_restated_duty_cycle_is_caught(self):
+        """The detector driven at what it exists to refuse.
+
+        The two sentences ``9467176`` shipped, verbatim, so the guard is
+        seen failing at the real defect rather than at a synthetic one —
+        ``test_autogenerate_config.py``'s idiom, where the walker is run
+        at its own owner because a detector nobody has watched fail is a
+        detector nobody has tested.  It is the one test here that a gate
+        reporting *nothing* reddens, which is the mutation the other
+        three pass cleanly.
+
+        The comparison is against the exact digits rather than merely
+        non-empty, so it pins the exemption at the fixture as well: with
+        :data:`CODE_SPAN_RE` dropped from :meth:`_figures` the title's own
+        ``7900`` is prepended and this reddens beside its sibling.
+        """
+        shipped = (
+            "`High VRAM usage on AMD Radeon RX 7900 XTX` is unresolved for 4.2 % of "
+            "seven days across 26 episodes  .",
+            "`Unusual CPU usage` is unresolved for 0.8 % across 12 episodes  .",
+        )
+        assert [self._figures(s) for s in shipped] == ["4226", "0812"]
+
+    def test_an_unmarked_sentence_is_not_reached(self):
+        """The scope, so a later widening is a decision rather than a drift.
+
+        The same paragraph records that ``venture-chat unreachable`` was
+        measured at **11.3 %** across 9 episodes and is deliberately *not*
+        declared, because its mean episode is an outage rather than a
+        flap.  That figure is evidence for a judgement the document makes
+        and carries no marker, so it reads as what it is — prose — and is
+        ``SNAG-ESTATE-012``'s class, not this one.  A gate over the region
+        would delete it, which is a different judgement nobody has taken.
+        """
+        region, problem = load_region()
+        assert region is not None, problem
+        assert "11.3 %" in region
+        assert all("11.3" not in s for s in self._sentences())
