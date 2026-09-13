@@ -8,6 +8,103 @@
 
 ---
 
+## Session 226: the two computable claims are computed, and the suite went red for a producer ✅ (2026-09-13)
+
+_The ask was Session 225's handoff: build `SNAG-DOCS-027`'s guard as tests — the
+oneshot-uniqueness partition computed from `services.yaml` itself, and each
+declared unit's `UnitFileState` read off the box. It is built. Running the full
+suite afterwards found a second thing, in a file this sitting did not touch._
+
+- [x] **Built `tests/test_services_yaml_live.py`** — six tests, three of them
+      premises, 0.16 s. Suite 4119 → 4125, `ruff` clean. No production code
+      changed and `services.yaml` is byte-identical, so no reload and no
+      restart are owed.
+- [x] **Every declared unit is installed.** The `estate-broker-provision`
+      claim — *"the unit is not yet installed and this check will rightly
+      complain"*, false for 32 days — generalised from one sentence to all
+      **31** entries that name a unit, whatever their `kind`. `monitor: false`
+      entries are in: that flag suppresses *checking*, not the declaration, so
+      a suppressed entry naming a phantom unit is this entry's shape with the
+      one reader that would have noticed switched off. Read as
+      `LoadState=loaded` **and** a non-empty `UnitFileState`, both limbs
+      driven at real specimens.
+- [x] **The standalone oneshots are exactly the pair the file names.** The
+      `ethernet-optimise` uniqueness claim, computed as `Type=oneshot` +
+      `RemainAfterExit=yes` + nothing in `TriggeredBy` over the file's own nine
+      `kind: systemd` `.service` entries. The **nine is not pinned** — a count
+      is arithmetic nobody can check, and `SNAG-DOCS-026` is what a dated
+      figure costs — so the population is computed from the file and only the
+      partition inside it is named.
+- [x] **`TriggeredBy` is asked of the service, never matched out of
+      `systemctl list-timers`.** That is how the corrected comment was
+      measured and it is weaker in two directions: `list-timers` omits
+      inactive timers unless `--all` is passed, so a disabled timer folding a
+      unit reads as no timer at all, and matching a service name out of its
+      output re-implements a relation systemd publishes per unit —
+      `get_unit_status`' own rule for `Unit=` (`SNAG-SYSD-005`).
+- [x] **The reading that reordered the guard.** `systemctl show` answers
+      `TriggeredBy=''` for a unit that **does not exist**, byte-identical to a
+      real unit no timer triggers. So *"nothing folds this oneshot"* is only a
+      measurement on a unit already shown to be installed: the installedness
+      sweep is a **premise** of the uniqueness half, not a sibling of it, and
+      the premise **measures** that indistinguishability rather than asserting
+      it.
+- [x] **Named `_live` against the entry's own specification, and the reason is
+      a guard.** `tests/test_live_drive_premises.py` builds its population
+      from the `test_*_live.py` glob and requires a marked premise of every
+      member; this drive believes negatives about the box, so taking the
+      specified `tests/test_services_yaml.py` would have discharged the rule
+      by filename. Driven rather than assumed — commenting the marker out
+      turns `test_every_live_drive_marks_its_premise` red.
+- [x] **Nine mutations driven, all nine land, and the original defect is one
+      of them.** Reducing the named pair to `{"ethernet-optimise"}` *is* the
+      pre-2026-09-13 sentence: it reddens the census and leaves the folding
+      test green, so the two halves refute apart. A masked unit reddens the
+      installedness sweep and dropping the `LoadState` limb makes it pass. A
+      reader answering `loaded` to everything is caught by the **premise** and
+      not by the sweep, which goes green under it.
+- [x] **The one limb with an empty population was given a real one.** No unit
+      on this box is `oneshot` + `RemainAfterExit=yes` + triggered, so
+      removing that limb is a no-op mutation against the shipped file — and a
+      no-op mutation is not a control. A transient `systemd-run --user
+      --on-active` oneshot with `RemainAfterExit=yes` is such a unit; declared
+      in a mutated `services.yaml` it is correctly excluded with the limb and
+      reddens the census without it. Both probes removed; no residue on the
+      box.
+- [x] **Opened `SNAG-PORT-006` on a red suite this tree did not cause.**
+      estate-manager's `4c3ad2d` (their Session 195, ADR-0166) changed
+      `live_listeners()` to `ss -H -ltnp`, reddening
+      `test_the_estate_still_runs_ss_without_p_which_is_why_this_module_exists`.
+      The pin fired correctly and **its stated conclusion does not follow**:
+      its docstring's condition is a conjunction — *adds `-p`* **and**
+      *attributes ports itself* — and their `working_directory()` resolves
+      `/proc/<pid>/cwd` to a registry **tree**, refusing unit attribution in
+      writing (their ADR-0166 §4). What was pinned is a noun where the claim
+      is about a verb.
+- [x] **Checked for cross-repo friction and found none, which is why nothing
+      was filed.** The obvious reading is that a producer changed a surface
+      quietly. Message `16d3a757` carries *"`ss` now runs with `-p`"* — under
+      the heading **WHAT DID NOT CHANGE**, beside *"The claimant comparison …
+      is not made here; that is your `wrong_project`"*. The estate announced
+      at its measured reader and said in the same message that this half stays
+      ours. A message claiming otherwise would have been false.
+
+**Not done, and deliberately:** `SNAG-PORT-006` is not fixed. It is a second
+roadmap item and the guard was the one asked for, and the replacement
+instrument needs driving at a population that separates *attributes to a
+directory* from *attributes to a unit* — an instrument agreeing with the old
+one on today's tree is the same proxy in a new spelling. The three sentences in
+`sysadmin/units/ports.py` that estate message `183f43f7` names are folded into
+that entry rather than filed apart: one file, one sitting.
+
+**Both estate messages are left open**, which is a decision and not an
+oversight. `16d3a757` announces a fifth ports code reaching this repository's
+judge and `183f43f7` a sixth that does not; neither asks anything, and neither
+has been acted on — `judgements.py`'s *"four codes across three rungs"* is now
+six and no sitting has re-read it. Closing a message this repository has not
+acted on would spend the one-shot close on a note that says nothing, and the
+inbox notice re-fires next session, which is correct because the work is real.
+
 ## Session 225: the class turned out not to require a true day ✅ (2026-09-13)
 
 _The ask was Session 224's handoff: sweep `services.yaml` for the claim shape it

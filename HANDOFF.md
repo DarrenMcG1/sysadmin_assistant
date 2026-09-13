@@ -1,6 +1,140 @@
-# Handoff — 2026-09-13 (Session 225)
+# Handoff — 2026-09-13 (Session 226)
 
 ## Next action
+
+Re-key `SNAG-PORT-006`'s red pin on what the estate does with the pids rather than the `ss` flag that fetches them, and fix the three `claimed_ports`-is-a-set sentences beside it.
+
+*The line is 179 characters and names an entry whose status is `Open —
+owed`*, which is what the register's own rule requires of a published
+action: the decision is taken and what remains is work. **The suite is
+red and this tree did not cause it.** estate-manager's `4c3ad2d` today
+(their Session 195, ADR-0166) changed `live_listeners()` to
+`ss -H -ltnp`, and
+`tests/test_unit_ports.py::test_the_estate_still_runs_ss_without_p_which_is_why_this_module_exists`
+asserts the literal `'["ss", "-H", "-tln"]'` in their source. Since the
+owner's 2026-09-06 ruling a red suite raises ISSUES at every close, so
+this is the most expensive thing left standing.
+
+*The pin fired correctly and its stated conclusion does not follow,
+which is why the action says re-key and not delete.* Its docstring's
+condition is a **conjunction** — *adds `-p`* **and** *attributes ports
+itself* — and only the first limb has happened. Their
+`working_directory()` resolves `/proc/<pid>/cwd` to a registry **tree**
+and its own docstring refuses ours in writing: *"The directory and not
+the cgroup's unit name … reading either as ground truth would make this
+check verify its registry against another repository's document"*
+(ADR-0166 §4). `sysadmin/units/ports.py` attributes a port to a **unit
+with its scope** through `/proc/<pid>/cgroup`; none of that is
+duplicated, so the module keeps its reason to exist and the measurement
+that answers the pin's question has already been taken.
+
+*What is hard about the replacement is stated so the next sitting does
+not discover it.* An instrument that agrees with the old one on today's
+tree is the same proxy in a new spelling — what is needed is one driven
+at a population that separates *attributes to a directory* from
+*attributes to a unit*. The three sentences are folded into the same
+entry because they are in the same file: estate message `183f43f7` names
+`duplicate_claim`'s summary, the module docstring's *"Invisible to their
+check because `claimed_ports` is a set"*, and `parse_port_registry`'s
+copy of it, all falsified once their ADR-0168 lands from the next 05:00
+run. They are `SNAG-DOCS-027`'s class arriving in a `.py` docstring.
+
+*It carries no marker, for `SNAG-DOCS-028`'s reason and unchanged since
+yesterday.* Writing `*(For: session)*` reddens
+`test_the_local_read_is_the_line_the_board_publishes`, the byte-equality
+pin between `snag_claims.next_action_line` and the producer's
+`next_action_from_handoff`, because ADR-0167 made the published action
+the line **without** its marker and the local reader still returns the
+raw line. The cost is one null `next_action_for` on the board.
+
+*The scheduled action still stands and is deliberately not the line
+above* — Session 218's rule 3. It was not taken and not sharpened by
+this sitting.
+
+## What this sitting did
+
+Built the guard Session 225 specified, and then ran the full suite,
+which is where the second half came from.
+
+**`tests/test_services_yaml_live.py`** — six tests, three of them
+premises, 0.16 s. Suite 4119 → 4125, `ruff` clean. No production code
+changed and `services.yaml` is byte-identical, so no reload and no
+restart are owed. `SNAG-DOCS-027` is closed.
+
+- **Every declared unit is installed.** The `estate-broker-provision`
+  claim generalised from one sentence to all **31** entries that name a
+  unit, whatever their `kind`. `monitor: false` entries are in, because
+  that flag suppresses *checking* and not the declaration.
+- **The standalone oneshots are exactly the pair named.** `Type=oneshot`
+  + `RemainAfterExit=yes` + nothing in `TriggeredBy`, over the file's own
+  nine `kind: systemd` `.service` entries. The nine is **not** pinned —
+  a count is arithmetic nobody can check.
+- **The reading that reordered the guard.** `systemctl show` answers
+  `TriggeredBy=''` for a unit that does not exist, byte-identical to a
+  real unit no timer triggers, so *"nothing folds this oneshot"* is only
+  a measurement on a unit already shown to be installed. The
+  installedness sweep is therefore a **premise** of the uniqueness half
+  rather than a sibling of it, and the premise **measures** that
+  indistinguishability instead of asserting it.
+- **`TriggeredBy` is asked of the service**, never matched out of
+  `systemctl list-timers`, which omits inactive timers unless `--all` is
+  passed and would read a disabled timer folding a unit as no timer at
+  all.
+- **Named `_live` against the entry's own specified filename**, because
+  `tests/test_live_drive_premises.py` builds its population from the
+  `test_*_live.py` glob and requires a marked premise of every member.
+  Taking `tests/test_services_yaml.py` would have discharged that rule by
+  filename; commenting the marker out reddens it, so the regime is real.
+- **Nine mutations driven and all nine land**, one of them the
+  pre-2026-09-13 sentence restored verbatim: reducing the named pair to
+  `{"ethernet-optimise"}` reddens the census and leaves the folding test
+  green, so the two halves refute apart. A masked unit reddens the
+  installedness sweep and dropping the `LoadState` limb makes it pass.
+  A reader answering `loaded` to everything is caught by the **premise**
+  and not by the sweep, which goes green under it.
+- **The one limb with an empty population was given a real one.** No unit
+  on this box is `oneshot` + `RemainAfterExit=yes` + triggered, so
+  removing that limb is a no-op mutation against the shipped file — and a
+  no-op mutation is not a control. A transient `systemd-run --user
+  --on-active` oneshot with `RemainAfterExit=yes` is such a unit;
+  declared in a mutated `services.yaml` it is correctly excluded with the
+  limb and reddens the census without it. Both probes were removed and
+  the box carries no residue.
+
+**Opened `SNAG-PORT-006`** on the red pin above, at P2 rather than P3
+because a red suite is not a finding a sitting can carry.
+
+**Checked for cross-repo friction and found none, which is the part
+worth carrying.** The obvious reading of a red pin over a producer's
+change is that the surface moved quietly. Message `16d3a757` carries
+*"`ss` now runs with `-p`; a socket it cannot name is counted, never
+filed"* — under the heading **WHAT DID NOT CHANGE**, beside *"The
+claimant comparison … is not made here; that is your `wrong_project`"*.
+So the estate announced at its measured reader and said in the same
+message that this half stays ours. A filing claiming otherwise would
+have been false, and writing one was one paragraph away.
+
+## What is blocked
+
+**The suite is red, on `SNAG-PORT-006` and on nothing else** — 4124
+passed, 1 failed. It is pre-existing at `5793e08` and was caused by a
+commit in another repository, so it blocks nothing this sitting did; it
+will raise ISSUES at every close until the pin is re-keyed, which is the
+next action.
+
+**Both estate messages are left open, which is a decision.** `16d3a757`
+announces a fifth ports code that *does* reach this repository's judge
+and `183f43f7` a sixth that does not; neither asks anything and neither
+has been acted on — `judgements.py`'s `JUDGED_AUDIT_SEVERITY` docstring
+still enumerates *"four codes across three rungs"*, dated 2026-08-27,
+and no sitting has re-read it. A close is one-shot and cannot be undone,
+so spending it on a note that says nothing would trade the inbox notice
+— which re-fires next session, correctly, because the work is real — for
+a tidy inbox.
+
+# Handoff — 2026-09-13 (Session 225)
+
+### The action Session 225 handed on (discharged by Session 226)
 
 Build `SNAG-DOCS-027`'s guard as tests: the oneshot-uniqueness partition computed from `services.yaml` itself, and each declared unit's `UnitFileState` read off the box.
 
