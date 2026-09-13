@@ -1683,3 +1683,197 @@ def test_a_held_port_row_is_offered_the_rung_the_family_judged():
     source = inspect.getsource(ServiceDiscoveryAgent._maintain_port_alerts)
     refresh = source.split("self.refresh_alert(", 1)[1].split(")", 1)[0]
     assert "severity=PORT_ALERT_SEVERITY" in refresh
+
+
+# ── ADR-0012: a transient holder has no project ──────────────────────
+
+
+_SQUAT_SCOPE = "repro-squat-3300.scope"
+_SQUAT_SS = 'LISTEN 0 5 127.0.0.1:3300 0.0.0.0:* users:(("python3",pid=9001,fd=3))\n'
+_SQUAT_ROW = "| 3300 | venture-assistant | frontend (dev server for now) |\n"
+
+
+class TestATransientHolderIsNotAProject:
+    """estate message ``11cf5113``, answered and pinned — ADR-0012.
+
+    estate-manager bound 3300 from ``~/projects/web/portfolionew`` inside a
+    VS Code scope, watched ``observe_listeners`` attribute it fully and
+    ``judge_ports`` file nothing, and asked whether ``wrong_project``
+    should read ``transient_ports`` the way :meth:`PortAttribution.reading`
+    already does — on the argument that the exclusion is right for the two
+    families *whose remedies name a unit* and this one's does not.
+
+    The answer is no, and the reason is that the argument is about the
+    remedy while the obstacle is the **operand**: ``wrong_project``
+    compares the *project owning the unit*, and a per-launch identity has
+    no project by construction.  These three tests pin the three limbs of
+    that answer, so a later sitting implementing the obvious fix goes red
+    rather than green-and-inert.
+    """
+
+    def test_a_scope_can_never_reach_unit_projects(self, tmp_path):
+        """§3 — the structural half, driven at the walk rather than asserted.
+
+        ``unit_projects`` is keyed on what :func:`discover_units` admits,
+        and that is ``.service``/``.timer`` **files**.  systemd writes no
+        persistent scope file, which is precisely why
+        :attr:`Listener.transient` treats a ``.scope`` as per-launch by
+        construction — so the map the comparison reads cannot hold the
+        holder the message is about, whatever ``holders`` does.
+
+        Live on 2026-09-13: 0 of 30 ``unit_projects`` keys end ``.scope``.
+        """
+        from sysadmin.units.scan import discover_units
+
+        (tmp_path / _SQUAT_SCOPE).write_text("[Scope]\n")
+        (tmp_path / "real.service").write_text("[Service]\nExecStart=/bin/true\n")
+
+        units, _excluded = discover_units(str(tmp_path), None, str(tmp_path))
+        assert [u.name for u in units] == ["real.service"]
+
+    def test_widening_holders_to_the_transient_map_adds_no_row(self):
+        """§3 — the counterfactual, run as the fix rather than described.
+
+        The proposed change is modelled at its *effect*: the squatter is
+        put into ``holders`` by making it non-transient, and everything
+        else is left as the live box had it.  The report is still empty,
+        because the port is skipped one line further down at
+        ``if not owner`` instead of at ``if not seen``.
+
+        Driven against the real box on 2026-09-13 with a real listener in
+        a real ``systemd-run --user --scope``: 0 findings either way.
+        """
+        claims = P.parse_port_registry(_SQUAT_ROW)
+        aliases = {"venture-assistant": ["venture-assistant"]}
+
+        transient = _observe(
+            stdout=_SQUAT_SS,
+            cgroups=_held_by(_SQUAT_SCOPE),
+            runtime=_runtime(user=[_SQUAT_SCOPE]),
+        )
+        assert transient.listeners[0].transient is True
+
+        # The same holder with the exclusion lifted — the proposed fix.
+        stable = _observe(
+            stdout=_SQUAT_SS,
+            cgroups=_held_by("portfolionew.service"),
+            runtime=_runtime(),
+        )
+        assert stable.listeners[0].transient is False
+
+        for report in (transient, stable):
+            judged = P.judge_ports(report, [], claims, {}, aliases)
+            assert judged.findings == ()
+
+        # The third arm is what makes the other two mean something: put
+        # the *same* stable holder into ``unit_projects`` and the row
+        # appears.  Without it this test passes against a ``judge_ports``
+        # that had stopped comparing altogether, and a control that
+        # cannot tell the fix from a broken pipeline is not a control.
+        named = P.judge_ports(
+            stable,
+            [],
+            claims,
+            {"user:portfolionew.service": "portfolio"},
+            {**aliases, "portfolio": ["portfolio"]},
+        )
+        assert [f.kind for f in named.findings] == [P.WRONG_PROJECT]
+        assert named.findings[0].detail["actual_project"] == "portfolio"
+
+    def test_reading_the_transient_map_could_only_ever_remove_a_row(self):
+        """§5 — the direction the message assumes, inverted.
+
+        ``wrong_project`` skips a port held by more than one unit, because
+        with two ``port_shared`` is the finding and attributing the row to
+        either would be a guess.  So widening ``holders`` can take a port
+        from one holder to two and **suppress** a row that fires today; it
+        can never create one, for the reason the test above pins.
+
+        Empty population on this box, measured: across all 190 stored
+        sweeps no claimed audited port has ever carried a stable and a
+        transient holder at once.  Pinned anyway, because the cost of the
+        proposed fix is invisible until that shape arrives.
+        """
+        document = "| 3300 | SportsAnalyser | frontend |\n"
+        claims = P.parse_port_registry(document)
+        unit_projects = {"user:alfred-frontend.service": "Alfred"}
+        aliases = {
+            "Alfred": ["Alfred", "alfred"],
+            "SportsAnalyser": ["SportsAnalyser", "sports-analyser"],
+        }
+        cgroups = {
+            9001: "0::/user.slice/user-1000.slice/user@1000.service/app.slice/"
+            "alfred-frontend.service\n",
+            9002: "0::/user.slice/user-1000.slice/user@1000.service/app.slice/"
+            + _SQUAT_SCOPE
+            + "\n",
+        }
+        alone = 'LISTEN 0 511 127.0.0.1:3300 0.0.0.0:* users:(("node",pid=9001,fd=3))\n'
+        beside = alone + (
+            'LISTEN 0 5 127.0.0.1:3300 0.0.0.0:* users:(("python3",pid=9002,fd=3))\n'
+        )
+
+        one = P.judge_ports(
+            _observe(stdout=alone, cgroups=cgroups, runtime=_runtime()),
+            [], claims, unit_projects, aliases,
+        )
+        assert [f.kind for f in one.findings] == [P.WRONG_PROJECT]
+
+        # The squatter arrives.  Excluded, the row survives; admitted to
+        # ``holders`` it makes two, and the row goes.
+        excluded = P.judge_ports(
+            _observe(
+                stdout=beside,
+                cgroups=cgroups,
+                runtime=_runtime(user=[_SQUAT_SCOPE]),
+            ),
+            [], claims, unit_projects, aliases,
+        )
+        assert [f.kind for f in excluded.findings] == [P.WRONG_PROJECT]
+
+        # What admitting it *does* is make ``holders[3300]`` hold two, so
+        # the fix is modelled at that effect with a second stable holder —
+        # a ``.scope`` cannot itself stand in, because
+        # :attr:`Listener.transient` is ``endswith(".scope") or
+        # runtime_created`` and the suffix limb answers whatever the
+        # runtime directory says.
+        admitted = P.judge_ports(
+            _observe(
+                stdout=beside,
+                cgroups={**cgroups, 9002: cgroups[9002].replace(
+                    _SQUAT_SCOPE, "portfolionew.service")},
+                runtime=_runtime(),
+            ),
+            [], claims, unit_projects, aliases,
+        )
+        assert P.WRONG_PROJECT not in {f.kind for f in admitted.findings}
+        assert [f.kind for f in admitted.findings] == [P.PORT_SHARED]
+
+    def test_the_declined_judgement_is_already_recorded(self):
+        """§7 — nothing is added, because Session 128 already built it.
+
+        The standing objection to a consumer that silently declines to
+        judge is answered here by :meth:`PortAttribution.reading`, which
+        separates *the sweep looked and named a per-launch holder* from
+        *the sweep could not name one* and from *no sweep has run*.  A
+        reader of ``GET /api/units/status`` is told the port was
+        considered.  Verified live against the squatter on 2026-09-13.
+        """
+        report = _observe(
+            stdout=_SQUAT_SS,
+            cgroups=_held_by(_SQUAT_SCOPE),
+            runtime=_runtime(user=[_SQUAT_SCOPE]),
+        )
+        blob = P.PortReport(
+            listeners=report.listeners, audited_ranges=((3000, 3999),)
+        ).as_blob()
+        assert blob["transient_ports"] == {f"user:{_SQUAT_SCOPE}": [3300]}
+        # Asserted as the whole map rather than as ``3300 not in <flattened>``:
+        # the flattening comprehension turns zero times here, and a loop that
+        # never runs is a guard that never guards.  The equality says the
+        # stronger thing anyway — no stable holder was recorded at all.
+        assert blob["unit_ports"] == {}
+
+        attribution = P.attribution_from_blob(blob)
+        assert attribution.reading(3300)["reading"] == "transient"
+        assert attribution.of(3300)["transient"] is True

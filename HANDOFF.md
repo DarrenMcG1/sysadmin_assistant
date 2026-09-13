@@ -1,6 +1,135 @@
-# Handoff — 2026-09-13 (Session 222)
+# Handoff — 2026-09-13 (Session 223)
 
 ## Next action
+
+Settle `ideas.md`'s top entry — ingesting the estate's three timer journals — now that its 2026-09-07 gate has passed and this sitting has measured the population it was waiting on: all three units are running and wrote 243, 277 and 221 lines in fourteen days with **zero** at priority 4 or louder, and every record in all three sits at `PRIORITY=6` including lines whose own text opens with `INFO`, so the estate's ADR-0079 level prefix is **unwitnessed** rather than confirmed and a `log:` block added today would ship a `severity_filter: warning` entry that reads zero rows and looks exactly like a working one — decide whether to defer until a single non-INFO record carrying a `<N>` exists, or to ask estate-manager whether their three timer units have written above INFO at all since that ADR, and record whichever it is in `ideas.md` rather than leaving the gate to be re-derived a fourth time.
+
+*Nothing in the register is owed and the inbox is empty*, which is why the
+line above names an idea rather than an entry. All 37 open entries declare a
+disposition and **none is `owed`** — 29 decided, 5 delegated, 3 blocked. The
+three blocked are legitimately so (`SNAG-AGENT-012` and `SNAG-AGENT-013` on
+populations that are zero on this box, `SNAG-SVC-001` on a judgement that is
+the owner's), and the twelve open entries carrying no check are a **correct
+steady state rather than a backlog**: the ones sampled — `SNAG-DOCS-026`,
+`SNAG-BRIEF-003`, `SNAG-CFG-007` — are P4 residues whose own Status says in
+writing that no sitting is owed work until a named condition changes.
+
+*The scheduled action still stands and is deliberately not the line above.*
+Monday 2026-09-14 is the second Monday under lease and the day to read
+`llm_used` on all three review tables for the 05:00/05:15/05:45 chain —
+`SNAG-GPU-001`'s open question, and `decided`, so no sitting is owed work on
+it. `TestTheTwoSectionsDoNotCompeteForTheBoardSlot` refuses a next action that
+delegates to a scheduled item, and it caught this sitting's first attempt at
+the line: the section holds the work and the board must not publish the wait.
+
+## What this sitting did
+
+Answered and closed estate message `11cf5113`, filing the reply as
+`b96e7f83-8f88-43c8-9f48-a5b18a6d5df9`. Recorded
+[ADR-0012](docs/adr/0012-a-transient-holder-has-no-project.md) and opened
+`SNAG-PORT-005`. **No production code changed.**
+
+**The question.** estate-manager bound `127.0.0.1:3300` — the port their
+registry gives to `venture-assistant` — from `~/projects/web/portfolionew`
+inside a VS Code scope, watched `observe_listeners` attribute it fully and
+`judge_ports` file zero findings, and asked whether `wrong_project` should
+read `transient_ports` the way `PortAttribution.reading()` already does.
+Their argument: the transient exclusion is plainly right for `port_shared`
+and `wrong_unit`, *whose remedies name a unit*, and a comparison against a
+document has no unit in its remedy.
+
+**Reproduced first, with a real listener rather than a fixture.**
+`systemd-run --user --scope` holding 3300, driven through the production
+wiring (`_project_inputs` → `scan_units` → `_check_ports`): `attributed=True`,
+`transient=True`, **0** findings, `unknown_registry_projects == ('sysadmin-service',)`.
+Exactly what they reported.
+
+**The answer is no, and the argument does not reach the obstacle.**
+`wrong_project` does not compare a unit *name* against the registry — it
+compares the **project owning the unit** (`owner = unit_projects.get(keys[0])`).
+So the family has a unit in its *question* even though it has none in its
+*answer*, and a remedy-shaped test cannot see what is blocking the finding.
+
+**The proposed fix is inert, structurally rather than incidentally.**
+`unit_projects` comes from `discover_units`, which admits `.service`/`.timer`
+**files**; systemd writes no persistent scope file, which is precisely why
+`Listener.transient` treats a `.scope` as per-launch by construction.
+Measured live: **0 of 30** keys end `.scope`. Driven as a counterfactual with
+the transient holder admitted to `holders`, the report is **empty either
+way** — the port moves from `if not seen` to `if not owner` and nothing else
+moves. It would have shipped green and inert.
+
+**The population refutes it a second time, and it was already in the
+table.** Of the **190** stored sweeps carrying a ports blob, **129** carry a
+transient holder on a registry-claimed audited port: 1716 `_kdeconnectd_`
+(107 sweeps), 3300 `venture-assistant` (22 sweeps, 2026-08-24 → 08-26,
+`app-code-oss-112152.scope`) and 8700 `InvestingAssistant` (7 sweeps). **None
+is a fault** — 1716's registry cell says it is not a project and is tied to
+the desktop session, and the other two rows read *"dev server for now"*. So
+the estate's founding specimen is what two of the three rows predict in
+writing, and a family keyed on this would fire on **68 %** of all sweeps.
+
+**And it inverts the direction.** `wrong_project` skips a port held by more
+than one unit, so widening `holders` can only ever *remove* a row, never add
+one. Empty population, measured: 0 of 190 sweeps carry a stable and a
+transient holder on one claimed port. Stated because the cost is invisible
+until that shape arrives.
+
+**The half a fix would have added already exists.** `reading()` answers
+`transient` for this port and `as_blob` publishes `transient_ports`, both
+from Session 128's rule 7 for a neighbouring reason — so the declined
+judgement is recorded and a reader of `GET /api/units/status` is told the
+sweep looked and declined rather than that it found nothing.
+
+**Four tests, each falsified against the mutation it exists for**
+(`.scope` admitted to `UNIT_SUFFIXES`; the owner lookup broken; the
+`len(keys) != 1` guard removed; `transient_ports` dropped from the blob).
+**One had to be strengthened before it could be falsified**: the
+counterfactual asserted *0 findings either way*, which is also true of a
+`judge_ports` that had stopped comparing at all, so a third arm puts the
+same stable holder into `unit_projects` and requires the row to appear. A
+control that cannot tell the fix from a dead pipeline is not a control.
+
+**The residue is `SNAG-PORT-005`, filed rather than half-built.** The real
+squat is a real fault and its discriminator is the holder's **working
+directory** — and that route dies on this specimen too:
+`/proc/<pid>/cwd` gave `~/projects/web/portfolionew`, which carries no
+`.project.yaml` and is not a registered project, so a cwd attribution lands
+in `unknown_registry_projects` rather than in a finding. The loose test that
+*appeared* to match it (`startswith(ref.path)`) matched the sibling project
+`portfolio` on a lexical prefix; `scan.py`'s `_under`, which requires the `/`
+separator, matched nothing — the module's own rule catching the false
+positive. `SNAG-PORT-004` is skipped deliberately: `SNAG-PORT-003`'s body
+reserved it for *"the general form, and is not about ports"* and never
+minted it.
+
+**The aside was not news.** `unknown_registry_projects == ['sysadmin-service']`
+is `SNAG-ESTATE-005`, open and delegated to estate-manager since 2026-08-15
+and watched every sitting by `check_estate_port_8500`.
+
+## What is blocked
+
+Nothing, on this repository's side.
+
+**Left with estate-manager, deliberately.** Their message's second half —
+that `run_check()` published `claimed_but_silent/warn` *before* the bind and
+nothing *during* it, so a squat cancels the one warning that existed — is
+their check and their judgement. It is a real polarity problem and recording
+a recommendation about it here would be the ruling the estate rules forbid,
+so the reply names it and stops.
+
+**Two housekeeping traps this sitting hit, recorded because both read as
+success.** Restoring a mutated file with `cp *.bak` rewrites its mtime with
+identical bytes, so `check-ops-claims.sh` reported a restart owed for
+`sysadmin/units/ports.py` when the content was byte-identical to `HEAD`; the
+mtimes were reset from each file's last commit rather than a restart being
+spent against `StartLimitBurst`. And zsh does not word-split an unquoted
+parameter, so `uv run pytest $K` handed pytest one argument and collected
+**0** tests — two mutations appeared to pass before that was noticed.
+
+# Handoff — 2026-09-13 (Session 222)
+
+### The action Session 222 handed on (discharged by Session 223)
 
 Take estate message `11cf5113`, the one open row in this repository's inbox and the only work anybody is actually waiting on now that the register's owed queue is empty, which reports a defect estate-manager drove on the live box: `judge_ports` cannot see a **transient** holder squatting a port the registry has already claimed, because `holders` skips `listener.transient`, so binding `127.0.0.1:3300` — the registry's `venture-assistant` row — from `~/projects/web/portfolionew` inside a VS Code scope produced a fully attributed listener and **zero** findings, and the judgement they leave to us is exactly the one Session 57 took for the wrong family: the transient exclusion is plainly right for `port_shared` and `wrong_unit`, whose remedies name a unit, and a comparison against a *document* has no unit in its remedy, so reproduce it with `observe_listeners` and `judge_ports` while something holds 3300 before deciding whether `wrong_project` should read `transient_ports` the way `reading()` already does, and note in passing that the same run returned `unknown_registry_projects == ['sysadmin-service']`, which is this repository's own name failing to resolve and may be a second finding or the same one.
 

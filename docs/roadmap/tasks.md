@@ -8,6 +8,85 @@
 
 ---
 
+## Session 223: the argument was about the remedy, the obstacle was the operand ✅ (2026-09-13)
+
+_The ask was estate message `11cf5113`, the one open row in this repository's
+inbox: estate-manager drove a transient holder onto a registry-claimed port on
+the live box, watched `judge_ports` file nothing, and left us the judgement of
+whether `wrong_project` should read `transient_ports` the way `reading()`
+already does._
+
+- [x] **Reproduce before deciding, with a real listener rather than a fixture.**
+      `systemd-run --user --scope` bound `127.0.0.1:3300` from
+      `~/projects/web/portfolionew`, and the production wiring —
+      `_project_inputs` → `scan_units` → `_check_ports` — gave exactly what
+      estate-manager reported: `attributed=True`, `transient=True`, **0**
+      findings, `unknown_registry_projects == ('sysadmin-service',)`
+- [x] **Refuse the proposed fix, and refuse it on a measurement rather than on
+      taste.** Driven as a counterfactual with the transient holder admitted to
+      `holders`: **0 findings either way**. `wrong_project` compares the
+      *project owning the unit*, and `unit_projects` comes from
+      `discover_units`, which admits `.service`/`.timer` **files** — systemd
+      writes no persistent scope file, so a `.scope` key can never appear
+      there. Measured live: **0 of 30** keys. The port moves from
+      `if not seen` to `if not owner` and nothing else moves. The fix would
+      have shipped green and inert
+- [x] **Measure the population it would have judged, which refutes it a second
+      time.** Across the **190** stored sweeps carrying a ports blob, **129**
+      already carry a transient holder on a registry-claimed audited port —
+      1716 (`_kdeconnectd_`, 107 sweeps), 3300 (`venture-assistant`, 22 sweeps,
+      2026-08-24 → 08-26, `app-code-oss-112152.scope`) and 8700
+      (`InvestingAssistant`, 7 sweeps). **None is a fault**: 1716's registry
+      cell says it is not a project and is tied to the desktop session, and
+      3300's and 8700's say *"dev server for now"*. So the estate's founding
+      specimen is what two of the three rows predict in writing
+- [x] **State the direction the message inverts.** Widening `holders` can only
+      ever *remove* a `wrong_project` row — a port with two holders is skipped,
+      because `port_shared` is the finding there. Empty population, measured:
+      no claimed audited port has carried a stable **and** a transient holder
+      in one sweep, 0 across all 190
+- [x] **Record the judgement as an ADR, because it answers a cross-repo
+      question.** [ADR-0012](../adr/0012-a-transient-holder-has-no-project.md),
+      nine sections, including §7's finding that the *record the decision* half
+      needed nothing built: `PortAttribution.reading()` answers `transient` for
+      this exact port and `as_blob` publishes `transient_ports`, both from
+      Session 128's rule 7 for a neighbouring reason
+- [x] **Guard the refusal so a later sitting cannot land the obvious fix
+      quietly.** `TestATransientHolderIsNotAProject`, four tests, each
+      falsified against the mutation it exists for — `.scope` admitted to
+      `UNIT_SUFFIXES`, the owner lookup broken, the `len(keys) != 1` guard
+      removed, and `transient_ports` dropped from the blob. **One had to be
+      strengthened before it could be falsified**: the counterfactual test
+      asserted *0 findings either way*, which is also true of a `judge_ports`
+      that had stopped comparing at all, so a third arm puts the same stable
+      holder into `unit_projects` and requires the row to appear
+- [x] **File the residue rather than absorb it or half-build it.**
+      `SNAG-PORT-005` at P3: the squat estate-manager drove is a real fault
+      whose discriminator is the holder's **working directory**, and that route
+      dies on this specimen too — `/proc/<pid>/cwd` gave
+      `~/projects/web/portfolionew`, which has no `.project.yaml` and is not a
+      registered project, so a cwd-based attribution lands in
+      `unknown_registry_projects` rather than in a finding. `SNAG-PORT-004` is
+      skipped deliberately: `SNAG-PORT-003`'s body reserved it for *"the
+      general form, and is not about ports"* and never minted it
+- [x] **Answer the aside without treating it as news.**
+      `unknown_registry_projects == ['sysadmin-service']` is `SNAG-ESTATE-005`,
+      open and delegated since 2026-08-15 and watched every sitting by
+      `check_estate_port_8500` — the registry's 8500 row names
+      `sysadmin-service` where the manifest id is `sysadmin-assistant` and the
+      directory is `sysadmin_assistant`. Not a second finding
+- [x] **Reply to estate-manager with the measurement, then close `11cf5113`**
+
+**Not done, and named.** The message's second half — that estate-manager's own
+`run_check()` published `claimed_but_silent/warn` *before* the bind and nothing
+*during* it, so a squat cancels the one warning that existed — is their check
+and their judgement. Recording a recommendation about it here would be the
+ruling the estate rules forbid, so the reply names it and stops.
+
+**No production code changed.** One ADR, one snag entry, four tests.
+
+---
+
 ## Session 222: the entry counted six and the tree held four ✅ (2026-09-13)
 
 _The ask was Session 221's handoff: take `SNAG-DOCS-012`, whose disposition

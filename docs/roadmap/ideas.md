@@ -57,6 +57,30 @@ Three things to settle before building it, none of them measured yet:
 measurement, and this repository has filed three entries whose ranking
 was wrong because the population was assumed rather than counted.
 
+**Measured 2026-09-13 by Session 223, and the gate should not lift yet.**
+The 2026-09-07 reading item 3 relies on left no record here, so the
+journals were read directly: over 14 days
+`estate-manager-scan.service` wrote **243** lines,
+`estate-manager-audit.service` **277** and
+`estate-manager-review.service` **221**, and
+`journalctl --user -u … -p 4` returns **0** for all three. So it is
+zero-because-clean rather than zero-because-blind — the units are
+running, scan and audit last started this morning — and the population
+this idea would ingest is still **empty**.
+
+**The sharper half is that the mechanism is unwitnessed.** Every record
+in all three journals is at `PRIORITY=6`, including lines whose own text
+opens with `INFO` (`INFO estate.queue queue: lease 38 requested`). A
+level prefix is only observable on a record *above* INFO, and there has
+not been one — so ADR-0079's prefix reaching these three units is
+**untested**, not confirmed. Building now would ship a
+`severity_filter: warning` entry that reads zero rows and looks exactly
+like a working one, which is the trap this entry's own second paragraph
+names. What is owed before building is a **witness**: one non-INFO
+record from any of the three, carrying a `<N>`. Until then item 2's
+"genuinely empty population" is the whole story and item 1's oneshot/timer
+collision cannot be tested either.
+
 ### ⛔ 2026-08-30 — split the GPU gate so the waiterless callers can take the window — **DEAD 2026-08-31, premise removed by the lease fix**
 
 Announced by estate-manager in message `df4113cb` (their ADR-0074 §2) and
