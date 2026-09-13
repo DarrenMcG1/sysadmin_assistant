@@ -2480,8 +2480,16 @@ Six rules, four of them the opposite of the first draft:
    deference `judge_attention` already gives a nudge's rung. `warn` is
    `claimed_but_silent`, which is *availability*, and availability has an
    owner here: `services.yaml` plus the sysadmin agent's `% unreachable`
-   family. That today's one live `warn` (port 3300) happens not to
-   overlap is luck — its registry row reads "unit to follow".
+   family. **This read "that today's one live `warn` (port 3300) happens
+   not to overlap is luck — its registry row reads 'unit to follow'"
+   until 2026-09-13**, when estate message `84d72698` measured their 430
+   audit runs by presence streak: the overlap was already on **four**
+   ports `services.yaml` carries — 8080, 8500, 3100, 3200 — holding 23
+   of the 27 raise-events, and **19 of the 27 are one event**, the
+   estate's arbiter swapping `venture-chat` (:8080) for
+   `venture-chat-large` (:8083) on a lease grant. The exclusion is
+   unmoved, because an overlap is the reason for it; see
+   `judgements.JUDGED_AUDIT_SEVERITY` and `SNAG-PORT-007`.
 2. **One row per port, port in the title.** Session 46's rule; a roll-up
    cannot name anything.
 3. **Until the count says the fault is the registry itself.** Above

@@ -1,6 +1,108 @@
-# Handoff — 2026-09-13 (Session 228)
+# Handoff — 2026-09-13 (Session 229)
 
 ## Next action
+
+Retire the three sentences restating the estate's audit vocabulary for `SNAG-DOCS-029`, wording them so they assert no check count this repository does not own. *(For: session)*
+
+*The line is 160 characters before its marker and names
+`SNAG-DOCS-029`, whose status is `Open — owed`* — the register's
+requirement of a published action: the decision is taken and what remains
+is work. It is the one `owed` entry, and this sitting filed it, having
+found it in the sentence next to the one it was sent to fix.
+
+*What makes it worth a sitting rather than a `sed`* is that one of the
+three sentences is `CLAUDE.md`'s summary of `docs/adr/0006-wiring-joins-ports.md`,
+and that ADR devotes a paragraph to retiring exactly the claim the summary
+still carries. The remedy is wording that asserts **no** check count —
+a fourth copy of the estate's cardinality is the defect rather than the
+fix, and `judgements.py`'s own docstring already says in writing that
+this figure has gone stale once.
+
+*The scheduled action still stands and is deliberately not the line
+above* — Session 218's rule 3. It was not taken and not sharpened by this
+sitting, and it is **due today**.
+
+## What this sitting did
+
+One thing, and its finding is about the shape of the claim rather than
+about the sentence it was sent to fix.
+
+**The aside is rewritten and the argument under it is untouched.**
+`JUDGED_AUDIT_SEVERITY` excludes `claimed_but_silent` because
+availability already has an owner here — `services.yaml` plus the
+`% unreachable` family — and then called it *"luck rather than design"*
+that the one live `warn` (port 3300) does not overlap, the overlap
+arriving *"on the day that unit ships"*. estate-manager measured their
+own 430 audit runs by presence **streak** rather than by finding — the
+unit an alert family raises in, since this judge raises on appearance and
+resolves on clearance — and found **27** raise-events across 7 ports, 26
+self-clearing, **23 of them on ports `services.yaml` already carries a
+`port:` entry for**: 8080, 8500, 3100, 3200. The overlap had been there
+on four ports since before the sentence was written. The second-owner
+rule the exclusion rests on is unaffected, and holds whether or not the
+populations meet — indeed an overlap is the **reason** to exclude.
+
+**The correction carries their cause and not their headline**, which is
+what `SNAG-PORT-007` was waiting for and why it needed their driver
+rather than their message. **19 of the 27 are port 8080 alone**, whose
+streak *starts* are identical to all 19 of `8083:dormant_but_listening`'s
+— one event, the estate's own GPU arbiter stopping
+`venture-chat.service` (:8080) and starting `venture-chat-large.service`
+(:8083) on a lease grant and reversing it on release. A rewrite saying
+*27* would have restated a number whose population mixes causes.
+
+**The entry named one site and the class had three.** Swept on the
+claim's *shape* rather than on the file the entry names: the docstring,
+`CLAUDE.md`'s condensed copy of the same rule 1, and `STATUS.md`'s
+Session 26b-A history block, all three in the present tense.
+`docs/adr/0006-wiring-joins-ports.md` carries only the second-owner
+argument, which is true, so the class is exactly three. Each site keeps
+its original dated rather than deleted.
+
+**Their driver and their ADR disagree on a service name and the ADR
+wins.** The driver's §3 `claim` string says the arbiter swaps
+*"venture-chat for venture-drain"*; the ADR body and both
+`monitorable-project.md` registry rows say `venture-chat-large.service`
+on :8083. The partition is computed from fingerprints, so no figure
+depends on it — resolved from their own tree in the same directory and
+**not filed**, one file read being nobody's friction.
+
+**What was re-taken here and what was not.** The streak arithmetic is
+theirs and stays theirs: no application reads another application's
+database. The local half was re-measured rather than accepted —
+`services.yaml` carries 8080, 8500, 3100 and 3200 and **not** 3300, and
+`GET :8400/api/audit/findings` still shows 3300 as the one live `warn`.
+So the sentence's subject was right and its tense was wrong, which is the
+narrowest true statement of the defect.
+
+**A restart was owed and paid once**, `judgements.py` being in the
+daemon's import graph although the edit is comment-only — `ops_claims`
+rule 4's stated cost arriving in the direction it was priced for, not the
+Session 190 direction it was narrowed against. Its observable effect is
+**nil by construction** rather than by measurement: a comment reaches no
+route. Restarted 2026-09-13 21:40:59, `NRestarts=7`, `/health` 200, all
+sixteen ops claims `ok`. Suite unmoved at **4136**, `ruff` and `mypy`
+clean — a documentation change adds no test, so the arithmetic
+reconciles with nothing to apportion.
+
+## What is blocked
+
+**Nothing this sitting did.**
+
+**`SNAG-DOCS-029` is owed wording, not a decision** — the code is already
+right and the ADR already argues the case. That is the next action above
+rather than a blocker.
+
+**Estate message `84d72698` is closed**, Session 226's rule satisfied at
+last: the one-shot close is spent on a note naming what was corrected
+rather than on a note that says nothing. `a9ee6305` stays open, its
+correction living inside `SNAG-DOCS-024`.
+
+---
+
+# Handoff — 2026-09-13 (Session 228)
+
+### The action Session 228 handed on (discharged by Session 229)
 
 Rewrite `JUDGED_AUDIT_SEVERITY`'s false aside for `SNAG-PORT-007` from estate-manager's ADR-0170 driver, carrying their measured cause rather than their headline. *(For: session)*
 

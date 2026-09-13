@@ -8,6 +8,68 @@
 
 ---
 
+## Session 229: the overlap was already on four ports ✅ (2026-09-13)
+
+_The ask was Session 228's handoff: rewrite `JUDGED_AUDIT_SEVERITY`'s false aside
+for `SNAG-PORT-007` from estate-manager's ADR-0170 **driver**, carrying their
+measured cause rather than their headline. Done, and the sitting's own finding is
+that the entry named one site while the claim's class had **three**._
+
+- [x] **The aside is rewritten, not deleted, and the argument it hung off is
+      untouched.** `claimed_but_silent` is excluded because availability already
+      has an owner here — `services.yaml` plus the `% unreachable` family — and
+      that is the second-owner rule, which holds whether or not the two
+      populations meet. Only the empirical clause was wrong, and it was wrong in
+      the direction that made the exclusion look incidental (`SNAG-PORT-007`
+      closed).
+- [x] **The correction carries their cause and not their headline**, which is why
+      the entry was *owed* rather than decided and why it needed the driver.
+      **19 of the 27** `claimed_but_silent` raise-events are port 8080 alone, and
+      its streak *starts* are identical to all 19 of
+      `8083:dormant_but_listening`'s — one event, the estate's own GPU arbiter
+      stopping `venture-chat.service` (:8080) and starting
+      `venture-chat-large.service` (:8083) on a lease grant and reversing it on
+      release. A rewrite saying *27* would have restated a number whose population
+      mixes causes.
+- [x] **The tense was the defect and the subject was fine.** Measured over their
+      430 audit runs to 2026-09-13 by presence **streak** rather than by finding:
+      27 raise-events across 7 ports, 26 self-clearing, **23 of them on ports
+      `services.yaml` already carries a `port:` entry for** — 8080, 8500, 3100,
+      3200. The overlap the sentence placed on the day 3300's unit ships had been
+      there on four other ports since before the sentence was written.
+- [x] **The class is three sites and the entry named one.** Swept on the claim's
+      *shape* rather than on the file the entry names: the docstring, `CLAUDE.md`'s
+      condensed copy of the same rule 1, and STATUS.md's Session 26b-A history
+      block. `docs/adr/0006-wiring-joins-ports.md` carries only the second-owner
+      argument, so it is correct and untouched — the class is exactly three. Each
+      site keeps its original dated rather than deleted.
+- [x] **Their driver and their ADR disagree on a service name; the ADR wins.** The
+      driver's §3 `claim` string says the arbiter swaps *"venture-chat for
+      venture-drain"*; the ADR body and both `monitorable-project.md` registry rows
+      say `venture-chat-large.service` on :8083. The partition is computed from
+      fingerprints, so no number depends on it. Resolved from their own tree in the
+      same directory and **not filed** — one file read is not friction.
+- [x] **What was re-taken here and what was not.** The streak arithmetic is theirs
+      and stays theirs: no application reads another application's database. The
+      local half was re-measured — `services.yaml` carries 8080, 8500, 3100, 3200
+      and not 3300, and `GET :8400/api/audit/findings` still shows 3300 as the one
+      live `warn`.
+- [x] **Nothing is asked and nothing judged moves.** They measured this while
+      deciding whether to recommend judging `ports` below `breach` and refused to
+      send the recommendation, their own measurement being against it (their
+      ADR-0170 §4.1). `JUDGED_AUDIT_CHECKS` is unchanged.
+- [x] **A restart was owed and paid once**, `judgements.py` being in the daemon's
+      import graph although the edit is comment-only — `ops_claims` rule 4's stated
+      cost arriving in the direction it was priced for, not the Session 190
+      direction it was narrowed against. Restarted 2026-09-13 21:40:59,
+      `NRestarts=7`, `/health` 200, all 16 ops claims `ok`. Suite unmoved at
+      **4136**; `ruff` and `mypy` clean.
+- [x] Estate message `84d72698` closed with a note naming what was corrected —
+      Session 226's rule satisfied at last, the close being spent on a note that
+      says what was acted on.
+
+---
+
 ## Session 228: the marker came off the published line ✅ (2026-09-13)
 
 _The ask was Session 227's handoff: strip the end-anchored `*(For: …)*` marker in

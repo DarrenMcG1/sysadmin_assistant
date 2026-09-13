@@ -1022,10 +1022,46 @@ JUDGED_AUDIT_CHECKS: dict[str, str] = {PORTS_CHECK: "breach", WIRING_CHECK: "war
 #: box already has an owner: ``services.yaml`` plus the sysadmin agent's
 #: ``% unreachable`` family.  Judging it would make this agent a second
 #: owner of that lifecycle, the defect this package's docstrings name
-#: three times over.  That the one live ``warn`` today (port 3300,
-#: venture-assistant's frontend) happens *not* to overlap is luck rather
-#: than design — its registry row reads "unit to follow", so the overlap
-#: arrives on the day that unit ships.
+#: three times over.
+#:
+#: **The overlap that exclusion avoids had already arrived, and this
+#: comment placed it in the future until 2026-09-13**
+#: (``SNAG-PORT-007``).  It read: *that the one live* ``warn`` *today
+#: (port 3300, venture-assistant's frontend) happens not to overlap is
+#: luck rather than design — its registry row reads "unit to follow", so
+#: the overlap arrives on the day that unit ships.*  estate-manager
+#: measured their own 430 audit runs to 2026-09-13 by presence
+#: **streak** rather than by finding — the unit that matters, because
+#: this judge raises on appearance and resolves on clearance:
+#: ``claimed_but_silent`` was raised **27** times across 7 ports, 26 of
+#: them self-clearing, and **23 of the 27 are on ports ``services.yaml``
+#: already carries a ``port:`` entry for** — 8080, 8500, 3100 and 3200.
+#: The overlap was on four ports the day the clause was written; 3300 is
+#: simply not one of them.
+#:
+#: **And 19 of the 27 are one event, which is the half a corrected
+#: number would have lost.**  They are port 8080 alone, and its streak
+#: *starts* are identical to all 19 of ``8083:dormant_but_listening``'s
+#: — the estate's own GPU arbiter stopping ``venture-chat.service``
+#: (:8080) and starting ``venture-chat-large.service`` (:8083) on a
+#: lease grant, and reversing it on release.  So most of the excluded
+#: family is that queue working rather than anything being unavailable,
+#: and an overlap is the **reason** to exclude rather than a reason to
+#: reconsider.  The argument above is untouched — it turns on the
+#: second-owner rule and holds whether or not the two populations meet.
+#: Only the aside was wrong, and it was wrong in the direction that made
+#: the exclusion look incidental.
+#:
+#: Received as estate message ``84d72698``, which says in its own first
+#: sentences that the measurement was taken while deciding whether to
+#: recommend judging ``ports`` below ``breach``, and is evidence
+#: **against** doing so; their ADR-0170 refuses to send that
+#: recommendation and asks nothing here.  The streak arithmetic is
+#: theirs and is not re-taken on this side — no application reads
+#: another application's database.  What *was* checked here is the local
+#: half: ``GET :8400/api/audit/findings`` still shows 3300 as the one
+#: live ``warn``, ``services.yaml`` does not carry it, and all four
+#: ports they name are in this repository's declared set.
 #:
 #: The two ``info`` codes are **advisory by request, and the request was
 #: this repository's**.  ``claimed_tool_default`` exists because

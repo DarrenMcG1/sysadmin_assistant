@@ -3,6 +3,49 @@
 **Last Updated**: 2026-09-13
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The aside placed an overlap in the future that was already on four
+> ports** (2026-09-13, Session 229, closing `SNAG-PORT-007` and estate
+> message `84d72698`).
+> `JUDGED_AUDIT_SEVERITY`'s docstring excludes `claimed_but_silent`
+> because availability already has an owner here — `services.yaml` plus
+> the `% unreachable` family — and then called it *"luck rather than
+> design"* that the one live `warn` (port 3300) does not overlap, the
+> overlap arriving *"on the day that unit ships"*. estate-manager
+> measured their own 430 audit runs by presence **streak** rather than by
+> finding — the unit an alert family raises in, since this judge raises
+> on appearance and resolves on clearance: **27** raise-events across 7
+> ports, 26 self-clearing, and **23 of the 27 on ports `services.yaml`
+> already carries a `port:` entry for** — 8080, 8500, 3100, 3200.
+> **The correction carries their cause and not their headline**, which
+> is what the entry asked for and is why it needed their driver rather
+> than their message: **19 of the 27 are port 8080 alone**, whose streak
+> *starts* are identical to all 19 of `8083:dormant_but_listening`'s —
+> one event, the estate's own GPU arbiter stopping `venture-chat.service`
+> (:8080) and starting `venture-chat-large.service` (:8083) on a lease
+> grant and reversing it on release. A rewrite saying *27* would have
+> restated a number whose population mixes causes.
+> **The argument is untouched and only the aside moved.** Excluding an
+> availability finding because availability has an owner is the
+> second-owner rule, and it holds whether or not the two populations
+> meet — indeed an overlap is the **reason** to exclude rather than a
+> reason to reconsider. Nothing changes about what is judged, and their
+> ADR-0170 refuses to send the recommendation this measurement was taken
+> for, its own evidence being against it.
+> **The entry named one site and the class had three**: the docstring,
+> `CLAUDE.md`'s condensed copy of the same rule, and this dashboard's
+> Session 26b-A history block. Each keeps its original dated rather than
+> deleted. The streak arithmetic is **not** re-taken here — no
+> application reads another application's database — and the local half
+> was checked instead: `GET :8400/api/audit/findings` still shows 3300 as
+> the one live `warn`, `services.yaml` does not carry it, and all four
+> ports they name are in this repository's declared set.
+> **A restart was owed and paid once**, `judgements.py` being in the
+> daemon's import graph although the edit is comment-only, so its
+> observable effect is **nil by construction** rather than by
+> measurement. Daemon restarted
+> at **2026-09-13 21:40:59** <!--check:deploy--> <!--check:daemon_start-->,
+> `NRestarts=7`, `/health` 200.
+
 > **The marker came off the published line, and the pin can only see one
 > of three mistakes** (2026-09-13, Session 228, closing `SNAG-DOCS-028`;
 > the one module edited is outside the daemon's import graph, so no
@@ -89,8 +132,7 @@
 > which is what makes a stale claim legible as history.
 > **A restart was owed and paid once**, three daemon modules being
 > edited, two of them carrying strings a route serves. Daemon restarted
-> at **2026-09-13 20:06:22** <!--check:deploy--> <!--check:daemon_start-->,
-> `NRestarts=6`, `/health` 200. Its observable effect is nil today and
+> at **20:06:22** that day, `NRestarts=6`, `/health` 200. Its observable effect is nil today and
 > that is measured rather than assumed: the duplicate-row population is
 > **zero** across all 25 revisions of the estate's table, so no reader
 > sees either corrected string until the first duplicate lands.
@@ -11256,7 +11298,11 @@ speaks but whether anyone does.
 judged — `claimed_but_silent` is availability, which `services.yaml` plus
 the `% unreachable` family already owns, and that today's one live `warn`
 (port 3300) does not overlap is luck, its registry row reading "unit to
-follow". Above `port_breach_max_rows` the family **collapses to a
+follow". *(That last clause was falsified on 2026-09-13 by estate
+message `84d72698` and their ADR-0170, which measured 430 audit runs by
+presence streak: the overlap was already on four ports `services.yaml`
+carries — 8080, 8500, 3100, 3200 — holding 23 of 27 raise-events, 19 of
+them one arbiter event. The exclusion is unmoved; see `SNAG-PORT-007`.)* Above `port_breach_max_rows` the family **collapses to a
 roll-up**, the inverse of Session 46's rule and its complement: six
 unclaimed listeners at once is a table moved or truncated, not six
 services. And `audit_invariants`/`audit_findings` are **two surfaces**
