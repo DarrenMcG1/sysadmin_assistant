@@ -3,6 +3,75 @@
 **Last Updated**: 2026-09-13
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The class turned out not to require a true day** (2026-09-13,
+> Session 225, sweeping `services.yaml` for the shape Session 224
+> corrected in one place and opening `SNAG-DOCS-027`; no Python changed
+> and the parsed document is byte-identical, so no reload and no restart
+> are owed).
+> The handoff named two members of the class and defined it as *"true the
+> day it is written and silently false afterwards"*. **There are five,
+> and one of them refutes the definition.** All 19 measurable claims in
+> the file were swept comment-by-comment rather than by grep — which was
+> necessary, because three of the five carry no *not yet* / *upcoming* /
+> *until* token at all.
+> **Both named members were confirmed and dated.** *"The unit is not yet
+> installed and this check will rightly complain"* was written 2026-08-11
+> and the unit's enablement symlink is dated 2026-08-12 08:56 with its
+> first journal line at 08:56:34 — **false for 32 days**, and the
+> sentence had named its own expiry condition. *"That judging is this
+> repository's own upcoming task"* was written 2026-08-12 and
+> `judge_queue_invariants` landed 2026-08-13 — **false for 31 days**,
+> while `estate_judge` read the surface hourly throughout.
+> **The member that inverts the class is `ethernet-optimise`'s.** *"This
+> is the one oneshot on the box with no timer that is still monitorable"*
+> was written 2026-08-15, and `estate-broker-provision.service` — same
+> `Type=oneshot`, same `RemainAfterExit=yes`, no timer, checked
+> `kind: systemd` — had been 250 lines above it since 2026-08-11. So
+> being true at birth is not what the class turns on; **nothing
+> re-reading the sentence** is, and a uniqueness claim is its worst case
+> because what falsifies it is an edit elsewhere in the same file.
+> **A lexical guard is refused and this sitting's own corrections are the
+> argument** — each preserves its original as *"this entry read … until
+> 2026-09-13"*, the phrasing an *until* ban would redden, and none of the
+> three untokened members would be caught. **But two of the five are
+> computable with no marker at all, because the file is its own
+> population**: the uniqueness partition over this file's `kind: systemd`
+> entries, and `UnitFileState` on a unit the same entry declares.
+> `ops_claims.py`'s marker machinery exists because `STATUS.md` has no
+> declared subject; here every claim of this shape sits beside the unit
+> name it is about.
+> **The 14 that hold were measured and printed**, because a sweep that
+> reports only its hits cannot be told from one that looked at nothing —
+> Alfred's two 404s, sports-analyser on 8200 and 3200, no port attributed
+> to `deadlock-api-ingest.service`, the sweep's two disabled-deadlock
+> `host` findings, `alfred-career-mail.service` still `static`,
+> `alfred-evaluate-frequent.timer` still the highest-cadence **active**
+> timer at 288/day, and Session 224's own three-journal claim still at 0
+> above INFO. The Alfred header's *"Four services"* against **seven** is
+> **dated rather than rescaled**, knowingly trading this class for
+> `SNAG-DOCS-026`'s, and 8080's *"should move to 83xx"* is left alone
+> because it restates estate-manager's recommendation and the registry
+> names 8301.
+> Entries carrying no check **12 → 14**, which is the advisory this
+> register already reports and not a regression: the guard is owed as a
+> test rather than a check, because what one would drive asserts the
+> **fix**.
+> **A second entry was opened by writing this sitting's own handoff
+> line** (`SNAG-DOCS-028`). estate message `c6f473f9` announced the
+> handoff shape's optional `*(For: session)*` marker; writing it reddens
+> the byte-equality pin between `snag_claims.next_action_line` and the
+> producer's parser, because ADR-0167 made the published action the line
+> **without** its marker and our reader still returns the raw line.
+> Measured at their parser, the marker reads back as `marker='session'`
+> with `who` populated, so **the board half works and the residue is
+> local** — `next_action_line` is wrong by its own docstring whether a
+> marker is present or not, and the marker only makes it observable. The
+> marker was dropped rather than left red; the cost is one null
+> `next_action_for`, which is the field the announcement was about. The
+> pin earned its own stated design: byte equality rather than comparing
+> the ids the readers name, *"because a set of ids stays equal through a
+> divergence that changed the sentence"*.
+
 > **The gate was asking the wrong journals** (2026-09-13, Session 224,
 > settling `ideas.md`'s top entry and **building it the same day**; the
 > register was not touched and no Python changed — the whole runtime

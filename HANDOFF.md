@@ -1,6 +1,118 @@
-# Handoff — 2026-09-13 (Session 224)
+# Handoff — 2026-09-13 (Session 225)
 
 ## Next action
+
+Build `SNAG-DOCS-027`'s guard as tests: the oneshot-uniqueness partition computed from `services.yaml` itself, and each declared unit's `UnitFileState` read off the box.
+
+*The line is 169 characters, which is deliberate.* estate message
+`c6f473f9` announced the handoff shape in `monitorable-project.md`
+(their ADR-0167) on 2026-09-13: the action within 180 characters, its
+reasoning in the paragraph beneath, an optional end-anchored marker
+saying who the work is for. The estate read the line above this one at
+**1147 characters** and over the cap, which it was — the global
+convention has said 180 all along and the `docs` check begins filing
+`next_action_over_cap` at `warn` from the next 05:00 run. This line
+conforms at 169 characters and the message is closed.
+
+*It carries no marker, and trying to use one opened
+`SNAG-DOCS-028`.* Writing `*(For: session)*` reddens
+`test_the_local_read_is_the_line_the_board_publishes` — the byte-equality
+pin between `snag_claims.next_action_line` and the producer's
+`next_action_from_handoff` — because ADR-0167 made the published action
+the line **without** its marker and our local reader still returns the
+raw line. Measured against their parser: the marker this sitting wrote
+reads back as `marker='session'` with `who` and `marker_readable`
+populated, so **the board half works today** and the residue is entirely
+local; `next_action_line` is wrong by its own docstring whether a marker
+is present or not, and the marker only makes it observable. The marker
+was dropped rather than left red, which costs one null `next_action_for`
+on the board — the very field the announcement was about — and leaves no
+guard failing. **The pin's own stated reason is what earned it**: byte
+equality rather than comparing the ids the two readers name, *"because a
+set of ids stays equal through a divergence that changed the sentence"*,
+which is exactly the divergence that landed.
+
+*Why a test and not a twenty-sixth snag check.* What a check would drive
+is *"does anything compute the two computable claims"*, which asserts the
+**fix** — so `check-snag-claims.sh`'s `ok`, meaning *the bug is still
+real*, would report `still holds` over a landed closure. That is
+`check_review_schedule_unread`'s defect and this register has now been
+caught by it four times. A test outlives the entry, which is
+`FROZEN_TABLES`' rule.
+
+*The scheduled action still stands and is deliberately not the line
+above* — Session 218's rule 3. It was not taken and not sharpened by
+this sitting.
+
+## What this sitting did
+
+Took the class Session 224 handed on and measured every member rather
+than the two it named. **19 measurable claims in `services.yaml`, 14
+hold, 5 were wrong**, three of them for a month.
+
+- **Both named members confirmed and dated.**
+  `estate-broker-provision`'s *"the unit is not yet installed and this
+  check will rightly complain"* was written 2026-08-11 (`a81e4d6`); the
+  enablement symlink under `multi-user.target.wants` is dated 2026-08-12
+  08:56 and the unit's first journal line is 2026-08-12T08:56:34, so it
+  was **false for 32 days**. The sentence had named its own expiry
+  condition, which makes it the highest-risk shape in the file — the
+  author had already reasoned about the flip and still left no reader.
+  `estate-manager-api`'s *"that judging is this repository's own upcoming
+  task"* was written 2026-08-12 (`3de00bc`) and `judge_queue_invariants`
+  landed 2026-08-13 in `8220bcc`: **false for 31 days**, while
+  `estate_judge` read the surface hourly throughout and has raised 0 rows
+  because the queue is healthy, which is the distinction the stale
+  sentence destroyed.
+- **Found the member that refutes the handoff's definition of the
+  class.** `ethernet-optimise`'s *"this is the one oneshot on the box
+  with no timer that is still monitorable"* was written 2026-08-15
+  (`82b8824`) and was **false on the day it was written**:
+  `estate-broker-provision.service` is `Type=oneshot`,
+  `RemainAfterExit=yes`, has no timer and is checked `kind: systemd` —
+  and had been in the same file, 250 lines above it, since 2026-08-11.
+  So *"true the day it is written"* is not a precondition; **nothing
+  re-reading the sentence** is.
+- **Dated the census rather than rescaling it.** Alfred has **seven**
+  entries against the header's *"Four services"*, and *"both timers"* is
+  three. The four is load-bearing about the 2026-08-08 migration, so a
+  rescaled figure is arithmetic nobody can check. Knowingly trades this
+  class for `SNAG-DOCS-026`'s.
+- **Corrected a fourth shape.** `sysadmin-tray`'s *"this becomes
+  `kind: systemd`"* — the entry has been `kind: systemd` since
+  `ba44c7d`, the only commit ever to touch that block, so the
+  instruction named a change that was no change and buried the half that
+  is one.
+- **Printed the 14 that hold with their measurements**, because a sweep
+  that reports only its hits cannot be told from one that looked at
+  nothing.
+- **Filed `SNAG-DOCS-027`** with the checkable subset specified and the
+  lexical guard refused on the evidence of this sitting's own
+  corrections.
+- **Filed `SNAG-DOCS-028`**, found by writing the announced marker onto
+  this handoff's own line and running the guard, which is how a
+  documentation sitting discovered a reader defect nobody had reason to
+  look for.
+
+**Verification.** 4119 passed either side — identical to the baseline,
+because no test was added or touched; `ruff` and `mypy` clean; ops claims
+**13/13 `ok`**; snag claims **28 `ok`, 1 `??`** (entries carrying no
+check 12 → 14, the standing advisory). The parsed `services.yaml` is
+byte-identical to `HEAD`'s — `yaml.safe_load` of both serialises the
+same, 32 entries either side — so **no reload and no restart are owed**:
+the daemon's installed configuration cannot differ from what it holds.
+
+## What is blocked
+
+Nothing. The guard the next action names is specified rather than
+designed-in-the-abstract: both halves were computed by hand during the
+sweep, so the sitting that builds it has its own falsification ready —
+the uniqueness partition must report **two** members today, and
+`estate-broker-provision.service` must read `UnitFileState=enabled`.
+
+# Handoff — 2026-09-13 (Session 224)
+
+### The action Session 224 handed on (discharged by Session 225)
 
 Sweep `services.yaml` for the claim shape this sitting found expired and corrected in one place — a comment asserting that something has *not yet* happened, which is true the day it is written and silently false afterwards — because it is already measured to be a class rather than a specimen: the `estate-manager-api` entry's *"the producer's new prefix has no witness here either"* was false within hours of being written and sent three sittings to the wrong journals before being corrected today, and the `estate-broker-provision` entry still reads *"the unit is not yet installed and this check will rightly complain"* while `systemctl` reports that unit `active (exited)` in the system scope, so the sweep should find every such sentence in the file, measure each against the box, and correct or retire it with the original kept as history the way today's was, rather than leaving a reader to find the class a third time.
 

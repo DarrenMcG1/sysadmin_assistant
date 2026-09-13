@@ -8,6 +8,125 @@
 
 ---
 
+## Session 225: the class turned out not to require a true day ✅ (2026-09-13)
+
+_The ask was Session 224's handoff: sweep `services.yaml` for the claim shape it
+had corrected in one place — a comment asserting that something has not yet
+happened, true the day it is written and silently false afterwards — because it
+was already measured to be a class rather than a specimen. It named two members.
+There are five, and one of them inverts the definition._
+
+- [x] **Swept all 19 measurable claims in the file, not the two named.**
+      Comment-by-comment rather than by grep, because the lexical pass missed
+      three of the five: a census (*"Four services"*), a uniqueness claim
+      (*"the one oneshot on the box"*) and a wrong instruction, none of which
+      carries a *not yet* / *upcoming* / *until* token. **14 hold, 5 were
+      wrong**
+- [x] **Confirmed both members the handoff named, and dated each.**
+      `estate-broker-provision`'s *"the unit is not yet installed and this
+      check will rightly complain"* was written 2026-08-11 (`a81e4d6`); the
+      enablement symlink under `multi-user.target.wants` is dated 2026-08-12
+      08:56 and the unit's first journal line is 2026-08-12T08:56:34, so it was
+      **false for 32 days** — the sentence named its own expiry condition and
+      the condition was met the next morning. `estate-manager-api`'s *"that
+      judging is this repository's own upcoming task"* was written 2026-08-12
+      (`3de00bc`) and `judge_queue_invariants` landed 2026-08-13 in `8220bcc`:
+      **false for 31 days**, while `estate_judge` read the surface hourly
+      throughout
+- [x] **Found the member that refutes the handoff's own definition of the
+      class.** `ethernet-optimise`'s *"this is the one oneshot on the box with
+      no timer that is still monitorable"* was written 2026-08-15 (`82b8824`)
+      and was **false on the day it was written**:
+      `estate-broker-provision.service` is `Type=oneshot`,
+      `RemainAfterExit=yes`, has no timer and is checked `kind: systemd` — and
+      had been in the same file, 250 lines above it, since 2026-08-11. So being
+      true at birth is not a precondition of the class; **nothing re-reading
+      the sentence** is, and a uniqueness claim is its worst case because what
+      falsifies it is an edit elsewhere in the same file
+- [x] **Dated the census rather than rescaling it.** Alfred has **seven**
+      entries against the header's *"Four services"*, and *"both timers"* is
+      three. The four is load-bearing about the 2026-08-08 migration — four, of
+      which three were exiled to `config.yaml` — so a rescaled *"seven, which
+      is why three of them lived in config.yaml"* is arithmetic nobody can
+      check. Knowingly trades this class for `SNAG-DOCS-026`'s, and says so in
+      both places
+- [x] **Corrected a fourth shape the same pass turned up.** `sysadmin-tray`'s
+      *"If a nightly 'tray down' alert is ever wanted, this becomes
+      `kind: systemd`"* — the entry has been `kind: systemd` since `ba44c7d`,
+      2026-08-11, the only commit ever to touch that block. The instruction
+      named a change that was no change and buried the half that is one
+      (deleting `monitor: false` and its `reason`). An instruction nobody has
+      executed is unread exactly as a claim nobody has re-measured is
+- [x] **Reported the 14 that hold with their measurements**, because a sweep
+      that prints only its hits cannot be told from one that looked at nothing
+      — `ports_checked`'s rule at the size of a sitting. Alfred's `/health` and
+      `/api/v1/health` still 404 with `/api/health` at 200; sports-analyser
+      still answering on 8200 and 3200; no port attributed to
+      `deadlock-api-ingest.service` (user, pid 1053) in the latest sweep; the
+      sweep's two `host` findings still exactly the two disabled system-scope
+      deadlock units; `alfred-career-mail.service` still `static`;
+      `alfred-evaluate-frequent.timer` still the highest-cadence **active**
+      timer at 288/day (`eos-reboot-required.timer`'s 5 s is disabled);
+      `agents.sysadmin.services` still absent from `config.yaml`; and Session
+      224's own three-journal claim still at **0** records above INFO
+- [x] **Left 8080 alone on an ownership argument.** *"Recorded in the registry,
+      but should move to 83xx"* holds — `venture-chat.service` still binds 8080
+      — and it restates estate-manager's own outstanding recommendation, which
+      names **8301** (`monitorable-project.md` line 337). Sharpening our copy
+      to their number makes this repository a second author of their
+      recommendation; the registry is where a reader should go
+- [x] **Filed `SNAG-DOCS-027` for the residue, with the checkable subset
+      named.** A lexical guard is refused and this sitting's own corrections
+      are the argument — every one preserves its original as *"this entry read
+      … until 2026-09-13"*, the phrasing a *until* ban would redden. But
+      **two** of the five are computable with no marker at all, because the
+      file is its own population: the uniqueness partition is `oneshot` +
+      `RemainAfterExit=yes` + no timer over this file's `kind: systemd`
+      entries, and *"not yet installed"* is `UnitFileState` on a unit the same
+      entry declares. `ops_claims.py`'s marker machinery exists because
+      `STATUS.md` has no declared subject; here every claim of this shape sits
+      beside the unit name it is about
+- [x] **Verified the parsed document is byte-identical**, since the whole
+      change is comments: `yaml.safe_load` of the edit and of `HEAD:services
+      .yaml` serialise the same, 32 entries either side, and `load_services`
+      parses it. So no reload is owed and no restart — the daemon's installed
+      configuration cannot differ from what it already holds
+- [x] **Honoured estate message `c6f473f9` and closed it.** Their ADR-0167
+      changed the handoff shape — action within 180 characters, reasoning
+      beneath, an optional end-anchored marker naming who the work is for —
+      and read this repository's outgoing line at **1147** characters, over
+      the cap. The new line is **169**. The global convention in
+      `~/.claude/CLAUDE.md` had said 180 all along, so the announcement made
+      an existing breach visible rather than creating a new rule
+- [x] **Opened `SNAG-DOCS-028`, found by writing the announced marker and
+      running the guard.** `*(For: session)*` reddens
+      `test_the_local_read_is_the_line_the_board_publishes`, the byte-equality
+      pin between `snag_claims.next_action_line` and the producer's
+      `next_action_from_handoff`: ADR-0167 made the published action the line
+      **without** its marker and our reader still returns the raw line.
+      Measured at their parser the marker reads back as `marker='session'`
+      with `who` and `marker_readable` populated, so **the board half works
+      and the residue is local** — and `next_action_line` is wrong by its own
+      docstring whether a marker is present or not. Marker dropped rather
+      than left red, at a cost of one null `next_action_for`. **The pin
+      earned its own design**: byte equality rather than comparing the ids
+      the two readers name, *"because a set of ids stays equal through a
+      divergence that changed the sentence"* — both parsers name
+      `SNAG-DOCS-027` and only the sentence moved, so an id-set pin would
+      have shipped green over an announced change to the shape it tracks
+
+**Not done, and deliberately:** the guard `SNAG-DOCS-027` names is not built.
+It is a second roadmap item and the sweep was the one asked for, and the entry
+records why it must ship as a test rather than a snag check — what it would
+drive asserts the **fix**, so `check-snag-claims.sh`'s `ok` would report *still
+holds* over a landed closure, `check_review_schedule_unread`'s defect for the
+fourth time in this register. `SNAG-DOCS-028`'s marker strip is not built
+either, for a different reason: it is Python in a sitting that changed none,
+and its falsification already exists as the pin rather than needing to be
+written. **No production code changed** and the suite is unmoved at 4119.
+
+---
+
 ## Session 224: the gate was asking the wrong journals ✅ (2026-09-13)
 
 _The ask was `ideas.md`'s top entry — ingesting the estate's three timer

@@ -32,11 +32,22 @@ schema: 1
 services:
 
   # --- Alfred ---------------------------------------------------------
-  # Four services, which is why three of them lived in config.yaml until
-  # now: projects.yaml could model a backend and a frontend and nothing
-  # else, so the inference server and both timers were exiled with
-  # comments explaining that they belonged to a project the file could
-  # not express.
+  # Four services at the 2026-08-08 migration, which is why three of them
+  # had lived in config.yaml until then: projects.yaml could model a
+  # backend and a frontend and nothing else, so the inference server and
+  # both timers were exiled with comments explaining that they belonged
+  # to a project the file could not express.
+  #
+  # *Dated 2026-09-13 (Session 225): the count was written in the present
+  # tense and is **seven** today* — a frequent-evaluation timer
+  # (2026-08-27), a career-mail timer and a desktop shell (2026-09-09)
+  # have landed since, so "both timers" is three. The figure is dated
+  # rather than rescaled because it is load-bearing about the *migration*
+  # — four of which three were exiled is the whole reason the sentence
+  # exists — and a rescaled "seven, which is why three of them lived in
+  # config.yaml" would be arithmetic nobody can check. This section is
+  # the largest in the file and will grow again; the date is what makes
+  # the next reader's disagreement with it visible instead of silent.
   - project: alfred
     name: alfred
     role: backend
@@ -306,8 +317,19 @@ services:
   # tray is not polling, so a tray that dies mid-session is no longer a
   # notification blackout. Restart=on-failure handles the crash case.
   #
-  # If a nightly "tray down" alert is ever wanted, this becomes
-  # `kind: systemd` with monitor left at its default.
+  # If a nightly "tray down" alert is ever wanted, the change is to
+  # delete `monitor: false` and its `reason` and leave everything else
+  # alone.
+  #
+  # *Corrected 2026-09-13 (Session 225): that sentence read "this becomes
+  # `kind: systemd` with monitor left at its default", and the entry has
+  # been `kind: systemd` since it was written* — `ba44c7d`, 2026-08-11,
+  # the only commit ever to touch this block, already had that line. So
+  # the instruction named a change that was no change and buried the half
+  # that is one. Not the same defect as the expiring claims this sweep
+  # corrected elsewhere, and found by the same pass: an instruction
+  # nobody has executed is unread in exactly the way a claim nobody has
+  # re-measured is.
   - project: sysadmin-assistant
     name: sysadmin-tray
     role: tray
@@ -325,10 +347,23 @@ services:
   # boot oneshot that asserts the broker's dynsec schema (roles, ACLs,
   # static clients) from estate-manager/mqtt/dynsec.yaml. It sets
   # RemainAfterExit=yes, so `active (exited)` is its healthy steady state
-  # and `failed` means this boot's assertion did not complete. Until
-  # estate-manager's scripts/install-broker-system-units.sh has been run
-  # (the same sitting this entry was added), the unit is not yet
-  # installed and this check will rightly complain.
+  # and `failed` means this boot's assertion did not complete.
+  #
+  # This entry closed with "Until estate-manager's
+  # scripts/install-broker-system-units.sh has been run (the same
+  # sitting this entry was added), the unit is not yet installed and
+  # this check will rightly complain" until 2026-09-13.
+  #
+  # *Corrected 2026-09-13 (Session 225): the install script was run the
+  # next morning and the sentence had been false for 32 days.* The
+  # enablement symlink under multi-user.target.wants is dated
+  # 2026-08-12 08:56 and the unit's first journal line is
+  # 2026-08-12T08:56:34; live it reads `enabled`, `active (exited)`
+  # since the 2026-09-10 boot, with 82 journal lines across its life and
+  # every completed run logging "schema already asserted; no changes."
+  # So the check has never once complained for the reason the sentence
+  # gave, and a reader auditing a red row here would have been sent to
+  # look for a unit that was installed before the ink dried.
   - project: estate-manager
     name: estate-broker-provision
     role: broker-provision
@@ -342,8 +377,23 @@ services:
   # the units' Conflicts=/ExecStopPost wiring used to do, and restores the
   # baseline at release or lease expiry. Its /api/queue/invariants (depth,
   # oldest-waiting age, dropped count) is exposed to be judged HERE — the
-  # estate never judges its own queue; that judging is this repository's
-  # own upcoming task.
+  # estate never judges its own queue.
+  #
+  # That last clause read "that judging is this repository's own upcoming
+  # task" until 2026-09-13.
+  #
+  # *Corrected 2026-09-13 (Session 225): it was built the next day and
+  # the sentence had been false for 31 days.* `judge_queue_invariants`
+  # landed 2026-08-13 in `8220bcc`, the sitting that gave this
+  # repository `sysadmin/estate/` whole, and `estate_judge` has read
+  # this surface hourly since: the three most recent runs carry
+  # `details['unread_surfaces'] = {}`, so all four surfaces including
+  # the queue were fetched. The family has raised **0** rows in its
+  # life, which is the queue being healthy rather than the judging being
+  # absent — live it reports depth 0 and `oldest_unexplained_wait_seconds`
+  # null against thresholds of 3 and 900 — and that distinction is
+  # exactly what the stale sentence destroyed for a reader checking
+  # whether anyone judges the queue at all.
   - project: estate-manager
     name: estate-manager-api
     role: api
@@ -591,9 +641,30 @@ services:
 
   # Boot-time NIC tuning. Type=oneshot with RemainAfterExit=yes, so it
   # stays `active (exited)` once applied and `kind: systemd` is a real
-  # check: inactive here means the tweaks are not in force. Note this is
-  # the one oneshot on the box with no timer that is still monitorable,
-  # which is why it is not folded.
+  # check: inactive here means the tweaks are not in force. It is not
+  # folded because there is no timer to fold it under.
+  #
+  # That last sentence read "Note this is the one oneshot on the box with
+  # no timer that is still monitorable, which is why it is not folded"
+  # until 2026-09-13.
+  #
+  # *Corrected 2026-09-13 (Session 225), and this one was **false on the
+  # day it was written**.* There are two, and the counterexample was
+  # already 250 lines above it in this same file:
+  # `estate-broker-provision.service` is `Type=oneshot`,
+  # `RemainAfterExit=yes`, has no timer and is checked `kind: systemd`
+  # here — added 2026-08-11, four days before this sentence claimed to be
+  # alone. Measured on the box rather than read off the file: those two
+  # are the only `oneshot` + `RemainAfterExit=yes` units among the nine
+  # `.service` entries this file checks with `kind: systemd`, and neither
+  # appears in `systemctl list-timers`.
+  #
+  # Worth carrying past this entry: the shape the sweep was looking for
+  # was a sentence true when written and silently false later, and this
+  # one never had a true day. So being true at birth is not what the
+  # class turns on — **nothing re-reading the sentence** is. A uniqueness
+  # claim is the worst case of it, because it is falsified by an edit
+  # somewhere else in the file that its own author will never revisit.
   - name: ethernet-optimise
     kind: systemd
     systemd: { unit: ethernet-optimise.service, scope: system }
