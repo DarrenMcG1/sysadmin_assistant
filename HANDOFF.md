@@ -1,6 +1,157 @@
-# Handoff — 2026-09-13 (Session 226)
+# Handoff — 2026-09-13 (Session 227)
 
 ## Next action
+
+Strip the end-anchored `*(For: …)*` marker in `snag_claims.next_action_line` so the local read is the line the board publishes, then write a marker here to prove it.
+
+*The line is 167 characters and names `SNAG-DOCS-028`, whose status is
+`Open — owed`* — the register's requirement of a published action: the
+decision is taken and what remains is work. **The suite is green again**
+— 4130 passed — so the close raises no ISSUES, and this is the cheapest
+standing cost left: the board publishes `next_action_for: null` for this
+repository, which is the field estate message `c6f473f9` was announcing.
+
+*The fix is small and its falsification already exists and is currently
+green for the wrong reason.* `test_the_local_read_is_the_line_the_board_publishes`
+is byte equality against the producer's `next_action_from_handoff`, and
+it passes today only because no handoff line carries a marker. Writing
+one is the falsification, which is why the action names both halves: a
+strip with no marker written back is a fix nothing has driven. Three
+things the entry says it must get right — the strip is **end-anchored**
+or it eats a parenthetical mid-sentence; an unmarked line must come back
+**byte-identical**, which is the case every existing green run already
+covers and therefore the one a careless fix passes trivially; and it must
+not begin publishing `who` or `estimate_minutes`, because those are the
+producer's fields and a second statement of them here is `SNAG-DB-003`'s
+shape.
+
+*This line carries no marker, for that entry's reason and for the third
+sitting running.* It is the last handoff that has to.
+
+*The scheduled action still stands and is deliberately not the line
+above* — Session 218's rule 3. It was not taken and not sharpened by
+this sitting. It is **due tomorrow**, 2026-09-14.
+
+## What this sitting did
+
+Both halves of what Session 226 handed on, and the second half turned out
+to be four times the size the estate's message could see.
+
+**`tests/test_estate_port_join_live.py`** — six tests in 0.20 s, three of
+them premises. Suite 4125 − 1 + 6 → **4130**, `ruff` and `mypy` clean.
+The old pin is retired, not deleted: a comment stands where it was.
+
+- **The instrument is a differential, not a second string.** The obvious
+  re-key is to assert `'["ss", "-H", "-ltnp"]'`, which is the same proxy
+  in a new spelling — red the day they reorder a flag, green through a
+  unit join added in the next function. What is asked instead is the
+  counterfactual: **blind their `directory_of` reader and require every
+  attribution to collapse to `no_directory`.** A unit route added
+  anywhere, injected or reading `/proc` directly, survives that blinding
+  and reddens this.
+- **Asked at both altitudes.** `attribute` is where the join lives today;
+  `run_check` is the whole check, whose `coverage['resolved']` is the
+  join's own answer count. Blinding only the first is green over a lookup
+  added in the caller; blinding only the second cannot say *where*.
+- **The separator is a premise, because a green collapse is evidence only
+  where the two joins can disagree.** Measured: **21 of the 29** ports
+  `ss` names a process for have a unit from our cgroup read and no
+  registry tree from their directory read — 8080, 8081, 8082, 8384 in the
+  audited band, every one a service whose `WorkingDirectory` is `/` or
+  `$HOME`, which is their own `SNAG-ESTATE-188`. The other **eight**
+  resolve under both and name different vocabularies:
+  `alfred-frontend.service` against the registry id `alfred`.
+- **Four mutations driven and all four land on the right test.** The
+  first models the landed fix — a shim whose `attribute` falls back to
+  *this repository's own* cgroup read, so the stand-in **is** the
+  duplication rather than a token standing in for it — and it reddens
+  both altitudes independently, 21 surviving outcomes at `attribute` and
+  14 resolved at `run_check`. A stand-in that stops modelling the fix
+  reddens the control alone; a box where the joins agree reddens the
+  separator alone.
+- **The question the pin exists to ask is already answered, and nothing
+  is deleted.** They attribute to a **directory**, we to a **unit**, and
+  their `working_directory` docstring refuses ours in writing. The module
+  keeps its reason to exist; the instrument is what would say so again.
+
+**The sentence half was twelve sites across six files, not the three the
+message named**, and two of them reach served payloads.
+
+- Two claims: *they run `ss` without `-p`* (five sites) and
+  *`claimed_ports` is a set, so duplicates are invisible* (seven).
+- **`duplicate_claim`'s summary under `GET /api/sysadmin/ports` and its
+  recommendation action under `GET /api/units/actions`** both told a
+  reader the estate **cannot** see a duplicate row. It can, since their
+  ADR-0168, and files `claimed_by_more_than_one_row` at `warn` — which
+  `JUDGED_AUDIT_CHECKS[PORTS_CHECK] = "breach"` does not read. **The
+  surface is unmoved and only its reason changed.**
+- Swept by reading rather than by grep, which was necessary: the message
+  named the three in one file and the other nine are in four others.
+- **Every correction keeps its original dated rather than deleted.** That
+  is `SNAG-DOCS-027`'s own finding applied to its sibling — the phrasing
+  that makes a stale claim legible as history is also what makes a
+  lexical guard over these files unwritable.
+- `JUDGED_AUDIT_SEVERITY`'s *"four codes across three rungs"*, dated
+  2026-08-27, is **six** now, the two additions dated and sourced to the
+  messages that announced them.
+
+**A restart was owed and paid once** — 2026-09-13 20:06:22,
+`NRestarts=6`, `/health` 200; all fourteen ops claims `ok`. **Its
+observable effect is nil today and that is measured rather than
+assumed**: the duplicate-row population is zero across all 25 revisions
+of the estate's table, so no reader sees either corrected string until
+the first duplicate lands.
+
+**Both estate messages closed**, the condition Session 226 set having
+been met.
+
+**Two new messages arrived at 19:07, after the session-start notice had
+fired, and both are filed rather than absorbed.**
+
+- `84d72698` → **`SNAG-PORT-007`** (new). `JUDGED_AUDIT_SEVERITY`'s
+  exclusion of `claimed_but_silent` calls it *"luck rather than design"*
+  that the one live `warn` does not overlap our availability family. They
+  measured 430 runs by presence **streak**: 27 raises across 7 ports, and
+  **23 of them on ports `services.yaml` already carries** — 8080, 8500,
+  3100, 3200. The overlap was already on four ports the day the sentence
+  was written. The *argument* is untouched; only the aside is false,
+  which is why it is P3. **Not verified here, and estate rule 1 is why** —
+  their message offers `psql -X -d estate` and no application reads
+  another's database; what was checked through their API is that all four
+  ports are in our declared set.
+- `a9ee6305` → a correction **inside `SNAG-DOCS-024`**. That entry scoped
+  the preflight reader to `docs` on a census of `Finding(` construction
+  sites. Measured against the 1,666 **stored** findings: `pointers`
+  reproduces at 0 of 18, and `ports` is **803 of 929** with all 126
+  misses one code — `unclaimed_listener`, which by construction has no
+  claimant because *the absence is the finding*. A construction-site
+  census and a stored-findings census disagree, in the direction that
+  under-reads.
+
+**Both left open on purpose**, Session 226's rule: neither has been acted
+on, and a close is one-shot.
+
+## What is blocked
+
+**Nothing this sitting did.** The suite is green, the tree is clean of
+the class it swept, and both halves of the handed-on action are done.
+
+**`SNAG-PORT-007` is owed a reading of another repository's driver**
+before its sentence can be rewritten — `estate-manager/docs/adr/drivers/0170-what-judging-ports-below-breach-would-raise.py`
+— because the replacement should carry their *cause* (one arbiter event
+behind 19 of the 27 raises) rather than their headline. That is a
+reading, not a blocker.
+
+**A near-miss worth carrying: `SNAG-ESTATE-013` was minted and withdrawn
+before it landed.** `SNAG-ESTATE` is the one prefix in this register with
+**two minters**, and 013 is already taken on both sides — the
+`check:expires` naive-instant entry here, and estate-manager's own. The
+entry is `SNAG-PORT-007`. Nothing else in this tree may mint a
+`SNAG-ESTATE` id.
+
+# Handoff — 2026-09-13 (Session 226)
+
+### The action Session 226 handed on (discharged by Session 227)
 
 Re-key `SNAG-PORT-006`'s red pin on what the estate does with the pids rather than the `ss` flag that fetches them, and fix the three `claimed_ports`-is-a-set sentences beside it.
 

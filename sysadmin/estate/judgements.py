@@ -995,8 +995,19 @@ JUDGED_AUDIT_CHECKS: dict[str, str] = {PORTS_CHECK: "breach", WIRING_CHECK: "war
 #: estate computed it against the contract it owns, and a second opinion
 #: here would be two implementations of one policy.
 #:
-#: **Their ``ports`` check emits four codes across three rungs, and this
-#: comment said two of them until 2026-08-27.**  Re-read off their
+#: **Their ``ports`` check emits six codes across three rungs since
+#: 2026-09-13, and this comment said four until then and two until
+#: 2026-08-27.**  The two added, both announced before the commit that
+#: carried them: ``claimed_by_an_unregistered_tree`` at ``breach``
+#: (message ``16d3a757``, their ADR-0166 — a claimed port whose holder
+#: works out of a directory under ``~/projects`` in no registry tree),
+#: which **is** judged here because it shares this constant's rung; and
+#: ``claimed_by_more_than_one_row`` at ``warn`` (message ``183f43f7``,
+#: their ADR-0168), which is not, and whose subject this repository
+#: already serves as ``duplicate_claim`` under
+#: ``GET /api/units/actions``.  The enumeration below is the 2026-08-27
+#: reading and is kept because its *arguments* are unchanged; what
+#: follows applies to the four it names.  Re-read off their
 #: ``checks/ports.py`` rather than remembered: ``breach`` for
 #: ``unclaimed_listener``, a *live listener with no registry row* — "the
 #: registry being wrong, and it is how two projects end up guessing the
@@ -1140,11 +1151,14 @@ def judge_audit_findings(
        counts a title as taken the moment it raises it.
 
     **``attribution`` is Session 26c's half, and it is the answer to
-    the question this family could not previously ask.**  The estate's
-    check runs ``ss`` deliberately without ``-p``, so a breach says
-    *"port 3300 is listening and no row claims it"* and stops there —
-    which is the sentence a reader has to go and resolve by hand
-    before they can do anything.  The unit sweep already reads
+    the question this family could not previously ask.**  A breach says
+    *"port 3300 is listening and no row claims it"* and stops short of
+    the holder — which is the sentence a reader has to go and resolve by
+    hand before they can do anything.  This paragraph read *"the estate's
+    check runs ``ss`` deliberately without ``-p``"* until 2026-09-13;
+    their ADR-0166 added ``-p`` and joins the pid to ``/proc/<pid>/cwd``,
+    resolving a registry **tree**, which is a different answer from a
+    unit and is why the sentence below still holds.  The unit sweep already reads
     ``/proc/<pid>/cgroup`` for every listener, so the holder is a
     lookup rather than a second subprocess.  Two rules: it is added to
     ``details`` and **never to the title or the message**, because the

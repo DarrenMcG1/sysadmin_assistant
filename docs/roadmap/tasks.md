@@ -8,6 +8,101 @@
 
 ---
 
+## Session 227: a flag was pinned where the claim is about a verb ✅ (2026-09-13)
+
+_The ask was Session 226's handoff: re-key `SNAG-PORT-006`'s red pin on what the
+estate does with the pids rather than the `ss` flag that fetches them, and fix
+the three `claimed_ports`-is-a-set sentences beside it. Both are done. The
+sentence half turned out to be twelve sites rather than three, two of them on
+payloads this service serves._
+
+- [x] **Built `tests/test_estate_port_join_live.py`** — six tests in 0.20 s,
+      three of them premises. Suite 4125 − 1 + 6 → **4130**, `ruff` and `mypy`
+      clean. **The only sitting on the Testing row whose arithmetic does not
+      reconcile with nothing to apportion**, because a test was retired as well
+      as added.
+- [x] **The instrument is a differential, not a second string.** The obvious
+      re-key is to assert `'["ss", "-H", "-ltnp"]'`, which is the same proxy in
+      a new spelling: red the day they reorder a flag, green through a unit
+      join added in the next function. What is asked instead is the
+      counterfactual — blind their `directory_of` reader and require every
+      attribution to collapse to `no_directory`. A unit route added anywhere,
+      injected or reading `/proc` directly, survives that blinding and reddens
+      this.
+- [x] **Asked at both altitudes, because a route could land above the join.**
+      `attribute` is where the join lives today; `run_check` is the whole
+      check, whose `coverage['resolved']` (their ADR-0166, announced here as
+      message `16d3a757`) is the join's own answer count. Blinding only the
+      first is green over a lookup added in the caller; blinding only the
+      second cannot say *where*. Both cost one further `ss` read.
+- [x] **The separator is a premise, because a green collapse is only evidence
+      where the two joins can disagree.** Measured: **21 of the 29** ports `ss`
+      names a process for have a unit from our cgroup read and no registry tree
+      from their directory read — 8080 `venture-chat`, 8081
+      `alfred-inference`, 8082 `venture-embed`, 8384 `syncthing@gaddi` in the
+      audited band, every one a service whose `WorkingDirectory` is `/` or
+      `$HOME`, which is their own `SNAG-ESTATE-188`. The other **eight**
+      resolve under both and name *different vocabularies*:
+      `alfred-frontend.service` against the registry id `alfred`.
+- [x] **Four mutations driven and all four land on the right test.** The first
+      models the landed fix — a shim whose `attribute` falls back to *this
+      repository's own* cgroup read, so the stand-in **is** the duplication
+      rather than a token standing in for it — and it reddens both altitudes
+      independently: 21 surviving outcomes at `attribute`, 14 resolved at
+      `run_check`. A stand-in that stops modelling the fix reddens the
+      positive control alone; a box where the joins agree reddens the separator
+      alone.
+- [x] **The old pin is retired, not deleted.** A comment stands where it was,
+      saying what it asserted and why the assertion stopped standing for the
+      claim — a guard removed with no trace reads to the next sitting as a
+      guard nobody thought of. `ESTATE_PORTS_CHECK` went with it, that pin
+      having been its only reader.
+- [x] **The sentence half was twelve sites across six files, not three.** Swept
+      by reading rather than by grep. *They run `ss` without `-p`*: five sites
+      (`units/ports.py`'s module docstring, `estate/judgements.py`'s
+      `attribution` paragraph, `units/recommendations.py`'s kind-5 bullet,
+      `CLAUDE.md`, and the retired pin's sibling test docstring). *`claimed_ports`
+      is a set, so duplicates are invisible*: seven (three in `units/ports.py`,
+      two in `units/recommendations.py`, `CLAUDE.md`, and
+      `test_the_parser_keeps_duplicates_which_is_the_point`).
+- [x] **Two of the twelve reach served payloads, and the estate message named
+      neither.** `duplicate_claim`'s summary under `GET /api/sysadmin/ports`
+      and its recommendation action under `GET /api/units/actions` both told a
+      reader the estate **cannot** see a duplicate row. It can, since their
+      ADR-0168, and files `claimed_by_more_than_one_row` at `warn` — which
+      `JUDGED_AUDIT_CHECKS[PORTS_CHECK] = "breach"` does not read. **The
+      surface is unmoved and only its reason changed**, which is what the
+      replacement sentences say.
+- [x] **Every correction keeps its original dated rather than deleted** —
+      *"this read … until 2026-09-13"*. That is `SNAG-DOCS-027`'s own finding
+      applied to its sibling: the phrasing that makes a stale claim legible as
+      history is also what makes a lexical guard over these files unwritable.
+- [x] **The stale enumeration Session 226 named is corrected.**
+      `JUDGED_AUDIT_SEVERITY`'s docstring said *"four codes across three
+      rungs"*, dated 2026-08-27. Six now, the two additions dated and sourced
+      to the messages that announced them: `claimed_by_an_unregistered_tree`
+      at `breach` **is** judged here because it shares this constant's rung,
+      `claimed_by_more_than_one_row` at `warn` is not.
+- [x] **Restart owed and paid once** — 2026-09-13 20:06:22, `NRestarts=6`,
+      `/health` 200. Three daemon modules edited, two carrying strings a route
+      serves. **Its observable effect is nil today and that is measured rather
+      than assumed**: the duplicate-row population is zero across all 25
+      revisions of the estate's table, so no reader sees either corrected
+      string until the first duplicate lands.
+- [x] **Both estate messages closed**, the condition Session 226 set for
+      closing them having been met: `16d3a757`'s fifth code and `183f43f7`'s
+      sixth are now read into `judgements.py`'s enumeration, and the three
+      sentences the second names are corrected along with nine it did not.
+
+**Not done, and deliberately:** nothing about `sysadmin/units/ports.py`'s right
+to exist. That question is what the pin asks, it was answered by measurement
+before the replacement was written — they attribute to a **directory**, we to a
+**unit**, and their own `working_directory` docstring refuses ours in writing —
+so the module keeps its reason to exist and the new instrument is what would say
+so again at the next change. `SNAG-PORT-005` is untouched: it is the same
+`/proc/<pid>/cwd` reading arriving as a *discriminator for a transient squatter*
+and is a separate decision.
+
 ## Session 226: the two computable claims are computed, and the suite went red for a producer ✅ (2026-09-13)
 
 _The ask was Session 225's handoff: build `SNAG-DOCS-027`'s guard as tests — the

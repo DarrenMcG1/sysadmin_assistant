@@ -18,16 +18,36 @@ rather than in estate-manager:
    port↔unit pair nothing has ever checked.
 3. The kernel, via ``ss`` and ``/proc/<pid>/cgroup``.
 
-estate-manager compares (1) against (3) and is **structurally blocked
-from the interesting half**: its ``live_listeners()`` runs ``ss -H
--tln`` deliberately without ``-p``, so it can say a port is taken and
-never by whom.  Its own docstring gives the reason — *"process names
-need privileges for other users' sockets"* — and that reason is true
-only for *other users'* sockets.  Measured 2026-08-15 as ``gaddi``:
-``ss -H -ltnp`` attributes 8080, 8081, 8082, 8100, 8200, 8300, 8384,
-8400, 8500, 8600, 3100 and 3200 — every registry-relevant port on the
-box — and comes back blank only for the root-owned and containerised
-ones (5432, 1883, 631, 139/445, and **8601**, the SearXNG container).
+estate-manager compares (1) against (3) and **stops one join short of
+the interesting half**.  This paragraph read *"structurally blocked"*
+until 2026-09-13, on the evidence that their ``live_listeners()`` ran
+``ss -H -tln`` deliberately without ``-p`` — true when written, and the
+reason their own docstring gave (*"process names need privileges for
+other users' sockets"*) was true only of *other users'* sockets.
+Measured 2026-08-15 as ``gaddi``: ``ss -H -ltnp`` attributes 8080,
+8081, 8082, 8100, 8200, 8300, 8384, 8400, 8500, 8600, 3100 and 3200 —
+every registry-relevant port on the box — and comes back blank only for
+the root-owned and containerised ones (5432, 1883, 631, 139/445, and
+**8601**, the SearXNG container).
+
+**They run ``ss -H -ltnp`` now (their ``4c3ad2d``, ADR-0166) and the
+answer did not move, because a pid is not an identity.**  Theirs joins
+it to ``/proc/<pid>/cwd`` and resolves a registry **tree**; this module
+joins it to ``/proc/<pid>/cgroup`` and resolves a **unit with its
+scope**.  Their ``working_directory`` refuses ours in writing — *"a unit
+name reaches a project only through ``services.yaml``'s ``project:`` or
+the monitor's ``scan_units`` map, both ``sysadmin_assistant``'s, and
+reading either as ground truth would make this check verify its registry
+against another repository's document"* (ADR-0166 §4) — so the two joins
+are different questions rather than one question asked twice.  They
+separate on this box: measured 2026-09-13, **21 of the 29** ports ``ss``
+names a process for have a unit here and no registry tree there, four of
+them in the audited band (8080, 8081, 8082, 8384), every one a service
+whose ``WorkingDirectory`` is ``/`` or ``$HOME``.
+``tests/test_estate_port_join_live.py`` is what keeps that true — it
+blinds their directory reader and requires their whole check to resolve
+nothing, which is the question *do they attribute ports themselves*
+asked of the verb rather than of the flag (``SNAG-PORT-006``).
 
 Four comparisons, in two families that surface differently, and the
 split is the one this repository keeps re-deriving:
@@ -46,7 +66,14 @@ split is the one this repository keeps re-deriving:
 yet:
 
 - ``duplicate_claim``: two rows of the estate's table claim one port.
-  Invisible to their check because ``claimed_ports`` is a ``set``.
+  Invisible to their check until 2026-09-13, because ``run_check``
+  folded the rows into ``claimed_ports``, a ``set``, before asking
+  anything.  Their ADR-0168 asks the rows first and files
+  ``claimed_by_more_than_one_row`` at ``warn``; this row survives it
+  because ``JUDGED_AUDIT_CHECKS[PORTS_CHECK]`` is ``breach``, so their
+  finding reaches no session of this repository.  The reason changed
+  from *they cannot see it* to *we do not read the rung they file it
+  at*, and the surface is unmoved.
 - ``wrong_project``: the table says port P belongs to project X; the
   unit holding P matches project Y on disk.  The attribution nobody
   else can make.
@@ -490,10 +517,14 @@ def parse_port_registry(document: str) -> list[PortClaim]:
     *service* and not ``estate-lib`` — the only estate package this
     repository depends on — so it cannot be imported here.  The reply
     to "then share it" is that the two parsers answer different
-    questions: theirs folds rows into ``claimed_ports``, a ``set``,
-    which is precisely why a duplicate row has always been invisible to
-    it.  A shared parser would have to return the thing their check
-    discards.
+    questions.  Theirs still folds rows into ``claimed_ports``, a
+    ``set``, for every branch that asks about a *port*; until their
+    ADR-0168 (2026-09-13) that fold happened first and a duplicate row
+    was therefore invisible to the whole check, which is the sentence
+    this docstring carried.  They ask the rows before folding now, so
+    the fold is no longer the reason — what remains is that a shared
+    parser would still have to return the thing the fold discards, and
+    that both sides keep their own reading of a document neither owns.
 
     Kept deliberately no stricter than theirs on everything except the
     port number: the table is prose-heavy and a parser demanding a
@@ -1090,7 +1121,8 @@ def judge_ports(
                 summary=(
                     f"port {port} is claimed by {len(rows)} rows of the port "
                     f"registry ({', '.join(sorted({r.project for r in rows}))}); "
-                    "the audit folds the table into a set, so it cannot see this"
+                    "the estate's audit files this at warn, which this service "
+                    "does not judge, so correcting the table is the only remedy"
                 ),
                 detail={
                     "port": port,

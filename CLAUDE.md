@@ -2889,26 +2889,44 @@ repository's `services.yaml` (11 entries carrying **both** `port:` and
 `systemd: {unit, scope}`, a hand-declared pair nothing had ever checked),
 and the kernel via `ss -H -ltnp` → `/proc/<pid>/cgroup`.
 
-estate-manager compares the first against the third and is
-**structurally blocked from the interesting half**: its `live_listeners()`
-runs `ss` deliberately without `-p`, on the stated grounds that *"process
-names need privileges for other users' sockets"* — true, and true only of
-*other users'*. Measured as `gaddi` on 2026-08-15: every
+estate-manager compares the first against the third and **stops one
+join short of the interesting half**: its `live_listeners()` ran `ss`
+deliberately without `-p` until 2026-09-13, on the stated grounds that
+*"process names need privileges for other users' sockets"* — true, and
+true only of *other users'*. Measured as `gaddi` on 2026-08-15: every
 registry-relevant port on the box came back with a pid, and the cgroup
 path names the unit **with scope in it** (`…/user@1000.service/app.slice/`
 against `/system.slice/`) — the scope-aware identity `services.yaml`
 already keys on, for free. Blank only for root-owned and containerised
-sockets: 5432, 1883, 631, 139/445 and 8601. A test pins their `ss`
-invocation, because if the estate ever adds `-p` this module is a second
-implementation of their check rather than the half they cannot do, and
-the right move then is to delete it.
+sockets: 5432, 1883, 631, 139/445 and 8601.
+
+**They added `-p` on 2026-09-13 and the answer did not move, which is
+`SNAG-PORT-006`.** A test pinned their `ss` invocation on the reasoning
+that *if the estate ever adds `-p` this module is a second implementation
+of their check* — a **conjunction** (`-p` **and** attributes ports
+itself) of which only the first limb landed. Their ADR-0166 joins the pid
+to `/proc/<pid>/cwd` and resolves a registry **tree**; this module joins
+it to `/proc/<pid>/cgroup` and resolves a **unit with its scope**, and
+their `working_directory` refuses ours in writing (*"reading either as
+ground truth would make this check verify its registry against another
+repository's document"*, their §4). The two separate on this box: **21 of
+the 29** ports `ss` names a process for have a unit here and no tree
+there. So a flag was pinned where the claim is about a **verb**, and the
+instrument is `tests/test_estate_port_join_live.py` now: it blinds their
+directory reader and requires their whole check to resolve nothing,
+driven at both `attribute` and `run_check` and controlled against a
+stand-in that models the fix.
 
 **Four comparisons in two families, and the split decides the surface.**
 `wrong_unit` (services.yaml says port P is unit U; the cgroup says V) and
 `port_shared` (two units, one port) are the box disagreeing with itself
 now — one alert row each, port in the title. `duplicate_claim` (two
-registry rows, one port — invisible to the estate because `claimed_ports`
-is a `set`) and `wrong_project` (the table's project against the one the
+registry rows, one port — invisible to the estate until 2026-09-13,
+because `claimed_ports` is a `set` and the fold came first; their
+ADR-0168 asks the rows before folding and files `claimed_by_more_than_one_row`
+at `warn`, which `JUDGED_AUDIT_CHECKS[PORTS_CHECK] = "breach"` does not
+read, so the surface is unmoved and only its reason changed) and
+`wrong_project` (the table's project against the one the
 sweep matched the holding unit to) are a document being wrong while the
 box is right — ranked advice, last in `KIND_ORDER`. That is the
 armed-orphan split applied a third time, and `COLLISION_KINDS` lives in

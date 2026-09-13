@@ -39,9 +39,16 @@ Ranked, worst first:
    a project that does not own the unit holding it.  **Last, and it is
    the only kind where nothing on this box is broken or unwatched** —
    the document is wrong and the box is right.  It is reported here
-   because estate-manager's audit is *structurally* unable to see
+   because neither case reaches a session of this repository through the
+   estate: their audit sees a duplicate row since their ADR-0168 and
+   files it at ``warn``, below the ``breach`` this repository judges, and
+   it does not make the claimant comparison at all — their ADR-0166 §9
+   sends ``wrong_project`` here by name, because the unit-to-project join
+   is the monitor's.  This bullet read *"structurally unable to see
    either case (it folds the table into a ``set`` and runs ``ss``
-   without ``-p``), not because it outranks a unit nobody is watching.
+   without ``-p``)"* until 2026-09-13, when both halves of that stopped
+   being true within one day.  Last for the same reason as before: not
+   because it outranks a unit nobody is watching.
    The live half of that check does not appear here at all: a port held
    by the wrong unit is a fault in progress and gets its own alert row.
 
@@ -871,9 +878,9 @@ def _port_recommendations(
             )
             action = (
                 f"Two rows of {document} claim port {port} — {where}. "
-                "Decide which is current and delete or renumber the other; "
-                "the estate's audit folds the table into a set and cannot "
-                "report this."
+                "Decide which is current and delete or renumber the other. "
+                "The estate's audit reports it too, at warn, which this "
+                "service does not judge — so nothing else will say it again."
             )
             title = f"Port {port} is claimed twice in the registry"
         else:

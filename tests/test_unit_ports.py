@@ -97,12 +97,15 @@ def _declared(name, port, unit, scope="user", project=None):
 def test_ss_output_is_attributed_to_units_with_scope():
     """The measurement the whole session rests on.
 
-    estate-manager runs ``ss`` without ``-p`` on the stated grounds that
-    *"process names need privileges for other users' sockets"*.  True,
-    and it does not apply to our own: as ``gaddi``, every
-    registry-relevant port on this box came back with a pid on
+    estate-manager ran ``ss`` without ``-p`` until 2026-09-13, on the
+    stated grounds that *"process names need privileges for other users'
+    sockets"*.  True, and it did not apply to our own: as ``gaddi``,
+    every registry-relevant port on this box came back with a pid on
     2026-08-15.  ``/proc/<pid>/cgroup`` then names the unit **and** the
-    scope, which is the identity ``services.yaml`` keys on.
+    scope, which is the identity ``services.yaml`` keys on — and that
+    half is untouched by their adding ``-p``, because their join goes to
+    ``/proc/<pid>/cwd`` and resolves a tree rather than a unit.  See
+    ``tests/test_estate_port_join_live.py``.
     """
     report = _observe()
     assert report.ok
@@ -298,9 +301,13 @@ def test_a_session_scope_is_not_a_service():
 def test_the_parser_keeps_duplicates_which_is_the_point():
     """estate-manager folds the table into a ``set``.
 
-    That is exactly why a duplicate row has been invisible to their
-    check since it was written, and the reason a shared parser would not
-    have helped: theirs would have to return the thing it discards.
+    That is why a duplicate row was invisible to their check from the day
+    it was written until their ADR-0168 (2026-09-13), which asks the rows
+    before the fold.  The fold is still there, and the reason a shared
+    parser would not have helped is unchanged: theirs would have to
+    return the thing it discards.  What this parser keeps is also what
+    ``GET /api/units/actions`` serves, since their new finding sits at
+    ``warn`` and this repository judges ``ports`` at ``breach``.
     """
     document = LIVE_REGISTRY + "| 8100 | venture-assistant | backend |\n"
     claims = P.parse_port_registry(document)
@@ -1234,9 +1241,10 @@ def test_a_bool_in_the_list_is_not_port_one():
 # ── Conformance with the producer this check reads ───────────────────
 
 
-ESTATE_PORTS_CHECK = (
-    "/home/gaddi/projects/estate-manager/service/estate_service/audit/checks/ports.py"
-)
+# ``ESTATE_PORTS_CHECK`` went with the pin that was its only reader
+# (2026-09-13, ``SNAG-PORT-006``); the path it held is
+# ``tests/test_estate_port_join_live.py``'s now.  A constant parsed and
+# read by nothing is ``SNAG-CFG-001``'s shape at the size of a name.
 ESTATE_AUDIT_CONFIG = (
     "/home/gaddi/projects/estate-manager/service/estate_service/audit/config.py"
 )
@@ -1361,25 +1369,23 @@ def test_the_registry_document_we_read_is_the_one_the_audit_reads():
     assert ours.endswith("docs/guides/monitorable-project.md")
 
 
-def test_the_estate_still_runs_ss_without_p_which_is_why_this_module_exists():
-    """The premise of the whole session, pinned.
-
-    If estate-manager ever adds ``-p`` and attributes ports itself, this
-    module is a second implementation of their check rather than the half
-    they are blocked from — and the right move is to delete it, not to
-    keep both.  A test is the only thing that would say so.
-    """
-    from pathlib import Path
-
-    source = Path(ESTATE_PORTS_CHECK)
-    if not source.exists():
-        pytest.skip("no estate-manager checkout on this host")
-
-    text = source.read_text(encoding="utf-8")
-    assert '["ss", "-H", "-tln"]' in text, (
-        "estate-manager's live_listeners() has changed. If it now attributes "
-        "ports, sysadmin/units/ports.py duplicates it and should be reconsidered."
-    )
+# ``test_the_estate_still_runs_ss_without_p_which_is_why_this_module_exists``
+# stood here until 2026-09-13 and is **retired, not deleted**
+# (``SNAG-PORT-006``).  It asserted the literal ``'["ss", "-H", "-tln"]'``
+# in their source as a stand-in for *do they attribute ports themselves*,
+# which was readable off ``-p``'s absence only while ``-p`` had one
+# possible use.  Their ``4c3ad2d`` (ADR-0166) gave it a second: a pid now
+# joins to a working **directory** there and to a **unit** here, so the
+# flag moved and the answer did not — the pin fired correctly on a clean
+# tree over a conclusion that does not follow.
+#
+# Its replacement is ``tests/test_estate_port_join_live.py``, which asks
+# the verb instead: blind their directory reader and require every
+# attribution to collapse.  It lives in a ``_live`` file because it
+# believes negatives about this box and therefore owes a marked premise —
+# and because the population that makes a green collapse *evidence* (21
+# ports whose unit we name and whose tree they cannot) is a reading of
+# the box rather than of either repository's source.
 
 
 def test_our_parser_and_the_estates_agree_on_the_live_document():
