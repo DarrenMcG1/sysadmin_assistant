@@ -61,28 +61,56 @@ estate-manager whether one had. Neither was the answer._
       re-derived against the wrong journals. Corrected in place with the
       original kept as history
 
-**Promoted from `ideas.md`, design settled, not built this sitting:**
+**Built the same sitting, on the owner's go-ahead:**
 
-- [ ] **Add a `log:` block to the three estate timer entries in
+- [x] **Added a `log:` block to the three estate timer entries in
       `services.yaml`**, each naming its service unit explicitly —
-      `log: { type: journalctl, unit: estate-manager-scan.service,
-      severity_filter: warning, format: json }` and the same for
-      `-audit.service` and `-review.service`. It would be the file's first use
-      of `LogRef.unit`. Installs by **SIGHUP reload**, not a restart, so it
-      spends none of the budget `SNAG-SYSD-007` is about
-- [ ] **Carry the comment the entry earns**, on the pattern the
-      `estate-manager-api` entry already sets: what the declaration states,
-      that it ships untriggered, and — the half that was got wrong last time —
-      that the *witness* for the prefix is the api unit rather than these three
-- [ ] **Add the tests alongside**, per this repository's standing rule. At
-      minimum: the three sources appear in `composed_log_sources`, each
-      resolving to its `.service` unit rather than the `.timer` the entry
-      monitors, and `stored_source_name` returns the service unit
-- [ ] **Note the dated payoff when scheduling it.** The review fires Monday
-      2026-09-14 05:30 and is the only one of the three whose path holds the
-      two ADR-0075 records; building before then captures that firing in the
-      pipeline. The observation is not lost either way — the 2026-09-14
-      scheduled action already reads it by hand
+      the file's first use of `LogRef.unit`. Service count unmoved at 32,
+      because the blocks hang off the existing `kind: timer` entries
+      rather than adding entries that would monitor a oneshot
+- [x] **Measured the override into a necessity rather than a tidiness.**
+      The three *timer* journals carry **16** records each and **zero**
+      written by anything but systemd, so inheriting `systemd.unit` would
+      have ingested nothing and reported clean — the entry's own "reads
+      zero rows and looks exactly like a working one" trap, in the one
+      form it had not been looked for
+- [x] **Installed by SIGHUP reload, no restart.**
+      `POST /api/sysadmin/reload` reported the three entries under
+      `services_changed`, `requires_restart: []`, `jobs_retimed: []`, and
+      `GET /api/logs/<unit>` went 404 → 200 for all three while the
+      already-declared `estate-manager-api` stayed 200 throughout, which
+      is the discriminator that makes the 200s mean something
+- [x] **Verified at the real reader, at two rungs.** `read_journal` with
+      each source's own declaration returns **0** entries at
+      `severity_filter: warning` and **414 / 500 / 239** at `info` —
+      zero-because-clean, not zero-because-blind. The `json` declaration
+      unwraps live: `message` reads `weekly_project_review_generated`
+      where `raw_line` keeps the whole journald envelope
+- [x] **Added the tests, 22 of them, all in
+      `tests/test_services_registry.py`** (56 → 78, so the arithmetic
+      reconciles with nothing to apportion). The existing live witness
+      was pointed at `DECLARED_JSON_SOURCES` so its parametrisation can
+      never lag the set the file declares, and it asks the three
+      scheduled sources a **different question** — the newest application
+      record must itself be JSON, which needs no clock and catches a
+      revert on the next firing. That question cannot be put to
+      `estate-manager-api`, whose newest application record is normally a
+      plain-text uvicorn access line because the estate leaves
+      `uvicorn.access` outside `configure_logging` deliberately
+- [x] **Drove six mutations and killed six**, two of which needed the
+      guard repaired first. The `--since` flag's first draft was inserted
+      between `-u` and the unit, so journalctl took it as the unit name,
+      exited non-zero, and **every** live source skipped green —
+      including the one that had passed for weeks; a skip is not health,
+      so the windowed read is now pinned at this daemon's own unit as a
+      **refusal**. And the newest-record assertion was unfalsifiable
+      while every source answered `True`, so the detector is driven where
+      it must say *no*
+
+**Not done, and deliberately:** no `ideas.md` entry was opened for the
+residue and no SNAG filed, because the sitting produced none — the
+population is untriggered by measurement rather than by omission, and
+`services.yaml` says so beside the blocks.
 
 ---
 

@@ -398,6 +398,8 @@ services:
     kind: timer
     systemd: { unit: estate-manager-scan.timer, scope: user }
     controllable: false
+    log: { type: journalctl, unit: estate-manager-scan.service,
+           severity_filter: warning, format: json }
     # `project_organiser` is in AGENT_NAMES and deliberately absent from
     # agent_schedules: this timer runs its work now. Declaring it makes
     # the handover a fact the daemon checks rather than one this comment
@@ -405,12 +407,41 @@ services:
     # anything put that agent back on this daemon's schedule.
     agent: project_organiser
 
+  # **The three journals are read as of 2026-09-13 (Session 224).** A
+  # `log:` block names its `.service` unit explicitly through the
+  # optional `LogRef.unit`, because the entry's own `systemd.unit` is the
+  # **timer** and a timer's journal holds only systemd's start lines. The
+  # two conventions do not collide: the sweep reports a oneshot under its
+  # timer because that is the half carrying `[Install]`, and this reads
+  # the half carrying the output. Both units are user-scope, so `scope:`
+  # above still decides `journalctl --user` correctly for the override.
+  #
+  # `format: json` on the estate's own measured declaration (their
+  # ADR-0079, announced as message `76e0438b`). Witnessed rather than
+  # assumed: all four of their entry points call one `configure_logging`,
+  # whose `resolve_format` picks the prefixing formatter by a **tty
+  # test**, so every unit under systemd takes the same branch; the three
+  # carry 378 JSON records with that formatter's exact key order and
+  # **zero** text records after the first JSON one, and **zero** records
+  # begin with a literal `<N>` — which excludes `SyslogLevelPrefix=no`
+  # and leaves journald having consumed the prefix.
+  #
+  # **The witness is the api entry above, not these three**, and saying
+  # so is the point: `ideas.md`'s gate was re-derived three times because
+  # a stale comment sent three sittings to look for it here. No
+  # application record in these journals has yet arrived above INFO —
+  # 27, 15 and 2 post-ADR runs — so this ships **untriggered**, exactly
+  # as the api entry did. It is not empty by construction: their three
+  # paths carry 13 `logger.warning`/`logger.error` sites, two of them the
+  # records their ADR-0075 is about, both on the **review** path.
   - project: estate-manager
     name: estate-manager-review-timer
     role: schedule
     kind: timer
     systemd: { unit: estate-manager-review.timer, scope: user }
     controllable: false
+    log: { type: journalctl, unit: estate-manager-review.service,
+           severity_filter: warning, format: json }
 
   # The conformance audit (estate-manager Session 5, its ADR-0009), added
   # 2026-08-13 as part 1 of the delegated requirement its ADR-0009 §8
@@ -429,6 +460,8 @@ services:
     kind: timer
     systemd: { unit: estate-manager-audit.timer, scope: user }
     controllable: false
+    log: { type: journalctl, unit: estate-manager-audit.service,
+           severity_filter: warning, format: json }
 
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any

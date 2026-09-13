@@ -19,10 +19,48 @@ from sysadmin.monitor.services import (
     load_services,
     log_sources,
     parse_services,
+    stored_source_name,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LIVE_SERVICES_YAML = REPO_ROOT / "services.yaml"
+
+#: Every source whose ``log.format`` is not ``text``, **hand-written so
+#: that adding one costs a measurement**.  The set test below pins
+#: membership against the shipped file and the live witness derives its
+#: parametrisation from this constant, so the two cannot part: a
+#: declaration added without a name here turns the set test red, and a
+#: name here without a declaration turns it red from the other side,
+#: while the witness reaches every member by construction rather than by
+#: a second list somebody has to remember to extend.
+#:
+#: ``estate-manager-api`` joined 2026-08-31 (their ADR-0079, announced
+#: as message ``76e0438b``).  The three timer sources joined 2026-09-13
+#: on the measurement recorded in ``services.yaml`` beside them: all
+#: four estate entry points call one ``configure_logging`` whose
+#: ``resolve_format`` picks the prefixing formatter by a tty test, 378
+#: JSON records carry that formatter's exact key order, no text record
+#: follows the first JSON one, and no record begins with a literal
+#: ``<N>`` — which excludes ``SyslogLevelPrefix=no``.
+DECLARED_JSON_SOURCES = {
+    "sysadmin-service",
+    "estate-manager-api",
+    "estate-manager-scan-timer",
+    "estate-manager-audit-timer",
+    "estate-manager-review-timer",
+}
+
+#: The members of :data:`DECLARED_JSON_SOURCES` whose cadence is a
+#: **schedule** rather than a process, so the live witness reads them
+#: without a time window and asks a different question of them.  See
+#: :func:`_journal_message_shapes` for why a window is wrong here, and
+#: ``TestLiveServicesYaml.test_a_declared_source_really_writes_json``
+#: for what replaces it.
+SCHEDULED_JSON_SOURCES = {
+    "estate-manager-scan-timer",
+    "estate-manager-audit-timer",
+    "estate-manager-review-timer",
+}
 
 
 def entry(**overrides) -> ServiceEntry:
@@ -31,18 +69,51 @@ def entry(**overrides) -> ServiceEntry:
 
 
 
-def _journal_message_shapes(unit: str, *, user: bool) -> tuple[int, int] | None:
-    """(records read, of which JSON-shaped), or ``None`` if unreadable.
+#: What ``SYSLOG_IDENTIFIER`` reads for a record systemd wrote about a
+#: unit rather than one the unit wrote itself.  ``format:`` is a
+#: statement about what the **application** emits, so systemd's own
+#: lines are outside it by construction — ``Starting …``, ``Finished …``
+#: and the ``Consumed … CPU time`` accounting are plain text whatever
+#: the application does, and counting them makes a journal look mixed
+#: when the declaration is perfectly true.  Session 224 measured the
+#: cost of not excluding them: across the three estate oneshots'
+#: journals they are 141, 114 and 12 records, and for the review they
+#: are the **newest** record on every run.
+_SYSTEMD_OWN = "systemd"
+
+
+def _journal_message_shapes(
+    unit: str, *, user: bool, since: str | None = "7 days ago"
+) -> tuple[int, int, bool] | None:
+    """(application records, of which JSON-shaped, newest is JSON), or ``None``.
 
     Deliberately a raw ``journalctl`` read: the point is the shape of
     ``MESSAGE`` as journald holds it, which is exactly what the ``json``
     declaration is a statement about.
+
+    ``since`` is ``None`` for a source whose cadence is a **schedule**
+    rather than a process.  A window is right for a daemon, which logs
+    continuously, and wrong for a weekly oneshot: the window and the
+    period are then the same length, so the read straddles a firing and
+    the guard reddens on the hour it happens to run — a harness reading
+    a clock it did not supply.  Worse, an empty window would make this
+    guard speak for *"did the unit run"*, which the ``kind: timer``
+    entry beside it already owns; two owners of one lifecycle is the
+    defect this repository has now found at six scales.
     """
     import json as _json
     import subprocess
 
-    command = ["journalctl", "-u", unit, "--since", "7 days ago",
-               "-n", "500", "-a", "-o", "json", "--no-pager"]
+    command = ["journalctl", "-u", unit, "-n", "500", "-a", "-o", "json",
+               "--no-pager"]
+    if since is not None:
+        # After the unit, never before it: ``-u`` takes the next token as
+        # its argument, so inserting at index 2 hands it ``--since`` and
+        # journalctl exits non-zero — which this helper reports as
+        # "cannot read" and the caller turns into a skip.  Measured while
+        # writing it: all five sources skipped green, including the one
+        # that had passed for weeks.
+        command[3:3] = ["--since", since]
     if user:
         command.insert(1, "--user")
     try:
@@ -53,16 +124,22 @@ def _journal_message_shapes(unit: str, *, user: bool) -> tuple[int, int] | None:
     if result.returncode != 0:
         return None
     total = json_shaped = 0
+    newest_is_json = False
     for line in result.stdout.splitlines():
         try:
-            message = _json.loads(line).get("MESSAGE")
+            record = _json.loads(line)
         except ValueError:
             continue
+        if record.get("SYSLOG_IDENTIFIER") == _SYSTEMD_OWN:
+            continue
+        message = record.get("MESSAGE")
         if not isinstance(message, str):
             continue
         total += 1
-        json_shaped += message.lstrip().startswith("{")
-    return total, json_shaped
+        shaped = message.lstrip().startswith("{")
+        json_shaped += shaped
+        newest_is_json = bool(shaped)
+    return total, json_shaped, newest_is_json
 
 def make_registry(tmp_path: Path, *ids: str):
     for project_id in ids:
@@ -418,10 +495,9 @@ class TestLiveServicesYaml:
         declared = {
             e.name for e in services.services if e.log and e.log.format != "text"
         }
-        assert declared == {"sysadmin-service", "estate-manager-api"}
+        assert declared == DECLARED_JSON_SOURCES
 
-    @pytest.mark.parametrize("declared_name", ["sysadmin-service",
-                                               "estate-manager-api"])
+    @pytest.mark.parametrize("declared_name", sorted(DECLARED_JSON_SOURCES))
     def test_a_declared_source_really_writes_json(self, declared_name):
         """The witness for a statement this repository cannot pin.
 
@@ -443,6 +519,22 @@ class TestLiveServicesYaml:
         a pass; and the premise — that the read returned records at all —
         is asserted separately, because an empty read satisfies "no
         non-JSON records" vacuously.
+
+        **A scheduled source is asked a different question, and the
+        asymmetry is the producer's rather than a convenience** (Session
+        224).  For the three estate oneshots the read takes no window,
+        for :func:`_journal_message_shapes`' reason, and the newest
+        application record must *itself* be JSON — which is the precise
+        statement "the most recent run wrote JSON", needs no clock, and
+        catches a revert on the very next firing instead of waiting for
+        the last JSON record to age out.  It cannot be asked of
+        ``estate-manager-api``: the estate leaves ``uvicorn.access``
+        outside ``configure_logging`` deliberately, *"this service has no
+        such middleware, so disabling would delete the access log rather
+        than de-duplicate it"*, so its newest application record is
+        normally a plain-text access line.  Measured 2026-09-13 — the
+        three oneshots answer ``True`` and the api answers ``False`` with
+        ``INFO:     127.0.0.1 - "GET /api/health HTTP/1.1" 200 OK``.
         """
         services = load_services(LIVE_SERVICES_YAML)
         entries = [e for e in services.services if e.name == declared_name]
@@ -450,20 +542,31 @@ class TestLiveServicesYaml:
         source = entries[0]
         assert source.log is not None and source.log.format == "json"
 
-        found = _journal_message_shapes(source.log_unit,
-                                        user=source.scope == "user")
+        scheduled = declared_name in SCHEDULED_JSON_SOURCES
+        found = _journal_message_shapes(
+            source.log_unit,
+            user=source.scope == "user",
+            since=None if scheduled else "7 days ago",
+        )
         if found is None:
             pytest.skip(f"journalctl cannot read {source.log_unit}")
-        total, json_shaped = found
+        total, json_shaped, newest_is_json = found
         assert total > 0, (
-            f"premise failed: no records read for {source.log_unit}, so "
-            "this test witnessed nothing"
+            f"premise failed: no application records read for "
+            f"{source.log_unit}, so this test witnessed nothing"
         )
         assert json_shaped > 0, (
             f"{declared_name} declares format: json but none of {total} "
-            f"recent records in {source.log_unit} is a JSON document — "
-            "the declaration has gone stale"
+            f"recent application records in {source.log_unit} is a JSON "
+            "document — the declaration has gone stale"
         )
+        if scheduled:
+            assert newest_is_json, (
+                f"{declared_name} declares format: json and the newest "
+                f"application record in {source.log_unit} is not a JSON "
+                "document, so the most recent run wrote something else — "
+                "the declaration has gone stale since that run"
+            )
 
     def test_it_contains_no_paths(self):
         """The property that makes a dead-path entry impossible."""
@@ -505,3 +608,212 @@ class TestLiveServicesYaml:
             if getattr(c, "name", None) == "chk_health_status"
         )
         assert SKIPPED in str(constraint.sqltext)
+
+
+class TestTheEstateTimersAreReadAtTheirService:
+    """The three estate oneshots' journals, added 2026-09-13 (Session 224).
+
+    The entries are ``kind: timer`` and their ``systemd.unit`` is the
+    **timer**, because the sweep reports a oneshot under the half
+    carrying ``[Install]``.  The output is written by the other half, so
+    each ``log:`` block names its ``.service`` explicitly through the
+    optional ``LogRef.unit``.  The two conventions do not collide; what
+    would collide is inheriting the unit, and that failure is **silent**
+    — a timer's journal parses, reads clean and yields nothing, which is
+    the "reads zero rows and looks exactly like a working one" trap the
+    idea this closes spent three sittings avoiding.
+    """
+
+    TIMER_SOURCES = {
+        "estate-manager-scan-timer": "estate-manager-scan.service",
+        "estate-manager-audit-timer": "estate-manager-audit.service",
+        "estate-manager-review-timer": "estate-manager-review.service",
+    }
+
+    @pytest.fixture(scope="class")
+    def by_name(self):
+        sources = log_sources(load_services(LIVE_SERVICES_YAML))
+        return {s.name: s for s in sources}
+
+    def test_all_three_are_ingested(self, by_name):
+        """The premise: without this the assertions below pass vacuously."""
+        missing = sorted(set(self.TIMER_SOURCES) - set(by_name))
+        assert not missing, (
+            f"{missing} declare no log: block, so this repository reads "
+            "none of the estate's timer journals"
+        )
+
+    @pytest.mark.parametrize("name", sorted(TIMER_SOURCES))
+    def test_it_reads_the_service_and_not_the_timer(self, name, by_name):
+        """The override, which is the whole point of the entry.
+
+        Keyed on the ``.service``/``.timer`` suffix rather than on the
+        literal unit strings alone, because the failure this guards is
+        *inheritance* — a deleted ``unit:`` leaves ``log_unit`` reading
+        ``systemd.unit``, which is the timer, and a suffix test names
+        that directly.
+        """
+        source = by_name[name]
+        assert source.unit == self.TIMER_SOURCES[name]
+        assert source.unit.endswith(".service"), (
+            f"{name} reads {source.unit}: a timer's journal holds only "
+            "systemd's start lines, so the source would ingest nothing "
+            "and report clean"
+        )
+
+    @pytest.mark.parametrize("name", sorted(TIMER_SOURCES))
+    def test_it_is_read_from_the_user_journal(self, name, by_name):
+        """``scope:`` still decides this, and it decides it correctly.
+
+        The override moves the *unit* and not the scope, so a reader
+        might reasonably wonder whether the service is where the timer
+        is.  Both are user units here, so the inherited answer is right
+        — asserted rather than assumed, because ``journalctl`` without
+        ``--user`` on a user unit returns success and no records, which
+        is this class's silent failure a second time.
+        """
+        assert by_name[name].user is True
+
+    @pytest.mark.parametrize("name", sorted(TIMER_SOURCES))
+    def test_rows_are_keyed_on_the_service_unit(self, name, by_name):
+        """What ``log_entries.source`` will hold for these rows.
+
+        A journal source is stamped with its **unit**, so these rows are
+        keyed on the ``.service`` while the declaration is keyed on the
+        entry ``name`` — the split ``stored_source_name`` exists to make
+        explicit and the one ``log_source_scopes`` records as a trap.
+        """
+        assert stored_source_name(by_name[name]) == self.TIMER_SOURCES[name]
+
+    @pytest.mark.parametrize("name", sorted(TIMER_SOURCES))
+    def test_they_declare_the_format_the_estate_writes(self, name, by_name):
+        """Paired with :data:`DECLARED_JSON_SOURCES`, which pins the set."""
+        source = by_name[name]
+        assert source.format == "json"
+        assert source.severity_filter == "warning"
+
+    @pytest.mark.parametrize("name", sorted(TIMER_SOURCES))
+    def test_the_timers_own_journal_would_have_ingested_nothing(self, name):
+        """The measurement that makes the override necessary rather than tidy.
+
+        Driven at the **timer**, which is what a deleted ``unit:`` would
+        read.  Measured 2026-09-13: 16 records each and **zero** of them
+        written by anything but systemd.  This is the live half of the
+        suffix test above — that one catches the edit, this one says why
+        the edit matters, and a reader who trusted inheritance would get
+        a source that parses, reads clean and stores nothing.
+        """
+        entries = [e for e in load_services(LIVE_SERVICES_YAML).services
+                   if e.name == name]
+        assert len(entries) == 1, name
+        timer_unit = entries[0].unit
+        assert timer_unit.endswith(".timer"), timer_unit
+        found = _journal_message_shapes(timer_unit, user=True, since=None)
+        if found is None:
+            pytest.skip(f"journalctl cannot read {timer_unit}")
+        total, _, _ = found
+        assert total == 0, (
+            f"{timer_unit} now carries {total} application record(s), so "
+            "the premise behind naming the service explicitly has moved "
+            "and this entry should be re-measured"
+        )
+
+
+class TestTheJournalHelperCanAnswerBothWays:
+    """The detector driven where it must say *no*, so its *yes* means something.
+
+    Every source in :data:`SCHEDULED_JSON_SOURCES` answers
+    ``newest_is_json=True`` today, so a helper that returned ``True``
+    unconditionally would redden nothing and the assertion built on it
+    would be inert — a no-op mutation is not a control.  These drive it
+    at the two shapes that must differ.
+    """
+
+    def test_it_says_no_where_the_newest_record_is_plain_text(self):
+        """``estate-manager-api`` is the live negative, and not by accident.
+
+        The estate leaves ``uvicorn.access`` outside ``configure_logging``
+        deliberately — *"this service has no such middleware, so
+        disabling would delete the access log rather than de-duplicate
+        it"* — so its newest application record is normally a plain-text
+        access line even though the declaration is perfectly true.  That
+        is exactly why the newest-record assertion is asked only of the
+        scheduled sources.
+        """
+        found = _journal_message_shapes("estate-manager-api.service",
+                                        user=True, since=None)
+        if found is None:
+            pytest.skip("journalctl cannot read estate-manager-api.service")
+        total, json_shaped, newest_is_json = found
+        assert total > 0, "premise failed: no application records read"
+        assert json_shaped > 0, (
+            "premise failed: the api unit writes no JSON at all, so this "
+            "witnesses nothing about the newest record specifically"
+        )
+        assert newest_is_json is False, (
+            "the newest application record in estate-manager-api.service "
+            "is a JSON document, so this repository's live negative has "
+            "gone — the newest-record assertion is now unfalsifiable here "
+            "and needs a different witness"
+        )
+
+    def test_it_excludes_systemd_and_would_otherwise_have_counted(self):
+        """The exclusion, shown to be load-bearing rather than tidy.
+
+        Driven at a timer, whose journal is **only** systemd's lines: the
+        helper reports zero application records, while the same read
+        without the exclusion sees sixteen.  Without this the filter
+        could be deleted and every assertion above would stay green.
+        """
+        import json as _json
+        import subprocess
+
+        unit = "estate-manager-scan.timer"
+        found = _journal_message_shapes(unit, user=True, since=None)
+        if found is None:
+            pytest.skip(f"journalctl cannot read {unit}")
+        assert found[0] == 0
+
+        raw = subprocess.run(
+            ["journalctl", "--user", "-u", unit, "-n", "500", "-a",
+             "-o", "json", "--no-pager"],
+            capture_output=True, text=True, timeout=30,
+        )
+        unfiltered = sum(
+            1 for line in raw.stdout.splitlines()
+            if isinstance(_json.loads(line).get("MESSAGE"), str)
+        )
+        assert unfiltered > 0, (
+            f"premise failed: {unit} carries no records at all, so the "
+            "exclusion is untested rather than shown to matter"
+        )
+
+    def test_the_windowed_read_is_not_silently_unusable(self):
+        """The windowed form refuses rather than skips, and here is why.
+
+        ``since`` was added 2026-09-13 and its first draft inserted the
+        flag at index 2 — **between** ``-u`` and the unit — so
+        ``journalctl`` took ``--since`` as the unit name and exited
+        non-zero.  :func:`_journal_message_shapes` reports that as
+        "cannot read" and every caller turns it into a skip, so the whole
+        live witness went green while measuring nothing: five sources
+        skipped, including the one that had passed for weeks.
+
+        A skip is not health, so the windowed form is pinned at a source
+        that cannot legitimately be empty — this daemon's own unit, which
+        logs continuously — and the assertion is a **refusal**.  Driven
+        as a falsification: restoring the index-2 insertion turns this
+        red where it leaves every other test in the file green.
+        """
+        found = _journal_message_shapes(OWN_UNIT, user=False,
+                                        since="7 days ago")
+        assert found is not None, (
+            f"the windowed read of {OWN_UNIT} failed, which every caller "
+            "reports as a skip — check the journalctl argument order "
+            "before trusting any other result in this file"
+        )
+        total, _, _ = found
+        assert total > 0, (
+            f"premise failed: no application records for {OWN_UNIT} in "
+            "seven days, so the windowed form witnessed nothing"
+        )

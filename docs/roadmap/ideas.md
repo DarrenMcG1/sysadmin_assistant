@@ -12,7 +12,7 @@
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
 
-### ✅ Promoted 2026-09-13 — read the estate's three timer journals, now that their warnings are legible *(raised 2026-08-31; gate lifted by measurement, see SETTLED below)*
+### ✅ Built 2026-09-13 — read the estate's three timer journals, now that their warnings are legible *(raised 2026-08-31; gate lifted by measurement and built the same day, see SETTLED below)*
 
 Raised by estate-manager in message `76e0438b` §3 and **explicitly left
 to us**: *"the estate is not asking for it and will not judge whether
@@ -145,9 +145,30 @@ the same morning our 05:00 health review recorded `llm_used = false`
 of another consumer's LLM outcome in the same slot window, and reading
 it by hand is how that was learned today.
 
-**Promoted to `tasks.md` 2026-09-13.** The gate that said *"do not build
-this before 2026-09-07"* has lifted; what is left is a scoped edit whose
-design is settled above, not a measurement.
+**Promoted to `tasks.md` and built the same day.** The gate that said
+*"do not build this before 2026-09-07"* lifted on the measurement above,
+and the three `log:` blocks went into `services.yaml` on the owner's
+go-ahead — the file's first use of `LogRef.unit`, installed by SIGHUP
+reload with `requires_restart: []`.
+
+**The override turned out to be necessary rather than tidy**, which is
+the one thing the settlement above had argued from the code rather than
+from the box: the three *timer* journals carry **16** records each and
+**zero** written by anything but systemd, so inheriting `systemd.unit`
+would have ingested nothing and reported clean — this entry's own trap,
+in the form nobody had looked for it in.
+
+**Verified at the real reader rather than at the route.** Driven through
+`read_journal` with each source's own declaration: **0** entries at the
+declared `severity_filter: warning` and **414 / 500 / 239** one rung down
+at `info`, so the zero is *zero-because-clean*. The `format: json`
+declaration unwraps live — `message` reads
+`weekly_project_review_generated` where `raw_line` keeps the envelope.
+
+So the entry closes having shipped **untriggered**, exactly as the api
+entry did on 2026-08-31, and for a reason that is measured rather than
+assumed. The payoff below remains the first thing it should catch. See
+`tasks.md`, Session 224, for the tests and the six mutations.
 ### ⛔ 2026-08-30 — split the GPU gate so the waiterless callers can take the window — **DEAD 2026-08-31, premise removed by the lease fix**
 
 Announced by estate-manager in message `df4113cb` (their ADR-0074 §2) and

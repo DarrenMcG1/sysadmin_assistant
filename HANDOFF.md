@@ -2,12 +2,13 @@
 
 ## Next action
 
-Build the promoted `services.yaml` change that `tasks.md` now carries fully designed — a `log:` block on each of the three estate timer entries, naming its `.service` unit explicitly through `LogRef.unit` with `severity_filter: warning` and `format: json` — because the gate blocking it has lifted by measurement rather than by waiting: ADR-0079's level prefix is witnessed 3,152 times in this repository's own `log_entries` by way of `estate-manager-api.service`, which takes the identical `configure_logging` branch, so a block added now is a working monitor rather than one that reads zero rows while looking exactly like a working one, and it installs by SIGHUP reload rather than a restart; the one thing to weigh before starting is that the estate's weekly review fires Monday at 05:30 and is the only one of the three whose code path holds the two warning records ADR-0075 is about, so building before then is the difference between catching that firing in the pipeline and reading it by hand.
+Sweep `services.yaml` for the claim shape this sitting found expired and corrected in one place — a comment asserting that something has *not yet* happened, which is true the day it is written and silently false afterwards — because it is already measured to be a class rather than a specimen: the `estate-manager-api` entry's *"the producer's new prefix has no witness here either"* was false within hours of being written and sent three sittings to the wrong journals before being corrected today, and the `estate-broker-provision` entry still reads *"the unit is not yet installed and this check will rightly complain"* while `systemctl` reports that unit `active (exited)` in the system scope, so the sweep should find every such sentence in the file, measure each against the box, and correct or retire it with the original kept as history the way today's was, rather than leaving a reader to find the class a third time.
 
-*This sitting settled an idea and built nothing, which is why the line
-above names a `services.yaml` edit rather than an entry.* The register is
-untouched: nothing was opened, nothing closed, and no check moved. The
-inbox is empty.
+*This sitting settled an idea and then built it, which is why the line
+above names neither.* The register is untouched: nothing was opened,
+nothing closed, and no check moved. The inbox is empty. **No Python
+changed** — the whole runtime change is three `log:` blocks in
+`services.yaml`, installed by SIGHUP reload with `requires_restart: []`.
 
 *The scheduled action still stands and is deliberately not the line
 above*, which is Session 218's rule 3 — the dated reading is declared in
@@ -20,9 +21,10 @@ reading exists to discriminate.
 ## What this sitting did
 
 Settled `ideas.md`'s top entry — ingesting the estate's three timer
-journals — and **promoted it to `tasks.md` with its design decided**.
-Corrected one stale claim in `services.yaml`. **No production code
-changed**, no test was added, and the register was not touched.
+journals — promoted it to `tasks.md`, and **built it the same day on the
+owner's go-ahead**. Corrected one stale claim in `services.yaml`. No
+Python changed and the register was not touched; 22 tests added, six
+mutations driven and six killed, 4119 passing, ops claims 15/15.
 
 **The question, and why both offered answers were wrong.** Session 223
 narrowed the entry's gate to a witness: one non-INFO record from
@@ -102,13 +104,51 @@ noted in `ideas.md` as the payoff the log block would give routinely and
 appended to the scheduled item it sharpens; the entry it bears on was
 **not** edited, because that reading is already scheduled and owns it.
 
+## What was built, and what it is worth
+
+Three `log:` blocks, each naming its `.service` unit explicitly through
+the optional `LogRef.unit` — the file's first use of that field. The
+service count is unmoved at 32, because the blocks hang off the existing
+`kind: timer` entries rather than adding entries that would monitor a
+oneshot, which the sweep's own rule forbids.
+
+**The override is necessary rather than tidy, and only the box said so.**
+The three *timer* journals carry **16** records each and **zero** written
+by anything but systemd, so inheriting `systemd.unit` would have ingested
+nothing and reported clean — this entry's own "reads zero rows and looks
+exactly like a working one" trap, in the one form nobody had looked for
+it in.
+
+**Verified at the reader, not at the route.** `POST /api/sysadmin/reload`
+reported the three under `services_changed` with `requires_restart: []`,
+and `GET /api/logs/<unit>` went 404 → 200 for all three while the
+already-declared `estate-manager-api` stayed 200 throughout, which is the
+discriminator that makes those 200s mean something. Then `read_journal`
+with each source's own declaration: **0** entries at `warning` and
+**414 / 500 / 239** one rung down at `info`, so the zero is
+*zero-because-clean*; and the `json` declaration unwraps live, `message`
+reading `weekly_project_review_generated` where `raw_line` keeps the
+envelope.
+
+**The tests needed two repairs before they were controls.** A new
+`--since` argument was inserted between `-u` and the unit, so journalctl
+took it as the unit name, exited non-zero, and **every** live source
+skipped green — including the one that had passed for weeks. A skip is
+not health, so the windowed read is pinned at this daemon's own unit as a
+refusal. And the newest-record assertion was unfalsifiable while every
+source answered `True`, so the detector is now driven where it must say
+*no* — `estate-manager-api`, whose newest application record is a
+plain-text uvicorn access line because the estate leaves `uvicorn.access`
+outside its formatter deliberately.
+
 ## What is blocked
 
-Nothing. The gate this sitting was sent to settle is lifted, and the work
-it unblocks is a scoped `services.yaml` edit with its design recorded in
-`tasks.md`. The only cost of not building it immediately is that the
-estate review's Monday firing is captured by hand rather than by the
-pipeline, and that reading is scheduled regardless.
+Nothing. The block ships **untriggered** and says so beside itself: no
+application record in those three journals has yet arrived above INFO,
+across 27, 15 and 2 post-ADR runs. That is a measured property of a
+population that is *reachable* — 13 `logger.warning`/`logger.error` sites
+across the three paths — rather than an empty one, so the first fault
+they log will be ingested without anything further being done.
 
 # Handoff — 2026-09-13 (Session 223)
 
