@@ -9822,6 +9822,49 @@ NEXT_ACTION_HEADING = "## Next action"
 #: by eye.
 MAX_LINE_CHARS = 160
 
+#: The ``*(For: owner, ~20 min)*`` marker the board reads **beside** the
+#: line rather than inside it, since estate ADR-0167 (announced
+#: 2026-09-13 as message ``c6f473f9``, before the commit carrying it).
+#: The published action is the line without it; ``next_action_for`` and
+#: ``next_action_estimate_minutes`` carry what it said.
+#:
+#: Four things this pattern is, three of them the opposite of the
+#: obvious implementation:
+#:
+#: 1. **End-anchored, because a marker matched anywhere is forgeable**
+#:    — the producer's own reason (their ADR-0080) and, here, a live
+#:    specimen rather than a hypothetical: the line this strip was
+#:    written under quotes ``*(For: …)*`` mid-sentence inside backticks,
+#:    so an unanchored pattern eats a parenthetical and diverges from
+#:    the board on the very document the pin reads.
+#: 2. **It mirrors their *loose* form, not their strict one.**  Their
+#:    strict pattern decides whether a marker parsed; the text they
+#:    publish is cut with the loose one, so a present-but-unreadable
+#:    marker comes off the published line.  Mirroring the strict form
+#:    would look more careful and would disagree on exactly the case
+#:    where the author got the syntax wrong — the case a guard exists
+#:    for.
+#: 3. **It captures nothing, and that is the refusal made structural.**
+#:    Their loose form has a group because it reads ``who`` out of it;
+#:    this must not, because ``who`` and ``estimate_minutes`` are the
+#:    producer's fields and a second statement of them here is
+#:    ``SNAG-DB-003``'s shape.  A zero-group pattern makes publishing
+#:    them impossible rather than discouraged — ``since_timestamp``'s
+#:    argument for taking a ``datetime``.
+#: 4. **It is a mirror and never an import**, for the reason
+#:    :func:`next_action_line` states: the install is incidental.  The
+#:    byte-equality pin in ``tests/test_handoff_shape.py`` is what holds
+#:    it against the owner's parser, and it discriminates **only while a
+#:    marker is written** — with none, no-strip and this strip answer
+#:    alike.  The marker is optional by the convention that announced it,
+#:    so what outlives this document's wording is the synthetic
+#:    falsification in ``tests/test_snag_claims.py``: driven against the
+#:    live document and two forgeries, no-strip is caught by a marked
+#:    line, an unanchored strip by the mid-sentence quotation, and a
+#:    strict mirror by an unreadable marker **alone** — which the live
+#:    document can never carry.
+_FOR_MARKER = re.compile(r"\s*\*\(For:[^)]*\)\*\s*$")
+
 #: The two dispositions that say **no sitting is owed work here**, and so
 #: the two a published next action must not name.  Deliberately a subset
 #: of :data:`DISPOSITIONS` rather than its complement: ``owed`` is the
@@ -9936,6 +9979,27 @@ def next_action_line(path: Path | None = None) -> tuple[str | None, str]:
     placeholder skip — reachable only for a next action written entirely
     in emphasis, which is ``SNAG-ROADMAP-001``'s subject and which the
     pin would report the day it happened.
+
+    **What the published line is changed on 2026-09-13 and this read had
+    to follow** (``SNAG-DOCS-028``).  estate ADR-0167 made the action the
+    line **without** its :data:`_FOR_MARKER`, so the marker is stripped
+    here too.  Three readings the fix turns on:
+
+    * **The marker was never the defect.**  This read was wrong by the
+      docstring above from the moment their ADR landed, marker or no
+      marker; writing one merely makes the disagreement observable.  So
+      dropping the marker from this document is a deferral and not a
+      remedy, and the reverse of the obvious reading — that a new syntax
+      broke a guard.
+    * **The strip is all of it.**  ``who`` and ``estimate_minutes`` are
+      published by the board off the same marker and are deliberately
+      not read here; :data:`_FOR_MARKER` captures nothing so that they
+      cannot be.
+    * **A line that is *only* a marker returns ``""``**, which is what
+      their ``NextActionLine(text="")`` publishes — mirrored rather than
+      turned into a local refusal, because a divergence invented for a
+      case the live document cannot reach is one the pin can never
+      falsify.
     """
     target = path or HANDOFF_PATH
     try:
@@ -9951,7 +10015,7 @@ def next_action_line(path: Path | None = None) -> tuple[str | None, str]:
             in_section = stripped == NEXT_ACTION_HEADING
             continue
         if in_section and stripped:
-            return stripped, ""
+            return _FOR_MARKER.sub("", stripped), ""
     return None, f"{target} names no line under '{NEXT_ACTION_HEADING}'"
 
 

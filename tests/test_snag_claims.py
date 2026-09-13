@@ -701,6 +701,110 @@ class TestTheNextActionIsJudged:
         assert snag_claims.disposition_word("Open — decided, because") == "decided"
 
 
+class TestThePublishedLineDropsTheMarkerTheBoardReadsSeparately:
+    """``SNAG-DOCS-028``: what the board publishes changed on 2026-09-13
+    and this reader was wrong by its own docstring until it followed.
+
+    estate ADR-0167 made the published action the line **without** its
+    end-anchored ``*(For: owner, ~20 min)*`` marker, which the board now
+    carries as ``next_action_for`` and
+    ``next_action_estimate_minutes``.  The marker is not the defect: the
+    two readers disagreed from the moment their ADR landed, and writing
+    one merely made it observable.
+
+    **These are the falsifications the pin cannot make, and which of
+    them it can is measured rather than assumed.**
+    ``tests/test_handoff_shape.py``'s byte-equality pin runs over the
+    live document, so it catches a missing strip only while a marker is
+    written — and the marker is optional by the convention that
+    announced it.  Driven against the live line and two forgeries: **no
+    strip** is caught by any marked line, an **unanchored** strip is
+    caught by today's live line *by accident* (it quotes ``*(For: …)*``
+    mid-sentence inside backticks, which tomorrow's sentence will not),
+    and a **strict mirror** of their reader is caught by an unreadable
+    marker and by nothing else — a document a real author never writes.
+    So one mutation is the pin's, one is today's luck, and one is only
+    ever synthetic.
+    """
+
+    def test_an_unmarked_line_is_returned_byte_identical(self, tmp_path):
+        """The floor, and the one a careless fix passes trivially — it is
+        the case every green run before 2026-09-13 already covered.
+
+        **No mutation driven this sitting reddens it**, and that is
+        stated rather than dressed up: not the missing strip, not the
+        unanchored one (an unmarked line carries no ``*(For:`` for it to
+        eat), not the strict mirror.  It is kept as the regression floor
+        against a future strip that normalises the line rather than
+        cutting a marker off the end of it, which is the one shape the
+        five assertions below all assume away.
+        """
+        line = "Close `SNAG-X-1` — the check is owed on the defect."
+        assert snag_claims.next_action_line(_handoff(tmp_path, line)) == (line, "")
+
+    def test_an_end_anchored_marker_is_stripped(self, tmp_path):
+        """The fix.  Falsified by the pre-2026-09-13 reader, which
+        returns the line with its marker still on it."""
+        got, problem = snag_claims.next_action_line(
+            _handoff(tmp_path, "Close `SNAG-X-1` by doing the thing. *(For: owner, ~20 min)*")
+        )
+        assert not problem
+        assert got == "Close `SNAG-X-1` by doing the thing."
+
+    def test_a_marker_quoted_mid_sentence_survives(self, tmp_path):
+        """End-anchoring, and the specimen is this sitting's own next
+        action: a line *about* the marker quotes it inside backticks.
+        An unanchored strip eats the parenthetical and publishes a
+        sentence with a hole in it — the producer's reason for anchoring
+        (their ADR-0080) arriving here as a live document rather than a
+        hypothetical, and the reason it is pinned synthetically anyway,
+        since the wording is one sitting old.
+        """
+        line = "Strip the `*(For: …)*` marker so the local read is the line the board publishes."
+        assert snag_claims.next_action_line(_handoff(tmp_path, line)) == (line, "")
+
+    def test_a_present_but_unreadable_marker_is_stripped_too(self, tmp_path):
+        """The mutation the pin can never make, which is why this test
+        exists rather than being left to the live document.
+
+        Their reader has two patterns: a **loose** one that finds *a*
+        marker and a strict one that decides whether it parsed.  The
+        text they publish is cut with the loose one, so a marker whose
+        contents are nonsense still comes off the line — their
+        ``marker_readable`` reports it instead.  Mirroring the strict
+        pattern looks more careful and diverges on exactly the case
+        where the author got the syntax wrong.
+        """
+        got, _ = snag_claims.next_action_line(
+            _handoff(tmp_path, "Do the thing. *(For: whoever fancies it)*")
+        )
+        assert got == "Do the thing."
+
+    def test_the_pattern_reads_nothing_out_of_the_marker(self):
+        """``who`` and ``estimate_minutes`` are the producer's fields and
+        a second statement of them here is ``SNAG-DB-003``'s shape.
+
+        Asserted structurally rather than as an absence of callers: a
+        zero-group pattern makes publishing them **impossible** rather
+        than merely absent today, which is ``since_timestamp``'s
+        argument for taking a ``datetime``.  Their loose form has a
+        group precisely because it does read the marker.
+        """
+        assert snag_claims._FOR_MARKER.groups == 0
+
+    def test_a_line_that_is_only_a_marker_is_the_empty_string_they_publish(self, tmp_path):
+        """Mirrored, never turned into a local refusal.
+
+        Their ``read_next_action_line`` returns ``NextActionLine(text="")``
+        for it and the board's snapshot writes that through, so ``""`` is
+        the published line.  A local ``None`` would read as *the document
+        names no action*, which is a different fault — and a divergence
+        invented for a case the live document cannot reach is one the pin
+        can never falsify.
+        """
+        assert snag_claims.next_action_line(_handoff(tmp_path, "*(For: session)*")) == ("", "")
+
+
 class TestConvention:
     def test_a_marker_naming_no_check_is_reported(self):
         findings = check_convention(_entries(), "")

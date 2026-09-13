@@ -1,6 +1,123 @@
-# Handoff — 2026-09-13 (Session 227)
+# Handoff — 2026-09-13 (Session 228)
 
 ## Next action
+
+Rewrite `JUDGED_AUDIT_SEVERITY`'s false aside for `SNAG-PORT-007` from estate-manager's ADR-0170 driver, carrying their measured cause rather than their headline. *(For: session)*
+
+*The line is 162 characters before its marker and names `SNAG-PORT-007`,
+whose status is `Open — owed`* — the register's requirement of a
+published action: the decision is taken and what remains is work. It is
+the one `owed` entry in the register, and Session 227 filed it and said
+in writing what it is waiting for.
+
+***This line carries a marker, and that is the fix it proves.*** estate
+ADR-0167's `*(For: session)*` reaches the board as `next_action_for`;
+until this sitting our own reader returned the raw line, so writing one
+reddened the byte-equality pin. The strip landed, the pin is green with
+the marker in place, and `next_action_for` stops being null for this
+repository. **The marker stays optional** — nothing here requires the
+next sitting to write one, and the five synthetic tests in
+`tests/test_snag_claims.py` are what hold the strip when none is written.
+
+*What the next action is waiting for is a read, not a decision.* The
+replacement sentence should carry estate-manager's **cause** — one
+arbiter event swapping two venture-chat models sits behind 19 of the 27
+`claimed_but_silent` raises — rather than their headline, and that is in
+their driver rather than in the message. Their measurement is evidence
+**against** judging `ports` below `breach`, so the argument the docstring
+makes is untouched and only the *"luck rather than design"* aside is
+false. Estate rule 1 forbids reading their database, so the figures are
+theirs and are cited as theirs.
+
+*The scheduled action still stands and is deliberately not the line
+above* — Session 218's rule 3. It was not taken and not sharpened by this
+sitting, and it is **due tomorrow**.
+
+## What this sitting did
+
+One thing, and the interesting part is what it measured on the way rather
+than the six-line change itself.
+
+**The strip.** `snag_claims._FOR_MARKER` is
+`\s*\*\(For:[^)]*\)\*\s*$` and `next_action_line` returns
+`_FOR_MARKER.sub("", stripped)`. `SNAG-DOCS-028` closed; the register
+went 39 open → 38.
+
+**It mirrors their *loose* pattern rather than their strict one**, which
+is the reading a careful fix gets wrong. `read_next_action_line` finds a
+marker with the loose form and cuts the text with it; the strict form
+only decides `who`/`estimate_minutes` and sets `marker_readable`. So a
+present-but-unreadable marker comes **off** the published line, and a
+strict mirror would have diverged on exactly the case where the author
+got the syntax wrong — the case a guard is for. Driven at their parser
+rather than read off it: `*(For: whoever fancies it)*` gives
+`text='Do the thing.'` with `marker_readable=False`.
+
+**The pattern captures nothing**, which is the entry's *"must not publish
+`who` or `estimate_minutes`"* made structural rather than discouraged.
+Theirs has a group because it reads the marker; a zero-group pattern
+cannot, and one test asserts exactly that.
+
+**Which guard can see which mistake was measured, and that is what
+decided the shape of the work.** Driven against the live line and two
+forgeries:
+
+- **No strip** — caught by any marked document. That is the pin, and only
+  once a marker is written.
+- **An unanchored strip** — caught by today's live line *by accident*. The
+  sentence Session 227 published is *about* the marker and quotes it
+  mid-line inside backticks, so an unanchored pattern eats a
+  parenthetical. Tomorrow's sentence will not do that.
+- **A strict mirror** — caught by an unreadable marker and by **nothing
+  else**. No real author writes one, so no live document can ever reach
+  it.
+
+One mutation is the pin's, one is today's luck, one is only ever
+synthetic. That is why five tests sit beside a pin the entry had already
+called the falsification.
+
+**Four mutations driven and each lands on its intended test**, three of
+them on exactly one: the missing strip reddens three, and the unanchored
+pattern, the strict mirror and an added capture group redden one apiece.
+
+**The sixth test is reddened by none of them and its docstring says so.**
+*An unmarked line is returned byte-identical* is the case every green run
+before today already covered — the entry predicted a careless fix would
+pass it trivially and it does, because an unmarked line carries no
+`*(For:` for an unanchored pattern to eat. It is kept as the regression
+floor against a strip that normalises the line rather than cutting a
+marker off its end, and the empty population is stated rather than
+dressed up as a control.
+
+**A line that is *only* a marker returns `""`, mirrored rather than
+refused.** Their `parse_next_action` gives `NextActionLine(text="")` and
+the snapshot writes `parsed.text` through unconditionally, so `""` **is**
+the published line. A local `None` would read as *the document names no
+action*, a different fault — and a divergence invented for a case the
+live document cannot reach is one the pin can never falsify.
+
+**No restart is owed and the check said so rather than the sitting.**
+`sysadmin/snag_claims.py` is outside the daemon's import graph, so the
+ops-claims deploy check reports it by name and holds `match`.
+
+## What is blocked
+
+**Nothing this sitting did.** Suite 4130 → 4136, `ruff` and `mypy` clean,
+all seventeen ops claims `ok`.
+
+**`SNAG-PORT-007` is owed a read of another repository's driver**, which
+is the next action above rather than a blocker.
+
+**`SNAG-PORT-007`'s estate message `84d72698` is still open on purpose**,
+Session 226's rule: closing one this repository has not acted on spends a
+one-shot close on a note that says nothing. `a9ee6305` likewise, its
+correction living inside `SNAG-DOCS-024`.
+
+---
+
+# Handoff — 2026-09-13 (Session 227)
+
+### The action Session 227 handed on (discharged by Session 228)
 
 Strip the end-anchored `*(For: …)*` marker in `snag_claims.next_action_line` so the local read is the line the board publishes, then write a marker here to prove it.
 

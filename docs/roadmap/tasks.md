@@ -8,6 +8,65 @@
 
 ---
 
+## Session 228: the marker came off the published line ✅ (2026-09-13)
+
+_The ask was Session 227's handoff: strip the end-anchored `*(For: …)*` marker in
+`snag_claims.next_action_line` so the local read is the line the board publishes,
+then write a marker to prove it. Both are done. What the sitting added beyond the
+strip is a measurement of **which guard can see which mistake**, which is what
+decided that five synthetic tests belong beside a pin that was already the
+falsification._
+
+- [x] **The strip is one substitution** — `_FOR_MARKER.sub("", stripped)` against
+      `\s*\*\(For:[^)]*\)\*\s*$`. Suite 4130 → **4136**, all six in
+      `tests/test_snag_claims.py`, so the arithmetic reconciles with nothing to
+      apportion. `ruff` and `mypy` clean (`SNAG-DOCS-028` closed).
+- [x] **It mirrors their *loose* pattern, not their strict one**, which is the
+      reading a careful fix gets wrong. `read_next_action_line` finds a marker with
+      the loose form and cuts the text with it; the strict form only decides
+      `who`/`estimate_minutes` and sets `marker_readable`. So a
+      present-but-unreadable marker comes **off** the published line, and a strict
+      mirror would diverge on exactly the case where the author got the syntax
+      wrong — the case a guard exists for.
+- [x] **The pattern captures nothing**, which is the entry's *"must not publish
+      `who` or `estimate_minutes`"* made structural. Theirs has a group because it
+      reads the marker; a zero-group pattern cannot, so the refusal is impossible
+      rather than merely absent today — `since_timestamp`'s argument for taking a
+      `datetime`.
+- [x] **Which mutation each guard can see was measured, and it is the sitting's
+      real finding.** Driven against the live line and two forgeries: **no strip**
+      is caught by any marked document — the pin, once a marker is written; an
+      **unanchored** strip is caught by today's live line *by accident*, because a
+      sentence about the marker quotes it mid-line inside backticks and tomorrow's
+      will not; a **strict mirror** is caught by an unreadable marker and by
+      nothing else, which no live document ever carries. One mutation is the pin's,
+      one is today's luck, one is only ever synthetic.
+- [x] **Four mutations driven and each lands on its intended test**, three of them
+      on exactly one. The missing strip reddens three; the unanchored pattern, the
+      strict mirror and an added capture group redden one apiece.
+- [x] **The floor test is reddened by none of them and its docstring says so.** *An
+      unmarked line is returned byte-identical* is the case every green run before
+      today already covered — the entry predicted a careless fix would pass it
+      trivially and it does, because an unmarked line carries no `*(For:` for an
+      unanchored pattern to eat. Kept as the regression floor against a future
+      strip that normalises the line rather than cutting a marker off its end, and
+      stated as an empty population rather than dressed up as a control.
+- [x] **A line that is *only* a marker returns `""`, mirrored rather than
+      refused.** Driven at their parser: `parse_next_action` gives
+      `NextActionLine(text="")` and the snapshot writes `parsed.text` through
+      unconditionally, so `""` **is** the published line. A local `None` would read
+      as *the document names no action*, a different fault — and a divergence
+      invented for a case the live document cannot reach is one the pin can never
+      falsify.
+- [x] **A marker is written on this sitting's own next action**, which is what the
+      entry asked for and closes the one cost it filed: `next_action_for` stops
+      being null for this repository. The marker stays optional by the announcement
+      that introduced it, so the pin's power to see a missing strip belongs to
+      whatever the current sitting happened to write — which is why the five
+      synthetic tests are not redundant with it.
+
+---
+
 ## Session 227: a flag was pinned where the claim is about a verb ✅ (2026-09-13)
 
 _The ask was Session 226's handoff: re-key `SNAG-PORT-006`'s red pin on what the
