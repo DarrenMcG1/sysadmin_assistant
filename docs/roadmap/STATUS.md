@@ -3,6 +3,39 @@
 **Last Updated**: 2026-09-13
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The gate was asking the wrong journals** (2026-09-13, Session 224,
+> settling `ideas.md`'s top entry and promoting it to `tasks.md`; no
+> production code changed and the register was not touched).
+> Session 223 narrowed that entry to a witness — one non-INFO record from
+> the estate's three timer units, carrying a `<N>` — and offered two ways
+> on: defer until one exists, or ask estate-manager. **Neither, because
+> the witness existed and was never owed from those three.** ADR-0079's
+> prefix is a property of the estate's shared `configure_logging`, which
+> all four of their entry points call, and `resolve_format` picks the
+> prefixing formatter by a **tty test**, so every unit under systemd
+> takes the same branch.
+> **It was in this repository's own database.** `estate-manager-api.service`
+> has carried `format: json` since 2026-08-31, and `log_entries` holds
+> rows at `PRIORITY=4` and `PRIORITY=3` through that formatter, the
+> earliest the same day — so asking would have been friction we
+> manufactured.
+> **The premise that was false is the transferable half.** A prefix is
+> *not* observable only above INFO: `MESSAGE`'s first byte is a second
+> observable, and no record in the three journals begins with a literal
+> `<N>`, which excludes `SyslogLevelPrefix=no` and leaves journald having
+> consumed it. Measured on the box, with the format boundary in all three
+> journals matching the producer's own commit on a clean tree.
+> **What remains is only the population, and it is thinner than it
+> looked** — post-ADR runs are 27, 15 and 2, the review having fired once
+> under the new formatter — but *reachable and untriggered* rather than
+> structurally empty, their three paths carrying the two warning records
+> ADR-0075 names. The oneshot/timer worry dissolved: `LogRef.unit` already
+> overrides the inherited unit.
+> The cause of three derivations was a claim stated twice — a
+> `services.yaml` comment asserting the prefix had *"no witness here
+> either"*, false within hours of being written and uncorrected for
+> thirteen days. Corrected in place, original kept as history.
+
 > **The argument was about the remedy and the obstacle was the operand**
 > (2026-09-13, Session 223, answering estate message `11cf5113` and
 > opening `SNAG-PORT-005`; [ADR-0012](../adr/0012-a-transient-holder-has-no-project.md)).

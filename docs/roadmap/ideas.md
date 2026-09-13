@@ -12,7 +12,7 @@
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
 
-### 🧠 2026-08-31 — read the estate's three timer journals, now that their warnings are legible
+### ✅ Promoted 2026-09-13 — read the estate's three timer journals, now that their warnings are legible *(raised 2026-08-31; gate lifted by measurement, see SETTLED below)*
 
 Raised by estate-manager in message `76e0438b` §3 and **explicitly left
 to us**: *"the estate is not asking for it and will not judge whether
@@ -57,30 +57,97 @@ Three things to settle before building it, none of them measured yet:
 measurement, and this repository has filed three entries whose ranking
 was wrong because the population was assumed rather than counted.
 
-**Measured 2026-09-13 by Session 223, and the gate should not lift yet.**
-The 2026-09-07 reading item 3 relies on left no record here, so the
-journals were read directly: over 14 days
-`estate-manager-scan.service` wrote **243** lines,
-`estate-manager-audit.service` **277** and
-`estate-manager-review.service` **221**, and
-`journalctl --user -u … -p 4` returns **0** for all three. So it is
-zero-because-clean rather than zero-because-blind — the units are
-running, scan and audit last started this morning — and the population
-this idea would ingest is still **empty**.
+**Measured 2026-09-13 by Session 223, which narrowed the gate to a
+witness.** Over 14 days `estate-manager-scan.service` wrote **243**
+lines, `estate-manager-audit.service` **277** and
+`estate-manager-review.service` **221**, with `-p 4` returning **0** for
+all three. It read that as the mechanism being *unwitnessed* and asked
+for one non-INFO record from these three, carrying a `<N>`, before
+building.
 
-**The sharper half is that the mechanism is unwitnessed.** Every record
-in all three journals is at `PRIORITY=6`, including lines whose own text
-opens with `INFO` (`INFO estate.queue queue: lease 38 requested`). A
-level prefix is only observable on a record *above* INFO, and there has
-not been one — so ADR-0079's prefix reaching these three units is
-**untested**, not confirmed. Building now would ship a
-`severity_filter: warning` entry that reads zero rows and looks exactly
-like a working one, which is the trap this entry's own second paragraph
-names. What is owed before building is a **witness**: one non-INFO
-record from any of the three, carrying a `<N>`. Until then item 2's
-"genuinely empty population" is the whole story and item 1's oneshot/timer
-collision cannot be tested either.
+---
 
+**SETTLED 2026-09-13 (Session 224) — the gate lifts, and it was asking
+the wrong journals.**
+
+**The witness existed, and has since 2026-08-31.** It is not in these
+three and was never owed from them: the prefix is a property of the
+estate's shared `configure_logging`, which **all four** of their entry
+points call — `api.py:76`, `projects/cli.py:71`, `audit/cli.py:88` and
+`summaries/cli.py:115`, the last three carrying an explicit `# ADR-0079`.
+`resolve_format` picks the prefixing formatter by a **tty test**, so
+every unit under systemd takes the same branch; none of the four
+declares `ESTATE_LOG_FORMAT`. Asking three journals for evidence a
+fourth had already supplied is what made this the fourth derivation.
+
+Witnessed three ways, each measured on the box rather than read off
+their ADR:
+
+1. **In our own database.** `estate-manager-api.service` has had a
+   `log:` block with `format: json` since 2026-08-31 (`services.yaml`),
+   and `log_entries` holds **3,150** rows whose `raw_line` carries
+   `PRIORITY=4` and **2** carrying `PRIORITY=3`, all in September, all
+   from `estate_service.arbiter` and psycopg through that formatter.
+   August's 26 are systemd's own `Failed with result 'exit-code'.`
+   lines — precisely the "28 stored rows" that entry's comment predicted
+   as the whole pre-ADR population.
+2. **In the three journals, at INFO.** The handoff's premise that *"a
+   level prefix is only observable on a record above INFO"* is **false**,
+   and that is the correction worth carrying: `PRIORITY` is not the only
+   observable, `MESSAGE`'s first byte is the second. The JSON formatter
+   prepends `<N>` unconditionally
+   (`return f"<{syslog_priority(record.levelno)}>{line}"`), yet **zero**
+   records in the three journals begin with a literal `<N>` — which
+   excludes `SyslogLevelPrefix=no` and leaves journald having consumed
+   it. Measured, not assumed: `SyslogLevelPrefix=yes` and
+   `StandardOutput=journal` on all four units.
+3. **At the boundary.** The three carry **378** JSON records with the
+   formatter's exact key order (`message`, `level`, `logger`,
+   `timestamp`) and **zero** text records after the first JSON one —
+   scan crossing 2026-08-31 08:00, audit 2026-09-01 05:03, review at its
+   next weekly firing 2026-09-07 05:30. The boundary matches estate
+   commit `b87869a` (2026-08-31), whose tree is clean, so the source read
+   here **is** the source deployed.
+
+**So neither option the handoff offered was the answer.** Deferring for
+a non-INFO record from these three tests a property units do not have.
+Asking estate-manager would have been friction we manufactured — the
+answer was in our own `log_entries` table, which is the standing rule to
+measure a dependency locally rather than take its published band.
+
+**What actually remains is the population, and it is thinner than 30
+days of silence.** Post-ADR runs are **27** (scan), **15** (audit) and
+**2** (review, of which **one** under the JSON formatter), with **0**
+application records above INFO in any of them. But the population is
+*reachable and untriggered*, not structurally empty: their three paths
+carry **13** `logger.warning`/`logger.error` call sites, including both
+records ADR-0075 §4 is about — `llm_gpu_busy`
+(`projects/llm.py:230`) and `project_review_llm_unavailable_used_fallback`
+(`projects/review.py:456`), both on the **review** path, the one with a
+single run behind it. A `severity_filter: warning` block would therefore
+be a working monitor waiting for its first fault, which is what this
+repository ships routinely and says so — the ports family and the estate
+judge family both shipped with zero rows.
+
+**Item 1 dissolves and item 2 is settled.** `LogRef.unit` is optional
+and documented as inheriting `systemd.unit` *"rather than repeating
+it"*, so a `log:` block on the existing `kind: timer` entry names
+`unit: estate-manager-scan.service` explicitly and reads the service's
+journal while the entry goes on asserting the timer's schedule. No
+convention collides; it would be this file's first use of the field.
+Item 2's live witness is the 378 JSON records above.
+
+**The payoff is dated and was measured while settling this.** On
+2026-09-07 05:30 the estate's review took GPU lease 56, POSTed to
+llama-server on 8081, got **200 OK** and emitted no fallback warning —
+the same morning our 05:00 health review recorded `llm_used = false`
+(`SNAG-SCHED-004`). Their journal is an independent, timestamped witness
+of another consumer's LLM outcome in the same slot window, and reading
+it by hand is how that was learned today.
+
+**Promoted to `tasks.md` 2026-09-13.** The gate that said *"do not build
+this before 2026-09-07"* has lifted; what is left is a scoped edit whose
+design is settled above, not a measurement.
 ### ⛔ 2026-08-30 — split the GPU gate so the waiterless callers can take the window — **DEAD 2026-08-31, premise removed by the lease fix**
 
 Announced by estate-manager in message `df4113cb` (their ADR-0074 §2) and

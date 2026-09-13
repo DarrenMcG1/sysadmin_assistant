@@ -8,6 +8,84 @@
 
 ---
 
+## Session 224: the gate was asking the wrong journals ✅ (2026-09-13)
+
+_The ask was `ideas.md`'s top entry — ingesting the estate's three timer
+journals — whose 2026-09-07 gate had passed and which Session 223 narrowed to a
+witness: one non-INFO record from those three, carrying a `<N>`. The handoff
+offered two ways forward, defer until such a record exists or ask
+estate-manager whether one had. Neither was the answer._
+
+- [x] **Refuse both offered options, and refuse them on a measurement.** The
+      prefix is a property of the estate's shared `configure_logging`, which
+      all four of their entry points call (`api.py:76`, `projects/cli.py:71`,
+      `audit/cli.py:88`, `summaries/cli.py:115`, the last three carrying an
+      explicit `# ADR-0079`). `resolve_format` chooses the prefixing formatter
+      by a **tty test**, so every unit under systemd takes the same branch and
+      none declares `ESTATE_LOG_FORMAT`. Asking three journals for evidence a
+      fourth had already supplied is what produced three derivations
+- [x] **Find the witness in our own database.** `estate-manager-api.service`
+      has carried a `log:` block with `format: json` since 2026-08-31, and
+      `log_entries` holds **3,150** rows whose `raw_line` carries `PRIORITY=4`
+      and **2** carrying `PRIORITY=3`, all September, all through that
+      formatter — earliest 2026-08-31T09:49:59. Asking estate-manager would
+      have been friction we manufactured
+- [x] **Refute the handoff's premise that a prefix is only observable above
+      INFO.** `PRIORITY` is not the only observable; `MESSAGE`'s first byte is
+      the second. The JSON formatter prepends `<N>` unconditionally, yet
+      **zero** records in the three journals begin with a literal `<N>`, which
+      excludes `SyslogLevelPrefix=no` and leaves journald having consumed it.
+      Measured on the box: `SyslogLevelPrefix=yes`, `StandardOutput=journal`,
+      all four units
+- [x] **Date the boundary against the producer's own commit.** The three carry
+      **378** JSON records with the formatter's exact key order and **zero**
+      text records after the first JSON one — scan crossing 2026-08-31 08:00,
+      audit 2026-09-01 05:03, review 2026-09-07 05:30. Estate commit `b87869a`
+      (2026-08-31), tree clean, so the source read is the source deployed
+- [x] **Measure the population honestly rather than as "30 days of silence".**
+      Post-ADR runs are **27** (scan), **15** (audit) and **2** (review, one of
+      them under the JSON formatter), with **0** application records above INFO
+      in any. But their three paths carry **13** `logger.warning`/
+      `logger.error` sites, including both records ADR-0075 §4 names —
+      `llm_gpu_busy` and `project_review_llm_unavailable_used_fallback`, both
+      on the review path. Reachable and untriggered, not structurally empty
+- [x] **Dissolve item 1 and settle item 2.** `LogRef.unit` is optional and
+      documented as inheriting `systemd.unit` *"rather than repeating it"*, so
+      a `log:` block on the `kind: timer` entry names the `.service` unit
+      explicitly and no convention collides. Item 2's live witness is the 378
+      JSON records
+- [x] **Correct the same claim where it is stated a second time.**
+      `services.yaml`'s `estate-manager-api` comment asserted *"the producer's
+      new prefix has no witness here either"* — false within hours of being
+      written, uncorrected for thirteen days, and the reason the gate was
+      re-derived against the wrong journals. Corrected in place with the
+      original kept as history
+
+**Promoted from `ideas.md`, design settled, not built this sitting:**
+
+- [ ] **Add a `log:` block to the three estate timer entries in
+      `services.yaml`**, each naming its service unit explicitly —
+      `log: { type: journalctl, unit: estate-manager-scan.service,
+      severity_filter: warning, format: json }` and the same for
+      `-audit.service` and `-review.service`. It would be the file's first use
+      of `LogRef.unit`. Installs by **SIGHUP reload**, not a restart, so it
+      spends none of the budget `SNAG-SYSD-007` is about
+- [ ] **Carry the comment the entry earns**, on the pattern the
+      `estate-manager-api` entry already sets: what the declaration states,
+      that it ships untriggered, and — the half that was got wrong last time —
+      that the *witness* for the prefix is the api unit rather than these three
+- [ ] **Add the tests alongside**, per this repository's standing rule. At
+      minimum: the three sources appear in `composed_log_sources`, each
+      resolving to its `.service` unit rather than the `.timer` the entry
+      monitors, and `stored_source_name` returns the service unit
+- [ ] **Note the dated payoff when scheduling it.** The review fires Monday
+      2026-09-14 05:30 and is the only one of the three whose path holds the
+      two ADR-0075 records; building before then captures that firing in the
+      pipeline. The observation is not lost either way — the 2026-09-14
+      scheduled action already reads it by hand
+
+---
+
 ## Session 223: the argument was about the remedy, the obstacle was the operand ✅ (2026-09-13)
 
 _The ask was estate message `11cf5113`, the one open row in this repository's

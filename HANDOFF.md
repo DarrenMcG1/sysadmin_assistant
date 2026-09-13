@@ -1,6 +1,118 @@
-# Handoff — 2026-09-13 (Session 223)
+# Handoff — 2026-09-13 (Session 224)
 
 ## Next action
+
+Build the promoted `services.yaml` change that `tasks.md` now carries fully designed — a `log:` block on each of the three estate timer entries, naming its `.service` unit explicitly through `LogRef.unit` with `severity_filter: warning` and `format: json` — because the gate blocking it has lifted by measurement rather than by waiting: ADR-0079's level prefix is witnessed 3,152 times in this repository's own `log_entries` by way of `estate-manager-api.service`, which takes the identical `configure_logging` branch, so a block added now is a working monitor rather than one that reads zero rows while looking exactly like a working one, and it installs by SIGHUP reload rather than a restart; the one thing to weigh before starting is that the estate's weekly review fires Monday at 05:30 and is the only one of the three whose code path holds the two warning records ADR-0075 is about, so building before then is the difference between catching that firing in the pipeline and reading it by hand.
+
+*This sitting settled an idea and built nothing, which is why the line
+above names a `services.yaml` edit rather than an entry.* The register is
+untouched: nothing was opened, nothing closed, and no check moved. The
+inbox is empty.
+
+*The scheduled action still stands and is deliberately not the line
+above*, which is Session 218's rule 3 — the dated reading is declared in
+`## Scheduled action` below and this line names startable work instead.
+It was **sharpened** by this sitting without being taken: the estate's
+weekly review succeeded with the LLM at 05:30 on the same morning our
+05:00 health review did not, which narrows the cold-start hypothesis that
+reading exists to discriminate.
+
+## What this sitting did
+
+Settled `ideas.md`'s top entry — ingesting the estate's three timer
+journals — and **promoted it to `tasks.md` with its design decided**.
+Corrected one stale claim in `services.yaml`. **No production code
+changed**, no test was added, and the register was not touched.
+
+**The question, and why both offered answers were wrong.** Session 223
+narrowed the entry's gate to a witness: one non-INFO record from
+`estate-manager-scan/-audit/-review.service`, carrying a `<N>`, before a
+`log:` block could be trusted. The handoff offered two ways on — defer
+until such a record exists, or ask estate-manager whether one had. The
+witness already existed and was never owed from those three. ADR-0079's
+prefix is a property of the estate's **shared** `configure_logging`,
+which all four of their entry points call (`api.py:76`,
+`projects/cli.py:71`, `audit/cli.py:88`, `summaries/cli.py:115`, the last
+three carrying an explicit `# ADR-0079`), and `resolve_format` selects
+the prefixing formatter by a **tty test**, so every unit under systemd
+takes the same branch and none declares `ESTATE_LOG_FORMAT`. Asking three
+journals for evidence a fourth had already supplied is what produced
+three derivations of one gate.
+
+**Where the witness was: our own database.** `estate-manager-api.service`
+has carried a `log:` block with `format: json` since 2026-08-31, and
+`log_entries` holds **3,150** rows whose `raw_line` carries `PRIORITY=4`
+and **2** carrying `PRIORITY=3` — all September, all
+`estate_service.arbiter` and psycopg through that formatter, the earliest
+at 2026-08-31T09:49:59. So asking estate-manager would have been friction
+this repository manufactured, against the standing rule to measure a
+dependency locally rather than take its published band.
+
+**The premise that was false, and it is the transferable half.** The
+handoff held that *"a level prefix is only observable on a record above
+INFO"*. `PRIORITY` is not the only observable — `MESSAGE`'s first byte is
+the second. The JSON formatter prepends `<N>` unconditionally
+(`return f"<{syslog_priority(record.levelno)}>{line}"`), yet **zero**
+records in the three journals begin with a literal `<N>`, which excludes
+`SyslogLevelPrefix=no` and leaves journald having consumed it. Measured
+on the box rather than read off their ADR: `SyslogLevelPrefix=yes` and
+`StandardOutput=journal` on all four units. The boundary agrees — **378**
+JSON records across the three with the formatter's exact key order and
+**zero** text records after the first JSON one, scan crossing 2026-08-31
+08:00, audit 2026-09-01 05:03 and review at its weekly firing on
+2026-09-07 05:30, matching estate commit `b87869a` on a clean tree, so
+the source read is the source deployed.
+
+**The population, stated honestly rather than as thirty days of
+silence.** Post-ADR runs are **27** (scan), **15** (audit) and **2**
+(review, one of them under the JSON formatter), with **0** application
+records above INFO in any of them. But their three paths carry **13**
+`logger.warning`/`logger.error` sites, including both records ADR-0075
+§4 names — `llm_gpu_busy` (`projects/llm.py:230`) and
+`project_review_llm_unavailable_used_fallback` (`projects/review.py:456`),
+both on the **review** path, the one with a single run behind it. So the
+population is *reachable and untriggered*, not structurally empty, which
+is the difference between a monitor waiting for its first fault and a
+decorative one.
+
+**The two unchecked items dissolved.** `LogRef.unit` is optional and
+documented as inheriting `systemd.unit` *"rather than repeating it"*, so
+a `log:` block on the `kind: timer` entry names the `.service` unit
+explicitly and the oneshot/timer conventions do not collide; it would be
+this file's first use of the field. The `format: json` witness the entry
+wanted is the 378 records above.
+
+**The correction, which is why this was re-derived three times.**
+`services.yaml`'s `estate-manager-api` comment asserted *"no estate
+application line has yet arrived above priority 6 … so the producer's
+new prefix has no witness here either"*. That was false within hours of
+being written — the earliest contradicting row is the same day — and
+stood for thirteen days, sending three sittings to the wrong journals.
+Corrected in place with the original kept as history, and the half that
+held (its prediction that the pre-ADR population was the 28 systemd
+rows — 26 stored) noted as having held exactly.
+
+**A free finding, recorded where it argues rather than acted on.** On
+2026-09-07 05:30 the estate's review took GPU lease 56, POSTed to
+llama-server on 8081, got **200 OK** and emitted no fallback warning —
+the same morning this repository's 05:00 health review recorded
+`llm_used = false`. The LLM was serving thirty minutes later, which is
+consistent with a cold start and not with a whole-morning outage. It is
+noted in `ideas.md` as the payoff the log block would give routinely and
+appended to the scheduled item it sharpens; the entry it bears on was
+**not** edited, because that reading is already scheduled and owns it.
+
+## What is blocked
+
+Nothing. The gate this sitting was sent to settle is lifted, and the work
+it unblocks is a scoped `services.yaml` edit with its design recorded in
+`tasks.md`. The only cost of not building it immediately is that the
+estate review's Monday firing is captured by hand rather than by the
+pipeline, and that reading is scheduled regardless.
+
+# Handoff — 2026-09-13 (Session 223)
+
+### The action Session 223 handed on (discharged by Session 224)
 
 Settle `ideas.md`'s top entry — ingesting the estate's three timer journals — now that its 2026-09-07 gate has passed and this sitting has measured the population it was waiting on: all three units are running and wrote 243, 277 and 221 lines in fourteen days with **zero** at priority 4 or louder, and every record in all three sits at `PRIORITY=6` including lines whose own text opens with `INFO`, so the estate's ADR-0079 level prefix is **unwitnessed** rather than confirmed and a `log:` block added today would ship a `severity_filter: warning` entry that reads zero rows and looks exactly like a working one — decide whether to defer until a single non-INFO record carrying a `<N>` exists, or to ask estate-manager whether their three timer units have written above INFO at all since that ADR, and record whichever it is in `ideas.md` rather than leaving the gate to be re-derived a fourth time.
 
@@ -5638,7 +5750,7 @@ Announced to estate-manager as message `8e693e05` before the commit that
 carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
-- **2026-09-14** — Discriminate the cold-start hypothesis Session 206 left: on the second Monday under lease, read `llm_used` on all three review tables again. If `health_reviews` alone is false a second time, the fault tracks the **05:00 slot** rather than the health review's own code, because log (05:15) and disk (05:45) succeeded on 2026-09-07 with the same client and the same model; if all three are true, 2026-09-07 was a one-off llama-server disconnect and the entry closes. Read it with `journalctl -u sysadmin.service` — **system scope, no `--user`** — because `sysadmin.service` is a system unit running `User=gaddi` and the user journal holds one line for it, which is the trap the 2026-09-07 item did not name and Session 206 fell into. *Sharpened 2026-09-12 by Session 220 without being touched: `SNAG-GPU-001`'s explanation requires a GPU reset, and the newest one on this box is **2026-09-06 20:43:01**, so unless one lands before Monday a second `health_reviews.llm_used = false` excludes the poisoned-context cause by measurement rather than leaving it the competing explanation it was on one observation. The box has also been on `6.18.49-2-lts` since 2026-09-10 18:18:46, where the eleven-resets-a-week population was measured under `7.2.3-arch1-2`.*
+- **2026-09-14** — Discriminate the cold-start hypothesis Session 206 left: on the second Monday under lease, read `llm_used` on all three review tables again. If `health_reviews` alone is false a second time, the fault tracks the **05:00 slot** rather than the health review's own code, because log (05:15) and disk (05:45) succeeded on 2026-09-07 with the same client and the same model; if all three are true, 2026-09-07 was a one-off llama-server disconnect and the entry closes. Read it with `journalctl -u sysadmin.service` — **system scope, no `--user`** — because `sysadmin.service` is a system unit running `User=gaddi` and the user journal holds one line for it, which is the trap the 2026-09-07 item did not name and Session 206 fell into. *Sharpened 2026-09-12 by Session 220 without being touched: `SNAG-GPU-001`'s explanation requires a GPU reset, and the newest one on this box is **2026-09-06 20:43:01**, so unless one lands before Monday a second `health_reviews.llm_used = false` excludes the poisoned-context cause by measurement rather than leaving it the competing explanation it was on one observation. The box has also been on `6.18.49-2-lts` since 2026-09-10 18:18:46, where the eleven-resets-a-week population was measured under `7.2.3-arch1-2`.* *Sharpened again 2026-09-13 by Session 224, also without being taken: reading the estate's own journal while settling `ideas.md`'s timer-journal entry shows their weekly review ran at 05:30 that same 2026-09-07 morning, took GPU lease 56, POSTed to llama-server on 8081 and got **200 OK**, emitting none of the fallback warnings their code carries — so llama-server was serving thirty minutes after this repository's 05:00 health review failed to use it, which is consistent with a cold start and excludes a whole-morning outage as the cause. A third consumer's success in the same window is evidence neither of the three review tables can supply.*
 
 ## Session 146 is complete — the first night under the fix, and the check could not close its own entry
 
