@@ -50,7 +50,7 @@ options a previous session had written down turned out not to exist.
 
 ## The roadmap — `roadmap/`
 
-About 25,500 lines, measured 2026-09-10, and the reason the repository is
+About 27,200 lines, measured 2026-09-13, and the reason the repository is
 worth reading.
 
 - **[`snag_list.md`](roadmap/snag_list.md)** — open and fixed defects. Entries

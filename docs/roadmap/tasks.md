@@ -4,7 +4,69 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-12
+> **Last Updated**: 2026-09-13
+
+---
+
+## Session 222: the entry counted six and the tree held four ✅ (2026-09-13)
+
+_The ask was Session 221's handoff: take `SNAG-DOCS-012`, whose disposition
+that sitting had moved from `decided` to `owed`, and decide what `README.md`
+can honestly hold in place of six stale figures — bands, a `CLAIM_PATTERN`
+with a marker, or deletion._
+
+- [x] **Measure before deciding, and the premise was partly refuted.**
+      `README.md` states **seven** moving figures, not six. Two — the roadmap
+      pair — are hedged, dated and **inside their own guard's band** at 6.2 %
+      and 7.9 % against 15 %, so they were behaving as designed rather than
+      failing. The handoff's **58,073** is not the backend's line count: it is
+      `sysadmin/` at **51,923** plus `sysadmin_tray/` at **6,150**, compared
+      against a sentence naming the backend alone, which reads **1.0 %**
+      adrift. The tray's **6,150** was **exact**, and had been reported stale
+      by two consecutive sittings that had never measured it. The seventh,
+      named by nobody, is the install block's *"~3,960 tests"* against
+      **4,087**, and it moves faster than any of the six
+- [x] **`README.md` was not unread, which is what made the question narrower
+      than it looked.** `tests/test_readme_claims.py::TestTheMovingFiguresStayHedged`
+      has guarded the roadmap pair since 2026-09-10 with a hedge, a date and a
+      drift band. So option (a) was not hypothetical — it was already shipped
+      for half the population, and the work was **scope** rather than a fresh
+      design. `ops_claims` reads exactly one region, `printed_region()` of
+      `STATUS.md`, so option (b) was never "add a marker" but "make that module
+      read a second document", against its own stated rule
+- [x] **The deletion precedent was checked and does not transfer.** The two
+      `<!--check:flapping-->` sentences lost their figures because a **marker
+      claimed a verification that had not happened**, and because
+      `check-ops-claims.sh` prints the live reading to the same reader at every
+      preflight. Neither limb holds here: no marker claims these, and this
+      document's reader is a stranger on `github.com` for whom the figure is
+      the only statement rather than a second one
+- [x] **Five figures denominated, hedged, dated and banded.**
+      `LINE_COUNT_CLAIMS` carries each as a `(pattern, pathspec)` pair, so a
+      figure names its own denominator and cannot be re-scoped in prose the way
+      this entry's was. `docs/README.md`'s third copy re-measured in the same
+      sitting, because refreshing one copy and not the other *is* the entry
+- [x] **The argument they support is guarded apart from them**, against the
+      tree rather than the document: five figures may each drift inside the
+      band while the comparison between them reverses
+- [x] **The test count defers by name instead of being measured twice.**
+      Re-collecting inside the suite is this module's own recorded refusal and
+      one real `measure_tests()` was **timed at 1.9 s**, recursively, for a
+      figure `STATUS.md` owns behind `<!--check:tests-->`. README is compared
+      against that checked cell through `ops_claims`' own `CLAIM_PATTERNS`
+- [x] **`tracked_lines` written once instead of twice**, in
+      `tests/document_claims.py` beside `FIGURE_TOLERANCE`, for that constant's
+      own stated reason
+- [x] **Seven mutations driven, six killed, one filed.** Restoring the pre-fix
+      figure under today's hedge and date **passes** at 6.7 % against a 15 %
+      band — `SNAG-DOCS-026`, the band checking a value where the date asserts
+      a provenance. Two more were insufficient before they were sufficient: one
+      spelling of the checked cell removed changed nothing, the cell stating the
+      count twice on purpose; and the deferral's first draft asserted
+      readability in a **fixture**, erroring every test in the class including
+      the premise written to name the cause
+- [x] Suite **4087 → 4093**; `ruff` clean; `mypy sysadmin` clean; every ops
+      claim `ok`
 
 ---
 

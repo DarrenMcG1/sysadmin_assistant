@@ -1,6 +1,125 @@
-# Handoff — 2026-09-12 (Session 221)
+# Handoff — 2026-09-13 (Session 222)
 
 ## Next action
+
+Take estate message `11cf5113`, the one open row in this repository's inbox and the only work anybody is actually waiting on now that the register's owed queue is empty, which reports a defect estate-manager drove on the live box: `judge_ports` cannot see a **transient** holder squatting a port the registry has already claimed, because `holders` skips `listener.transient`, so binding `127.0.0.1:3300` — the registry's `venture-assistant` row — from `~/projects/web/portfolionew` inside a VS Code scope produced a fully attributed listener and **zero** findings, and the judgement they leave to us is exactly the one Session 57 took for the wrong family: the transient exclusion is plainly right for `port_shared` and `wrong_unit`, whose remedies name a unit, and a comparison against a *document* has no unit in its remedy, so reproduce it with `observe_listeners` and `judge_ports` while something holds 3300 before deciding whether `wrong_project` should read `transient_ports` the way `reading()` already does, and note in passing that the same run returned `unknown_registry_projects == ['sysadmin-service']`, which is this repository's own name failing to resolve and may be a second finding or the same one.
+
+## What this sitting did
+
+Closed `SNAG-DOCS-012` and opened `SNAG-DOCS-026`.
+
+**The premise was measured before anything was decided, and three parts of
+it were wrong.** The ask named six stale figures on `README.md`. The tree
+holds **seven** moving figures and **four** of them were adrift:
+
+- the roadmap pair (~25,500 and ~40,700 against **27,174** and **44,166**)
+  is hedged, dated and **inside its own guard's 15 % band** at 6.2 % and
+  7.9 %, so it was behaving as designed rather than failing;
+- the handoff's **58,073** is not the backend's line count — it is
+  `sysadmin/` at **51,923** *plus* `sysadmin_tray/` at **6,150**, set
+  against a sentence naming the backend alone, which reads **1.0 %**
+  adrift;
+- the tray's **6,150** was **exact**, and had been called stale by two
+  consecutive sittings that had never measured it;
+- and a seventh figure nobody had named — the install block's
+  *"~3,960 tests"* against **4,087** — moves faster than any of the six.
+
+That is this entry's own lesson arriving at the entry: a figure quoted in
+prose is free to be re-scoped by whoever quotes it, and the quoting
+sittings were its own.
+
+**`README.md` was not unread, which made the question narrower than it
+looked.** `TestTheMovingFiguresStayHedged` has guarded the roadmap pair
+with a hedge, a date and a drift band since 2026-09-10, so *bands* were
+not a hypothesis — they were already shipped for half the population, and
+what was missing was **scope**. `ops_claims` reads exactly one region,
+`printed_region()` of `STATUS.md`, so the marker option was never "add a
+marker" but "make that module read a second document", against its own
+stated rule.
+
+**The deletion precedent was checked and does not transfer.** The two
+`<!--check:flapping-->` sentences lost their figures because a marker
+claimed a verification that had not happened, and because
+`check-ops-claims.sh` prints the live reading to the same reader at every
+preflight. Neither limb holds here: no marker claims these, and this
+document's reader is a stranger on `github.com` for whom the figure is
+the only statement rather than a second one — so deleting would take
+measurement out of the one document whose case is that everything here
+was measured.
+
+**What shipped.** `LINE_COUNT_CLAIMS` carries five figures as
+`(pattern, pathspec)` pairs, each naming its own denominator so it cannot
+be re-scoped in prose the way this entry's was; both sentences re-measured,
+hedged and dated, with `docs/README.md`'s third copy re-measured in the
+same sitting. The claim the figures support is asked of the **tree**
+directly, because five may each drift inside the band while the comparison
+between them reverses. The test count **defers by name** to the document
+that owns it rather than being measured twice — re-collecting inside the
+suite is this module's own recorded refusal and one real `measure_tests()`
+was timed at **1.9 s**, recursively. `tracked_lines` was written twice, in
+two guard modules, and is now written once.
+
+**Seven mutations driven, six killed, one filed.** Restoring the pre-fix
+figure under today's hedge and date **passes**, at 6.7 % against a 15 %
+band — the band checks a *value* where the date asserts a *provenance*,
+which no test can witness, so it is `SNAG-DOCS-026` rather than a closure
+attempt; all three candidate closures are worse than the residue and the
+entry says why. Two further mutations were **insufficient before they were
+sufficient**: removing one spelling of `STATUS.md`'s checked cell changed
+nothing, because that cell states the count twice on purpose and the
+alternation reads both, and the deferral's first draft asserted
+readability **in a fixture**, so a removed cell came back `ERROR` on every
+test in the class including the premise written to name the cause.
+
+**Found in passing and fixed in passing**: `SNAG-DOCS-015` has carried
+`Status: Open — owed` since 2026-09-11 under a header reading `FIXED`, so
+the register stated one disposition twice and corrected only the newer
+copy. Nothing machine-read was wrong — `estate.snags` takes `is_open` from
+the header — but a human did read it: Session 221's handoff ranked
+`SNAG-DOCS-012` beside it as co-owed. Demoted, and swept for the class:
+**1 → 0**, measured either side, so it was an instance and not a class.
+
+## What is blocked
+
+Nothing. `ruff` clean, `mypy sysadmin` clean, **4093 passed** (4087 + 6,
+all six in `tests/test_readme_claims.py`, 30 → 36, so the arithmetic
+reconciles with nothing to apportion, and the baseline was collected
+rather than read off the Quick Status cell), every claim in
+`check-ops-claims.sh` `ok`, `check-estate-docs.sh` exit 0 with nothing
+owed, and `check-snag-claims.sh` reading 36 open of 168 entries with the
+owed queue empty.
+
+**The inbox holds one open message and it is the next action.**
+`11cf5113` was filed 2026-09-12 22:08, *after* Session 221 closed, so
+that sitting's "the estate inbox holds no open message" was true when it
+was written and is not any more.
+
+**A filter the server does not recognise is not a filter**, which cost
+this sitting a wrong reading before it cost anything else. Asking
+`/api/estate/messages?receiver=…&status=open` returns **42** rows — the
+whole history — because the parameter is spelled **`state`**, and an
+unrecognised one is dropped rather than refused. The canonical reader,
+`~/.claude/hooks/inbox-notice.sh`, has always sent `state=open`; asked
+that way the answer is **1**, and the server echoes the filter it applied
+under `filter` in the payload, which is what settles it. `ports_checked`'s
+rule at the size of a query parameter: 42-because-unfiltered read exactly
+like 42-because-open.
+
+**One correction to the previous handoff, which this sitting checked
+rather than repeated.** Session 221's close recorded `check-snag-claims.sh`
+as exiting **0**; it exits **2**, on the advisory `?? Open entries no
+check names — 11 of 36`. That is the standing state and not this
+sitting's doing: driven against HEAD's register by stash, the same
+script reports the **same 11 of 36** and the same exit, because
+`SNAG-DOCS-012` closed carrying no check and `SNAG-DOCS-026` opened
+carrying none either, which is a deliberate refusal with the argument
+written into the entry — what one would drive asserts the *fix*, and this
+family's `ok` means the defect is still real. The number is unmoved
+either side, and it is a gauge rather than a fault.
+
+# Handoff — 2026-09-12 (Session 221)
+
+### The action Session 221 handed on (discharged by Session 222)
 
 Take `SNAG-DOCS-012`, whose disposition this sitting moved from `decided` to `owed` because the premise that ranking rested on — that the public surface is already correct — was refuted by the entry's own re-measurement one bullet above it, and decide what `README.md` can honestly hold in place of its six stale figures: it says the roadmap runs to about 25,500 lines of roughly 40,700 against **27,127** and **44,005** measured today, and *"68,536 lines of tests against 51,427 of backend and 6,150 of tray"* against **73,234** and **58,073**, on a repository that has been public since 2026-09-09, and that entry's own argument is that re-measuring does not fix it because every one of those figures moves on every commit that adds a line — so the question is exactly the one this sitting answered for the two `<!--check:flapping-->` sentences, where the answer was to delete the numbers because `scripts/check-ops-claims.sh` prints the live reading fresher than any document can hold it, and `README.md` has no such reader, which is what leaves bands, a `CLAIM_PATTERN` with a marker, and deletion three live options rather than a settled one.
 

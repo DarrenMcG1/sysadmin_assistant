@@ -40,6 +40,7 @@ from tests.document_claims import (
     FIGURE_TOLERANCE,
     NUMBER_WORDS,
     live_adr_ids,
+    tracked_lines,
     unresolved_links,
 )
 
@@ -426,21 +427,8 @@ class TestTheRoadmapFigureStaysHedged:
         ), "the roadmap figure has lost its hedge or its measurement date"
 
     def test_the_figure_has_not_drifted_into_misleading(self, flat: str) -> None:
-        import subprocess
-
         claimed = stated(flat, r"About ([\d,]+) lines, measured")
-        files = subprocess.run(
-            ["git", "ls-files", "docs/roadmap/*.md"],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.split()
-        measured = sum(
-            len((REPO_ROOT / f).read_text().splitlines())
-            for f in files
-            if (REPO_ROOT / f).exists()
-        )
+        measured = tracked_lines("docs/roadmap/*.md")
         drift = abs(measured - claimed) / measured
         assert drift <= FIGURE_TOLERANCE, (
             f"the index says ~{claimed:,}, the roadmap holds {measured:,} "

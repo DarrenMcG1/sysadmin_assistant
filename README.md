@@ -17,8 +17,8 @@ carry out) tidy-up actions.
 
 It is built for exactly one box and does not try to be Prometheus, so the code
 is unlikely to be useful to you directly. **The written record might be.** The
-roadmap alone runs to about 25,500 lines — of roughly 40,700 lines of Markdown
-in the repository altogether, measured 2026-09-10 — and it exists because most
+roadmap alone runs to about 27,200 lines — of roughly 44,300 lines of Markdown
+in the repository altogether, measured 2026-09-13 — and it exists because most
 repositories keep their reasoning in someone's head and ship only the result.
 This one keeps the reasoning: what each change was measured against, which
 options were rejected and why, which guards were deliberately falsified, which
@@ -154,16 +154,17 @@ answers the same question before you commit.
 
 ```bash
 uv sync --all-extras     # dev and tray extras; a bare `uv sync` prunes them
-uv run pytest            # backend + tray suites — ~3,960 tests
+uv run pytest            # backend + tray suites — ~4,100 tests
 uv run ruff check .      # lint (CI runs this)
 uv run mypy sysadmin     # backend types only
 ./scripts/lint_check.sh  # combined pre-commit gate
 ./scripts/smoke_test.sh  # against a running instance
 ```
 
-There is more test code than source: **68,536 lines of tests** against 51,427 of
-backend and 6,150 of tray. Tests build the real application via `create_app`
-with a stubbed lifespan, so there is no synthetic test app to drift.
+There is more test code than source: about **73,500 lines of tests** against
+roughly 51,900 of backend and 6,150 of tray, measured 2026-09-13. Tests build
+the real application via `create_app` with a stubbed lifespan, so there is no
+synthetic test app to drift.
 
 Several suites guard things a normal test cannot reach — `test_schema_drift.py`
 compares the live schema against the models using production Alembic

@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -135,6 +136,48 @@ _UNITS = {
 
 # --------------------------------------------------------------------------
 # Populations on disk
+
+
+def tracked_lines(pathspec: str) -> int:
+    """Lines in every **tracked** file matching ``pathspec``.
+
+    The box side of every hedged line-count sentence, stated once here for
+    :data:`FIGURE_TOLERANCE`'s own reason — it was written inline in
+    ``test_readme_claims.py`` and again in ``test_docs_index.py``, two
+    implementations of one measurement, which is the defect those guards
+    exist to catch arriving inside the guards (``SNAG-DB-003``'s shape).
+
+    Three rules, two of them the opposite of the obvious implementation:
+
+    1. **Tracked, never a filesystem walk.**  ``git ls-files`` is what
+       decides the population, so an untracked scratch file, a ``.venv``
+       and this session's own ``.bak`` artefacts are excluded by the same
+       fact that makes them absent from the published repository — which
+       is the population every one of these sentences is about.  A
+       ``Path.rglob`` would count whatever happens to be lying about and
+       give a different answer on two checkouts of one commit.
+    2. **The pathspec is git's, so ``*.md`` is recursive.**  Git's
+       wildmatch lets ``*`` cross ``/`` unless ``:(glob)`` magic says
+       otherwise, which is why ``*.md`` reaches ``docs/adr/`` and reads as
+       the whole-repository total the sentences claim.  Spelling it
+       ``**/*.md`` would be the same set by accident rather than by rule.
+    3. **A deleted-but-still-indexed path is skipped, not an error.**
+       ``git ls-files`` lists the index; a file removed from the worktree
+       without ``git rm`` is named and absent, and raising there would
+       make an unrelated dirty tree read as a documentation defect.
+    """
+    files = subprocess.run(
+        ["git", "ls-files", pathspec],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    return sum(
+        len((REPO_ROOT / name).read_text().splitlines())
+        for name in files
+        if (REPO_ROOT / name).exists()
+    )
 
 
 def live_packages() -> set[str]:

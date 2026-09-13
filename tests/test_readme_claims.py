@@ -26,14 +26,25 @@ The entry's own claim — *"the population is measured-correct today"* — was
 true of the five agent rows it had checked and false of the document.  That
 is the entry's own lesson, instance against class, arriving one level down.
 
-**What is not guarded, and why.**  The test count and the Markdown line
-counts move on **every commit**, this one included, so an exact pin makes a
-session's own work read as a documentation defect and nothing decides
-anything off the figure.  They are hedged and dated in the document instead
-(``SNAG-DOCS-012``'s remedy: state the population), and
-:class:`TestTheMovingFiguresStayHedged` guards *that* — the two ways such a
-sentence goes wrong are losing its hedge, which turns a snapshot into a
-false precision, and drifting far enough to mislead.
+**The moving figures are not pinned, and since 2026-09-13 none of them is
+unread either.**  Every line count here moves on **every commit**, this one
+included, so an exact pin makes a session's own work read as a documentation
+defect and nothing decides anything off the figure.  They are hedged and
+dated in the document instead (``SNAG-DOCS-012``'s remedy: state the
+population), and :class:`TestTheMovingFiguresStayHedged` guards *that* — the
+two ways such a sentence goes wrong are losing its hedge, which turns a
+snapshot into a false precision, and drifting far enough to mislead.
+
+What closing ``SNAG-DOCS-012`` added was **scope**, and the entry is its own
+illustration.  From 2026-09-10 the band covered the two figures that entry
+quoted and nothing else, so the sentence that actually *argues* from a number
+— *there is more test code than source* — sat bare, exact and unguarded for
+the three days this repository was public, and the tray's line count sat
+exact and was reported stale by two successive sittings that had never
+measured it.  The claim table :data:`LINE_COUNT_CLAIMS` is what stops a
+figure being described rather than denominated; the suite's own test count
+is the one figure this module deliberately does not measure, deferring to the
+document that owns it (:class:`TestTheStatedTestCountDefersToTheCheckedOne`).
 
 Each sweep runs in **both directions** and carries an anti-vacuity premise:
 an empty population makes a ``for`` loop green while asserting nothing
@@ -45,6 +56,7 @@ import re
 import pytest
 
 from sysadmin.core.config import REPO_ROOT
+from sysadmin.ops_claims import load_region, read_claim
 from tests.document_claims import (
     FIGURE_TOLERANCE,
     NUMBER_WORDS,
@@ -60,6 +72,7 @@ from tests.document_claims import (
     live_tables,
     planned_agent_intervals,
     routes_by_prefix,
+    tracked_lines,
     unresolved_links,
 )
 
@@ -333,6 +346,21 @@ class TestTheLinksResolve:
         assert not missing, f"linked, not present: {missing}"
 
 
+#: Every line-count figure this document states, with the tracked pathspec
+#: that decides it.  Two of the five were guarded from 2026-09-10; the other
+#: three were bare, unhedged and unread until ``SNAG-DOCS-012`` was taken on
+#: 2026-09-13, and one of *those* — the tray's — was exactly right, which is
+#: the measurement that ranked the work rather than the entry's own claim
+#: that six figures were wrong.
+LINE_COUNT_CLAIMS: tuple[tuple[str, str], ...] = (
+    (r"roadmap alone runs to about ([\d,]+) lines", "docs/roadmap/*.md"),
+    (r"of roughly ([\d,]+) lines of Markdown", "*.md"),
+    (r"about \*\*([\d,]+) lines of tests\*\*", "tests/*.py"),
+    (r"against roughly ([\d,]+) of backend", "sysadmin/*.py"),
+    (r"and ([\d,]+) of tray", "sysadmin_tray/*.py"),
+)
+
+
 class TestTheMovingFiguresStayHedged:
     """A figure that moves on every commit is guarded as a *snapshot*.
 
@@ -344,6 +372,40 @@ class TestTheMovingFiguresStayHedged:
     that entry exists because one number was carried between two arguments
     needing different denominators; the hedge is what stops the same figure
     being read as precise.
+
+    **The population is five figures, and it was three until 2026-09-13.**
+    ``SNAG-DOCS-012``'s closing sitting found the entry had scoped itself to
+    the two sentences it happened to quote, leaving the source-versus-test
+    comparison — the document's one *argument* from a number — bare, exact
+    and unread.  Two rules came out of extending it, both settled by the
+    measurement rather than by the entry:
+
+    1. **The claim table is the unit, not the sentence.**  The entry and the
+       handoff that carried it both mis-stated the population: they read
+       ``58,073`` as the backend's line count when it is backend **plus**
+       tray, and reported the tray's figure as stale when it was exact.  A
+       figure quoted in prose is free to be re-scoped by whoever quotes it;
+       a ``(pattern, pathspec)`` pair names its own denominator and cannot
+       be, which is ``reliability.py``'s refusal to scale counts by coverage
+       arriving in a guard.
+    2. **The suite's own test count is guarded *elsewhere* and deliberately
+       not here** — see :class:`TestTheStatedTestCountDefersToTheCheckedOne`.
+
+    **The named limit, measured rather than assumed.**  Driven on 2026-09-13
+    against this document, restoring the pre-fix figure — *"about **68,536**
+    lines of tests, measured 2026-09-13"* — **passes**, at 6.7 % against a
+    15 % band.  So the band cannot see a sitting that refreshes the *date*
+    without re-measuring the figure, and that is a property of what a date
+    is rather than a hole to close: the sentence asserts a **provenance**,
+    the band checks a **value**, and no test can witness that a measurement
+    was taken when it says it was.  ``SNAG-DOCS-026`` records it.
+
+    What the band's slack does *not* put at risk is the only thing the
+    figures are used to argue, because that is asked of the tree directly by
+    :meth:`test_the_claim_it_supports_is_still_true_of_the_box` — five
+    figures may each drift within tolerance while the comparison between
+    them reverses, and a guard that checked only the band would have nothing
+    to say about it.
     """
 
     def test_the_line_count_sentence_names_both_populations_and_a_date(
@@ -360,27 +422,49 @@ class TestTheMovingFiguresStayHedged:
             "its second population or its date"
         )
 
+    def test_the_test_code_sentence_keeps_its_hedge_and_its_date(
+        self, flat: str
+    ) -> None:
+        """The sentence that argues from a number, rather than reporting one.
+
+        It was bare and exact — *"**68,536 lines of tests** against 51,427 of
+        backend and 6,150 of tray"* — for the three days this repository was
+        public, which is the worst shape of the three: a figure with no hedge
+        claims a precision it loses on the next commit, and this one is load
+        bearing, being the only evidence offered for *there is more test code
+        than source*.
+        """
+        match = re.search(
+            r"There is more test code than source: about \*\*([\d,]+) lines of "
+            r"tests\*\* against roughly ([\d,]+) of backend and ([\d,]+) of "
+            r"tray, measured (\d{4}-\d{2}-\d{2})",
+            flat,
+        )
+        assert match, (
+            "the test-code sentence has lost its hedge, one of its three "
+            "populations, or its date"
+        )
+
+    def test_the_claim_it_supports_is_still_true_of_the_box(self) -> None:
+        """The direction, asked of the tree rather than of the sentence.
+
+        The figures are snapshots and may drift within the band; the *claim*
+        may not drift at all, and the two are separable.  Asserting only the
+        band would leave the document making a comparison that had reversed
+        while every number in it was individually within tolerance — the
+        shape ``test_the_rows_sum_to_the_stated_total`` caught one file over,
+        where each half was defensible and the reader could not reconcile
+        them.
+        """
+        tests = tracked_lines("tests/*.py")
+        source = tracked_lines("sysadmin/*.py") + tracked_lines("sysadmin_tray/*.py")
+        assert tests > source, (
+            f"the document claims more test code than source; the tree holds "
+            f"{tests:,} of tests against {source:,} of source"
+        )
+
     def test_the_line_counts_have_not_drifted_into_misleading(self, flat: str) -> None:
-        import subprocess
-
-        def tracked_lines(pathspec: str) -> int:
-            files = subprocess.run(
-                ["git", "ls-files", pathspec],
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.split()
-            return sum(
-                len((REPO_ROOT / f).read_text().splitlines())
-                for f in files
-                if (REPO_ROOT / f).exists()
-            )
-
-        for pattern, pathspec in (
-            (r"roadmap alone runs to about ([\d,]+) lines", "docs/roadmap/*.md"),
-            (r"of roughly ([\d,]+) lines of Markdown", "*.md"),
-        ):
+        for pattern, pathspec in LINE_COUNT_CLAIMS:
             claimed = stated(flat, pattern)
             measured = tracked_lines(pathspec)
             drift = abs(measured - claimed) / measured
@@ -388,3 +472,117 @@ class TestTheMovingFiguresStayHedged:
                 f"{pathspec}: the document says ~{claimed:,}, the tree holds "
                 f"{measured:,} ({drift:.0%} adrift) — re-measure the sentence"
             )
+
+    @pytest.mark.premise
+    def test_every_line_count_claim_has_a_non_empty_population(self) -> None:
+        """An empty pathspec makes the drift above zero and the loop green.
+
+        ``SNAG-TEST-006``: a ``for`` over nothing asserts nothing, and a
+        pathspec typo is exactly how this one would empty — ``git ls-files``
+        answers an unmatched pattern with silence and exit ``0`` rather than
+        an error, so the loop would report five agreeing figures over a
+        population of none.
+        """
+        assert LINE_COUNT_CLAIMS, "the claim table is empty"
+        for _, pathspec in LINE_COUNT_CLAIMS:
+            assert tracked_lines(pathspec) > 0, f"{pathspec} matches no tracked file"
+
+
+class TestTheStatedTestCountDefersToTheCheckedOne:
+    """The one moving figure this document does **not** measure for itself.
+
+    ``README.md``'s install block annotates ``uv run pytest`` with a test
+    count, and it moves faster than any other figure here — every commit
+    that adds a test.  The obvious guard collects the suite and compares,
+    and it is refused on two grounds, the second of which is the real one:
+
+    1. **Cost, which is this module's own recorded refusal.**  A guard that
+       re-collected would be *"a probe multiplying the suite's own cost"*
+       — :func:`sysadmin.ops_claims.measure_tests` is cached for exactly
+       that reason, having taken the suite 75.4 s → 151 s uncached, and one
+       real invocation measures **1.9 s** (timed 2026-09-13).  A recursive
+       ``pytest --collect-only`` from inside ``pytest`` is the shape that
+       cost buys nothing to repeat.
+    2. **A second measurer of a figure another document owns under a
+       check.**  ``docs/roadmap/STATUS.md`` states this count behind
+       ``<!--check:tests-->``, and ``scripts/check-ops-claims.sh``
+       re-measures it live at **every preflight** — so the figure already
+       has an owner, a pattern and a reader fresher than any snapshot.
+       Measuring it again here would be two implementations of one fact,
+       free to disagree, which is ``SNAG-DB-003``'s shape and the defect
+       the ``<!--check:flapping-->`` sitting had just finished removing.
+
+    So the guard **defers by name**, the way ``health_review`` defers disk
+    occupancy to the disk review rather than narrating it twice.  The
+    comparison is against ``STATUS.md``'s checked cell, read through
+    ``ops_claims``' own ``CLAIM_PATTERNS["tests"]`` rather than a retyped
+    pattern — import where you can, pin where you cannot.
+
+    **The two failure modes land on the right owners**, which is what makes
+    the deferral honest rather than merely cheap: the README drifting from
+    ``STATUS.md`` is red here, and ``STATUS.md`` drifting from the box is
+    ``check_tests`` at the next preflight.  Neither can hide the other, and
+    neither document is asked to hold a figure it does not own.
+
+    Note what is *not* claimed: this says nothing about whether the count is
+    currently true, only that the document does not contradict the one
+    surface on this box that checks it.  A guard that asserted truth would
+    have to re-collect, which is rule 1.
+    """
+
+    @pytest.fixture(scope="class")
+    def checked_read(self) -> tuple[str | None, str]:
+        """The raw read, **asserting nothing**, so the premise can speak.
+
+        An earlier draft asserted readability here and was driven at a
+        ``STATUS.md`` with the cell removed: every test in the class came
+        back ``ERROR`` rather than ``FAILED``, including the premise written
+        to name the cause.  That is Session 130's recorded defect — a drive
+        erroring takes the premise down before it can say why — so the
+        fixture reports and the tests judge.
+        """
+        region, problem = load_region()
+        if region is None:
+            return None, f"STATUS.md's checked region is unreadable: {problem}"
+        return read_claim(region, "tests")
+
+    @pytest.fixture(scope="class")
+    def checked_count(self, checked_read: tuple[str | None, str]) -> int:
+        value, why_not = checked_read
+        assert value is not None, why_not
+        return int(value)
+
+    @pytest.mark.premise
+    def test_the_checked_cell_is_a_plausible_suite(
+        self, checked_read: tuple[str | None, str]
+    ) -> None:
+        """The reference exists, is singular, and is a count.
+
+        Three readings this has to separate, and ``read_claim`` supplies the
+        first two: no figure at all, and the cell stating one figure two
+        ways and disagreeing with itself — ``ops_claims`` rule 2's refusal,
+        which is live here because that cell *does* state the count twice on
+        purpose, in the Status column and again in the Notes.  The third is
+        this test's own: a figure that parsed to something implausible, such
+        as the ``0`` a silently-degraded read would give, which would make
+        the README agree with nothing and pass.
+        """
+        value, why_not = checked_read
+        assert value is not None, f"no usable checked test count: {why_not}"
+        assert int(value) > 100, f"checked cell reads {value}, which is no suite"
+
+    def test_the_stated_count_keeps_its_hedge(self, flat: str) -> None:
+        assert re.search(r"backend \+ tray suites — ~([\d,]+) tests", flat), (
+            "the install block's test count has lost its hedge or its wording"
+        )
+
+    def test_the_stated_count_agrees_with_the_checked_one(
+        self, flat: str, checked_count: int
+    ) -> None:
+        claimed = stated(flat, r"backend \+ tray suites — ~([\d,]+) tests")
+        drift = abs(checked_count - claimed) / checked_count
+        assert drift <= FIGURE_TOLERANCE, (
+            f"README says ~{claimed:,} tests, STATUS.md's checked cell says "
+            f"{checked_count:,} ({drift:.0%} adrift) — re-measure the README, "
+            f"or run ./scripts/check-ops-claims.sh if STATUS.md is the stale one"
+        )
