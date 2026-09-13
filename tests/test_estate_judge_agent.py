@@ -576,10 +576,23 @@ class TestOneRowPerTitlePerRun:
     pile-up, and still two unresolved rows for one fault, which is the
     legibility half of ``SNAG-AGENT-006``.
 
-    Unreachable on today's estate, where ``unclaimed_listener`` is the
-    only ports breach. Pinned because the *fix* is invisible: a run that
-    raises twice looks exactly like a run that raises once until
-    somebody counts the rows.
+    **The population was called unreachable until 2026-09-13 and the
+    reason given for it was wrong** (``SNAG-DOCS-029``). It read
+    *"unreachable on today's estate, where ``unclaimed_listener`` is the
+    only ports breach"*. There are two breach codes since estate ADR-0166
+    added ``claimed_by_an_unregistered_tree``, and they cannot share a
+    port — one is filed only for a port no registry row claims, the other
+    only for a port some row does — so *that* fork stays closed for a
+    structural reason rather than a countable one. What is open is a
+    path nobody had named: their loop runs **per claim row**, not per
+    port, so one port carrying two registry rows whose holder works out
+    of an unregistered tree files that breach twice, with one subject.
+    Read off their ``audit/checks/ports.py`` on 2026-09-13; whether it
+    has ever fired is their history and is not re-taken here.
+
+    Pinned because the *fix* is invisible either way: a run that raises
+    twice looks exactly like a run that raises once until somebody
+    counts the rows.
     """
 
     async def test_two_findings_for_one_port_raise_one_row(self, agent):

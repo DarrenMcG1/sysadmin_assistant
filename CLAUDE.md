@@ -2467,20 +2467,39 @@ judges it per finding.
 
 The narrowing is exact, and both of rule 3's original reasons still
 exclude what they excluded. **Scoped to `check == "ports"`, never to a
-severity**: all four estate checks emit `breach`, so a severity-only
+severity**: `ports` does not have `breach` to itself, so a severity-only
 filter would re-import the collation family `monitor/collation.py`
 already raises here (this service's own alerts arriving through a second
 producer) and pull in `pointers`/`seams`, which are other repositories'
 conformance. Neither reason reaches a port, because **no repository owns
-one**.
+one**. *That premise read "all four estate checks emit `breach`" until
+2026-09-13 (`SNAG-DOCS-029`), which was the audit as it stood when the
+rule was written. It is replaced rather than re-counted: a sentence
+restating another repository's cardinality is the thing that went stale,
+so it is not restated here. The figure's home is `JUDGED_AUDIT_CHECKS`,
+which dates it and sources it to `checks_run` on
+`GET :8400/api/audit/invariants`. *That home is where a reader should go
+and it is not yet the only copy* — nine sentences in this tree restate
+today's total, two of them inside `judgements.py` itself, which is
+`SNAG-DOCS-030`. Every consequence the sentence names survives the
+correction, re-read off their `audit/checks/`: `collation`, `pointers`
+and `seams` all still emit `breach`, so what aged was the premise and
+never the argument.*
 
 Six rules, four of them the opposite of the first draft:
 
 1. **Only `breach`, taking the producer's severity as the filter** — the
-   deference `judge_attention` already gives a nudge's rung. `warn` is
-   `claimed_but_silent`, which is *availability*, and availability has an
-   owner here: `services.yaml` plus the sysadmin agent's `% unreachable`
-   family. **This read "that today's one live `warn` (port 3300) happens
+   deference `judge_attention` already gives a nudge's rung. The `warn`
+   rung carries `claimed_but_silent`, which is *availability*, and
+   availability has an owner here: `services.yaml` plus the sysadmin
+   agent's `% unreachable` family. *The rung held that one code until
+   2026-09-13 (`SNAG-DOCS-029` — this read "`warn` is
+   `claimed_but_silent`"); it gained `claimed_by_more_than_one_row`,
+   which is not an availability finding and is excluded for its own
+   reason, this repository already serving its subject as
+   `duplicate_claim` under `GET /api/units/actions`. Which codes sit at
+   which rung is the producer's vocabulary and is not enumerated here;
+   `JUDGED_AUDIT_SEVERITY` is where it is read, dated and sourced.* **This read "that today's one live `warn` (port 3300) happens
    not to overlap is luck — its registry row reads 'unit to follow'"
    until 2026-09-13**, when estate message `84d72698` measured their 430
    audit runs by presence streak: the overlap was already on **four**
@@ -2504,10 +2523,20 @@ Six rules, four of them the opposite of the first draft:
    skipped rather than titled from the sentence, because that fallback is
    the forkable title rule 2 forbids. `isinstance(True, int)` is `True`,
    so bools are refused explicitly.
-5. **The title carries no `code`.** `unclaimed_listener` is the only
-   ports breach today, and a code in the title forks the row when a
-   second one lands for the same port. The producer's `summary` is the
-   message, so its wording can change without moving the identity.
+5. **The title carries no `code`.** A code in the title forks the row
+   when a second one lands for the same port. The producer's `summary` is
+   the message, so its wording can change without moving the identity.
+   *This opened "`unclaimed_listener` is the only ports breach today"
+   until 2026-09-13 (`SNAG-DOCS-029`), and the correction is the opposite
+   of the obvious one: a second breach code has landed
+   (`claimed_by_an_unregistered_tree`, estate ADR-0166) and the fork is
+   **still** unreachable by code, because the two partition the ports
+   between them — one is filed only for a port no registry row claims and
+   the other only for a port some row does. What the count was standing
+   in for is that partition, which is structural and does not age, so it
+   is what the rule rests on now. The reachable path is two registry
+   **rows**: their loop is per claim row, so one port claimed twice can
+   file that breach twice — see `tests/test_estate_judge_agent.py`.*
 
 `audit_invariants` and `audit_findings` are **two surfaces, not one**,
 though they come from a single check run: they are two HTTP calls that

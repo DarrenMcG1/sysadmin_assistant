@@ -372,10 +372,21 @@ class TestTheAuditAgainstProducerBuiltPayloads:
 
 class TestAuditFindingsAgainstProducerBuiltPayloads:
     def test_the_live_findings_judge_nothing(self):
-        """Today's three findings are two ``docs`` breaches and one
-        ``ports`` **warn**, and all three are correctly ignored: docs is
-        another repository's conformance, and ``warn`` is availability,
-        which ``services.yaml`` owns."""
+        """The recorded payload's three findings are a ``docs``
+        breach, a ``docs`` ``info`` and one ``ports`` **warn**, and all
+        three are correctly ignored: docs is another repository's
+        conformance, and this payload's ``warn`` is
+        ``claimed_but_silent``, which is availability and
+        ``services.yaml``'s.
+
+        Two clauses were corrected on 2026-09-13 (``SNAG-DOCS-029``).
+        *"Two ``docs`` breaches"* miscounted the fixture beside it — it
+        holds one, plus an ``info``. And *"``warn`` is availability"*
+        generalised from this one payload to the rung: since estate
+        ADR-0168 the rung also carries ``claimed_by_more_than_one_row``,
+        which is a document fault rather than an availability one. The
+        assertion is unaffected — nothing below ``breach`` is judged
+        whatever it means."""
         payload = scenarios("audit_findings")["live"]
         assert payload["findings"]
         assert judge_audit_findings(payload, PORT_BREACH_MAX_ROWS) == []

@@ -3,6 +3,54 @@
 **Last Updated**: 2026-09-13
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A count of another repository's checks was retired rather than
+> refreshed, and the entry named three sentences where the class had
+> ten** (2026-09-13, Session 230, closing `SNAG-DOCS-029`; nothing under
+> `sysadmin/` was touched, so **no restart is owed** and the ops-claims
+> deploy check says so itself).
+> Three sentences stated the estate's August audit vocabulary in the
+> present tense — *"all four estate checks emit `breach`"*, *"`warn` is
+> `claimed_but_silent`"* — and one of them was a summary of an ADR
+> written partly to retire it. **The remedy was structural, not
+> arithmetic**: a corrected count ages the next time the estate adds a
+> check, so each sentence now carries the qualitative fact its argument
+> actually needed. *"All four checks emit `breach`"* becomes *"`ports`
+> does not have `breach` to itself"*, which is the minimal claim a
+> severity-filter refusal requires and cannot be off by a number.
+> **The class was swept by shape rather than trusted from the entry**,
+> `SNAG-PORT-007`'s rule applied to the entry that recorded it: **ten**
+> sites in three sub-classes, not three, and the third sub-class —
+> *"`unclaimed_listener` is the only ports breach"* — was already
+> **false** and unrecorded. Re-measured off their source rather than
+> their database: **8 of 13** check modules can emit `breach`, so every
+> consequence the original sentence named survives it — `collation`,
+> `pointers` and `seams` all still breach-capable. What aged was the
+> premise and never the argument.
+> **The tenth site was on an open entry and was load-bearing.**
+> `SNAG-ESTATE-006`'s *Cost today: none* rested on *"`unclaimed_listener`
+> is the only ports breach, so nothing is ambiguous"*. With two breach
+> codes that is false, so the cost was re-derived rather than re-worded —
+> it survives, on rule 4 keeping the code out of the title by design
+> rather than on a count that expired.
+> **The correction to `test_two_findings_for_one_port_raise_one_row` runs
+> opposite to the obvious one.** A second breach code landed and the fork
+> is *still* unreachable by code, because the two partition the ports —
+> one filed only for a port no row claims, the other only for a port some
+> row does. The reachable path is two registry **rows**, which nobody had
+> named.
+> **The fix asserted a property nobody had measured, and measuring it
+> opened `SNAG-DOCS-030`.** All four rewrites first read *"the figure is
+> quoted in exactly one place"*; counting found **nine** restatements of
+> today's total, **two inside `judgements.py` itself**. Corrected before
+> it shipped — this register's own recurring failure, caught inside the
+> fix for a sentence that had it.
+> **The guard the entry proposed was driven before being refused**:
+> 148 raw hits over 327 files, **47 %** precision after a context filter,
+> and every in-class survivor is history — including the dated
+> corrections this sitting wrote, because `SNAG-DOCS-027`'s convention
+> keeps a retired claim verbatim beside its date. A lexical guard would
+> fire on the convention that makes staleness legible.
+
 > **The aside placed an overlap in the future that was already on four
 > ports** (2026-09-13, Session 229, closing `SNAG-PORT-007` and estate
 > message `84d72698`).
@@ -11286,16 +11334,25 @@ time; a count is not news"*), reproduced one layer up.
 
 **The narrowing of rule 3 is exact, not a reversal.** Both of its
 original reasons still exclude what they excluded, and the filter is
-`check == "ports"` rather than a severity because **all four** estate
-checks emit `breach`: a severity-only rule would re-import the collation
+`check == "ports"` rather than a severity because `ports` does not have
+`breach` to itself: a severity-only rule would re-import the collation
 family this service already raises (its own alerts through a second
 producer) and pull in `pointers`/`seams`, which are other repositories'
 conformance. Ports are the exception because **no repository owns a
 port** — and since the estate may not alert, the choice was never who
-speaks but whether anyone does.
+speaks but whether anyone does. *(That premise read "**all four** estate
+checks emit `breach`" until 2026-09-13, when `SNAG-DOCS-029` retired the
+count rather than refreshing it: the audit ran four checks when the rule
+was written, and the figure is not restated here — its home is
+`JUDGED_AUDIT_CHECKS`, which dates it and sources it. Every consequence named above survives the
+correction: `collation`, `pointers` and `seams` all still emit
+`breach`.)*
 
 **Three rules that were the opposite of the first draft.** `warn` is not
-judged — `claimed_but_silent` is availability, which `services.yaml` plus
+judged — the rung carries `claimed_but_silent`, which is availability,
+and *(since 2026-09-13, `SNAG-DOCS-029`)* `claimed_by_more_than_one_row`,
+whose subject this repository already serves as `duplicate_claim`. The
+availability half is what `services.yaml` plus
 the `% unreachable` family already owns, and that today's one live `warn`
 (port 3300) does not overlap is luck, its registry row reading "unit to
 follow". *(That last clause was falsified on 2026-09-13 by estate

@@ -1150,19 +1150,43 @@ class TestAuditFindings:
     @pytest.mark.parametrize("check", ["collation", "pointers", "seams"])
     def test_other_checks_are_never_judged_even_at_breach(self, check):
         """The reason ``JUDGED_AUDIT_CHECK`` is a check name and not a
-        severity: **all four** checks emit ``breach``. Collation is the
-        family ``sysadmin.monitor.collation`` already raises here, so
-        judging it double-counts this service's own alerts through a
-        second producer; pointers and seams are other repositories'
-        conformance."""
+        severity: ``ports`` does not have ``breach`` to itself, so the
+        rung cannot discriminate. Collation is the family
+        ``sysadmin.monitor.collation`` already raises here, so judging it
+        double-counts this service's own alerts through a second
+        producer; pointers and seams are other repositories'
+        conformance — and all three parametrised here still emit
+        ``breach``, re-read off their ``audit/checks/`` on 2026-09-13.
+
+        **This read "all four checks emit ``breach``" until 2026-09-13**
+        (``SNAG-DOCS-029``). The count is retired rather than refreshed:
+        it is another repository's cardinality, it went stale once
+        already, and a guard's reason restating it ages every time the
+        estate adds a check while the guard itself is unaffected. It is
+        not restated here; the figure's home is ``JUDGED_AUDIT_CHECKS``,
+        which dates it and sources it to ``checks_run`` on
+        ``GET :8400/api/audit/invariants`` — and being its home is not yet
+        being its only copy, which is ``SNAG-DOCS-030``.
+        """
         assert judge_audit_findings({"findings": [_breach(check=check)]}, 5) == []
 
     @pytest.mark.parametrize("severity", ["warn", "info"])
     def test_only_breaches_are_judged(self, severity):
-        """``warn`` is ``claimed_but_silent`` — availability, which
-        ``services.yaml`` plus the sysadmin agent's ``% unreachable``
-        family already owns. A second owner closes a row while the first
-        still holds it true."""
+        """The ``warn`` rung carries ``claimed_but_silent`` —
+        availability, which ``services.yaml`` plus the sysadmin agent's
+        ``% unreachable`` family already owns. A second owner closes a
+        row while the first still holds it true.
+
+        **This read "``warn`` is ``claimed_but_silent``" until
+        2026-09-13** (``SNAG-DOCS-029``). The rung gained
+        ``claimed_by_more_than_one_row`` (estate ADR-0168), which is not
+        an availability finding and is excluded for its own reason —
+        this repository already serves its subject as ``duplicate_claim``
+        under ``GET /api/units/actions``. The parametrisation is on the
+        **rung**, which is what the filter reads, so the guard is
+        unmoved; what was wrong was a reason naming one code as if the
+        rung held only it. Which codes sit where is enumerated once, in
+        ``JUDGED_AUDIT_SEVERITY``."""
         assert judge_audit_findings({"findings": [_breach(severity=severity)]}, 5) == []
 
     def test_a_finding_with_no_usable_port_is_skipped(self):
@@ -1183,9 +1207,20 @@ class TestAuditFindings:
         assert judge_audit_findings({"findings": [_breach(detail={"port": True})]}, 5) == []
 
     def test_the_title_carries_no_code(self):
-        """``unclaimed_listener`` is the only ports breach today. A title
-        built from the code forks the row the day a second one lands for
-        the same port — the producer owns that vocabulary, not us."""
+        """A title built from the code forks the row the day a second
+        one lands for the same port — the producer owns that vocabulary,
+        not us.
+
+        **This opened "``unclaimed_listener`` is the only ports breach
+        today" until 2026-09-13** (``SNAG-DOCS-029``), and the correction
+        is the opposite of the obvious one. A second breach code has
+        landed — ``claimed_by_an_unregistered_tree``, estate ADR-0166 —
+        and the fork is **still** unreachable by code: their check files
+        the first only for a port no registry row claims and the second
+        only for a port some row does, so the two partition the ports
+        between them. That partition is what the count was standing in
+        for, and unlike a count it does not age. The reachable path is
+        two registry **rows**; see ``test_estate_judge_agent.py``."""
         [judgement] = judge_audit_findings({"findings": [_breach(code="some_future_code")]}, 5)
         assert judgement.title == "Estate port 8888 registry breach"
         assert judgement.details["code"] == "some_future_code"

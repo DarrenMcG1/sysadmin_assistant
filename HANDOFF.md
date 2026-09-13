@@ -1,6 +1,134 @@
-# Handoff — 2026-09-13 (Session 229)
+# Handoff — 2026-09-13 (Session 230)
 
 ## Next action
+
+Retire or re-derive the nine sentences restating the estate check total for `SNAG-DOCS-030`, deciding per site whether the count is carrying an argument that needs a denominator. *(For: session)*
+
+*The line is 178 characters before its marker and names
+`SNAG-DOCS-030`, whose status is `Open — owed`* — the register's
+requirement of a published action: the decision is taken and what remains
+is work. It is the one `owed` entry, and this sitting filed it, having
+found it by measuring a claim its own fix had made. The treatment was
+settled one class over by `SNAG-DOCS-029`; what is owed is nine readings
+against it, which is why the line says **per site**.
+
+*What makes it worth a sitting rather than a `sed`* is that the count is
+load-bearing in at least one of the nine. `judgements.py:186` uses the
+total to say that ten checks erroring at once is nearly the whole audit —
+a claim about **proportion**, which reads as nothing without a
+denominator. Deleting the figure there loses the argument; re-deriving it
+at import time would make a docstring depend on 8400 being up. The
+treatment this sitting used one class over — replace the count with the
+qualitative fact the sentence actually needs — is probably right and has
+to be judged nine times.
+
+*The scheduled action still stands and is deliberately not the line
+above* — Session 218's rule 3. It was not taken and not sharpened by this
+sitting, and it was **due today**.
+
+## What this sitting did
+
+One thing, and all three of its findings are about the class rather than
+about the sentences it was sent to fix.
+
+**The three sentences are retired, and the remedy is structural rather
+than arithmetic.** A corrected count ages the next time the estate adds a
+check, so each sentence now carries the qualitative fact its argument
+needed instead. *"All four estate checks emit `breach`"* becomes
+*"`ports` does not have `breach` to itself"* — the minimal claim a
+severity-filter refusal requires, and one that cannot be off by a number.
+*"`warn` is `claimed_but_silent`"* becomes *"the `warn` rung carries
+`claimed_but_silent`"*. Every original is kept **dated rather than
+deleted**, `SNAG-DOCS-027`'s convention (`SNAG-DOCS-029` closed).
+
+**The entry named three sites and the class had ten.** Swept on the
+claim's shape rather than on the docstrings the entry names —
+`SNAG-PORT-007`'s rule, applied to the entry that recorded it. Three
+sub-classes, and the third was never recorded by anyone:
+*"`unclaimed_listener` is the only ports breach"*, at four sites, which
+was **already false** — estate ADR-0166 added
+`claimed_by_an_unregistered_tree` at `breach` on 2026-09-13.
+
+**The tenth site was on an *open* entry and was holding up a live
+assessment.** `SNAG-ESTATE-006`'s **Cost today: none** bullet rested
+entirely on *"`unclaimed_listener` is the only ports breach, so nothing
+is ambiguous"*. With two breach codes that premise is false, so the cost
+was **re-derived** rather than re-worded: it survives, because rule 4
+keeps the code out of the title by design and `details['fingerprint']`'s
+last segment carries it for a human, but it now rests on a structural
+fact rather than an expired count. A stale sentence propping up a live
+cost assessment is the thing a class sweep exists to find.
+
+**Re-measured off their source and never their database** (estate rule
+1). **8 of 13** check modules can emit `breach`, so every consequence the
+original sentence named survives the correction — `collation`,
+`pointers` and `seams` are all still breach-capable, which means what
+aged was the premise and never the argument. The `ports` codes are six
+across three rungs: `breach` → `unclaimed_listener`,
+`claimed_by_an_unregistered_tree`; `warn` → `claimed_but_silent`,
+`claimed_by_more_than_one_row`; `info` → `dormant_but_listening`,
+`claimed_tool_default`.
+
+**One docstring was corrected in the direction opposite to the obvious
+one.** `test_two_findings_for_one_port_raise_one_row` called its
+population unreachable *because* there was one breach code. There are
+two — and they **still** cannot share a port, since their check files one
+only for a port no registry row claims and the other only for a port some
+row does, so that fork stays closed for a structural reason rather than a
+countable one. What is open is a path nobody had named: their loop runs
+per claim **row**, so one port carrying two registry rows whose holder
+works out of an unregistered tree files that breach twice with one
+subject. Read off their `checks/ports.py`; whether it has ever fired is
+their history and was not re-taken here.
+
+**The fix asserted a property nobody had measured, and measuring it
+opened `SNAG-DOCS-030`.** All four rewrites first read *"the figure is
+quoted in exactly one place"*. Nobody had counted; counting refuted it in
+one command — **nine** sentences restate today's total of thirteen, **two
+of them inside `judgements.py` itself**, beside the one that dates and
+sources it. The wording was corrected to what is true before anything
+shipped. This register's own recurring failure, caught inside the fix for
+a sentence that had it.
+
+**The narrow guard the entry proposed was driven before being refused.**
+*"No sentence outside `judgements.py` names a check count at all"*, as a
+lexical detector over 327 files: **148 raw hits, 70 surviving an
+estate/audit/breach context filter — 47 % precision**. Every in-class
+survivor is history: ADR-0006's quotation, `tasks.md`'s footnote,
+`STATUS.md`'s session blocks, and the dated corrections this sitting
+wrote. That last group is decisive and is a **tension rather than a
+tuning problem** — `SNAG-DOCS-027`'s convention keeps a retired claim
+verbatim beside its date, so a guard over the sentence's own words fires
+on the correction that makes the staleness legible. In served code the
+population is empty by construction: all ten sites were narrative or
+tests, and the one `sysadmin/` site is the owner.
+
+**Gates.** Suite unmoved at **4136**, green; `ruff` and `mypy` clean — a
+documentation change adds no test, so the arithmetic reconciles with
+nothing to apportion. `sysadmin-check-snags` exits 0; the register reads
+175 entries and **38 open**, unchanged, one closed and one opened. **No
+restart owed and none paid** — nothing under `sysadmin/` was touched, and
+all 16 ops claims report `ok`, the deploy check saying so itself.
+
+## What is blocked
+
+**Nothing this sitting did.**
+
+**`SNAG-DOCS-030` is owed nine readings, not one sweep** — the treatment
+is `SNAG-DOCS-029`'s and the judgement is per site, which is why the next
+action says so rather than naming a single remedy. That is the next
+action above rather than a blocker.
+
+**Estate message `a9ee6305` stays open**, unchanged by this sitting: its
+correction lives inside `SNAG-DOCS-024` and the question it leaves — of
+whether to point the `SNAG-DOCS-022` preflight reader at `ports` — is
+this repository's to decide and was not decided here.
+
+---
+
+# Handoff — 2026-09-13 (Session 229)
+
+### The action Session 229 handed on (discharged by Session 230)
 
 Retire the three sentences restating the estate's audit vocabulary for `SNAG-DOCS-029`, wording them so they assert no check count this repository does not own. *(For: session)*
 

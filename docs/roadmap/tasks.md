@@ -8,6 +8,81 @@
 
 ---
 
+## Session 230: the count was retired, not refreshed ✅ (2026-09-13)
+
+_The ask was Session 229's handoff: retire the three sentences restating the
+estate's audit vocabulary for `SNAG-DOCS-029`, wording them so they assert no
+check count this repository does not own. Done — and the sitting's own findings
+are that the class had **ten** sites rather than three, that one sub-class was
+already false, and that the fix's first draft asserted a single-home property
+nobody had measured._
+
+- [x] **The remedy is structural rather than arithmetic, which is what the entry
+      asked for.** A corrected count goes stale the next time the estate adds a
+      check, so each sentence now carries the qualitative fact its argument
+      needed. *"All four estate checks emit `breach`"* → *"`ports` does not have
+      `breach` to itself"*, the minimal claim a severity-filter refusal requires
+      and one that cannot be off by a number. *"`warn` is `claimed_but_silent`"*
+      → *"the `warn` rung carries `claimed_but_silent`"* (`SNAG-DOCS-029`
+      closed).
+- [x] **The class was swept by shape and had ten sites, not three** —
+      `SNAG-PORT-007`'s rule applied to the entry that recorded it. Three
+      sub-classes: *all four checks emit `breach`* ×3 (`CLAUDE.md`, `STATUS.md`'s
+      Session 26b-A block, `test_other_checks_are_never_judged_even_at_breach`);
+      *`warn` is `claimed_but_silent`* ×3 (`CLAUDE.md` rule 1,
+      `test_only_breaches_are_judged`, `test_estate_surface_payloads.py`); and a
+      third the entry never recorded, *`unclaimed_listener` is the only ports
+      breach* ×4 — which was already **false**.
+- [x] **The tenth site sits on an open entry and was load-bearing.**
+      `SNAG-ESTATE-006`'s **Cost today: none** rested entirely on *"`unclaimed_listener`
+      is the only ports breach, so nothing is ambiguous"*. False since estate
+      ADR-0166, so the cost was **re-derived** rather than re-worded: it survives,
+      because rule 4 keeps the code out of the title by design and
+      `details['fingerprint']`'s last segment carries it for a human, but it now
+      rests on a structural fact instead of a count.
+- [x] **Re-measured off their source, never their database** (estate rule 1).
+      **8 of 13** check modules can emit `breach`, so every consequence the
+      original sentence named survives the correction — `collation`, `pointers`
+      and `seams` are all still breach-capable. The `ports` codes are six across
+      three rungs: `breach` → `unclaimed_listener`,
+      `claimed_by_an_unregistered_tree`; `warn` → `claimed_but_silent`,
+      `claimed_by_more_than_one_row`; `info` → `dormant_but_listening`,
+      `claimed_tool_default`.
+- [x] **The "unreachable population" docstring was corrected in the direction
+      opposite to the obvious one.** `test_two_findings_for_one_port_raise_one_row`
+      called itself unreachable *because* there was one breach code. There are two
+      — and they still cannot share a port, since their check files one only for a
+      port no registry row claims and the other only for a port some row does, so
+      that fork stays closed for a **better** reason. What is open is a path nobody
+      had named: their loop runs per claim **row**, so one port carrying two rows
+      whose holder works out of an unregistered tree files that breach twice with
+      one subject.
+- [x] **The fix asserted a property nobody had measured, and measuring it opened
+      `SNAG-DOCS-030`.** All four rewrites first read *"the figure is quoted in
+      exactly one place"*. Counting found **nine** sentences restating today's
+      total of thirteen, **two of them inside `judgements.py` itself**, beside the
+      one that dates and sources it. Corrected to what is true before anything
+      shipped — this register's own recurring failure, caught inside the fix for a
+      sentence that had it.
+- [x] **The narrow guard the entry proposed was driven before being refused.**
+      *"No sentence outside `judgements.py` names a check count"*, as a lexical
+      detector over 327 files: **148 raw hits, 70 surviving an
+      estate/audit/breach context filter — 47 % precision** — and every in-class
+      survivor is history, including the dated corrections this sitting wrote.
+      That is a tension rather than a tuning problem: `SNAG-DOCS-027`'s convention
+      keeps a retired claim **verbatim** beside its date, so a guard over the
+      sentence's own words fires on the correction. The served-code population is
+      empty by construction — all ten sites were narrative or tests, and the one
+      `sysadmin/` site is the owner.
+- [x] **Gates.** Suite unmoved at **4136**, green; `ruff` and `mypy` clean — a
+      documentation change adds no test, so the arithmetic reconciles with nothing
+      to apportion. `sysadmin-check-snags` exits 0; the register reads 175 entries
+      and **38 open**, unchanged, one closed and one opened. **No restart owed and
+      none paid**: nothing under `sysadmin/` was touched and all 16 ops claims
+      report `ok`.
+
+---
+
 ## Session 229: the overlap was already on four ports ✅ (2026-09-13)
 
 _The ask was Session 228's handoff: rewrite `JUDGED_AUDIT_SEVERITY`'s false aside
