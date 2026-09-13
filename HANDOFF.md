@@ -1,6 +1,109 @@
-# Handoff — 2026-09-13 (Session 230)
+# Handoff — 2026-09-13 (Session 231)
 
 ## Next action
+
+Decide estate message `a9ee6305` — `ports` publishes `detail.project` on every claimant-naming finding — on whether `check-estate-docs.sh` should read `ports` as well as `docs`. *(For: session)*
+
+*The line is 177 characters before its marker and names **no** SNAG id,
+which is the register's requirement rather than an omission*: there is no
+`Open — owed` entry left after this sitting, and every open entry declares
+`decided` or `delegated`, so a line naming one would publish work nobody
+is owed. What it names instead is the open message in this repository's
+inbox, filed by estate-manager today and not yet acted on.
+
+*What makes it worth a sitting rather than a reply* is a fact this sitting
+found while checking the message and did not act on. `check-estate-docs.sh`
+excludes `ports` on a **conjunction**, and the message refutes only one
+limb. The first is a census — `ports` 3 of 4 `Finding(` construction sites
+carry `detail.project` — which the estate has now re-measured against the
+**stored** findings and refuted: 803 of 929, the 126 misses all
+`unclaimed_listener`, which by construction has no claimant to name. The
+second limb is at line 60 of that script and the message does not touch
+it: *"`ports` and `wiring` are additionally out because they already
+ARRIVE"* — `JUDGED_AUDIT_CHECKS` pulls both hourly into this box's alert
+table and the tray speaks them by name, so reading them here would give
+one fault two speakers. **The limb that decides is untouched**, so the
+likely answer is that the exclusion stands and only its stated reason
+needs correcting — which is `SNAG-PORT-006`'s shape (a conjunction check
+reporting the limb that refutes rather than the limb that decides), and is
+a judgement to be written up rather than a wording patch.
+
+*The scheduled action still stands and is deliberately not the line above*
+— Session 218's rule 3. It was not taken and not sharpened by this
+sitting.
+
+## What this sitting did
+
+Closed `SNAG-DOCS-030`: the five **live** restatements of the estate's
+audit check total were retired for the qualitative facts their arguments
+actually needed, and the nine dated ones were kept.
+
+- **The class is fourteen and the number was wrong twice on the way.** The
+  entry said nine, having listed *files* and assumed one sentence each;
+  counting sentences gives twelve. Twelve was also wrong, because the sweep
+  ran `grep --include="*.py" --include="*.md"` — a population chosen by
+  habit and never driven — and missed `scripts/check-estate-docs.sh` and a
+  JSON fixture's provenance note. **Three sittings running have asserted a
+  count of this class instead of driving one**, each refuted by one command.
+- **Five live, nine dated, and the split is what decided the work.** A
+  fourteenth check falsifies the five and leaves the nine **correct**,
+  because `SNAG-DOCS-027`'s convention already makes a stamped measurement
+  un-driftable. Each survivor was checked to carry a date at its owning
+  block. The fixture note is the strongest form: it describes the payload
+  it sits beside, which does hold thirteen checks, so it is self-verifying.
+- **Exactly one of the five carried a proportion and its denominator is
+  served live.** `ERRORED_REASONS_LISTED`'s comment argued *"ten at once is
+  the audit failing"*; the message that constant caps opens
+  `{errored} of {checks_run}`, read off the payload eight hundred lines
+  below. The entry's refusal of an import-time derivation stands and was
+  never the alternative it looked like.
+- **The other four needed no denominator**, for three different reasons —
+  an excluded count that is the cardinality less two; a test whose
+  assertion never reads the figure; and a totality claim where *"the only
+  one"* is already total.
+- **Both figures verified true before being retired** — `checks_run` reads
+  **13** live and **10 of 13** check modules carry an error arm — which is
+  what keeps the entry P4 and is why no site borrows the
+  `"this read … until"` form, which would imply a falsity that never was.
+- **The home now claims to be the only live restatement in this tree**,
+  which one `grep` refutes and the previous wording did not. That is the
+  guard, in place of the live-`checks_run` comparison the entry refused.
+- **`ops_claims` rule 2 caught this sitting's own edit** — the `STATUS.md`
+  block stated the daemon start time two ways once the new block landed,
+  recovered by the convention of dropping the date from the superseded one.
+
+Suite unmoved at **4136**, green; `ruff` and `mypy` clean. A restart was
+owed and paid **twice** (23:05:41, then 23:24:56 once the widened sweep
+forced a correction to the home's own tally; `NRestarts=9`, `/health`
+200, budget re-checked before the second rather than assumed) —
+`judgements.py` is in the daemon's import graph although the edit is
+comment-only, so its observable effect is **nil by construction**. All 16
+ops claims report `ok`; snag register 38 → 37 open.
+
+## What is blocked
+
+Nothing is blocked. Two things are deliberately left and both are recorded
+rather than absorbed:
+
+- **Estate message `a9ee6305` is open and is the next action**, with the
+  conjunction finding above pre-staged so the next sitting does not
+  re-derive it.
+- **A second foreign cardinality was found and deliberately not fixed.**
+  *"the hook entries binding all thirteen"* restates the estate's
+  **repository** count at three sites, every one inside a dated frame or
+  attributed to the producer in the same clause — the treatment just
+  endorsed for the nine survivors, so there is nothing to fix. Staleness
+  could not be established from here and the attempt is recorded rather
+  than the guess: `GET :8400/api/projects/overview` publishes **27**
+  scanned projects and no status field, a different population from the
+  one their hooks bind. Asking the estate for theirs is the only honest
+  route and is not owed.
+
+---
+
+# Handoff — 2026-09-13 (Session 230)
+
+### The action Session 230 handed on (discharged by Session 231)
 
 Retire or re-derive the nine sentences restating the estate check total for `SNAG-DOCS-030`, deciding per site whether the count is carrying an argument that needs a denominator. *(For: session)*
 

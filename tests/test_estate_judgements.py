@@ -622,11 +622,14 @@ class TestTheAudit:
         }
 
     def test_above_the_cap_the_message_stops_naming_reasons(self):
-        """:func:`judge_attention` rule 1 a third time: ten of thirteen
-        checks can error, and ten at once is *the audit failing* rather
-        than ten dimensions each with something to say.  Every reason is
-        still in ``details``, whole — the caps are about a notification
-        body and ``details`` is not one."""
+        """:func:`judge_attention` rule 1 a third time: **most of the
+        audit's checks can error**, so a mass of them at once is *the
+        audit failing* rather than that many dimensions each with
+        something to say.  Every reason is still in ``details``, whole —
+        the caps are about a notification body and ``details`` is not
+        one.  The figures are retired rather than refreshed: this test
+        drives the cap, which is a property of the message and not of the
+        audit's cardinality (``SNAG-DOCS-030``)."""
         checks = _audit()["last_audit"]["checks"]
         for name in list(checks)[: ERRORED_REASONS_LISTED + 1]:
             checks[name] = {"status": "error", "findings": 0, "error": f"{name} broke"}
@@ -1780,9 +1783,12 @@ class TestTheJudgedCheckMapping:
     """:data:`JUDGED_AUDIT_CHECKS` — what admits a check, and its shape."""
 
     def test_exactly_two_checks_are_judged(self):
-        """Eleven of the audit's thirteen checks are still excluded, and each
+        """**Every other check the audit runs is still excluded**, and each
         admission needed an ADR. A third arriving without one is the
-        widening rule 3 exists to prevent."""
+        widening rule 3 exists to prevent.  The excluded count is not
+        stated: it is another repository's cardinality less two, and this
+        assertion does not read it — which is why retiring it costs the
+        test nothing (``SNAG-DOCS-030``)."""
         assert JUDGED_AUDIT_CHECKS == {PORTS_CHECK: "breach", WIRING_CHECK: "warn"}
 
     def test_the_ports_severity_is_derived_rather_than_retyped(self):

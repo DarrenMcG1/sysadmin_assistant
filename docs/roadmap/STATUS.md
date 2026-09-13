@@ -3,6 +3,85 @@
 **Last Updated**: 2026-09-13
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **Five of the twelve restatements were live and seven were already
+> history** (2026-09-13, Session 231, closing `SNAG-DOCS-030`). The entry
+> asked for nine sentences restating the estate's check total to be
+> retired or re-derived one at a time, deciding per site whether the
+> count carries an argument that needs a denominator.
+> **The class is fourteen, and this sitting got the number wrong twice
+> before getting it right.** The entry listed *files* and assumed one
+> sentence each; `docs/roadmap/snag_list.md` carries **four** and
+> `tests/test_estate_judgements.py` **two**, which makes twelve.
+> **Twelve was also wrong, for this class's own recurring reason**: the
+> sweep ran `grep --include="*.py" --include="*.md"`, a population
+> chosen by habit and never driven, so it could not see
+> `scripts/check-estate-docs.sh` or a JSON fixture's provenance note.
+> **Three sittings running have asserted a count of this class instead
+> of driving one** — `SNAG-DOCS-029`'s *"exactly one place"*, the
+> entry's *nine*, and this fix's *twelve* — each refuted by one command.
+> `SNAG-PORT-007`'s rule holds, and the correction to it is that *shape*
+> includes which file types the sweep is allowed to look at.
+> **The split the entry does not draw is what decided the work.** Five
+> are live claims in code and test docstrings, which assert the current
+> state and go stale silently; **nine** are dated records — an ADR's
+> evidence, a session block, four fixed-snag measurements, a shell
+> script's reason block and a fixture provenance note. A fourteenth
+> check falsifies the five and leaves the nine **correct**, because
+> `SNAG-DOCS-027`'s convention already makes a stamped measurement
+> un-driftable. Only the five were touched; each survivor was checked to
+> carry a date rather than assumed to, and the fixture note is the
+> strongest form of it — it says the payload beside it holds thirteen
+> checks and both scenarios it describes do, so it is self-verifying
+> against its own artefact.
+> **Exactly one of the five was carrying a proportion, and the
+> denominator it needs is already served live.** `judgements.py`'s
+> `ERRORED_REASONS_LISTED` comment argued *"ten at once is the audit
+> failing"* — a claim about proportion that reads as nothing without a
+> total. Eight hundred lines below, the message that constant caps opens
+> `{errored} of {checks_run}`, read off the payload. So the comment was
+> restating statically what runtime already supplies to the only reader
+> who needs it, and re-deriving at import time — the entry's own refusal
+> — would have made a docstring depend on 8400 being up.
+> **The other four needed no denominator at all, for three different
+> reasons.** Two said *"eleven of thirteen are excluded"* where the
+> argument is that admission is per check and by ADR — the excluded count
+> is the cardinality less two, so it says what *every other* already
+> says. One is a test whose assertion never reads the figure, which is
+> why retiring it costs the test nothing. The fourth claimed **totality**
+> — `docs` is *"the only one of estate-manager's thirteen check
+> modules"* — and **the only one** is already total, so the cardinal
+> added nothing the word did not carry; the per-check figures beside it
+> stay, each stamped with the day it was taken.
+> **Both figures were verified true before being retired**, which is what
+> keeps this P4 rather than a staleness bug: `last_audit.checks_run`
+> reads **13** live, and an `ast`-free sweep of the estate's
+> `audit/checks/` finds **10** modules with an error arm — `consumers`,
+> `readers` and `seams` have none. Retired while still true, which is the
+> distinction from `SNAG-DOCS-029` and is stated at each site.
+> **The residue is a second foreign cardinality and it is not a new
+> entry.** *"the hook entries binding all thirteen"* restates the
+> estate's **repository** count at three sites — `judgements.py`, and
+> ADR-0006 twice — and every one is inside a dated frame or attributed to
+> the producer in the same clause, which is the treatment just endorsed
+> for the seven survivors. Staleness could not be established here and
+> the attempt is recorded rather than the guess: the estate's overview
+> publishes **27** scanned projects and no status field, a different
+> population from the one their hooks bind.
+> **No guard, the entry's refusal inherited with its measurement.** The
+> narrow mechanisable option — read `checks_run` live and refuse a tree
+> whose restatements disagree — fails closed on a dead 8400 and answers
+> the same way either side of a fix that removes the restatements, which
+> is `check_review_schedule_unread`'s defect.
+> **A restart was owed and paid once**, `judgements.py` being in the
+> daemon's import graph although the edit is comment-only, so its
+> observable effect is **nil by construction** rather than by
+> measurement. Daemon restarted
+> at **2026-09-13 23:24:56** <!--check:deploy--> <!--check:daemon_start-->,
+> `NRestarts=9`, `/health` 200. **Paid twice**: the sweep found two more
+> sites after the first restart, so the home's own count had to be
+> corrected — the budget was re-checked before the second rather than
+> assumed, `SNAG-SYSD-007`.
+
 > **A count of another repository's checks was retired rather than
 > refreshed, and the entry named three sentences where the class had
 > ten** (2026-09-13, Session 230, closing `SNAG-DOCS-029`; nothing under
@@ -91,8 +170,7 @@
 > daemon's import graph although the edit is comment-only, so its
 > observable effect is **nil by construction** rather than by
 > measurement. Daemon restarted
-> at **2026-09-13 21:40:59** <!--check:deploy--> <!--check:daemon_start-->,
-> `NRestarts=7`, `/health` 200.
+> at **21:40:59** that day, `NRestarts=7`, `/health` 200.
 
 > **The marker came off the published line, and the pin can only see one
 > of three mistakes** (2026-09-13, Session 228, closing `SNAG-DOCS-028`;

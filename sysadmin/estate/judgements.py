@@ -109,10 +109,14 @@ Three rules run through everything below.
 
    **The test is ownership, and it is applied per check rather than per
    severity** — see :data:`JUDGED_AUDIT_CHECKS`, which had to become a
-   mapping for the second exception to be expressible at all.  Eleven of the
-   audit's thirteen checks are still excluded, and the two that are not were
-   each admitted by an ADR: ``docs/adr/0006-wiring-joins-ports.md`` holds
-   the second and the reasoning behind the first.
+   mapping for the second exception to be expressible at all.  **Every
+   other check the audit runs is still excluded**, and the two that are
+   not were each admitted by an ADR:
+   ``docs/adr/0006-wiring-joins-ports.md`` holds the second and the
+   reasoning behind the first.  The excluded count is deliberately not
+   stated — it is the audit's own cardinality less two, so writing it
+   down copies another repository's figure to say what *every other* has
+   already said (``SNAG-DOCS-030``).
 """
 
 from __future__ import annotations
@@ -182,9 +186,14 @@ CHECK_ERROR_CHARS = 300
 #:
 #: Above it the message names the checks and leaves the reasons to
 #: ``details``, which is :func:`judge_attention` rule 1 and
-#: :func:`judge_audit_findings` rule 3 arriving a third time: ten of the
-#: audit's thirteen checks can error, and ten at once is *the audit
-#: failing* rather than ten dimensions each having something to say.
+#: :func:`judge_audit_findings` rule 3 arriving a third time: **most of
+#: the audit's checks can error**, so a mass of them erroring at once is
+#: *the audit failing* rather than that many dimensions each having
+#: something to say.  The proportion is the argument and the two figures
+#: behind it are not — they are another repository's cardinality, and the
+#: reader who needs the denominator is handed it *live*: the message this
+#: constant caps opens ``{errored} of {checks_run}``, read off the
+#: payload rather than off this comment (``SNAG-DOCS-030``).
 ERRORED_REASONS_LISTED = 2
 
 #: Severity for every judgement this module makes, with one exception.
@@ -950,7 +959,18 @@ WIRING_CHECK = "wiring"
 #: (their ``estate_service/audit/agent.py`` numbers them; the live count
 #: is ``last_audit.checks_run`` on ``GET :8400/api/audit/invariants`` —
 #: this figure is a restatement of another repository's cardinality and
-#: went stale once already, estate message ``00b631ec``), and that
+#: went stale once already, estate message ``00b631ec``; **it is the
+#: only live restatement left in this tree** — four others in code and
+#: tests were retired on 2026-09-13 for the qualitative facts their
+#: arguments actually needed, while **nine** dated records were kept,
+#: because a measurement stamped with its date cannot drift and a live
+#: cardinality can.  The nine are dated at their owning block: an ADR's
+#: evidence, two session blocks, four fixed-snag measurements, a shell
+#: script's reason block and a fixture's provenance note — the last
+#: self-verifying, since the payload it describes does hold thirteen.
+#: The claim in bold is refutable by one ``grep``, which is the guard
+#: this class gets: a live comparison against ``checks_run`` would fail
+#: closed on a dead 8400 (``SNAG-DOCS-030``)), and that
 #: constant had quietly acquired a second job nobody argued for:
 #: it was also a check filter.  So admitting a second check by name alone
 #: would have shipped green and inert — ``wiring`` emits no ``breach`` at

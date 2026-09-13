@@ -8,6 +8,84 @@
 
 ---
 
+## Session 231: five were live, seven were already history ✅ (2026-09-13)
+
+_The ask was Session 230's handoff: retire or re-derive the nine sentences
+restating the estate's check total for `SNAG-DOCS-030`, deciding per site
+whether the count is carrying an argument that needs a denominator. Done — and
+the sitting's own findings are that the class is **twelve** rather than nine,
+that it splits five-live against seven-already-dated, and that the one site
+genuinely carrying a proportion has its denominator served **live** eight
+hundred lines below the comment restating it._
+
+- [x] **The class is fourteen, and this sitting got the number wrong twice
+      before getting it right.** The entry listed *files* and assumed one
+      sentence each — `snag_list.md` carries **four** and
+      `tests/test_estate_judgements.py` **two**, so twelve. **Twelve was also
+      wrong**: the sweep ran `grep --include="*.py" --include="*.md"`, a
+      population chosen by habit and never driven, and missed
+      `scripts/check-estate-docs.sh` and a JSON fixture. Three sittings
+      running have now asserted a count of this class instead of driving one,
+      each refuted by one command — the finding, not the arithmetic
+- [x] **The split that decided the work is one the entry does not draw.** Five
+      are live claims in code and test docstrings; **nine** are dated records —
+      `docs/adr/0008-…`'s *"the live audit on 2026-09-08 serves 13 checks"*, a
+      Session 203 block in `STATUS.md`, a Session 219 block in this file, four
+      measurement bullets under `SNAG-DOCS-022` and `SNAG-DOCS-024`,
+      `check-estate-docs.sh`'s reason block, and a fixture provenance note. A
+      fourteenth check falsifies the five and leaves the nine **correct**,
+      because `SNAG-DOCS-027`'s convention already makes a stamped measurement
+      un-driftable. Each survivor was **checked** to carry a date rather than
+      assumed to, and the fixture note is the strongest form of it — it
+      describes the artefact it sits in, so it is self-verifying
+- [x] **Exactly one of the five carried a proportion, and its denominator is
+      already served live.** `ERRORED_REASONS_LISTED`'s comment argued *"ten at
+      once is the audit failing"* — the case the entry named as the reason a
+      sweep would not do. The message that constant caps opens
+      `{errored} of {checks_run}`, read off the payload, so the comment was
+      restating statically what runtime already hands the only reader who needs
+      it. The entry's refusal of an import-time derivation stands and was never
+      the alternative it appeared to be
+- [x] **The other four needed no denominator, for three different reasons** —
+      an excluded count that is the cardinality less two and says what *every
+      other* already says (×2); a test whose assertion never reads the figure,
+      now stated in its docstring so nobody goes looking for the dependency;
+      and a **totality** claim where *"the only one"* is already total, so the
+      cardinal added nothing the word did not carry
+- [x] **Both figures verified true before being retired**, which is what keeps
+      the entry P4 rather than a second `SNAG-DOCS-029`: `checks_run` reads
+      **13** live and **10 of 13** check modules carry an error arm
+      (`consumers`, `readers` and `seams` have none). Retired *while still
+      true*, stated at each site rather than borrowed from the
+      `"this read … until"` form, which would imply a falsity that never
+      occurred
+- [x] **The home gained the one sentence that makes the sweep re-checkable** —
+      `JUDGED_AUDIT_CHECKS` now records that its figure is the only live
+      restatement left in this tree, which one `grep` refutes and the previous
+      wording did not
+- [x] **The residue is filed in the closed entry rather than as a new one.**
+      *"the hook entries binding all thirteen"* restates the estate's
+      **repository** count at three sites, every one inside a dated frame or
+      attributed to the producer in the same clause — the treatment just
+      endorsed for the seven survivors, so nothing to fix. Staleness could not
+      be established here and the attempt is recorded rather than the guess:
+      the overview publishes **27** scanned projects and no status field, a
+      different population from the one their hooks bind
+- [x] **No guard, the entry's refusal inherited with its measurement** rather
+      than re-argued — a live `checks_run` comparison fails closed on a dead
+      8400 and answers the same way either side of a fix that removes the
+      restatements, `check_review_schedule_unread`'s defect for the sixth time
+- [x] **`ops_claims` rule 2 caught this sitting's own edit**, the `STATUS.md`
+      block stating the daemon start time two ways once the new block landed.
+      Recovered by the established convention — the superseded block drops its
+      date and keeps the wall clock. Suite unmoved at **4136**, `ruff` and
+      `mypy` clean, all 16 ops claims `ok`; restart owed and paid **twice**
+      (23:05:41, then 23:24:56 once the widened sweep forced a correction to
+      the home's own tally; `NRestarts=9`), observable effect nil by
+      construction
+
+---
+
 ## Session 230: the count was retired, not refreshed ✅ (2026-09-13)
 
 _The ask was Session 229's handoff: retire the three sentences restating the

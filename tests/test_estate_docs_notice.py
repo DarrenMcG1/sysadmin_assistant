@@ -626,11 +626,17 @@ class TestTheRungIsTheProducers:
 class TestTheProducerStillPublishesTheKey:
     """The measurement this reader's whole scope rests on.
 
-    ``docs`` is the only one of estate-manager's thirteen check modules for
+    ``docs`` is the only one of estate-manager's check modules for
     which **every** ``Finding`` carries ``detail["project"]`` — 7 of 7 on
     2026-09-12, against 0 of 12 for ``pointers``, 0 of 2 for ``wiring`` and 2
     of 9 for ``consumers``.  That is why the reader is keyed on that field
     and scoped to that check.
+
+    *The module count is retired rather than refreshed* (``SNAG-DOCS-030``).
+    **The only one** is already total, so the cardinal added nothing the
+    word did not carry; the per-check figures beside it stay, because each
+    is stamped with the day it was taken and a dated measurement cannot
+    drift where a live cardinality can.
 
     Gated on the **tree**, never on an import: ``importorskip`` would disarm
     the pin on the day the module moved, which is the day it matters.
