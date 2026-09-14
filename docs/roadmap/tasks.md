@@ -8,6 +8,132 @@
 
 ---
 
+## Session 237: a leaf with no reader is a property a test computes ✅ (2026-09-14)
+
+Discharged Session 236's handoff: the four `AppConfig` leaves its sweep found
+with no reader under `sysadmin/` were read one at a time and **all four
+removed**, both halves each. The one-off sweep became a standing guard over
+the whole field tree. Suite **4144 → 4150**, green; ruff and mypy clean. No
+new SNAG id — the register holds 37 open and 0 owed, and the one limit this
+sitting hit is `SNAG-CFG-008`, already open.
+
+- [x] **The population reproduced exactly at four, and the general case is
+      cleaner than the block that produced it.** Walking `AppConfig` through
+      `snag_claims.attribute_reads` gives **116 leaf names and 31 container
+      names**; the four are `personal_assistant.api_prefix`,
+      `agents.sysadmin.thresholds.cpu_sustained_percent` and
+      `.cpu_sustained_minutes`, and `agents.file_organiser.output_dir`.
+      Unlike Session 236's twelve, **none of the four is masked by a name
+      collision**, so each is individually falsifiable — luck of the naming
+      rather than a property of the fix, and pinned as such
+- [x] **All four are birth defects, not residue, and `git log -S` over 348
+      commits is what says so.** Every one entered in the **first commit**
+      (`5e6e6a5`) and **no commit has ever added or removed a reader** for
+      any of them. That is a different animal from the block just trimmed,
+      whose readers left with the projects domain on 2026-08-13 (ADR-0005) —
+      configuration written beside or ahead of the code rather than outliving
+      it. It is also why a standing guard is the right shape: residue arrives
+      on a known date, a birth defect arrives whenever somebody declares
+      ahead of wiring
+- [x] **`api_prefix` is unreadable by construction, which is a stronger
+      reason than the retirement beside it.** The dormant PA block is kept so
+      the integration can be repointed if Alfred grows an inbox, and its four
+      siblings all have live readers (`monitor/notifier.py:38`, `:105`,
+      `:128`). The two endpoints are **absolute paths already carrying
+      `/api`**, and the notifier builds `url + endpoint` — so any reader
+      would produce `/api/api/v2/...`. It was redundant in
+      `SYSADMIN-SERVICE-SPEC.md` too, which paired `api_prefix: /api` with
+      `notify_endpoint: /api/notifications`. Repointing at Alfred does not
+      want it back
+- [x] **`output_dir` is a destination that stopped existing in a port.**
+      `FileOrganiserConfig` mirrors `home_audit.py`'s `CONFIG` dict field for
+      field, and `files/agent.py:1` calls itself that script's evolved
+      version. In the script the leaf is real — it writes a markdown report
+      to a directory. The agent writes **no file at all**; findings land in
+      `file_audits` and are served from `/api/files/*`, and its only `open()`
+      reads bytes to hash
+- [x] **The CPU pair inverted under measurement, which is the finding worth
+      carrying.** Reading the code says CPU is sampled and never alarmed —
+      `_check_thresholds` covers ram, gpu_temp, gpu_vram, disk_warning and
+      disk_critical, and has no CPU branch — so the expected report was a
+      real blind spot. The live table refutes it. Across **3,497** snapshots
+      the CPU median is **1.7%**, p95 **23%**, p99 **26.8%**; **two** samples
+      sit at or above 90%, both isolated, and the longest consecutive run is
+      **one** five-minute sample against a declared ten. The check had an
+      **empty population over 90 days**. Meanwhile `Unusual CPU usage` was
+      raised **67** times, fires at **24–26%** — an order of magnitude below
+      the declared 90% — and caught the 98.7% spike itself at **7.2σ**. The
+      pair was not a missing safeguard but the *wrong* one, calibrated for a
+      machine this is not
+- [x] **The fork was put to the owner and the measurement is what collapsed
+      it.** Delete-and-file, build, or keep-and-record. Building would have
+      shipped a family tuned against zero observations, which
+      `estate/judgements.py` rule 6 refuses in writing for the port family;
+      keeping leaves a leaf that reads as an armed alarm and arms nothing,
+      which is `SNAG-CFG-001`'s shape with the consumer and the record the
+      other way round. The owner chose delete-and-file
+- [x] **What was filed is code-backed rather than a worry.** `ideas.md`
+      carries the absolute-backstop argument, and its centre is one line of
+      `anomaly.py`: `if sigma < config.min_stdev: continue`. A box pegged at
+      a steady 95% has a *small* σ, so CPU is not merely un-alerted — it is
+      **dropped from the sweep entirely**, no row and nothing to read.
+      `min_stdev` is 1.0 and this box sits at σ **6.85**, so the guard is
+      nowhere near firing; the entry carries a trigger that re-opens it by a
+      count rather than by an argument
+- [x] **The guard is the general case, and its two halves have different
+      populations.** `TestEveryConfigLeafHasAReader` sweeps all 116 leaves
+      and all 31 containers. The leaf half had a finding population of four;
+      the **container half ships empty and says so** — a container nothing
+      reads takes its whole subtree out of the sweep, so nought-because-clean
+      must not be served as nought-because-nobody-looked (`ports_checked`'s
+      rule). `_submodels` recurses through `typing.get_args` so a model
+      nested in a `list[...]` or an optional cannot silently escape; that
+      population is empty too and the docstring says which kind of empty
+- [x] **The vacuity premise exists because the sweep can pass by
+      collapsing.** A walker that stopped descending would sweep a handful of
+      top-level fields, find them all read and report clean —
+      `test_no_config_model_forbids_unknown_keys`'s failure one module over,
+      where a floor stops `strict == 0` passing over an emptied population.
+      Two statements, since a count alone is weak: floors of 100 leaves and
+      25 containers, plus `gpu_vram_warning_percent`, which is three levels
+      down and reachable only by recursing twice
+- [x] **Each of the six new tests was uniquely falsified, and the sixth
+      mutation had to be sharpened before it counted.** Restoring the
+      `api_prefix` field, returning the CPU key to the file, adding a real
+      reader of `output_dir`, breaking the walker and redacting the prose
+      each land red on exactly one test. The first container mutation added
+      a model with an unread *leaf* as well, reddening two — so it was
+      replaced by `unread_block: Thresholds`, whose leaves all have readers,
+      leaving only the container test red
+- [x] **The commit that deletes the four names all four in prose, and that
+      is the demonstration rather than an awkwardness.** `grep -c
+      cpu_sustained sysadmin/` now returns **2** — a lexical guard would
+      report the fields just deleted as alive — while `attribute_reads`
+      returns **0**, because a docstring is an `ast.Constant` and a read is
+      an `ast.Attribute` in `Load` context. `snag_claims.py`'s "the whole
+      reason this is not three lines of `grep`", specimened by the change
+      that removes them, and asserted at the real file rather than a
+      synthetic one
+- [x] **No unchecked item was added, deliberately.** The backstop is an idea
+      with no commitment implied and belongs on `ideas.md`; the guard's reach
+      limit is `SNAG-CFG-008`, already open. An unchecked item written here
+      would republish itself as this document's `Next up` line, which is a
+      claim about what to do next that this sitting has no business making
+- [x] **A quoted marker in prose does *not* publish, and grep says it does.**
+      The draft above spelled the marker literally inside backticks; `grep`
+      found it, ranked it first in the document and reported this block as
+      having hijacked the next action. Driving the real reader refutes that:
+      `_UNCHECKED_RE` is `^\s*[-*]\s+\[ \]`, **anchored at line start**, so
+      a marker sitting mid-line after prose is invisible to it.
+      `first_unchecked_task` is unmoved at ``Next up → **`SNAG-CFG-007`…``
+      either way, and `count_unchecked` reads **65** where grep counted 72 —
+      seven mid-line quotations across the document. The wording was kept
+      safe anyway, because being unreachable by one reader is not the same
+      as being harmless, but the *reason* is now the measured one. Note the
+      asymmetry with the neighbouring document: quoting a `STATUS.md` check
+      marker **does** re-arm it, so the two files answer this question
+      oppositely and neither answer transfers
+
 ## Session 236: both halves of a setting have to move, and they fail in opposite directions ✅ (2026-09-14)
 
 Discharged Session 235's handoff: `config.yaml`'s `agents.project_organiser`

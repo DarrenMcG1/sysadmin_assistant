@@ -35,7 +35,6 @@ database:
 personal_assistant:
   enabled: false
   url: http://localhost:8000
-  api_prefix: /api
   notify_endpoint: /api/v2/notifications/send
   briefing_endpoint: /api/v2/intelligence/briefing/data
 
@@ -218,8 +217,10 @@ agents:
       disk_warning_percent: 80
       disk_critical_percent: 90
       ram_warning_percent: 85
-      cpu_sustained_percent: 90
-      cpu_sustained_minutes: 10
+      # No CPU threshold: this box idles at a 1.7% median and the
+      # anomaly detector below owns CPU, firing at 24-26%. A fixed
+      # 90% rule had an empty population across 90 days (longest run
+      # >=90% was one 5-minute sample). See ideas.md, 2026-09-14.
       gpu_temp_warning_c: 90
       gpu_vram_warning_percent: 90
     # Z-score anomaly detection against resource_snapshots history —
@@ -331,7 +332,6 @@ agents:
     enabled: true
     scan_interval_hours: 24
     scan_root: /home/gaddi
-    output_dir: /home/gaddi/Documents/DMDocs/Self/Briefings/Audits
     stale_days: 180
     downloads_stale_days: 30
     large_file_mb: 100

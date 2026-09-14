@@ -8,10 +8,12 @@ question: the reminder ceiling ``SNAG-ESTATE-009`` now rests on, and the
 two ``reminder_hours`` leaves whose agreement was held by a comment.
 """
 
+import typing
 from pathlib import Path
 
 import pytest
 import yaml
+from pydantic import BaseModel
 
 from sysadmin.core.config import (
     AppConfig,
@@ -703,3 +705,203 @@ class TestTheOrganiserBlockIsTrimmedToItsReaders:
         assert len(reads) == 2
         assert all("units/agent.py" in hit for hit in reads)
         assert "discovery_depth" not in self._organiser_block()
+
+
+# --- The general case of the organiser trim (Session 237) ---------------
+
+
+def _submodels(annotation) -> list[type[BaseModel]]:
+    """Every :class:`BaseModel` reachable from a field annotation.
+
+    Recursing through :func:`typing.get_args` rather than testing the
+    annotation alone is what reaches a model nested inside ``list[...]``,
+    ``dict[str, ...]`` or an optional.  The population is empty today —
+    every container in :class:`AppConfig` is a bare model — and it is
+    written this way so that the first wrapped sub-config does not
+    silently take its whole subtree out of the sweep below.
+    """
+    found: list[type[BaseModel]] = []
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        found.append(annotation)
+    for arg in typing.get_args(annotation):
+        found.extend(_submodels(arg))
+    return found
+
+
+def _config_field_names() -> tuple[frozenset[str], frozenset[str]]:
+    """``AppConfig``'s whole field tree, split into leaves and containers."""
+    leaves: set[str] = set()
+    containers: set[str] = set()
+
+    def walk(model: type[BaseModel]) -> None:
+        for name, field in model.model_fields.items():
+            subs = _submodels(field.annotation)
+            if subs:
+                containers.add(name)
+                for sub in subs:
+                    walk(sub)
+            else:
+                leaves.add(name)
+
+    walk(AppConfig)
+    return frozenset(leaves), frozenset(containers)
+
+
+class TestEveryConfigLeafHasAReader:
+    """Session 237 — the general case of Session 236's block-scoped guard.
+
+    That sitting trimmed ``agents.project_organiser`` and pinned *its*
+    twelve leaves.  The question it left is the one this class answers:
+    **is a declared-and-unread leaf a property something computes, or a
+    thing somebody has to notice?**  Walking the whole tree at the time
+    found four survivors, every one of them present in the **first
+    commit** and never given or deprived of a reader by any commit since
+    — birth defects rather than residue of a domain that left, which is
+    what makes a standing guard the right shape and a one-off sweep the
+    wrong one.
+
+    The four, and why each was removed rather than kept:
+
+    - ``personal_assistant.api_prefix`` — unreadable by construction.
+      Its sibling endpoints are absolute and already carry ``/api``, so
+      any reader builds ``/api/api/v2/...``.
+    - ``agents.sysadmin.thresholds.cpu_sustained_percent`` and
+      ``.cpu_sustained_minutes`` — a check nothing performs, whose
+      population is empty: one five-minute sample at or above 90% across
+      3,497 snapshots, against a declared ten minutes, while the z-score
+      path raised ``Unusual CPU usage`` 67 times.
+    - ``agents.file_organiser.output_dir`` — a destination that stopped
+      existing in the port from ``home_audit.py``; findings go to
+      ``file_audits``.
+
+    **Two halves with different reaches, and the difference is measured.**
+    The leaf half is the finding population and was four.  The container
+    half — a whole sub-config nothing reads — ships with an **empty**
+    finding population and says so rather than leaving the silence to be
+    read as coverage, which is ``ports_checked``'s rule: nought-because-clean
+    must not be served as nought-because-nobody-looked.
+
+    The reach limit is ``SNAG-CFG-008`` and is stated rather than
+    claimed.  ``attribute_reads`` compares ``ast.Attribute.attr``, the
+    final segment, so a leaf whose name collides with a live one
+    elsewhere in the tree is masked — ``enabled`` has 44 readers and
+    would answer for any block's ``enabled``.  Narrowing it to a
+    qualified path would make it a second implementation of the attribute
+    chain, which is ``SNAG-DB-003``'s shape, so the masking stays and is
+    named.
+
+    It is driven at ``sysadmin/`` alone.  A leaf read only by the test
+    that exercises it is a leaf kept alive by the thing testing it, and
+    ``tests`` is a consumer package on purpose everywhere else in this
+    repository — here that would make the guard unfalsifiable by its own
+    fixtures.
+    """
+
+    #: The leaves deleted on 2026-09-14, as the falsification population.
+    #: Restoring any of them to :class:`AppConfig` must turn
+    #: ``test_no_declared_leaf_is_unread`` red.
+    TRIMMED = (
+        "api_prefix",
+        "cpu_sustained_percent",
+        "cpu_sustained_minutes",
+        "output_dir",
+    )
+
+    def test_the_walk_reaches_the_whole_tree(self):
+        """The premise, without which every assertion below passes vacuously.
+
+        A walker that stopped descending would sweep a handful of
+        top-level fields, find them all read, and report clean — the
+        failure ``test_no_config_model_forbids_unknown_keys`` guards
+        against one module over, where a floor exists so that ``strict
+        == 0`` cannot pass over an emptied population.
+
+        Two statements, because a count alone is weak.  The floor
+        catches a walk that collapses; the named leaf catches one that
+        stops at depth one, since ``gpu_vram_warning_percent`` is three
+        levels down (``agents.sysadmin.thresholds``) and is reachable
+        only by recursing twice.  Both are floors rather than equalities:
+        the tree legitimately shrank by five models on 2026-09-14 and
+        will again, and a guard that has to be nudged past a red on every
+        trim is one nobody reads.
+        """
+        leaves, containers = _config_field_names()
+        assert len(leaves) >= 100, "the field tree shrank; re-measure before trusting this"
+        assert len(containers) >= 25, "the field tree shrank; re-measure before trusting this"
+        assert "gpu_vram_warning_percent" in leaves
+        assert "thresholds" in containers
+
+    def test_no_declared_leaf_is_unread(self):
+        """The finding half.  A leaf nothing reads is the shape removed."""
+        leaves, _ = _config_field_names()
+        unread = sorted(
+            name
+            for name in leaves
+            if not attribute_reads(frozenset({name}), [REPO_ROOT / "sysadmin"])
+        )
+        assert unread == []
+
+    def test_no_declared_sub_config_is_unread(self):
+        """The half with nothing in it, asserted anyway.
+
+        A container nothing reads takes its entire subtree out of the
+        sweep above — every leaf beneath it would be reachable only
+        through a name no code loads.  Empty today across all 31
+        containers, which is a measurement and not an assumption.
+        """
+        _, containers = _config_field_names()
+        unread = sorted(
+            name
+            for name in containers
+            if not attribute_reads(frozenset({name}), [REPO_ROOT / "sysadmin"])
+        )
+        assert unread == []
+
+    def test_the_guard_is_falsified_by_all_four_trimmed_leaves(self):
+        """The guard is driven at the defect, and its reach is pinned.
+
+        All four deleted names are free of collisions, so re-declaring
+        any of them turns ``test_no_declared_leaf_is_unread`` red.  That
+        is a stronger position than Session 236's block, where five of
+        twelve were masked — and it is luck of the naming rather than a
+        property of the fix, so it is pinned: should a future module read
+        something called ``output_dir``, this goes red and the reach
+        claimed in the docstring is the thing to correct, not this
+        assertion.
+        """
+        caught = [
+            leaf
+            for leaf in self.TRIMMED
+            if not attribute_reads(frozenset({leaf}), [REPO_ROOT / "sysadmin"])
+        ]
+        assert sorted(caught) == sorted(self.TRIMMED)
+
+    def test_prose_about_a_removed_leaf_is_not_a_reader(self):
+        """The commit that removed them names all four in docstrings.
+
+        Each removal left a paragraph saying why the setting is absent,
+        so ``grep`` now finds ``cpu_sustained`` in ``config.py`` and a
+        lexical guard would report the deleted fields as alive.  A
+        docstring is an ``ast.Constant``; a read is an ``ast.Attribute``
+        in ``Load`` context.  This asserts the difference at the real
+        file rather than at a synthetic one, because the prose is the
+        specimen.
+        """
+        source = (REPO_ROOT / "sysadmin" / "core" / "config.py").read_text(
+            encoding="utf-8"
+        )
+        assert "cpu_sustained_percent" in source
+        assert attribute_reads(
+            frozenset({"cpu_sustained_percent"}), [REPO_ROOT / "sysadmin"]
+        ) == []
+
+    def test_no_trimmed_leaf_returned_to_the_shipped_file(self):
+        """The exact half, which no collision can mask.
+
+        ``config_keys`` would name a returning key as unknown on every
+        reload, so this is not the only speaker — it is the one that
+        fails in CI rather than in a log line nobody opens.
+        """
+        raw = yaml.safe_load(REPO_CONFIG.read_text(encoding="utf-8"))
+        text = yaml.safe_dump(raw)
+        assert [leaf for leaf in self.TRIMMED if f"{leaf}:" in text] == []

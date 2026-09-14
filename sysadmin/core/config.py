@@ -60,11 +60,19 @@ class PersonalAssistantConfig(BaseModel):
     exactly as before.  The code and its tests are kept deliberately: this
     is a dormant feature flag, not a deletion, so it can be repointed at
     Alfred if Alfred ever grows an inbox.
+
+    There is no ``api_prefix``, and its absence is not part of PA's
+    retirement.  The two endpoints are **absolute paths** that already
+    carry ``/api``, and :mod:`sysadmin.monitor.notifier` builds a URL as
+    ``url + endpoint`` — so a reader of a prefix would have produced
+    ``/api/api/v2/...``.  It was unreadable from the first commit and
+    from the spec that commit was written against, which is why
+    repointing at Alfred does not want it back: edit ``url`` and the two
+    endpoints.
     """
 
     enabled: bool = True
     url: str = "http://localhost:8000"
-    api_prefix: str = "/api"
     notify_endpoint: str = "/api/v2/notifications/send"
     briefing_endpoint: str = "/api/v2/intelligence/briefing/data"
 
@@ -90,11 +98,37 @@ class LLMConfig(BaseModel):
 
 
 class Thresholds(BaseModel):
+    """Absolute limits :meth:`SysAdminAgent._check_thresholds` alerts on.
+
+    **CPU is deliberately absent, and it is the one resource here that is
+    watched by history rather than by a limit.**  The pair that used to
+    sit between RAM and GPU — ``cpu_sustained_percent: 90`` and
+    ``cpu_sustained_minutes: 10`` — was declared in the first commit and
+    never read by anything, in either direction, across the whole
+    history.  It could not have been read as written: ``_check_thresholds``
+    is handed a single :class:`ResourceSnapshot`, so *sustained over ten
+    minutes* is not a question its argument can answer, and the
+    instrument that can — :mod:`sysadmin.monitor.anomaly`, a z-score over
+    ``resource_snapshots`` — has owned CPU since Session 17.
+
+    Removed on 2026-09-14 because the measurement inverts the obvious
+    reading.  A fixed 90% rule is not a missing safeguard on this box, it
+    is the wrong one: across 3,497 snapshots the CPU median is **1.7%**
+    and the longest run at or above 90% is **one** five-minute sample
+    against a declared ten minutes — an empty population — while
+    ``Unusual CPU usage`` has been raised **67** times, firing at 24-26%
+    and catching the 98.7% spike itself at 7.2 sigma.  A leaf that reads
+    as an armed alarm and arms nothing is worse than an absent one, which
+    is ``SNAG-CFG-001``'s shape with the consumer and the record the
+    other way round.  The argument for an absolute *backstop* — a box
+    that drifts to a permanent 95% makes that its own normal and goes
+    quiet under a z-score — survives on ``ideas.md`` rather than here,
+    where it would be configuration for a check nothing performs.
+    """
+
     disk_warning_percent: int = 80
     disk_critical_percent: int = 90
     ram_warning_percent: int = 85
-    cpu_sustained_percent: int = 90
-    cpu_sustained_minutes: int = 10
     gpu_temp_warning_c: int = 90
     gpu_vram_warning_percent: int = 90
 
@@ -357,7 +391,13 @@ class FileOrganiserConfig(BaseModel):
     enabled: bool = True
     scan_interval_hours: int = 24
     scan_root: str = "/home/gaddi"
-    output_dir: str = "/home/gaddi/Documents/DMDocs/Self/Briefings/Audits"
+    # No ``output_dir``: this agent's findings land in ``file_audits`` and
+    # are served from ``/api/files/*``.  The leaf came across in the port
+    # from ``home_audit.py``, whose ``CONFIG`` dict this class mirrors
+    # field for field and which does write a markdown report to a
+    # directory — the evolved agent replaced that destination with a
+    # table and the setting arrived anyway.  Removed 2026-09-14, unread
+    # since the first commit.
     stale_days: int = 180
     downloads_stale_days: int = 30
     large_file_mb: int = 100

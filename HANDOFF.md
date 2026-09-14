@@ -1,6 +1,115 @@
-# Handoff — 2026-09-14 (Session 236)
+# Handoff — 2026-09-14 (Session 237)
 
 ## Next action
+
+Decide `dashboard_url`, the one `TrayConfig` leaf this sweep finds unread one seam over — shipped, allowlisted and tested, with no widget reading it. *(For: session)*
+
+*It is startable because the population was measured before the line was
+written.* Driving the same walk at `sysadmin_tray.config` — 19 leaves, 0
+containers, roots `[sysadmin_tray/]` — finds exactly **one**:
+`dashboard_url`. It is a *different* shape from the four decided today and
+that is why it is worth its own reading rather than a deletion. All four of
+those had **zero** test coupling; this one is in `config.yaml`'s `tray:`
+section, declared at `sysadmin_tray/config.py:101`, named in
+`TRAY_SECTION_KEYS` at `:152` — the tray's **own** unknown-key allowlist, so
+it is a leaf this program declares it expects — and asserted three times in
+`tests/test_tray/test_config.py`. A leaf read only by the thing testing it is
+the case Session 236's guard docstring names and neither sitting has had to
+decide. The obvious reading is that it is vestigial: it points at
+`http://127.0.0.1:8500/docs` and the tray has had a native dashboard since
+Phase 3, so a menu item opening FastAPI's `/docs` may be the pre-dashboard
+artefact. **That is a hypothesis, not the measurement** — the deciding read is
+whether any widget or menu action ever opened it, which is a question about
+`sysadmin_tray/` and not about the leaf. The line names **no** SNAG id, which
+it cannot: the register holds 37 open and 0 owed, so any id here would publish
+work nobody is owed.
+
+*What this sitting did.* Read the four `AppConfig` leaves Session 236's sweep
+found with no reader under `sysadmin/` and **removed all four**, both halves
+each — `personal_assistant.api_prefix`,
+`agents.sysadmin.thresholds.cpu_sustained_percent` and `.cpu_sustained_minutes`,
+and `agents.file_organiser.output_dir`. The one-off sweep became a standing
+guard over the whole field tree (**116** leaf names, **31** container names,
+none unread). Suite **4144 → 4150**, green; ruff and mypy clean; the daemon
+restarted at **18:19:50** because `sysadmin/core/config.py` is in its import
+graph. No new SNAG id.
+
+*The population is a different animal from yesterday's and that decided the
+instrument.* `git log -S` over all 348 commits: every one of the four entered
+in the **first commit**, and **no commit has ever added or removed a reader**
+for any of them. Yesterday's block was residue — its readers left with the
+projects domain on 2026-08-13 (ADR-0005), on a date somebody could notice.
+A birth defect has no such date, so what this sitting left behind is a
+standing guard rather than a cleaner sweep.
+
+*The CPU pair inverted under measurement and that is the transferable half.*
+Reading the code says CPU is sampled and never alarmed — `_check_thresholds`
+covers ram, gpu_temp, gpu_vram and the two disk rungs, and has no CPU branch —
+so the expected report was a real blind spot. The live table refutes it:
+across **3,497** snapshots the median is **1.7 %**, **two** samples reach
+90 %, both isolated, and the longest consecutive run is **one** five-minute
+sample against a declared ten. An empty population over 90 days, while
+`Unusual CPU usage` was raised **67** times, fires at **24–26 %** and caught
+the 98.7 % spike itself at **7.2σ**. The pair was not a missing safeguard but
+the wrong one, calibrated for a machine this is not.
+
+*The fork was put to the owner rather than guessed, and the measurement is
+what collapsed it.* Delete-and-file, build, or keep-and-record. Building
+would ship a family tuned against zero observations, which
+`estate/judgements.py` rule 6 refuses in writing for the port family; keeping
+leaves a setting that reads as an armed alarm and arms nothing. The owner
+chose delete-and-file. What was filed is **code-backed rather than a worry**:
+`anomaly.py` skips any metric whose σ falls below `min_stdev`, so a box pegged
+at a steady 95 % does not merely go un-alerted — CPU leaves the sweep
+entirely, no row and nothing to read. `ideas.md` carries it with a trigger
+that re-opens it by a count (a consecutive run, or σ approaching 1.0 from
+above; this box sits at **6.85**).
+
+*Two lexical readings were refuted by their real readers, in opposite
+directions.* `grep -c cpu_sustained sysadmin/` now returns **2** — the prose
+explaining each deletion — where `attribute_reads` returns **0**, because a
+docstring is an `ast.Constant` and a read is an `ast.Attribute`. Then the same
+error in reverse: `grep` ranked this sitting's own quoted checkbox first in
+`tasks.md` and reported the block as having hijacked the next action, so the
+bullet was reworded and a **false** claim about it briefly written down.
+Driving estate-manager's `first_unchecked_task` refutes it — `_UNCHECKED_RE`
+is anchored at line start, `count_unchecked` reads **65** where grep counted
+72, and the published line never moved. The wording stays safe anyway, because
+unreachable by one reader is not the same as harmless; the **reason** is now
+the measured one. Note the asymmetry worth carrying: quoting a `STATUS.md`
+check marker **does** re-arm it, so the two documents answer this question
+oppositely and neither answer transfers.
+
+*Six mutations driven, each red on exactly one test, the sixth only after it
+was sharpened.* The first container control added a model carrying an unread
+*leaf* as well and reddened two tests, so it was replaced by
+`unread_block: Thresholds`, whose leaves all have readers and whose container
+name has none. The container half ships with an **empty** finding population
+and says so, and a vacuity premise pins the walk — a walker that stopped
+descending would sweep a handful of top-level fields and report clean, which
+is the failure `test_no_config_model_forbids_unknown_keys` guards one module
+over.
+
+*A stale claim had to be retired the way the document already does it.*
+Prepending a block with `<!--check:deploy-->` left the region stating two
+restart timestamps and `check_daemon_start` answered `unknown` — rule 2's
+drift with both halves inside one file. The convention was read off the
+previous commit rather than invented: the older block keeps its timestamp and
+gives up the **bold**, since the claim pattern requires it. All fourteen ops
+claims read `ok`.
+
+*Verified live rather than only in tests.* `POST /api/sysadmin/reload` returns
+`unknown_keys: []`, `unwalkable_sections: []`, `requires_restart: []` — the
+file and the model agreeing on the running box, which is the check a
+model-only deletion would have made loud. `/health` 200, `NRestarts=12`, and
+the burst budget was checked first (zero starts in the 10-minute window,
+`SNAG-SYSD-007`).
+
+---
+
+# Handoff — 2026-09-14 (Session 236)
+
+### The action Session 236 handed on (discharged by Session 237)
 
 Read the four `AppConfig` leaves this sitting's sweep found with no reader under `sysadmin/` and decide each — the general case of the block just trimmed. *(For: session)*
 

@@ -4,13 +4,85 @@
 >
 > **Related**: [tasks.md](tasks.md) | [snag_list.md](snag_list.md)
 >
-> **Last Updated**: 2026-08-31
+> **Last Updated**: 2026-09-14
 
 ---
 
 ## Ideas Inbox
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
+
+### 🧠 2026-09-14 — an **absolute** CPU backstop, the check the deleted thresholds named
+
+Filed by Session 237 when it removed `agents.sysadmin.thresholds.`
+`cpu_sustained_percent` and `.cpu_sustained_minutes` from both halves of
+the configuration. The leaves were declared in the **first commit** and
+no commit since has ever given or taken away a reader, so nothing was
+regressed by their removal — but the *question* they were pointing at is
+real and is recorded here rather than in configuration for a check
+nothing performs.
+
+**What is already covered, and why the deletion was right.**
+`_check_thresholds` is handed a single `ResourceSnapshot`, so *sustained
+over ten minutes* was never a question its argument could answer. CPU is
+watched instead by `sysadmin/monitor/anomaly.py`, a z-score over
+`resource_snapshots` — which on this box is the better instrument by a
+wide margin. Measured 2026-09-14 over 3,497 snapshots (2026-06-16
+onward): CPU median **1.7%**, p95 **23%**, p99 **26.8%**; **two**
+samples at or above 90%, both isolated, longest consecutive run **one**
+five-minute sample against a declared ten. The declared check had an
+**empty population across 90 days**. The z-score path raised `Unusual
+CPU usage` **67** times in the same window, fires at **24–26%** — an
+order of magnitude below the deleted 90% — and caught the 98.7% spike
+itself at **7.2σ**.
+
+**What is genuinely not covered, and it is a property of the code rather
+than a worry.** A z-score is a *relative* instrument, so a box whose
+baseline drifts up makes the new baseline its own normal. That is the
+familiar half. The sharper half is `anomaly.py`'s flat-series guard:
+
+```python
+sigma = stdev(series)
+if sigma < config.min_stdev:
+    continue          # flat series — a z-score here would be meaningless
+```
+
+A machine pegged at a steady 95% has a *small* σ, so CPU is not merely
+un-alerted, it is **dropped from the sweep entirely** — no row, no
+`details`, nothing to read. `min_stdev` is 1.0 and this box currently
+sits at σ **6.85**, so the guard is nowhere near firing; it is the exact
+shape a backstop would exist to cover, and it is one line of code rather
+than a hypothesis.
+
+**Why this is an idea and not a task.** A family tuned against zero
+observations is a guess with a number on it, which
+`estate/judgements.py` rule 6 refuses in writing for the port family and
+which `NOISE_MIN_OCCURRENCES` and `flap_min_episodes` both declare their
+status about. There is nothing here to derive a threshold *from*: 90%
+was invented, and so would 95% be.
+
+Four things to settle before building it, none of them measured:
+
+1. **Where it lives.** Not `_check_thresholds`, which cannot see
+   history — the shape is `anomaly.py`'s, reading a window of
+   `resource_snapshots`, which means it is a second reader of that
+   table and needs a reason not to be a second owner of CPU's
+   lifecycle.
+2. **How it avoids speaking twice.** The anomaly family already raises
+   `Unusual CPU usage` and `_threshold_keys` exists precisely so one
+   family's suppression cannot manufacture a duplicate in the other. A
+   backstop firing beside a z-score row about the same CPU is the
+   second-owner defect this repository has found at six scales.
+3. **Its resolve path.** A sustained condition recovers, so it needs
+   either a `RESOLVABLE_TITLE_PATTERNS` entry or its own lifecycle —
+   and `SNAG-AGENT-004`'s 24,097 resource rows are what a threshold
+   family with no resolve path cost last time.
+4. **A trigger, so it is re-opened by a count rather than by an
+   argument.** The honest one is a measured non-empty population: any
+   run of consecutive snapshots at or above some level lasting past one
+   sample, or a 7-day CPU σ approaching `min_stdev` from above. Both
+   are one query against `resource_snapshots` and neither needs this
+   entry re-read to notice.
 
 ### ✅ Built 2026-09-13 — read the estate's three timer journals, now that their warnings are legible *(raised 2026-08-31; gate lifted by measurement and built the same day, see SETTLED below)*
 
