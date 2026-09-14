@@ -8,6 +8,85 @@
 
 ---
 
+## Session 234: a retirement is recorded in the box, not in the prose ✅ (2026-09-14)
+
+_The ask was Session 233's handoff: tick or delete the four stale unchecked
+items at the top of this file, three of which name closed entries. Done — and
+the reader was driven either side, because "stale item" is a claim about what
+another repository publishes rather than about how this file looks._
+
+- [x] **The reader was driven before and after, which is what separates this
+      from tidying.** estate-manager's `first_unchecked_task`, run from their
+      venv against this document, returned
+      ``Left open → **`SNAG-DOCS-014` (P4): `CLAUDE.md` is the fourth document making``
+      — an entry closed **2026-09-10**, published under a heading carrying no
+      session identity. It now returns
+      ``Next up → **`SNAG-CFG-007`'s stated trigger has fired.**``, which is
+      open, startable and correctly headed
+- [x] **The counts reconcile exactly, which is the only arithmetic that can
+      witness a clobber.** `count_unchecked` **78 → 74** (−4) and
+      `count_checked` **1446 → 1449** (+3): three ticks and one box removed.
+      Both taken with their functions rather than by eye
+- [x] **Three ticked with a dated closing clause, never deleted.** Deleting
+      loses what a sitting deliberately left, which is the whole point of a
+      *Left open* section. `SNAG-DOCS-014` → **fixed 2026-09-10 by Session
+      210**; `SNAG-DOCS-016` → **decided 2026-09-11 by Session 214**, as
+      [ADR-0011](../adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md),
+      which is the ADR that item says is owed; `SNAG-DOCS-015` → **fixed
+      2026-09-11 by Session 216** by `ops_claims` rule 12, the third reading
+      the item said it could not find. Each closer read off the register
+      through `estate.snags` rather than grepped
+- [x] **The document already carried its own refutation one section above.**
+      The four sit under Session 209's *Left open*; **Session 210's block —
+      the sitting that fixed the first of them — is the section immediately
+      above it**, newest-first. So the published line was refuted by the same
+      file that published it, which is `a-next-action-can-regress-past-its-answer`'s
+      shape arriving in the fallback rather than in the handoff
+- [x] **The fourth was neither ticked nor deleted, and that is the one
+      judgement here.** *"The test count and the two Markdown line counts are
+      deliberately not pinned"* records a decision that was taken and still
+      stands. A tick asserts work completed and a deletion loses the decision,
+      so the **checkbox** came off and the bullet stayed: `- [ ]` was claiming
+      a unit of work nobody was ever going to do, and `count_unchecked` was
+      counting it as one. Re-indented to the 2-space continuation the file's
+      other 66 plain bullets use
+- [x] **The fallback is latent today, and saying so is not a reason to leave
+      it.** `scan_roadmap` reaches `first_unchecked_task` only when
+      `info["next_action"] is None` — no heading containing "next" in
+      `HANDOFF.md` — which `tests/test_handoff_shape.py` guards. So nothing
+      was being mispublished *today*; what was true is that the document was
+      one absent heading away from publishing four-day-old closed work
+- [x] **A fifth item of the same shape was found and deliberately not fixed**
+      (`SNAG-DOCS-031`). In **Session 171**'s block, line 6769 at this commit, an item reads ``- [ ] ~~…~~ **Done above.**`` —
+      retired to a human, **open to the parser**: driven at a document built
+      from that one line, `first_unchecked_task` returns it *with the `~~`
+      intact* and `count_unchecked` counts it. So the repository has used a
+      retirement form its consumer cannot see, and the durable half of this
+      sitting is the rule rather than the specimen — **tick the box, never
+      strike the text**
+- [x] **Not fixed because the scope was four named items.** One character
+      would do it and it is not reachable today (it sits in Session 171's
+      block, below the open `SNAG-CFG-007` item in Session 201's), so widening a documentation fix into the
+      item beside it buys nothing and is how a declared scope stops being
+      declarable — `SNAG-DOCS-029`'s own stated reason
+- [x] **The census was reconciled at the consumer's key before anything was
+      written down.** A first sweep keyed on `^- \[ \]` found **72** where
+      `count_unchecked` finds **74**: their regex admits leading whitespace and
+      a `*` bullet, and two items here are indented (lines 5221, 6107 at this commit). An
+      indented item is equally publishable, so every figure in the entry is
+      taken on `_UNCHECKED_RE`
+- [x] **Nine further items name only closed entries, and they are filed as a
+      population rather than as a count of defects.** Naming a closed entry is
+      not proof an item is done — it may name one in passing and describe work
+      still outstanding — so the nine are readings, one at a time. Stated this
+      way because this register's recurring failure is a sitting asserting a
+      class size instead of driving one, three times in the last four sittings
+- [x] **No code changed, so no restart is owed and no test was added.** The
+      suite, `ruff` and `mypy` are unmoved; `docs/roadmap/snag_list.md` gains
+      one entry (175 → 176 rows, 36 → 37 open) and its header is re-dated
+
+---
+
 ## Session 233: an absent reset at the failure instant is not an absent cause ✅ (2026-09-14)
 
 _The ask was Session 232's handoff and the scheduled item due today: read
@@ -1940,7 +2019,7 @@ precisely the one a two-document comparison cannot see.
 
 ### Left open
 
-- [ ] **`SNAG-DOCS-014` (P4): `CLAUDE.md` is the fourth document making
+- [x] **`SNAG-DOCS-014` (P4): `CLAUDE.md` is the fourth document making
       this claim.** Its Contract Registry says *"membership is a
       property a test computes"*, and the test it means
       (`tests/test_contract_reachability.py`) walks **models**, not
@@ -1949,7 +2028,12 @@ precisely the one a two-document comparison cannot see.
       `410 Gone` tombstones, twelve genuinely absent. Filed rather than
       fixed, because deciding which of the twelve the registry is
       *meant* to carry is a judgement and not a sweep.
-- [ ] **`SNAG-DOCS-016` (P4): our commit messages cite register ids that
+      **Fixed 2026-09-10 by Session 210** — whose block sits *one section
+      above this one in this same file* — and the judgement priced here
+      turned out to be mechanical: `tests/test_claude_md_registry.py`
+      sweeps the registry against `create_app()` both ways. *(Ticked
+      2026-09-14 by Session 234.)*
+- [x] **`SNAG-DOCS-016` (P4): our commit messages cite register ids that
       resolve on no route for anyone.** Four estate messages closed, all
       four asking nothing; `5ebe902b` (estate-manager's ADR-0155)
       hand-read this tree and found **35 of 74** citations carrying the
@@ -1962,7 +2046,13 @@ precisely the one a two-document comparison cannot see.
       listing rather than creating an unresolvable one. **Decided
       against deciding**: two siblings have each bound their own writes
       and neither binds ours, so adopting the gloss here is an ADR.
-- [ ] **`SNAG-DOCS-015` (P4): a flapping alert title cannot be pinned by
+      **Decided 2026-09-11 by Session 214**, the ADR this item says is
+      owed being
+      [ADR-0011](../adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md):
+      one clause saying what the message said, the id written whole where
+      this repository *filed* the message and short where it *received*
+      one. *(Ticked 2026-09-14 by Session 234.)*
+- [x] **`SNAG-DOCS-015` (P4): a flapping alert title cannot be pinned by
       a count.** `check-ops-claims.sh` told this sitting the block was
       stale twice, in **opposite directions**, ninety minutes apart:
       `High VRAM usage on AMD Radeon RX 7900 XTX` was open at the first
@@ -1976,15 +2066,25 @@ precisely the one a two-document comparison cannot see.
       worse: a flap-rate exclusion makes this file a second reader of a
       policy the tray owns, and a pinned range removes the check's whole
       point, which is to notice a fall.
-- [ ] **The test count and the two Markdown line counts are
-      deliberately not pinned.** They move on every commit, this one
-      included, so an exact pin makes a session's own work read as a
-      documentation defect — and a test counting the suite by
-      re-collecting it would be a probe multiplying the suite's cost.
-      They are hedged and dated in the document instead, and what is
-      guarded is that the sentence keeps its hedge, keeps its date and
-      has not drifted past `FIGURE_TOLERANCE`, which is **invented and
-      says so**.
+      **Fixed 2026-09-11 by Session 216** by the third reading this item
+      says it could not find: `ops_claims` rule 12 pins the figure
+      against the **stable** set, the flapping title being *set aside*
+      from the count by `check_alerts` rather than counted into it — so
+      the document gains a satisfiable value without the checker losing
+      its ability to notice a fall. *(Ticked 2026-09-14 by Session 234.)*
+- **The test count and the two Markdown line counts are
+  deliberately not pinned.** They move on every commit, this one
+  included, so an exact pin makes a session's own work read as a
+  documentation defect — and a test counting the suite by
+  re-collecting it would be a probe multiplying the suite's cost.
+  They are hedged and dated in the document instead, and what is
+  guarded is that the sentence keeps its hedge, keeps its date and
+  has not drifted past `FIGURE_TOLERANCE`, which is **invented and
+  says so**. *(The checkbox came off 2026-09-14 by Session 234, and
+  this is the one of the four that was neither ticked nor deleted: it
+  records a decision that was taken and still stands, so a `- [ ]`
+  asserted a unit of work nobody was ever going to do — and
+  `count_unchecked` was counting it as one.)*
 
 ---
 

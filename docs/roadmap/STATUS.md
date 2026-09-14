@@ -3,6 +3,44 @@
 **Last Updated**: 2026-09-14
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A retirement is recorded in the box, not in the prose** (2026-09-14,
+> Session 234, discharging Session 233's handoff and opening
+> `SNAG-DOCS-031`). The four stale unchecked items at the top of
+> `docs/roadmap/tasks.md` are cleared, and the reader was driven either side
+> because "stale item" is a claim about what another repository publishes.
+> estate-manager's `first_unchecked_task` returned
+> ``Left open → **`SNAG-DOCS-014`…`` — closed 2026-09-10, under a heading
+> carrying no session identity — and now returns
+> ``Next up → **`SNAG-CFG-007`'s stated trigger has fired.**``, which is open
+> and startable. `count_unchecked` **78 → 74**, `count_checked` **1446 →
+> 1449**: three ticks and one box removed, reconciling exactly.
+>
+> **Three were ticked with a dated closing clause and none deleted** —
+> `SNAG-DOCS-014` fixed by Session 210, `-016` decided by Session 214 as
+> ADR-0011, `-015` fixed by Session 216 — because deleting loses what a
+> sitting deliberately left. **The fourth was neither**: *"the test count and
+> the two Markdown line counts are deliberately not pinned"* records a
+> decision that stands, so a tick would assert work done and a deletion would
+> lose the decision; the **checkbox** came off and the bullet stayed.
+>
+> **The document already carried its own refutation one section above.** The
+> four sit under Session 209's *Left open*, and Session 210 — which fixed the
+> first of them — is the block immediately above it.
+>
+> **The durable half is an idiom, filed as `SNAG-DOCS-031` and deliberately
+> not fixed here.** One item was retired by a strikethrough, which
+> `first_unchecked_task` cannot see: driven at a document built from that one
+> line it returns the item *with the `~~` markup intact*. **Tick the box,
+> never strike the text.** Left because this sitting's declared scope was four
+> named items, and it is not reachable today. Nine further items name only
+> closed entries and are filed as a **population needing a reading each**,
+> never as a count of defects. The census was reconciled at the consumer's
+> key first: a hand-written `^- \[ \]` found 72 where `count_unchecked` finds
+> **74**, their regex admitting leading whitespace and a `*` bullet.
+>
+> **No code changed**, so no restart is owed, the suite is unmoved and no test
+> was added.
+
 > **An absent reset at the failure instant is not an absent cause**
 > (2026-09-14, Session 233, discharging the scheduled reading due today and
 > closing `SNAG-SCHED-004` **into** `SNAG-GPU-001`). All three weekly review
@@ -6278,6 +6316,24 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 234 — a retirement is recorded in the box, not in the prose (2026-09-14)
+
+Cleared the four stale unchecked items at the top of `docs/roadmap/tasks.md`,
+and drove estate-manager's `first_unchecked_task` either side rather than
+judging the file by eye: it returned `SNAG-DOCS-014` (closed 2026-09-10) and
+now returns `SNAG-CFG-007`, which is open. `count_unchecked` 78 → 74 and
+`count_checked` 1446 → 1449, reconciling exactly.
+
+**Three ticked with a dated closing clause, one de-checkboxed.** Deleting an
+item loses what a sitting deliberately left. The fourth recorded a decision
+rather than a unit of work, so the box came off and the text stayed.
+
+**`SNAG-DOCS-031` opened and deliberately not fixed.** A fifth item was
+retired with a strikethrough the parser cannot see — it reads *done* to a
+human and *open* to the reader that publishes this repository's next action.
+Tick the box, never strike the text. Nine further candidates are filed as a
+population to be read one at a time, not as a count of defects.
 
 ### Session 233 — an absent reset at the failure instant is not an absent cause (2026-09-14)
 

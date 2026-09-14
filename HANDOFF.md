@@ -1,6 +1,82 @@
-# Handoff — 2026-09-14 (Session 233)
+# Handoff — 2026-09-14 (Session 234)
 
 ## Next action
+
+Tick `tasks.md`'s one struck-through item and read the nine candidates beside it — the residue `SNAG-DOCS-031` filed when this sitting declined to widen its scope. *(For: session)*
+
+*The line is 163 characters before its marker and names one entry, which is
+`open — owed`* — so it publishes work somebody is owed, which is the test
+`check_next_action` applies and the reason the three items ticked today could
+not have been named here. The specimen is one character (`[ ]` → `[x]`,
+keeping both the strikethrough and the *"Done above."*); the nine are
+**readings, not a sweep**, because naming a closed entry is not proof an item
+is done — it may name one in passing and describe work still outstanding.
+
+*What this sitting did.* Cleared the four stale unchecked items at the top of
+`docs/roadmap/tasks.md`. No Python changed, the suite is unmoved and no test
+was added, the register gained one entry (175 → 176 rows, **36 → 37** open),
+and **no restart is owed** because nothing under `sysadmin/` was touched.
+
+*The fix was driven at the reader, not judged by eye, and that is what makes
+it a fix.* "Stale item" is a claim about what another repository publishes:
+estate-manager's `scan_roadmap` falls back to `first_unchecked_task` when a
+handoff carries no heading containing "next". Run from their venv against this
+document it returned ``Left open → **`SNAG-DOCS-014` (P4)…``, an entry closed
+**2026-09-10**, under a heading carrying no session identity. It now returns
+``Next up → **`SNAG-CFG-007`'s stated trigger has fired.**``, which is open and
+startable. `count_unchecked` **78 → 74** and `count_checked` **1446 → 1449**
+reconcile exactly at three ticks and one box removed — the only arithmetic
+that can witness a clobber.
+
+*Three ticked, one de-checkboxed, none deleted.* Deleting loses what a sitting
+deliberately left, which is what a *Left open* section is for, so each of the
+three carries a dated closing clause naming its closer: `SNAG-DOCS-014` fixed
+2026-09-10 by Session 210, `-016` decided 2026-09-11 by Session 214 as
+[ADR-0011](docs/adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md)
+— the very ADR that item says is owed — and `-015` fixed 2026-09-11 by Session
+216 by `ops_claims` rule 12, the third reading the item said it could not
+find. The fourth was **neither ticked nor deleted** and it is the one
+judgement here: *"the test count and the two Markdown line counts are
+deliberately not pinned"* records a decision that was taken and still stands,
+so a tick would assert work completed and a deletion would lose the decision.
+The checkbox came off; the bullet stayed.
+
+*The document already carried its own refutation one section above.* The four
+sit under Session 209's *Left open*, and **Session 210 — the sitting that
+fixed the first of them — is the block immediately above it**, newest-first.
+The published line was refuted by the same file that published it.
+
+*What was refused, so the next sitting can see what this did not do.* The
+fifth item of the same shape was **found and left**: `SNAG-DOCS-031`, an item
+retired with a strikethrough, which reads *done* to a human and *open* to the
+parser — driven at a document built from that one line, `first_unchecked_task`
+returns it with the `~~` markup intact and `count_unchecked` counts it. **Tick
+the box, never strike the text** is the durable half. It was not fixed because
+this sitting's declared scope was four named items and widening a
+documentation fix into the item beside it is how a scope stops being
+declarable — `SNAG-DOCS-029`'s own stated reason — and because it is not
+reachable today, sitting below the open `SNAG-CFG-007` item. No check was
+added either: what one would drive is *"no unchecked item is stale"*, which
+needs a human reading of each item, and the mechanisable proxy retires the
+moment the one specimen is ticked and then answers the same way for ever,
+which is `check_review_schedule_unread`'s defect.
+
+*Two measurement traps, both caught by re-driving rather than by reading.*
+The census was reconciled at the **consumer's** key: a hand-written
+`^- \[ \]` found **72** unchecked where `count_unchecked` finds **74**, their
+regex admitting leading whitespace and a `*` bullet, and an indented item is
+equally publishable. And every line number quoted in the first draft was
+taken **before** an 80-line session block was inserted at the top of the same
+file, so all of them were wrong by +79 within the sitting; they are cited by
+enclosing **session number** now, with line numbers stamped *at this commit*.
+One of those session numbers was asserted rather than measured and was wrong
+— Session 219 for what is Session 201 — caught by checking it.
+
+---
+
+# Handoff — 2026-09-14 (Session 233)
+
+### The action Session 233 handed on (discharged by Session 234)
 
 Tick or delete the four stale unchecked items at the top of `docs/roadmap/tasks.md`, three of which name closed entries and could be published as this repository's next action. *(For: session)*
 
