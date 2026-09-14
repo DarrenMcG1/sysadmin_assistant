@@ -1,6 +1,96 @@
-# Handoff — 2026-09-14 (Session 234)
+# Handoff — 2026-09-14 (Session 235)
 
 ## Next action
+
+Trim the unread leaves of `config.yaml`'s `agents.project_organiser` block, keeping `projects_root`, which this sitting measured as having seven live readers. *(For: session)*
+
+*The line is 157 characters before its marker and names **no** SNAG id, which
+it cannot*: driven through `estate.snags`, the register now holds **36 open
+and 0 owed** — `SNAG-DOCS-031` was the last `owed` entry and this sitting
+closed it — so any id here would publish work nobody is owed, which is
+`SNAG-ESTATE-008`'s founding case. What makes it startable is that the scope
+was measured rather than inherited: the item asking for this trim argues from
+*"read by nothing since ADR-0005"*, and that premise is **half wrong**.
+`projects_root` has seven live readers (`main.py`, `reload.py` ×2,
+`files/router.py`, `units/agent.py` ×2, `units/router.py`,
+`routers/projects_managed.py`) and `config.yaml`'s own comment beside the
+block already says so, so what a trim can take is the other leaves. Expect the
+defaults tests to fan out — that is why the item was left for its own sitting.
+
+*What this sitting did.* Ticked the one struck-through item in
+`docs/roadmap/tasks.md` and read the nine candidates beside it, closing
+`SNAG-DOCS-031`. No Python changed, the suite is unmoved at **4140** and
+green, the register went **37 → 36** open at 176 rows, and **no restart is
+owed** because nothing under `sysadmin/` was touched.
+
+*The specimen was one character; the reading was the work.* `- [ ] ~~…~~` →
+`- [x] ~~…~~`, keeping the strikethrough and the *"Done above."*. Driven at
+the reader either side rather than judged by eye: `count_unchecked` **74 →
+66**, no unchecked line in the document carries `~~`, and
+`first_unchecked_task` is **unmoved** at ``Next up → **`SNAG-CFG-007`…`` —
+the correct outcome, not a null result, because the specimen sat below that
+open item exactly as the entry's P4 reachability argument said.
+
+*The nine split four ways, so the entry's own warning was right three times
+in nine.* Five were discharged and are ticked with a dated clause naming the
+closer — `SNAG-LOG-008` (Session 116's `message_backfill.py`),
+`SNAG-ESTATE-004` (fixed by estate-manager), `SNAG-PROJ-013`,
+`SNAG-ROADMAP-002` (fixed by estate-manager) and `SNAG-AGENT-006`
+(`_raise_judged`). A sixth was ticked on its own evidence: the item reading
+*"547,814 unresolved `Log error: kernel` rows … nothing has ever purged or
+resolved them"* now measures **607,148** rows in that family and **0**
+unresolved, closed by `_resolve_quiet` keying on `COALESCE(details->>'last_seen_at',
+created_at)`. **Two stay open and one lost its checkbox.**
+
+*Every tick was verified at the thing, never at the register, and that is the
+only reason the split is trustworthy.* A disposition lookup answers *closed*
+for all eleven ids the nine name and would have produced two false positives.
+
+*The sharpest of the two left open refutes its own stated remedy.* *"Page-1
+churn can re-notify a standing alert"* routes its fix to the volume — *"a fix
+belongs on the volume, not on `limit=50`"* — and that volume fix landed
+2026-08-12. Replaying `created_at`/`resolved_at` as a running open-row count,
+the table held **95** unresolved rows at once on **2026-08-13**, the day
+*after*, and stayed over the 50-row page for **2 h 41 m**. Clear since (max
+**34** to 08-29, **19** in the last seven days) — but clear is a property of
+today's fault load, not of the code: the route still defaults to `limit=50`
+newest-first and `_close_inactive` still resets a fingerprint absent from a
+poll.
+
+*The ninth lost its checkbox rather than being ticked or deleted*, which is
+Session 234's treatment of its own fourth item applied a second time. *"The
+retirement checklist … not this repository's to enforce"* is a decision that
+stands; re-read at the owner before saying so — nothing was ever filed at the
+estate for it, and estate-manager has since recorded retirement material of
+its own (their ADR-0136) without adopting a checklist.
+
+*Three traps, all caught by re-driving rather than by reading.* **The first
+was this sitting rebuilding the defect it was sent to fix**: its *Left open*
+note was first written as `- [ ]`, and because a new block goes at the top of
+`tasks.md`, `first_unchecked_task` immediately began publishing it — a line
+naming a *closed* entry as this repository's next action. A `- [ ]` is a
+published commitment, not a note. **The second was a quoted marker**: the
+register entry named which STATUS.md claim watches the unresolved-alert count
+by writing the `check:` marker inline, and `check-snag-claims.sh` read it as
+this entry naming a check nobody implements. Cite the key, never the marker.
+**The third was a flapping figure** — the unresolved total read 6 while the
+nine were being measured and 5 an hour later, so the claim rests on the
+family's zero and the total is named as moving.
+
+*A figure in Session 234's own handoff was refuted in passing.* It reconciles
+its census as *"`count_checked` 1446 → 1449 … the only arithmetic that can
+witness a clobber"*; the reader says **1446 → 1460**. The 14 are 3 ticks plus
+**11** `- [x]` narrative bullets in the session block that commit added — so
+there was no clobber and the conclusion held, but the arithmetic was taken
+over the wrong population. STATUS.md carries the correction beside the
+original, and this sitting paid the same trap: `count_checked` **1460 →
+1479** is seven ticks plus the twelve bullets its own block is written as.
+
+---
+
+# Handoff — 2026-09-14 (Session 234)
+
+### The action Session 234 handed on (discharged by Session 235)
 
 Tick `tasks.md`'s one struck-through item and read the nine candidates beside it — the residue `SNAG-DOCS-031` filed when this sitting declined to widen its scope. *(For: session)*
 

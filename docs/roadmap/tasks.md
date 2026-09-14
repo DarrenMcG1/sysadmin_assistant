@@ -8,6 +8,117 @@
 
 ---
 
+## Session 235: naming a closed entry is not proof the item is done ✅ (2026-09-14)
+
+_The ask was Session 234's handoff: tick the one struck-through item and read
+the nine candidates beside it — the residue `SNAG-DOCS-031` filed when that
+sitting declined to widen its scope. Done, and the nine split four ways, so
+the entry's own warning was right in three of nine cases._
+
+- [x] **The specimen was one character and the reader was driven either
+      side.** `- [ ] ~~**Decide whether the six pre-convention
+      live-connection files owe premise assertions.**~~ **Done above.**`
+      became `- [x]`, keeping the strikethrough and the *"Done above."* — the
+      retirement a human could already read is now one the machine can.
+      `count_unchecked` **74 → 66** — seven ticks and one box removed — and no
+      unchecked line in this document carries `~~`. `count_checked` reads
+      **1460 → 1479**: the same seven, plus the **twelve** `- [x]` bullets
+      this block is written as. Stated that way because taking the delta as
+      the tick count is the trap two bullets down
+- [x] **`first_unchecked_task` is unmoved, and that is the correct
+      outcome rather than a null result.** It returned ``Next up →
+      **`SNAG-CFG-007`'s stated trigger has fired.**`` before the tick and
+      returns it after, because the specimen sat *below* that open item —
+      exactly the reachability argument `SNAG-DOCS-031` ranked itself P4 on.
+      A fix whose published effect is nothing is what a latent defect's fix
+      looks like, and saying so is not the same as not checking
+- [x] **Five of the nine were discharged and are ticked with a dated clause
+      naming the closer.** The ten raw-JSON signatures (`SNAG-LOG-008`, fixed
+      2026-08-28 by Session 116's `message_backfill.py`), the
+      contended-default delegation (`SNAG-ESTATE-004`, fixed by
+      estate-manager 2026-08-27), ImbaBots' undated handoff
+      (`SNAG-PROJ-013`, closed 2026-08-25), the `count_open_snags` miscount
+      (`SNAG-ROADMAP-002`, fixed by estate-manager 2026-08-25) and the
+      sustained-fault raise side (`SNAG-AGENT-006`, fixed 2026-08-14 by
+      `_raise_judged`)
+- [x] **Every tick was verified at the thing, never at the register, and
+      that is the only reason the split is trustworthy.** `log_entries`
+      holds **0** rows for `sysadmin.service` whose `message` opens
+      `{"timestamp"`, out of 583. estate-manager's
+      `audit/checks/ports.py` emits `claimed_tool_default`, read in their
+      tree. `~/projects/ImbaBots/HANDOFF.md` heads `# Handoff — 2026-09-10 ·
+      M5 (Tier 2) …`. `_raise_judged` is live at
+      `sysadmin/monitor/agent.py:436`. A disposition lookup would have
+      produced all five and two false positives with them
+- [x] **A sixth was ticked on its own evidence and it closes the loudest
+      line in this file.** *"547,814 unresolved `Log error: kernel` rows …
+      nothing has ever purged or resolved them"* — that family now holds
+      **607,148** rows and **0** of them unresolved. What reached the
+      pre-existing backlog is `SNAG-AGENT-005`'s `_resolve_quiet` keying on
+      `COALESCE(details->>'last_seen_at', created_at)`, which is precisely
+      the thing the item said nothing would ever do
+- [x] **One of the two left open refutes its own stated remedy, and only
+      replaying the table could say so.** *"Page-1 churn can re-notify a
+      standing alert"* routes its fix to the volume — *"a fix belongs on the
+      volume, not on `limit=50`"* — and that volume fix landed as
+      `SNAG-AGENT-005` on 2026-08-12. Replaying `created_at`/`resolved_at`
+      as a running open-row count, the table held **95** unresolved rows at
+      once on **2026-08-13**, the day *after*, and stayed over the 50-row
+      page for **2 h 41 m**. Clear since — max **34** to 08-29, **19** in
+      the last seven days — but clear is a property of the fault load, not
+      of the code: the route still defaults to `limit=50` newest-first and
+      `_close_inactive` still resets a fingerprint absent from a poll
+- [x] **The other left open has a premise the config file already
+      refutes.** *"Trim the `agents.project_organiser` config block"*
+      argues from *"read by nothing since ADR-0005"*; `projects_root` has
+      **seven** live readers here, and `config.yaml`'s own comment beside
+      the block records that the files domain still reads it. The work is
+      real and smaller than the item claims — the other leaves, not the
+      block
+- [x] **The ninth lost its checkbox rather than being ticked or deleted**,
+      which is Session 234's treatment of its own fourth item applied a
+      second time. *"The retirement checklist … not this repository's to
+      enforce — an estate convention if it is anyone's"* is a decision that
+      was taken and still stands: a tick asserts a checklist exists, a
+      deletion loses the judgement. Re-read at the owner before saying so —
+      nothing was ever filed at the estate for it, and estate-manager has
+      since recorded retirement material of its own (their ADR-0136)
+      without adopting a checklist
+- [x] **A figure in Session 234's own handoff was refuted in passing.** It
+      reconciles its census as *"`count_checked` 1446 → 1449 … the only
+      arithmetic that can witness a clobber"*; the reader says **1446 →
+      1460**. The 14 are 3 ticks plus **11** new `- [x]` narrative bullets
+      in the session block that commit added — so there was no clobber and
+      the conclusion held, but the arithmetic was taken over the wrong
+      population. STATUS.md carries the correction beside the original. A
+      session block written as checked items is part of the census it
+      reports, which is a trap this sitting had to pay too
+- [x] **A quoted marker re-armed a check that does not exist.** The first
+      draft of the register entry wrote a `check:` marker inline to name
+      which claim watches the unresolved-alert count;
+      `check-snag-claims.sh` read it as this entry naming a check nobody
+      implements and said so. Cite the key, never the marker
+- [x] **A flapping figure was caught being pinned.** The unresolved total
+      read **6** while the nine were being measured and **5** an hour later.
+      The family's zero is stable and the total is not, so the claim rests
+      on the zero and the total is named as moving
+- [x] **No Python changed**, so no restart is owed and no test was added.
+      The suite is unmoved at **4140**, green
+
+### Left open
+
+- **`SNAG-DOCS-031`'s refusal of a check stands, and is stronger than
+  when it was written.** The mechanisable proxy — *no `- [ ]` line contains
+  `~~`* — became true at the moment of the tick and would answer the same way
+  for ever, which is `check_review_schedule_unread`'s defect. The half that
+  did the work here was **reading nine items**, and no check can do that.
+  **Written without a checkbox deliberately, and the first draft was not**:
+  a `- [ ]` in this block is the newest in the file, so `first_unchecked_task`
+  published it at once — a line naming a *closed* entry, which is the very
+  class this sitting was sent to clear. Caught by re-driving the reader
+
+---
+
 ## Session 234: a retirement is recorded in the box, not in the prose ✅ (2026-09-14)
 
 _The ask was Session 233's handoff: tick or delete the four stale unchecked
@@ -6766,7 +6877,7 @@ debts that landing deliberately left behind._
       call after the literal version found the sentinel the test wrote
       into the file under the walk. **3033 → 3042 → 3055**, none retired.
 
-- [ ] ~~**Decide whether the six pre-convention live-connection files owe
+- [x] ~~**Decide whether the six pre-convention live-connection files owe
       premise assertions.**~~ **Done above.** *(Opened 2026-08-30 by Session 131 as the
       stated cost of the guard above; deliberately a task and not a
       snag.)* `test_logs_routes.py`, `test_open_alert_predicate.py`,
@@ -6959,6 +7070,7 @@ debts that landing deliberately left behind._
       is a config change rather than a schema one — config classes fan
       out into defaults tests, so it is its own sitting's edit and does
       not belong in a migration
+      *(Read 2026-09-14 by Session 235 and **left open** — the block is still in `config.yaml` at line 299. The item's premise is half wrong and the file already says so: `projects_root` is **not** read by nothing, it has seven live readers (`main.py`, `reload.py` twice, `files/router.py`, `units/agent.py` twice, `units/router.py`, `routers/projects_managed.py`), so what a trim can take is the other leaves and not the block. `SNAG-CFG-001` is named here as a *shape*, and its being closed says nothing about this.)*
 - [x] **Pin the tray's parse of the estate's responses.** The tray reads
       `/api/projects/overview` and `/{name}` from **8400** now but parses
       them with *this* repository's contract classes
@@ -10088,7 +10200,7 @@ either side.
       filters on `duration_seconds IS NOT NULL`, which they are. The rows
       are cosmetic; the two from 2026-08-14 and the two the Session 66
       restart created are all superseded by newer completed runs
-- [ ] **Ten `sysadmin.service` signatures still read as raw JSON**
+- [x] **Ten `sysadmin.service` signatures still read as raw JSON**
       (`SNAG-LOG-008`) in
       `GET /api/logs/trends` (`{"timestamp": "N-N-N ...", "level":
       "WARNING", ...}`). `unwrap_json_message` applies at *read* time, so
@@ -10099,6 +10211,7 @@ either side.
       purge's before/after, not looked for; filed rather than fixed because
       a backfill is a second data migration and this sitting had already
       made one
+      *(Closed 2026-09-14, Session 235: `SNAG-LOG-008` was fixed 2026-08-28 by Session 116's `sysadmin/monitor/message_backfill.py`, which derives the new `message` from the stored one and witnesses it against `raw_line`. Verified live rather than taken from the register — `sysadmin.log_entries` holds **0** rows for `sysadmin.service` whose `message` opens `{"timestamp"`, out of 583 for that source.)*
 
 ## Session 66 — the verification sitting (2026-08-17)
 
@@ -11531,13 +11644,14 @@ monitor own a cross-repo convention document, against the estate rules.
       `judge_audit_invariants` deliberately judged only whether the audit
       *ran*. `judge_audit_findings` now judges the `ports` check per
       finding. See CLAUDE.md for the five rules
-- [ ] **Contended default** — a project on a well-known default (8080,
+- [x] **Contended default** — a project on a well-known default (8080,
       3000, 5000, 8888, 9000). **Delegated to estate-manager 2026-08-14**
       (`SNAG-ESTATE-004` here): it is pure conformance against a rule
       written in *their* guide ("Never take a tool's default port"), it
       needs no privileges, and detecting it is *filing a finding* rather
       than alerting — squarely the audit's remit, beside
       `unclaimed_listener` in the check that already exists
+      *(Closed 2026-09-14, Session 235: `SNAG-ESTATE-004` was fixed by estate-manager 2026-08-27 and closed here the same day. Verified in their tree rather than from our register — `estate_service/audit/checks/ports.py` emits `claimed_tool_default`, citing monitorable-project.md §2.1, and carries the narrowing this item did not ask for: a port is only a finding when the tool that defaults to it is **not** what is listening.)*
 - [ ] **Collision / near-miss** — two registry rows claiming one port, or
       a configured port already held by a different cgroup. **The one
       genuinely-ours remainder, and now Session 26c.** The estate is
@@ -12093,7 +12207,7 @@ confirms zero commits that day. `Alfred` is 4 of 4. Suite 1776 → 1824.
 
 ### Follow-ups this session opened
 
-- [ ] [SNAG-PROJ-013](snag_list.md) — ImbaBots' `HANDOFF.md` heading
+- [x] [SNAG-PROJ-013](snag_list.md) — ImbaBots' `HANDOFF.md` heading
       carries no ISO date, so the Stop hook will block its next
       code-changing session. **Deliberately left for that session to
       fix**: the hook demands *today's* date, so dating it on a day
@@ -12105,6 +12219,7 @@ confirms zero commits that day. `Alfred` is 4 of 4. Suite 1776 → 1824.
       the same day by opening the repository: ImbaBots' last session
       updated its handoff in the same commit as the code, and its 0 is
       the baseline rule working, not a failure
+      *(Closed 2026-09-14, Session 235 on the trigger this item names. `SNAG-PROJ-013` was fixed on ImbaBots by 2026-08-24 and closed here 2026-08-25 by Session 82; `~/projects/ImbaBots/HANDOFF.md` today heads `# Handoff — 2026-09-10 · M5 (Tier 2) …`, so the dated handoff this item was waiting for has appeared and is three weeks old.)*
 - [ ] Re-read `/api/projects/momentum` after the next organiser run, when
       `handoff_date_source` starts arriving. Every session is currently
       `unverified` by absence of the field, which is honest but makes the
@@ -12592,8 +12707,9 @@ path the hook never touched.
       would recreate SNAG-ROADMAP-003 from the deletion side. Nothing on
       the estate holds two handoffs any more, so it was verified against
       a constructed repository rather than live data
-- [ ] `SNAG-ROADMAP-002` remains open and this session added evidence:
+- [x] `SNAG-ROADMAP-002` remains open and this session added evidence:
       `count_open_snags` reports 7 for 5 open snags in this very file
+      *(Closed 2026-09-14, Session 235: `SNAG-ROADMAP-002` was fixed by estate-manager 2026-08-25 — their `SNAG-ESTATE-048` — and verified here the same day. The remedy was neither limb this line's entry proposed: `read_snags` reads an entry's **own** closure marker, so the 7-for-5 miscount this session recorded as evidence is gone at its source.)*
 
 ---
 
@@ -12990,11 +13106,13 @@ Notifications (from SNAG-CFG-001, 2026-08-11):
       minutes) and unbounded when the log aggregator is noisy — which
       makes it a second consequence of SNAG-AGENT-002 rather than a tray
       defect. A fix belongs on the volume, not on `limit=50`
-- [ ] **547,814 unresolved `Log error: kernel` rows** were found in the
+      *(Read 2026-09-14 by Session 235 and **left open**, which is the reading this item most needed. Its own remedy — *"a fix belongs on the volume"* — landed as `SNAG-AGENT-005` on 2026-08-12 and did **not** remove the mechanism: replaying `created_at`/`resolved_at` as a running open-row count, the table held **95** unresolved rows at once on 2026-08-13, peaking the day **after** that fix and staying over the 50-row page for 2 h 41 m. It has been clear since — max **34** between 08-14 and 08-29, **19** in the last seven days — but clear is a property of today's fault load, not of the code: `GET /api/sysadmin/alerts` still defaults to `limit=50` newest-first (`sysadmin/monitor/routers/sysadmin.py:288`) and `_close_inactive` still resets a fingerprint absent from a poll (`sysadmin_tray/notifications.py:913`). Naming a closed entry was not proof this was done.)*
+- [x] **547,814 unresolved `Log error: kernel` rows** were found in the
       table while measuring notification volume. That is SNAG-AGENT-002's
       damage rather than a new defect, and the notifier's incident gate
       makes it harmless to *notifications*, but nothing has ever purged
       or resolved them — retention purges resolved rows only
+      *(Closed 2026-09-14, Session 235: the backlog was reached after all. `SNAG-AGENT-005`'s `_resolve_quiet` closes a row unobserved for `alert_quiet_minutes`, and it keys on `COALESCE(details->>'last_seen_at', created_at)` — which is what made rows written before that fix reachable at all, the one thing this item said nothing would do. Measured live rather than inferred: `Log error: kernel%` holds **607,148** rows and **0** of them unresolved. The table-wide unresolved total is not pinned here — it moved 6 → 5 during the sitting that read this — so the claim rests on the family's zero.)*
 
 Tray / UI:
 - Wire Session 18's file-action endpoints (`/api/files/organise`,
@@ -13319,7 +13437,7 @@ narrowed as if 2 reindexed + 1 dropped:
 
 ### Found on the way, filed rather than fixed
 
-- [ ] **`SNAG-AGENT-006`** — a sustained fault still writes one alert row
+- [x] **`SNAG-AGENT-006`** — a sustained fault still writes one alert row
       per run. `sysadmin-organiser-timer critical` held **60 unresolved
       rows in five hours**. This is `SNAG-AGENT-004`'s *raise* side: that
       session fixed the resolve, which bounds the leak at retention but
@@ -13327,6 +13445,7 @@ narrowed as if 2 reindexed + 1 dropped:
       together — dedup without removing the family from
       `RESOLVABLE_TITLE_PATTERNS` makes the rows flip-flop, and those are
       the families carrying `critical`
+      *(Closed 2026-09-14, Session 235: `SNAG-AGENT-006` was fixed 2026-08-14 by `SysAdminAgent._raise_judged`, still live at `sysadmin/monitor/agent.py:436`. The trap this item states was superseded rather than worked around — the sweep's exclusion set became the titles the run **judged** rather than the ones it raised, so dedup and `RESOLVABLE_TITLE_PATTERNS` stopped being mutually exclusive and the two halves did not have to move together after all.)*
 - [x] **The `REINDEX` half of `SNAG-DB-002` stays open**, and stays
       manual. Eight databases, two of them another application's, one of
       them 16 GB. It wants a quiet window and a human
@@ -13618,10 +13737,11 @@ wrote **2** rows — raise, dedup, escalate, hold, resolve once on clearing
 
 ### Left open
 
-- [ ] **The retirement checklist**, which is the other half of
+- **The retirement checklist**, which is the other half of
       `SNAG-ESTATE-001`'s durable part. A process rather than code, and
       not this repository's to enforce — an estate convention if it is
       anyone's
+  *(Checkbox removed 2026-09-14, Session 235; the bullet stays. This is a decision that was taken and still stands, not work owed — a tick would assert a checklist exists and a deletion would lose the judgement that it is not ours. Re-read at the owner before saying so: nothing was ever filed at the estate for it, and estate-manager has since recorded retirement material of its own — ADR-0136, a retired shared-database object is recorded beside the live ones — without adopting a checklist. `SNAG-ESTATE-001` itself closed 2026-08-25.)*
 - [x] **`SNAG-UNITS-002` — the general case.** *(Fixed 2026-08-15,
       Session 47 below.)* 15 of the 18 units on this box with a
       `Restart=` policy cannot reach `failed`, including every live

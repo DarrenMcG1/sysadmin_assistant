@@ -3,6 +3,55 @@
 **Last Updated**: 2026-09-14
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **Naming a closed entry is not proof the item is done — it was right three
+> times in nine** (2026-09-14, Session 235, closing `SNAG-DOCS-031`). The one
+> struck-through item in `docs/roadmap/tasks.md` is ticked, keeping the
+> strikethrough and the *"Done above."*: the retirement a human could already
+> read is now one the machine can. Driven at the reader either side rather
+> than judged by eye — `count_unchecked` **74 → 66**, seven ticks and one box
+> removed reconciling exactly, and **no** unchecked line in the document
+> carries `~~`. `count_checked` reads **1460 → 1479**: the same seven plus the
+> **twelve** `- [x]` bullets this sitting's own block is written as — stated
+> that way because reading the delta as a tick count is the error corrected
+> below. `first_unchecked_task` is
+> **unmoved** at ``Next up → **`SNAG-CFG-007`…``, which is the correct
+> outcome: the specimen sat below that open item, exactly as the entry said
+> when it ranked itself P4 on reachability.
+>
+> **The nine candidates split four ways.** Five are discharged and ticked
+> with a dated clause naming the closer — the raw-JSON signatures
+> (`SNAG-LOG-008`, Session 116's `message_backfill.py`), the contended-default
+> delegation (`SNAG-ESTATE-004`, fixed by estate-manager), ImbaBots' undated
+> handoff (`SNAG-PROJ-013`), the `count_open_snags` miscount
+> (`SNAG-ROADMAP-002`, fixed by estate-manager) and the sustained-fault raise
+> side (`SNAG-AGENT-006`, `_raise_judged`). A sixth — the 547,814 unresolved
+> kernel rows — is ticked on its own evidence: that family holds **607,148**
+> rows and **0** unresolved. **Two stay open and one lost its checkbox.**
+> Every tick was verified at the thing rather than at the register.
+>
+> **One of the two left open refutes its own stated remedy, and only
+> replaying the table could say so.** *"Page-1 churn can re-notify a standing
+> alert"* routes its fix to the volume, and that volume fix landed on
+> 2026-08-12. Replaying `created_at`/`resolved_at` as a running open-row
+> count, the table held **95** unresolved rows at once on **2026-08-13** — the
+> day *after* — and stayed over the 50-row page for **2 h 41 m**. Clear since
+> (max **34** to 08-29, **19** in the last seven days), but clear is a
+> property of the fault load, not of the code. **The other's premise is half
+> wrong and `config.yaml` already said so**: `agents.project_organiser`'s
+> `projects_root` has **seven** live readers, so a trim can take the other
+> leaves and not the block.
+>
+> **The ninth lost its checkbox rather than being ticked or deleted** —
+> Session 234's treatment applied a second time. *"The retirement checklist …
+> not this repository's to enforce"* is a decision that stands; re-read at the
+> owner before saying so, and estate-manager has recorded retirement material
+> of its own (their ADR-0136) without adopting a checklist.
+>
+> **No Python changed**, so no restart is owed, the suite is unmoved at 4140
+> and no test was added — the entry's refusal of a check stands, and is
+> stronger than when it was written: the mechanisable proxy became true at the
+> moment of the tick, and the half that did the work was reading nine items.
+
 > **A retirement is recorded in the box, not in the prose** (2026-09-14,
 > Session 234, discharging Session 233's handoff and opening
 > `SNAG-DOCS-031`). The four stale unchecked items at the top of
@@ -14,6 +63,11 @@
 > ``Next up → **`SNAG-CFG-007`'s stated trigger has fired.**``, which is open
 > and startable. `count_unchecked` **78 → 74**, `count_checked` **1446 →
 > 1449**: three ticks and one box removed, reconciling exactly.
+> *(Corrected 2026-09-14 by Session 235: the reader says `count_checked`
+> **1446 → 1460**. The 14 are 3 ticks plus **11** `- [x]` narrative bullets in
+> the session block that commit added, so the conclusion — no clobber — holds
+> and the arithmetic was taken over the wrong population. A session block
+> written as checked items is part of the census it reports.)*
 >
 > **Three were ticked with a dated closing clause and none deleted** —
 > `SNAG-DOCS-014` fixed by Session 210, `-016` decided by Session 214 as
