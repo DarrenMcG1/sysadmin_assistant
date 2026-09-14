@@ -574,4 +574,3 @@ tray:
   alert_poll_seconds: 60
   show_notifications: true
   notify_min_severity: warning
-  dashboard_url: http://127.0.0.1:8500/docs

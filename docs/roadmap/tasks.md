@@ -8,6 +8,115 @@
 
 ---
 
+## Session 238: a leaf can lose its reader to a refactor ✅ (2026-09-14)
+
+Discharged Session 237's handoff: `dashboard_url`, the one `TrayConfig` leaf
+its sweep found unread one seam over, is removed — **all three halves** — and
+the walk that found it is standing. Suite **4150 → 4156**, green; ruff and
+mypy clean. No new SNAG id: the register holds 37 open and 0 owed, and the one
+limit this sitting could have filed turned out cheap enough to fix instead.
+
+- [x] **The deciding read was history, and it converts the handoff's
+      hypothesis into a measurement.** That line proposed the leaf was a
+      pre-dashboard artefact and said in the next clause that this was a
+      hypothesis. `git log -S` over 348 commits names **six** touching the
+      string: `81b3bfb` wired it to `TrayApp._open_dashboard`, which called
+      `webbrowser.open(url)` and fell back to `f"{api_url}/docs"`, and
+      `3f68448` (2026-02-13, *"add native dashboard"*) replaced that body
+      with `self._dashboard.toggle_visibility()`. The hypothesis was right
+      and the mechanism is now dated
+- [x] **The menu item survived the refactor; the browser did not.** The
+      "Dashboard" entry in `tray_icon.py` still emits `dashboard_requested`
+      and still works — what went is the only code that could read the leaf,
+      and `webbrowser` is imported **nowhere** under `sysadmin_tray/`. So the
+      leaf outlived its mechanism by **seven months** and deleting it removes
+      nothing a user can observe
+- [x] **The shipped value restated the fallback the deleted code supplied
+      itself.** `config.yaml` set `http://127.0.0.1:8500/docs`, which is
+      exactly what `_open_dashboard` synthesised when the leaf was unset — so
+      the file was configuring nothing even while a reader existed
+- [x] **Residue gets a standing guard after all, for the mirror of Session
+      237's reason.** That sitting argued a birth defect has no date and so
+      needs a guard where residue needs a sweep. This is residue and it gets
+      a guard because the two catch **opposite events**: those four leaves
+      never had a reader to lose, so that guard catches a leaf *arriving*
+      unread, and this one catches a reader *leaving* — the commoner event,
+      and the only one of the two this box has demonstrated
+- [x] **The walker is parameterised rather than copied.**
+      `_config_field_names` takes the root model, so the two guards differ
+      only in *what* they walk and *where* they look for readers. A second
+      walker would be a second implementation of one derivation, which is
+      `SNAG-DB-003`'s shape
+- [x] **The root is `sysadmin_tray/` alone, and this leaf is the case that
+      rule was written for.** The sibling guard excludes `tests` because a
+      leaf read only by the thing testing it is kept alive by its own
+      fixtures. `dashboard_url` was asserted **three times** in
+      `tests/test_tray/test_config.py` and read by no widget, so a guard
+      admitting `tests` as a root would have found a reader and shipped
+      green over the defect it exists to find
+- [x] **The note explaining the absence is weaker evidence than yesterday's,
+      and the test says which.** Session 237's removals left docstrings, and
+      a docstring survives parsing as an `ast.Constant` — grep finds it,
+      `attribute_reads` does not. This one is a plain **comment**, which the
+      tokenizer discards outright. The test asserts an equality over
+      `tokenize` — every occurrence of the name in the file is a comment —
+      rather than restating the reachability claim one test above, which
+      would be one fact with two speakers **and** unfalsifiable one-to-one,
+      since the mutation that reddens it reddens its sibling
+- [x] **The third half was fixed rather than filed, and measuring it
+      corrected the sentence that was going to describe it.** A tray setting
+      needs a `config.yaml` line, a `TRAY_SECTION_KEYS` entry *and* a field;
+      a line with no entry and a field with no reader were both guarded, and
+      a line and an entry with **no field** were dropped silently. The draft
+      wrote that up as *"`TrayConfig` sets no `model_config`"*, which is
+      false — pydantic puts one on every model. What it does not set is
+      **`extra`**, and the default is `ignore`. Driving it also priced the
+      fix: **6** and **9** allowlist entries, **no orphan in either**, so the
+      guard is two assertions with an empty finding population
+- [x] **Eight mutations driven; six land on exactly one test and the two
+      that land on two are right to.** An unread leaf arriving, a reader
+      appearing, the note deleted, an unread sub-config nested, and an orphan
+      entry in either allowlist each redden one. The walker crippled reddens
+      **both** premises — one per guard, which is what a vacuity premise on a
+      shared helper is for — and the original defect restored verbatim
+      reddens the leaf guard **and** the comment equality, which is a defect
+      two independent guards catch. Session 237's sharpening transferred: a
+      nested model carrying an unread *leaf* reddens the leaf guard too, so
+      the container control is one whose leaves all have readers
+- [x] **The container half is vacuous and the box said so before the prose
+      did.** `check-vacuous-guards.sh` flags a comprehension under `tests/`
+      that turned **zero** times on a green suite, and it flagged this one —
+      `TrayConfig` is flat, so there is no container that could be unread.
+      Its instruction is *fix it or declare it*, and declaring is right
+      here: the identical comprehension in the `AppConfig` sibling runs over
+      **31** containers, so the shape is witnessed turning and what is
+      nought is the population. It joins **17** existing `may-not-turn`
+      declarations, and it means *"empty population and says so"* was
+      earned at the close rather than asserted in a docstring
+- [x] **The fork was put to the owner rather than guessed, and the refused
+      option is recorded.** Delete all three halves, re-wire it as a second
+      menu item opening `/docs` in a browser, or keep and record. The owner
+      chose delete. Re-wiring was a *feature* nothing in the tree asks for —
+      no code has wanted a browser since 2026-02-13 — and keeping leaves a
+      setting that reads as configuration and configures nothing
+- [x] **No restart is owed and that was measured rather than assumed.**
+      Nothing under `sysadmin/` changed, so the daemon's import graph is
+      untouched, `check-ops-claims.sh`'s deploy claim is unmoved and the
+      burst budget was never spent (`SNAG-SYSD-007`). All **thirteen** ops
+      claims read `ok` after the block was written
+- [x] **Thirteen is a correction and the checker could not have made it.**
+      Session 237's block says *fourteen* and this one copied it before
+      counting. The marker population is byte-identical at that commit and
+      at this one — `flapping` 2, `migration_head` 2, nine others 1 apiece —
+      so the verdict count has not moved and the figure was wrong when
+      written. `SNAG-ESTATE-012` is exactly why: a sentence that is neither
+      a figure a pattern reads nor a marked prediction is invisible, and
+      *"all fourteen ops claims read `ok`"* is a claim **about the checker**
+      sitting inside the region the checker parses. That entry has wanted a
+      live specimen since 2026-08-24 and now has one
+
+---
+
 ## Session 237: a leaf with no reader is a property a test computes ✅ (2026-09-14)
 
 Discharged Session 236's handoff: the four `AppConfig` leaves its sweep found

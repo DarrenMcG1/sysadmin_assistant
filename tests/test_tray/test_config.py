@@ -12,6 +12,7 @@ import yaml
 from sysadmin.core.config import FOREIGN_KEYS, AppConfig
 from sysadmin.core.config_keys import report_for_file
 from sysadmin_tray.config import (
+    NOTIFICATIONS_TRAY_KEYS,
     TRAY_SECTION_KEYS,
     TrayConfig,
     load_tray_config,
@@ -61,7 +62,6 @@ def tmp_config(tmp_path: Path) -> Path:
           status_poll_seconds: 5
           resource_poll_seconds: 20
           alert_poll_seconds: 10
-          dashboard_url: http://localhost:3000
     """))
     return cfg
 
@@ -77,7 +77,6 @@ class TestTrayConfig:
         assert cfg.alert_poll_seconds == 15
         assert cfg.show_notifications is True
         assert cfg.notify_min_severity == "critical"
-        assert cfg.dashboard_url is None
 
     def test_notification_calm_defaults(self):
         cfg = TrayConfig()
@@ -109,7 +108,6 @@ class TestLoadTrayConfig:
         assert cfg.status_poll_seconds == 5
         assert cfg.resource_poll_seconds == 20
         assert cfg.alert_poll_seconds == 10
-        assert cfg.dashboard_url == "http://localhost:3000"
 
     def test_derives_url_from_service_section(self, tmp_path: Path):
         cfg_file = tmp_path / "config.yaml"
@@ -331,6 +329,33 @@ class TestUnreadTraySectionKeys:
         assert "reminder_hours" in TrayConfig.model_fields
         assert "reminder_hours" not in TRAY_SECTION_KEYS
         assert tray_section_report({"reminder_hours": 5}).unknown == ["tray.reminder_hours"]
+
+    def test_the_allowlist_never_under_declares_either(self):
+        """Rule 1's complement, and the third half of a tray setting.
+
+        The test above pins that the model **over**-declares relative to
+        this section, which is why the allowlist is the authority.  The
+        failure in the other direction is silent and had no speaker
+        until 2026-09-14 (Session 238).  A tray setting has three halves
+        — a ``config.yaml`` line, an allowlist entry and a field — and
+        two were already guarded: a line with no entry is named by
+        ``test_every_shipped_key_is_read``, and a field with no reader by
+        ``tests/test_config_defaults.py::TestEveryTrayLeafHasAReader``.
+        A line and an entry with **no field** were dropped without a
+        word, because :class:`~sysadmin_tray.config.TrayConfig` leaves
+        ``extra`` unset and pydantic's default is ``ignore`` — so
+        ``load_tray_config`` copies the value into ``kwargs`` and the
+        model discards it.  ``SNAG-CFG-004``'s asymmetry, on the tray's
+        side of the seam.
+
+        Both allowlists, because both feed the same ``kwargs``.  Empty
+        population today — 6 and 9 entries, no orphan in either — which
+        is a measurement rather than an assumption, and the reason it is
+        written now rather than when one appears.
+        """
+        fields = set(TrayConfig.model_fields)
+        assert [key for key in TRAY_SECTION_KEYS if key not in fields] == []
+        assert [key for key in NOTIFICATIONS_TRAY_KEYS if key not in fields] == []
 
     def test_notifications_tray_is_not_this_functions_business(self):
         """Rule 2: that region is exempted by *leaf*, so the backend names it.

@@ -98,7 +98,18 @@ class TrayConfig(BaseModel):
     alert_poll_seconds: int = 15
     show_notifications: bool = True
     notify_min_severity: str = "critical"
-    dashboard_url: str | None = None
+    # There is no ``dashboard_url``.  It was read by
+    # ``TrayApp._open_dashboard``, which opened it in a browser and fell
+    # back to ``f"{api_url}/docs"``; ``3f68448`` (2026-02-13) replaced
+    # that body with ``self._dashboard.toggle_visibility()`` when the
+    # native dashboard landed, and left the leaf behind.  The menu item
+    # survives and still works — what went is the browser, so nothing
+    # under ``sysadmin_tray/`` imports :mod:`webbrowser` at all and a
+    # value here could reach no code.  Removed 2026-09-14 with its
+    # ``config.yaml`` key and its :data:`TRAY_SECTION_KEYS` entry, all
+    # three halves together: the key alone would be reported unread by
+    # :func:`tray_section_report`, and the field alone would be read
+    # from a file that no longer sets it.
 
     # ── Notification calm (config.yaml ``notifications.tray:``) ──────
     #: minutes a fingerprint stays quiet after firing, so a flapping
@@ -149,7 +160,6 @@ TRAY_SECTION_KEYS: tuple[str, ...] = (
     "alert_poll_seconds",
     "show_notifications",
     "notify_min_severity",
-    "dashboard_url",
     "estate_api_url",
 )
 

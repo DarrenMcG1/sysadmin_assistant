@@ -1,6 +1,118 @@
-# Handoff — 2026-09-14 (Session 237)
+# Handoff — 2026-09-14 (Session 238)
 
 ## Next action
+
+Decide whether to publish `docs/contracts/briefing_preview.sample.json`, whose second consumer has withdrawn, leaving Alfred's own test the only one. *(For: session)*
+
+*It is startable because the register already holds the items and the
+measurement arrived unasked.* `docs/contracts/briefing_preview.sample.json`
+**does not exist** — `docs/contracts/` is not a directory here — and three
+unchecked tasks about it have stood since 2026-08-25. Estate message
+`d29929d7` (filed 2026-09-14) withdraws the seam-drift check estate-manager
+took from our message `6a330427`, and it is withdrawn rather than deferred:
+*"it does not reopen if the sample appears, because the refusal holds for any
+sample you could publish"*. Their reasoning is measured and re-runnable
+(`estate-manager docs/adr/drivers/0179-what-this-seam-pins.py`): across the 15
+commits that have touched `sysadmin/briefing/data.py`, **five of six sections
+are appended behind an `if`** and 11 of the 15 guaranteed none, so a section
+set here is a rendering rather than a contract — and Alfred reads **3 of our 8
+top-level keys**, keeping a deliberately mismatched capture under
+`assert "facts" not in payload`. What they leave us is exactly one question,
+in their words *"yours, not ours"*: whether the sample is worth publishing for
+Alfred's own test alone. **The message is deliberately left open** rather than
+closed — nothing is owed to them, the decision is ours, and the once-a-session
+inbox notice is a more durable reminder than a checkbox, which would publish
+itself to the board as this repository's next action. The line names **no**
+SNAG id, which it cannot: the register holds 37 open and 0 owed.
+
+*What this sitting did.* Removed `dashboard_url` — all three halves, the
+`config.yaml` line, the `TRAY_SECTION_KEYS` entry and the `TrayConfig` field,
+plus its three test assertions — and left the walk that found it standing, as
+a sibling guard driven at `sysadmin_tray/`. **19** leaves before, **18**
+after, none unread. Then fixed the third half rather than filing it. Suite
+**4150 → 4156**, green; ruff and mypy clean; **no daemon restart owed**,
+because nothing under `sysadmin/` changed. All **thirteen** ops claims read
+`ok` — thirteen being a correction of Session 237's *fourteen*, which this
+block had copied before counting; the marker population is byte-identical at
+both commits, and `SNAG-ESTATE-012` is why no check could say so.
+
+*The handoff's hypothesis was right and history is what made it a
+measurement.* That line proposed the leaf was a pre-dashboard artefact and
+said so as a hypothesis. `git log -S` over 348 commits names six commits:
+`81b3bfb` wired it to `TrayApp._open_dashboard`, which called
+`webbrowser.open(url)` and fell back to `f"{api_url}/docs"`, and `3f68448`
+(2026-02-13, *"add native dashboard"*) replaced that body with
+`self._dashboard.toggle_visibility()`. The **menu item survived and still
+works**; the browser did not, and `webbrowser` is imported nowhere under
+`sysadmin_tray/`. The leaf outlived its mechanism by **seven months**, and the
+shipped value — `http://127.0.0.1:8500/docs` — was exactly the fallback the
+deleted code supplied itself.
+
+*Why residue gets a standing guard, which is the reverse of yesterday's
+argument.* Session 237 held that a birth defect has no date and so needs a
+guard where residue needs a sweep. This is residue and it gets one because the
+two catch **opposite events**: those four leaves never had a reader to lose,
+so that guard catches a leaf *arriving* unread, and this one catches a reader
+*leaving* — the commoner event, and the only one of the two this box has
+demonstrated. The walker is **parameterised rather than copied**
+(`_config_field_names` takes the root model), since a second implementation of
+one derivation is `SNAG-DB-003`'s shape.
+
+*Options rejected, and by whom.* The fork was put to the owner: delete all
+three halves, re-wire it as a second menu item opening `/docs` in a browser,
+or keep and record. The owner chose delete. Re-wiring would have been a
+**feature** nothing in the tree asks for — no code has wanted a browser since
+2026-02-13 — and keeping leaves a setting that reads as configuration and
+configures nothing. Driving `sysadmin_tray/` as the guard's only root was also
+a choice: this leaf was asserted **three times** in
+`tests/test_tray/test_config.py` and read by no widget, so a guard admitting
+`tests` would have found a reader and shipped green over its own defect.
+
+*A claim written from reading was corrected by driving it, and the correction
+turned a filing into a fix.* The third half of a tray setting — a
+`config.yaml` line and a `TRAY_SECTION_KEYS` entry with **no field** — is
+dropped in silence, and the draft wrote that up as *"`TrayConfig` sets no
+`model_config`"*. False: pydantic puts one on every model. What it does not
+set is **`extra`**, whose default is `ignore`. Measuring it also priced the
+guard at two assertions — **6** and **9** allowlist entries, **no orphan in
+either** — so it shipped rather than being filed as a new `SNAG-CFG` entry.
+
+*Eight mutations driven; six land on exactly one test.* An unread leaf
+arriving, a reader appearing, the note deleted, an unread sub-config nested,
+and an orphan entry in either allowlist each redden one. The two that redden
+two are right to: the walker crippled trips **both** vacuity premises, one per
+guard, and the original defect restored verbatim trips the leaf guard beside
+the comment equality. Session 237's sharpening transferred — a nested model
+carrying an unread *leaf* reddens the leaf guard too, so the container control
+is one whose leaves all have readers. That container half is itself vacuous
+and `check-vacuous-guards.sh` said so before the prose did — it flags a
+comprehension that turned **zero** times on a green suite, and `TrayConfig`
+being flat means this one cannot turn. Declared `may-not-turn` rather than
+deleted, the `AppConfig` sibling's identical comprehension over **31**
+containers being the witness that the shape turns at all.
+
+*The note explaining the absence is weaker evidence than yesterday's and the
+test says which.* Those removals left docstrings, which survive parsing as an
+`ast.Constant`; this one is a plain **comment**, discarded by the tokenizer
+outright — `grep -c dashboard_url sysadmin_tray/config.py` returns **1**
+against `attribute_reads`' nothing. The test asserts an equality over
+`tokenize` rather than restating the reachability claim one test above, which
+would be one fact with two speakers **and** unfalsifiable one-to-one, since
+the mutation that reddens it reddens its sibling.
+
+*Checked rather than assumed at the close.* `count_unchecked` reads **65**
+against estate-manager's own parser and the published first-unchecked line is
+unmoved, so this block published nothing of its own. The full-suite warning
+count moved 3 → 4 and **none of the four is this sitting's** — two alembic
+deprecations and a pre-existing *coroutine never awaited* in
+`test_sysadmin_agent.py`; the new module passes under
+`-W error::ResourceWarning`.
+
+---
+
+# Handoff — 2026-09-14 (Session 237)
+
+### The action Session 237 handed on (discharged by Session 238)
 
 Decide `dashboard_url`, the one `TrayConfig` leaf this sweep finds unread one seam over — shipped, allowlisted and tested, with no widget reading it. *(For: session)*
 

@@ -8,6 +8,7 @@ question: the reminder ceiling ``SNAG-ESTATE-009`` now rests on, and the
 two ``reminder_hours`` leaves whose agreement was held by a comment.
 """
 
+import tokenize
 import typing
 from pathlib import Path
 
@@ -728,8 +729,18 @@ def _submodels(annotation) -> list[type[BaseModel]]:
     return found
 
 
-def _config_field_names() -> tuple[frozenset[str], frozenset[str]]:
-    """``AppConfig``'s whole field tree, split into leaves and containers."""
+def _config_field_names(
+    root_model: type[BaseModel] = AppConfig,
+) -> tuple[frozenset[str], frozenset[str]]:
+    """A model's whole field tree, split into leaves and containers.
+
+    Parameterised rather than copied for :class:`TestEveryTrayLeafHasAReader`
+    below, which asks the same question of :class:`~sysadmin_tray.config.TrayConfig`
+    against a different root directory.  A second walker would be a second
+    implementation of one derivation — ``SNAG-DB-003``'s shape — and the two
+    guards differ only in *what* they walk and *where* they look for readers,
+    so that is what varies.
+    """
     leaves: set[str] = set()
     containers: set[str] = set()
 
@@ -743,7 +754,7 @@ def _config_field_names() -> tuple[frozenset[str], frozenset[str]]:
             else:
                 leaves.add(name)
 
-    walk(AppConfig)
+    walk(root_model)
     return frozenset(leaves), frozenset(containers)
 
 
@@ -905,3 +916,163 @@ class TestEveryConfigLeafHasAReader:
         raw = yaml.safe_load(REPO_CONFIG.read_text(encoding="utf-8"))
         text = yaml.safe_dump(raw)
         assert [leaf for leaf in self.TRIMMED if f"{leaf}:" in text] == []
+
+
+class TestEveryTrayLeafHasAReader:
+    """Session 238 — the same question asked one seam over.
+
+    :class:`TestEveryConfigLeafHasAReader` walks ``AppConfig`` against
+    ``sysadmin/``.  Driving the identical walk at
+    :class:`~sysadmin_tray.config.TrayConfig` against ``sysadmin_tray/``
+    found **19** leaves, **0** containers and exactly one survivor:
+    ``dashboard_url``, decided by the owner on 2026-09-14 and removed
+    with its ``config.yaml`` key and its
+    :data:`~sysadmin_tray.config.TRAY_SECTION_KEYS` entry.
+
+    **The recurrence this guards against is the one that has actually
+    happened here, which is the reverse of the argument one seam over.**
+    The four leaves trimmed from ``AppConfig`` entered in the first
+    commit and no commit has ever added or removed a reader for any of
+    them, so what a guard there catches is a leaf *arriving* unread.
+    ``dashboard_url`` had a reader and lost it: ``81b3bfb`` wired it to
+    ``TrayApp._open_dashboard``, which opened it in a browser, and
+    ``3f68448`` (2026-02-13, *"add native dashboard"*) replaced that
+    body with ``self._dashboard.toggle_visibility()``.  The menu item
+    survived the refactor and the leaf outlived its mechanism —
+    ``webbrowser`` is imported nowhere under ``sysadmin_tray/`` — for
+    **seven months**.  A reader deleted by a refactor is the commoner
+    event and the only one of the two this box has demonstrated.
+
+    **The root is ``sysadmin_tray/`` alone, and ``dashboard_url`` is the
+    case that rule was written for.**  The sibling guard excludes
+    ``tests`` because a leaf read only by the thing testing it is a leaf
+    kept alive by its own fixtures; this leaf was asserted three times in
+    ``tests/test_tray/test_config.py`` and read by no widget, so a guard
+    that admitted ``tests`` as a root would have found a reader and
+    shipped green over the defect it exists to find.
+
+    Two limits, both stated rather than claimed away:
+
+    - ``SNAG-CFG-008``'s reach applies unchanged.  ``attribute_reads``
+      compares the last segment of an attribute chain, so a leaf whose
+      name collides with a live one elsewhere under ``sysadmin_tray/``
+      is masked.  Pinned for the specimen by
+      ``test_the_guard_is_falsified_by_the_trimmed_leaf`` and not
+      claimed for the other eighteen.
+    - A **third** half exists here that ``AppConfig`` has not got, and
+      only two of the three are guarded.  A key needs its
+      ``config.yaml`` line, its allowlist entry *and* its field;
+      ``test_every_shipped_key_is_read`` catches a line with no
+      allowlist entry and this class catches a field with no reader, but
+      a line and an entry with no field are silently dropped, because
+      ``TrayConfig`` sets no ``model_config`` and pydantic's default is
+      ``extra="ignore"`` — ``SNAG-CFG-004``'s asymmetry on the tray's
+      side of the seam.
+
+    There is deliberately no shipped-file assertion to match
+    ``test_no_trimmed_leaf_returned_to_the_shipped_file``.  That one
+    earns its place by being *the speaker that fails in CI* where
+    ``config_keys`` only writes a log line; here the other speaker,
+    ``tests/test_tray/test_config.py::TestTraySectionReport::test_every_shipped_key_is_read``,
+    already fails in CI against the real file, so a second would be one
+    fact with two speakers.
+    """
+
+    def test_the_walk_reaches_the_whole_tray_model(self):
+        """The premise, without which the assertions below pass vacuously.
+
+        A floor rather than an equality, for the sibling guard's reason:
+        the model legitimately lost a field on 2026-09-14 and may lose
+        another, and a guard needing a nudge past a red on every trim is
+        one nobody reads.  The named leaf is the second statement —
+        ``backend_unreachable_grace_seconds`` is a real field and a
+        walker returning an empty set cannot contain it.
+        """
+        leaves, _ = _config_field_names(TrayConfig)
+        assert len(leaves) >= 15, "TrayConfig shrank; re-measure before trusting this"
+        assert "backend_unreachable_grace_seconds" in leaves
+
+    def test_no_declared_leaf_is_unread(self):
+        """The finding half.  A leaf nothing reads is the shape removed."""
+        leaves, _ = _config_field_names(TrayConfig)
+        unread = sorted(
+            name
+            for name in leaves
+            if not attribute_reads(frozenset({name}), [REPO_ROOT / "sysadmin_tray"])
+        )
+        assert unread == []
+
+    def test_no_declared_sub_config_is_unread(self):
+        """Vacuous in two ways today, and armed for the day it is not.
+
+        ``TrayConfig`` is flat — **0** containers — so there is no
+        container to be unread, where the sibling guard's equivalent has
+        31 and finds none.  It is written now rather than when the first
+        sub-model is nested, because a container nothing reads takes its
+        whole subtree out of the test above and the failure would be
+        silence.
+        """
+        _, containers = _config_field_names(TrayConfig)
+        # may-not-turn: TrayConfig is flat, so `containers` is empty by
+        # construction and that emptiness is what the assert states — there is
+        # no container here that could be unread.  The identical comprehension
+        # in TestEveryConfigLeafHasAReader above runs over AppConfig's 31, so
+        # the shape is witnessed turning; what is nought here is the
+        # population, never the reader.  It arms itself the day a sub-model is
+        # nested, which is the whole reason it is written before one is.
+        unread = sorted(
+            name
+            for name in containers
+            if not attribute_reads(frozenset({name}), [REPO_ROOT / "sysadmin_tray"])
+        )
+        assert unread == []
+
+    def test_the_guard_is_falsified_by_the_trimmed_leaf(self):
+        """Driven at the defect, which is what makes the guard a guard.
+
+        ``dashboard_url`` collides with nothing under ``sysadmin_tray/``,
+        so re-declaring it on :class:`~sysadmin_tray.config.TrayConfig`
+        turns ``test_no_declared_leaf_is_unread`` red.  Should a future
+        widget read something else called ``dashboard_url``, this goes
+        red and the reach claimed in the class docstring is the thing to
+        correct rather than this assertion.
+        """
+        assert (
+            attribute_reads(
+                frozenset({"dashboard_url"}), [REPO_ROOT / "sysadmin_tray"]
+            )
+            == []
+        )
+
+    def test_the_note_explaining_the_removal_is_comment_only(self):
+        """The sibling's prose test, one notch further and asserted exactly.
+
+        That one works because a docstring survives parsing as an
+        ``ast.Constant``: grep finds it, the tree holds it as a
+        constant, and the test pins that a constant is not a read.  The
+        note left where ``dashboard_url`` was declared is a plain
+        **comment**, which the tokenizer discards outright, so it is
+        invisible to every AST instrument and visible only to a lexical
+        one — ``grep -c dashboard_url sysadmin_tray/config.py`` returns
+        1 against ``attribute_reads``' nothing.
+
+        Stated as an equality over ``tokenize`` rather than by
+        restating ``attribute_reads(...) == []`` one test above.  That
+        would be one fact with two speakers and, worse, unfalsifiable
+        one-to-one: the mutation that reddens it reddens its sibling.
+        This asks the question only this test asks — *is every
+        occurrence of the name a comment?* — so a field, a string or a
+        read re-entering the file turns it red while the reachability
+        claim stays where it is measured.
+        """
+        path = REPO_ROOT / "sysadmin_tray" / "config.py"
+        source = path.read_text(encoding="utf-8")
+        with path.open("rb") as handle:
+            comments = "\n".join(
+                token.string
+                for token in tokenize.tokenize(handle.readline)
+                if token.type == tokenize.COMMENT
+            )
+        in_file = source.count("dashboard_url")
+        assert in_file > 0, "the note explaining the removal is gone"
+        assert comments.count("dashboard_url") == in_file
