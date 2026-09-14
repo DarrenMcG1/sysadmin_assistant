@@ -1,6 +1,80 @@
-# Handoff — 2026-09-13 (Session 231)
+# Handoff — 2026-09-14 (Session 232)
 
 ## Next action
+
+Read `llm_used` on all three review tables for this morning's runs and settle whether the health review's 05:00 failure tracks the slot rather than its own code. *(For: session)*
+
+*The line is 161 characters before its marker and names **no** SNAG id.*
+No open entry in the register reads `Open — owed` — driven through
+`estate.snags` rather than grepped, 37 open and 0 owed — so a line naming
+one would publish work nobody is owed, which is Session 231's reasoning
+unchanged. What it names instead is the item under `## Scheduled action`,
+**due today and therefore startable**: rule 3 gates only a *future*
+declared date, and its own docstring calls an overdue or due item being
+taken "the section working".
+
+*What this sitting decided.* estate message `a9ee6305` asked nothing and
+left a decision: `ports` publishes `detail.project` on 803 of 929 stored
+findings, and on 100 % of every code with a claimant to name, so the
+census that scoped `scripts/check-estate-docs.sh` to `docs` was measured
+on the wrong denominator. **The measurement is accepted and the widening
+is refused** —
+[ADR-0013](docs/adr/0013-a-published-key-is-necessary-and-was-never-sufficient.md),
+answered as `0252530b-92c0-4516-80b9-94299a37732b` and the message
+closed.
+
+*Why the reason had to be replaced rather than repaired.* The census was
+the wrong **instrument**, not merely the wrong figure: it read `ports` at
+4 sites with 3 carrying the key on 2026-09-12 and the same walker reads
+**6 sites, 4** two days later, their ADR-0166 and ADR-0168 having landed
+in between, with `docs` moving 7 → 9 in the same window. Their ADR-0171
+measures that movement from the producer's side. So the block states a
+property now, and the property is that a project-keyed reader over
+`ports` is wrong in **both directions at once**:
+`claimed_by_an_unregistered_tree` is `breach` **and** carries the key, so
+it already arrives hourly as an alert the tray speaks, and
+`claimed_by_more_than_one_row` names its claimants in
+`detail.rows[].project`, so it would be read blind.
+
+*The part worth carrying.* **Both of those codes have filed nothing**
+across estate-manager's 430 audit runs — so neither their `GROUP BY` over
+`audit_findings` nor this repository's own census over `Finding(` could
+see either, and both counts were true. A code with an empty population
+breaks a consumer exactly as readily as one with 465 filings; it has
+simply not done it yet. That is why the guard walks the producer's
+**vocabulary** and not its filings.
+
+*Refused as reasons, so the next sitting can see what this did not lean
+on.* That the live `ports` population naming this tree is zero (2
+findings, both `venture-assistant`) — an empty population is what
+mis-ranked `SNAG-LOG-010`'s parent. And that the widening would be cheap
+— cost was the wrong axis on `SNAG-AGENT-007`. The residue's **count**
+went with the census: *eleven checks* is not reconstructible from the
+block's own rule, so the residue is stated as a rule.
+
+*A restart was owed and the cause was this sitting's tooling rather than
+a change.* The mutation harness restored `sysadmin/estate/judgements.py`
+with `cp`, which rewrote its mtime with **identical bytes** and destroyed
+the evidence the deploy check reads. The original could not be recovered
+— the `.pyc` header looked like corroboration and turned out to be this
+sitting's own `touch` reflected back — and inventing a plausible instant
+to make the check green was refused as fabricating a measurement. The
+restart re-establishes the invariant rather than shipping anything:
+`git diff HEAD` on that file is empty, and the observable effect is nil
+by construction. Restarted 10:20:38, `NRestarts=10`, `/health` 200, all
+13 ops claims `ok`. **If you restore a file under `sysadmin/` from a
+backup, `touch` is not the repair — the mtime is evidence and `cp`
+destroys it.**
+
+*Nothing is blocked and nothing is owed to estate-manager.* `SNAG-DOCS-024`
+keeps only its `pointers` half, which is theirs and is one keyword
+argument; the `ports` half is decided and needs nothing from anyone.
+
+---
+
+# Handoff — 2026-09-13 (Session 231)
+
+### The action Session 231 handed on (discharged by Session 232)
 
 Decide estate message `a9ee6305` — `ports` publishes `detail.project` on every claimant-naming finding — on whether `check-estate-docs.sh` should read `ports` as well as `docs`. *(For: session)*
 

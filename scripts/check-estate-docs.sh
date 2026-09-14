@@ -34,34 +34,69 @@
 # every repository on the box. A single surviving clause — *nobody says it
 # at all* — is a reason to fix the carrier, never to move the judgement.
 #
-# WHY `docs` AND NOT EVERY CHECK — MEASURED, NOT SCOPED BY HABIT
-# --------------------------------------------------------------
-# The obvious widening is "read every finding whose project is us". It is
-# refused on a measurement of the producer, taken 2026-09-12 by counting
-# `Finding(` against `"project":` in each of the estate's thirteen check
-# modules:
+# WHY `docs` AND NOT EVERY CHECK — AND WHY THE CENSUS THAT SAID SO IS GONE
+# ------------------------------------------------------------------------
+# The obvious widening is "read every finding whose project is us", and
+# `ports` is the check it is always proposed for. It is refused, and the
+# reason is NOT the one this block carried until 2026-09-14.
 #
-#   docs         7 findings, 7 carry detail.project   ← total
-#   pointers    12 findings, 0 carry detail.project
-#   consumers    9 findings, 2
-#   readers      6 findings, 1
-#   ports        4 findings, 3
-#   wiring       2 findings, 0
-#   …the remaining seven: 0
+# What stood here was a census: `Finding(` counted against `"project":`
+# across the estate's thirteen check modules on 2026-09-12, reading
+# `ports  4 findings, 3 carry detail.project`, and concluding that `docs`
+# was the only check whose findings all carry the key. estate-manager
+# re-took it over all 1,666 stored findings across 430 runs and **refuted
+# the conclusion** (message `a9ee6305`): `ports` is 803 of 929, and the
+# 126 misses are one code — `unclaimed_listener`, which by construction
+# has no claimant to name, so the absence IS the finding. Every ports code
+# that can name a claimant has published the key on every finding it has
+# ever filed.
 #
-# `docs` is the ONLY check for which the key this reader needs exists on
-# every finding. For any other check a project-keyed reader is blind on
-# most of the population and cannot say so, which is `ports_checked`'s rule
-# — zero-because-blind served as zero-because-clean. The residue is real
-# and is filed rather than absorbed: eleven checks' findings about this
-# tree still reach no sitting, and closing that needs a key the producer
-# does not publish.
+# Their measurement is right, and this repository's own had aged too: the
+# same walker reads `ports` at SIX sites, FOUR carrying the key, because
+# two codes landed on 2026-09-13 (their ADR-0166 and ADR-0168). A census
+# of the producer's vocabulary is the wrong instrument to hang a scope on
+# — it ages silently, and their ADR-0171 measured the rate at which it
+# moves. So the census is RETIRED rather than refreshed, and what replaces
+# it is a property that does not move with the vocabulary.
 #
-# `ports` and `wiring` are additionally out because they already ARRIVE.
-# `JUDGED_AUDIT_CHECKS` pulls both hourly into this box's alert table and
-# the tray speaks them by name, so reading them here would give one fault
-# two speakers — the second-owner defect this repository has now found at
-# six scales.
+# `ports` IS REFUSED BECAUSE A PROJECT-KEYED READER IS WRONG BOTH WAYS
+# --------------------------------------------------------------------
+# Two ports codes break this reader, one in each direction, and BOTH have
+# filed nothing — so neither is visible to any count over `audit_findings`,
+# theirs or ours, and the refutation above does not reach either:
+#
+#   * `claimed_by_an_unregistered_tree` is SEVERITY_BREACH and its detail
+#     carries `project`. `JUDGED_AUDIT_CHECKS[ports] = "breach"` already
+#     pulls exactly that rung hourly into this box's `alerts` table, and
+#     the tray speaks it by name. A project-keyed reader here would catch
+#     the same row a second time: one fault, two speakers — the
+#     second-owner defect this repository has now found at six scales.
+#
+#   * `claimed_by_more_than_one_row` is SEVERITY_WARN and names its
+#     claimants in `detail.rows[].project`, never in `detail.project`. A
+#     reader keyed on `detail.project` is blind to it and CANNOT SAY SO,
+#     which is `ports_checked`'s rule — zero-because-blind served as
+#     zero-because-clean. It is also the one ports code that can name this
+#     repository without naming a port this repository holds.
+#
+# Note what is true of their sentence and does not reach these two: it is
+# quantified over findings EVER FILED, and `claimed_by_more_than_one_row`
+# names claimants and has filed nothing, so it sits outside the quantifier
+# rather than contradicting it.
+#
+# `wiring` is out for the first of those reasons alone: `JUDGED_AUDIT_CHECKS`
+# carries it at `warn`, and its two file-level codes are a sixth surface
+# here (`sysadmin/estate/hook_wiring.py`, ADR-0008).
+#
+# THE RESIDUE, STATED AS A RULE RATHER THAN A COUNT
+# -------------------------------------------------
+# Findings about this tree that neither this reader nor
+# `JUDGED_AUDIT_CHECKS` carries still reach no sitting, and that residue is
+# real and filed rather than absorbed. It is deliberately NOT restated as a
+# number: the number is a function of the producer's vocabulary, which is
+# the thing just shown to move, and the count this block used to give
+# ("eleven checks") could not be reconstructed from its own rule. ADR-0013
+# records the decision, its argument, and what would reopen it.
 #
 # THE KEY IS `detail.project`, NOT THE SUBJECT
 # ---------------------------------------------

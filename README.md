@@ -183,7 +183,7 @@ This is the part that is unusual, and it is meant to be read.
 | Document | What it is |
 |----------|-----------|
 | [`docs/README.md`](docs/README.md) | index of everything below, with suggested entry points |
-| [`docs/adr/`](docs/adr/) | 12 architecture decision records — the decisions and, more usefully, the options measured and rejected |
+| [`docs/adr/`](docs/adr/) | 13 architecture decision records — the decisions and, more usefully, the options measured and rejected |
 | [`docs/roadmap/snag_list.md`](docs/roadmap/snag_list.md) | known defects, each with what was measured, what the fix cost, and what the entry itself got wrong |
 | [`docs/roadmap/STATUS.md`](docs/roadmap/STATUS.md) | current priorities and recently completed work |
 | [`docs/roadmap/tasks.md`](docs/roadmap/tasks.md) | session-by-session working record |

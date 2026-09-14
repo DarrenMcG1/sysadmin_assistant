@@ -4,7 +4,70 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-13
+> **Last Updated**: 2026-09-14
+
+---
+
+## Session 232: a published key is necessary and was never sufficient ✅ (2026-09-14)
+
+_The ask was Session 231's handoff: decide estate message `a9ee6305` — `ports`
+publishes `detail.project` on every claimant-naming finding — on whether
+`scripts/check-estate-docs.sh` should read `ports` as well as `docs`. Decided:
+**no**. Their measurement is accepted in full and the reason this repository
+gave is replaced rather than repaired, because it was refuted **and** already
+stale._
+
+- [x] **Their count is right, and the census it refuted had aged in two days.**
+      `ports` publishes the key on **803 of 929** stored findings across 430
+      runs, and on 100 % of every code with a claimant to name; the 126 misses
+      are `unclaimed_listener`, where the absence *is* the finding. The block
+      being corrected read `ports  4 findings, 3` on 2026-09-12 and the same
+      walker reads **6 sites, 4** on 2026-09-14 — their ADR-0166 and ADR-0168
+      landed on 2026-09-13, and `docs` moved 7 → 9 in the same window. **A
+      census of another repository's vocabulary cannot hold a scope decision**;
+      their ADR-0171 measures how fast it moves, so the census is retired
+      rather than refreshed and a property replaces it
+- [x] **The property is that a project-keyed reader over `ports` is wrong in
+      both directions at once, and neither direction is reachable by counting.**
+      `claimed_by_an_unregistered_tree` is `breach` **and** carries
+      `detail.project`, and `JUDGED_AUDIT_CHECKS[ports]` is `breach`, so it
+      already arrives hourly as an alert the tray speaks — a reader here would
+      say the same row a second time. `claimed_by_more_than_one_row` is `warn`
+      and names its claimants in `detail.rows[].project`, so the reader is
+      blind to it and cannot say so, and it is the one `ports` code that can
+      name this repository without naming a port this repository holds.
+      **Both have filed nothing across the 430 runs**, which is why neither
+      their `GROUP BY` nor ours could see them
+- [x] **Their sentence is true as written and no correction is owed.** It is
+      quantified over findings *ever filed*, and `claimed_by_more_than_one_row`
+      has filed none, so it sits outside the quantifier rather than
+      contradicting it. Answered as `0252530b-92c0-4516-80b9-94299a37732b` and
+      the message closed
+- [x] **Two reasons refused, and saying which is the point.** *The population
+      is currently zero* — live, the audit holds 2 `ports` findings and both
+      name `venture-assistant` — is what mis-ranked `SNAG-LOG-010`'s parent;
+      *it is cheap* was the wrong axis on `SNAG-AGENT-007`. The residue's
+      **count** went with the census: *eleven checks* is not reconstructible
+      from the block's own rule, so the residue is stated as a rule
+- [x] **Six mutations driven and all six land, four on exactly one test.**
+      `tests/test_estate_docs_notice.py::TestPortsIsRefusedOnAPropertyTheVocabularyCannotMove`
+      reads the producer's source for the code, the rung and the detail keys,
+      and **composes** the rung from `JUDGED_AUDIT_CHECKS` rather than
+      asserting `"breach"` on both sides, which would pin a coincidence.
+      Renaming a `SEVERITY_*` constant reddens the premise beside the overlap
+      test — what the premise is for — and adding `docs` to
+      `JUDGED_AUDIT_CHECKS` reddens the control, the one mutation of *our*
+      side. `ESTATE_TREE` gained `ESTATE_TREE_OVERRIDE` so the guards can be
+      driven at a producer that has changed: a no-op mutation is not a control
+- [x] **The existing detector kept its assertion and lost its inference.**
+      `test_the_detector_can_be_seen_to_fail`'s docstring said a sibling check
+      publishing `detail.project` would mean the refusal to widen *had lost its
+      reason*. That is the reading ADR-0013 retires — a published key is
+      necessary for a project-keyed reader and was never sufficient. It is
+      still news; it is no longer, on its own, a reason to widen anything
+- [x] Docs updated: [ADR-0013](../adr/0013-a-published-key-is-necessary-and-was-never-sufficient.md),
+      `docs/README.md` (index and its stated count, which its own guard caught
+      at twelve), `SNAG-DOCS-024`'s `ports` half decided in place, STATUS.md
 
 ---
 

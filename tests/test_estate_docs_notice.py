@@ -82,7 +82,15 @@ OWN_NAME = "sysadmin_assistant"
 
 #: estate-manager's checkout.  Gated on the **tree**, never on an import —
 #: ``importorskip`` would disarm the pin the day the module moved.
-ESTATE_TREE = Path.home() / "projects" / "estate-manager"
+#: Overridable for falsification only; the default is the live checkout.
+#: The guards in :class:`TestPortsIsRefusedOnAPropertyTheVocabularyCannotMove`
+#: assert things about a tree this repository does not own, so the only way
+#: to drive them at a producer that has changed is to point them at a copy
+#: that has — ``scripts/check-estate-docs.sh``'s own ``ESTATE_PROJECTS_ROOT``
+#: idiom, one seam along.  A no-op mutation is not a control.
+ESTATE_TREE = Path(
+    os.environ.get("ESTATE_TREE_OVERRIDE") or (Path.home() / "projects" / "estate-manager")
+)
 ESTATE_DOCS_CHECK = ESTATE_TREE / "service" / "estate_service" / "audit" / "checks" / "docs.py"
 
 ESTATE_URL = "http://127.0.0.1:8400"
@@ -236,6 +244,73 @@ def _findings_without_project(module: Path) -> tuple[int, list[int]]:
         if "project" not in keys:
             missing.append(node.lineno)
     return len(calls), missing
+
+
+def _severity_literals(tree_root: Path) -> dict[str, str]:
+    """``{"SEVERITY_BREACH": "breach", …}``, read from the producer.
+
+    Resolved by AST out of ``audit/finding.py`` rather than written down
+    here, because the rung a code carries is the producer's statement and a
+    second copy of it is free to drift — ``max_priority_for`` against
+    ``PRIORITY_MAP``'s rule, across a repository boundary.  Parsed rather
+    than imported for :class:`TestTheProducerStillPublishesTheKey`'s reason:
+    an import disarms the pin on the day the module moves.
+    """
+    import ast
+
+    module = tree_root / "service" / "estate_service" / "audit" / "finding.py"
+    out: dict[str, str] = {}
+    for node in ast.walk(ast.parse(module.read_text())):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not isinstance(node.value, ast.Constant) or not isinstance(node.value.value, str):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name) and target.id.startswith("SEVERITY_"):
+                out[target.id] = node.value.value
+    return out
+
+
+def _finding_sites(module: Path, severities: dict[str, str]) -> list[dict]:
+    """Every ``Finding(`` in *module* as ``{line, code, severity, keys}``.
+
+    The sibling of :func:`_findings_without_project`, and it exists because
+    that one answers a **cardinality** — how many sites lack the key — and
+    the scope decision in ADR-0013 turns on *which code* carries *which
+    rung*.  A count cannot tell a breach that names a project (which
+    already arrives here) from a warn that names none (which would be read
+    blind), and those are the two facts that decide it.
+    """
+    import ast
+
+    tree = ast.parse(module.read_text())
+    sites: list[dict] = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "Finding"
+        ):
+            continue
+        kw = {k.arg: k.value for k in node.keywords if k.arg}
+        code = kw.get("code")
+        severity = kw.get("severity")
+        detail = kw.get("detail")
+        sites.append(
+            {
+                "line": node.lineno,
+                "code": code.value if isinstance(code, ast.Constant) else None,
+                "severity": (
+                    severities.get(severity.id) if isinstance(severity, ast.Name) else None
+                ),
+                "keys": (
+                    [k.value for k in detail.keys if isinstance(k, ast.Constant)]
+                    if isinstance(detail, ast.Dict)
+                    else []
+                ),
+            }
+        )
+    return sites
 
 
 # ---------------------------------------------------------------------------
@@ -663,11 +738,20 @@ class TestTheProducerStillPublishesTheKey:
         only against a clean subject is indistinguishable from one that has
         stopped looking.
 
-        These three are also the measurement that scopes the reader.  If one
-        of them starts passing, estate-manager has begun publishing
-        ``detail.project`` on a second check, and the *refusal* to widen this
-        reader past ``docs`` has lost its reason — which is news, not a
-        failure.
+        These three were also read, until 2026-09-14, as *the* measurement
+        scoping the reader: if one started passing, the refusal to widen
+        past ``docs`` had lost its reason.  **That inference is retired and
+        the assertion is kept.**  estate-manager re-took the count over all
+        1,666 stored findings (message ``a9ee6305``) and refuted the
+        conclusion for ``ports`` — 803 of 929, every claimant-naming code at
+        100 % — while this repository's own walker had aged in two days.
+        A key's presence is necessary for a project-keyed reader and it was
+        never sufficient, which is what ADR-0013 records and
+        :class:`TestPortsIsRefusedOnAPropertyTheVocabularyCannotMove` pins.
+
+        So one of these starting to pass is still **news** — it says the
+        producer's vocabulary moved under a scope decision — but it is no
+        longer, on its own, a reason to widen anything.
         """
         module = ESTATE_DOCS_CHECK.parent / f"{other}.py"
         if not module.exists():
@@ -680,6 +764,174 @@ class TestTheProducerStillPublishesTheKey:
             "needs, so the measured reason for scoping the reader to `docs` "
             "(SNAG-DOCS-022) no longer holds for this check — re-measure and "
             "decide whether to widen."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Why the reader is not pointed at `ports` — ADR-0013
+# ---------------------------------------------------------------------------
+
+
+#: The two codes ADR-0013's refusal rests on, named because they are the
+#: producer's vocabulary and cannot be derived from anything on this side.
+#: Both had filed **nothing** across estate-manager's 430 audit runs, which
+#: is why neither is visible to any count over ``audit_findings`` — theirs
+#: (message ``a9ee6305``) or the census this reader used to carry.
+PORTS_OVERLAP_CODE = "claimed_by_an_unregistered_tree"
+PORTS_BLIND_CODE = "claimed_by_more_than_one_row"
+
+
+@pytest.mark.skipif(
+    not ESTATE_DOCS_CHECK.exists(),
+    reason=f"estate-manager's checkout ({ESTATE_DOCS_CHECK.parent}) is not on this box",
+)
+class TestPortsIsRefusedOnAPropertyTheVocabularyCannotMove:
+    """The scope decision, pinned at the property rather than at a count.
+
+    ``scripts/check-estate-docs.sh`` reads ``docs`` and nothing else.  It
+    used to justify that with a census of the producer — *``docs`` is the
+    only check whose findings all carry ``detail.project``* — and
+    estate-manager refuted the **conclusion** of that census over all 1,666
+    stored findings (``a9ee6305``): ``ports`` publishes the key on 803 of
+    929, and on 100 % of every code that has a claimant to name.
+
+    They are right, and this repository's own figure had aged in two days —
+    ``ports  4 findings, 3`` on 2026-09-12 against **6 sites, 4** once their
+    ADR-0166 and ADR-0168 landed.  A census of a vocabulary is the wrong
+    instrument to hang a scope on; their ADR-0171 measured how fast that
+    vocabulary moves.
+
+    So the refusal stands on a property instead, and the property is that a
+    project-keyed reader over ``ports`` is wrong in **both directions at
+    once**:
+
+    * one code is at the rung this repository **already judges**, and
+      carries the key — so the reader would say a second time what the tray
+      already says (the second-owner defect);
+    * one code **names claimants without publishing the key** — so the
+      reader is blind to it and cannot say so (``ports_checked``'s rule).
+
+    Neither is reachable by counting filings, because neither has ever
+    filed.  That is the whole of why this class reads their **source**.
+    """
+
+    def _sites(self) -> list[dict]:
+        return _finding_sites(
+            ESTATE_DOCS_CHECK.parent / "ports.py", _severity_literals(ESTATE_TREE)
+        )
+
+    @pytest.mark.premise
+    def test_the_walker_reads_their_codes_and_rungs_or_nothing_below_is_evidence(self):
+        """Every assertion below believes something *about* a site.
+
+        A walker that resolved no code, or no rung, would report an empty
+        vocabulary and satisfy the negative half of this class perfectly —
+        ``SNAG-TRAY-010``'s lesson, and the same gate the live half opens
+        with.  ``severity`` is resolved through their own
+        ``SEVERITY_* = "…"`` assignments, so a rename there shows up here as
+        ``None`` rather than as a silent pass.
+        """
+        sites = self._sites()
+        assert sites, "no Finding( construction found — has the ports check moved?"
+        assert all(s["code"] for s in sites), (
+            f"a ports Finding carries no literal code: {[s for s in sites if not s['code']]}"
+        )
+        assert all(s["severity"] for s in sites), (
+            "a ports Finding's rung did not resolve against their "
+            f"SEVERITY_* constants: {[s for s in sites if not s['severity']]}"
+        )
+
+    def test_a_code_at_the_rung_we_already_judge_carries_the_key(self):
+        """Direction one: the reader would give one fault two speakers.
+
+        Composed rather than restated — the rung comes from this
+        repository's :data:`JUDGED_AUDIT_CHECKS`, which is what actually
+        decides whether a finding arrives here, and the key comes from their
+        source.  Asserting ``"breach"`` on both sides would pin a coincidence
+        instead of the conjunction that does the work.
+        """
+        from sysadmin.estate.judgements import JUDGED_AUDIT_CHECKS, PORTS_CHECK
+
+        judged_rung = JUDGED_AUDIT_CHECKS[PORTS_CHECK]
+        overlap = [
+            s
+            for s in self._sites()
+            if s["severity"] == judged_rung and "project" in s["keys"]
+        ]
+        assert overlap, (
+            f"no ports code is now both at the rung this repository judges "
+            f"({judged_rung!r}) and carrying detail['project'].  ADR-0013's first "
+            "reason for keeping scripts/check-estate-docs.sh off `ports` was that "
+            f"{PORTS_OVERLAP_CODE!r} is exactly that, so a reader here would repeat "
+            "what the tray already speaks.  If that is no longer true, re-read "
+            "ADR-0013 §4 before widening anything — it is news, not a failure."
+        )
+        assert any(s["code"] == PORTS_OVERLAP_CODE for s in overlap), (
+            f"{PORTS_OVERLAP_CODE!r} is no longer the code carrying that "
+            f"conjunction; it is now {[s['code'] for s in overlap]}.  ADR-0013 names "
+            "the code, so the record has to move with it."
+        )
+
+    def test_a_code_that_names_claimants_publishes_none_under_the_key(self):
+        """Direction two: the reader would be blind and unable to say so.
+
+        ``claimed_by_more_than_one_row`` names its claimants one level down,
+        in ``detail["rows"][].project``.  A reader keyed on
+        ``detail.project`` matches nothing and reports *none for us*, which
+        is zero-because-blind served as zero-because-clean — and it is the
+        one ports code that can name this repository without naming a port
+        this repository holds.
+
+        estate-manager's sentence is quantified over findings **ever
+        filed**, and this code has filed none, so it sits outside their
+        quantifier rather than contradicting it.
+        """
+        blind = [s for s in self._sites() if s["code"] == PORTS_BLIND_CODE]
+        assert blind, (
+            f"{PORTS_BLIND_CODE!r} is gone from estate-manager's ports check. "
+            "ADR-0013 §5 rests on it, so the record has to move with it."
+        )
+        site = blind[0]
+        assert "project" not in site["keys"], (
+            f"{PORTS_BLIND_CODE!r} now publishes detail['project'] "
+            f"(keys={site['keys']}).  The blind half of ADR-0013's refusal has lost "
+            "its reason — re-measure both halves before widening the reader."
+        )
+        assert len(site["keys"]) > 1, (
+            f"{PORTS_BLIND_CODE!r} now carries nothing but {site['keys']}, so it no "
+            "longer names claimants at all and this is no longer a blind spot."
+        )
+
+    def test_docs_trips_neither_which_is_the_reason_docs_is_the_one_read(self):
+        """The control, and it is the positive case rather than a stand-in.
+
+        A class made only of *this producer breaks the reader* assertions is
+        satisfied by a walker that flags everything.  ``docs`` is walked by
+        the same code and must come back clean on both predicates — no
+        blind spot, because 9 of 9 of its sites carry the key, and no
+        overlap, because ``docs`` is **not** in
+        :data:`JUDGED_AUDIT_CHECKS` at all and so nothing about it arrives
+        here twice.
+
+        That second half is the discrimination the first draft of this test
+        missed: ``docs`` does file at ``breach`` and does carry the key, so a
+        predicate reading *breach + project* alone flags it too.  What
+        separates the two checks is membership of the judged set, which is
+        why the assertion above is a conjunction and not a scan for a rung.
+        """
+        from sysadmin.estate.judgements import JUDGED_AUDIT_CHECKS
+
+        assert "docs" not in JUDGED_AUDIT_CHECKS, (
+            "`docs` has entered the judged set, so its findings now arrive here "
+            "as alerts as well as through scripts/check-estate-docs.sh — which is "
+            "the second-owner defect ADR-0013 refuses `ports` for, arriving on the "
+            "one check the reader does read."
+        )
+        sites = _finding_sites(ESTATE_DOCS_CHECK, _severity_literals(ESTATE_TREE))
+        assert sites, "no Finding( construction found in docs.py"
+        assert not [s for s in sites if "project" not in s["keys"]], (
+            "a docs finding now omits detail['project'], so the reader has a blind "
+            "spot on the one check it reads."
         )
 
 
