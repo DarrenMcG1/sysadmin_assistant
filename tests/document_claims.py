@@ -111,6 +111,7 @@ NUMBER_WORDS = {
     "eleven": 11,
     "twelve": 12,
     "thirteen": 13,
+    "fourteen": 14,
 }
 
 #: Unit spellings :func:`interval_seconds` admits, mapped to seconds.  A bare

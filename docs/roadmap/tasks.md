@@ -12603,20 +12603,53 @@ Two things measured 2026-08-25 that the tasks below do not know:
   the task to describe a check this repository may not own would be a
   ruling wearing a task edit.
 
-- [ ] **`docs/contracts/briefing_preview.sample.json` does not exist yet**
+**Decided against, 2026-09-14, Session 239 —
+[ADR-0014](../adr/0014-a-sample-cannot-be-both-pinnable-and-real.md).** The
+four ticked items below are closed by decision, not by having been built,
+and the two unticked ones are untouched by it.
+
+**The sample is refused.** Not deferred: the artefact task 1 could commit
+and the artefact Alfred's fixture directory admits are different artefacts.
+Driven live, `generate_briefing_data` called twice 1.1 s apart against an
+unchanged database differs in three fields (`generated_at`, `period.to`,
+`facts.logs.measured_at`), so *"fails when it differs from the committed
+copy"* fails on the second call; normalise those and the counts underneath
+are still live. Five of the six sections are appended behind an `if`, and
+across the last 30 mornings the three review sections alone took **five
+distinct shapes** — so a sample pins one morning's weather. Meanwhile the
+consumer already absorbs what the sample was for: Alfred's `normalise_type`
+degrades any unknown section type to `text` with the data kept, tested as a
+requirement, and its mapping assertion is derived from whatever payload it
+is handed, so it is as incapable of failing against a published sample as
+against a capture.
+
+**The stale-consumer detector and its registry are closed by
+estate-manager's withdrawal**, message `d29929d7` (filed 2026-09-14),
+withdrawing the check this repository routed to them as `6a330427` on
+2026-08-25 — withdrawn rather than deferred, *"it does not reopen if the
+sample appears"*. The direct disk read stays permitted; what is gone is the
+check, so the config registry that would have fed it has nothing to feed.
+
+**What is left standing is the two unticked items**, and the second of them
+is not this repository's to write: `monitorable-project.md` moved to
+estate-manager on 2026-08-11, and re-measured 2026-09-14 the additive-only
+rule is still absent from it. Writing it there would be this repository
+authoring another repository's convention.
+
+- [x] **`docs/contracts/briefing_preview.sample.json` does not exist yet**
       — measured 2026-08-25. Task 1 below is unblocked and unstarted
 
-- [ ] **Producer publishes the sample.** A test here regenerates
+- [x] **Producer publishes the sample.** A test here regenerates
       `docs/contracts/briefing_preview.sample.json` from
       `generate_briefing_data` and fails when it differs from the committed
       copy — so the sample cannot silently go stale, the same trick the
       schema-drift guard already uses for migrations
-- [ ] **Detect a stale consumer.** sysadmin can read Alfred's fixture
+- [x] **Detect a stale consumer.** sysadmin can read Alfred's fixture
       (`backend/tests/fixtures/briefing_producers/sysadmin_preview.json` —
       same disk) and raise a finding when its section set is a subset of
       what this service now serves. This catches drift *without waiting for
       anyone to commit*, which is the case that actually bites
-- [ ] Consumer registry in config: which repo, which fixture path, which
+- [x] Consumer registry in config: which repo, which fixture path, which
       producer endpoint. Two entries today; the point is that adding a
       third consumer is a config line, not code
 - [ ] **Do not** build a shared contract package or a monorepo. Three repos

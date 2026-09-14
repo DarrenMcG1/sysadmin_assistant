@@ -1,6 +1,103 @@
-# Handoff — 2026-09-14 (Session 238)
+# Handoff — 2026-09-14 (Session 239)
 
 ## Next action
+
+Decide whether to tell Alfred the sample is refused and the estate that the additive-only rule never reached its guide, or record both silences on purpose. *(For: owner, ~10 min)*
+
+*It is startable because both gaps were measured this sitting and neither
+needs anything built.* Alfred's `backend/tests/fixtures/briefing_producers/README.md`
+says the producer-published sample is *"blocked, not merely unbuilt"*, names
+our path, and cites a blocker estate-manager withdrew on 2026-09-14 — so a
+reader is told to wait for a file that will not arrive, for a reason that has
+stopped existing. And `monitorable-project.md`, which moved to estate-manager
+on 2026-08-11, was re-measured today and still carries **no** additive-only
+rule: the tolerance that actually guards this seam is written in
+`estate-map.md` prose and in no contract. Each is one `POST` to
+`:8400/api/estate/messages`; the first was put to the owner this sitting and
+declined, which is why it is `SNAG-BRIEF-004` rather than a sent message, and
+the second was never put at all. Recording both silences on purpose is a real
+answer and is the reason the line says *decide* rather than *send*. The line
+names **no** SNAG id, which it cannot: the register holds 38 open and 0 owed.
+
+*What this sitting did.* Decided the question Session 238 handed on, against
+publishing, and recorded it as
+[ADR-0014](docs/adr/0014-a-sample-cannot-be-both-pinnable-and-real.md).
+`docs/contracts/briefing_preview.sample.json` is **refused, not deferred**.
+Four Session 33 tasks standing since 2026-08-25 are closed by decision; two
+are untouched and one of those is not ours to do. Suite unmoved at **4156**,
+green; ruff and mypy clean; nothing under `sysadmin/` changed, so no restart
+is owed. All **15** ops claims read `ok`.
+
+*The refusal lands one step earlier than the estate's, and that is what made
+it worth a sitting rather than a checkbox.* Their withdrawal says neither
+half of **their** comparison is testable. This says the artefact task 1 could
+commit and the artefact Alfred's fixture directory admits are **different
+artefacts**, and the measurement is one call: driven live read-only,
+`generate_briefing_data` twice **1.1 s** apart against an unchanged database
+differs in three fields (`generated_at`, `period.to`,
+`facts.logs.measured_at`). So *"fails when it differs from the committed
+copy"* fails on the second call. Normalise those and the counts underneath
+are still live; freeze the database and the product is a hand-written
+example, which is the one thing Alfred's ADR-0063 §3a refuses.
+
+*Their measurement was re-taken rather than accepted, and both halves
+reproduce.* Five of six sections sit behind an `if` in `render_sections`; an
+AST walk of Alfred's `alfred/services/briefings.py` finds it reads
+`sections`, `facts` and `generated_at` and never `schema`, `period`,
+`alerts`, `summary` or `source` — 3 of 8. The stronger measurement is ours,
+because theirs is a proxy: they measured the producer's **code** across 15
+commits, and what a sample pins is the **payload**. Reconstructed from the
+three review tables against the 06:00 boundary, the presence triple took
+**five** distinct shapes across the last 30 mornings. Today is the fifteenth
+consecutive day at the full six — the most flattering morning in a month to
+take a sample, and the trap.
+
+*The consumer already absorbs what the sample was for, which no document had
+said.* Alfred's `normalise_type` degrades any unknown section type to `text`
+with the data kept, asserted by two tests as a requirement rather than
+enjoyed as an accident — so there is no section this producer can serve that
+Alfred cannot map. Its mapping assertion is derived from whatever payload it
+is handed, which makes it as incapable of failing against a published sample
+as against the stale capture `estate-map.md` already says that of. And the
+fixture is a **test double**, not a contract pin: seven distinct test
+functions read it across nine call sites, several mocking `httpx` with it.
+One catch is genuinely surrendered and the ADR says so — the four-type union
+assertion — because it would fire as a red test in Alfred caused by our
+weather.
+
+*Two ops claims went red mid-sitting and the movement was not this sitting's
+doing.* `Estate port 3110 registry breach` and `Estate port 8110 registry
+breach` opened at **20:20 UTC**, twenty minutes after the decision work
+began. They are declared flapping rather than added to the pin, on the duty
+cycle the checker measures — and they are `SNAG-ESTATE-009`'s **first
+observed `warning` rows**, which that entry's own note recorded it had never
+had. The discriminator Session 128 built is what says so rather than an
+inference: `details['attribution']` reads `{"reading": "unswept"}` against an
+`observed_at` **3.0 hours** earlier. The entry is corrected in place; neither
+of its refused closures becomes cheaper for having a specimen, and the gap
+sits above Session 128's 1.30 h median and below its six-hour headline, so
+it is reported as one draw rather than as a new number.
+
+*The ADR count guard earned its keep on the count it exists for.*
+`docs/README.md` spells the total as a word — *"Fourteen records."* — and
+`test_the_stated_count_is_the_measured_one` reads it as a word on the stated
+reasoning that one *"goes stale exactly as a digit does"*. The fourteenth
+record is the first to need a word `NUMBER_WORDS` did not hold, so the map
+gained **one** entry rather than a spare range, which is what its own
+docstring asks for.
+
+*Estate message `d29929d7` is deliberately left open.* Nothing is owed to
+estate-manager — they withdrew rather than asked, and said the remaining
+question is *"yours, not ours"* — and the once-a-session inbox notice is a
+more durable reminder than a checkbox, which would publish itself to the
+board as this repository's next action. Session 238 made the same call for
+the same reason; this sitting answered the question and still has no reply
+to send, so the notice is now a reminder of the unsent Alfred message rather
+than of an undecided question.
+
+# Handoff — 2026-09-14 (Session 238)
+
+### The action Session 238 handed on (discharged by Session 239)
 
 Decide whether to publish `docs/contracts/briefing_preview.sample.json`, whose second consumer has withdrawn, leaving Alfred's own test the only one. *(For: session)*
 

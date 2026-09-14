@@ -26,7 +26,7 @@ and read the bullets beneath it.
 
 ## Architecture decision records — `adr/`
 
-Thirteen records. They are the highest-value documents here for a reader who is not
+Fourteen records. They are the highest-value documents here for a reader who is not
 going to read the code, because each one states the alternatives that were
 measured and refused, not only the option taken.
 
@@ -45,6 +45,7 @@ measured and refused, not only the option taken.
 | [ADR-0011](adr/0011-a-cited-register-id-is-a-claim-about-this-repository.md) | what a commit says when it cites a cross-repo register message id |
 | [ADR-0012](adr/0012-a-transient-holder-has-no-project.md) | why a transient port holder is refused a document comparison |
 | [ADR-0013](adr/0013-a-published-key-is-necessary-and-was-never-sufficient.md) | why the session's audit reader stays on `docs` though `ports` publishes the key |
+| [ADR-0014](adr/0014-a-sample-cannot-be-both-pinnable-and-real.md) | why the briefing sample is not published, though two documents ask for it |
 
 ADR-0009 and ADR-0010 together are the record of the publication decision: the
 secrets audit over all 348 commits, what was found, and why two of the three

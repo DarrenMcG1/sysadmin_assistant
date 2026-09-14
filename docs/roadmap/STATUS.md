@@ -3,6 +3,87 @@
 **Last Updated**: 2026-09-14
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A sample cannot be both pinnable and real** (2026-09-14, Session 239,
+> discharging Session 238's handoff and opening `SNAG-BRIEF-004`).
+> `docs/contracts/briefing_preview.sample.json` is **refused**, not
+> deferred, by [ADR-0014](../adr/0014-a-sample-cannot-be-both-pinnable-and-real.md).
+> Four Session 33 tasks standing since 2026-08-25 are closed by decision;
+> two are untouched and one of those is not this repository's to do.
+>
+> **The refusal lands one step earlier than the estate's.** Their
+> withdrawal (message `d29929d7`) says neither half of *their* comparison
+> is testable. This says the artefact task 1 could commit and the artefact
+> Alfred's fixture directory admits are **different artefacts**. Driven
+> live read-only, `generate_briefing_data` called twice **1.1 s** apart
+> against an unchanged database differs in **three** fields —
+> `generated_at`, `period.to`, `facts.logs.measured_at` — so *"fails when
+> it differs from the committed copy"* fails on the second call. Normalise
+> those and the counts underneath are still live; freeze the database and
+> the product is a hand-written example, which is the one thing ADR-0063
+> §3a refuses.
+>
+> **The section set is weather, measured on our rows rather than their
+> commits.** estate-manager measured the producer's **code** across 15
+> commits, which is a proxy. Reconstructed from the three review tables
+> against the 06:00 boundary, the presence triple took **five** distinct
+> shapes across the last **30** mornings. Today is the fifteenth
+> consecutive day at the full six — the most flattering morning in a month
+> to take a sample, and the trap.
+>
+> **The consumer already absorbs what the sample was for.** Alfred's
+> `normalise_type` degrades any unknown section type to `text` with the
+> data kept, asserted by two tests as a requirement rather than enjoyed as
+> an accident — so there is no section this producer can serve that Alfred
+> cannot map. And its mapping assertion is derived from whatever payload
+> it is handed, which makes it as incapable of failing against a published
+> sample as against a stale capture. Publishing changes which file is
+> asserted against itself.
+>
+> **Both of the estate's headline claims reproduce on this repository's
+> own instruments**, re-taken rather than accepted: five of six sections
+> sit behind an `if` in `render_sections`, and an AST walk of Alfred's
+> `alfred/services/briefings.py` finds it reads `sections`, `facts` and
+> `generated_at` and never `schema`, `period`, `alerts`, `summary` or
+> `source` — **3** of **8**.
+>
+> **One catch is genuinely surrendered and says so.** Alfred's four-type
+> union assertion could fire on a morning this box stopped serving a type.
+> It is refused because it fires as a red test in Alfred caused by our
+> weather, and a consumer's suite going red for a producer's data is worse
+> than the manual refresh it replaces.
+>
+> **Nothing under `sysadmin/` changed, so no restart is owed and the suite
+> is unmoved at 4156**, green; ruff and mypy clean. One line of test code
+> did move, and it is the ADR count guard earning its keep: `docs/README.md`
+> spells the count as a word — *"Fourteen records."* — and
+> `test_the_stated_count_is_the_measured_one` reads it as a word on the
+> stated reasoning that one *"goes stale exactly as a digit does"*. The
+> fourteenth record is the first to need a word `NUMBER_WORDS` did not
+> hold, so the map gained **one** entry rather than a spare range, which
+> is what its own docstring asks for: a vocabulary *"only over the range
+> these documents actually use"*. The residue is `SNAG-BRIEF-004`: Alfred's fixtures README
+> still calls the sample *"blocked, not merely unbuilt"* and cites a
+> blocker that no longer exists, and no message was filed to say so — put
+> to the owner this sitting and declined, so it is recorded rather than
+> absorbed. Estate message `d29929d7` is deliberately **left open**:
+> nothing is owed to estate-manager, and the once-a-session inbox notice
+> is a more durable reminder than a checkbox, which would publish itself
+> to the board as this repository's next action. The register holds **38**
+> open and 0 owed.
+>
+> **Two ops claims went red mid-sitting and neither was this sitting's
+> doing.** `Estate port 3110 registry breach` and `Estate port 8110
+> registry breach` opened at **20:20 UTC**, twenty minutes after the
+> decision work began — Alfred's `nuxt dev` and `uvicorn --reload` behind
+> an editor, at `warning` rather than the quiet rung because the sweep
+> that would attribute them predates them. Both are declared flapping
+> below rather than added to the pin, on the duty cycle the checker
+> measures. They are `SNAG-ESTATE-009`'s first observed `warning` rows:
+> that entry's own note records it had **never observed its own class**,
+> and it has now. Claims read **15** of 15 `ok` — fifteen rather than
+> thirteen because a flapping declaration is itself a claim, so declaring
+> two added two.
+
 > **A leaf can lose its reader to a refactor, and that is the shape this box
 > has actually produced** (2026-09-14, Session 238, discharging Session 237's
 > handoff). `dashboard_url` — the one `TrayConfig` leaf that sweep found
@@ -6115,6 +6196,26 @@
 > mean episode is 2.1 hours, which is an outage rather than a flap, and
 > no sitting has yet been made to re-pin the block by it — a declaration
 > is a judgement this document makes and the check only bounds.)*
+> *(**Two more were declared flapping mid-sitting, and they are a filed
+> entry's live specimens** (2026-09-14, Session 239). `Estate port 3110
+> registry breach` is declared flapping <!--check:flapping-->. `Estate
+> port 8110 registry breach` is declared flapping <!--check:flapping-->.
+> Both opened **after** this sitting's own block was written, which is
+> the claims checker earning its keep on the sitting writing the claim —
+> the second time in five sittings. They are the pair Session 57 named
+> when it built `TRANSIENT_HOLDER_SEVERITY`: Alfred's `nuxt dev` and
+> `uvicorn --reload`, launched from an editor, correct findings whose
+> remedy does not apply. They arrive at `warning` rather than the quiet
+> rung because the sweep that would attribute them predates them, which
+> is `SNAG-ESTATE-009` exactly — an entry whose population was described
+> as measured and which had **never observed its own class** on a
+> `warning` row until today. No figure is written here, rule 12: the
+> duty cycle is what makes the declaration honest and it is a flapping
+> quantity, so `scripts/check-ops-claims.sh` prints it fresher than this
+> document can hold it. They are declarations rather than names in the
+> pin because a transient holder leaves on its own — unlike
+> `venture-chat unreachable`, measured beside them and deliberately not
+> declared, whose episodes are outages.)*
 > *(**The fifth resolved, and this note predicted that it would**
 > (re-pinned 2026-09-10, Session 208). `Unusual RAM usage` was raised at
 > **21:25:49 on 2026-09-09**, after Session 206's block was written and
