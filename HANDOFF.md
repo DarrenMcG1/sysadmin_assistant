@@ -1,6 +1,104 @@
-# Handoff — 2026-09-14 (Session 232)
+# Handoff — 2026-09-14 (Session 233)
 
 ## Next action
+
+Tick or delete the four stale unchecked items at the top of `docs/roadmap/tasks.md`, three of which name closed entries and could be published as this repository's next action. *(For: session)*
+
+*The line is 176 characters before its marker and names **no**
+SNAG id.* It cannot: driven through `estate.snags` rather than grepped, the
+register holds **36 open and 0 owed**, and the three entries these items name
+(`SNAG-DOCS-014`, `-015`, `-016`) all read **closed** — so an id here would
+publish either work nobody is owed or work already done, which is
+`SNAG-ESTATE-008`'s founding case. What makes it startable rather than tidying
+is the reader: estate-manager's `roadmap.py` falls back to
+`first_unchecked_task()` when a handoff carries no "next" heading, which is the
+mechanism `tests/test_handoff_shape.py` already guards the *scheduled* section
+against. The same fallback reaches `tasks.md`, and the first item it would find
+names an entry closed on 2026-09-11.
+
+*What this sitting did.* Discharged the scheduled reading due today and
+**closed `SNAG-SCHED-004`** — into `SNAG-GPU-001` rather than as the one-off
+its own rule anticipated. No Python changed, the register lost one open entry
+(37 → 36), suite unmoved at **4140**, `ruff` and `mypy` clean, all 16 ops
+claims `ok`, and **no restart is owed** because nothing under `sysadmin/` was
+touched. The claim count is **13**, counted off the report: the three entries
+above this one say 16, and 16 was measurable at **9** on every STATUS.md commit
+of 2026-09-13.
+
+*The reading, which is what was asked for.* All three review tables carry
+`llm_used = true` for this morning — `health_reviews` 05:00:10.984,
+`log_reviews` 05:15:06.360, `disk_reviews` 05:45:06.398, each naming
+`dria-agent-a-3b.Q4_K_M.gguf`. The entry's own rule says that closes it, and
+the **slot** hypothesis it was ranked on is refuted.
+
+*But the disjunction was not what closed it, and that distinction is the
+sitting.* *"All three true"* was supposed to mean *"a one-off disconnect"*, and
+it cannot, because the two mornings ran **different kernels**: 2026-09-07 is
+boot -1 on `7.2.3-arch1-2`, today is boot 0 on `6.18.49-2-lts` since 2026-09-10
+18:18:46. All **12** `VRAM is lost` lines in the retained journal belong to
+`7.2.3` and there have been **zero** in the 7.6 days since. So today's result
+is equally consistent with the reset population having gone to zero. What
+actually refutes the slot is the **inference**: `prompt eval 156.03 ms / 422
+tokens`, `eval 414.14 ms / 96 tokens`, **570.18 ms total**, against a server
+unrestarted since boot — no cold start existed to observe.
+
+*The cause was already measured one entry over, and nobody had joined them.*
+`SNAG-GPU-001` holds the mechanism end to end: `alfred-inference.service`
+started 2026-09-06 08:20:28, resets landed 10:21:04 and **20:43:01**, it
+reported `ok` for **99 consecutive checks across 8 h 17 m** because it was
+submitting nothing, and the 05:00 health review's prompt was **`task 0`, the
+first chat completion of that process's life** — which threw
+`vk::DeviceLostError` on `vk::Queue::submit`, aborted with a 58.7 MB coredump,
+and was restarted by systemd at 05:00:15.
+
+*Both written sharpenings inverted their own evidence, and one sitting wrote
+both readings of one fact.* Session 220 re-measured `SNAG-GPU-001` and
+`SNAG-SCHED-004` on the same day off the identical observation that the newest
+reset is 2026-09-06 20:43:01. On the first it read that correctly and forward
+(*"the class has gone quiet"*); on the second it read it as grounds that a
+second `false` would **exclude** the poisoned-context cause. That inverts
+ADR-0007's predicate, which wants the context created *before* the reset and
+the submit *after* it: `08:20:28 < 20:43:01 < 05:00:09` **satisfies** the
+condition. Session 224 inverted in the same direction, reading the estate's
+05:30 success as independent evidence llama-server was serving at 05:00 — it is
+downstream of the 05:00:15 restart our own crash caused. **An absent reset at
+the failure instant is not an absent cause; the condition is a window.**
+
+*One recorded mystery fell out for free, and the error was attribution rather
+than arithmetic.* The entry filed `wait_seconds: 3299` as unexplained and
+deferred it as *"the estate's field on the estate's surface"*. It is
+**ours** — `review_lease_budget` in `sysadmin/core/gpu_lease.py` — and it is a
+**budget**, not this request's wait: one deadline (briefing less
+`review_lease_margin_minutes`, so 05:55:00) less each dispatch instant gives
+**3299, 2399 and 599**, all three reproducing to the second. The first limb of
+the entry's own disjunction was right; `judge_queue_invariants`' *"the mask is
+read, never recomputed"* was the wrong rule to reach for, because the figure
+needed reading **here**.
+
+*What was refused, so the next sitting can see what this did not do.* The
+`SNAG-GPU-001` rank was **not** lowered — a quiet population is not a fixed
+mechanism and that reader has still never fired. The ~4.3 s of unattributed
+lease hold was **not** filed as an entry: the ordering is deliberate and argued
+in `run_health_review`'s docstring, gathering outside the lease would publish
+facts up to one budget older than the narrative, and the cost is seconds once a
+week — so the number is written down and scheduled for a cold re-read instead.
+And no check was added: what one would drive is whether another repository's
+unit is serving, which is availability this repository declines to judge.
+
+*A trap worth carrying.* `coredumpctl info` resolves the crashed process to
+`User Unit: alfred-inference.service`, and `journalctl -u
+alfred-inference.service` returns **No entries** for it — the system/user scope
+trap the 2026-09-07 item named for `sysadmin.service`, hit here on a different
+unit. The stack trace is the half that decides: `libggml-vulkan.so.0` →
+`__cxa_throw` → `std::terminate` → `abort` is a device loss, not a network
+fault, and no `VRAM is lost` line exists at the failure instant because the
+reset that caused it was eight hours earlier.
+
+---
+
+# Handoff — 2026-09-14 (Session 232)
+
+### The action Session 232 handed on (discharged by Session 233)
 
 Read `llm_used` on all three review tables for this morning's runs and settle whether the health review's 05:00 failure tracks the slot rather than its own code. *(For: session)*
 
@@ -6711,7 +6809,7 @@ Announced to estate-manager as message `8e693e05` before the commit that
 carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
-- **2026-09-14** — Discriminate the cold-start hypothesis Session 206 left: on the second Monday under lease, read `llm_used` on all three review tables again. If `health_reviews` alone is false a second time, the fault tracks the **05:00 slot** rather than the health review's own code, because log (05:15) and disk (05:45) succeeded on 2026-09-07 with the same client and the same model; if all three are true, 2026-09-07 was a one-off llama-server disconnect and the entry closes. Read it with `journalctl -u sysadmin.service` — **system scope, no `--user`** — because `sysadmin.service` is a system unit running `User=gaddi` and the user journal holds one line for it, which is the trap the 2026-09-07 item did not name and Session 206 fell into. *Sharpened 2026-09-12 by Session 220 without being touched: `SNAG-GPU-001`'s explanation requires a GPU reset, and the newest one on this box is **2026-09-06 20:43:01**, so unless one lands before Monday a second `health_reviews.llm_used = false` excludes the poisoned-context cause by measurement rather than leaving it the competing explanation it was on one observation. The box has also been on `6.18.49-2-lts` since 2026-09-10 18:18:46, where the eleven-resets-a-week population was measured under `7.2.3-arch1-2`.* *Sharpened again 2026-09-13 by Session 224, also without being taken: reading the estate's own journal while settling `ideas.md`'s timer-journal entry shows their weekly review ran at 05:30 that same 2026-09-07 morning, took GPU lease 56, POSTed to llama-server on 8081 and got **200 OK**, emitting none of the fallback warnings their code carries — so llama-server was serving thirty minutes after this repository's 05:00 health review failed to use it, which is consistent with a cold start and excludes a whole-morning outage as the cause. A third consumer's success in the same window is evidence neither of the three review tables can supply.*
+- **2026-09-21** — Read `llm_used` on all three review tables a third time, and with it the **lease-hold split** at 05:00. Two things ride on the same cheap reading. A third consecutive `true` under a kernel that has produced **zero** GPU resets since 2026-09-06 20:43:01 is the number `SNAG-GPU-001` needs for its *quiet is not working* claim — that reader has never fired on real data, and a resetless week is a population that stopped rather than a mechanism that was fixed, so the run of `true`s is the only thing that grows. And Session 233 left **~4.3 s of a 5.98 s held lease unattributed**: the inference was 570 ms and a warm re-drive of every gather totalled 1.10 s, so the residue is most likely a cold buffer cache at 05:00, which by construction cannot be reproduced warm. Read it off `review_lease_granted` / `review_lease_released` in **system** scope — `journalctl -u sysadmin.service`, no `--user` — beside llama-server's own `total time =` line in **user** scope (`journalctl --user -u alfred-inference.service`). Both scopes are needed and they are different journals; Session 233 hit the same trap the 2026-09-07 item named, on `alfred-inference.service` rather than on `sysadmin.service`, where `journalctl -u` returned *No entries* for a unit that was running. Nothing is owed if the split is unchanged — the ordering is deliberate and argued in `run_health_review`'s docstring, and the cost is seconds once a week.
 
 ## Session 146 is complete — the first night under the fix, and the check could not close its own entry
 

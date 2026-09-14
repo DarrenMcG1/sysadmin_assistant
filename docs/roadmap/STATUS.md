@@ -3,6 +3,42 @@
 **Last Updated**: 2026-09-14
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **An absent reset at the failure instant is not an absent cause**
+> (2026-09-14, Session 233, discharging the scheduled reading due today and
+> closing `SNAG-SCHED-004` **into** `SNAG-GPU-001`). All three weekly review
+> tables took the LLM this morning — health 05:00, log 05:15, disk 05:45 — so
+> the entry's own rule closes it and the **slot** hypothesis it was ranked on
+> is refuted. The disjunction is not what closed it: the two mornings ran
+> different kernels, every `VRAM is lost` line in the retained journal belongs
+> to the older one, and there have been none for 7.6 days — so *"all three
+> true"* is equally consistent with the reset population having stopped. What
+> refutes the slot is the inference itself, **570.18 ms** against a server
+> unrestarted since boot, because no cold start existed to observe.
+>
+> **The cause was measured one entry over a week ago and nobody joined them.**
+> `SNAG-GPU-001` already held it: the inference server reported `ok` for 99
+> consecutive checks across 8 h 17 m while holding a context two resets old,
+> and the 05:00 health review's prompt was the first chat completion of that
+> process's life — which threw `vk::DeviceLostError` on submit and took the
+> server down with it. **Both written sharpenings inverted their own
+> evidence**, and one sitting wrote both readings of a single fact: Session 220
+> read *"no reset since 2026-09-06 20:43:01"* correctly and forward on
+> `SNAG-GPU-001`, and on `SNAG-SCHED-004` read the same observation as
+> *excluding* the poisoned-context cause. ADR-0007's predicate wants the reset
+> **between** the context's creation and the submit, so that observation
+> satisfies the condition rather than refuting it. Session 224 inverted in the
+> same direction, taking the estate's 05:30 success as independent of a restart
+> our own crash had caused.
+>
+> One recorded mystery fell out for free, and the error was attribution rather
+> than arithmetic: the `wait_seconds` figure the entry deferred as *"the
+> estate's field on the estate's surface"* is `review_lease_budget` in
+> `sysadmin/core/gpu_lease.py` — one deadline less each dispatch instant, all
+> three values reproducing to the second. The `SNAG-GPU-001` rank was
+> deliberately **not** lowered: a population that went quiet across a kernel
+> change is not a mechanism that was fixed, and that reader has still never
+> fired on real data.
+
 > **A published key is necessary for a project-keyed reader and was
 > never sufficient** (2026-09-14, Session 232, deciding estate message
 > `a9ee6305` and recording it as
@@ -6242,6 +6278,64 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 233 — an absent reset at the failure instant is not an absent cause (2026-09-14)
+
+Discharged the scheduled reading due today. All three review tables carry
+`llm_used = true` for this morning — `health_reviews` 05:00:10.984,
+`log_reviews` 05:15:06.360, `disk_reviews` 05:45:06.398, each naming
+`dria-agent-a-3b.Q4_K_M.gguf` — so `SNAG-SCHED-004` closes by its own rule and
+the **slot** hypothesis it was ranked on is refuted. It closes **into**
+`SNAG-GPU-001` rather than as the one-off that rule anticipated.
+
+**The disjunction could not have closed it, and saying so is the sitting.**
+*"All three true"* was supposed to mean *"a one-off disconnect"*. The two
+mornings ran different kernels — 2026-09-07 on `7.2.3-arch1-2`, today on
+`6.18.49-2-lts` since 2026-09-10 18:18:46 — and all 12 `VRAM is lost` lines in
+the retained journal belong to the former, with zero in the 7.6 days since
+2026-09-06 20:43:01. Today's result is therefore equally consistent with the
+reset population having stopped. What refutes the slot is the inference:
+`prompt eval 156.03 ms / 422 tokens`, `eval 414.14 ms / 96 tokens`, **570.18 ms
+total**, against a server unrestarted since boot.
+
+**The cause was already measured one entry over.** `SNAG-GPU-001` holds it end
+to end: `alfred-inference.service` started 2026-09-06 08:20:28, resets landed
+10:21:04 and 20:43:01, it reported `ok` for 99 consecutive checks across
+8 h 17 m because it was submitting nothing, and the 05:00 health review's
+439-token prompt was `task 0` — the first chat completion of that process's
+life — which hit `radv/amdgpu: The CS has been cancelled because the context is
+lost`, threw `vk::DeviceLostError` on `vk::Queue::submit`, aborted with a
+58.7 MB coredump, and was restarted by systemd at 05:00:15.
+
+**Both sharpenings inverted their own evidence, and one sitting wrote both
+readings of one fact.** Session 220 re-measured both entries on 2026-09-12 off
+the identical observation that the newest reset is 2026-09-06 20:43:01. On
+`SNAG-GPU-001` it read that correctly and forward; on `SNAG-SCHED-004` it read
+the same fact as grounds that a second `false` would **exclude** the
+poisoned-context cause. ADR-0007's condition wants the context created *before*
+the reset and the submit *after* it, so `08:20:28 < 20:43:01 < 05:00:09`
+satisfies it. Session 224 inverted in the same direction, reading the estate's
+05:30 success as independent evidence when it is downstream of the restart our
+own crash caused.
+
+**One recorded mystery was explained and the error was attribution.** The entry
+filed `wait_seconds: 3299` as unexplained and deferred it as *"the estate's
+field on the estate's surface"*. It is this repository's `review_lease_budget`
+in `sysadmin/core/gpu_lease.py`, and it is a budget rather than a measured
+wait: one deadline — the briefing less `review_lease_margin_minutes`, so
+05:55:00 — less each dispatch instant gives 3299, 2399 and 599, all three
+reproducing to the second.
+
+**What was refused.** The `SNAG-GPU-001` rank was not lowered: a quiet
+population is not a fixed mechanism and that reader has never fired on real
+data. The ~4.3 s of unattributed lease hold (5.98 s held for 570 ms of
+inference; a warm re-drive of every gather totals 1.10 s) was not filed as an
+entry — the ordering is argued in `run_health_review`'s docstring and the cost
+is seconds once a week — so it is written down and scheduled for a cold
+re-read. And no check was added, because what one would drive is whether
+another repository's unit is serving.
+
+No Python changed; the register lost one open entry, 37 open to 36.
 
 ### Session 232 — a published key is necessary and was never sufficient (2026-09-14)
 

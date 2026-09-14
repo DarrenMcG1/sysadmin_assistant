@@ -8,6 +8,90 @@
 
 ---
 
+## Session 233: an absent reset at the failure instant is not an absent cause ✅ (2026-09-14)
+
+_The ask was Session 232's handoff and the scheduled item due today: read
+`llm_used` on all three review tables for this morning's runs and settle
+whether the health review's 05:00 failure tracks the slot rather than its own
+code. Settled: it tracks **neither**. `SNAG-SCHED-004` is closed, into
+`SNAG-GPU-001` rather than as the one-off its own rule anticipated._
+
+- [x] **The reading, which is what was asked for.** All three tables carry
+      `llm_used = true` — `health_reviews` 05:00:10.984, `log_reviews`
+      05:15:06.360, `disk_reviews` 05:45:06.398, each naming
+      `dria-agent-a-3b.Q4_K_M.gguf`. By the scheduled item's own wording that
+      closes the entry and refutes the **slot** hypothesis it was ranked on
+- [x] **The slot is refuted by the inference, not by the disjunction.**
+      `prompt eval 156.03 ms / 422 tokens`, `eval 414.14 ms / 96 tokens`,
+      **570.18 ms total**, against PID 1606 unrestarted since the boot of
+      2026-09-10 18:18:54 — so there was no cold start to observe on the
+      morning that was supposed to test for one
+- [x] **The comparison crosses a kernel change, which nothing had noticed.**
+      2026-09-07 is boot -1 on `7.2.3-arch1-2`; today is boot 0 on
+      `6.18.49-2-lts`. All **12** `VRAM is lost` lines in the retained journal
+      belong to `7.2.3`, with **zero** in the 7.6 days since 2026-09-06
+      20:43:01 — so *"all three true"* is equally consistent with the reset
+      population having stopped, and could not have closed the entry alone
+- [x] **The cause was measured one entry over and nobody joined them.**
+      `SNAG-GPU-001` holds it: `alfred-inference.service` started 2026-09-06
+      08:20:28, resets at 10:21:04 and 20:43:01, `ok` for **99 consecutive
+      checks across 8 h 17 m**, and the 05:00 review's 439-token prompt was
+      `task 0` — the first chat completion of that process's life — which threw
+      `vk::DeviceLostError` on `vk::Queue::submit` and took the server down
+- [x] **Both written sharpenings inverted their own evidence, and one sitting
+      wrote both readings of one fact.** Session 220 read *"no reset since
+      2026-09-06 20:43:01"* correctly and forward on `SNAG-GPU-001` and as
+      *excluding* the poisoned-context cause on `SNAG-SCHED-004`. ADR-0007
+      wants the reset **between** the context's creation and the submit, so
+      `08:20:28 < 20:43:01 < 05:00:09` satisfies the condition. Session 224
+      inverted the same way, taking the estate's 05:30 success as independent
+      of the restart our own crash caused
+- [x] **A recorded mystery was explained and the error was attribution.**
+      `wait_seconds: 3299` was deferred as *"the estate's field on the estate's
+      surface"*. It is this repository's `review_lease_budget` in
+      `sysadmin/core/gpu_lease.py` and it is a **budget**: one deadline (the
+      briefing less `review_lease_margin_minutes`, so 05:55:00) less each
+      dispatch instant gives 3299, 2399 and 599, all reproducing to the second
+- [x] **Corrected a stale present tense on `SNAG-GPU-001`'s own status line.**
+      It read *"the population is live and recurring"*, which stopped being
+      true on 2026-09-06; it is dated now. The **rank is deliberately not
+      lowered** — a population that went quiet across a kernel change is not a
+      mechanism that was fixed, and that reader has still never fired on real
+      data
+- [x] **Rotated the scheduled item to 2026-09-21** rather than emptying the
+      section: a third consecutive `true` is the only figure that grows for
+      `SNAG-GPU-001`'s *quiet is not working* claim, and the same reading
+      attributes the **~4.3 s** of the 5.98 s held lease that this sitting
+      could not (inference 570 ms; a warm re-drive of every gather totals
+      1.10 s, so the residue is most likely a cold buffer cache at 05:00,
+      which cannot be reproduced warm)
+- [x] **Recorded rather than filed, with the reason.** The lease-hold split is
+      not an entry: the ordering is deliberate and argued in
+      `run_health_review`'s docstring — the lease is taken before the session
+      opens because the wait is minutes and this host enforces
+      `idle_in_transaction_session_timeout` at 1 min — and gathering outside
+      the lease would publish facts up to one budget older than the narrative.
+      No check was added either, because what one would drive is whether
+      another repository's unit is serving
+- [x] **Corrected this sitting's own restated figure, and found it was never
+      right.** The first draft of these documents said *"all 16 ops claims
+      `ok`"*, copied from the three entries above rather than counted. The
+      report prints **13**, all `ok`; driven at every STATUS.md commit of
+      2026-09-13 the count was **9**, so Sessions 229, 230 and 231 each wrote
+      16 against a measurable 9, and 13 arrived only with Session 232's block
+      rewrite. The count is document-driven — `--status-file` at each commit is
+      the instrument — which is why nobody re-measuring it let it drift three
+      sittings deep. **Their three lines are not corrected here**: each is a
+      dated statement in a closed entry's Status line, so the repair is a
+      re-measurement per commit and belongs to whoever takes that class
+- [x] **A trap worth carrying, hit in a second place.** `coredumpctl info`
+      resolves the crash to `User Unit: alfred-inference.service`, and
+      `journalctl -u alfred-inference.service` returns *No entries* for a unit
+      that was running — the system/user scope trap the 2026-09-07 item named
+      for `sysadmin.service`, arriving on a different unit
+
+---
+
 ## Session 232: a published key is necessary and was never sufficient ✅ (2026-09-14)
 
 _The ask was Session 231's handoff: decide estate message `a9ee6305` — `ports`
