@@ -400,7 +400,22 @@ class TestTheAsymmetryIsDeliberateAndStays:
         backend's half are not a description of the file.
         """
         models, strict = forbidding_models(CONFIG_MODULE)
-        assert models >= 37, "the module shrank; re-measure before trusting this"
+        # The floor is a *premise*, not a target: without it ``strict ==
+        # 0`` would pass vacuously over an emptied module.  It read 37
+        # from Session 136 until 2026-09-14, when Session 236 trimmed
+        # ``agents.project_organiser`` to its two live leaves and deleted
+        # the five nested models behind the rest — ``HealthGradeBands``,
+        # ``BranchActionsConfig``, ``CodeCommitIgnoreConfig``,
+        # ``EstateConfig`` and ``IdleNudgeConfig``.  Re-measured at 32,
+        # which is what the assertion message asks for rather than a
+        # number to be nudged past a red.
+        #
+        # Note *which* count moved: the asymmetry this class guards is
+        # ``0 of N`` here against ``4 of 4`` in services.py, and it is the
+        # **0** and the **4** that must not move.  ``N`` is the
+        # denominator, and five models leaving for a reason that has
+        # nothing to do with ``extra=`` does not touch the claim.
+        assert models >= 32, "the module shrank; re-measure before trusting this"
         assert strict == 0, (
             f"{strict} model(s) in sysadmin/core/config.py now forbid unknown "
             "keys — the shipped config.yaml carries keys the tray owns, so "

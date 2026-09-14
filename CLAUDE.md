@@ -2837,9 +2837,16 @@ merged-into-the-default-branch eligibility, `include_unmerged` gated on
 both the request and config, and the default/protected/checked-out/worktree
 branches that are never deleted whatever the flags say — are
 estate-manager's now. The `agents.project_organiser.branch_actions` block
-in `config.yaml` is still parsed here and read by nothing, recorded as
-knowingly untidy in ADR-0005 rather than trimmed in the same sitting:
-config classes fan out into defaults tests.
+was left parsed here and read by nothing, recorded as knowingly untidy in
+ADR-0005 rather than trimmed in the same sitting because config classes
+fan out into defaults tests. **It is gone since 2026-09-14** (Session
+236), with `BranchActionsConfig` and the four other nested models behind
+the organiser's unread leaves — the key in `config.yaml` and the field in
+`config.py` deleted together, since dropping only the key is silent (the
+model default takes over) and dropping only the field is loud
+(`config_keys` names the orphan). What survives the block is
+`projects_root` and `discovery_depth`, both measured to have live
+readers.
 
 `GET /api/units/*` is the service-discovery pair (Session 26): the sweep as
 measured, and the sweep as ranked advice. Both are **GET-only and always
@@ -3579,16 +3586,28 @@ the defect.
 
 What the deletion did **not** reach was `SNAG-CFG-004`, and the entry's
 own headline fix was refuted by the file it was about (Session 136).
-`config.yaml`'s models inherit `extra="ignore"` (**0 of 37**) while
+`config.yaml`'s models inherit `extra="ignore"` (**0 of 32**) while
 `services.yaml`'s all set `extra="forbid"` (**4 of 4**), so
 `briefing_hourr: 9` parses cleanly and the briefing stays at 6. **The
-counts have not moved and must not**: walking the shipped `config.yaml`
-against `AppConfig`'s field tree finds **ten keys the backend does not
-declare** — the top-level `tray:` section and nine leaves under
+counts have not moved and must not** — *and the one that moved is not
+one of them*: the denominator read **37** until 2026-09-14, when Session
+236 trimmed `agents.project_organiser` to its two live leaves and deleted
+the five nested models behind the rest (`HealthGradeBands`,
+`BranchActionsConfig`, `CodeCommitIgnoreConfig`, `EstateConfig`,
+`IdleNudgeConfig`). The claim is `0 of N` against `4 of 4`, so what must
+not move is the **0** and the **4**; `N` is how many models exist, and
+five of them leaving for a reason with nothing to do with `extra=` says
+nothing about the asymmetry. Re-measured rather than nudged, because
+`tests/test_config_keys.py`'s floor is a *premise* — without it
+`strict == 0` passes vacuously over an emptied module — and its own
+failure message asks for exactly that. Walking the shipped `config.yaml`
+against `AppConfig`'s field tree still finds **ten keys the backend does
+not declare** — the top-level `tray:` section and nine leaves under
 `notifications.tray:`, every one read by `sysadmin_tray/config.py`,
-which parses the same file for itself. `extra="forbid"` across the 37 is
-therefore not a trade-off to weigh against `SNAG-DB-005`; it is a daemon
-that does not start on this box.
+which parses the same file for itself, and the trim moved that figure
+not at all because both halves of each deleted leaf went together.
+`extra="forbid"` across the 32 is therefore not a trade-off to weigh
+against `SNAG-DB-005`; it is a daemon that does not start on this box.
 
 **The asymmetry is structural rather than an inconsistency.**
 `services.yaml` can forbid because every key in it belongs to the
@@ -4330,8 +4349,13 @@ than this paragraph.
   including the frozen `project_snapshots` / `project_reviews` tables —
   **dropped by migration 014 on 2026-08-24 together with
   `log_summaries`**, the estate's copy having been verified a superset
-  first — and the `agents.project_organiser` config block that is still
-  parsed and mostly unread. Estate side: their ADR-0004 (the decision) and ADR-0008
+  first — and the `agents.project_organiser` config block that stayed
+  parsed and mostly unread. **"Mostly" was the operative word and it was
+  never measured until 2026-09-14**: Session 236 trimmed the block to the
+  two leaves that do have readers — `projects_root` (seven) and
+  `discovery_depth` (two, and in no `config.yaml`, so a sweep of the file
+  alone reads it as dead) — and deleted the other eleven with the five
+  nested models holding them. Estate side: their ADR-0004 (the decision) and ADR-0008
   (the migration's shape).
 - **[0006-wiring-joins-ports.md](docs/adr/0006-wiring-joins-ports.md)** —
   **read this before adding a third check to `JUDGED_AUDIT_CHECKS`.**

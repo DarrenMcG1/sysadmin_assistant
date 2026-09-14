@@ -122,10 +122,16 @@ class AnomalyConfig(BaseModel):
 class ReliabilityGradeBands(BaseModel):
     """Score thresholds mapping a reliability score (0-100) to a grade.
 
-    Set higher than :class:`HealthGradeBands` on purpose.  A repository
-    scoring 80 is tidy enough; a service that was unavailable for a fifth
-    of the week is not "healthy" by any reading, so the reliable band
-    starts at 95 — roughly "no more than one bad check-run this week".
+    Set higher than the *repository* health bands on purpose.  Those left
+    with the projects domain on 2026-08-13 (ADR-0005) and are
+    estate-manager's now — this docstring named the local
+    ``HealthGradeBands`` class until Session 236 deleted it with the rest
+    of the organiser's unread configuration, and a ``:class:`` reference
+    to a class that no longer exists is worse than the plain noun.  The
+    comparison itself is unaffected: a repository scoring 80 is tidy
+    enough, while a service unavailable for a fifth of the week is not
+    "healthy" by any reading, so the reliable band starts at 95 — roughly
+    "no more than one bad check-run this week".
     """
 
     reliable_min: int = 95
@@ -250,153 +256,45 @@ class SysAdminAgentConfig(BaseModel):
     weekly_review: bool = True
 
 
-class HealthGradeBands(BaseModel):
-    """Score thresholds mapping ``health_score`` (0-100) to a grade.
-
-    score >= healthy_min          → "healthy"
-    score >= needs_attention_min  → "needs_attention"
-    score >= neglected_min        → "neglected"
-    otherwise                     → "abandoned"
-    """
-
-    healthy_min: int = 80
-    needs_attention_min: int = 60
-    neglected_min: int = 40
-
-
-class BranchActionsConfig(BaseModel):
-    """Stale-branch pruning (``POST /api/projects/{name}/branches/prune``).
-
-    Deleting a branch can destroy unmerged work, so this mirrors the file
-    actions' safety model: dry run unless the request says ``confirm``,
-    and the genuinely dangerous case needs *two* flags.
-
-    - ``enabled`` — master kill switch; false → the endpoint 409s
-    - ``protected_branches`` — glob patterns never deleted, whatever their
-      age or merge state (the detected default branch is protected too,
-      even when it is not listed here)
-    - ``allow_unmerged_delete`` — defence in depth.  A branch that is not
-      an ancestor of the default branch is *reported only* unless the
-      request sets ``include_unmerged: true`` **and** this flag is true
-    - ``max_deletions`` — hard cap per call.  A request may ask for fewer,
-      never for more
-    - ``min_stale_days`` — floor on the staleness window a request may
-      ask for, so ``stale_days: 0`` cannot sweep up today's work
-    """
-
-    enabled: bool = True
-    protected_branches: list[str] = Field(
-        default_factory=lambda: ["main", "master", "develop", "release/*"]
-    )
-    allow_unmerged_delete: bool = False
-    max_deletions: int = 20
-    min_stale_days: int = 7
-
-
-class CodeCommitIgnoreConfig(BaseModel):
-    """Commits that touched a repository without being work in it.
-
-    A single ``git commit -am`` across forty repositories leaves every one
-    of them looking active on the same day.  This estate has two such
-    commits, from the 2026-08-04/05 ``~/projects`` reorganisation, and
-    before they were excluded every dormant project read as touched four
-    days ago — which is the opposite of what a staleness figure is for.
-
-    ``message_patterns`` are matched against the commit subject
-    (case-insensitive, unanchored) and any one matching excludes the
-    commit.  ``shas`` pins specific commits when a pattern would be too
-    broad.
-
-    A *list* rather than the single regex first sketched, because this
-    estate has two such sweeps and neither is a variation of the other:
-    the reorganisation snapshot, and the fan-out that wrote a roadmap
-    document set into eleven repositories.  With only the first, the
-    second still shadows it — the newest commit in eleven projects would
-    be a document set, and the walk would stop there having skipped
-    nothing.
-
-    Only the *date* is affected. Nothing is rewritten and no commit is
-    hidden — ``last_commit`` still reports the true newest commit beside
-    ``last_code_commit``, so the difference between them is visible rather
-    than silently applied.
-    """
-
-    message_patterns: list[str] = Field(
-        default_factory=lambda: [
-            r"WIP snapshot before ~/projects reorganisation",
-            r"^Add roadmap document set$",
-        ]
-    )
-    shas: list[str] = Field(default_factory=list)
-    #: How far back to walk before giving up and reporting no code commit.
-    #: A repository whose entire history is ignored commits is a real case
-    #: (the empty shells), and an unbounded walk on a 400-commit repo for
-    #: every scan is not worth the certainty.
-    max_walk: int = 200
-
-
-class EstateConfig(BaseModel):
-    """``estate.json`` — the scanner's output contract.
-
-    Versioned and written atomically because it is read by things this
-    repository does not own.  ``health`` inside it is derived on every run
-    and never persisted, so the scoring rules can change without a
-    migration and without a stale score outliving them.
-    """
-
-    enabled: bool = True
-    #: Written beside the projects it describes.  Relative paths resolve
-    #: against ``projects_root``.
-    path: str = "estate.json"
-    code_commit_ignore: CodeCommitIgnoreConfig = Field(
-        default_factory=CodeCommitIgnoreConfig
-    )
-
-
-class IdleNudgeConfig(BaseModel):
-    """Idle-nudge thresholds (Session 31).
-
-    A nudge is a *broken commitment*, not a dirty directory: the project
-    is active, a human wrote down a next action, and that action has not
-    changed for ``days``.  The health score answers a different question
-    and is deliberately not consulted — a repository can be tidy, score
-    100 and still have stood still for a fortnight.
-
-    **The ladder is quiet-then-loud, and the quiet half is quiet because
-    of config.yaml, not because of this code.**  ``tray.notify_min_
-    severity`` is ``warning`` on this host, so the ``info`` nudge at
-    ``days`` reaches the alerts list and the tray badge and never speaks;
-    the escalation at ``escalate_days`` is the first thing that toasts.
-    Lowering that to ``info`` moves the first toast forward by a week,
-    which is the knob to reach for if the nudge is arriving too late —
-    not this threshold.  Note it is the ``tray:`` section, **not**
-    ``notifications.desktop.min_severity``: the latter is parsed by
-    :class:`DesktopNotificationsConfig` and read by nothing (SNAG-CFG-001).
-
-    ``escalate_days`` must be at least ``days``: a ladder whose second
-    rung is below its first would raise the warning on the same scan as
-    the info, so the escalation could never be observed as an escalation.
-    """
-
-    enabled: bool = True
-    #: Days a stated next action may stand before an ``info`` nudge.
-    days: int = 7
-    #: Days at which the open nudge is escalated to ``warning``.
-    escalate_days: int = 14
-
-    @model_validator(mode="after")
-    def _ladder_ascends(self) -> "IdleNudgeConfig":
-        if self.escalate_days < self.days:
-            raise ValueError(
-                f"idle_nudges.escalate_days ({self.escalate_days}) must be >= "
-                f"days ({self.days}); a ladder that descends never escalates"
-            )
-        return self
-
-
 class ProjectOrganiserConfig(BaseModel):
-    enabled: bool = True
-    scan_interval_hours: int = 6
+    """What is left of the organiser's configuration: two live leaves.
+
+    The agent itself moved to the estate's 8400 service on 2026-08-13
+    (ADR-0005), and ADR-0005 recorded this block as knowingly untidy —
+    still parsed here, read by almost nothing.  Session 236 measured
+    "almost" and trimmed to it.  Every threshold the organiser reasoned
+    with (``grade_bands``, ``alert_threshold``, ``max_todo_penalty``,
+    ``todo_patterns``, ``stale_branch_days``, ``idle_nudges``,
+    ``branch_actions``, ``estate``/``code_commit_ignore``) went with the
+    domain and is argued for in estate-manager; the five nested models
+    that held them are deleted rather than left declaring defaults no
+    caller can reach, which is ``SNAG-CFG-001``'s shape.
+
+    **Both halves had to move together, and they fail in opposite
+    directions.**  A key in ``config.yaml`` with no field here is *loud*
+    — :mod:`sysadmin.core.config_keys` walks ``model_fields`` and names
+    the orphan in the lifespan and on ``POST /api/sysadmin/reload``.  A
+    field here with no key there is *silent*: the value simply falls back
+    to this class's default, which for ``enabled`` would have inverted
+    the file's recorded ``false`` into a parsed ``true``.  Trimming one
+    side alone is therefore not half the job in either direction.
+
+    The two survivors are kept for measured readers, not for tidiness:
+
+    - ``projects_root`` — seven callers (:mod:`sysadmin.main`,
+      :mod:`sysadmin.reload`, ``files/router.py``, ``units/agent.py``
+      twice, ``units/router.py``, ``monitor/routers/projects_managed.py``).
+      It is the file domain's safety fence and the root every units route
+      resolves the registry through, and ``reload.py`` lists it in
+      ``LIVE_AT_STARTUP`` because it is read at startup *and* rebuilt on
+      every reload.
+    - ``discovery_depth`` — two callers, both in ``units/agent.py``,
+      handed to ``load_registry``.  It appears in no ``config.yaml``
+      shipped here and is easy to mistake for debt on a sweep of the
+      *file*; it is not, which is why a trim scoped to the file alone
+      would have missed that it must survive.
+    """
+
     projects_root: str = "/home/gaddi/projects"
     # How deep discovery may look for project markers. 1 = the old
     # behaviour (immediate children of projects_root only); 2 lets a
@@ -405,28 +303,6 @@ class ProjectOrganiserConfig(BaseModel):
     # into, whatever the depth — a repo's vendored sub-repos are its own
     # business.
     discovery_depth: int = 2
-    stale_branch_days: int = 30
-    track_todos: bool = True
-    todo_patterns: list[str] = Field(
-        default_factory=lambda: ["TODO", "FIXME", "HACK", "XXX"]
-    )
-    grade_bands: HealthGradeBands = Field(default_factory=HealthGradeBands)
-    # Global health-score floor below which a project raises an alert.
-    # A project may override this in projects.yaml (``alert_threshold``).
-    alert_threshold: int = 40
-    # Weekly LLM-narrated portfolio review (Session 23).  Generation
-    # falls back to a deterministic digest when llama-server is down, so
-    # disabling this stops the *schedule*, not just the inference.
-    weekly_review: bool = True
-    # Ceiling on the TODO/FIXME deduction (5 points per 10 markers).
-    # Uncapped, a 300-TODO project pins at 0 forever and the score stops
-    # reporting anything about the rest of its health.  ``None`` = no cap.
-    max_todo_penalty: int | None = 30
-    branch_actions: BranchActionsConfig = Field(default_factory=BranchActionsConfig)
-    estate: EstateConfig = Field(default_factory=EstateConfig)
-    # Idle nudges (Session 31). A project may override the threshold with
-    # ``idle_nudge_days`` in its own ``.project.yaml``.
-    idle_nudges: IdleNudgeConfig = Field(default_factory=IdleNudgeConfig)
 
 
 class FileActionsConfig(BaseModel):

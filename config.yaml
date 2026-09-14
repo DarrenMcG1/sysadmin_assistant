@@ -297,85 +297,35 @@ agents:
 
 
   project_organiser:
-    # The organiser lives in the estate's 8400 service since Session 4
-    # (ADR-0005) — this daemon no longer constructs, schedules or
-    # self-monitors it (`agent_schedules()` dropped the entry in Session
-    # 43, so nothing here reads these values any more). The block
-    # survives as recorded config debt: the files domain still reads
-    # `projects_root` for its safety fence, and the classes fan out into
-    # the defaults tests. Retire it with the frozen project tables — see
-    # the tasks.md entry.
-    enabled: false
-    scan_interval_hours: 6
+    # The organiser itself lives in the estate's 8400 service since
+    # Session 4 (ADR-0005) — this daemon no longer constructs, schedules
+    # or self-monitors it.  What survived here until 2026-09-14 was the
+    # whole of its *configuration*, parsed by pydantic and read by
+    # nothing: grade bands, TODO patterns, idle-nudge thresholds,
+    # branch-prune safety rails and the estate.json output contract —
+    # every one of them arithmetic that moved with the domain and is
+    # argued for in estate-manager now.  Session 236 deleted those leaves
+    # together with the classes behind them.  Both halves had to move: a
+    # key here and a field in `config.py` are two statements of one
+    # setting and they fail in opposite directions — dropping only the
+    # key is silent (`enabled: false` would have fallen back to the
+    # model's `true`), dropping only the field is loud (`config_keys`
+    # names the orphan on every reload).
+    #
+    # `projects_root` is what remains, and it is not debt.  Seven callers
+    # read it — `main.py`, `reload.py`, `files/router.py`,
+    # `units/agent.py` (twice), `units/router.py` and
+    # `monitor/routers/projects_managed.py` — as the file domain's safety
+    # fence and as the root every units route resolves the registry
+    # through.  `reload.py` classifies it LIVE_AT_STARTUP, so an edit
+    # here is delivered by a reload and owes no restart.
+    #
+    # `ProjectOrganiserConfig` holds one further *live* leaf this file
+    # does not set: `discovery_depth`, read twice by `units/agent.py`.
+    # It keeps its model default rather than being written out here,
+    # because a value stated in two places is free to disagree with
+    # itself.
     projects_root: /home/gaddi/projects
-    stale_branch_days: 30
-    track_todos: true
-    todo_patterns:
-      - "TODO"
-      - "FIXME"
-      - "HACK"
-      - "XXX"
-    grade_bands:  # health_score thresholds → healthy / needs_attention / neglected / abandoned
-      healthy_min: 80
-      needs_attention_min: 60
-      neglected_min: 40
-    alert_threshold: 40  # global health floor; override per project in projects.yaml
-    max_todo_penalty: 30  # ceiling on the TODO/FIXME deduction (null = uncapped)
-    # estate.json — the scanner's output contract, rewritten on every run.
-    # Versioned and written atomically (temp file + rename) because it is
-    # read by things this repository does not own. `health` inside it is
-    # derived each run from the same rubric the board uses and is never
-    # stored there, so scoring can change without a migration.
-    estate:
-      enabled: true
-      path: estate.json          # relative paths resolve against projects_root
-      # Commits that touched a repository without being work in it. A
-      # single sweep across forty repos leaves every one looking active on
-      # the same day, which is the opposite of what a staleness figure is
-      # for. Two exist here and neither is a variant of the other, so this
-      # is a list: with only the reorganisation snapshot, the roadmap
-      # fan-out still shadows it and eleven projects read as touched last
-      # week. Every staleness figure downstream is computed from
-      # last_code_commit; last_commit is still published beside it so the
-      # difference is visible rather than applied silently.
-      code_commit_ignore:
-        message_patterns:
-          - "WIP snapshot before ~/projects reorganisation"
-          - "^Add roadmap document set$"
-        shas: []
-        max_walk: 200
-
-    # Idle nudges — "you said you would and haven't" (Session 31). Not a
-    # hygiene check: an active project with a human-written next action
-    # that has not changed for `days`. Dormant and archived projects have
-    # made their decision, and a project with no stated action has nothing
-    # to be reminded of, so neither is eligible.
-    #
-    # The 7-day rung is SILENT on this host by design: tray.notify_min_severity
-    # (line ~353, NOT notifications.desktop.min_severity, which nothing reads —
-    # SNAG-CFG-001) is `warning`, so the info nudge marks the alerts list and
-    # the tray badge without speaking, and the 14-day escalation is the first
-    # thing that toasts. If nudges arrive too late, lower that to `info`
-    # rather than shortening `days` — the threshold is about when a
-    # commitment counts as broken, not about loudness.
-    #
-    # A project may override the threshold with `idle_nudge_days` in its
-    # own .project.yaml (e.g. a long-cycle repo where a fortnight is normal).
-    idle_nudges:
-      enabled: true
-      days: 7            # info nudge after this many days unchanged
-      escalate_days: 14  # the open nudge becomes a warning here
-
-    branch_actions:  # POST /api/projects/{name}/branches/prune — dry run unless confirm=true
-      enabled: true
-      protected_branches:  # globs never deleted (the default branch is protected regardless)
-        - "main"
-        - "master"
-        - "develop"
-        - "release/*"
-      allow_unmerged_delete: false  # + include_unmerged on the request; both needed
-      max_deletions: 20  # hard cap per call
-      min_stale_days: 7  # floor on the staleness window a request may ask for
 
   file_organiser:
     enabled: true

@@ -86,6 +86,23 @@
   `projects_root` for its safety fence; `enabled` was already false).
   Trimming that is housekeeping for a later session — recorded rather
   than rushed, because config classes fan out into defaults tests.
+  - **Done 2026-09-14, Session 236, and "mostly" was doing more work
+    than it looked.** The roadmap item this bullet became argued from
+    *"read by nothing since ADR-0005"*, which this bullet already
+    refutes in its own parenthesis. Measured: `projects_root` has
+    **seven** readers and `discovery_depth` — which appears in no
+    `config.yaml` and so is invisible to a sweep of the file — has
+    **two**. Those stay; the other eleven leaves and the five nested
+    models behind them (`HealthGradeBands`, `BranchActionsConfig`,
+    `CodeCommitIgnoreConfig`, `EstateConfig`, `IdleNudgeConfig`) are
+    deleted. **Both halves had to move together**: a key with no field
+    is loud (`config_keys` names the orphan on every reload), a field
+    with no key is silent (`enabled: false` would have become a parsed
+    `true`), so trimming one side alone is not half the job in either
+    direction. The fan-out this bullet predicted was real but small —
+    `tests/conftest.py`'s fixture, three sites in
+    `tests/test_config_defaults.py`, and one re-measured premise floor
+    in `tests/test_config_keys.py`.
 - The tray still points at this service for `/overview` and `/{name}`
   detail; those routes now live on 8400 and the tray's client was
   repointed in the same sitting.

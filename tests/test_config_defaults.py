@@ -16,7 +16,7 @@ import yaml
 from sysadmin.core.config import (
     AppConfig,
     FileOrganiserConfig,
-    HealthGradeBands,
+    ProjectOrganiserConfig,
     SchedulesConfig,
     ServiceConfig,
     get_config,
@@ -48,13 +48,15 @@ class TestSharedDefaults:
 
 
 class TestLiftedMagicNumbers:
-    def test_grade_bands_defaults(self):
-        bands = HealthGradeBands()
-        assert (bands.healthy_min, bands.needs_attention_min, bands.neglected_min) == (
-            80,
-            60,
-            40,
-        )
+    # ``test_grade_bands_defaults`` stood here until Session 236 and went
+    # with ``HealthGradeBands`` itself.  It is not the usual case of
+    # deleting a guard beside its last finding — the rule that keeps
+    # ``FROZEN_TABLES`` and ``test_none_of_them_are_defined_in_contracts``
+    # alive — because the thing it guarded cannot come back *here*: the
+    # repository health score left with the projects domain on 2026-08-13
+    # (ADR-0005) and those bands are argued for in estate-manager.  What
+    # replaces it is ``TestTheOrganiserBlockIsTrimmedToItsReaders`` below,
+    # which guards the trim rather than the departed arithmetic.
 
     def test_reclaimable_milestones_default(self):
         assert FileOrganiserConfig().reclaimable_milestones_mb == [1024, 5120, 10240]
@@ -73,7 +75,7 @@ class TestLiftedMagicNumbers:
     def test_app_config_exposes_new_sections(self):
         cfg = AppConfig()
         assert cfg.schedules.briefing_hour == 6
-        assert cfg.agents.project_organiser.grade_bands.healthy_min == 80
+        assert cfg.agents.project_organiser.projects_root == "/home/gaddi/projects"
         assert cfg.agents.file_organiser.reclaimable_milestones_mb[0] == 1024
 
 
@@ -563,3 +565,141 @@ class TestTheVacatedReviewLeavesStayGone:
         parsed = SchedulesConfig(review_hour=9, briefing_hour=7)
         assert parsed.briefing_hour == 7
         assert not hasattr(parsed, "review_hour")
+
+
+class TestTheOrganiserBlockIsTrimmedToItsReaders:
+    """Session 236 — what survives ``agents.project_organiser``, and why.
+
+    The agent left on 2026-08-13 (ADR-0005) and its configuration stayed
+    behind: thirteen leaves across five nested models, parsed by pydantic
+    and — for all but two of them — read by nothing.  That is
+    ``SNAG-CFG-001``'s shape, and the trim that removed it has to be
+    guarded from both sides, because **a key in the file and a field in
+    the model are two statements of one setting that fail in opposite
+    directions**.  A key with no field is loud (``config_keys`` names the
+    orphan on every reload); a field with no key is silent (the value
+    falls back to the model default, which for ``enabled`` would have
+    turned the file's recorded ``false`` into a parsed ``true``).
+
+    So there are two guards with different reaches, and the difference is
+    measured rather than asserted:
+
+    - the **file** half is exact.  A key is a key; there is nothing to
+      collide with, so it catches every leaf re-added to ``config.yaml``.
+    - the **model** half keys on ``attribute_reads``, which compares the
+      final segment of an attribute load — ``ast.Attribute.attr`` — and
+      therefore cannot tell this block's leaf from another block's leaf
+      of the same name.  Driven at the twelve deleted leaves it reports
+      **seven** correctly unread (``max_todo_penalty``, ``todo_patterns``,
+      ``stale_branch_days``, ``track_todos``, ``idle_nudges``,
+      ``branch_actions``, ``estate``) and is masked on **five** by
+      collisions elsewhere in the tree: ``enabled`` (44 reads),
+      ``scan_interval_hours`` (7), ``weekly_review`` (3),
+      ``alert_threshold`` (1, the unit sweep's patience knob) and
+      ``grade_bands`` (1, ``ReliabilityGradeBands``).
+
+    The residue is stated rather than implied: a **model-only** field
+    whose name collides — ``weekly_review`` is the one real specimen,
+    since it was never in the file — escapes both guards.  It is small
+    and it is the honest limit; narrowing ``attribute_reads`` to a
+    qualified path would make it a second implementation of the attribute
+    chain, which is ``SNAG-DB-003``'s shape.
+    """
+
+    #: The leaves deleted on 2026-09-14, as the falsification population.
+    #: Restoring any of them must turn one of these tests red.
+    TRIMMED = (
+        "enabled",
+        "scan_interval_hours",
+        "stale_branch_days",
+        "track_todos",
+        "todo_patterns",
+        "grade_bands",
+        "alert_threshold",
+        "weekly_review",
+        "max_todo_penalty",
+        "branch_actions",
+        "estate",
+        "idle_nudges",
+    )
+
+    def _organiser_block(self) -> dict:
+        raw = yaml.safe_load(REPO_CONFIG.read_text(encoding="utf-8"))
+        return raw["agents"]["project_organiser"]
+
+    def test_the_shipped_file_sets_only_the_reloadable_leaf(self):
+        """The exact half.  Every re-added key is caught here, collision or not."""
+        assert set(self._organiser_block()) == {"projects_root"}
+
+    def test_no_trimmed_leaf_returned_to_the_file(self):
+        """Stated positively as well, so a red names the leaf rather than a set diff."""
+        block = self._organiser_block()
+        assert [leaf for leaf in self.TRIMMED if leaf in block] == []
+
+    def test_every_declared_field_has_a_reader(self):
+        """The model half.  A field nothing reads is the shape that was removed.
+
+        Driven at ``sysadmin/`` alone: a leaf read only by its own tests
+        is a leaf kept alive by the thing testing it.
+        """
+        unread = [
+            name
+            for name in ProjectOrganiserConfig.model_fields
+            if not attribute_reads(frozenset({name}), [REPO_ROOT / "sysadmin"])
+        ]
+        assert unread == []
+
+    def test_the_model_guard_is_falsified_by_seven_of_the_twelve(self):
+        """The guard above is driven at the defect, and its reach is pinned.
+
+        Seven of the twelve deleted leaves have no same-named reader
+        anywhere under ``sysadmin/``, so re-adding any of them to
+        :class:`ProjectOrganiserConfig` turns
+        ``test_every_declared_field_has_a_reader`` red.  Pinning the
+        number is what stops the reach being quietly overstated: if a
+        future module happens to read a field called ``estate``, this
+        goes red and the docstring above is the thing to correct.
+        """
+        caught = [
+            leaf
+            for leaf in self.TRIMMED
+            if not attribute_reads(frozenset({leaf}), [REPO_ROOT / "sysadmin"])
+        ]
+        assert sorted(caught) == [
+            "branch_actions",
+            "estate",
+            "idle_nudges",
+            "max_todo_penalty",
+            "stale_branch_days",
+            "todo_patterns",
+            "track_todos",
+        ]
+
+    def test_discovery_depth_is_live_and_deliberately_unset(self):
+        """The asymmetry the whole sitting turned on, pinned in both directions.
+
+        ``discovery_depth`` has two readers in ``units/agent.py`` and
+        appears in no shipped ``config.yaml``.  A trim scoped to the file
+        cannot see it, and would have read its absence there as evidence
+        it was dead — the handoff that opened this sitting named seven
+        readers and only ``projects_root``.  It is not written into the
+        file either: a value stated in two places is free to disagree
+        with itself.
+
+        **The declaration is asserted, and the first draft of this test
+        did not assert it.**  Driven as a mutation, deleting the field
+        from :class:`ProjectOrganiserConfig` left all five of these tests
+        green — ``attribute_reads`` measures ``units/agent.py``, which the
+        deletion does not touch, and
+        ``test_every_declared_field_has_a_reader`` merely loops over one
+        field fewer.  A no-op mutation is not a control, so the missing
+        half is here.  The full suite does catch that deletion, in
+        ``tests/test_units_api.py::test_project_refs_come_from_the_registry``
+        and as an ``AttributeError`` rather than as a statement about
+        this block — which is cover, not the thing this docstring claims.
+        """
+        assert "discovery_depth" in ProjectOrganiserConfig.model_fields
+        reads = attribute_reads(frozenset({"discovery_depth"}), [REPO_ROOT / "sysadmin"])
+        assert len(reads) == 2
+        assert all("units/agent.py" in hit for hit in reads)
+        assert "discovery_depth" not in self._organiser_block()

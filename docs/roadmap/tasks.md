@@ -8,6 +8,94 @@
 
 ---
 
+## Session 236: both halves of a setting have to move, and they fail in opposite directions ✅ (2026-09-14)
+
+Discharged Session 235's handoff: `config.yaml`'s `agents.project_organiser`
+block is trimmed to the leaves that have readers, **13 parsed leaves → 2**,
+with the five nested models behind the rest deleted. Opened `SNAG-CFG-008`.
+
+- [x] **The file and the model had to be trimmed together, and the reading
+      that decides it is an asymmetry.** A key in `config.yaml` with no
+      field in `config.py` is *loud* — `config_keys` walks `model_fields`
+      and names the orphan in the lifespan and on every reload. A field
+      with no key is *silent*: the value falls back to the model default,
+      and for `enabled` that turns the file's recorded `false` into a
+      parsed `true`. So a trim scoped to one side is not half the job; in
+      one direction it is a no-op that reverses a recorded decision. The
+      owner chose the joint scope when the fork was put to them
+- [x] **The handoff's premise held and its reader set was one short.**
+      `projects_root` has **seven** live readers, as it said — `main.py`,
+      `reload.py`, `files/router.py`, `units/agent.py` ×2,
+      `units/router.py`, `monitor/routers/projects_managed.py`, confirmed
+      by driving `snag_claims.attribute_reads` rather than by grep.
+      `discovery_depth` has **two** (`units/agent.py`, both handed to
+      `load_registry`) and appears in **no** `config.yaml`, so the next
+      action's wording — *"the unread leaves of `config.yaml`'s block"* —
+      could not have seen it. A model-only leaf is invisible to a sweep of
+      the file, and its absence there reads exactly like death
+- [x] **Nothing else survived, and five same-named leaves elsewhere had to
+      be disambiguated by hand.** `grade_bands` is `ReliabilityGradeBands`
+      in `reliability_history.py`, `alert_threshold` is the unit sweep's
+      patience knob in `units/agent.py`, `weekly_review` belongs to the
+      review schedules, and both `idle_nudges` hits in
+      `estate/judgements.py` are prose inside alert strings describing
+      *the estate's* settings. A name-keyed sweep answers wrongly on all
+      five
+- [x] **One of six falsifications passed against deliberately broken
+      code.** Deleting `discovery_depth` from the model left all five new
+      tests green: `attribute_reads` measures `units/agent.py`, which the
+      deletion does not touch, and the reader-loop iterates one field
+      fewer. A no-op mutation is not a control, so the test asserts the
+      declaration now. The full suite *does* catch that deletion — in
+      `tests/test_units_api.py`, as an `AttributeError` — which is cover,
+      not the claim the docstring made
+- [x] **A seventh mutation is green by design and is the new entry.**
+      Restoring a name-colliding field escapes the model half, because
+      `attribute_reads` compares `ast.Attribute.attr`, the exact final
+      segment — the property that makes it precise for
+      `schedules.review_hour` is what blinds it here. Reach pinned at
+      **7 of 12** rather than claimed; the file half is exact and catches
+      **12 of 12**. Filed as `SNAG-CFG-008`, decided rather than deferred:
+      the closure is a second implementation of an attribute chain the
+      callers already write three ways
+- [x] **A guard fired that was written to fire, and the figure it wanted
+      was not the figure it guards.** `test_no_config_model_forbids_unknown_keys`
+      asserts `models >= 37` with the message *"the module shrank;
+      re-measure before trusting this"* — a **premise**, without which
+      `strict == 0` passes vacuously over an emptied module. Five deleted
+      models made it 32. Re-measured rather than nudged past a red, and
+      the claim is untouched: the asymmetry is `0 of N` against `4 of 4`,
+      so what must not move is the **0** and the **4**
+- [x] **Seven statements of `37` exist and only two are live.** The other
+      five are dated records of what the entry *asked* — in
+      `snag_list.md`, `STATUS.md`, `tasks.md`, `tests/test_reload.py` and
+      two comments in `tests/test_config_keys.py` — and this repository
+      restates old figures on purpose. Refreshing history is the error;
+      re-measuring the live claim is the work
+- [x] **A dangling cross-reference survives every automated check.**
+      `ReliabilityGradeBands`' docstring named `:class:`HealthGradeBands``,
+      which is a *string* — ruff, mypy and 4144 tests all pass with it
+      pointing at a deleted class. Found by sweeping for the **name**
+      rather than for the import, and the argument it carries was kept
+      while the reference was retired to a plain noun
+- [x] **Verified live, not only in tests.** The restarted daemon logs
+      `registry_loaded root=/home/gaddi/projects repositories=27` — the
+      surviving leaf being read — and `POST /api/sysadmin/reload` returns
+      `unknown_keys: []`, `unwalkable_sections: []`, `requires_restart:
+      []`, which is the file and the model agreeing on the running box
+- [x] **The restart was owed and budgeted.** `sysadmin/core/config.py` is
+      in the daemon's import graph, so the deploy check reported the box
+      behind the checkout. Budget checked first: zero starts in the
+      10-minute burst window (`SNAG-SYSD-007`). Restarted 14:34:00,
+      `NRestarts=11`, `/health` 200, clean startup log
+- [x] **Suite 4140 → 4144, green**, ruff and mypy clean. The arithmetic is
+      +5 −1 rather than +4 of one kind: `test_grade_bands_defaults` was
+      retired with the class it tested. That is **not** the usual rule —
+      `FROZEN_TABLES`' refusal to delete a guard beside its last finding
+      — and it is exempt because what it guarded cannot come back here:
+      the repository health scorer left with the projects domain
+      (ADR-0005)
+
 ## Session 235: naming a closed entry is not proof the item is done ✅ (2026-09-14)
 
 _The ask was Session 234's handoff: tick the one struck-through item and read
@@ -7063,14 +7151,27 @@ debts that landing deliberately left behind._
     data and recorded in the migration's docstring rather than left to
     be re-derived. No copy was requested from estate-manager because
     the measurement showed there was nothing to copy
-- [ ] **Trim the `agents.project_organiser` config block.** The last
+- [x] **Trim the `agents.project_organiser` config block.** The last
       limb of the entry above, deliberately not taken with it: it is
       parsed by pydantic here and read by nothing since ADR-0005, which
       records it as knowingly untidy. It is `SNAG-CFG-001`'s shape and
       is a config change rather than a schema one — config classes fan
       out into defaults tests, so it is its own sitting's edit and does
       not belong in a migration
-      *(Read 2026-09-14 by Session 235 and **left open** — the block is still in `config.yaml` at line 299. The item's premise is half wrong and the file already says so: `projects_root` is **not** read by nothing, it has seven live readers (`main.py`, `reload.py` twice, `files/router.py`, `units/agent.py` twice, `units/router.py`, `routers/projects_managed.py`), so what a trim can take is the other leaves and not the block. `SNAG-CFG-001` is named here as a *shape*, and its being closed says nothing about this.)*
+      *(**Done 2026-09-14 by Session 236**, and the scope is the item's
+      minus its premise. 13 parsed leaves → **2**; the five nested models
+      behind the rest are deleted. Both halves moved together because
+      they fail in opposite directions — a key with no field is loud
+      (`config_keys` names the orphan), a field with no key is silent
+      (`enabled: false` would have parsed as `true`). What survives is
+      `projects_root` (**seven** readers) and `discovery_depth`
+      (**two**, and in no `config.yaml`, so a sweep of the file alone
+      reads it as dead — the half Session 235's reading missed). The
+      predicted fan-out was real and small: `tests/conftest.py`'s
+      fixture, three sites in `tests/test_config_defaults.py`, and one
+      re-measured premise floor in `tests/test_config_keys.py`. Residue
+      filed as `SNAG-CFG-008`.)*
+      *(Read 2026-09-14 by Session 235 and left open — the block was still in `config.yaml` at line 299. The item's premise is half wrong and the file already says so: `projects_root` is **not** read by nothing, it has seven live readers (`main.py`, `reload.py` twice, `files/router.py`, `units/agent.py` twice, `units/router.py`, `routers/projects_managed.py`), so what a trim can take is the other leaves and not the block. `SNAG-CFG-001` is named here as a *shape*, and its being closed says nothing about this.)*
 - [x] **Pin the tray's parse of the estate's responses.** The tray reads
       `/api/projects/overview` and `/{name}` from **8400** now but parses
       them with *this* repository's contract classes

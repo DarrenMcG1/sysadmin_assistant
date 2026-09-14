@@ -82,12 +82,12 @@ def mock_config():
                     ram_warning_percent=85,
                 ),
             ),
+            # Trimmed to its two live leaves by Session 236 with the
+            # block itself; the four kwargs that stood here named fields
+            # that no longer exist (``enabled``, ``stale_branch_days``,
+            # ``track_todos``, ``todo_patterns``).
             project_organiser=ProjectOrganiserConfig(
-                enabled=True,
                 projects_root="/tmp/test_projects",
-                stale_branch_days=30,
-                track_todos=True,
-                todo_patterns=["TODO", "FIXME"],
             ),
             file_organiser=FileOrganiserConfig(
                 enabled=True,

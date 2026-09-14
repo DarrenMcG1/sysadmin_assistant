@@ -1,6 +1,97 @@
-# Handoff — 2026-09-14 (Session 235)
+# Handoff — 2026-09-14 (Session 236)
 
 ## Next action
+
+Read the four `AppConfig` leaves this sitting's sweep found with no reader under `sysadmin/` and decide each — the general case of the block just trimmed. *(For: session)*
+
+*It is startable because the population was measured before the line was
+written, not inferred from the shape of the work just done.* Walking
+`AppConfig`'s whole field tree through `snag_claims.attribute_reads` —
+the same instrument this sitting used on one block — reads **174** fields
+and finds **4** with no same-named reader anywhere under `sysadmin/`:
+`personal_assistant.api_prefix`, `agents.sysadmin.thresholds.cpu_sustained_percent`
+and `.cpu_sustained_minutes`, and `agents.file_organiser.output_dir`. That
+is a population to *read*, not a list to delete — this sitting's own item
+argued from *"read by nothing"* and was half wrong, and three of these four
+have obvious reasons they might be legitimate (the PA is dormant rather
+than gone, and an anomaly threshold may be consumed by a name the walk
+cannot follow). **The figure is a floor**: `attribute_reads` compares the
+final attribute segment, so a leaf whose name collides with a live one
+elsewhere is masked — which is `SNAG-CFG-008`, filed today. The line names
+**no** SNAG id, which it cannot: the register holds **37 open and 0 owed**,
+all 37 declaring `blocked`, `decided` or `delegated`, so any id here would
+publish work nobody is owed.
+
+*What this sitting did.* Trimmed `config.yaml`'s `agents.project_organiser`
+block to the leaves that have readers — **13 parsed leaves → 2** — deleting
+the five nested models behind the rest (`HealthGradeBands`,
+`BranchActionsConfig`, `CodeCommitIgnoreConfig`, `EstateConfig`,
+`IdleNudgeConfig`). Suite **4140 → 4144**, green; ruff and mypy clean; the
+daemon restarted at **14:34:00** because `sysadmin/core/config.py` is in its
+import graph. Opened `SNAG-CFG-008`; the register went **36 → 37** open at
+177 rows.
+
+*The scope was a fork and it was put to the owner rather than guessed.*
+The handoff said *"the unread leaves of `config.yaml`'s block"*; the
+`tasks.md` item it came from says *"parsed by pydantic here"* and predicts
+the defaults-test fan-out. Those are different jobs, and the owner chose
+both halves. **They cannot honestly be separated anyway**, which the
+measurement showed after the question was asked: a key with no field is
+*loud* — `config_keys` walks `model_fields` and names the orphan on every
+reload — and a field with no key is *silent*, the value falling back to the
+model default, which for `enabled` turns the file's recorded `false` into a
+parsed `true`. A file-only trim would have reversed a recorded decision
+while reporting success.
+
+*The handoff's premise held and its reader set was one short.*
+`projects_root` has the seven readers it claimed. It also missed
+`discovery_depth` — **two** readers in `units/agent.py`, both handed to
+`load_registry`, and present in **no** `config.yaml`. A model-only leaf is
+structurally invisible to a sweep of the file, and its absence there reads
+exactly like death. That is the sitting's transferable finding: the file
+and the model are not two views of one list.
+
+*One of six falsifications passed against deliberately broken code.*
+Deleting `discovery_depth` from the model left all five new tests green,
+because `attribute_reads` measures `units/agent.py`, which the deletion
+does not touch, and the reader-loop simply iterates one field fewer. The
+test asserts the declaration now. The full suite *does* catch it, in
+`tests/test_units_api.py` as an `AttributeError` — cover, not the claim the
+docstring made. A seventh mutation is green **by design** and is
+`SNAG-CFG-008`: a restored name-colliding field escapes the model half,
+whose reach is pinned at **7 of 12** rather than claimed, while the file
+half catches **12 of 12**.
+
+*A guard fired that was written to fire, and the number it wanted was not
+the number it guards.* `test_no_config_model_forbids_unknown_keys` asserts
+`models >= 37` with the message *"the module shrank; re-measure before
+trusting this"* — a **premise**, without which `strict == 0` passes
+vacuously over an emptied module. Five deleted models made it 32.
+Re-measured rather than nudged past a red, and the claim it protects never
+moved: the asymmetry is `0 of N` here against `4 of 4` in `services.yaml`,
+so what must not move is the **0** and the **4**. Seven statements of `37`
+exist in the tree and **only two are live** — the rest are dated records of
+what an entry *asked*, and refreshing history is the error.
+
+*A dangling cross-reference survives every automated check.*
+`ReliabilityGradeBands`' docstring named `:class:`HealthGradeBands``, which
+is a *string*: ruff, mypy and 4144 tests all pass with it pointing at a
+deleted class. Found by sweeping for the **name** rather than the import.
+The argument it carries is still true, so the reference was retired to a
+plain noun and the reasoning kept.
+
+*Verified live rather than only in tests.* The restarted daemon logs
+`registry_loaded root=/home/gaddi/projects repositories=27` — the surviving
+leaf being read — and `POST /api/sysadmin/reload` returns `unknown_keys:
+[]`, `unwalkable_sections: []`, `requires_restart: []`, which is the file
+and the model agreeing on the running box. All fourteen ops claims read
+`ok`.
+
+---
+
+# Handoff — 2026-09-14 (Session 235)
+
+### The action Session 235 handed on (discharged by Session 236)
 
 Trim the unread leaves of `config.yaml`'s `agents.project_organiser` block, keeping `projects_root`, which this sitting measured as having seven live readers. *(For: session)*
 
