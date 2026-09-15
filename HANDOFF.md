@@ -1,6 +1,84 @@
-# Handoff — 2026-09-15 (Session 240)
+# Handoff — 2026-09-15 (Session 241)
 
 ## Next action
+
+Extend the additive-only ledger to the `data` field names the producer writes as literals, which is 2 of 6 sections and includes the one Alfred renames. *(For: session, ~45 min)*
+
+*It is startable because the gap was measured this sitting and the guard it
+extends already exists.* `tests/test_briefing_sections_are_additive.py` holds a
+ledger of section **titles**. One level down there is nothing: Alfred's
+`_build_section` reads `data.get("all_ok", data.get("all_services_healthy"))`
+and falls to `None`, and a missing `services` key gives `entries=[]` with
+`status="empty"` — so renaming a field inside `status_grid.data` reddens nothing
+at runtime, and reddens Alfred's suite only *after* somebody refreshes the
+capture. Between those two moments production silently loses `all_ok`, which is
+in Alfred's own `frontend/types/api.ts`.
+
+**The scope is 2 of 6 and that was measured before this line was written**, not
+assumed from the title ledger's shape. An `ast` walk of `render_sections` finds
+literal `data` keys for `Infrastructure Status`
+(`all_services_healthy`, `services`) and `Overnight Logs`
+(`Entries`, `Errors`, `Sources`) and for nothing else: `Filesystem` builds its
+dict by comprehension, so its keys are **data** rather than source, and the
+three review sections carry a bare narrative string with no field names at all.
+So the ledger transfers to exactly the section Alfred renames into its own
+vocabulary and to one other, which is the useful half rather than a shortfall —
+but a sitting that reads "each section" and walks the whole function will find
+four sections it cannot pin and should not try to. It names **no** SNAG id,
+which it cannot: the register holds 38 open and 0 owed.
+
+*What this sitting did.* Re-read `estate-map.md`'s *Keeping the seams aligned*
+section against the live box, Alfred's tree and ours, and filed the result at
+estate-manager as `bb2546a6-f50c-4ad3-832d-37db0bf4ca8a` — their document, so a
+filing and never an edit. Closed estate message `d29929d7`, which Session 240
+left open for exactly this. **No code changed**, so no restart is owed and the
+ops claims are unmoved.
+
+*Every figure held and the prose around them did not, which is the result worth
+carrying.* The 2026-09-06 comparison table reproduces to the number nine days
+on — fixture **5** sections against the producer's **6**, **9** envelope keys
+against **8**, the relation still a strict subset differing by exactly `Weekly
+Disk Review` — and an `ast` walk of `render_sections` gives **1** unconditional
+section and **5** behind an `if`, which is estate-manager's ADR-0179 figure
+exactly. What failed was the sentence: *"the only assertion in Alfred's suite
+that a fixture refresh can turn red"* has at least two counterexamples, both
+deliberate tripwires that say so in their own failure text, and the one with a
+**demonstrated catch** is not the named test — `assert "facts" not in payload`
+fired on 2026-08-27 and caught an overwrite the type-vocabulary test did not.
+Re-measuring a figure is not the same as re-reading the claim built on it.
+
+*A capture cannot hold a review generated four days after it was taken.*
+*"The capture holds `Weekly Log Review`, generated 2026-08-31"* is refuted by
+the capture's own envelope: `_captured.at` reads **2026-08-27** and
+`facts.reviews.logs` reads **2026-08-24T06:54**. The prediction it supports —
+*"a skipped Monday inverts today's finding within a week"* — is **untriggered
+rather than wrong**, all three review stamps reading 2026-09-14. The instrument
+that settled it was the file's own `_captured` block, not another diff.
+
+*The JSON Schema row names a source that holds nothing, and is still not void.*
+`GET /api/sysadmin/briefing/preview` declares no `response_model=`,
+`generate_briefing_data` returns a plain dict, and `contracts.py` defines no
+briefing, section or envelope class — which `CLAUDE.md`'s exemption table
+records as deliberate. So the row needs the model this seam was designed not to
+have written first. Its residue survives as the next action above, and it is
+where estate-manager's rule has a gap worth naming: *a seam is checkable only
+where its consumer is strict* is right about **failure** and silent about
+**degradation**, a tolerant consumer turning a producer's breaking change into
+a quality loss no test on either side can see.
+
+*The handoff said "four rows" and the table has three, which a later reader
+will hit too.* The count reconciles only by counting the header as a row — the
+same convention estate message `9b8e6f91` used when it called the withdrawn
+check *"its third row"*. The three proposal rows are the canonical sample
+(refused here by [ADR-0014](docs/adr/0014-a-sample-cannot-be-both-pinnable-and-real.md)),
+the withdrawn stale-consumer check, and the JSON Schema. Their document also
+still reads *"the first row is still worth doing"*, which ADR-0014 answered
+against on 2026-09-14; the filing records that as a decision rather than as a
+request for an edit.
+
+# Handoff — 2026-09-15 (Session 240)
+
+### The action Session 240 handed on (discharged by Session 241)
 
 Re-read the four estate-map rows describing this producer, now that one is announced stale and the table's other claims have never been checked. *(For: session, ~30 min)*
 

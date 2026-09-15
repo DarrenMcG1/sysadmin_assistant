@@ -4,7 +4,86 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-14
+> **Last Updated**: 2026-09-15
+
+---
+
+## Session 241: every figure held and the sentence about them did not ✅ (2026-09-15)
+
+Discharged Session 240's handoff: re-read `estate-map.md`'s *Keeping the seams
+aligned* section against the live box, Alfred's tree and ours. **Every figure
+describing this producer still holds exactly**, nine days after it was taken —
+and the prose around them carries two claims that do not. Filed at
+estate-manager as `bb2546a6-f50c-4ad3-832d-37db0bf4ca8a`; their document, their
+ADR process, so nothing was edited there. Estate message `d29929d7` is closed,
+this sitting being what it was left open for. No code changed, so no restart is
+owed. No new SNAG id: the register holds 38 open and 0 owed, and nothing found
+was this repository's to fix.
+
+- [x] **The figures are the boring half and they are worth having taken.**
+      The 2026-09-06 comparison table reproduces to the number: fixture **5**
+      sections against the producer's **6**, fixture **9** envelope keys
+      (`_captured` included) against the producer's **8**, relation still a
+      strict subset differing by exactly `Weekly Disk Review`. The
+      conditional-emission shape reproduces to the section — an `ast` walk of
+      `render_sections` gives **1** unconditional (`Overnight Logs`) and **5**
+      behind an `if`, which is estate-manager's ADR-0179 figure exactly. Alfred
+      still reads **3 of 8** top-level keys and `"schema"` appears nowhere in
+      its `briefings.py`
+- [x] **"The only assertion in Alfred's suite that a fixture refresh can turn
+      red" is false, and the counterexample with a demonstrated catch is not
+      the named test.** Two others exist, both deliberate tripwires that say so
+      in their own failure text: the note assertion in
+      `test_sysadmin_status_grid_is_renamed_into_alfreds_vocabulary`, **38
+      lines below the named test in the same file**, whose message reads
+      *"re-curl while something is down"*; and `assert "facts" not in payload`
+      in `test_produced_at_falls_back_to_generated_at_without_facts`, which by
+      its own docstring **has fired** — on 2026-08-27, catching the overwrite
+      the type-vocabulary test did not. Neither is drift: both predate the
+      2026-09-14 measurement and both were inside the population its driver
+      read, since it reads that module by `ast`
+- [x] **A capture cannot hold a review generated four days after it was
+      taken.** *"The capture holds `Weekly Log Review`, generated 2026-08-31"*
+      is refuted by the capture's own stamps — `_captured.at` is **2026-08-27**
+      and `facts.reviews.logs` is **2026-08-24T06:54**. The prediction it
+      supports (*"a skipped Monday inverts today's finding within a week"*) is
+      **untriggered rather than wrong**: all three review stamps read
+      2026-09-14, so the Monday jobs ran and the one difference is unmoved in
+      the same direction
+- [x] **The JSON Schema row names a source that holds nothing.**
+      `GET /api/sysadmin/briefing/preview` declares no `response_model=`,
+      `generate_briefing_data` returns a plain dict, and `contracts.py` defines
+      no briefing, section or envelope class — which `CLAUDE.md`'s own
+      exemption table records as deliberate. So the row is not the same work at
+      larger effort; it needs the model this seam was designed not to have
+      written first
+- [x] **And it is still not void, which is where their rule has a gap worth
+      naming.** Alfred is tolerant at *field* level too:
+      `data.get("all_ok", data.get("all_services_healthy"))` falls to `None`
+      and a missing `services` key gives `entries=[]`. So renaming a field
+      inside `status_grid.data` reddens **nothing** at runtime and nothing in
+      Alfred's suite until somebody refreshes the capture, while production
+      quietly loses `all_ok` — which is in its `frontend/types/api.ts`. *A seam
+      is checkable only where its consumer is strict* is right about **failure**
+      and silent about **degradation**: a tolerant consumer turns a producer's
+      breaking change into a quality loss no test on either side can see
+- [x] **The residue's scope is 2 of 6, measured before it was handed on.** An
+      `ast` walk of `render_sections` finds literal `data` keys for
+      `Infrastructure Status` (`all_services_healthy`, `services`) and
+      `Overnight Logs` (`Entries`, `Errors`, `Sources`) and for nothing else —
+      `Filesystem` builds its dict by comprehension, so its keys are **data**
+      rather than source, and the three review sections carry a bare narrative
+      string with no field names at all. The handoff line was corrected in this
+      sitting from *"inside each section"* to the measured scope, because a
+      next action that over-promises its own premise costs the sitting that
+      picks it up
+
+- [x] **The first row is refused here and their document does not know it.**
+      *"The first row is still worth doing"* was answered against on 2026-09-14
+      by [ADR-0014](../adr/0014-a-sample-cannot-be-both-pinnable-and-real.md),
+      which is the half `d29929d7` handed back to this repository in its
+      closing line. Recorded in the filing as a decision, not as a request for
+      an edit
 
 ---
 
