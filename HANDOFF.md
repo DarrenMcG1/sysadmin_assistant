@@ -1,6 +1,89 @@
-# Handoff — 2026-09-14 (Session 239)
+# Handoff — 2026-09-15 (Session 240)
 
 ## Next action
+
+Decide whether to tell estate-manager that monitorable-project.md carries no additive-only rule, now that this repository enforces the one its guide claims. *(For: owner, ~5 min)*
+
+*It is startable because the gap was measured twice and the message has half
+its body already written.* `monitorable-project.md` moved to estate-manager on
+2026-08-11 and is the document the Session 33 task names; re-measured 2026-09-14
+and again 2026-09-15, it carries **no** additive-only rule — the tolerance that
+actually guards this seam is written in `estate-map.md` prose and in no
+contract. What has changed since the task was written is that the rule is no
+longer only a practice here: `tests/test_briefing_sections_are_additive.py`
+enforces it, so the message would carry a worked example rather than a
+suggestion. It is **their** document, so writing the rule into it from here
+would be this repository authoring another repository's convention — the
+message is the whole of what is available. Recording the silence on purpose is
+a real answer, which is why the line says *decide*. It names **no** SNAG id,
+which it cannot: the register holds 38 open and 0 owed.
+
+*What this sitting did.* Told Alfred the producer is additive-only, at the
+owner's direction — and **made it true first**, because the claim was false as
+stated. `tests/test_briefing_sections_are_additive.py` is the guard and estate
+message `eb7cbbf4-352f-49b5-907c-52035105fbb6` is the filing, which also closes
+`SNAG-BRIEF-004` by carrying its remedy as a closing clause. Suite **4156 →
+4170**, green; ruff and mypy clean; nothing under `sysadmin/` changed, so no
+restart is owed and all **15** ops claims read `ok`.
+
+*The claim was refuted 3 times in 6, and the first measurement of it was taken
+on the wrong population.* A first walk read **9** commits and reported 2
+removals in 3 transitions. The producer was `sysadmin/services/briefing.py`
+until the 2026-08-13 reshuffle, so a plain `git log` **stops at the rename**
+and `--follow` gives **15**: the full history is **6** title-set transitions
+with a title leaving in **3** — the ADR-0005 migration, an unannounced
+**rename** of `Overnight Log Summary` on 2026-08-24, and one artefact. Both
+real removals shipped green, because the titles live in scenario assertions the
+removing commit edits alongside the removal. That is not a lapse in those
+sittings; it is what a scattered assertion *is*.
+
+*The guard's two halves fail in opposite directions, which is what leaves one
+path open.* Dropping a title from `SERVED_TITLES` alone is caught because the
+producer still renders it; dropping it from **both** halves is caught because a
+walk of the producer's own git history still holds the commit that served it.
+What survives is moving it to `RETIRED_TITLES` with the announcement that
+carried it, which is the act the guard exists to force and is what the
+announce-by-filing rule asks for anyway. The ledger sits in `tests/`
+deliberately: nothing at runtime reads it, and a constant under `sysadmin/`
+with no runtime reader is the shape the three preceding sittings spent
+themselves deleting.
+
+*A reported removal turned out to be the instrument, and only reading the diff
+said so.* Transition 2 of 6 shows `Weekly Project Review` leaving on
+2026-08-06; that commit **parameterised** it — `"title": "Weekly Project
+Review"` became `"title": title`. The walk reads `{"title": <literal>}`, so a
+title built from a variable is invisible and its absence looks like a
+departure. Under-collection is the **safe** direction, because the history test
+asserts a *subset*: a missed title can never redden it by accident, only fail
+to redden at all. That is `SNAG-BRIEF-005`, with both closures refused —
+following the parameter re-implements Python's own binding across a file whose
+shape changed twice, and collecting every string literal makes the instrument
+read this module's own docstring, which names four retired titles by design.
+
+*Ten mutations driven and none passed green, which is better than this
+repository's usual rate.* Seven land on exactly one test; three light two each
+and each is right to. **One premise had to be decoupled before it could be
+driven at all** — it asserted `len(rendered) == len(SERVED_TITLES)`, so it
+reddened whenever the producer dropped a section, which is the event the guard
+proper exists to catch: a premise standing in front of its own subject. It
+derives the fixture's keys from an `ast` walk of `render_sections` now.
+
+*The mutation pass was run without moving a single mtime under `sysadmin/`.*
+One mutation has to break the producer itself, and restoring a file by `cp`,
+`git checkout` or `git stash pop` rewrites its mtime with identical bytes,
+which `check-ops-claims.sh` reads as a restart owed. The driver records
+`st_mtime` before each mutation and restores it with `os.utime` after, so the
+deploy claim is unmoved and the burst budget (`SNAG-SYSD-007`) was never spent.
+
+*Estate message `d29929d7` is still deliberately left open*, for Session 239's
+reason: nothing is owed to estate-manager on it, and the once-a-session inbox
+notice is a more durable reminder than a checkbox. It now stands for the
+estate-manager half of this sitting's own next action rather than for an
+undecided question.
+
+# Handoff — 2026-09-14 (Session 239)
+
+### The action Session 239 handed on (answered in part by Session 240)
 
 Decide whether to tell Alfred the sample is refused and the estate that the additive-only rule never reached its guide, or record both silences on purpose. *(For: owner, ~10 min)*
 

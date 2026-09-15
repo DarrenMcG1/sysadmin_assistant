@@ -12656,6 +12656,19 @@ authoring another repository's convention.
       in three languages, two seams — a shared library would couple three
       release cycles to solve what two files and a test already cover.
       Considered and rejected 2026-08-06
+**The producing half of that rule is enforced here since 2026-09-15**
+(Session 240), which changes what this task is asking for rather than
+completing it. `tests/test_briefing_sections_are_additive.py` holds a ledger
+of every section title served and retired, and a title cannot leave without
+being moved across it with the announcement that carried it — so what remains
+is writing the *convention* into the estate's contract, which is a different
+document owned by a different repository. Re-measured 2026-09-15: the rule is
+still absent from it. Filed at Alfred as the producer's own guarantee in
+estate message `eb7cbbf4-352f-49b5-907c-52035105fbb6`; the estate half is this
+sitting's next action and is deliberately not written from here, because
+authoring another repository's convention is what that repository exists to
+stop.
+
 - [ ] Write the additive-only rule into
       [guides/monitorable-project.md](../guides/monitorable-project.md):
       sections and fields are added, never renumbered or removed; consumers
