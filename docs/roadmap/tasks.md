@@ -12656,20 +12656,35 @@ authoring another repository's convention.
       in three languages, two seams — a shared library would couple three
       release cycles to solve what two files and a test already cover.
       Considered and rejected 2026-08-06
-**The producing half of that rule is enforced here since 2026-09-15**
-(Session 240), which changes what this task is asking for rather than
-completing it. `tests/test_briefing_sections_are_additive.py` holds a ledger
-of every section title served and retired, and a title cannot leave without
-being moved across it with the announcement that carried it — so what remains
-is writing the *convention* into the estate's contract, which is a different
-document owned by a different repository. Re-measured 2026-09-15: the rule is
-still absent from it. Filed at Alfred as the producer's own guarantee in
-estate message `eb7cbbf4-352f-49b5-907c-52035105fbb6`; the estate half is this
-sitting's next action and is deliberately not written from here, because
-authoring another repository's convention is what that repository exists to
-stop.
+**This was discharged on the day it was written and stood unticked for 40
+days** (established 2026-09-15, Session 240, which had drafted a message
+reporting it as a gap and measured the claim before sending). The sentence
+this asks for is in
+`estate-manager/docs/guides/alfred-briefing-integration.md` almost verbatim —
+*"sections and fields are added, never renumbered or assumed complete. Build
+consumers that render what arrives and ignore what they do not recognise"* —
+sourced by its own parenthetical to `a8cace4`, **this repository, 2026-08-06**,
+the day Session 33 was requested. The task named the general contract guide;
+the sentence landed in the guide that governs this seam. Both were in
+`docs/guides/` here that week and moved to estate-manager on 2026-08-11.
 
-- [ ] Write the additive-only rule into
+**A grep of the named document is what kept it open.** Two sittings swept
+`monitorable-project.md` for the rule, found nothing, and read that as absence
+rather than as the wrong document — and estate-manager's ADR-0123 §5 is about
+this failure exactly, a refutation a few paragraphs away in the same governed
+section, missed by four consecutive readers. Filing it at them would have made
+it five.
+
+**What was genuinely missing was the producing half, and it is built**:
+`tests/test_briefing_sections_are_additive.py` holds a ledger of every section
+title served and retired, so a title cannot leave without being moved across it
+with the announcement that carried it. Their guides call the sentence above
+*"the consumer-facing half of the additive-only alignment mechanism"*, which is
+accurate and is why the two halves are separate work. Announced at Alfred as
+`eb7cbbf4-352f-49b5-907c-52035105fbb6` and at estate-manager as
+`9b8e6f91-6022-4874-97b2-e6d3472b9fc5`.
+
+- [x] Write the additive-only rule into
       [guides/monitorable-project.md](../guides/monitorable-project.md):
       sections and fields are added, never renumbered or removed; consumers
       render what arrives and ignore what they do not recognise. That

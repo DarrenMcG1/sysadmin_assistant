@@ -204,3 +204,35 @@ It does not say the seam is unguarded. It says what guards it is Alfred's
 type-vocabulary assertion and coordination at migration time — which is what
 carried the 2026-08-13 move of three sections to `:8400` — and that this was
 already true before the tasks were written.
+
+> **Both paragraphs above are corrected 2026-09-15 (Session 240), and the
+> first was wrong when it was written rather than having aged.** The
+> additive-only rule is **not** owed to `monitorable-project.md` by anybody:
+> `estate-manager/docs/guides/alfred-briefing-integration.md` already states
+> it almost verbatim — *"sections and fields are added, never renumbered or
+> assumed complete. Build consumers that render what arrives and ignore what
+> they do not recognise"* — under a parenthetical sourcing it to
+> `a8cace4`, **inherited from this repository on 2026-08-06**, which is the
+> day Session 33 was requested. The task named the general contract guide and
+> the sentence landed in the guide that governs this particular seam; both
+> were in this repository's `docs/guides/` that week and moved to
+> estate-manager on 2026-08-11. So the task was discharged by its own sitting
+> and stood unticked for 40 days, and §9 repeated its premise without checking
+> it. estate-manager's own ADR-0123 §5 is about this failure exactly — a
+> refutation a few paragraphs away in the same governed section — and filing
+> it at them would have been that failure repeated at its author.
+>
+> The second paragraph was accurate on 2026-09-14 and is **superseded** rather
+> than corrected: `tests/test_briefing_sections_are_additive.py` (2026-09-15)
+> enforces the producing half, so coordination is no longer the only thing
+> standing behind a section that stops arriving. Announced at estate-manager
+> as `9b8e6f91-6022-4874-97b2-e6d3472b9fc5`, because the sentence that has
+> aged is in *their* `estate-map.md` and is about *this* producer.
+>
+> **A figure this ADR does not carry, recorded here because its sibling
+> documents do**: the producer's history holds **2** commits that removed a
+> section title across **6** title-set changes, not 3. The walk built for the
+> guard reports 3, the third being a 2026-08-06 parameterisation it cannot
+> see through; estate-manager's `0179` driver recorded 2 on 2026-09-14 and is
+> right. Corrected in the guard, in `STATUS.md`, and at Alfred as
+> `202e3fa5-5854-428b-92d9-8582661a2abc`.

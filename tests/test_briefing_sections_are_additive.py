@@ -7,7 +7,13 @@ refused to publish a canonical sample partly on the strength of consumers
 tolerating what arrives.  **Nothing enforced the producing half.**  Measured
 2026-09-15 by walking all 15 commits that have touched the producer under
 both of its paths: the section set has changed **6** times and a title has
-**left** it in **3** of them —
+**left** it in **2** of them.  This walk reports **three** departures, and
+the third is its own blind spot rather than a removal — see below, and note
+that estate-manager measured the same history independently on 2026-09-14
+and recorded ``title_set_changed = 6, commits_removing_a_title = 2``
+(``docs/adr/drivers/0179-what-this-seam-pins-report.json``), which agrees on
+the first figure and is right about the second where a first reading here
+was not —
 
 ====  ==========  =========  ====================================================
    #  date        kind       change
@@ -36,12 +42,20 @@ act this guard exists to force, and is what estate rule *a change to a surface
 a repository publishes is announced by a filing at its measured readers* asks
 for anyway.
 
-**The walk under-collects, deliberately and by construction.**  It reads
-``{"title": <string literal>}`` out of each commit's AST, so a title built
-from a variable is invisible to it — transition 2 above is exactly that, and
-it *looks like a removal* until the diff is read (``"title": "Weekly Project
-Review"`` became ``"title": title``, the literal moving to the call site).
-Under-collection is the safe direction here and that is why it is tolerated:
+**The walk reads a title only where it is a literal, and that cuts both
+ways.**  It reads ``{"title": <string literal>}`` out of each commit's AST,
+so a title built from a variable is invisible to it — transition 2 above is
+exactly that, and it *looks like a removal* until the diff is read
+(``"title": "Weekly Project Review"`` became ``"title": title``, the literal
+moving to the call site).  So the walk can **under-collect** a title it never
+sees spelled out and **over-report** a departure when one stops being spelled
+out, and only the first of those is a gap in the guard: an over-reported
+departure changes no assertion, because the title is still in ``ever_served``
+from the commits that did spell it, and the test below asks only that
+everything there is in the ledger.  What it costs is a **reader**, which is
+how a first reading of this history put 3 in a headline over a table whose
+own second row says *artefact*.  Under-collection is the safe direction for
+the assertion and that is why it is tolerated:
 :class:`TestHistoryHoldsNoTitleTheLedgerForgot` asserts history is a
 **subset** of the ledger, so a title the walk misses can never turn it red by
 accident.  What it costs is recorded as ``SNAG-BRIEF-005`` rather than left to
@@ -67,7 +81,11 @@ REPO = Path(__file__).resolve().parent.parent
 #: The producer's paths.  It was ``sysadmin/services/briefing.py`` until the
 #: 2026-08-13 reshuffle, and ``git log`` without ``--follow`` stops at the
 #: rename — 9 commits against 15, which is how the first measurement taken
-#: for ADR-0014 read *"2 of 3"* where the full history says 3 of 6.
+#: for ADR-0014 read *"2 of 3"* where the full history holds **2** removals
+#: across **6** title-set changes.  Both of that first reading's figures were
+#: wrong and for different reasons: the denominator because the walk stopped
+#: at the rename, and the numerator because it counted a parameterisation as
+#: a departure (``SNAG-BRIEF-005``).
 PRODUCER_PATHS = ("sysadmin/briefing/data.py", "sysadmin/services/briefing.py")
 
 #: Every section title this producer serves today, in render order.  **A

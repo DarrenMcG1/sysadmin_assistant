@@ -17,9 +17,10 @@
 > 2 removals in 3 transitions; the producer was `sysadmin/services/briefing.py`
 > until the 2026-08-13 reshuffle, so plain `git log` **stops at the rename**
 > and `--follow` gives **15**. The full history is **6** title-set transitions
-> with a title leaving in **3** — the ADR-0005 migration, an unannounced
-> **rename** of `Overnight Log Summary` on 2026-08-24, and one artefact
-> described below. Both real removals shipped green, because the titles live
+> with a title leaving in **2** — the ADR-0005 migration, and an unannounced
+> **rename** of `Overnight Log Summary` on 2026-08-24. A third departure the
+> walk reports is its own artefact, described below. Both removals shipped
+> green, because the titles live
 > in scenario assertions the removing commit edits alongside the removal.
 >
 > **A removal now has exactly one quiet path left, and it is the one that is
@@ -58,6 +59,37 @@
 > dropped a section, a premise standing in front of its own subject and one
 > mutation lighting two tests. It derives the fixture's keys from an `ast`
 > walk of `render_sections` now, so it is about the fixture and nothing else.
+>
+> **The headline said 3 and the right answer is 2, and a third party is what
+> settled it.** The walk reports three departures and the third is its own
+> 2026-08-06 blind spot — which this block already called an artefact two
+> paragraphs down, so the figure was refuted below itself, which is
+> `SNAG-BRIEF-005`'s shape turned on its author. estate-manager measured the
+> same history independently on 2026-09-14 and recorded `title_set_changed =
+> 6, commits_removing_a_title = 2`: **agreement on the first figure, and their
+> number right on the second.** Corrected here, in the guard, in
+> [ADR-0014](../adr/0014-a-sample-cannot-be-both-pinnable-and-real.md) §9, and
+> at Alfred as `202e3fa5-5854-428b-92d9-8582661a2abc`, the wrong count having
+> gone out in a message about their own fixture's producer. Note which way the
+> blind spot runs: it can **over-report a departure** as well as miss a title,
+> and only the second is a gap in the guard — an over-report changes no
+> assertion, since the title is still in the ledger from the commits that
+> spelled it. What it costs is a reader.
+>
+> **A message was drafted, measured and refuted before it was sent.** The plan
+> was to tell estate-manager that `monitorable-project.md` carries no
+> additive-only rule. It does not — and `alfred-briefing-integration.md`
+> states the task's sentence almost verbatim, sourced to `a8cace4`,
+> **inherited from this repository on 2026-08-06**, the day Session 33 was
+> requested. The roadmap task asking for it was discharged by its own sitting
+> and stood unticked for **40 days**, kept open by two sweeps of the one
+> document it names. estate-manager's ADR-0123 §5 is about that failure
+> exactly — a refutation a few paragraphs away in the same governed section —
+> so filing it would have been that failure returned to its author. Ticked
+> instead. What was sent is the opposite:
+> `9b8e6f91-6022-4874-97b2-e6d3472b9fc5`, telling them `estate-map.md`'s
+> *"guarded by ... coordination"* line has aged now the producing half has an
+> enforcement.
 >
 > **`SNAG-BRIEF-004` is closed by the message, and its shape-of-fix was one
 > filing too many.** That entry costed the remedy as a filing about *Alfred's*

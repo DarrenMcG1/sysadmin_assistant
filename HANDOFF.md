@@ -2,10 +2,30 @@
 
 ## Next action
 
-Decide whether to tell estate-manager that monitorable-project.md carries no additive-only rule, now that this repository enforces the one its guide claims. *(For: owner, ~5 min)*
+Re-read the four estate-map rows describing this producer, now that one is announced stale and the table's other claims have never been checked. *(For: session, ~30 min)*
 
-*It is startable because the gap was measured twice and the message has half
-its body already written.* `monitorable-project.md` moved to estate-manager on
+*It is startable because one row is already known wrong and the instrument
+for the rest is the same one.* `estate-map.md`'s *Keeping the seams aligned*
+table carries four rows about this producer. One was announced stale today
+(`9b8e6f91-6022-4874-97b2-e6d3472b9fc5` — *"guarded by ... coordination"*, now
+that the producing half has a guard); a second is the canonical-sample
+proposal
+[ADR-0014](docs/adr/0014-a-sample-cannot-be-both-pinnable-and-real.md)
+refused; the remaining two have not been read against the box since they were
+written. This sitting's own lesson is why it is worth doing rather than
+assumed: a claim in that document was refuted by a sentence in the sibling
+guide, and two sweeps of the wrong file read the absence as a gap. The reading
+is ours to do and any correction is a filing, never an edit — their document,
+their ADR process. It names **no** SNAG id, which it cannot: the register holds
+38 open and 0 owed.
+
+*The superseded action, for the record.* This line asked whether to tell
+estate-manager that `monitorable-project.md` carries no additive-only rule.
+Measured before sending: the rule is in `alfred-briefing-integration.md`
+almost verbatim, sourced to `a8cace4` — **inherited from this repository on
+2026-08-06**, the day the task was written. The task was discharged by its own
+sitting and stood unticked 40 days. It is ticked, and what was actually filed
+runs the other way.* `monitorable-project.md` moved to estate-manager on
 2026-08-11 and is the document the Session 33 task names; re-measured 2026-09-14
 and again 2026-09-15, it carries **no** additive-only rule — the tolerance that
 actually guards this seam is written in `estate-map.md` prose and in no
@@ -32,9 +52,12 @@ removals in 3 transitions. The producer was `sysadmin/services/briefing.py`
 until the 2026-08-13 reshuffle, so a plain `git log` **stops at the rename**
 and `--follow` gives **15**: the full history is **6** title-set transitions
 with a title leaving in **3** — the ADR-0005 migration, an unannounced
-**rename** of `Overnight Log Summary` on 2026-08-24, and one artefact. Both
-real removals shipped green, because the titles live in scenario assertions the
-removing commit edits alongside the removal. That is not a lapse in those
+**rename** of `Overnight Log Summary` on 2026-08-24 — **2**, not the 3 first
+written here; the third is the walk's own artefact and estate-manager's `0179`
+driver, which recorded `commits_removing_a_title = 2` on 2026-09-14, is right
+where this sitting's first count was not. Both removals shipped green, because
+the titles live in scenario assertions the removing commit edits alongside the
+removal. That is not a lapse in those
 sittings; it is what a scattered assertion *is*.
 
 *The guard's two halves fail in opposite directions, which is what leaves one
