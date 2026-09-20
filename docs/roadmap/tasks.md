@@ -4,9 +4,100 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-15
+> **Last Updated**: 2026-09-20
 
 ---
+
+## Session 242: a field ledger, and the third section that stopped spelling its names ✅ (2026-09-20)
+
+Discharged Session 241's handoff: extended the additive-only guard from section
+**titles** down to the `data` field names the producer writes as literals.
+`tests/test_briefing_fields_are_additive.py` is the mechanism — 23 tests, 2
+skipped by an empty retired half that says so. The handoff scoped the work at
+*"2 of 6 sections"* and that figure is right about today's producer; walking the
+history before writing the ledger added the fact it could not have: a **third**
+section once spelled its field names here and stopped, which is what the fix has
+to be defended against rather than a fourth section to pin. Filed as
+`SNAG-BRIEF-006`. No code changed under `sysadmin/`, so no restart is owed.
+
+- [x] **The two ledgered sections break differently at the consumer, and a
+      ledger that did not say so would assert something false about one of
+      them.** Measured in Alfred's tree rather than inferred from the section
+      contract: `status_grid` field names are a **vocabulary it looks up by
+      name** — `data.get("all_ok", data.get("all_services_healthy"))` falls to
+      `None`, `data.get("entries")` then `data.get("services", [])` falls to
+      `[]` and renders `status="empty"` — so a rename is silently **dropped**.
+      `metrics` keys are passed through verbatim, `{str(k): coerce_cell(v)}`,
+      and `frontend/components/digest/DigestMetrics.vue` states in writing that
+      *"the field set is open"*, humanising each key generically; so a rename is
+      silently **relabelled**, the value surviving and the reader's heading
+      changing. Both are quiet, so both are ledgered; the remedies differ, so
+      `SECTION_FIELDS` carries the reading and a closed set of two refuses a
+      third section added without somebody going and looking
+- [x] **`Filesystem` is the finding the handoff did not have, and it is
+      measured rather than argued.** Walking all 15 commits that have touched
+      the producer under both of its paths, **three** titles have ever carried
+      literal `data` keys — not two. `Filesystem` published
+      `disk_used_percent`, `reclaimable_mb`, `empty_dirs`,
+      `stale_project_dirs` and `duplicate_groups` until 2026-08-11, when the
+      section became a comprehension; `_gather_filesystem` returns all five to
+      this day. It is `SNAG-BRIEF-005`'s shape one level down — a name that
+      stops being *spelled* looks exactly like one that stops being *served*
+- [x] **The guard reads rendered keys, which is honest only while the producer
+      spells them, and that premise is a tripwire rather than a comment.**
+      Driven through the fixture, `Filesystem` renders `['total_mb']` — a key
+      `render_sections` never names and `_gather_filesystem` never returns,
+      arriving from the fixture. So a rendered-keys assertion there would pin
+      the fixture and pass over anything the producer did, which is the
+      circularity the sibling's
+      `test_the_fixture_supplies_every_key_the_producer_reads` exists to
+      prevent, arriving one level down.
+      `TestTheLedgeredSectionsSpellTheirFieldsInTheProducer` is the AST check
+      that goes red the day either ledgered section becomes a comprehension
+- [x] **The retired half is empty by measurement and is not left as silence.**
+      No field has ever left either ledgered section:
+      `Infrastructure Status` has held `all_services_healthy` and `services`
+      since 2026-02-06, `Overnight Logs` its three since it was born on
+      2026-08-24. A parametrised test over an empty mapping is green without
+      running, so `TestARetirementNamesWhatCarriedIt` is driven at a
+      **synthetic** pair as well — the detector is shown to reject a
+      retirement that dates nothing and names nothing, so the shape is
+      enforced before a real one lands
+- [x] **Totality, so a seventh section is a decision rather than an omission.**
+      `UNPINNED_SECTIONS` records the other four with the mechanism that puts
+      their names out of reach — one comprehension and three `text` sections
+      carrying a bare narrative string — and `TestEverySectionIsPinnedOrExcused`
+      refuses a served title that appears in neither map, a classified title
+      that is no longer served, and a title in both
+- [x] **Twelve falsifications, each red on the right test and none of them a
+      no-op.** Three at the producer (rename `all_services_healthy`, rename
+      `Errors`, drop `Sources`), four at the ledger (forget a section, drop a
+      field from the ledger alone, drop it from **both** halves — the quiet
+      path, caught by the history walk and only by it — and collapse the two
+      rename readings into one), one turning `Infrastructure Status` into a
+      comprehension, one adding an unledgered seventh section, and two at the
+      premises (`--follow` removed; `Filesystem` given its literals back). The
+      last is fix-shaped and reddens a premise on purpose, which the failure
+      text says out loud: ledger the section and find the walk a new premise,
+      never delete the premise
+- [x] **One measurement corrected itself mid-run and is worth carrying.** The
+      first pass reported mutation 6 lighting three tests across two sections,
+      which is a contaminated tree rather than a result — the guard file is
+      **untracked**, so `git diff` verified nothing and the restore between
+      mutations went unwitnessed. Re-run with the diff printed, it lights
+      exactly one test, the history half. A mutation drive whose restore is
+      not observable measures the previous mutation as often as the current one
+
+**Found and left, outside this sitting's scope.**
+`tests/test_snag_claims.py::TestTheDuplicateIngestCheck::test_it_holds_against_the_live_table`
+is **red on a clean tree** and was red before this sitting touched anything —
+verified by reverting both changes and re-running. It is a live-table check, so
+it went red by the passage of time rather than by an edit, and preflight does
+not run the suite, so nobody would have seen it. `SNAG-LOG-014` claims **2**
+duplicate journal records and `check_duplicate_ingest_residue` now measures
+**0**, across 629 `sysadmin.service` rows still inside the retention window.
+Deciding between *fixed* and *aged out* is that entry's own sitting: its text
+predicted the population emptying, so a closure has to say which happened.
 
 ## Session 241: every figure held and the sentence about them did not ✅ (2026-09-15)
 

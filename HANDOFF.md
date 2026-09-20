@@ -1,6 +1,69 @@
-# Handoff — 2026-09-15 (Session 241)
+# Handoff — 2026-09-20 (Session 242)
 
 ## Next action
+
+Close the duplicate-ingest residue entry, its live check and its expires claim: the rows cleared at retention on 2026-09-17 exactly as predicted. *(For: session, ~30 min)*
+
+*It is startable because the measurement is already taken and written down.*
+`tests/test_snag_claims.py::TestTheDuplicateIngestCheck::test_it_holds_against_the_live_table`
+is **red on a clean tree** — verified this sitting by reverting both of its
+changes and re-running — and it went red by the passage of **time** rather than
+by an edit, which is why nobody has seen it: preflight prints `STATUS.md`'s
+block and runs no suite. The entry is `SNAG-LOG-014`, deliberately not named in
+the line above, because its own body declares `Open — decided` and the published
+line may not name work nobody is owed; what has changed is the *world*, not the
+decision, so the disposition is the first thing to rewrite.
+`check_duplicate_ingest_residue` now measures **0** duplicate groups against the
+entry's standing **2**, across 629 `sysadmin.service` rows still inside the
+retention window — so the prediction came true on the day its `expires` claim
+named, and the three things owed are the entry's status, the assertion that
+reads `match`, and the marker, which is the last `??` in the ops-claims block.
+
+*What this sitting did.* Extended the additive-only guard from section
+**titles** down to the `data` field names the producer writes as literals —
+`tests/test_briefing_fields_are_additive.py`, 25 tests, suite 4170 → 4195,
+green, ruff and mypy clean. Nothing under `sysadmin/` changed, so no restart is
+owed. Opened `SNAG-BRIEF-006`. Tidied two ops claims that had drifted
+independently of the work: the test count, and an unresolved-alert count that
+had been reading `no` for two days.
+
+*The handoff's scope was right about today and blind to yesterday, which is the
+finding worth carrying.* It said 2 of 6 sections carry literal `data` keys and
+they do. Walking the producer's history **before** writing the ledger says
+**three** titles have ever carried them: `Filesystem` published
+`disk_used_percent`, `reclaimable_mb`, `empty_dirs`, `stale_project_dirs` and
+`duplicate_groups` until 2026-08-11, when the section became a comprehension,
+and `_gather_filesystem` returns all five to this day. That is `SNAG-BRIEF-005`'s
+shape one level down — a name that stops being *spelled* looks exactly like one
+that stops being *served* — and it is the guard's only proof that its walk reads
+history at all, since no field has ever left either ledgered section.
+
+*The two ledgered sections break differently at the consumer and the ledger says
+so, because a ledger that treated them alike would assert something false.*
+Measured in Alfred's tree rather than inferred from the section contract: a
+`status_grid`'s field names are a vocabulary it looks up by name, with fallbacks
+that are exactly what makes a rename quiet, so a rename is silently **dropped**;
+a `metrics` section's keys are passed through verbatim and `DigestMetrics.vue`
+says in writing that the field set is **open**, so a rename is silently
+**relabelled** and only a removal loses the cell.
+
+*A restart was claimed and was not owed, by this sitting's own hand.* The
+mutation drive restored `sysadmin/briefing/data.py` with `cp`, which writes
+identical bytes and a new mtime, and the deploy claim compares file mtimes
+rather than commit times — so it reported the daemon stale for a file nothing
+had changed. Repaired by restoring the mtime from the last commit that touched
+it, never by restarting: `SNAG-SYSD-007` is what one of those costs.
+
+*One mutation was measured wrong before it was measured right.* The new test
+file is **untracked**, so `git diff` verified nothing between mutations and the
+restore went unwitnessed — the run reported three reds across two sections where
+a re-run with the diff printed gives one, the history half. A mutation drive
+whose restore is not observable measures the previous mutation as often as the
+current one.
+
+# Handoff — 2026-09-15 (Session 241)
+
+### The action Session 241 handed on (discharged by Session 242)
 
 Extend the additive-only ledger to the `data` field names the producer writes as literals, which is 2 of 6 sections and includes the one Alfred renames. *(For: session, ~45 min)*
 
