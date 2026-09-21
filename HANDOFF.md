@@ -1,8 +1,122 @@
-# Handoff — 2026-09-21 (Session 244)
+# Handoff — 2026-09-21 (Session 245)
 
 ## Next action
 
+Give the briefing's field-name ledger the floor the section ledger now has, so the three fields a consumer always receives stop being a composition. *(For: session, ~30 min)*
+
+*It is startable because the shape is already built one level up.*
+`tests/test_briefing_sections_are_additive.py` now declares `FLOOR_TITLES`
+and `FLOOR_TYPES` and drives `_nothing_gathered()`; the field ledger in
+`tests/test_briefing_fields_are_additive.py` wants the same two moves —
+a `FLOOR_FIELDS` and a drive of that same fixture — and the payload it
+would assert is already measured: `Entries`, `Errors`, `Sources`. **What
+makes it worth doing rather than obvious** is that the guarantee looks
+covered by composing the two guards and is not: the field ledger reads
+its keys back off a render, which is honest only while the producer
+spells them as literals, and a ledgered section has already stopped
+doing that once — `Filesystem` became a comprehension on 2026-08-11.
+The line above names **no** register entry deliberately: all 40 open
+ones declare `blocked`, `decided` or `delegated` and none declares
+`owed`, so naming one would publish a disposition saying work is owed
+that the register says is not.
+
+*What this sitting did.* Acted on estate message `4bccc5e9` and closed
+it. The briefing producer's section list has a **floor of one** —
+`Overnight Logs` is appended unconditionally, so a consumer receives at
+least one section whatever the box has been doing, and `metrics` is the
+`type` this producer cannot drop. Stated in `render_sections`' docstring
+and pinned by seven tests. Suite **4192 → 4199**, green (4197 passed, 2
+skipped); ruff and mypy clean; `check-ops-claims.sh` and
+`check-snag-claims.sh` both exit 0. Opened `SNAG-BRIEF-007`.
+
+*Their measurement was reproduced before it was acted on, and the second
+reading is the one that mattered.* An independent `ast` walk gives 5
+guarded and 1 unconditional, agreeing with their driver. Driving
+`render_sections` at an empty `gathered` returns exactly one section —
+which is the **payload** claim their sweep could not make, and says so
+itself: they read control flow and issued no request against the
+service.
+
+*The item was not redundant, and checking that was most of the sitting.*
+They offered to withdraw it if the fact was stated somewhere they had
+not looked. **Three places state the premise** — `_gather_logs`' *"it
+never returns `None`, and that is the half that matters"*, the comment
+over the append, and ADR-0014 §2, which re-measured the same
+one-unconditional figure on 2026-09-14, seven days before their sweep.
+Every one is about the *producer*. A floor of one, and a `type` a
+consumer is guaranteed, are about the **payload**, and nothing stated
+that.
+
+*The unqualified sentence was ours as well as theirs, which the message
+did not say.* They quoted their own `estate-map.md`. `render_sections`'
+docstring opened with the same rule and no exception, **eleven lines
+above the counterexample** and the comment explaining why it is one. A
+document one repository over aged in 44 days; this one was wrong from
+the commit that made it wrong, in the docstring of the function it
+describes.
+
+*The guards that exist could not have caught it, and one of them had it
+in its hands.* Both additive-only ledgers drive `_every_branch_taken()`,
+a payload built to make every conditional true, and a floor is a
+property of the **empty** case. `tests/test_health_review.py`'s
+`test_the_briefing_omits_the_section_rather_than_emitting_it_empty`
+builds that empty payload exactly and asks only whether one title is
+absent — the floor rendered in front of it, unasked. A fixture is not a
+neutral input: it decides which questions the file can pose.
+
+*One new test was measured empty before it was believed, and that is the
+transferable half.* The premise that the floor fixture makes every gated
+key falsy walked the `if` tests for `gathered[...]` subscripts. The
+producer binds each key to a local first and gates on the **local**, so
+it resolved **0** gated keys — green, and it would have passed over
+`_every_branch_taken()` itself. It resolves the alias now and finds
+**5**, with an anti-vacuity assert in front of it. Keying on the wrong
+node type is green and measures nothing, which is the contract
+registry's *a name is not a parse* one module over.
+
+*Eight mutations driven, all eight land, none passed against broken
+code.* The discriminating one is `if True:` round the floor section: the
+drive stays **green** and only the source walk reddens. That is why the
+structural half is not the behavioural half restated — a floor that
+holds by the *value* of a condition holds until someone edits the
+condition, which is `SNAG-DB-006`'s redundant-clause rule met from the
+other side. The restore was checksum-witnessed, the lesson Session 243
+paid for.
+
+*One restart, paid once, after the tree was frozen.* The only
+`sysadmin/` change is a docstring — no behaviour moves and the mtime
+does, which the deploy check cannot tell apart and should not have to.
+Restarted at **21:53:58**, `NRestarts` 12 → 13, `/health` 200, all 15
+ops claims `ok`.
+
+*An ops claim fell while the sitting ran and it is a confirmation, not
+news.* `Estate port 3401 registry breach` resolved at 18:20 — the Astro
+dev server stopped, the next sweep found no listener, the row closed
+with nothing done. Count 7 → 6, which is `check_alerts`' founding case
+the day after the sentence was written, and `SNAG-ESTATE-009`'s
+transient holder doing exactly what that entry says. It has **not**
+re-raised, so the old sentence's prediction that it would join the
+flapping set is half-observed and the title is in neither set.
+
+*Item (1) of the message needed nothing from this tree and was verified
+rather than assumed.* Their `monitorable-project.md` §2.4 described
+`ManagedProject.to_monitored_services` in the present tense 44 days
+after the method and `projects.yaml` were both deleted on 2026-08-08.
+They have corrected it and now cite `ServiceEntry._consistent` in
+`sysadmin/monitor/services.py`, which was checked here and is the right
+instrument — the `model_validator(mode="after")` that raises
+`"<name>: kind http requires a url"`.
+
+### The action Session 244 handed on (discharged by Session 245)
+
 Act on the estate's open inbox message about this tree — two swept claims, one of them a measurement of our own briefing producer. *(For: session, ~30 min)*
+
+*Discharged in full.* Both claims were read, the second was reproduced
+two ways and acted on, the first was verified as theirs and already
+corrected, and the message is closed with what was found — including the
+three places the premise is stated here, which is what they asked for.
+
+# Handoff — 2026-09-21 (Session 244)
 
 *It is startable because the message carries its own instrument.*
 `4bccc5e9-7788-4b53-8b48-78de3e429156`, filed by estate-manager under their

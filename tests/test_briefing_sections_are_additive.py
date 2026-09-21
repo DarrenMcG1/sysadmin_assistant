@@ -344,3 +344,282 @@ class TestARetirementNamesWhatCarriedIt:
             "it went unannounced. One of the three is true of every removal, "
             "and which one it is is the fact a consumer needs"
         )
+
+
+# --------------------------------------------------------------------------
+# The floor
+#
+# The ledger above is a ceiling: it asks what this producer *can* serve, and
+# it asks it of :func:`_every_branch_taken`, a payload built to make every
+# conditional true.  A fixture of that shape cannot observe a floor, because
+# a floor is a property of the **empty** case — so what the producer emits
+# when it has gathered nothing went unasserted here, and in
+# ``tests/test_health_review.py`` it was rendered and looked straight past:
+# ``test_the_briefing_omits_the_section_rather_than_emitting_it_empty``
+# drives exactly the payload below and asks only whether one title is absent.
+#
+# estate-manager measured the six appends and filed the consequence at us
+# (their ADR-0187 sweep of uninstrumented cross-repo measurements, message
+# ``4bccc5e9``, 2026-09-21): their ``estate-map.md`` argued that a seam check
+# cannot compare section sets *because* an omitting producer's list moves
+# with its data, and the sentence it argued that from — "sysadmin omits
+# sections rather than sending them empty" — is false at one section.  The
+# floor is a second and independent reason the same check is blind, and it
+# sat inside the sentence offered as the first.
+#
+# Three things in this tree stated the premise and none stated the
+# consequence, which is why the item was not redundant: ``_gather_logs``
+# says it never returns ``None``, the comment over the append says a count
+# is always available, and ADR-0014 §2 re-measured the one-unconditional
+# figure on 2026-09-14.  Every one of those is about the *producer*.  A
+# floor of one, and a ``type`` a consumer is guaranteed, are about the
+# **payload**.
+
+
+#: What this producer emits having gathered nothing at all.  **A member
+#: leaving this tuple is a breaking change of the opposite kind from one
+#: leaving** :data:`SERVED_TITLES`: that is a section a consumer stops
+#: receiving *sometimes*, this is the guarantee that it receives anything
+#: at all.
+FLOOR_TITLES = ("Overnight Logs",)
+
+#: The section ``type`` values that survive the empty case, and therefore the
+#: ones a consumer may assume.  ``status_grid`` and ``text`` are each
+#: droppable; ``table`` is in Alfred's vocabulary and this producer has never
+#: emitted it.
+FLOOR_TYPES = frozenset({"metrics"})
+
+
+def _nothing_gathered() -> dict[str, Any]:
+    """A ``gathered`` dict in which every conditional in the producer is false.
+
+    The mirror of :func:`_every_branch_taken`, and the only input from which
+    "what does a consumer always receive" is a question with an answer.
+    ``logs`` carries a real block because :func:`~sysadmin.briefing.data
+    ._gather_logs` never returns ``None`` — that is the mechanism of the
+    floor, not an omission here, and the premise below pins that this dict
+    leaves everything the producer *gates* on falsy.
+    """
+    return {
+        "services": None,
+        "logs": {"entries": 0, "errors": 0, "sources": 0},
+        "filesystem": None,
+        "log_review": None,
+        "disk_review": None,
+        "health_review": None,
+    }
+
+
+def _appends() -> list[tuple[str, str, bool]]:
+    """``(title, type, guarded)`` for every ``sections.append`` in the producer.
+
+    ``guarded`` is whether the call sits inside any compound statement rather
+    than at the function's own body level.  Read from the AST rather than by
+    rendering, because the question is about the *structure* of the producer:
+    a floor that holds only by the value of a condition is not a floor, and a
+    drive cannot tell the two apart.
+    """
+    source = ast.parse((REPO / PRODUCER_PATHS[0]).read_text())
+    function = next(
+        node
+        for node in ast.walk(source)
+        if isinstance(node, ast.FunctionDef) and node.name == "render_sections"
+    )
+    parents: dict[ast.AST, ast.AST] = {}
+    for node in ast.walk(function):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+
+    def guarded(node: ast.AST) -> bool:
+        cursor: ast.AST = node
+        while cursor in parents:
+            cursor = parents[cursor]
+            if cursor is function:
+                return False
+            if isinstance(cursor, (ast.If, ast.For, ast.While, ast.Try, ast.With)):
+                return True
+        return False
+
+    found = []
+    for node in ast.walk(function):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "append"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "sections"
+            and node.args
+            and isinstance(node.args[0], ast.Dict)
+        ):
+            literal = {
+                key.value: value.value
+                for key, value in zip(node.args[0].keys, node.args[0].values)
+                if isinstance(key, ast.Constant)
+                and isinstance(value, ast.Constant)
+                and key.value in ("title", "type")
+            }
+            found.append(
+                (literal.get("title", ""), literal.get("type", ""), guarded(node))
+            )
+    return found
+
+
+class TestTheFloorFixtureIsTheFloor:
+    """:func:`_nothing_gathered` hand-writes the falsity the producer gates on.
+
+    Without these the floor tests could be measuring a payload that happens
+    to render one section — the same trap
+    :class:`TestTheWalkIsNotVacuous.test_the_fixture_supplies_every_key_the_producer_reads`
+    guards from the other end, and it is sharper here, because a fixture
+    drifting *upward* leaves a green suite claiming a guarantee the producer
+    does not give.
+    """
+
+    def test_every_key_the_producer_reads_is_present(self) -> None:
+        """A missing key raises ``KeyError`` rather than omitting a section,
+        so the drive below would fail for a reason that says nothing about
+        the floor."""
+        source = ast.parse((REPO / PRODUCER_PATHS[0]).read_text())
+        function = next(
+            node
+            for node in ast.walk(source)
+            if isinstance(node, ast.FunctionDef) and node.name == "render_sections"
+        )
+        read = {
+            node.slice.value
+            for node in ast.walk(function)
+            if isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "gathered"
+            and isinstance(node.slice, ast.Constant)
+        }
+        assert read, "the walk found no gathered[...] read, so it measured nothing"
+        missing = read - set(_nothing_gathered())
+        assert not missing, (
+            f"the floor fixture omits {sorted(missing)}, so render_sections "
+            "raises KeyError and the floor below is unmeasured"
+        )
+
+    def test_everything_the_producer_gates_on_is_falsy(self) -> None:
+        """Derived from the producer rather than restated: whatever it tests,
+        this fixture must make false, or the result is some payload and not
+        the floor."""
+        source = ast.parse((REPO / PRODUCER_PATHS[0]).read_text())
+        function = next(
+            node
+            for node in ast.walk(source)
+            if isinstance(node, ast.FunctionDef) and node.name == "render_sections"
+        )
+        # **The alias is resolved rather than the net widened.**  The
+        # producer binds each key to a local — ``filesystem =
+        # gathered["filesystem"]`` — and gates on the *local*, so walking
+        # the ``if`` tests for ``gathered[...]`` subscripts finds **nothing**
+        # and the assertion below passes over any fixture at all, including
+        # :func:`_every_branch_taken`.  That was this test's first draft and
+        # it was measured empty before it was believed: keying on the wrong
+        # node type is green and measures nothing, which is the registry
+        # rule *a name is not a parse* one module over.
+        aliases = {
+            target.id: node.value.slice.value
+            for node in ast.walk(function)
+            if isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Subscript)
+            and isinstance(node.value.value, ast.Name)
+            and node.value.value.id == "gathered"
+            and isinstance(node.value.slice, ast.Constant)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        gated = {
+            aliases[node.id]
+            for branch in ast.walk(function)
+            if isinstance(branch, ast.If)
+            for node in ast.walk(branch.test)
+            if isinstance(node, ast.Name) and node.id in aliases
+        }
+        assert gated, (
+            "the walk resolved no gated key, so the assertion below is "
+            "vacuous and would pass over a fixture that renders every section"
+        )
+        fixture = _nothing_gathered()
+        truthy = {key for key in gated if fixture.get(key)}
+        assert not truthy, (
+            f"the floor fixture leaves {sorted(truthy)} truthy, so the "
+            "branches they gate render and this is a sample rather than a floor"
+        )
+
+
+class TestTheSectionListHasAFloor:
+    """What a consumer receives on the producer's worst morning.
+
+    The ledger above says what may arrive; this says what always does.  They
+    are different assertions about one surface and neither implies the other.
+    """
+
+    def test_the_producer_emits_the_floor_when_it_has_gathered_nothing(self) -> None:
+        rendered = [section["title"] for section in render_sections(_nothing_gathered())]
+        assert rendered == list(FLOOR_TITLES), (
+            f"the producer emits {rendered} with nothing gathered, and the "
+            f"ledger says {list(FLOOR_TITLES)}. A section joining the floor is "
+            "a stronger guarantee and belongs in FLOOR_TITLES; one leaving it "
+            "is a guarantee withdrawn, and a consumer that has been receiving "
+            "it every morning has no defence against the morning it stops"
+        )
+
+    def test_metrics_is_the_type_the_producer_cannot_drop(self) -> None:
+        """The half a *consumer* can act on, and the half estate-manager's
+        seam check needed: a section set that can shrink to nothing is one a
+        comparison can be built over, and this one cannot."""
+        served = {section["type"] for section in render_sections(_nothing_gathered())}
+        assert served == FLOOR_TYPES, (
+            f"the empty case serves types {sorted(served)} against a declared "
+            f"floor of {sorted(FLOOR_TYPES)}; a type entering the floor is a "
+            "promise to every consumer and a type leaving it breaks one"
+        )
+
+    def test_exactly_one_append_is_unconditional(self) -> None:
+        """The structural half, and it is not the drive restated.
+
+        Wrapping the floor section in ``if True:`` leaves the drive above
+        green and this red, which is the distinction worth keeping: a floor
+        that holds by the *value* of a condition holds until someone edits
+        the condition, and only the source can tell the two apart.  This is
+        also the figure estate-manager measured — five guarded, one not — so
+        the next sweep of it can be answered from this suite.
+        """
+        unconditional = [
+            (title, type_) for title, type_, guarded in _appends() if not guarded
+        ]
+        assert [title for title, _ in unconditional] == list(FLOOR_TITLES), (
+            f"{[t for t, _ in unconditional]} are appended unconditionally "
+            f"against a declared floor of {list(FLOOR_TITLES)}"
+        )
+        assert {type_ for _, type_ in unconditional} == FLOOR_TYPES
+
+    def test_the_walk_sees_every_append(self) -> None:
+        """A walk finding nothing reports an empty floor and agrees with a
+        ledger declaring one."""
+        found = _appends()
+        assert len(found) == len(SERVED_TITLES), (
+            f"the walk found {len(found)} appends against {len(SERVED_TITLES)} "
+            "served titles, so it is reading the producer partially and the "
+            "guarded/unguarded split above is measured over a subset"
+        )
+        assert all(title for title, _, _ in found), (
+            "an append's title is not a string literal, so the split above "
+            "cannot say which section it described"
+        )
+
+    def test_the_floor_is_inside_the_served_ledger(self) -> None:
+        """The two ledgers cannot disagree about whether a title exists.
+
+        Retiring a floor title would empty the floor without editing
+        :data:`FLOOR_TITLES`, so the render test would redden with a message
+        about a guarantee while the actual event was a removal.
+        """
+        stranded = set(FLOOR_TITLES) - set(SERVED_TITLES)
+        assert not stranded, (
+            f"{sorted(stranded)} is declared as a floor and is not in "
+            "SERVED_TITLES; a floor title that has been retired is a "
+            "guarantee withdrawn, and RETIRED_TITLES is where that is said"
+        )

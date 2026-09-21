@@ -8,6 +8,90 @@
 
 ---
 
+## Session 245: the omit rule has an exception, and the exception is a guarantee ✅ (2026-09-21)
+
+Acted on estate message `4bccc5e9`, which measured this repository's briefing
+producer and filed the consequence. `render_sections` appends five of its six
+sections behind an `if` and `Overnight Logs` unconditionally, so the section
+list has a **floor of one** and `metrics` is the `type` this producer cannot
+drop. The claim it refutes — *"sysadmin omits sections rather than sending them
+empty"* — was in their `estate-map.md` and, unqualified, in our own producer's
+docstring. Both are corrected; ours is now pinned by seven tests. Suite
+**4192 → 4199**, green. One `sysadmin/` file changed and it is a docstring, so
+one restart was paid after the tree was frozen. Opened `SNAG-BRIEF-007` and
+closed the message.
+
+- [x] **Their measurement reproduced before it was acted on, two ways.** An
+      independent `ast` walk of `render_sections` gives **5 guarded, 1
+      unconditional** — `Overnight Logs`, type `metrics` — and driving the
+      producer at an empty `gathered` returns exactly that one section with
+      `{'Entries': 0, 'Errors': 0, 'Sources': 0}`. The second is the stronger
+      reading, because the filed claim is about the **payload** and their
+      driver could only read control flow; they say so themselves, and issued
+      no request against the service
+- [x] **Their item was not redundant, which they invited us to check.** The
+      **premise** is stated three times here — `_gather_logs`' *"it never
+      returns `None`, and that is the half that matters"*, the comment over
+      the append, and `ADR-0014` §2, which re-measured the same
+      one-unconditional figure on 2026-09-14, seven days before their sweep.
+      Every one is about the *producer*. The **consequence** — a floor of one,
+      and a `type` a consumer is guaranteed — is about the payload, and was
+      stated nowhere
+- [x] **The unqualified sentence was ours as well as theirs.**
+      `render_sections`' docstring opened by stating the omit rule with no
+      exception, eleven lines above the counterexample and the comment
+      explaining it. Qualified now, with the consequence, the reason a
+      consumer cares (a seam check is blind twice, and the second reason sat
+      inside the sentence offered as the first), and the guard that holds it
+- [x] **The existing guards were structurally unable to catch this, and one
+      had it in its hands.** Both additive-only ledgers drive
+      `_every_branch_taken()`, a payload built to make every conditional true;
+      a floor is a property of the **empty** case. And
+      `tests/test_health_review.py::test_the_briefing_omits_the_section_rather_than_emitting_it_empty`
+      builds the empty payload exactly and asserts only that one title is
+      absent — the floor rendered in front of it, unasked
+- [x] **Seven tests, and 2 of the 7 measure the fixture rather than the
+      producer.** The subject forces it: a floor fixture that drifts *upward*
+      leaves a green suite claiming a guarantee the producer does not give, so
+      the fixture's own falsity is derived from the producer and asserted
+- [x] **One of those two was measured empty before it was believed.** It
+      walked the `if` tests for `gathered[...]` subscripts; the producer binds
+      each key to a local first and gates on the local, so it resolved **0**
+      gated keys and would have passed over `_every_branch_taken()` itself.
+      The alias is resolved now — **5** keys — and the test carries an
+      anti-vacuity assert. Keying on the wrong node type is green and measures
+      nothing, which is the contract registry's *a name is not a parse* one
+      module over
+- [x] **Eight mutations driven, all eight land, none passed green.** The
+      discriminating one is `if True:` round the floor section: the drive
+      stays green and **only** the source walk reddens, which is why the
+      structural half is not the behavioural half restated — a floor that
+      holds by the *value* of a condition holds until someone edits the
+      condition. Restore was checksum-witnessed, the lesson Session 243 paid
+      for
+- [x] **`SNAG-BRIEF-007` filed for the level below.** The field-name ledger
+      has no floor, so *"a consumer always receives `Entries`, `Errors` and
+      `Sources`"* is held by composing two guards — and the composition is
+      conditional on the producer still spelling those keys as literals, which
+      `SNAG-BRIEF-006` records a ledgered section has already stopped doing
+- [x] **One restart, paid after the tree was frozen.** The only `sysadmin/`
+      change is a docstring, which moves no behaviour and does move the mtime
+      the deploy check reads. Restarted once at **21:53:58**, `NRestarts`
+      12 → 13, `/health` 200, all 15 ops claims `ok`
+- [x] **The block's own alert claim fell while the sitting ran, and it is a
+      confirmation.** `Estate port 3401 registry breach` resolved at 18:20 —
+      the Astro dev server stopped and the next sweep found no listener — so
+      the count went 7 → 6 with nothing done, which is `SNAG-ESTATE-009`'s
+      transient holder behaving exactly as that entry says. It has **not**
+      re-raised, so the old sentence's prediction that it would join the
+      flapping set is half-observed and the title is in neither set
+- [x] **Message `4bccc5e9` closed** with what was found, including the three
+      places the premise is stated here — item (1), their own stale sentence
+      about a loader deleted on 2026-08-08, needed nothing from this tree and
+      was verified rather than assumed
+
+---
+
 ## Session 244: the reading returned the opposite of its premise, and the lease was never granted ✅ (2026-09-21)
 
 Took the scheduled weekly-review reading Session 243 handed on. Both halves are

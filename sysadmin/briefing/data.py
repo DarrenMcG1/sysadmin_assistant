@@ -560,6 +560,30 @@ def render_sections(gathered: dict[str, Any]) -> list[dict[str, Any]]:
     half of the rule Alfred documents, and it does not conflict with
     Alfred's always-emit rule, which binds Alfred to its own planned
     sections rather than to ours.
+
+    **That rule has one exception, and the exception gives this list a
+    floor.**  Five of the six appends below sit behind an ``if``;
+    ``Overnight Logs`` does not, because :func:`_gather_logs` never
+    returns ``None`` and zero is an answer there.  So the payload
+    carries **at least one** section whatever the box has been doing,
+    and ``metrics`` is the one ``type`` this producer cannot drop.
+
+    Both halves of that were written down and the consequence was not.
+    The mechanism is in :func:`_gather_logs`, the structural fact is in
+    the comment over the append and in ADR-0014 §2 — and the sentence
+    above them said *omitted rather than emitted empty* without the
+    exception, which is a claim about a **published surface** that a
+    consumer can act on.  It matters to exactly one kind of consumer: a
+    seam check that compares section sets is blind because an omitting
+    producer's list moves with its data, and blind a *second* and
+    independent time because that list has a floor of one and a type
+    always in it.  estate-manager measured the six appends here and
+    filed that second reason at us (their ADR-0187 sweep of
+    uninstrumented cross-repo measurements, message ``4bccc5e9``,
+    2026-09-21), having argued the first from a sentence of their own
+    that contained the second.
+    :mod:`tests.test_briefing_sections_are_additive` holds the floor;
+    the ledger beside it holds the ceiling.
     """
     sections: list[dict[str, Any]] = []
 
