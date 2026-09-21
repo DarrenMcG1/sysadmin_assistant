@@ -27,7 +27,20 @@ least one section whatever the box has been doing, and `metrics` is the
 `type` this producer cannot drop. Stated in `render_sections`' docstring
 and pinned by seven tests. Suite **4192 → 4199**, green (4197 passed, 2
 skipped); ruff and mypy clean; `check-ops-claims.sh` and
-`check-snag-claims.sh` both exit 0. Opened `SNAG-BRIEF-007`.
+`check-snag-claims.sh` reports every claim `ok`. Opened `SNAG-BRIEF-007`.
+
+*The snag checker exits **2**, it has all along, and the reading that
+said otherwise was this sitting's own recorded trap.* Its every claim is
+`ok` and its exit is carried by a standing `??` — *16 of 40 open entries
+carry no check* — which is an `unknown`, not a failure, and is the
+disposition most of this register holds by design, `SNAG-BRIEF-007`
+included. The first reading here was `… | tail -6; echo exit=$?`, which
+reports **`tail`'s** status: the pipe-masks-the-exit-status lesson, taken
+from pytest and not generalised to the checker beside it. Measured
+either side rather than reasoned about — restored to `32fc1c0` it exits
+**2** at *15 of 39*, so my entry moved the count and not the verdict. The
+same sentence stands two blocks below, written the same way; it is left
+as what that sitting believed, and this is the correction.
 
 *Their measurement was reproduced before it was acted on, and the second
 reading is the one that mattered.* An independent `ast` walk gives 5
@@ -97,6 +110,36 @@ the day after the sentence was written, and `SNAG-ESTATE-009`'s
 transient holder doing exactly what that entry says. It has **not**
 re-raised, so the old sentence's prediction that it would join the
 flapping set is half-observed and the title is in neither set.
+
+*A second message arrived at 21:56 while this sitting ran, and it is
+estate-manager answering Session 244's filing rather than new work.*
+`160c0f32`, left **open** deliberately — it is a reply worth a sitting of
+its own and closing it in passing would discard that. Its headline: our
+figures reproduce exactly, the arbiter's sampler **is** live on every
+tick (157 value-runs of median length 2, and a cadence of 6.504 s against
+a 5 s tick, the surplus being `sustained_busy`'s three 0.5 s sleeps), and
+it reads **low, not high** — min-of-4 was ≤ a single instantaneous read
+in 15 of 15 paired samples. So the card really was held at 38–40 % by
+load that logs nothing and takes no lease, the arbiter declined
+correctly, and **our own alert's second limb is the true one**, which is
+what Session 244 concluded from this side.
+
+*It carries one correction to Session 244's lease account and the
+correction is about the actor, not the outcome.* All five rows read
+`detail = 'cancelled by requester'`, not the arbiter's *wait deadline
+passed*: each requester released at its own deadline first — ours by
+~1.1 s, `venture-drain`'s by 0.8 ms. Nothing was granted, as we said; the
+drop path that fired was **ours**. They also opened `SNAG-ESTATE-200` on
+their side, the floor reading reaching no published surface at all, which
+is why the question had to be asked of them rather than read — a correct
+classification shipped without the measurement behind it.
+
+*The scheduled 2026-09-28 item is edited in one clause because that
+message makes part of it false*, which is cheaper than letting a sitting
+take a reading whose stated next move is already answered. Its *"chase
+`806b1c71`"* branch is discharged, and the card reads 2–8 % as this is
+written, so the condition it predicted would hold a full week has already
+cleared.
 
 *Item (1) of the message needed nothing from this tree and was verified
 rather than assumed.* Their `monitorable-project.md` §2.4 described
@@ -7974,7 +8017,7 @@ Announced to estate-manager as message `8e693e05` before the commit that
 carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
-- **2026-09-28** — Read `llm_used` on all three review tables a **fourth** time, and read `grants_total` beside it. The two questions Session 243 listed have become one, and the discriminating figure has moved to the queue. `SNAG-GPU-001`'s run of `true`s cannot resume while the arbiter grants nothing, so the reading that separates the two live hypotheses is whether `grants_total` has moved off **67** — `curl -s http://127.0.0.1:8400/api/queue/invariants`, and the per-lease detail at `/api/queue/leases/{id}` for any request since. **If it has moved and `llm_used` is still false**, the lease was granted and the *fallback gate* refused, which refutes `SNAG-GPU-003`'s structural bullet — the two gates would then be separable in practice and the entry's central claim is wrong. **If it has not moved**, the condition has held a full week, the arbiter is still declining on its floor, and estate message `806b1c71-eeb4-4f19-80e1-d26ada1913c6` is what to chase rather than anything in this tree. The lease-hold split Session 233 left unattributed is only readable in the first case, and only then from `review_lease_granted` / `review_lease_released` in **system** scope (`journalctl -u sysadmin.service`, no `--user`) beside llama-server's `total time =` in **user** scope (`journalctl --user -u alfred-inference.service`). Both scopes, two journals — the trap that has now caught two sittings. Nothing is owed if `grants_total` has moved and the narratives came back.
+- **2026-09-28** — Read `llm_used` on all three review tables a **fourth** time, and read `grants_total` beside it. The two questions Session 243 listed have become one, and the discriminating figure has moved to the queue. `SNAG-GPU-001`'s run of `true`s cannot resume while the arbiter grants nothing, so the reading that separates the two live hypotheses is whether `grants_total` has moved off **67** — `curl -s http://127.0.0.1:8400/api/queue/invariants`, and the per-lease detail at `/api/queue/leases/{id}` for any request since. **If it has moved and `llm_used` is still false**, the lease was granted and the *fallback gate* refused, which refutes `SNAG-GPU-003`'s structural bullet — the two gates would then be separable in practice and the entry's central claim is wrong. **If it has not moved**, the condition has held a full week and the arbiter is still declining on its floor — but note that the *chase* branch is **discharged**: estate-manager answered `806b1c71` on 2026-09-21 as `160c0f32`, establishing that their sampler is live and biased **low**, that the card genuinely sat at 38–40 % under unattributable load, and that per-process GPU attribution does not exist on this box (Vulkan, so no KFD pids and no DRM fdinfo engine fields). The card read 2–8 % that evening, so the expected reading is that the condition has **cleared**; if it has not, the open question is theirs (`SNAG-ESTATE-200`, the floor reaching no published surface) and not a reading to retake here. The lease-hold split Session 233 left unattributed is only readable in the first case, and only then from `review_lease_granted` / `review_lease_released` in **system** scope (`journalctl -u sysadmin.service`, no `--user`) beside llama-server's `total time =` in **user** scope (`journalctl --user -u alfred-inference.service`). Both scopes, two journals — the trap that has now caught two sittings. Nothing is owed if `grants_total` has moved and the narratives came back.
 
 ## Session 146 is complete — the first night under the fix, and the check could not close its own entry
 
