@@ -3,6 +3,75 @@
 **Last Updated**: 2026-09-21
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The reading returned the opposite of its premise, and the lease was
+> never granted** (2026-09-21, Session 244, discharging Session 243's
+> handoff and opening `SNAG-GPU-003`). The scheduled weekly-review reading
+> is taken and both halves are negative: `llm_used` is **false** on all
+> three review tables, and the 05:00 lease-hold split is **unmeasurable**
+> rather than unchanged. No code changed, so no restart is owed.
+>
+> **Nothing on this box has been granted a GPU lease since 2026-09-20
+> 00:01:03**, which is the standing condition a sitting should know before
+> planning anything that wants the card. `grants_total` has read **67**
+> throughout; five consecutive leases were dropped with `granted_at` null —
+> `venture-drain`'s nightly, our three weekly reviews, and
+> **estate-manager's own weekly review**. So this is not `SNAG-SCHED-003`'s
+> contention behind a declared holder: there was no holder, and the party
+> that wrote the arbiter paid the same price we did.
+>
+> **The arbiter was ticking and declining, not stalled**, which is the
+> discrimination the whole finding turns on. It logged `lease N waits: GPU
+> floor X% over threshold 25%` every ~6.5 s across the window, and its
+> process has been up since 2026-09-13 with no commit touching GPU
+> arbitration since — so the condition changed and the code did not. That
+> rules out the first limb of our own alert's disjunction and leaves the
+> second.
+>
+> **A lease is a place to wait for a holder, and not a place to wait for a
+> floor.** `gpu_lease.py` rule 1 degrades every refusal to
+> `ensure_gpu_idle`, and both halves read the same sysfs counter against
+> `llm.gpu_busy_threshold`, which defaults from
+> `estate.gpu.DEFAULT_BUSY_THRESHOLD` and is not overridden here — one
+> home, by the design `sysadmin/core/config.py` argues for in writing. The
+> unstated consequence is that the grant is gated on the same predicate the
+> fallback gate then re-asks, so waiting 55, 40 and 10 minutes bought a
+> refusal at `busy_percent: 39` against `threshold: 25`. That is a limit of
+> `SNAG-SCHED-003`'s fix rather than a defect in it.
+>
+> **Every component behaved as documented and the judging spoke first.**
+> `judge_queue_invariants` raised `Estate queue starved` at 00:20:52 and
+> again at 05:20:52, both `warning`, both since resolved, carrying
+> `waiting_reason: nothing_granted`. **Its second limb is the true one** —
+> *"or its GPU sampler is pinned by undeclared load"* — which is
+> `_WAIT_CAUSES`' refusal to name a single cause paying off on the first
+> morning it could.
+>
+> **Two false trails are recorded because both were nearly filed.** Read
+> truncated at 160 characters that alert message looks like it asserts the
+> *first* limb, and a finding against our own renderer was averted only by
+> reading the column whole. And our own collector was suspected of
+> under-reporting on `SNAG-SCHED-003`'s recorded `card0`/iGPU trap; driven
+> against sysfs in the same instants it agrees to sampling noise, with
+> `card0` resolving to the discrete card and the iGPU flat at zero. Cleared
+> by measurement rather than by argument.
+>
+> **Filed at the owner as friction, message
+> `806b1c71-eeb4-4f19-80e1-d26ada1913c6`**, which reported that the
+> arbiter has granted nothing for 37 hours and asked the one question this
+> side cannot answer: whether its floor is read on every tick or once and
+> reused. Deliberately **not** a request to move the threshold —
+> `DEFAULT_BUSY_THRESHOLD`'s own comment already declares it an inherited
+> convention nobody has measured. Raising our own copy is refused in
+> writing on `SNAG-GPU-003`: it restores the narratives without restoring
+> the lease, and re-introduces by hand the third transcription the single
+> home exists to prevent.
+>
+> **`SNAG-GPU-001`'s population is unchanged and extends rather than
+> turns**: newest GPU reset still 2026-09-06 20:43:01, now **14.8 days**,
+> with no line newer across any boot. This Monday's digests are **not**
+> evidence about that entry, because the LLM was never reached — the class
+> was not exercised in either direction.
+
 > **A prediction the calendar kept, and the key it was argued over was
 > never the right one** (2026-09-21, Session 243, discharging Session 242's
 > handoff and closing `SNAG-LOG-014`). Retention emptied that entry's

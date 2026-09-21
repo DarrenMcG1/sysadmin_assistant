@@ -1,6 +1,114 @@
-# Handoff — 2026-09-21 (Session 243)
+# Handoff — 2026-09-21 (Session 244)
 
 ## Next action
+
+Act on the estate's open inbox message about this tree — two swept claims, one of them a measurement of our own briefing producer. *(For: session, ~30 min)*
+
+*It is startable because the message carries its own instrument.*
+`4bccc5e9-7788-4b53-8b48-78de3e429156`, filed by estate-manager under their
+ADR-0187, sweeps six uninstrumented cross-repo measurements in their canonical
+documents and two are about this repository. The first is theirs to have
+corrected and is already corrected — `monitorable-project.md` §2.4 described
+`ManagedProject.to_monitored_services` in the present tense 44 days after both
+halves were deleted, and now cites `ServiceEntry._consistent` instead. **The
+second is the one worth a sitting**: parsed at `5fb587d`, `render_sections` is
+five guarded and one unconditional, so *"we omit sections rather than sending
+them empty"* is false at a floor of one — `Overnight Logs` always emits, and
+`metrics` is the section type the producer cannot drop. That is a fact about
+our producer, arriving from outside, and it lands directly on the additive-only
+ledger Sessions 240 and 242 built. Their driver is re-runnable at
+`estate-manager docs/adr/drivers/0187-t0-sites-swept.py`. The line above names
+**no** register entry deliberately: `SNAG-GPU-003` opened today declares
+`blocked`, and all 39 open entries declare `blocked`, `decided` or `delegated`
+with none declaring `owed`, so naming one would publish a disposition saying
+work is owed that the register says is not.
+
+*What this sitting did.* Took the weekly-review reading Session 243 handed on,
+in both journal scopes as instructed. **Both halves came back negative and the
+premise the reading rested on was refuted.** `llm_used` is `false` on all three
+review tables, and the 05:00 lease-hold split is *unmeasurable* rather than
+unchanged. Opened `SNAG-GPU-003`, recorded the reading on `SNAG-GPU-001`, and
+filed estate message `806b1c71-eeb4-4f19-80e1-d26ada1913c6`. No code changed —
+only `docs/` — so **no restart is owed**, and that was read off
+`check-ops-claims.sh` rather than assumed. Suite green; `check-ops-claims.sh`
+and `check-snag-claims.sh` both exit 0.
+
+*The reading, and why it says nothing about the entry it was taken for.* The
+scheduled item wanted a third consecutive `llm_used = true` to feed
+`SNAG-GPU-001`'s *quiet is not working* claim. All three read `false` — and
+**not** because a GPU reset poisoned the inference server, which is what that
+entry is about. Leases 79, 80 and 82 carry `granted_at: null`: the card was
+never handed over, no GPU submission occurred, and the class was exercised in
+neither direction. Its population is unchanged and extends rather than turns —
+newest reset still 2026-09-06 20:43:01, now 14.8 days, no line newer across any
+boot. A prediction that names a mechanism is the one to distrust, and this time
+it arrived as a *reading* whose premise was wrong rather than a fix whose
+target was.
+
+*Nothing on this box has been granted a GPU lease since 2026-09-20 00:01:03,
+and that is the standing condition to know before planning anything that wants
+the card.* `grants_total` has read 67 for 37 hours. Five consecutive leases
+dropped with `granted_at` null: `venture-drain`'s nightly, our three reviews,
+and **estate-manager's own weekly review** — so this is not `SNAG-SCHED-003`'s
+contention behind a declared holder, there was no holder, and the party that
+wrote the arbiter paid what we paid.
+
+*The arbiter was ticking and declining, not stalled, which is the whole
+discrimination.* It logged `lease N waits: GPU floor X% over threshold 25%`
+every ~6.5 s throughout, and its process has been up since 2026-09-13 with no
+commit touching GPU arbitration since — the condition changed and the code did
+not. That rules out the first limb of our own alert's disjunction and leaves
+the second.
+
+*The structural half, and it is a limit of a fix rather than a defect in one.*
+`gpu_lease.py` rule 1 degrades every refusal to `ensure_gpu_idle`, and both
+halves read the same sysfs counter against `llm.gpu_busy_threshold`, which
+defaults from `estate.gpu.DEFAULT_BUSY_THRESHOLD` and is not overridden here —
+one home, by the design `sysadmin/core/config.py` argues for in writing. So the
+grant is gated on the same predicate the fallback gate then re-asks: **a lease
+is a place to wait for a holder, and not a place to wait for a floor.** We
+waited 55, 40 and 10 minutes for a grant conditioned on exactly the thing that
+then refused us at `busy_percent: 39` against `threshold: 25`.
+
+*Everything behaved as documented and the judging spoke first, hours before
+anyone looked.* `judge_queue_invariants` raised `Estate queue starved` at
+00:20:52 and again at 05:20:52, `waiting_reason: nothing_granted`,
+`wait_gauge: unexplained`, both since resolved. **Its second limb is the true
+one** — *"or its GPU sampler is pinned by undeclared load"* — which is
+`_WAIT_CAUSES`' refusal to name a single cause paying off on the first morning
+it could.
+
+*Two false trails are recorded because both were nearly filed, and both were
+averted by widening the reading rather than by thinking harder.* Read truncated
+at 160 characters that alert message looks like it asserts the **first** limb,
+and a finding against our own renderer was one `psql` column away. And our own
+collector was suspected of under-reporting on `SNAG-SCHED-003`'s recorded
+`card0`/iGPU trap; driven against sysfs in the same instants it returns 99–100
+against 92–96, with `card0` resolving to the discrete card and the iGPU flat at
+zero. **A reader you suspect is cleared by driving it, not by re-reading it.**
+
+*What was filed, and what was deliberately not asked for.* Message
+`806b1c71-eeb4-4f19-80e1-d26ada1913c6` reports that the arbiter has granted
+nothing for 37 hours and asks the one question this side cannot answer: across
+1,670 `GPU floor` ticks the value took exactly three distinct readings — 39 %
+×1,486, 40 % ×127, 38 % ×57, never below 38 — while our own 5-minutely samples
+of the same counter floored at 0–7 every hour of the same window, which a
+*minimum of four samples* should read lower than rather than 38 points higher.
+It is **not** a request to move the threshold: that constant's own comment
+already declares it an inherited convention nobody has measured, with recorded
+desktop baselines of 5.8 %, 20.3 % and 33.2 % straddling 25, so one more
+reading from one box adds nothing it does not concede. Raising *our* copy is
+refused in writing on the entry — it restores the narratives without restoring
+the lease, since the arbiter reads the estate's copy, and re-introduces by hand
+the third transcription the single home exists to prevent.
+
+*No check names `SNAG-GPU-003` and the omission is deliberate.* What one would
+measure is a property of another repository's producer read over its own
+journal — `SNAG-GPU-002`'s stated reason for declining a check one entry over,
+and `ports_checked`'s rule at the size of a register. What already watches the
+condition is `judge_queue_invariants`, which did.
+
+### The action Session 243 handed on (discharged by Session 244)
 
 Take the weekly review reading that fell due today: `llm_used` on all three review tables for a third Monday, and the 05:00 lease-hold split in both journal scopes. *(For: session, ~30 min)*
 
@@ -7752,7 +7860,7 @@ Announced to estate-manager as message `8e693e05` before the commit that
 carried it, with the estate-wide convention offered as a recommendation
 for them to rule on._
 
-- **2026-09-21** — Read `llm_used` on all three review tables a third time, and with it the **lease-hold split** at 05:00. Two things ride on the same cheap reading. A third consecutive `true` under a kernel that has produced **zero** GPU resets since 2026-09-06 20:43:01 is the number `SNAG-GPU-001` needs for its *quiet is not working* claim — that reader has never fired on real data, and a resetless week is a population that stopped rather than a mechanism that was fixed, so the run of `true`s is the only thing that grows. And Session 233 left **~4.3 s of a 5.98 s held lease unattributed**: the inference was 570 ms and a warm re-drive of every gather totalled 1.10 s, so the residue is most likely a cold buffer cache at 05:00, which by construction cannot be reproduced warm. Read it off `review_lease_granted` / `review_lease_released` in **system** scope — `journalctl -u sysadmin.service`, no `--user` — beside llama-server's own `total time =` line in **user** scope (`journalctl --user -u alfred-inference.service`). Both scopes are needed and they are different journals; Session 233 hit the same trap the 2026-09-07 item named, on `alfred-inference.service` rather than on `sysadmin.service`, where `journalctl -u` returned *No entries* for a unit that was running. Nothing is owed if the split is unchanged — the ordering is deliberate and argued in `run_health_review`'s docstring, and the cost is seconds once a week.
+- **2026-09-28** — Read `llm_used` on all three review tables a **fourth** time, and read `grants_total` beside it. The two questions Session 243 listed have become one, and the discriminating figure has moved to the queue. `SNAG-GPU-001`'s run of `true`s cannot resume while the arbiter grants nothing, so the reading that separates the two live hypotheses is whether `grants_total` has moved off **67** — `curl -s http://127.0.0.1:8400/api/queue/invariants`, and the per-lease detail at `/api/queue/leases/{id}` for any request since. **If it has moved and `llm_used` is still false**, the lease was granted and the *fallback gate* refused, which refutes `SNAG-GPU-003`'s structural bullet — the two gates would then be separable in practice and the entry's central claim is wrong. **If it has not moved**, the condition has held a full week, the arbiter is still declining on its floor, and estate message `806b1c71-eeb4-4f19-80e1-d26ada1913c6` is what to chase rather than anything in this tree. The lease-hold split Session 233 left unattributed is only readable in the first case, and only then from `review_lease_granted` / `review_lease_released` in **system** scope (`journalctl -u sysadmin.service`, no `--user`) beside llama-server's `total time =` in **user** scope (`journalctl --user -u alfred-inference.service`). Both scopes, two journals — the trap that has now caught two sittings. Nothing is owed if `grants_total` has moved and the narratives came back.
 
 ## Session 146 is complete — the first night under the fix, and the check could not close its own entry
 

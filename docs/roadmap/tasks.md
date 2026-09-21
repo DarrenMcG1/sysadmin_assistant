@@ -8,6 +8,101 @@
 
 ---
 
+## Session 244: the reading returned the opposite of its premise, and the lease was never granted ✅ (2026-09-21)
+
+Took the scheduled weekly-review reading Session 243 handed on. Both halves are
+answered and both answers are negative: `llm_used` is **false** on all three
+review tables, and the 05:00 lease-hold split is **unmeasurable** rather than
+unchanged. The cause is neither of the two this repository had written down —
+not a poisoned GPU context and not contention behind a declared holder, but a
+card nothing on the box was granted for **37 hours**. Opened `SNAG-GPU-003` and
+filed estate message `806b1c71-eeb4-4f19-80e1-d26ada1913c6`. No code changed,
+so no restart is owed.
+
+- [x] **The reading, both halves.** `llm_used` **false** on `health_reviews`
+      (05:55:07), `log_reviews` (05:55:02) and `disk_reviews` (05:55:01) — the
+      run of `true`s that `SNAG-GPU-001` wanted a third member of is broken at
+      two. The lease-hold split has no operands: leases 79, 80 and 82 carry
+      `granted_at: null`, so there is no `review_lease_granted`/`released`
+      pair, and the user-scope half corroborates it with **zero**
+      `total time =` lines from `alfred-inference.service` between 04:55 and
+      06:10. Both journal scopes were read separately, which is the trap the
+      scheduled item named
+- [x] **It is not evidence about `SNAG-GPU-001` and the premise is what was
+      refuted.** The reading was taken because a third consecutive `true`
+      would feed that entry's *quiet is not working* claim. The LLM was never
+      reached, so the class was not exercised in either direction. Its
+      population is unchanged and extends rather than turns: newest reset
+      still **2026-09-06 20:43:01.696229+01**, now **14.8 days**, **11** lines
+      across all boots since 2026-09-01 and none newer
+- [x] **Nothing on the box was granted for 37 hours, the estate included.**
+      `grants_total` has read **67** since lease 77 (2026-09-20 00:01:03).
+      Five consecutive leases dropped: 78 `venture-drain`, our three, and
+      **81 `estate-review`** — the party that wrote the arbiter paid the same
+      price. So this is not `SNAG-SCHED-003`'s contention behind a holder;
+      there was no holder
+- [x] **The arbiter was ticking and declining, which is the discrimination
+      the entry turns on.** It logged `lease N waits: GPU floor X% over
+      threshold 25%` every ~6.5 s throughout, and its process has been up
+      since 2026-09-13 15:31:36 with no commit touching GPU arbitration since
+      — so the condition changed and the code did not. That rules out the
+      first limb of our own alert's disjunction and leaves the second
+- [x] **The structural finding: a lease is a place to wait for a holder, not
+      for a floor.** `gpu_lease.py` rule 1 degrades every refusal to
+      `ensure_gpu_idle`, and both halves read the same sysfs counter against
+      `llm.gpu_busy_threshold`, which defaults from
+      `estate.gpu.DEFAULT_BUSY_THRESHOLD` and is not overridden here — one
+      home, by the deliberate design `config.py:90-94` argues for. The
+      unstated consequence is that the grant is gated on the same predicate
+      the fallback gate re-asks, so waiting 55, 40 and 10 minutes bought a
+      refusal at `busy_percent: 39` against `threshold: 25`. This is a limit
+      of `SNAG-SCHED-003`'s fix rather than a defect in it
+- [x] **Every component behaved as documented, and `judge_queue_invariants`
+      raised correctly before any human looked** — `Estate queue starved` at
+      **00:20:52** and **05:20:52**, `waiting_reason: nothing_granted`,
+      `wait_gauge: unexplained`. **Its second limb is the true one**, and
+      that is `_WAIT_CAUSES`' refusal to name a single cause paying off on
+      the first morning it could
+- [x] **Two false trails are recorded because both were nearly filed.** The
+      alert message read truncated at 160 characters looks like it asserts
+      the *first* limb — a finding against our own renderer, averted by
+      reading the column whole. And our own collector was suspected of
+      under-reporting, on `SNAG-SCHED-003`'s recorded `card0`/iGPU trap;
+      driven against sysfs in the same instants it returns **99–100 against
+      92–96**, with `card0` resolving to the RX 7900 XTX at 24560 MB and the
+      iGPU at `0000:47:00.0` flat at 0. Cleared by measurement, not by
+      argument
+- [x] **What this repository could do alone is refused in writing.**
+      `llm.gpu_busy_threshold` is ours to raise and raising it restores the
+      narratives without restoring the **lease**, since the arbiter reads the
+      estate's copy — trading a working digest for a contended generation and
+      re-introducing by hand the third transcription the single home exists
+      to prevent
+- [x] **Filed as friction, not a finding, and deliberately not as a request
+      to move the number.** `DEFAULT_BUSY_THRESHOLD`'s own comment already
+      declares it an inherited convention nobody has measured, recording
+      desktop baselines of 5.8 %, 20.3 % and 33.2 % that straddle 25. What
+      was routed to the owner is the half we cannot see into: **1,670**
+      `GPU floor` ticks produced exactly **three** distinct values (39 % ×1,486,
+      40 % ×127, 38 % ×57, never below 38) while our own 5-minutely samples of
+      the same counter floored at 0–7 every hour of the same window — which
+      a *minimum* of four samples should read lower than, not 38 points higher
+- [x] **No check names `SNAG-GPU-003`, and the omission is deliberate.** What
+      one would measure is a property of another repository's producer read
+      over its own journal — `SNAG-GPU-002`'s stated reason for declining a
+      check one entry over. What already watches the condition is
+      `judge_queue_invariants`, which did
+- [ ] **Read `llm_used` on all three review tables on the fourth Monday,
+      2026-09-28, and read `grants_total` beside it.** The two questions have
+      become one: `SNAG-GPU-001`'s run of `true`s cannot resume while the
+      arbiter grants nothing, so the discriminating figure is whether
+      `grants_total` has moved off **67**. If it has and `llm_used` is still
+      false, the cause is the fallback gate rather than the lease and
+      `SNAG-GPU-003`'s structural bullet is refuted; if it has not, the
+      condition has held a week and message `806b1c71` is what to chase
+
+---
+
 ## Session 243: a prediction the calendar kept, and the key it was argued over was never the right one ✅ (2026-09-21)
 
 Discharged Session 242's handoff: closed `SNAG-LOG-014`, retired its check and
