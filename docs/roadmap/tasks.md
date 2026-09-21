@@ -4,7 +4,125 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-20
+> **Last Updated**: 2026-09-21
+
+---
+
+## Session 243: a prediction the calendar kept, and the key it was argued over was never the right one ✅ (2026-09-21)
+
+Discharged Session 242's handoff: closed `SNAG-LOG-014`, retired its check and
+its `expires` claim. Retention emptied the population on the morning the entry
+predicted — the oldest retained `sysadmin.service` row is ingested **2026-08-24
+07:54:54** and the duplicate count is **0**, with nothing deleted by hand. The
+detector is re-homed rather than deleted, and on the way across it changed keys:
+the column that discriminates a duplicate exactly had been in the table
+throughout and neither of the entry's two candidate keys was it. Suite
+**4195 → 4192**, green; ruff and mypy clean. Nothing under `sysadmin/` that the
+daemon imports changed, so no restart is owed.
+
+- [x] **The entry is closed in both readers, verified at the parsers rather
+      than by eye.** `estate.snags` reads the `Status:` line and this
+      repository's `closure_declared` reads only the title's trailing
+      parenthetical, so both were written and both driven: `is_open` `False`
+      and `fixed_at` `2026-09-21` from the owning parser, 39 → **38** open
+      here. The marker came off the symptom bullet in the same edit as the
+      `Check(...)` registration and the check itself, because three guards
+      refuse any two of the three moving alone
+- [x] **The re-homed guard is keyed on `raw_line`, which is neither key the
+      entry argued between.** Four bullets there weigh `(source, logged_at,
+      message)` against `(source, logged_at)` and take the narrow one. Both
+      are wrong for a *guard*: the narrow key is blind to the only recorded
+      form of this defect, the two copies having carried different messages
+      and hidden each other for eleven days, and a recurrence needs a restart,
+      which is when a declaration changes; the wide key now has a live false
+      positive. `raw_line` holds the journalctl record verbatim and no repair
+      rewrites it. That is `SNAG-LOG-008`'s own witness rule — byte equality
+      against the record's `MESSAGE`, chosen there because a shape test cannot
+      separate a frozen envelope from a correct unwrap — applied one entry
+      over, where it had been available and unused. Live: **0** groups across
+      771,192 rows
+- [x] **The entry's supporting figure was refuted three days after it was taken
+      and was attached to the wrong key.** It stated *zero groups share a
+      `(source, logged_at)` while disagreeing about `message`* and *the
+      tightest gap between two genuinely distinct records from one source is
+      3 µs, at the kernel*. On 2026-09-07 the 05:00 health review wrote
+      `llm_unavailable` and `health_review_llm_unavailable_used_fallback` at
+      one `__REALTIME_TIMESTAMP` — two records, **0 µs** apart, from
+      `sysadmin.service`. Re-measured: 0 is the tightest gap between two
+      records from one source and 3 µs the tightest between two *identical*
+      lines, so the figure was right about the **narrow** key's margin inside
+      a sentence describing the **wide** key's, which was already nil. The
+      choice of key was right and its reason is demonstrated now rather than
+      argued
+- [x] **The retired check would have called that coincidence a duplicate, in a
+      report printed at both ends of every sitting.** Its divergence clause
+      renders *"N of them agree on the record and not on the message, which is
+      this entry's own pre-backfill shape"* whenever the wide count exceeds
+      the narrow one, and against the live specimen both limbs are false. It
+      was written when the class had no members and read as a definition; one
+      member turned it into a claim
+- [x] **The `expires` family keeps a live member, and the new prediction is the
+      old arithmetic reapplied.** Removing the spent marker turned
+      `TestTheLiveBlockCarriesAPrediction` red — a class added in the very
+      commit that created that marker, so the two are one artefact's halves
+      and the family goes untriggered when the last prediction is measured.
+      The coincidence row is what gives the guard's discrimination a live
+      specimen and it ages out by the same fixed-hour purge Session 172
+      corrected this entry for: driven at the real `purge_statement`, **0 of
+      2** on 2026-10-07 and **2 of 2** on 2026-10-08 03:00+01:00
+- [x] **Three exposures of the new key are measured and all three fail toward a
+      red.** `raw_line` is nullable and **0 of 771,192** rows are null, and
+      `GROUP BY` folds nulls together; **30** rows carry a `raw_line` cut at
+      its 2000-character cap; and a kernel storm emitting one identical line
+      twice inside a microsecond turns the guard red for a non-defect — which
+      is the right response, since nothing downstream could tell that from a
+      duplicate ingest either
+- [x] **One falsification passed against deliberately broken code, and the
+      mutation drive's restore failed silently before it.** Inverting the
+      discrimination left the file green, its population being the groups that
+      *agree* about `raw_line` and that population being empty on a healthy
+      box — `SNAG-TEST-010`'s shape; the predicate is named and driven at a
+      fabricated agreeing group now. Separately the first drive's `cp` restore
+      targeted a scratchpad directory that did not exist, so three mutations
+      stacked and every reading after the first measured the wrong tree:
+      Session 242's *"a mutation drive whose restore is not observable
+      measures the previous mutation as often as the current one"* by a second
+      route, an untracked file there and a missing directory here. The restore
+      carries a checksum witness now
+- [x] **A seventh alert row opened mid-sitting and it is a live control for
+      `SNAG-ESTATE-009`.** `check-ops-claims.sh` reported one unresolved row the
+      block did not name — `SNAG-ESTATE-008`'s founding mechanism working — and
+      the row is `Estate port 3401 registry breach` at `warning`. Its neighbour
+      `3400` is the same shape at `info`. Both holders are Astro dev servers in
+      one VS Code scope, `app-code-oss-5162.scope`, and both rows carry the
+      **same** sweep stamp `2026-09-21T05:20:52.654470+00:00` — with
+      `attribution.reading` reading `transient` on one and **`unswept`** on the
+      other. The 2026-09-14 specimen was two rows both at `warning`, so *only
+      sweep age separates the rungs* was still an inference from one side; this
+      is the control, and Session 128's discriminator is what says so. Named in
+      the block's stable set on one episode, which is a statement about
+      evidence rather than behaviour — the same family flaps on `3110` and
+      `8110` at 3 episodes each
+
+- [x] **A red suite hid three vacuous-guard findings for a day, and turning it
+      green is what surfaced them.** `check-vacuous-guards.sh` exits 2 on a red
+      suite and reports nothing — its own rule 3, that a red suite is not *its*
+      finding — so Session 242's known-red live check blinded the measure it
+      runs beside. With the suite green, three sites in
+      `tests/test_briefing_fields_are_additive.py` report: two asserts
+      parametrised over `RETIRED_FIELDS` and the comprehension that filters by
+      it. **None is a defect** — that mapping is empty *by measurement*, which
+      that file's own docstring argues at length — so the reasoning existed in
+      prose and had simply never been declared to the guard built for it. Three
+      `# may-not-evaluate:` / `# may-not-turn:` declarations, no behaviour
+      changed, and the count moves 5 → 8 and 18 → 19 declared, which is the
+      visibility the mechanism is for. Driven at HEAD to confirm it predates
+      this sitting: the report is empty there, because the suite is red
+- [x] **The file owed a premise it had never owed before.** `SNAG-TEST-007`'s
+      rule 2 binds a live drive in a file off the `*_live.py` glob, and
+      re-homing the detector made `test_log_resume_boundary.py` one — the
+      convention catching a file that *became* a live drive rather than one
+      written as one
 
 ---
 

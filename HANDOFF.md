@@ -1,6 +1,127 @@
-# Handoff — 2026-09-20 (Session 242)
+# Handoff — 2026-09-21 (Session 243)
 
 ## Next action
+
+Take the weekly review reading that fell due today: `llm_used` on all three review tables for a third Monday, and the 05:00 lease-hold split in both journal scopes. *(For: session, ~30 min)*
+
+*It is startable because the data is already written and the method is
+written down.* The item sat under `## Scheduled action` with today's date and
+this sitting did not take it — the reviews ran at 05:00, 05:15 and 05:45 and
+their rows are in the three review tables, so nothing evaporates, but the run
+of consecutive `true`s is the only figure that grows and a missed Monday costs
+a week. The scheduled bullet carries the method verbatim, including the trap
+that matters: the lease lines are **system** scope (`journalctl -u
+sysadmin.service`, no `--user`) and llama-server's `total time =` is **user**
+scope, and a sitting that reads one scope for both gets *No entries* for a unit
+that is running. The line above names **no** register entry deliberately: all
+38 open ones declare `blocked`, `decided` or `delegated` and none declares
+`owed`, so naming one would publish a disposition saying work is owed that the
+register says is not.
+
+*What this sitting did.* Closed `SNAG-LOG-014` — the duplicate-ingest residue —
+with its check and its `expires` claim, which is the whole of what Session 242
+handed on. Retention emptied the population on the morning the entry predicted:
+the oldest retained `sysadmin.service` row is ingested **2026-08-24 07:54:54**,
+the duplicate count is **0**, and nothing was deleted by hand. Suite
+**4195 → 4192**, green; ruff and mypy clean; `check-ops-claims.sh` and
+`check-snag-claims.sh` both exit 0. Nothing the daemon imports changed, so **no
+restart is owed** — and that was read off the claim rather than assumed.
+
+*The interesting half was not the closure, and it is the part to carry.* The
+entry spent four bullets choosing between `(source, logged_at, message)` and
+`(source, logged_at)`, and **neither is right for a guard**. The narrow key is
+blind to the only recorded form of this defect — the two copies carried
+different `message` values and hid each other for eleven days, and a recurrence
+needs a restart, which is exactly when a declaration changes. The wide key now
+has a **live false positive**. `raw_line` holds the journalctl record verbatim
+and no repair rewrites it, so one raw line under two rows is one record stored
+twice and two raw lines are two records. That is `SNAG-LOG-008`'s own witness
+rule — byte equality against the record's `MESSAGE` — applied one entry over,
+where it had been sitting available and unused the whole time.
+
+*A figure can be correct, dated, and attached to the wrong key.* The entry
+states *zero groups share a `(source, logged_at)` while disagreeing about
+`message`* and *the tightest gap between two genuinely distinct records from
+one source is 3 µs, at the kernel*, measured 2026-09-04. Three days later the
+05:00 health review wrote two records at one `__REALTIME_TIMESTAMP` from
+`sysadmin.service` — **0 µs**. Re-measured: 0 is the tightest gap between two
+records from one source and 3 µs is the tightest between two *identical* lines.
+So the 3 µs figure is the **narrow** key's margin, stated in a sentence about
+the **wide** key's, which was already nil. The choice of key was right; its
+stated reason was demonstrated only after the entry closed.
+
+*The retired check would have mislabelled that coincidence, in a report printed
+at both ends of every sitting.* Its divergence clause announces any excess of
+the wide count over the narrow as *"this entry's own pre-backfill shape"*, and
+against the live specimen both limbs are false. It was written when the class
+had no members and read as a definition; one member turned it into a claim.
+
+*Removing the last `expires` marker turned a guard red, and the guard was
+right.* `TestTheLiveBlockCarriesAPrediction` was added in the **same commit**
+that created that marker, so the two are one artefact's halves and the family
+goes untriggered the moment its last prediction is measured. Rather than delete
+the premise or leave a spent marker reporting `unknown` for ever, the block
+carries a new prediction that this sitting actually owes: the coincidence row
+is what gives the re-homed guard's discrimination a live specimen, and it ages
+out by the same fixed-hour purge Session 172 corrected this entry for. Driven
+at the real `purge_statement` rather than re-derived — **0 of 2** on 2026-10-07
+and **2 of 2** on 2026-10-08 03:00+01:00.
+
+*One falsification passed against deliberately broken code, and the mutation
+drive's restore failed silently before it.* Inverting the discrimination left
+the file green, because its population is the groups that *agree* about
+`raw_line` and that population is empty on a healthy box — `SNAG-TEST-010`'s
+shape. The predicate is named and driven at a fabricated agreeing group now.
+Separately the first drive's `cp` restore targeted a scratchpad directory that
+did not exist, so three mutations stacked and every reading after the first
+measured the wrong tree. That is Session 242's own *"a mutation drive whose
+restore is not observable measures the previous mutation as often as the
+current one"* by a second route — an untracked file there, a missing directory
+here — and the general fact is that **the restore is the half that needs a
+witness**, since a mutation announces itself by turning something red and a
+failed restore announces nothing. The drive carries a checksum comparison now.
+
+*Two things were refused and the reasons are worth keeping.* The entry was
+**closed in place** rather than moved to the Fixed Issues table: 102 of 141
+entries under the open headings are closed ones, both September closures did
+the same, and compressing this body into one table cell would lose the
+measurements that correct it. And the detector was **re-homed rather than
+deleted** into `tests/test_log_resume_boundary.py` rather than a file of its
+own — `FROZEN_TABLES`' rule, and that is `SNAG-LOG-007`'s file, whose mechanism
+produced the residue.
+
+*A seventh alert row opened mid-sitting and it is a live control for
+`SNAG-ESTATE-009`.* `check-ops-claims.sh` reported an unresolved row the block
+did not name — `SNAG-ESTATE-008`'s founding mechanism working — and it is
+`Estate port 3401 registry breach` at `warning`, beside `3400` at `info`. Both
+holders are Astro dev servers in one VS Code scope and both rows carry the
+**same** sweep stamp, with `attribution.reading` `transient` on one and
+`unswept` on the other. The 2026-09-14 specimen was two rows both at `warning`,
+so *only sweep age separates the rungs* was an inference from one side; this is
+the control. Recorded on the entry and named in the block. **The entry is not
+fixed and was not touched** — it is `decided`, its two closures still refused.
+
+*A red suite hid three vacuous-guard findings for a day, and turning it green
+is what surfaced them.* `check-vacuous-guards.sh` exits 2 on a red suite and
+reports nothing — its own rule that a red suite is not *its* finding — so
+Session 242's known-red live check blinded the measure that runs beside it.
+Three sites in `tests/test_briefing_fields_are_additive.py` then reported, and
+none is a defect: `RETIRED_FIELDS` is empty *by measurement* and that file's
+docstring argues it at length, so the reasoning existed in prose and had never
+been declared to the guard built for it. Three declarations, no behaviour
+changed. Confirmed to predate this sitting by driving the script at HEAD, where
+the report is empty for the same reason. The transferable half: **a sitting
+that knowingly ships a red suite also spends that day's vacuous measurement**,
+and neither the handoff nor the block said so.
+
+*What it cost elsewhere.* Re-homing a live drive made
+`test_log_resume_boundary.py` a member of `SNAG-TEST-007`'s population for the
+first time, so the file now declares a premise — the convention catching a file
+that *became* a live drive rather than one written as one.
+
+# Handoff — 2026-09-20 (Session 242)
+
+### The action Session 242 handed on (discharged by Session 243)
 
 Close the duplicate-ingest residue entry, its live check and its expires claim: the rows cleared at retention on 2026-09-17 exactly as predicted. *(For: session, ~30 min)*
 

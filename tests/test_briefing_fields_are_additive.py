@@ -445,6 +445,12 @@ class TestHistoryHoldsNoFieldTheLedgerForgot:
         self, title: str, history: tuple[int, dict[str, set[str]]]
     ) -> None:
         _, ever = history
+        # may-not-turn: RETIRED_FIELDS is empty by measurement — no field has
+        # ever left either ledgered section across the producer's whole
+        # history — so this filter runs over nothing and empty is the
+        # healthy state.  The subtraction below is the measurement; this
+        # comprehension is only the exemption it applies, and it arms
+        # itself the day a retirement is recorded.
         retired = {field for (section, field) in RETIRED_FIELDS if section == title}
         forgotten = ever.get(title, set()) - set(SECTION_FIELDS[title].fields) - retired
         assert not forgotten, (
@@ -539,6 +545,12 @@ class TestARetirementNamesWhatCarriedIt:
 
     @pytest.mark.parametrize("entry", sorted(RETIRED_FIELDS))
     def test_it_dates_the_departure(self, entry: tuple[str, str]) -> None:
+        # may-not-evaluate: parametrised over RETIRED_FIELDS, which is empty
+        # by measurement, so this never runs on a healthy tree.  The rule is
+        # witnessed instead by test_the_rules_reject_a_retirement_that_
+        # records_nothing below, which drives the same two patterns at a
+        # synthetic retirement — the control that exists because an empty
+        # population is how a check gets written wrong and stays green.
         assert re.search(r"\b20\d{2}-\d{2}-\d{2}\b", RETIRED_FIELDS[entry]), (
             f"{entry!r} does not say when it left; a retirement with no date "
             "cannot be matched against a consumer's capture"
@@ -549,6 +561,8 @@ class TestARetirementNamesWhatCarriedIt:
         self, entry: tuple[str, str]
     ) -> None:
         reason = RETIRED_FIELDS[entry]
+        # may-not-evaluate: the same empty RETIRED_FIELDS as the rule above,
+        # and witnessed by the same synthetic control below.
         assert re.search(r"ADR-\d{4}|`[0-9a-f]{8}`|not announced", reason), (
             f"{entry!r} names no ADR, no register message id and does not say "
             "it went unannounced. One of the three is true of every removal"
