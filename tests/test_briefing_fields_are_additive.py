@@ -81,6 +81,18 @@ found: ``Filesystem``'s five published names are pinnable, but only from
 ``measured_at`` filter** — and restating that filter here would be a second
 statement of a rule the producer owns, which is the shape this repository
 names ``SNAG-DB-003``.
+
+**This file has a ceiling and a floor, and the floor was filed as the measured
+limit of the ceiling.**  Everything above the floor banner is driven at a
+payload built to make every conditional in the producer true, so it says what
+a section *can* publish.  ``SNAG-BRIEF-007`` recorded that the other question
+— what a consumer receives on a morning when nothing was gathered — looked
+answered by composing this ledger with the sibling's ``FLOOR_TITLES`` and was
+not, because this half reads its keys back **off a render**, which is honest
+only while the producer spells them as literals.  Driven 2026-09-22 rather
+than argued: turning ``Overnight Logs``' ``data`` into a comprehension leaves
+the sibling module **entirely green**, 21 passed, while reddening three tests
+here — the composition failing in the one direction it was offered to cover.
 """
 
 from __future__ import annotations
@@ -95,8 +107,10 @@ import pytest
 
 from sysadmin.briefing.data import render_sections
 from tests.test_briefing_sections_are_additive import (
+    FLOOR_TITLES,
     PRODUCER_PATHS,
     _every_branch_taken,
+    _nothing_gathered,
 )
 
 REPO = Path(__file__).resolve().parent.parent
@@ -609,4 +623,208 @@ class TestTheLedgerRecordsWhatARenameCosts:
             f"the ledger declares {sorted(declared)} against a closed set of "
             f"{sorted(RENAME_READINGS)}; if a reading has no member the set "
             "has stopped being a measurement of this seam"
+        )
+
+
+# --------------------------------------------------------------------------
+# The floor
+#
+# Everything above is a ceiling.  It is driven at
+# :func:`~tests.test_briefing_sections_are_additive._every_branch_taken`, a
+# payload built to make every conditional in the producer true, and it
+# therefore asks what field names a section *can* publish.  A fixture of that
+# shape cannot observe a floor, because a floor is a property of the **empty**
+# case — the sibling's own floor comment says so one level up, and the same
+# sentence is true one level down.
+#
+# **The guarantee looks covered by composing the two ledgers and is not.**
+# The composition reads: the sibling pins that ``Overnight Logs`` arrives
+# having gathered nothing, this module pins that its keys are ``Entries``,
+# ``Errors``, ``Sources`` — therefore a consumer always receives those three.
+# The second premise is the conditional one.  It is measured at a payload
+# **with data in it**, and a ``data`` built by comprehension renders whatever
+# the gathered block holds, so its key set moves with the data and can be
+# three wide at the ceiling and empty at the floor.  That is not a shape
+# invented for the argument: ``Filesystem`` has been exactly it since
+# 2026-08-11 (``SNAG-BRIEF-006``), and it is a *ledgered* section that stopped
+# being one.  A derivation that survives only while a second entry's condition
+# holds is not a statement, which is why ``SNAG-BRIEF-007`` was filed rather
+# than waved off.
+#
+# So the floor is driven, at :func:`~tests.test_briefing_sections_are_additive
+# ._nothing_gathered` and against a ledger of its own.  What holds it honest
+# is not the drive: it is
+# :class:`TestTheLedgeredSectionsSpellTheirFieldsInTheProducer`, which
+# :class:`TestTheTwoFloorLedgersAgree` routes onto every floored section by
+# requiring that one be ledgered above as well.
+#
+# Measured while this was written, and recorded because it is the kind of
+# thing a later reading would take for a mechanism: the floor fixture spells
+# its logs block ``entries``/``errors``/``sources`` and the producer spells
+# the cells ``Entries``/``Errors``/``Sources``, so turning that ``data`` into
+# a comprehension reddens the drive below **directly** rather than only
+# through the premise.  That is a coincidence of casing between a fixture and
+# a producer, not a property of either, and nothing here rests on it.
+
+
+#: The ``data`` field names a consumer receives on the producer's worst
+#: morning, by section.  :data:`SECTION_FIELDS` says what a section's keys are
+#: *when it arrives*; this says which of them arrive **whatever the box has
+#: been doing**, and the two are different claims about one surface.
+#:
+#: **A name leaving this ledger is a guarantee withdrawn**, which is the
+#: opposite kind of breakage from one leaving :data:`SECTION_FIELDS`: that is
+#: a cell a consumer stops receiving *sometimes*, this is one it has received
+#: every morning of its life and has no defence against losing.  Today the two
+#: coincide for the one floored section, because its ``data`` is all literals
+#: inside the producer's one unconditional append — a coincidence of this
+#: section rather than a rule, and the subset test below is written as the
+#: rule.
+FLOOR_FIELDS = {
+    "Overnight Logs": ("Entries", "Errors", "Sources"),
+}
+
+
+def _rendered_floor() -> list[dict[str, Any]]:
+    """The producer driven at the payload that takes **no** branch.
+
+    The fixture is imported from the sibling for :func:`_rendered`'s reason,
+    and it carries its own premises there:
+    ``TestTheFloorFixtureIsTheFloor`` derives from the producer both that
+    every key it reads is present and that everything it gates on is falsy,
+    so a fixture drifting upward cannot leave this half green while claiming
+    a guarantee the producer does not give.
+    """
+    return render_sections(_nothing_gathered())
+
+
+class TestTheFloorDriveIsAFloor:
+    """The one thing this module's floor half cannot infer from its own
+    assertions: that it is reading a different payload from the ceiling half.
+
+    The sibling's floor drive is self-asserting — it renders one section where
+    the ceiling renders six, so pointing it at the wrong fixture reddens it.
+    This one is not, and that was measured rather than assumed: the floored
+    section serves the same three names under both fixtures, so swapping
+    :func:`_rendered_floor` for :func:`_rendered` leaves every assertion below
+    green and the module claiming a guarantee it never measured.
+
+    The obvious premise — that the two drives serve *different field sets* —
+    is refused, because it is false and should be: a field set that survives
+    the empty case unchanged is the strongest reading of this seam, not a
+    defect.  What is pinned instead is that the two payloads differ at all.
+    """
+
+    def test_it_renders_strictly_less_than_the_ceiling_drive(self) -> None:
+        floor = {section["title"] for section in _rendered_floor()}
+        ceiling = {section["title"] for section in _rendered()}
+        assert floor < ceiling, (
+            f"the floor drive renders {sorted(floor)} against the ceiling "
+            f"drive's {sorted(ceiling)}. Those are not two payloads: either "
+            "this module has been pointed at _every_branch_taken twice, in "
+            "which case its floor half is its ceiling half restated, or the "
+            "producer has stopped gating sections and the two fixtures no "
+            "longer separate"
+        )
+
+
+class TestTheTwoFloorLedgersAgree:
+    """The section floor and the field floor describe one payload, and a
+    disagreement between them is a gap rather than a contradiction.
+
+    These are also what stop :data:`FLOOR_FIELDS` being emptied quietly.  The
+    parametrised guard below is green without running over an empty mapping —
+    ``RETIRED_FIELDS``' problem, which that ledger answers with a synthetic —
+    and this one answers it structurally instead: a floored title that cannot
+    be excused must be ledgered, so the population cannot reach zero while the
+    sibling declares a floor at all.
+    """
+
+    def test_every_floor_field_set_names_a_floor_section(self) -> None:
+        stranded = set(FLOOR_FIELDS) - set(FLOOR_TITLES)
+        assert not stranded, (
+            f"{sorted(stranded)} declare floor field names and are not in the "
+            "sibling's FLOOR_TITLES, so they are not served on a morning when "
+            "nothing was gathered and this ledger promises a consumer "
+            "something it does not always get"
+        )
+
+    def test_every_floor_section_is_ledgered_or_excused(self) -> None:
+        """Totality, so a second section joining the floor is a decision.
+
+        A floored section with no field names at all — a ``text`` section, of
+        which this producer serves three — is excused by
+        :data:`UNPINNED_SECTIONS` for the reason it is already excused above.
+        What must not happen is that it is in neither, because a section
+        nobody classified reads exactly like one somebody decided about.
+        """
+        unaccounted = set(FLOOR_TITLES) - set(FLOOR_FIELDS) - set(UNPINNED_SECTIONS)
+        assert not unaccounted, (
+            f"{sorted(unaccounted)} are served on the producer's worst morning "
+            "and appear in neither FLOOR_FIELDS nor UNPINNED_SECTIONS. A "
+            "section that joins the floor makes its field names a guarantee, "
+            "and a guarantee nobody wrote down is one nobody can withdraw "
+            "deliberately"
+        )
+
+    def test_a_floored_section_is_a_ledgered_section(self) -> None:
+        """The clause that routes the literals premise onto the floor.
+
+        :class:`TestTheLedgeredSectionsSpellTheirFieldsInTheProducer` is
+        parametrised over :data:`SECTION_FIELDS`, and it is the only thing
+        keeping *any* rendered-keys assertion in this file honest.  A floored
+        section excused from that ledger would have its floor measured by a
+        drive with no tripwire under it — the ``Filesystem`` circularity,
+        arriving at the one assertion that claims a guarantee.
+        """
+        unledgered = set(FLOOR_FIELDS) - set(SECTION_FIELDS)
+        assert not unledgered, (
+            f"{sorted(unledgered)} declare floor field names and are not in "
+            "SECTION_FIELDS, so nothing asserts that those names are literals "
+            "in the producer and the floor below is read off a render that may "
+            "be quoting the fixture back"
+        )
+
+
+class TestTheFieldListHasAFloor:
+    """What a consumer always receives, as one assertion rather than two.
+
+    This is the statement ``SNAG-BRIEF-007`` says is owed: not *"the section
+    arrives"* and *"its keys are these"*, but the pair, measured at the
+    payload where the pair is in doubt.
+    """
+
+    @pytest.mark.parametrize("title", sorted(FLOOR_FIELDS))
+    def test_the_producer_serves_them_when_it_has_gathered_nothing(
+        self, title: str
+    ) -> None:
+        """Order is asserted for :meth:`TestTheProducerServesExactlyTheLedger
+        .test_the_fields_and_their_order`'s reason — ``DigestMetrics.vue``
+        renders ``Object.entries(data)``, so the cells reach the reader in the
+        order they arrive."""
+        rendered = {section["title"]: section for section in _rendered_floor()}
+        assert title in rendered, (
+            f"{title!r} declares floor field names and was not served at all "
+            "by a producer that gathered nothing; the sibling's FLOOR_TITLES "
+            "and this ledger disagree about the same payload"
+        )
+        served = tuple(rendered[title]["data"])
+        assert served == FLOOR_FIELDS[title], (
+            f"{title!r} serves {served!r} on a morning with nothing gathered, "
+            f"against a declared floor of {FLOOR_FIELDS[title]!r}. A name "
+            "joining the floor is a stronger guarantee and belongs here; one "
+            "leaving it is a guarantee withdrawn, and "
+            f"{SECTION_FIELDS[title].on_rename} is what Alfred does with a "
+            "name it stops receiving — silently, and in production"
+        )
+
+    @pytest.mark.parametrize("title", sorted(FLOOR_FIELDS))
+    def test_the_floor_is_inside_the_served_ledger(self, title: str) -> None:
+        """A name always served and not served at the ceiling is incoherent,
+        and would mean one of the two drives is measuring its fixture."""
+        outside = set(FLOOR_FIELDS[title]) - set(SECTION_FIELDS[title].fields)
+        assert not outside, (
+            f"{sorted(outside)} are declared as {title!r}'s floor and are not "
+            "in its served ledger, so a field arrives on the producer's worst "
+            "morning and not on its best one"
         )

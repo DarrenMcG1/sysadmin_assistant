@@ -582,8 +582,11 @@ def render_sections(gathered: dict[str, Any]) -> list[dict[str, Any]]:
     uninstrumented cross-repo measurements, message ``4bccc5e9``,
     2026-09-21), having argued the first from a sentence of their own
     that contained the second.
-    :mod:`tests.test_briefing_sections_are_additive` holds the floor;
-    the ledger beside it holds the ceiling.
+    :mod:`tests.test_briefing_sections_are_additive` holds both halves
+    of that — what this list may carry and what it always does — and
+    :mod:`tests.test_briefing_fields_are_additive` asks the same pair
+    one level down, of the ``data`` keys inside a section rather than
+    of the sections themselves.
     """
     sections: list[dict[str, Any]] = []
 

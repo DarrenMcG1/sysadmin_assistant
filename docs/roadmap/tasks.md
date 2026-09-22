@@ -4,7 +4,69 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-21
+> **Last Updated**: 2026-09-22
+
+---
+
+## Session 246: the field ledger gains a floor, and the composition it replaces is green under the mutation that breaks it ✅ (2026-09-22)
+
+Closed `SNAG-BRIEF-007`, opened by the previous sitting as the measured limit
+of its own fix. `tests/test_briefing_fields_are_additive.py` drove
+`_every_branch_taken()` and nothing else, so *"a consumer always receives
+`Entries`, `Errors` and `Sources`"* was true of this producer and asserted
+nowhere. `FLOOR_FIELDS` states it and six tests hold it. Suite
+**4199 → 4205**, green. One `sysadmin/` file changed and it is a docstring, so
+one restart was paid after the tree was frozen.
+
+- [x] **The composition was driven rather than argued about, and it fails.**
+      Section floor plus field ledger reads: the section always arrives, its
+      keys are those three, therefore the three always arrive. The second
+      premise is measured at a payload **with data in it**, and this file
+      reads its keys back off a *render* — honest only while the producer
+      spells them as literals. Turning `Overnight Logs`' `data` into a
+      comprehension leaves `tests/test_briefing_sections_are_additive.py`
+      **entirely green at 21 passed** while reddening three tests here. Not a
+      shape invented for the argument: `Filesystem` has been exactly it since
+      2026-08-11 (`SNAG-BRIEF-006`), a *ledgered* section that stopped being
+      one
+- [x] **`FLOOR_FIELDS` beside `SECTION_FIELDS`**, with the drive at
+      `_nothing_gathered()` — the sibling's fixture, imported rather than
+      restated, so its two premises about that fixture's own falsity carry
+      here unchanged. Order is asserted as well as membership, for the
+      ceiling guard's reason: `DigestMetrics.vue` renders
+      `Object.entries(data)`
+- [x] **The sibling's floor drive is self-asserting and this one is not**,
+      which is the test neither the entry nor the handoff specified. That one
+      renders a single section where its ceiling renders six, so a wrong
+      fixture reddens it; measured here, the floored section serves the same
+      three names under **both** fixtures, so swapping `_nothing_gathered()`
+      for `_every_branch_taken()` leaves every floor assertion green and the
+      module claims a guarantee it never measured. A guard's fixture choice
+      is part of its claim, and `TestTheFloorDriveIsAFloor` pins the floor
+      payload as a *strict* subset of the ceiling's. The obvious premise —
+      that the two drives serve *different* field sets — is refused in
+      writing, because it is false and should be: a field set surviving the
+      empty case unchanged is the strongest reading of this seam
+- [x] **The emptiness problem is answered structurally, not by forgery.** A
+      parametrised guard over an empty mapping is green without running;
+      `RETIRED_FIELDS` answers that with a synthetic retirement and a floor
+      has no synthetic available. Totality answers it instead — a floored
+      title that cannot be excused into `UNPINNED_SECTIONS` must be ledgered
+      — so the population cannot reach zero while the sibling declares a
+      floor at all
+- [x] **Six mutations driven, all six land on the intended tests, none
+      green**, and five are caught nowhere else in the suite: the
+      comprehension, the emptied ledger, the fixture swap, a floor field set
+      naming a section that is not floored, and a floor field outside the
+      served ledger. The sixth — making the floor section conditional — is
+      caught here *and* by the sibling, which is the composition working in
+      the direction it does work
+- [x] **One `sysadmin/` docstring corrected**, because the change made it
+      wrong: `render_sections` closed by naming which module holds the floor
+      and which the ceiling, and both modules hold both now
+- [x] Documentation updated: `snag_list.md` (`SNAG-BRIEF-007` closed in both
+      readers, confirmed with `estate.snags` at 40 → 39 open), `STATUS.md`,
+      `tasks.md`, `HANDOFF.md`
 
 ---
 

@@ -1,8 +1,87 @@
-# Handoff — 2026-09-21 (Session 245)
+# Handoff — 2026-09-22 (Session 246)
 
 ## Next action
 
+Take the sitting estate message `160c0f32` was left open for: read the arbiter reply whole and decide what this repository owes its GPU entries, if anything. *(For: session, ~45 min)*
+
+*It is startable and it is not the obvious candidate.* Session 245 left
+`160c0f32` open on purpose — *"a reply worth a sitting of its own, and
+closing it in passing would discard that"* — and it is the only work in
+front of this repository that a register entry does not already hold as
+`blocked`, `decided` or `delegated`. The line names **no** register entry
+deliberately: all 39 open ones declare one of those three and none declares
+`owed`, so naming one would publish a disposition saying work is owed that
+the register says is not. The reply establishes three things this tree
+believed without evidence — that their sampler is live on every tick, that
+it reads **low** rather than high, and that per-process GPU attribution does
+not exist on this box — and at least the first two bear on `SNAG-GPU-003`'s
+central claim. What the sitting decides is whether any of that changes an
+entry here or whether the residue is entirely theirs.
+
+*What this sitting did.* Closed `SNAG-BRIEF-007`, which the previous sitting
+opened as the measured limit of its own fix. The briefing's field-name
+ledger had a ceiling and no floor: `tests/test_briefing_fields_are_additive.py`
+drove `_every_branch_taken()` and nothing else, so *"a consumer always
+receives `Entries`, `Errors` and `Sources`"* was true of this producer and
+asserted nowhere. `FLOOR_FIELDS` states it and six tests hold it. Suite
+**4199 → 4205**, green (4203 passed, 2 skipped); ruff and mypy clean.
+
+*The composition the entry called insufficient was driven, not argued about,
+and it is insufficient.* Turning `Overnight Logs`' `data` into a
+comprehension leaves `tests/test_briefing_sections_are_additive.py`
+**entirely green at 21 passed** while reddening three tests in the field
+ledger — because that file reads its ledgered keys back off a *render*,
+which is honest only while the producer spells them as literals. The shape
+is not hypothetical: `Filesystem` has been exactly it since 2026-08-11
+(`SNAG-BRIEF-006`), and it is a *ledgered* section that stopped being one.
+
+*One test was outside the entry's specification and is the one worth the
+sitting.* The entry and the handoff both asked for a `FLOOR_FIELDS` and a
+drive of the floor fixture, and both are here. Neither could see that the
+sibling's floor drive is **self-asserting** and this one is not: that one
+renders a single section where its ceiling renders six, so a wrong fixture
+reddens it, while here the floored section serves the same three names under
+**both** fixtures — so swapping `_nothing_gathered()` for
+`_every_branch_taken()` leaves every floor assertion green and the module
+claims a guarantee it never measured. A guard's fixture choice is part of
+its claim. `TestTheFloorDriveIsAFloor` pins the floor payload as a *strict*
+subset of the ceiling's, and the obvious premise — that the two drives serve
+*different* field sets — is refused in writing, because it is false and
+should be.
+
+*The empty-population problem was answered structurally rather than by
+forgery.* A parametrised guard over an empty mapping is green without
+running; `RETIRED_FIELDS` one class up answers that with a synthetic
+retirement, and a floor has no synthetic available. Totality answers it
+instead — a floored title that cannot be excused into `UNPINNED_SECTIONS`
+must be ledgered — so the population cannot reach zero while the sibling
+declares a floor at all.
+
+*Six mutations driven, all six land on the intended tests, none green, and
+five are caught nowhere else in the suite.* The sixth, making the floor
+section conditional, is caught here and by the sibling, which is the
+composition working in the direction it does work.
+
+*One `sysadmin/` file changed and it is a docstring.* `render_sections`
+closed by naming which module holds the floor and which the ceiling, and
+both modules hold both now. The restart was paid once, after the tree was
+frozen: daemon restarted at **2026-09-22 10:18:45**, `/health` 200.
+
+### The action Session 245 handed on (discharged by Session 246)
+
 Give the briefing's field-name ledger the floor the section ledger now has, so the three fields a consumer always receives stop being a composition. *(For: session, ~30 min)*
+
+*Discharged in full, and wider than the line asked for.* Both moves it
+specified are here — a `FLOOR_FIELDS` beside `SECTION_FIELDS`, and a drive of
+the sibling's `_nothing_gathered()` — and the payload it predicted is what
+was served: `Entries`, `Errors`, `Sources`. The line's own reason for being
+worth doing was checked rather than taken, by driving the comprehension
+mutation it describes: the section ledger stays **entirely green at 21
+passed** under it. What the line could not have named is that the sibling's
+floor drive is self-asserting and this one is not, which is a sixth test and
+the one this sitting would defend first.
+
+# Handoff — 2026-09-21 (Session 245)
 
 *It is startable because the shape is already built one level up.*
 `tests/test_briefing_sections_are_additive.py` now declares `FLOOR_TITLES`
