@@ -463,6 +463,42 @@ class TestResourceSnapshot:
         assert snapshot.gpu_usage["card0"]["gpu_percent"] == 30
 
     @pytest.mark.asyncio
+    async def test_the_collector_is_given_the_configured_slot(self, agent, mock_config):
+        """The agent hands over ``config.llm.gpu_pci_slot``, which is what
+        makes "how busy is the card" and "is the card too busy to
+        dispatch" one counter on one device (`SNAG-GPU-004`).
+
+        The slot asserted here is deliberately **not** the estate default
+        the collector falls back to: an assertion against that value
+        passes whether the agent passes anything at all, so a
+        ``config.yaml`` override could reach the LLM gate and not the
+        collector with every test still green.
+        """
+        config = mock_config.model_copy(deep=True)
+        config.llm.gpu_pci_slot = "0000:99:00.0"
+
+        with (
+            patch("sysadmin.monitor.agent.psutil") as mock_psutil,
+            patch(
+                "sysadmin.monitor.agent.get_gpu_usage", new_callable=AsyncMock
+            ) as mock_gpu,
+        ):
+            mock_psutil.cpu_percent.return_value = 1.0
+            mock_psutil.virtual_memory.return_value = VMemory(
+                used=1024**3, total=2 * 1024**3, percent=50.0
+            )
+            mock_psutil.swap_memory.return_value = SwapInfo(
+                used=0, total=1024**3, percent=0.0
+            )
+            mock_psutil.getloadavg.return_value = (1.0, 1.0, 1.0)
+            mock_psutil.disk_partitions.return_value = []
+            mock_gpu.return_value = {}
+
+            await agent._take_resource_snapshot(config)
+
+        mock_gpu.assert_awaited_once_with("0000:99:00.0")
+
+    @pytest.mark.asyncio
     async def test_psutil_calls_run_off_event_loop(self, agent, mock_config):
         """cpu_percent(interval=1) blocks for 1s — it must not run on the loop (SNAG-API-003)."""
         import asyncio

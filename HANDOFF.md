@@ -1,8 +1,114 @@
-# Handoff — 2026-09-22 (Session 247)
+# Handoff — 2026-09-22 (Session 248)
 
 ## Next action
 
+Read the estate's new `gpu_floor` object in `judge_queue_invariants`, then close estate message `a3923a29-415a-4f9d-bbaa-8deb9c98fc06`. *(For: session, ~45 min)*
+
+*It is startable, it is the only work in front of this repository that no
+register entry already holds, and the producer has already shipped its half.*
+The register has **no `owed` entry left** — 31 `decided`, 5 `delegated`, 3
+`blocked`, and the last two `owed` were closed by this sitting — so the line
+names no SNAG id deliberately: naming one would publish a disposition saying
+work is owed that the entry's own body says is not. What it names instead is
+the open estate message, which is real work with a live producer behind it:
+`GET :8400/api/queue/invariants` now carries `gpu_floor` with `percent`,
+`read_at`, `threshold_percent` and `reading`, verified live this sitting at
+`{"percent": 13, "threshold_percent": 25, "reading": "sampled"}`. **Both
+operands, no verdict — the comparison stays ours**, which is the seam their
+announcement is careful about and the thing to preserve when reading it.
+
+*It bears on `SNAG-GPU-003` and does not close it, and the distinction is
+worth carrying in.* That entry is `decided`, and what it says still needs the
+producer to supply is *which of the two* the arbiter is refusing on — a holder
+or a floor. `waiting_reason` answers the first; `gpu_floor.reading` is the
+evidence for the second, and `nothing_granted` beside a floor reading is the
+pair that was missing. Whether that is enough to move the entry is the
+sitting's to decide, not this line's to assert. Note the trap the rest of
+`judge_queue_invariants` already records: **the mask is read, never
+recomputed**, so `percent` against `threshold_percent` is the producer's
+comparand pair and reconstructing a verdict from our own constant would make
+this a second implementation of their derivation. And `reading` has four
+values of which `null` and `unreadable` are different kinds of not-knowing —
+`ports_checked`'s rule at the size of a dict key, which that function has
+already been caught by once.
+
+*What this sitting did.* Closed `SNAG-GPU-004` and `SNAG-GPU-005` together,
+as the last handoff asked, because they are one defect read at two altitudes:
+a `cardN` index is a vocabulary and not an identity. `gpu_percent` for the
+dGPU is now `estate.gpu.sample_gpu_busy` resolved by PCI slot, `rocm-smi`
+keeps product name, temperature, VRAM and power, and every row on both paths
+carries `pci_slot` and `gpu_percent_source`.
+
+*The ordering was half the fix and the entry had filed it as corroboration.*
+It recorded that a sysfs read bracketing one `rocm-smi` call gave sd **0.2**
+before and **3.1** ~55 ms after, off the same file. That is not supporting
+evidence, it is a rule: a fix that sampled the counter *after* spawning the
+subprocesses would inherit the perturbation it exists to remove, pass every
+test written for it, and merely measure less badly. The call is made before
+anything is spawned and one test records the call *order*, because no
+assertion about a returned value can see it.
+
+*The spread was measured within one run either side, which is the only
+comparison that holds.* Interleaved arms, same card, n=20 each: before, the
+collector read sd **9.5** over **6–51** while the counter beside it read sd
+**2.7** over **12–25**; after, both arms read sd **0.5** over **12–13** and
+agreed on min, max, mean and sd. Comparing across runs would have credited
+the fix with the card going quiet — the entry's own "13× noisier" is an
+across-run ratio, and the within-run one is 3.5×.
+
+*Two guards where the entry specified one, and the second is the one that
+keeps the fix from going silently inert.* The fixture stub is pinned by
+identity rather than value — the fixture's own `GPU use (%)` is 18, so a stub
+returning 18 passes against the unfixed collector — and `tests/test_gpu_live.py`
+asks the real tool whether it still publishes the key the slot match is made
+on, because a `rocm-smi` that dropped `--showbus` would leave every row
+reverting to the perturbed figure with nothing red. That premise test was
+itself a second statement of the module's invocation until `METRICS_ARGS` was
+given one home. **Eight mutations driven, each landing on the guard written
+for it**, the file restored byte-identically and the restore witnessed.
+
+*The historic rows are deliberately not backfilled, and the reason is that
+they need no witness.* `SNAG-GPU-005`'s single fallback specimen carries
+`card0` at 2048 MB beside `card1` at 24560 — it identifies its own devices
+from inside itself, so nothing is recoverable that a reader does not already
+have, and writing today's enumeration onto a seven-week-old row asserts a
+mapping no evidence from that day supports. `message_backfill` could repair
+its ten rows because `raw_line` made the repair *exact*; there is no such
+witness here, and a repair that cannot be witnessed is refused rather than
+approximated.
+
+*Suite 4205 → 4221, green* (4219 passed, 2 skipped); ruff and mypy clean; ops
+claims 15 of 15 `ok`. Two `sysadmin/` files changed and the tree was frozen
+before the restart was paid, so it was paid once: daemon restarted at
+2026-09-22 17:16:04, `NRestarts` 14 → 15, `/health` 200. The live row reads
+`gpu_percent: 15` from `sysfs` beside VRAM 12,902 MB and 85 W — and the
+estate's own floor read **13** at the same hour, which is the two instruments
+agreeing for the first time.
+
+*The announce-by-filing rule was checked and the audience is measured empty.*
+`GET /api/sysadmin/resources` and the briefing's `resources.gpu` blob gained
+two keys, and the *meaning* of `gpu_percent` changed instrument — so the rule
+applies on its face. Swept across `~/projects`: every reader of `gpu_percent`
+is inside this repository (the collector, four test modules), none in Alfred
+or estate-manager, and estate rule 1 forbids them the database. A
+measured-empty audience files nothing, and this sentence exists so the
+nothing reads as *measured* rather than as *nobody looked*.
+
+### The action Session 247 handed on (discharged by Session 248)
+
 Take `SNAG-GPU-004`: read the dGPU's utilisation from `estate.gpu.sample_gpu_busy` by PCI slot, keep `rocm-smi` for name, temperature, VRAM and power, and pin the spread. *(For: session, ~60 min)*
+
+*Discharged in full, and the one place it was wider than the line is the
+ordering.* Both moves it specified are here — the counter by PCI slot, and
+`rocm-smi` kept for the four fields it alone supplies — and the spread is
+pinned the way the line's own paragraph proposed, by the cheap route rather
+than the statistical one: the collector and the gate read one file, so the
+test is that they return the same number and not similar ones. What the line
+could not have said is that reading that file in the wrong *place* rebuilds
+the defect at reduced amplitude, which is why a call-order test exists that
+nothing in the specification asked for.
+
+# Handoff — 2026-09-22 (Session 247)
 
 *It is startable, it is entirely inside this repository, and the measurement
 it needs is already taken.* `SNAG-GPU-004` is one of two entries this sitting

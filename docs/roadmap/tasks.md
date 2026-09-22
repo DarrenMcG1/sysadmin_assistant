@@ -8,6 +8,66 @@
 
 ---
 
+## Session 248: the collector reads the counter the gate reads, and the ordering was half the fix ✅ (2026-09-22)
+
+Took `SNAG-GPU-004` with `SNAG-GPU-005` riding along, as `HANDOFF.md` asked —
+one edit in one module, because both entries are the same defect read at two
+altitudes: a `cardN` index is a vocabulary and not an identity. `gpu_percent`
+for the dGPU now comes from `estate.gpu.sample_gpu_busy` resolved by PCI slot,
+`rocm-smi` keeps what it alone supplies, and every row on **both** paths says
+which instrument answered and which PCI device it is about.
+
+- [x] **The utilisation figure moved to the counter, and the ordering turned
+      out to be half the fix rather than a detail.** The entry recorded, as
+      corroboration, that a sysfs read bracketing one `rocm-smi` call had sd
+      **0.2** before it and **3.1** ~55 ms after — off the same file. That is
+      not corroboration, it is a rule: a fix that read the counter *after*
+      spawning the subprocesses would inherit the perturbation it exists to
+      remove, ship green, and measure slightly less badly. `sample_gpu_busy`
+      is called before anything is spawned, and one test pins the call order
+      because no assertion about the returned value can see it.
+- [x] **`--showbus` rides in the existing invocation, so the slot costs no
+      subprocess.** `rocm-smi` publishes `PCI Bus` per card in the same JSON
+      as temperature, meminfo and power — measured before it was designed on
+      — so resolving the dGPU by slot adds one dict key and no process. The
+      match is `data["PCI Bus"] == dgpu_pci_slot`, never `card_id == "card0"`,
+      which would work on this box by luck and name the iGPU on a box that
+      enumerates the other way.
+- [x] **The spread was measured within one run either side, which is the only
+      comparison that holds.** Interleaved arms on the same card, n=20 each:
+      before, the collector was sd **9.5** over a range of **6–51** while the
+      counter beside it was sd **2.7** over **12–25**; after, both arms read
+      sd **0.5** over **12–13** and agreed on min, max, mean and sd. Comparing
+      across runs would have credited the fix with the card going quiet.
+- [x] **Every row carries `gpu_percent_source`, because a perturbed reading
+      and a clean one are the same integer in the same field.** `SNAG-API-004`'s
+      lesson: only the source separates a literal from a derivation. The iGPU
+      keeps `rocm-smi`'s figure — `sample_gpu_busy` answers for one slot — and
+      the mixed payload is legible rather than silent.
+- [x] **Eight mutations driven and each lands on the guard written for it.**
+      Reverting the source, dropping `--showbus`, sampling after the spawn,
+      matching on the index, blanking the sysfs slot, ignoring the caller's
+      slot, reading the link name unresolved, and the agent dropping
+      `config.llm.gpu_pci_slot`. The file was restored byte-identically after
+      each and the restore witnessed rather than assumed.
+- [x] **The premise test was a second statement of the invocation before it
+      was fixed.** It hard-coded the `rocm-smi` flags to ask whether the tool
+      still publishes the bus key, so the module's argument list and the
+      test's could part company and the guard would go on asking the wrong
+      question. `METRICS_ARGS` is the one home and the test spreads it.
+- [x] **Verified live on the restarted daemon rather than only in fixtures.**
+      The stored row reads `pci_slot: 0000:03:00.0`, `gpu_percent: 15`,
+      `gpu_percent_source: sysfs`, beside VRAM **12,902 MB** and **85 W** — a
+      row that no longer refutes itself in its own columns, which is exactly
+      what the 36 snapshots inside the estate's coverage runs were doing.
+- [x] **The historic rows are deliberately not backfilled, and the reason is
+      that they need no witness.** `SNAG-GPU-005`'s single fallback specimen
+      carries `card0` at **2048 MB** beside `card1` at **24560** — the row
+      already identifies its own devices, from inside itself, so nothing is
+      recoverable that is not already there. Asserting today's enumeration
+      onto a seven-week-old row is a claim no witness supports, which is the
+      test `message_backfill` passed on `raw_line` and this cannot.
+
 ## Session 247: the estate's sampler was right, and the instrument that was wrong was ours ✅ (2026-09-22)
 
 Read estate message `160c0f32` whole as `HANDOFF.md` asked, and decided what

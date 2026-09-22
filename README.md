@@ -17,8 +17,8 @@ carry out) tidy-up actions.
 
 It is built for exactly one box and does not try to be Prometheus, so the code
 is unlikely to be useful to you directly. **The written record might be.** The
-roadmap alone runs to about 27,200 lines — of roughly 44,300 lines of Markdown
-in the repository altogether, measured 2026-09-13 — and it exists because most
+roadmap alone runs to about 31,700 lines — of roughly 52,400 lines of Markdown
+in the repository altogether, measured 2026-09-22 — and it exists because most
 repositories keep their reasoning in someone's head and ship only the result.
 This one keeps the reasoning: what each change was measured against, which
 options were rejected and why, which guards were deliberately falsified, which
@@ -161,8 +161,8 @@ uv run mypy sysadmin     # backend types only
 ./scripts/smoke_test.sh  # against a running instance
 ```
 
-There is more test code than source: about **73,500 lines of tests** against
-roughly 51,900 of backend and 6,150 of tray, measured 2026-09-13. Tests build
+There is more test code than source: about **77,700 lines of tests** against
+roughly 52,000 of backend and 6,160 of tray, measured 2026-09-22. Tests build
 the real application via `create_app` with a stubbed lifespan, so there is no
 synthetic test app to drift.
 

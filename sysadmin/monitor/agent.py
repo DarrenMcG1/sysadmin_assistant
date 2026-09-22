@@ -1727,9 +1727,13 @@ class SysAdminAgent(BaseAgent):
             self._collect_resource_metrics
         )
 
-        # GPU usage (AMD via rocm-smi / sysfs)
+        # GPU usage (AMD via rocm-smi / sysfs).  The slot is the LLM
+        # gate's, so "how busy does this service say the card is" and
+        # "is the card too busy to dispatch" are one counter on one
+        # device rather than two instruments answering in one vocabulary
+        # (SNAG-GPU-004).
         try:
-            gpu_usage = await get_gpu_usage()
+            gpu_usage = await get_gpu_usage(config.llm.gpu_pci_slot)
         except Exception:
             logger.debug("gpu monitoring failed", exc_info=True)
             gpu_usage = {}
