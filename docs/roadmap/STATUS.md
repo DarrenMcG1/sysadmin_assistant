@@ -3,6 +3,52 @@
 **Last Updated**: 2026-09-22
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The estate's sampler was right, and the instrument that was wrong was
+> ours** (2026-09-22, Session 247, reading estate message `160c0f32` whole and
+> closing it; reply filed as `1c9616ca-ab7a-4e97-8892-78b809972d8a`). Their
+> reply established that the arbiter's GPU floor reading is live on every tick
+> and reads **low** — both the opposite of what `SNAG-GPU-003` inferred — and
+> then stopped at the seam, because estate rule 1 forbids them reading our
+> database. The one explanation left sat on the side neither party had
+> instrumented, and it is this repository's.
+>
+> **`_from_rocm_smi` perturbs the number it reports.** It launches two
+> `rocm-smi` subprocesses concurrently, one of them querying temperature,
+> meminfo and power, and those sensor queries are themselves GPU work landing
+> inside the window the utilisation figure is averaged over. Three arms,
+> interleaved, same card, same minute, thirty samples each: sysfs
+> `gpu_busy_percent` sd **0.7**, a single `rocm-smi --showuse` sd **0.8**, our
+> production collector sd **9.3** — with two readings of exactly **0** against
+> a card sitting steadily at 13 %. `rocm-smi` is not the culprit; our
+> invocation is.
+>
+> **The figure this service publishes is therefore not the counter the GPU
+> gate reads**, and nothing said so. Under production spacing, 36 snapshots
+> fall inside the estate's two coverage runs of 2026-09-21; **16 read below
+> 38 %** — their minimum floor, itself a min-of-4 that can only read low — and
+> **4 read exactly 0**, while the same rows carry VRAM ≥ 10,476 MB and power
+> ≥ 85 W. The rows refute themselves in two other columns.
+>
+> **Every previous check of this reader passed because they compared means.**
+> Over that coverage our mean is **40.6** against their 38–40: the two
+> instruments agree on the mean and disagree entirely on the spread. This
+> sitting made the same mistake in its own first fifteen minutes before a run
+> reporting spread separated them, which is why `SNAG-GPU-004` says so rather
+> than implying it. A verification that takes the wrong statistic is not weak
+> evidence — it is evidence for a different claim.
+>
+> Opened `SNAG-GPU-004` (P2, **owed** — the collector perturbs its own
+> reading) and `SNAG-GPU-005` (P4, owed — the sysfs fallback keys on `cardN`,
+> so `card0` is the iGPU on that path, one live specimen in 3,574 rows). The
+> two refuted bullets of `SNAG-GPU-003` are struck in place rather than
+> deleted and it moves `blocked` → `decided`; its structural finding, *a lease
+> is not a place to wait for a floor*, never depended on whose instrument was
+> right and is untouched. The fix is named and deliberately unwritten: it
+> changes a production collector on a 300 s loop and is owed tests, including
+> one pinning the **spread**, since every existing test of that module pins a
+> value and a value is what was never wrong. No `sysadmin/` file changed this
+> sitting, so the restart Session 246 paid still stands and none is owed.
+
 > **The field ledger has a floor now, and the composition it replaces is
 > green under the one mutation that breaks it** (2026-09-22, Session 246,
 > closing `SNAG-BRIEF-007`). `tests/test_briefing_fields_are_additive.py`
@@ -47,9 +93,10 @@
 > naming which module holds which half, which this change made wrong — so
 > the restart was paid once, after the tree was frozen: daemon restarted at
 > **2026-09-22 10:18:45** <!--check:deploy--> <!--check:daemon_start-->,
-> `NRestarts` 13 → 14, `/health` 200. estate message `160c0f32` is still
-> **open** and deliberately so, Session 245 having left it as a reply worth
-> a sitting of its own.
+> `NRestarts` 13 → 14, `/health` 200. estate message `160c0f32` was left
+> **open** deliberately, Session 245 having judged it a reply worth a sitting
+> of its own — **read, answered and closed by Session 247**, which is the
+> block above.
 
 > **The omit rule has an exception, and the exception is a guarantee**
 > (2026-09-21, Session 245, discharging Session 244's handoff and closing
@@ -7148,6 +7195,32 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 247 — the estate's sampler was right, and the instrument that was wrong was ours (2026-09-22)
+
+Read estate message `160c0f32` whole as the handoff asked and decided what this
+repository owes its GPU entries: two new ones, both its own. estate-manager's
+reply established that the arbiter's floor reading is live on every tick and
+reads **low**, then stopped at the seam because estate rule 1 forbids them
+reading our database — leaving one explanation, on the side neither party had
+instrumented.
+
+**`_from_rocm_smi` perturbs the number it reports.** Three interleaved arms,
+same card, same minute, n=30: sysfs sd **0.7**, one `rocm-smi --showuse` sd
+**0.8**, our production collector sd **9.3** with two readings of exactly 0
+against a card sitting at 13 %. The tool is fine; our invocation — two
+concurrent subprocesses, one querying temperature, meminfo and power — is not.
+
+**Every previous check of this reader passed because they compared means.** Over
+the estate's coverage our mean is **40.6** against their 38–40: the instruments
+agree on the mean and disagree entirely on the spread. `SNAG-GPU-004` (P2,
+owed) and `SNAG-GPU-005` (P4, owed) opened; `SNAG-GPU-003`'s two refuted
+bullets struck in place and the entry moved `blocked` → `decided`, its
+structural finding untouched. Reply filed as
+`1c9616ca-ab7a-4e97-8892-78b809972d8a`. No code changed, so the suite and the
+restart are unmoved; the fix is named and left for the sitting that can test
+its **spread**.
+
 
 ### Session 237 — a leaf with no reader is a property a test computes (2026-09-14)
 

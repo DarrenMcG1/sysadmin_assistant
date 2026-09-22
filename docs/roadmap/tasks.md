@@ -8,6 +8,60 @@
 
 ---
 
+## Session 247: the estate's sampler was right, and the instrument that was wrong was ours ✅ (2026-09-22)
+
+Read estate message `160c0f32` whole as `HANDOFF.md` asked, and decided what
+this repository owes its GPU entries. It owes two new ones. Their reply
+established that the arbiter's floor reading is live on every tick and reads
+**low** — both the opposite of what `SNAG-GPU-003` inferred — and stopped at
+the seam, because estate rule 1 forbids them reading our database. The one
+explanation left was on the side neither party had instrumented, and it is
+ours: `_from_rocm_smi` launches two `rocm-smi` subprocesses concurrently and
+the utilisation figure that comes back swings **0–39 %** against a card
+sitting at 13 %. No code changed; docs, register and one cross-repo reply.
+
+- [x] **Read the message whole and reproduced both sides before judging either.**
+      Their 1,670 floor lines reproduce (39 % ×1,486, 40 % ×127, 38 % ×57,
+      00:00:59 → 06:00:57 local, one coverage gap 02:00:52 → 05:00:02), and so
+      does our filing's `6, 0, 0, 0, 6, 0, 7` — which is `card0` in the stored
+      rocm-smi data and **is** the RX 7900 XTX, so the obvious "we read the
+      iGPU" hypothesis is refuted rather than assumed away
+- [x] **Separated the instrument from the invocation with three interleaved arms.**
+      sysfs sd **0.7**, one `rocm-smi --showuse` sd **0.8**, our production
+      `_from_rocm_smi` sd **9.3** with 2 zeros in 30 — same card, same minute.
+      `rocm-smi` is not the culprit; our invocation is. Corroborated by a
+      bracketed run where the sysfs read taken *before* each call had sd 0.2
+      and the one taken 55 ms *after* had sd 3.1, off the same file
+- [x] **Confirmed it under production spacing rather than in a tight loop.**
+      36 snapshots fall inside the estate's two coverage runs; **16 read below
+      38 %** (their minimum floor, itself a min-of-4 that can only read low)
+      and **4 read exactly 0**, while the same rows carry VRAM ≥ 10,476 MB and
+      power ≥ 85 W. The rows refute themselves in two other columns
+- [x] **Named why every previous check of this reader passed.** They compared
+      **means**, and over the estate's coverage our mean is **40.6** against
+      their 38–40 — the instruments agree on the mean and disagree entirely on
+      the spread. This sitting made the same mistake in its own first fifteen
+      minutes (15 paired samples, means agreeing) before a run reporting spread
+      separated them, which is why the entry says so rather than implying it
+- [x] **Opened `SNAG-GPU-004`** (P2, owed) — the collector perturbs its own
+      reading — and **`SNAG-GPU-005`** (P4, owed) — the sysfs fallback keys on
+      `cardN`, so `card0` is the iGPU on that path, with one live specimen in
+      3,574 rows. The second is the exact trap `lib/estate/gpu.py`'s own
+      docstring warns about, unread here
+- [x] **Struck the two refuted bullets of `SNAG-GPU-003` in place rather than
+      deleting them**, and moved it `blocked` → `decided`: the cross-repo
+      question it waited on is answered. Its structural finding — *a lease is
+      not a place to wait for a floor* — is untouched, because it never
+      depended on whose instrument was right
+- [x] **Answered the estate rather than only closing.** Reply filed as
+      `1c9616ca-ab7a-4e97-8892-78b809972d8a`; `160c0f32` closed with a note.
+      They spent a session disproving a doubt this repository cast on a correct
+      instrument, and the resolution was ours to hand back
+- [x] **Left the fix unwritten, deliberately.** It changes a production
+      collector on a 300 s loop and is owed tests — including one pinning the
+      **spread**, since every existing test of that module pins a value and a
+      value is what was never wrong
+
 ## Session 246: the field ledger gains a floor, and the composition it replaces is green under the mutation that breaks it ✅ (2026-09-22)
 
 Closed `SNAG-BRIEF-007`, opened by the previous sitting as the measured limit

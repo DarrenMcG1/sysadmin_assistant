@@ -1,8 +1,83 @@
-# Handoff — 2026-09-22 (Session 246)
+# Handoff — 2026-09-22 (Session 247)
 
 ## Next action
 
-Take the sitting estate message `160c0f32` was left open for: read the arbiter reply whole and decide what this repository owes its GPU entries, if anything. *(For: session, ~45 min)*
+Take `SNAG-GPU-004`: read the dGPU's utilisation from `estate.gpu.sample_gpu_busy` by PCI slot, keep `rocm-smi` for name, temperature, VRAM and power, and pin the spread. *(For: session, ~60 min)*
+
+*It is startable, it is entirely inside this repository, and the measurement
+it needs is already taken.* `SNAG-GPU-004` is one of two entries this sitting
+opened and the only one the register declares **owed** that a sitting should
+take alone — `SNAG-GPU-005` is the same edit in the same file and rides with
+it rather than earning its own sitting. The remedy is named in the entry:
+`_from_rocm_smi` launches two `rocm-smi` subprocesses concurrently and the
+`GPU use (%)` that comes back swings **0–39 %** against a card sitting at
+13 %, so the utilisation figure moves to the counter the GPU gate already
+reads and `rocm-smi` keeps only what it alone supplies — product name,
+temperature, VRAM, power.
+
+**The test is the part worth planning, and it is not the obvious one.** Every
+existing test of that module pins a *value*, and a value is what was never
+wrong: over the estate's coverage our mean is **40.6** against their 38–40,
+so a mean-comparison test passes against the defect and has done for the life
+of the collector. What has to be pinned is the **spread**, and the cheap
+version of that is stronger than a statistical one — once utilisation comes
+from `sample_gpu_busy`, the collector and the gate read one file, so the test
+is that they return the same number rather than similar ones. Pin the
+provenance too, not just the value: `SNAG-API-004`'s lesson, that a literal
+and a derivation both read alike and only the source separates them.
+
+**What this sitting did.** Read estate message `160c0f32` whole, as the last
+handoff asked, and decided what this repository owes its GPU entries: two new
+entries, both its own. estate-manager had established on their own instruments
+that the arbiter's floor reading is live on every tick — cadence, value-run
+structure and code path, three independent grounds — and that it reads **low**,
+min-of-4 being ≤ a single instantaneous read in 15 of 15 pairs. Both are the
+opposite of what `SNAG-GPU-003` inferred, and their reply then stopped at the
+seam, because estate rule 1 forbids them reading our database.
+
+*The one explanation left was on the side neither party had instrumented.*
+Three arms, interleaved, same card, same minute, thirty samples each: sysfs
+`gpu_busy_percent` sd **0.7**, a single `rocm-smi --showuse` sd **0.8**, our
+production `_from_rocm_smi` sd **9.3** with two readings of exactly 0. The tool
+is not the culprit; our invocation is, and the sensor queries it makes are
+themselves GPU work landing inside the window the figure is averaged over.
+Confirmed under production spacing rather than in a tight loop: of 36 snapshots
+inside the estate's two coverage runs, **16 read below 38 %** — their minimum
+floor, itself a min-of-4 that can only read low — and **4 read exactly 0**,
+while the same rows carry VRAM ≥ 10,476 MB and power ≥ 85 W.
+
+*Why this was never caught, and why the sitting nearly missed it too.* Every
+previous check compared **means**, and the instruments agree on the mean. This
+sitting's own first re-check was fifteen paired samples whose means agreed and
+which appeared to exonerate the collector a second time; only a run that
+reported spread separated them. The entry says so in its own words rather than
+implying it, because a verification that takes the wrong statistic is not weak
+evidence — it is evidence for a different claim.
+
+*What was decided about the existing entries.* `SNAG-GPU-003`'s two refuted
+bullets are struck **in place** rather than deleted, so the record of the wrong
+inference survives beside its correction, and the entry moves `blocked` →
+`decided`: the cross-repo question it waited on is answered. Its structural
+finding — *a lease is a place to wait for a holder and not for a floor* — never
+depended on whose instrument was right and is untouched. `SNAG-GPU-001` and
+`SNAG-GPU-002` were read and are unaffected.
+
+*The estate was answered rather than only closed.* They spent a session
+disproving a doubt this repository cast on a correct instrument, so the
+resolution was ours to hand back: reply `1c9616ca-ab7a-4e97-8892-78b809972d8a`,
+and `160c0f32` closed with a note. It does not attribute the load — their ~24 h
+bracket and their finding that per-process GPU attribution does not exist on
+this box both stand — and it does not touch their `SNAG-ESTATE-200`, though
+this exchange is an argument for it: had the floor been on a published surface,
+the two instruments would have been compared a month ago instead of one being
+filed against.
+
+*No code changed.* Docs, the register and one cross-repo reply. The suite is
+unmoved and green (4203 passed, 2 skipped, re-run either side); ruff and mypy
+clean; ops claims 18 of 18 `ok`. No `sysadmin/` file was touched, so the
+restart Session 246 paid still stands and none is owed.
+
+# Handoff — 2026-09-22 (Session 246)
 
 *It is startable and it is not the obvious candidate.* Session 245 left
 `160c0f32` open on purpose — *"a reply worth a sitting of its own, and
