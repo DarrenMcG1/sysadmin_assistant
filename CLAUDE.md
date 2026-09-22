@@ -2457,6 +2457,21 @@ to threshold. The rejection stands and the condition is named anyway. `base_url`
 would stop the judging silently when a service is renamed — and a test
 asserts the two agree.
 
+**`nothing_granted` names its limb now, and the verdict is ours by the
+producer's design** (2026-09-22, Session 249, estate message `a3923a29`,
+their ADR-0189). The queue surface carries `gpu_floor` — the arbiter's
+last floor `percent`, `read_at`, its own `threshold_percent` and a
+`reading` of `null`/`sampled`/`unreadable` — with both operands and no
+verdict. `judgements._floor_verdict` compares with the arbiter's own
+operator (`>`, strictly: at the boundary it grants) against the
+**published** comparand, never `llm.gpu_busy_threshold`; only
+`over_threshold` puts the fault on the card, and every other reading is
+one the arbiter grants on, so a stranded waiter beside it is the tick
+loop. An absent `gpu_floor` is not a `null` reading and keeps the
+two-limb sentence; the reading's age is stated in the message and never
+thresholded, because the tick cadence is not published. The title does
+not move with the limb. `SNAG-GPU-003` carries the rest.
+
 **The GPU figure this service publishes is the counter the GPU gate
 reads, and until 2026-09-22 it was a different instrument answering in
 the same vocabulary** (Session 248, `SNAG-GPU-004`). `sysadmin/monitor/gpu.py`

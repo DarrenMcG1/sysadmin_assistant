@@ -28,6 +28,7 @@ Live values used below, read from 8400 on 2026-08-13:
 
 import json
 import re
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,11 @@ from sysadmin.estate.judgements import (
     CHECK_ERROR_CHARS,
     DEFAULT_SEVERITY,
     ERRORED_REASONS_LISTED,
+    FLOOR_OVER_THRESHOLD,
+    FLOOR_UNREADABLE,
+    FLOOR_UNSAMPLED,
+    FLOOR_WOULD_GRANT,
+    GPU_FLOOR_KEY,
     HEALTH_ROLLUP_TITLE,
     JUDGED_AUDIT_CHECKS,
     JUDGED_AUDIT_SEVERITY,
@@ -934,6 +940,142 @@ _LIVE_WARN = {
     "runs_observed": 8,
     "age_truncated": True,
 }
+
+
+
+# The arbiter's reading as 8400 served it, 2026-09-22 15:31:46 +01:00, off
+# the wire with no write.  Only ``percent`` and ``reading`` are varied
+# below; the instant and the comparand are the producer's.
+_FLOOR_READ_AT = "2026-09-22T15:31:46.422097+01:00"
+_FLOOR_NOW = datetime(2026, 9, 22, 14, 32, 16, 422097, tzinfo=UTC)  # 30 s later
+
+
+def _floor(percent=13, reading="sampled", threshold=25, read_at=_FLOOR_READ_AT):
+    return {
+        "percent": percent,
+        "read_at": read_at,
+        "threshold_percent": threshold,
+        "reading": reading,
+    }
+
+
+def _judge_floor(payload):
+    return judge_queue_invariants(payload, 3, 900.0, now=_FLOOR_NOW)
+
+
+class TestTheFloorNamesTheLimb:
+    """``nothing_granted`` had two causes and the message named both.
+
+    estate message ``a3923a29`` (their ADR-0189) publishes the reading
+    that decided it, with both operands and no verdict.  The verdict is
+    made here, against the producer's own ``threshold_percent``, with
+    the producer's own operator.
+    """
+
+    def test_a_reading_over_the_threshold_puts_the_fault_on_the_card(self):
+        out = _judge_floor(_starving(gpu_floor=_floor(percent=39)))
+        assert out[0].details["floor_verdict"] == FLOOR_OVER_THRESHOLD
+        assert "39% against its own threshold of 25%" in out[0].message
+        assert "declining on GPU load no lease declares" in out[0].message
+        assert "tick loop has stopped" not in out[0].message
+
+    def test_a_reading_under_the_threshold_puts_it_on_the_tick_loop(self):
+        """The live reading of the sitting this was written in: 13 %
+        against 25.  The arbiter grants on it, so a waiter nothing is
+        granting to cannot be the card's doing."""
+        out = _judge_floor(_starving(gpu_floor=_floor(percent=13)))
+        assert out[0].details["floor_verdict"] == FLOOR_WOULD_GRANT
+        assert "tick loop has stopped granting" in out[0].message
+        assert "no lease declares" not in out[0].message
+
+    def test_the_boundary_grants_because_the_arbiter_is_strictly_greater(self):
+        """``Arbiter.tick`` refuses on ``busy > threshold``.  ``>=`` is
+        the operator anyone types and it names the wrong limb here."""
+        out = _judge_floor(_starving(gpu_floor=_floor(percent=25)))
+        assert out[0].details["floor_verdict"] == FLOOR_WOULD_GRANT
+
+    def test_the_comparand_is_the_producers_not_ours(self):
+        """Same percent, the producer's threshold moved: the verdict
+        follows the published number, whatever ``llm.gpu_busy_threshold``
+        says on this side."""
+        out = _judge_floor(_starving(gpu_floor=_floor(percent=39, threshold=40)))
+        assert out[0].details["floor_verdict"] == FLOOR_WOULD_GRANT
+
+    def test_an_unreadable_counter_is_one_the_arbiter_grants_on(self):
+        out = _judge_floor(
+            _starving(gpu_floor=_floor(percent=None, reading="unreadable"))
+        )
+        assert out[0].details["floor_verdict"] == FLOOR_UNREADABLE
+        assert "counter unreadable" in out[0].message
+        assert "tick loop has stopped granting" in out[0].message
+
+    def test_a_null_reading_is_evidence_and_an_absent_key_is_not(self):
+        """``ports_checked``'s rule at the size of a dict key.  ``reading:
+        null`` is a producer that looked and has sampled nothing; no
+        ``gpu_floor`` at all is a producer that does not publish it."""
+        unsampled = _judge_floor(
+            _starving(gpu_floor=_floor(percent=None, reading=None, read_at=None))
+        )
+        assert unsampled[0].details["floor_verdict"] == FLOOR_UNSAMPLED
+        assert "no GPU floor reading since it started" in unsampled[0].message
+
+        absent = _judge_floor(_starving())
+        assert GPU_FLOOR_KEY not in _starving()
+        assert absent[0].details["floor_verdict"] is None
+        assert "or its GPU sampler is pinned" in absent[0].message
+
+    @pytest.mark.parametrize(
+        "floor",
+        [
+            "sampled",
+            {},
+            _floor(reading="cached"),
+            _floor(percent=None),
+            _floor(percent=True),
+            _floor(threshold="25"),
+        ],
+    )
+    def test_a_shape_it_does_not_recognise_keeps_the_disjunction(self, floor):
+        out = _judge_floor(_starving(gpu_floor=floor))
+        assert out[0].details["floor_verdict"] is None
+        assert "or its GPU sampler is pinned" in out[0].message
+
+    def test_the_age_is_stated_and_never_judged(self):
+        """A live loop refreshes ``read_at`` every tick, so an old reading
+        is news — but the cadence is not published, so no threshold is
+        applied to it.  The verdict is the same at 30 s and at 3 h."""
+        fresh = _judge_floor(_starving(gpu_floor=_floor(percent=39)))[0]
+        stale = judge_queue_invariants(
+            _starving(gpu_floor=_floor(percent=39)),
+            3,
+            900.0,
+            now=_FLOOR_NOW + timedelta(hours=3),
+        )[0]
+        assert "taken 30 seconds ago" in fresh.message
+        assert "taken 3.0 hours ago" in stale.message
+        assert fresh.details["floor_verdict"] == stale.details["floor_verdict"]
+
+    def test_the_title_does_not_move_with_the_limb(self):
+        """The row's identity is the fault.  Which limb is live can change
+        hour to hour and must not fork the row."""
+        over = _judge_floor(_starving(gpu_floor=_floor(percent=39)))[0]
+        under = _judge_floor(_starving(gpu_floor=_floor(percent=13)))[0]
+        assert over.title == under.title == "Estate queue starved"
+
+    def test_the_floor_is_not_read_beside_an_overdue_holder(self):
+        """With a lease active the tick never samples, so the reading is
+        older than the state and explains nothing about it."""
+        out = _judge_floor(
+            _starving(reason="holder_overdue", gpu_floor=_floor(percent=39))
+        )
+        assert out[0].details["floor_verdict"] is None
+        assert "past its hold deadline" in out[0].message
+        assert out[0].details[GPU_FLOOR_KEY] == _floor(percent=39)
+
+    def test_the_object_is_carried_verbatim(self):
+        floor = _floor(percent=39)
+        out = _judge_floor(_starving(gpu_floor=floor))
+        assert out[0].details[GPU_FLOOR_KEY] == floor
 
 
 class TestAuditFindings:

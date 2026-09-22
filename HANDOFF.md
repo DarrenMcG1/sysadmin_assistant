@@ -1,8 +1,60 @@
-# Handoff — 2026-09-22 (Session 248)
+# Handoff — 2026-09-22 (Session 249)
 
 ## Next action
 
-Read the estate's new `gpu_floor` object in `judge_queue_invariants`, then close estate message `a3923a29-415a-4f9d-bbaa-8deb9c98fc06`. *(For: session, ~45 min)*
+Decide whether `gpu_lease.py` should stop waiting on a lease once the queue says the arbiter is declining on the GPU floor. *(For: owner, ~20 min)*
+
+*It is the one question this sitting's work opened and could not answer,
+because it is a trade rather than a defect.* The producer now publishes the
+reading that decided `nothing_granted` (`gpu_floor`, estate ADR-0189), and
+`judge_queue_invariants` uses it to say which of two causes a starved wait
+has: the card over the arbiter's own threshold, or a tick loop that has
+stopped granting. `SNAG-GPU-003` — the entry about Monday 2026-09-21, when
+nothing on the box was granted for 37 hours and four weekly narratives fell
+back to digests — named exactly that discrimination as the missing
+precondition for the honest narrowing: wait for a *holder* to release, but
+not for a *floor* to fall. The precondition is met; whether to build the
+narrowing is not decided. Against it: a floor does fall (13 % against 25 on
+the afternoon this was written), so giving up early trades a wait that
+sometimes succeeds for a digest that always arrives. For it: on the morning
+that mattered the floor never fell below 38 in six hours, so the wait bought
+nothing and cost the lease's whole window. The register holds no `owed`
+entry, so the line names no SNAG id; `SNAG-GPU-003`'s Status says the same.
+
+*What this sitting did.* Read estate message `a3923a29` whole and closed it.
+`_floor_verdict` in `sysadmin/estate/judgements.py` makes the comparison the
+estate deliberately did not publish, under `nothing_granted` only, and it was
+read from `Arbiter.tick` rather than from the message: the operator is
+**strictly** `>` (at the boundary the arbiter grants) and the comparand is the
+published `threshold_percent`, never `llm.gpu_busy_threshold`. Four outcomes:
+`over_threshold` puts the fault on the card; `would_grant`, `unreadable` and
+`unsampled` are readings the arbiter grants on, so the tick loop is the cause.
+An absent `gpu_floor` keeps the two-limb sentence — a producer that does not
+publish the field and one that sampled nothing are opposite facts. Title
+unmoved; `details['gpu_floor']` verbatim, `details['floor_verdict']` beside it.
+
+*Rejected, and why.* A staleness threshold on `read_at`: the estate says a
+live loop refreshes it every tick, so an old reading is itself evidence the
+loop stopped — but the tick cadence is not published, and any threshold
+would be invented against it. The age is stated in the message instead. And
+reading the floor beside `holder_overdue`: with a lease active the tick never
+samples, so that reading predates the state it would be explaining.
+
+*Verified.* 17 new tests (16 unit, 1 live against 8400); six mutations each
+turn exactly one red. Suite 4219 → 4236 passed, 2 skipped; `ruff`, `mypy`
+clean. Daemon restarted 19:15:10, `NRestarts` 16, `/health` 200, all ops
+claims `ok`.
+
+*Seen and not acted on.* **`Critical disk usage on /` opened at 18:11**
+(`/` at 93 %, 120 GB free) — not caused by any sitting and not this one's
+to clean; `STATUS.md` names it. Estate message `14692b4c` is still open: it
+asks nothing, and suggests adding the register's two caps (`summary` 1,000
+characters, `detail` 20,000) to this repository's `CLAUDE.md` friction
+pointer — a one-line edit, left for a sitting that chooses to take it.
+
+# Handoff — 2026-09-22 (Session 248)
+
+*Its next action — read `gpu_floor` in `judge_queue_invariants` and close estate message `a3923a29` — was discharged by Session 249.*
 
 *It is startable, it is the only work in front of this repository that no
 register entry already holds, and the producer has already shipped its half.*

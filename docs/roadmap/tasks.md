@@ -8,6 +8,32 @@
 
 ---
 
+## Session 249: `nothing_granted` names its limb, and the comparison the estate left us is made with its operator ✅ (2026-09-22)
+
+Read estate message `a3923a29` (their ADR-0189) whole and acted on it:
+`GET :8400/api/queue/invariants` now carries `gpu_floor`, and
+`judge_queue_invariants` reads it.
+
+- [x] **`_floor_verdict` makes the comparison the producer deliberately did
+      not publish**, under `nothing_granted` only, with `Arbiter.tick`'s own
+      operator (`busy > threshold`, strictly) against the published
+      `threshold_percent`. Read from their source rather than their message,
+      which names the operands and not the operator.
+- [x] **Four outcomes, one of them on the card.** `over_threshold` says the
+      arbiter was declining on load no lease declares; `would_grant`,
+      `unreadable` and `unsampled` are readings it grants on, so the tick
+      loop has stopped granting. An absent `gpu_floor` keeps the two-limb
+      sentence — `ports_checked`'s rule at the size of a dict key.
+- [x] **The age is stated, never judged**: the cadence that would make a
+      reading stale is not published, so a threshold here would be invented.
+- [x] **Title unmoved**; `details['gpu_floor']` verbatim and
+      `details['floor_verdict']` beside it.
+- [x] **Sixteen unit tests and one live test**; six mutations each turn
+      exactly one red. Suite 4219 → 4236 passed, `ruff` and `mypy` clean.
+- [x] **`SNAG-GPU-003`'s Status corrected** — its stated missing precondition
+      is met; whether `gpu_lease.py` should use it is routed to the owner.
+- [x] **Estate message `a3923a29` closed** with a note naming what was done.
+
 ## Session 248: the collector reads the counter the gate reads, and the ordering was half the fix ✅ (2026-09-22)
 
 Took `SNAG-GPU-004` with `SNAG-GPU-005` riding along, as `HANDOFF.md` asked —

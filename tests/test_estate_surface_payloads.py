@@ -57,6 +57,7 @@ one.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -902,6 +903,22 @@ class TestTheKeysTheJudgeReadsAreStillServed:
             "holder_overdue",
             "nothing_granted",
         )
+
+    def test_the_floor_reading_is_still_published(self):
+        """``gpu_floor``'s shape, from the side that compares it.
+
+        ``_floor_verdict`` survives this object vanishing or changing
+        shape — it keeps the two-limb sentence — so, like the wait
+        discriminator above, its loss is silent everywhere but here.
+        The vocabulary of ``reading`` is the estate's (their ADR-0189):
+        a fourth value is a conversation, not a guess."""
+        floor = self._get("/api/queue/invariants")["gpu_floor"]
+        assert set(floor) >= {"percent", "read_at", "threshold_percent", "reading"}
+        assert floor["reading"] in (None, "sampled", "unreadable")
+        assert isinstance(floor["threshold_percent"], int)
+        if floor["reading"] == "sampled":
+            assert isinstance(floor["percent"], int)
+            assert datetime.fromisoformat(floor["read_at"]).tzinfo is not None
 
     def test_the_masked_gauge_never_exceeds_the_gauge_it_masks(self):
         """The producer's own invariant, asserted from this side.

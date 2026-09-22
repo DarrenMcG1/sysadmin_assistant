@@ -123,7 +123,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, TypeGuard
 
 from sysadmin.core.escalation import SEVERITY_ORDER
 from sysadmin.core.text import truncate_at_word
@@ -1964,6 +1965,134 @@ def _starvation_gauge(payload: dict[str, Any]) -> tuple[float | None, str]:
     return payload.get("oldest_waiting_seconds"), "total"
 
 
+#: The arbiter's last floor reading, since estate message ``a3923a29``
+#: (their ADR-0189).  Both operands and no verdict: the comparison is
+#: this repository's, and it is made against the producer's own
+#: ``threshold_percent`` — never ``llm.gpu_busy_threshold``, which is a
+#: second binding of the same number and would make this a third.
+GPU_FLOOR_KEY = "gpu_floor"
+
+#: The comparison's four outcomes.  Only the first puts the fault on the
+#: card; the other three are readings the arbiter grants on, so a waiter
+#: nothing is granting to means the tick loop has stopped.
+FLOOR_OVER_THRESHOLD = "over_threshold"
+FLOOR_WOULD_GRANT = "would_grant"
+FLOOR_UNREADABLE = "unreadable"
+FLOOR_UNSAMPLED = "unsampled"
+
+
+def _is_percent(value: Any) -> TypeGuard[int]:
+    """An integer percentage, refusing ``bool`` — ``isinstance(True, int)``."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _floor_verdict(payload: dict[str, Any]) -> str | None:
+    """Which limb of ``nothing_granted`` the arbiter's own reading names.
+
+    ``nothing_granted`` has two causes and until ADR-0189 no surface
+    could separate them: *the tick loop has stopped granting*, or *the
+    sampler is pinned above threshold by undeclared load*.  The arbiter
+    samples on every tick in which a waiter exists and nothing is
+    granted, and grants unless ``busy is not None and busy > threshold``
+    (``Arbiter.tick``) — so exactly one reading explains a waiter it
+    declines, and every other reading is one it would have granted on.
+
+    Four rules, three of them the opposite of the obvious reading:
+
+    1. **The operator is the producer's, strictly greater.**  At
+       ``percent == threshold_percent`` the arbiter grants, so a waiter
+       stranded at that reading is the tick loop's fault and never the
+       card's.  ``>=`` is what anyone types and it names the wrong limb
+       on exactly the boundary.
+    2. **The comparand is ``threshold_percent``, read.**  The estate
+       publishes it so a consumer need not transcribe it; comparing
+       against this repository's copy would make the verdict agree with
+       the arbiter only while two configs happen to agree.
+    3. **An absent key is not a ``null`` reading** — ``ports_checked``'s
+       rule, :func:`_starvation_gauge`'s argument one key over.
+       ``reading: null`` is a producer that looked and has sampled
+       nothing in this process, which is evidence the loop has not run
+       with a waiter present; no ``gpu_floor`` at all is a producer that
+       does not publish it, which is evidence of nothing.  The second
+       returns ``None`` and the message keeps the disjunction.
+    4. **A shape it does not recognise is not guessed at.**  A
+       ``reading`` outside the published vocabulary, or a ``sampled``
+       reading without two integer operands, returns ``None`` — the
+       vocabulary is the estate's, the ``_WAIT_CAUSES`` refusal.
+    """
+    floor = payload.get(GPU_FLOOR_KEY)
+    if not isinstance(floor, dict) or "reading" not in floor:
+        return None
+    reading = floor["reading"]
+    if reading is None:
+        return FLOOR_UNSAMPLED
+    if reading == "unreadable":
+        return FLOOR_UNREADABLE
+    if reading != "sampled":
+        return None
+    percent, threshold = floor.get("percent"), floor.get("threshold_percent")
+    if not (_is_percent(percent) and _is_percent(threshold)):
+        return None
+    return FLOOR_OVER_THRESHOLD if percent > threshold else FLOOR_WOULD_GRANT
+
+
+def _ago(read_at: Any, now: datetime) -> str:
+    """``", taken N ago"`` for the reading's instant, or nothing.
+
+    The age is **stated and never judged**.  A live loop refreshes
+    ``read_at`` every tick while ``nothing_granted`` holds, so an old
+    reading is itself news — but the tick cadence is not published, and
+    a staleness threshold here would be a number invented against it.
+    The reader gets the age; the verdict stays on the reading.
+    """
+    if not isinstance(read_at, str):
+        return ""
+    try:
+        instant = datetime.fromisoformat(read_at)
+    except ValueError:
+        return ""
+    if instant.tzinfo is None:
+        return ""
+    seconds = max(0.0, (now - instant).total_seconds())
+    if seconds < 120:
+        return f", taken {int(seconds)} seconds ago"
+    return f", taken {_hours(seconds)} ago"
+
+
+def _nothing_granted_cause(verdict: str | None, floor: Any, now: datetime) -> str:
+    """The ``nothing_granted`` sentence with the limb named, when it can be."""
+    if verdict is None:
+        return _WAIT_CAUSES["nothing_granted"]
+    ago = _ago(floor.get("read_at"), now)
+    if verdict == FLOOR_UNSAMPLED:
+        return (
+            "Nothing holds a lease at all, and the arbiter has taken no GPU "
+            "floor reading since it started, so its tick loop has stopped "
+            "granting."
+        )
+    if verdict == FLOOR_UNREADABLE:
+        return (
+            f"Nothing holds a lease at all, and the arbiter's last GPU floor "
+            f"reading{ago} found the counter unreadable, which it grants on — "
+            "so its tick loop has stopped granting."
+        )
+    operands = (
+        f"{floor['percent']}% against its own threshold of "
+        f"{floor['threshold_percent']}%{ago}"
+    )
+    if verdict == FLOOR_OVER_THRESHOLD:
+        return (
+            f"Nothing holds a lease at all, and the arbiter's last GPU floor "
+            f"reading was {operands}, so it was declining on GPU load no "
+            "lease declares."
+        )
+    return (
+        f"Nothing holds a lease at all, yet the arbiter's last GPU floor "
+        f"reading was {operands} — a reading it grants on — so its tick "
+        "loop has stopped granting."
+    )
+
+
 def _starvation_cause(gauge: str, reason: Any) -> str:
     """The sentence naming why, when the producer said which.
 
@@ -1978,7 +2107,10 @@ def _starvation_cause(gauge: str, reason: Any) -> str:
 
 
 def judge_queue_invariants(
-    payload: dict[str, Any], max_depth: int, max_wait_seconds: float
+    payload: dict[str, Any],
+    max_depth: int,
+    max_wait_seconds: float,
+    now: datetime | None = None,
 ) -> list[Judgement]:
     """GPU lease arbitration, judged on its two gauges only.
 
@@ -2057,7 +2189,18 @@ def judge_queue_invariants(
     number.  Dropping it would make a row unable to say how long the
     request had actually been queued, which is the figure a human goes
     to the arbiter with.
+
+    **``nothing_granted`` names its limb now** (estate message
+    ``a3923a29``, their ADR-0189).  ``gpu_floor`` is the reading that
+    decided the state, and :func:`_floor_verdict` makes the comparison
+    the producer deliberately left to this side.  It changes the
+    *message* and never the *title* — the row's identity is the fault,
+    and which limb is live can change hour to hour without it being a
+    second fault.  ``details['gpu_floor']`` carries the object verbatim
+    and ``details['floor_verdict']`` the comparison, which is ``None``
+    wherever the disjunction is still what the message says.
     """
+    now = now or datetime.now(UTC)
     out: list[Judgement] = []
     totals = {
         "dropped_total": payload.get("dropped_total"),
@@ -2084,6 +2227,16 @@ def judge_queue_invariants(
     waiting, gauge = _starvation_gauge(payload)
     reason = payload.get("waiting_reason")
     if waiting is not None and waiting > max_wait_seconds:
+        floor = payload.get(GPU_FLOOR_KEY)
+        verdict = None
+        cause = _starvation_cause(gauge, reason)
+        # Only under ``nothing_granted``: with a lease active the tick
+        # expires or waits on the holder and never samples, so a floor
+        # reading beside ``holder_overdue`` is older than the state and
+        # explains nothing about it.
+        if gauge == "unexplained" and reason == "nothing_granted":
+            verdict = _floor_verdict(payload)
+            cause = _nothing_granted_cause(verdict, floor, now)
         out.append(
             Judgement(
                 surface="queue_invariants",
@@ -2091,13 +2244,15 @@ def judge_queue_invariants(
                 message=(
                     f"{_WAIT_SUBJECT[gauge]} has waited {_hours(waiting)} "
                     f"(threshold {max_wait_seconds / 60:.0f} minutes). "
-                    f"{_starvation_cause(gauge, reason)}"
+                    f"{cause}"
                 ),
                 details={
                     "oldest_waiting_seconds": payload.get("oldest_waiting_seconds"),
                     UNEXPLAINED_WAIT_KEY: payload.get(UNEXPLAINED_WAIT_KEY),
                     "waiting_reason": reason,
                     "wait_gauge": gauge,
+                    GPU_FLOOR_KEY: floor,
+                    "floor_verdict": verdict,
                     "max_wait_seconds": max_wait_seconds,
                     "depth": depth,
                     "active_lease": payload.get("active_lease"),
