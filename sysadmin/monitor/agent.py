@@ -23,6 +23,7 @@ Alerting:
 """
 
 import asyncio
+import json
 import logging
 import time
 from datetime import UTC, datetime, timedelta
@@ -46,7 +47,13 @@ from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.self_monitor import build_self_report
-from sysadmin.monitor.services import SKIPPED, ServiceEntry, check_plan, get_services
+from sysadmin.monitor.services import (
+    SKIPPED,
+    ServiceEntry,
+    check_plan,
+    evaluate_expectation,
+    get_services,
+)
 from sysadmin.monitor.systemd import (
     START_INSTANT_PROP,
     SystemdQueryError,
@@ -1175,7 +1182,17 @@ class SysAdminAgent(BaseAgent):
     async def _check_http(
         self, svc: ServiceEntry
     ) -> tuple[str, int | None, dict]:
-        """HTTP health check."""
+        """HTTP health check.
+
+        The status code decides, and where the entry declares ``expect:``
+        a 200 must also carry the declared value in its JSON body — a
+        status report answers 200 whether or not it reports a fault
+        (estate message ``ed301e95``). An unmet or unevaluable condition
+        is ``degraded``, never ``ok``: the route answered, so the service
+        is not down, and a body this check cannot read is not evidence of
+        health. It is judged before slowness because it names the more
+        specific fault.
+        """
         if not svc.url:
             return "error", None, {"error": "no url configured for http check"}
 
@@ -1186,6 +1203,10 @@ class SysAdminAgent(BaseAgent):
             elapsed_ms = int((time.monotonic() - start) * 1000)
 
             if resp.status_code == 200:
+                if svc.expect is not None:
+                    unmet = self._unmet_expectation(svc, resp)
+                    if unmet is not None:
+                        return "degraded", elapsed_ms, unmet
                 # Slow response = degraded
                 if elapsed_ms > 5000:
                     return "degraded", elapsed_ms, {"reason": "slow response"}
@@ -1199,6 +1220,33 @@ class SysAdminAgent(BaseAgent):
             return "unreachable", elapsed_ms, {"error": "timeout"}
         except httpx.ConnectError:
             return "unreachable", None, {"error": "connection refused"}
+
+    @staticmethod
+    def _unmet_expectation(svc: ServiceEntry, resp) -> dict | None:
+        """The details of a failed ``expect:``, or ``None`` when it holds."""
+        assert svc.expect is not None
+        try:
+            body = resp.json()
+        except ValueError as exc:
+            verdict, evidence = "unevaluable", {
+                "path": svc.expect.path,
+                "equals": svc.expect.equals,
+                "error": f"body is not JSON: {exc}",
+            }
+        else:
+            verdict, evidence = evaluate_expectation(svc.expect, body)
+        if verdict == "met":
+            return None
+        if verdict == "unmet":
+            # Rendered as JSON, the body's own spelling — `true`, not
+            # Python's `True` — since the reader checks it against the route.
+            reason = (
+                f"{svc.expect.path} is {json.dumps(evidence['actual'])}, "
+                f"expected {json.dumps(svc.expect.equals)}"
+            )
+        else:
+            reason = f"expect could not be evaluated: {evidence['error']}"
+        return {"reason": reason, "expect": {**evidence, "verdict": verdict}}
 
     async def _check_tcp(
         self, svc: ServiceEntry

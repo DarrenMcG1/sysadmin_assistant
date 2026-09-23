@@ -26,7 +26,17 @@ from typing import Any, Literal
 
 import yaml
 from estate.registry import Registry
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
+    ValidationError,
+    model_validator,
+)
 
 from sysadmin.core.config import LogFormat, LogSource
 from sysadmin.monitor.models.service_health import SKIPPED as _SKIPPED
@@ -107,6 +117,86 @@ class LogRef(BaseModel):
     format: LogFormat = "text"
 
 
+#: A value an ``expect`` condition may compare against — JSON's scalars.
+#: Strict, so YAML ``false`` stays a bool and ``0`` never coerces to it.
+ExpectedValue = StrictBool | StrictInt | StrictFloat | StrictStr | None
+
+
+class HttpExpectation(BaseModel):
+    """One condition on the JSON body of a 200, for a route that answers
+    200 while carrying a fault in its payload.
+
+    Added for venture-assistant's ``GET /pipeline/status`` (estate message
+    ``ed301e95``): its dedupe stalled for 44 hours while every route this
+    file polled answered 200, and the route that knew — ``stalled: true``
+    — answered 200 as well, because it is a status report rather than a
+    health route.  The owner chose a body predicate here over asking the
+    producer for a 503 route (2026-09-23), so the next application that
+    reports trouble inside a 200 is covered without changing it.
+
+    **The meaning of the field stays the producer's.**  This compares the
+    value the producer publishes and never re-derives it from the
+    payload's other fields — ``judge_queue_invariants``' "the mask is
+    read, never recomputed".
+
+    ``path`` is dotted over mappings (``search.ok``); one condition per
+    entry by the owner's choice, which is enough for every body on this
+    box that carries a sub-status.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(min_length=1)
+    equals: ExpectedValue
+
+
+#: A condition's verdict: met, unmet, or unevaluable.  Three values
+#: because "the field said stalled" and "the field was not there" are
+#: different faults with different remedies, and neither is ``ok``.
+ExpectVerdict = Literal["met", "unmet", "unevaluable"]
+
+
+def _same_value(actual: Any, expected: Any) -> bool:
+    """JSON equality without Python's ``True == 1``.
+
+    Numbers compare across int/float (JSON does not distinguish them) but
+    a bool is never a number here, so ``stalled: 0`` does not satisfy
+    ``equals: false``.
+    """
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return type(actual) is type(expected) and actual == expected
+    numeric = (int, float)
+    if isinstance(actual, numeric) and isinstance(expected, numeric):
+        return actual == expected
+    return type(actual) is type(expected) and actual == expected
+
+
+def evaluate_expectation(
+    expect: HttpExpectation, body: Any
+) -> tuple[ExpectVerdict, dict]:
+    """Judge ``body`` (already JSON-decoded) against ``expect``.
+
+    Every way of not-knowing is ``unevaluable`` and never ``met`` — a
+    renamed field would otherwise retire the check in silence, reading as
+    health from the day of the rename (``ports_checked``'s rule).
+    """
+    evidence: dict = {"path": expect.path, "equals": expect.equals}
+    node = body
+    for key in expect.path.split("."):
+        if not isinstance(node, dict):
+            evidence["error"] = (
+                f"cannot descend into {key!r}: found {type(node).__name__}, "
+                "not an object"
+            )
+            return "unevaluable", evidence
+        if key not in node:
+            evidence["error"] = f"field {key!r} is absent from the body"
+            return "unevaluable", evidence
+        node = node[key]
+    evidence["actual"] = node
+    return ("met" if _same_value(node, expect.equals) else "unmet"), evidence
+
+
 class ServiceEntry(BaseModel):
     """One service on this host."""
 
@@ -156,6 +246,9 @@ class ServiceEntry(BaseModel):
     #: loud for another, and here there is one consumer and quiet is what
     #: an undeclared service means.
     holds_vram: bool = False
+    #: A condition on the JSON body of a 200 — see :class:`HttpExpectation`.
+    #: Read only by :meth:`~sysadmin.monitor.agent.SysAdminAgent._check_http`.
+    expect: HttpExpectation | None = None
 
     @model_validator(mode="after")
     def _consistent(self) -> "ServiceEntry":
@@ -175,6 +268,14 @@ class ServiceEntry(BaseModel):
             raise ValueError(
                 f"{self.name}: kind timer must name a .timer unit, got "
                 f"{self.systemd.unit!r}"
+            )
+        if self.expect is not None and self.kind != "http":
+            # One reader, so a declaration anywhere else would parse and
+            # never be evaluated — `holds_vram`'s refusal below, for its
+            # reason.
+            raise ValueError(
+                f"{self.name}: expect: is evaluated only by the http check, "
+                f"got kind {self.kind}"
             )
         if self.agent and self.kind != "timer":
             # A handover replaces a *schedule*, so only the thing that

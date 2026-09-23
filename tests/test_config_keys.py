@@ -339,7 +339,7 @@ class TestTheTrayStillLoadsItsOwnKeys:
 # ── The retired check's detector, re-homed ────────────────────────────
 #
 # ``check_config_extras_ignored`` measured the asymmetry the entry named:
-# 0 of 37 models in config.py forbid unknown keys, 4 of 4 in services.py
+# 0 of 37 models in config.py forbid unknown keys, all (4 of 4 then) in services.py
 # do. It retires with the entry, and the detector does not
 # (``FROZEN_TABLES``' rule) — but its *meaning is inverted*, which is the
 # part worth carrying.
@@ -411,8 +411,8 @@ class TestTheAsymmetryIsDeliberateAndStays:
         # number to be nudged past a red.
         #
         # Note *which* count moved: the asymmetry this class guards is
-        # ``0 of N`` here against ``4 of 4`` in services.py, and it is the
-        # **0** and the **4** that must not move.  ``N`` is the
+        # ``0 of N`` here against ``M of M`` in services.py, and it is the
+        # **0** and the **all** that must not move.  ``N`` is the
         # denominator, and five models leaving for a reason that has
         # nothing to do with ``extra=`` does not touch the claim.
         assert models >= 32, "the module shrank; re-measure before trusting this"
@@ -430,7 +430,13 @@ class TestTheAsymmetryIsDeliberateAndStays:
         way without anything saying so.
         """
         models, strict = forbidding_models(SERVICES_MODULE)
-        assert models == strict == 4
+        # ``models == strict`` is the claim; the count is not. It read
+        # ``== 4`` until 2026-09-23, when ``HttpExpectation`` (estate
+        # message ``ed301e95``) arrived forbidding like the other four —
+        # a pinned denominator went red on a change that *kept* the
+        # asymmetry. The floor stops an emptied module passing vacuously.
+        assert models >= 5, "the module shrank; re-measure before trusting this"
+        assert models == strict
 
     def test_the_walk_counts_classes_rather_than_the_word(self, tmp_path):
         """The detector, shown failing — it must not count prose.

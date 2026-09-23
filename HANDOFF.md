@@ -1,8 +1,52 @@
-# Handoff — 2026-09-23 (Session 251)
+# Handoff — 2026-09-23 (Session 252)
 
 ## Next action
 
-On Monday 2026-09-28, read `llm_used` on all three review tables and whether `grants_total` has moved off 67 beside it. *(For: session)*
+Fix `SNAG-SVC-006`: make a degraded service alert's message carry `details['reason']`, so a stalled pipeline toasts why and not only that. *(For: session)*
+
+`SNAG-SVC-006` is the entry about it: `_handle_status` raises `{name}
+degraded` with a fixed message, and `alert.message` is the toast body, so the
+body check this sitting built will announce a stall as "degraded for 3
+consecutive checks" with the reason only in `details`. Before changing it,
+list the open `% degraded` rows — `refresh_alert` rewrites a held row's
+message on the next run, so the deploy rewrites every one of them.
+
+*What this sitting did.* Answered estate message `ed301e95` from
+venture-assistant: their dedupe stalled 44 hours while every route we poll
+answered 200. `kind: http` entries now take `expect: {path, equals}` — one
+condition on the JSON body of a 200, dotted over objects — and
+`venture-pipeline` is declared against `:8300/pipeline/status` with
+`stalled == false`. **Owner's decisions, with reasons:** a body check here
+rather than a 503 route there (so the next app reporting trouble inside a 200
+needs no change); nested path, one condition; unmet and unevaluable both
+`degraded`; only the new entry this sitting.
+
+*Measured, not assumed.* 12 declared `http` URLs polled: three already carry a
+sub-status inside a 200 (`:8300/api/health`, `:8100/api/health`,
+`:8600/api/health`) — now an unchecked task in `tasks.md`. The real
+`_check_http` was driven against a scratch server for `stalled: true`,
+`false`, HTML and a renamed field: `degraded`, `ok`, `degraded`, `degraded`.
+The estate's health audit reads `services.yaml` with `.get()` and only
+port-carrying entries, so the new key and the port-less entry change nothing
+there. Two restarts spent (22:45, 22:46).
+
+*Found and handed back, not fixed here:* venture-assistant's hourly
+`WARNING dedupe stalled…` reached the journal at `PRIORITY=6`, so our
+`severity_filter: warning` dropped every line — 2 rows for that unit across
+the 44 hours, both systemd's own. That is `SNAG-AGENT-008`'s shape in their
+code, and the fix (a `<N>` level prefix) is theirs; said in the reply.
+
+*Test changed and why:* `test_every_services_model_still_forbids_them`
+pinned `== 4`; a fifth model forbidding like the rest turned it red on a
+change that kept the claim, so it asserts `models == strict` with a floor.
+
+---
+
+## Session 251 — the friction pointer states the register's caps
+
+*Its next action — on Monday 2026-09-28, read `llm_used` on all three review
+tables beside `grants_total` — is still pending and is held under
+`## Scheduled action`, which is where a dated measurement belongs.*
 
 It is the `tasks.md` item dated for that morning, and the next thing in front
 of this repository with a moment attached. Its own entry says what each

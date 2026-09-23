@@ -8,6 +8,25 @@
 
 ---
 
+## Session 252: a health check reads the body when the route says so ✅ (2026-09-23)
+
+- [x] **`kind: http` entries accept `expect: {path, equals}`**, one condition
+      on the JSON body of a 200, dotted over objects (estate message
+      `ed301e95` from venture-assistant). Unmet or unevaluable is `degraded`,
+      never `ok`. Owner chose this over asking venture-assistant for a 503
+      route, so the next app that reports trouble inside a 200 needs no change.
+- [x] **`venture-pipeline` declared** against `:8300/pipeline/status`,
+      `expect: {path: stalled, equals: false}`, no `port:` and no `systemd:`
+      (both already held by the `venture-assistant` entry).
+- [ ] **Decide an `expect:` for the three health routes that already carry a
+      sub-status in a 200** — venture-assistant `:8300/api/health`
+      (`status: healthy`/`degraded`), `:8100/api/health` (`inference`,
+      `bus`), SearXNG shim `:8600/api/health` (`search.ok`). Each changes
+      what an existing service reports, so each producer is told first.
+      Measured 2026-09-23: all three answer 200 and read healthy today.
+
+---
+
 ## Session 250: the lease keeps waiting on a floor, by the owner's decision ✅ (2026-09-23)
 
 - [x] **Owner decided: `gpu_lease.py` does not give up a lease wait early

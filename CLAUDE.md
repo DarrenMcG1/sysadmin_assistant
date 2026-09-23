@@ -3685,15 +3685,18 @@ the defect.
 What the deletion did **not** reach was `SNAG-CFG-004`, and the entry's
 own headline fix was refuted by the file it was about (Session 136).
 `config.yaml`'s models inherit `extra="ignore"` (**0 of 32**) while
-`services.yaml`'s all set `extra="forbid"` (**4 of 4**), so
+`services.yaml`'s all set `extra="forbid"` (**5 of 5** since
+2026-09-23's `HttpExpectation`; 4 of 4 when written), so
 `briefing_hourr: 9` parses cleanly and the briefing stays at 6. **The
 counts have not moved and must not** — *and the one that moved is not
 one of them*: the denominator read **37** until 2026-09-14, when Session
 236 trimmed `agents.project_organiser` to its two live leaves and deleted
 the five nested models behind the rest (`HealthGradeBands`,
 `BranchActionsConfig`, `CodeCommitIgnoreConfig`, `EstateConfig`,
-`IdleNudgeConfig`). The claim is `0 of N` against `4 of 4`, so what must
-not move is the **0** and the **4**; `N` is how many models exist, and
+`IdleNudgeConfig`). The claim is `0 of N` against `M of M`, so what must
+not move is the **0** and the **all**; `N` and `M` are how many models
+exist — the second read 4 until a fifth arrived forbidding like the rest
+and a test pinning `== 4` went red on a change that kept the claim — and
 five of them leaving for a reason with nothing to do with `extra=` says
 nothing about the asymmetry. Re-measured rather than nudged, because
 `tests/test_config_keys.py`'s floor is a *premise* — without it

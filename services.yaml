@@ -205,6 +205,23 @@ services:
     systemd: { unit: venture-assistant-backend.service, scope: user }
     log: { type: journalctl, severity_filter: warning }
 
+  # The ingest pipeline, which /api/health above does not see: dedupe
+  # stalled for 44 hours (2026-09-21 03:33 → 09-23 11:37, backlog 4,653)
+  # while that route answered healthy, because it reports only the
+  # database and the llama servers. /pipeline/status answers 200 whether
+  # or not it is stalled, so `expect:` reads the verdict venture-assistant
+  # publishes — true when the dedupe heartbeat is over 3 h old or items
+  # have sat unlinked over 2 h, their definition and not restated here.
+  # Estate message ed301e95; owner chose a body check over a 503 route.
+  # No `port:` — 8300 is claimed by the entry above, and no `systemd:` —
+  # the unit is asserted there too, so a dead backend is one alert, not two.
+  - project: venture-assistant
+    name: venture-pipeline
+    role: pipeline
+    kind: http
+    url: http://localhost:8300/pipeline/status
+    expect: { path: stalled, equals: false }
+
   # Port 8080 is llama.cpp's default and the most contended port on this
   # box. Recorded in the registry, but should move to 83xx when the llama
   # units are next touched.
