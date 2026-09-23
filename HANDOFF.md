@@ -1,6 +1,30 @@
-# Handoff — 2026-09-23 (Session 250)
+# Handoff — 2026-09-23 (Session 251)
 
 ## Next action
+
+On Monday 2026-09-28, read `llm_used` on all three review tables and whether `grants_total` has moved off 67 beside it. *(For: session)*
+
+It is the `tasks.md` item dated for that morning, and the next thing in front
+of this repository with a moment attached. Its own entry says what each
+outcome means: `grants_total` moved and `llm_used` still false puts the cause
+on the fallback gate and refutes `SNAG-GPU-003`'s structural bullet (the
+entry about review jobs waiting on a GPU lease the arbiter never grants).
+
+*What this sitting did.* Took Session 250's next action. `CLAUDE.md`'s
+friction pointer now states the register's two caps: `summary` 1,000
+characters and `detail` 20,000, rejected rather than truncated. The caps are
+estate-manager's (their ADR-0190). Estate message `14692b4c` is closed.
+One correction beyond what was asked: the pointer said the rule was
+"deliberately **not** in the global `~/.claude/CLAUDE.md`". That stopped
+being true when the estate wrote a friction section there, so the sentence
+now says so, with the date it changed. No code changed. The 270 tests that
+read `CLAUDE.md` pass. Nothing under `sysadmin/` changed, so no restart is owed.
+
+---
+
+# Handoff — 2026-09-23 (Session 250)
+
+### The action Session 250 handed on (discharged by Session 251)
 
 Add the register's two caps (`summary` 1,000, `detail` 20,000) to this repository's `CLAUDE.md` friction pointer, then close estate message `14692b4c`. *(For: session)*
 

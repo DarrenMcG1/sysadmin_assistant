@@ -4384,10 +4384,12 @@ Tray-only presentation (IconState, ICON_COLOURS, compute_icon_state) stays in
 **The rule is estate-manager's and its canonical body is
 `~/projects/estate-manager/docs/conventions/session-brief.md`**, section
 "Cross-repo friction is filed, not absorbed" (owner's ruling 2026-08-25,
-estate ADR-0041 and ADR-0042). It is deliberately **not** in the global
-`~/.claude/CLAUDE.md`, whose estate section is a pointer and says in
-writing not to re-expand it — so this is a pointer too, and the headline
-is all that belongs here.
+estate ADR-0041 and ADR-0042). The global `~/.claude/CLAUDE.md` now
+carries a short section of its own ("File cross-repo friction; do not
+absorb it") — this read "deliberately **not** in the global" until
+2026-09-23, which was true when written and stopped being true when the
+estate wrote the caps there (their ADR-0190). This is a pointer too, and
+the headline is all that belongs here.
 
 Headline: when a sitting hits friction crossing a repository boundary —
 another repository's state it could not read, a decision it could not
@@ -4397,6 +4399,12 @@ rather than working around it:
     POST http://127.0.0.1:8400/api/estate/messages
     {"sender": "sysadmin_assistant", "receiver": "<owner of the thing>",
      "summary": "one sentence", "detail": "optional"}
+
+**One sentence in `summary`; the body, if there is one, in `detail`** —
+capped at **1,000** and **20,000** characters, and an over-long field is
+**rejected, never truncated**. The cap is a budget: `summary` is printed
+whole into every session of the receiving repository at start-up, and
+`detail` is not (estate ADR-0190, message `14692b4c`).
 
 Default the receiver to `estate-manager`. **It is a message, not a
 finding**: no severity, no deadline, no ageing, and the receiver is not
