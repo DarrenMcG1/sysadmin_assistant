@@ -4,7 +4,18 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-22
+> **Last Updated**: 2026-09-23
+
+---
+
+## Session 250: the lease keeps waiting on a floor, by the owner's decision ✅ (2026-09-23)
+
+- [x] **Owner decided: `gpu_lease.py` does not give up a lease wait early
+      when the arbiter declines on the GPU floor.** An early give-up moves
+      only *when* the digest is written; the clean version needs
+      `estate.queue.acquire` changed on estate-manager's side; the
+      population is one morning. Recorded in `SNAG-GPU-003`'s Status.
+- [x] **No code changed.**
 
 ---
 

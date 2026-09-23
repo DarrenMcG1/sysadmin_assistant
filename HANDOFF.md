@@ -1,8 +1,35 @@
-# Handoff — 2026-09-22 (Session 249)
+# Handoff — 2026-09-23 (Session 250)
 
 ## Next action
 
-Decide whether `gpu_lease.py` should stop waiting on a lease once the queue says the arbiter is declining on the GPU floor. *(For: owner, ~20 min)*
+Add the register's two caps (`summary` 1,000, `detail` 20,000) to this repository's `CLAUDE.md` friction pointer, then close estate message `14692b4c`. *(For: session)*
+
+*It is the only item left in front of this repository that nothing else holds.*
+The message asks nothing and suggests the edit; the caps are the estate's
+(their ADR-0190) and the pointer in `CLAUDE.md` is ours to change, so a
+sitting that takes it copies the two numbers, cites the ADR, and closes the
+message with a note. The register still holds no `owed` entry, so the line
+names no SNAG id.
+
+*What this sitting did.* Took the owner's decision Session 249 routed:
+**`gpu_lease.py` will not give up a lease wait early on a floor refusal.**
+Recorded in `SNAG-GPU-003`'s Status with the three reasons. First, an early
+give-up only moves *when* the digest is written, because the fallback gate
+`ensure_gpu_idle` re-asks the same floor. Second, the clean version is not
+ours to build: `estate.queue.acquire` hands back the lease id only on a
+grant, so cancelling from here would strand a waiting row in the estate's
+table (the module's rule 4), and the alternatives are a request to
+estate-manager or a copy of their loop. Third, the population is one morning.
+No code changed.
+
+*Not measured, and named so nobody reads it as settled:* whether our own
+three waiting leases were the `depth: 2` behind the 05:20:52 `Estate queue
+starved` alert on 2026-09-21, and what three review threads parked for up to
+55 minutes cost the scheduler.
+
+# Handoff — 2026-09-22 (Session 249)
+
+*Its next action — decide whether `gpu_lease.py` should stop waiting on a floor refusal — was answered by the owner in Session 250: not built.*
 
 *It is the one question this sitting's work opened and could not answer,
 because it is a trade rather than a defect.* The producer now publishes the
